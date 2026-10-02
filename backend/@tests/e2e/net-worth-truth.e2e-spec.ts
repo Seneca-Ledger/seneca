@@ -261,6 +261,18 @@ describe('Net worth truth (e2e)', () => {
     expect(again.body.moved).toBe(0);
   });
 
+  it('adds the attribution up to the change, against a real database', async () => {
+    const res = await as(owner, request(server()).get('/reports/net-worth?range=all')).expect(200);
+
+    const sum = (rows: Array<{ amount: number }>) =>
+      Math.round(rows.reduce((total, row) => total + row.amount, 0) * 100) / 100;
+
+    expect(sum(res.body.attribution.byAccount)).toBe(res.body.change);
+    expect(sum(res.body.attribution.byKind)).toBe(res.body.change);
+    // Nothing was booked as income in this workspace, so there is no rate.
+    expect(res.body.savings).toEqual({ income: 0, kept: expect.any(Number), rate: null });
+  });
+
   it('repeating the delete of a day that holds nothing is not an error', async () => {
     const res = await as(
       owner,
