@@ -21,6 +21,8 @@ export interface NetWorthQuery {
   range?: NetWorthRange;
   from?: string;
   to?: string;
+  /** Account ids to leave out of every figure on the page. */
+  exclude?: string[];
 }
 
 export interface NetWorthPoint {
@@ -78,6 +80,8 @@ export interface NetWorthResponse {
   assetLines: NetWorthAssetLine[];
   /** Currencies left out of the figures because no rate to `currency` was found. */
   missingRates: string[];
+  /** The account ids left out, echoed back so the page can show what is hidden. */
+  excluded: string[];
   /** The highest sampled net worth over the whole history, and when. */
   allTimeHigh: { value: number; date: string } | null;
   /** Investment holdings by asset class; cash and the other sheet lines keep their own buckets. */
@@ -169,7 +173,10 @@ export class NetWorthService {
       this.resolveCurrency(workspaceId),
     ]);
 
-    const leaves = findLeaves(accounts);
+    // A line left out is left out of everything — the curve, the totals, the
+    // allocation — or the page would contradict itself.
+    const excluded = new Set(query.exclude ?? []);
+    const leaves = findLeaves(accounts).filter(leaf => !excluded.has(leaf.id));
     const snapshotsByAccount = groupSnapshots(snapshots);
 
     // Each day is converted at the rate of that day, read off one curve per
@@ -244,6 +251,7 @@ export class NetWorthService {
       valueAt,
       to,
       assetsTotal,
+      excluded,
     );
 
     const assetLines = leaves
@@ -291,6 +299,7 @@ export class NetWorthService {
       ),
       assetLines,
       missingRates: converter.missing,
+      excluded: [...excluded],
       allTimeHigh,
       byAssetClass,
     };
@@ -307,11 +316,12 @@ export class NetWorthService {
     valueAt: (accountId: string, code: string, date: string) => number,
     to: string,
     assetsTotal: number,
+    excluded: Set<string>,
   ): Promise<NetWorthClassificationItem[]> {
     const totals = new Map<string, number>();
     const add = (key: string, amount: number) => totals.set(key, (totals.get(key) ?? 0) + amount);
     const holdings = this.investmentsService
-      ? await this.investmentsService.valueByAssetClass(workspaceId)
+      ? await this.investmentsService.valueByAssetClass(workspaceId, excluded)
       : new Map<string, number>();
     for (const [assetClass, amount] of holdings) add(assetClass, amount);
     for (const leaf of leaves) {

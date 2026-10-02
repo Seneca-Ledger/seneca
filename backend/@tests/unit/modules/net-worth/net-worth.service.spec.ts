@@ -441,6 +441,31 @@ describe('NetWorthService', () => {
     expect(last).toEqual({ date: today(), value: 800, assets: 1200, liabilities: 400 });
   });
 
+  it('leaves an excluded line out of the curve, the totals and the allocation', async () => {
+    const { service } = createService({
+      snapshots: [
+        { accountId: 'a-fixed', snapshotDate: daysAgo(30), amount: 9000 },
+        { accountId: 'l-borrowed', snapshotDate: daysAgo(30), amount: 400 },
+      ],
+      cash: { KZT: 1000 },
+    });
+
+    const withHouse = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+    const withoutHouse = await service.getNetWorth(WORKSPACE_ID, {
+      range: '90d',
+      exclude: ['a-fixed'],
+    });
+
+    expect(withHouse.current).toBe(9600);
+    // 1000 cash − 400 borrowed: the house is gone from every figure, not just
+    // from the curve.
+    expect(withoutHouse.current).toBe(600);
+    expect(withoutHouse.assetsTotal).toBe(1000);
+    expect(withoutHouse.breakdown.map(item => item.code)).toEqual(['ASSET_CASH']);
+    expect(withoutHouse.assetLines.map(line => line.code)).toEqual(['ASSET_CASH']);
+    expect(withoutHouse.excluded).toEqual(['a-fixed']);
+  });
+
   it('returns a flat zero series for a workspace with nothing in it', async () => {
     const { service } = createService({});
 

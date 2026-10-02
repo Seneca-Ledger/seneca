@@ -1,4 +1,5 @@
-import { IsDateString, IsIn, IsOptional } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsDateString, IsIn, IsOptional, IsUUID } from 'class-validator';
 
 export const NET_WORTH_RANGES = [
   '1d',
@@ -31,4 +32,21 @@ export class NetWorthQueryDto {
   @IsOptional()
   @IsDateString()
   to?: string;
+
+  /**
+   * Lines to leave out of the figures, as a comma-separated list of account
+   * ids. A house or a pension nobody can touch for twenty years drowns out
+   * everything that moves; leaving it out is how the rest becomes readable.
+   */
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value
+          .split(',')
+          .map(part => part.trim())
+          .filter(Boolean)
+      : value,
+  )
+  @IsUUID('4', { each: true })
+  exclude?: string[];
 }

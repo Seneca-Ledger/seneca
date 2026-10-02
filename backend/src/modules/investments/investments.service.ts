@@ -329,11 +329,18 @@ export class InvestmentsService {
   }
 
   /** Holdings grouped by asset class, valued in the workspace currency; for net worth. */
-  async valueByAssetClass(workspaceId: string): Promise<Map<InvestmentAssetClass, number>> {
+  async valueByAssetClass(
+    workspaceId: string,
+    excludedAccountIds: Set<string> = new Set(),
+  ): Promise<Map<InvestmentAssetClass, number>> {
     const currency = await this.workspaceCurrency(workspaceId);
     const holdings = await this.holdingRepository.find({ where: { workspaceId } });
     const totals = new Map<InvestmentAssetClass, number>();
     for (const holding of holdings) {
+      // An account the page is not showing takes its holdings with it.
+      if (excludedAccountIds.has(holding.accountId)) {
+        continue;
+      }
       const view = await this.holdingView(holding, currency);
       totals.set(holding.assetClass, (totals.get(holding.assetClass) ?? 0) + view.value);
     }
