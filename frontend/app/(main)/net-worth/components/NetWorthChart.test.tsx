@@ -36,6 +36,7 @@ describe('NetWorthChart', () => {
         points={points}
         positive={false}
         view="performance"
+        zeroBaseline={false}
         formatValue={formatValue}
         labels={labels}
       />,
@@ -51,6 +52,7 @@ describe('NetWorthChart', () => {
         points={points}
         positive
         view="performance"
+        zeroBaseline={false}
         formatValue={String}
         labels={labels}
       />,
@@ -66,6 +68,7 @@ describe('NetWorthChart', () => {
         points={points.slice(0, 1)}
         positive
         view="performance"
+        zeroBaseline={false}
         formatValue={String}
         labels={labels}
       />,
@@ -76,7 +79,14 @@ describe('NetWorthChart', () => {
 
   it('hands the breakdown view the two sides and their labels', () => {
     render(
-      <NetWorthChart points={points} positive view="breakdown" formatValue={String} labels={labels} />,
+      <NetWorthChart
+        points={points}
+        positive
+        view="breakdown"
+        zeroBaseline={false}
+        formatValue={String}
+        labels={labels}
+      />,
     );
 
     const [props] = chartProps.mock.calls.at(-1) ?? [];

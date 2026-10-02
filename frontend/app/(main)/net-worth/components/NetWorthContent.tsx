@@ -2,6 +2,7 @@
 
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -18,6 +19,7 @@ import {
   type NetWorthView,
   useNetWorth,
 } from '../hooks/useNetWorth';
+import { setNetWorthDisplay, useNetWorthDisplay } from '../net-worth-display';
 import { AllocationCard } from './AllocationCard';
 import { CustomRange } from './CustomRange';
 import { ASSET_CLASS_KEYS, InvestmentsCard } from './InvestmentsCard';
@@ -128,6 +130,7 @@ export function NetWorthContent() {
   const t = useIntlayer('netWorthPage');
   useAttentionFocus();
   const { locale } = useLocale();
+  const display = useNetWorthDisplay();
   const {
     data,
     isPending,
@@ -230,7 +233,7 @@ export function NetWorthContent() {
                 {t.overPeriod}
               </Typography>
             </Box>
-            {data.allTimeHigh && (
+            {display.allTimeHigh && data.allTimeHigh && (
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                 {t.allTimeHigh.value
                   .replace('{{value}}', formatMoney(data.allTimeHigh.value, currency, locale))
@@ -250,6 +253,7 @@ export function NetWorthContent() {
                   points={data.series}
                   positive={isPositive}
                   view={view}
+                  zeroBaseline={display.zeroBaseline}
                   formatValue={value => formatMoney(value, currency, locale)}
                   labels={{
                     assets: t.assets.value,
@@ -261,6 +265,21 @@ export function NetWorthContent() {
             ) : (
               <EmptyState illustration="reports" description={t.empty} compact />
             )}
+
+            <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
+              <Chip
+                size="small"
+                variant={display.zeroBaseline ? 'filled' : 'outlined'}
+                label={t.axisFromZero.value}
+                onClick={() => setNetWorthDisplay({ zeroBaseline: !display.zeroBaseline })}
+              />
+              <Chip
+                size="small"
+                variant={display.allTimeHigh ? 'filled' : 'outlined'}
+                label={t.showAllTimeHigh.value}
+                onClick={() => setNetWorthDisplay({ allTimeHigh: !display.allTimeHigh })}
+              />
+            </Box>
 
             <Box sx={{ display: 'flex', gap: 4, mt: 2, flexWrap: 'wrap' }}>
               <Box>

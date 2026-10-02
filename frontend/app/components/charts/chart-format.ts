@@ -49,3 +49,14 @@ export function monthAtIndex(
 export function formatSignedAmount(value: number, formatAmount: (value: number) => string): string {
   return `${value >= 0 ? '+' : '−'}${formatAmount(Math.abs(value))}`;
 }
+
+/**
+ * A number short enough to sit on an axis: 184 600 reads as 184.6K. The axis
+ * is there for proportion, not for the exact figure — the tooltip has that.
+ */
+export function compactNumber(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
+}

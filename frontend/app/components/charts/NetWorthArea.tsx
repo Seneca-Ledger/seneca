@@ -7,7 +7,7 @@
 import type React from 'react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ChartTooltipCard } from './ChartParts';
-import { computeYearTicks, formatDayLabel } from './chart-format';
+import { compactNumber, computeYearTicks, formatDayLabel } from './chart-format';
 import { CHART_MARGIN, CHART_TICK } from './chart-theme';
 
 /** One net-worth chart per page, so a fixed gradient id cannot collide. */
@@ -25,6 +25,8 @@ export interface NetWorthAreaProps {
   positive: boolean;
   locale: string;
   formatValue: (value: number) => string;
+  /** Start the value axis at zero, which is what puts a move in proportion. */
+  zeroBaseline?: boolean;
 }
 
 export function trendColor(positive: boolean): string {
@@ -36,6 +38,7 @@ export function NetWorthArea({
   positive,
   locale,
   formatValue,
+  zeroBaseline = false,
 }: NetWorthAreaProps): React.JSX.Element {
   const color = trendColor(positive);
   const yearTicks = computeYearTicks(points.map(point => point.date));
@@ -48,7 +51,14 @@ export function NetWorthArea({
             <stop offset="100%" stopColor={color} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <YAxis hide domain={['auto', 'auto']} />
+        <YAxis
+          domain={zeroBaseline ? [0, 'auto'] : ['auto', 'auto']}
+          axisLine={false}
+          tickLine={false}
+          tick={CHART_TICK}
+          width={56}
+          tickFormatter={(value: number) => compactNumber(value, locale)}
+        />
         {yearTicks.length > 0 && (
           <XAxis
             dataKey="date"

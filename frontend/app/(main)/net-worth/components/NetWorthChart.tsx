@@ -11,11 +11,20 @@ interface NetWorthChartProps {
   /** Colours the line: growth reads as success, decline as danger. */
   positive: boolean;
   view: NetWorthView;
+  /** Start the value axis at zero; off by default, as the chart has always been. */
+  zeroBaseline?: boolean;
   formatValue: (value: number) => string;
   labels: { assets: string; liabilities: string; net: string };
 }
 
-export function NetWorthChart({ points, positive, view, formatValue, labels }: NetWorthChartProps) {
+export function NetWorthChart({
+  points,
+  positive,
+  view,
+  zeroBaseline = false,
+  formatValue,
+  labels,
+}: NetWorthChartProps) {
   const { locale } = useLocale();
 
   return (
@@ -34,6 +43,7 @@ export function NetWorthChart({ points, positive, view, formatValue, labels }: N
             positive={positive}
             locale={locale}
             formatValue={formatValue}
+            zeroBaseline={zeroBaseline}
           />
         )}
       </div>
