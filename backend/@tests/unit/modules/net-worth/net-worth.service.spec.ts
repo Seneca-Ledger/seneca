@@ -37,13 +37,23 @@ function daysAgo(days: number): string {
   return date.toISOString().split('T')[0];
 }
 
+function today(): string {
+  return daysAgo(0);
+}
+
+function nextDay(date: string): string {
+  const next = new Date(date);
+  next.setDate(next.getDate() + 1);
+  return next.toISOString().split('T')[0];
+}
+
 function createService(options: {
   accounts?: AccountSeed[];
   snapshots?: SnapshotSeed[];
   /** Cash per currency, the same at every sample date. */
   cash?: Record<string, number>;
-  /** Rate to KZT by currency; absent means no rate. */
-  rates?: Record<string, number | ((date: string) => number)>;
+  /** Rate curve to KZT by currency; absent means no rate at all. */
+  rates?: Record<string, number | Array<{ date: string; rate: number }>>;
 }) {
   const accounts = (options.accounts ?? ACCOUNTS).map(account => ({
     parentId: null,
@@ -83,9 +93,12 @@ function createService(options: {
   } as any;
 
   const exchangeRates = {
-    getRateOrNull: jest.fn(async (from: string, _to: string, date: string) => {
+    getRateCurve: jest.fn(async (from: string, _to: string, fromDate: string) => {
       const rate = options.rates?.[from];
-      return typeof rate === 'function' ? rate(date) : (rate ?? null);
+      if (rate === undefined) {
+        return [];
+      }
+      return typeof rate === 'number' ? [{ date: fromDate, rate }] : rate;
     }),
   } as any;
 
@@ -137,25 +150,33 @@ describe('NetWorthService', () => {
     expect(values[values.length - 1]).toBe(900);
   });
 
-  it('reads cash for every sample date from the balance sheet', async () => {
+  it('reads cash for every single day, not for a handful of sampled dates', async () => {
     const { service, balanceService } = createService({ cash: { KZT: 777 } });
 
     const result = await service.getNetWorth(WORKSPACE_ID, '30d');
+    const dates: string[] = balanceService.getCashSeries.mock.calls[0][1];
 
-    expect(balanceService.getCashSeries).toHaveBeenCalledWith(
-      WORKSPACE_ID,
-      result.series.map(point => point.date),
-    );
+    expect(dates[dates.length - 1]).toBe(today());
+    expect(dates).toEqual([...new Set(dates)].sort());
+    // Consecutive days: a gap would mean a movement nobody can see.
+    for (let index = 1; index < dates.length; index += 1) {
+      expect(dates[index]).toBe(nextDay(dates[index - 1]));
+    }
     expect(result.current).toBe(777);
   });
 
-  it('converts cash and snapshots in other currencies at the rate of each date', async () => {
-    const lastDate = new Date().toISOString().split('T')[0];
+  it('converts cash and snapshots in other currencies at the rate of each day', async () => {
     const { service, exchangeRates } = createService({
       snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 10, currency: 'EUR' }],
       cash: { KZT: 100, USD: 2 },
       // The rate moves: today EUR is worth more than it was.
-      rates: { EUR: date => (date === lastDate ? 600 : 500), USD: 450 },
+      rates: {
+        EUR: [
+          { date: daysAgo(400), rate: 500 },
+          { date: today(), rate: 600 },
+        ],
+        USD: 450,
+      },
     });
 
     const result = await service.getNetWorth(WORKSPACE_ID, '90d');
@@ -163,7 +184,26 @@ describe('NetWorthService', () => {
     expect(result.series[0].value).toBe(10 * 500 + 100 + 2 * 450);
     expect(result.current).toBe(10 * 600 + 100 + 2 * 450);
     expect(result.missingRates).toEqual([]);
-    expect(exchangeRates.getRateOrNull).toHaveBeenCalledWith('EUR', 'KZT', lastDate, 'workspace-1');
+  });
+
+  it('asks for one rate curve per currency rather than a rate per day', async () => {
+    const { service, exchangeRates } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 10, currency: 'EUR' }],
+      cash: { KZT: 100, USD: 2 },
+      rates: { EUR: 500, USD: 450 },
+    });
+
+    await service.getNetWorth(WORKSPACE_ID, '1y');
+
+    // Two foreign currencies over a year: two calls, not seven hundred.
+    expect(exchangeRates.getRateCurve).toHaveBeenCalledTimes(2);
+    expect(exchangeRates.getRateCurve).toHaveBeenCalledWith(
+      'EUR',
+      'KZT',
+      expect.any(String),
+      today(),
+      WORKSPACE_ID,
+    );
   });
 
   it('leaves out an amount without a rate and names its currency', async () => {
@@ -305,6 +345,52 @@ describe('NetWorthService', () => {
       { key: CapitalRole.INCOME, amount: 600, percent: 60 },
       { key: CapitalRole.DRAIN, amount: 400, percent: 40 },
     ]);
+  });
+
+  // Several offsets on purpose: evenly spaced sampling happens to land on some
+  // days, so a single offset can pass by luck. Only keeping the extremes of
+  // each bucket survives all of them.
+  it.each([900, 901, 902, 903, 907])(
+    'keeps a one-day crash %i days back visible on a five-year chart',
+    async (dipDay: number) => {
+      const { service } = createService({
+        snapshots: [
+          { accountId: 'a-fixed', snapshotDate: daysAgo(1800), amount: 1000 },
+          { accountId: 'a-fixed', snapshotDate: daysAgo(dipDay), amount: 300 },
+          { accountId: 'a-fixed', snapshotDate: daysAgo(dipDay - 1), amount: 1000 },
+        ],
+      });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, 'all');
+
+      expect(Math.min(...result.series.map(point => point.value))).toBe(300);
+      expect(result.series.length).toBeLessThanOrEqual(200);
+    },
+  );
+
+  it('starts the series on the first day of the window and ends it today', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(400), amount: 1000 }],
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d');
+
+    expect(result.series[0].date).toBe(daysAgo(30));
+    expect(result.series[result.series.length - 1].date).toBe(today());
+  });
+
+  it('reports the all-time high on the day it happened, outside the window shown', async () => {
+    const { service } = createService({
+      snapshots: [
+        { accountId: 'a-fixed', snapshotDate: daysAgo(400), amount: 2000 },
+        { accountId: 'a-fixed', snapshotDate: daysAgo(399), amount: 1000 },
+      ],
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d');
+
+    expect(result.allTimeHigh).toEqual({ value: 2000, date: daysAgo(400) });
+    expect(result.current).toBe(1000);
   });
 
   it('returns a flat zero series for a workspace with nothing in it', async () => {

@@ -81,16 +81,19 @@ const RANGE_DAYS: Record<Exclude<NetWorthRange, 'all'>, number> = {
   '5y': 365 * 5,
 };
 
-/** Points sampled over the whole history to find the all-time high. */
-const ALL_TIME_HIGH_POINTS = 37;
+/**
+ * How many points a series carries at most. The value is computed for every
+ * single day and only thinned down for the wire, so the cap bounds the
+ * payload, not the truth: see `decimate`.
+ */
+const MAX_SERIES_POINTS = 200;
 
 /**
- * How many points a series carries. Net worth moves when a snapshot is
- * entered or money moves — not continuously — so a readable line needs far
- * fewer points than it needs days, and every extra point costs a walk over
- * the snapshot history.
+ * How far back the daily walk may start. A workspace with a longer history
+ * still gets its whole window charted — only the all-time high is then taken
+ * over the last 25 years rather than over everything.
  */
-const SERIES_POINTS = 13;
+const MAX_HISTORY_DAYS = 365 * 25;
 
 /** Nothing to chart yet: `all` on an empty workspace falls back to a year. */
 const EMPTY_WORKSPACE_DAYS = 365;
@@ -129,8 +132,15 @@ export class NetWorthService {
     await this.balanceService.seedDefaultAccounts(workspaceId);
 
     const to = isoDate(new Date());
-    const from = await this.resolveFrom(workspaceId, range, to);
-    const dates = samplePoints(from, to, SERIES_POINTS);
+    const windowFrom = await this.resolveFrom(workspaceId, range, to);
+    // The walk starts at whichever is earlier, the window or the first day the
+    // workspace has data: the window is what the user asked to see, the history
+    // is what the all-time high has to be taken over.
+    const historyFrom = await this.resolveFrom(workspaceId, 'all', to);
+    const dates = everyDay(
+      maxDate(minDate(windowFrom, historyFrom), shiftDays(to, -MAX_HISTORY_DAYS)),
+      to,
+    );
 
     const [accounts, snapshots, cashByDate, currency] = await Promise.all([
       this.balanceAccountRepository.find({ where: { workspaceId } }),
@@ -142,19 +152,17 @@ export class NetWorthService {
     const leaves = findLeaves(accounts);
     const snapshotsByAccount = groupSnapshots(snapshots);
 
-    // Each point is converted at the rate of its own day.
-    const snapshotCurrencies = [
-      ...new Set(snapshots.map(snapshot => normalizeCurrencyCode(snapshot.currency || currency))),
+    // Each day is converted at the rate of that day, read off one curve per
+    // currency — a lookup per day would be thousands of round trips.
+    const currencies = [
+      ...snapshots.map(snapshot => normalizeCurrencyCode(snapshot.currency || currency)),
+      ...[...cashByDate.values()].flatMap(amounts => [...amounts.keys()]),
     ];
-    const converter = await CurrencyConverter.load(
+    const converter = await CurrencyConverter.loadRange(
       this.exchangeRatesService,
       currency,
-      dates.flatMap(date =>
-        [...(cashByDate.get(date)?.keys() ?? []), ...snapshotCurrencies].map(code => ({
-          currency: code,
-          date,
-        })),
-      ),
+      currencies,
+      dates,
       workspaceId,
     );
 
@@ -172,7 +180,7 @@ export class NetWorthService {
         : 0;
     };
 
-    const series = dates.map(date => {
+    const daily = dates.map(date => {
       let assets = 0;
       let liabilities = 0;
       for (const leaf of leaves) {
@@ -185,6 +193,9 @@ export class NetWorthService {
       return { date, value: round2(assets - liabilities) };
     });
 
+    const window = daily.filter(point => point.date >= windowFrom);
+    const series = decimate(window, MAX_SERIES_POINTS);
+
     const assetsTotal = round2(
       leaves
         .filter(leaf => leaf.accountType === BalanceAccountType.ASSET)
@@ -196,19 +207,12 @@ export class NetWorthService {
         .reduce((sum, leaf) => sum + valueAt(leaf.id, leaf.code, to), 0),
     );
 
-    const current = series[series.length - 1]?.value ?? 0;
-    const previous = series[0]?.value ?? 0;
+    const current = window[window.length - 1]?.value ?? 0;
+    const previous = window[0]?.value ?? 0;
     const change = round2(current - previous);
 
     // The high is a property of the whole history, not of the window shown.
-    const allTimeHigh = await this.findAllTimeHigh(
-      workspaceId,
-      to,
-      range === 'all' ? series : null,
-      leaves,
-      snapshotsByAccount,
-      currency,
-    );
+    const allTimeHigh = highestPoint(daily);
     const byAssetClass = await this.buildAssetClasses(
       workspaceId,
       leaves,
@@ -263,73 +267,6 @@ export class NetWorthService {
       allTimeHigh,
       byAssetClass,
     };
-  }
-
-  /** Samples the whole history (unless the `all` series is already at hand) and keeps the peak. */
-  private async findAllTimeHigh(
-    workspaceId: string,
-    to: string,
-    allSeries: NetWorthPoint[] | null,
-    leaves: BalanceAccount[],
-    snapshotsByAccount: Map<string, BalanceSnapshot[]>,
-    currency: string,
-  ): Promise<NetWorthResponse['allTimeHigh']> {
-    let series = allSeries;
-    if (!series) {
-      const from = await this.resolveFrom(workspaceId, 'all', to);
-      const dates = samplePoints(from, to, ALL_TIME_HIGH_POINTS);
-      const cashByDate = await this.balanceService.getCashSeries(workspaceId, dates);
-      const snapshotCurrencies = [
-        ...new Set(
-          [...snapshotsByAccount.values()]
-            .flat()
-            .map(snapshot => normalizeCurrencyCode(snapshot.currency || currency)),
-        ),
-      ];
-      const converter = await CurrencyConverter.load(
-        this.exchangeRatesService,
-        currency,
-        dates.flatMap(date =>
-          [...(cashByDate.get(date)?.keys() ?? []), ...snapshotCurrencies].map(code => ({
-            currency: code,
-            date,
-          })),
-        ),
-        workspaceId,
-      );
-      series = dates.map(date => {
-        let value = 0;
-        for (const leaf of leaves) {
-          const sign =
-            leaf.accountType === BalanceAccountType.ASSET
-              ? 1
-              : leaf.accountType === BalanceAccountType.LIABILITY
-                ? -1
-                : 0;
-          if (sign === 0) continue;
-          if (leaf.code === CASH_ACCOUNT_CODE) {
-            value += sign * converter.convertAll(cashByDate.get(date) ?? new Map(), date);
-            continue;
-          }
-          const snapshot = latestOnOrBefore(snapshotsByAccount.get(leaf.id), date);
-          if (snapshot) {
-            value +=
-              sign *
-              converter.convert(
-                toNumber(snapshot.amount),
-                normalizeCurrencyCode(snapshot.currency || currency),
-                date,
-              );
-          }
-        }
-        return { date, value: round2(value) };
-      });
-    }
-    let best: NetWorthPoint | null = null;
-    for (const point of series) {
-      if (!best || point.value > best.value) best = point;
-    }
-    return best && best.value > 0 ? { value: best.value, date: best.date } : null;
   }
 
   /**
@@ -527,36 +464,108 @@ function groupSnapshots(snapshots: BalanceSnapshot[]): Map<string, BalanceSnapsh
   return byAccount;
 }
 
-/** Forward fill: an account holds its last entered value until the next one. */
+/**
+ * Forward fill: an account holds its last entered value until the next one.
+ * Binary search rather than a scan — this runs once per account per day.
+ */
 function latestOnOrBefore(
   snapshots: BalanceSnapshot[] | undefined,
   date: string,
 ): BalanceSnapshot | null {
-  let latest: BalanceSnapshot | null = null;
-  for (const snapshot of snapshots ?? []) {
-    if (isoDate(new Date(snapshot.snapshotDate)) > date) {
-      break;
-    }
-    latest = snapshot;
+  if (!snapshots || snapshots.length === 0) {
+    return null;
   }
-  return latest;
+  let low = 0;
+  let high = snapshots.length - 1;
+  let found = -1;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    if (isoDate(new Date(snapshots[middle].snapshotDate)) <= date) {
+      found = middle;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return found >= 0 ? snapshots[found] : null;
 }
 
-/** `count` evenly spaced dates from `from` to `to`, inclusive of both ends. */
-function samplePoints(from: string, to: string, count: number): string[] {
-  const start = Date.parse(from);
-  const end = Date.parse(to);
-  if (!(end > start)) {
-    return [to];
+/** Every day from `from` to `to`, inclusive of both ends. */
+function everyDay(from: string, to: string): string[] {
+  const dates: string[] = [];
+  for (let date = from; date <= to; date = shiftDays(date, 1)) {
+    dates.push(date);
+  }
+  return dates.length > 0 ? dates : [to];
+}
+
+/**
+ * At most `limit` of the daily points, keeping both ends and, inside each
+ * bucket in between, the lowest and the highest day.
+ *
+ * Even sampling is exactly what hides a one-day crash on a ten-year chart: it
+ * only ever shows the days it happens to land on. Keeping the extremes of
+ * each bucket means a spike survives at every zoom level, which is the whole
+ * reason to look at the chart.
+ */
+function decimate(points: NetWorthPoint[], limit: number): NetWorthPoint[] {
+  if (points.length <= limit) {
+    return points;
   }
 
-  const step = (end - start) / (count - 1);
-  const dates = Array.from({ length: count }, (_, index) =>
-    isoDate(new Date(start + step * index)),
-  );
+  const inner = points.slice(1, -1);
+  const buckets = Math.max(1, Math.floor((limit - 2) / 2));
+  const size = inner.length / buckets;
+  const kept: NetWorthPoint[] = [points[0]];
 
-  // Even spacing can land twice on the same day on very short histories.
-  return [...new Set(dates)];
+  for (let bucket = 0; bucket < buckets; bucket += 1) {
+    const slice = inner.slice(Math.floor(bucket * size), Math.floor((bucket + 1) * size));
+    for (const point of extremes(slice)) {
+      if (kept[kept.length - 1].date !== point.date) {
+        kept.push(point);
+      }
+    }
+  }
+
+  kept.push(points[points.length - 1]);
+  return kept;
+}
+
+/** The lowest and the highest point of a slice, in the order they happened. */
+function extremes(points: NetWorthPoint[]): NetWorthPoint[] {
+  if (points.length === 0) {
+    return [];
+  }
+  let lowest = points[0];
+  let highest = points[0];
+  for (const point of points) {
+    if (point.value < lowest.value) {
+      lowest = point;
+    }
+    if (point.value > highest.value) {
+      highest = point;
+    }
+  }
+  return lowest.date <= highest.date ? [lowest, highest] : [highest, lowest];
+}
+
+/** The peak of a series, or null when it never rose above zero. */
+function highestPoint(points: NetWorthPoint[]): { value: number; date: string } | null {
+  let best: NetWorthPoint | null = null;
+  for (const point of points) {
+    if (!best || point.value > best.value) {
+      best = point;
+    }
+  }
+  return best && best.value > 0 ? { value: best.value, date: best.date } : null;
+}
+
+function minDate(left: string, right: string): string {
+  return left <= right ? left : right;
+}
+
+function maxDate(left: string, right: string): string {
+  return left >= right ? left : right;
 }
 
 function isoDate(date: Date): string {
