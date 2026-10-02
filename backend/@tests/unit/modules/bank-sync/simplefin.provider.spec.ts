@@ -1,5 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import { BankSyncAuthError } from '../../../../src/modules/bank-sync/bank-sync-provider.interface';
+import {
+  BankSyncAuthError,
+  BankSyncTemporaryError,
+} from '../../../../src/modules/bank-sync/bank-sync-provider.interface';
 import {
   decodeSetupToken,
   parseAccessUrl,
@@ -9,6 +12,8 @@ import {
 const claimUrl = 'https://beta-bridge.simplefin.org/simplefin/claim/demo';
 const setupToken = Buffer.from(claimUrl).toString('base64');
 const accessUrl = 'https://demo:demo@beta-bridge.simplefin.org/simplefin';
+/** The provider reads its credential out of the connection's decrypted secrets. */
+const context = { secrets: { accessUrl }, links: [] };
 
 const jsonResponse = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -32,7 +37,7 @@ describe('SimpleFinProvider', () => {
   it('claims a token with one POST and keeps the access URL it gets back', async () => {
     const fetchUrl = jest.fn(async () => new Response(accessUrl, { status: 200 }));
     const provider = new SimpleFinProvider(fetchUrl);
-    await expect(provider.claim(setupToken)).resolves.toBe(accessUrl);
+    await expect(provider.claim(setupToken)).resolves.toEqual({ accessUrl });
     expect(fetchUrl).toHaveBeenCalledWith(claimUrl, expect.objectContaining({ method: 'POST' }));
   });
 
@@ -72,7 +77,7 @@ describe('SimpleFinProvider', () => {
     );
     const provider = new SimpleFinProvider(fetchUrl);
     const since = new Date('2026-09-01T00:00:00Z');
-    const accounts = await provider.fetchAccounts(accessUrl, { since });
+    const accounts = await provider.fetchAccounts(context, { since });
 
     const [url, init] = fetchUrl.mock.calls[0] as unknown as [string, RequestInit];
     const target = new URL(url);
@@ -107,7 +112,7 @@ describe('SimpleFinProvider', () => {
 
   it('asks for balances only when told to', async () => {
     const fetchUrl = jest.fn(async () => jsonResponse(200, { accounts: [] }));
-    await new SimpleFinProvider(fetchUrl).fetchAccounts(accessUrl, { balancesOnly: true });
+    await new SimpleFinProvider(fetchUrl).fetchAccounts(context, { balancesOnly: true });
     const target = new URL((fetchUrl.mock.calls[0] as unknown as [string])[0]);
     expect(target.searchParams.get('balances-only')).toBe('1');
     expect(target.searchParams.get('pending')).toBeNull();
@@ -115,12 +120,29 @@ describe('SimpleFinProvider', () => {
 
   it('reports a rejected credential as an auth error and provider errors by their text', async () => {
     await expect(
-      new SimpleFinProvider(async () => new Response('', { status: 401 })).fetchAccounts(accessUrl),
+      new SimpleFinProvider(async () => new Response('', { status: 401 })).fetchAccounts(context),
     ).rejects.toBeInstanceOf(BankSyncAuthError);
     await expect(
       new SimpleFinProvider(async () =>
         jsonResponse(200, { errors: ['Connection to Demo Bank needs attention'], accounts: [] }),
-      ).fetchAccounts(accessUrl),
+      ).fetchAccounts(context),
     ).rejects.toThrow(/needs attention/);
+  });
+
+  it('calls a connection the provider is still repairing temporary, not an auth problem', async () => {
+    // SimpleFIN can sit on "We are upgrading this connection" for weeks. Telling
+    // the user to re-link would be wrong advice, so it gets its own error type.
+    await expect(
+      new SimpleFinProvider(async () =>
+        jsonResponse(200, {
+          errors: ['We are upgrading this connection. Please wait...'],
+          accounts: [],
+        }),
+      ).fetchAccounts(context),
+    ).rejects.toBeInstanceOf(BankSyncTemporaryError);
+
+    await expect(
+      new SimpleFinProvider(async () => new Response('', { status: 429 })).fetchAccounts(context),
+    ).rejects.toBeInstanceOf(BankSyncTemporaryError);
   });
 });

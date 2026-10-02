@@ -49,6 +49,14 @@ export class Integration {
   @Column({ type: 'varchar' })
   provider: IntegrationProvider;
 
+  /**
+   * Which instance of this provider, for the ones a workspace may hold several
+   * of. NULL means the single connection of that provider, which is what cloud
+   * storage and mail are, and keeps them unique per workspace.
+   */
+  @Column({ name: 'instance_key', type: 'varchar', length: 64, nullable: true })
+  instanceKey: string | null;
+
   @Column({ type: 'varchar', default: IntegrationStatus.CONNECTED })
   status: IntegrationStatus;
 

@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -6,49 +17,146 @@ import { WorkspaceContextGuard } from '../../common/guards/workspace-context.gua
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BankSyncService } from './bank-sync.service';
-import { ConnectBankSyncDto, UpdateBankSyncSettingsDto } from './dto/bank-sync.dto';
+import { BankSyncPullService } from './bank-sync-pull.service';
+import {
+  BeginLinkDto,
+  CompleteLinkDto,
+  ConnectWithTokenDto,
+  CreateRedirectConnectionDto,
+  ListInstitutionsQueryDto,
+  SwitchFeedDto,
+  UpdateBankSyncAccountDto,
+  UpdateConnectionDto,
+} from './dto/bank-sync.dto';
 
-@Controller('integrations/simplefin')
+@Controller('integrations/bank-sync')
 export class BankSyncController {
-  constructor(private readonly bankSyncService: BankSyncService) {}
+  constructor(
+    private readonly connections: BankSyncService,
+    private readonly pull: BankSyncPullService,
+  ) {}
 
-  @Get('status')
+  @Get('providers')
   @UseGuards(WorkspaceContextGuard)
-  status(@WorkspaceId() workspaceId: string) {
-    return this.bankSyncService.status(workspaceId);
+  providers() {
+    return this.connections.catalogue();
   }
 
-  @Post('connect')
+  @Get('connections')
+  @UseGuards(WorkspaceContextGuard)
+  list(@WorkspaceId() workspaceId: string) {
+    return this.connections.list(workspaceId);
+  }
+
+  @Post('connections/token')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  connect(
+  connectWithToken(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: ConnectBankSyncDto,
+    @Body() body: ConnectWithTokenDto,
   ) {
-    return this.bankSyncService.connect(user, workspaceId, body.setupToken);
+    return this.connections.connectWithToken(
+      user,
+      workspaceId,
+      body.provider,
+      body.setupToken,
+      body.label,
+    );
   }
 
-  @Post('settings')
+  @Post('connections/redirect')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  updateSettings(@WorkspaceId() workspaceId: string, @Body() body: UpdateBankSyncSettingsDto) {
-    return this.bankSyncService.updateSettings(workspaceId, body);
+  createRedirectConnection(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Body() body: CreateRedirectConnectionDto,
+  ) {
+    return this.connections.createRedirectConnection(
+      user,
+      workspaceId,
+      body.provider,
+      body.secrets,
+      body.label,
+    );
   }
 
-  @Post('accounts/refresh')
+  @Get('connections/:id/institutions')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  refreshAccounts(@WorkspaceId() workspaceId: string) {
-    return this.bankSyncService.refreshAccounts(workspaceId);
+  institutions(
+    @WorkspaceId() workspaceId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ListInstitutionsQueryDto,
+  ) {
+    return this.connections.listInstitutions(workspaceId, id, query.country);
   }
 
-  @Post('sync')
+  @Post('connections/:id/links/begin')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  sync(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
-    return this.bankSyncService.sync(user, workspaceId);
+  beginLink(
+    @WorkspaceId() workspaceId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: BeginLinkDto,
+  ) {
+    return this.connections.beginLink(workspaceId, id, body);
   }
 
-  @Delete()
+  @Post('connections/:id/links/complete')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  disconnect(@WorkspaceId() workspaceId: string) {
-    return this.bankSyncService.disconnect(workspaceId);
+  completeLink(
+    @WorkspaceId() workspaceId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: CompleteLinkDto,
+  ) {
+    return this.connections.completeLink(workspaceId, id, body.code, body.state);
+  }
+
+  @Post('connections/:id/accounts/refresh')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  refreshAccounts(@WorkspaceId() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.connections.refreshAccounts(workspaceId, id);
+  }
+
+  @Patch('connections/:id')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  updateConnection(
+    @WorkspaceId() workspaceId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdateConnectionDto,
+  ) {
+    return this.connections.updateConnection(workspaceId, id, body);
+  }
+
+  @Patch('connections/:id/accounts/:accountId')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  updateAccount(
+    @WorkspaceId() workspaceId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('accountId') accountId: string,
+    @Body() body: UpdateBankSyncAccountDto,
+  ) {
+    return this.connections.updateAccount(workspaceId, id, accountId, body);
+  }
+
+  @Post('connections/:id/sync')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  sync(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.pull.sync(user, workspaceId, id);
+  }
+
+  /** Moves a wallet's feed to another provider without losing its history. */
+  @Post('feeds/switch')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  switchFeed(@WorkspaceId() workspaceId: string, @Body() body: SwitchFeedDto) {
+    return this.connections.switchFeed(workspaceId, body);
+  }
+
+  @Delete('connections/:id')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  disconnect(@WorkspaceId() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.connections.disconnect(workspaceId, id);
   }
 }

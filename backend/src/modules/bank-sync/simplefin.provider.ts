@@ -3,10 +3,12 @@ import {
   BANK_SYNC_FETCH,
   type BankSyncAccount,
   BankSyncAuthError,
+  type BankSyncContext,
   type BankSyncFetch,
   type BankSyncFetchOptions,
-  type BankSyncProvider,
+  BankSyncTemporaryError,
   type BankSyncTransaction,
+  type TokenBankSyncProvider,
 } from './bank-sync-provider.interface';
 
 /** SimpleFIN answers a claim with an access URL that carries the credentials: `https://user:pass@host/simplefin`. */
@@ -46,12 +48,13 @@ type SimpleFinResponse = {
  * access URL are user-controlled destinations like any other integration host.
  */
 @Injectable()
-export class SimpleFinProvider implements BankSyncProvider {
+export class SimpleFinProvider implements TokenBankSyncProvider {
   readonly key = 'simplefin';
+  readonly linkStyle = 'token' as const;
 
   constructor(@Inject(BANK_SYNC_FETCH) private readonly fetchUrl: BankSyncFetch) {}
 
-  async claim(setupToken: string): Promise<string> {
+  async claim(setupToken: string): Promise<Record<string, string>> {
     const claimUrl = decodeSetupToken(setupToken);
     const response = await this.fetchUrl(claimUrl, {
       method: 'POST',
@@ -67,14 +70,14 @@ export class SimpleFinProvider implements BankSyncProvider {
     }
     const accessUrl = (await response.text()).trim();
     parseAccessUrl(accessUrl);
-    return accessUrl;
+    return { accessUrl };
   }
 
   async fetchAccounts(
-    credential: string,
+    context: BankSyncContext,
     options: BankSyncFetchOptions = {},
   ): Promise<BankSyncAccount[]> {
-    const { url, authorization } = parseAccessUrl(credential);
+    const { url, authorization } = parseAccessUrl(context.secrets.accessUrl);
     const target = new URL(`${url.pathname.replace(/\/$/, '')}/accounts`, url);
     if (options.since) {
       target.searchParams.set('start-date', String(Math.floor(options.since.getTime() / 1000)));
@@ -92,16 +95,30 @@ export class SimpleFinProvider implements BankSyncProvider {
     if (response.status === 401 || response.status === 403) {
       throw new BankSyncAuthError();
     }
+    if (response.status === 429 || response.status >= 500) {
+      throw new BankSyncTemporaryError(`SimpleFIN answered HTTP ${response.status}`);
+    }
     if (!response.ok) {
       throw new BadRequestException(`SimpleFIN answered HTTP ${response.status}`);
     }
     const body = (await response.json()) as SimpleFinResponse;
     const accounts = Array.isArray(body.accounts) ? body.accounts : [];
-    if (accounts.length === 0 && Array.isArray(body.errors) && body.errors.length > 0) {
-      throw new BadRequestException(`SimpleFIN: ${body.errors.join('; ')}`);
+    const errors = Array.isArray(body.errors) ? body.errors : [];
+    if (accounts.length === 0 && errors.length > 0) {
+      // "We are upgrading this connection" can sit here for weeks. It is not an
+      // auth problem, so it must not read as one.
+      if (errors.some(isTemporaryError)) {
+        throw new BankSyncTemporaryError(`SimpleFIN: ${errors.join('; ')}`);
+      }
+      throw new BadRequestException(`SimpleFIN: ${errors.join('; ')}`);
     }
     return accounts.map(mapAccount).filter((account): account is BankSyncAccount => !!account);
   }
+}
+
+/** Errors SimpleFIN clears by itself; re-linking would be the wrong advice. */
+function isTemporaryError(message: string): boolean {
+  return /upgrad|try again|temporar|in progress|please wait/i.test(message);
 }
 
 /** A setup token is the base64 of the claim URL; anything else is a paste error, not a bug. */
