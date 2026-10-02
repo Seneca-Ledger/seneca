@@ -336,7 +336,9 @@ describe('BalanceService', () => {
         { date: '2026-01-10', currency: 'KZT', credit: '50', debit: '20' },
         { date: '2026-02-10', currency: 'USD', credit: '0', debit: '2' },
       ]);
-      transactionRepository.createQueryBuilder.mockReturnValue(builder);
+      transactionRepository.createQueryBuilder
+        .mockReturnValueOnce(builder)
+        .mockReturnValue(queryBuilderReturning([]));
 
       const series = await service.getCashSeries('ws-1', ['2026-01-31', '2026-02-28']);
 
@@ -345,6 +347,64 @@ describe('BalanceService', () => {
       expect(builder.andWhere).toHaveBeenCalledWith(
         '(transaction.statementId IS NULL OR statement.deletedAt IS NULL)',
       );
+    });
+
+    it('holds a transfer whose legs post on different days at one date', async () => {
+      walletRepository.find.mockResolvedValue([
+        { id: 'w-a', initialBalance: '1000', currency: 'KZT' },
+        { id: 'w-b', initialBalance: '0', currency: 'KZT' },
+      ]);
+      // The money leaves on the 10th and lands on the 12th: two days in which
+      // the old walk showed it as simply gone.
+      transactionRepository.createQueryBuilder
+        .mockReturnValueOnce(
+          queryBuilderReturning([
+            { date: '2026-01-10', currency: 'KZT', credit: '0', debit: '300' },
+            { date: '2026-01-12', currency: 'KZT', credit: '300', debit: '0' },
+          ]),
+        )
+        .mockReturnValueOnce(
+          queryBuilderReturning([
+            { pairId: 'p-1', date: '2026-01-10', currency: 'KZT', credit: '0', debit: '300' },
+            { pairId: 'p-1', date: '2026-01-12', currency: 'KZT', credit: '300', debit: '0' },
+          ]),
+        );
+
+      const series = await service.getCashSeries('ws-1', [
+        '2026-01-09',
+        '2026-01-10',
+        '2026-01-11',
+        '2026-01-12',
+        '2026-01-13',
+      ]);
+
+      expect([...series.values()].map(amounts => amounts.get('KZT'))).toEqual([
+        1000, 1000, 1000, 1000, 1000,
+      ]);
+    });
+
+    it('leaves a reimbursement alone: the money really was out for those days', async () => {
+      walletRepository.find.mockResolvedValue([
+        { id: 'w-a', initialBalance: '1000', currency: 'KZT' },
+      ]);
+      const legs = queryBuilderReturning([]);
+      transactionRepository.createQueryBuilder
+        .mockReturnValueOnce(
+          queryBuilderReturning([
+            { date: '2026-01-10', currency: 'KZT', credit: '0', debit: '300' },
+            { date: '2026-01-12', currency: 'KZT', credit: '300', debit: '0' },
+          ]),
+        )
+        .mockReturnValueOnce(legs);
+
+      const series = await service.getCashSeries('ws-1', ['2026-01-11', '2026-01-12']);
+
+      expect(series.get('2026-01-11')).toEqual(new Map([['KZT', 700]]));
+      expect(series.get('2026-01-12')).toEqual(new Map([['KZT', 1000]]));
+      // Only transfers are one event; the query must say so.
+      expect(legs.andWhere).toHaveBeenCalledWith(expect.stringContaining('transferPairKind'), {
+        kind: 'transfer',
+      });
     });
 
     it('sums the latest live statement of each bank account', async () => {

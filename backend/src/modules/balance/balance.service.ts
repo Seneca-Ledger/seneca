@@ -13,6 +13,7 @@ import {
   Statement,
   StatementStatus,
   Transaction,
+  TransferPairKind,
   Wallet,
   Workspace,
   WorkspaceMember,
@@ -65,6 +66,22 @@ type BalanceSheetResponse = {
   isBalanced: boolean;
   /** Currencies left out of the totals because no rate to `currency` was found. */
   missingRates: string[];
+};
+
+/** One leg of a paired transfer, as the cash walk reads it. */
+type TransferLegRow = {
+  pairId: string;
+  date: string;
+  currency: string | null;
+  credit: string | null;
+  debit: string | null;
+};
+
+/** A change to the cash held in one currency on one day. */
+type CashMovement = {
+  date: string;
+  currency: string;
+  amount: number;
 };
 
 const LIVE_STATEMENT_STATUSES = [
@@ -331,21 +348,32 @@ export class BalanceService {
     const walletIds = wallets.map(wallet => wallet.id);
     const to = dates[dates.length - 1];
 
-    const rows = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .leftJoin('transaction.statement', 'statement')
-      .select('transaction.transactionDate', 'date')
-      .addSelect('transaction.currency', 'currency')
-      .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
-      .addSelect('COALESCE(SUM(transaction.debit), 0)', 'debit')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.walletId IN (:...walletIds)', { walletIds })
-      .andWhere('transaction.transactionDate <= :to', { to })
-      .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
-      .groupBy('transaction.transactionDate')
-      .addGroupBy('transaction.currency')
-      .orderBy('transaction.transactionDate', 'ASC')
-      .getRawMany<{ date: string; currency: string; credit: string; debit: string }>();
+    const [rows, transferLegs] = await Promise.all([
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .leftJoin('transaction.statement', 'statement')
+        .select('transaction.transactionDate', 'date')
+        .addSelect('transaction.currency', 'currency')
+        .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
+        .addSelect('COALESCE(SUM(transaction.debit), 0)', 'debit')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId })
+        .andWhere('transaction.walletId IN (:...walletIds)', { walletIds })
+        .andWhere('transaction.transactionDate <= :to', { to })
+        .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
+        .groupBy('transaction.transactionDate')
+        .addGroupBy('transaction.currency')
+        .orderBy('transaction.transactionDate', 'ASC')
+        .getRawMany<{ date: string; currency: string; credit: string; debit: string }>(),
+      this.loadTransferLegs(workspaceId, walletIds, to),
+    ]);
+
+    const movements = rows.map(row => ({
+      date: this.toDateOnly(row.date),
+      currency: normalizeCurrencyCode(row.currency),
+      amount: this.toNumber(row.credit) - this.toNumber(row.debit),
+    }));
+    movements.push(...this.alignTransferLegs(transferLegs));
+    movements.sort((left, right) => left.date.localeCompare(right.date));
 
     const running: CurrencyAmounts = new Map();
     for (const wallet of wallets) {
@@ -359,18 +387,83 @@ export class BalanceService {
     const series = new Map<string, CurrencyAmounts>();
     let index = 0;
     for (const date of dates) {
-      while (index < rows.length && this.toDateOnly(rows[index].date) <= date) {
-        const row = rows[index];
-        addAmount(
-          running,
-          normalizeCurrencyCode(row.currency),
-          this.toNumber(row.credit) - this.toNumber(row.debit),
-        );
+      while (index < movements.length && movements[index].date <= date) {
+        addAmount(running, movements[index].currency, movements[index].amount);
         index += 1;
       }
       series.set(date, new Map(running));
     }
     return series;
+  }
+
+  /** The legs of transfers between the user's own wallets, one row per leg. */
+  private async loadTransferLegs(
+    workspaceId: string,
+    walletIds: string[],
+    to: string,
+  ): Promise<TransferLegRow[]> {
+    return (
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .leftJoin('transaction.statement', 'statement')
+        .select('transaction.transferPairId', 'pairId')
+        .addSelect('transaction.transactionDate', 'date')
+        .addSelect('transaction.currency', 'currency')
+        .addSelect('COALESCE(transaction.credit, 0)', 'credit')
+        .addSelect('COALESCE(transaction.debit, 0)', 'debit')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId })
+        .andWhere('transaction.walletId IN (:...walletIds)', { walletIds })
+        .andWhere('transaction.transactionDate <= :to', { to })
+        .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
+        .andWhere('transaction.transferPairId IS NOT NULL')
+        // A reimbursement is two real events — the money was out and came back,
+        // and that gap belongs on the chart. Only a transfer is one event.
+        .andWhere(
+          '(transaction.transferPairKind IS NULL OR transaction.transferPairKind = :kind)',
+          { kind: TransferPairKind.TRANSFER },
+        )
+        .orderBy('transaction.transactionDate', 'ASC')
+        .getRawMany<TransferLegRow>()
+    );
+  }
+
+  /**
+   * Corrections that move every leg of a transfer back to the day the money
+   * left, cancelling the entry the main query made on the day each bank
+   * happened to post.
+   *
+   * Banks rarely post both sides of a transfer on the same day, and until the
+   * second one lands the money is nowhere: the chart shows a dip that never
+   * happened and that nobody can explain afterwards. A transfer is one event,
+   * so it gets one date.
+   */
+  private alignTransferLegs(legs: TransferLegRow[]): CashMovement[] {
+    const byPair = new Map<string, TransferLegRow[]>();
+    for (const leg of legs) {
+      const bucket = byPair.get(leg.pairId);
+      if (bucket) {
+        bucket.push(leg);
+      } else {
+        byPair.set(leg.pairId, [leg]);
+      }
+    }
+
+    const corrections: CashMovement[] = [];
+    for (const pair of byPair.values()) {
+      const dates = pair.map(leg => this.toDateOnly(leg.date));
+      const start = dates.reduce((earliest, date) => (date < earliest ? date : earliest));
+      pair.forEach((leg, index) => {
+        const date = dates[index];
+        if (date === start) {
+          return;
+        }
+        const currency = normalizeCurrencyCode(leg.currency);
+        const amount = this.toNumber(leg.credit) - this.toNumber(leg.debit);
+        corrections.push({ date: start, currency, amount });
+        corrections.push({ date, currency, amount: -amount });
+      });
+    }
+    return corrections;
   }
 
   private async getStatementCashSeries(
