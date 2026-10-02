@@ -15,11 +15,13 @@ import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
 import {
   NET_WORTH_RANGES,
+  type NetWorthAssetLine,
   type NetWorthRange,
   type NetWorthView,
   useNetWorth,
 } from '../hooks/useNetWorth';
 import { setNetWorthDisplay, useNetWorthDisplay } from '../net-worth-display';
+import { AccountFilter } from './AccountFilter';
 import { AllocationCard } from './AllocationCard';
 import { CustomRange } from './CustomRange';
 import { ASSET_CLASS_KEYS, InvestmentsCard } from './InvestmentsCard';
@@ -66,6 +68,9 @@ type RangeControlsProps = {
   setRange: (range: NetWorthRange) => void;
   setCustom: ReturnType<typeof useNetWorth>['setCustom'];
   setView: (view: NetWorthView) => void;
+  lines: NetWorthAssetLine[];
+  excluded: string[];
+  setExcluded: (ids: string[]) => void;
   t: ReturnType<typeof useIntlayer<'netWorthPage'>>;
 };
 
@@ -78,6 +83,9 @@ function RangeControls({
   setRange,
   setCustom,
   setView,
+  lines,
+  excluded,
+  setExcluded,
   t,
 }: RangeControlsProps): React.JSX.Element {
   return (
@@ -96,6 +104,13 @@ function RangeControls({
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
+
+        <AccountFilter
+          lines={lines}
+          excluded={excluded}
+          onChange={setExcluded}
+          labels={{ accounts: t.accountsFilter.value, showAll: t.accountsShowAll.value }}
+        />
 
         <ToggleButtonGroup
           size="small"
@@ -139,9 +154,11 @@ export function NetWorthContent() {
     range,
     custom,
     view,
+    excluded,
     setRange,
     setCustom,
     setView,
+    setExcluded,
     classify,
   } = useNetWorth();
 
@@ -178,6 +195,9 @@ export function NetWorthContent() {
           setRange={setRange}
           setCustom={setCustom}
           setView={setView}
+          lines={data?.assetLines ?? []}
+          excluded={excluded}
+          setExcluded={setExcluded}
           t={t}
         />
       </Box>

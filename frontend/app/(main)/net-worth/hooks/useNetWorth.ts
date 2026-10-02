@@ -109,9 +109,12 @@ interface NetWorthState {
   range: NetWorthRange;
   custom: NetWorthCustomRange | null;
   view: NetWorthView;
+  /** Account ids the user has taken off the page. */
+  excluded: string[];
   setRange: (range: NetWorthRange) => void;
   setCustom: (custom: NetWorthCustomRange | null) => void;
   setView: (view: NetWorthView) => void;
+  setExcluded: (ids: string[]) => void;
   refetch: () => void;
   classify: (accountId: string, patch: ClassificationPatch) => void;
 }
@@ -140,6 +143,7 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
   const custom: NetWorthCustomRange | null = from && to ? { from, to } : null;
   const range = (searchParams.get('range') as NetWorthRange | null) ?? initialRange;
   const view = searchParams.get('view') === 'breakdown' ? 'breakdown' : 'performance';
+  const excluded = (searchParams.get('exclude') ?? '').split(',').filter(Boolean);
 
   const writeParams = useCallback(
     (patch: Record<string, string | null>): void => {
@@ -171,10 +175,16 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
     [writeParams],
   );
 
-  const params = custom ? { from: custom.from, to: custom.to } : { range };
+  const setExcluded = useCallback(
+    (next: string[]): void => writeParams({ exclude: next.length > 0 ? next.join(',') : null }),
+    [writeParams],
+  );
+
+  const window = custom ? { from: custom.from, to: custom.to } : { range };
+  const params = excluded.length > 0 ? { ...window, exclude: excluded.join(',') } : window;
   const queryKey = queryKeys.netWorth({
     workspaceId,
-    range: custom ? `${custom.from}:${custom.to}` : range,
+    range: [custom ? `${custom.from}:${custom.to}` : range, ...excluded].join('|'),
   });
 
   const query = useQuery({
@@ -221,9 +231,11 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
     range,
     custom,
     view,
+    excluded,
     setRange,
     setCustom,
     setView,
+    setExcluded,
     refetch,
     classify,
   };
