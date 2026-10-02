@@ -77,6 +77,13 @@ type TransferLegRow = {
   debit: string | null;
 };
 
+/** One value entered against an account on one day. */
+export type BalanceHistoryPoint = {
+  date: string;
+  amount: number;
+  currency?: string;
+};
+
 /** A change to the cash held in one currency on one day. */
 type CashMovement = {
   date: string;
@@ -888,22 +895,155 @@ export class BalanceService {
     };
   }
 
-  async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotDto) {
-    const snapshotDate = this.resolveDate(dto.date);
-    const account = await this.balanceAccountRepository.findOne({
-      where: {
-        id: dto.accountId,
-        workspaceId,
+  /**
+   * Every value ever entered for one account, oldest first.
+   *
+   * The chart forward-fills between these, so this is the whole truth about
+   * what the line does — and the only place a wrong day can be found and
+   * taken out again.
+   */
+  async getAccountHistory(workspaceId: string, accountId: string): Promise<BalanceHistoryPoint[]> {
+    await this.requireAccount(workspaceId, accountId);
+    const snapshots = await this.balanceSnapshotRepository.find({
+      where: { workspaceId, accountId },
+      order: { snapshotDate: 'ASC' },
+    });
+    return snapshots.map(snapshot => ({
+      date: this.toDateOnly(snapshot.snapshotDate),
+      amount: this.toNumber(snapshot.amount),
+      currency: snapshot.currency,
+    }));
+  }
+
+  /**
+   * Takes one day out of an account's history. A day with nothing entered is
+   * already in the wanted state, so repeating the call is a no-op rather than
+   * an error.
+   */
+  async deleteSnapshot(
+    userId: string,
+    workspaceId: string,
+    accountId: string,
+    date: string,
+  ): Promise<{ deleted: boolean }> {
+    const account = await this.requireEditableAccount(workspaceId, accountId);
+    const snapshotDate = this.resolveDate(date);
+    const snapshot = await this.balanceSnapshotRepository.findOne({
+      where: { workspaceId, accountId: account.id, snapshotDate },
+    });
+    if (!snapshot) {
+      return { deleted: false };
+    }
+
+    await this.balanceSnapshotRepository.remove(snapshot);
+    await this.auditService.createEvent({
+      workspaceId,
+      actorType: ActorType.USER,
+      actorId: userId,
+      entityType: EntityType.WORKSPACE,
+      entityId: workspaceId,
+      action: AuditAction.DELETE,
+      meta: {
+        kind: 'balance_snapshot',
+        accountId: account.id,
+        accountCode: account.code,
+        snapshotDate,
+      },
+      diff: {
+        before: { amount: this.toNumber(snapshot.amount), currency: snapshot.currency },
+        after: null,
+      },
+    });
+    return { deleted: true };
+  }
+
+  /**
+   * Replays dated values onto one account, so a history kept somewhere else
+   * can be brought in whole instead of typed in a day at a time. A date that
+   * already has a value is overwritten; the rest of the history is left alone.
+   */
+  async importAccountHistory(
+    userId: string,
+    workspaceId: string,
+    accountId: string,
+    rows: BalanceHistoryPoint[],
+  ): Promise<{ imported: number }> {
+    const account = await this.requireEditableAccount(workspaceId, accountId);
+    if (rows.length === 0) {
+      throw new BadRequestException('No rows to import');
+    }
+
+    const fallbackCurrency = await this.getWorkspaceCurrency(workspaceId);
+    // Last one wins, so a file that repeats a day imports it once.
+    const byDate = new Map<string, BalanceHistoryPoint>();
+    for (const row of rows) {
+      byDate.set(this.resolveDate(row.date), row);
+    }
+
+    await this.balanceSnapshotRepository.manager.transaction(async manager => {
+      const repository = manager.getRepository(BalanceSnapshot);
+      for (const [snapshotDate, row] of byDate) {
+        const existing = await repository.findOne({
+          where: { workspaceId, accountId: account.id, snapshotDate },
+        });
+        const values = {
+          amount: this.round(row.amount),
+          currency: row.currency || fallbackCurrency,
+          createdBy: userId,
+        };
+        await repository.save(
+          existing
+            ? Object.assign(existing, values)
+            : repository.create({ workspaceId, accountId: account.id, snapshotDate, ...values }),
+        );
+      }
+    });
+
+    const dates = [...byDate.keys()].sort();
+    await this.auditService.createEvent({
+      workspaceId,
+      actorType: ActorType.USER,
+      actorId: userId,
+      entityType: EntityType.WORKSPACE,
+      entityId: workspaceId,
+      action: AuditAction.UPDATE,
+      meta: {
+        kind: 'balance_history_import',
+        accountId: account.id,
+        accountCode: account.code,
+        from: dates[0],
+        to: dates[dates.length - 1],
+        rows: byDate.size,
       },
     });
 
+    return { imported: byDate.size };
+  }
+
+  private async requireAccount(workspaceId: string, accountId: string): Promise<BalanceAccount> {
+    const account = await this.balanceAccountRepository.findOne({
+      where: { id: accountId, workspaceId },
+    });
     if (!account) {
       throw new NotFoundException('Balance account not found');
     }
+    return account;
+  }
 
+  private async requireEditableAccount(
+    workspaceId: string,
+    accountId: string,
+  ): Promise<BalanceAccount> {
+    const account = await this.requireAccount(workspaceId, accountId);
     if (!account.isEditable) {
       throw new BadRequestException('This balance line is auto-calculated and cannot be edited');
     }
+    return account;
+  }
+
+  async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotDto) {
+    const snapshotDate = this.resolveDate(dto.date);
+    const account = await this.requireEditableAccount(workspaceId, dto.accountId);
 
     const amount = this.round(dto.amount);
     const currency = dto.currency || (await this.getWorkspaceCurrency(workspaceId));

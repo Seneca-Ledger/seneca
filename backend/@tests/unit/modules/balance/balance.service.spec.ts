@@ -32,6 +32,7 @@ function createRepoMock() {
     findOne: jest.fn(),
     create: jest.fn((input: unknown) => input),
     save: jest.fn(async (input: unknown) => input),
+    remove: jest.fn(async (input: unknown) => input),
     createQueryBuilder: jest.fn(),
   };
   const manager = {
@@ -421,6 +422,95 @@ describe('BalanceService', () => {
       expect(series.get('2026-02-01')).toEqual(new Map([['EUR', 100], ['KZT', 7000]]));
       expect(series.get('2026-03-01')).toEqual(new Map([['EUR', 150], ['KZT', 7000]]));
       expect(builder.andWhere).toHaveBeenCalledWith('statement.deletedAt IS NULL');
+    });
+  });
+
+  describe('account history', () => {
+    const editableAccount = { id: 'acc-1', code: 'ASSET_FIXED', workspaceId: 'ws-1', isEditable: true };
+
+    it('lists every value entered for the account, oldest first', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(editableAccount);
+      balanceSnapshotRepository.find.mockResolvedValue([
+        { snapshotDate: '2026-01-10', amount: '1000.00', currency: 'KZT' },
+        { snapshotDate: '2026-02-10', amount: '1250.50', currency: 'KZT' },
+      ]);
+
+      const history = await service.getAccountHistory('ws-1', 'acc-1');
+
+      expect(history).toEqual([
+        { date: '2026-01-10', amount: 1000, currency: 'KZT' },
+        { date: '2026-02-10', amount: 1250.5, currency: 'KZT' },
+      ]);
+      expect(balanceSnapshotRepository.find).toHaveBeenCalledWith({
+        where: { workspaceId: 'ws-1', accountId: 'acc-1' },
+        order: { snapshotDate: 'ASC' },
+      });
+    });
+
+    it('does not show the history of an account in another workspace', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.getAccountHistory('ws-1', 'acc-of-ws-2')).rejects.toThrow(
+        'Balance account not found',
+      );
+      expect(balanceSnapshotRepository.find).not.toHaveBeenCalled();
+    });
+
+    it('takes a wrong day out and writes it to the audit', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(editableAccount);
+      const snapshot = { id: 's-1', snapshotDate: '2026-01-10', amount: '0.00', currency: 'KZT' };
+      balanceSnapshotRepository.findOne.mockResolvedValue(snapshot);
+
+      const result = await service.deleteSnapshot('user-1', 'ws-1', 'acc-1', '2026-01-10');
+
+      expect(result).toEqual({ deleted: true });
+      expect(balanceSnapshotRepository.remove).toHaveBeenCalledWith(snapshot);
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'delete',
+          meta: expect.objectContaining({ kind: 'balance_snapshot', snapshotDate: '2026-01-10' }),
+        }),
+      );
+    });
+
+    it('treats deleting a day that holds nothing as already done', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(editableAccount);
+      balanceSnapshotRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.deleteSnapshot('user-1', 'ws-1', 'acc-1', '2026-01-10');
+
+      expect(result).toEqual({ deleted: false });
+      expect(balanceSnapshotRepository.remove).not.toHaveBeenCalled();
+      expect(auditService.createEvent).not.toHaveBeenCalled();
+    });
+
+    it('imports a history and lets the last row win a repeated day', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(editableAccount);
+      balanceSnapshotRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.importAccountHistory('user-1', 'ws-1', 'acc-1', [
+        { date: '2026-01-10', amount: 1000 },
+        { date: '2026-02-10', amount: 1250.5, currency: 'EUR' },
+        { date: '2026-01-10', amount: 1100 },
+      ]);
+
+      expect(result).toEqual({ imported: 2 });
+      const saved = balanceSnapshotRepository.save.mock.calls.map((call: any[]) => call[0]);
+      expect(saved).toEqual([
+        expect.objectContaining({ snapshotDate: '2026-01-10', amount: 1100, currency: 'KZT' }),
+        expect.objectContaining({ snapshotDate: '2026-02-10', amount: 1250.5, currency: 'EUR' }),
+      ]);
+    });
+
+    it('refuses to import onto a line the sheet computes for itself', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue({ ...editableAccount, isEditable: false });
+
+      await expect(
+        service.importAccountHistory('user-1', 'ws-1', 'acc-1', [
+          { date: '2026-01-10', amount: 1000 },
+        ]),
+      ).rejects.toThrow(BadRequestException);
+      expect(balanceSnapshotRepository.save).not.toHaveBeenCalled();
     });
   });
 

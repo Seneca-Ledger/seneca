@@ -1,16 +1,21 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Put,
   Query,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
@@ -19,11 +24,17 @@ import { buildContentDisposition } from '../../common/utils/http-file.util';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BalanceService } from './balance.service';
+import { readBalanceHistoryFile } from './balance-history-file';
 import { BalanceQueryDto } from './dto/balance-query.dto';
 import { CreateBalanceAccountDto } from './dto/create-balance-account.dto';
 import { ExportBalanceDto } from './dto/export-balance.dto';
 import { UpdateAccountClassificationDto } from './dto/update-account-classification.dto';
 import { UpdateBalanceSnapshotDto } from './dto/update-balance-snapshot.dto';
+
+type MulterFile = Express.Multer.File;
+
+/** A balance history is a column of dates and amounts; two megabytes is years of it. */
+const MAX_HISTORY_FILE_BYTES = 2 * 1024 * 1024;
 
 @Controller('reports/balance')
 export class BalanceController {
@@ -65,6 +76,42 @@ export class BalanceController {
     @Body() dto: UpdateBalanceSnapshotDto,
   ) {
     return this.balanceService.updateSnapshot(user.id, workspaceId, dto);
+  }
+
+  @Get('accounts/:id/history')
+  @WorkspaceAuth(Permission.REPORT_VIEW)
+  async getAccountHistory(
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.balanceService.getAccountHistory(workspaceId, id);
+  }
+
+  @Delete('accounts/:id/history/:date')
+  @WorkspaceAuth(Permission.REPORT_VIEW)
+  async deleteAccountHistoryPoint(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('date') date: string,
+  ) {
+    return this.balanceService.deleteSnapshot(user.id, workspaceId, id, date);
+  }
+
+  @Post('accounts/:id/history')
+  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_HISTORY_FILE_BYTES } }))
+  async importAccountHistory(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: MulterFile | undefined,
+  ) {
+    if (!file?.buffer) {
+      throw new BadRequestException('No file provided');
+    }
+    const rows = readBalanceHistoryFile(file.buffer);
+    return this.balanceService.importAccountHistory(user.id, workspaceId, id, rows);
   }
 
   @Post('accounts')
