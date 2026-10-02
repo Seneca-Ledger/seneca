@@ -218,12 +218,26 @@ export class InvestmentsService {
     await this.writeSnapshot(userId, workspaceId, holding.accountId);
   }
 
+  /** Workspaces holding something that has a price to fetch. */
+  async workspacesWithPricedHoldings(): Promise<string[]> {
+    const rows = await this.holdingRepository
+      .createQueryBuilder('holding')
+      .select('DISTINCT holding.workspaceId', 'workspaceId')
+      .where('holding.symbol IS NOT NULL')
+      .getRawMany<{ workspaceId: string }>();
+    return rows.map(row => row.workspaceId);
+  }
+
   /**
    * Fetches a price for every holding with a symbol (stocks and funds from
    * Stooq, crypto from CoinGecko) and rewrites the snapshots of the accounts
    * that changed. Returns how many holdings got a price.
    */
-  async refreshPrices(userId: string, workspaceId: string, onlyIds?: string[]): Promise<number> {
+  async refreshPrices(
+    userId: string | null,
+    workspaceId: string,
+    onlyIds?: string[],
+  ): Promise<number> {
     const holdings = await this.holdingRepository.find({
       where: onlyIds ? { workspaceId, id: In(onlyIds) } : { workspaceId },
     });
@@ -357,7 +371,7 @@ export class InvestmentsService {
 
   /** The account's value today, written where the balance sheet and net worth read it. */
   private async writeSnapshot(
-    userId: string,
+    userId: string | null,
     workspaceId: string,
     accountId: string,
   ): Promise<void> {

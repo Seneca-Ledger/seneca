@@ -8,6 +8,7 @@ import { BalanceModule } from '../balance/balance.module';
 import { CryptoModule } from '../crypto/crypto.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { InvestmentsController } from './investments.controller';
+import { InvestmentsScheduler } from './investments.scheduler';
 import { InvestmentsService } from './investments.service';
 import { StockPriceService } from './stock-price.service';
 
@@ -19,7 +20,7 @@ import { StockPriceService } from './stock-price.service';
     ExchangeRatesModule,
   ],
   controllers: [InvestmentsController],
-  providers: [InvestmentsService, StockPriceService],
+  providers: [InvestmentsService, InvestmentsScheduler, StockPriceService],
   exports: [InvestmentsService],
 })
 export class InvestmentsModule {}

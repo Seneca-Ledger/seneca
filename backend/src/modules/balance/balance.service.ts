@@ -1041,7 +1041,12 @@ export class BalanceService {
     return account;
   }
 
-  async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotDto) {
+  /**
+   * Writes one value for one day. `userId` is null when nothing but a schedule
+   * is behind it, and the audit says system rather than naming someone who
+   * was not there.
+   */
+  async updateSnapshot(userId: string | null, workspaceId: string, dto: UpdateBalanceSnapshotDto) {
     const snapshotDate = this.resolveDate(dto.date);
     const account = await this.requireEditableAccount(workspaceId, dto.accountId);
 
@@ -1077,7 +1082,7 @@ export class BalanceService {
 
     await this.auditService.createEvent({
       workspaceId,
-      actorType: ActorType.USER,
+      actorType: userId ? ActorType.USER : ActorType.SYSTEM,
       actorId: userId,
       entityType: EntityType.WORKSPACE,
       entityId: workspaceId,
