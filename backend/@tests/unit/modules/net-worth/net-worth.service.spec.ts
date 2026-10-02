@@ -125,7 +125,7 @@ describe('NetWorthService', () => {
       cash: { KZT: 200 },
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '90d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
 
     // 1000 fixed + 200 cash − 400 borrowed. Equity is the balancing side of
     // the sheet, not a debt, so it must not move the number.
@@ -142,7 +142,7 @@ describe('NetWorthService', () => {
       ],
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '90d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
     const values = result.series.map(point => point.value);
 
     expect(values[0]).toBe(0); // before the first snapshot
@@ -153,7 +153,7 @@ describe('NetWorthService', () => {
   it('reads cash for every single day, not for a handful of sampled dates', async () => {
     const { service, balanceService } = createService({ cash: { KZT: 777 } });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '30d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '30d' });
     const dates: string[] = balanceService.getCashSeries.mock.calls[0][1];
 
     expect(dates[dates.length - 1]).toBe(today());
@@ -179,7 +179,7 @@ describe('NetWorthService', () => {
       },
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '90d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
 
     expect(result.series[0].value).toBe(10 * 500 + 100 + 2 * 450);
     expect(result.current).toBe(10 * 600 + 100 + 2 * 450);
@@ -193,7 +193,7 @@ describe('NetWorthService', () => {
       rates: { EUR: 500, USD: 450 },
     });
 
-    await service.getNetWorth(WORKSPACE_ID, '1y');
+    await service.getNetWorth(WORKSPACE_ID, { range: '1y' });
 
     // Two foreign currencies over a year: two calls, not seven hundred.
     expect(exchangeRates.getRateCurve).toHaveBeenCalledTimes(2);
@@ -212,7 +212,7 @@ describe('NetWorthService', () => {
       cash: { KZT: 100 },
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '30d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '30d' });
 
     expect(result.current).toBe(100);
     expect(result.missingRates).toEqual(['CHF']);
@@ -226,7 +226,7 @@ describe('NetWorthService', () => {
       ],
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '90d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
 
     expect(result.previous).toBe(1000);
     expect(result.current).toBe(1500);
@@ -239,7 +239,7 @@ describe('NetWorthService', () => {
       snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(5), amount: 1500 }],
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '90d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
 
     expect(result.previous).toBe(0);
     expect(result.changePercent).toBeNull();
@@ -251,7 +251,7 @@ describe('NetWorthService', () => {
       cash: { KZT: 250 },
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '90d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
 
     expect(result.breakdown).toEqual([
       { code: 'ASSET_NON_CURRENT', name: 'Внеоборотные', amount: 750, percent: 75 },
@@ -273,7 +273,7 @@ describe('NetWorthService', () => {
       cash: { KZT: 500 },
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '90d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
     const cash = result.assetLines.find(line => line.code === 'ASSET_CASH');
 
     expect(cash?.riskLevel).toBe(RiskLevel.LOW);
@@ -304,7 +304,7 @@ describe('NetWorthService', () => {
       ],
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '90d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
 
     // 300 of 1000 is high risk; the unclassified 700 counts in the
     // denominator, so the share understates rather than invents risk.
@@ -339,7 +339,7 @@ describe('NetWorthService', () => {
       ],
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '90d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
 
     expect(result.byRole).toEqual([
       { key: CapitalRole.INCOME, amount: 600, percent: 60 },
@@ -361,7 +361,7 @@ describe('NetWorthService', () => {
         ],
       });
 
-      const result = await service.getNetWorth(WORKSPACE_ID, 'all');
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: 'all' });
 
       expect(Math.min(...result.series.map(point => point.value))).toBe(300);
       expect(result.series.length).toBeLessThanOrEqual(200);
@@ -373,7 +373,7 @@ describe('NetWorthService', () => {
       snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(400), amount: 1000 }],
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '30d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '30d' });
 
     expect(result.series[0].date).toBe(daysAgo(30));
     expect(result.series[result.series.length - 1].date).toBe(today());
@@ -387,16 +387,64 @@ describe('NetWorthService', () => {
       ],
     });
 
-    const result = await service.getNetWorth(WORKSPACE_ID, '30d');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '30d' });
 
     expect(result.allTimeHigh).toEqual({ value: 2000, date: daysAgo(400) });
     expect(result.current).toBe(1000);
   });
 
+  it('charts the window the user picked instead of a preset', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(400), amount: 1000 }],
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, {
+      from: daysAgo(90),
+      to: daysAgo(60),
+    });
+
+    expect(result.from).toBe(daysAgo(90));
+    expect(result.to).toBe(daysAgo(60));
+    expect(result.series[0].date).toBe(daysAgo(90));
+    expect(result.series[result.series.length - 1].date).toBe(daysAgo(60));
+  });
+
+  it('never charts past today, whatever end date is asked for', async () => {
+    const { service } = createService({ cash: { KZT: 100 } });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, { from: daysAgo(10), to: '2099-01-01' });
+
+    expect(result.to).toBe(today());
+  });
+
+  it('starts the year-to-date window on the first of January', async () => {
+    const { service } = createService({ cash: { KZT: 100 } });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: 'ytd' });
+
+    expect(result.from).toBe(`${today().slice(0, 4)}-01-01`);
+  });
+
+  it('carries both sides of each day, not only the net', async () => {
+    const { service } = createService({
+      snapshots: [
+        { accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 1000 },
+        { accountId: 'l-borrowed', snapshotDate: daysAgo(200), amount: 400 },
+      ],
+      cash: { KZT: 200 },
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '30d' });
+    const last = result.series[result.series.length - 1];
+
+    // A net of 800 says nothing about whether the debt is growing.
+    expect(last).toEqual({ date: today(), value: 800, assets: 1200, liabilities: 400 });
+  });
+
   it('returns a flat zero series for a workspace with nothing in it', async () => {
     const { service } = createService({});
 
-    const result = await service.getNetWorth(WORKSPACE_ID, 'all');
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: 'all' });
 
     expect(result.current).toBe(0);
     expect(result.breakdown).toEqual([]);

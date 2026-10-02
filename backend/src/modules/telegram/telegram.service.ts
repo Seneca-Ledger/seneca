@@ -981,7 +981,7 @@ export class TelegramService {
     }
 
     const locale = user.locale || 'en';
-    const netWorth = await this.netWorthService.getNetWorth(workspaceId, '30d', locale);
+    const netWorth = await this.netWorthService.getNetWorth(workspaceId, { range: '30d' }, locale);
 
     const lines = [
       renderTelegramMessage(locale, 'networth_header', {

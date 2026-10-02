@@ -16,9 +16,19 @@ import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { InvestmentsService } from '../investments/investments.service';
 import type { NetWorthRange } from './dto/net-worth-query.dto';
 
+/** The window to chart: a preset, or dates the user picked. */
+export interface NetWorthQuery {
+  range?: NetWorthRange;
+  from?: string;
+  to?: string;
+}
+
 export interface NetWorthPoint {
   date: string;
   value: number;
+  /** The two sides of the day, so the chart can show what the net hides. */
+  assets: number;
+  liabilities: number;
 }
 
 export interface NetWorthBreakdownItem {
@@ -49,6 +59,9 @@ export interface NetWorthAssetLine {
 
 export interface NetWorthResponse {
   range: NetWorthRange;
+  /** The window actually charted, which a custom `from`/`to` decides. */
+  from: string;
+  to: string;
   currency: string;
   current: number;
   previous: number;
@@ -71,8 +84,9 @@ export interface NetWorthResponse {
   byAssetClass: NetWorthClassificationItem[];
 }
 
-/** Days back from today for each range. `all` is resolved from the data. */
-const RANGE_DAYS: Record<Exclude<NetWorthRange, 'all'>, number> = {
+/** Days back from today for each range. `all` and `ytd` come from elsewhere. */
+const RANGE_DAYS: Record<Exclude<NetWorthRange, 'all' | 'ytd'>, number> = {
+  '1d': 1,
   '30d': 30,
   '90d': 90,
   '180d': 180,
@@ -126,13 +140,19 @@ export class NetWorthService {
 
   async getNetWorth(
     workspaceId: string,
-    range: NetWorthRange = '90d',
+    query: NetWorthQuery = {},
     locale?: string,
   ): Promise<NetWorthResponse> {
     await this.balanceService.seedDefaultAccounts(workspaceId);
 
-    const to = isoDate(new Date());
-    const windowFrom = await this.resolveFrom(workspaceId, range, to);
+    const range = query.range ?? '90d';
+    const today = isoDate(new Date());
+    // A window the user picked wins over the preset; it never runs past today,
+    // because there is nothing to the right of today to chart.
+    const to = query.to && query.to < today ? isoDate(new Date(query.to)) : today;
+    const windowFrom = query.from
+      ? isoDate(new Date(query.from))
+      : await this.resolveFrom(workspaceId, range, to);
     // The walk starts at whichever is earlier, the window or the first day the
     // workspace has data: the window is what the user asked to see, the history
     // is what the all-time high has to be taken over.
@@ -190,7 +210,12 @@ export class NetWorthService {
           liabilities += valueAt(leaf.id, leaf.code, date);
         }
       }
-      return { date, value: round2(assets - liabilities) };
+      return {
+        date,
+        value: round2(assets - liabilities),
+        assets: round2(assets),
+        liabilities: round2(liabilities),
+      };
     });
 
     const window = daily.filter(point => point.date >= windowFrom);
@@ -240,6 +265,8 @@ export class NetWorthService {
 
     return {
       range,
+      from: windowFrom,
+      to,
       currency,
       current,
       previous,
@@ -361,6 +388,9 @@ export class NetWorthService {
     range: NetWorthRange,
     to: string,
   ): Promise<string> {
+    if (range === 'ytd') {
+      return `${to.slice(0, 4)}-01-01`;
+    }
     if (range !== 'all') {
       return shiftDays(to, -RANGE_DAYS[range]);
     }

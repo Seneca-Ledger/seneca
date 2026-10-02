@@ -80,7 +80,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
    * can arrive late but never out of nowhere.
    */
   private async riskyAllocationAdvice(workspaceId: string): Promise<InsightCandidate | null> {
-    const netWorth = await this.netWorthService.getNetWorth(workspaceId, '30d');
+    const netWorth = await this.netWorthService.getNetWorth(workspaceId, { range: '30d' });
 
     if (netWorth.riskyPercent <= RISKY_ALLOCATION_THRESHOLD_PERCENT) {
       return null;
