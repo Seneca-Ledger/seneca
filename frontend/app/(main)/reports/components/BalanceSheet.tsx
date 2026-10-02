@@ -3,10 +3,11 @@
 
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
@@ -60,6 +61,8 @@ type BalanceSheetResponse = {
   isBalanced: boolean;
   /** Currencies left out of the totals because no exchange rate was found. */
   missingRates?: string[];
+  /** True when this household sheet is still laid out as a company's. */
+  personalLayoutAvailable?: boolean;
 };
 
 const resolveLocale = (locale: string): string => {
@@ -232,6 +235,15 @@ function BalanceSheet(): React.JSX.Element {
   );
 
   const [historyAccount, setHistoryAccount] = useState<{ id: string; name: string } | null>(null);
+
+  const personalLayout = useMutation({
+    mutationFn: () => apiClient.post('/reports/balance/personal-layout'),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['balance-sheet', workspaceId] });
+      void queryClient.invalidateQueries({ queryKey: ['net-worth', workspaceId] });
+    },
+    onError: (err: unknown) => setError(getApiErrorMessage(err, t.errors.loadReport.value)),
+  });
 
   const saveSnapshot = useCallback(
     async (accountId: string): Promise<void> => {
@@ -648,6 +660,27 @@ function BalanceSheet(): React.JSX.Element {
       {(error || sheetQuery.isError) && (
         <Alert severity="error">
           {error ?? getApiErrorMessage(sheetQuery.error, t.errors.loadReport.value)}
+        </Alert>
+      )}
+
+      {sheet?.personalLayoutAvailable && (
+        <Alert
+          severity="info"
+          action={
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={personalLayout.isPending}
+              onClick={() => personalLayout.mutate()}
+            >
+              {text('personalLayoutApply', 'Use the household layout')}
+            </Button>
+          }
+        >
+          {text(
+            'personalLayoutHint',
+            'This sheet is still laid out as a company\u2019s. The household layout keeps every value and every history, it only renames and regroups the headings.',
+          )}
         </Alert>
       )}
 
