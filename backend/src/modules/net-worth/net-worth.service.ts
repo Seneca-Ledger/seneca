@@ -59,6 +59,24 @@ export interface NetWorthAssetLine {
   isClassifiable: boolean;
 }
 
+/** What one line, or the rates, did to the number over the window. */
+export interface NetWorthAttributionRow {
+  id: string;
+  code: string;
+  name: string;
+  amount: number;
+}
+
+/**
+ * Where the change over the window came from. Both lists add up to `change`
+ * exactly: one answers "which of my things moved", the other "was it me or
+ * was it the market".
+ */
+export interface NetWorthAttribution {
+  byAccount: NetWorthAttributionRow[];
+  byKind: Array<{ kind: 'money' | 'revaluation' | 'fx'; amount: number }>;
+}
+
 export interface NetWorthResponse {
   range: NetWorthRange;
   /** The window actually charted, which a custom `from`/`to` decides. */
@@ -82,6 +100,8 @@ export interface NetWorthResponse {
   missingRates: string[];
   /** The account ids left out, echoed back so the page can show what is hidden. */
   excluded: string[];
+  /** What made the change over the window, by line and by cause. */
+  attribution: NetWorthAttribution;
   /** The highest sampled net worth over the whole history, and when. */
   allTimeHigh: { value: number; date: string } | null;
   /** Investment holdings by asset class; cash and the other sheet lines keep their own buckets. */
@@ -207,6 +227,19 @@ export class NetWorthService {
         : 0;
     };
 
+    /** What the line holds on a day, in the currency it is held in. */
+    const nativeAt = (leaf: BalanceAccount, date: string): Map<string, number> => {
+      if (leaf.code === CASH_ACCOUNT_CODE) {
+        return cashByDate.get(date) ?? new Map();
+      }
+      const snapshot = latestOnOrBefore(snapshotsByAccount.get(leaf.id), date);
+      return snapshot
+        ? new Map([
+            [normalizeCurrencyCode(snapshot.currency || currency), toNumber(snapshot.amount)],
+          ])
+        : new Map();
+    };
+
     const daily = dates.map(date => {
       let assets = 0;
       let liabilities = 0;
@@ -242,6 +275,17 @@ export class NetWorthService {
     const current = window[window.length - 1]?.value ?? 0;
     const previous = window[0]?.value ?? 0;
     const change = round2(current - previous);
+
+    const attribution = await this.buildAttribution({
+      workspaceId,
+      leaves,
+      nativeAt,
+      converter,
+      from: windowFrom,
+      to,
+      change,
+      locale,
+    });
 
     // The high is a property of the whole history, not of the window shown.
     const allTimeHigh = highestPoint(daily);
@@ -300,6 +344,7 @@ export class NetWorthService {
       assetLines,
       missingRates: converter.missing,
       excluded: [...excluded],
+      attribution,
       allTimeHigh,
       byAssetClass,
     };
@@ -339,6 +384,106 @@ export class NetWorthService {
       }))
       .filter(item => item.amount !== 0)
       .sort((a, b) => b.amount - a.amount);
+  }
+
+  /**
+   * Where the change over the window came from.
+   *
+   * For a line worth `A` in its own currency at a rate `R`, the move splits
+   * without a remainder into what the line itself did, valued at the rate it
+   * started the window on, and what the rate did to what the line ended with:
+   *
+   *     A₁R₁ − A₀R₀ = (A₁ − A₀)·R₀ + A₁·(R₁ − R₀)
+   *
+   * The first term is the line's own doing, the second is the currency's. For
+   * cash the first term is money that came in or went out; for an investment
+   * account it is what was paid in plus what the market did, and the paid-in
+   * part is known from the contributions linked to it. Everything else only
+   * ever moves when someone types a new value, so that is all revaluation.
+   *
+   * Money moved between the user's own accounts cancels: it leaves cash and
+   * arrives as a contribution, so `money` is what came in from outside.
+   */
+  private async buildAttribution(input: {
+    workspaceId: string;
+    leaves: BalanceAccount[];
+    nativeAt: (leaf: BalanceAccount, date: string) => Map<string, number>;
+    converter: CurrencyConverter;
+    from: string;
+    to: string;
+    change: number;
+    locale?: string;
+  }): Promise<NetWorthAttribution> {
+    const { workspaceId, leaves, nativeAt, converter, from, to, change, locale } = input;
+    const contributions = this.investmentsService
+      ? await this.investmentsService.contributionsBetween(workspaceId, from, to)
+      : new Map<string, Map<string, number>>();
+
+    const rate = (code: string, date: string): number => converter.convert(1, code, date);
+    const byAccount: NetWorthAttributionRow[] = [];
+    let money = 0;
+    let revaluation = 0;
+
+    for (const leaf of leaves) {
+      const sign =
+        leaf.accountType === BalanceAccountType.ASSET
+          ? 1
+          : leaf.accountType === BalanceAccountType.LIABILITY
+            ? -1
+            : 0;
+      if (sign === 0) {
+        continue;
+      }
+
+      const opening = nativeAt(leaf, from);
+      const closing = nativeAt(leaf, to);
+      const paidIn = contributions.get(leaf.id) ?? new Map<string, number>();
+      let own = 0;
+      let rates = 0;
+      let contributed = 0;
+
+      for (const code of new Set([...opening.keys(), ...closing.keys(), ...paidIn.keys()])) {
+        const before = opening.get(code) ?? 0;
+        const after = closing.get(code) ?? 0;
+        own += (after - before) * rate(code, from);
+        rates += after * (rate(code, to) - rate(code, from));
+        contributed += (paidIn.get(code) ?? 0) * rate(code, from);
+      }
+
+      const moved = leaf.code === CASH_ACCOUNT_CODE ? own : contributed;
+      money += sign * moved;
+      revaluation += sign * (own - moved);
+
+      byAccount.push({
+        id: leaf.id,
+        code: leaf.code,
+        name: resolveName(leaf, locale),
+        amount: sign * (own + rates),
+      });
+    }
+
+    const rows = byAccount
+      .map(row => ({ ...row, amount: round2(row.amount) }))
+      .filter(row => row.amount !== 0)
+      .sort((left, right) => Math.abs(right.amount) - Math.abs(left.amount));
+
+    // A table that does not add up to the figure above it is worse than no
+    // table: the pennies lost to rounding go to the largest line, and the last
+    // kind absorbs them the same way.
+    const residual = round2(change - rows.reduce((sum, row) => sum + row.amount, 0));
+    if (residual !== 0 && rows.length > 0) {
+      rows[0] = { ...rows[0], amount: round2(rows[0].amount + residual) };
+    }
+
+    const movedTotal = round2(money);
+    const revaluedTotal = round2(revaluation);
+    const byKind = [
+      { kind: 'money' as const, amount: movedTotal },
+      { kind: 'revaluation' as const, amount: revaluedTotal },
+      { kind: 'fx' as const, amount: round2(change - movedTotal - revaluedTotal) },
+    ].filter(row => row.amount !== 0);
+
+    return { byAccount: rows, byKind };
   }
 
   /** Asset totals grouped under the top-level section each leaf belongs to. */

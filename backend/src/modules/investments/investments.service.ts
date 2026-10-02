@@ -395,6 +395,46 @@ export class InvestmentsService {
     });
   }
 
+  /**
+   * What was paid into each investment account between two days, left in the
+   * currency it was paid in: the caller decides which day's rate to value it
+   * at, and for an attribution that is the first day of the window.
+   */
+  async contributionsBetween(
+    workspaceId: string,
+    from: string,
+    to: string,
+  ): Promise<Map<string, Map<string, number>>> {
+    const rows = await this.transactionRepository
+      .createQueryBuilder('t')
+      .select('t.investment_account_id', 'accountId')
+      .addSelect('t.currency', 'currency')
+      .addSelect('COALESCE(SUM(t.debit), 0)', 'total')
+      .where('t.workspace_id = :workspaceId', { workspaceId })
+      .andWhere('t.investment_account_id IS NOT NULL')
+      .andWhere('t.is_duplicate = false')
+      .andWhere('t.transaction_date > :from', { from })
+      .andWhere('t.transaction_date <= :to', { to })
+      .groupBy('t.investment_account_id')
+      .addGroupBy('t.currency')
+      .getRawMany<{ accountId: string; currency: string; total: string }>();
+
+    const byAccount = new Map<string, Map<string, number>>();
+    for (const row of rows) {
+      const amount = Number.parseFloat(row.total);
+      if (!Number.isFinite(amount) || amount === 0) {
+        continue;
+      }
+      const perCurrency = byAccount.get(row.accountId) ?? new Map<string, number>();
+      const code = String(row.currency || '')
+        .trim()
+        .toUpperCase();
+      perCurrency.set(code, (perCurrency.get(code) ?? 0) + amount);
+      byAccount.set(row.accountId, perCurrency);
+    }
+    return byAccount;
+  }
+
   private async contributedByAccount(
     workspaceId: string,
     accountIds: string[],

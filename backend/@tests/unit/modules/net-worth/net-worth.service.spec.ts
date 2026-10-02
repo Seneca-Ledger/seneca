@@ -50,8 +50,10 @@ function nextDay(date: string): string {
 function createService(options: {
   accounts?: AccountSeed[];
   snapshots?: SnapshotSeed[];
-  /** Cash per currency, the same at every sample date. */
-  cash?: Record<string, number>;
+  /** Cash per currency; a function of the day when it has to move. */
+  cash?: Record<string, number | ((date: string) => number)>;
+  /** What was paid into an account during the window, by currency. */
+  contributions?: Record<string, Record<string, number>>;
   /** Rate curve to KZT by currency; absent means no rate at all. */
   rates?: Record<string, number | Array<{ date: string; rate: number }>>;
 }) {
@@ -86,10 +88,20 @@ function createService(options: {
 
   const balanceService = {
     seedDefaultAccounts: jest.fn(async () => undefined),
-    getCashSeries: jest.fn(
-      async (_workspaceId: string, dates: string[]) =>
-        new Map(dates.map(date => [date, new Map(Object.entries(options.cash ?? {}))])),
-    ),
+    getCashSeries: jest.fn(async (_workspaceId: string, dates: string[]) => {
+      const cash = options.cash ?? {};
+      return new Map(
+        dates.map(date => [
+          date,
+          new Map(
+            Object.entries(cash).map(([code, amount]) => [
+              code,
+              typeof amount === 'function' ? amount(date) : amount,
+            ]),
+          ),
+        ]),
+      );
+    }),
   } as any;
 
   const exchangeRates = {
@@ -102,6 +114,19 @@ function createService(options: {
     }),
   } as any;
 
+  const investments = {
+    contributionsBetween: jest.fn(
+      async () =>
+        new Map(
+          Object.entries(options.contributions ?? {}).map(([accountId, perCurrency]) => [
+            accountId,
+            new Map(Object.entries(perCurrency)),
+          ]),
+        ),
+    ),
+    valueByAssetClass: jest.fn(async () => new Map()),
+  } as any;
+
   const service = new NetWorthService(
     { find: jest.fn(async () => accounts) } as any,
     { createQueryBuilder: jest.fn(() => snapshotQueryBuilder) } as any,
@@ -109,9 +134,10 @@ function createService(options: {
     { findOne: jest.fn(async () => ({ currency: 'KZT' })) } as any,
     balanceService,
     exchangeRates,
+    investments,
   );
 
-  return { service, balanceService, exchangeRates };
+  return { service, balanceService, exchangeRates, investments };
 }
 
 describe('NetWorthService', () => {
@@ -464,6 +490,115 @@ describe('NetWorthService', () => {
     expect(withoutHouse.breakdown.map(item => item.code)).toEqual(['ASSET_CASH']);
     expect(withoutHouse.assetLines.map(line => line.code)).toEqual(['ASSET_CASH']);
     expect(withoutHouse.excluded).toEqual(['a-fixed']);
+  });
+
+  describe('what made the change', () => {
+    const sum = (rows: Array<{ amount: number }>) =>
+      round2(rows.reduce((total, row) => total + row.amount, 0));
+    const round2 = (value: number) => Math.round(value * 100) / 100;
+
+    it('adds up to the change itself, by line and by cause', async () => {
+      const { service } = createService({
+        snapshots: [
+          { accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 1000 },
+          { accountId: 'a-fixed', snapshotDate: daysAgo(10), amount: 1750 },
+          { accountId: 'l-borrowed', snapshotDate: daysAgo(200), amount: 400 },
+          { accountId: 'l-borrowed', snapshotDate: daysAgo(5), amount: 250 },
+        ],
+        cash: { KZT: date => (date >= daysAgo(20) ? 1300 : 1000) },
+      });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+
+      expect(sum(result.attribution.byAccount)).toBe(result.change);
+      expect(sum(result.attribution.byKind)).toBe(result.change);
+      // Paying a debt down raises the number, so the line counts positively.
+      const debt = result.attribution.byAccount.find(row => row.code === 'LIABILITY_BORROWED');
+      expect(debt?.amount).toBe(150);
+    });
+
+    it('tells the rate moving apart from the line moving', async () => {
+      const { service } = createService({
+        // The same ten euros all window; only the rate moves.
+        snapshots: [
+          { accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 10, currency: 'EUR' },
+        ],
+        rates: {
+          EUR: [
+            { date: daysAgo(400), rate: 500 },
+            { date: today(), rate: 600 },
+          ],
+        },
+      });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+
+      expect(result.change).toBe(1000);
+      expect(result.attribution.byKind).toEqual([{ kind: 'fx', amount: 1000 }]);
+    });
+
+    it('calls money paid into an investment account a contribution, not a gain', async () => {
+      const { service } = createService({
+        accounts: [
+          {
+            id: 'a-cash',
+            code: 'ASSET_CASH',
+            name: 'Деньги',
+            accountType: BalanceAccountType.ASSET,
+          },
+          {
+            id: 'a-broker',
+            code: 'CUSTOM_BROKER',
+            name: 'Брокер',
+            accountType: BalanceAccountType.ASSET,
+          },
+        ],
+        snapshots: [
+          { accountId: 'a-broker', snapshotDate: daysAgo(200), amount: 0 },
+          { accountId: 'a-broker', snapshotDate: daysAgo(10), amount: 150 },
+        ],
+        cash: { KZT: date => (date >= daysAgo(10) ? 900 : 1000) },
+        contributions: { 'a-broker': { KZT: 100 } },
+      });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+      const byKind = Object.fromEntries(
+        result.attribution.byKind.map(row => [row.kind, row.amount]),
+      );
+
+      // 100 left cash and arrived in the account: the household is no richer
+      // for it, and only the 50 the market added counts as a gain.
+      expect(result.change).toBe(50);
+      expect(byKind.money ?? 0).toBe(0);
+      expect(byKind.revaluation).toBe(50);
+    });
+
+    it('names the line that moved, largest first', async () => {
+      const { service } = createService({
+        snapshots: [
+          { accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 1000 },
+          { accountId: 'a-fixed', snapshotDate: daysAgo(10), amount: 1050 },
+        ],
+        cash: { KZT: date => (date >= daysAgo(20) ? 1500 : 1000) },
+      });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+
+      expect(result.attribution.byAccount.map(row => [row.code, row.amount])).toEqual([
+        ['ASSET_CASH', 500],
+        ['ASSET_FIXED', 50],
+      ]);
+    });
+
+    it('says nothing happened when nothing did', async () => {
+      const { service } = createService({ cash: { KZT: 1000 } });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+
+      expect(result.change).toBe(0);
+      expect(result.attribution.byAccount).toEqual([]);
+      expect(result.attribution.byKind).toEqual([]);
+    });
   });
 
   it('returns a flat zero series for a workspace with nothing in it', async () => {
