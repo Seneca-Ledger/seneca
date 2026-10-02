@@ -32,6 +32,7 @@ import {
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { loadPdfMake } from '../reports/report-document.util';
 import {
+  ACCOUNTING_ONLY_LINES,
   ACCOUNTING_ONLY_SECTIONS,
   ACCOUNTING_TO_PERSONAL_SECTION,
   defaultAccountsFor,
@@ -77,6 +78,8 @@ type BalanceSheetResponse = {
   missingRates: string[];
   /** True when this household sheet is still laid out as a company's. */
   personalLayoutAvailable: boolean;
+  /** Whose books these are: a household's difference is its net worth, not an error. */
+  profile: WorkspaceProfile;
 };
 
 /** One leg of a paired transfer, as the cash walk reads it. */
@@ -910,6 +913,7 @@ export class BalanceService {
       personalLayoutAvailable:
         profile === 'home' &&
         accounts.some(account => ACCOUNTING_ONLY_SECTIONS.includes(account.code)),
+      profile,
     };
   }
 
@@ -962,15 +966,34 @@ export class BalanceService {
         const parent = definition.parentCode ? byCode.get(definition.parentCode) : null;
         const present = byCode.get(definition.code);
         if (present) {
-          // A code both charts use — cash, investments — but filed under an
-          // accounting heading that is about to go away.
+          // A code both charts use — cash, investments, the equity lines. It
+          // keeps its history and its value, but not the accounting wording:
+          // "III. Cash" is a form, "Cash" is what someone calls their money.
           const parentId = parent?.id ?? null;
-          if (present.parentId !== parentId) {
+          const renamed =
+            present.name !== definition.name ||
+            present.nameEn !== definition.nameEn ||
+            present.nameKk !== definition.nameKk;
+          if (
+            present.parentId !== parentId ||
+            renamed ||
+            present.position !== definition.position
+          ) {
             await accounts.update(
               { id: present.id, workspaceId },
-              { parentId, position: definition.position },
+              {
+                parentId,
+                position: definition.position,
+                name: definition.name,
+                nameEn: definition.nameEn,
+                nameKk: definition.nameKk,
+              },
             );
             present.parentId = parentId;
+            present.position = definition.position;
+            present.name = definition.name;
+            present.nameEn = definition.nameEn;
+            present.nameKk = definition.nameKk;
             moved += 1;
           }
           continue;
@@ -1015,6 +1038,21 @@ export class BalanceService {
         for (const child of children) {
           await accounts.update({ id: child.id, workspaceId }, { parentId: loans.id });
           moved += 1;
+        }
+      }
+
+      // Share capital means nothing to a household; an empty one goes.
+      for (const code of ACCOUNTING_ONLY_LINES) {
+        const line = byCode.get(code);
+        if (!line) {
+          continue;
+        }
+        const entered = await manager
+          .getRepository(BalanceSnapshot)
+          .count({ where: { workspaceId, accountId: line.id } });
+        if (entered === 0) {
+          await accounts.delete({ id: line.id, workspaceId });
+          byCode.delete(code);
         }
       }
 

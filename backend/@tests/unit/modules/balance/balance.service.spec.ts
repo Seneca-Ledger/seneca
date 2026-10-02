@@ -537,11 +537,28 @@ describe('BalanceService', () => {
       expect(balanceAccountRepository.delete).not.toHaveBeenCalled();
     });
 
+    it('takes the accounting wording off the lines both charts share', async () => {
+      balanceAccountRepository.find.mockResolvedValue([
+        { id: 'a-cash', code: 'ASSET_CASH', name: 'III. Деньги', nameEn: 'III. Cash', nameKk: null, parentId: null, position: 2, workspaceId: 'ws-1' },
+      ]);
+
+      await service.applyPersonalLayout('user-1', 'ws-1');
+
+      expect(balanceAccountRepository.update).toHaveBeenCalledWith(
+        { id: 'a-cash', workspaceId: 'ws-1' },
+        expect.objectContaining({ name: 'Деньги', nameEn: 'Cash', position: 0 }),
+      );
+    });
+
     it('changes nothing the second time it is run', async () => {
       balanceAccountRepository.find.mockResolvedValue(
         PERSONAL_BALANCE_ACCOUNTS.map(definition => ({
           id: `acc-${definition.code}`,
           code: definition.code,
+          name: definition.name,
+          nameEn: definition.nameEn,
+          nameKk: definition.nameKk,
+          position: definition.position,
           parentId: definition.parentCode ? `acc-${definition.parentCode}` : null,
           workspaceId: 'ws-1',
         })),

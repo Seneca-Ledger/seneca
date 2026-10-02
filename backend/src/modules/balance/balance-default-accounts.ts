@@ -343,9 +343,14 @@ export const ACCOUNTING_TO_PERSONAL_SECTION: Record<string, string> = {
   ASSET_INTANGIBLE: 'ASSET_OTHER',
   ASSET_INVENTORY: 'ASSET_OTHER',
   ASSET_RECEIVABLES: 'ASSET_OTHER',
-  EQUITY_AUTHORIZED: 'EQUITY_SECTION',
-  EQUITY_ADDITIONAL: 'EQUITY_SECTION',
 };
+
+/**
+ * Share capital is a company's idea of where its money came from. A household
+ * has none, so an empty one is cleared away — one that somebody did put a
+ * number in stays, because the number is theirs.
+ */
+export const ACCOUNTING_ONLY_LINES = ['EQUITY_AUTHORIZED', 'EQUITY_ADDITIONAL'];
 
 /** Sections of the accounting chart that the household one has no use for. */
 export const ACCOUNTING_ONLY_SECTIONS = [

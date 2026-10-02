@@ -558,6 +558,27 @@ describe('NetWorthService', () => {
       expect(result.attribution.byKind).toEqual([{ kind: 'fx', amount: 1000 }]);
     });
 
+    it('does not blame the rate for a line it could not value at the start', async () => {
+      const { service } = createService({
+        snapshots: [
+          { accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 10, currency: 'EUR' },
+        ],
+        // The provider only starts quoting EUR halfway through the window.
+        rates: { EUR: [{ date: daysAgo(30), rate: 500 }] },
+      });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+      const byKind = Object.fromEntries(
+        result.attribution.byKind.map(row => [row.kind, row.amount]),
+      );
+
+      // The line appeared in the figures because a rate appeared, not because
+      // a rate moved: nothing may be charged to the currency.
+      expect(result.change).toBe(5000);
+      expect(byKind.fx ?? 0).toBe(0);
+      expect(byKind.revaluation).toBe(5000);
+    });
+
     it('calls money paid into an investment account a contribution, not a gain', async () => {
       const { service } = createService({
         accounts: [

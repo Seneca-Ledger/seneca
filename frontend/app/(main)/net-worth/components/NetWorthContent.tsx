@@ -31,6 +31,18 @@ import { ASSET_CLASS_KEYS, InvestmentsCard } from './InvestmentsCard';
 import { NetWorthChart } from './NetWorthChart';
 import { RiskCard } from './RiskCard';
 
+/**
+ * MUI colours a toggle button near-black whatever the palette says, which is
+ * invisible on this page's dark surface. The chips beside it are themed; these
+ * have to be told.
+ */
+const toggleSx = {
+  px: 1.5,
+  textTransform: 'none',
+  color: 'text.secondary',
+  '&.Mui-selected': { color: 'text.primary' },
+} as const;
+
 function daysBetween(from: string, to: string): number {
   return Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000));
 }
@@ -106,7 +118,7 @@ function RangeControls({
           aria-label={t.title.value}
         >
           {NET_WORTH_RANGES.map(option => (
-            <ToggleButton key={option} value={option} sx={{ px: 1.5, textTransform: 'none' }}>
+            <ToggleButton key={option} value={option} sx={toggleSx}>
               {option === 'all' ? t.rangeAll : option.toUpperCase().replace('180D', '6M')}
             </ToggleButton>
           ))}
@@ -125,10 +137,10 @@ function RangeControls({
           value={view}
           onChange={(_event, next: NetWorthView | null) => next && setView(next)}
         >
-          <ToggleButton value="performance" sx={{ px: 1.5, textTransform: 'none' }}>
+          <ToggleButton value="performance" sx={toggleSx}>
             {t.viewPerformance}
           </ToggleButton>
-          <ToggleButton value="breakdown" sx={{ px: 1.5, textTransform: 'none' }}>
+          <ToggleButton value="breakdown" sx={toggleSx}>
             {t.viewBreakdown}
           </ToggleButton>
         </ToggleButtonGroup>

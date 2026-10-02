@@ -63,6 +63,7 @@ type BalanceSheetResponse = {
   missingRates?: string[];
   /** True when this household sheet is still laid out as a company's. */
   personalLayoutAvailable?: boolean;
+  profile?: 'home' | 'business';
 };
 
 const resolveLocale = (locale: string): string => {
@@ -484,7 +485,9 @@ function BalanceSheet(): React.JSX.Element {
   }
 
   const balanceWarning = useMemo(() => {
-    if (!sheet || sheet.isBalanced) return null;
+    // A household keeps no equity side, so assets minus debts is its net
+    // worth, not a book that fails to balance.
+    if (!sheet || sheet.isBalanced || sheet.profile === 'home') return null;
     return `${text('balanceDifference', 'Balance difference')}: ${formatCurrency(sheet.difference)}`;
   }, [formatCurrency, sheet, text]);
 

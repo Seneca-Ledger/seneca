@@ -460,9 +460,19 @@ export class NetWorthService {
       for (const code of new Set([...opening.keys(), ...closing.keys(), ...paidIn.keys()])) {
         const before = opening.get(code) ?? 0;
         const after = closing.get(code) ?? 0;
-        own += (after - before) * rate(code, from);
-        rates += after * (rate(code, to) - rate(code, from));
-        contributed += (paidIn.get(code) ?? 0) * rate(code, from);
+        const opened = rate(code, from);
+        const closed = rate(code, to);
+
+        if (opened > 0 && closed > 0) {
+          own += (after - before) * opened;
+          rates += after * (closed - opened);
+        } else {
+          // No rate at one end of the window: there is no rate *move* to speak
+          // of, and calling the whole thing a currency effect would be a lie.
+          // The line simply was not valuable here before, or is not now.
+          own += after * closed - before * opened;
+        }
+        contributed += (paidIn.get(code) ?? 0) * (opened > 0 ? opened : closed);
       }
 
       const moved = leaf.code === CASH_ACCOUNT_CODE ? own : contributed;
