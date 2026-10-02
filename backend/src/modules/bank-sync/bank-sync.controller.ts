@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
@@ -17,6 +18,7 @@ import { WorkspaceContextGuard } from '../../common/guards/workspace-context.gua
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BankSyncService } from './bank-sync.service';
+import { BankSyncErrorFilter } from './bank-sync-error.filter';
 import { BankSyncPullService } from './bank-sync-pull.service';
 import {
   BeginLinkDto,
@@ -30,6 +32,7 @@ import {
 } from './dto/bank-sync.dto';
 
 @Controller('integrations/bank-sync')
+@UseFilters(BankSyncErrorFilter)
 export class BankSyncController {
   constructor(
     private readonly connections: BankSyncService,

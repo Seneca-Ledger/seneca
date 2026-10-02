@@ -26,6 +26,8 @@ export enum IntegrationProvider {
   IMAP = 'imap',
   /** Bank sync through the user's own SimpleFIN Bridge account. */
   SIMPLEFIN = 'simplefin',
+  /** Bank sync through the user's own Enable Banking application. */
+  ENABLEBANKING = 'enablebanking',
 }
 
 export enum IntegrationStatus {

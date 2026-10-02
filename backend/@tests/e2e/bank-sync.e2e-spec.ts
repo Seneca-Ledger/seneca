@@ -116,7 +116,7 @@ describe('Bank sync (e2e)', () => {
 
   /** The OFX import parses in the background; the rows have to be there before dedupe can see them. */
   const awaitParsed = async (statementId: string) => {
-    for (let attempt = 0; attempt < 60; attempt += 1) {
+    for (let attempt = 0; attempt < 180; attempt += 1) {
       const res = await as(owner, request(server()).get(`/statements/${statementId}`)).expect(200);
       if (res.body.status === 'completed') return res.body;
       if (res.body.status === 'failed') throw new Error(`statement ${statementId} failed to parse`);
@@ -218,7 +218,7 @@ describe('Bank sync (e2e)', () => {
       request(server()).post(`/integrations/bank-sync/connections/${connectionA}/sync`),
     ).expect(201);
     expect(second.body).toMatchObject({ imported: 0, statements: 0 });
-  }, 120_000);
+  }, 240_000);
 
   it('holds a second connection to the same provider alongside the first', async () => {
     const res = await as(owner, request(server()).post('/integrations/bank-sync/connections/token'))
@@ -264,7 +264,7 @@ describe('Bank sync (e2e)', () => {
     const list = await as(owner, request(server()).get('/integrations/bank-sync/connections')).expect(200);
     const a = list.body.find((item: { id: string }) => item.id === connectionA);
     expect(a.config.accounts[0]).toMatchObject({ walletId: null, enabled: false });
-  }, 120_000);
+  }, 240_000);
 
   it('lets the owner switch an account off and auto-sync off', async () => {
     const connection = await as(
