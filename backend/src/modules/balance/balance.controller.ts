@@ -78,6 +78,12 @@ export class BalanceController {
     return this.balanceService.updateSnapshot(user.id, workspaceId, dto);
   }
 
+  @Post('personal-layout')
+  @WorkspaceAuth(Permission.REPORT_VIEW)
+  async applyPersonalLayout(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.balanceService.applyPersonalLayout(user.id, workspaceId);
+  }
+
   @Get('accounts/:id/history')
   @WorkspaceAuth(Permission.REPORT_VIEW)
   async getAccountHistory(

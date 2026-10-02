@@ -202,6 +202,65 @@ describe('Net worth truth (e2e)', () => {
     expect(valueOn(after.body, daysAgo(398))).toBeGreaterThanOrEqual(5000);
   });
 
+  it('lays a household workspace out in its own words, keeping what it holds', async () => {
+    const home = await as(owner, request(server()).post('/workspaces'))
+      .send({ name: `Household ${stamp}`, profile: 'home' })
+      .expect(201);
+    const homeWorkspaceId = home.body.id ?? home.body.data?.id;
+    const asHome = (req: request.Test) =>
+      req.set('Authorization', `Bearer ${owner.token}`).set('x-workspace-id', homeWorkspaceId);
+
+    // A new household workspace is already in its own words.
+    const sheet = await asHome(request(server()).get('/reports/balance/sheet')).expect(200);
+    const codes = sheet.body.assets.sections.map((section: { code: string }) => section.code);
+    expect(codes).toEqual(
+      expect.arrayContaining(['ASSET_CASH', 'ASSET_REAL_ESTATE', 'ASSET_VEHICLES']),
+    );
+    expect(codes).not.toContain('ASSET_NON_CURRENT');
+    expect(sheet.body.personalLayoutAvailable).toBe(false);
+  });
+
+  it('offers the household layout to a workspace still filed as a company, and moves it', async () => {
+    // Seeded as a business, then turned into a household: the sheet is still
+    // the accounting one, and that is exactly the case the switch is for.
+    const created = await as(owner, request(server()).post('/workspaces'))
+      .send({ name: `Was business ${stamp}` })
+      .expect(201);
+    const workspaceId = created.body.id ?? created.body.data?.id;
+    const asIt = (req: request.Test) =>
+      req.set('Authorization', `Bearer ${owner.token}`).set('x-workspace-id', workspaceId);
+
+    const before = await asIt(request(server()).get('/reports/balance/sheet')).expect(200);
+    const fixed = findAccountId(before.body, 'ASSET_FIXED');
+    await asIt(request(server()).put('/reports/balance/snapshot'))
+      .send({ accountId: fixed, amount: 7500, currency: 'KZT', date: daysAgo(5) })
+      .expect(200);
+
+    await as(owner, request(server()).patch(`/workspaces/${workspaceId}`))
+      .send({ profile: 'home' })
+      .expect(200);
+    const offered = await asIt(request(server()).get('/reports/balance/sheet')).expect(200);
+    expect(offered.body.personalLayoutAvailable).toBe(true);
+
+    await asIt(request(server()).post('/reports/balance/personal-layout')).expect(201);
+
+    const after = await asIt(request(server()).get('/reports/balance/sheet')).expect(200);
+    const sections = after.body.assets.sections.map((section: { code: string }) => section.code);
+    expect(sections).not.toContain('ASSET_NON_CURRENT');
+    expect(sections).toContain('ASSET_OTHER');
+    expect(after.body.personalLayoutAvailable).toBe(false);
+    // The 7 500 did not go anywhere, it just sits under a readable heading now.
+    expect(after.body.assets.total).toBe(7500);
+    const history = await asIt(
+      request(server()).get(`/reports/balance/accounts/${fixed}/history`),
+    ).expect(200);
+    expect(history.body).toEqual([{ date: daysAgo(5), amount: 7500, currency: 'KZT' }]);
+
+    // And running it again changes nothing.
+    const again = await asIt(request(server()).post('/reports/balance/personal-layout')).expect(201);
+    expect(again.body.moved).toBe(0);
+  });
+
   it('repeating the delete of a day that holds nothing is not an error', async () => {
     const res = await as(
       owner,
@@ -225,6 +284,9 @@ function findAccountId(nodes: unknown, code: string): string {
     }
     return null;
   };
-  const payload = nodes as { assets?: AccountNode[] };
-  return walk(payload.assets ?? []) ?? '';
+  // `/accounts` answers with the sections directly, `/sheet` wraps them.
+  const payload = nodes as { assets?: AccountNode[] | { sections?: AccountNode[] } };
+  const assets = payload.assets;
+  const list = Array.isArray(assets) ? assets : (assets?.sections ?? []);
+  return walk(list) ?? '';
 }

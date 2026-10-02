@@ -1,5 +1,8 @@
 import { BalanceAccountSubType, BalanceAccountType, type BalanceSnapshot } from '@/entities';
-import { DEFAULT_BALANCE_ACCOUNTS } from '@/modules/balance/balance-default-accounts';
+import {
+  DEFAULT_BALANCE_ACCOUNTS,
+  PERSONAL_BALANCE_ACCOUNTS,
+} from '@/modules/balance/balance-default-accounts';
 import { BalanceService } from '@/modules/balance/balance.service';
 import { BadRequestException } from '@nestjs/common';
 
@@ -33,6 +36,8 @@ function createRepoMock() {
     create: jest.fn((input: unknown) => input),
     save: jest.fn(async (input: unknown) => input),
     remove: jest.fn(async (input: unknown) => input),
+    update: jest.fn(async () => ({ affected: 1 })),
+    delete: jest.fn(async () => ({ affected: 1 })),
     createQueryBuilder: jest.fn(),
   };
   const manager = {
@@ -86,6 +91,34 @@ describe('BalanceService', () => {
     expect(balanceAccountRepository.save).toHaveBeenCalledTimes(DEFAULT_BALANCE_ACCOUNTS.length);
     const savedCodes = balanceAccountRepository.save.mock.calls.map((call: any[]) => call[0].code);
     expect(savedCodes).toEqual(DEFAULT_BALANCE_ACCOUNTS.map(account => account.code));
+  });
+
+  it('seeds the household chart for a home workspace', async () => {
+    balanceAccountRepository.count.mockResolvedValue(0);
+    workspaceRepository.findOne.mockResolvedValue({
+      currency: 'KZT',
+      settings: { profile: 'home' },
+    });
+    balanceAccountRepository.save.mockImplementation(async (input: any) => ({
+      ...input,
+      id: `acc-${input.code}`,
+    }));
+
+    await service.seedDefaultAccounts('ws-1');
+
+    const savedCodes = balanceAccountRepository.save.mock.calls.map((call: any[]) => call[0].code);
+    expect(savedCodes).toEqual(PERSONAL_BALANCE_ACCOUNTS.map(account => account.code));
+    // No Roman numerals and no "non-current assets" in a household's own sheet.
+    expect(savedCodes).not.toContain('ASSET_NON_CURRENT');
+  });
+
+  it('keeps the two codes the rest of the app looks accounts up by', () => {
+    const codes = PERSONAL_BALANCE_ACCOUNTS.map(account => account.code);
+
+    // Cash is computed from the wallets by code; investment accounts are
+    // created under the investments section by code.
+    expect(codes).toContain('ASSET_CASH');
+    expect(codes).toContain('ASSET_INVESTMENTS');
   });
 
   it('treats a concurrent-seed unique violation as success, not an error', async () => {
@@ -422,6 +455,103 @@ describe('BalanceService', () => {
       expect(series.get('2026-02-01')).toEqual(new Map([['EUR', 100], ['KZT', 7000]]));
       expect(series.get('2026-03-01')).toEqual(new Map([['EUR', 150], ['KZT', 7000]]));
       expect(builder.andWhere).toHaveBeenCalledWith('statement.deletedAt IS NULL');
+    });
+  });
+
+  describe('applyPersonalLayout', () => {
+    const accounting = [
+      { id: 'a-nc', code: 'ASSET_NON_CURRENT', parentId: null, workspaceId: 'ws-1' },
+      { id: 'a-fixed', code: 'ASSET_FIXED', parentId: 'a-nc', workspaceId: 'ws-1' },
+      { id: 'a-cash', code: 'ASSET_CASH', parentId: null, workspaceId: 'ws-1' },
+      { id: 'l-borrowed', code: 'LIABILITY_BORROWED', parentId: null, workspaceId: 'ws-1' },
+      { id: 'l-car', code: 'CUSTOM_CAR_LOAN', parentId: 'l-borrowed', workspaceId: 'ws-1' },
+    ];
+
+    beforeEach(() => {
+      workspaceRepository.findOne.mockResolvedValue({
+        currency: 'KZT',
+        settings: { profile: 'home' },
+      });
+      // Non-zero: the workspace is already seeded with the accounting chart.
+      balanceAccountRepository.count.mockResolvedValue(accounting.length);
+      balanceAccountRepository.find.mockResolvedValue(accounting);
+      balanceAccountRepository.save.mockImplementation(async (input: any) => ({
+        ...input,
+        id: `acc-${input.code}`,
+      }));
+    });
+
+    it('refuses to lay a business workspace out as a household', async () => {
+      workspaceRepository.findOne.mockResolvedValue({ currency: 'KZT', settings: {} });
+
+      await expect(service.applyPersonalLayout('user-1', 'ws-1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(balanceAccountRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('moves an accounting line under a household section instead of deleting it', async () => {
+      await service.applyPersonalLayout('user-1', 'ws-1');
+
+      // Fixed assets keep their name, their history and their value; only the
+      // heading above them changes.
+      expect(balanceAccountRepository.update).toHaveBeenCalledWith(
+        { id: 'a-fixed', workspaceId: 'ws-1' },
+        expect.objectContaining({ parentId: 'acc-ASSET_OTHER' }),
+      );
+      // A debt under "borrowed capital" becomes a debt under "loans".
+      expect(balanceAccountRepository.update).toHaveBeenCalledWith(
+        { id: 'l-car', workspaceId: 'ws-1' },
+        { parentId: 'acc-LIABILITY_LOANS' },
+      );
+    });
+
+    it('adds only the household sections the workspace does not already have', async () => {
+      await service.applyPersonalLayout('user-1', 'ws-1');
+
+      const created = balanceAccountRepository.save.mock.calls.map((call: any[]) => call[0].code);
+      expect(created).not.toContain('ASSET_CASH');
+      expect(created).toEqual(expect.arrayContaining(['ASSET_REAL_ESTATE', 'LIABILITY_MORTGAGE']));
+    });
+
+    it('clears away an accounting heading once nothing hangs under it', async () => {
+      balanceAccountRepository.count.mockImplementation(async ({ where }: any) =>
+        where.parentId ? 0 : accounting.length,
+      );
+
+      await service.applyPersonalLayout('user-1', 'ws-1');
+
+      expect(balanceAccountRepository.delete).toHaveBeenCalledWith({
+        id: 'a-nc',
+        workspaceId: 'ws-1',
+      });
+    });
+
+    it('keeps an accounting heading that still has something under it', async () => {
+      balanceAccountRepository.count.mockImplementation(async ({ where }: any) =>
+        where.parentId ? 1 : accounting.length,
+      );
+
+      await service.applyPersonalLayout('user-1', 'ws-1');
+
+      expect(balanceAccountRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('changes nothing the second time it is run', async () => {
+      balanceAccountRepository.find.mockResolvedValue(
+        PERSONAL_BALANCE_ACCOUNTS.map(definition => ({
+          id: `acc-${definition.code}`,
+          code: definition.code,
+          parentId: definition.parentCode ? `acc-${definition.parentCode}` : null,
+          workspaceId: 'ws-1',
+        })),
+      );
+
+      const result = await service.applyPersonalLayout('user-1', 'ws-1');
+
+      expect(result).toEqual({ moved: 0 });
+      expect(balanceAccountRepository.save).not.toHaveBeenCalled();
+      expect(balanceAccountRepository.update).not.toHaveBeenCalled();
     });
   });
 

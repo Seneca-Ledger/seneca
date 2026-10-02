@@ -4,6 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
 import {
+  readWorkspaceProfile,
+  type WorkspaceProfile,
+} from '../../common/utils/workspace-profile.util';
+import {
   ActorType,
   AuditAction,
   BalanceAccount,
@@ -27,7 +31,12 @@ import {
 } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { loadPdfMake } from '../reports/report-document.util';
-import { DEFAULT_BALANCE_ACCOUNTS } from './balance-default-accounts';
+import {
+  ACCOUNTING_ONLY_SECTIONS,
+  ACCOUNTING_TO_PERSONAL_SECTION,
+  defaultAccountsFor,
+  PERSONAL_BALANCE_ACCOUNTS,
+} from './balance-default-accounts';
 import type { CreateBalanceAccountDto } from './dto/create-balance-account.dto';
 import { BalanceExportFormat, type ExportBalanceDto } from './dto/export-balance.dto';
 import type { UpdateAccountClassificationDto } from './dto/update-account-classification.dto';
@@ -66,6 +75,8 @@ type BalanceSheetResponse = {
   isBalanced: boolean;
   /** Currencies left out of the totals because no rate to `currency` was found. */
   missingRates: string[];
+  /** True when this household sheet is still laid out as a company's. */
+  personalLayoutAvailable: boolean;
 };
 
 /** One leg of a paired transfer, as the cash walk reads it. */
@@ -693,11 +704,22 @@ export class BalanceService {
     });
   }
 
+  /**
+   * Gives a workspace its chart of accounts the first time anything reads it.
+   * Which chart depends on the profile: a household gets the one written in
+   * its own words, a business the one it files with.
+   */
   async seedDefaultAccounts(workspaceId: string): Promise<void> {
     const existing = await this.balanceAccountRepository.count({ where: { workspaceId } });
     if (existing > 0) {
       return;
     }
+
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: ['id', 'settings'],
+    });
+    const definitions = defaultAccountsFor(readWorkspaceProfile(workspace));
 
     // Сидим в одной транзакции: два одновременных первых захода в новый воркспейс
     // оба проходили count===0, и проигравший падал на UQ_balance_accounts_workspace_code
@@ -707,7 +729,7 @@ export class BalanceService {
         const accounts = manager.getRepository(BalanceAccount);
         const parentByCode = new Map<string, BalanceAccount>();
 
-        for (const definition of DEFAULT_BALANCE_ACCOUNTS) {
+        for (const definition of definitions) {
           const parentId = definition.parentCode
             ? (parentByCode.get(definition.parentCode)?.id ?? null)
             : null;
@@ -754,7 +776,7 @@ export class BalanceService {
 
     const snapshotDate = this.resolveDate(date);
 
-    const [accounts, snapshotsMap, cash, retainedEarnings, currency] = await Promise.all([
+    const [accounts, snapshotsMap, cash, retainedEarnings, currency, profile] = await Promise.all([
       this.balanceAccountRepository.find({
         where: { workspaceId },
         order: {
@@ -766,6 +788,7 @@ export class BalanceService {
       this.getAutoComputedCashBalance(workspaceId, snapshotDate),
       this.getRetainedEarnings(workspaceId, snapshotDate),
       this.getWorkspaceCurrency(workspaceId),
+      this.getWorkspaceProfile(workspaceId),
     ]);
 
     const snapshotCurrency = (snapshot: BalanceSnapshot) =>
@@ -882,7 +905,20 @@ export class BalanceService {
       difference,
       isBalanced: Math.abs(difference) < 0.01,
       missingRates: converter.missing,
+      // A household still filed under the accounting chart can be moved onto
+      // the one written in its own words; the page offers it, nothing forces it.
+      personalLayoutAvailable:
+        profile === 'home' &&
+        accounts.some(account => ACCOUNTING_ONLY_SECTIONS.includes(account.code)),
     };
+  }
+
+  private async getWorkspaceProfile(workspaceId: string): Promise<WorkspaceProfile> {
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: ['id', 'settings'],
+    });
+    return readWorkspaceProfile(workspace);
   }
 
   async getAccountsTree(workspaceId: string, date?: string, locale?: string) {
@@ -893,6 +929,119 @@ export class BalanceService {
       liabilities: sheet.liabilities.sections,
       date: sheet.date,
     };
+  }
+
+  /**
+   * Rewrites an existing household workspace onto the personal chart.
+   *
+   * Nothing that holds a value is deleted: an accounting line keeps its name
+   * and its history and moves under the household section closest to it, so
+   * the allocation stops reading like a filing and starts reading like a
+   * person's things. Running it twice changes nothing the second time.
+   */
+  async applyPersonalLayout(userId: string, workspaceId: string): Promise<{ moved: number }> {
+    await this.seedDefaultAccounts(workspaceId);
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: ['id', 'settings'],
+    });
+    if (readWorkspaceProfile(workspace) !== 'home') {
+      throw new BadRequestException('The personal layout is for a home workspace');
+    }
+
+    let moved = 0;
+    await this.balanceAccountRepository.manager.transaction(async manager => {
+      const accounts = manager.getRepository(BalanceAccount);
+      const existing = await accounts.find({ where: { workspaceId } });
+      const byCode = new Map(existing.map(account => [account.code, account]));
+
+      // The household sections first: everything else is moved underneath them.
+      let position = 0;
+      for (const definition of PERSONAL_BALANCE_ACCOUNTS) {
+        position += 1;
+        const parent = definition.parentCode ? byCode.get(definition.parentCode) : null;
+        const present = byCode.get(definition.code);
+        if (present) {
+          // A code both charts use — cash, investments — but filed under an
+          // accounting heading that is about to go away.
+          const parentId = parent?.id ?? null;
+          if (present.parentId !== parentId) {
+            await accounts.update(
+              { id: present.id, workspaceId },
+              { parentId, position: definition.position },
+            );
+            present.parentId = parentId;
+            moved += 1;
+          }
+          continue;
+        }
+        const created = await accounts.save(
+          accounts.create({
+            workspaceId,
+            parentId: parent?.id ?? null,
+            code: definition.code,
+            name: definition.name,
+            nameEn: definition.nameEn,
+            nameKk: definition.nameKk,
+            accountType: definition.accountType,
+            subType: definition.subType,
+            isEditable: definition.isEditable ?? true,
+            isAutoComputed: definition.isAutoComputed ?? false,
+            autoSource: definition.autoSource ?? null,
+            position: definition.position,
+            isSystem: true,
+            isExpandable: definition.isExpandable ?? false,
+          }),
+        );
+        byCode.set(created.code, created);
+      }
+
+      for (const [from, to] of Object.entries(ACCOUNTING_TO_PERSONAL_SECTION)) {
+        const account = byCode.get(from);
+        const section = byCode.get(to);
+        if (!(account && section) || account.parentId === section.id) {
+          continue;
+        }
+        await accounts.update({ id: account.id, workspaceId }, { parentId: section.id, position });
+        position += 1;
+        moved += 1;
+      }
+
+      // A borrowed-capital section is a container: its children are the debts.
+      const borrowed = byCode.get('LIABILITY_BORROWED');
+      const loans = byCode.get('LIABILITY_LOANS');
+      if (borrowed && loans) {
+        const children = existing.filter(account => account.parentId === borrowed.id);
+        for (const child of children) {
+          await accounts.update({ id: child.id, workspaceId }, { parentId: loans.id });
+          moved += 1;
+        }
+      }
+
+      // What is left of the accounting chart is an empty heading.
+      for (const code of ACCOUNTING_ONLY_SECTIONS) {
+        const section = byCode.get(code);
+        if (!section) {
+          continue;
+        }
+        const stillUsed = await accounts.count({ where: { workspaceId, parentId: section.id } });
+        if (stillUsed === 0) {
+          await accounts.delete({ id: section.id, workspaceId });
+        }
+      }
+    });
+
+    await this.auditService.createEvent({
+      workspaceId,
+      actorType: ActorType.USER,
+      actorId: userId,
+      entityType: EntityType.WORKSPACE,
+      entityId: workspaceId,
+      action: AuditAction.UPDATE,
+      meta: { kind: 'balance_personal_layout', moved },
+    });
+
+    return { moved };
   }
 
   /**
