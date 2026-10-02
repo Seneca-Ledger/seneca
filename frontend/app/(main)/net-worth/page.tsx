@@ -1,6 +1,8 @@
 'use client';
 
 import Box from '@mui/material/Box';
+import { Suspense } from 'react';
+import { Spinner } from '@/app/components/ui/spinner';
 import { NetWorthContent } from './components/NetWorthContent';
 
 export default function NetWorthPage() {
@@ -13,7 +15,11 @@ export default function NetWorthPage() {
         flexDirection: 'column',
       }}
     >
-      <NetWorthContent />
+      {/* The window lives in the address, and `useSearchParams` needs a
+          boundary so the static shell can still prerender. */}
+      <Suspense fallback={<Spinner size={40} />}>
+        <NetWorthContent />
+      </Suspense>
     </Box>
   );
 }

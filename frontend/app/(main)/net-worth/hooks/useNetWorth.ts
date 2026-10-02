@@ -1,19 +1,41 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
 import { queryKeys } from '@/app/lib/query-keys';
 
-export type NetWorthRange = '30d' | '90d' | '180d' | '1y' | '3y' | '5y' | 'all';
+export type NetWorthRange = '1d' | '30d' | '90d' | '180d' | 'ytd' | '1y' | '3y' | '5y' | 'all';
 
-export const NET_WORTH_RANGES: NetWorthRange[] = ['30d', '90d', '180d', '1y', '3y', '5y', 'all'];
+export const NET_WORTH_RANGES: NetWorthRange[] = [
+  '1d',
+  '30d',
+  '90d',
+  '180d',
+  'ytd',
+  '1y',
+  '3y',
+  '5y',
+  'all',
+];
+
+/** Which shape of the same window the user is looking at. */
+export type NetWorthView = 'performance' | 'breakdown';
+
+/** A window of the user's own choosing, which overrides the preset. */
+export interface NetWorthCustomRange {
+  from: string;
+  to: string;
+}
 
 export interface NetWorthPoint {
   date: string;
   value: number;
+  assets: number;
+  liabilities: number;
 }
 
 export interface NetWorthBreakdownItem {
@@ -50,6 +72,9 @@ export interface NetWorthAssetLine {
 
 export interface NetWorthData {
   range: NetWorthRange;
+  /** The window actually charted, whichever way it was chosen. */
+  from: string;
+  to: string;
   currency: string;
   current: number;
   previous: number;
@@ -82,7 +107,11 @@ interface NetWorthState {
   isFetching: boolean;
   error: boolean;
   range: NetWorthRange;
+  custom: NetWorthCustomRange | null;
+  view: NetWorthView;
   setRange: (range: NetWorthRange) => void;
+  setCustom: (custom: NetWorthCustomRange | null) => void;
+  setView: (view: NetWorthView) => void;
   refetch: () => void;
   classify: (accountId: string, patch: ClassificationPatch) => void;
 }
@@ -101,14 +130,56 @@ function applyPatch(
 export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState {
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
-  const [range, setRange] = useState<NetWorthRange>(initialRange);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const queryKey = queryKeys.netWorth({ workspaceId, range });
+  // The window lives in the address, so a view can be linked to and survives
+  // leaving the page and coming back.
+  const from = searchParams.get('from');
+  const to = searchParams.get('to');
+  const custom: NetWorthCustomRange | null = from && to ? { from, to } : null;
+  const range = (searchParams.get('range') as NetWorthRange | null) ?? initialRange;
+  const view = searchParams.get('view') === 'breakdown' ? 'breakdown' : 'performance';
+
+  const writeParams = useCallback(
+    (patch: Record<string, string | null>): void => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null) {
+          next.delete(key);
+        } else {
+          next.set(key, value);
+        }
+      }
+      const query = next.toString();
+      router.replace(query ? `?${query}` : '?', { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const setRange = useCallback(
+    (next: NetWorthRange): void => writeParams({ range: next, from: null, to: null }),
+    [writeParams],
+  );
+  const setCustom = useCallback(
+    (next: NetWorthCustomRange | null): void =>
+      writeParams(next ? { from: next.from, to: next.to } : { from: null, to: null }),
+    [writeParams],
+  );
+  const setView = useCallback(
+    (next: NetWorthView): void => writeParams({ view: next }),
+    [writeParams],
+  );
+
+  const params = custom ? { from: custom.from, to: custom.to } : { range };
+  const queryKey = queryKeys.netWorth({
+    workspaceId,
+    range: custom ? `${custom.from}:${custom.to}` : range,
+  });
 
   const query = useQuery({
     queryKey,
-    queryFn: ({ signal }) =>
-      apiQuery<NetWorthData>({ url: '/reports/net-worth', params: { range }, signal }),
+    queryFn: ({ signal }) => apiQuery<NetWorthData>({ url: '/reports/net-worth', params, signal }),
     // Смена периода не должна гасить карточки: данные прошлого запроса живут
     // на экране до прихода новых, но только внутри того же воркспейса.
     placeholderData: (previous, previousQuery) =>
@@ -148,7 +219,11 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
     isFetching: query.isFetching || classifyMutation.isPending,
     error: query.isError || classifyMutation.isError,
     range,
+    custom,
+    view,
     setRange,
+    setCustom,
+    setView,
     refetch,
     classify,
   };

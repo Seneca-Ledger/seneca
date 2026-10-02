@@ -12,8 +12,14 @@ import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
-import { NET_WORTH_RANGES, type NetWorthRange, useNetWorth } from '../hooks/useNetWorth';
+import {
+  NET_WORTH_RANGES,
+  type NetWorthRange,
+  type NetWorthView,
+  useNetWorth,
+} from '../hooks/useNetWorth';
 import { AllocationCard } from './AllocationCard';
+import { CustomRange } from './CustomRange';
 import { ASSET_CLASS_KEYS, InvestmentsCard } from './InvestmentsCard';
 import { NetWorthChart } from './NetWorthChart';
 import { RiskCard } from './RiskCard';
@@ -50,11 +56,91 @@ function NetWorthSkeleton(): React.JSX.Element {
   );
 }
 
+type RangeControlsProps = {
+  range: NetWorthRange;
+  custom: ReturnType<typeof useNetWorth>['custom'];
+  view: NetWorthView;
+  data: { from: string; to: string } | undefined;
+  setRange: (range: NetWorthRange) => void;
+  setCustom: ReturnType<typeof useNetWorth>['setCustom'];
+  setView: (view: NetWorthView) => void;
+  t: ReturnType<typeof useIntlayer<'netWorthPage'>>;
+};
+
+/** Which window, and which shape of it. */
+function RangeControls({
+  range,
+  custom,
+  view,
+  data,
+  setRange,
+  setCustom,
+  setView,
+  t,
+}: RangeControlsProps): React.JSX.Element {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'flex-end' }}>
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={custom ? null : range}
+          onChange={(_event, next: NetWorthRange | null) => next && setRange(next)}
+          aria-label={t.title.value}
+        >
+          {NET_WORTH_RANGES.map(option => (
+            <ToggleButton key={option} value={option} sx={{ px: 1.5, textTransform: 'none' }}>
+              {option === 'all' ? t.rangeAll : option.toUpperCase().replace('180D', '6M')}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={view}
+          onChange={(_event, next: NetWorthView | null) => next && setView(next)}
+        >
+          <ToggleButton value="performance" sx={{ px: 1.5, textTransform: 'none' }}>
+            {t.viewPerformance}
+          </ToggleButton>
+          <ToggleButton value="breakdown" sx={{ px: 1.5, textTransform: 'none' }}>
+            {t.viewBreakdown}
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
+      <CustomRange
+        value={custom}
+        fallback={data ? { from: data.from, to: data.to } : null}
+        onChange={setCustom}
+        labels={{
+          custom: t.rangeCustom.value,
+          from: t.rangeFrom.value,
+          to: t.rangeTo.value,
+        }}
+      />
+    </Box>
+  );
+}
+
 export function NetWorthContent() {
   const t = useIntlayer('netWorthPage');
   useAttentionFocus();
   const { locale } = useLocale();
-  const { data, isPending, isFetching, error, range, setRange, classify } = useNetWorth();
+  const {
+    data,
+    isPending,
+    isFetching,
+    error,
+    range,
+    custom,
+    view,
+    setRange,
+    setCustom,
+    setView,
+    classify,
+  } = useNetWorth();
 
   const currency = data?.currency ?? 'KZT';
   const isPositive = (data?.change ?? 0) >= 0;
@@ -81,19 +167,16 @@ export function NetWorthContent() {
           </Typography>
         </Box>
 
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={range}
-          onChange={(_event, next: NetWorthRange | null) => next && setRange(next)}
-          aria-label={t.title.value}
-        >
-          {NET_WORTH_RANGES.map(option => (
-            <ToggleButton key={option} value={option} sx={{ px: 1.5, textTransform: 'none' }}>
-              {option === 'all' ? t.rangeAll : option.toUpperCase().replace('180D', '6M')}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+        <RangeControls
+          range={range}
+          custom={custom}
+          view={view}
+          data={data}
+          setRange={setRange}
+          setCustom={setCustom}
+          setView={setView}
+          t={t}
+        />
       </Box>
 
       {isPending && <NetWorthSkeleton />}
@@ -166,7 +249,13 @@ export function NetWorthContent() {
                 <NetWorthChart
                   points={data.series}
                   positive={isPositive}
+                  view={view}
                   formatValue={value => formatMoney(value, currency, locale)}
+                  labels={{
+                    assets: t.assets.value,
+                    liabilities: t.liabilities.value,
+                    net: t.title.value,
+                  }}
                 />
               </Box>
             ) : (
