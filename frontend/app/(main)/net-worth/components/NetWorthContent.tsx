@@ -348,10 +348,12 @@ export function NetWorthContent() {
           {data.attribution && (
             <AttributionCard
               attribution={data.attribution}
+              savings={data.savings ?? null}
               formatMoney={value => formatMoney(value, currency, locale)}
               labels={{
                 title: t.changeTitle.value,
                 hint: t.changeHint.value,
+                savings: t.savingsRate.value,
                 kinds: {
                   money: t.changeMoney.value,
                   revaluation: t.changeRevaluation.value,

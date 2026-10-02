@@ -52,6 +52,8 @@ function createService(options: {
   snapshots?: SnapshotSeed[];
   /** Cash per currency; a function of the day when it has to move. */
   cash?: Record<string, number | ((date: string) => number)>;
+  /** Money that came in, by day. */
+  income?: Record<string, { amount: number; currency?: string }>;
   /** What was paid into an account during the window, by currency. */
   contributions?: Record<string, Record<string, number>>;
   /** Rate curve to KZT by currency; absent means no rate at all. */
@@ -81,10 +83,29 @@ function createService(options: {
   };
 
   const transactionQueryBuilder: any = {
-    select: jest.fn(() => transactionQueryBuilder),
-    where: jest.fn(() => transactionQueryBuilder),
     getRawOne: jest.fn(async () => ({ earliest: null })),
+    // The income walk groups by day and currency; the earliest-date lookup
+    // takes a single row. Both run through the same builder.
+    getRawMany: jest.fn(async () =>
+      Object.entries(options.income ?? {}).map(([date, row]) => ({
+        date,
+        currency: row.currency ?? 'KZT',
+        credit: String(row.amount),
+      })),
+    ),
   };
+  for (const method of [
+    'select',
+    'addSelect',
+    'leftJoin',
+    'where',
+    'andWhere',
+    'groupBy',
+    'addGroupBy',
+    'orderBy',
+  ]) {
+    transactionQueryBuilder[method] = jest.fn(() => transactionQueryBuilder);
+  }
 
   const balanceService = {
     seedDefaultAccounts: jest.fn(async () => undefined),
@@ -598,6 +619,41 @@ describe('NetWorthService', () => {
       expect(result.change).toBe(0);
       expect(result.attribution.byAccount).toEqual([]);
       expect(result.attribution.byKind).toEqual([]);
+    });
+  });
+
+  describe('savings rate', () => {
+    it('is the share of what came in that was still there at the end', async () => {
+      const { service } = createService({
+        income: { [daysAgo(20)]: { amount: 1000 } },
+        // 1000 came in, 600 of it is still here.
+        cash: { KZT: date => (date >= daysAgo(20) ? 1600 : 1000) },
+      });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+
+      expect(result.savings.income).toBe(1000);
+      expect(result.savings.kept).toBe(600);
+      expect(result.savings.rate).toBe(60);
+    });
+
+    it('says nothing rather than zero when nothing came in', async () => {
+      const { service } = createService({ cash: { KZT: 1000 } });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+
+      expect(result.savings).toEqual({ income: 0, kept: 0, rate: null });
+    });
+
+    it('counts a month of overspending as a negative rate, not as nothing', async () => {
+      const { service } = createService({
+        income: { [daysAgo(20)]: { amount: 1000 } },
+        cash: { KZT: date => (date >= daysAgo(20) ? 800 : 1000) },
+      });
+
+      const result = await service.getNetWorth(WORKSPACE_ID, { range: '90d' });
+
+      expect(result.savings.rate).toBe(-20);
     });
   });
 

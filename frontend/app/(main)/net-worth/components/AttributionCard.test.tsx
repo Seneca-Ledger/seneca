@@ -7,6 +7,7 @@ import { AttributionCard } from './AttributionCard';
 const labels = {
   title: 'What changed it',
   hint: 'The rows add up to the change.',
+  savings: '{{rate}}% of {{income}} kept',
   kinds: { money: 'Money', revaluation: 'Revaluation', fx: 'Exchange rate' },
 };
 
@@ -23,6 +24,7 @@ describe('AttributionCard', () => {
           ],
           byKind: [{ kind: 'money', amount: 380 }],
         }}
+        savings={null}
         formatMoney={money}
         labels={labels}
       />,
@@ -45,6 +47,7 @@ describe('AttributionCard', () => {
             { kind: 'fx', amount: 15 },
           ],
         }}
+        savings={null}
         formatMoney={money}
         labels={labels}
       />,
@@ -55,10 +58,43 @@ describe('AttributionCard', () => {
     expect(screen.getByText('Exchange rate')).toBeInTheDocument();
   });
 
+  it('says what share of what came in was kept', () => {
+    render(
+      <AttributionCard
+        attribution={{
+          byAccount: [{ id: 'a', code: 'ASSET_CASH', name: 'Cash', amount: 600 }],
+          byKind: [{ kind: 'money', amount: 600 }],
+        }}
+        savings={{ income: 1000, rate: 60 }}
+        formatMoney={money}
+        labels={labels}
+      />,
+    );
+
+    expect(screen.getByText('60% of 1000 T kept')).toBeInTheDocument();
+  });
+
+  it('says nothing about saving when nothing came in', () => {
+    render(
+      <AttributionCard
+        attribution={{
+          byAccount: [{ id: 'a', code: 'ASSET_CASH', name: 'Cash', amount: 600 }],
+          byKind: [{ kind: 'money', amount: 600 }],
+        }}
+        savings={{ income: 0, rate: null }}
+        formatMoney={money}
+        labels={labels}
+      />,
+    );
+
+    expect(screen.queryByText(/kept/)).not.toBeInTheDocument();
+  });
+
   it('shows nothing at all when nothing moved', () => {
     const { container } = render(
       <AttributionCard
         attribution={{ byAccount: [], byKind: [] }}
+        savings={null}
         formatMoney={money}
         labels={labels}
       />,

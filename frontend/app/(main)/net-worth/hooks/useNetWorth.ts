@@ -111,6 +111,8 @@ export interface NetWorthData {
   byAssetClass?: NetWorthClassificationItem[];
   /** What made the change over the window. */
   attribution?: NetWorthAttribution;
+  /** What came in over the window and the share of it kept. */
+  savings?: { income: number; kept: number; rate: number | null };
 }
 
 export type ClassificationPatch = {

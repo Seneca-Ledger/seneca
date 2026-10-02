@@ -102,6 +102,12 @@ export interface NetWorthResponse {
   excluded: string[];
   /** What made the change over the window, by line and by cause. */
   attribution: NetWorthAttribution;
+  /**
+   * What came in over the window and what share of it was kept. `rate` is
+   * null when nothing came in — a share of nothing is not zero, it is
+   * nothing to say.
+   */
+  savings: { income: number; kept: number; rate: number | null };
   /** The highest sampled net worth over the whole history, and when. */
   allTimeHigh: { value: number; date: string } | null;
   /** Investment holdings by asset class; cash and the other sheet lines keep their own buckets. */
@@ -287,6 +293,14 @@ export class NetWorthService {
       locale,
     });
 
+    const savings = await this.buildSavings({
+      workspaceId,
+      converter,
+      from: windowFrom,
+      to,
+      kept: attribution.byKind.find(row => row.kind === 'money')?.amount ?? 0,
+    });
+
     // The high is a property of the whole history, not of the window shown.
     const allTimeHigh = highestPoint(daily);
     const byAssetClass = await this.buildAssetClasses(
@@ -345,6 +359,7 @@ export class NetWorthService {
       missingRates: converter.missing,
       excluded: [...excluded],
       attribution,
+      savings,
       allTimeHigh,
       byAssetClass,
     };
@@ -484,6 +499,58 @@ export class NetWorthService {
     ].filter(row => row.amount !== 0);
 
     return { byAccount: rows, byKind };
+  }
+
+  /**
+   * What came in over the window, and the share of it still there at the end.
+   *
+   * `kept` is the money the attribution already found: everything that came
+   * in from outside minus everything that went out, with moves between the
+   * user's own accounts cancelling. Against income that is the savings rate,
+   * the one number the whole early-retirement literature is about.
+   *
+   * Income is counted on the day it arrived, at that day's rate, and a leg of
+   * a transfer or a reimbursement is not income however it is booked.
+   */
+  private async buildSavings(input: {
+    workspaceId: string;
+    converter: CurrencyConverter;
+    from: string;
+    to: string;
+    kept: number;
+  }): Promise<NetWorthResponse['savings']> {
+    const { workspaceId, converter, from, to, kept } = input;
+    const rows = await this.transactionRepository
+      .createQueryBuilder('transaction')
+      .leftJoin('transaction.statement', 'statement')
+      .select('transaction.transactionDate', 'date')
+      .addSelect('transaction.currency', 'currency')
+      .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
+      .where('transaction.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('transaction.transactionDate > :from', { from })
+      .andWhere('transaction.transactionDate <= :to', { to })
+      .andWhere('transaction.transferPairId IS NULL')
+      .andWhere('transaction.isDuplicate = false')
+      .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
+      .groupBy('transaction.transactionDate')
+      .addGroupBy('transaction.currency')
+      .getRawMany<{ date: string; currency: string; credit: string }>();
+
+    let income = 0;
+    for (const row of rows) {
+      income += converter.convert(
+        toNumber(row.credit),
+        normalizeCurrencyCode(row.currency || converter.target),
+        isoDate(new Date(row.date)),
+      );
+    }
+
+    const rounded = round2(income);
+    return {
+      income: rounded,
+      kept,
+      rate: rounded > 0 ? round2((kept / rounded) * 100) : null,
+    };
   }
 
   /** Asset totals grouped under the top-level section each leaf belongs to. */

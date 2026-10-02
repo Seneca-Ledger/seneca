@@ -7,10 +7,13 @@ import type { NetWorthAttribution, NetWorthChangeKind } from '../hooks/useNetWor
 
 interface AttributionCardProps {
   attribution: NetWorthAttribution;
+  /** Null when nothing came in: a share of nothing is nothing to say. */
+  savings: { income: number; rate: number | null } | null;
   formatMoney: (value: number) => string;
   labels: {
     title: string;
     hint: string;
+    savings: string;
     kinds: Record<NetWorthChangeKind, string>;
   };
 }
@@ -26,6 +29,7 @@ interface AttributionCardProps {
  */
 export function AttributionCard({
   attribution,
+  savings,
   formatMoney,
   labels,
 }: AttributionCardProps): React.JSX.Element | null {
@@ -55,6 +59,14 @@ export function AttributionCard({
       <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
         {labels.hint}
       </Typography>
+
+      {savings?.rate !== null && savings !== null && (
+        <Typography variant="body2" sx={{ fontWeight: 600, mb: 2 }}>
+          {labels.savings
+            .replace('{{rate}}', String(savings.rate))
+            .replace('{{income}}', formatMoney(savings.income))}
+        </Typography>
+      )}
 
       {attribution.byKind.length > 0 && (
         <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 2 }}>
