@@ -54,6 +54,21 @@ export const RISK_LEVELS: RiskLevel[] = ['low', 'medium', 'high'];
 /** The share of assets above which the 80/20 rule is considered broken. */
 export const RISKY_ALLOCATION_THRESHOLD = 20;
 
+/** What one line, or the rates, did to the number over the window. */
+export interface NetWorthAttributionRow {
+  id: string;
+  code: string;
+  name: string;
+  amount: number;
+}
+
+export type NetWorthChangeKind = 'money' | 'revaluation' | 'fx';
+
+export interface NetWorthAttribution {
+  byAccount: NetWorthAttributionRow[];
+  byKind: Array<{ kind: NetWorthChangeKind; amount: number }>;
+}
+
 export interface NetWorthClassificationItem {
   key: string | null;
   amount: number;
@@ -94,6 +109,8 @@ export interface NetWorthData {
   allTimeHigh?: { value: number; date: string } | null;
   /** Investment holdings by asset class, plus cash and the other sheet lines. */
   byAssetClass?: NetWorthClassificationItem[];
+  /** What made the change over the window. */
+  attribution?: NetWorthAttribution;
 }
 
 export type ClassificationPatch = {

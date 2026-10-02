@@ -23,6 +23,7 @@ import {
 import { setNetWorthDisplay, useNetWorthDisplay } from '../net-worth-display';
 import { AccountFilter } from './AccountFilter';
 import { AllocationCard } from './AllocationCard';
+import { AttributionCard } from './AttributionCard';
 import { CustomRange } from './CustomRange';
 import { ASSET_CLASS_KEYS, InvestmentsCard } from './InvestmentsCard';
 import { NetWorthChart } from './NetWorthChart';
@@ -320,6 +321,22 @@ export function NetWorthContent() {
               </Box>
             </Box>
           </Box>
+
+          {data.attribution && (
+            <AttributionCard
+              attribution={data.attribution}
+              formatMoney={value => formatMoney(value, currency, locale)}
+              labels={{
+                title: t.changeTitle.value,
+                hint: t.changeHint.value,
+                kinds: {
+                  money: t.changeMoney.value,
+                  revaluation: t.changeRevaluation.value,
+                  fx: t.changeFx.value,
+                },
+              }}
+            />
+          )}
 
           <AllocationCard
             title={t.allocation.value}
