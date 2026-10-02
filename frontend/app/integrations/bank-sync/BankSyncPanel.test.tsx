@@ -6,128 +6,246 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiGet = vi.hoisted(() => vi.fn());
 const apiPost = vi.hoisted(() => vi.fn());
+const apiPatch = vi.hoisted(() => vi.fn());
 const apiDelete = vi.hoisted(() => vi.fn());
 const reactActEnvironmentFlag = 'IS_REACT_ACT_ENVIRONMENT';
 
 vi.mock('@/app/lib/api', () => ({
-  default: { get: apiGet, post: apiPost, delete: apiDelete },
+  default: { get: apiGet, post: apiPost, patch: apiPatch, delete: apiDelete },
 }));
 
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
-const connectedStatus = {
-  connected: true,
+const account = (overrides: Record<string, unknown> = {}) => ({
+  id: 'ACT-A',
+  name: 'Checking',
+  org: 'Demo Bank',
+  currency: 'USD',
+  enabled: true,
+  walletId: null,
+  linkId: null,
+  lastSyncAt: null,
+  balance: 2957.5,
+  balanceDate: null,
+  consentExpiresAt: null,
+  syncFrom: null,
+  health: 'ok',
+  lastError: null,
+  balanceDrift: null,
+  ...overrides,
+});
+
+const connection = (overrides: Record<string, unknown> = {}, accounts = [account()]) => ({
+  id: 'c1',
+  provider: 'simplefin',
+  linkStyle: 'token',
+  label: 'Bridge A',
   status: 'connected',
-  settings: {
+  config: {
+    label: 'Bridge A',
     autoSync: true,
-    accounts: [
-      {
-        id: 'ACT-1',
-        name: 'Checking',
-        org: 'Demo Bank',
-        currency: 'USD',
-        enabled: true,
-        walletId: null,
-        lastSyncAt: null,
-        balance: 2957.5,
-        balanceDate: null,
-      },
-    ],
+    links: [],
+    accounts,
     lastSyncAt: null,
     lastError: null,
+    ...((overrides.config as Record<string, unknown>) ?? {}),
   },
-};
+  ...overrides,
+});
+
+const providers = [
+  { key: 'simplefin', linkStyle: 'token' },
+  { key: 'enablebanking', linkStyle: 'redirect' },
+];
+
+function serveConnections(connections: unknown[]): void {
+  apiGet.mockImplementation((url: string) => {
+    if (url === '/wallets') {
+      return Promise.resolve({ data: [{ id: 'w1', name: 'Main', currency: 'USD' }] });
+    }
+    if (url.endsWith('/providers')) return Promise.resolve({ data: providers });
+    if (url.endsWith('/connections')) return Promise.resolve({ data: connections });
+    return Promise.resolve({ data: [] });
+  });
+}
+
+async function mount(): Promise<{ container: HTMLElement; unmount: () => void }> {
+  const { BankSyncPanel } = await import('./BankSyncPanel');
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  await act(async () => {
+    root.render(<BankSyncPanel />);
+  });
+  await act(async () => {
+    await flushPromises();
+  });
+  return {
+    container,
+    unmount: () => {
+      root.unmount();
+      container.remove();
+    },
+  };
+}
+
+const buttonWith = (container: HTMLElement, text: string): HTMLButtonElement =>
+  Array.from(container.querySelectorAll('button')).find(
+    button => button.textContent === text,
+  ) as HTMLButtonElement;
 
 describe('BankSyncPanel', () => {
   beforeEach(() => {
     (globalThis as Record<string, unknown>)[reactActEnvironmentFlag] = true;
     apiGet.mockReset();
     apiPost.mockReset();
+    apiPatch.mockReset();
     apiDelete.mockReset();
   });
 
-  it('takes a setup token, lists the accounts and pulls them', async () => {
-    apiGet.mockImplementation((url: string) =>
-      url === '/wallets'
-        ? Promise.resolve({ data: [{ id: 'w1', name: 'Main', currency: 'USD' }] })
-        : Promise.resolve({ data: { connected: false, status: 'disconnected', settings: null } }),
-    );
-    apiPost.mockImplementation((url: string) => {
-      if (url === '/integrations/simplefin/connect') return Promise.resolve({ data: connectedStatus });
-      if (url === '/integrations/simplefin/sync') {
-        return Promise.resolve({ data: { imported: 2, statements: 1, accounts: [{ id: 'ACT-1', imported: 2 }] } });
-      }
-      return Promise.resolve({ data: connectedStatus });
-    });
+  it('lists a connection with its accounts and saves an account change as it is made', async () => {
+    serveConnections([connection()]);
+    apiPatch.mockResolvedValue({ data: {} });
+    const { container, unmount } = await mount();
 
-    const { BankSyncPanel } = await import('./BankSyncPanel');
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    const onConnectionChange = vi.fn();
-
-    await act(async () => {
-      root.render(<BankSyncPanel onConnectionChange={onConnectionChange} />);
-    });
-    await act(async () => {
-      await flushPromises();
-    });
-
-    expect(container.textContent).toContain('Not connected');
-    const setupToken = btoa('https://bridge');
-    const tokenInput = container.querySelector('[data-testid="bank-sync-token"]') as HTMLTextAreaElement;
-    const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-    await act(async () => {
-      nativeSetter?.call(tokenInput, ` ${setupToken} `);
-      tokenInput.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    const connectButton = Array.from(container.querySelectorAll('button')).find(
-      button => button.textContent === 'Connect',
-    ) as HTMLButtonElement;
-    await act(async () => {
-      connectButton.click();
-      await flushPromises();
-    });
-
-    expect(apiPost).toHaveBeenCalledWith('/integrations/simplefin/connect', { setupToken });
-    expect(onConnectionChange).toHaveBeenCalled();
+    expect(container.textContent).toContain('Bridge A');
     expect(container.textContent).toContain('Checking');
     expect(container.textContent).toContain('Demo Bank');
 
-    // After connecting, the status is re-read on sync; answer with the same accounts.
-    apiGet.mockImplementation((url: string) =>
-      url === '/wallets' ? Promise.resolve({ data: [] }) : Promise.resolve({ data: connectedStatus }),
-    );
-    const syncButton = Array.from(container.querySelectorAll('button')).find(
-      button => button.textContent === 'Pull now',
-    ) as HTMLButtonElement;
-    await act(async () => {
-      syncButton.click();
-      await flushPromises();
-    });
-    expect(apiPost).toHaveBeenCalledWith('/integrations/simplefin/sync');
-    expect(container.textContent).toContain('2 rows');
-
-    // Switching the account off and saving sends the per-account settings.
     const toggle = container.querySelector(
-      '[data-testid="bank-sync-account-ACT-1"] input[type="checkbox"]',
+      '[data-testid="bank-sync-account-ACT-A"] input[type="checkbox"]',
     ) as HTMLInputElement;
     await act(async () => {
       toggle.click();
-    });
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      button => button.textContent === 'Save settings',
-    ) as HTMLButtonElement;
-    await act(async () => {
-      saveButton.click();
       await flushPromises();
     });
-    expect(apiPost).toHaveBeenCalledWith('/integrations/simplefin/settings', {
-      autoSync: true,
-      accounts: [{ id: 'ACT-1', enabled: false, walletId: null }],
+    // No separate save button to forget: the change goes straight out.
+    expect(apiPatch).toHaveBeenCalledWith(
+      '/integrations/bank-sync/connections/c1/accounts/ACT-A',
+      { enabled: false },
+    );
+
+    unmount();
+  });
+
+  it('pulls a connection and reports what came in', async () => {
+    serveConnections([connection()]);
+    apiPost.mockResolvedValue({
+      data: { imported: 2, statements: 1, accounts: [{ id: 'ACT-A', imported: 2, skipped: 0 }] },
+    });
+    const { container, unmount } = await mount();
+
+    await act(async () => {
+      buttonWith(container, 'Pull now').click();
+      await flushPromises();
+    });
+    expect(apiPost).toHaveBeenCalledWith('/integrations/bank-sync/connections/c1/sync');
+    expect(container.textContent).toContain('2 rows');
+
+    unmount();
+  });
+
+  it('offers no provider switch until there is somewhere to switch to', async () => {
+    serveConnections([connection({}, [account({ walletId: 'w1' })])]);
+    const { container, unmount } = await mount();
+    expect(container.querySelector('[data-testid="bank-sync-switch-ACT-A"]')).toBeNull();
+    unmount();
+  });
+
+  it('moves a wallet’s feed to the other connection and says where it will resume', async () => {
+    serveConnections([
+      connection({}, [account({ walletId: 'w1' })]),
+      connection({ id: 'c2', label: 'Bridge B' }, [account({ id: 'ACT-B', name: 'Savings' })]),
+    ]);
+    apiPost.mockResolvedValue({ data: { syncFrom: '2026-09-29T00:00:00.000Z' } });
+    const { container, unmount } = await mount();
+
+    await act(async () => {
+      (
+        container.querySelector('[data-testid="bank-sync-switch-ACT-A"]') as HTMLButtonElement
+      ).click();
+      await flushPromises();
     });
 
-    root.unmount();
-    container.remove();
+    const select = document.querySelector(
+      '[data-testid="bank-sync-switch-dialog"] select',
+    ) as HTMLSelectElement;
+    // The feed being replaced is not offered as its own destination.
+    expect(Array.from(select.options).map(option => option.value)).toEqual(['', 'c2::ACT-B']);
+
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+    await act(async () => {
+      setter?.call(select, 'c2::ACT-B');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => {
+      (
+        document.querySelector('[data-testid="bank-sync-switch-confirm"]') as HTMLButtonElement
+      ).click();
+      await flushPromises();
+    });
+
+    expect(apiPost).toHaveBeenCalledWith('/integrations/bank-sync/feeds/switch', {
+      walletId: 'w1',
+      toConnectionId: 'c2',
+      toAccountId: 'ACT-B',
+    });
+    expect(container.textContent).toContain('New rows from');
+
+    unmount();
+  });
+
+  it('names the feeds that stopped delivering and offers to move them', async () => {
+    serveConnections([
+      connection({}, [account({ walletId: 'w1', health: 'stale' })]),
+      connection({ id: 'c2', label: 'Bridge B' }, [account({ id: 'ACT-B', name: 'Savings' })]),
+    ]);
+    const { container, unmount } = await mount();
+
+    const banner = container.querySelector('[data-testid="bank-sync-unhealthy-banner"]');
+    expect(banner?.textContent).toContain('Checking');
+    expect(container.querySelector('[data-testid="bank-sync-health-ACT-A"]')?.textContent).toContain(
+      'stopped updating the balance',
+    );
+
+    await act(async () => {
+      (
+        container.querySelector(
+          '[data-testid="bank-sync-switch-suggestion-ACT-A"]',
+        ) as HTMLButtonElement
+      ).click();
+      await flushPromises();
+    });
+    expect(document.querySelector('[data-testid="bank-sync-switch-dialog"]')).not.toBeNull();
+
+    unmount();
+  });
+
+  it('asks for application credentials instead of a token for a browser-authorized provider', async () => {
+    serveConnections([]);
+    const { container, unmount } = await mount();
+
+    expect(container.textContent).toContain('No connections yet');
+    const select = container.querySelector(
+      '[data-testid="bank-sync-add-connection"] select',
+    ) as HTMLSelectElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+
+    await act(async () => {
+      setter?.call(select, 'simplefin');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(container.querySelector('[data-testid="bank-sync-token"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="bank-sync-private-key"]')).toBeNull();
+
+    await act(async () => {
+      setter?.call(select, 'enablebanking');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(container.querySelector('[data-testid="bank-sync-token"]')).toBeNull();
+    expect(container.querySelector('[data-testid="bank-sync-application-id"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="bank-sync-private-key"]')).not.toBeNull();
+
+    unmount();
   });
 });

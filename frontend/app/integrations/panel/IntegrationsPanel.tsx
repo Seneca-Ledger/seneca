@@ -15,12 +15,17 @@ import { IntegrationDetailDrawer } from './IntegrationDetailDrawer';
 import { IntegrationsListDrawer } from './IntegrationsListDrawer';
 import { findIntegrationEntry, useIntegrationCatalog } from './integration-catalog';
 
-/** Different endpoints answer with `connected` or with a `status` string. */
+/**
+ * Different endpoints answer differently: with `connected`, with a `status`
+ * string, or — where a workspace may hold several connections — with the list
+ * of them.
+ */
 async function readConnected(statusPath: string): Promise<boolean> {
   return apiClient
     .get(statusPath)
     .then(response => {
       const data = response.data ?? {};
+      if (Array.isArray(data)) return data.length > 0;
       return Boolean(data?.connected) || String(data?.status).toLowerCase() === 'connected';
     })
     .catch(() => false);
