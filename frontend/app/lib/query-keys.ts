@@ -65,6 +65,9 @@ export const queryKeys = {
   stoicBalance: (workspaceId: string | null) => ['budgets', workspaceId, 'stoic-balance'] as const,
   balanceSheet: (o: { workspaceId: string | null; date: string | null; locale: string }) =>
     ['balance-sheet', o.workspaceId, o.date, o.locale] as const,
+  // Under the balance-sheet prefix: editing a day refreshes the sheet with it.
+  balanceAccountHistory: (o: { workspaceId: string | null; accountId: string }) =>
+    ['balance-sheet', o.workspaceId, 'history', o.accountId] as const,
   tablesReport: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['tables-report', o.workspaceId, o.params] as const,
   storageFiles: (o: { workspaceId: string | null; listMode: 'active' | 'trash' }) =>

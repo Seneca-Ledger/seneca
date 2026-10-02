@@ -4,6 +4,7 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
@@ -14,6 +15,7 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronRight,
+  Clock3,
   Download,
   RefreshCcw,
 } from '@/app/components/icons';
@@ -24,6 +26,7 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import apiClient from '../../../lib/api';
+import { BalanceHistoryDialog } from './BalanceHistoryDialog';
 
 type BalanceExportFormat = 'excel' | 'pdf';
 
@@ -217,14 +220,18 @@ function BalanceSheet(): React.JSX.Element {
   const currencyCode = sheet?.currency || 'KZT';
 
   const formatCurrency = useCallback(
-    (value: number) =>
+    // A history row carries the currency it was entered in, which need not be
+    // the sheet's own.
+    (value: number, currency?: string) =>
       new Intl.NumberFormat(resolveLocale(locale), {
         style: 'currency',
-        currency: currencyCode,
+        currency: currency || currencyCode,
         minimumFractionDigits: 2,
       }).format(value),
     [locale, currencyCode],
   );
+
+  const [historyAccount, setHistoryAccount] = useState<{ id: string; name: string } | null>(null);
 
   const saveSnapshot = useCallback(
     async (accountId: string): Promise<void> => {
@@ -428,6 +435,13 @@ function BalanceSheet(): React.JSX.Element {
                 {savingAccountId === account.id && (
                   <CircularProgress size={16} sx={{ color: 'var(--primary)' }} />
                 )}
+                <IconButton
+                  size="small"
+                  aria-label={`${text('snapshotHistoryTitle', 'Value history')} — ${account.name}`}
+                  onClick={() => setHistoryAccount({ id: account.id, name: account.name })}
+                >
+                  <Clock3 size={16} />
+                </IconButton>
               </Box>
             ) : (
               <span
@@ -742,6 +756,24 @@ function BalanceSheet(): React.JSX.Element {
           </Typography>
         </Box>
       )}
+
+      <BalanceHistoryDialog
+        accountId={historyAccount?.id ?? null}
+        accountName={historyAccount?.name ?? ''}
+        isOpen={historyAccount !== null}
+        onClose={() => setHistoryAccount(null)}
+        formatCurrency={formatCurrency}
+        labels={{
+          title: text('snapshotHistoryTitle', 'Value history'),
+          hint: text(
+            'snapshotHistoryHint',
+            'Each value stands until the next one. Remove a wrong day here, or bring a history in from a file.',
+          ),
+          empty: text('snapshotHistoryEmpty', 'Nothing has been entered for this line yet'),
+          import: text('snapshotHistoryImport', 'Import from file'),
+          remove: text('snapshotHistoryRemove', 'Remove'),
+        }}
+      />
     </Box>
   );
 }
