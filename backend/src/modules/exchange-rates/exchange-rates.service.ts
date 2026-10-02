@@ -18,6 +18,19 @@ export interface RateQuote {
   stale: boolean;
 }
 
+/** One point of a rate curve: the rate that applies from `date` onwards. */
+export interface RatePoint {
+  date: string;
+  rate: number;
+}
+
+/** A quote on its way to becoming a curve point; `manual` decides precedence. */
+interface RateCurveQuote {
+  date: string;
+  rate: number;
+  manual: boolean;
+}
+
 export interface RateQuoteOptions {
   /** Refuse a borrowed rate quoted more than this many days before the requested day. */
   maxStaleDays?: number;
@@ -163,6 +176,120 @@ export class ExchangeRatesService {
       return null;
     }
     return quote;
+  }
+
+  /**
+   * The rates that apply to `from`→`to` across `fromDate`..`toDate`, ascending,
+   * with the last quote before the window carried in as its opening value.
+   *
+   * A report that needs a rate for every day of a multi-year window cannot
+   * afford `getRateQuote` per day — that is a cache read, two table reads and
+   * possibly a network call each. This is two reads per source instead, and
+   * the caller forward-fills between the points. The quote for `toDate` still
+   * goes through `getRateQuote`, so today's figure stays as fresh as it is on
+   * the single-day path.
+   */
+  async getRateCurve(
+    from: string,
+    to: string,
+    fromDate: string,
+    toDate: string,
+    workspaceId?: string,
+  ): Promise<RatePoint[]> {
+    const normalizedFrom = this.normalizeCurrencyCode(from);
+    const normalizedTo = this.normalizeCurrencyCode(to);
+    if (normalizedFrom === normalizedTo) {
+      return [{ date: fromDate, rate: 1 }];
+    }
+
+    const quotes = await this.collectRateQuotes(normalizedFrom, normalizedTo, toDate, workspaceId);
+
+    const curve: RatePoint[] = [];
+    for (const quote of quotes) {
+      const last = curve[curve.length - 1];
+      if (last && last.date === quote.date) {
+        last.rate = quote.rate;
+      } else if (quote.date < fromDate) {
+        // Everything before the window collapses into one opening point.
+        curve.length = 0;
+        curve.push({ date: fromDate, rate: quote.rate });
+      } else {
+        curve.push({ date: quote.date, rate: quote.rate });
+      }
+    }
+
+    // The last day may only exist behind the network or the cache; everything
+    // else is already on the curve, so a quote equal to the running one adds
+    // nothing but a point.
+    const fresh = await this.getRateQuote(normalizedFrom, normalizedTo, toDate, { workspaceId });
+    const last = curve[curve.length - 1];
+    if (fresh && fresh.rate !== last?.rate) {
+      if (last && last.date === toDate) {
+        last.rate = fresh.rate;
+      } else {
+        curve.push({ date: toDate, rate: fresh.rate });
+      }
+    }
+
+    return curve;
+  }
+
+  /**
+   * Every quote for the pair up to `toDate`, ascending, with the manual one
+   * last inside a day so that it overwrites the provider's — the precedence
+   * `getRateQuote` applies, expressed once for a whole window.
+   */
+  private async collectRateQuotes(
+    normalizedFrom: string,
+    normalizedTo: string,
+    toDate: string,
+    workspaceId?: string,
+  ): Promise<RateCurveQuote[]> {
+    const onOrBefore = LessThanOrEqual(new Date(toDate));
+    const order = { rateDate: 'ASC' as const };
+    const pair = (base: string, target: string) => ({
+      baseCurrency: base,
+      targetCurrency: target,
+      rateDate: onOrBefore,
+    });
+
+    const [direct, reverse] = await Promise.all([
+      this.exchangeRateRepository.find({ where: pair(normalizedFrom, normalizedTo), order }),
+      this.exchangeRateRepository.find({ where: pair(normalizedTo, normalizedFrom), order }),
+    ]);
+    // Reverse first: a direct quote for the same day is the one worth keeping.
+    const quotes = [
+      ...this.toCurveQuotes(reverse, false, true),
+      ...this.toCurveQuotes(direct, false, false),
+    ];
+
+    if (this.workspaceRateRepository && workspaceId && (await this.hasManualRates(workspaceId))) {
+      const repository = this.workspaceRateRepository;
+      const [manualDirect, manualReverse] = await Promise.all([
+        repository.find({ where: { workspaceId, ...pair(normalizedFrom, normalizedTo) }, order }),
+        repository.find({ where: { workspaceId, ...pair(normalizedTo, normalizedFrom) }, order }),
+      ]);
+      quotes.push(
+        ...this.toCurveQuotes(manualReverse, true, true),
+        ...this.toCurveQuotes(manualDirect, true, false),
+      );
+    }
+
+    return quotes.sort(
+      (a, b) => a.date.localeCompare(b.date) || Number(a.manual) - Number(b.manual),
+    );
+  }
+
+  /** Rows as curve quotes, dropping anything that is not a usable rate. */
+  private toCurveQuotes(
+    rows: Array<{ rateDate: Date; rate: number }>,
+    manual: boolean,
+    invert: boolean,
+  ): RateCurveQuote[] {
+    return rows
+      .map(row => ({ date: this.toDateOnly(row.rateDate), rate: Number(row.rate), manual }))
+      .filter(quote => Number.isFinite(quote.rate) && quote.rate > 0)
+      .map(quote => (invert ? { ...quote, rate: 1 / quote.rate } : quote));
   }
 
   private async lookupStoredRate(

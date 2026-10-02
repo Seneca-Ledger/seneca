@@ -2,6 +2,7 @@ import { ExchangeRatesService } from '@/modules/exchange-rates/exchange-rates.se
 
 function createRepoMock() {
   return {
+    find: jest.fn().mockResolvedValue([]),
     findOne: jest.fn(),
     createQueryBuilder: jest.fn().mockReturnValue({
       insert: jest.fn().mockReturnThis(),
@@ -324,6 +325,79 @@ describe('ExchangeRatesService', () => {
   });
 
   // ─── convert ───────────────────────────────────────────────
+
+  describe('getRateCurve', () => {
+    /** Answers `find` from an in-memory table of provider quotes. */
+    function seed(rows: Array<{ from: string; to: string; date: string; rate: number }>) {
+      repo.find.mockImplementation(async ({ where }: any) =>
+        rows
+          .filter(row => row.from === where.baseCurrency && row.to === where.targetCurrency)
+          .map(row => ({ rateDate: new Date(row.date), rate: row.rate })),
+      );
+      repo.findOne.mockResolvedValue(null);
+    }
+
+    it('carries the last quote before the window in as its opening point', async () => {
+      seed([
+        { from: 'EUR', to: 'KZT', date: '2026-01-10', rate: 480 },
+        { from: 'EUR', to: 'KZT', date: '2026-02-10', rate: 500 },
+        { from: 'EUR', to: 'KZT', date: '2026-06-10', rate: 520 },
+      ]);
+
+      const curve = await service.getRateCurve('EUR', 'KZT', '2026-03-01', '2026-07-01');
+
+      // Only the latest pre-window quote matters, and it opens the window.
+      expect(curve).toEqual([
+        { date: '2026-03-01', rate: 500 },
+        { date: '2026-06-10', rate: 520 },
+      ]);
+    });
+
+    it('inverts the reverse pair when only it was quoted', async () => {
+      seed([{ from: 'KZT', to: 'EUR', date: '2026-03-05', rate: 0.002 }]);
+
+      const curve = await service.getRateCurve('EUR', 'KZT', '2026-03-01', '2026-07-01');
+
+      expect(curve).toEqual([{ date: '2026-03-05', rate: 500 }]);
+    });
+
+    it('lets a hand-entered rate win over the provider on the same day', async () => {
+      seed([{ from: 'EUR', to: 'KZT', date: '2026-03-05', rate: 500 }]);
+      const workspaceRates = createWorkspaceRateRepo();
+      workspaceRates.rows.push({
+        workspaceId: 'ws-1',
+        baseCurrency: 'EUR',
+        targetCurrency: 'KZT',
+        rate: 530,
+        rateDate: new Date('2026-03-05'),
+      });
+      workspaceRates.find = jest.fn(async ({ where }: any) =>
+        workspaceRates.rows.filter(
+          (row: any) =>
+            row.baseCurrency === where.baseCurrency && row.targetCurrency === where.targetCurrency,
+        ),
+      );
+      const withManual = new ExchangeRatesService(
+        repo,
+        createCacheMock(),
+        createConfigMock(),
+        undefined,
+        workspaceRates,
+      );
+
+      const curve = await withManual.getRateCurve('EUR', 'KZT', '2026-03-01', '2026-07-01', 'ws-1');
+
+      expect(curve).toEqual([{ date: '2026-03-05', rate: 530 }]);
+    });
+
+    it('returns an empty curve when the pair was never quoted', async () => {
+      seed([]);
+
+      await expect(service.getRateCurve('CHF', 'KZT', '2026-03-01', '2026-07-01')).resolves.toEqual(
+        [],
+      );
+    });
+  });
 
   describe('convert', () => {
     it('multiplies amount by rate', async () => {
