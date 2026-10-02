@@ -7,6 +7,7 @@ import Skeleton from '@mui/material/Skeleton';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
+import { formatDayLabel } from '@/app/components/charts/chart-format';
 import { ArrowDownRight, ArrowUpRight } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
@@ -20,6 +21,7 @@ import {
   type NetWorthView,
   useNetWorth,
 } from '../hooks/useNetWorth';
+import { nextMilestone } from '../milestone';
 import { setNetWorthDisplay, useNetWorthDisplay } from '../net-worth-display';
 import { AccountFilter } from './AccountFilter';
 import { AllocationCard } from './AllocationCard';
@@ -28,6 +30,10 @@ import { CustomRange } from './CustomRange';
 import { ASSET_CLASS_KEYS, InvestmentsCard } from './InvestmentsCard';
 import { NetWorthChart } from './NetWorthChart';
 import { RiskCard } from './RiskCard';
+
+function daysBetween(from: string, to: string): number {
+  return Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000));
+}
 
 function NetWorthSkeleton(): React.JSX.Element {
   return (
@@ -164,6 +170,10 @@ export function NetWorthContent() {
   } = useNetWorth();
 
   const currency = data?.currency ?? 'KZT';
+  // The next round number, and when this window's pace would reach it.
+  const milestone = data
+    ? nextMilestone(data.current, data.change, daysBetween(data.from, data.to))
+    : null;
   const isPositive = (data?.change ?? 0) >= 0;
   const hasData = Boolean(data && (data.assetsTotal !== 0 || data.liabilitiesTotal !== 0));
 
@@ -259,6 +269,19 @@ export function NetWorthContent() {
                 {t.allTimeHigh.value
                   .replace('{{value}}', formatMoney(data.allTimeHigh.value, currency, locale))
                   .replace('{{date}}', data.allTimeHigh.date)}
+              </Typography>
+            )}
+
+            {milestone && (
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                {t.milestoneRemaining.value
+                  .replace('{{target}}', formatMoney(milestone.target, currency, locale))
+                  .replace('{{remaining}}', formatMoney(milestone.remaining, currency, locale))}
+                {milestone.reachedOn &&
+                  ` — ${t.milestonePace.value.replace(
+                    '{{date}}',
+                    formatDayLabel(milestone.reachedOn, locale),
+                  )}`}
               </Typography>
             )}
 
