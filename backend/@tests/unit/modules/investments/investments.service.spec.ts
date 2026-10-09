@@ -164,3 +164,116 @@ describe('InvestmentsService contributionsBetween', () => {
     );
   });
 });
+
+describe('InvestmentsService links', () => {
+  function linkService(transaction: Record<string, unknown>) {
+    const transactionRepository = {
+      findOne: jest.fn(async () => transaction),
+      save: jest.fn(async (saved: unknown) => saved),
+    };
+    const accountRepository = {
+      findOne: jest.fn(async () => ({ id: 'account-1', accountKind: 'investment' })),
+    };
+    const service = new InvestmentsService(
+      accountRepository as never,
+      {} as never,
+      transactionRepository as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    return service;
+  }
+
+  const unlinked = () => ({
+    id: 'tx-1',
+    investmentAccountId: null,
+    transferPairId: null,
+    transferPairSource: null,
+    transferPairKind: null,
+  });
+
+  it('pairs a withdrawal like a contribution, so it leaves the income figures', async () => {
+    const service = linkService({ ...unlinked(), transactionType: 'income' });
+
+    const saved = await service.linkContribution('ws', 'tx-1', 'account-1', 'withdrawal');
+
+    expect(saved).toMatchObject({
+      investmentAccountId: 'account-1',
+      transferPairId: 'tx-1',
+      transferPairKind: 'investment',
+    });
+  });
+
+  it('links a dividend without a pair, so it keeps counting as income', async () => {
+    const service = linkService({ ...unlinked(), transactionType: 'income' });
+
+    const saved = await service.linkContribution('ws', 'tx-1', 'account-1', 'income');
+
+    expect(saved).toMatchObject({
+      investmentAccountId: 'account-1',
+      transferPairId: null,
+      transferPairKind: null,
+    });
+  });
+
+  it('turns a withdrawal into a dividend by dropping its pair', async () => {
+    const service = linkService({
+      id: 'tx-1',
+      transactionType: 'income',
+      investmentAccountId: 'account-1',
+      transferPairId: 'tx-1',
+      transferPairSource: 'manual',
+      transferPairKind: 'investment',
+    });
+
+    const saved = await service.linkContribution('ws', 'tx-1', 'account-1', 'income');
+
+    expect(saved).toMatchObject({ transferPairId: null, transferPairKind: null });
+  });
+
+  it('asks an income row what it is, and refuses to call an expense anything but a contribution', async () => {
+    await expect(
+      linkService({ ...unlinked(), transactionType: 'income' }).linkContribution(
+        'ws',
+        'tx-1',
+        'account-1',
+      ),
+    ).rejects.toThrow('withdrawal or a dividend');
+    await expect(
+      linkService({ ...unlinked(), transactionType: 'expense' }).linkContribution(
+        'ws',
+        'tx-1',
+        'account-1',
+        'income',
+      ),
+    ).rejects.toThrow('only be a contribution');
+  });
+
+  it('unlinks a dividend without touching a pair it never had', async () => {
+    const service = linkService({
+      id: 'tx-1',
+      transactionType: 'income',
+      investmentAccountId: 'account-1',
+      transferPairId: null,
+      transferPairKind: null,
+    });
+
+    const saved = await service.unlinkContribution('ws', 'tx-1');
+
+    expect(saved).toMatchObject({ investmentAccountId: null, transferPairId: null });
+  });
+
+  it('leaves another kind of pair alone when unlinking', async () => {
+    const service = linkService({
+      id: 'tx-1',
+      transactionType: 'income',
+      investmentAccountId: null,
+      transferPairId: 'tx-2',
+      transferPairKind: 'transfer',
+    });
+
+    await expect(service.unlinkContribution('ws', 'tx-1')).rejects.toThrow('not linked');
+  });
+});

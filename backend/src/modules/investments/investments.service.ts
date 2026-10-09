@@ -19,6 +19,7 @@ import { BalanceService } from '../balance/balance.service';
 import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { CreateInvestmentAccountDto } from './dto/create-investment-account.dto';
+import type { InvestmentLinkRole } from './dto/link-contribution.dto';
 import type { UpsertHoldingDto } from './dto/upsert-holding.dto';
 import { pricedUnits } from './metal-weight.util';
 import { normalizeStockSymbol, StockPriceService } from './stock-price.service';
@@ -307,22 +308,32 @@ export class InvestmentsService {
   }
 
   /**
-   * Marks an expense as money moved into an investment account. The row
-   * becomes a one-leg transfer of kind `investment`: it leaves every spending
-   * aggregate, and the account's holdings carry the money from here on.
+   * Links a transaction to an investment account as what it is to it:
+   * - an expense is a contribution, money moved in;
+   * - an income row is either a withdrawal, money taken back out, or the
+   *   dividend or interest the account paid.
+   * Moving money is a one-leg transfer of kind `investment`, so it leaves
+   * every spending and income aggregate. A dividend is earned money: it stays
+   * unpaired and keeps counting as income, the link only says where from.
    */
   async linkContribution(
     workspaceId: string,
     transactionId: string,
     accountId: string,
+    role?: InvestmentLinkRole,
   ): Promise<Transaction> {
     await this.requireAccount(workspaceId, accountId);
     const transaction = await this.transactionRepository.findOne({
       where: { id: transactionId, workspaceId },
     });
     if (!transaction) throw new NotFoundException('Transaction not found');
-    if (transaction.transactionType !== TransactionType.EXPENSE) {
-      throw new BadRequestException('Only an expense can be a contribution');
+    const isExpense = transaction.transactionType === TransactionType.EXPENSE;
+    const resolved = role ?? (isExpense ? 'contribution' : null);
+    if (isExpense && resolved !== 'contribution') {
+      throw new BadRequestException('An expense can only be a contribution');
+    }
+    if (!isExpense && (resolved === null || resolved === 'contribution')) {
+      throw new BadRequestException('Say whether this income is a withdrawal or a dividend');
     }
     if (
       transaction.transferPairId &&
@@ -331,9 +342,10 @@ export class InvestmentsService {
       throw new BadRequestException('This row is already linked as a transfer');
     }
     transaction.investmentAccountId = accountId;
-    transaction.transferPairId = transaction.id;
-    transaction.transferPairSource = TransferPairSource.MANUAL;
-    transaction.transferPairKind = TransferPairKind.INVESTMENT;
+    const moved = resolved !== 'income';
+    transaction.transferPairId = moved ? transaction.id : null;
+    transaction.transferPairSource = moved ? TransferPairSource.MANUAL : null;
+    transaction.transferPairKind = moved ? TransferPairKind.INVESTMENT : null;
     return this.transactionRepository.save(transaction);
   }
 
@@ -342,13 +354,16 @@ export class InvestmentsService {
       where: { id: transactionId, workspaceId },
     });
     if (!transaction) throw new NotFoundException('Transaction not found');
-    if (transaction.transferPairKind !== TransferPairKind.INVESTMENT) {
-      throw new BadRequestException('This row is not a contribution');
+    if (!transaction.investmentAccountId) {
+      throw new BadRequestException('This row is not linked to an investment account');
     }
     transaction.investmentAccountId = null;
-    transaction.transferPairId = null;
-    transaction.transferPairSource = null;
-    transaction.transferPairKind = null;
+    // A dividend was never paired; only an investment pair is this link's to undo.
+    if (transaction.transferPairKind === TransferPairKind.INVESTMENT) {
+      transaction.transferPairId = null;
+      transaction.transferPairSource = null;
+      transaction.transferPairKind = null;
+    }
     return this.transactionRepository.save(transaction);
   }
 

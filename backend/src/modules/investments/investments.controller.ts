@@ -97,7 +97,12 @@ export class InvestmentsController {
   @Post('contributions')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async linkContribution(@WorkspaceId() workspaceId: string, @Body() dto: LinkContributionDto) {
-    return this.investmentsService.linkContribution(workspaceId, dto.transactionId, dto.accountId);
+    return this.investmentsService.linkContribution(
+      workspaceId,
+      dto.transactionId,
+      dto.accountId,
+      dto.role,
+    );
   }
 
   @Delete('contributions/:transactionId')
