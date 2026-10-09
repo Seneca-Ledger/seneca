@@ -16,6 +16,7 @@ import {
 } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { BalanceService } from '../balance/balance.service';
+import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { CreateInvestmentAccountDto } from './dto/create-investment-account.dto';
 import type { UpsertHoldingDto } from './dto/upsert-holding.dto';
@@ -46,8 +47,38 @@ export interface InvestmentAccountView {
   value: number;
   /** Sum of the expenses linked to this account as contributions. */
   contributed: number;
+  /** Money taken back out of the account to the user's own cash. */
+  withdrawn: number;
+  /** Dividends and interest the account paid out. */
+  income: number;
+  /** Contributed less withdrawn: what the user still has in it. */
+  netInvested: number;
+  /** Value less net invested, plus what it paid out. */
   gain: number;
   holdings: HoldingView[];
+}
+
+/**
+ * How a transaction linked to an investment account moved money:
+ * - `contribution`: an expense paid into the account (a one-leg transfer);
+ * - `withdrawal`: income taken out of it (also a one-leg transfer);
+ * - `income`: a dividend or interest it paid out — real income, so it is
+ *   not paired and stays in every income figure.
+ */
+export type InvestmentFlowKind = 'contribution' | 'withdrawal' | 'income';
+
+export interface InvestmentFlow {
+  accountId: string;
+  date: string;
+  /** Always positive, in `currency`; the kind says which way it went. */
+  amount: number;
+  currency: string;
+  kind: InvestmentFlowKind;
+}
+
+/** A flow with its amount in the workspace currency, at the rate of its own day. */
+export interface ValuedInvestmentFlow extends InvestmentFlow {
+  value: number;
 }
 
 /**
@@ -87,9 +118,12 @@ export class InvestmentsService {
       where: { workspaceId, accountId: In(accounts.map(account => account.id)) },
       order: { createdAt: 'ASC' },
     });
-    const contributed = await this.contributedByAccount(
+    const { flows } = await this.valueFlows(
       workspaceId,
-      accounts.map(account => account.id),
+      await this.loadFlows(
+        workspaceId,
+        accounts.map(account => account.id),
+      ),
       currency,
     );
     const views: InvestmentAccountView[] = [];
@@ -99,15 +133,22 @@ export class InvestmentsService {
         rows.push(await this.holdingView(holding, currency));
       }
       const value = round2(rows.reduce((sum, row) => sum + row.value, 0));
-      const paidIn = contributed.get(account.id) ?? 0;
+      const totals = { contribution: 0, withdrawal: 0, income: 0 };
+      for (const flow of flows) {
+        if (flow.accountId === account.id) totals[flow.kind] += flow.value;
+      }
+      const netInvested = totals.contribution - totals.withdrawal;
       views.push({
         id: account.id,
         name: account.name,
         kind: account.accountKind as BalanceAccountKind,
         currency,
         value,
-        contributed: round2(paidIn),
-        gain: round2(value - paidIn),
+        contributed: round2(totals.contribution),
+        withdrawn: round2(totals.withdrawal),
+        income: round2(totals.income),
+        netInvested: round2(netInvested),
+        gain: round2(value - netInvested + totals.income),
         holdings: rows,
       });
     }
@@ -381,9 +422,10 @@ export class InvestmentsService {
   }
 
   /**
-   * What was paid into each investment account between two days, left in the
-   * currency it was paid in: the caller decides which day's rate to value it
-   * at, and for an attribution that is the first day of the window.
+   * What was paid into each investment account between two days, less what
+   * was taken out, left in the currency it moved in: the caller decides which
+   * day's rate to value it at, and for an attribution that is the first day
+   * of the window. Dividends are not here: they never went into the account.
    */
   async contributionsBetween(
     workspaceId: string,
@@ -394,10 +436,11 @@ export class InvestmentsService {
       .createQueryBuilder('t')
       .select('t.investment_account_id', 'accountId')
       .addSelect('t.currency', 'currency')
-      .addSelect('COALESCE(SUM(t.debit), 0)', 'total')
+      .addSelect('COALESCE(SUM(COALESCE(t.debit, 0) - COALESCE(t.credit, 0)), 0)', 'total')
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.investment_account_id IS NOT NULL')
-      .andWhere('t.is_duplicate = false')
+      .andWhere('t.transfer_pair_kind = :kind', { kind: TransferPairKind.INVESTMENT })
+      .andWhere(countedSql('t'))
       .andWhere('t.transaction_date > :from', { from })
       .andWhere('t.transaction_date <= :to', { to })
       .groupBy('t.investment_account_id')
@@ -420,34 +463,81 @@ export class InvestmentsService {
     return byAccount;
   }
 
-  private async contributedByAccount(
-    workspaceId: string,
-    accountIds: string[],
-    currency: string,
-  ): Promise<Map<string, number>> {
+  /**
+   * Every counted transaction linked to these accounts, one row each, in the
+   * currency and on the day it happened. The returns page needs the dates;
+   * the account cards only need the totals, which `valueFlows` gives them.
+   */
+  async loadFlows(workspaceId: string, accountIds: string[]): Promise<InvestmentFlow[]> {
+    if (accountIds.length === 0) return [];
     const rows = await this.transactionRepository
       .createQueryBuilder('t')
       .select('t.investment_account_id', 'accountId')
+      .addSelect('t.transaction_date', 'date')
       .addSelect('t.currency', 'currency')
-      .addSelect('COALESCE(SUM(t.debit), 0)', 'total')
+      .addSelect('t.transaction_type', 'type')
+      .addSelect('t.transfer_pair_kind', 'pairKind')
+      .addSelect('COALESCE(t.debit, 0)', 'debit')
+      .addSelect('COALESCE(t.credit, 0)', 'credit')
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.investment_account_id IN (:...accountIds)', { accountIds })
-      .andWhere('t.is_duplicate = false')
       .andWhere(countedSql('t'))
-      .groupBy('t.investment_account_id')
-      .addGroupBy('t.currency')
-      .getRawMany<{ accountId: string; currency: string; total: string }>();
-    const result = new Map<string, number>();
+      .orderBy('t.transaction_date', 'ASC')
+      .getRawMany<{
+        accountId: string;
+        date: string | Date;
+        currency: string;
+        type: TransactionType;
+        pairKind: TransferPairKind | null;
+        debit: string;
+        credit: string;
+      }>();
+
+    const flows: InvestmentFlow[] = [];
     for (const row of rows) {
-      const amount = await this.convert(
-        Number.parseFloat(row.total),
-        row.currency,
-        currency,
-        workspaceId,
+      const kind = flowKind(row.type, row.pairKind);
+      if (!kind) continue;
+      const amount = Math.abs(
+        Number.parseFloat(kind === 'contribution' ? row.debit : row.credit) || 0,
       );
-      result.set(row.accountId, (result.get(row.accountId) ?? 0) + amount);
+      if (amount === 0) continue;
+      flows.push({
+        accountId: row.accountId,
+        date: toDateOnly(row.date),
+        amount,
+        currency: normalizeCurrencyCode(row.currency) || 'USD',
+        kind,
+      });
     }
-    return result;
+    return flows;
+  }
+
+  /**
+   * Flows in the workspace currency, each at the rate of the day it happened:
+   * money paid in three years ago cost what it cost then. A currency with no
+   * rate is left out and named in `missing`, never read as 1:1.
+   */
+  async valueFlows(
+    workspaceId: string,
+    flows: InvestmentFlow[],
+    currency: string,
+  ): Promise<{ flows: ValuedInvestmentFlow[]; missing: string[] }> {
+    if (flows.length === 0) return { flows: [], missing: [] };
+    const dates = [...new Set(flows.map(flow => flow.date))].sort();
+    const converter = await CurrencyConverter.loadRange(
+      this.exchangeRatesService,
+      currency,
+      flows.map(flow => flow.currency),
+      dates,
+      workspaceId,
+    );
+    return {
+      flows: flows.map(flow => ({
+        ...flow,
+        value: converter.convert(flow.amount, flow.currency, flow.date),
+      })),
+      missing: converter.missing,
+    };
   }
 
   private async requireAccount(workspaceId: string, accountId: string): Promise<BalanceAccount> {
@@ -492,4 +582,20 @@ export class InvestmentsService {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function flowKind(
+  type: TransactionType,
+  pairKind: TransferPairKind | null,
+): InvestmentFlowKind | null {
+  if (pairKind === TransferPairKind.INVESTMENT) {
+    return type === TransactionType.EXPENSE ? 'contribution' : 'withdrawal';
+  }
+  // Unpaired and linked: only income can be that — a dividend or interest.
+  if (!pairKind && type === TransactionType.INCOME) return 'income';
+  return null;
+}
+
+function toDateOnly(value: string | Date): string {
+  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 }
