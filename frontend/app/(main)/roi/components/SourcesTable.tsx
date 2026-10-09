@@ -17,6 +17,9 @@ interface SourcesTableProps {
   sourceName: (source: ReturnsSource) => string;
 }
 
+/** On a phone the table keeps what answers "how is it doing": value, gain, return. */
+const WIDE_ONLY = { display: { xs: 'none', sm: 'table-cell' } } as const;
+
 /** Every line the page knows about, including the ones left out of the return. */
 export function SourcesTable({ sources, formatMoney, sourceName }: SourcesTableProps) {
   const t = useIntlayer('roiPage');
@@ -24,13 +27,21 @@ export function SourcesTable({ sources, formatMoney, sourceName }: SourcesTableP
 
   return (
     <Box sx={{ overflowX: 'auto' }}>
-      <Table size="small" data-testid="returns-sources">
+      <Table
+        size="small"
+        data-testid="returns-sources"
+        sx={{ '& th, & td': { px: { xs: 0.75, sm: 2 } } }}
+      >
         <TableHead>
           <TableRow>
             <TableCell>{t.colSource}</TableCell>
             <TableCell align="right">{t.colValue}</TableCell>
-            <TableCell align="right">{t.colNetIn}</TableCell>
-            <TableCell align="right">{t.colIncome}</TableCell>
+            <TableCell align="right" sx={WIDE_ONLY}>
+              {t.colNetIn}
+            </TableCell>
+            <TableCell align="right" sx={WIDE_ONLY}>
+              {t.colIncome}
+            </TableCell>
             <TableCell align="right">{t.colGain}</TableCell>
             <TableCell align="right">{t.colReturn}</TableCell>
           </TableRow>
@@ -54,10 +65,12 @@ export function SourcesTable({ sources, formatMoney, sourceName }: SourcesTableP
                 )}
               </TableCell>
               <TableCell align="right">{formatMoney(source.endValue)}</TableCell>
-              <TableCell align="right">
+              <TableCell align="right" sx={WIDE_ONLY}>
                 {formatMoney(source.contributions - source.withdrawals)}
               </TableCell>
-              <TableCell align="right">{formatMoney(source.income)}</TableCell>
+              <TableCell align="right" sx={WIDE_ONLY}>
+                {formatMoney(source.income)}
+              </TableCell>
               <TableCell
                 align="right"
                 sx={{ color: source.gain >= 0 ? 'success.main' : 'error.main' }}

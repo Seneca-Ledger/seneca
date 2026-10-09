@@ -102,7 +102,8 @@ function PerformanceBody({ data }: { data: ReturnsData }) {
         <KpiCard
           label={t.netInvested.value}
           value={money(summary.netInvested)}
-          caption={t.netInvestedCaption}
+          // All time, unlike the period columns below: what is in the account now.
+          caption={`${t.netInvestedCaption.value} · ${t.allTime.value}`}
         />
         <KpiCard
           label={t.valueNow.value}
