@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository, type SelectQueryBuilder } from 'typeorm';
+import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
 import {
   ActorType,
@@ -495,24 +496,27 @@ export class IncomeTaxDraftService {
   }
 
   /**
-   * Transactions that belong to the year: not duplicates, and either entered
-   * by hand or from a statement that is neither deleted nor failed. Unlike the
+   * Transactions that belong to the year: confirmed, not duplicates, and either
+   * entered by hand or from a statement that is neither deleted nor failed. Unlike the
    * dashboard, rows without a statement count — cash expenses entered manually
    * are often exactly the deductible ones.
    */
   private yearTransactions(workspaceId: string, taxYear: number): SelectQueryBuilder<Transaction> {
     const { yearStart, yearEnd } = taxYearBounds(taxYear);
-    return this.transactionRepository
-      .createQueryBuilder('t')
-      .leftJoin('t.statement', 's')
-      .where('t.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('t.isDuplicate = false')
-      .andWhere('t.transferPairId IS NULL')
-      .andWhere('t.transactionDate BETWEEN :yearStart AND :yearEnd', { yearStart, yearEnd })
-      .andWhere(
-        '(t.statementId IS NULL OR (s.id IS NOT NULL AND s.deletedAt IS NULL AND s.status NOT IN (:...excludedStatuses)))',
-        { excludedStatuses: [StatementStatus.ERROR, StatementStatus.PROCESSING] },
-      );
+    return onlyCounted(
+      this.transactionRepository
+        .createQueryBuilder('t')
+        .leftJoin('t.statement', 's')
+        .where('t.workspaceId = :workspaceId', { workspaceId })
+        .andWhere('t.isDuplicate = false')
+        .andWhere('t.transferPairId IS NULL')
+        .andWhere('t.transactionDate BETWEEN :yearStart AND :yearEnd', { yearStart, yearEnd })
+        .andWhere(
+          '(t.statementId IS NULL OR (s.id IS NOT NULL AND s.deletedAt IS NULL AND s.status NOT IN (:...excludedStatuses)))',
+          { excludedStatuses: [StatementStatus.ERROR, StatementStatus.PROCESSING] },
+        ),
+      't',
+    );
   }
 
   private async countByCategory(

@@ -49,7 +49,6 @@ describe('queryKeys', () => {
       cryptoSummary: queryKeys.cryptoSummary('w1'),
       notifications: queryKeys.notifications('w1'),
       searchRecent: queryKeys.searchRecent('w1'),
-      searchFavorites: queryKeys.searchFavorites('w1'),
       search: queryKeys.search({ workspaceId: 'w1', q: 'rent' }),
     }).toEqual({
       dashboard: ['dashboard', 'w1', '30d', null],
@@ -85,7 +84,6 @@ describe('queryKeys', () => {
       cryptoSummary: ['crypto', 'summary', 'w1'],
       notifications: ['notifications', 'w1'],
       searchRecent: ['search', 'w1', 'recent'],
-      searchFavorites: ['search', 'w1', 'favorites'],
       search: ['search', 'w1', 'query', 'rent'],
     });
   });

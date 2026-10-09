@@ -1,0 +1,6 @@
+@use '../abstracts' as *;
+
+// Placeholder of the multi-pick dropdown (`ui/multi-select`), muted like an input's.
+.lumio-multi-select__placeholder {
+  color: $lumio-color-ink-400;
+}

@@ -188,10 +188,17 @@ function CellDisplay({ column, row, fallbackCurrency, labels }: EditableCellProp
   );
 }
 
-const cellClassName = (column: CustomTableColumn, missingRequired: boolean, editable: boolean) =>
+const cellClassName = (
+  column: CustomTableColumn,
+  missingRequired: boolean,
+  editable: boolean,
+  issue: boolean,
+) =>
   `lumio-ct__cell${editable ? ' lumio-ct__cell--editable' : ''}${
     missingRequired ? ' lumio-ct__cell--required' : ''
-  }${isNumericColumn(column) ? ' lumio-ct__cell--numeric' : ''}`;
+  }${issue ? ' lumio-ct__cell--issue' : ''}${
+    isNumericColumn(column) ? ' lumio-ct__cell--numeric' : ''
+  }`;
 
 /**
  * One cell component for every column type. Read-only types (formula,
@@ -201,7 +208,8 @@ export function EditableCell(props: EditableCellProps) {
   const { column, row, missingRequired, onUpdate, labels } = props;
   const [editing, setEditing] = useState(false);
   const editable = isEditableColumn(column);
-  const className = cellClassName(column, missingRequired, editable);
+  const issue = Boolean(row.styles?.[column.key]?.importIssue);
+  const className = cellClassName(column, missingRequired, editable, issue);
 
   if (column.type === 'boolean') {
     return (

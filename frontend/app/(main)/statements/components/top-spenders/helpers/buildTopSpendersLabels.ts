@@ -1,3 +1,4 @@
+import { FLOW_LABEL_PATHS } from '@/app/(main)/statements/components/analytics/flow/flow-label-paths';
 import { getNestedValue, resolveLabel } from '@/app/lib/analytics-common';
 
 type TxFn = (path: string[], fallback: string) => string;
@@ -9,7 +10,7 @@ const LABEL_PATHS: Record<string, [string[], string]> = {
     ['topSpenders', 'subtitle'],
     'See where money goes by receipts, statements and dates.',
   ],
-  searchPlaceholder: [['topSpenders', 'searchPlaceholder'], 'Search company, bank or sender'],
+  ...FLOW_LABEL_PATHS,
   totalSpend: [['topSpenders', 'totalSpend'], 'Total spend'],
   statementsSpend: [['topSpenders', 'statementsSpend'], 'Statements'],
   receiptsSpend: [['topSpenders', 'receiptsSpend'], 'Receipts'],
@@ -24,7 +25,6 @@ const LABEL_PATHS: Record<string, [string[], string]> = {
   totalIncome: [['topSpenders', 'totalIncome'], 'Total income'],
   tabSpenders: [['topSpenders', 'tabSpenders'], 'Top spenders'],
   tabIncomeSenders: [['topSpenders', 'tabIncomeSenders'], 'Top income senders'],
-  noData: [['topSpenders', 'noData'], 'No data for selected filters'],
   source: [['topSpenders', 'source'], 'Source'],
   company: [['topSpenders', 'company'], 'Company'],
   amount: [['topSpenders', 'amount'], 'Amount'],

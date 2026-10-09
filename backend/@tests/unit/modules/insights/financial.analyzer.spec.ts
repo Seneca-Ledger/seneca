@@ -1,3 +1,4 @@
+import { countedSql } from '@/common/utils/counted-transactions.util';
 import { InsightSeverity, InsightType } from '@/entities/insight.entity';
 import { FinancialAnalyzer } from '@/modules/insights/analyzers/financial.analyzer';
 
@@ -98,6 +99,11 @@ describe('FinancialAnalyzer', () => {
       messageParams: { category: 'Такси', percent: 200 },
       severity: InsightSeverity.WARN,
     });
+    // The link opens the leaderboard on this month, so the row it rings shows
+    // the total the advice quoted rather than an all-time one.
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    expect(rising?.data).toMatchObject({ month, categoryName: 'Такси' });
   });
 
   it('ignores a category whose spending is below the rising threshold', async () => {
@@ -191,6 +197,25 @@ describe('FinancialAnalyzer', () => {
     });
   });
 
+  it('derives every figure from confirmed transactions only', async () => {
+    const transactions = createTransactionRepository({});
+    const analyzer = new FinancialAnalyzer(
+      transactions,
+      createBudgetRepository([]),
+      createNetWorthService(),
+    );
+
+    await analyzer.analyze(CONTEXT);
+
+    const builder = transactions.createQueryBuilder.mock.results[0].value;
+    const confirmedClauses = builder.andWhere.mock.calls.filter(
+      ([clause]: [string]) => clause === countedSql('t'),
+    );
+    // One per query: the category totals and each monthly total.
+    expect(transactions.createQueryBuilder.mock.calls.length).toBeGreaterThan(1);
+    expect(confirmedClauses).toHaveLength(transactions.createQueryBuilder.mock.calls.length);
+  });
+
   it('reports a rising savings rate as information, not a warning', async () => {
     const analyzer = new FinancialAnalyzer(
       createTransactionRepository({
@@ -210,6 +235,10 @@ describe('FinancialAnalyzer', () => {
       messageKey: 'trend.savings_rate_up',
       messageParams: { rate: 50, diff: 30 },
       severity: InsightSeverity.INFO,
+    });
+    const now = new Date();
+    expect(savings?.data).toMatchObject({
+      month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
     });
   });
 

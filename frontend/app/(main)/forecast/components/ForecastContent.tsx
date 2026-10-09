@@ -8,6 +8,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -102,7 +103,9 @@ export function ForecastContent() {
   const listed: ForecastEvent[] = data
     ? [
         ...data.events,
+        // The previous response stays on screen while the new one loads, so it may still hold them.
         ...scenario.exclude
+          .filter(id => !data.events.some(event => event.sourceId === id))
           .map(id => seen.get(id))
           .filter((event): event is ForecastEvent => Boolean(event)),
       ].sort((a, b) => a.date.localeCompare(b.date))
@@ -147,6 +150,8 @@ export function ForecastContent() {
           ))}
         </ToggleButtonGroup>
       </Box>
+
+      <UnconfirmedNotice style={{ marginBottom: 16 }} />
 
       {isPending && (
         <Box sx={{ display: 'grid', gap: 2 }}>
@@ -241,6 +246,8 @@ export function ForecastContent() {
                 amount: formatAmount(data.everydayMonthly),
                 months: String(data.monthsObserved),
               })}
+              {data.irregularIncomeMonthly > 0 &&
+                ` · ${fill(t.irregularIncomeNote.value, { amount: formatAmount(data.irregularIncomeMonthly) })}`}
               {data.unscheduledCommitted > 0 &&
                 ` · ${fill(t.unscheduled.value, { amount: formatAmount(data.unscheduledCommitted) })}`}
             </Typography>

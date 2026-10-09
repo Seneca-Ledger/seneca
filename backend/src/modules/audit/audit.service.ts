@@ -25,6 +25,11 @@ import type {
   RollbackResult,
 } from './interfaces/audit-event.interface';
 import { RollbackService } from './rollback/rollback.service';
+import {
+  HOUSEHOLD_ENTITY_TYPES,
+  toActivityEntry,
+  type WorkspaceActivityEntry,
+} from './workspace-activity';
 
 const AUDIT_RETENTION_YEARS = 1;
 
@@ -186,6 +191,28 @@ export class AuditService {
     const [data, total] = await qb.getManyAndCount();
 
     return { data, total, page, limit };
+  }
+
+  /**
+   * The household's own feed: who touched the money lately.
+   *
+   * Narrower than `findEvents` on purpose — it answers "did you change this?",
+   * not "what happened on this account", so it never reaches the events that
+   * only the owner should see.
+   */
+  async findWorkspaceActivity(workspaceId: string, limit = 20): Promise<WorkspaceActivityEntry[]> {
+    const events = await this.auditEventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.actor', 'actor')
+      .where('event.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('event.entityType IN (:...entityTypes)', {
+        entityTypes: HOUSEHOLD_ENTITY_TYPES,
+      })
+      .orderBy('event.createdAt', 'DESC')
+      .take(Math.min(Math.max(limit, 1), 100))
+      .getMany();
+
+    return events.map(toActivityEntry);
   }
 
   async findEventById(id: string, workspaceId?: string): Promise<AuditEvent | null> {

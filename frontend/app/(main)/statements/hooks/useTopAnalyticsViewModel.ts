@@ -39,6 +39,8 @@ type DataParams<TState> = {
   resolvedTheme: string | undefined;
   labels: Record<string, string>;
   state: TState;
+  /** The month this view is showing; its own header owns it. */
+  month: Date;
 };
 
 export type TopAnalyticsViewModelConfig<TState, TData> = {
@@ -60,8 +62,10 @@ export type TopAnalyticsViewModelReturn<TState, TData> = TState &
     drillLabels: DrillLabels;
   };
 
+// eslint-disable-next-line max-params
 export function useTopAnalyticsViewModel<TState, TData>(
   config: TopAnalyticsViewModelConfig<TState, TData>,
+  month: Date,
 ): TopAnalyticsViewModelReturn<TState, TData> {
   const { user } = useAuth();
   const { currentWorkspace, workspaces } = useWorkspace();
@@ -84,6 +88,7 @@ export function useTopAnalyticsViewModel<TState, TData>(
     resolvedTheme,
     labels,
     state,
+    month,
   });
   const sourceLabels = useMemo(
     () => ({

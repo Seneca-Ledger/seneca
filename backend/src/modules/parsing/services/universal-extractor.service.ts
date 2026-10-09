@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import {
   createReceiptAmountHelpers,
   DEFAULT_RECEIPT_SYMBOL_TO_CURRENCY,
@@ -172,7 +173,7 @@ export class UniversalExtractorService {
       .filter(Boolean);
 
     const amount = await this.extractAmountWithCurrency(lines, text);
-    const currency = amount?.currency || this.extractCurrency(text) || 'KZT';
+    const currency = amount?.currency || this.extractCurrency(text) || appDefaultCurrency();
     const date = this.extractDate(text);
     const vendor = this.extractVendor(lines, context.sender, text);
     const merchantAddress = extractMerchantAddress(lines);

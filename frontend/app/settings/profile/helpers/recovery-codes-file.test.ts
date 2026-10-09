@@ -21,11 +21,11 @@ const chinese: RecoveryCodesFileContent = {
   codes,
 };
 
-const arabic: RecoveryCodesFileContent = {
-  locale: 'ar',
-  title: 'Lumio — رموز الاسترداد',
-  details: ['الحساب: user@example.com'],
-  hint: 'يعمل كل رمز مرة واحدة بدلاً من رمز تطبيق المصادقة. احتفظ بهذا الملف في مكان آمن ولا تشاركه مع أحد.',
+const hindi: RecoveryCodesFileContent = {
+  locale: 'hi',
+  title: 'Lumio — रिकवरी कोड',
+  details: ['खाता: user@example.com'],
+  hint: 'हर कोड ऑथेंटिकेटर ऐप के कोड की जगह एक बार काम करता है। इस फ़ाइल को सुरक्षित जगह रखें और किसी के साथ साझा न करें।',
   codes,
 };
 
@@ -33,8 +33,8 @@ const ONE_PIXEL_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 let saved: { blob: Blob; fileName: string } | null = null;
-/** Lines the browser drew onto a canvas, with the context state at that moment. */
-let drawn: Array<{ text: string; direction: string; textAlign: string }> = [];
+/** Lines the browser drew onto a canvas. */
+let drawn: Array<{ text: string }> = [];
 
 beforeEach(() => {
   saved = null;
@@ -46,13 +46,11 @@ beforeEach(() => {
       font: '',
       fillStyle: '',
       textBaseline: '',
-      direction: 'inherit',
-      textAlign: 'start',
       measureText: (text: string) => ({
         width: text.length * Number.parseFloat(ctx.font.split(' ')[1]) * 0.6,
       }),
       fillText: (text: string) => {
-        drawn.push({ text, direction: ctx.direction, textAlign: ctx.textAlign });
+        drawn.push({ text });
       },
     };
     return ctx;
@@ -133,25 +131,13 @@ describe('downloadRecoveryCodes', () => {
     expect(raw).toContain('/Subtype /Image');
   }, 30_000);
 
-  it('draws Arabic right to left and wraps a long line without losing words', async () => {
-    await downloadRecoveryCodes('pdf', arabic);
+  it('wraps a long drawn line without losing words', async () => {
+    await downloadRecoveryCodes('pdf', hindi);
 
-    expect(drawn.every(line => line.direction === 'rtl' && line.textAlign === 'right')).toBe(true);
     const hintLines = drawn.slice(2).map(line => line.text);
     expect(hintLines.length).toBeGreaterThan(1);
-    expect(hintLines.join(' ')).toBe(arabic.hint);
+    expect(hintLines.join(' ')).toBe(hindi.hint);
   }, 30_000);
-
-  it('marks Arabic DOCX paragraphs right to left but leaves the codes left to right', async () => {
-    await downloadRecoveryCodes('docx', arabic);
-
-    const xml = docxXml(await savedBytes());
-    const runWith = (text: string) => xml.split('<w:r>').find(run => run.includes(text)) ?? '';
-    expect(xml).toContain('<w:bidi/>');
-    expect(runWith(arabic.title)).toContain('<w:rtl/>');
-    expect(runWith(arabic.hint)).toContain('<w:rtl/>');
-    expect(runWith(codes[0])).not.toContain('<w:rtl/>');
-  });
 
   it('saves a DOCX with the title, details, hint and every code', async () => {
     await downloadRecoveryCodes('docx', content);

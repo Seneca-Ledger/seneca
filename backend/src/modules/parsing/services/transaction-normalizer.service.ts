@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { ColumnValidationResult, ColumnValidationService } from './column-validation.service';
 import { TextCleaningResult, TextCleaningService } from './text-cleaning.service';
@@ -38,7 +39,7 @@ export class TransactionNormalizer {
   ): Promise<NormalizedTransaction> {
     const {
       locale = 'en',
-      defaultCurrency = 'USD',
+      defaultCurrency = appDefaultCurrency(),
       strictMode = false,
       preserveOriginalValues = false,
     } = options;

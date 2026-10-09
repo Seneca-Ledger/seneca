@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
+import { countedSql } from '../../common/utils/counted-transactions.util';
 import { Goal, GoalContribution } from '../../entities';
 import { Budget, type BudgetPeriodType } from '../../entities/budget.entity';
 import type { Category } from '../../entities/category.entity';
@@ -608,7 +609,8 @@ export class GoalFlowService {
       .andWhere('t.transaction_date >= :start', { start: window.start })
       .andWhere('t.transaction_date <= :end', { end: window.end })
       .andWhere('t.is_duplicate = false')
-      .andWhere('t.transfer_pair_id IS NULL');
+      .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(countedSql('t'));
   }
 
   private async sumContributions(workspaceId: string, goalId: string): Promise<number> {

@@ -1008,95 +1008,6 @@ const zh: TranslationMap = {
   },
 };
 
-const ar: TranslationMap = {
-  'subscription.price_changed': {
-    title: 'تغيّر سعر الاشتراك',
-    message:
-      '{{vendor}}: {{previous}} ← {{current}} {{currency}} ({{delta}} لكل خصم، {{yearly}} سنويًا)',
-  },
-  'review.waiting': {
-    title: 'عناصر بانتظار المراجعة',
-    message: '{{count}} عنصرًا بانتظارك في صندوق المراجعة',
-  },
-  'note.mentioned': {
-    title: 'تمت الإشارة إليك في ملاحظة',
-    message: 'أشار إليك {{actorName}}: {{excerpt}}',
-  },
-  'statement.uploaded': {
-    title: 'تم رفع كشف الحساب',
-    message: '{{actorName}} رفع كشف الحساب "{{statementName}}"',
-  },
-  'import.committed': {
-    title: 'اكتمل الاستيراد',
-    message: '{{actorName}} استورد {{transactionCount}} معاملة',
-  },
-  'category.created': {
-    title: 'تم إنشاء الفئة',
-    message: '{{actorName}} أنشأ الفئة "{{categoryName}}"',
-  },
-  'category.updated': {
-    title: 'تم تحديث الفئة',
-    message: '{{actorName}} حدّث الفئة "{{categoryName}}"',
-  },
-  'category.deleted': {
-    title: 'تم حذف الفئة',
-    message: '{{actorName}} حذف الفئة "{{categoryName}}"',
-  },
-  'member.invited': { title: 'تمت دعوة عضو جديد', message: '{{actorName}} دعا {{invitedEmail}}' },
-  'member.joined': { title: 'انضم عضو', message: '{{memberName}} انضم إلى مساحة العمل' },
-  'data.deleted': { title: 'تم حذف البيانات', message: '{{actorName}} حذف {{count}} سجلات' },
-  'workspace.updated': {
-    title: 'تم تحديث إعدادات مساحة العمل',
-    message: '{{actorName}} حدّث إعدادات مساحة العمل',
-  },
-  'parsing.error': { title: 'خطأ في تحليل كشف الحساب', message: 'تعذرت معالجة كشف الحساب' },
-  'parsing.error.named': {
-    title: 'خطأ في تحليل كشف الحساب',
-    message: 'تعذرت معالجة كشف الحساب "{{statementName}}"',
-  },
-  'import.failed': { title: 'فشل الاستيراد', message: 'فشل الاستيراد' },
-  'import.failed.named': {
-    title: 'فشل الاستيراد',
-    message: 'فشل استيراد كشف الحساب "{{statementName}}"',
-  },
-  'transactions.uncategorized': {
-    title: 'معاملات بدون تصنيف',
-    message: '{{count}} معاملة تحتاج إلى تصنيف',
-  },
-  'receipt.uncategorized': { title: 'إيصال بدون تصنيف', message: 'تم العثور على إيصال بدون تصنيف' },
-  'receipt.uncategorized.named': {
-    title: 'إيصال بدون تصنيف',
-    message: 'الإيصال "{{receiptName}}" ليس له تصنيف',
-  },
-  'payable.marked_paid': {
-    title: 'تم تحديد الدفعة كمدفوعة',
-    message: 'تم تحديد {{vendor}} كمدفوع',
-  },
-  'payable.overdue': { title: 'دفعة متأخرة', message: '{{vendor}} متأخر' },
-  'payable.due_soon': { title: 'دفعة مستحقة قريباً', message: '{{vendor}} مستحق قريباً' },
-  'budget.exceeded': {
-    title: 'تجاوز الميزانية',
-    message: 'الميزانية "{{budgetName}}" تجاوزت الحد ({{percentUsed}}%)',
-  },
-  'budget.warning': {
-    title: 'تحذير الميزانية',
-    message: 'الميزانية "{{budgetName}}" وصلت إلى {{percentUsed}}% من الحد',
-  },
-  'subscription.detected': {
-    title: 'تم اكتشاف اشتراكات',
-    message: 'تم العثور على مدفوعات متكررة: {{vendors}}',
-  },
-  'subscription.upcoming': { title: 'رسوم اشتراك قادمة', message: 'قادمة: {{details}}' },
-  'tax.threshold.warning': {
-    title: 'حد التسجيل الضريبي',
-    message: 'بلغ حجم الأعمال {{percentUsed}}% من حد التسجيل البالغ {{threshold}} {{currency}}',
-  },
-  'tax.threshold.reached': {
-    title: 'تم بلوغ حد التسجيل',
-    message: 'بلغ حجم الأعمال حد التسجيل {{threshold}} {{currency}}',
-  },
-};
-
 const pl: TranslationMap = {
   'subscription.price_changed': {
     title: 'Zmiana ceny subskrypcji',
@@ -2120,6 +2031,1755 @@ const id: TranslationMap = {
   },
 };
 
+const da: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Abonnementets pris er ændret',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} pr. træk, {{yearly}} om året)',
+  },
+  'review.waiting': {
+    title: 'Poster venter på gennemgang',
+    message: '{{count}} poster venter i gennemgangsindbakken',
+  },
+  'note.mentioned': {
+    title: 'Du blev nævnt i en note',
+    message: '{{actorName}} nævnte dig: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Kontoudtog uploadet',
+    message: '{{actorName}} uploadede kontoudtoget "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Import fuldført',
+    message: '{{actorName}} importerede {{transactionCount}} posteringer',
+  },
+  'category.created': {
+    title: 'Kategori oprettet',
+    message: '{{actorName}} oprettede kategorien "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategori opdateret',
+    message: '{{actorName}} opdaterede kategorien "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategori slettet',
+    message: '{{actorName}} slettede kategorien "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nyt medlem inviteret',
+    message: '{{actorName}} inviterede {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Medlem tilsluttet',
+    message: '{{memberName}} blev medlem af arbejdsområdet',
+  },
+  'data.deleted': {
+    title: 'Data slettet',
+    message: '{{actorName}} slettede {{count}} poster',
+  },
+  'workspace.updated': {
+    title: 'Arbejdsområdets indstillinger opdateret',
+    message: '{{actorName}} opdaterede arbejdsområdets indstillinger',
+  },
+  'parsing.error': {
+    title: 'Fejl ved tolkning af kontoudtog',
+    message: 'Kontoudtoget kunne ikke behandles',
+  },
+  'parsing.error.named': {
+    title: 'Fejl ved tolkning af kontoudtog',
+    message: 'Kontoudtoget "{{statementName}}" kunne ikke behandles',
+  },
+  'import.failed': {
+    title: 'Import mislykkedes',
+    message: 'Importen mislykkedes med en fejl',
+  },
+  'import.failed.named': {
+    title: 'Import mislykkedes',
+    message: 'Import af kontoudtoget "{{statementName}}" mislykkedes',
+  },
+  'transactions.uncategorized': {
+    title: 'Ukategoriserede posteringer',
+    message: '{{count}} posteringer mangler kategori',
+  },
+  'receipt.uncategorized': {
+    title: 'Ukategoriseret kvittering',
+    message: 'Der blev fundet en kvittering uden kategori',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Ukategoriseret kvittering',
+    message: 'Kvitteringen "{{receiptName}}" har ingen kategori',
+  },
+  'payable.marked_paid': {
+    title: 'Kreditorpost markeret som betalt',
+    message: '{{vendor}} blev markeret som betalt',
+  },
+  'payable.overdue': {
+    title: 'Kreditorpost overskredet',
+    message: '{{vendor}} er overskredet',
+  },
+  'payable.due_soon': {
+    title: 'Kreditorpost forfalder snart',
+    message: '{{vendor}} forfalder snart',
+  },
+  'budget.exceeded': {
+    title: 'Budget overskredet',
+    message: 'Budgettet "{{budgetName}}" har overskredet sin grænse ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Budgetadvarsel',
+    message: 'Budgettet "{{budgetName}}" har nået {{percentUsed}} % af sin grænse',
+  },
+  'subscription.detected': {
+    title: 'Abonnementer fundet',
+    message: 'Fundet tilbagevendende betalinger: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Kommende abonnementsopkrævninger',
+    message: 'Kommende: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Grænse for momsregistrering',
+    message:
+      'Omsætningen har nået {{percentUsed}} % af registreringsgrænsen på {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Registreringsgrænsen er nået',
+    message: 'Omsætningen har nået registreringsgrænsen på {{threshold}} {{currency}}',
+  },
+};
+
+const nb: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Abonnementsprisen er endret',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} per trekk, {{yearly}} i året)',
+  },
+  'review.waiting': {
+    title: 'Poster venter på gjennomgang',
+    message: '{{count}} poster venter i gjennomgangsinnboksen',
+  },
+  'note.mentioned': {
+    title: 'Du ble nevnt i et notat',
+    message: '{{actorName}} nevnte deg: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Kontoutskrift lastet opp',
+    message: '{{actorName}} lastet opp kontoutskriften "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Import fullført',
+    message: '{{actorName}} importerte {{transactionCount}} transaksjoner',
+  },
+  'category.created': {
+    title: 'Kategori opprettet',
+    message: '{{actorName}} opprettet kategorien "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategori oppdatert',
+    message: '{{actorName}} oppdaterte kategorien "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategori slettet',
+    message: '{{actorName}} slettet kategorien "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nytt medlem invitert',
+    message: '{{actorName}} inviterte {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Medlem ble med',
+    message: '{{memberName}} ble med i arbeidsområdet',
+  },
+  'data.deleted': {
+    title: 'Data slettet',
+    message: '{{actorName}} slettet {{count}} poster',
+  },
+  'workspace.updated': {
+    title: 'Innstillinger for arbeidsområdet oppdatert',
+    message: '{{actorName}} oppdaterte innstillingene for arbeidsområdet',
+  },
+  'parsing.error': {
+    title: 'Feil ved tolking av kontoutskrift',
+    message: 'Kontoutskriften kunne ikke behandles',
+  },
+  'parsing.error.named': {
+    title: 'Feil ved tolking av kontoutskrift',
+    message: 'Kontoutskriften "{{statementName}}" kunne ikke behandles',
+  },
+  'import.failed': {
+    title: 'Import mislyktes',
+    message: 'Importen mislyktes med en feil',
+  },
+  'import.failed.named': {
+    title: 'Import mislyktes',
+    message: 'Import av kontoutskriften "{{statementName}}" mislyktes',
+  },
+  'transactions.uncategorized': {
+    title: 'Ukategoriserte transaksjoner',
+    message: '{{count}} transaksjoner mangler kategori',
+  },
+  'receipt.uncategorized': {
+    title: 'Ukategorisert kvittering',
+    message: 'Det ble funnet en kvittering uten kategori',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Ukategorisert kvittering',
+    message: 'Kvitteringen "{{receiptName}}" har ingen kategori',
+  },
+  'payable.marked_paid': {
+    title: 'Leverandørgjeld merket som betalt',
+    message: '{{vendor}} ble merket som betalt',
+  },
+  'payable.overdue': {
+    title: 'Leverandørgjeld forfalt',
+    message: '{{vendor}} er forfalt',
+  },
+  'payable.due_soon': {
+    title: 'Leverandørgjeld forfaller snart',
+    message: '{{vendor}} forfaller snart',
+  },
+  'budget.exceeded': {
+    title: 'Budsjett overskredet',
+    message: 'Budsjettet "{{budgetName}}" har overskredet grensen ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Budsjettvarsel',
+    message: 'Budsjettet "{{budgetName}}" har nådd {{percentUsed}} % av grensen',
+  },
+  'subscription.detected': {
+    title: 'Abonnementer oppdaget',
+    message: 'Fant gjentakende betalinger: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Kommende abonnementsbelastninger',
+    message: 'Kommende: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Grense for mva-registrering',
+    message:
+      'Omsetningen har nådd {{percentUsed}} % av registreringsgrensen på {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Registreringsgrensen er nådd',
+    message: 'Omsetningen har nådd registreringsgrensen på {{threshold}} {{currency}}',
+  },
+};
+
+const nn: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Abonnementsprisen er endra',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} per trekk, {{yearly}} i året)',
+  },
+  'review.waiting': {
+    title: 'Postar ventar på gjennomgang',
+    message: '{{count}} postar ventar i gjennomgangsinnboksen',
+  },
+  'note.mentioned': {
+    title: 'Du vart nemnd i eit notat',
+    message: '{{actorName}} nemnde deg: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Kontoutskrift lasta opp',
+    message: '{{actorName}} lasta opp kontoutskrifta "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Import fullført',
+    message: '{{actorName}} importerte {{transactionCount}} transaksjonar',
+  },
+  'category.created': {
+    title: 'Kategori oppretta',
+    message: '{{actorName}} oppretta kategorien "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategori oppdatert',
+    message: '{{actorName}} oppdaterte kategorien "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategori sletta',
+    message: '{{actorName}} sletta kategorien "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nytt medlem invitert',
+    message: '{{actorName}} inviterte {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Medlem vart med',
+    message: '{{memberName}} vart med i arbeidsområdet',
+  },
+  'data.deleted': {
+    title: 'Data sletta',
+    message: '{{actorName}} sletta {{count}} postar',
+  },
+  'workspace.updated': {
+    title: 'Innstillingar for arbeidsområdet oppdaterte',
+    message: '{{actorName}} oppdaterte innstillingane for arbeidsområdet',
+  },
+  'parsing.error': {
+    title: 'Feil ved tolking av kontoutskrift',
+    message: 'Kontoutskrifta kunne ikkje handsamast',
+  },
+  'parsing.error.named': {
+    title: 'Feil ved tolking av kontoutskrift',
+    message: 'Kontoutskrifta "{{statementName}}" kunne ikkje handsamast',
+  },
+  'import.failed': {
+    title: 'Import mislukkast',
+    message: 'Importen mislukkast med ein feil',
+  },
+  'import.failed.named': {
+    title: 'Import mislukkast',
+    message: 'Import av kontoutskrifta "{{statementName}}" mislukkast',
+  },
+  'transactions.uncategorized': {
+    title: 'Ukategoriserte transaksjonar',
+    message: '{{count}} transaksjonar manglar kategori',
+  },
+  'receipt.uncategorized': {
+    title: 'Ukategorisert kvittering',
+    message: 'Det vart funnen ei kvittering utan kategori',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Ukategorisert kvittering',
+    message: 'Kvitteringa "{{receiptName}}" har ingen kategori',
+  },
+  'payable.marked_paid': {
+    title: 'Leverandørgjeld merkt som betalt',
+    message: '{{vendor}} vart merkt som betalt',
+  },
+  'payable.overdue': {
+    title: 'Leverandørgjeld forfallen',
+    message: '{{vendor}} er forfallen',
+  },
+  'payable.due_soon': {
+    title: 'Leverandørgjeld forfell snart',
+    message: '{{vendor}} forfell snart',
+  },
+  'budget.exceeded': {
+    title: 'Budsjett overskride',
+    message: 'Budsjettet "{{budgetName}}" har overskride grensa ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Budsjettåtvaring',
+    message: 'Budsjettet "{{budgetName}}" har nådd {{percentUsed}} % av grensa',
+  },
+  'subscription.detected': {
+    title: 'Abonnement oppdaga',
+    message: 'Fann gjentakande betalingar: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Komande abonnementsbelastingar',
+    message: 'Komande: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Grense for mva-registrering',
+    message:
+      'Omsetninga har nådd {{percentUsed}} % av registreringsgrensa på {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Registreringsgrensa er nådd',
+    message: 'Omsetninga har nådd registreringsgrensa på {{threshold}} {{currency}}',
+  },
+};
+
+const fi: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Tilauksen hinta muuttui',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} per veloitus, {{yearly}} vuodessa)',
+  },
+  'review.waiting': {
+    title: 'Kohteita odottaa tarkistusta',
+    message: '{{count}} kohdetta odottaa tarkistuslaatikossa',
+  },
+  'note.mentioned': {
+    title: 'Sinut mainittiin muistiinpanossa',
+    message: '{{actorName}} mainitsi sinut: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Tiliote ladattu',
+    message: '{{actorName}} latasi tiliotteen "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Tuonti valmis',
+    message: '{{actorName}} toi {{transactionCount}} tapahtumaa',
+  },
+  'category.created': {
+    title: 'Kategoria luotu',
+    message: '{{actorName}} loi kategorian "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategoria päivitetty',
+    message: '{{actorName}} päivitti kategorian "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategoria poistettu',
+    message: '{{actorName}} poisti kategorian "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Uusi jäsen kutsuttu',
+    message: '{{actorName}} kutsui {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Jäsen liittyi',
+    message: '{{memberName}} liittyi työtilaan',
+  },
+  'data.deleted': {
+    title: 'Tietoja poistettu',
+    message: '{{actorName}} poisti {{count}} tietuetta',
+  },
+  'workspace.updated': {
+    title: 'Työtilan asetukset päivitetty',
+    message: '{{actorName}} päivitti työtilan asetuksia',
+  },
+  'parsing.error': {
+    title: 'Virhe tiliotteen jäsennyksessä',
+    message: 'Tiliotteen käsittely ei onnistunut',
+  },
+  'parsing.error.named': {
+    title: 'Virhe tiliotteen jäsennyksessä',
+    message: 'Tiliotteen "{{statementName}}" käsittely ei onnistunut',
+  },
+  'import.failed': {
+    title: 'Tuonti epäonnistui',
+    message: 'Tuonti päättyi virheeseen',
+  },
+  'import.failed.named': {
+    title: 'Tuonti epäonnistui',
+    message: 'Tiliotteen "{{statementName}}" tuonti epäonnistui',
+  },
+  'transactions.uncategorized': {
+    title: 'Luokittelemattomat tapahtumat',
+    message: '{{count}} tapahtumaa tarvitsee kategorian',
+  },
+  'receipt.uncategorized': {
+    title: 'Luokittelematon kuitti',
+    message: 'Löytyi kuitti ilman kategoriaa',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Luokittelematon kuitti',
+    message: 'Kuitilla "{{receiptName}}" ei ole kategoriaa',
+  },
+  'payable.marked_paid': {
+    title: 'Ostovelka merkitty maksetuksi',
+    message: '{{vendor}} merkittiin maksetuksi',
+  },
+  'payable.overdue': {
+    title: 'Ostovelka myöhässä',
+    message: '{{vendor}} on myöhässä',
+  },
+  'payable.due_soon': {
+    title: 'Ostovelka erääntyy pian',
+    message: '{{vendor}} erääntyy pian',
+  },
+  'budget.exceeded': {
+    title: 'Budjetti ylitetty',
+    message: 'Budjetti "{{budgetName}}" on ylittänyt rajansa ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Budjettivaroitus',
+    message: 'Budjetti "{{budgetName}}" on saavuttanut {{percentUsed}} % rajastaan',
+  },
+  'subscription.detected': {
+    title: 'Tilauksia havaittu',
+    message: 'Löytyi toistuvia maksuja: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Tulevat tilausveloitukset',
+    message: 'Tulossa: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'ALV-rekisteröinnin raja',
+    message:
+      'Liikevaihto on saavuttanut {{percentUsed}} % rekisteröintirajasta {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Rekisteröintiraja saavutettu',
+    message: 'Liikevaihto on saavuttanut rekisteröintirajan {{threshold}} {{currency}}',
+  },
+};
+
+const is: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Verð áskriftar breyttist',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} á hverja færslu, {{yearly}} á ári)',
+  },
+  'review.waiting': {
+    title: 'Færslur bíða yfirferðar',
+    message: '{{count}} færslur bíða í yfirferðarhólfinu',
+  },
+  'note.mentioned': {
+    title: 'Þú varst nefnd í athugasemd',
+    message: '{{actorName}} nefndi þig: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Yfirliti hlaðið upp',
+    message: '{{actorName}} hlóð upp yfirlitinu "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Innflutningi lokið',
+    message: '{{actorName}} flutti inn {{transactionCount}} færslur',
+  },
+  'category.created': {
+    title: 'Kategoría búin til',
+    message: '{{actorName}} bjó til kategoríuna "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategoría uppfærð',
+    message: '{{actorName}} uppfærði kategoríuna "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategoríu eytt',
+    message: '{{actorName}} eyddi kategoríunni "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nýjum meðlim boðið',
+    message: '{{actorName}} bauð {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Meðlimur gekk til liðs',
+    message: '{{memberName}} gekk til liðs við vinnusvæðið',
+  },
+  'data.deleted': {
+    title: 'Gögnum eytt',
+    message: '{{actorName}} eyddi {{count}} skrám',
+  },
+  'workspace.updated': {
+    title: 'Stillingar vinnusvæðis uppfærðar',
+    message: '{{actorName}} uppfærði stillingar vinnusvæðisins',
+  },
+  'parsing.error': {
+    title: 'Villa við þáttun yfirlits',
+    message: 'Ekki var unnt að vinna úr yfirlitinu',
+  },
+  'parsing.error.named': {
+    title: 'Villa við þáttun yfirlits',
+    message: 'Ekki var unnt að vinna úr yfirlitinu "{{statementName}}"',
+  },
+  'import.failed': {
+    title: 'Innflutningur mistókst',
+    message: 'Innflutningur endaði með villu',
+  },
+  'import.failed.named': {
+    title: 'Innflutningur mistókst',
+    message: 'Innflutningur yfirlitsins "{{statementName}}" mistókst',
+  },
+  'transactions.uncategorized': {
+    title: 'Óflokkaðar færslur',
+    message: '{{count}} færslur þurfa kategoríu',
+  },
+  'receipt.uncategorized': {
+    title: 'Óflokkuð kvittun',
+    message: 'Kvittun án kategoríu fannst',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Óflokkuð kvittun',
+    message: 'Kvittunin "{{receiptName}}" hefur enga kategoríu',
+  },
+  'payable.marked_paid': {
+    title: 'Skuld merkt sem greidd',
+    message: '{{vendor}} var merkt sem greidd',
+  },
+  'payable.overdue': {
+    title: 'Skuld í vanskilum',
+    message: '{{vendor}} er í vanskilum',
+  },
+  'payable.due_soon': {
+    title: 'Skuld á gjalddaga á næstunni',
+    message: '{{vendor}} er á gjalddaga á næstunni',
+  },
+  'budget.exceeded': {
+    title: 'Fjárhagsáætlun yfirfarin',
+    message: 'Fjárhagsáætlunin "{{budgetName}}" hefur farið yfir markið ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Viðvörun fjárhagsáætlunar',
+    message: 'Fjárhagsáætlunin "{{budgetName}}" hefur náð {{percentUsed}} % af markinu',
+  },
+  'subscription.detected': {
+    title: 'Áskriftir greindar',
+    message: 'Fundust endurteknar greiðslur: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Komandi áskriftargjöld',
+    message: 'Væntanleg: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Þröskuldur VSK-skráningar',
+    message:
+      'Velta hefur náð {{percentUsed}} % af skráningarþröskuldinum {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Skráningarþröskuldi náð',
+    message: 'Velta hefur náð skráningarþröskuldinum {{threshold}} {{currency}}',
+  },
+};
+
+const fo: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Prísurin á haldinum er broyttur',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} fyri hvørja skuldseting, {{yearly}} um árið)',
+  },
+  'review.waiting': {
+    title: 'Postar bíða eftir eftirkanning',
+    message: '{{count}} postar bíða í eftirkanningarinnbakkanum',
+  },
+  'note.mentioned': {
+    title: 'Tú varðst nevnd í einum notati',
+    message: '{{actorName}} nevndi tær: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Kontoúrtøk lagt upp',
+    message: '{{actorName}} legði kontoúrtøkið "{{statementName}}" upp',
+  },
+  'import.committed': {
+    title: 'Innflutningur fullfíggjaður',
+    message: '{{actorName}} flutti {{transactionCount}} posteringar inn',
+  },
+  'category.created': {
+    title: 'Bólkur stovnaður',
+    message: '{{actorName}} stovnaði bólkin "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Bólkur dagførdur',
+    message: '{{actorName}} dagførdi bólkin "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Bólkur strikaður',
+    message: '{{actorName}} strikaði bólkin "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nýggjur limur bodin',
+    message: '{{actorName}} bjóðaði {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Limur varð við',
+    message: '{{memberName}} varð við í arbeiðsøkinum',
+  },
+  'data.deleted': {
+    title: 'Dátur strikaðar',
+    message: '{{actorName}} strikaði {{count}} skrásetingar',
+  },
+  'workspace.updated': {
+    title: 'Innstillingar fyri arbeiðsøki dagførdar',
+    message: '{{actorName}} dagførdi innstillingarnar fyri arbeiðsøkið',
+  },
+  'parsing.error': {
+    title: 'Feilur í tólking av kontoúrtøki',
+    message: 'Fekk ikki viðgjørt kontoúrtøkið',
+  },
+  'parsing.error.named': {
+    title: 'Feilur í tólking av kontoúrtøki',
+    message: 'Fekk ikki viðgjørt kontoúrtøkið "{{statementName}}"',
+  },
+  'import.failed': {
+    title: 'Innflutningur miseydnaðist',
+    message: 'Innflutningurin endaði við einum feili',
+  },
+  'import.failed.named': {
+    title: 'Innflutningur miseydnaðist',
+    message: 'Innflutningur av kontoúrtøkinum "{{statementName}}" miseydnaðist',
+  },
+  'transactions.uncategorized': {
+    title: 'Óbólkaðar posteringar',
+    message: '{{count}} posteringar mangla bólk',
+  },
+  'receipt.uncategorized': {
+    title: 'Óbólkað kvittan',
+    message: 'Ein kvittan uttan bólk varð funnin',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Óbólkað kvittan',
+    message: 'Kvittanin "{{receiptName}}" hevur ongan bólk',
+  },
+  'payable.marked_paid': {
+    title: 'Skuld merkt sum gjaldað',
+    message: '{{vendor}} varð merkt sum gjaldað',
+  },
+  'payable.overdue': {
+    title: 'Skuld yvir tíðina',
+    message: '{{vendor}} er yvir tíðina',
+  },
+  'payable.due_soon': {
+    title: 'Skuld fellur skjótt',
+    message: '{{vendor}} fellur skjótt',
+  },
+  'budget.exceeded': {
+    title: 'Fíggjarætlan yvirstigin',
+    message: 'Fíggjarætlanin "{{budgetName}}" hevur fart yvir markið ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Ávaring um fíggjarætlan',
+    message: 'Fíggjarætlanin "{{budgetName}}" hevur nátt {{percentUsed}} % av markinum',
+  },
+  'subscription.detected': {
+    title: 'Hald funnin',
+    message: 'Funnar endurtaknar gjaldingar: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Komandi haldsgjøld',
+    message: 'Komandi: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Mark fyri MVG-skráseting',
+    message:
+      'Umsetningurin hevur nátt {{percentUsed}} % av skrásetingarmarkinum {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Skrásetingarmarkið er nátt',
+    message: 'Umsetningurin hevur nátt skrásetingarmarkinum {{threshold}} {{currency}}',
+  },
+};
+
+const cs: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Cena předplatného se změnila',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} za platbu, {{yearly}} ročně)',
+  },
+  'review.waiting': {
+    title: 'Položky čekají na kontrolu',
+    message: '{{count}} položek čeká ve schránce ke kontrole',
+  },
+  'note.mentioned': {
+    title: 'Byli jste zmíněni v poznámce',
+    message: '{{actorName}} vás zmínil: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Výpis nahrán',
+    message: '{{actorName}} nahrál výpis "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Import dokončen',
+    message: '{{actorName}} naimportoval {{transactionCount}} transakcí',
+  },
+  'category.created': {
+    title: 'Kategorie vytvořena',
+    message: '{{actorName}} vytvořil kategorii "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategorie upravena',
+    message: '{{actorName}} upravil kategorii "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategorie smazána',
+    message: '{{actorName}} smazal kategorii "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Pozvání nového člena',
+    message: '{{actorName}} pozval {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Člen se připojil',
+    message: '{{memberName}} se připojil k pracovnímu prostoru',
+  },
+  'data.deleted': {
+    title: 'Data smazána',
+    message: '{{actorName}} smazal {{count}} záznamů',
+  },
+  'workspace.updated': {
+    title: 'Nastavení pracovního prostoru upraveno',
+    message: '{{actorName}} upravil nastavení pracovního prostoru',
+  },
+  'parsing.error': {
+    title: 'Chyba zpracování výpisu',
+    message: 'Výpis se nepodařilo zpracovat',
+  },
+  'parsing.error.named': {
+    title: 'Chyba zpracování výpisu',
+    message: 'Výpis "{{statementName}}" se nepodařilo zpracovat',
+  },
+  'import.failed': {
+    title: 'Import se nezdařil',
+    message: 'Import skončil chybou',
+  },
+  'import.failed.named': {
+    title: 'Import se nezdařil',
+    message: 'Import výpisu "{{statementName}}" se nezdařil',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakce bez kategorie',
+    message: '{{count}} transakcí potřebuje kategorii',
+  },
+  'receipt.uncategorized': {
+    title: 'Účtenka bez kategorie',
+    message: 'Byla nalezena účtenka bez kategorie',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Účtenka bez kategorie',
+    message: 'Účtenka "{{receiptName}}" nemá kategorii',
+  },
+  'payable.marked_paid': {
+    title: 'Závazek označen jako zaplacený',
+    message: '{{vendor}} byl označen jako zaplacený',
+  },
+  'payable.overdue': {
+    title: 'Závazek po splatnosti',
+    message: '{{vendor}} je po splatnosti',
+  },
+  'payable.due_soon': {
+    title: 'Závazek je brzy splatný',
+    message: '{{vendor}} bude brzy splatný',
+  },
+  'budget.exceeded': {
+    title: 'Rozpočet překročen',
+    message: 'Rozpočet "{{budgetName}}" překročil svůj limit ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Upozornění rozpočtu',
+    message: 'Rozpočet "{{budgetName}}" dosáhl {{percentUsed}} % svého limitu',
+  },
+  'subscription.detected': {
+    title: 'Zjištěno předplatné',
+    message: 'Nalezeny opakované platby: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Blížící se platby předplatného',
+    message: 'Blíží se: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Limit pro registraci k DPH',
+    message: 'Obrat dosáhl {{percentUsed}} % registračního limitu {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Registrační limit dosažen',
+    message: 'Obrat dosáhl registračního limitu {{threshold}} {{currency}}',
+  },
+};
+
+const bg: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Цената на абонамента се промени',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} на плащане, {{yearly}} годишно)',
+  },
+  'review.waiting': {
+    title: 'Записи чакат преглед',
+    message: '{{count}} записа чакат в кутията за преглед',
+  },
+  'note.mentioned': {
+    title: 'Споменаха ви в бележка',
+    message: '{{actorName}} ви спомена: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Извлечението е качено',
+    message: '{{actorName}} качи извлечението "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Импортът е завършен',
+    message: '{{actorName}} импортира {{transactionCount}} транзакции',
+  },
+  'category.created': {
+    title: 'Категорията е създадена',
+    message: '{{actorName}} създаде категорията "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Категорията е обновена',
+    message: '{{actorName}} обнови категорията "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Категорията е изтрита',
+    message: '{{actorName}} изтри категорията "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Поканен е нов участник',
+    message: '{{actorName}} покани {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Участник се присъедини',
+    message: '{{memberName}} се присъедини към работното пространство',
+  },
+  'data.deleted': {
+    title: 'Данни са изтрити',
+    message: '{{actorName}} изтри {{count}} записа',
+  },
+  'workspace.updated': {
+    title: 'Настройките на работното пространство са обновени',
+    message: '{{actorName}} обнови настройките на работното пространство',
+  },
+  'parsing.error': {
+    title: 'Грешка при разчитане на извлечение',
+    message: 'Извлечението не можа да бъде обработено',
+  },
+  'parsing.error.named': {
+    title: 'Грешка при разчитане на извлечение',
+    message: 'Извлечението "{{statementName}}" не можа да бъде обработено',
+  },
+  'import.failed': {
+    title: 'Импортът се провали',
+    message: 'Импортът завърши с грешка',
+  },
+  'import.failed.named': {
+    title: 'Импортът се провали',
+    message: 'Импортът на извлечението "{{statementName}}" се провали',
+  },
+  'transactions.uncategorized': {
+    title: 'Транзакции без категория',
+    message: '{{count}} транзакции се нуждаят от категория',
+  },
+  'receipt.uncategorized': {
+    title: 'Касова бележка без категория',
+    message: 'Намерена е бележка без категория',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Касова бележка без категория',
+    message: 'Бележката "{{receiptName}}" е без категория',
+  },
+  'payable.marked_paid': {
+    title: 'Задължението е отбелязано като платено',
+    message: '{{vendor}} беше отбелязано като платено',
+  },
+  'payable.overdue': {
+    title: 'Просрочено задължение',
+    message: '{{vendor}} е просрочено',
+  },
+  'payable.due_soon': {
+    title: 'Задължение с близък срок',
+    message: '{{vendor}} е с близък срок',
+  },
+  'budget.exceeded': {
+    title: 'Бюджетът е надвишен',
+    message: 'Бюджетът "{{budgetName}}" надвиши лимита си ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Предупреждение за бюджет',
+    message: 'Бюджетът "{{budgetName}}" достигна {{percentUsed}} % от лимита си',
+  },
+  'subscription.detected': {
+    title: 'Открити са абонаменти',
+    message: 'Намерени повтарящи се плащания: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Предстоящи плащания по абонаменти',
+    message: 'Предстоящи: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Праг за регистрация по ДДС',
+    message:
+      'Оборотът достигна {{percentUsed}} % от прага за регистрация {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Прагът за регистрация е достигнат',
+    message: 'Оборотът достигна прага за регистрация {{threshold}} {{currency}}',
+  },
+};
+
+const hr: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Cijena pretplate se promijenila',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} po terećenju, {{yearly}} godišnje)',
+  },
+  'review.waiting': {
+    title: 'Stavke čekaju pregled',
+    message: '{{count}} stavki čeka u sandučiću za pregled',
+  },
+  'note.mentioned': {
+    title: 'Spomenuti ste u bilješci',
+    message: '{{actorName}} vas je spomenuo: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Izvod je prenesen',
+    message: '{{actorName}} je prenio izvod "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Uvoz je dovršen',
+    message: '{{actorName}} je uvezao {{transactionCount}} transakcija',
+  },
+  'category.created': {
+    title: 'Kategorija je napravljena',
+    message: '{{actorName}} je napravio kategoriju "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategorija je ažurirana',
+    message: '{{actorName}} je ažurirao kategoriju "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategorija je izbrisana',
+    message: '{{actorName}} je izbrisao kategoriju "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Pozvan je novi član',
+    message: '{{actorName}} je pozvao {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Član se pridružio',
+    message: '{{memberName}} se pridružio radnom prostoru',
+  },
+  'data.deleted': {
+    title: 'Podaci su izbrisani',
+    message: '{{actorName}} je izbrisao {{count}} zapisa',
+  },
+  'workspace.updated': {
+    title: 'Postavke radnog prostora su ažurirane',
+    message: '{{actorName}} je ažurirao postavke radnog prostora',
+  },
+  'parsing.error': {
+    title: 'Pogreška obrade izvoda',
+    message: 'Izvod nije bilo moguće obraditi',
+  },
+  'parsing.error.named': {
+    title: 'Pogreška obrade izvoda',
+    message: 'Izvod "{{statementName}}" nije bilo moguće obraditi',
+  },
+  'import.failed': {
+    title: 'Uvoz nije uspio',
+    message: 'Uvoz je završio pogreškom',
+  },
+  'import.failed.named': {
+    title: 'Uvoz nije uspio',
+    message: 'Uvoz izvoda "{{statementName}}" nije uspio',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakcije bez kategorije',
+    message: '{{count}} transakcija treba kategoriju',
+  },
+  'receipt.uncategorized': {
+    title: 'Račun bez kategorije',
+    message: 'Nađen je račun bez kategorije',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Račun bez kategorije',
+    message: 'Račun "{{receiptName}}" nema kategoriju',
+  },
+  'payable.marked_paid': {
+    title: 'Obveza označena kao plaćena',
+    message: '{{vendor}} je označen kao plaćen',
+  },
+  'payable.overdue': {
+    title: 'Dospjela obveza',
+    message: '{{vendor}} je dospio',
+  },
+  'payable.due_soon': {
+    title: 'Obveza dospijeva uskoro',
+    message: '{{vendor}} dospijeva uskoro',
+  },
+  'budget.exceeded': {
+    title: 'Proračun je prekoračen',
+    message: 'Proračun "{{budgetName}}" prekoračio je svoje ograničenje ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Upozorenje proračuna',
+    message: 'Proračun "{{budgetName}}" dosegao je {{percentUsed}} % svojeg ograničenja',
+  },
+  'subscription.detected': {
+    title: 'Otkrivene pretplate',
+    message: 'Nađena ponavljajuća plaćanja: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Predstojeće naplate pretplata',
+    message: 'Predstoji: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Prag za registraciju PDV-a',
+    message: 'Promet je dosegao {{percentUsed}} % praga za registraciju {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Prag za registraciju je dosegnut',
+    message: 'Promet je dosegao prag za registraciju {{threshold}} {{currency}}',
+  },
+};
+
+const sr: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Цена претплате се променила',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} по задужењу, {{yearly}} годишње)',
+  },
+  'review.waiting': {
+    title: 'Ставке чекају преглед',
+    message: '{{count}} ставки чека у сандучету за преглед',
+  },
+  'note.mentioned': {
+    title: 'Поменути сте у белешци',
+    message: '{{actorName}} вас је поменуо: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Извод је пренет',
+    message: '{{actorName}} је пренео извод "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Увоз је завршен',
+    message: '{{actorName}} је увезао {{transactionCount}} трансакција',
+  },
+  'category.created': {
+    title: 'Категорија је направљена',
+    message: '{{actorName}} је направио категорију "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Категорија је ажурирана',
+    message: '{{actorName}} је ажурирао категорију "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Категорија је избрисана',
+    message: '{{actorName}} је избрисао категорију "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Позван је нови члан',
+    message: '{{actorName}} је позвао {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Члан се придружио',
+    message: '{{memberName}} се придружио радном простору',
+  },
+  'data.deleted': {
+    title: 'Подаци су избрисани',
+    message: '{{actorName}} је избрисао {{count}} записа',
+  },
+  'workspace.updated': {
+    title: 'Подешавања радног простора су ажурирана',
+    message: '{{actorName}} је ажурирао подешавања радног простора',
+  },
+  'parsing.error': {
+    title: 'Грешка обраде извода',
+    message: 'Извод није могуће обрадити',
+  },
+  'parsing.error.named': {
+    title: 'Грешка обраде извода',
+    message: 'Извод "{{statementName}}" није могуће обрадити',
+  },
+  'import.failed': {
+    title: 'Увоз није успео',
+    message: 'Увоз је завршио грешком',
+  },
+  'import.failed.named': {
+    title: 'Увоз није успео',
+    message: 'Увоз извода "{{statementName}}" није успео',
+  },
+  'transactions.uncategorized': {
+    title: 'Трансакције без категорије',
+    message: '{{count}} трансакција треба категорију',
+  },
+  'receipt.uncategorized': {
+    title: 'Рачун без категорије',
+    message: 'Нађен је рачун без категорије',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Рачун без категорије',
+    message: 'Рачун "{{receiptName}}" нема категорију',
+  },
+  'payable.marked_paid': {
+    title: 'Обавеза означена као плаћена',
+    message: '{{vendor}} је означен као плаћен',
+  },
+  'payable.overdue': {
+    title: 'Доспела обавеза',
+    message: '{{vendor}} је доспео',
+  },
+  'payable.due_soon': {
+    title: 'Обавеза доспева ускоро',
+    message: '{{vendor}} доспева ускоро',
+  },
+  'budget.exceeded': {
+    title: 'Буџет је прекорачен',
+    message: 'Буџет "{{budgetName}}" прекорачио је своје ограничење ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Упозорење буџета',
+    message: 'Буџет "{{budgetName}}" достигао је {{percentUsed}} % свог ограничења',
+  },
+  'subscription.detected': {
+    title: 'Откривене претплате',
+    message: 'Нађена понављајућа плаћања: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Предстојеће наплате претплата',
+    message: 'Предстоји: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Праг за регистрацију ПДВ-а',
+    message:
+      'Промет је достигао {{percentUsed}} % прага за регистрацију {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Праг за регистрацију је достигнут',
+    message: 'Промет је достигао праг за регистрацију {{threshold}} {{currency}}',
+  },
+};
+
+const sl: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Cena naročnine se je spremenila',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} na bremenitev, {{yearly}} na leto)',
+  },
+  'review.waiting': {
+    title: 'Postavke čakajo na pregled',
+    message: '{{count}} postavk čaka v nabiralniku za pregled',
+  },
+  'note.mentioned': {
+    title: 'Omenjeni ste bili v opombi',
+    message: '{{actorName}} vas je omenil: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Izpisek je naložen',
+    message: '{{actorName}} je naložil izpisek "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Uvoz je končan',
+    message: '{{actorName}} je uvozil {{transactionCount}} transakcij',
+  },
+  'category.created': {
+    title: 'Kategorija je ustvarjena',
+    message: '{{actorName}} je ustvaril kategorijo "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategorija je posodobljena',
+    message: '{{actorName}} je posodobil kategorijo "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategorija je izbrisana',
+    message: '{{actorName}} je izbrisal kategorijo "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Povabljen je nov član',
+    message: '{{actorName}} je povabil {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Član se je pridružil',
+    message: '{{memberName}} se je pridružil delovnemu prostoru',
+  },
+  'data.deleted': {
+    title: 'Podatki so izbrisani',
+    message: '{{actorName}} je izbrisal {{count}} zapisov',
+  },
+  'workspace.updated': {
+    title: 'Nastavitve delovnega prostora so posodobljene',
+    message: '{{actorName}} je posodobil nastavitve delovnega prostora',
+  },
+  'parsing.error': {
+    title: 'Napaka pri razčlenjevanju izpiska',
+    message: 'Izpiska ni bilo mogoče obdelati',
+  },
+  'parsing.error.named': {
+    title: 'Napaka pri razčlenjevanju izpiska',
+    message: 'Izpiska "{{statementName}}" ni bilo mogoče obdelati',
+  },
+  'import.failed': {
+    title: 'Uvoz ni uspel',
+    message: 'Uvoz se je končal z napako',
+  },
+  'import.failed.named': {
+    title: 'Uvoz ni uspel',
+    message: 'Uvoz izpiska "{{statementName}}" ni uspel',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakcije brez kategorije',
+    message: '{{count}} transakcij potrebuje kategorijo',
+  },
+  'receipt.uncategorized': {
+    title: 'Račun brez kategorije',
+    message: 'Najden je račun brez kategorije',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Račun brez kategorije',
+    message: 'Račun "{{receiptName}}" nima kategorije',
+  },
+  'payable.marked_paid': {
+    title: 'Obveznost označena kot plačana',
+    message: '{{vendor}} je bil označen kot plačan',
+  },
+  'payable.overdue': {
+    title: 'Zapadla obveznost',
+    message: '{{vendor}} je zapadel',
+  },
+  'payable.due_soon': {
+    title: 'Obveznost zapade kmalu',
+    message: '{{vendor}} zapade kmalu',
+  },
+  'budget.exceeded': {
+    title: 'Proračun je presežen',
+    message: 'Proračun "{{budgetName}}" je presegel svojo omejitev ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Opozorilo proračuna',
+    message: 'Proračun "{{budgetName}}" je dosegel {{percentUsed}} % svoje omejitve',
+  },
+  'subscription.detected': {
+    title: 'Zaznane naročnine',
+    message: 'Najdena ponavljajoča se plačila: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Prihajajoči obračuni naročnin',
+    message: 'Prihaja: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Prag za registracijo DDV',
+    message: 'Promet je dosegel {{percentUsed}} % praga za registracijo {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Prag za registracijo je dosežen',
+    message: 'Promet je dosegel prag za registracijo {{threshold}} {{currency}}',
+  },
+};
+
+const mk: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Цената на претплатата се промени',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} по задолжување, {{yearly}} годишно)',
+  },
+  'review.waiting': {
+    title: 'Ставки чекаат преглед',
+    message: '{{count}} ставки чекаат во сандачето за преглед',
+  },
+  'note.mentioned': {
+    title: 'Споменати сте во белешка',
+    message: '{{actorName}} ве спомна: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Изводот е прикачен',
+    message: '{{actorName}} го прикачи изводот "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Увозот е завршен',
+    message: '{{actorName}} увезе {{transactionCount}} трансакции',
+  },
+  'category.created': {
+    title: 'Категоријата е создадена',
+    message: '{{actorName}} ја создаде категоријата "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Категоријата е ажурирана',
+    message: '{{actorName}} ја ажурира категоријата "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Категоријата е избришана',
+    message: '{{actorName}} ја избриша категоријата "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Поканет е нов член',
+    message: '{{actorName}} покани {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Член се придружи',
+    message: '{{memberName}} се придружи на работниот простор',
+  },
+  'data.deleted': {
+    title: 'Податоците се избришани',
+    message: '{{actorName}} избриша {{count}} записи',
+  },
+  'workspace.updated': {
+    title: 'Поставките на работниот простор се ажурирани',
+    message: '{{actorName}} ги ажурира поставките на работниот простор',
+  },
+  'parsing.error': {
+    title: 'Грешка при обработка на изводот',
+    message: 'Изводот не можеше да се обработи',
+  },
+  'parsing.error.named': {
+    title: 'Грешка при обработка на изводот',
+    message: 'Изводот "{{statementName}}" не можеше да се обработи',
+  },
+  'import.failed': {
+    title: 'Увозот не успеа',
+    message: 'Увозот заврши со грешка',
+  },
+  'import.failed.named': {
+    title: 'Увозот не успеа',
+    message: 'Увозот на изводот "{{statementName}}" не успеа',
+  },
+  'transactions.uncategorized': {
+    title: 'Трансакции без категорија',
+    message: '{{count}} трансакции бараат категорија',
+  },
+  'receipt.uncategorized': {
+    title: 'Фискална сметка без категорија',
+    message: 'Најдена е сметка без категорија',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Фискална сметка без категорија',
+    message: 'Сметката "{{receiptName}}" нема категорија',
+  },
+  'payable.marked_paid': {
+    title: 'Обврската е означена како платена',
+    message: '{{vendor}} беше означен како платен',
+  },
+  'payable.overdue': {
+    title: 'Пречекорена обврска',
+    message: '{{vendor}} е пречекорен',
+  },
+  'payable.due_soon': {
+    title: 'Обврска со близок рок',
+    message: '{{vendor}} доспева наскоро',
+  },
+  'budget.exceeded': {
+    title: 'Буџетот е пречекорен',
+    message: 'Буџетот "{{budgetName}}" го пречекори својот лимит ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Предупредување за буџет',
+    message: 'Буџетот "{{budgetName}}" достигна {{percentUsed}} % од својот лимит',
+  },
+  'subscription.detected': {
+    title: 'Откриени претплати',
+    message: 'Најдени повторливи плаќања: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Претстојни наплати за претплати',
+    message: 'Претстои: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Праг за регистрација за ДДВ',
+    message:
+      'Прометот достигна {{percentUsed}} % од прагот за регистрација {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Прагот за регистрација е достигнат',
+    message: 'Прометот достигна прагот за регистрација {{threshold}} {{currency}}',
+  },
+};
+
+const be: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Кошт падпіскі змяніўся',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} за спісанне, {{yearly}} у год)',
+  },
+  'review.waiting': {
+    title: 'Запісы чакаюць праверкі',
+    message: '{{count}} запісаў чакаюць у скрыні праверкі',
+  },
+  'note.mentioned': {
+    title: 'Вас згадалі ў заўвазе',
+    message: '{{actorName}} згадаў вас: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Выпіска загружана',
+    message: '{{actorName}} загрузіў выпіску «{{statementName}}»',
+  },
+  'import.committed': {
+    title: 'Імпарт завершаны',
+    message: '{{actorName}} імпартаваў {{transactionCount}} транзакцый',
+  },
+  'category.created': {
+    title: 'Катэгорыя створана',
+    message: '{{actorName}} стварыў катэгорыю «{{categoryName}}»',
+  },
+  'category.updated': {
+    title: 'Катэгорыя абноўлена',
+    message: '{{actorName}} абнавіў катэгорыю «{{categoryName}}»',
+  },
+  'category.deleted': {
+    title: 'Катэгорыя выдалена',
+    message: '{{actorName}} выдаліў катэгорыю «{{categoryName}}»',
+  },
+  'member.invited': {
+    title: 'Запрошаны новы ўдзельнік',
+    message: '{{actorName}} запрасіў {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Удзельнік далучыўся',
+    message: '{{memberName}} далучыўся да працоўнай прасторы',
+  },
+  'data.deleted': {
+    title: 'Даныя выдалены',
+    message: '{{actorName}} выдаліў {{count}} запісаў',
+  },
+  'workspace.updated': {
+    title: 'Налады працоўнай прасторы абноўлены',
+    message: '{{actorName}} абнавіў налады працоўнай прасторы',
+  },
+  'parsing.error': {
+    title: 'Памылка разбору выпіскі',
+    message: 'Не ўдалося апрацаваць выпіску',
+  },
+  'parsing.error.named': {
+    title: 'Памылка разбору выпіскі',
+    message: 'Не ўдалося апрацаваць выпіску «{{statementName}}»',
+  },
+  'import.failed': {
+    title: 'Імпарт не ўдаўся',
+    message: 'Імпарт завяршыўся памылкай',
+  },
+  'import.failed.named': {
+    title: 'Імпарт не ўдаўся',
+    message: 'Імпарт выпіскі «{{statementName}}» не ўдаўся',
+  },
+  'transactions.uncategorized': {
+    title: 'Транзакцыі без катэгорыі',
+    message: '{{count}} транзакцый патрабуюць катэгорыю',
+  },
+  'receipt.uncategorized': {
+    title: 'Чэк без катэгорыі',
+    message: 'Знойдзены чэк без катэгорыі',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Чэк без катэгорыі',
+    message: 'У чэка «{{receiptName}}» няма катэгорыі',
+  },
+  'payable.marked_paid': {
+    title: 'Плацёж пазначаны як аплачаны',
+    message: '{{vendor}} пазначаны як аплачаны',
+  },
+  'payable.overdue': {
+    title: 'Пратэрмінаваны плацёж',
+    message: '{{vendor}} пратэрмінаваны',
+  },
+  'payable.due_soon': {
+    title: 'Плацёж хутка настане',
+    message: '{{vendor}} настане хутка',
+  },
+  'budget.exceeded': {
+    title: 'Бюджэт перавышаны',
+    message: 'Бюджэт «{{budgetName}}» перавысіў свой ліміт ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Папярэджанне па бюджэце',
+    message: 'Бюджэт «{{budgetName}}» дасягнуў {{percentUsed}} % свайго ліміту',
+  },
+  'subscription.detected': {
+    title: 'Выяўлены падпіскі',
+    message: 'Знойдзены паўтаральныя плацяжы: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Хуткія спісанні па падпісках',
+    message: 'Наперадзе: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Парог рэгістрацыі ПДВ',
+    message: 'Абарот дасягнуў {{percentUsed}} % парога рэгістрацыі {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Парог рэгістрацыі дасягнуты',
+    message: 'Абарот дасягнуў парога рэгістрацыі {{threshold}} {{currency}}',
+  },
+};
+
+const bs: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Cijena pretplate se promijenila',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} po terećenju, {{yearly}} godišnje)',
+  },
+  'review.waiting': {
+    title: 'Stavke čekaju pregled',
+    message: '{{count}} stavki čeka u sandučetu za pregled',
+  },
+  'note.mentioned': {
+    title: 'Spomenuti ste u bilješci',
+    message: '{{actorName}} vas je spomenuo: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Izvod je prenesen',
+    message: '{{actorName}} je prenio izvod "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Uvoz je završen',
+    message: '{{actorName}} je uvezao {{transactionCount}} transakcija',
+  },
+  'category.created': {
+    title: 'Kategorija je napravljena',
+    message: '{{actorName}} je napravio kategoriju "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategorija je ažurirana',
+    message: '{{actorName}} je ažurirao kategoriju "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategorija je izbrisana',
+    message: '{{actorName}} je izbrisao kategoriju "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Pozvan je novi član',
+    message: '{{actorName}} je pozvao {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Član se pridružio',
+    message: '{{memberName}} se pridružio radnom prostoru',
+  },
+  'data.deleted': {
+    title: 'Podaci su izbrisani',
+    message: '{{actorName}} je izbrisao {{count}} zapisa',
+  },
+  'workspace.updated': {
+    title: 'Postavke radnog prostora su ažurirane',
+    message: '{{actorName}} je ažurirao postavke radnog prostora',
+  },
+  'parsing.error': {
+    title: 'Greška obrade izvoda',
+    message: 'Izvod nije moguće obraditi',
+  },
+  'parsing.error.named': {
+    title: 'Greška obrade izvoda',
+    message: 'Izvod "{{statementName}}" nije moguće obraditi',
+  },
+  'import.failed': {
+    title: 'Uvoz nije uspio',
+    message: 'Uvoz je završio greškom',
+  },
+  'import.failed.named': {
+    title: 'Uvoz nije uspio',
+    message: 'Uvoz izvoda "{{statementName}}" nije uspio',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakcije bez kategorije',
+    message: '{{count}} transakcija treba kategoriju',
+  },
+  'receipt.uncategorized': {
+    title: 'Račun bez kategorije',
+    message: 'Nađen je račun bez kategorije',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Račun bez kategorije',
+    message: 'Račun "{{receiptName}}" nema kategoriju',
+  },
+  'payable.marked_paid': {
+    title: 'Obaveza označena kao plaćena',
+    message: '{{vendor}} je označen kao plaćen',
+  },
+  'payable.overdue': {
+    title: 'Dospjela obaveza',
+    message: '{{vendor}} je dospio',
+  },
+  'payable.due_soon': {
+    title: 'Obaveza dospijeva uskoro',
+    message: '{{vendor}} dospijeva uskoro',
+  },
+  'budget.exceeded': {
+    title: 'Budžet je prekoračen',
+    message: 'Budžet "{{budgetName}}" prekoračio je svoje ograničenje ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Upozorenje budžeta',
+    message: 'Budžet "{{budgetName}}" dosegao je {{percentUsed}} % svog ograničenja',
+  },
+  'subscription.detected': {
+    title: 'Otkrivene pretplate',
+    message: 'Nađena ponavljajuća plaćanja: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Predstojeće naplate pretplata',
+    message: 'Predstoji: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Prag za registraciju PDV-a',
+    message: 'Promet je dosegao {{percentUsed}} % praga za registraciju {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Prag za registraciju je dosegnut',
+    message: 'Promet je dosegao prag za registraciju {{threshold}} {{currency}}',
+  },
+};
+
+const hsb: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Płaćizna abonementa je so změniła',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} na wotknihowanje, {{yearly}} wob lěto)',
+  },
+  'review.waiting': {
+    title: 'Zapiski čakaja na přepruwowanje',
+    message: '{{count}} zapiskow čaka w kašćiku za přepruwowanje',
+  },
+  'note.mentioned': {
+    title: 'Sće so w notici naspomnjeli',
+    message: '{{actorName}} je was naspomnił: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Wupis je nahrate',
+    message: '{{actorName}} je wupis "{{statementName}}" nahrał',
+  },
+  'import.committed': {
+    title: 'Import je dokónčeny',
+    message: '{{actorName}} je {{transactionCount}} transakcijow importował',
+  },
+  'category.created': {
+    title: 'Kategorija je załožena',
+    message: '{{actorName}} je kategoriju "{{categoryName}}" załožił',
+  },
+  'category.updated': {
+    title: 'Kategorija je aktualizowana',
+    message: '{{actorName}} je kategoriju "{{categoryName}}" aktualizował',
+  },
+  'category.deleted': {
+    title: 'Kategorija je zhašana',
+    message: '{{actorName}} je kategoriju "{{categoryName}}" zhašał',
+  },
+  'member.invited': {
+    title: 'Nowy čłon je přeprošeny',
+    message: '{{actorName}} je {{invitedEmail}} přeprosył',
+  },
+  'member.joined': {
+    title: 'Čłon je so přizamknył',
+    message: '{{memberName}} je so dźěłowemu rumej přizamknył',
+  },
+  'data.deleted': {
+    title: 'Daty su zhašane',
+    message: '{{actorName}} je {{count}} zapiskow zhašał',
+  },
+  'workspace.updated': {
+    title: 'Nastajenja dźěłoweho ruma su aktualizowane',
+    message: '{{actorName}} je nastajenja dźěłoweho ruma aktualizował',
+  },
+  'parsing.error': {
+    title: 'Zmylk při analyzy wupisa',
+    message: 'Wupis njeda so předźěłać',
+  },
+  'parsing.error.named': {
+    title: 'Zmylk při analyzy wupisa',
+    message: 'Wupis "{{statementName}}" njeda so předźěłać',
+  },
+  'import.failed': {
+    title: 'Import je so njeporadźił',
+    message: 'Import je so ze zmylkom skónčił',
+  },
+  'import.failed.named': {
+    title: 'Import je so njeporadźił',
+    message: 'Import wupisa "{{statementName}}" je so njeporadźił',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakcije bjez kategorije',
+    message: '{{count}} transakcijow trjeba kategoriju',
+  },
+  'receipt.uncategorized': {
+    title: 'Kwitancija bjez kategorije',
+    message: 'Kwitancija bjez kategorije je namakana',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Kwitancija bjez kategorije',
+    message: 'Kwitancija "{{receiptName}}" nima kategoriju',
+  },
+  'payable.marked_paid': {
+    title: 'Dołh je jako zapłaćeny markowany',
+    message: '{{vendor}} bu jako zapłaćeny markowany',
+  },
+  'payable.overdue': {
+    title: 'Přepadnjeny dołh',
+    message: '{{vendor}} je přepadnjeny',
+  },
+  'payable.due_soon': {
+    title: 'Dołh bórze dospěje',
+    message: '{{vendor}} bórze dospěje',
+  },
+  'budget.exceeded': {
+    title: 'Budget je překročeny',
+    message: 'Budget "{{budgetName}}" je swój limit překročił ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Warnowanje budgeta',
+    message: 'Budget "{{budgetName}}" je {{percentUsed}} % swojeho limita docpěł',
+  },
+  'subscription.detected': {
+    title: 'Spóznate abonementy',
+    message: 'Namakane wospjetowane zapłaćenja: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Přichodne zapłaćenja abonementow',
+    message: 'Přichodne: {{details}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Prag registracije MwSt.',
+    message: 'Wobrot je {{percentUsed}} % praga registracije {{threshold}} {{currency}} docpěł',
+  },
+  'tax.threshold.reached': {
+    title: 'Prag registracije docpěty',
+    message: 'Wobrot je prag registracije {{threshold}} {{currency}} docpěł',
+  },
+};
+
 export const NOTIFICATION_TRANSLATIONS: Record<string, TranslationMap> = {
   ru,
   en,
@@ -2131,7 +3791,6 @@ export const NOTIFICATION_TRANSLATIONS: Record<string, TranslationMap> = {
   tr,
   uk,
   zh,
-  ar,
   pl,
   it,
   sk,
@@ -2142,6 +3801,21 @@ export const NOTIFICATION_TRANSLATIONS: Record<string, TranslationMap> = {
   sv,
   vi,
   id,
+  da,
+  nb,
+  nn,
+  fi,
+  is,
+  fo,
+  cs,
+  bg,
+  hr,
+  sr,
+  sl,
+  mk,
+  be,
+  bs,
+  hsb,
 };
 
 export function renderNotification(

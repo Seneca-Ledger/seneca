@@ -3,7 +3,6 @@
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import type { StatementStage } from '@/app/lib/statement-workflow';
 import type { StatementFilters } from '../filters/statement-filters';
 import type { GmailReceipt } from '../gmail-receipt-mapping';
 import { useAutoOpenParsedStatement } from './useAutoOpenParsedStatement';
@@ -23,7 +22,6 @@ interface UseStatementsListDataParams {
   categoryId?: string | null;
   receiptStatus?: string | null;
   search: string;
-  stage: StatementStage;
   user: unknown;
   page: number;
   pageSize: number;
@@ -52,7 +50,6 @@ export function useStatementsListData<T extends StatementRecord = StatementRecor
   categoryId,
   receiptStatus,
   search,
-  stage,
   user,
   page,
   pageSize,
@@ -60,9 +57,6 @@ export function useStatementsListData<T extends StatementRecord = StatementRecor
   loadListErrorLabel,
   refreshFailedLabel,
 }: UseStatementsListDataParams): UseStatementsListDataResult<T> {
-  // Receipts take part in Submit and Approve; Pay lists payables.
-  const listsReceipts = stage === 'submit' || stage === 'approve';
-
   const statementsQuery = useStatementsQuery<T>({
     appliedFilters,
     categoryId,
@@ -75,12 +69,10 @@ export function useStatementsListData<T extends StatementRecord = StatementRecor
     receiptStatus,
     page,
     pageSize,
-    stage,
-    enabled: Boolean(user) && listsReceipts,
+    enabled: Boolean(user),
   });
 
   const { gmailSyncSkeletonKeys, setGmailSyncSkeletonKeys } = useGmailSyncSkeletons({
-    stage,
     pageSize,
   });
 
@@ -107,14 +99,11 @@ export function useStatementsListData<T extends StatementRecord = StatementRecor
   }, [gmailQuery.refetch]);
 
   const refreshActiveStatements = useCallback(async (): Promise<void> => {
-    const results = await Promise.all([
-      statementsQuery.refetch(),
-      listsReceipts ? gmailQuery.refetch() : Promise.resolve(null),
-    ]);
+    const results = await Promise.all([statementsQuery.refetch(), gmailQuery.refetch()]);
     if (results[0]?.isError) {
       toast.error(refreshFailedLabel);
     }
-  }, [statementsQuery.refetch, gmailQuery.refetch, listsReceipts, refreshFailedLabel]);
+  }, [statementsQuery.refetch, gmailQuery.refetch, refreshFailedLabel]);
 
   return {
     statements,

@@ -1,5 +1,6 @@
 import { BaseAiHelper } from '../../../common/helpers/base-ai.helper';
 import { mapParsedTransaction, unwrapAiJson } from '../../../common/utils/ai-response.util';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { normalizeDate, normalizeNumber } from '../../../common/utils/number-normalizer.util';
 import { extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
@@ -104,7 +105,7 @@ ${redactedPreview}`,
             parsed.metadata.balanceStart,
           balanceEnd:
             normalizeNumber(meta.balanceEnd || meta.balance_end) ?? parsed.metadata.balanceEnd,
-          currency: meta.currency || parsed.metadata.currency || 'KZT',
+          currency: meta.currency || parsed.metadata.currency || appDefaultCurrency(),
         },
         transactions: finalTransactions,
       };

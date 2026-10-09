@@ -18,6 +18,6 @@ export class NetWorthController {
     @WorkspaceId() workspaceId: string,
     @Query() query: NetWorthQueryDto,
   ) {
-    return this.netWorthService.getNetWorth(workspaceId, query, user.locale);
+    return this.netWorthService.getNetWorth(workspaceId, query, user.locale, query.denominate);
   }
 }

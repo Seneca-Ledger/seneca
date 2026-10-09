@@ -5,14 +5,7 @@ import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import {
-  Building2,
-  ChevronDown,
-  ChevronLeft,
-  ImageIcon,
-  Save,
-  Trash2,
-} from '@/app/components/icons';
+import { ChevronDown, ChevronLeft, ImageIcon, Save, Trash2 } from '@/app/components/icons';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
@@ -26,6 +19,8 @@ import {
 import { tokens } from '@/lib/theme-tokens';
 import { AVAILABLE_BACKGROUNDS } from '../constants';
 import { BackgroundSelector } from './BackgroundSelector';
+import { BusinessProfileSection } from './BusinessProfileSection';
+import { InvoiceSettingsSection } from './InvoiceSettingsSection';
 import { SettingsSection } from './SettingsSection';
 import { TaxJurisdictionSection } from './TaxJurisdictionSection';
 import { TaxRulesSection } from './TaxRulesSection';
@@ -45,14 +40,6 @@ const resolveBackgroundSrc = (backgroundImage: string | null) => {
 
   return `/workspace-backgrounds/${backgroundImage}`;
 };
-
-const getInitials = (value: string) =>
-  value
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase() ?? '')
-    .join('');
 
 /** Inputs are outlined, not filled: a hole cut into the page reads heavier than a line. */
 const FIELD_STYLE: React.CSSProperties = {
@@ -272,38 +259,6 @@ export default function WorkspaceOverviewView() {
         sx={{ maxWidth: 1120, px: { xs: 2.5, sm: 4 }, py: 3 }}
         data-tour-id="workspace-side-panel"
       >
-        {/* Page header: no card, just the workspace mark and a line of context. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 3 }}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 40,
-              height: 40,
-              borderRadius: tokens.radius.sm,
-              bgcolor: 'rgba(var(--primary-rgb,22,129,24),0.1)',
-              color: 'var(--primary)',
-              fontSize: 16,
-              fontWeight: 600,
-              flexShrink: 0,
-            }}
-          >
-            {getInitials(currentWorkspace.name) || <Building2 size={22} />}
-          </Box>
-          <Box>
-            <Typography
-              component="h1"
-              sx={{ fontSize: 20, fontWeight: 600, color: 'var(--foreground)' }}
-            >
-              {t.title}
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
-              {t.subtitle}
-            </Typography>
-          </Box>
-        </Box>
-
         <SettingsSection
           title={t.background.title}
           description={t.background.description}
@@ -474,6 +429,10 @@ export default function WorkspaceOverviewView() {
             </Box>
           </Box>
         </SettingsSection>
+
+        <BusinessProfileSection />
+
+        <InvoiceSettingsSection />
 
         <TaxJurisdictionSection
           labels={{

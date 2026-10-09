@@ -1,3 +1,4 @@
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { normalizeDate, normalizeNumber } from '../../../common/utils/number-normalizer.util';
 import type { ParsedTransaction } from '../interfaces/parsed-statement.interface';
 
@@ -479,7 +480,8 @@ function buildTransactionFromRow(
   const account = valueAt(row, columnMap.account) || extractAccount(row);
   const bank = valueAt(row, columnMap.bank) || extractBank(row);
   const knp = valueAt(row, columnMap.knp);
-  const currency = detectCurrency(row, columnMap) || options?.defaultCurrency || 'KZT';
+  const currency =
+    detectCurrency(row, columnMap) || options?.defaultCurrency || appDefaultCurrency();
 
   const counterpartyName =
     valueAt(row, columnMap.counterparty) || collectName(row, columnMap) || 'Неизвестный контрагент';

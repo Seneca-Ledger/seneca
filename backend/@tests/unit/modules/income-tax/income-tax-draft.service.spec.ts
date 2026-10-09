@@ -146,6 +146,21 @@ describe('IncomeTaxDraftService', () => {
     });
   });
 
+  it('builds the year from confirmed transactions only', async () => {
+    const builder = queryBuilder({});
+    transactionRepo.createQueryBuilder.mockReturnValue(builder);
+
+    await service.compute('ws-1', 2026);
+
+    // compute and countByCategory both go through yearTransactions.
+    const built = transactionRepo.createQueryBuilder.mock.calls.length;
+    const confirmed = builder.andWhere.mock.calls.filter(
+      ([sql]) => sql === 't.isVerified = true',
+    ).length;
+    expect(built).toBeGreaterThan(0);
+    expect(confirmed).toBe(built);
+  });
+
   it('says so when the line numbers come from an earlier form edition', async () => {
     transactionRepo.createQueryBuilder.mockReturnValue(queryBuilder({}));
 

@@ -138,6 +138,27 @@ const TECHNICAL_FIELDS = new Set([
 
 const MAX_LISTED_FIELDS = 3;
 
+/**
+ * Did this field actually change, as a person would read it?
+ *
+ * A key missing from a snapshot and a key explicitly `null` both mean "nothing
+ * here", and the two have to compare equal. They differ for mechanical reasons:
+ * a column the entity never loads (`select: false`, like the ledger bookkeeping
+ * fields) is `undefined` on the row and so vanishes when the snapshot is stored
+ * as jsonb, while the saved copy carries it as `null`. Treating that as a change
+ * made every edit report fields it never touched — "changed: paymentPurpose,
+ * ledgerPostedAt, ledgerError" on a rename.
+ */
+function hasChanged(before: unknown, after: unknown): boolean {
+  if (before === undefined || before === null) {
+    return after !== undefined && after !== null;
+  }
+  if (after === undefined || after === null) {
+    return true;
+  }
+  return JSON.stringify(before) !== JSON.stringify(after);
+}
+
 const interpolate = (template: string, params: Record<string, string | number>): string =>
   template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(params[key] ?? ''));
 
@@ -282,10 +303,11 @@ export class AuditDescriptionService {
 
     return keys
       .filter(key => !TECHNICAL_FIELDS.has(key))
-      .filter(
-        key =>
-          JSON.stringify((before as Record<string, unknown>)[key]) !==
-          JSON.stringify((after as Record<string, unknown>)[key]),
+      .filter(key =>
+        hasChanged(
+          (before as Record<string, unknown>)[key],
+          (after as Record<string, unknown>)[key],
+        ),
       );
   }
 

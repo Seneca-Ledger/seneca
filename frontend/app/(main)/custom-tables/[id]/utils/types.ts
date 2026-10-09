@@ -29,6 +29,8 @@ export interface CustomTableColumnConfig {
   format?: 'plain' | 'percent';
   /** Formula expression, e.g. "[a] * [b]". */
   expression?: string;
+  /** What a formula yields; the server infers it from the expression. */
+  resultType?: 'number' | 'text' | 'boolean' | 'date';
   targetTableId?: string;
   displayColumnKey?: string;
   /** Model instruction for ai columns. */
@@ -52,6 +54,8 @@ export interface CustomTableGridRow {
   id: string;
   rowNumber: number;
   data: CustomTableRowPatch;
+  /** Per-column cell styles from the server; `importIssue` marks cells an import kept as text. */
+  styles?: Record<string, { importIssue?: boolean } & Record<string, unknown>>;
   /** Labels of linked rows, resolved by the server for relation columns. */
   relationLabels?: Record<string, string>;
 }

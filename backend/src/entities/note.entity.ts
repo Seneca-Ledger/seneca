@@ -9,15 +9,29 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Budget } from './budget.entity';
+import { Goal } from './goal.entity';
+import { Invoice } from './invoice.entity';
 import { Receipt } from './receipt.entity';
 import { Statement } from './statement.entity';
+import { Transaction } from './transaction.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 
-/** Объекты, к которым можно оставить заметку. */
+/**
+ * Объекты, к которым можно оставить заметку.
+ *
+ * Деньги обсуждают там, где на них смотрят: у Monarch комментарий живёт на
+ * транзакции, и это их участники называют тем, ради чего приложение открывают
+ * вдвоём. Выписка и чек были первыми, остальное — там же, где спорят.
+ */
 export enum NoteEntityType {
   STATEMENT = 'statement',
   RECEIPT = 'receipt',
+  TRANSACTION = 'transaction',
+  BUDGET = 'budget',
+  GOAL = 'goal',
+  INVOICE = 'invoice',
 }
 
 /**
@@ -30,10 +44,16 @@ export enum NoteEntityType {
 @Entity('notes')
 @Check(
   'CHK_notes_single_target',
-  '(("statement_id" IS NOT NULL)::int + ("receipt_id" IS NOT NULL)::int) = 1',
+  `(("statement_id" IS NOT NULL)::int + ("receipt_id" IS NOT NULL)::int
+    + ("transaction_id" IS NOT NULL)::int + ("budget_id" IS NOT NULL)::int
+    + ("goal_id" IS NOT NULL)::int + ("invoice_id" IS NOT NULL)::int) = 1`,
 )
 @Index('IDX_notes_statement', ['workspaceId', 'statementId'])
 @Index('IDX_notes_receipt', ['workspaceId', 'receiptId'])
+@Index('IDX_notes_transaction', ['workspaceId', 'transactionId'])
+@Index('IDX_notes_budget', ['workspaceId', 'budgetId'])
+@Index('IDX_notes_goal', ['workspaceId', 'goalId'])
+@Index('IDX_notes_invoice', ['workspaceId', 'invoiceId'])
 export class Note {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -58,6 +78,34 @@ export class Note {
 
   @Column({ name: 'receipt_id', type: 'uuid', nullable: true })
   receiptId: string | null;
+
+  @ManyToOne(() => Transaction, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'transaction_id' })
+  transaction: Transaction | null;
+
+  @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
+  transactionId: string | null;
+
+  @ManyToOne(() => Budget, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'budget_id' })
+  budget: Budget | null;
+
+  @Column({ name: 'budget_id', type: 'uuid', nullable: true })
+  budgetId: string | null;
+
+  @ManyToOne(() => Goal, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'goal_id' })
+  goal: Goal | null;
+
+  @Column({ name: 'goal_id', type: 'uuid', nullable: true })
+  goalId: string | null;
+
+  @ManyToOne(() => Invoice, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'invoice_id' })
+  invoice: Invoice | null;
+
+  @Column({ name: 'invoice_id', type: 'uuid', nullable: true })
+  invoiceId: string | null;
 
   /** Автор может быть удалён — заметка при этом остаётся. */
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
+import { countedSql } from '../../common/utils/counted-transactions.util';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Client } from '../../entities/client.entity';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
@@ -248,6 +249,7 @@ export class SmbService {
       })
       .andWhere('t.isDuplicate = false')
       .andWhere('t.transferPairId IS NULL')
+      .andWhere(countedSql('t'))
       .andWhere('t.transactionDate >= :since', { since })
       .andWhere(
         'NOT EXISTS (SELECT 1 FROM payables p WHERE p.linked_transaction_id = t.id AND p.deleted_at IS NULL)',

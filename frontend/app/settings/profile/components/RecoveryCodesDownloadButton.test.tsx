@@ -15,7 +15,7 @@ vi.mock('@/app/settings/profile/helpers/recovery-codes-file', () => ({
 vi.mock('react-hot-toast', () => ({ default: { error: mocks.toastError } }));
 
 vi.mock('@/app/i18n', () => ({
-  useLocale: () => ({ locale: 'ar' }),
+  useLocale: () => ({ locale: 'hi' }),
   // The shared Spinner reads its aria-label from the uiShell dictionary.
   useIntlayer: () => ({ loading: { value: 'Loading' } }),
 }));
@@ -65,7 +65,7 @@ describe('RecoveryCodesDownloadButton', () => {
 
     await waitFor(() => expect(mocks.downloadRecoveryCodes).toHaveBeenCalledTimes(1));
     expect(mocks.downloadRecoveryCodes).toHaveBeenCalledWith(format, {
-      locale: 'ar',
+      locale: 'hi',
       title: 'Lumio — Recovery codes',
       details: ['Account: user@example.com', expect.stringMatching(/^Generated: \S/)],
       hint: expect.stringContaining('Each code works once'),

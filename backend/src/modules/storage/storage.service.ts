@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { In, IsNull, type Repository } from 'typeorm';
+import { workspaceMemberCanEdit } from '../../common/authz/workspace-permissions';
 import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { hashPassword } from '../../common/utils/password-hash.util';
@@ -1324,13 +1325,20 @@ export class StorageService {
     // workspace the caller registered with.
     const membership = await this.findMembership(statement.workspaceId, userId);
 
-    // Owner has all permissions
+    // Uploading the file does not outrank the role: a viewer who dropped a
+    // statement in still only reads it.
     if (statement.userId === userId) {
-      if (membership && membership.role === WorkspaceRole.MEMBER) {
-        if (requiredAction === 'edit' && membership.permissions?.canEditStatements === false) {
+      if (membership) {
+        if (
+          requiredAction === 'edit' &&
+          !workspaceMemberCanEdit(membership.role, 'canEditStatements', membership.permissions)
+        ) {
           throw new ForbiddenException(appError('STATEMENTS_EDIT_FORBIDDEN'));
         }
-        if (requiredAction === 'share' && membership.permissions?.canShareFiles === false) {
+        if (
+          requiredAction === 'share' &&
+          !workspaceMemberCanEdit(membership.role, 'canShareFiles', membership.permissions)
+        ) {
           throw new ForbiddenException(appError('SHARING_FORBIDDEN'));
         }
       }

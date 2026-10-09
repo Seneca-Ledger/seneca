@@ -1,3 +1,4 @@
+import { appDefaultCurrency } from '@/common/utils/currency.util';
 import { BaseAiHelper } from '@/common/helpers/base-ai.helper';
 import { AiTransactionExtractor } from '@/modules/parsing/helpers/ai-transaction-extractor.helper';
 
@@ -70,7 +71,7 @@ describe('AiTransactionExtractor', () => {
       counterpartyName: 'Acme',
       debit: 1200.5,
       paymentPurpose: 'Invoice payment',
-      currency: 'KZT',
+      currency: appDefaultCurrency(),
     });
     expect(mockRecordAiSuccess).toHaveBeenCalled();
   });

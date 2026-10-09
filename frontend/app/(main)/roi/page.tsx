@@ -36,14 +36,10 @@ export default function RoiPage() {
     formatMoney(value, currency, locale, { notation: 'compact' });
 
   return (
-    <Box component="main" sx={{ px: { xs: 2, md: 4 }, py: 3, width: '100%' }}>
-      <Typography variant="h5" fontWeight={700}>
-        {t.title}
-      </Typography>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-        {t.subtitle}
-      </Typography>
-
+    <Box
+      component="main"
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+    >
       <Box
         sx={{
           border: '1px solid',

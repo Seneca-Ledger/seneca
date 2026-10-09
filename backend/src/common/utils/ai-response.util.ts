@@ -1,4 +1,5 @@
 import type { ParsedTransaction } from '@/modules/parsing/interfaces/parsed-statement.interface';
+import { currencyCodeOrDefault } from './currency.util';
 
 export function unwrapAiJson(content: string): string {
   const trimmed = content.trim();
@@ -102,6 +103,8 @@ export function mapParsedTransaction(
       (raw?.purpose || raw?.payment_purpose || raw?.description || raw?.comment || '')
         .toString()
         .trim() || 'Не указано',
-    currency: optionalStringValue(raw.currency) || 'KZT',
+    // The statement's own currency, and the workspace's after it, override
+    // this when the transaction is persisted; this is only the last resort.
+    currency: currencyCodeOrDefault(optionalStringValue(raw.currency)),
   };
 }

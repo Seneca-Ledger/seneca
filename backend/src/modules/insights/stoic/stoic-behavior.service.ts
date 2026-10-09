@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { countedSql } from '../../../common/utils/counted-transactions.util';
 import {
   Subscription,
   SubscriptionFrequency,
@@ -121,6 +122,7 @@ export class StoicBehaviorService {
         .where('t.workspace_id = :workspaceId', { workspaceId })
         .andWhere('t.is_duplicate = false')
         .andWhere('t.transfer_pair_id IS NULL')
+        .andWhere(countedSql('t'))
         .andWhere('t.transaction_date >= :start', { start: flowStart })
         .andWhere('t.transaction_date <= :end', { end: month.end })
         .groupBy("to_char(t.transaction_date, 'YYYY-MM')")
@@ -175,6 +177,7 @@ export class StoicBehaviorService {
       .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(countedSql('t'))
       .andWhere('t.transaction_date >= :start', { start: range.start })
       .andWhere('t.transaction_date <= :end', { end: range.end });
   }

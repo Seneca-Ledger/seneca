@@ -15,6 +15,8 @@ vi.mock('@/app/i18n', () => ({
   useLocale: () => ({ locale: 'en' }),
   useIntlayer: () => ({
     subtitle: 'Log in to continue using Lumio',
+    // AuthHero reads its own `authHero` dictionary through the same mock.
+    features: {},
     rightTagline: 'A platform for bank statement processing',
     emailLabel: { value: 'Email localized' },
     passwordLabel: { value: 'Password' },

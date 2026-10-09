@@ -73,7 +73,7 @@ export default function WorkspaceTabShell({ activeItem, children }: Props) {
   return (
     <Box sx={{ '--global-nav-height': TAB_ROW_HEIGHT }}>
       <Box
-        sx={{ height: TAB_ROW_HEIGHT, px: 3, display: 'flex', alignItems: 'flex-end' }}
+        sx={{ height: TAB_ROW_HEIGHT, px: 3, display: 'flex', alignItems: 'flex-start' }}
         data-testid="workspace-tabs"
       >
         <Tabs

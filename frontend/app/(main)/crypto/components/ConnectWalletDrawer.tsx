@@ -304,7 +304,7 @@ export function ConnectWalletDrawer({
             onChange={event => setLabel(event.target.value)}
             fullWidth
             autoComplete="off"
-            slotProps={{ htmlInput: { maxLength: 100 } }}
+            slotProps={{ htmlInput: { maxLength: 120 } }}
           />
 
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>

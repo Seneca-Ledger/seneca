@@ -187,18 +187,10 @@ export default function TransactionDuplicatesPage() {
   }, []);
 
   return (
-    <Box sx={{ maxWidth: 1280, mx: 'auto', px: 2, py: 4 }}>
+    <Box sx={{ maxWidth: 1280, mx: 'auto', px: 2, pt: 'var(--lumio-page-top, 32px)', pb: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700 }}>
-              {t.title}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-              {t.subtitle}
-            </Typography>
-          </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 2 }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
               variant="outlined"

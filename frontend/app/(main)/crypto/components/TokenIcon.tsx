@@ -1,10 +1,13 @@
+'use client';
+
 import Box from '@mui/material/Box';
 import type React from 'react';
+import { LogoAvatar } from '@/app/components/LogoAvatar';
+import { apiBaseUrl } from '@/app/lib/api';
 
 /**
- * Brand colour of each asset the backend can price (see COINGECKO_IDS). A monogram
- * on that colour stands in for the logo: the logos themselves are trademarks and
- * would have to be shipped as assets for every ticker.
+ * Brand colour of the assets we price, for the monogram that stands in while the
+ * logo loads or when there is none to load.
  */
 const TOKEN_COLORS: Record<string, string> = {
   ETH: '#627eea',
@@ -25,6 +28,14 @@ const TOKEN_COLORS: Record<string, string> = {
   SOL: '#9945ff',
 };
 
+/**
+ * The coin's own logo, through the API's icon proxy, with a monogram behind it.
+ *
+ * Nothing is bundled: the proxy fetches the mark from the price source and
+ * caches it, so a coin we start pricing arrives with its logo and no file in
+ * this repository ever goes stale. A ticker the source does not know answers
+ * 404, and the monogram stays.
+ */
 export function TokenIcon({
   asset,
   size = 24,
@@ -32,6 +43,21 @@ export function TokenIcon({
   asset: string;
   size?: number;
 }): React.JSX.Element {
+  const ticker = asset.toUpperCase();
+
+  return (
+    <LogoAvatar
+      src={`${apiBaseUrl}/crypto/icon/${encodeURIComponent(ticker)}`}
+      alt={ticker}
+      size={size}
+      imgStyle={{ borderRadius: '50%', display: 'block' }}
+      fallback={<Monogram asset={ticker} size={size} />}
+      fallbackStyle={{ display: 'inline-flex' }}
+    />
+  );
+}
+
+function Monogram({ asset, size }: { asset: string; size: number }): React.JSX.Element {
   return (
     <Box
       aria-hidden
@@ -43,14 +69,14 @@ export function TokenIcon({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: TOKEN_COLORS[asset.toUpperCase()] ?? 'text.disabled',
+        bgcolor: TOKEN_COLORS[asset] ?? 'text.disabled',
         color: '#fff',
         fontSize: size * 0.42,
         fontWeight: 700,
         lineHeight: 1,
       }}
     >
-      {asset.charAt(0).toUpperCase()}
+      {asset.charAt(0)}
     </Box>
   );
 }

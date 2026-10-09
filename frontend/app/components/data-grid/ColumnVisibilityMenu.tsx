@@ -51,14 +51,15 @@ export function ColumnVisibilityMenu<TData extends RowData>({
             {columnLabel(column)}
           </DropdownMenuCheckboxItem>
         ))}
-        {hiddenCount ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => table.toggleAllColumnsVisible(true)}>
-              {labels.showAll}
-            </DropdownMenuItem>
-          </>
-        ) : null}
+        {/* MUI Menu walks its children for focus; a Fragment hides them, so give it an array. */}
+        {hiddenCount
+          ? [
+              <DropdownMenuSeparator key="separator" />,
+              <DropdownMenuItem key="show-all" onClick={() => table.toggleAllColumnsVisible(true)}>
+                {labels.showAll}
+              </DropdownMenuItem>,
+            ]
+          : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

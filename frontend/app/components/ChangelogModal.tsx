@@ -123,7 +123,7 @@ export function ChangelogModal({
         maxWidth: 'none',
         overflow: 'hidden',
         borderRadius: tokens.radius.xl,
-        border: '1px solid #d4e3d6',
+        border: '1px solid var(--border-color)',
         boxShadow: '0 24px 80px rgba(16,24,40,0.16)',
       }}
       contentSx={{ height: '100%', p: 0 }}
@@ -186,7 +186,14 @@ export function ChangelogModal({
         </Box>
 
         <Box
-          sx={{ minHeight: 0, flex: 1, overflowY: 'auto', bgcolor: 'grey.100', px: 2.5, py: 3.5 }}
+          sx={{
+            minHeight: 0,
+            flex: 1,
+            overflowY: 'auto',
+            bgcolor: 'background.default',
+            px: 2.5,
+            py: 3.5,
+          }}
         >
           <Box
             component="article"
@@ -197,6 +204,7 @@ export function ChangelogModal({
               border: '1px solid',
               borderColor: 'divider',
               bgcolor: 'background.paper',
+              borderRadius: tokens.radius.lg,
               px: { xs: 3, sm: 4 },
               py: { xs: 3, sm: 4 },
               fontSize: 15,

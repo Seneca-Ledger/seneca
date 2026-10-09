@@ -10,6 +10,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Category } from '@/entities/category.entity';
+import { Wallet } from '@/entities/wallet.entity';
 import { BankName, FileType, Statement, StatementStatus } from '@/entities/statement.entity';
 import { TaxRate } from '@/entities/tax-rate.entity';
 import { Transaction } from '@/entities/transaction.entity';
@@ -17,6 +18,7 @@ import { User, UserRole } from '@/entities/user.entity';
 import { WorkspaceMember, WorkspaceRole } from '@/entities/workspace-member.entity';
 import { FileStorageService } from '@/common/services/file-storage.service';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 jest.mock('@/common/utils/file-hash.util');
 jest.mock('@/common/utils/file-validator.util');
@@ -61,6 +63,7 @@ describe('StatementsService — business logic', () => {
     module = await Test.createTestingModule({
       providers: [
         StatementsService,
+        workspaceCurrencyProvider(),
         {
           provide: getRepositoryToken(Statement),
           useValue: {
@@ -96,6 +99,10 @@ describe('StatementsService — business logic', () => {
         {
           provide: getRepositoryToken(TaxRate),
           useValue: { find: jest.fn(), findOne: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(Wallet),
+          useValue: { findOne: jest.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),

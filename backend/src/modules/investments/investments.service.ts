@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { countedSql } from '../../common/utils/counted-transactions.util';
 import { BalanceAccount, BalanceAccountKind } from '../../entities/balance-account.entity';
 import {
   InvestmentAssetClass,
@@ -15,10 +16,10 @@ import {
 } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { BalanceService } from '../balance/balance.service';
-import { CryptoPriceService } from '../crypto/crypto-price.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { CreateInvestmentAccountDto } from './dto/create-investment-account.dto';
 import type { UpsertHoldingDto } from './dto/upsert-holding.dto';
+import { pricedUnits } from './metal-weight.util';
 import { normalizeStockSymbol, StockPriceService } from './stock-price.service';
 
 const INVESTMENTS_SECTION_CODE = 'ASSET_INVESTMENTS';
@@ -69,7 +70,6 @@ export class InvestmentsService {
     private readonly balanceService: BalanceService,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly stockPriceService: StockPriceService,
-    private readonly cryptoPriceService: CryptoPriceService,
   ) {}
 
   async listAccounts(workspaceId: string): Promise<InvestmentAccountView[]> {
@@ -162,7 +162,7 @@ export class InvestmentsService {
     if (!(dto.name || dto.symbol)) {
       throw new BadRequestException('A holding needs a name or a symbol');
     }
-    const symbol = dto.symbol ? this.normalizeSymbol(dto.symbol, dto.assetClass) : null;
+    const symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     const holding = this.holdingRepository.create({
       workspaceId,
       accountId,
@@ -194,9 +194,7 @@ export class InvestmentsService {
   ): Promise<HoldingView> {
     const holding = await this.requireHolding(workspaceId, holdingId);
     if (dto.symbol !== undefined) {
-      holding.symbol = dto.symbol
-        ? this.normalizeSymbol(dto.symbol, dto.assetClass ?? holding.assetClass)
-        : null;
+      holding.symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     }
     if (dto.name !== undefined) holding.name = dto.name;
     if (dto.assetClass !== undefined) holding.assetClass = dto.assetClass;
@@ -230,8 +228,8 @@ export class InvestmentsService {
 
   /**
    * Fetches a price for every holding with a symbol (stocks and funds from
-   * Stooq, crypto from CoinGecko) and rewrites the snapshots of the accounts
-   * that changed. Returns how many holdings got a price.
+   * Stooq) and rewrites the snapshots of the accounts that changed. Returns how
+   * many holdings got a price. Coins are not here: they live in `crypto_wallets`.
    */
   async refreshPrices(
     userId: string | null,
@@ -244,32 +242,17 @@ export class InvestmentsService {
     const priced = holdings.filter(holding => holding.symbol);
     if (priced.length === 0) return 0;
 
-    const cryptoSymbols = priced
-      .filter(holding => holding.assetClass === InvestmentAssetClass.CRYPTO)
-      .map(holding => holding.symbol as string);
-    const stockSymbols = priced
-      .filter(holding => holding.assetClass !== InvestmentAssetClass.CRYPTO)
-      .map(holding => holding.symbol as string);
-    const [stocks, crypto] = await Promise.all([
-      stockSymbols.length ? this.stockPriceService.getPrices(stockSymbols) : new Map(),
-      cryptoSymbols.length ? this.cryptoPriceService.getCurrentUsdPrices(cryptoSymbols) : {},
-    ]);
+    const stocks = await this.stockPriceService.getPrices(
+      priced.map(holding => holding.symbol as string),
+    );
 
     let updated = 0;
     const touched = new Set<string>();
     for (const holding of priced) {
-      const symbol = holding.symbol as string;
-      if (holding.assetClass === InvestmentAssetClass.CRYPTO) {
-        const price = (crypto as Record<string, number>)[symbol.toUpperCase()];
-        if (typeof price !== 'number') continue;
-        holding.price = price;
-        holding.priceCurrency = 'USD';
-      } else {
-        const quote = stocks.get(normalizeStockSymbol(symbol));
-        if (!quote) continue;
-        holding.price = quote.price;
-        holding.priceCurrency = quote.currency;
-      }
+      const quote = stocks.get(normalizeStockSymbol(holding.symbol as string));
+      if (!quote) continue;
+      holding.price = quote.price;
+      holding.priceCurrency = quote.currency;
       holding.priceSource = InvestmentPriceSource.AUTO;
       holding.pricedAt = new Date();
       await this.holdingRepository.save(holding);
@@ -347,17 +330,16 @@ export class InvestmentsService {
     return totals;
   }
 
-  private normalizeSymbol(symbol: string, assetClass?: InvestmentAssetClass): string {
-    return assetClass === InvestmentAssetClass.CRYPTO
-      ? symbol.trim().toUpperCase()
-      : normalizeStockSymbol(symbol);
+  private normalizeSymbol(symbol: string): string {
+    return normalizeStockSymbol(symbol);
   }
 
   private async holdingView(holding: InvestmentHolding, currency: string): Promise<HoldingView> {
     const quantity = Number(holding.quantity);
     const price = Number(holding.price);
+    // A metal lot is priced per fine troy ounce, not per piece.
     const value = await this.convert(
-      quantity * price,
+      pricedUnits(holding) * price,
       holding.priceCurrency,
       currency,
       holding.workspaceId,
@@ -376,8 +358,11 @@ export class InvestmentsService {
     };
   }
 
-  /** The account's value today, written where the balance sheet and net worth read it. */
-  private async writeSnapshot(
+  /**
+   * The account's value today, written where the balance sheet and net worth
+   * read it. Public because the metals service keeps its own account the same way.
+   */
+  async writeSnapshot(
     userId: string | null,
     workspaceId: string,
     accountId: string,
@@ -448,6 +433,7 @@ export class InvestmentsService {
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.investment_account_id IN (:...accountIds)', { accountIds })
       .andWhere('t.is_duplicate = false')
+      .andWhere(countedSql('t'))
       .groupBy('t.investment_account_id')
       .addGroupBy('t.currency')
       .getRawMany<{ accountId: string; currency: string; total: string }>();
@@ -478,7 +464,8 @@ export class InvestmentsService {
     return holding;
   }
 
-  private async workspaceCurrency(workspaceId: string): Promise<string> {
+  /** Public for the metals service, which prices lots in the same currency. */
+  async workspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
       select: ['currency'],

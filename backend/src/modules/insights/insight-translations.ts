@@ -436,46 +436,6 @@ const zh: TranslationMap = {
   },
 };
 
-const ar: TranslationMap = {
-  'operational.unapproved': {
-    title: 'معاملات تنتظر حكمك',
-    message: 'بانتظار الموافقة: {{count}}. احسمها اليوم بدلًا من أن تحملها معك.',
-  },
-  'operational.uncategorized': {
-    title: 'إنفاق بلا اسم',
-    message: 'معاملات بلا فئة: {{count}}. ما لا اسم له لا يمكن وزنه.',
-  },
-  'operational.duplicates': {
-    title: 'تم العثور على تكرارات محتملة',
-    message: 'تكرارات محتملة: {{count}}. انظر إلى الأشياء كما هي — واحسب كلًّا منها مرة واحدة.',
-  },
-  'trend.category_rising': {
-    title: 'الفئة في ارتفاع',
-    message:
-      'الإنفاق على "{{category}}" أعلى بنسبة {{percent}}% من متوسط 3 أشهر. اسأل نفسك: هل هي تخدمك أم أنت تخدمها؟',
-  },
-  'pattern.unbudgeted_top_category': {
-    title: 'أكبر نفقاتك بلا حدّ',
-    message:
-      '"{{category}}" هي أكبر نفقاتك هذا الشهر ولا شيء يقيّدها. الحدّ الذي يُختار بهدوء يدوم أكثر من الرغبة.',
-  },
-  'trend.savings_rate_up': {
-    title: 'ارتفع معدل الادخار',
-    message:
-      'احتفظت بـ {{rate}}% من الدخل — بزيادة {{diff}} نقطة عن الشهر الماضي. الاعتدال يؤتي ثماره.',
-  },
-  'trend.savings_rate_down': {
-    title: 'انخفض معدل الادخار',
-    message:
-      'احتفظت بـ {{rate}}% من الدخل — بنقص {{diff}} نقطة عن الشهر الماضي. انظر إلى ما نما، لا إلى ما ينقصك.',
-  },
-  'pattern.risky_allocation': {
-    title: 'الكثير يتوقف على الحظ',
-    message:
-      '{{percent}}% من الأصول في مخاطر متوسطة أو عالية — فوق حدّ {{threshold}}%. أبقِ معظم ما تملك بعيدًا عن متناول المصادفة.',
-  },
-};
-
 const pl: TranslationMap = {
   'operational.unapproved': {
     title: 'Transakcje czekają na Twoją decyzję',
@@ -885,6 +845,630 @@ const id: TranslationMap = {
   },
 };
 
+const da: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Posteringer afventer din vurdering',
+    message:
+      '{{count}} posteringer venter på godkendelse. Afgør dem i dag frem for at bære dem videre.',
+  },
+  'operational.uncategorized': {
+    title: 'Udgifter uden navn',
+    message:
+      '{{count}} posteringer har ingen kategori. Det, der ikke er navngivet, kan ikke vejes.',
+  },
+  'operational.duplicates': {
+    title: 'Mulige dubletter fundet',
+    message: '{{count}} mulige dubletter fundet. Se tingene, som de er — tæl hver én gang.',
+  },
+  'trend.category_rising': {
+    title: 'Kategorien stiger',
+    message:
+      'Udgifterne til "{{category}}" er {{percent}} % over deres 3-måneders gennemsnit. Spørg, om den tjener dig, eller du tjener den.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Din største udgift har ingen grænse',
+    message:
+      '"{{category}}" er din største udgift denne måned, og intet måler den. En grænse valgt i ro holder længere end et lune.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Opsparingsraten er steget',
+    message:
+      'Du beholdt {{rate}} % af indtægten — {{diff}} point mere end sidste måned. Mådeholdet gør sit arbejde.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Opsparingsraten er faldet',
+    message:
+      'Du beholdt {{rate}} % af indtægten — {{diff}} point mindre end sidste måned. Se på det, der voksede, ikke på det, du mangler.',
+  },
+  'pattern.risky_allocation': {
+    title: 'For meget afhænger af held',
+    message:
+      '{{percent}} % af aktiverne ligger i mellem eller høj risiko — over grænsen på {{threshold}} %. Hold det meste af det, du ejer, uden for heldets rækkevidde.',
+  },
+};
+
+const nb: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Transaksjoner venter på din vurdering',
+    message:
+      '{{count}} transaksjoner venter på godkjenning. Avgjør dem i dag i stedet for å bære dem videre.',
+  },
+  'operational.uncategorized': {
+    title: 'Utgifter uten navn',
+    message:
+      '{{count}} transaksjoner har ingen kategori. Det som ikke er navngitt, kan ikke veies.',
+  },
+  'operational.duplicates': {
+    title: 'Mulige duplikater funnet',
+    message: '{{count}} mulige duplikater funnet. Se tingene som de er — tell hver én gang.',
+  },
+  'trend.category_rising': {
+    title: 'Kategorien stiger',
+    message:
+      'Utgiftene til "{{category}}" er {{percent}} % over sitt 3-måneders gjennomsnitt. Spør om den tjener deg, eller du tjener den.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Din største utgift har ingen grense',
+    message:
+      '"{{category}}" er din største utgift denne måneden, og ingenting måler den. En grense valgt i ro varer lenger enn et innfall.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Spareraten er opp',
+    message:
+      'Du beholdt {{rate}} % av inntekten — {{diff}} poeng mer enn forrige måned. Måteholdet gjør sitt.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Spareraten er ned',
+    message:
+      'Du beholdt {{rate}} % av inntekten — {{diff}} poeng mindre enn forrige måned. Se på det som vokste, ikke på det du mangler.',
+  },
+  'pattern.risky_allocation': {
+    title: 'For mye avhenger av flaks',
+    message:
+      '{{percent}} % av eiendelene ligger i middels eller høy risiko — over grensen på {{threshold}} %. Hold det meste av det du eier utenfor flaksens rekkevidde.',
+  },
+};
+
+const nn: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Transaksjonar ventar på vurderinga di',
+    message:
+      '{{count}} transaksjonar ventar på godkjenning. Avgjer dei i dag i staden for å bere dei vidare.',
+  },
+  'operational.uncategorized': {
+    title: 'Utgifter utan namn',
+    message:
+      '{{count}} transaksjonar har ingen kategori. Det som ikkje er namngjeve, kan ikkje vegast.',
+  },
+  'operational.duplicates': {
+    title: 'Moglege duplikat funne',
+    message: '{{count}} moglege duplikat funne. Sjå tinga som dei er — tel kvar éin gong.',
+  },
+  'trend.category_rising': {
+    title: 'Kategorien stig',
+    message:
+      'Utgiftene til "{{category}}" er {{percent}} % over sitt 3-månaders gjennomsnitt. Spør om han tener deg, eller du tener han.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Den største utgifta di har ingen grense',
+    message:
+      '"{{category}}" er den største utgifta di denne månaden, og ingenting måler henne. Ei grense vald i ro varer lenger enn eit innfall.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Sparerata er opp',
+    message:
+      'Du heldt att {{rate}} % av inntekta — {{diff}} poeng meir enn førre månad. Måtehaldet gjer sitt.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Sparerata er ned',
+    message:
+      'Du heldt att {{rate}} % av inntekta — {{diff}} poeng mindre enn førre månad. Sjå på det som voks, ikkje på det du manglar.',
+  },
+  'pattern.risky_allocation': {
+    title: 'For mykje heng på flaks',
+    message:
+      '{{percent}} % av eigedelane ligg i middels eller høg risiko — over grensa på {{threshold}} %. Hald det meste av det du eig utanfor rekkjevidda til flaksen.',
+  },
+};
+
+const fi: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Tapahtumat odottavat arviotasi',
+    message:
+      '{{count}} tapahtumaa odottaa hyväksyntää. Ratkaise ne tänään sen sijaan että kannat niitä mukanasi.',
+  },
+  'operational.uncategorized': {
+    title: 'Kuluja ilman nimeä',
+    message: '{{count}} tapahtumalla ei ole kategoriaa. Sitä mitä ei ole nimetty, ei voi punnita.',
+  },
+  'operational.duplicates': {
+    title: 'Mahdollisia kaksoiskappaleita löytyi',
+    message:
+      '{{count}} mahdollista kaksoiskappaletta havaittu. Katso asiat sellaisina kuin ne ovat — laske jokainen kerran.',
+  },
+  'trend.category_rising': {
+    title: 'Kategoria kasvaa',
+    message:
+      'Kulut kohteeseen "{{category}}" ovat {{percent}} % yli kolmen kuukauden keskiarvon. Kysy, palveleeko se sinua vai sinä sitä.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Suurimmalla kulullasi ei ole rajaa',
+    message:
+      '"{{category}}" on tämän kuun suurin kulusi, eikä mikään mittaa sitä. Rauhassa valittu raja kestää kaipauksen yli.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Säästöaste nousi',
+    message:
+      'Pidit {{rate}} % tuloista — {{diff}} pistettä enemmän kuin viime kuussa. Kohtuus tekee työtään.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Säästöaste laski',
+    message:
+      'Pidit {{rate}} % tuloista — {{diff}} pistettä vähemmän kuin viime kuussa. Katso mikä kasvoi, älä sitä mitä puuttuu.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Liian paljon riippuu onnesta',
+    message:
+      '{{percent}} % varoista on keskisuuressa tai korkeassa riskissä — yli {{threshold}} %:n rajan. Pidä suurin osa omaisuudestasi onnen ulottumattomissa.',
+  },
+};
+
+const is: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Færslur bíða þíns dóms',
+    message: '{{count}} færslur bíða samþykkis. Gerðu út um þær í dag í stað að bera þær áfram.',
+  },
+  'operational.uncategorized': {
+    title: 'Útgjöld án nafns',
+    message: '{{count}} færslur hafa enga kategoríu. Það sem er ónefnt er ekki unnt að vega.',
+  },
+  'operational.duplicates': {
+    title: 'Mögulegar tvítökur fundust',
+    message:
+      '{{count}} mögulegar tvítökur greindar. Sjáðu hlutina eins og þeir eru — teldu hvern einu sinni.',
+  },
+  'trend.category_rising': {
+    title: 'Kategorían vex',
+    message:
+      'Útgjöld í "{{category}}" eru {{percent}} % yfir þriggja mánaða meðaltali. Spurðu hvort hún þjóni þér eða þú henni.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Stærsta útgjaldið þitt hefur engin mörk',
+    message:
+      '"{{category}}" er stærsta útgjaldið þitt þennan mánuð og ekkert mælir það. Mark valið í kyrrð lifir löngun af.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Sparnaðarhlutfall hækkar',
+    message:
+      'Þú hélst {{rate}} % af tekjum — {{diff}} stigum meira en síðasta mánuð. Hófsemin vinnur sitt verk.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Sparnaðarhlutfall lækkar',
+    message:
+      'Þú hélst {{rate}} % af tekjum — {{diff}} stigum minna en síðasta mánuð. Horfðu á það sem vex, ekki á það sem vantar.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Of margt hangir á gæfunni',
+    message:
+      '{{percent}} % eigna liggja í miðlungs eða mikilli hættu — yfir markinu {{threshold}} %. Haltu mestu af því sem þú eigur utan seilingar gæfunnar.',
+  },
+};
+
+const fo: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Posteringar bíða tínum dómi',
+    message:
+      '{{count}} posteringar bíða góðkenning. Avger tær í dag heldur enn at bera tær víðari.',
+  },
+  'operational.uncategorized': {
+    title: 'Útgjøld uttan navn',
+    message: '{{count}} posteringar hava ongan bólk. Tað sum ikki hevur navn, kann ikki vigast.',
+  },
+  'operational.duplicates': {
+    title: 'Møguligar dupletir funnar',
+    message:
+      '{{count}} møguligar dupletir funnar. Síggj tingini sum tey eru — tel hvørt eina ferð.',
+  },
+  'trend.category_rising': {
+    title: 'Bólkurin veksur',
+    message:
+      'Útgjøldini til "{{category}}" eru {{percent}} % yvir 3-mánaða miðalinum. Spyr um hann tænar tær, ella tú honum.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Títt størsta útgjald hevur onki mark',
+    message:
+      '"{{category}}" er títt størsta útgjald henda mánaðin, og einki mátar tað. Eitt mark valt í stillheit varir longur enn eitt lund.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Sparistigið er hægri',
+    message:
+      'Tú helt {{rate}} % av inntøkuni — {{diff}} stig meira enn seinasta mánað. Mátahaldið ger sítt.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Sparistigið er lægri',
+    message:
+      'Tú helt {{rate}} % av inntøkuni — {{diff}} stig minni enn seinasta mánað. Hygg at tí sum vaks, ikki at tí tú manglar.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Ov mikið hongur á happi',
+    message:
+      '{{percent}} % av eignunum liggja í miðal ella høgum vanda — yvir markinum {{threshold}} %. Hav tað mesta av tí tú eigur uttan fyri rák happsins.',
+  },
+};
+
+const cs: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Transakce čekají na váš soud',
+    message: '{{count}} transakcí čeká na schválení. Vyřiďte je dnes, místo abyste je nesli dál.',
+  },
+  'operational.uncategorized': {
+    title: 'Výdaje bez jména',
+    message: '{{count}} transakcí nemá kategorii. Co není pojmenováno, nelze zvážit.',
+  },
+  'operational.duplicates': {
+    title: 'Nalezeny možné duplicity',
+    message:
+      '{{count}} možných duplicit zjištěno. Viďte věci, jaké jsou — spočítejte každou jednou.',
+  },
+  'trend.category_rising': {
+    title: 'Kategorie roste',
+    message:
+      'Výdaje na "{{category}}" jsou {{percent}} % nad svým tříměsíčním průměrem. Zvažte, zda slouží vám, nebo vy jí.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Váš největší výdaj nemá limit',
+    message:
+      '"{{category}}" je tento měsíc váš největší výdaj a nic jej neměří. Limit zvolený v klidu přetrvá chuť okamžiku.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Míra spoření vzrostla',
+    message:
+      'Ponechali jste si {{rate}} % příjmu — o {{diff}} bodů více než minulý měsíc. Umírněnost koná své.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Míra spoření klesla',
+    message:
+      'Ponechali jste si {{rate}} % příjmu — o {{diff}} bodů méně než minulý měsíc. Hleďte na to, co vyrostlo, ne na to, co chybí.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Příliš mnoho závisí na náhodě',
+    message:
+      '{{percent}} % aktiv leží ve středním nebo vysokém riziku — nad limitem {{threshold}} %. Většinu toho, co máte, držte mimo dosah náhody.',
+  },
+};
+
+const bg: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Транзакции чакат вашата преценка',
+    message:
+      '{{count}} транзакции чакат одобрение. Решете ги днес, вместо да ги носите със себе си.',
+  },
+  'operational.uncategorized': {
+    title: 'Разходи без име',
+    message:
+      '{{count}} транзакции са без категория. Което не е назовано, не може да бъде претеглено.',
+  },
+  'operational.duplicates': {
+    title: 'Намерени са възможни дубликати',
+    message:
+      'Открити са {{count}} възможни дубликата. Виждайте нещата такива, какви са — броете всяко по веднъж.',
+  },
+  'trend.category_rising': {
+    title: 'Категорията расте',
+    message:
+      'Разходите за "{{category}}" са {{percent}} % над тримесечната си средна стойност. Запитайте се служи ли ви тя, или вие на нея.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Най-големият ви разход е без лимит',
+    message:
+      '"{{category}}" е най-големият ви разход този месец и нищо не го измерва. Лимит, избран на спокойствие, надживява прищявката.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Нормата на спестяване се повиши',
+    message:
+      'Запазихте {{rate}} % от дохода — {{diff}} пункта повече от миналия месец. Умереността си върши работата.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Нормата на спестяване спадна',
+    message:
+      'Запазихте {{rate}} % от дохода — {{diff}} пункта по-малко от миналия месец. Гледайте какво нарасна, не какво ви липсва.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Прекалено много зависи от случайността',
+    message:
+      '{{percent}} % от активите са в среден или висок риск — над лимита от {{threshold}} %. Дръжте по-голямата част от онова, което притежавате, извън обсега на случайността.',
+  },
+};
+
+const hr: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Transakcije čekaju vašu ocjenu',
+    message: '{{count}} transakcija čeka odobrenje. Riješite ih danas umjesto da ih nosite dalje.',
+  },
+  'operational.uncategorized': {
+    title: 'Troškovi bez imena',
+    message: '{{count}} transakcija nema kategoriju. Što nije imenovano, ne može se izmjeriti.',
+  },
+  'operational.duplicates': {
+    title: 'Nađeni mogući duplikati',
+    message:
+      'Otkriveno je {{count}} mogućih duplikata. Gledajte stvari kakve su — izbrojte svaku jedanput.',
+  },
+  'trend.category_rising': {
+    title: 'Kategorija raste',
+    message:
+      'Troškovi na "{{category}}" {{percent}} % su iznad svojeg tromjesečnog prosjeka. Pitajte služi li ona vama ili vi njoj.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Vaš najveći trošak nema ograničenje',
+    message:
+      '"{{category}}" je vaš najveći trošak ovaj mjesec i ništa ga ne mjeri. Ograničenje odabrano u miru nadživi hir.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Stopa štednje je porasla',
+    message:
+      'Zadržali ste {{rate}} % prihoda — {{diff}} bodova više nego prošli mjesec. Umjerenost radi svoje.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Stopa štednje je pala',
+    message:
+      'Zadržali ste {{rate}} % prihoda — {{diff}} bodova manje nego prošli mjesec. Gledajte što je naraslo, ne što vam manjka.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Previše ovisi o sreći',
+    message:
+      '{{percent}} % imovine je u srednjem ili visokom riziku — iznad ograničenja od {{threshold}} %. Većinu onoga što imate držite izvan dosega sreće.',
+  },
+};
+
+const sr: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Трансакције чекају вашу оцену',
+    message: '{{count}} трансакција чека одобрење. Решите их данас уместо да их носите даље.',
+  },
+  'operational.uncategorized': {
+    title: 'Трошкови без имена',
+    message: '{{count}} трансакција нема категорију. Што није именовано, не може се измерити.',
+  },
+  'operational.duplicates': {
+    title: 'Нађени могући дупликати',
+    message:
+      'Откривено је {{count}} могућих дупликата. Гледајте ствари какве су — избројте сваку једанпут.',
+  },
+  'trend.category_rising': {
+    title: 'Категорија расте',
+    message:
+      'Трошкови на "{{category}}" {{percent}} % су изнад свог тромесечног просека. Питајте служи ли она вама или ви њој.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Ваш највећи трошак нема ограничење',
+    message:
+      '"{{category}}" је ваш највећи трошак овог месеца и ништа га не мери. Ограничење изабрано у миру надживи хир.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Стопа штедње је порасла',
+    message:
+      'Задржали сте {{rate}} % прихода — {{diff}} поена више него прошлог месеца. Умереност радi своје.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Стопа штедње је пала',
+    message:
+      'Задржали сте {{rate}} % прихода — {{diff}} поена мање него прошлог месеца. Гледајте шта је нарасло, не шта вам мањка.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Превише зависи од среће',
+    message:
+      '{{percent}} % активе је у средњем или високом ризику — изнад ограничења од {{threshold}} %. Већину онога што имате држите изван домашаја среће.',
+  },
+};
+
+const sl: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Transakcije čakajo na vašo presojo',
+    message: '{{count}} transakcij čaka odobritev. Rešite jih danes, namesto da jih nosite naprej.',
+  },
+  'operational.uncategorized': {
+    title: 'Izdatki brez imena',
+    message: '{{count}} transakcij nima kategorije. Kar ni poimenovano, se ne da stehtati.',
+  },
+  'operational.duplicates': {
+    title: 'Najdeni možni dvojniki',
+    message:
+      'Zaznanih je {{count}} možnih dvojnikov. Glejte stvari, kakršne so — vsako šteje enkrat.',
+  },
+  'trend.category_rising': {
+    title: 'Kategorija narašča',
+    message:
+      'Izdatki za "{{category}}" so {{percent}} % nad trimesečnim povprečjem. Vprašajte se, ali služi vam ali vi njej.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Vaš največji izdatek nima omejitve',
+    message:
+      '"{{category}}" je ta mesec vaš največji izdatek in nič ga ne meri. Omejitev, izbrana v miru, preživi trenutno željo.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Stopnja varčevanja je zrasla',
+    message:
+      'Obdržali ste {{rate}} % prihodka — {{diff}} točk več kot prejšnji mesec. Zmernost opravlja svoje.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Stopnja varčevanja je padla',
+    message:
+      'Obdržali ste {{rate}} % prihodka — {{diff}} točk manj kot prejšnji mesec. Glejte, kaj je zraslo, ne kaj vam manjka.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Preveč je odvisno od sreče',
+    message:
+      '{{percent}} % sredstev je v srednjem ali visokem tveganju — nad omejitvijo {{threshold}} %. Večino tega, kar imate, držite zunaj dosega sreče.',
+  },
+};
+
+const mk: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Трансакциите чекаат ваша оцена',
+    message:
+      '{{count}} трансакции чекаат одобрување. Решете ги денес наместо да ги носите понатаму.',
+  },
+  'operational.uncategorized': {
+    title: 'Трошоци без име',
+    message: '{{count}} трансакции немаат категорија. Што не е именувано, не може да се измери.',
+  },
+  'operational.duplicates': {
+    title: 'Најдени можни дупликати',
+    message:
+      'Откриени се {{count}} можни дупликати. Гледајте ги работите какви што се — пребројте го секое по еднаш.',
+  },
+  'trend.category_rising': {
+    title: 'Категоријата расте',
+    message:
+      'Трошоците за "{{category}}" се {{percent}} % над својот тримесечен просек. Прашајте се дали таа ви служи или вие на неа.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Вашиот најголем трошок нема лимит',
+    message:
+      '"{{category}}" е вашиот најголем трошок овој месец и ништо не го мери. Лимит избран во мир ја надживува желбата.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Стапката на штедење е повисока',
+    message:
+      'Задржавте {{rate}} % од приходот — {{diff}} поени повеќе од минатиот месец. Умереноста си го прави своето.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Стапката на штедење е пониска',
+    message:
+      'Задржавте {{rate}} % од приходот — {{diff}} поени помалку од минатиот месец. Гледајте што порасна, не што ви недостига.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Премногу зависи од среќата',
+    message:
+      '{{percent}} % од активата е во среден или висок риск — над лимитот од {{threshold}} %. Повеќето од тоа што го имате држете го надвор од дофатот на среќата.',
+  },
+};
+
+const be: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Транзакцыі чакаюць вашай ацэнкі',
+    message: '{{count}} транзакцый чакаюць ухвалення. Вырашыце іх сёння, а не нясіце далей.',
+  },
+  'operational.uncategorized': {
+    title: 'Выдаткі без імя',
+    message: '{{count}} транзакцый без катэгорыі. Тое, што не названа, нельга ўзважыць.',
+  },
+  'operational.duplicates': {
+    title: 'Знойдзены магчымыя дублікаты',
+    message:
+      'Выяўлена {{count}} магчымых дублікатаў. Бачце рэчы, якімі яны ёсць — лічыце кожную адзін раз.',
+  },
+  'trend.category_rising': {
+    title: 'Катэгорыя расце',
+    message:
+      'Выдаткі на «{{category}}» на {{percent}} % вышэй за трохмесячнае сярэдняе. Спытайце, яна служыць вам ці вы ёй.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'У вашага найбольшага выдатку няма ліміту',
+    message:
+      '«{{category}}» — ваш найбольшы выдатак гэтага месяца, і нішто яго не мерае. Ліміт, выбраны ў спакоі, перажывае жаданне.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Норма заашчаджэння выросла',
+    message:
+      'Вы пакінулі {{rate}} % прыбытку — на {{diff}} пунктаў больш, чым у мінулым месяцы. Памяркоўнасць робіць сваё.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Норма заашчаджэння ўпала',
+    message:
+      'Вы пакінулі {{rate}} % прыбытку — на {{diff}} пунктаў менш, чым у мінулым месяцы. Глядзіце на тое, што вырасла, а не на тое, чаго не хапае.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Залішне многае залежыць ад выпадку',
+    message:
+      '{{percent}} % актываў у сярэдняй або высокай рызыцы — вышэй за ліміт {{threshold}} %. Трымайце большую частку свайго па-за дасяжнасцю выпадку.',
+  },
+};
+
+const bs: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Transakcije čekaju vašu ocjenu',
+    message: '{{count}} transakcija čeka odobrenje. Riješite ih danas umjesto da ih nosite dalje.',
+  },
+  'operational.uncategorized': {
+    title: 'Troškovi bez imena',
+    message: '{{count}} transakcija nema kategoriju. Što nije imenovano, ne može se izmjeriti.',
+  },
+  'operational.duplicates': {
+    title: 'Nađeni mogući duplikati',
+    message:
+      'Otkriveno je {{count}} mogućih duplikata. Gledajte stvari kakve su — izbrojte svaku jedanput.',
+  },
+  'trend.category_rising': {
+    title: 'Kategorija raste',
+    message:
+      'Troškovi na "{{category}}" {{percent}} % su iznad svog tromjesečnog prosjeka. Pitajte služi li ona vama ili vi njoj.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Vaš najveći trošak nema ograničenje',
+    message:
+      '"{{category}}" je vaš najveći trošak ovaj mjesec i ništa ga ne mjeri. Ograničenje odabrano u miru nadživi hir.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Stopa štednje je porasla',
+    message:
+      'Zadržali ste {{rate}} % prihoda — {{diff}} bodova više nego prošli mjesec. Umjerenost radi svoje.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Stopa štednje je pala',
+    message:
+      'Zadržali ste {{rate}} % prihoda — {{diff}} bodova manje nego prošli mjesec. Gledajte šta je naraslo, ne šta vam manjka.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Previše zavisi od sreće',
+    message:
+      '{{percent}} % imovine je u srednjem ili visokom riziku — iznad ograničenja od {{threshold}} %. Većinu onoga što imate držite izvan dosega sreće.',
+  },
+};
+
+const hsb: TranslationMap = {
+  'operational.unapproved': {
+    title: 'Transakcije čakaja na waš sud',
+    message:
+      '{{count}} transakcijow čaka na přizwolenje. Rozsudźće je dźensa, město zo byšće je dale njesli.',
+  },
+  'operational.uncategorized': {
+    title: 'Wudawki bjez mjena',
+    message: '{{count}} transakcijow nima kategoriju. Što pomjenowane njeje, njeda so zwažić.',
+  },
+  'operational.duplicates': {
+    title: 'Móžne duplikaty namakane',
+    message:
+      '{{count}} móžnych duplikatow spóznatych. Widźće wěcy, kaž su — ličće kóždu jedyn raz.',
+  },
+  'trend.category_rising': {
+    title: 'Kategorija rosće',
+    message:
+      'Wudawki za "{{category}}" su {{percent}} % nad swojim třiměsačnym přerězkom. Prašejće so, hač wam słuži abo wy jej.',
+  },
+  'pattern.unbudgeted_top_category': {
+    title: 'Waš najwjetši wudawk nima limit',
+    message:
+      '"{{category}}" je tutón měsac waš najwjetši wudawk a ničo jón njemjeri. Limit, w měrje wuzwoleny, dlěje traje hač chwilkowa žadosć.',
+  },
+  'trend.savings_rate_up': {
+    title: 'Lutowanska kwota je rostła',
+    message:
+      'Sće {{rate}} % dochoda zdźeržał — {{diff}} dypkow wjace hač zašły měsac. Měrnosć swoje čini.',
+  },
+  'trend.savings_rate_down': {
+    title: 'Lutowanska kwota je spadnyła',
+    message:
+      'Sće {{rate}} % dochoda zdźeržał — {{diff}} dypkow mjenje hač zašły měsac. Hladajće na to, což rostło je, nic na to, což wam pobrachuje.',
+  },
+  'pattern.risky_allocation': {
+    title: 'Přewjele wot zbožá wotwisuje',
+    message:
+      '{{percent}} % aktiwow leži w srjedźnym abo wysokim riziku — nad limitom {{threshold}} %. Dźeržće najwjetši dźěl toho, což maće, zwonka dosaha zbožá.',
+  },
+};
+
 export const INSIGHT_TRANSLATIONS: Record<string, TranslationMap> = {
   ru,
   en,
@@ -896,7 +1480,6 @@ export const INSIGHT_TRANSLATIONS: Record<string, TranslationMap> = {
   tr,
   uk,
   zh,
-  ar,
   pl,
   it,
   sk,
@@ -907,6 +1490,21 @@ export const INSIGHT_TRANSLATIONS: Record<string, TranslationMap> = {
   sv,
   vi,
   id,
+  da,
+  nb,
+  nn,
+  fi,
+  is,
+  fo,
+  cs,
+  bg,
+  hr,
+  sr,
+  sl,
+  mk,
+  be,
+  bs,
+  hsb,
 };
 
 /**

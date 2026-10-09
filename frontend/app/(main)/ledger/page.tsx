@@ -6,7 +6,6 @@ import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import Typography from '@mui/material/Typography';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
@@ -162,8 +161,14 @@ function LedgerContent(): React.ReactElement {
     }
     return (
       <>
-        {integrity.data ? <LedgerFreshness integrity={integrity.data} /> : null}
-        <Box sx={{ borderBottom: '1px solid var(--border)' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
           <Tabs
             value={tab}
             // eslint-disable-next-line max-params
@@ -176,27 +181,29 @@ function LedgerContent(): React.ReactElement {
               <Tab key={key} value={key} label={tabLabels[key]} />
             ))}
           </Tabs>
+          {settings.data.baseCurrency ? (
+            <Chip
+              sx={{ ml: 'auto', flexShrink: 0 }}
+              label={`${t.baseCurrencyLabel.value}: ${settings.data.baseCurrency}`}
+            />
+          ) : null}
         </Box>
+        {integrity.data ? <LedgerFreshness integrity={integrity.data} /> : null}
         <Box sx={{ mt: 2 }}>{renderTab()}</Box>
       </>
     );
   };
 
   return (
-    <Box component="main" sx={{ px: { xs: 2, md: 4 }, py: 3, width: '100%' }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h5" fontWeight={700}>
-            {t.title}
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-            {t.subtitle}
-          </Typography>
-        </Box>
-        {settings.data?.baseCurrency ? (
-          <Chip label={`${t.baseCurrencyLabel.value}: ${settings.data.baseCurrency}`} />
-        ) : null}
-      </Box>
+    <Box
+      component="main"
+      sx={{
+        px: { xs: 2, md: 4 },
+        pt: 'var(--lumio-page-top, 24px)',
+        pb: 3,
+        width: '100%',
+      }}
+    >
       {renderBody()}
     </Box>
   );

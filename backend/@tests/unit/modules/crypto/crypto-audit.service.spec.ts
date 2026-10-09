@@ -38,11 +38,12 @@ function build(options: { imported?: number; existing?: Record<string, unknown> 
   const service = new CryptoService(
     walletRepo as never,
     transactionRepo as never,
-    {} as never,
     syncService as never,
     {} as never,
     {} as never,
     auditService as never,
+    {} as never,
+    { writePortfolioSnapshot: jest.fn() } as never,
   );
   return { service, auditService, walletRepo, transactionRepo };
 }

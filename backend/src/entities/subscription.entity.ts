@@ -68,7 +68,7 @@ export class Subscription {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount: number;
 
-  @Column({ default: 'USD' })
+  @Column()
   currency: string;
 
   @Column({ type: 'enum', enum: SubscriptionFrequency })

@@ -86,7 +86,7 @@ export class Budget {
   @Column({ name: 'limit_amount', type: 'decimal', precision: 15, scale: 2 })
   limitAmount: number;
 
-  @Column({ default: 'KZT' })
+  @Column()
   currency: string;
 
   @Column({

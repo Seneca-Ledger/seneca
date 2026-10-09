@@ -31,6 +31,7 @@ export class WorkspaceContextGuard implements CanActivate {
 
     request.workspace = membership.workspace;
     request.workspaceRole = membership.role;
+    request.workspaceMemberId = membership.id;
     request.workspaceMemberPermissions = membership.permissions;
 
     return true;

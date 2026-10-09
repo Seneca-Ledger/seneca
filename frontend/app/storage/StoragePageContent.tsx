@@ -330,7 +330,10 @@ function StoragePageContent({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <Box className="container-shared" sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: 4 }}>
+      <Box
+        className="container-shared"
+        sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--lumio-page-top, 32px)', pb: 4 }}
+      >
         {!isTrashView && (
           <StorageHeader
             isTrashView={isTrashView}
@@ -339,8 +342,6 @@ function StoragePageContent({
             searchQuery={filtersHook.searchQuery}
             sortKey={sortKey}
             filtersApplied={filtersApplied}
-            titleLabel={t.title}
-            subtitleLabel={t.subtitle}
             searchPlaceholder={t.searchPlaceholder.value}
             searchFilesLabel={t.searchFiles.value}
             sortNewest={t.sort.newest}

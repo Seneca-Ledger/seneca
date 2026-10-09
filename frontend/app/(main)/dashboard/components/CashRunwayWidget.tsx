@@ -1,12 +1,14 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type React from 'react';
-import { useEffect, useState } from 'react';
 import { CardLink, DashboardCard, ListRow } from '@/app/components/dashboard/ui';
 import { AlertTriangle } from '@/app/components/icons';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
+import { apiQuery } from '@/app/lib/query-fn';
+import { queryKeys } from '@/app/lib/query-keys';
 import { fillTemplate, text } from '../helpers/dashboard-helpers';
 
 interface CommitmentItem {
@@ -37,19 +39,21 @@ type CashRunwayWidgetProps = {
   formatAmount: (value: number) => string;
 };
 
+/** Cached, so the widget is drawn at once when Overview is opened again. */
 function useCommitments(): { data: Commitments | null; loaded: boolean } {
-  const [data, setData] = useState<Commitments | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    apiClient
-      .get('/dashboard/commitments', { params: { days: HORIZON_DAYS } })
-      .then(res => setData(res.data?.data ?? res.data ?? null))
-      .catch(() => {
-        // A failed projection shows the empty state rather than breaking the dashboard.
-      })
-      .finally(() => setLoaded(true));
-  }, []);
-  return { data, loaded };
+  const workspaceId = useWorkspaceId();
+  const { data, isPending } = useQuery({
+    queryKey: queryKeys.dashboardCommitments(workspaceId, HORIZON_DAYS),
+    queryFn: ({ signal }) =>
+      apiQuery<Commitments>({
+        url: '/dashboard/commitments',
+        params: { days: HORIZON_DAYS },
+        signal,
+      }),
+    enabled: Boolean(workspaceId),
+  });
+  // A failed projection shows the empty state rather than breaking the dashboard.
+  return { data: data ?? null, loaded: !isPending };
 }
 
 function RunwayBody({

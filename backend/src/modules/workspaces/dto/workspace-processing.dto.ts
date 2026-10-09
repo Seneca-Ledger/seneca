@@ -27,8 +27,4 @@ export class WorkspaceProcessingDto {
   @IsOptional()
   @IsBoolean()
   merchantLearning?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  autoApproveAiPicks?: boolean;
 }

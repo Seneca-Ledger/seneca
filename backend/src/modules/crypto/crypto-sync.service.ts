@@ -1,13 +1,31 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
-import { CryptoWallet, type CryptoWalletBalance } from '../../entities/crypto-wallet.entity';
-import { Transaction, TransactionType } from '../../entities/transaction.entity';
+import { In, IsNull, type Repository } from 'typeorm';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import {
+  CryptoWallet,
+  type CryptoWalletBalance,
+  CryptoWalletKind,
+} from '../../entities/crypto-wallet.entity';
+import {
+  Transaction,
+  TransactionType,
+  TransferPairKind,
+  TransferPairSource,
+} from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { TransferPairingService } from '../transactions/services/transfer-pairing.service';
 import { BitcoinClient } from './bitcoin.client';
-import { mapBitcoinBalance, mapBitcoinTransfers } from './bitcoin-transfer.mapper';
+import {
+  type MempoolAddress,
+  type MempoolTx,
+  mapBitcoinBalance,
+  mapBitcoinTransfers,
+} from './bitcoin-transfer.mapper';
+import { deriveAddresses, isExtendedKey } from './bitcoin-xpub';
 import {
   CHAIN_NAMES,
   CHAINS,
@@ -17,12 +35,14 @@ import {
   TICKER_BY_CONTRACT,
   TRON_TOKENS,
 } from './crypto.constants';
+import { CryptoBalanceService } from './crypto-balance.service';
 import { CryptoPriceService } from './crypto-price.service';
 import {
   type ChainTransfer,
   type EtherscanTokenBalance,
   type EtherscanTokenTx,
   type EtherscanTx,
+  finalizeTransfers,
   mapChainTransfers,
   mapWalletBalances,
 } from './crypto-transfer.mapper';
@@ -52,6 +72,10 @@ import { mapTronBalances, mapTronTransfers } from './tron-transfer.mapper';
  * `last_synced_block` column if that ever happens.
  */
 const MAX_ROWS_PER_SYNC = 1000;
+/** Addresses in a row with no history that end the search; the wallet convention. */
+const BITCOIN_GAP_LIMIT = 20;
+/** A ceiling on the walk, so a key with a strange history cannot scan forever. */
+const BITCOIN_MAX_ADDRESSES = 200;
 const ONE_DAY_SECONDS = 86_400;
 
 export interface WalletSyncResult {
@@ -75,6 +99,8 @@ export class CryptoSyncService {
     private readonly tronGrid: TronGridClient,
     private readonly bitcoin: BitcoinClient,
     private readonly solana: SolanaRpcClient,
+    private readonly transferPairing: TransferPairingService,
+    private readonly balanceService: CryptoBalanceService,
   ) {}
 
   /** One reader per chain family; each returns the chain's balances and transfers. */
@@ -87,7 +113,10 @@ export class CryptoSyncService {
 
   @Cron('0 */6 * * *')
   async syncAllWallets(): Promise<void> {
-    const wallets = await this.walletRepo.find({ where: { isActive: true } });
+    // A manual holding has no chain to read; only addresses are synced.
+    const wallets = await this.walletRepo.find({
+      where: { isActive: true, kind: CryptoWalletKind.ONCHAIN },
+    });
     this.logger.log(`Syncing ${wallets.length} crypto wallet(s)`);
 
     for (const wallet of wallets) {
@@ -105,6 +134,12 @@ export class CryptoSyncService {
         lastSyncedAt: new Date(),
         lastSyncError: null,
       });
+      // The sheet carries today's portfolio value, which is also the point the
+      // history chart draws; it never fails the sync.
+      await this.balanceService.writePortfolioSnapshot(
+        wallet.workspaceId,
+        wallet.connectedByUserId,
+      );
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -127,7 +162,7 @@ export class CryptoSyncService {
     // current prices, so a historical-price outage has no business freezing it.
     await this.walletRepo.update(wallet.id, { balances: chain.balances });
 
-    const transfers = chain.transfers;
+    const transfers = finalizeTransfers(chain.transfers);
     await this.primePrices(transfers);
 
     let imported = 0;
@@ -142,6 +177,18 @@ export class CryptoSyncService {
       }
     }
 
+    // A swap's two legs are linked so neither counts as income or spending, and the
+    // fiat side of a purchase ("card paid 1000 EUR" against "wallet received ETH")
+    // is matched by the same pairing the bank import uses.
+    await this.pairTradeLegs(wallet, [
+      ...new Set(transfers.filter(transfer => transfer.isTrade).map(transfer => transfer.hash)),
+    ]);
+    if (imported > 0) {
+      await this.transferPairing
+        .detectAndApply(wallet.workspaceId)
+        .catch(error => this.logger.warn(`Transfer pairing after crypto sync failed: ${error}`));
+    }
+
     return { imported, skipped };
   }
 
@@ -153,16 +200,68 @@ export class CryptoSyncService {
     return this.readers[family](wallet);
   }
 
+  /**
+   * One address, or every address an extended key has used. mempool.space answers
+   * per address, so a wallet exported as an xpub costs one call per address found
+   * plus the gap we scan past the last one — which is the price of a balance that
+   * is actually right.
+   */
   private async readBitcoin(wallet: CryptoWallet): Promise<ChainRead> {
-    const [account, transactions, ownAddresses] = await Promise.all([
-      this.bitcoin.getAddress(wallet.address),
-      this.bitcoin.getTransactions(wallet.address),
-      this.getWorkspaceAddresses(wallet.workspaceId, wallet.chainId),
-    ]);
+    const addresses = isExtendedKey(wallet.address)
+      ? await this.discoverBitcoinAddresses(wallet.address)
+      : [wallet.address];
+
+    const accounts: MempoolAddress[] = [];
+    const transactions: MempoolTx[] = [];
+    const seen = new Set<string>();
+    for (const address of addresses) {
+      accounts.push(await this.bitcoin.getAddress(address));
+      for (const tx of await this.bitcoin.getTransactions(address)) {
+        // One transaction can touch several of the wallet's addresses; the wallet
+        // must count it once.
+        if (!seen.has(tx.txid)) {
+          seen.add(tx.txid);
+          transactions.push(tx);
+        }
+      }
+    }
+
+    const ownAddresses = await this.getWorkspaceAddresses(wallet.workspaceId, wallet.chainId);
     return {
-      balances: mapBitcoinBalance(account),
-      transfers: mapBitcoinTransfers({ address: wallet.address, ownAddresses, transactions }),
+      balances: mapBitcoinBalance(accounts),
+      transfers: mapBitcoinTransfers({ addresses, ownAddresses, transactions }),
     };
+  }
+
+  /**
+   * Walks the key's receiving and change branches until `BITCOIN_GAP_LIMIT`
+   * addresses in a row have never been used — the convention every wallet follows,
+   * so stopping earlier would hide coins and going further would never end.
+   */
+  private async discoverBitcoinAddresses(extendedKey: string): Promise<string[]> {
+    const found: string[] = [];
+    for (const chain of [0, 1] as const) {
+      let from = 0;
+      let unused = 0;
+      while (unused < BITCOIN_GAP_LIMIT && from < BITCOIN_MAX_ADDRESSES) {
+        const batch = deriveAddresses(extendedKey, { chain, from, count: BITCOIN_GAP_LIMIT });
+        for (const address of batch) {
+          const account = await this.bitcoin.getAddress(address);
+          if ((account?.chain_stats?.tx_count ?? 0) > 0) {
+            found.push(address);
+            unused = 0;
+          } else {
+            unused += 1;
+            if (unused >= BITCOIN_GAP_LIMIT) {
+              break;
+            }
+          }
+        }
+        from += BITCOIN_GAP_LIMIT;
+      }
+    }
+    // An unused key still needs one address: its balance is zero, not unknown.
+    return found.length > 0 ? found : deriveAddresses(extendedKey, { chain: 0, from: 0, count: 1 });
   }
 
   private async readSolana(wallet: CryptoWallet): Promise<ChainRead> {
@@ -289,6 +388,11 @@ export class CryptoSyncService {
    * Returns true when a new row was written. A transfer we already hold, or one
    * whose asset or USD value cannot be priced, is skipped rather than booked at
    * zero or at a made-up 1:1 rate; the next sync tries it again.
+   *
+   * Synced rows are written confirmed. The chain is the source of truth for them:
+   * unlike a bank import there is nothing to correct — only a category to pick —
+   * and an unconfirmed row counts nowhere, which used to keep every crypto figure
+   * at zero until the user clicked through hundreds of Review cards.
    */
   private async persistTransfer(
     wallet: CryptoWallet,
@@ -310,9 +414,15 @@ export class CryptoSyncService {
     if (usdRate === null) {
       return false;
     }
-    const usdValue = Number(transfer.amount) * usdPrice;
+
+    // A fee we cannot price is dropped from the row rather than taking the whole
+    // transfer down with it: the transfer itself is the fact worth keeping.
+    const fee = await this.priceFee(transfer, date, wallet.workspaceId);
+    const usdValue = Number(transfer.amount) * usdPrice + (fee?.usdValue ?? 0);
     const fiatAmount = Math.round(usdValue * usdRate * 100) / 100;
+    const feeFiat = fee ? Math.round(fee.usdValue * usdRate * 100) / 100 : null;
     const isIncome = transfer.direction === 'in';
+    const leg = transfer.leg ?? 'value';
 
     const result = await this.transactionRepo
       .createQueryBuilder()
@@ -324,11 +434,15 @@ export class CryptoSyncService {
         cryptoAsset: transfer.asset,
         cryptoAmount: transfer.amount,
         cryptoTxHash: transfer.hash,
+        cryptoLeg: leg,
+        cryptoFeeAmount: fee?.amount ?? null,
+        cryptoFeeAsset: fee?.asset ?? null,
+        cryptoFeeFiat: feeFiat,
         transactionDate: date,
         counterpartyName: shortenAddress(transfer.counterparty) || 'Unknown address',
         counterpartyAccount: transfer.counterparty || null,
         counterpartyBank: CHAIN_NAMES[wallet.chainId] ?? 'Blockchain',
-        paymentPurpose: `${transfer.direction === 'in' ? 'Received' : 'Sent'} ${transfer.amount} ${transfer.asset}`,
+        paymentPurpose: describeTransfer(transfer),
         amount: fiatAmount,
         debit: isIncome ? null : fiatAmount,
         credit: isIncome ? fiatAmount : null,
@@ -345,6 +459,75 @@ export class CryptoSyncService {
     return Array.isArray(result.raw) && result.raw.length > 0;
   }
 
+  /** The fee folded onto a transfer, priced; null when there is none or no price. */
+  private async priceFee(
+    transfer: ChainTransfer,
+    date: Date,
+    workspaceId: string,
+  ): Promise<{ asset: string; amount: string; usdValue: number } | null> {
+    if (!transfer.fee) {
+      return null;
+    }
+    const usdPrice = await this.priceService
+      .getUsdPrice(transfer.fee.asset, date)
+      .catch(() => null);
+    if (usdPrice === null) {
+      this.logger.warn(
+        `No price for fee asset ${transfer.fee.asset} in workspace ${workspaceId}; booking the transfer without it`,
+      );
+      return null;
+    }
+    return {
+      asset: transfer.fee.asset,
+      amount: transfer.fee.amount,
+      usdValue: Number(transfer.fee.amount) * usdPrice,
+    };
+  }
+
+  /**
+   * Links the two legs of a swap, so the asset that left and the asset that
+   * arrived cancel out of income and spending the same way a transfer between two
+   * of the user's accounts does. Only a clean one-in-one-out swap is linked: a
+   * multi-leg transaction is left alone rather than guessed at.
+   */
+  private async pairTradeLegs(wallet: CryptoWallet, hashes: string[]): Promise<void> {
+    if (hashes.length === 0) {
+      return;
+    }
+    const legs = await this.transactionRepo.find({
+      where: {
+        workspaceId: wallet.workspaceId,
+        cryptoWalletId: wallet.id,
+        cryptoTxHash: In(hashes),
+        cryptoLeg: 'value',
+        transferPairId: IsNull(),
+      },
+      select: ['id', 'cryptoTxHash', 'transactionType'],
+    });
+
+    const byHash = new Map<string, Transaction[]>();
+    for (const leg of legs) {
+      const hash = leg.cryptoTxHash as string;
+      byHash.set(hash, [...(byHash.get(hash) ?? []), leg]);
+    }
+
+    for (const group of byHash.values()) {
+      const incoming = group.filter(leg => leg.transactionType === TransactionType.INCOME);
+      const outgoing = group.filter(leg => leg.transactionType === TransactionType.EXPENSE);
+      if (incoming.length !== 1 || outgoing.length !== 1) {
+        continue;
+      }
+      await this.transactionRepo.update(
+        { id: In([incoming[0].id, outgoing[0].id]), transferPairId: IsNull() },
+        {
+          transferPairId: randomUUID(),
+          transferPairSource: TransferPairSource.AUTO,
+          transferPairKind: TransferPairKind.TRANSFER,
+        },
+      );
+    }
+  }
+
   /** Every address the workspace watches on this chain — the internal-transfer filter. */
   private async getWorkspaceAddresses(workspaceId: string, chainId: number): Promise<string[]> {
     const wallets = await this.walletRepo.find({
@@ -359,7 +542,7 @@ export class CryptoSyncService {
       where: { id: workspaceId },
       select: ['id', 'currency'],
     });
-    return workspace?.currency ?? 'USD';
+    return currencyCodeOrDefault(workspace?.currency);
   }
 
   private async fetchEtherscan<T>(
@@ -440,6 +623,24 @@ interface ExplorerResponse {
   status: string;
   message: string;
   result: unknown[] | string;
+}
+
+/**
+ * What the row says it is. A fee leg is named a fee, a swap leg is named a trade,
+ * so the ledger does not read "received 1200 USDC" for money that was never income.
+ */
+function describeTransfer(transfer: ChainTransfer): string {
+  if (transfer.leg === 'fee') {
+    return `Network fee ${transfer.amount} ${transfer.asset}`;
+  }
+  if (transfer.isTrade) {
+    return transfer.direction === 'in'
+      ? `Received ${transfer.amount} ${transfer.asset} in a swap`
+      : `Swapped ${transfer.amount} ${transfer.asset}`;
+  }
+  const verb = transfer.direction === 'in' ? 'Received' : 'Sent';
+  const fee = transfer.fee ? ` (fee ${transfer.fee.amount} ${transfer.fee.asset})` : '';
+  return `${verb} ${transfer.amount} ${transfer.asset}${fee}`;
 }
 
 function shortenAddress(address: string): string {

@@ -50,11 +50,13 @@ export const getCreatedRowResponse = (value: unknown): CustomTableGridRow | null
   const id = typeof idCandidate === 'string' ? idCandidate : null;
   const rowNumber = typeof rowNumberCandidate === 'number' ? rowNumberCandidate : null;
   const data = getRecord(record.data) as CustomTableRowPatch | null;
+  const styles = getRecord(record.styles) as CustomTableGridRow['styles'] | null;
 
   return {
     id: id ?? `temp-${Date.now()}`,
     rowNumber: rowNumber ?? 1,
     data: data ?? {},
+    ...(styles ? { styles } : {}),
   };
 };
 
@@ -62,11 +64,15 @@ export const getResponseItems = (value: unknown): CustomTableGridRow[] => {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.filter(isRecord).map(item => ({
-    id: typeof item.id === 'string' ? item.id : String(item.rowNumber ?? ''),
-    rowNumber: typeof item.rowNumber === 'number' ? item.rowNumber : 0,
-    data: (getRecord(item.data) as CustomTableRowPatch | null) ?? {},
-  }));
+  return value.filter(isRecord).map(item => {
+    const styles = getRecord(item.styles) as CustomTableGridRow['styles'] | null;
+    return {
+      id: typeof item.id === 'string' ? item.id : String(item.rowNumber ?? ''),
+      rowNumber: typeof item.rowNumber === 'number' ? item.rowNumber : 0,
+      data: (getRecord(item.data) as CustomTableRowPatch | null) ?? {},
+      ...(styles ? { styles } : {}),
+    };
+  });
 };
 
 export const getClassificationResults = (value: unknown): Map<string, boolean | null> => {

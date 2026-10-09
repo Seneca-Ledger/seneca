@@ -5,11 +5,19 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import { type EntityTarget, In, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { toMinor } from '../../common/utils/money.util';
+import {
+  applyOwnerFilter,
+  assertOwnerMemberInWorkspace,
+  type OwnerFilter,
+} from '../../common/utils/transaction-owner.util';
+import { redactPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Branch } from '../../entities/branch.entity';
-import { Category } from '../../entities/category.entity';
+import { Category, CategoryType } from '../../entities/category.entity';
 import { Payable } from '../../entities/payable.entity';
 import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
@@ -23,7 +31,7 @@ import { User } from '../../entities/user.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
-import { ClassificationService } from '../classification/services/classification.service';
+import { ensurePrivateCategory } from '../categories/private-category';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { DataDeletedEvent } from '../notifications/events/notification-events';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
@@ -48,9 +56,10 @@ export class TransactionsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
-    private readonly classificationService: ClassificationService,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly taxAssignmentService: TaxAssignmentService,
     private readonly eventEmitter?: EventEmitter2,
@@ -90,9 +99,11 @@ export class TransactionsService {
       categoryId?: string;
       currency?: string;
       convertTo?: string;
+      owner?: OwnerFilter;
       page?: number;
       limit?: number;
     },
+    viewerMemberId: string | null = null,
   ): Promise<{ data: TransactionWithConversion[]; total: number; page: number; limit: number }> {
     const query = this.transactionRepository
       .createQueryBuilder('transaction')
@@ -103,6 +114,8 @@ export class TransactionsService {
       .leftJoinAndSelect('transaction.branch', 'branch')
       .leftJoinAndSelect('transaction.wallet', 'wallet')
       .leftJoinAndSelect('transaction.reimbursementOf', 'reimbursementOf');
+
+    applyOwnerFilter(query, 'transaction', filters.owner ?? { kind: 'all' });
 
     if (filters.statementId) {
       query.andWhere('transaction.statementId = :statementId', {
@@ -146,7 +159,8 @@ export class TransactionsService {
 
     query.orderBy('transaction.transactionDate', 'DESC').skip(skip).take(limit);
 
-    const [rawData, total] = await query.getManyAndCount();
+    const [rows, total] = await query.getManyAndCount();
+    const rawData = redactPrivateRows(rows, viewerMemberId);
 
     if (!filters.convertTo) {
       return { data: rawData, total, page, limit };
@@ -155,7 +169,7 @@ export class TransactionsService {
     const targetCurrency = filters.convertTo.toUpperCase();
     const items = rawData.map(tx => ({
       amount: Number(tx.amount) || Number(tx.debit) || Number(tx.credit) || 0,
-      currency: tx.currency || 'KZT',
+      currency: currencyCodeOrDefault(tx.currency),
       date: tx.transactionDate,
     }));
     const conversions = await this.exchangeRatesService.bulkConvert(
@@ -187,6 +201,15 @@ export class TransactionsService {
     }
 
     return transaction;
+  }
+
+  /** `findOne` as the caller is allowed to read it. */
+  async findOneFor(
+    id: string,
+    workspaceId: string,
+    viewerMemberId: string | null,
+  ): Promise<Transaction> {
+    return redactPrivate(await this.findOne(id, workspaceId), viewerMemberId);
   }
 
   /**
@@ -230,10 +253,12 @@ export class TransactionsService {
     userId: string,
     updateDto: UpdateTransactionDto,
     batchId?: string | null,
+    viewerMemberId: string | null = null,
   ): Promise<Transaction> {
     await this.ensureCanEditStatements(userId, workspaceId);
     const transaction = await this.findOne(id, workspaceId);
     await this.assertWorkspaceOwnedRefs(updateDto, workspaceId);
+    const movedForPrivacy = await this.applyPrivacy(transaction, updateDto, viewerMemberId);
     const before = { ...transaction };
     const previousCategoryId = transaction.categoryId;
     this.assertTaxEditable(transaction, updateDto);
@@ -273,9 +298,18 @@ export class TransactionsService {
     if (updateDto.walletId !== undefined) {
       transaction.wallet = undefined as unknown as Wallet | null;
     }
+    if (updateDto.ownerMemberId !== undefined) {
+      transaction.ownerMember = undefined as unknown as WorkspaceMember | null;
+    }
 
     // A category the user picked is sticky: re-classification leaves it alone.
-    if (updateDto.categoryId !== undefined && updateDto.categoryId !== previousCategoryId) {
+    // Moving in or out of `Private` is not such a pick — it would overwrite the
+    // reason the row was categorised the way it was, which the owner still needs.
+    if (
+      !movedForPrivacy &&
+      updateDto.categoryId !== undefined &&
+      updateDto.categoryId !== previousCategoryId
+    ) {
       transaction.categorySource = updateDto.categoryId ? TransactionCategorySource.MANUAL : null;
       transaction.categoryReason = null;
     }
@@ -299,25 +333,65 @@ export class TransactionsService {
       isUndoable: true,
     });
 
-    if (
-      updateDto.categoryId !== undefined &&
-      updateDto.categoryId !== null &&
-      updateDto.categoryId !== previousCategoryId
-    ) {
-      try {
-        await this.classificationService.learnFromCorrection(saved, updateDto.categoryId, userId);
-      } catch (error) {
-        console.error('[TransactionsService] Failed to learn from category correction:', error);
-      }
-    }
+    // A correction teaches by itself: the row's own category is what the payee
+    // history reads next time, so there is nothing else to record.
 
     return saved;
+  }
+
+  /**
+   * Moves a row in or out of the workspace's `Private` category.
+   *
+   * Only the owner of a row may hide it: a row the household shares has nobody
+   * to keep a secret from, and a row somebody else owns is not yours to hide.
+   *
+   * The category really moves rather than being masked when read. A mask would
+   * make every total depend on who is asking, and two such totals differ by
+   * exactly the hidden amount.
+   */
+  private async applyPrivacy(
+    transaction: Transaction,
+    updateDto: UpdateTransactionDto,
+    viewerMemberId: string | null,
+  ): Promise<boolean> {
+    if (updateDto.isPrivate === undefined || updateDto.isPrivate === transaction.isPrivate) {
+      // Drop the key rather than blank it: `Object.assign` copies an
+      // `undefined` value too, and the row would then look changed to the audit
+      // — "changed: isPrivate" on an edit that touched nothing of the sort.
+      // biome-ignore lint/performance/noDelete: an undefined assignment, which is what the rule suggests, creates the key and marks the row as changed
+      delete updateDto.isPrivate;
+      return false;
+    }
+
+    if (updateDto.isPrivate) {
+      if (!transaction.ownerMemberId || transaction.ownerMemberId !== viewerMemberId) {
+        throw new BadRequestException(appError('TRANSACTION_PRIVATE_NOT_OWNER'));
+      }
+      const privateCategory = await ensurePrivateCategory(
+        this.categoryRepository,
+        transaction.workspaceId,
+        transaction.transactionType === TransactionType.INCOME
+          ? CategoryType.INCOME
+          : CategoryType.EXPENSE,
+      );
+      transaction.privateCategoryId = transaction.categoryId;
+      // Through the DTO, not the entity: `findOne` loaded the `category`
+      // relation, and on save a loaded relation wins over the column, so an id
+      // assigned here alone would be written back as the old one. The block
+      // below already drops the stale object for a DTO-driven change.
+      updateDto.categoryId = privateCategory.id;
+    } else {
+      updateDto.categoryId = transaction.privateCategoryId ?? undefined;
+      transaction.privateCategoryId = null;
+    }
+    return true;
   }
 
   async bulkUpdate(
     workspaceId: string,
     userId: string,
     items: BulkUpdateItemDto[],
+    viewerMemberId: string | null = null,
   ): Promise<Transaction[]> {
     await this.ensureCanEditStatements(userId, workspaceId);
     const updatedTransactions: Transaction[] = [];
@@ -325,7 +399,14 @@ export class TransactionsService {
 
     for (const item of items) {
       try {
-        const transaction = await this.update(item.id, workspaceId, userId, item.updates, batchId);
+        const transaction = await this.update(
+          item.id,
+          workspaceId,
+          userId,
+          item.updates,
+          batchId,
+          viewerMemberId,
+        );
         updatedTransactions.push(transaction);
       } catch (error) {
         console.error('Error updating transaction %s:', item.id, error);
@@ -374,13 +455,18 @@ export class TransactionsService {
 
   /** Every workspace-scoped reference an update body can carry. */
   private assertWorkspaceOwnedRefs(
-    updateDto: Pick<UpdateTransactionDto, 'categoryId' | 'branchId' | 'walletId'>,
+    updateDto: Pick<UpdateTransactionDto, 'categoryId' | 'branchId' | 'walletId' | 'ownerMemberId'>,
     workspaceId: string,
   ): Promise<unknown> {
     return Promise.all([
       this.assertWorkspaceOwned(Category, [updateDto.categoryId], workspaceId),
       this.assertWorkspaceOwned(Branch, [updateDto.branchId], workspaceId),
       this.assertWorkspaceOwned(Wallet, [updateDto.walletId], workspaceId),
+      assertOwnerMemberInWorkspace(
+        this.workspaceMemberRepository,
+        workspaceId,
+        updateDto.ownerMemberId,
+      ),
     ]);
   }
 
@@ -420,6 +506,9 @@ export class TransactionsService {
       taxSource: source.taxSource,
       branchId: source.branchId,
       walletId: source.walletId,
+      // Each part starts on the same person as the whole; splitting a shared
+      // purchase between two people is done by reassigning the parts afterwards.
+      ownerMemberId: source.ownerMemberId,
       article: source.article,
       activityType: source.activityType,
       vendorNormalized: source.vendorNormalized,
@@ -668,7 +757,9 @@ export class TransactionsService {
     }
     const splitGroupId = target.splitGroupId;
 
-    let before: Transaction[] = [];
+    // Plain copies for the audit diff, not entities: spreading drops the
+    // entity's own methods.
+    let before: Array<Partial<Transaction>> = [];
     let repointed = { duplicates: 0, receipts: 0, payables: 0 };
 
     const merged = await this.transactionRepository.manager.transaction(async manager => {

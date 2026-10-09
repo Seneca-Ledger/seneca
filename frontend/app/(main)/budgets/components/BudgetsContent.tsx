@@ -6,6 +6,7 @@ import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import NextLink from 'next/link';
 import { useEffect } from 'react';
+import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
@@ -58,6 +59,7 @@ interface BudgetsContentProps {
   saving: boolean;
   setFormData: (data: BudgetFormData) => void;
   openCreate: (categoryId?: string) => void;
+  refresh: () => void;
   openEdit: (budget: BudgetItem) => void;
   closeDialog: () => void;
   handleSave: () => void;
@@ -75,6 +77,7 @@ export function BudgetsContent({
   saving,
   setFormData,
   openCreate,
+  refresh,
   openEdit,
   closeDialog,
   handleSave,
@@ -97,11 +100,8 @@ export function BudgetsContent({
     }
   }, [listReady]);
   return (
-    <Box sx={{ px: { xs: 2, md: 4 }, py: 3, width: '100%' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>
-          {t.pageTitle}
-        </Typography>
+    <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           {/* Budgets can fund a goal, so the goals page is reached from here. */}
           {hasPermission('goal.view') && (
@@ -109,6 +109,15 @@ export function BudgetsContent({
               {t.savingsGoals}
             </Button>
           )}
+          <ImportFromFileButton
+            target="budgets"
+            onImported={refresh}
+            renderTrigger={(open, label) => (
+              <Button variant="outlined" onClick={open}>
+                {label}
+              </Button>
+            )}
+          />
           <Button variant="contained" onClick={() => openCreate()}>
             {t.newBudget}
           </Button>

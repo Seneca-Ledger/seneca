@@ -4,10 +4,11 @@ import FocusTrap from '@mui/material/Unstable_TrapFocus';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import { HelpCircle, Settings, X } from '@/app/components/icons';
+import { X } from '@/app/components/icons';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { useExperimentalMode } from '@/app/lib/experimental-mode';
+import { AccountMenu } from '../navigation/AccountMenu';
 import { buildNavItems, isNavItemActive } from '../navigation/helpers/navigation-config';
 
 interface MobileMenuDrawerProps {
@@ -18,7 +19,7 @@ interface MobileMenuDrawerProps {
 export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
   const pathname = usePathname();
   const { hasPermission } = usePermissions();
-  const { nav, shell, userMenu } = useIntlayer('navigation');
+  const { nav, shell } = useIntlayer('navigation');
 
   const navItems = buildNavItems(nav as Parameters<typeof buildNavItems>[0]);
   const experimentalMode = useExperimentalMode();
@@ -82,7 +83,6 @@ export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
           </div>
 
           <nav className="lumio-mobile-drawer__nav">
-            <div className="lumio-mobile-drawer__section-label">{userMenu.workspace}</div>
             {visibleNavItems.map(item => {
               const active = isNavItemActive(pathname ?? '', item.path);
               return (
@@ -100,29 +100,7 @@ export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
           </nav>
 
           <div className="lumio-mobile-drawer__footer">
-            <Link href="/settings/profile" className="lumio-mobile-drawer__item" onClick={onClose}>
-              <span className="lumio-mobile-drawer__item-icon">
-                <Settings size={18} />
-              </span>
-              <span>{userMenu.settings}</span>
-            </Link>
-            <button
-              type="button"
-              className="lumio-mobile-drawer__item"
-              onClick={() => {
-                window.open(
-                  'https://symonbaikov.github.io/lumio/',
-                  '_blank',
-                  'noopener,noreferrer',
-                );
-                onClose();
-              }}
-            >
-              <span className="lumio-mobile-drawer__item-icon">
-                <HelpCircle size={18} />
-              </span>
-              <span>{shell.help}</span>
-            </button>
+            <AccountMenu variant="mobile" onAction={onClose} />
           </div>
         </aside>
       </FocusTrap>

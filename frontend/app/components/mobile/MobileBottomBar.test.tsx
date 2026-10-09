@@ -11,6 +11,10 @@ vi.mock('./MobileMenuDrawer', () => ({
   MobileMenuDrawer: () => null,
 }));
 
+vi.mock('@/app/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { name: 'Symon', avatarUrl: null } }),
+}));
+
 describe('MobileBottomBar', () => {
   it('keeps the quick actions out of the Tab order until the FAB opens them', () => {
     const { container } = render(<MobileBottomBar />);

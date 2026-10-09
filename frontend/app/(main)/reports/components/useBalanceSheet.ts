@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { EditableChangeArgs } from './BalanceAccountRow';
 import {
   type BalanceExportFormat,
@@ -156,7 +157,7 @@ function useSaveSnapshot(opts: SaveSnapshotOpts): (accountId: string) => Promise
           accountId,
           amount: parsed,
           date: effectiveDate,
-          currency: sheet?.currency || 'KZT',
+          currency: sheet?.currency || FALLBACK_CURRENCY,
         });
         setters.setSaveHint(text('balanceSaved', 'Balance saved'));
         await loadSheet(effectiveDate);

@@ -1,4 +1,5 @@
 import { Between, In, IsNull } from 'typeorm';
+import { PayableStatus } from '../../../../src/entities/payable.entity';
 import { ReceiptStatus } from '../../../../src/entities/receipt.entity';
 import { BankName, StatementStatus } from '../../../../src/entities/statement.entity';
 import { TransactionType } from '../../../../src/entities/transaction.entity';
@@ -507,6 +508,46 @@ describe('DashboardService', () => {
     });
     // walletRepo should NOT be used for balance computation
     expect(walletRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('getSnapshot counts only confirmed rows in income, expense and balance', async () => {
+    const txQb = createQueryBuilderMock([
+      { currency: 'USD', income: '0', expense: '0', unapprovedCash: '0' },
+    ]);
+    const balanceQb = createQueryBuilderMock([{ currency: 'USD', balance: '0' }]);
+    transactionRepo.createQueryBuilder.mockReturnValueOnce(txQb).mockReturnValueOnce(balanceQb);
+    payableRepo.createQueryBuilder.mockReturnValue(createQueryBuilderMock([]));
+    workspaceRepo.findOne.mockResolvedValue({ currency: 'USD' });
+
+    await (service as any).getSnapshot('ws-1', new Date('2026-02-01'), new Date('2026-03-01'));
+
+    const [columns] = txQb.select.mock.calls[0] as [string[]];
+    const column = (alias: string) => columns.find(sql => sql.endsWith(alias)) ?? '';
+    expect(column('AS income')).toContain('t.is_verified = true');
+    expect(column('AS expense')).toContain('t.is_verified = true');
+    // Unapproved cash measures what still waits, so it keeps the unconfirmed rows.
+    expect(column('AS "unapprovedCash"')).not.toContain('is_verified');
+    expect(balanceQb.andWhere).toHaveBeenCalledWith('t.isVerified = true');
+  });
+
+  it('counts uncategorised rows for data health whether or not they are confirmed', async () => {
+    const query = createQueryBuilderMock(0);
+    transactionRepo.createQueryBuilder.mockReturnValueOnce(query);
+
+    await (service as any).getUncategorizedTransactionCount('ws-1', null);
+
+    expect(query.andWhere).not.toHaveBeenCalledWith('t.isVerified = true');
+    expect(query.andWhere).toHaveBeenCalledWith('t.categoryId IS NULL');
+  });
+
+  it('builds every trend and top list from confirmed rows only', () => {
+    const query = createQueryBuilderMock([]);
+    transactionRepo.createQueryBuilder.mockReturnValueOnce(query);
+
+    (service as any).createTrendBaseQuery('ws-1', new Date('2026-02-01'), new Date('2026-03-01'));
+
+    expect(query.andWhere).toHaveBeenCalledWith('t.isDuplicate = false');
+    expect(query.andWhere).toHaveBeenCalledWith('t.isVerified = true');
   });
 
   it('getSnapshot converts grouped source currencies into the workspace currency', async () => {
@@ -1089,6 +1130,28 @@ describe('DashboardService', () => {
       expect(result.days[3].balance).toBe(200);
       expect(result.lowestBalance).toBe(200);
       expect(result.shortfallDate).toBeNull();
+    });
+
+    it('counts what is left of a partly paid bill', async () => {
+      primeBalance('1000');
+      payableRepo.find.mockResolvedValue([
+        { id: 'p-part', vendor: 'Part Co', amount: '500', paidAmount: '200', currency: 'KZT', dueDate: formatDateOnly(commitmentDay(2)) },
+        { id: 'p-settled', vendor: 'Settled Co', amount: '100', paidAmount: '100', currency: 'KZT', dueDate: formatDateOnly(commitmentDay(2)) },
+      ]);
+      subscriptionRepo.find.mockResolvedValue([]);
+
+      const result = await service.getCommitments('ws-1', 10);
+
+      expect(payableRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: expect.objectContaining({
+              _value: expect.arrayContaining([PayableStatus.PARTIALLY_PAID]),
+            }),
+          }),
+        }),
+      );
+      expect(result.items).toEqual([expect.objectContaining({ sourceId: 'p-part', amount: 300 })]);
     });
 
     it('projects monthly subscriptions with month-end clamping and flags the shortfall', async () => {

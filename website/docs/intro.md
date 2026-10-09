@@ -29,7 +29,7 @@ exports into reliable, queryable financial data.
 ## Quick facts
 
 - Backend: NestJS 11 with TypeORM and PostgreSQL
-- Frontend: Next.js 16 with React 19, UI in 21 languages
+- Frontend: Next.js 16 with React 19, UI in 35 languages
 - Data services: PostgreSQL 14 + Redis 7 (Docker Compose)
 - Integrations: OpenAI-compatible AI endpoint, SMTP, IMAP, S3-compatible and WebDAV storage, Telegram,
   webhooks, and API keys

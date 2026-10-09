@@ -4,15 +4,18 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import IconButton from '@mui/material/IconButton';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { Trash2 } from '@/app/components/icons';
 import type { Category } from '@/app/components/transactions/types';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import type { PaymentCandidate } from '@/app/lib/payables-api';
+import type { PayablePayment, PaymentCandidate } from '@/app/lib/payables-api';
 
 export type WalletOption = { id: string; name: string; currency: string; isActive?: boolean };
 
@@ -151,6 +154,111 @@ export function CashFields(props: {
         />
       </Box>
       <Alert severity="info">{t.cashHint.value}</Alert>
+    </Box>
+  );
+}
+
+export type AmountState = { amount: string; feeAmount: string };
+
+/**
+ * How much of the bill this payment settles.
+ *
+ * Pre-filled with everything still outstanding — the common case is paying the
+ * rest — but a smaller number is the whole point: the client who sent 400 of
+ * 1000 has paid 400, not nothing.
+ */
+export function AmountFields(props: {
+  currency: string;
+  locale: string;
+  paidSoFar: number;
+  outstanding: number;
+  value: AmountState;
+  onChange: (next: AmountState) => void;
+}): React.JSX.Element {
+  const t = useIntlayer('payableMarkPaid');
+  const { value, onChange } = props;
+  const amount = Number(value.amount);
+  const tooMuch = Number.isFinite(amount) && amount > props.outstanding + 0.005;
+  const partial = Number.isFinite(amount) && amount > 0 && amount < props.outstanding - 0.005;
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {props.paidSoFar > 0 && (
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          {t.paidSoFar.value} {formatMoney(props.paidSoFar, props.currency, props.locale)} ·{' '}
+          {t.outstanding.value} {formatMoney(props.outstanding, props.currency, props.locale)}
+        </Typography>
+      )}
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+        <TextField
+          size="small"
+          type="number"
+          label={String(t.amount.value)}
+          value={value.amount}
+          error={tooMuch}
+          helperText={tooMuch ? String(t.amountTooMuch.value) : undefined}
+          onChange={event => onChange({ ...value, amount: event.target.value })}
+          inputProps={{ min: 0, step: 0.01, 'aria-label': String(t.amount.value) }}
+          sx={{ flex: '1 1 140px' }}
+        />
+        <TextField
+          size="small"
+          type="number"
+          label={String(t.feeAmount.value)}
+          value={value.feeAmount}
+          onChange={event => onChange({ ...value, feeAmount: event.target.value })}
+          inputProps={{ min: 0, step: 0.01, 'aria-label': String(t.feeAmount.value) }}
+          sx={{ flex: '1 1 140px' }}
+        />
+      </Box>
+      {Number(value.feeAmount) > 0 && <Alert severity="info">{t.feeHint.value}</Alert>}
+      {partial && <Alert severity="info">{t.partialHint.value}</Alert>}
+    </Box>
+  );
+}
+
+/** What has already been paid against the bill, newest first. */
+export function PaymentLog(props: {
+  payments: PayablePayment[];
+  currency: string;
+  locale: string;
+  removingId: string | null;
+  onRemove: (paymentId: string) => void;
+}): React.JSX.Element | null {
+  const t = useIntlayer('payableMarkPaid');
+  if (props.payments.length === 0) {
+    return null;
+  }
+  return (
+    <Box>
+      <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
+        {t.paymentsTitle.value}
+      </Typography>
+      {props.payments.map(payment => (
+        <Box
+          key={payment.id}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}
+        >
+          <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+            {payment.paidOn} · {formatMoney(Number(payment.amount), props.currency, props.locale)}
+            {Number(payment.feeAmount) > 0 && (
+              <Typography component="span" variant="caption" sx={{ color: 'text.secondary' }}>
+                {' '}
+                ({String(t.feeAmount.value)}{' '}
+                {formatMoney(Number(payment.feeAmount), props.currency, props.locale)})
+              </Typography>
+            )}
+          </Typography>
+          <IconButton
+            size="small"
+            aria-label={String(t.removePayment.value)}
+            disabled={props.removingId === payment.id}
+            onClick={() => props.onRemove(payment.id)}
+          >
+            <Trash2 size={16} />
+          </IconButton>
+        </Box>
+      ))}
     </Box>
   );
 }

@@ -238,7 +238,7 @@ export function SubscriptionDetailsDrawer({
             <Typography key={decision.id} variant="body2">
               {formatDate(decision.createdAt)} ·{' '}
               {DECISION_LABELS[decision.decision]
-                ? t[DECISION_LABELS[decision.decision]]
+                ? t[DECISION_LABELS[decision.decision]].value
                 : decision.decision}
               {decision.note ? ` — ${decision.note}` : ''}
             </Typography>

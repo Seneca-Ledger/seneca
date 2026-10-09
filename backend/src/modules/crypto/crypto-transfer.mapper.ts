@@ -48,7 +48,22 @@ export interface ChainTransfer {
   direction: 'in' | 'out';
   /** The other address, lowercase. Empty for contract creation. */
   counterparty: string;
+  /**
+   * `value` is money that moved, `fee` is what the chain charged for moving it.
+   * They are kept apart so a transfer's amount is the amount the user sent, not
+   * the amount plus gas — cost basis counts the former.
+   */
+  leg?: TransferLegKind;
+  /** The transaction's fee, folded onto this value leg; same asset as `asset` is not implied. */
+  fee?: { asset: string; amount: string };
+  /**
+   * Set when the same transaction moved value both ways: a swap. Both legs carry
+   * it, and neither is income or spending — only a change of what is held.
+   */
+  isTrade?: boolean;
 }
+
+export type TransferLegKind = 'value' | 'fee';
 
 export interface MapTransfersInput {
   address: string;
@@ -64,7 +79,8 @@ export interface MapTransfersInput {
 /**
  * Money moving between two wallets the same workspace owns is not income and not
  * an expense — booking both legs would inflate every total on the dashboard.
- * The gas such a move burns is a genuine expense and is still booked.
+ * The gas such a move burns is a genuine expense and is still booked, as a fee
+ * leg `finalizeTransfers` later folds onto the transfer it paid for.
  */
 export function mapChainTransfers(input: MapTransfersInput): ChainTransfer[] {
   const me = input.address.toLowerCase();
@@ -87,6 +103,7 @@ export function mapChainTransfers(input: MapTransfersInput): ChainTransfer[] {
           amount: formatUnits(gas, 18),
           direction: 'out',
           counterparty: to,
+          leg: 'fee',
         });
       }
     }
@@ -198,15 +215,16 @@ export function mapWalletBalances(input: {
 
 /**
  * One on-chain transaction can move the same asset the same way more than once —
- * a batch payout, or a transfer plus its gas. The database holds one row per
- * (hash, asset, direction), so those parts are summed here rather than dropped
- * by the unique index later.
+ * a batch payout, for instance. The database holds one row per
+ * (hash, asset, direction, leg), so those parts are summed here rather than dropped
+ * by the unique index later. Fee legs are summed on their own: gas is not part of
+ * the amount that was sent.
  */
 export function aggregate(transfers: ChainTransfer[]): ChainTransfer[] {
   const merged = new Map<string, ChainTransfer>();
 
   for (const transfer of transfers) {
-    const key = `${transfer.hash}:${transfer.asset}:${transfer.direction}`;
+    const key = `${transfer.hash}:${transfer.asset}:${transfer.direction}:${transfer.leg ?? 'value'}`;
     const existing = merged.get(key);
     if (!existing) {
       merged.set(key, { ...transfer });
@@ -218,6 +236,67 @@ export function aggregate(transfers: ChainTransfer[]): ChainTransfer[] {
   }
 
   return [...merged.values()].sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
+ * The last pass before transfers are booked, shared by every chain.
+ *
+ * Two things happen here. A transaction that moved value both in and out is a
+ * swap: both legs are marked, and the caller books them as a pair rather than as
+ * income and spending — selling one coin for another is neither. And a fee leg is
+ * folded onto the outgoing value leg it paid for, so an ordinary send is one row
+ * ("sent 0.5 ETH, fee 0.0012") instead of two. A swap keeps its fee separate:
+ * the swap itself nets out, the fee is money genuinely gone.
+ *
+ * Chains that report no fee leg of their own (Bitcoin, Solana) are untouched —
+ * there the fee is already inside the balance delta the chain reports.
+ */
+export function finalizeTransfers(transfers: ChainTransfer[]): ChainTransfer[] {
+  const byHash = new Map<string, ChainTransfer[]>();
+  for (const transfer of transfers) {
+    const group = byHash.get(transfer.hash);
+    if (group) {
+      group.push(transfer);
+    } else {
+      byHash.set(transfer.hash, [transfer]);
+    }
+  }
+
+  const result: ChainTransfer[] = [];
+  for (const group of byHash.values()) {
+    const values = group.filter(transfer => (transfer.leg ?? 'value') === 'value');
+    const fees = group.filter(transfer => transfer.leg === 'fee');
+    const isTrade =
+      values.some(transfer => transfer.direction === 'in') &&
+      values.some(transfer => transfer.direction === 'out');
+
+    const outgoing = values.filter(transfer => transfer.direction === 'out');
+    const foldable = !isTrade && outgoing.length === 1 && fees.length > 0;
+
+    for (const transfer of values) {
+      result.push({
+        ...transfer,
+        leg: 'value',
+        ...(isTrade ? { isTrade: true } : {}),
+        ...(foldable && transfer === outgoing[0]
+          ? {
+              fee: {
+                asset: fees[0].asset,
+                amount: fees.reduce((sum, f) => addDecimals(sum, f.amount), '0'),
+              },
+            }
+          : {}),
+      });
+    }
+
+    if (!foldable) {
+      for (const fee of fees) {
+        result.push({ ...fee, leg: 'fee' });
+      }
+    }
+  }
+
+  return result.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 export function toBigInt(value: string | undefined): bigint {

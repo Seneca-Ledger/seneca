@@ -108,6 +108,7 @@ describe('ledger FX revaluation (real Postgres)', () => {
         categoryId: salesId,
         amount,
         credit: amount,
+        isVerified: true,
       }),
     );
 
@@ -193,7 +194,9 @@ describe('ledger FX revaluation (real Postgres)', () => {
     txRepo = dataSource.getRepository(Transaction);
 
     workspaceId = (
-      await dataSource.getRepository(Workspace).save({ name: 'FX WS', ledgerBaseCurrency: 'EUR' })
+      await dataSource
+        .getRepository(Workspace)
+        .save({ name: 'FX WS', currency: 'EUR', ledgerBaseCurrency: 'EUR' })
     ).id;
     userId = (
       await dataSource.getRepository(User).save(

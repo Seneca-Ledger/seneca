@@ -134,18 +134,6 @@ describe('Review inbox (e2e)', () => {
     expect(res.body.total).toBe(1);
   });
 
-  it('shows the model picks as approved when the workspace trusts them', async () => {
-    await as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
-      .send({ processing: { autoApproveAiPicks: true } })
-      .expect(200);
-    const trusted = await as(owner, request(server()).get('/review-inbox/counts')).expect(200);
-    expect(trusted.body.transaction).toBe(1);
-
-    await as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
-      .send({ processing: { autoApproveAiPicks: false } })
-      .expect(200);
-  });
-
   it('approving with a category records a manual pick and empties the queue', async () => {
     const res = await as(owner, request(server()).post('/review-inbox/transactions/approve'))
       .send({ ids: [pendingId, aiId], categoryId: categoryIds[1] })
@@ -219,5 +207,169 @@ describe('Review inbox (e2e)', () => {
       .send({ ids: [] })
       .expect(400);
     await as(owner, request(server()).get('/review-inbox?kind=nope')).expect(400);
+  });
+
+  it('lists every receipt still waiting for approval', async () => {
+    const insert = async (status: string, parsed: Record<string, unknown>) => {
+      const [row] = await dataSource.query(
+        `INSERT INTO receipts
+           (user_id, workspace_id, source, subject, sender, received_at, parsed_data, status)
+         VALUES ($1, $2, 'gmail', 'probe', 'shop@example.com', now(), $3::jsonb, $4)
+         RETURNING id`,
+        [owner.userId, owner.workspaceId, JSON.stringify(parsed), status],
+      );
+      return row.id as string;
+    };
+    const parsed = { amount: 7, date: '2026-06-05', vendor: 'Inbox receipt' };
+    const draft = await insert('draft', parsed);
+    const needsReview = await insert('needs_review', {});
+    await insert('new', {}); // an email with nothing parsed is not a receipt yet
+    await insert('approved', parsed);
+    await insert('failed', parsed);
+    await insert('rejected', parsed);
+
+    const res = await as(owner, request(server()).get('/review-inbox?kind=receipt')).expect(200);
+
+    expect(res.body.items.map((item: { id: string }) => item.id).sort()).toEqual(
+      [draft, needsReview].sort(),
+    );
+    expect(res.body.counts.receipt).toBe(2);
+    await dataSource.query('DELETE FROM receipts WHERE workspace_id = $1', [owner.workspaceId]);
+  });
+
+  it('counts the rows each statement still has in the inbox', async () => {
+    const [statement] = await dataSource.query(
+      `INSERT INTO statements
+         (user_id, workspace_id, file_name, file_path, file_type, file_size, file_hash, bank_name, status, currency)
+       VALUES ($1, $2, 'bank.csv', '/dev/null', 'csv', 1, md5(random()::text), 'other', 'completed', 'EUR')
+       RETURNING id`,
+      [owner.userId, owner.workspaceId],
+    );
+    const insertRow = (verified: boolean) =>
+      dataSource.query(
+        `INSERT INTO transactions
+           (transaction_date, counterparty_name, payment_purpose, transaction_type,
+            workspace_id, statement_id, amount, currency, is_verified)
+         VALUES ('2026-06-10', 'Row', 'Row', 'expense', $1, $2, 3, 'EUR', $3)`,
+        [owner.workspaceId, statement.id, verified],
+      );
+    await insertRow(false);
+    await insertRow(false);
+    await insertRow(true);
+
+    const res = await as(owner, request(server()).get('/review-inbox/statements')).expect(200);
+
+    expect(res.body[statement.id]).toBe(2);
+    const foreign = await as(other, request(server()).get('/review-inbox/statements')).expect(200);
+    expect(foreign.body[statement.id]).toBeUndefined();
+  });
+
+  async function insertBankStatement(): Promise<string> {
+    const [statement] = await dataSource.query(
+      `INSERT INTO statements
+         (user_id, workspace_id, file_name, file_path, file_type, file_size, file_hash, bank_name, status, currency)
+       VALUES ($1, $2, 'bank.csv', '/dev/null', 'csv', 1, md5(random()::text), 'other', 'completed', 'EUR')
+       RETURNING id`,
+      [owner.userId, owner.workspaceId],
+    );
+    return statement.id;
+  }
+
+  async function insertBankRow(
+    statementId: string,
+    fields: { categoryId?: string | null; source?: string | null; transferPair?: boolean } = {},
+  ): Promise<string> {
+    const [row] = await dataSource.query(
+      `INSERT INTO transactions
+         (transaction_date, counterparty_name, payment_purpose, transaction_type, workspace_id,
+          statement_id, amount, currency, is_verified, category_id, category_source, transfer_pair_id)
+       VALUES ('2026-06-11', 'Bank row', 'Bank row', 'expense', $1, $2, 4, 'EUR', false, $3, $4,
+               CASE WHEN $5 THEN gen_random_uuid() ELSE NULL END)
+       RETURNING id`,
+      [
+        owner.workspaceId,
+        statementId,
+        fields.categoryId ?? null,
+        fields.source ?? null,
+        fields.transferPair ?? false,
+      ],
+    );
+    return row.id;
+  }
+
+  it('points a scanned row at its receipt, and a bank row at nothing', async () => {
+    const scanStatementId = await insertBankStatement();
+    const scanRowId = await insertBankRow(scanStatementId);
+    const [receipt] = await dataSource.query(
+      `INSERT INTO receipts
+         (user_id, workspace_id, source, subject, sender, received_at, parsed_data, status, statement_id)
+       VALUES ($1, $2, 'scan', 'scan.jpg', 'scan', now(), '{}'::jsonb, 'draft', $3)
+       RETURNING id`,
+      [owner.userId, owner.workspaceId, scanStatementId],
+    );
+    const bankRowId = await insertBankRow(await insertBankStatement());
+
+    const res = await as(owner, request(server()).get('/review-inbox?kind=transaction')).expect(
+      200,
+    );
+    const byId = new Map(
+      res.body.items.map((item: { id: string; receiptId: string | null }) => [
+        item.id,
+        item.receiptId,
+      ]),
+    );
+
+    expect(byId.get(scanRowId)).toBe(receipt.id);
+    expect(byId.get(bankRowId)).toBeNull();
+    await dataSource.query('DELETE FROM receipts WHERE workspace_id = $1', [owner.workspaceId]);
+    await dataSource.query('DELETE FROM transactions WHERE id = ANY($1)', [[scanRowId, bankRowId]]);
+  });
+
+  it('asks about every unconfirmed row, whatever set its category', async () => {
+    const statementId = await insertBankStatement();
+    const byRule = await insertBankRow(statementId, { categoryId: categoryIds[0], source: 'rule' });
+    const byHistory = await insertBankRow(statementId, {
+      categoryId: categoryIds[0],
+      source: 'history',
+    });
+    const transfer = await insertBankRow(statementId, {
+      categoryId: categoryIds[0],
+      source: 'manual',
+      transferPair: true,
+    });
+
+    const res = await as(
+      owner,
+      request(server()).get('/review-inbox').query({ kind: 'transaction', limit: 100 }),
+    ).expect(200);
+
+    const ids = res.body.items.map((item: { id: string }) => item.id);
+    expect(ids).toEqual(expect.arrayContaining([byRule, byHistory, transfer]));
+  });
+
+  it('confirms a whole statement at once, leaving rows without a category', async () => {
+    const statementId = await insertBankStatement();
+    const first = await insertBankRow(statementId, { categoryId: categoryIds[0], source: 'rule' });
+    const second = await insertBankRow(statementId, { categoryId: categoryIds[0], source: 'ai' });
+    const open = await insertBankRow(statementId);
+
+    await as(other, request(server()).post(`/review-inbox/statements/${statementId}/approve`)).expect(
+      404,
+    );
+    const res = await as(
+      owner,
+      request(server()).post(`/review-inbox/statements/${statementId}/approve`),
+    ).expect(200);
+
+    expect(res.body).toEqual({ approved: 2, uncategorized: 1 });
+    const verified = await dataSource.query(
+      'SELECT id, is_verified FROM transactions WHERE id = ANY($1)',
+      [[first, second, open]],
+    );
+    expect(Object.fromEntries(verified.map((row: { id: string; is_verified: boolean }) => [row.id, row.is_verified]))).toEqual({
+      [first]: true,
+      [second]: true,
+      [open]: false,
+    });
   });
 });

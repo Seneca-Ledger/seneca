@@ -28,6 +28,10 @@ export interface Transaction {
   };
   branch?: { name: string };
   wallet?: { name: string };
+  /** Membership id of whoever this belongs to; null means the household shares it. */
+  ownerMemberId?: string | null;
+  /** Hidden from the rest of the household: merchant and purpose read as "—". */
+  isPrivate?: boolean;
   // Currency conversion (populated when convert_to query param is passed to the API)
   convertedAmount?: number;
   conversionRate?: number;
@@ -53,6 +57,8 @@ export interface Transaction {
     debit?: number | null;
     currency?: string;
   } | null;
+  // Confirmed by a person in Review; only confirmed rows count in any figure
+  isVerified?: boolean;
   // Parsing metadata (optional, might not exist yet)
   parsingConfidence?: number;
   rawExtract?: string;

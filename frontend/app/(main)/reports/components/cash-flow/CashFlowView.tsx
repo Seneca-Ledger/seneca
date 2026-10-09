@@ -2,7 +2,6 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
@@ -12,8 +11,13 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from 'next-themes';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { FromFilterDropdown } from '@/app/(main)/statements/components/filters/FromFilterDropdown';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { DashboardCard } from '@/app/components/dashboard/ui';
+import { ChevronDown } from '@/app/components/icons';
+import { useWorkspaceMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
+import { OwnerFilterDropdown } from '@/app/components/transactions/OwnerFilterDropdown';
+import { EmptyState } from '@/app/components/ui/EmptyState';
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -57,8 +61,11 @@ export function CashFlowView(): React.JSX.Element {
   const { locale } = useLocale();
   const { resolvedTheme } = useTheme();
   const { data, isPending, isFetching, error, filters, update, exportUrl } = useCashFlowMap();
+  const members = useWorkspaceMembers();
   const [preset, setPreset] = useState<string>(PERIOD_PRESETS[0].labelKey);
   const [exporting, setExporting] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draftCategories, setDraftCategories] = useState<string[]>([]);
 
   const currency = data?.currency ?? 'KZT';
   const formatAmount = (value: number) => formatMoney(value, currency, locale);
@@ -69,14 +76,26 @@ export function CashFlowView(): React.JSX.Element {
     [data, resolvedTheme, currency, locale],
   );
   const roots = (data?.availableCategories ?? []).filter(category => !category.parentId);
-  const selected = new Set(filters.categories);
   const allSelected = filters.categories.length === 0;
 
-  const toggleCategory = (id: string) => {
-    const base = allSelected ? roots.map(category => category.id) : filters.categories;
-    const next = base.includes(id) ? base.filter(item => item !== id) : [...base, id];
-    // Every root ticked is the same as no filter at all.
-    update({ categories: next.length === roots.length ? [] : next });
+  const openFilters = (open: boolean) => {
+    // The draft lists every ticked root; the applied filter uses [] for "all".
+    if (open) {
+      setDraftCategories(
+        allSelected
+          ? roots.map(category => category.id)
+          : filters.categories.filter(id => id !== '__none__'),
+      );
+    }
+    setFiltersOpen(open);
+  };
+
+  const applyCategories = () => {
+    // Every root ticked is the same as no filter at all; none ticked filters everything out.
+    if (draftCategories.length === roots.length) update({ categories: [] });
+    else if (draftCategories.length === 0) update({ categories: ['__none__'] });
+    else update({ categories: draftCategories });
+    setFiltersOpen(false);
   };
 
   const exportCsv = async () => {
@@ -153,38 +172,39 @@ export function CashFlowView(): React.JSX.Element {
           }
           label={text('cfIncludeTransfers', 'Include transfers and investments')}
         />
+        {roots.length > 0 && (
+          <FromFilterDropdown
+            open={filtersOpen}
+            onOpenChange={openFilters}
+            options={roots.map(category => ({ id: category.id, label: category.name }))}
+            values={draftCategories}
+            onChange={setDraftCategories}
+            onApply={applyCategories}
+            onReset={() => {
+              update({ categories: [] });
+              setFiltersOpen(false);
+            }}
+            trigger={
+              <Button size="small" variant="outlined" endIcon={<ChevronDown size={14} />}>
+                {text('cfFilters', 'Filters')}
+                {allSelected
+                  ? ''
+                  : ` (${filters.categories.filter(id => id !== '__none__').length})`}
+              </Button>
+            }
+            applyLabel={text('cfApply', 'Apply')}
+            resetLabel={text('cfReset', 'Reset')}
+          />
+        )}
+        <OwnerFilterDropdown
+          members={members}
+          value={filters.owner}
+          onChange={owner => update({ owner })}
+        />
         <Button size="small" variant="outlined" disabled={!data || exporting} onClick={exportCsv}>
           {text('cfExportCsv', 'Export CSV')}
         </Button>
       </Box>
-
-      {roots.length > 0 && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-          <Button size="small" onClick={() => update({ categories: [] })} disabled={allSelected}>
-            {text('cfSelectAll', 'All')}
-          </Button>
-          <Button
-            size="small"
-            onClick={() => update({ categories: ['__none__'] })}
-            disabled={filters.categories.length === 1 && filters.categories[0] === '__none__'}
-          >
-            {text('cfSelectNone', 'None')}
-          </Button>
-          {roots.map(category => {
-            const on = allSelected || selected.has(category.id);
-            return (
-              <Chip
-                key={category.id}
-                label={category.name}
-                size="small"
-                variant={on ? 'filled' : 'outlined'}
-                color={on ? 'primary' : 'default'}
-                onClick={() => toggleCategory(category.id)}
-              />
-            );
-          })}
-        </Box>
-      )}
 
       {isPending && <Skeleton variant="rounded" height={440} />}
       {error && (
@@ -263,9 +283,11 @@ export function CashFlowView(): React.JSX.Element {
             {data.sankey.links.length > 0 && option ? (
               <LazyECharts option={option} style={{ height: 440, width: '100%' }} notMerge />
             ) : (
-              <p className="lumio-dashboard__empty">
-                {text('cfEmpty', 'No money moved in this period')}
-              </p>
+              <EmptyState
+                illustration="cash-bundle"
+                description={text('cfEmpty', 'No money moved in this period')}
+                compact
+              />
             )}
           </DashboardCard>
 
@@ -276,9 +298,11 @@ export function CashFlowView(): React.JSX.Element {
             {data.treemap.length > 0 ? (
               <CashFlowTreemap items={data.treemap} formatAmount={formatAmount} />
             ) : (
-              <p className="lumio-dashboard__empty">
-                {text('cfEmpty', 'No money moved in this period')}
-              </p>
+              <EmptyState
+                illustration="cash-bundle"
+                description={text('cfEmpty', 'No money moved in this period')}
+                compact
+              />
             )}
           </DashboardCard>
 

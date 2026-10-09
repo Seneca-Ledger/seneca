@@ -158,7 +158,7 @@ describe('DataHealthTab', () => {
     expect(screen.getByText('$1500').className).toContain('lumio-dashboard__stat-value--warning');
     expect(screen.getByRole('link', { name: /Review & approve cash/ })).toHaveAttribute(
       'href',
-      '/statements/approve',
+      '/review',
     );
     expect(screen.getByRole('link', { name: 'uploadFirstStatement' })).toHaveAttribute(
       'href',

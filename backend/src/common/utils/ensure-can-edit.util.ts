@@ -4,12 +4,16 @@ import type {
   WorkspaceMember,
   WorkspaceMemberPermissions,
 } from '../../entities/workspace-member.entity';
-import { WorkspaceRole } from '../../entities/workspace-member.entity';
+import { workspaceMemberCanEdit } from '../authz/workspace-permissions';
 import { appError, type ErrorCode } from '../errors/app-error';
 
 /**
  * Checks that the given user has permission to perform an edit operation in the workspace.
- * Admins and Owners always pass. Members fail only if the specific permission is explicitly set to false.
+ *
+ * Owners and admins always pass, viewers never do, and a plain member passes only
+ * where the matching toggle in `workspace_members.permissions` is `true`. The
+ * rules live in `workspaceMemberCanEdit` so that the guard and the services that
+ * run outside it cannot drift apart.
  */
 export async function ensureCanEdit(
   workspaceMemberRepository: Repository<WorkspaceMember>,
@@ -27,13 +31,13 @@ export async function ensureCanEdit(
     select: ['role', 'permissions'],
   });
 
+  // No membership row means the caller reached here outside the workspace
+  // guard; that request is rejected before it gets this far.
   if (!membership) {
     return;
   }
-  if ([WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role)) {
-    return;
-  }
-  if (membership.permissions?.[permissionKey] === false) {
+
+  if (!workspaceMemberCanEdit(membership.role, permissionKey, membership.permissions)) {
     throw new ForbiddenException(appError(errorCode));
   }
 }

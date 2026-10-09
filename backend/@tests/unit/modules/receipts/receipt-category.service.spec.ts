@@ -71,7 +71,9 @@ describe('ReceiptCategoryService', () => {
       where: { workspaceId: 'workspace-1', isEnabled: true },
     });
     expect(categoryRepository.createQueryBuilder).not.toHaveBeenCalled();
-    expect(result?.id).toBe('food');
+    // The vendor's own name is never read as a category; the lexicon itself is
+    // covered by the `matchByKeywords` tests below.
+    expect(result).toBeNull();
   });
 
   it('loads categories by workspaceId for gmail (via-statement) receipts too', async () => {
@@ -91,7 +93,7 @@ describe('ReceiptCategoryService', () => {
     // The legacy via-statement join is gone: both modes query by workspaceId.
     expect(categoryRepository.find).toHaveBeenCalled();
     expect(categoryRepository.createQueryBuilder).not.toHaveBeenCalled();
-    expect(result?.id).toBe('food');
+    expect(result).toBeNull();
   });
 
   it('filters categories by expense type for expense receipts', async () => {
@@ -108,7 +110,7 @@ describe('ReceiptCategoryService', () => {
     expect(categoryRepository.find).toHaveBeenCalledWith({
       where: { workspaceId: 'workspace-1', isEnabled: true, type: 'expense' },
     });
-    expect(result?.id).toBe('food');
+    expect(result).toBeNull();
   });
 
   it('filters categories by income type for income receipts', async () => {
@@ -125,8 +127,49 @@ describe('ReceiptCategoryService', () => {
     expect(categoryRepository.find).toHaveBeenCalledWith({
       where: { workspaceId: 'workspace-1', isEnabled: true, type: 'income' },
     });
-    // No vendor keyword/alias maps to an income category, so no match is expected.
     expect(result).toBeNull();
+  });
+
+  describe('vendor names that merely look like a category name', () => {
+    // A receipt vendor is not a bank descriptor, so the curated keyword lexicon
+    // ("кафе", "pizza", "аптека") stays. What has to go is matching the vendor
+    // against the *name* of a category: any substring scored 0.8 there, so
+    // "Travelodge" became Travel and "Rentokil" became Rent.
+    const BUSINESS_CATEGORIES = [
+      { id: 'travel', name: 'Travel', isEnabled: true },
+      { id: 'rent', name: 'Rent', isEnabled: true },
+      { id: 'interest', name: 'Interest', isEnabled: true },
+      { id: 'services', name: 'Professional services', isEnabled: true },
+    ] as Category[];
+
+    it.each(['Travelodge London', 'Rentokil Initial PLC', 'Interesting Books Ltd'])(
+      'suggests nothing for %s',
+      async vendor => {
+        categoryRepository.find.mockResolvedValue(BUSINESS_CATEGORIES);
+        transactionRepository.createQueryBuilder.mockReturnValue(createTransactionQueryBuilder([]));
+
+        const result = await service.suggestCategory({
+          workspaceId: 'workspace-1',
+          parsedData: { vendor },
+        } as Receipt);
+
+        expect(result).toBeNull();
+      },
+    );
+
+    it('still answers from what this workspace filed for the same vendor before', async () => {
+      categoryRepository.find.mockResolvedValue(BUSINESS_CATEGORIES);
+      transactionRepository.createQueryBuilder.mockReturnValue(
+        createTransactionQueryBuilder([{ categoryId: 'services' }] as Transaction[]),
+      );
+
+      const result = await service.suggestCategory({
+        workspaceId: 'workspace-1',
+        parsedData: { vendor: 'Travelodge London' },
+      } as Receipt);
+
+      expect(result?.id).toBe('services');
+    });
   });
 
   it('matches Russian default categories via keywords', () => {

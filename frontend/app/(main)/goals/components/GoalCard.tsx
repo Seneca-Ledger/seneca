@@ -1,31 +1,30 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import NextLink from 'next/link';
+import type React from 'react';
 import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
 import type { Goal } from '../hooks/useGoals';
+import { GoalCoverThumb } from './GoalCoverThumb';
 
 interface GoalCardProps {
   goal: Goal;
   locale: string;
   labels: {
-    addContribution: string;
-    edit: string;
-    remove: string;
     reached: string;
     remaining: string;
   };
-  onContribute: (goal: Goal) => void;
-  onEdit: (goal: Goal) => void;
-  onDelete: (goal: Goal) => void;
+  /** An extra line under the progress bar, e.g. what the goal got this month. */
+  note?: React.ReactNode;
+  /** The card's buttons. A read-only card simply passes none. */
+  actions?: React.ReactNode;
 }
 
-export function GoalCard({ goal, locale, labels, onContribute, onEdit, onDelete }: GoalCardProps) {
+export function GoalCard({ goal, locale, labels, note, actions }: GoalCardProps) {
   const money = (value: number) => formatMoney(value, goal.currency, locale);
 
   return (
@@ -39,24 +38,27 @@ export function GoalCard({ goal, locale, labels, onContribute, onEdit, onDelete 
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Link
-            component={NextLink}
-            href={`/goals/${goal.id}`}
-            underline="hover"
-            color="inherit"
-            variant="body1"
-            fontWeight={600}
-            noWrap
-            sx={{ display: 'block' }}
-          >
-            {goal.name}
-          </Link>
-          {goal.targetDate && (
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {goal.targetDate}
-            </Typography>
-          )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+          <GoalCoverThumb cover={goal.cover} size={56} alt={goal.name} />
+          <Box sx={{ minWidth: 0 }}>
+            <Link
+              component={NextLink}
+              href={`/goals/${goal.id}`}
+              underline="hover"
+              color="inherit"
+              variant="body1"
+              fontWeight={600}
+              noWrap
+              sx={{ display: 'block' }}
+            >
+              {goal.name}
+            </Link>
+            {goal.targetDate && (
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {goal.targetDate}
+              </Typography>
+            )}
+          </Box>
         </Box>
         <Typography variant="body1" fontWeight={600}>
           {money(goal.currentAmount)}{' '}
@@ -84,26 +86,23 @@ export function GoalCard({ goal, locale, labels, onContribute, onEdit, onDelete 
           flexWrap: 'wrap',
         }}
       >
-        <Typography
-          variant="body2"
-          sx={{ color: goal.isReached ? 'success.main' : 'text.secondary' }}
-        >
-          {goal.isReached
-            ? labels.reached
-            : `${money(goal.remaining)} ${labels.remaining} · ${goal.percent}%`}
-        </Typography>
-
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button size="small" variant="outlined" onClick={() => onContribute(goal)}>
-            {labels.addContribution}
-          </Button>
-          <Button size="small" onClick={() => onEdit(goal)}>
-            {labels.edit}
-          </Button>
-          <Button size="small" color="error" onClick={() => onDelete(goal)}>
-            {labels.remove}
-          </Button>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            variant="body2"
+            sx={{ color: goal.isReached ? 'success.main' : 'text.secondary' }}
+          >
+            {goal.isReached
+              ? labels.reached
+              : `${money(goal.remaining)} ${labels.remaining} · ${goal.percent}%`}
+          </Typography>
+          {note && (
+            <Typography variant="caption" sx={{ display: 'block', color: 'success.main' }}>
+              {note}
+            </Typography>
+          )}
         </Box>
+
+        {actions && <Box sx={{ display: 'flex', gap: 1 }}>{actions}</Box>}
       </Box>
     </Box>
   );

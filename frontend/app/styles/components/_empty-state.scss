@@ -12,6 +12,21 @@
     opacity: 0.8;
   }
 
+  /* Illustrations that ship a per-theme file render both; CSS picks one. */
+  &--dark-only {
+    display: none;
+  }
+
+  @include dark {
+    &--light-only {
+      display: none;
+    }
+
+    &--dark-only {
+      display: block;
+    }
+  }
+
   &--sm {
     max-width: 120px;
   }

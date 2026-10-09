@@ -1,25 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { isPublicPath } from './app/lib/public-paths';
 
 const ACCESS_TOKEN_COOKIE = 'access_token';
 const REFRESH_TOKEN_COOKIE = 'refresh_token';
-
-/**
- * Routes that must stay reachable without a session: the auth screens
- * themselves and invitation links (which decide what to show based on whether
- * the visitor is signed in).
- */
-const PUBLIC_PREFIXES = [
-  '/login',
-  '/register',
-  '/forgot-password',
-  '/reset-password',
-  '/verify-email',
-  '/invite',
-];
-
-const isPublicPath = (pathname: string): boolean =>
-  PUBLIC_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
 /**
  * Server-side gate for app routes.

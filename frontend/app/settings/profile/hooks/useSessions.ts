@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { forgetStoredUser } from '@/app/lib/theme-preference';
 import { getApiErrorMessage, type UserSession } from '@/app/settings/profile/profileHelpers';
 
 export type UseSessionsMessages = {
@@ -67,7 +68,7 @@ export function useSessions(
       })
       .finally(async () => {
         // Cookies are cleared by the server on logout-all.
-        localStorage.removeItem('user');
+        forgetStoredUser();
         router.push('/login');
       });
   }, [messages.logoutAllConfirm, router]);
@@ -87,7 +88,7 @@ export function useSessions(
         await apiClient.post(`/auth/sessions/${session.id}/logout`);
 
         if (session.isCurrent) {
-          localStorage.removeItem('user');
+          forgetStoredUser();
           router.push('/login');
           return;
         }

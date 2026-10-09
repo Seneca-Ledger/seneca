@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, type QueryRunner, Repository } from 'typeorm';
+import { currencyCodeOrDefault } from '../../../common/utils/currency.util';
 import { readProcessingSettings } from '../../../common/utils/workspace-processing.util';
 import {
   type ImportConflictResolution,
@@ -388,7 +389,7 @@ export class ImportSessionService {
             ...tx,
             workspaceId: session.workspaceId,
             amount: tx.debit || tx.credit || null,
-            currency: tx.currency || session.statement?.currency || 'KZT',
+            currency: currencyCodeOrDefault(tx.currency || session.statement?.currency),
           },
           accountNumber,
         );
@@ -825,7 +826,7 @@ export class ImportSessionService {
         ...parsed,
         workspaceId: session.workspaceId,
         amount: parsed.debit || parsed.credit || null,
-        currency: parsed.currency || session.statement?.currency || 'KZT',
+        currency: currencyCodeOrDefault(parsed.currency || session.statement?.currency),
       },
       accountNumber,
     );
@@ -846,7 +847,7 @@ export class ImportSessionService {
       debit: parsed.debit || null,
       credit: parsed.credit || null,
       amount: parsed.debit || parsed.credit || null,
-      currency: parsed.currency || 'KZT',
+      currency: currencyCodeOrDefault(parsed.currency || session.statement?.currency),
       exchangeRate: parsed.exchangeRate || null,
       amountForeign: parsed.amountForeign || null,
       paymentPurpose: parsed.paymentPurpose,

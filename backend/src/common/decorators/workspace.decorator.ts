@@ -10,3 +10,11 @@ export const WorkspaceId = createParamDecorator((_data: unknown, ctx: ExecutionC
   const request = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
   return request.workspace?.id;
 });
+
+/** The caller's own membership id in the current workspace; what `owner=me` resolves to. */
+export const WorkspaceMemberId = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): string | null => {
+    const request = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
+    return request.workspaceMemberId ?? null;
+  },
+);

@@ -11,6 +11,16 @@ vi.mock('@/app/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true }),
 }));
 
+// The account entry has its own auth, router and notification wiring; this test
+// is about the drawer's focus trap, so a focusable stand-in is enough.
+vi.mock('../navigation/AccountMenu', () => ({
+  AccountMenu: () => (
+    <button type="button" className="lumio-account__trigger">
+      Account
+    </button>
+  ),
+}));
+
 // Mirrors react-intlayer's renderIntlayerNode: usable as a JSX child and via `.value`.
 const node = (v: string) =>
   // biome-ignore lint/complexity/noUselessFragments: Proxy needs an object target — a bare string can't be proxied

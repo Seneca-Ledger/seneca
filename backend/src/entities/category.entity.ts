@@ -42,6 +42,11 @@ export enum StoicClass {
   unique: true,
   where: "name = 'Uncategorized' AND parent_id IS NULL",
 })
+// Where private rows are counted, one per workspace and type (migration 1787010000000).
+@Index('UQ_categories_private', ['workspaceId', 'type'], {
+  unique: true,
+  where: "name = 'Private' AND parent_id IS NULL",
+})
 export class Category {
   @PrimaryGeneratedColumn('uuid')
   id: string;

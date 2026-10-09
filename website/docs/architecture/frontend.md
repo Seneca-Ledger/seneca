@@ -37,7 +37,7 @@ Key entry points live in `frontend/app`.
 
 ## Internationalization
 
-Lumio uses Intlayer with 21 locales (default `en`). Content files (`*.content.ts`) sit next to the features they
+Lumio uses Intlayer with 35 locales (default `en`). Content files (`*.content.ts`) sit next to the features they
 describe; `intlayer build` runs on `postinstall` and `prebuild`.
 
 ## Styling and tooling

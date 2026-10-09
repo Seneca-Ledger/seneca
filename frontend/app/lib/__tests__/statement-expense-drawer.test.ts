@@ -69,6 +69,14 @@ describe('statement expense drawer helpers', () => {
     expect(WORLD_CURRENCY_CODES).toContain('KZT');
   });
 
+  // The metals have ISO 4217 codes and the rate tables quote them, but a troy
+  // ounce is not money: picking XAU as an account currency would be nonsense.
+  it('leaves the precious metals out of the currency picker', () => {
+    for (const metal of ['XAU', 'XAG', 'XPT', 'XPD']) {
+      expect(WORLD_CURRENCY_CODES).not.toContain(metal);
+    }
+  });
+
   it('builds searchable currency labels and filters by query', () => {
     const items = buildCurrencySearchIndex(['USD', 'KZT']);
     expect(items.some(item => item.code === 'USD')).toBe(true);

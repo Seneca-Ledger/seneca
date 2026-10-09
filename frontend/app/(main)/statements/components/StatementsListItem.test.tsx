@@ -1004,4 +1004,108 @@ describe('StatementsListItem', () => {
     ) as HTMLDivElement | null;
     expect(desktopContainer?.textContent).toContain('1 USD = 3.72 ILS');
   });
+
+  it('links the category chip to that category on the Top categories leaderboard', () => {
+    const root = createRoot(container);
+
+    const statement = {
+      id: 'column-category-link',
+      source: 'statement',
+      fileName: 'Summary.pdf',
+      status: 'completed',
+      totalDebit: 1200,
+      totalCredit: 0,
+      createdAt: '2026-02-05T00:00:00Z',
+      statementDateTo: '2026-03-18T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+      currency: 'KZT',
+      category: { id: 'cat-1', name: 'Meals and entertainment', color: '#b45309', icon: null },
+    } as StatementsListItemProps['statement'];
+
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Kaspi"
+          amountLabel="1,200 KZT"
+          dateLabel="03/18/2026"
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const link = container.querySelector('a.lumio-stmt-category-link') as HTMLAnchorElement | null;
+    // The statement's own month, so the leaderboard opens where the row is.
+    expect(link?.getAttribute('href')).toBe(
+      '/reports?tab=cash-flow&month=2026-03&focus=category%3Ameals+and+entertainment',
+    );
+    expect(link?.textContent).toContain('Meals and entertainment');
+  });
+
+  it('treats a category chip click as a row click until the chip lights up', () => {
+    const root = createRoot(container);
+    const onView = vi.fn();
+
+    const statement = {
+      id: 'column-category-link-click',
+      source: 'statement',
+      fileName: 'Summary.pdf',
+      status: 'completed',
+      totalDebit: 1200,
+      totalCredit: 0,
+      createdAt: '2026-02-05T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+      currency: 'KZT',
+      category: { id: 'cat-1', name: 'Travel', color: null, icon: null },
+    } as StatementsListItemProps['statement'];
+
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Kaspi"
+          amountLabel="1,200 KZT"
+          dateLabel="02/05/2026"
+          onView={onView}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const link = container.querySelector('a.lumio-stmt-category-link') as HTMLAnchorElement | null;
+    // jsdom would try to follow the href and log "navigation not implemented".
+    container.addEventListener('click', event => event.preventDefault(), true);
+
+    // Not lit: the chip is still part of the row.
+    const beforeDwell = new MouseEvent('click', { bubbles: true, cancelable: true });
+    act(() => {
+      link?.dispatchEvent(beforeDwell);
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+    expect(beforeDwell.defaultPrevented).toBe(true);
+
+    // Focus lights it without the dwell; now the click belongs to the link.
+    act(() => {
+      link?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    });
+    expect(link?.className).toContain('lumio-stmt-category-link--lit');
+
+    act(() => {
+      link?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+  });
 });

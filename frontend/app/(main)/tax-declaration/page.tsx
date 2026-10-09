@@ -141,13 +141,17 @@ function TaxDeclarationContent(): React.ReactElement {
 
     return (
       <Stack spacing={2.5}>
-        {state.actionError ? (
-          <Alert severity="error">
-            {state.actionError === 'forbidden' ? t.forbidden : t.actionError}
-          </Alert>
-        ) : null}
-
-        <Box sx={{ borderBottom: '1px solid var(--border)' }}>
+        {/* The step tabs lead the page, level with the sidebar logo; the year picker
+            and the completeness read-out ride on the same row. */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            flexWrap: 'wrap',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
           <Tabs
             value={step}
             // eslint-disable-next-line max-params
@@ -160,47 +164,14 @@ function TaxDeclarationContent(): React.ReactElement {
               <Tab key={key} value={key} label={stepLabels[key]} />
             ))}
           </Tabs>
-        </Box>
-
-        {/* The caveat sits under the tabs, in the step's own context; the draft
-            step folds it into one notice with its warnings. */}
-        <Stack spacing={2.5}>
-          {step === 'draft' ? null : <AccuracyBanner />}
-          <Box>{renderStep()}</Box>
-        </Stack>
-      </Stack>
-    );
-  };
-
-  return (
-    <Box component="main" sx={{ px: { xs: 2, md: 4 }, py: 3, width: '100%' }}>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 2,
-          flexWrap: 'wrap',
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            {t.title}
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 0.25, color: 'text.secondary' }}>
-            {t.subtitle}
-          </Typography>
-        </Box>
-        {accepted ? (
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ ml: 'auto', flexShrink: 0 }}>
             {draft.data ? (
               <Box sx={{ minWidth: 120 }}>
                 <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.75 }}>
                   {t.completenessLabel}: {draft.data.completeness.score}/100
                 </Typography>
                 {/* A hairline, not a bar: the score is context for the page, not its focus.
-                    The track is a neutral tint — action.hover is green in this theme. */}
+                      The track is a neutral tint — action.hover is green in this theme. */}
                 <LinearProgress
                   variant="determinate"
                   value={draft.data.completeness.score}
@@ -228,9 +199,29 @@ function TaxDeclarationContent(): React.ReactElement {
               ))}
             </TextField>
           </Stack>
-        ) : null}
-      </Box>
+        </Box>
 
+        {state.actionError ? (
+          <Alert severity="error">
+            {state.actionError === 'forbidden' ? t.forbidden : t.actionError}
+          </Alert>
+        ) : null}
+
+        {/* The caveat sits under the tabs, in the step's own context; the draft
+            step folds it into one notice with its warnings. */}
+        <Stack spacing={2.5}>
+          {step === 'draft' ? null : <AccuracyBanner />}
+          <Box>{renderStep()}</Box>
+        </Stack>
+      </Stack>
+    );
+  };
+
+  return (
+    <Box
+      component="main"
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+    >
       {renderBody()}
     </Box>
   );

@@ -1,3 +1,4 @@
+import { countedSql } from '@/common/utils/counted-transactions.util';
 import { SubscriptionFrequency } from '@/entities/subscription.entity';
 import { StoicBehaviorService } from '@/modules/insights/stoic/stoic-behavior.service';
 
@@ -60,5 +61,22 @@ describe('StoicBehaviorService', () => {
     ]);
     expect(behavior.cashFlow).toHaveLength(8);
     expect(behavior.subscriptions).toEqual({ count: 2, monthlyTotal: 20 });
+  });
+
+  it('reads every query from confirmed transactions only', async () => {
+    const transactions = transactionRepository([]);
+    const service = new StoicBehaviorService(
+      transactions as any,
+      { find: jest.fn(async () => []) } as any,
+      exchangeRates as any,
+    );
+
+    await service.load('ws-1', 'EUR', new Date(2026, 8, 1));
+
+    const builders = transactions.createQueryBuilder.mock.results.map(result => result.value);
+    expect(builders).toHaveLength(4);
+    for (const qb of builders) {
+      expect(qb.andWhere).toHaveBeenCalledWith(countedSql('t'));
+    }
   });
 });

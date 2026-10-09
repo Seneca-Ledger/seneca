@@ -10,6 +10,7 @@ import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { ArrowLeft } from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
 import type { GoalItem, GoalItemPayload } from '@/app/lib/goals-api';
 import { tokens } from '@/lib/theme-tokens';
@@ -58,7 +59,7 @@ export default function GoalDetailPage(): React.JSX.Element {
     [editing, items.createItem, items.updateItem],
   );
 
-  const currency = data?.currency ?? 'KZT';
+  const currency = data?.currency ?? FALLBACK_CURRENCY;
   const money = useCallback(
     (value: number) => formatMoney(value, currency, locale),
     [currency, locale],
@@ -76,7 +77,10 @@ export default function GoalDetailPage(): React.JSX.Element {
   );
 
   return (
-    <Box component="main" sx={{ px: { xs: 2, md: 4 }, py: 3, width: '100%' }}>
+    <Box
+      component="main"
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+    >
       <Button
         component={Link}
         href="/goals"

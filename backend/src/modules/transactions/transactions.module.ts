@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User, WorkspaceMember } from '../../entities';
+import { Category } from '../../entities/category.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Tag } from '../../entities/tag.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -24,6 +25,7 @@ import { TransactionsService } from './transactions.service';
       Statement,
       User,
       WorkspaceMember,
+      Category,
       Tag,
       TransactionAttachment,
     ]),

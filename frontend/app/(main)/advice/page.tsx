@@ -131,14 +131,10 @@ export default function AdvicePage() {
   }, [triggerRefresh, locale]);
 
   return (
-    <Box component="main" sx={{ px: { xs: 2, md: 4 }, py: 3, width: '100%' }}>
-      <Typography variant="h5" fontWeight={700}>
-        {t.adviceTitle}
-      </Typography>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-        {t.adviceSubtitle}
-      </Typography>
-
+    <Box
+      component="main"
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+    >
       {isPending && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {ADVICE_SKELETON_KEYS.map(key => (
@@ -148,7 +144,7 @@ export default function AdvicePage() {
       )}
 
       {!isPending && items.length === 0 && (
-        <EmptyState illustration="notifications" description={t.adviceEmpty} />
+        <EmptyState illustration="advice" description={t.adviceEmpty} />
       )}
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

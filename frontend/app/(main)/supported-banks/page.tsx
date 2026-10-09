@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import Image from 'next/image';
-import { Building2, CheckCircle2 } from '@/app/components/icons';
+import { CheckCircle2 } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import { tokens } from '@/lib/theme-tokens';
@@ -42,7 +42,7 @@ export default function SupportedBanksPage(): React.JSX.Element {
   ];
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: 4 }}>
+    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--lumio-page-top, 32px)', pb: 4 }}>
       <Box
         sx={{
           border: '1px solid var(--border-color)',
@@ -51,26 +51,7 @@ export default function SupportedBanksPage(): React.JSX.Element {
           boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{ bgcolor: 'var(--primary-fill)', p: 1.5, color: '#fff', display: 'inline-flex' }}
-          >
-            <Building2 size={24} />
-          </Box>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 600, color: 'var(--foreground)' }}>
-              {resolveLabel(getNestedValue(t, ['title']), 'Supported banks')}
-            </Typography>
-            <Typography variant="body2" sx={{ mt: 1, color: 'var(--muted-foreground)' }}>
-              {resolveLabel(
-                getNestedValue(t, ['subtitle']),
-                'List of banks currently available for automatic statement parsing.',
-              )}
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ mt: 2.5 }}>
+        <Box>
           <Chip
             icon={<CheckCircle2 size={14} />}
             label={resolveLabel(getNestedValue(t, ['parserStatus']), 'Parser is active')}

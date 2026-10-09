@@ -1,3 +1,4 @@
+import { IsNull } from 'typeorm';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { TaxReturnStatus } from '@/entities/tax-return.entity';
@@ -55,6 +56,21 @@ describe('TaxReturnsService', () => {
       await expect(service.computeTotals('ws-1', '2026-01-01', '2026-03-31')).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('counts only counted (confirmed, not duplicate, not transfer, not trashed) transactions', async () => {
+      await service.computeTotals('ws-1', '2026-01-01', '2026-03-31');
+
+      // Both alternatives (no statement / statement not trashed) count confirmed,
+      // non-duplicate, non-transfer rows of this workspace only.
+      const where = transactionRepo.find.mock.calls[0][0].where;
+      expect(where).toHaveLength(2);
+      for (const branch of where) {
+        expect(branch).toMatchObject({ isVerified: true, isDuplicate: false, workspaceId: 'ws-1' });
+        expect(branch.transferPairId).toEqual(IsNull());
+      }
+      expect(where[0].statementId).toEqual(IsNull());
+      expect(where[1].statement).toEqual({ deletedAt: IsNull() });
     });
 
     it('splits income into output tax and expense into input tax', async () => {

@@ -16,6 +16,7 @@ import * as React from 'react';
 import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { retry, TimeoutError, withTimeout } from '../../common/utils/async.util';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { mergeProcessingSettings } from '../../common/utils/workspace-processing.util';
 import { mergeWorkspaceProfile } from '../../common/utils/workspace-profile.util';
 import {
@@ -146,6 +147,9 @@ export class WorkspacesService {
 
     const workspace = this.workspaceRepository.create({
       name: `${user.name || user.email} workspace`,
+      // No one picks a currency on sign-up, and a workspace without one is how
+      // a hardcoded default used to end up on every amount in it.
+      currency: currencyCodeOrDefault(null),
       ownerId: user.id,
     });
     const savedWorkspace = await this.workspaceRepository.save(workspace);
@@ -202,6 +206,8 @@ export class WorkspacesService {
       },
       members: members.map(member => ({
         id: member.userId,
+        /** The membership row, which is what owns transactions and wallets. */
+        memberId: member.id,
         email: member.user?.email,
         name: member.user?.name,
         avatarUrl: member.user?.avatarUrl,
@@ -231,6 +237,8 @@ export class WorkspacesService {
 
     return members.map(member => ({
       id: member.userId,
+      /** The membership row, which is what owns transactions and wallets. */
+      memberId: member.id,
       email: member.user?.email,
       name: member.user?.name,
       avatarUrl: member.user?.avatarUrl,
@@ -274,6 +282,55 @@ export class WorkspacesService {
     }
 
     return membership;
+  }
+
+  /**
+   * Replaces the toggles on one member. Only the `member` role carries them:
+   * owners and admins are unrestricted, viewers never write, so for both the
+   * column stays NULL rather than holding values nothing reads.
+   */
+  async updateMemberPermissions(
+    workspaceId: string,
+    requestingUserId: string,
+    targetUserId: string,
+    permissions: WorkspaceMemberPermissions,
+  ) {
+    await this.requireAdminMembership(workspaceId, requestingUserId);
+
+    if (!targetUserId || targetUserId.trim().length === 0) {
+      throw new BadRequestException(appError('USER_INVALID'));
+    }
+
+    const member = await this.workspaceMemberRepository.findOne({
+      where: { workspaceId, userId: targetUserId },
+      relations: ['user'],
+    });
+
+    if (!member) {
+      throw new NotFoundException(appError('MEMBER_NOT_FOUND'));
+    }
+
+    if (member.role !== WorkspaceRole.MEMBER) {
+      throw new BadRequestException(appError('MEMBER_PERMISSIONS_ROLE_INVALID'));
+    }
+
+    const before = member.permissions;
+    member.permissions = permissions;
+    await this.workspaceMemberRepository.save(member);
+
+    await this.recordMemberAudit({
+      workspaceId,
+      actorType: ActorType.USER,
+      actorId: requestingUserId,
+      entityType: EntityType.WORKSPACE_MEMBER,
+      entityId: member.id,
+      action: AuditAction.UPDATE,
+      diff: { before: { permissions: before }, after: { permissions: member.permissions } },
+      meta: { userId: member.userId, email: member.user?.email ?? null },
+      severity: Severity.WARN,
+    });
+
+    return { message: 'Member permissions updated', permissions: member.permissions };
   }
 
   async updateMemberRole(
@@ -856,7 +913,7 @@ export class WorkspacesService {
       icon: dto.icon || null,
       color: dto.color || null,
       backgroundImage: dto.backgroundImage || null,
-      currency: dto.currency || null,
+      currency: currencyCodeOrDefault(dto.currency),
       ownerId: userId,
       settings: dto.profile ? mergeWorkspaceProfile(null, dto.profile) : null,
     });
@@ -944,7 +1001,9 @@ export class WorkspacesService {
       ...(dto.icon !== undefined && { icon: dto.icon }),
       ...(dto.color !== undefined && { color: dto.color }),
       ...(dto.backgroundImage !== undefined && { backgroundImage: dto.backgroundImage }),
-      ...(dto.currency !== undefined && { currency: dto.currency }),
+      ...(dto.currency !== undefined && {
+        currency: currencyCodeOrDefault(dto.currency, workspace.currency),
+      }),
       ...(dto.isFavorite !== undefined && { isFavorite: dto.isFavorite }),
       // Merged, not replaced: `settings` is a shared blob.
       ...(dto.processing !== undefined && {

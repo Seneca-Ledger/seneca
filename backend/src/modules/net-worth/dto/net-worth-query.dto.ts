@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsDateString, IsIn, IsOptional, IsUUID } from 'class-validator';
+import { InvestmentMetal } from '../../../entities/investment-holding.entity';
 
 export const NET_WORTH_RANGES = [
   '1d',
@@ -14,6 +15,8 @@ export const NET_WORTH_RANGES = [
 ] as const;
 
 export type NetWorthRange = (typeof NET_WORTH_RANGES)[number];
+
+const METALS = Object.values(InvestmentMetal);
 
 export class NetWorthQueryDto {
   @IsOptional()
@@ -49,4 +52,8 @@ export class NetWorthQueryDto {
   )
   @IsUUID('4', { each: true })
   exclude?: string[];
+  /** Measure the same net worth in troy ounces of this metal as well. */
+  @IsOptional()
+  @IsIn(METALS)
+  denominate?: InvestmentMetal;
 }

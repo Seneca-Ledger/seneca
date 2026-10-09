@@ -1,13 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
 } from '@/app/lib/statement-expense-drawer';
 import type { EditableReceiptParsedData } from '../receipt-types';
-
-const DEFAULT_RECENT_CURRENCIES = ['KZT', 'USD', 'EUR', 'RUB'] as const;
 
 interface UseCurrencySelectionParams {
   value: EditableReceiptParsedData;

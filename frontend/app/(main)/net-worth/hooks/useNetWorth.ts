@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
@@ -113,6 +113,19 @@ export interface NetWorthData {
   attribution?: NetWorthAttribution;
   /** What came in over the window and the share of it kept. */
   savings?: { income: number; kept: number; rate: number | null };
+  /** The same figures in troy ounces of a metal; only when asked for. */
+  denominated?: NetWorthDenominated | null;
+}
+
+/** Net worth measured in metal: what the money figures buy in ounces. */
+export interface NetWorthDenominated {
+  metal: 'XAU' | 'XAG' | 'XPT' | 'XPD';
+  unit: 'ozt';
+  current: number;
+  previous: number;
+  change: number;
+  changePercent: number | null;
+  series: NetWorthPoint[];
 }
 
 export type ClassificationPatch = {
@@ -134,6 +147,9 @@ interface NetWorthState {
   setCustom: (custom: NetWorthCustomRange | null) => void;
   setView: (view: NetWorthView) => void;
   setExcluded: (ids: string[]) => void;
+  /** Null shows money; a metal shows the same net worth in its ounces. */
+  denominate: 'XAU' | null;
+  setDenominate: (metal: 'XAU' | null) => void;
   refetch: () => void;
   classify: (accountId: string, patch: ClassificationPatch) => void;
 }
@@ -163,6 +179,7 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
   const range = (searchParams.get('range') as NetWorthRange | null) ?? initialRange;
   const view = searchParams.get('view') === 'breakdown' ? 'breakdown' : 'performance';
   const excluded = (searchParams.get('exclude') ?? '').split(',').filter(Boolean);
+  const [denominate, setDenominate] = useState<'XAU' | null>(null);
 
   const writeParams = useCallback(
     (patch: Record<string, string | null>): void => {
@@ -200,10 +217,15 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
   );
 
   const window = custom ? { from: custom.from, to: custom.to } : { range };
-  const params = excluded.length > 0 ? { ...window, exclude: excluded.join(',') } : window;
+  const params = {
+    ...window,
+    ...(excluded.length > 0 ? { exclude: excluded.join(',') } : {}),
+    ...(denominate ? { denominate } : {}),
+  };
   const queryKey = queryKeys.netWorth({
     workspaceId,
     range: [custom ? `${custom.from}:${custom.to}` : range, ...excluded].join('|'),
+    denominate,
   });
 
   const query = useQuery({
@@ -255,7 +277,34 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
     setCustom,
     setView,
     setExcluded,
+    denominate,
+    setDenominate,
     refetch,
     classify,
   };
+}
+
+/**
+ * A preset window held in the component, for a card on another page: the
+ * page's own hook keeps its window in the address, which there would leak
+ * `?range=` into a page that has its own parameters.
+ */
+export function useNetWorthPreset(initialRange: NetWorthRange): {
+  data: NetWorthData | undefined;
+  isFetching: boolean;
+  range: NetWorthRange;
+  setRange: (range: NetWorthRange) => void;
+} {
+  const workspaceId = useWorkspaceId();
+  const [range, setRange] = useState<NetWorthRange>(initialRange);
+
+  const query = useQuery({
+    queryKey: queryKeys.netWorth({ workspaceId, range, denominate: null }),
+    queryFn: ({ signal }) =>
+      apiQuery<NetWorthData>({ url: '/reports/net-worth', params: { range }, signal }),
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+  });
+
+  return { data: query.data, isFetching: query.isFetching, range, setRange };
 }

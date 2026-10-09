@@ -4,12 +4,19 @@ import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-
 import DetailsDrawer from '@/app/components/transactions/DetailsDrawer';
 import { useBulkUpdateCategory } from '@/app/components/transactions/hooks/useBulkUpdateCategory';
+import { useBulkUpdateOwner } from '@/app/components/transactions/hooks/useBulkUpdateOwner';
 import { useTransactionData } from '@/app/components/transactions/hooks/useTransactionData';
+import { useViewPreference } from '@/app/components/transactions/hooks/useViewPreference';
+import { useWorkspaceMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
+import {
+  OWNER_SHARED,
+  OwnerFilterDropdown,
+  ownerValueToMemberId,
+} from '@/app/components/transactions/OwnerFilterDropdown';
 import TransactionsTable from '@/app/components/transactions/TransactionsTable';
 import type { FilterState, Transaction } from '@/app/components/transactions/types';
 import { CurrencyDisplayToggle } from '@/app/components/ui/CurrencyDisplayToggle';
@@ -17,6 +24,7 @@ import { CurrencyFilterDropdown } from '@/app/components/ui/CurrencyFilterDropdo
 import { Select } from '@/app/components/ui/select';
 import { useCurrencyDisplay } from '@/app/contexts/CurrencyDisplayContext';
 import { useIntlayer } from '@/app/i18n';
+import { isPrivateCategory } from '@/app/lib/private-category';
 import { tokens } from '@/lib/theme-tokens';
 
 const TX_ROW_SKELETON_KEYS = ['tx-0', 'tx-1', 'tx-2', 'tx-3', 'tx-4', 'tx-5', 'tx-6', 'tx-7'];
@@ -68,17 +76,53 @@ function TransactionTabSkeleton(): React.JSX.Element {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function TransactionTab() {
   const t = useIntlayer('transactionsPageView');
+  const tOwner = useIntlayer('transactionOwner');
   const { showConverted, workspaceCurrency } = useCurrencyDisplay();
   const searchParams = useSearchParams();
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
 
   const bulkUpdateCategory = useBulkUpdateCategory();
-  const [currencyFilter, setCurrencyFilter] = useState<string | null>(null);
+  const bulkUpdateOwner = useBulkUpdateOwner();
+  const members = useWorkspaceMembers();
+  const [currencyFilter, setCurrencyFilterState] = useState<string | null>(null);
+  const [ownerFilter, setOwnerFilterState] = useState<string | null>(null);
+  // The page comes back the way it was left; until the saved state arrives the
+  // filters stay at their defaults rather than flashing somebody else's.
+  const viewPreference = useViewPreference<{
+    owner?: string | null;
+    currency?: string | null;
+  }>('transactions');
+  const restored = useRef(false);
+  if (!restored.current && viewPreference.state !== undefined && members.length > 0) {
+    restored.current = true;
+    if (viewPreference.state) {
+      // A remembered owner the dropdown can no longer offer — a member who left,
+      // or a value from an older client — would filter the list down to nothing
+      // with no way to see why. Drop it rather than show an empty page.
+      const owner = viewPreference.state.owner ?? null;
+      const known =
+        owner === null ||
+        owner === OWNER_SHARED ||
+        members.some(member => member.memberId === owner);
+      setOwnerFilterState(known ? owner : null);
+      setCurrencyFilterState(viewPreference.state.currency ?? null);
+    }
+  }
+
+  const setOwnerFilter = (value: string | null): void => {
+    setOwnerFilterState(value);
+    viewPreference.save({ owner: value, currency: currencyFilter });
+  };
+  const setCurrencyFilter = (value: string | null): void => {
+    setCurrencyFilterState(value);
+    viewPreference.save({ owner: ownerFilter, currency: value });
+  };
   const { transactions, categories, isPending, error, refetch } = useTransactionData({
     showConverted,
     workspaceCurrency,
     currencyFilter,
+    owner: ownerFilter,
     startDate,
     endDate,
   });
@@ -87,6 +131,7 @@ export function TransactionTab() {
   const [detailsTransaction, setDetailsTransaction] = useState<Transaction | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [bulkCategoryId, setBulkCategoryId] = useState<string>('');
+  const [bulkOwnerId, setBulkOwnerId] = useState<string>('');
 
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -149,6 +194,29 @@ export function TransactionTab() {
     } catch {
       // Error handled in handleUpdateCategory
     }
+  };
+
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+  const handleBulkAssignOwner = async () => {
+    if (!bulkOwnerId || selectedIds.length === 0) return;
+    const successMessage = tOwner.ownerUpdated.value;
+    const failureMessage = tOwner.ownerUpdateFailed.value;
+    await bulkUpdateOwner
+      .mutateAsync({
+        txIds: selectedIds,
+        ownerMemberId: ownerValueToMemberId(bulkOwnerId),
+      })
+      .then(
+        () => {
+          toast.success(successMessage);
+          setSelectedIds([]);
+          setBulkOwnerId('');
+        },
+        (err: unknown) => {
+          console.error('Failed to update owner:', err);
+          toast.error(failureMessage);
+        },
+      );
   };
 
   if (isPending && transactions.length === 0) {
@@ -217,16 +285,35 @@ export function TransactionTab() {
               options={[
                 { value: '', label: t.selectCategory?.value || 'Select category...' },
                 ...categories
-                  .filter(cat => cat.isEnabled !== false)
+                  .filter(cat => !isPrivateCategory(cat) && cat.isEnabled !== false)
                   .map(cat => ({ value: cat.id, label: cat.name })),
               ]}
               sx={{ flex: 1, maxWidth: 320, backgroundColor: 'var(--card-bg)' }}
             />
 
+            {members.length > 0 && (
+              <Select
+                value={bulkOwnerId}
+                onChange={value => {
+                  setBulkOwnerId(value);
+                }}
+                aria-label={tOwner.assignOwner.value}
+                options={[
+                  { value: '', label: tOwner.assignOwner.value },
+                  { value: OWNER_SHARED, label: tOwner.shared.value },
+                  ...members.map(member => ({
+                    value: member.memberId,
+                    label: member.isSelf ? tOwner.me.value : member.label,
+                  })),
+                ]}
+                sx={{ minWidth: 170, backgroundColor: 'var(--card-bg)' }}
+              />
+            )}
+
             <button
               type="button"
-              onClick={handleBulkAssignCategory}
-              disabled={!bulkCategoryId}
+              onClick={bulkOwnerId ? handleBulkAssignOwner : handleBulkAssignCategory}
+              disabled={!(bulkCategoryId || bulkOwnerId)}
               style={{
                 backgroundColor: 'var(--primary-fill)',
                 padding: '8px 16px',
@@ -234,8 +321,8 @@ export function TransactionTab() {
                 fontWeight: 600,
                 color: 'white',
                 border: 'none',
-                cursor: bulkCategoryId ? 'pointer' : 'not-allowed',
-                opacity: bulkCategoryId ? 1 : 0.5,
+                cursor: bulkCategoryId || bulkOwnerId ? 'pointer' : 'not-allowed',
+                opacity: bulkCategoryId || bulkOwnerId ? 1 : 0.5,
                 transition: 'opacity 150ms',
               }}
             >
@@ -280,6 +367,7 @@ export function TransactionTab() {
               value={currencyFilter}
               onChange={setCurrencyFilter}
             />
+            <OwnerFilterDropdown members={members} value={ownerFilter} onChange={setOwnerFilter} />
           </>
         }
       />

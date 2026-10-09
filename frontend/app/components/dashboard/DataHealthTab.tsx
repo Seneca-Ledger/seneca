@@ -73,7 +73,7 @@ function UnapprovedCashCard({
       label={t.unapprovedCash.value}
       value={pending ? formatAmount(health.unapprovedCash) : t.allCashApproved}
       tone={pending ? 'warning' : 'positive'}
-      caption={pending ? <Link href="/statements/approve">{t.reviewApproveCash}</Link> : undefined}
+      caption={pending ? <Link href="/review">{t.reviewApproveCash}</Link> : undefined}
     />
   );
 }
@@ -130,9 +130,7 @@ export function DataHealthTab({
     <div className="lumio-dashboard__tab">
       <ChipGroup wrap>
         <Chip href="/statements">{t.uploadParse}</Chip>
-        <Chip href="/statements/approve">
-          {fillCount(t.reviewQueue.value, health.statementsPendingReview)}
-        </Chip>
+        <Chip href="/review">{fillCount(t.reviewQueue.value, health.statementsPendingReview)}</Chip>
       </ChipGroup>
       <section>
         <SectionHeader title={t.dataQualityMetrics} />

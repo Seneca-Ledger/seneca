@@ -24,6 +24,7 @@ import {
   formatPayableDate,
   getPayableStatusVariant,
   isPayableOverdue,
+  toNumber,
 } from './payables-utils';
 
 interface PayablesListProps {
@@ -46,6 +47,8 @@ interface PayablesListProps {
     pageShown: string;
     statusLabels: Record<string, string>;
     sourceLabels: Record<string, string>;
+    /** Reads under the amount of a partly settled bill: "400 paid". */
+    amountPaid: string;
   };
   pagination: {
     page: number;
@@ -170,6 +173,12 @@ function PayablesList({
                   <span style={{ color: c.ink500 }}>{labels.amount}</span>
                   <span style={{ fontWeight: 600, color: c.ink900 }}>
                     {formatMoney(payable.amount, payable.currency, locale)}
+                    {toNumber(payable.paidAmount) > 0 && (
+                      <span style={{ display: 'block', fontWeight: 400, color: c.ink500 }}>
+                        {formatMoney(payable.paidAmount, payable.currency, locale)}{' '}
+                        {labels.amountPaid}
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div className="lumio-payable-list__mobile-row-data">
@@ -229,6 +238,13 @@ function PayablesList({
                       style={{ textAlign: 'right', fontWeight: 600, color: c.ink900 }}
                     >
                       {formatMoney(payable.amount, payable.currency, locale)}
+                      {/* A bill nobody has fully paid is not the same as an unpaid one. */}
+                      {toNumber(payable.paidAmount) > 0 && (
+                        <div style={{ fontWeight: 400, fontSize: 13, color: c.ink500 }}>
+                          {formatMoney(payable.paidAmount, payable.currency, locale)}{' '}
+                          {labels.amountPaid}
+                        </div>
+                      )}
                     </td>
                     <td className="lumio-payable-list__td">{renderActions(payable)}</td>
                   </tr>

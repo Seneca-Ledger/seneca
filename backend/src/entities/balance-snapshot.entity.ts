@@ -38,7 +38,7 @@ export class BalanceSnapshot {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   amount: number;
 
-  @Column({ default: 'KZT' })
+  @Column()
   currency: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })

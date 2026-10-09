@@ -102,7 +102,7 @@ function ProfileSettingsPageInner(): React.JSX.Element {
   };
 
   return (
-    <Box className="container-shared" sx={{ px: 2, py: 4 }}>
+    <Box className="container-shared" sx={{ px: 2, pt: 'var(--lumio-page-top, 32px)', pb: 4 }}>
       <Box>
         <SettingsTabs activeTab={activeTab} onTabChange={setActiveTab} labels={labels} />
         {/* The selected tab already names the section on screen; the heading stays

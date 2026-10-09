@@ -382,6 +382,7 @@ export function useSubscriptionsPage() {
     setFormData,
     saving: saveMutation.isPending,
     openCreate,
+    invalidate,
     openEdit,
     closeDialog,
     handleSave,

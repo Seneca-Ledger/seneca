@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { ArrowDown, ArrowUp, Minus } from '@/app/components/icons';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { tokens } from '@/lib/theme-tokens';
 import type { SummaryItem, SummarySection } from '../types';
 import { RenderIcon } from './components/RenderIcon';
@@ -18,7 +19,7 @@ export function SummaryItemComponent({ item }: { item: SummaryItem }) {
       case 'currency':
         formatted = new Intl.NumberFormat('ru-RU', {
           style: 'currency',
-          currency: 'KZT',
+          currency: FALLBACK_CURRENCY,
           minimumFractionDigits: 0,
         }).format(item.value);
         break;

@@ -1,3 +1,4 @@
+import { countedSql } from '@/common/utils/counted-transactions.util';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotificationType } from '../../../../src/entities/notification.entity';
@@ -94,6 +95,15 @@ describe('SubscriptionDetectionService price changes', () => {
         entityId: 'sub-1',
       }),
     );
+  });
+
+  it('detects subscriptions from confirmed charges only', async () => {
+    await build([]);
+
+    await service.runDetection('ws-1');
+
+    const qb = transactions.createQueryBuilder.mock.results[0].value;
+    expect(qb.andWhere).toHaveBeenCalledWith(countedSql('t'));
   });
 
   it('stays quiet while only the latest charge differs, and never repeats a known change', async () => {

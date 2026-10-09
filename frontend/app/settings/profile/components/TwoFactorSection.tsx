@@ -8,6 +8,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Alert } from '@/app/components/ui/alert';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { Spinner } from '@/app/components/ui/spinner';
 import type { UserFormatPreferences } from '@/app/lib/user-format';
 import {
@@ -87,6 +88,7 @@ function DisabledPanel({
     <Card variant="outlined">
       {/* The section header already carries the description — no need to repeat it here. */}
       <CardContent sx={{ display: 'grid', gap: 1.5 }}>
+        <EmptyStateIllustration name="security" size="sm" />
         <PasswordPrompt
           tx={tx}
           busy={busy}

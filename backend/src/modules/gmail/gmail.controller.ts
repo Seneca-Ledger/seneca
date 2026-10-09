@@ -44,6 +44,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { attachReceiptCategories } from '../receipts/helpers/attach-receipt-categories';
 import { ReceiptsService } from '../receipts/receipts.service';
+import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { BulkApproveDto } from './dto/bulk-approve.dto';
 import { ExportXlsxDto } from './dto/export-xlsx.dto';
 import { MarkDuplicateDto } from './dto/mark-duplicate.dto';
@@ -127,6 +128,7 @@ export class GmailController {
     private readonly exportService: GmailReceiptExportService,
     private readonly merchantReparseService: GmailMerchantReparseService,
     private readonly receiptsService: ReceiptsService,
+    private readonly workspaceCurrency: WorkspaceCurrencyService,
   ) {}
 
   private resolveAttachmentPath(storedPath: string): string {
@@ -463,6 +465,7 @@ export class GmailController {
     @Body() dto: ApproveReceiptDto,
   ) {
     // A repeated approve returns the transaction the first one created.
+    const currency = await this.workspaceCurrency.resolveFor(workspaceId, dto.currency);
     const result = await this.receiptsService.approveOnce(id, workspaceId, receipt => ({
       statementId: null,
       workspaceId,
@@ -470,7 +473,7 @@ export class GmailController {
       counterpartyName: dto.description || receipt.parsedData?.vendor || 'Unknown',
       paymentPurpose: dto.description || receipt.parsedData?.vendor || '',
       amount: dto.amount,
-      currency: dto.currency || 'KZT',
+      currency,
       categoryId: dto.categoryId || receipt.parsedData?.categoryId || null,
       transactionType: TransactionType.EXPENSE,
     }));
@@ -617,6 +620,9 @@ export class GmailController {
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   @ApiOperation({ summary: 'Approve multiple receipts at once' })
   async bulkApprove(@WorkspaceId() workspaceId: string, @Body() dto: BulkApproveDto) {
+    // Resolved once for the whole batch: receipts whose parse found no currency
+    // are booked in the workspace's own.
+    const workspaceDefaultCurrency = await this.workspaceCurrency.resolve(workspaceId);
     const results: {
       approved: number;
       failed: number;
@@ -652,7 +658,7 @@ export class GmailController {
           counterpartyName: locked.parsedData?.vendor || locked.subject || 'Unknown',
           paymentPurpose: locked.parsedData?.vendor || locked.subject || '',
           amount: locked.parsedData?.amount ?? receipt.parsedData.amount,
-          currency: locked.parsedData?.currency || 'KZT',
+          currency: locked.parsedData?.currency || workspaceDefaultCurrency,
           categoryId: dto.categoryId || locked.parsedData?.categoryId || null,
           transactionType: TransactionType.EXPENSE,
         }));

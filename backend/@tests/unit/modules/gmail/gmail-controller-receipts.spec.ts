@@ -14,6 +14,7 @@ import { GmailReceiptExportService } from '../../../../src/modules/gmail/service
 import { GmailSyncService } from '../../../../src/modules/gmail/services/gmail-sync.service';
 import { GmailWatchService } from '../../../../src/modules/gmail/services/gmail-watch.service';
 import { GmailService } from '../../../../src/modules/gmail/services/gmail.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 describe('GmailController - Receipts List Endpoint', () => {
   let controller: GmailController;
@@ -51,6 +52,7 @@ describe('GmailController - Receipts List Endpoint', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GmailController],
       providers: [
+        workspaceCurrencyProvider(),
         { provide: getRepositoryToken(Receipt), useValue: receiptRepository },
         { provide: getRepositoryToken(Transaction), useValue: {} },
         { provide: getRepositoryToken(GmailSettings), useValue: {} },

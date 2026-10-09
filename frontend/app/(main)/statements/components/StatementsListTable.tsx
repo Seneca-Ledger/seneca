@@ -29,6 +29,7 @@ import {
   isGmailStatement,
   isReceiptProcessing,
   isStatementParsingInProgress,
+  resolvePendingReview,
 } from './StatementsListView.utils';
 
 interface StatementForTable {
@@ -97,6 +98,8 @@ interface TableLabels {
 }
 
 interface Props {
+  /** The list's own toolbar, drawn inside the white block above the rows. */
+  toolbar?: React.ReactNode;
   loading: boolean;
   displayStatements: StatementForTable[];
   paginatedStatements: StatementForTable[];
@@ -111,6 +114,8 @@ interface Props {
   rangeEnd: number;
   total: number;
   duplicateMetaById: Map<string, DuplicateMeta>;
+  /** Rows each statement still has in Review, by statement id. */
+  statementReviewCounts?: Record<string, number>;
   columns?: StatementColumn[];
   currentExchangeRateLabels?: Record<string, string>;
   workspaceCurrency?: string | null;
@@ -146,6 +151,8 @@ const getRenderedColumns = (
   const visibleColumns = columns.filter(column => column.visible);
   return visibleColumns.length > 0 ? visibleColumns : columns.slice(0, 1);
 };
+
+const NO_REVIEW_COUNTS: Record<string, number> = {};
 
 interface StatementRowData {
   isReceipt: boolean;
@@ -284,6 +291,7 @@ function TableDesktopHeader({
 }
 
 export function StatementsListTable({
+  toolbar,
   loading,
   displayStatements,
   paginatedStatements,
@@ -298,6 +306,7 @@ export function StatementsListTable({
   rangeEnd,
   total,
   duplicateMetaById,
+  statementReviewCounts = NO_REVIEW_COUNTS,
   columns,
   currentExchangeRateLabels,
   workspaceCurrency,
@@ -314,20 +323,28 @@ export function StatementsListTable({
   const listText = useIntlayer('statementsListUi');
   if (loading && gmailSyncSkeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__loading">
-        <Spinner style={{ height: 80, width: 80, color: 'var(--primary)' }} />
+      <div className="lumio-stmt-list-view__table">
+        {toolbar}
+        <div className="lumio-stmt-list-view__loading">
+          <Spinner style={{ height: 80, width: 80, color: 'var(--primary)' }} />
+        </div>
       </div>
     );
   }
 
   if (displayStatements.length === 0 && gmailSyncSkeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__empty">
-        <EmptyStateIllustration name="statements" size="lg" />
-        <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--foreground)' }}>
-          {labels.emptyTitle}
-        </h3>
-        <p style={{ marginTop: 4, color: 'var(--muted-foreground)' }}>{labels.emptyDescription}</p>
+      <div className="lumio-stmt-list-view__table">
+        {toolbar}
+        <div className="lumio-stmt-list-view__empty">
+          <EmptyStateIllustration name="statements" size="lg" />
+          <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--foreground)' }}>
+            {labels.emptyTitle}
+          </h3>
+          <p style={{ marginTop: 4, color: 'var(--muted-foreground)' }}>
+            {labels.emptyDescription}
+          </p>
+        </div>
       </div>
     );
   }
@@ -336,6 +353,7 @@ export function StatementsListTable({
     <>
       <div className="lumio-stmt-list-view__table-scroll">
         <div className="lumio-stmt-list-view__table">
+          {toolbar}
           <TableDesktopHeader
             allVisibleSelected={allVisibleSelected}
             selectedCount={selectedCount}
@@ -368,6 +386,11 @@ export function StatementsListTable({
                 duplicateGroupTone={duplicateMeta?.groupTone}
                 duplicateReason={duplicateMeta?.reason}
                 duplicateActionLabel={reviewDuplicateLabel}
+                pendingReview={resolvePendingReview(
+                  statement,
+                  rowData.isReceipt,
+                  statementReviewCounts,
+                )}
                 typeLabel={rowData.isReceipt ? listText.typeReceipt.value : statement.fileType}
                 isManualExpense={rowData.isManualExpense}
                 viewDisabled={rowData.isProcessingStatement}

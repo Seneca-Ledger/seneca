@@ -11,7 +11,6 @@ export type AppLocale =
   | 'sk'
   | 'pt'
   | 'tr'
-  | 'ar'
   | 'it'
   | 'ja'
   | 'ko'
@@ -19,7 +18,22 @@ export type AppLocale =
   | 'nl'
   | 'sv'
   | 'vi'
-  | 'id';
+  | 'id'
+  | 'da'
+  | 'nb'
+  | 'nn'
+  | 'fi'
+  | 'is'
+  | 'fo'
+  | 'cs'
+  | 'bg'
+  | 'hr'
+  | 'sr'
+  | 'sl'
+  | 'mk'
+  | 'be'
+  | 'bs'
+  | 'hsb';
 
 export const DEFAULT_LOCALE: AppLocale = 'en';
 export const LOCALE_COOKIE_NAME = 'INTLAYER_LOCALE';
@@ -36,7 +50,6 @@ export const SUPPORTED_LOCALES = [
   'sk',
   'pt',
   'tr',
-  'ar',
   'it',
   'ja',
   'ko',
@@ -45,7 +58,94 @@ export const SUPPORTED_LOCALES = [
   'sv',
   'vi',
   'id',
+  'da',
+  'nb',
+  'nn',
+  'fi',
+  'is',
+  'fo',
+  'cs',
+  'bg',
+  'hr',
+  'sr',
+  'sl',
+  'mk',
+  'be',
+  'bs',
+  'hsb',
 ] as const satisfies readonly AppLocale[];
+
+/**
+ * The order languages are shown to people (auth greeting, language picker):
+ * English first, then the Germanic languages, then the Romance (Latin) ones,
+ * then everything else in SUPPORTED_LOCALES order. SUPPORTED_LOCALES itself
+ * keeps its order.
+ */
+const DISPLAY_PRIORITY: readonly AppLocale[] = [
+  'en',
+  // Germanic
+  'de',
+  'nl',
+  'sv',
+  'da',
+  'nb',
+  'nn',
+  'is',
+  'fo',
+  // Romance
+  'fr',
+  'es',
+  'it',
+  'pt',
+];
+
+/**
+ * Every language named in itself and in its own script — "Deutsch", "日本語",
+ * "हिन्दी" — never translated into the interface language, so a person can
+ * find their language whatever the screen is currently set to.
+ */
+export const LOCALE_ENDONYMS: Record<AppLocale, string> = {
+  en: 'English',
+  de: 'Deutsch',
+  nl: 'Nederlands',
+  sv: 'Svenska',
+  fr: 'Français',
+  es: 'Español',
+  it: 'Italiano',
+  pt: 'Português',
+  ru: 'Русский',
+  kk: 'Қазақша',
+  zh: '中文',
+  uk: 'Українська',
+  pl: 'Polski',
+  sk: 'Slovenčina',
+  tr: 'Türkçe',
+  ja: '日本語',
+  ko: '한국어',
+  hi: 'हिन्दी',
+  vi: 'Tiếng Việt',
+  id: 'Bahasa Indonesia',
+  da: 'Dansk',
+  nb: 'Norsk bokmål',
+  nn: 'Nynorsk',
+  fi: 'Suomi',
+  is: 'Íslenska',
+  fo: 'Føroyskt',
+  cs: 'Čeština',
+  bg: 'Български',
+  hr: 'Hrvatski',
+  sr: 'Српски',
+  sl: 'Slovenščina',
+  mk: 'Македонски',
+  be: 'Беларуская',
+  bs: 'Bosanski',
+  hsb: 'Hornjoserbšćina',
+};
+
+export const LOCALE_DISPLAY_ORDER: readonly AppLocale[] = [
+  ...DISPLAY_PRIORITY,
+  ...SUPPORTED_LOCALES.filter(locale => !DISPLAY_PRIORITY.includes(locale)),
+];
 const LEGACY_LOCALE_COOKIE_NAME = 'intlayer-locale';
 const LOCALE_COOKIE_ATTRIBUTES = 'path=/; max-age=31536000; samesite=lax';
 const EXPIRED_COOKIE_ATTRIBUTES = 'path=/; max-age=0; samesite=lax';

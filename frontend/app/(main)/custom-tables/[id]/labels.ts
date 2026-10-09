@@ -4,6 +4,7 @@ import type { CellLabels } from './components/cells/EditableCell';
 import type { FilterBarLabels } from './components/FilterBar';
 import type { ImportPreviewLabels } from './components/ImportPreviewDialog';
 import type { SendToStatementsLabels } from './components/SendToStatementsDialog';
+import type { SummariesLabels } from './components/SummariesBar';
 import type { TableGridLabels } from './components/TableGrid';
 import type { TablePageHeaderLabels } from './components/TablePageHeader';
 import type { TableToolbarLabels } from './components/TableToolbar';
@@ -63,6 +64,7 @@ export interface DetailLabels {
     fileTooLarge: string;
     fileEmpty: string;
     inserted: string;
+    insertedWithIssues: string;
     undo: string;
     defaults: Record<
       'date' | 'type' | 'amount' | 'currency' | 'comment' | 'paid' | 'columnPrefix',
@@ -70,6 +72,7 @@ export interface DetailLabels {
     >;
   };
   convert: SendToStatementsLabels & { failed: string };
+  summaries: SummariesLabels;
   toasts: Record<
     | 'loadTableFailed'
     | 'loadRowsFailed'
@@ -84,7 +87,9 @@ export interface DetailLabels {
     | 'rowsDeleteFailed'
     | 'renamed'
     | 'renameFailed'
-    | 'exportFailed',
+    | 'exportFailed'
+    | 'refreshed'
+    | 'refreshFailed',
     string
   >;
   notFound: { title: string; back: string };
@@ -105,6 +110,14 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
       rows: t.header.rows.value,
       untitled: t.header.untitled.value,
       sources: record(t.header.sources, ['manual']),
+      sourceKinds: record(t.header.sourceKinds, [
+        'transactions',
+        'subscriptions',
+        'payables',
+        'invoices',
+        'budgets',
+      ]),
+      syncedAt: t.header.syncedAt.value,
     },
     toolbar: record(t.toolbar, [
       'search',
@@ -119,6 +132,7 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
       'exportXlsx',
       'exportCsv',
       'sendToStatements',
+      'refreshSource',
       'deleteSelected',
     ]),
     filters: {
@@ -170,6 +184,9 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'formatPercent',
         'expression',
         'expressionHint',
+        'formulaPreview',
+        'formulaNoRows',
+        'formulaChecking',
         'options',
         'optionPlaceholder',
         'addOption',
@@ -192,9 +209,21 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'ignore',
         'newColumn',
         'newColumnTitle',
+        'newColumnType',
+        'sheet',
         'rowsSummary',
         'extraRows',
         'errors',
+        'issuesKept',
+        'requiredUnmapped',
+        'requiredBlank',
+        'totalsExcluded',
+        'applyTotals',
+        'optionsCount',
+        'formulasSummary',
+        'formulaCarried',
+        'formulaSkipped',
+        'progress',
         'add',
         'cancel',
         'source',
@@ -208,6 +237,7 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'fileTooLarge',
         'fileEmpty',
         'inserted',
+        'insertedWithIssues',
         'undo',
       ]),
       defaults: record(t.import.defaults, [
@@ -219,6 +249,26 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'paid',
         'columnPrefix',
       ]),
+    },
+    summaries: {
+      ...record(t.summaries, [
+        'title',
+        'add',
+        'edit',
+        'remove',
+        'empty',
+        'name',
+        'namePlaceholder',
+        'save',
+        'cancel',
+        'loadFailed',
+        'saveFailed',
+      ]),
+      expression: t.columnDialog.expression.value,
+      expressionHint: t.summaries.expressionHint.value,
+      formulaPreview: t.summaries.formulaPreview.value,
+      formulaNoRows: t.columnDialog.formulaNoRows.value,
+      formulaChecking: t.columnDialog.formulaChecking.value,
     },
     convert: record(t.convert, [
       'title',
@@ -249,6 +299,8 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
       'renamed',
       'renameFailed',
       'exportFailed',
+      'refreshed',
+      'refreshFailed',
     ]),
     notFound: record(t.notFound, ['title', 'back']),
   };

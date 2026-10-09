@@ -4,7 +4,7 @@ import { resolvePageTitle } from './page-title';
 describe('resolvePageTitle', () => {
   it('resolves known route titles', () => {
     expect(resolvePageTitle('/dashboard')).toBe('Lumio — Dashboard');
-    expect(resolvePageTitle('/statements/spend-over-time')).toBe('Lumio — Spend over time');
+    expect(resolvePageTitle('/reports')).toBe('Lumio — Reports');
     expect(resolvePageTitle('/workspaces/members')).toBe('Lumio — Workspace members');
   });
 

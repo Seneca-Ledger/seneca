@@ -90,9 +90,9 @@ describe('TransactionsService.split — tax', () => {
       {} as any,
       { findOne: jest.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
       { findOne: jest.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
+      { findOne: jest.fn(async () => null), create: jest.fn(x => x), save: jest.fn(async x => x) } as any,
       { set: jest.fn() } as any,
       { createEvent: jest.fn() } as any,
-      { learnFromCorrection: jest.fn() } as any,
       { bulkConvert: jest.fn() } as any,
       assignmentStub as any,
     );
@@ -202,9 +202,9 @@ describe('TransactionsService.update — filed-return lock', () => {
       {} as any,
       { findOne: jest.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
       { findOne: jest.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
+      { findOne: jest.fn(async () => null), create: jest.fn(x => x), save: jest.fn(async x => x) } as any,
       { set: jest.fn() } as any,
       { createEvent: jest.fn() } as any,
-      { learnFromCorrection: jest.fn() } as any,
       { bulkConvert: jest.fn() } as any,
       { resolve: jest.fn() } as any,
     );

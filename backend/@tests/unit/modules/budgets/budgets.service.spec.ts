@@ -1,7 +1,9 @@
+import { countedSql } from '@/common/utils/counted-transactions.util';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { BudgetPeriodType, BudgetRolloverMode } from '@/entities/budget.entity';
 import { BudgetsService } from '@/modules/budgets/budgets.service';
+import { workspaceCurrencyStub } from '../../../helpers/workspace-currency-stub';
 
 const createRepoMock = () => ({
   create: jest.fn((data: unknown) => data),
@@ -45,6 +47,7 @@ describe('BudgetsService', () => {
       goalRepository as any,
       notificationsService as any,
       auditService as any,
+      workspaceCurrencyStub() as never,
     );
   });
 
@@ -377,6 +380,7 @@ describe('BudgetsService', () => {
         goalRepository as any,
         notificationsService as any,
         auditService as any,
+        workspaceCurrencyStub() as never,
         categoryRepository as any,
         walletRepository as any,
       );
@@ -416,6 +420,8 @@ describe('BudgetsService', () => {
       expect(builder.andWhere).toHaveBeenCalledWith('t.category_id IN (:...categoryIds)', {
         categoryIds: ['food', 'groceries', 'restaurants'],
       });
+      // Only what the user confirmed counts against a budget.
+      expect(builder.andWhere).toHaveBeenCalledWith(countedSql('t'));
     });
 
     it('carries the leftover of earlier periods into the current one', async () => {
@@ -447,6 +453,7 @@ describe('BudgetsService', () => {
       expect(history.andWhere).toHaveBeenCalledWith('t.transaction_date >= :start', {
         start: new Date(2026, 1, 1),
       });
+      expect(history.andWhere).toHaveBeenCalledWith(countedSql('t'));
     });
 
     it('tells what an expense would do to the budgets up the category tree and to the account', async () => {
@@ -486,6 +493,7 @@ describe('BudgetsService', () => {
       expect(impact.account).toEqual(
         expect.objectContaining({ name: 'Cash', balance: 15, balanceAfter: -15, overdraws: true }),
       );
+      expect(sums.andWhere).toHaveBeenCalledWith(countedSql('t'));
     });
   });
 

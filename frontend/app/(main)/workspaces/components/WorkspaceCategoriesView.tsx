@@ -483,7 +483,7 @@ export default function WorkspaceCategoriesView() {
   return (
     <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: 4, maxWidth: 1120 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-        {/* Title, hint, search and Add in one header, straight on the page. */}
+        {/* Hint, search and Add in one header, straight on the page. */}
         <Box
           sx={{
             display: 'flex',
@@ -494,19 +494,9 @@ export default function WorkspaceCategoriesView() {
           }}
         >
           <Box sx={{ minWidth: 0 }}>
-            <Typography
-              component="h1"
-              sx={{ fontSize: 20, fontWeight: 600, color: 'var(--foreground)' }}
-            >
-              {t.title}
-            </Typography>
-            <Typography sx={{ mt: 0.25, fontSize: 13, color: 'var(--muted-foreground)' }}>
-              {t.subtitle}
-            </Typography>
             {/* A hint, not a banner. */}
             <Typography
               sx={{
-                mt: 0.75,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 0.75,

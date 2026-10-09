@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Branch, User, WorkspaceMember } from '../../entities';
 import { CategorizationRule } from '../../entities/categorization-rule.entity';
 import { Category } from '../../entities/category.entity';
-import { CategoryLearning } from '../../entities/category-learning.entity';
+import { PayeeOverride } from '../../entities/payee-override.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
@@ -18,7 +18,7 @@ import { ClassificationService } from './services/classification.service';
   imports: [
     TypeOrmModule.forFeature([
       Category,
-      CategoryLearning,
+      PayeeOverride,
       Branch,
       Wallet,
       Transaction,

@@ -129,8 +129,8 @@ describe('manual journal entries (real Postgres)', () => {
     accounts = moduleRef.get(LedgerAccountsService);
 
     const workspaces = dataSource.getRepository(Workspace);
-    workspaceId = (await workspaces.save({ name: 'Manual WS', ledgerBaseCurrency: 'EUR' })).id;
-    otherWorkspaceId = (await workspaces.save({ name: 'Other WS', ledgerBaseCurrency: 'EUR' })).id;
+    workspaceId = (await workspaces.save({ name: 'Manual WS', currency: 'EUR', ledgerBaseCurrency: 'EUR' })).id;
+    otherWorkspaceId = (await workspaces.save({ name: 'Other WS', currency: 'EUR', ledgerBaseCurrency: 'EUR' })).id;
     userId = (
       await dataSource.getRepository(User).save(
         dataSource.getRepository(User).create({
@@ -368,7 +368,7 @@ describe('manual journal entries (real Postgres)', () => {
   });
 
   it('refuses everything while the ledger is off', async () => {
-    const off = (await dataSource.getRepository(Workspace).save({ name: 'Off WS' })).id;
+    const off = (await dataSource.getRepository(Workspace).save({ name: 'Off WS', currency: 'USD' })).id;
     expect(
       await httpError(entries.createDraft(off, userId, { entryDate: '2026-09-01', lines: [] })),
     ).toEqual({ status: 409, code: 'LEDGER_DISABLED' });

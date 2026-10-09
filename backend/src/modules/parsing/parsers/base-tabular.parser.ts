@@ -1,3 +1,4 @@
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import type { ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { BaseParser } from './base.parser';
 
@@ -194,7 +195,7 @@ export abstract class BaseTabularParser extends BaseParser {
     columnMapping: TabularColumnMapping,
     getValue: (index: number) => unknown,
     sourceLabel = 'tabular',
-    defaultCurrency = 'KZT',
+    defaultCurrency = appDefaultCurrency(),
     unsignedAmountDirection: 'debit' | 'credit' = 'credit',
   ): ParsedTransaction | null {
     try {

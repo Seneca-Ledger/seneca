@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeSelectOptions } from '../utils/selectOptions';
 import type {
   ColumnType,
@@ -12,7 +13,7 @@ import type {
   SelectOptionDef,
 } from '../utils/types';
 
-export const DEFAULT_COLUMN_CURRENCY = 'KZT';
+export const DEFAULT_COLUMN_CURRENCY = FALLBACK_CURRENCY;
 
 export interface ColumnDraft {
   title: string;

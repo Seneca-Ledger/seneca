@@ -31,6 +31,7 @@ export interface ForecastDay {
   inflow: number;
   outflow: number;
   everyday: number;
+  irregularIncome: number;
   balance: number;
 }
 
@@ -43,6 +44,7 @@ export interface ForecastData {
   totalInflow: number;
   totalOutflow: number;
   totalEveryday: number;
+  totalIrregularIncome: number;
   days: ForecastDay[];
   events: ForecastEvent[];
   lowestBalance: number;
@@ -51,6 +53,7 @@ export interface ForecastData {
   safeToSpend: { amount: number; untilDate: string; nextIncomeDate: string | null };
   runwayMonths: number | null;
   everydayMonthly: number;
+  irregularIncomeMonthly: number;
   monthlyIncome: number;
   monthlyExpense: number;
   monthsObserved: number;

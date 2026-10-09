@@ -587,7 +587,6 @@
     background-color: $lumio-color-surface;
     padding: 8px 16px 8px 40px;
     font-size: 14px;
-    outline: none;
 
     @include dark {
       border-color: $lumio-color-ink-150-dk;
@@ -596,6 +595,7 @@
     }
 
     &:focus {
+      outline: none;
       border-color: var(--primary);
 
       @include dark {

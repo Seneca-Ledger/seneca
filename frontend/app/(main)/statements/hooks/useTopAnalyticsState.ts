@@ -1,5 +1,6 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   type UseStatementFiltersReturn,
@@ -30,7 +31,10 @@ export function useTopAnalyticsState<TFlow extends string, TSort extends string>
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [workspaceFilter, setWorkspaceFilter] = useState<string>('current');
-  const filterState = useStatementFilters(filterStorageKey);
+  // Advice links carry the month they are about (insight-href.ts); the page
+  // opens on it so the totals here are the ones the advice quoted.
+  const deepLinkMonth = useSearchParams()?.get('month') ?? null;
+  const filterState = useStatementFilters(filterStorageKey, deepLinkMonth);
   useEffect(() => {
     setSelectedRowId(null);
   }, [activeFlowType, workspaceFilter]);

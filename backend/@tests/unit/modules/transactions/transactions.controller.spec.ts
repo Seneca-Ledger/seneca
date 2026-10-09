@@ -17,6 +17,7 @@ describe('TransactionsController', () => {
     const res = await controller.findAll(
       { id: 'u1' } as any,
       'ws-1',
+      'member-self',
       's1',
       undefined,
       '2025-01-01',
@@ -31,15 +32,52 @@ describe('TransactionsController', () => {
     );
 
     expect(res).toEqual({ data: [], items: [], total: 0, page: 2, limit: 10 });
-    expect(transactionsService.findAll).toHaveBeenCalledWith('ws-1', {
-      statementId: 's1',
-      dateFrom: new Date('2025-01-01'),
-      dateTo: new Date('2025-01-31'),
-      type: 'income',
-      categoryId: 'cat1',
-      page: 2,
-      limit: 10,
-    });
+    expect(transactionsService.findAll).toHaveBeenCalledWith(
+      'ws-1',
+      {
+        statementId: 's1',
+        dateFrom: new Date('2025-01-01'),
+        dateTo: new Date('2025-01-31'),
+        type: 'income',
+        categoryId: 'cat1',
+        owner: { kind: 'all' },
+        page: 2,
+        limit: 10,
+      },
+      'member-self',
+    );
+  });
+
+  it.each([
+    ['me', { kind: 'member', memberId: 'member-self' }],
+    ['shared', { kind: 'shared' }],
+    ['member-partner', { kind: 'member', memberId: 'member-partner' }],
+    [undefined, { kind: 'all' }],
+  ])('turns owner=%s into %o', async (owner, expected) => {
+    const transactionsService = {
+      findAll: jest.fn(async () => ({ data: [], total: 0, page: 1, limit: 50 })),
+      findOne: jest.fn(),
+      update: jest.fn(),
+      bulkUpdate: jest.fn(),
+      remove: jest.fn(),
+    };
+    const controller = new TransactionsController(transactionsService as any, {} as any);
+
+    await controller.findAll(
+      { id: 'u1' } as any,
+      'ws-1',
+      'member-self',
+      // statementId ×2, dateFrom ×2, dateTo ×2, type, categoryId ×2, page,
+      // limit, currency, convert_to — then owner.
+      ...(Array.from({ length: 13 }) as undefined[]),
+      owner as string | undefined,
+    );
+
+    expect(transactionsService.findAll).toHaveBeenCalledWith(
+      'ws-1',
+      expect.objectContaining({ owner: expected }),
+      'member-self',
+    );
   });
 
   it('bulkUpdate forwards items', async () => {
@@ -55,11 +93,15 @@ describe('TransactionsController', () => {
       { items: [{ id: 't1', updates: { amount: 1 } }] } as any,
       { id: 'u1' } as any,
       'ws-1',
+      'member-self',
     );
     expect(result).toEqual([{ id: 't1' }]);
-    expect(transactionsService.bulkUpdate).toHaveBeenCalledWith('ws-1', 'u1', [
-      { id: 't1', updates: { amount: 1 } },
-    ]);
+    expect(transactionsService.bulkUpdate).toHaveBeenCalledWith(
+      'ws-1',
+      'u1',
+      [{ id: 't1', updates: { amount: 1 } }],
+      'member-self',
+    );
   });
 
   describe('split routes', () => {

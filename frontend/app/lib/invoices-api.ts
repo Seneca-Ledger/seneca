@@ -1,6 +1,6 @@
 import apiClient from '@/app/lib/api';
 
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void';
+export type InvoiceStatus = 'draft' | 'sent' | 'partially_paid' | 'paid' | 'overdue' | 'void';
 export type InvoiceRecurrenceInterval = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
 
 export interface Client {
@@ -11,6 +11,12 @@ export interface Client {
   billingAddress: string | null;
   taxId: string | null;
   currency: string;
+  /** Language the documents sent to this client are written in. */
+  locale: string | null;
+  /** False leaves this client out of reminder emails. */
+  remindersEnabled: boolean;
+  /** "Net 30" for this client; null follows the workspace term. */
+  paymentTermsDays: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +27,9 @@ export interface CreateClientInput {
   billingAddress?: string;
   taxId?: string;
   currency?: string;
+  locale?: string;
+  remindersEnabled?: boolean;
+  paymentTermsDays?: number;
 }
 
 export type UpdateClientInput = Partial<CreateClientInput>;
@@ -50,6 +59,10 @@ export interface Invoice {
   clientId: string;
   client?: Client;
   invoiceNumber: string | null;
+  /** True when the line prices already contain their tax. */
+  pricesIncludeTax: boolean;
+  /** When the client first opened the share link; null while unopened. */
+  viewedAt: string | null;
   status: InvoiceStatus;
   issueDate: string;
   dueDate: string;
@@ -57,6 +70,11 @@ export interface Invoice {
   subtotal: number | string;
   taxTotal: number | string;
   total: number | string;
+  /** Paid so far and still owed — derived from the payments against the bill. */
+  amountPaid?: number;
+  /** Taken back by credit notes: not owed, and never paid. */
+  amountCredited?: number;
+  amountDue?: number;
   notes: string | null;
   payableId: string | null;
   journalEntryId: string | null;
@@ -75,12 +93,70 @@ export interface CreateInvoiceInput {
   dueDate: string;
   currency?: string;
   notes?: string;
+  pricesIncludeTax?: boolean;
   lineItems: InvoiceLineItemInput[];
   recurrenceInterval?: InvoiceRecurrenceInterval;
   recurrenceEndDate?: string;
 }
 
 export type UpdateInvoiceInput = Partial<CreateInvoiceInput>;
+
+/** One attempt to put the invoice in front of its client. */
+export interface InvoiceDelivery {
+  id: string;
+  invoiceId: string;
+  channel: 'email';
+  recipient: string;
+  status: 'sent' | 'skipped' | 'failed';
+  subject: string | null;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceSettings {
+  prefix: string;
+  remindersEnabled: boolean;
+  /** Days from the due date: negative before it, positive after. */
+  reminderOffsets: number[];
+  paymentTermsDays: number;
+  lateFeePercent: number;
+}
+
+export type InvoiceSettingsInput = Partial<InvoiceSettings>;
+
+/** What a late fee would come to for a client, per currency. */
+export interface LateFeeQuote {
+  percent: number;
+  amounts: Array<{ currency: string; overdue: number; fee: number }>;
+}
+
+export interface AgeingBuckets {
+  current: number;
+  days1to30: number;
+  days31to60: number;
+  days61to90: number;
+  days90plus: number;
+  total: number;
+  count: number;
+}
+
+export interface AgeingRow extends AgeingBuckets {
+  clientId: string;
+  clientName: string;
+  currency: string;
+  oldestDays: number;
+}
+
+export interface AgeingReport {
+  rows: AgeingRow[];
+  totals: Array<AgeingBuckets & { currency: string }>;
+}
+
+export interface SendInvoiceEmailInput {
+  to?: string;
+  subject?: string;
+  message?: string;
+}
 
 export interface ListInvoicesParams {
   page?: number;
@@ -159,13 +235,39 @@ export const invoicesApi = {
     const response = await apiClient.delete<{ message: string }>(`/invoices/${id}`);
     return unwrapData(response);
   },
-  async getSettings(): Promise<{ prefix: string }> {
-    const response = await apiClient.get<{ prefix: string }>('/invoices/settings');
+  async ageing(): Promise<AgeingReport> {
+    const response = await apiClient.get<AgeingReport>('/invoices/ageing');
     return unwrapData(response);
   },
-  async updateSettings(prefix: string): Promise<{ prefix: string }> {
-    const response = await apiClient.put<{ prefix: string }>('/invoices/settings', { prefix });
+  async lateFeeQuote(clientId: string): Promise<LateFeeQuote> {
+    const response = await apiClient.get<LateFeeQuote>(`/invoices/clients/${clientId}/late-fee`);
     return unwrapData(response);
+  },
+  async getSettings(): Promise<InvoiceSettings> {
+    const response = await apiClient.get<InvoiceSettings>('/invoices/settings');
+    return unwrapData(response);
+  },
+  async updateSettings(payload: InvoiceSettingsInput): Promise<InvoiceSettings> {
+    const response = await apiClient.put<InvoiceSettings>('/invoices/settings', payload);
+    return unwrapData(response);
+  },
+  async sendEmail(id: string, payload: SendInvoiceEmailInput = {}): Promise<InvoiceDelivery> {
+    const response = await apiClient.post<InvoiceDelivery>(`/invoices/${id}/deliveries`, payload);
+    return unwrapData(response);
+  },
+  async deliveries(id: string): Promise<InvoiceDelivery[]> {
+    const response = await apiClient.get<InvoiceDelivery[]>(`/invoices/${id}/deliveries`);
+    return unwrapData(response);
+  },
+  /** Opens the draft as the client would see it; nothing is stored, no number taken. */
+  async openPreview(id: string): Promise<void> {
+    const response = await apiClient.get<Blob>(`/invoices/${id}/preview`, {
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    window.open(url, '_blank', 'noopener');
+    // Revoked late: the new tab needs the url to still resolve when it loads.
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
   },
   async downloadPdf(id: string, fileName: string): Promise<void> {
     const response = await apiClient.get<Blob>(`/invoices/${id}/pdf`, { responseType: 'blob' });

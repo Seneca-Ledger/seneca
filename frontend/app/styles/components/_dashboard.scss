@@ -175,11 +175,8 @@
   }
 
   &__stat-spark {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 42px;
+    height: 38px;
+    margin-top: 10px;
     pointer-events: none;
     opacity: 0.9;
     color: var(--primary);
@@ -948,7 +945,7 @@
 
 /* ── Page header ── */
 .lumio-dashboard-header {
-  padding: 24px 32px 0; /* matches DashboardTabContent px:4 = 32px */
+  padding: var(--lumio-page-top, 24px) 32px 0; /* matches DashboardTabContent px:4 = 32px */
   min-width: 0;
   max-width: 100%;
 
@@ -966,49 +963,6 @@
 
     @include dark {
       color: $lumio-color-ink-500-dk;
-    }
-  }
-
-  &__title {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 700;
-    color: $lumio-color-ink-900;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-
-    @media (max-width: 640px) {
-      font-size: 20px;
-    }
-
-    @include dark {
-      color: $lumio-color-ink-900-dk;
-    }
-  }
-
-  &__subtitle {
-    margin: 6px 0 0;
-    font-size: 14px;
-    color: $lumio-color-ink-500;
-
-    @media (max-width: 640px) {
-      margin-top: 4px;
-      font-size: 13px;
-    }
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-
-    @media (max-width: 640px) {
-      gap: 8px;
     }
   }
 
@@ -1047,24 +1001,7 @@
     }
   }
 
-  &__row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-
-    /* The heading column may shrink; the action buttons never wrap under it. */
-    > :first-child {
-      min-width: 0;
-    }
-  }
-
   &__tabs {
-    margin-top: 16px;
-
-    @media (max-width: 640px) {
-      margin-top: 8px;
-    }
     border-bottom: 1px solid $lumio-color-border;
 
     @include dark {
@@ -1078,5 +1015,187 @@
     @media (max-width: 640px) {
       padding-top: 12px;
     }
+  }
+}
+
+/* ── Overview: sections moved by their grip ──
+   One flat two-column grid: a section alone in its row spans both columns, a
+   pair splits them. Width decisions live in OverviewLayout; this only draws. */
+.lumio-overview {
+  &__body {
+    container: overview / inline-size;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+
+    @media (max-width: 640px) {
+      gap: 12px;
+    }
+  }
+
+  &__section {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    container: overview-section / inline-size;
+
+    /* The two halves of a row share its height. */
+    > :not(.lumio-overview__handle) {
+      flex: 1 1 auto;
+    }
+
+    &--wide {
+      grid-column: 1 / -1;
+    }
+
+    /* A card with nothing to show takes no room. */
+    &:has(> .lumio-overview__handle:only-child) {
+      display: none;
+    }
+
+    /* The original stays in place, dimmed; a snapshot follows the pointer. */
+    &--dragging {
+      opacity: 0.35;
+    }
+
+    /* Where the section will land: a bar in the gap on that side. */
+    &::after {
+      content: '';
+      position: absolute;
+      display: none;
+      border-radius: 2px;
+      background: var(--primary);
+      pointer-events: none;
+    }
+
+    &--drop-above::after,
+    &--drop-below::after {
+      display: block;
+      left: 0;
+      right: 0;
+      height: 4px;
+    }
+
+    &--drop-above::after {
+      top: -10px;
+    }
+
+    &--drop-below::after {
+      bottom: -10px;
+    }
+
+    &--drop-left::after,
+    &--drop-right::after {
+      display: block;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+    }
+
+    &--drop-left::after {
+      left: -10px;
+    }
+
+    &--drop-right::after {
+      right: -10px;
+    }
+  }
+
+  &__handle {
+    position: absolute;
+    top: 16px;
+    left: 2px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted-foreground);
+    opacity: 0.45;
+    cursor: grab;
+    touch-action: none;
+    transition:
+      opacity 120ms ease,
+      color 120ms ease,
+      background-color 120ms ease;
+
+    &:hover {
+      color: var(--foreground);
+      background: var(--primary-fill);
+    }
+
+    &:focus-visible {
+      opacity: 1;
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+
+    /* Phones get no rearranging: everything is one column there anyway. */
+    @media (max-width: 767px) {
+      display: none;
+    }
+  }
+
+  &__section:hover > &__handle {
+    opacity: 1;
+  }
+
+  /* The snapshot under the pointer, shrunk around the grip it was picked up by. */
+  &__ghost {
+    width: max-content;
+    transform-origin: top left;
+    border-radius: $lumio-radius-lg;
+    background: var(--card-bg);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+    cursor: grabbing;
+
+    .lumio-overview__handle {
+      opacity: 1;
+    }
+  }
+
+  &__reset {
+    align-self: center;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--foreground);
+      background: var(--primary-fill);
+    }
+
+    @media (max-width: 767px) {
+      display: none;
+    }
+  }
+}
+
+/* Too narrow for halves (a tablet with the sidebar open): one column. */
+@container overview (max-width: 720px) {
+  .lumio-overview__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Four KPI tiles in half a row would be slivers; two by two reads. */
+@container overview-section (max-width: 760px) {
+  .lumio-dashboard__stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

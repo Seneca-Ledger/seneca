@@ -2,11 +2,6 @@ const PRODUCT_TITLE = 'Lumio — Bank statement processing';
 
 const TITLES_BY_PREFIX: Array<[string, string]> = [
   ['/dashboard', 'Lumio — Dashboard'],
-  ['/statements/spend-over-time', 'Lumio — Spend over time'],
-  ['/statements/top-spenders', 'Lumio — Top spenders'],
-  ['/statements/top-merchants', 'Lumio — Top merchants'],
-  ['/statements/top-categories', 'Lumio — Top categories'],
-  ['/statements/unapproved-cash', 'Lumio — Unapproved cash'],
   ['/statements', 'Lumio — Statements'],
   ['/tables', 'Lumio — Tables'],
   ['/workspaces/members', 'Lumio — Workspace members'],

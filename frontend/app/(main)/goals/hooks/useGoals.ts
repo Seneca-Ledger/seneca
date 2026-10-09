@@ -7,6 +7,20 @@ import apiClient from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
 import { queryKeys } from '@/app/lib/query-keys';
 
+/** How the goal's picture should be drawn. Mirrors the server's GoalCover. */
+export type GoalCover =
+  | { kind: 'preset'; preset: string }
+  | { kind: 'photo'; url: string; attribution: string | null; sourceUrl: string | null };
+
+/**
+ * What the picker hands back, which is not the same shape the server returns:
+ * a photo is chosen by its Openverse id, and only afterwards becomes a stored
+ * file the goal serves by its own id.
+ */
+export type GoalCoverSelection =
+  | { kind: 'preset'; preset: string }
+  | { kind: 'photo'; photoId: string; attribution: string };
+
 export interface Goal {
   id: string;
   name: string;
@@ -17,12 +31,19 @@ export interface Goal {
   remaining: number;
   percent: number;
   isReached: boolean;
+  cover: GoalCover | null;
 }
 
 export interface GoalFormData {
   name: string;
   targetAmount: number;
   targetDate: string;
+  /**
+   * `undefined` means "leave the cover alone", `null` means "remove it". The
+   * distinction matters on edit, where not opening the picker must not wipe
+   * the picture the goal already has.
+   */
+  cover?: GoalCoverSelection | null;
 }
 
 export const EMPTY_GOAL_FORM: GoalFormData = {
@@ -42,6 +63,29 @@ interface UseGoalsState {
   updateGoal: (id: string, form: GoalFormData) => Promise<boolean>;
   deleteGoal: (id: string) => Promise<void>;
   addContribution: (id: string, amount: number, note: string) => Promise<boolean>;
+}
+
+/**
+ * The cover is its own request because it is its own resource: picking a photo
+ * downloads bytes, which has no business happening inside the write that renames
+ * a goal. On create the goal has to exist first, so the id only becomes
+ * available after the POST.
+ */
+async function applyCover(
+  goalId: string,
+  cover: GoalCoverSelection | null | undefined,
+): Promise<void> {
+  if (cover === undefined) {
+    return;
+  }
+  if (cover === null) {
+    await apiClient.delete(`/goals/${goalId}/cover`);
+    return;
+  }
+  await apiClient.put(
+    `/goals/${goalId}/cover`,
+    cover.kind === 'preset' ? { preset: cover.preset } : { photoId: cover.photoId },
+  );
 }
 
 export function useGoals(): UseGoalsState {
@@ -78,13 +122,20 @@ export function useGoals(): UseGoalsState {
   });
 
   const createGoal = useCallback(
-    (form: GoalFormData) => submit(() => apiClient.post('/goals', toPayload(form))),
+    (form: GoalFormData) =>
+      submit(async () => {
+        const response = await apiClient.post<Goal>('/goals', toPayload(form));
+        await applyCover(response.data.id, form.cover);
+      }),
     [submit],
   );
 
   const updateGoal = useCallback(
     (id: string, form: GoalFormData) =>
-      submit(() => apiClient.put(`/goals/${id}`, toPayload(form))),
+      submit(async () => {
+        await apiClient.put(`/goals/${id}`, toPayload(form));
+        await applyCover(id, form.cover);
+      }),
     [submit],
   );
 

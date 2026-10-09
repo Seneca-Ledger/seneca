@@ -21,8 +21,6 @@ vi.mock('./Sidebar', () => {
   };
 });
 
-vi.mock('./ShellSidePanel', () => ({ default: () => null }));
-
 describe('AppChrome', () => {
   beforeEach(() => {
     mocks.pathname = '/';

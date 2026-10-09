@@ -13,7 +13,6 @@ export type ProcessingSettings = {
   aiCategorization: boolean;
   aiMerchantNormalization: boolean;
   merchantLearning: boolean;
-  autoApproveAiPicks: boolean;
 };
 
 /** Mirrors the server defaults, which are the previously hardcoded values. */
@@ -23,7 +22,6 @@ const DEFAULTS: ProcessingSettings = {
   aiCategorization: true,
   aiMerchantNormalization: true,
   merchantLearning: true,
-  autoApproveAiPicks: false,
 };
 
 export type UseProcessingMessages = {

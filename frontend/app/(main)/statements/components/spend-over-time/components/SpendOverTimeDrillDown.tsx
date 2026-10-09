@@ -63,36 +63,59 @@ function DrillDownTable({
   labels,
 }: TableProps): React.JSX.Element {
   const spendT = useIntlayer('statementsSpendOverTime');
+  const visible = records.slice(0, 120);
   return (
-    <table className="lumio-view-page__table">
-      <thead>
-        <tr>
-          <th>{labels.lastOperation}</th>
-          <th>{labels.source}</th>
-          <th>{labels.workspace}</th>
-          <th>{spendT.merchant}</th>
-          <th style={{ textAlign: 'right' }}>{labels.amount}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {records.slice(0, 120).map(record => (
-          <tr key={record.id}>
-            <td style={{ color: 'var(--text-secondary)' }}>{formatDateValue(record.dateValue)}</td>
-            <td>
+    <>
+      <table className="lumio-view-page__table lumio-spend-drill__table">
+        <thead>
+          <tr>
+            <th>{labels.lastOperation}</th>
+            <th>{labels.source}</th>
+            <th>{labels.workspace}</th>
+            <th>{spendT.merchant}</th>
+            <th style={{ textAlign: 'right' }}>{labels.amount}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {visible.map(record => (
+            <tr key={record.id}>
+              <td style={{ color: 'var(--text-secondary)' }}>
+                {formatDateValue(record.dateValue)}
+              </td>
+              <td>
+                <AnalyticsSourceBadge
+                  sourceChannel={record.sourceChannel as SpendOverTimeSourceChannel}
+                  labels={sourceLabels}
+                />
+              </td>
+              <td style={{ color: 'var(--text-secondary)' }}>{record.workspaceName ?? '-'}</td>
+              <td style={{ color: 'var(--text-secondary)' }}>{getRecordMerchant(record)}</td>
+              <td style={{ textAlign: 'right', fontWeight: 500, color: 'var(--foreground)' }}>
+                {formatMoney(record.amount, record.currencyValue || currency)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {/* Phones: five columns do not fit, so each operation is a two-line row. */}
+      <ul className="lumio-spend-drill__list">
+        {visible.map(record => (
+          <li key={record.id} className="lumio-spend-drill__item">
+            <span className="lumio-spend-drill__merchant">{getRecordMerchant(record)}</span>
+            <span className="lumio-spend-drill__amount">
+              {formatMoney(record.amount, record.currencyValue || currency)}
+            </span>
+            <span className="lumio-spend-drill__meta">
               <AnalyticsSourceBadge
                 sourceChannel={record.sourceChannel as SpendOverTimeSourceChannel}
                 labels={sourceLabels}
               />
-            </td>
-            <td style={{ color: 'var(--text-secondary)' }}>{record.workspaceName ?? '-'}</td>
-            <td style={{ color: 'var(--text-secondary)' }}>{getRecordMerchant(record)}</td>
-            <td style={{ textAlign: 'right', fontWeight: 500, color: 'var(--foreground)' }}>
-              {formatMoney(record.amount, record.currencyValue || currency)}
-            </td>
-          </tr>
+              <span>{formatDateValue(record.dateValue)}</span>
+            </span>
+          </li>
         ))}
-      </tbody>
-    </table>
+      </ul>
+    </>
   );
 }
 

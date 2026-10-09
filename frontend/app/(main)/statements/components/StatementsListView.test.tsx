@@ -59,6 +59,7 @@ vi.mock('next-intlayer', () => ({
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: routerPushMock, replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/statements/submit',
 }));
 
 vi.mock('@/app/hooks/useIsMobile', () => ({
@@ -83,13 +84,6 @@ vi.mock('@/app/lib/statement-status', () => ({
   getStatementMerchantLabel: () => 'Merchant',
   hasProcessingStatements: () => false,
   isManualExpenseStatement: () => false,
-}));
-
-vi.mock('@/app/lib/statement-workflow', () => ({
-  resolveStatementStage: () => 'submit',
-  migrateLocalStatementStages: async () => undefined,
-  updateStatementStages: async () => ({ updated: [], skipped: [] }),
-  statementStageSkipMessage: () => '',
 }));
 
 vi.mock('@/app/(main)/statements/components/filters/statement-filters', () => ({
@@ -345,7 +339,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
 
   it('renders Gmail sync skeleton rows from storage count', () => {
     act(() => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
     });
 
     act(() => {
@@ -415,7 +409,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     act(() => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
     });
 
     await act(async () => {
@@ -484,7 +478,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -639,7 +633,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -702,7 +696,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -737,7 +731,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -792,7 +786,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -847,7 +841,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -910,7 +904,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1007,7 +1001,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1114,7 +1108,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1192,7 +1186,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1258,7 +1252,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1341,7 +1335,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1449,7 +1443,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1558,7 +1552,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1661,7 +1655,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1759,7 +1753,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView stage="submit" />);
+      root.render(<StatementsListView />);
       await Promise.resolve();
       await Promise.resolve();
     });

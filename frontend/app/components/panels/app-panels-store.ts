@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-export type AppPanelKey = 'integrations' | 'plugins';
+export type AppPanelKey = 'integrations' | 'plugins' | 'notifications' | 'whatsNew';
 
 export type AppPanelState = {
   /** The list drawer (first layer) that is open, if any. */
@@ -14,7 +14,7 @@ export type AppPanelState = {
 const CLOSED: AppPanelState = { panel: null, item: null };
 
 /**
- * Panel state lives outside React so that any entry point — the user menu, a
+ * Panel state lives outside React so that any entry point — the account menu, a
  * side panel, a redirect stub — can open a panel by calling a function, with
  * no provider to thread through the tree.
  */

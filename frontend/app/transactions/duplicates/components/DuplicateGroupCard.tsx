@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Calendar, DollarSign, User } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 
 interface DuplicateTransaction {
@@ -54,7 +55,7 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'KZT',
+      currency: FALLBACK_CURRENCY,
       minimumFractionDigits: 2,
     }).format(amount);
   };

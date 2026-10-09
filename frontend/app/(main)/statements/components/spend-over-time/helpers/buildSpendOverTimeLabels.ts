@@ -18,7 +18,6 @@ const LABEL_PATHS: Record<string, [string[], string]> = {
   receiptsAmount: [['spendOverTimeAnalytics', 'receiptsAmount'], 'Receipts'],
   totalOperations: [['spendOverTimeAnalytics', 'totalOperations'], 'Operations'],
   avgPerPeriod: [['spendOverTimeAnalytics', 'avgPerPeriod'], 'Average per period'],
-  calendarTitle: [['spendOverTimeAnalytics', 'calendarTitle'], 'Calendar view'],
   calendarEmptyMonth: [
     ['spendOverTimeAnalytics', 'calendarEmptyMonth'],
     'No operations in this month',

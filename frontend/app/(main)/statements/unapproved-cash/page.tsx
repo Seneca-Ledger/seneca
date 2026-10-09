@@ -1,7 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import UnapprovedCashView from '../components/UnapprovedCashView';
-
-export default function StatementsUnapprovedCashPage() {
-  return <UnapprovedCashView />;
+// Everything waiting for a decision lives in Review now; old links land there.
+export default function StatementsReviewRedirect(): never {
+  redirect('/review');
 }

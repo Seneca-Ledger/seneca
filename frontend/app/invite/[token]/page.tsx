@@ -9,6 +9,7 @@ import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { hasSessionCookie } from '@/app/lib/csrf';
 import { safeInternalPath } from '@/app/lib/safe-path';
+import { forgetStoredUser } from '@/app/lib/theme-preference';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
 type InvitationStatus = 'pending' | 'accepted' | 'cancelled' | 'expired';
@@ -77,7 +78,7 @@ export default function AcceptInvitePage() {
         setUser(response.data);
       })
       .catch(() => {
-        localStorage.removeItem('user');
+        forgetStoredUser();
         setUser(null);
       })
       .finally(() => {
@@ -144,7 +145,7 @@ export default function AcceptInvitePage() {
     // Session cookies are httpOnly — only the server can drop them, so a local
     // cleanup is no longer enough to switch accounts.
     await apiClient.post('/auth/logout').catch(() => undefined);
-    localStorage.removeItem('user');
+    forgetStoredUser();
     router.push(loginHref);
   };
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   cursorAfterRemoval,
+  dateFilterToRange,
   groupByPayee,
   moveCursor,
   type ReviewTransactionItem,
@@ -22,6 +23,7 @@ const tx = (id: string, counterpartyName: string): ReviewTransactionItem => ({
   categorySource: null,
   categoryReason: null,
   statementId: null,
+  receiptId: null,
 });
 
 describe('review inbox model', () => {
@@ -59,5 +61,49 @@ describe('review inbox model', () => {
     expect(targetIds(new Set(['c', 'a']), items, 1)).toEqual(['a', 'c']);
     expect(targetIds(new Set(), items, 1)).toEqual(['b']);
     expect(targetIds(new Set(), items, -1)).toEqual([]);
+  });
+});
+
+describe('dateFilterToRange', () => {
+  const now = new Date(2026, 9, 4);
+
+  it('is open on both ends without a filter', () => {
+    expect(dateFilterToRange(null, now)).toEqual({ from: '', to: '' });
+  });
+
+  it('turns a preset into its inclusive days', () => {
+    expect(dateFilterToRange({ preset: 'thisMonth' }, now)).toEqual({
+      from: '2026-10-01',
+      to: '2026-10-31',
+    });
+    expect(dateFilterToRange({ preset: 'lastMonth' }, now)).toEqual({
+      from: '2026-09-01',
+      to: '2026-09-30',
+    });
+    expect(dateFilterToRange({ preset: 'yearToDate' }, now)).toEqual({
+      from: '2026-01-01',
+      to: '2026-10-04',
+    });
+  });
+
+  it('keeps "on" a range in either order', () => {
+    expect(
+      dateFilterToRange({ mode: 'on', date: '2026-09-20', dateTo: '2026-09-10' }, now),
+    ).toEqual({ from: '2026-09-10', to: '2026-09-20' });
+    expect(dateFilterToRange({ mode: 'on', date: '2026-09-20' }, now)).toEqual({
+      from: '2026-09-20',
+      to: '2026-09-20',
+    });
+  });
+
+  it('leaves the day itself out of "after" and "before"', () => {
+    expect(dateFilterToRange({ mode: 'after', date: '2026-09-30' }, now)).toEqual({
+      from: '2026-10-01',
+      to: '',
+    });
+    expect(dateFilterToRange({ mode: 'before', date: '2026-10-01' }, now)).toEqual({
+      from: '',
+      to: '2026-09-30',
+    });
   });
 });

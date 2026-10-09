@@ -53,6 +53,10 @@ export function daysBetween(a: Date | string, b: Date | string): number {
   return Math.abs(new Date(a).getTime() - new Date(b).getTime()) / DAY_MS;
 }
 
+function isCrypto(leg: TransferLeg): boolean {
+  return Boolean(leg.cryptoWalletId);
+}
+
 function normalizeCurrency(value: string | null | undefined): string {
   return (value || '').trim().toUpperCase();
 }
@@ -74,7 +78,14 @@ export async function amountsMatch(
   const from = normalizeCurrency(outgoing.currency);
   const to = normalizeCurrency(incoming.currency);
   if (from === to) {
-    return Math.abs(out - inc) < 0.005;
+    // One leg on a chain means the two sides went through a conversion: the card
+    // was charged in euro, the wallet received a coin booked at the day's price.
+    // The spread and the exchange's cut land between them, so the cent-exact rule
+    // that fits two bank accounts would never pair a real purchase.
+    const tolerance = isCrypto(outgoing) !== isCrypto(incoming) ? TRANSFER_FX_TOLERANCE : 0;
+    return tolerance === 0
+      ? Math.abs(out - inc) < 0.005
+      : Math.abs(out - inc) / Math.max(out, inc) <= tolerance;
   }
 
   const rate = await lookupRate(from, to, new Date(outgoing.transactionDate));

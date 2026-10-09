@@ -5,7 +5,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Skeleton from '@mui/material/Skeleton';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -22,7 +22,9 @@ import { DetailActionButton } from '@/app/components/ui/detail-action-button';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
+import { getQueryClient } from '@/app/lib/query-client';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { tokens } from '@/lib/theme-tokens';
@@ -62,7 +64,7 @@ function buildInitialForm(receipt: ReceiptRecord | null): EditableReceiptParsedD
   return {
     vendor: receipt?.parsedData?.vendor ?? '',
     amount: receipt?.parsedData?.amount ?? '',
-    currency: receipt?.parsedData?.currency ?? 'KZT',
+    currency: receipt?.parsedData?.currency ?? FALLBACK_CURRENCY,
     date: receipt?.parsedData?.date?.split('T')[0] ?? '',
     tax: receipt?.parsedData?.tax ?? '',
     paymentMethod: receipt?.parsedData?.paymentMethod ?? '',
@@ -247,6 +249,7 @@ function ReceiptPreviewContent({
 export default function ReceiptDocumentPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const receiptId = params.id;
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
@@ -436,7 +439,12 @@ export default function ReceiptDocumentPage() {
       lastSavedPayloadRef.current = JSON.stringify(currentPayload);
       await receiptsApi.approveReceipt(receipt.id, options);
       toast.success(t.approved.value);
-      await loadData();
+      // It leaves the Review queue; both lists are cached for 30s.
+      const queryClient = getQueryClient();
+      void queryClient.invalidateQueries({ queryKey: ['gmail-receipts'] });
+      void queryClient.invalidateQueries({ queryKey: ['statements'] });
+      void queryClient.invalidateQueries({ queryKey: ['review-inbox'] });
+      router.push(searchParams.get('from') === 'review' ? '/review' : '/statements/submit');
     })()
       .catch(async () => {
         toast.error(t.approveFailed.value);

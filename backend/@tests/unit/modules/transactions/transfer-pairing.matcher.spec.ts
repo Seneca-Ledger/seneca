@@ -35,6 +35,43 @@ const inc = (id: string, extra: Partial<TransferLeg> = {}) =>
 const noRates: RateLookup = async () => null;
 
 describe('transfer-pairing matcher', () => {
+  describe('a chain leg against a bank leg', () => {
+    it('allows the exchange’s cut between the money paid and the coin received', async () => {
+      const card = out('card', { amount: 505, currency: 'USD' });
+      const arrival = inc('coin', {
+        amount: 500,
+        currency: 'USD',
+        cryptoWalletId: 'wallet-1',
+        statementId: null,
+      });
+
+      expect(await amountsMatch(card, arrival, noRates)).toBe(true);
+    });
+
+    it('still refuses a gap wider than the cut', async () => {
+      const card = out('card', { amount: 600, currency: 'USD' });
+      const arrival = inc('coin', {
+        amount: 500,
+        currency: 'USD',
+        cryptoWalletId: 'wallet-1',
+        statementId: null,
+      });
+
+      expect(await amountsMatch(card, arrival, noRates)).toBe(false);
+    });
+
+    it('keeps two bank legs cent-exact: there is no conversion between them', async () => {
+      expect(
+        await amountsMatch(
+          out('a', { amount: 505, currency: 'USD' }),
+          inc('b', { amount: 500, currency: 'USD' }),
+          noRates,
+        ),
+      ).toBe(false);
+    });
+  });
+
+
   describe('accountKey', () => {
     it('prefers the crypto wallet, then the statement account number, then the statement', () => {
       expect(accountKey(leg({ id: 'a', cryptoWalletId: 'cw' }))).toBe('crypto:cw');

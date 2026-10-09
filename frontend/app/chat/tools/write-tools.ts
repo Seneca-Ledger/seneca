@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import apiClient from '@/app/lib/api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { ChatTool } from './types';
 
 /** Every write the assistant performs is audited as the assistant, not as the user. */
@@ -24,7 +25,7 @@ const setCategorySchema = z.object({
 });
 
 function formatAmount(amount: number, currency?: string): string {
-  return `${amount.toLocaleString('ru-RU')} ${currency ?? 'KZT'}`;
+  return `${amount.toLocaleString('ru-RU')} ${currency ?? FALLBACK_CURRENCY}`;
 }
 
 /**
@@ -52,7 +53,7 @@ export const writeTools: ChatTool[] = [
       // files; chat mode sends no files but must keep the same content type.
       const formData = new FormData();
       formData.append('amount', String(p.amount));
-      formData.append('currency', p.currency ?? 'KZT');
+      formData.append('currency', p.currency ?? FALLBACK_CURRENCY);
       formData.append('merchant', p.merchant);
       formData.append('description', p.description ?? '');
       formData.append('categoryId', p.categoryId);

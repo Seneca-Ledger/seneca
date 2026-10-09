@@ -1,3 +1,4 @@
+import { IsNull } from 'typeorm';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxThresholdPeriod } from '@/entities/tax-jurisdiction.entity';
 import { TransactionType } from '@/entities/transaction.entity';
@@ -64,6 +65,21 @@ describe('TaxThresholdService', () => {
     it('is absent when the workspace has no jurisdiction', async () => {
       adoption.getCurrentJurisdiction.mockResolvedValue(null);
       expect(await service.getStatus('ws-1', NOW)).toBeNull();
+    });
+
+    it('measures turnover over counted (confirmed, not duplicate, not transfer, not trashed) sales only', async () => {
+      await service.getStatus('ws-1', NOW);
+
+      // Both alternatives (no statement / statement not trashed) count confirmed,
+      // non-duplicate, non-transfer rows of this workspace only.
+      const where = transactionRepo.find.mock.calls[0][0].where;
+      expect(where).toHaveLength(2);
+      for (const branch of where) {
+        expect(branch).toMatchObject({ isVerified: true, isDuplicate: false, workspaceId: 'ws-1' });
+        expect(branch.transferPairId).toEqual(IsNull());
+      }
+      expect(where[0].statementId).toEqual(IsNull());
+      expect(where[1].statement).toEqual({ deletedAt: IsNull() });
     });
 
     it('sums the net of sales, not the tax on them', async () => {

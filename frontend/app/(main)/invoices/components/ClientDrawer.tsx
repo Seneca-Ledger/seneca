@@ -6,8 +6,11 @@ import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDra
 import { Button } from '@/app/components/ui/button';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { Input } from '@/app/components/ui/input';
+import { Select } from '@/app/components/ui/select';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { Client, CreateClientInput, UpdateClientInput } from '@/app/lib/invoices-api';
+import { LOCALE_DISPLAY_ORDER, LOCALE_ENDONYMS } from '@/app/lib/locale';
 
 interface ClientDrawerProps {
   open: boolean;
@@ -25,11 +28,23 @@ interface ClientDrawerProps {
     billingAddress: string;
     taxId: string;
     currency: string;
+    locale: string;
+    reminders: string;
+    paymentTerms: string;
     save: string;
     saving: string;
     cancel: string;
   };
 }
+
+/**
+ * Languages a document can be written in, each named in itself — the client
+ * reads the invoice, not the person filling this form in.
+ */
+const DOCUMENT_LOCALES = [
+  { value: 'default', label: '—' },
+  ...LOCALE_DISPLAY_ORDER.map(locale => ({ value: locale, label: LOCALE_ENDONYMS[locale] })),
+];
 
 interface ClientFormState {
   name: string;
@@ -37,6 +52,9 @@ interface ClientFormState {
   billingAddress: string;
   taxId: string;
   currency: string;
+  locale: string;
+  remindersEnabled: boolean;
+  paymentTermsDays: string;
 }
 
 const emptyState = (defaultCurrency: string): ClientFormState => ({
@@ -45,12 +63,15 @@ const emptyState = (defaultCurrency: string): ClientFormState => ({
   billingAddress: '',
   taxId: '',
   currency: defaultCurrency,
+  locale: '',
+  remindersEnabled: true,
+  paymentTermsDays: '',
 });
 
 export function ClientDrawer({
   open,
   client,
-  defaultCurrency = 'KZT',
+  defaultCurrency = FALLBACK_CURRENCY,
   saving,
   onClose,
   onSubmit,
@@ -84,6 +105,10 @@ export function ClientDrawer({
             billingAddress: client.billingAddress || '',
             taxId: client.taxId || '',
             currency: client.currency || defaultCurrency,
+            locale: client.locale || '',
+            remindersEnabled: client.remindersEnabled ?? true,
+            paymentTermsDays:
+              client.paymentTermsDays === null ? '' : String(client.paymentTermsDays),
           }
         : emptyState(defaultCurrency),
     );
@@ -101,6 +126,9 @@ export function ClientDrawer({
       billingAddress: form.billingAddress.trim() || undefined,
       taxId: form.taxId.trim() || undefined,
       currency: form.currency.trim().toUpperCase() || defaultCurrency,
+      locale: form.locale.trim().toLowerCase() || undefined,
+      remindersEnabled: form.remindersEnabled,
+      paymentTermsDays: form.paymentTermsDays.trim() ? Number(form.paymentTermsDays) : undefined,
     });
   };
 
@@ -181,6 +209,54 @@ export function ClientDrawer({
                   {form.currency}
                 </button>
               </div>
+            </div>
+            <div className="lumio-payable-drawer__field-group">
+              <label className="lumio-payable-drawer__field-label" htmlFor="client-terms">
+                {labels.paymentTerms}
+              </label>
+              <Input
+                id="client-terms"
+                inputMode="numeric"
+                value={form.paymentTermsDays}
+                onChange={event =>
+                  setForm(prev => ({
+                    ...prev,
+                    paymentTermsDays: event.target.value.replace(/\D/g, ''),
+                  }))
+                }
+              />
+            </div>
+            <label
+              className="lumio-payable-drawer__field-group"
+              style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}
+            >
+              {/* Off for the clients who always pay on time. */}
+              <input
+                type="checkbox"
+                checked={form.remindersEnabled}
+                onChange={event =>
+                  setForm(prev => ({ ...prev, remindersEnabled: event.target.checked }))
+                }
+              />
+              <span className="lumio-payable-drawer__field-label">{labels.reminders}</span>
+            </label>
+            <div className="lumio-payable-drawer__field-group">
+              {/* The language this client's invoices are written in. */}
+              <label className="lumio-payable-drawer__field-label" htmlFor="client-locale">
+                {labels.locale}
+              </label>
+              <Select
+                fullWidth
+                id="client-locale"
+                value={form.locale || 'default'}
+                onChange={next =>
+                  setForm(prev => ({ ...prev, locale: next === 'default' ? '' : String(next) }))
+                }
+                options={DOCUMENT_LOCALES.map(option => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+              />
             </div>
             <div className="lumio-payable-drawer__field-group">
               <label className="lumio-payable-drawer__field-label" htmlFor="client-billing-address">

@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { CategorizationRule } from '../../../../src/entities/categorization-rule.entity';
 import { Transaction } from '../../../../src/entities/transaction.entity';
+import { WorkspaceMember } from '@/entities/workspace-member.entity';
 import { AuditService } from '../../../../src/modules/audit/audit.service';
 import { CategorizationRulesController } from '../../../../src/modules/classification/categorization-rules.controller';
 import { ClassificationService } from '../../../../src/modules/classification/services/classification.service';
@@ -50,6 +51,10 @@ describe('CategorizationRulesController', () => {
         {
           provide: getRepositoryToken(Transaction),
           useValue: mockTransactionRepository,
+        },
+        {
+          provide: getRepositoryToken(WorkspaceMember),
+          useValue: { exists: jest.fn(async () => true) },
         },
         {
           provide: ClassificationService,

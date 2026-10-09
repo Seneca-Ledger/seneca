@@ -13,24 +13,11 @@ import { Select } from '@/app/components/ui/select';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import { formatStoredDate } from '@/app/lib/user-format-store';
-import { CreateFromStatementsModal } from './components/CreateFromStatementsModal';
 import { CreateTableDialog } from './components/CreateTableDialog';
-import { useCreateFromStatements } from './hooks/useCreateFromStatements';
 import { useCreateTable } from './hooks/useCreateTable';
 import { type SourceFilter, type TableListItem, useTablesList } from './hooks/useTablesList';
 import { buildListLabels, type ListLabels } from './labels';
-
-const formatLabel = ({
-  template,
-  values,
-}: {
-  template: string;
-  values: Record<string, string | number>;
-}) =>
-  Object.entries(values).reduce(
-    (acc, [key, value]) => acc.replace(`{${key}}`, String(value)),
-    template,
-  );
+import type { SourceKind } from './sources';
 
 function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => void) {
   const router = useRouter();
@@ -57,11 +44,16 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         accessorFn: row => row.source,
         header: labels.columns.source,
         size: 150,
-        cell: ({ row }) => (
-          <span className="lumio-ct__badge lumio-ct__badge--neutral">
-            {row.original.source === 'manual' ? labels.actions.sourceManual : row.original.source}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const kind = row.original.sourceBinding?.kind as SourceKind | undefined;
+          let label = row.original.source;
+          if (kind) {
+            label = labels.create.sources[kind]?.name ?? kind;
+          } else if (row.original.source === 'manual') {
+            label = labels.actions.sourceManual;
+          }
+          return <span className="lumio-ct__badge lumio-ct__badge--neutral">{label}</span>;
+        },
       },
       {
         id: 'category',
@@ -145,18 +137,10 @@ export default function CustomTablesPage() {
     columnTitles: labels.create.columnTitles,
     messages: {
       created: labels.toasts.created,
+      createdFromSource: labels.toasts.createdFromSource,
       createFailed: labels.toasts.createFailed,
       applying: labels.create.applying,
       partialFailed: labels.create.partialFailed,
-    },
-  });
-  const fromStatements = useCreateFromStatements({
-    loadTables: list.reload,
-    messages: {
-      loadStatementsFailed: labels.toasts.loadStatementsFailed,
-      selectAtLeastOne: labels.toasts.selectAtLeastOneStatement,
-      createdFromStatement: labels.toasts.createdFromStatement,
-      createFromStatementFailed: labels.toasts.createFromStatementFailed,
     },
   });
   const [deleteTarget, setDeleteTarget] = useState<TableListItem | null>(null);
@@ -180,12 +164,6 @@ export default function CustomTablesPage() {
 
   return (
     <div className="lumio-ct">
-      <header className="lumio-ct__header">
-        <div className="lumio-ct__title-row">
-          <h1 className="lumio-ct__title">{labels.header.title}</h1>
-          <p className="lumio-ct__description">{labels.header.subtitle}</p>
-        </div>
-      </header>
       <div className="lumio-ct__toolbar">
         <label className="lumio-ct__search" data-tour-id="search-bar">
           <Search size={16} aria-hidden className="lumio-ct__search-icon" />
@@ -211,15 +189,6 @@ export default function CustomTablesPage() {
             ]}
           />
           <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            data-tour-id="custom-tables-create-dropdown"
-            onClick={() => void fromStatements.openCreateFromStatements()}
-          >
-            {labels.actions.fromStatements}
-          </Button>
-          <Button
             size="sm"
             type="button"
             data-tour-id="custom-tables-create-export"
@@ -237,7 +206,7 @@ export default function CustomTablesPage() {
           onRowClick={row => router.push(`/custom-tables/${row.original.id}`)}
           emptyState={
             <EmptyState
-              illustration="statements"
+              illustration="tables"
               size="sm"
               title={labels.empty.title}
               description={labels.empty.description}
@@ -265,42 +234,6 @@ export default function CustomTablesPage() {
         onSubmit={() => void create.submit()}
         onClose={create.close}
         labels={labels.create}
-      />
-      <CreateFromStatementsModal
-        open={fromStatements.createFromStatementsOpen}
-        step={fromStatements.createFromStatementsStep}
-        form={fromStatements.createFromStatementsForm}
-        selectedStatementIds={fromStatements.selectedStatementIds}
-        statementsSearchQuery={fromStatements.statementsSearchQuery}
-        statementsSourceFilter={fromStatements.statementsSourceFilter}
-        statementsGroupBy={fromStatements.statementsGroupBy}
-        statementSourceOptions={fromStatements.statementSourceOptions}
-        statementsLoading={fromStatements.statementsLoading}
-        statementSelectionOptions={fromStatements.statementSelectionOptions}
-        groupedStatementSelectionOptions={fromStatements.groupedStatementSelectionOptions}
-        selectedStatementSummary={fromStatements.selectedStatementSummary}
-        selectedStatementPayloadIds={fromStatements.selectedStatementPayloadIds}
-        selectedStatementPreviewItems={fromStatements.selectedStatementPreviewItems}
-        creatingFromStatements={fromStatements.creatingFromStatements}
-        namingHintLabel={labels.createFromStatements.namingHint}
-        labels={labels.createFromStatements}
-        formatLabel={formatLabel}
-        onClose={fromStatements.closeCreateFromStatements}
-        onStepChange={fromStatements.setCreateFromStatementsStep}
-        onFormChange={patch =>
-          fromStatements.setCreateFromStatementsForm(prev => ({ ...prev, ...patch }))
-        }
-        onToggleStatement={({ representativeId, checked }) =>
-          fromStatements.setSelectedStatementIds(prev =>
-            checked
-              ? [...new Set([...prev, representativeId])]
-              : prev.filter(id => id !== representativeId),
-          )
-        }
-        onSearchChange={fromStatements.setStatementsSearchQuery}
-        onSourceFilterChange={fromStatements.setStatementsSourceFilter}
-        onGroupByChange={fromStatements.setStatementsGroupBy}
-        onSubmit={() => void fromStatements.handleCreateFromStatements()}
       />
       <ConfirmModal
         isOpen={deleteTarget !== null}

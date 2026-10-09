@@ -1,3 +1,4 @@
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import type { Transaction } from '../types';
@@ -35,7 +36,9 @@ export function truncateText(text: string, maxLength = 60): string {
 }
 
 export function resolveDisplayCurrency(tx: Transaction, showConverted: boolean): string {
-  return showConverted && tx.convertedCurrency ? tx.convertedCurrency : (tx.currency ?? 'KZT');
+  return showConverted && tx.convertedCurrency
+    ? tx.convertedCurrency
+    : (tx.currency ?? FALLBACK_CURRENCY);
 }
 
 export interface CategoryStyleOptions {

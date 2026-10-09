@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import type { Goal, GoalContribution } from '@/entities';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { GoalsService } from '@/modules/goals/goals.service';
+import { workspaceCurrencyStub } from '../../../helpers/workspace-currency-stub';
 
 const WORKSPACE_ID = 'workspace-1';
 const USER_ID = 'user-1';
@@ -36,9 +37,13 @@ function createService(options: {
   goals?: Goal[];
   contributions?: GoalContribution[];
   totals?: Array<{ goalId: string; total: string }>;
+  monthlyTotals?: Array<{ goalId: string; total: string }>;
 }) {
   const goals = options.goals ?? [];
   const contributions = options.contributions ?? [];
+  // A month-scoped list runs the month sum first and the all-time sum second,
+  // so the stub answers in that order.
+  const pending = options.monthlyTotals ? [options.monthlyTotals] : [];
 
   const queryBuilder: any = {
     select: jest.fn(() => queryBuilder),
@@ -46,7 +51,7 @@ function createService(options: {
     where: jest.fn(() => queryBuilder),
     andWhere: jest.fn(() => queryBuilder),
     groupBy: jest.fn(() => queryBuilder),
-    getRawMany: jest.fn(async () => options.totals ?? []),
+    getRawMany: jest.fn(async () => pending.shift() ?? options.totals ?? []),
   };
 
   const goalRepository = {
@@ -69,10 +74,16 @@ function createService(options: {
   const auditService = { createEvent: jest.fn(async () => ({})) } as any;
 
   return {
-    service: new GoalsService(goalRepository, contributionRepository, auditService),
+    service: new GoalsService(
+      goalRepository,
+      contributionRepository,
+      auditService,
+      workspaceCurrencyStub() as never,
+    ),
     goalRepository,
     contributionRepository,
     auditService,
+    queryBuilder,
   };
 }
 
@@ -105,6 +116,49 @@ describe('GoalsService', () => {
     const results = await service.findAll(WORKSPACE_ID);
 
     expect(results.map(item => item.currentAmount)).toEqual([100, 400]);
+    expect(contributionRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps only the goals that moved in the asked-for month, with that month\'s amount', async () => {
+    const { service, contributionRepository } = createService({
+      goals: [goal(), goal({ id: 'goal-2', name: 'Отпуск' })],
+      monthlyTotals: [{ goalId: 'goal-2', total: '400' }],
+      totals: [{ goalId: 'goal-2', total: '900' }],
+    });
+
+    const results = await service.findAll(WORKSPACE_ID, '2026-02');
+
+    expect(results.map(item => item.id)).toEqual(['goal-2']);
+    expect(results[0]).toMatchObject({ currentAmount: 900, contributedInMonth: 400 });
+    expect(contributionRepository.createQueryBuilder).toHaveBeenCalledTimes(2);
+  });
+
+  it('bounds the month half-open so December rolls into the next year', async () => {
+    const { service, queryBuilder } = createService({
+      goals: [goal()],
+      monthlyTotals: [{ goalId: 'goal-1', total: '50' }],
+      totals: [{ goalId: 'goal-1', total: '50' }],
+    });
+
+    await service.findAll(WORKSPACE_ID, '2026-12');
+
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(expect.stringContaining('>= :start'), {
+      start: '2026-12-01',
+    });
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(expect.stringContaining('< :end'), {
+      end: '2027-01-01',
+    });
+  });
+
+  it('leaves the plain list untouched by the month filter', async () => {
+    const { service, contributionRepository } = createService({
+      goals: [goal()],
+      totals: [{ goalId: 'goal-1', total: '250' }],
+    });
+
+    const [result] = await service.findAll(WORKSPACE_ID);
+
+    expect(result.contributedInMonth).toBeUndefined();
     expect(contributionRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
   });
 

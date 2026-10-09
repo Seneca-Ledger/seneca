@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import { FileStorageService } from '@/common/services/file-storage.service';
 import { Category } from '@/entities/category.entity';
+import { Wallet } from '@/entities/wallet.entity';
 import { ReceiptStatus } from '@/entities/receipt.entity';
 import { BankName, FileType, Statement, StatementStatus } from '@/entities/statement.entity';
 import { TaxRate } from '@/entities/tax-rate.entity';
@@ -25,6 +26,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 jest.mock('@/common/utils/file-hash.util');
 jest.mock('@/common/utils/file-validator.util');
 jest.mock('@/common/utils/filename.util');
@@ -104,6 +106,7 @@ describe('StatementsService', () => {
     testingModule = await Test.createTestingModule({
       providers: [
         StatementsService,
+        workspaceCurrencyProvider(),
         {
           provide: getRepositoryToken(Statement),
           useValue: statementRepositoryMock,
@@ -156,6 +159,10 @@ describe('StatementsService', () => {
             find: jest.fn(),
             findOne: jest.fn(),
           },
+        },
+        {
+          provide: getRepositoryToken(Wallet),
+          useValue: { findOne: jest.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),

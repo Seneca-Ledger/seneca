@@ -263,7 +263,6 @@ function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
           : {}),
       }}
     >
-      {/* The desktop panel lives in the shell (ShellSidePanel), full height beside the sidebar. */}
       <div
         className={isStatementsPage ? 'lumio-statements-shell' : undefined}
         style={{

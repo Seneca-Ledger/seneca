@@ -31,6 +31,8 @@ export function mapApiRecordToTransaction(tx: TransactionApiRecord): Transaction
     category: tx.category,
     branch: tx.branch,
     wallet: tx.wallet,
+    ownerMemberId: tx.ownerMemberId ?? null,
+    isPrivate: tx.isPrivate ?? false,
     splitGroupId: tx.splitGroupId,
     splitIndex: tx.splitIndex,
     categorySource: tx.categorySource,

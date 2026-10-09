@@ -6,6 +6,7 @@ import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { User, WorkspaceMember } from '../../entities';
 import { DataEntry, type DataEntryType } from '../../entities/data-entry.entity';
 import { DataEntryCustomField } from '../../entities/data-entry-custom-field.entity';
+import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import type { CreateDataEntryDto } from './dto/create-data-entry.dto';
 import type { CreateDataEntryCustomFieldDto } from './dto/create-data-entry-custom-field.dto';
 import type { UpdateDataEntryCustomFieldDto } from './dto/update-data-entry-custom-field.dto';
@@ -46,6 +47,7 @@ export class DataEntryService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    private readonly workspaceCurrency: WorkspaceCurrencyService,
   ) {}
 
   private async ensureCanEditDataEntry(workspaceId: string, userId: string): Promise<void> {
@@ -86,7 +88,7 @@ export class DataEntryService {
       date: dto.date,
       amount: dto.amount,
       note: dto.note || null,
-      currency: dto.currency || 'KZT',
+      currency: await this.workspaceCurrency.resolveFor(workspaceId, dto.currency),
       customFieldName,
       customFieldIcon,
       customFieldValue,

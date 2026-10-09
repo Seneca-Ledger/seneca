@@ -20,6 +20,7 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { CheckCircle2, ChevronDown } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { AuditEvent } from '@/lib/api/audit';
 import type {
@@ -339,7 +340,7 @@ export function GmailReceiptDetails({
                     <Typography variant="caption" sx={{ color: 'warning.800' }}>
                       {formatStoredDate(dup.parsedData?.date || dup.receivedAt)} ·{' '}
                       {(dup.parsedData?.amount || 0).toLocaleString()}{' '}
-                      {dup.parsedData?.currency || 'KZT'}
+                      {dup.parsedData?.currency || FALLBACK_CURRENCY}
                     </Typography>
                     <Box sx={{ mt: 1 }}>
                       <Button

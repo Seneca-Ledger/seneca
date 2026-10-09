@@ -40,7 +40,7 @@ vi.mock('@/app/i18n', () => ({
       you: 'You',
       currentMember: 'Current member',
       default: 'Default',
-      workspaceFallback: 'Workspace',
+      workspaceFallback: { value: 'Workspace' },
     },
     columns: {
       name: 'Workspace name',
@@ -48,7 +48,12 @@ vi.mock('@/app/i18n', () => ({
       type: 'Workspace type',
       actions: 'Actions',
     },
-    roles: { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' },
+    roles: {
+      owner: { value: 'Owner' },
+      admin: { value: 'Admin' },
+      member: { value: 'Member' },
+      viewer: { value: 'Viewer' },
+    },
   }),
 }));
 

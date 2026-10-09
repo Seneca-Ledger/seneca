@@ -8,6 +8,7 @@ import type { Repository } from 'typeorm';
 // DataSource is imported as a value, not a type: Nest resolves this constructor
 // parameter from the emitted design:paramtypes metadata, which `import type` erases.
 import { DataSource } from 'typeorm';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { toMinor } from '../../../common/utils/money.util';
 import { extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import { Semaphore } from '../../../common/utils/semaphore.util';
@@ -123,7 +124,8 @@ export class StatementProcessingService {
         : enrichedMetadata.dateTo,
       balanceStart: parserMetadata.balanceStart ?? enrichedMetadata.balanceStart,
       balanceEnd: parserMetadata.balanceEnd ?? enrichedMetadata.balanceEnd,
-      currency: parserMetadata.currency?.trim() || enrichedMetadata.currency || 'KZT',
+      currency:
+        parserMetadata.currency?.trim() || enrichedMetadata.currency || appDefaultCurrency(),
       rawHeader: enrichedMetadata.rawHeader || parserMetadata.rawHeader,
       normalizedHeader: enrichedMetadata.normalizedHeader || parserMetadata.normalizedHeader,
       periodLabel: enrichedMetadata.periodLabel || parserMetadata.periodLabel,
@@ -363,7 +365,7 @@ export class StatementProcessingService {
   ): { valid: ParsedTransaction[]; warnings: string[] } {
     const valid: ParsedTransaction[] = [];
     const warnings: string[] = [];
-    const currencyFallback = (defaultCurrency || '').trim() || 'KZT';
+    const currencyFallback = (defaultCurrency || '').trim() || appDefaultCurrency();
 
     transactions.forEach((tx, index) => {
       const prefix = `tx#${index + 1}`;
@@ -790,7 +792,10 @@ export class StatementProcessingService {
       const rawTransactionCount = parsedStatement.transactions.length;
       const schemaResult = this.enforceTransactionSchema(
         parsedStatement.transactions,
-        parsedStatement.metadata?.currency || statement.currency || workspaceCurrency || 'KZT',
+        parsedStatement.metadata?.currency ||
+          statement.currency ||
+          workspaceCurrency ||
+          appDefaultCurrency(),
         addLog,
         droppedSamples,
       );
@@ -1050,7 +1055,6 @@ export class StatementProcessingService {
             };
           }),
           statement.workspaceId,
-          userId,
         );
 
         log(
@@ -1097,7 +1101,11 @@ export class StatementProcessingService {
         debit: parsed.debit ?? null,
         credit: parsed.credit ?? null,
         amount,
-        currency: parsed.currency || statement.currency || statement.workspace?.currency || 'KZT',
+        currency:
+          parsed.currency ||
+          statement.currency ||
+          statement.workspace?.currency ||
+          appDefaultCurrency(),
         paymentPurpose,
         transactionType,
         workspaceId: statement.workspaceId,
@@ -1130,7 +1138,10 @@ export class StatementProcessingService {
       }
 
       const currency =
-        parsed.currency || statement.currency || statement.workspace?.currency || 'KZT';
+        parsed.currency ||
+        statement.currency ||
+        statement.workspace?.currency ||
+        appDefaultCurrency();
       const exchangeRate = parsed.exchangeRate ?? null;
       const amountForeign = parsed.amountForeign ?? null;
 
@@ -1386,7 +1397,10 @@ export class StatementProcessingService {
     const balanceStart = parsed.metadata.balanceStart ?? null;
     const balanceEnd = parsed.metadata.balanceEnd ?? null;
     const currency =
-      parsed.metadata.currency || currencyFromTransactions || workspaceCurrency || 'KZT';
+      parsed.metadata.currency ||
+      currencyFromTransactions ||
+      workspaceCurrency ||
+      appDefaultCurrency();
 
     return {
       accountNumber,

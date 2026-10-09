@@ -17,8 +17,8 @@ function WorkspaceListRow({ workspace, isDefault, onClick }: ListRowProps): Reac
   const role = workspace.memberRole;
   const roleLabel =
     role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer'
-      ? t.roles[role]
-      : role || t.list.workspaceFallback;
+      ? t.roles[role].value
+      : role || t.list.workspaceFallback.value;
   return (
     <button
       type="button"

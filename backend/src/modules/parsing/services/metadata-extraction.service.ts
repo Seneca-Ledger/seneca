@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { ExtractedMetadata as EnhancedExtractedMetadata } from '../interfaces/enhanced-parsed-statement.interface';
 import { ParsedStatementMetadata } from '../interfaces/parsed-statement.interface';
 
@@ -433,7 +434,7 @@ export class MetadataExtractionService {
     // Default currency
     if (!metadata.currency) {
       metadata.currency = {
-        code: locale === 'ru' ? 'RUB' : 'KZT',
+        code: locale === 'ru' ? 'RUB' : appDefaultCurrency(),
       };
     }
 
@@ -758,7 +759,7 @@ export class MetadataExtractionService {
       accountNumber: extracted.account?.number || '',
       dateFrom: extracted.period?.dateFrom || new Date(),
       dateTo: extracted.period?.dateTo || new Date(),
-      currency: extracted.currency?.code || 'KZT',
+      currency: extracted.currency?.code || appDefaultCurrency(),
       rawHeader: extracted.rawHeader,
       normalizedHeader: extracted.normalizedHeader,
       periodLabel: extracted.period?.label,

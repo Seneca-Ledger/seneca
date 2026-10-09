@@ -313,3 +313,28 @@ describe('GmailReceiptParserService', () => {
     expect(parsed.lineItems).toEqual([]);
   });
 });
+
+describe('GmailReceiptParserService.extractDate', () => {
+  const extract = (text: string): string | undefined =>
+    (
+      new GmailReceiptParserService(new UniversalAmountParser()) as unknown as {
+        extractDate(input: string): string | undefined;
+      }
+    ).extractDate(text);
+
+  it('returns a plausible receipt date in either common layout', () => {
+    expect(extract('Receipt\nDate: 16.02.2026\nTotal 12.00')).toBe('16.02.2026');
+    expect(extract('Issued 2026-02-16 10:31')).toBe('2026-02-16');
+  });
+
+  it('ignores digit runs inside DOIs, page references and impossible dates', () => {
+    expect(extract('doi:10.1145/1250734.1250752 pp. 465-478')).toBeUndefined();
+    expect(extract('ref 11.11.9301 something')).toBeUndefined();
+    expect(extract('31.02.2026 is not a date')).toBeUndefined();
+    expect(extract('see 99.99.2026 or 2026-13-01')).toBeUndefined();
+  });
+
+  it('skips a bogus candidate and keeps looking for a real one', () => {
+    expect(extract('code 12.12.9999\nDate 05.03.2026')).toBe('05.03.2026');
+  });
+});

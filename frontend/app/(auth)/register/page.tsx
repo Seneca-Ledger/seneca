@@ -16,6 +16,7 @@ import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import { syncLocaleFromUser } from '@/app/lib/locale';
 import { safeInternalPath } from '@/app/lib/safe-path';
 import { tokens } from '@/lib/theme-tokens';
+import { AuthHero } from '../AuthHero';
 import AuthLayout from '../AuthLayout';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -112,73 +113,12 @@ function RegisterPageContent(): React.JSX.Element {
       });
   };
 
-  const sideContent = (
-    <Box sx={{ color: 'white' }}>
-      <Typography
-        variant="h2"
-        fontWeight="bold"
-        gutterBottom
-        sx={{
-          fontFamily: 'var(--font-nunito), "Nunito", sans-serif',
-          textShadow: '0 4px 20px rgba(0,0,0,0.3)',
-        }}
-      >
-        {t.rightTitle}
-      </Typography>
-      <Typography variant="h5" sx={{ opacity: 0.9, lineHeight: 1.6 }}>
-        {t.rightTagline}
-      </Typography>
-      <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'center' }}>
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: tokens.radius.md,
-            bgcolor: 'rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255,255,255,0.2)',
-          }}
-        >
-          <Typography variant="subtitle2" fontWeight="bold">
-            {t.featureSecure}
-          </Typography>
-        </Box>
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: tokens.radius.md,
-            bgcolor: 'rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255,255,255,0.2)',
-          }}
-        >
-          <Typography variant="subtitle2" fontWeight="bold">
-            {t.featureTrusted}
-          </Typography>
-        </Box>
-      </Box>
-    </Box>
-  );
+  const sideContent = <AuthHero title={t.rightTitle} tagline={t.rightTagline} />;
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
-      <Box
-        sx={{
-          width: 60,
-          height: 60,
-          borderRadius: tokens.radius.full,
-          bgcolor: 'var(--primary-fill)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mb: 3,
-          mx: 'auto',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-        }}
-      >
-        <Typography variant="h4" color="white" fontWeight="bold">
-          👋
-        </Typography>
-      </Box>
+      {/* The product's own mark, not an emoji: it swaps for dark mode by itself. */}
+      <div className="lumio-auth-logo" role="img" aria-label="Lumio" />
 
       <AuthGreeting />
       <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>

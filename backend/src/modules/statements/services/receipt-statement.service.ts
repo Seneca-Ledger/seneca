@@ -2,15 +2,16 @@ import { BadRequestException, ForbiddenException, Injectable, Logger } from '@ne
 import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import type { Repository } from 'typeorm';
+import { workspaceMemberCanEdit } from '../../../common/authz/workspace-permissions';
 import { appError } from '../../../common/errors/app-error';
 import type { CaptureLocation } from '../../../common/utils/capture-location.util';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { calculateFileHash } from '../../../common/utils/file-hash.util';
 import { getFileTypeFromMime } from '../../../common/utils/file-validator.util';
 import { normalizeFilename } from '../../../common/utils/filename.util';
 import { toMinor } from '../../../common/utils/money.util';
-import { Category, WorkspaceMember, WorkspaceRole } from '../../../entities';
+import { Category, WorkspaceMember } from '../../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../../entities/audit-event.entity';
-import { CategoryType } from '../../../entities/category.entity';
 import { ReceiptStatus } from '../../../entities/receipt.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../../entities/statement.entity';
 import { TaxRate } from '../../../entities/tax-rate.entity';
@@ -84,11 +85,7 @@ export class ReceiptStatementService {
       return;
     }
 
-    if ([WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role)) {
-      return;
-    }
-
-    if (membership.permissions?.canEditStatements === false) {
+    if (!workspaceMemberCanEdit(membership.role, 'canEditStatements', membership.permissions)) {
       throw new ForbiddenException(appError('STATEMENTS_EDIT_FORBIDDEN'));
     }
   }
@@ -169,7 +166,7 @@ export class ReceiptStatementService {
     const merchant =
       String(parsed.vendor || receipt.subject || fileName).trim() || 'Unknown merchant';
     const detectedBankName = ReceiptStatementService.detectBankFromVendor(merchant);
-    const currency = String(parsed.currency || 'KZT')
+    const currency = String(parsed.currency || appDefaultCurrency())
       .trim()
       .toUpperCase();
     const parsedDate = parsed.date ? new Date(parsed.date) : new Date();
@@ -184,19 +181,10 @@ export class ReceiptStatementService {
         })
       : null;
 
-    const fallbackCategory =
-      category ??
-      (await this.categoryRepository.findOne({
-        where: {
-          workspaceId,
-          type: CategoryType.EXPENSE,
-          isEnabled: true,
-        },
-      }));
-
-    if (!fallbackCategory) {
-      throw new BadRequestException('No enabled expense category available for receipt scan');
-    }
+    // Only the category the receipt itself was given. Guessing the first enabled
+    // expense category filed unrelated scans under it (an invoice as "Rent"), and
+    // Review showed that guess as though someone had picked it.
+    const categoryId = category?.id ?? null;
 
     const taxRate = await this.taxRateRepository.findOne({
       where: {
@@ -229,7 +217,7 @@ export class ReceiptStatementService {
       totalDebit: amountValue ?? 0,
       totalCredit: 0,
       currency,
-      categoryId: fallbackCategory.id,
+      categoryId,
       parsingDetails: {
         detectedBy: 'receipt-scan',
         parserUsed: 'receipt-scan',
@@ -250,7 +238,7 @@ export class ReceiptStatementService {
           merchant,
           description: merchant,
           attachments: 1,
-          categoryId: fallbackCategory.id,
+          categoryId,
           taxRateId: taxRate?.id || null,
           taxRateLabel: taxRate
             ? `${taxRate.name} (${Number(taxRate.rate || 0).toFixed(0)}%)`
@@ -285,7 +273,7 @@ export class ReceiptStatementService {
         workspaceId,
         transactionDate,
         amountMinor: toMinor(amountValue),
-        categoryId: fallbackCategory.id,
+        categoryId,
         transactionType,
         transactionNature: null,
         explicitTaxRateId: null,
@@ -302,7 +290,7 @@ export class ReceiptStatementService {
         amount: amountValue,
         currency,
         transactionType,
-        categoryId: fallbackCategory.id,
+        categoryId,
         taxRateId: taxAssignment.taxRateId ?? taxRate?.id ?? null,
         taxRuleId: taxAssignment.taxRuleId,
         taxSource: taxAssignment.taxSource,
@@ -310,7 +298,8 @@ export class ReceiptStatementService {
         taxNetAmount: taxAssignment.taxNetAmount,
         taxReverseCharge: taxAssignment.taxReverseCharge,
         taxNotionalAmount: taxAssignment.taxNotionalAmount,
-        isVerified: true,
+        // Counts once the user approves the receipt; until then it waits in Review.
+        isVerified: false,
       });
 
       await this.transactionRepository.save(transaction);
@@ -330,7 +319,7 @@ export class ReceiptStatementService {
         amount: amountValue,
         currency,
         merchant,
-        categoryId: fallbackCategory.id,
+        categoryId,
         taxRateId: taxRate?.id || null,
       },
       severity: Severity.INFO,

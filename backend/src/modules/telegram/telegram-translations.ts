@@ -680,66 +680,6 @@ const zh: TranslationMap = {
   insight_digest_header: '🔔 Lumio 新提醒',
 };
 
-const ar: TranslationMap = {
-  receipt_photo_received: '📷 تم استلام الصورة، جارٍ قراءة الإيصال…',
-  receipt_photo_done:
-    '🧾 {{vendor}} — {{amount}} {{currency}}. الإيصال بانتظارك في صندوق المراجعة (الحالة: {{status}}).',
-  receipt_photo_unreadable:
-    '🧾 تم حفظ الإيصال لكن تعذّر قراءة المبلغ. إنه بانتظارك في صندوق المراجعة.',
-  receipt_photo_failed: 'تعذّر معالجة الصورة. حاول مجددًا أو ارفعها عبر تطبيق الويب.',
-  expense_text_done:
-    '✅ تم تسجيل {{merchant}} — {{amount}} {{currency}}. اختر الفئة في صندوق المراجعة.',
-  expense_text_unparsed: 'لم أجد مبلغًا. جرّب مثلًا «قهوة 4.50» أو «تاكسي 15 EUR».',
-  expense_text_failed: 'تعذّر تسجيل المصروف. حاول مجددًا.',
-  delete_button: '🗑 حذف',
-  deleted: 'تم الحذف.',
-  delete_failed: 'تعذّر الحذف.',
-  inbound_help:
-    'يمكنك أيضًا:\n• إرسال صورة إيصال — أقرأ المبلغ وأضعه في صندوق المراجعة\n• كتابة مصروف: «قهوة 4.50»، «تاكسي 15 EUR»\n• إرسال كشف PDF — يذهب إلى الاستيراد',
-  connected: '✅ تم ربط Telegram. سنرسل التقارير إلى هذه المحادثة.',
-  start_greeting:
-    '👋 مرحبًا! معرّف Telegram الخاص بك: {{telegramId}}. أضفه في إعدادات الملف الشخصي لتلقي التقارير.',
-  unknown_command: 'أمر غير معروف. استخدم /help لعرض قائمة الأوامر.',
-  telegram_id_unknown: 'تعذّر تحديد معرّف Telegram الخاص بك. حاول مرة أخرى لاحقًا.',
-  user_not_connected:
-    'لا يوجد حساب مرتبط بمعرّف Telegram {{telegramId}}. أضف هذا المعرّف في إعدادات الحساب.',
-  report_failed: 'تعذّر إرسال التقرير. حاول مرة أخرى لاحقًا.',
-  document_telegram_id_unknown: '⚠️ تعذّر تحديد معرّف Telegram الخاص بك. أرسل /start وحاول مرة أخرى.',
-  document_user_not_connected:
-    'لا يوجد حساب مرتبط بمعرّف Telegram {{telegramId}}. أضف المعرّف ومعرّف المحادثة في الإعدادات، أو أرسل /start لرؤية معرّفك.',
-  document_pdf_only: 'يتم دعم ملفات كشف الحساب بصيغة PDF فقط.',
-  document_received: '📥 تم استلام الملف، بدأت المعالجة...',
-  document_processed:
-    '✅ تم قبول الملف وإدراجه في قائمة المعالجة. الحالة: {{status}}. تحقق من النتيجة في تطبيق Lumio على الويب.',
-  document_failed: 'تعذّرت معالجة الملف. حاول مرة أخرى لاحقًا أو ارفعه عبر تطبيق الويب.',
-  help: 'الأوامر المتاحة:\n/start — إظهار معرّف Telegram الخاص بك ورسالة ترحيب\n/help — هذه المساعدة\n/report — التقرير اليومي لليوم\n/report YYYY-MM-DD — تقرير لتاريخ محدد\n/report monthly — تقرير الشهر الحالي\n/goals — تقدّم أهداف الادخار\n/networth — صافي ثروتك الحالي',
-  daily_header: '📅 التقرير اليومي — {{date}}',
-  income_line: '➕ الدخل: {{amount}} ({{count}})',
-  expense_line: '➖ المصروفات: {{amount}} ({{count}})',
-  daily_total: '📊 إجمالي اليوم: {{amount}}',
-  top_income_header: 'أفضل الأطراف المقابلة حسب الدخل:',
-  top_expense_header: 'أعلى فئات المصروفات:',
-  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
-  monthly_header: '🗓️ تقرير {{period}}',
-  monthly_income: '➕ الدخل: {{amount}}',
-  monthly_expense: '➖ المصروفات: {{amount}}',
-  monthly_diff: '📊 الفرق: {{amount}} ({{count}} معاملة)',
-  top_categories_header: 'أعلى فئات المصروفات:',
-  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}}%)',
-  top_counterparties_header: 'أفضل الأطراف المقابلة:',
-  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}}%)',
-  goals_header: '🎯 أهداف الادخار',
-  goals_empty: 'لا توجد أهداف بعد. أنشئ هدفًا في تطبيق Lumio على الويب.',
-  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}}%)',
-  networth_header: '📈 صافي الثروة: {{value}} {{currency}}',
-  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}}%) خلال الفترة',
-  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}}%) خلال الفترة',
-  networth_change_no_percent: 'التغيّر خلال الفترة: {{amount}} {{currency}}',
-  networth_risky_warning:
-    '⚠️ {{percent}}% من الأصول في مخاطرة متوسطة/عالية — أعلى من حد {{threshold}}%',
-  insight_digest_header: '🔔 تنبيه Lumio جديد',
-};
-
 const pl: TranslationMap = {
   receipt_photo_received: '📷 Zdjęcie odebrane, odczytuję paragon…',
   receipt_photo_done:
@@ -1357,6 +1297,943 @@ const id: TranslationMap = {
   insight_digest_header: '🔔 Peringatan Lumio baru',
 };
 
+const da: TranslationMap = {
+  connected: '✅ Telegram forbundet. Vi sender rapporter til denne chat.',
+  start_greeting:
+    '👋 Hej! Dit Telegram-id: {{telegramId}}. Tilføj det i dine profilindstillinger for at begynde at modtage rapporter.',
+  unknown_command: 'Ukendt kommando. Brug /help for at se listen over kommandoer.',
+  telegram_id_unknown: 'Dit Telegram-id kunne ikke bestemmes. Prøv igen senere.',
+  user_not_connected:
+    'Ingen konto er forbundet til Telegram-id {{telegramId}}. Tilføj dette id i dine kontoindstillinger.',
+  report_failed: 'Rapporten kunne ikke sendes. Prøv igen senere.',
+  document_telegram_id_unknown: '⚠️ Dit Telegram-id kunne ikke bestemmes. Send /start og prøv igen.',
+  document_user_not_connected:
+    'Ingen konto er forbundet til Telegram-id {{telegramId}}. Tilføj id og chat-id i dine indstillinger, eller send /start for at se dit id.',
+  document_pdf_only: 'Kun PDF-kontoudtog understøttes.',
+  document_received: '📥 Fil modtaget, behandlingen er begyndt...',
+  document_processed:
+    '✅ Filen er accepteret og sat i kø til behandling. Status: {{status}}. Se resultatet i Lumio-webappen.',
+  document_failed: 'Filen kunne ikke behandles. Prøv igen senere, eller upload den via webappen.',
+  help: 'Tilgængelige kommandoer:\n/start — vis dit Telegram-id og en velkomstbesked\n/help — denne hjælp\n/report — dagens rapport\n/report ÅÅÅÅ-MM-DD — rapport for en bestemt dato\n/report monthly — rapport for den aktuelle måned\n/goals — fremgang på dine opsparingsmål\n/networth — din aktuelle formue',
+  daily_header: '📅 Daglig rapport — {{date}}',
+  income_line: '➕ Indtægter: {{amount}} ({{count}})',
+  expense_line: '➖ Udgifter: {{amount}} ({{count}})',
+  daily_total: '📊 Dagens total: {{amount}}',
+  top_income_header: 'Største modparter efter indtægt:',
+  top_expense_header: 'Største udgiftskategorier:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Rapport for {{period}}',
+  monthly_income: '➕ Indtægter: {{amount}}',
+  monthly_expense: '➖ Udgifter: {{amount}}',
+  monthly_diff: '📊 Forskel: {{amount}} ({{count}} posteringer)',
+  top_categories_header: 'Største udgiftskategorier:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Største modparter:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Opsparingsmål',
+  goals_empty: 'Ingen mål endnu. Opret et i Lumio-webappen.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Formue: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) i perioden',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) i perioden',
+  networth_change_no_percent: 'Ændring i perioden: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % af aktiverne er i mellem/høj risiko — over grænsen på {{threshold}} %',
+  insight_digest_header: '🔔 Ny Lumio-besked',
+  receipt_photo_received: '📷 Foto modtaget, læser kvitteringen…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Kvitteringen venter i gennemgangsindbakken (status: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Kvitteringen er gemt, men beløbet kunne ikke læses. Den venter i gennemgangsindbakken.',
+  receipt_photo_failed: 'Fotoet kunne ikke behandles. Prøv igen, eller upload det i webappen.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} registreret. Vælg en kategori i gennemgangsindbakken.',
+  expense_text_unparsed: 'Jeg kunne ikke finde et beløb. Prøv fx “kaffe 4.50” eller “taxa 15 EUR”.',
+  expense_text_failed: 'Udgiften kunne ikke registreres. Prøv igen.',
+  delete_button: '🗑 Slet',
+  deleted: 'Slettet.',
+  delete_failed: 'Kunne ikke slette.',
+  inbound_help:
+    'Du kan også:\n• sende et foto eller billede af en kvittering — jeg læser beløbet og lægger det i gennemgangsindbakken\n• skrive en udgift: “kaffe 4.50”, “taxa 15 EUR”\n• sende et kontoudtog som PDF — det går til import',
+};
+
+const nb: TranslationMap = {
+  connected: '✅ Telegram tilkoblet. Vi sender rapporter til denne chatten.',
+  start_greeting:
+    '👋 Hei! Din Telegram-ID: {{telegramId}}. Legg den inn i profilinnstillingene for å begynne å motta rapporter.',
+  unknown_command: 'Ukjent kommando. Bruk /help for å se listen over kommandoer.',
+  telegram_id_unknown: 'Kunne ikke fastslå din Telegram-ID. Prøv igjen senere.',
+  user_not_connected:
+    'Ingen konto er koblet til Telegram-ID {{telegramId}}. Legg inn denne ID-en i kontoinnstillingene.',
+  report_failed: 'Kunne ikke sende rapporten. Prøv igjen senere.',
+  document_telegram_id_unknown: '⚠️ Kunne ikke fastslå din Telegram-ID. Send /start og prøv igjen.',
+  document_user_not_connected:
+    'Ingen konto er koblet til Telegram-ID {{telegramId}}. Legg inn ID og chat-ID i innstillingene, eller send /start for å se ID-en din.',
+  document_pdf_only: 'Bare PDF-kontoutskrifter støttes.',
+  document_received: '📥 Fil mottatt, behandlingen har startet...',
+  document_processed:
+    '✅ Filen er godtatt og lagt i kø for behandling. Status: {{status}}. Se resultatet i Lumio-webappen.',
+  document_failed: 'Kunne ikke behandle filen. Prøv igjen senere, eller last den opp via webappen.',
+  help: 'Tilgjengelige kommandoer:\n/start — vis din Telegram-ID og en velkomstmelding\n/help — denne hjelpen\n/report — dagens rapport\n/report ÅÅÅÅ-MM-DD — rapport for en bestemt dato\n/report monthly — rapport for inneværende måned\n/goals — framgang på sparemålene dine\n/networth — din nåværende nettoformue',
+  daily_header: '📅 Daglig rapport — {{date}}',
+  income_line: '➕ Inntekter: {{amount}} ({{count}})',
+  expense_line: '➖ Kostnader: {{amount}} ({{count}})',
+  daily_total: '📊 Dagens sum: {{amount}}',
+  top_income_header: 'Største motparter etter inntekt:',
+  top_expense_header: 'Største utgiftskategorier:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Rapport for {{period}}',
+  monthly_income: '➕ Inntekter: {{amount}}',
+  monthly_expense: '➖ Kostnader: {{amount}}',
+  monthly_diff: '📊 Differanse: {{amount}} ({{count}} transaksjoner)',
+  top_categories_header: 'Største utgiftskategorier:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Største motparter:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Sparemål',
+  goals_empty: 'Ingen mål ennå. Opprett ett i Lumio-webappen.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Nettoformue: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) i perioden',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) i perioden',
+  networth_change_no_percent: 'Endring i perioden: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % av eiendelene er i middels/høy risiko — over terskelen på {{threshold}} %',
+  insight_digest_header: '🔔 Ny Lumio-varsling',
+  receipt_photo_received: '📷 Bilde mottatt, leser kvitteringen…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Kvitteringen venter i gjennomgangsinnboksen (status: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Kvitteringen er lagret, men beløpet kunne ikke leses. Den venter i gjennomgangsinnboksen.',
+  receipt_photo_failed: 'Kunne ikke behandle bildet. Prøv igjen eller last det opp i webappen.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} registrert. Velg en kategori i gjennomgangsinnboksen.',
+  expense_text_unparsed:
+    'Jeg fant ikke noe beløp. Prøv for eksempel “kaffe 4.50” eller “taxi 15 EUR”.',
+  expense_text_failed: 'Kunne ikke registrere utgiften. Prøv igjen.',
+  delete_button: '🗑 Slett',
+  deleted: 'Slettet.',
+  delete_failed: 'Kunne ikke slette.',
+  inbound_help:
+    'Du kan også:\n• sende et bilde av en kvittering — jeg leser beløpet og legger det i gjennomgangsinnboksen\n• skrive en utgift: “kaffe 4.50”, “taxi 15 EUR”\n• sende et kontoutskrift som PDF — det går til import',
+};
+
+const nn: TranslationMap = {
+  connected: '✅ Telegram tilkopla. Vi sender rapportar til denne chatten.',
+  start_greeting:
+    '👋 Hei! Din Telegram-ID: {{telegramId}}. Legg han inn i profilinnstillingane for å byrje å motta rapportar.',
+  unknown_command: 'Ukjend kommando. Bruk /help for å sjå lista over kommandoar.',
+  telegram_id_unknown: 'Kunne ikkje fastslå din Telegram-ID. Prøv igjen seinare.',
+  user_not_connected:
+    'Ingen konto er kopla til Telegram-ID {{telegramId}}. Legg inn denne ID-en i kontoinnstillingane.',
+  report_failed: 'Kunne ikkje sende rapporten. Prøv igjen seinare.',
+  document_telegram_id_unknown: '⚠️ Kunne ikkje fastslå din Telegram-ID. Send /start og prøv igjen.',
+  document_user_not_connected:
+    'Ingen konto er kopla til Telegram-ID {{telegramId}}. Legg inn ID og chat-ID i innstillingane, eller send /start for å sjå ID-en din.',
+  document_pdf_only: 'Berre PDF-kontoutskrifter er støtta.',
+  document_received: '📥 Fil motteken, handsaminga har starta...',
+  document_processed:
+    '✅ Fila er godteken og lagd i kø for handsaming. Status: {{status}}. Sjå resultatet i Lumio-webappen.',
+  document_failed:
+    'Kunne ikkje handsame fila. Prøv igjen seinare, eller last henne opp via webappen.',
+  help: 'Tilgjengelege kommandoar:\n/start — vis din Telegram-ID og ei velkomstmelding\n/help — denne hjelpa\n/report — rapporten for i dag\n/report ÅÅÅÅ-MM-DD — rapport for ein bestemt dato\n/report monthly — rapport for denne månaden\n/goals — framgang på sparemåla dine\n/networth — din noverande nettoformue',
+  daily_header: '📅 Dagleg rapport — {{date}}',
+  income_line: '➕ Inntekter: {{amount}} ({{count}})',
+  expense_line: '➖ Kostnader: {{amount}} ({{count}})',
+  daily_total: '📊 Sum for dagen: {{amount}}',
+  top_income_header: 'Største motpartar etter inntekt:',
+  top_expense_header: 'Største utgiftskategoriar:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Rapport for {{period}}',
+  monthly_income: '➕ Inntekter: {{amount}}',
+  monthly_expense: '➖ Kostnader: {{amount}}',
+  monthly_diff: '📊 Differanse: {{amount}} ({{count}} transaksjonar)',
+  top_categories_header: 'Største utgiftskategoriar:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Største motpartar:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Sparemål',
+  goals_empty: 'Ingen mål enno. Opprett eitt i Lumio-webappen.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Nettoformue: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) i perioden',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) i perioden',
+  networth_change_no_percent: 'Endring i perioden: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % av eigedelane er i middels/høg risiko — over terskelen på {{threshold}} %',
+  insight_digest_header: '🔔 Ny Lumio-varsling',
+  receipt_photo_received: '📷 Bilete motteke, les kvitteringa…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Kvitteringa ventar i gjennomgangsinnboksen (status: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Kvitteringa er lagra, men beløpet kunne ikkje lesast. Ho ventar i gjennomgangsinnboksen.',
+  receipt_photo_failed: 'Kunne ikkje handsame biletet. Prøv igjen eller last det opp i nettappen.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} registrert. Vel ein kategori i gjennomgangsinnboksen.',
+  expense_text_unparsed:
+    'Eg fann ikkje noko beløp. Prøv til dømes “kaffi 4.50” eller “taxi 15 EUR”.',
+  expense_text_failed: 'Kunne ikkje registrere utgifta. Prøv igjen.',
+  delete_button: '🗑 Slett',
+  deleted: 'Sletta.',
+  delete_failed: 'Kunne ikkje slette.',
+  inbound_help:
+    'Du kan òg:\n• sende eit bilete av ei kvittering — eg les beløpet og legg det i gjennomgangsinnboksen\n• skrive ei utgift: “kaffi 4.50”, “taxi 15 EUR”\n• sende eit kontoutdrag som PDF — det går til import',
+};
+
+const fi: TranslationMap = {
+  connected: '✅ Telegram yhdistetty. Lähetämme raportit tähän keskusteluun.',
+  start_greeting:
+    '👋 Hei! Telegram-tunnuksesi: {{telegramId}}. Lisää se profiiliasetuksiin, niin alat saada raportteja.',
+  unknown_command: 'Tuntematon komento. Käytä /help nähdäksesi komentojen luettelon.',
+  telegram_id_unknown: 'Telegram-tunnustasi ei voitu määrittää. Yritä myöhemmin uudelleen.',
+  user_not_connected:
+    'Telegram-tunnukseen {{telegramId}} ei ole liitetty tiliä. Lisää tämä tunnus tilisi asetuksiin.',
+  report_failed: 'Raporttia ei voitu lähettää. Yritä myöhemmin uudelleen.',
+  document_telegram_id_unknown:
+    '⚠️ Telegram-tunnustasi ei voitu määrittää. Lähetä /start ja yritä uudelleen.',
+  document_user_not_connected:
+    'Telegram-tunnukseen {{telegramId}} ei ole liitetty tiliä. Lisää tunnus ja keskustelun tunnus asetuksiin tai lähetä /start nähdäksesi tunnuksesi.',
+  document_pdf_only: 'Vain PDF-muotoiset tiliotteet ovat tuettuja.',
+  document_received: '📥 Tiedosto vastaanotettu, käsittely on aloitettu...',
+  document_processed:
+    '✅ Tiedosto hyväksyttiin ja asetettiin käsittelyjonoon. Tila: {{status}}. Katso tulos Lumion verkkosovelluksesta.',
+  document_failed:
+    'Tiedostoa ei voitu käsitellä. Yritä myöhemmin uudelleen tai lataa se verkkosovelluksessa.',
+  help: 'Käytettävissä olevat komennot:\n/start — näytä Telegram-tunnuksesi ja tervetuloviesti\n/help — tämä ohje\n/report — tämän päivän raportti\n/report VVVV-KK-PP — raportti tietyltä päivältä\n/report monthly — kuluvan kuukauden raportti\n/goals — säästötavoitteidesi edistyminen\n/networth — nykyinen nettovarallisuutesi',
+  daily_header: '📅 Päivän raportti — {{date}}',
+  income_line: '➕ Tulot: {{amount}} ({{count}})',
+  expense_line: '➖ Menot: {{amount}} ({{count}})',
+  daily_total: '📊 Päivän summa: {{amount}}',
+  top_income_header: 'Suurimmat vastapuolet tulojen mukaan:',
+  top_expense_header: 'Suurimmat kulukategoriat:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Raportti jaksolta {{period}}',
+  monthly_income: '➕ Tulot: {{amount}}',
+  monthly_expense: '➖ Menot: {{amount}}',
+  monthly_diff: '📊 Ero: {{amount}} ({{count}} tapahtumaa)',
+  top_categories_header: 'Suurimmat kulukategoriat:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Suurimmat vastapuolet:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Säästötavoitteet',
+  goals_empty: 'Ei vielä tavoitteita. Luo yksi Lumion verkkosovelluksessa.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Nettovarallisuus: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) jaksolla',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) jaksolla',
+  networth_change_no_percent: 'Muutos jaksolla: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % varoista on keskisuuressa/korkeassa riskissä — yli {{threshold}} %:n rajan',
+  insight_digest_header: '🔔 Uusi Lumio-ilmoitus',
+  receipt_photo_received: '📷 Kuva vastaanotettu, luen kuittia…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Kuitti odottaa tarkistuslaatikossa (tila: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Kuitti tallennettiin, mutta summaa ei saatu luettua. Se odottaa tarkistuslaatikossa.',
+  receipt_photo_failed:
+    'Kuvaa ei voitu käsitellä. Yritä uudelleen tai lataa se verkkosovelluksessa.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} kirjattu. Valitse luokka tarkistuslaatikossa.',
+  expense_text_unparsed: 'En löytänyt summaa. Kokeile esimerkiksi “kahvi 4.50” tai “taksi 15 EUR”.',
+  expense_text_failed: 'Kulua ei voitu kirjata. Yritä uudelleen.',
+  delete_button: '🗑 Poista',
+  deleted: 'Poistettu.',
+  delete_failed: 'Poisto epäonnistui.',
+  inbound_help:
+    'Voit myös:\n• lähettää kuvan kuitista — luen summan ja vien sen tarkistuslaatikkoon\n• kirjoittaa kulun: “kahvi 4.50”, “taksi 15 EUR”\n• lähettää tiliotteen PDF-muodossa — se menee tuontiin',
+};
+
+const is: TranslationMap = {
+  connected: '✅ Telegram tengt. Við sendum skýrslur í þetta samtal.',
+  start_greeting:
+    '👋 Hæ! Telegram-kennið þitt: {{telegramId}}. Bættu því við í prófílstillingum til að byrja að fá skýrslur.',
+  unknown_command: 'Óþekkt skipun. Notaðu /help til að sjá lista yfir skipanir.',
+  telegram_id_unknown: 'Ekki var unnt að greina Telegram-kennið þitt. Reyndu aftur síðar.',
+  user_not_connected:
+    'Enginn reikningur er tengdur Telegram-kenninu {{telegramId}}. Bættu þessu kenni við í stillingum reikningsins.',
+  report_failed: 'Ekki var unnt að senda skýrsluna. Reyndu aftur síðar.',
+  document_telegram_id_unknown:
+    '⚠️ Ekki var unnt að greina Telegram-kennið þitt. Sendu /start og reyndu aftur.',
+  document_user_not_connected:
+    'Enginn reikningur er tengdur Telegram-kenninu {{telegramId}}. Bættu kenninu og samtalskenninu við í stillingum, eða sendu /start til að sjá kennið þitt.',
+  document_pdf_only: 'Aðeins PDF-yfirlit eru studd.',
+  document_received: '📥 Skrá móttekin, vinnsla er byrjuð...',
+  document_processed:
+    '✅ Skráin var tekin við og sett í vinnsluröð. Staða: {{status}}. Sjáðu útkomuna í Lumio-vefappinu.',
+  document_failed:
+    'Ekki var unnt að vinna úr skránni. Reyndu aftur síðar eða hlaðið henni upp í vefappinu.',
+  help: 'Tiltækar skipanir:\n/start — sýna Telegram-kennið þitt og kveðju\n/help — þessi hjálp\n/report — skýrsla dagsins\n/report ÁÁÁÁ-MM-DD — skýrsla fyrir tiltekna dagsetningu\n/report monthly — skýrsla fyrir yfirstandandi mánuð\n/goals — framgangur sparnaðarmarkmiða\n/networth — núverandi hrein eign',
+  daily_header: '📅 Dagsskýrsla — {{date}}',
+  income_line: '➕ Tekjur: {{amount}} ({{count}})',
+  expense_line: '➖ Gjöld: {{amount}} ({{count}})',
+  daily_total: '📊 Samtala dagsins: {{amount}}',
+  top_income_header: 'Helstu gagnaðilar eftir tekjum:',
+  top_expense_header: 'Helstu útgjaldakategoríur:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Skýrsla fyrir {{period}}',
+  monthly_income: '➕ Tekjur: {{amount}}',
+  monthly_expense: '➖ Gjöld: {{amount}}',
+  monthly_diff: '📊 Mismunur: {{amount}} ({{count}} færslur)',
+  top_categories_header: 'Helstu útgjaldakategoríur:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Helstu gagnaðilar:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Sparnaðarmarkmið',
+  goals_empty: 'Engin markmið enn. Búðu til eitt í Lumio-vefappinu.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Hrein eign: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) á tímabilinu',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) á tímabilinu',
+  networth_change_no_percent: 'Breyting á tímabilinu: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % eigna eru í miðlungs/mikilli hættu — yfir markinu {{threshold}} %',
+  insight_digest_header: '🔔 Ný Lumio-tilkynning',
+  receipt_photo_received: '📷 Mynd móttekin, les kvittunina…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Kvittunin bíður í yfirferðarhólfinu (staða: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Kvittunin var vistuð en ekki tókst að lesa upphæðina. Hún bíður í yfirferðarhólfinu.',
+  receipt_photo_failed:
+    'Ekki tókst að vinna úr myndinni. Reyndu aftur eða hlaðaðu henni upp í vefforritinu.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} skráð. Veldu flokk í yfirferðarhólfinu.',
+  expense_text_unparsed: 'Ég fann enga upphæð. Prófaðu t.d. „kaffi 4.50“ eða „leigubíll 15 EUR“.',
+  expense_text_failed: 'Ekki tókst að skrá útgjöldin. Reyndu aftur.',
+  delete_button: '🗑 Eyða',
+  deleted: 'Eytt.',
+  delete_failed: 'Ekki tókst að eyða.',
+  inbound_help:
+    'Þú getur líka:\n• sent mynd af kvittun — ég les upphæðina og set hana í yfirferðarhólfið\n• skrifað útgjöld: „kaffi 4.50“, „leigubíll 15 EUR“\n• sent bankayfirlit sem PDF — það fer í innflutning',
+};
+
+const fo: TranslationMap = {
+  connected: '✅ Telegram knýtt. Vit senda frágreiðingar til hetta kjak.',
+  start_greeting:
+    '👋 Hey! Títt Telegram-ID: {{telegramId}}. Legg tað inn í vangamyndarinnstillingarnar fyri at fara at móttaka frágreiðingar.',
+  unknown_command: 'Ókend stýriboð. Brúka /help fyri at síggja listan av stýriboðum.',
+  telegram_id_unknown: 'Fekk ikki staðfest títt Telegram-ID. Royn aftur seinni.',
+  user_not_connected:
+    'Ongin konta er knýtt at Telegram-ID {{telegramId}}. Legg hetta ID inn í kontuinnstillingarnar.',
+  report_failed: 'Fekk ikki sent frágreiðingina. Royn aftur seinni.',
+  document_telegram_id_unknown: '⚠️ Fekk ikki staðfest títt Telegram-ID. Send /start og royn aftur.',
+  document_user_not_connected:
+    'Ongin konta er knýtt at Telegram-ID {{telegramId}}. Legg ID og kjak-ID inn í innstillingarnar, ella send /start fyri at síggja títt ID.',
+  document_pdf_only: 'Bert PDF-kontoúrtøk eru stuðlað.',
+  document_received: '📥 Fíla móttikin, viðgerðin er byrjað...',
+  document_processed:
+    '✅ Fílan er góðkend og sett í bíðirøð til viðgerð. Støða: {{status}}. Síggj úrslitið í Lumio-vevappinum.',
+  document_failed:
+    'Fekk ikki viðgjørt fíluna. Royn aftur seinni, ella legg hana upp gjøgnum vevappin.',
+  help: 'Tøk stýriboð:\n/start — vís títt Telegram-ID og eina vælkomuboð\n/help — henda hjálp\n/report — frágreiðing fyri í dag\n/report ÁÁÁÁ-MM-DD — frágreiðing fyri ein ávísan dag\n/report monthly — frágreiðing fyri henda mánaðin\n/goals — framgongd á sparimálunum tínum\n/networth — tín verandi nettoogn',
+  daily_header: '📅 Daglig frágreiðing — {{date}}',
+  income_line: '➕ Inntøkur: {{amount}} ({{count}})',
+  expense_line: '➖ Útgjøld: {{amount}} ({{count}})',
+  daily_total: '📊 Samlað fyri dagin: {{amount}}',
+  top_income_header: 'Størstu mótpartar eftir inntøku:',
+  top_expense_header: 'Størstu útgjaldsbólkar:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Frágreiðing fyri {{period}}',
+  monthly_income: '➕ Inntøkur: {{amount}}',
+  monthly_expense: '➖ Útgjøld: {{amount}}',
+  monthly_diff: '📊 Munur: {{amount}} ({{count}} posteringar)',
+  top_categories_header: 'Størstu útgjaldsbólkar:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Størstu mótpartar:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Sparimál',
+  goals_empty: 'Ongin mál enn. Stovna eitt í Lumio-vevappinum.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Nettoogn: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) í tíðarskeiðinum',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) í tíðarskeiðinum',
+  networth_change_no_percent: 'Broyting í tíðarskeiðinum: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % av eignunum eru í miðal/høgum vanda — yvir markinum {{threshold}} %',
+  insight_digest_header: '🔔 Nýggj Lumio-fráboðan',
+  receipt_photo_received: '📷 Mynd móttikin, lesi kvittanina…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Kvittanin bíðar í eftirkanningarinnbakkanum (støða: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Kvittanin er goymd, men upphæddin kundi ikki lesast. Hon bíðar í eftirkanningarinnbakkanum.',
+  receipt_photo_failed: 'Myndin kundi ikki viðgerast. Royn aftur ella legg hana upp í vevappini.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} skrásett. Vel ein bólk í eftirkanningarinnbakkanum.',
+  expense_text_unparsed: 'Eg fann onga upphædd. Royn t.d. “kaffi 4.50” ella “taksi 15 EUR”.',
+  expense_text_failed: 'Útreiðslan kundi ikki skrásetast. Royn aftur.',
+  delete_button: '🗑 Strika',
+  deleted: 'Strikað.',
+  delete_failed: 'Kundi ikki strika.',
+  inbound_help:
+    'Tú kanst eisini:\n• senda eina mynd av eini kvittan — eg lesi upphæddina og leggi hana í eftirkanningarinnbakkan\n• skriva eina útreiðslu: “kaffi 4.50”, “taksi 15 EUR”\n• senda eitt kontoyvirlit sum PDF — tað fer til innflutning',
+};
+
+const cs: TranslationMap = {
+  connected: '✅ Telegram připojen. Reporty budeme posílat do tohoto chatu.',
+  start_greeting:
+    '👋 Ahoj! Vaše Telegram ID: {{telegramId}}. Přidejte je v nastavení profilu, abyste začali dostávat reporty.',
+  unknown_command: 'Neznámý příkaz. Seznam příkazů zobrazíte pomocí /help.',
+  telegram_id_unknown: 'Vaše Telegram ID se nepodařilo zjistit. Zkuste to později.',
+  user_not_connected:
+    'K Telegram ID {{telegramId}} není připojen žádný účet. Přidejte toto ID v nastavení účtu.',
+  report_failed: 'Report se nepodařilo odeslat. Zkuste to později.',
+  document_telegram_id_unknown:
+    '⚠️ Vaše Telegram ID se nepodařilo zjistit. Pošlete /start a zkuste to znovu.',
+  document_user_not_connected:
+    'K Telegram ID {{telegramId}} není připojen žádný účet. Přidejte ID a chat ID v nastavení, nebo pošlete /start a zobrazte své ID.',
+  document_pdf_only: 'Podporovány jsou pouze výpisy ve formátu PDF.',
+  document_received: '📥 Soubor přijat, zpracování začalo...',
+  document_processed:
+    '✅ Soubor přijat a zařazen ke zpracování. Stav: {{status}}. Výsledek najdete ve webové aplikaci Lumio.',
+  document_failed:
+    'Soubor se nepodařilo zpracovat. Zkuste to později nebo jej nahrajte ve webové aplikaci.',
+  help: 'Dostupné příkazy:\n/start — zobrazí vaše Telegram ID a vítací zprávu\n/help — tato nápověda\n/report — dnešní denní report\n/report RRRR-MM-DD — report pro určité datum\n/report monthly — report za aktuální měsíc\n/goals — pokrok vašich spořicích cílů\n/networth — vaše aktuální čisté jmění',
+  daily_header: '📅 Denní report — {{date}}',
+  income_line: '➕ Příjmy: {{amount}} ({{count}})',
+  expense_line: '➖ Výdaje: {{amount}} ({{count}})',
+  daily_total: '📊 Celkem za den: {{amount}}',
+  top_income_header: 'Největší protistrany podle příjmu:',
+  top_expense_header: 'Největší kategorie výdajů:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Report za {{period}}',
+  monthly_income: '➕ Příjmy: {{amount}}',
+  monthly_expense: '➖ Výdaje: {{amount}}',
+  monthly_diff: '📊 Rozdíl: {{amount}} ({{count}} transakcí)',
+  top_categories_header: 'Největší kategorie výdajů:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Největší protistrany:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Spořicí cíle',
+  goals_empty: 'Zatím žádné cíle. Vytvořte jeden ve webové aplikaci Lumio.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Čisté jmění: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) za období',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) za období',
+  networth_change_no_percent: 'Změna za období: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % aktiv je ve středním/vysokém riziku — nad limitem {{threshold}} %',
+  insight_digest_header: '🔔 Nové upozornění Lumio',
+  receipt_photo_received: '📷 Fotka přijata, čtu účtenku…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Účtenka čeká ve schránce ke kontrole (stav: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Účtenka je uložená, ale částku se nepodařilo přečíst. Čeká ve schránce ke kontrole.',
+  receipt_photo_failed:
+    'Fotku se nepodařilo zpracovat. Zkuste to znovu nebo ji nahrajte ve webové aplikaci.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} zaznamenáno. Kategorii vyberte ve schránce ke kontrole.',
+  expense_text_unparsed: 'Nenašel jsem částku. Zkuste třeba „káva 4.50“ nebo „taxi 15 EUR“.',
+  expense_text_failed: 'Výdaj se nepodařilo zaznamenat. Zkuste to znovu.',
+  delete_button: '🗑 Smazat',
+  deleted: 'Smazáno.',
+  delete_failed: 'Smazání se nezdařilo.',
+  inbound_help:
+    'Můžete také:\n• poslat fotku účtenky — přečtu částku a dám ji do schránky ke kontrole\n• napsat výdaj: „káva 4.50“, „taxi 15 EUR“\n• poslat výpis v PDF — půjde do importu',
+};
+
+const bg: TranslationMap = {
+  connected: '✅ Telegram е свързан. Ще изпращаме отчети в този чат.',
+  start_greeting:
+    '👋 Здравейте! Вашият Telegram ID: {{telegramId}}. Добавете го в настройките на профила, за да започнете да получавате отчети.',
+  unknown_command: 'Неизвестна команда. Използвайте /help, за да видите списъка с команди.',
+  telegram_id_unknown: 'Вашият Telegram ID не можа да бъде определен. Опитайте по-късно.',
+  user_not_connected:
+    'Към Telegram ID {{telegramId}} няма свързан акаунт. Добавете този ID в настройките на акаунта си.',
+  report_failed: 'Отчетът не можа да бъде изпратен. Опитайте по-късно.',
+  document_telegram_id_unknown:
+    '⚠️ Вашият Telegram ID не можа да бъде определен. Изпратете /start и опитайте отново.',
+  document_user_not_connected:
+    'Към Telegram ID {{telegramId}} няма свързан акаунт. Добавете ID и chat ID в настройките или изпратете /start, за да видите своя ID.',
+  document_pdf_only: 'Поддържат се само извлечения в PDF.',
+  document_received: '📥 Файлът е получен, обработката започна...',
+  document_processed:
+    '✅ Файлът е приет и е в опашка за обработка. Статус: {{status}}. Вижте резултата в уеб приложението Lumio.',
+  document_failed:
+    'Файлът не можа да бъде обработен. Опитайте по-късно или го качете през уеб приложението.',
+  help: 'Налични команди:\n/start — показва вашия Telegram ID и приветствие\n/help — тази помощ\n/report — днешният дневен отчет\n/report ГГГГ-ММ-ДД — отчет за конкретна дата\n/report monthly — отчет за текущия месец\n/goals — напредък по вашите цели за спестяване\n/networth — вашата текуща нетна стойност',
+  daily_header: '📅 Дневен отчет — {{date}}',
+  income_line: '➕ Приходи: {{amount}} ({{count}})',
+  expense_line: '➖ Разходи: {{amount}} ({{count}})',
+  daily_total: '📊 Общо за деня: {{amount}}',
+  top_income_header: 'Най-големи контрагенти по приход:',
+  top_expense_header: 'Най-големи категории разходи:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Отчет за {{period}}',
+  monthly_income: '➕ Приходи: {{amount}}',
+  monthly_expense: '➖ Разходи: {{amount}}',
+  monthly_diff: '📊 Разлика: {{amount}} ({{count}} транзакции)',
+  top_categories_header: 'Най-големи категории разходи:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Най-големи контрагенти:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Цели за спестяване',
+  goals_empty: 'Още няма цели. Създайте една в уеб приложението Lumio.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Нетна стойност: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) за периода',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) за периода',
+  networth_change_no_percent: 'Промяна за периода: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % от активите са в среден/висок риск — над прага от {{threshold}} %',
+  insight_digest_header: '🔔 Ново известие от Lumio',
+  receipt_photo_received: '📷 Снимката е получена, чета касовата бележка…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Бележката чака в кутията за преглед (статус: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Бележката е запазена, но сумата не можа да бъде прочетена. Тя чака в кутията за преглед.',
+  receipt_photo_failed:
+    'Снимката не можа да бъде обработена. Опитайте отново или я качете в уеб приложението.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} записано. Изберете категория в кутията за преглед.',
+  expense_text_unparsed: 'Не намерих сума. Опитайте например „кафе 4.50“ или „такси 15 EUR“.',
+  expense_text_failed: 'Разходът не можа да бъде записан. Опитайте отново.',
+  delete_button: '🗑 Изтрий',
+  deleted: 'Изтрито.',
+  delete_failed: 'Неуспешно изтриване.',
+  inbound_help:
+    'Можете също:\n• да изпратите снимка на касова бележка — ще прочета сумата и ще я сложа в кутията за преглед\n• да напишете разход: „кафе 4.50“, „такси 15 EUR“\n• да изпратите извлечение в PDF — то отива за импорт',
+};
+
+const hr: TranslationMap = {
+  connected: '✅ Telegram je povezan. Izvještaje ćemo slati u ovaj razgovor.',
+  start_greeting:
+    '👋 Zdravo! Vaš Telegram ID: {{telegramId}}. Dodajte ga u postavke profila da počnete primati izvještaje.',
+  unknown_command: 'Nepoznata naredba. Koristite /help za popis naredbi.',
+  telegram_id_unknown: 'Vaš Telegram ID nije bilo moguće odrediti. Pokušajte kasnije.',
+  user_not_connected:
+    'Uz Telegram ID {{telegramId}} nije povezan nijedan račun. Dodajte taj ID u postavke računa.',
+  report_failed: 'Izvještaj nije bilo moguće poslati. Pokušajte kasnije.',
+  document_telegram_id_unknown:
+    '⚠️ Vaš Telegram ID nije bilo moguće odrediti. Pošaljite /start i pokušajte ponovno.',
+  document_user_not_connected:
+    'Uz Telegram ID {{telegramId}} nije povezan nijedan račun. Dodajte ID i chat ID u postavke ili pošaljite /start da vidite svoj ID.',
+  document_pdf_only: 'Podržani su samo izvodi u PDF-u.',
+  document_received: '📥 Datoteka primljena, obrada je počela...',
+  document_processed:
+    '✅ Datoteka je prihvaćena i u redu je za obradu. Status: {{status}}. Rezultat pogledajte u web aplikaciji Lumio.',
+  document_failed:
+    'Datoteku nije bilo moguće obraditi. Pokušajte kasnije ili je prenesite putem web aplikacije.',
+  help: 'Dostupne naredbe:\n/start — prikazuje vaš Telegram ID i poruku dobrodošlice\n/help — ova pomoć\n/report — današnji dnevni izvještaj\n/report GGGG-MM-DD — izvještaj za određeni datum\n/report monthly — izvještaj za tekući mjesec\n/goals — napredak vaših ciljeva štednje\n/networth — vaša trenutna neto vrijednost',
+  daily_header: '📅 Dnevni izvještaj — {{date}}',
+  income_line: '➕ Prihodi: {{amount}} ({{count}})',
+  expense_line: '➖ Troškovi: {{amount}} ({{count}})',
+  daily_total: '📊 Ukupno za dan: {{amount}}',
+  top_income_header: 'Najveće druge strane po prihodu:',
+  top_expense_header: 'Najveće kategorije troškova:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Izvještaj za {{period}}',
+  monthly_income: '➕ Prihodi: {{amount}}',
+  monthly_expense: '➖ Troškovi: {{amount}}',
+  monthly_diff: '📊 Razlika: {{amount}} ({{count}} transakcija)',
+  top_categories_header: 'Najveće kategorije troškova:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Najveće druge strane:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Ciljevi štednje',
+  goals_empty: 'Još nema ciljeva. Napravite jedan u web aplikaciji Lumio.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Neto vrijednost: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) u razdoblju',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) u razdoblju',
+  networth_change_no_percent: 'Promjena u razdoblju: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % imovine je u srednjem/visokom riziku — iznad praga od {{threshold}} %',
+  insight_digest_header: '🔔 Nova obavijest Lumija',
+  receipt_photo_received: '📷 Fotografija primljena, čitam račun…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Račun čeka u sandučiću za pregled (status: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Račun je spremljen, ali iznos nije bilo moguće pročitati. Čeka u sandučiću za pregled.',
+  receipt_photo_failed:
+    'Fotografiju nije bilo moguće obraditi. Pokušajte ponovno ili je učitajte u web-aplikaciji.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} zabilježeno. Odaberite kategoriju u sandučiću za pregled.',
+  expense_text_unparsed: 'Nisam pronašao iznos. Pokušajte npr. „kava 4.50” ili „taksi 15 EUR”.',
+  expense_text_failed: 'Trošak nije bilo moguće zabilježiti. Pokušajte ponovno.',
+  delete_button: '🗑 Izbriši',
+  deleted: 'Izbrisano.',
+  delete_failed: 'Brisanje nije uspjelo.',
+  inbound_help:
+    'Možete i:\n• poslati fotografiju računa — pročitat ću iznos i staviti ga u sandučić za pregled\n• upisati trošak: „kava 4.50”, „taksi 15 EUR”\n• poslati izvod u PDF-u — ide na uvoz',
+};
+
+const sr: TranslationMap = {
+  connected: '✅ Telegram је повезан. Извештаје ћемо слати у овај чет.',
+  start_greeting:
+    '👋 Здраво! Ваш Telegram ID: {{telegramId}}. Додајте га у подешавања профила да почнете да примате извештаје.',
+  unknown_command: 'Непозната команда. Користите /help за списак команди.',
+  telegram_id_unknown: 'Ваш Telegram ID није могуће одредити. Пробајте касније.',
+  user_not_connected:
+    'Уз Telegram ID {{telegramId}} није повезан ниједан рачун. Додајте тај ID у подешавања рачуна.',
+  report_failed: 'Извештај није могуће послати. Пробајте касније.',
+  document_telegram_id_unknown:
+    '⚠️ Ваш Telegram ID није могуће одредити. Пошаљите /start и пробајте поново.',
+  document_user_not_connected:
+    'Уз Telegram ID {{telegramId}} није повезан ниједан рачун. Додајте ID и chat ID у подешавања или пошаљите /start да видите свој ID.',
+  document_pdf_only: 'Подржани су само изводи у PDF-у.',
+  document_received: '📥 Датотека примљена, обрада је почела...',
+  document_processed:
+    '✅ Датотека је прихваћена и у реду је за обраду. Статус: {{status}}. Резултат погледајте у веб апликацији Lumio.',
+  document_failed:
+    'Датотеку није могуће обрадити. Пробајте касније или је пренесите преко веб апликације.',
+  help: 'Доступне команде:\n/start — приказује ваш Telegram ID и поруку добродошлице\n/help — ова помоћ\n/report — данашњи дневни извештај\n/report ГГГГ-ММ-ДД — извештај за одређени датум\n/report monthly — извештај за текући месец\n/goals — напредак ваших циљева штедње\n/networth — ваша тренутна нето вредност',
+  daily_header: '📅 Дневни извештај — {{date}}',
+  income_line: '➕ Приходи: {{amount}} ({{count}})',
+  expense_line: '➖ Трошкови: {{amount}} ({{count}})',
+  daily_total: '📊 Укупно за дан: {{amount}}',
+  top_income_header: 'Највеће друге стране по приходу:',
+  top_expense_header: 'Највеће категорије трошкова:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Извештај за {{period}}',
+  monthly_income: '➕ Приходи: {{amount}}',
+  monthly_expense: '➖ Трошкови: {{amount}}',
+  monthly_diff: '📊 Разлика: {{amount}} ({{count}} трансакција)',
+  top_categories_header: 'Највеће категорије трошкова:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Највеће друге стране:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Циљеви штедње',
+  goals_empty: 'Још нема циљева. Направите један у веб апликацији Lumio.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Нето вредност: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) у периоду',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) у периоду',
+  networth_change_no_percent: 'Промена у периоду: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % активе је у средњем/високом ризику — изнад прага од {{threshold}} %',
+  insight_digest_header: '🔔 Ново обавештење Lumija',
+  receipt_photo_received: '📷 Фотографија примљена, читам рачун…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Рачун чека у сандучету за преглед (статус: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Рачун је сачуван, али износ није могао да се прочита. Чека у сандучету за преглед.',
+  receipt_photo_failed:
+    'Фотографија није могла да се обради. Покушајте поново или је отпремите у веб апликацији.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} забележено. Изаберите категорију у сандучету за преглед.',
+  expense_text_unparsed: 'Нисам пронашао износ. Покушајте нпр. „кафа 4.50” или „такси 15 EUR”.',
+  expense_text_failed: 'Трошак није могао да се забележи. Покушајте поново.',
+  delete_button: '🗑 Обриши',
+  deleted: 'Обрисано.',
+  delete_failed: 'Брисање није успело.',
+  inbound_help:
+    'Можете и:\n• да пошаљете фотографију рачуна — прочитаћу износ и ставити га у сандуче за преглед\n• да упишете трошак: „кафа 4.50”, „такси 15 EUR”\n• да пошаљете извод у PDF-у — иде на увоз',
+};
+
+const sl: TranslationMap = {
+  connected: '✅ Telegram je povezan. Poročila bomo pošiljali v ta klepet.',
+  start_greeting:
+    '👋 Živjo! Vaš Telegram ID: {{telegramId}}. Dodajte ga v nastavitve profila, da začnete prejemati poročila.',
+  unknown_command: 'Neznan ukaz. Seznam ukazov prikažete z /help.',
+  telegram_id_unknown: 'Vašega Telegram ID ni bilo mogoče določiti. Poskusite pozneje.',
+  user_not_connected:
+    'S Telegram ID {{telegramId}} ni povezan noben račun. Dodajte ta ID v nastavitve računa.',
+  report_failed: 'Poročila ni bilo mogoče poslati. Poskusite pozneje.',
+  document_telegram_id_unknown:
+    '⚠️ Vašega Telegram ID ni bilo mogoče določiti. Pošljite /start in poskusite znova.',
+  document_user_not_connected:
+    'S Telegram ID {{telegramId}} ni povezan noben račun. Dodajte ID in chat ID v nastavitve ali pošljite /start, da vidite svoj ID.',
+  document_pdf_only: 'Podprti so samo izpiski v PDF.',
+  document_received: '📥 Datoteka prejeta, obdelava se je začela...',
+  document_processed:
+    '✅ Datoteka je sprejeta in v vrsti za obdelavo. Stanje: {{status}}. Rezultat poglejte v spletni aplikaciji Lumio.',
+  document_failed:
+    'Datoteke ni bilo mogoče obdelati. Poskusite pozneje ali jo naložite v spletni aplikaciji.',
+  help: 'Razpoložljivi ukazi:\n/start — prikaže vaš Telegram ID in pozdravno sporočilo\n/help — ta pomoč\n/report — današnje dnevno poročilo\n/report LLLL-MM-DD — poročilo za določen datum\n/report monthly — poročilo za tekoči mesec\n/goals — napredek vaših ciljev varčevanja\n/networth — vaša trenutna neto vrednost',
+  daily_header: '📅 Dnevno poročilo — {{date}}',
+  income_line: '➕ Prihodki: {{amount}} ({{count}})',
+  expense_line: '➖ Stroški: {{amount}} ({{count}})',
+  daily_total: '📊 Skupaj za dan: {{amount}}',
+  top_income_header: 'Največje nasprotne stranke po prihodku:',
+  top_expense_header: 'Največje kategorije stroškov:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Poročilo za {{period}}',
+  monthly_income: '➕ Prihodki: {{amount}}',
+  monthly_expense: '➖ Stroški: {{amount}}',
+  monthly_diff: '📊 Razlika: {{amount}} ({{count}} transakcij)',
+  top_categories_header: 'Največje kategorije stroškov:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Največje nasprotne stranke:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Cilji varčevanja',
+  goals_empty: 'Še ni ciljev. Ustvarite enega v spletni aplikaciji Lumio.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Neto vrednost: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) v obdobju',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) v obdobju',
+  networth_change_no_percent: 'Sprememba v obdobju: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % sredstev je v srednjem/visokem tveganju — nad pragom {{threshold}} %',
+  insight_digest_header: '🔔 Novo obvestilo Lumia',
+  receipt_photo_received: '📷 Fotografija prejeta, berem račun…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Račun čaka v nabiralniku za pregled (stanje: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Račun je shranjen, vendar zneska ni bilo mogoče prebrati. Čaka v nabiralniku za pregled.',
+  receipt_photo_failed:
+    'Fotografije ni bilo mogoče obdelati. Poskusite znova ali jo naložite v spletni aplikaciji.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} zabeleženo. Izberite kategorijo v nabiralniku za pregled.',
+  expense_text_unparsed: 'Zneska nisem našel. Poskusite npr. »kava 4.50« ali »taksi 15 EUR«.',
+  expense_text_failed: 'Stroška ni bilo mogoče zabeležiti. Poskusite znova.',
+  delete_button: '🗑 Izbriši',
+  deleted: 'Izbrisano.',
+  delete_failed: 'Brisanje ni uspelo.',
+  inbound_help:
+    'Lahko tudi:\n• pošljete fotografijo računa — preberem znesek in ga dam v nabiralnik za pregled\n• vpišete strošek: »kava 4.50«, »taksi 15 EUR«\n• pošljete izpisek v PDF — gre v uvoz',
+};
+
+const mk: TranslationMap = {
+  connected: '✅ Telegram е поврзан. Извештаите ќе ги испраќаме во овој разговор.',
+  start_greeting:
+    '👋 Здраво! Вашиот Telegram ID: {{telegramId}}. Додајте го во поставките на профилот за да почнете да добивате извештаи.',
+  unknown_command: 'Непозната команда. Користете /help за список на команди.',
+  telegram_id_unknown: 'Вашиот Telegram ID не можеше да се определи. Обидете се подоцна.',
+  user_not_connected:
+    'Со Telegram ID {{telegramId}} не е поврзана ниту една сметка. Додајте го овој ID во поставките на сметката.',
+  report_failed: 'Извештајот не можеше да се испрати. Обидете се подоцна.',
+  document_telegram_id_unknown:
+    '⚠️ Вашиот Telegram ID не можеше да се определи. Испратете /start и обидете се повторно.',
+  document_user_not_connected:
+    'Со Telegram ID {{telegramId}} не е поврзана ниту една сметка. Додајте ID и chat ID во поставките или испратете /start за да го видите вашиот ID.',
+  document_pdf_only: 'Поддржани се само изводи во PDF.',
+  document_received: '📥 Датотеката е примена, обработката започна...',
+  document_processed:
+    '✅ Датотеката е примена и е во редица за обработка. Статус: {{status}}. Резултатот погледнете го во веб апликацијата Lumio.',
+  document_failed:
+    'Датотеката не можеше да се обработи. Обидете се подоцна или прикачете ја преку веб апликацијата.',
+  help: 'Достапни команди:\n/start — го прикажува вашиот Telegram ID и поздравна порака\n/help — оваа помош\n/report — денешниот дневен извештај\n/report ГГГГ-ММ-ДД — извештај за одреден датум\n/report monthly — извештај за тековниот месец\n/goals — напредок на вашите цели за штедење\n/networth — вашата тековна нето вредност',
+  daily_header: '📅 Дневен извештај — {{date}}',
+  income_line: '➕ Приходи: {{amount}} ({{count}})',
+  expense_line: '➖ Трошоци: {{amount}} ({{count}})',
+  daily_total: '📊 Вкупно за денот: {{amount}}',
+  top_income_header: 'Најголеми други страни по приход:',
+  top_expense_header: 'Најголеми категории трошоци:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Извештај за {{period}}',
+  monthly_income: '➕ Приходи: {{amount}}',
+  monthly_expense: '➖ Трошоци: {{amount}}',
+  monthly_diff: '📊 Разлика: {{amount}} ({{count}} трансакции)',
+  top_categories_header: 'Најголеми категории трошоци:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Најголеми други страни:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Цели за штедење',
+  goals_empty: 'Сè уште нема цели. Создајте една во веб апликацијата Lumio.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Нето вредност: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) во периодот',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) во периодот',
+  networth_change_no_percent: 'Промена во периодот: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % од активата е во среден/висок риск — над прагот од {{threshold}} %',
+  insight_digest_header: '🔔 Ново известување од Lumio',
+  receipt_photo_received: '📷 Фотографијата е примена, ја читам сметката…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Сметката чека во сандачето за преглед (статус: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Сметката е зачувана, но износот не можеше да се прочита. Чека во сандачето за преглед.',
+  receipt_photo_failed:
+    'Фотографијата не можеше да се обработи. Обидете се повторно или прикачете ја во веб-апликацијата.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} евидентирано. Изберете категорија во сандачето за преглед.',
+  expense_text_unparsed: 'Не најдов износ. Обидете се на пр. „кафе 4.50“ или „такси 15 EUR“.',
+  expense_text_failed: 'Трошокот не можеше да се евидентира. Обидете се повторно.',
+  delete_button: '🗑 Избриши',
+  deleted: 'Избришано.',
+  delete_failed: 'Бришењето не успеа.',
+  inbound_help:
+    'Можете и:\n• да испратите фотографија од сметка — ќе го прочитам износот и ќе ја ставам во сандачето за преглед\n• да напишете трошок: „кафе 4.50“, „такси 15 EUR“\n• да испратите извод во PDF — оди на увоз',
+};
+
+const be: TranslationMap = {
+  connected: '✅ Telegram падключаны. Будзем дасылаць зветы ў гэты чат.',
+  start_greeting:
+    '👋 Прывітанне! Ваш Telegram ID: {{telegramId}}. Дадайце яго ў наладах профілю, каб пачаць атрымліваць зветы.',
+  unknown_command: 'Невядомая каманда. Скарыстайце /help, каб убачыць спіс камандаў.',
+  telegram_id_unknown: 'Не ўдалося вызначыць ваш Telegram ID. Паспрабуйце пазней.',
+  user_not_connected:
+    'З Telegram ID {{telegramId}} не звязаны ніводзін акаўнт. Дадайце гэты ID у наладах акаўнта.',
+  report_failed: 'Не ўдалося даслаць звет. Паспрабуйце пазней.',
+  document_telegram_id_unknown:
+    '⚠️ Не ўдалося вызначыць ваш Telegram ID. Дашліце /start і паспрабуйце зноў.',
+  document_user_not_connected:
+    'З Telegram ID {{telegramId}} не звязаны ніводзін акаўнт. Дадайце ID і chat ID у наладах або дашліце /start, каб убачыць свой ID.',
+  document_pdf_only: 'Падтрымліваюцца толькі выпіскі ў PDF.',
+  document_received: '📥 Файл атрыманы, апрацоўка пачалася...',
+  document_processed:
+    '✅ Файл прыняты і стаў у чаргу на апрацоўку. Стан: {{status}}. Вынік гляньце ў вэб-дадатку Lumio.',
+  document_failed:
+    'Не ўдалося апрацаваць файл. Паспрабуйце пазней або загрузіце яго праз вэб-дадатак.',
+  help: 'Даступныя каманды:\n/start — паказвае ваш Telegram ID і прывітальнае паведамленне\n/help — гэтая даведка\n/report — сённяшні дзённы звет\n/report ГГГГ-ММ-ДД — звет за пэўную дату\n/report monthly — звет за цяперашні месяц\n/goals — прагрэс вашых мэтаў заашчаджэння\n/networth — ваш цяперашні чысты капітал',
+  daily_header: '📅 Дзённы звет — {{date}}',
+  income_line: '➕ Прыбыткі: {{amount}} ({{count}})',
+  expense_line: '➖ Выдаткі: {{amount}} ({{count}})',
+  daily_total: '📊 Разам за дзень: {{amount}}',
+  top_income_header: 'Найбуйнейшыя кантрагенты па прыбытку:',
+  top_expense_header: 'Найбуйнейшыя катэгорыі выдаткаў:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Звет за {{period}}',
+  monthly_income: '➕ Прыбыткі: {{amount}}',
+  monthly_expense: '➖ Выдаткі: {{amount}}',
+  monthly_diff: '📊 Розніца: {{amount}} ({{count}} транзакцый)',
+  top_categories_header: 'Найбуйнейшыя катэгорыі выдаткаў:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Найбуйнейшыя кантрагенты:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Мэты заашчаджэння',
+  goals_empty: 'Мэтаў пакуль няма. Створыце адну ў вэб-дадатку Lumio.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Чысты капітал: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) за перыяд',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) за перыяд',
+  networth_change_no_percent: 'Змена за перыяд: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % актываў у сярэдняй/высокай рызыцы — вышэй за парог {{threshold}} %',
+  insight_digest_header: '🔔 Новае апавяшчэнне Lumio',
+  receipt_photo_received: '📷 Фота атрымана, чытаю чэк…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Чэк чакае ў скрыні праверкі (статус: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Чэк захаваны, але суму не ўдалося прачытаць. Ён чакае ў скрыні праверкі.',
+  receipt_photo_failed:
+    'Не ўдалося апрацаваць фота. Паспрабуйце яшчэ раз або загрузіце яго ў вэб-праграме.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} запісана. Выберыце катэгорыю ў скрыні праверкі.',
+  expense_text_unparsed:
+    'Я не знайшоў суму. Паспрабуйце, напрыклад, «кава 4.50» або «таксі 15 EUR».',
+  expense_text_failed: 'Не ўдалося запісаць выдатак. Паспрабуйце яшчэ раз.',
+  delete_button: '🗑 Выдаліць',
+  deleted: 'Выдалена.',
+  delete_failed: 'Не ўдалося выдаліць.',
+  inbound_help:
+    'Таксама можна:\n• даслаць фота чэка — я прачытаю суму і пакладу яго ў скрыню праверкі\n• напісаць выдатак: «кава 4.50», «таксі 15 EUR»\n• даслаць выпіску ў PDF — яна пойдзе ў імпарт',
+};
+
+const bs: TranslationMap = {
+  connected: '✅ Telegram je povezan. Izvještaje ćemo slati u ovaj razgovor.',
+  start_greeting:
+    '👋 Zdravo! Vaš Telegram ID: {{telegramId}}. Dodajte ga u postavke profila da počnete primati izvještaje.',
+  unknown_command: 'Nepoznata komanda. Koristite /help za listu komandi.',
+  telegram_id_unknown: 'Vaš Telegram ID nije moguće odrediti. Pokušajte kasnije.',
+  user_not_connected:
+    'Uz Telegram ID {{telegramId}} nije povezan nijedan račun. Dodajte taj ID u postavke računa.',
+  report_failed: 'Izvještaj nije moguće poslati. Pokušajte kasnije.',
+  document_telegram_id_unknown:
+    '⚠️ Vaš Telegram ID nije moguće odrediti. Pošaljite /start i pokušajte ponovo.',
+  document_user_not_connected:
+    'Uz Telegram ID {{telegramId}} nije povezan nijedan račun. Dodajte ID i chat ID u postavke ili pošaljite /start da vidite svoj ID.',
+  document_pdf_only: 'Podržani su samo izvodi u PDF-u.',
+  document_received: '📥 Datoteka primljena, obrada je počela...',
+  document_processed:
+    '✅ Datoteka je prihvaćena i u redu je za obradu. Status: {{status}}. Rezultat pogledajte u web aplikaciji Lumio.',
+  document_failed:
+    'Datoteku nije moguće obraditi. Pokušajte kasnije ili je prenesite putem web aplikacije.',
+  help: 'Dostupne komande:\n/start — prikazuje vaš Telegram ID i poruku dobrodošlice\n/help — ova pomoć\n/report — današnji dnevni izvještaj\n/report GGGG-MM-DD — izvještaj za određeni datum\n/report monthly — izvještaj za tekući mjesec\n/goals — napredak vaših ciljeva štednje\n/networth — vaša trenutna neto vrijednost',
+  daily_header: '📅 Dnevni izvještaj — {{date}}',
+  income_line: '➕ Prihodi: {{amount}} ({{count}})',
+  expense_line: '➖ Troškovi: {{amount}} ({{count}})',
+  daily_total: '📊 Ukupno za dan: {{amount}}',
+  top_income_header: 'Najveće druge strane po prihodu:',
+  top_expense_header: 'Najveće kategorije troškova:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Izvještaj za {{period}}',
+  monthly_income: '➕ Prihodi: {{amount}}',
+  monthly_expense: '➖ Troškovi: {{amount}}',
+  monthly_diff: '📊 Razlika: {{amount}} ({{count}} transakcija)',
+  top_categories_header: 'Najveće kategorije troškova:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Najveće druge strane:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Ciljevi štednje',
+  goals_empty: 'Još nema ciljeva. Napravite jedan u web aplikaciji Lumio.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Neto vrijednost: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) u periodu',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) u periodu',
+  networth_change_no_percent: 'Promjena u periodu: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % imovine je u srednjem/visokom riziku — iznad praga od {{threshold}} %',
+  insight_digest_header: '🔔 Nova obavijest Lumija',
+  receipt_photo_received: '📷 Fotografija primljena, čitam račun…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Račun čeka u sandučetu za pregled (status: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Račun je sačuvan, ali iznos nije bilo moguće pročitati. Čeka u sandučetu za pregled.',
+  receipt_photo_failed:
+    'Fotografiju nije bilo moguće obraditi. Pokušajte ponovo ili je učitajte u web aplikaciji.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} zabilježeno. Odaberite kategoriju u sandučetu za pregled.',
+  expense_text_unparsed: 'Nisam pronašao iznos. Pokušajte npr. „kafa 4.50” ili „taksi 15 EUR”.',
+  expense_text_failed: 'Trošak nije bilo moguće zabilježiti. Pokušajte ponovo.',
+  delete_button: '🗑 Izbriši',
+  deleted: 'Izbrisano.',
+  delete_failed: 'Brisanje nije uspjelo.',
+  inbound_help:
+    'Možete i:\n• poslati fotografiju računa — pročitat ću iznos i staviti ga u sanduče za pregled\n• upisati trošak: „kafa 4.50”, „taksi 15 EUR”\n• poslati izvod u PDF-u — ide na uvoz',
+};
+
+const hsb: TranslationMap = {
+  connected: '✅ Telegram je zwjazany. Rozprawy pósćelemy do tutoho chata.',
+  start_greeting:
+    '👋 Witaj! Waš Telegram-ID: {{telegramId}}. Přidajće jón w nastajenjach profila, zo byšće rozprawy dóstawał.',
+  unknown_command: 'Njeznaty přikaz. Wužiwajće /help za lisćinu přikazow.',
+  telegram_id_unknown: 'Waš Telegram-ID njeda so zwěsćić. Spytajće pozdźišo.',
+  user_not_connected:
+    'Z Telegram-ID {{telegramId}} njeje žane konto zwjazane. Přidajće tutón ID w nastajenjach konta.',
+  report_failed: 'Rozprawa njeda so pósłać. Spytajće pozdźišo.',
+  document_telegram_id_unknown:
+    '⚠️ Waš Telegram-ID njeda so zwěsćić. Pósćelće /start a spytajće hišće raz.',
+  document_user_not_connected:
+    'Z Telegram-ID {{telegramId}} njeje žane konto zwjazane. Přidajće ID a chat-ID w nastajenjach abo pósćelće /start, zo byšće swój ID widźał.',
+  document_pdf_only: 'Podpěrane su jenož wupisy w PDF.',
+  document_received: '📥 Dataja dóstata, předźěłanje je započało...',
+  document_processed:
+    '✅ Dataja je přiwzata a w rjedźe za předźěłanje. Status: {{status}}. Wuslědk sej wobhladajće we webappje Lumio.',
+  document_failed: 'Dataja njeda so předźěłać. Spytajće pozdźišo abo nahrajće ju přez webapp.',
+  help: 'K dispoziciji stejace přikazy:\n/start — pokazuje waš Telegram-ID a powitanje\n/help — tuta pomoc\n/report — dźensniša dnjowa rozprawa\n/report LLLL-MM-DD — rozprawa za wěsty datum\n/report monthly — rozprawa za nětčiši měsac\n/goals — postup wašich lutowanskich cilow\n/networth — waša nětčiša netto-hódnota',
+  daily_header: '📅 Dnjowa rozprawa — {{date}}',
+  income_line: '➕ Dochody: {{amount}} ({{count}})',
+  expense_line: '➖ Wudawki: {{amount}} ({{count}})',
+  daily_total: '📊 Dohromady za dźeń: {{amount}}',
+  top_income_header: 'Najwjetše přećiwne strony po dochodźe:',
+  top_expense_header: 'Najwjetše kategorije wudawkow:',
+  list_item: '{{index}}. {{name}} — {{amount}} ({{count}})',
+  monthly_header: '🗓️ Rozprawa za {{period}}',
+  monthly_income: '➕ Dochody: {{amount}}',
+  monthly_expense: '➖ Wudawki: {{amount}}',
+  monthly_diff: '📊 Rozdźěl: {{amount}} ({{count}} transakcijow)',
+  top_categories_header: 'Najwjetše kategorije wudawkow:',
+  category_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  top_counterparties_header: 'Najwjetše přećiwne strony:',
+  counterparty_item: '{{index}}. {{name}} — {{amount}} ({{percent}} %)',
+  goals_header: '🎯 Lutowanske cile',
+  goals_empty: 'Hišće žane cile. Załožće jedyn we webappje Lumio.',
+  goal_item: '{{name}}: {{current}} / {{target}} {{currency}} ({{percent}} %)',
+  networth_header: '📈 Netto-hódnota: {{value}} {{currency}}',
+  networth_change_up: '▲ +{{amount}} {{currency}} (+{{percent}} %) w periodźe',
+  networth_change_down: '▼ {{amount}} {{currency}} ({{percent}} %) w periodźe',
+  networth_change_no_percent: 'Změna w periodźe: {{amount}} {{currency}}',
+  networth_risky_warning:
+    '⚠️ {{percent}} % aktiwow je w srjedźnym/wysokim riziku — nad pragom {{threshold}} %',
+  insight_digest_header: '🔔 Nowe zdźělenje Lumio',
+  receipt_photo_received: '📷 Foto dóstate, čitam kwitowanku…',
+  receipt_photo_done:
+    '🧾 {{vendor}} — {{amount}} {{currency}}. Kwitowanka čaka w kašćiku za přepruwowanje (status: {{status}}).',
+  receipt_photo_unreadable:
+    '🧾 Kwitowanka je składowana, ale sumy njeje so dało čitać. Čaka w kašćiku za přepruwowanje.',
+  receipt_photo_failed:
+    'Foto njeda so předźěłać. Spytajće hišće raz abo nahrajće jo we webowej aplikaciji.',
+  expense_text_done:
+    '✅ {{merchant}} — {{amount}} {{currency}} zapisane. Wubjerće kategoriju w kašćiku za přepruwowanje.',
+  expense_text_unparsed: 'Njejsym sumu namakał. Spytajće na př. „kofej 4.50“ abo „taksi 15 EUR“.',
+  expense_text_failed: 'Wudawk njeda so zapisać. Spytajće hišće raz.',
+  delete_button: '🗑 Zhašeć',
+  deleted: 'Zhašane.',
+  delete_failed: 'Zhašenje njeje so poradźiło.',
+  inbound_help:
+    'Móžeće tež:\n• foto kwitowanki pósłać — čitam sumu a stajam ju do kašćika za přepruwowanje\n• wudawk napisać: „kofej 4.50“, „taksi 15 EUR“\n• wućah jako PDF pósłać — dźe do importa',
+};
+
 export const TELEGRAM_TRANSLATIONS: Record<string, TranslationMap> = {
   ru,
   en,
@@ -1368,7 +2245,6 @@ export const TELEGRAM_TRANSLATIONS: Record<string, TranslationMap> = {
   tr,
   uk,
   zh,
-  ar,
   pl,
   it,
   sk,
@@ -1379,6 +2255,21 @@ export const TELEGRAM_TRANSLATIONS: Record<string, TranslationMap> = {
   sv,
   vi,
   id,
+  da,
+  nb,
+  nn,
+  fi,
+  is,
+  fo,
+  cs,
+  bg,
+  hr,
+  sr,
+  sl,
+  mk,
+  be,
+  bs,
+  hsb,
 };
 
 /** Telegram's own per-user language_code, mapped down to a locale we ship. */

@@ -8,6 +8,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { FormEvent } from 'react';
 import { Alert } from '@/app/components/ui/alert';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { Spinner } from '@/app/components/ui/spinner';
 
 type Passwords = { current: string; next: string; confirm: string };
@@ -47,6 +48,7 @@ export function PasswordSection({
       sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}
       onSubmit={handlePasswordSubmit}
     >
+      <EmptyStateIllustration name="password" size="sm" />
       {passwordMessage && <Alert variant="success">{passwordMessage}</Alert>}
       {passwordError && <Alert variant="error">{passwordError}</Alert>}
       <Alert variant="warning">

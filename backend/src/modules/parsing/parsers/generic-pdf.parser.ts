@@ -1,3 +1,4 @@
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { extractTablesFromPdf, extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
 import { AiTransactionExtractor } from '../helpers/ai-transaction-extractor.helper';
@@ -37,7 +38,7 @@ export class GenericPdfParser extends BaseParser {
 
     const headerInfo = this.extractHeaderFromText(text);
     const localeInfo = this.detectLocale(text);
-    const detectedCurrency = this.detectCurrency(text) || 'KZT';
+    const detectedCurrency = this.detectCurrency(text) || appDefaultCurrency();
     const tableTransactions = mapPdfTableRowsToTransactions(tableRows, {
       defaultCurrency: detectedCurrency,
       stopWords: ['итого', 'оборот', 'остаток'],

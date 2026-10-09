@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, TextField, Typography } from '@mui/material';
+import { Box, TextField } from '@mui/material';
 import { useTheme } from 'next-themes';
 import React from 'react';
 import { FileText, Filter, Folder, Search, Trash2 } from '@/app/components/icons';
@@ -19,8 +19,6 @@ export interface StorageHeaderProps {
   searchQuery: string;
   sortKey: SortKey;
   filtersApplied: boolean;
-  titleLabel: React.ReactNode;
-  subtitleLabel: React.ReactNode;
   searchPlaceholder: string;
   searchFilesLabel: string;
   sortNewest: React.ReactNode;
@@ -50,8 +48,6 @@ export function StorageHeader({
   searchQuery,
   sortKey,
   filtersApplied,
-  titleLabel,
-  subtitleLabel,
   searchPlaceholder,
   searchFilesLabel,
   sortNewest,
@@ -72,92 +68,50 @@ export function StorageHeader({
   onOpenFolderModal,
   onFolderDragOver,
 }: StorageHeaderProps): React.JSX.Element {
-  const { resolvedTheme } = useTheme();
-  const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   return (
     <Box
       sx={{
-        bgcolor: 'background.paper',
-        border: `1px solid ${c.ink150}`,
-        p: 3,
         mb: 3,
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
         alignItems: { md: 'center' },
-        justifyContent: 'space-between',
-        gap: 2,
+        gap: 1.5,
+        position: 'relative',
       }}
     >
-      <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
-          <Box
-            sx={{
-              p: 1,
-              borderRadius: tokens.radius.full,
-              bgcolor: 'rgba(var(--primary-rgb),0.1)',
-              color: 'primary.main',
-            }}
-          >
-            <Folder style={{ width: 24, height: 24 }} />
-          </Box>
-          <Typography component="h1" style={{ fontSize: 22, fontWeight: 700, color: c.ink900 }}>
-            {titleLabel}
-          </Typography>
-        </Box>
-        <Typography style={{ fontSize: 14, color: c.ink500 }}>{subtitleLabel}</Typography>
-      </Box>
-      <Box
-        sx={{
-          display: 'flex',
-          width: { xs: '100%', md: 'auto' },
-          flexDirection: 'column',
-          gap: 1.5,
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            alignItems: { md: 'center' },
-            gap: 1.5,
-            position: 'relative',
-          }}
-        >
-          <StorageTabButtons
-            isTrashView={isTrashView}
-            isFolderActive={isFolderActive}
-            draggingFile={draggingFile}
-            foldersTitleLabel={foldersTitleLabel}
-            tabsAllLabel={tabsAllLabel}
-            tabsTrashLabel={tabsTrashLabel}
-            onListChangeActive={onListChangeActive}
-            onListChangeTrash={onListChangeTrash}
-            onOpenFolderModal={onOpenFolderModal}
-            onFolderDragOver={onFolderDragOver}
-          />
-          <StorageSearchInput
-            searchQuery={searchQuery}
-            searchPlaceholder={searchPlaceholder}
-            searchFilesLabel={searchFilesLabel}
-            onSearchChange={onSearchChange}
-          />
-          <StorageSortSelect
-            sortKey={sortKey}
-            sortNewest={sortNewest}
-            sortOldest={sortOldest}
-            sortNameAsc={sortNameAsc}
-            sortNameDesc={sortNameDesc}
-            sortBankAsc={sortBankAsc}
-            sortBankDesc={sortBankDesc}
-            onSortChange={onSortChange}
-          />
-          <StorageFilterButton
-            filtersApplied={filtersApplied}
-            filtersButtonLabel={filtersButtonLabel}
-            onOpenFilters={onOpenFilters}
-          />
-        </Box>
-      </Box>
+      <StorageTabButtons
+        isTrashView={isTrashView}
+        isFolderActive={isFolderActive}
+        draggingFile={draggingFile}
+        foldersTitleLabel={foldersTitleLabel}
+        tabsAllLabel={tabsAllLabel}
+        tabsTrashLabel={tabsTrashLabel}
+        onListChangeActive={onListChangeActive}
+        onListChangeTrash={onListChangeTrash}
+        onOpenFolderModal={onOpenFolderModal}
+        onFolderDragOver={onFolderDragOver}
+      />
+      <StorageSearchInput
+        searchQuery={searchQuery}
+        searchPlaceholder={searchPlaceholder}
+        searchFilesLabel={searchFilesLabel}
+        onSearchChange={onSearchChange}
+      />
+      <StorageSortSelect
+        sortKey={sortKey}
+        sortNewest={sortNewest}
+        sortOldest={sortOldest}
+        sortNameAsc={sortNameAsc}
+        sortNameDesc={sortNameDesc}
+        sortBankAsc={sortBankAsc}
+        sortBankDesc={sortBankDesc}
+        onSortChange={onSortChange}
+      />
+      <StorageFilterButton
+        filtersApplied={filtersApplied}
+        filtersButtonLabel={filtersButtonLabel}
+        onOpenFilters={onOpenFilters}
+      />
     </Box>
   );
 }

@@ -4,8 +4,9 @@ import * as path from 'node:path';
 import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { type EntityManager, Repository } from 'typeorm';
 import type { CaptureLocation } from '../../common/utils/capture-location.util';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
 import {
   Category,
@@ -24,6 +25,7 @@ import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { ReceiptApprovedEvent } from '../notifications/events/notification-events';
 import { TransactionAttachmentsService } from '../transactions/services/transaction-attachments.service';
+import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptQueryDto } from './dto/receipt-query.dto';
 import {
   attachReceiptCategories,
@@ -89,6 +91,7 @@ export class ReceiptsService {
     private readonly receiptProcessor: ReceiptProcessorService,
     private readonly eventEmitter: EventEmitter2,
     private readonly auditService: AuditService,
+    private readonly workspaceCurrency: WorkspaceCurrencyService,
     @Optional()
     private readonly attachmentsService?: TransactionAttachmentsService,
   ) {}
@@ -282,10 +285,11 @@ export class ReceiptsService {
     userId: string,
     options: { attachTo?: string | null } = {},
   ) {
+    const workspaceCurrency = await this.workspaceCurrency.resolve(workspaceId);
     const result = await this.approveOnce(
       id,
       workspaceId,
-      receipt => this.buildTransactionFromReceipt(receipt, workspaceId),
+      receipt => this.buildTransactionFromReceipt(receipt, workspaceId, workspaceCurrency),
       { ...options, userId },
     );
     if (!result) {
@@ -313,7 +317,7 @@ export class ReceiptsService {
     receipt: Receipt;
     transaction: Transaction;
     created: boolean;
-    /** The receipt was attached to a bank row that already existed. */
+    /** The receipt was attached to a transaction that already existed: a bank row, or its scan's own. */
     attached: boolean;
     previousStatus: ReceiptStatus;
   } | null> {
@@ -342,6 +346,8 @@ export class ReceiptsService {
         }
       }
 
+      const scanTransaction = await this.findScanTransaction(manager, receipt, workspaceId);
+
       // Attach to the bank row the receipt documents (the suggestion, or the
       // one the user picked) instead of booking the expense a second time.
       // `attachTo: null` is the explicit "no, this is a new expense".
@@ -361,16 +367,26 @@ export class ReceiptsService {
         if (taken && taken.id !== receipt.id) {
           throw new ConflictException('Another receipt is already attached to that transaction');
         }
-        if (!target.categoryId && receipt.parsedData?.categoryId) {
+        // The bank row is the real payment; the transaction the scan booked
+        // would count it twice. Flagged, not deleted, like any duplicate.
+        if (scanTransaction && scanTransaction.id !== target.id) {
           await transactions.update(
-            { id: target.id },
-            {
-              categoryId: receipt.parsedData.categoryId,
-              categorySource: TransactionCategorySource.HISTORY,
-              categoryReason: receipt.parsedData.vendor ?? 'receipt',
-            },
+            { id: scanTransaction.id, workspaceId },
+            { isDuplicate: true, duplicateOfId: target.id },
           );
         }
+        // Approving the receipt confirms the bank row it documents.
+        await transactions.update(
+          { id: target.id },
+          !target.categoryId && receipt.parsedData?.categoryId
+            ? {
+                isVerified: true,
+                categoryId: receipt.parsedData.categoryId,
+                categorySource: TransactionCategorySource.HISTORY,
+                categoryReason: receipt.parsedData.vendor ?? 'receipt',
+              }
+            : { isVerified: true },
+        );
         const previousStatus = receipt.status;
         receipt.status = ReceiptStatus.APPROVED;
         receipt.transactionId = target.id;
@@ -384,7 +400,35 @@ export class ReceiptsService {
         };
       }
 
-      const transaction = await transactions.save(transactions.create(buildTransaction(receipt)));
+      // A scan booked its transaction at upload; approving confirms it with the
+      // receipt as it stands now instead of booking the expense again.
+      if (scanTransaction) {
+        await transactions.update(
+          { id: scanTransaction.id, workspaceId },
+          {
+            ...scanTransactionUpdate(buildTransaction(receipt), Boolean(receipt.parsedData?.date)),
+            isVerified: true,
+          },
+        );
+        const previousStatus = receipt.status;
+        receipt.status = ReceiptStatus.APPROVED;
+        receipt.transactionId = scanTransaction.id;
+        const saved = await receipts.save(receipt);
+        const confirmed = await transactions.findOneOrFail({
+          where: { id: scanTransaction.id, workspaceId },
+        });
+        return {
+          receipt: saved,
+          transaction: confirmed,
+          created: false,
+          attached: true,
+          previousStatus,
+        };
+      }
+
+      const transaction = await transactions.save(
+        transactions.create({ ...buildTransaction(receipt), isVerified: true }),
+      );
       const previousStatus = receipt.status;
       receipt.status = ReceiptStatus.APPROVED;
       receipt.transactionId = transaction.id;
@@ -408,12 +452,40 @@ export class ReceiptsService {
     return result;
   }
 
+  /**
+   * The transaction a scan upload booked for this receipt. Only a scan's own
+   * statement qualifies: a bank statement uploaded through the scan holds
+   * unrelated rows.
+   */
+  private async findScanTransaction(
+    manager: EntityManager,
+    receipt: Receipt,
+    workspaceId: string,
+  ): Promise<Transaction | null> {
+    if (!receipt.statementId) {
+      return null;
+    }
+    const statement = await manager.getRepository(Statement).findOne({
+      where: { id: receipt.statementId, workspaceId },
+      select: ['id', 'parsingDetails'],
+    });
+    if (statement?.parsingDetails?.detectedBy !== 'receipt-scan') {
+      return null;
+    }
+    return manager
+      .getRepository(Transaction)
+      .findOne({ where: { statementId: statement.id, workspaceId } });
+  }
+
   async bulkApprove(
     receiptIds: string[],
     workspaceId: string,
     userId: string,
     categoryId?: string,
   ) {
+    // Resolved once for the batch: a receipt whose parse found no currency is
+    // booked in the workspace's own.
+    const workspaceCurrency = await this.workspaceCurrency.resolve(workspaceId);
     const results = {
       approved: 0,
       failed: 0,
@@ -442,7 +514,8 @@ export class ReceiptsService {
         const approved = await this.approveOnce(
           receiptId,
           workspaceId,
-          locked => this.buildTransactionFromReceipt(locked, workspaceId, categoryId),
+          locked =>
+            this.buildTransactionFromReceipt(locked, workspaceId, workspaceCurrency, categoryId),
           { userId },
         );
         if (!approved) {
@@ -718,6 +791,7 @@ export class ReceiptsService {
   private buildTransactionFromReceipt(
     receipt: Receipt,
     workspaceId: string,
+    workspaceCurrency: string,
     categoryId?: string,
   ): Partial<Transaction> {
     const transactionType =
@@ -732,7 +806,7 @@ export class ReceiptsService {
       counterpartyName: receipt.parsedData?.vendor || receipt.subject || 'Unknown',
       paymentPurpose: receipt.parsedData?.vendor || receipt.subject || '',
       amount: receipt.parsedData?.amount ?? null,
-      currency: receipt.parsedData?.currency || 'KZT',
+      currency: currencyCodeOrDefault(receipt.parsedData?.currency, workspaceCurrency),
       categoryId: categoryId ?? (receipt.parsedData?.categoryId || null),
       transactionType,
     };
@@ -753,4 +827,28 @@ export function receiptAuditSnapshot(receipt: Receipt): Record<string, unknown> 
     statementId: receipt.statementId ?? null,
     transactionId: receipt.transactionId ?? null,
   };
+}
+
+/**
+ * The receipt's fields for its scan's transaction. The transaction keeps its
+ * statement, and a field the receipt lacks keeps its value: no amount parsed,
+ * or no date (the builder would fall back to today).
+ */
+function scanTransactionUpdate(
+  fields: Partial<Transaction>,
+  hasDate: boolean,
+): Partial<Transaction> {
+  const { statementId: _statementId, workspaceId: _workspaceId, transactionDate, ...rest } = fields;
+  const update: Partial<Transaction> = Object.fromEntries(
+    Object.entries(rest).filter(([, value]) => value !== null && value !== undefined),
+  );
+  if (hasDate) {
+    update.transactionDate = transactionDate;
+  }
+  if (typeof update.amount === 'number') {
+    const isExpense = update.transactionType !== TransactionType.INCOME;
+    update.debit = isExpense ? update.amount : null;
+    update.credit = isExpense ? null : update.amount;
+  }
+  return update;
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { isLowConfidenceDocument, normalizeReceiptLineItems } from '@/app/lib/financial-document';
 import type { AuditEvent } from '@/lib/api/audit';
 import { fetchEntityHistory } from '@/lib/api/audit';
@@ -170,7 +171,7 @@ export function useGmailReceiptData({
       setCategories(categoriesResponse.data || []);
       setEditedData({
         amount: parsedAmount || undefined,
-        currency: nextReceipt.parsedData?.currency || 'KZT',
+        currency: nextReceipt.parsedData?.currency || FALLBACK_CURRENCY,
         vendor: nextReceipt.parsedData?.vendor || '',
         date: nextReceipt.parsedData?.date || '',
         tax: nextReceipt.parsedData?.tax,
@@ -212,7 +213,7 @@ export function useGmailReceiptData({
   const hasDisabledCategory = selectedCategory?.isEnabled === false;
   const hasCategoryIssues = !hasCategory || hasDisabledCategory;
 
-  const currency = editedData.currency || receipt?.parsedData?.currency || 'KZT';
+  const currency = editedData.currency || receipt?.parsedData?.currency || FALLBACK_CURRENCY;
   const lineItemsTotal = editedData.lineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
   const amount =
     editedData.lineItems.length > 0

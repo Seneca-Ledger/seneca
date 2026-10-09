@@ -5,10 +5,10 @@
   display: flex;
   flex-direction: column;
   gap: $lumio-space-4;
-  padding: $lumio-space-4 $lumio-space-4 $lumio-space-6;
+  padding: var(--lumio-page-top, #{$lumio-space-4}) $lumio-space-4 $lumio-space-6;
 
   @include respond-to('md') {
-    padding: $lumio-space-3 $lumio-space-3 $lumio-space-5;
+    padding: var(--lumio-page-top, #{$lumio-space-3}) $lumio-space-3 $lumio-space-5;
   }
 
   // ---- header -------------------------------------------------------------
@@ -312,6 +312,16 @@
 
     &--required {
       box-shadow: inset 0 0 0 1px $lumio-color-warning;
+    }
+
+    // Ячейка, которую импорт оставил текстом: видно до первой правки.
+    &--issue {
+      background-color: $lumio-color-warning-soft;
+      box-shadow: inset 0 0 0 1px $lumio-color-warning;
+
+      @include dark {
+        background-color: rgba(245, 158, 11, 0.16);
+      }
     }
   }
 
@@ -678,9 +688,47 @@
   &__map-head,
   &__map-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     gap: $lumio-space-2;
     align-items: center;
+  }
+
+  &__map-type {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  &__map-chip {
+    flex: none;
+    font-size: $lumio-font-size-xs;
+    color: $lumio-color-ink-500;
+    white-space: nowrap;
+    cursor: help;
+
+    &--warning {
+      color: $lumio-color-warning;
+    }
+  }
+
+  &__import-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $lumio-space-3;
+  }
+
+  &__hint--warning {
+    color: $lumio-color-warning;
+  }
+
+  &__preview-warning {
+    background-color: $lumio-color-warning-soft;
+
+    @include dark {
+      background-color: rgba(245, 158, 11, 0.16);
+    }
   }
 
   &__map-head {
@@ -862,6 +910,21 @@
     }
   }
 
+  // Card illustration: large enough to be what the eye lands on first. The green
+  // reads as the accent of the dialog in both themes (--primary is the button
+  // green in light, the dark-theme accent in dark).
+  &__template-icon {
+    display: flex;
+    margin-bottom: $lumio-space-2;
+    color: var(--primary);
+
+    svg {
+      display: block;
+      width: 56px;
+      height: 56px;
+    }
+  }
+
   &__template-name {
     font-weight: $lumio-font-weight-semibold;
   }
@@ -870,6 +933,296 @@
   &__template-count {
     font-size: $lumio-font-size-xs;
     color: $lumio-color-ink-500;
+  }
+}
+
+// "Start from" switcher and the app data source panel of the create dialog.
+.lumio-ct {
+  &__label--quiet {
+    font-weight: $lumio-font-weight-medium;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  &__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $lumio-space-2 $lumio-space-3;
+  }
+
+  &__section-title {
+    margin: 0;
+    font-size: $lumio-font-size-sm;
+    font-weight: $lumio-font-weight-semibold;
+    color: $lumio-color-ink-600;
+
+    @include dark {
+      color: $lumio-color-ink-300;
+    }
+  }
+
+  &__start {
+    gap: $lumio-space-3;
+    margin-top: $lumio-space-2;
+  }
+
+  &__mode-tabs {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: $lumio-radius-full;
+    background: $lumio-color-surface-muted;
+
+    @include dark {
+      background: $lumio-color-surface-muted-dk;
+    }
+  }
+
+  &__mode-tab {
+    padding: 4px 12px;
+    border: 0;
+    border-radius: $lumio-radius-full;
+    background: none;
+    font: inherit;
+    font-size: $lumio-font-size-xs;
+    font-weight: $lumio-font-weight-semibold;
+    color: $lumio-color-ink-500;
+    cursor: pointer;
+
+    &[aria-selected='true'] {
+      background: $lumio-color-surface;
+      color: $lumio-color-text-primary;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+
+      @include dark {
+        background: $lumio-color-surface-dk;
+        color: $lumio-color-ink-100;
+      }
+    }
+  }
+
+  // Flatter cards: a hairline instead of a box, so the grid reads as options, not panels.
+  &__template {
+    border-color: $lumio-color-ink-150;
+    transition: border-color 120ms ease;
+
+    @include dark {
+      border-color: $lumio-color-ink-150-dk;
+    }
+
+    &:hover {
+      border-color: $lumio-color-ink-300;
+
+      @include dark {
+        border-color: $lumio-color-ink-200-dk;
+      }
+    }
+  }
+
+  &__source-panel {
+    display: flex;
+    flex-direction: column;
+    gap: $lumio-space-3;
+  }
+
+  &__source-section {
+    display: flex;
+    flex-direction: column;
+    gap: $lumio-space-3;
+    padding: $lumio-space-3 $lumio-space-4;
+    border-radius: $lumio-radius-md;
+    background: $lumio-color-surface-muted;
+
+    @include dark {
+      background: $lumio-color-surface-muted-dk;
+    }
+  }
+
+  &__source-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: $lumio-space-3;
+  }
+
+  &__preview-count {
+    font-size: $lumio-font-size-sm;
+    color: $lumio-color-ink-600;
+
+    @include dark {
+      color: $lumio-color-ink-300;
+    }
+  }
+
+  &__preview-note {
+    margin: 0;
+    font-size: $lumio-font-size-xs;
+    color: $lumio-color-ink-500;
+  }
+
+  &__preview-scroll {
+    overflow: auto;
+    border: 1px solid $lumio-color-ink-150;
+    border-radius: $lumio-radius-sm;
+    background: $lumio-color-surface;
+
+    @include dark {
+      border-color: $lumio-color-ink-150-dk;
+      background: $lumio-color-surface-dk;
+    }
+  }
+
+  &__preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $lumio-font-size-xs;
+
+    th,
+    td {
+      padding: 8px 12px;
+      text-align: left;
+      white-space: nowrap;
+      border-bottom: 1px solid $lumio-color-ink-100;
+
+      @include dark {
+        border-bottom-color: $lumio-color-ink-150-dk;
+      }
+    }
+
+    th {
+      font-weight: $lumio-font-weight-medium;
+      color: $lumio-color-ink-500;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+  }
+
+  &__preview-cell--numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// Formula editor: autocomplete list under the input and the live example line.
+.lumio-ct {
+  &__formula {
+    position: relative;
+  }
+
+  &__formula-suggest {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 2;
+    width: min(100%, 360px);
+    max-height: 240px;
+    margin: 4px 0 0;
+    padding: 4px;
+    overflow: auto;
+    list-style: none;
+    border: 1px solid $lumio-color-ink-200;
+    border-radius: $lumio-radius-md;
+    background: $lumio-color-surface;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+    @include dark {
+      border-color: $lumio-color-ink-200-dk;
+      background: $lumio-color-surface-dk;
+    }
+  }
+
+  &__formula-option {
+    display: flex;
+    justify-content: space-between;
+    gap: $lumio-space-3;
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: $lumio-radius-sm;
+    background: none;
+    font: inherit;
+    font-size: $lumio-font-size-sm;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      background: $lumio-color-ink-50;
+
+      @include dark {
+        background: $lumio-color-ink-50-dk;
+      }
+    }
+  }
+
+  &__formula-hint {
+    font-family: $lumio-font-family-mono;
+    font-size: $lumio-font-size-xs;
+    color: $lumio-color-ink-500;
+  }
+
+  &__formula-preview {
+    font-family: $lumio-font-family-mono;
+  }
+
+  &__hint--error {
+    color: $lumio-color-danger;
+  }
+}
+
+// Summaries under the grid: whole-table formulas as small labelled values.
+.lumio-ct {
+  &__summaries {
+    display: flex;
+    flex-direction: column;
+    gap: $lumio-space-2;
+    margin-top: $lumio-space-3;
+  }
+
+  &__summary-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $lumio-space-2;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__summary {
+    display: inline-flex;
+    align-items: center;
+    gap: $lumio-space-2;
+    padding: 4px 6px 4px 12px;
+    border: 1px solid $lumio-color-ink-150;
+    border-radius: $lumio-radius-full;
+    background: $lumio-color-surface-muted;
+    font-size: $lumio-font-size-sm;
+
+    @include dark {
+      border-color: $lumio-color-ink-150-dk;
+      background: $lumio-color-surface-muted-dk;
+    }
+
+    &--error &-value {
+      color: $lumio-color-danger;
+    }
+  }
+
+  &__summary-title {
+    color: $lumio-color-ink-500;
+  }
+
+  &__summary-value {
+    font-weight: $lumio-font-weight-semibold;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__summary-actions {
+    display: inline-flex;
   }
 }
 

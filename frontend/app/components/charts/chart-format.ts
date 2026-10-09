@@ -35,6 +35,11 @@ export function formatDayLabel(key: string, locale: string): string {
   }).format(parseKey(key));
 }
 
+/** `3 Oct` — no year, for dense X axis ticks on a daily chart. */
+export function formatShortDayLabel(key: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(parseKey(key));
+}
+
 /** The `month` of the point a chart click landed on (Recharts reports its index), if any. */
 export function monthAtIndex(
   points: ReadonlyArray<{ month: string }>,

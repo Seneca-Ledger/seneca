@@ -39,12 +39,7 @@ function DetailBody({
 
   return (
     <>
-      <ProtocolIntegrationPage
-        {...config}
-        embedded
-        hideHeading
-        onConnectionStatusChange={onConnectionChange}
-      />
+      <ProtocolIntegrationPage {...config} embedded onConnectionStatusChange={onConnectionChange} />
       {secondary ? (
         <>
           <Divider sx={{ my: 2 }} />
@@ -56,7 +51,7 @@ function DetailBody({
               {secondary.description}
             </Typography>
           </Box>
-          <ProtocolIntegrationPage {...secondary} embedded hideHeading />
+          <ProtocolIntegrationPage {...secondary} embedded />
         </>
       ) : null}
     </>

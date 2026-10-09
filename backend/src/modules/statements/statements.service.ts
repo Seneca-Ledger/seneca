@@ -21,6 +21,7 @@ import { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { calculateFileHash } from '../../common/utils/file-hash.util';
 import { resolveFileType, validateFile } from '../../common/utils/file-validator.util';
@@ -28,7 +29,7 @@ import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/
 import { toMinor } from '../../common/utils/money.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
-import { Category, WorkspaceMember, WorkspaceRole } from '../../entities';
+import { Category, Wallet, WorkspaceMember, WorkspaceRole } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { CategoryType } from '../../entities/category.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../entities/statement.entity';
@@ -43,6 +44,7 @@ import type {
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
+import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import type { ConvertDroppedSampleDto } from './dto/convert-dropped-sample.dto';
 import type { CreateManualExpenseDto } from './dto/create-manual-expense.dto';
 import type { FilterStatementsDto } from './dto/filter-statements.dto';
@@ -170,6 +172,8 @@ export class StatementsService {
     private readonly taxRateRepository: Repository<TaxRate>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    @InjectRepository(Wallet)
+    private readonly walletRepository: Repository<Wallet>,
     private readonly fileStorageService: FileStorageService,
     private statementProcessingService: StatementProcessingService,
     private readonly statementParsingQueue: StatementParsingQueue,
@@ -177,6 +181,7 @@ export class StatementsService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
     private readonly taxAssignmentService: TaxAssignmentService,
+    private readonly workspaceCurrency: WorkspaceCurrencyService,
     private readonly eventEmitter?: EventEmitter2,
   ) {}
 
@@ -283,6 +288,15 @@ export class StatementsService {
     return value;
   }
 
+  /** Who owns the wallet, or null when it is shared. */
+  private async walletOwnerMemberId(walletId: string): Promise<string | null> {
+    const wallet = await this.walletRepository.findOne({
+      where: { id: walletId },
+      select: ['ownerMemberId'],
+    });
+    return wallet?.ownerMemberId ?? null;
+  }
+
   private normalizePositiveAmount(value: number | string | null | undefined): number | null {
     if (value === null || value === undefined || value === '') {
       return null;
@@ -337,7 +351,7 @@ export class StatementsService {
       throw new BadRequestException('Merchant is required');
     }
 
-    const currency = (payload.currency || 'KZT').trim().toUpperCase();
+    const currency = await this.workspaceCurrency.resolveFor(workspaceId, payload.currency);
     if (!currency) {
       throw new BadRequestException('Currency is required');
     }
@@ -632,6 +646,9 @@ export class StatementsService {
       | Record<string, string | number | null | undefined>
       | undefined;
 
+    const walletId =
+      payload.transaction.walletId || (originalTransaction?.walletId as string) || null;
+
     const transaction = this.transactionRepository.create({
       workspaceId,
       statementId: statement.id,
@@ -659,11 +676,10 @@ export class StatementsService {
       debit: debit ?? null,
       credit: credit ?? null,
       amount,
-      currency:
-        payload.transaction.currency?.trim() ||
-        String(originalTransaction?.currency || '').trim() ||
-        statement.currency ||
-        'KZT',
+      currency: currencyCodeOrDefault(
+        payload.transaction.currency || String(originalTransaction?.currency || ''),
+        statement.currency,
+      ),
       paymentPurpose:
         payload.transaction.paymentPurpose?.trim() ||
         String(originalTransaction?.paymentPurpose || '').trim() ||
@@ -671,7 +687,9 @@ export class StatementsService {
       categoryId:
         payload.transaction.categoryId || (originalTransaction?.categoryId as string) || null,
       branchId: payload.transaction.branchId || (originalTransaction?.branchId as string) || null,
-      walletId: payload.transaction.walletId || (originalTransaction?.walletId as string) || null,
+      walletId,
+      // Same rule as the import path: the row starts on whoever owns the wallet.
+      ownerMemberId: walletId ? await this.walletOwnerMemberId(walletId) : null,
       article: payload.transaction.article || (originalTransaction?.article as string) || null,
       comments: payload.transaction.comments || (originalTransaction?.comments as string) || null,
       transactionType,
@@ -749,6 +767,10 @@ export class StatementsService {
     // без него два одновременных аплоада одного файла (double-submit, retry)
     // оба проходили check-then-act и создавали дубль выписки с транзакциями.
     // Уникальный индекс тут не подходит — allowDuplicates легально обходит проверку.
+    // Parsing replaces it with the currency the file states; until then the
+    // statement carries the workspace's own (the column has no default).
+    const currency = await this.workspaceCurrency.resolve(workspaceId);
+
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       const statements = manager.getRepository(Statement);
       await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
@@ -792,6 +814,7 @@ export class StatementsService {
         fileSize: file.size,
         fileHash,
         bankName: BankName.OTHER, // Will be determined during parsing
+        currency,
         status: StatementStatus.UPLOADED,
         parsingDetails: requireManualCategorySelection
           ? {

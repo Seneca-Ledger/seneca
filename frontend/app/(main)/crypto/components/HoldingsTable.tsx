@@ -16,6 +16,9 @@ type HoldingsTableLabels = {
   balance: string;
   price: string;
   worth: string;
+  avgCost: string;
+  unrealized: string;
+  basisUnknown: string;
 };
 
 type HoldingsTableProps = {
@@ -26,6 +29,39 @@ type HoldingsTableProps = {
 };
 
 const numberCell = { fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' } as const;
+
+/**
+ * Profit not taken yet, against what the coins cost. An asset with no purchase on
+ * record shows nothing rather than a gain measured from zero.
+ */
+function GainCell({
+  holding,
+  money,
+}: {
+  holding: CryptoHolding;
+  money: (value: number) => string;
+}): React.JSX.Element {
+  if (holding.unrealized === null) {
+    return <span>—</span>;
+  }
+  const positive = holding.unrealized >= 0;
+  return (
+    <Typography
+      component="span"
+      variant="body2"
+      sx={{ color: positive ? 'var(--ff-dash-success)' : 'var(--ff-dash-critical)' }}
+    >
+      {positive ? '+' : ''}
+      {money(holding.unrealized)}
+      {holding.unrealizedPercent === null ? null : (
+        <Typography component="span" variant="caption" sx={{ ml: 0.75, color: 'text.secondary' }}>
+          {positive ? '+' : ''}
+          {holding.unrealizedPercent}%
+        </Typography>
+      )}
+    </Typography>
+  );
+}
 
 export function HoldingsTable({
   holdings,
@@ -38,16 +74,18 @@ export function HoldingsTable({
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ px: 2, pt: 2, pb: 1 }}>
+      <Typography variant="subtitle1" fontWeight={600} sx={{ px: 3, pt: 3, pb: 1.5 }}>
         {labels.title}
       </Typography>
       <Box sx={{ overflowX: 'auto' }}>
-        <Table size="small">
+        <Table size="small" sx={{ '& td, & th': { px: 3 } }}>
           <TableHead>
             <TableRow>
               <TableCell>{labels.asset}</TableCell>
               <TableCell align="right">{labels.balance}</TableCell>
               <TableCell align="right">{labels.price}</TableCell>
+              <TableCell align="right">{labels.avgCost}</TableCell>
+              <TableCell align="right">{labels.unrealized}</TableCell>
               <TableCell align="right">{labels.worth}</TableCell>
             </TableRow>
           </TableHead>
@@ -67,6 +105,18 @@ export function HoldingsTable({
                 </TableCell>
                 <TableCell align="right" sx={{ ...numberCell, color: 'text.secondary' }}>
                   {money(holding.price)}
+                </TableCell>
+                <TableCell align="right" sx={{ ...numberCell, color: 'text.secondary' }}>
+                  {holding.avgCost === null ? (
+                    <Typography component="span" variant="body2" color="text.disabled">
+                      {labels.basisUnknown}
+                    </Typography>
+                  ) : (
+                    money(holding.avgCost)
+                  )}
+                </TableCell>
+                <TableCell align="right" sx={numberCell}>
+                  <GainCell holding={holding} money={money} />
                 </TableCell>
                 <TableCell align="right" sx={{ ...numberCell, fontWeight: 600 }}>
                   {money(holding.value)}

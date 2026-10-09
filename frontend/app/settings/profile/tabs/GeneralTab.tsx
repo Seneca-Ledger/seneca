@@ -7,9 +7,12 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Palette, UserCircle } from '@/app/components/icons';
+import { useLanguageSelection } from '@/app/components/navigation/hooks/useLanguageSelection';
+import { LanguageDrawer } from '@/app/components/navigation/LanguageDrawer';
 import { Alert } from '@/app/components/ui/alert';
-import { useLocale } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { formatTimeZoneLabel } from '@/app/lib/timezone';
 import {
   AppearanceSection,
@@ -34,8 +37,17 @@ import type { SettingsTabProps } from './types';
 
 // eslint-disable-next-line max-lines-per-function
 export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.JSX.Element {
-  const { locale } = useLocale();
+  const { locale, availableLocales, setLocale } = useLocale();
   const { t, tx } = useSettingsText();
+  const { userMenu, languageModal } = useIntlayer('navigation');
+
+  const language = useLanguageSelection({
+    locale,
+    availableLocales,
+    setLocale,
+    languageModal,
+    setMobileMenuOpen: () => {},
+  });
   const openSection = resolveOpenSection('general', section);
 
   const [isTimeZoneModalOpen, setIsTimeZoneModalOpen] = useState(false);
@@ -216,6 +228,10 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
           setProfileError={setProfileError}
           hasProfileChanges={hasProfileChanges}
           handleProfileSubmit={handleProfileSubmit}
+          languageLabel={language.languageLabel}
+          languageFieldLabel={resolveLabel(userMenu.language, 'Language')}
+          isLanguageDrawerOpen={language.languageModalOpen}
+          onOpenLanguageDrawer={language.openLanguageMenu}
           isTimeZoneModalOpen={isTimeZoneModalOpen}
           setIsTimeZoneModalOpen={setIsTimeZoneModalOpen}
           setTimeZoneSearch={setTimeZoneSearch}
@@ -245,6 +261,17 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
           setShowDailyQuote={setShowDailyQuote}
         />
       </SettingsAccordion>
+
+      <LanguageDrawer
+        isOpen={language.languageModalOpen}
+        onClose={language.closeLanguageMenu}
+        languageModal={languageModal}
+        languageSearch={language.languageSearch}
+        setLanguageSearch={language.setLanguageSearch}
+        filteredLanguages={language.filteredLanguages}
+        normalizedLocale={language.normalizedLocale}
+        handleLanguageSelect={language.handleLanguageSelect as (code: string) => void}
+      />
 
       <TimeZoneDrawer
         isOpen={isTimeZoneModalOpen}

@@ -1,10 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import { gmailReceiptsApi } from '@/app/lib/api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { getQueryClient } from '@/app/lib/query-client';
 import type {
   EditableReceiptData,
   GmailReceipt,
@@ -53,6 +55,7 @@ export function useGmailReceiptActions({
   setEditedData,
 }: UseGmailReceiptActionsProps): UseGmailReceiptActionsReturn {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useIntlayer('gmailReceiptPage');
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -108,11 +111,16 @@ export function useGmailReceiptActions({
       await gmailReceiptsApi.approveReceipt(receipt.id, {
         description: editedData.vendor || receipt.parsedData?.vendor || receipt.subject,
         amount,
-        currency: editedData.currency || receipt.parsedData?.currency || 'KZT',
+        currency: editedData.currency || receipt.parsedData?.currency || FALLBACK_CURRENCY,
         date: editedData.date || receipt.parsedData?.date || receipt.receivedAt,
       });
       toast.success(t.toasts.submitted.value);
-      await refreshReceipt();
+      // It leaves the Review queue; both lists are cached for 30s.
+      const queryClient = getQueryClient();
+      void queryClient.invalidateQueries({ queryKey: ['gmail-receipts'] });
+      void queryClient.invalidateQueries({ queryKey: ['statements'] });
+      void queryClient.invalidateQueries({ queryKey: ['review-inbox'] });
+      router.push(searchParams.get('from') === 'review' ? '/review' : '/statements/submit');
     })()
       .catch(async error => {
         console.error('Failed to submit receipt', error);

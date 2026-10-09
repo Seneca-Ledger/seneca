@@ -32,6 +32,7 @@ const facts = (overrides: Partial<TransactionFacts> = {}): TransactionFacts => (
   taxReverseCharge: false,
   taxNotionalAmount: null,
   isDuplicate: false,
+  isVerified: true,
   cryptoWalletId: null,
   categoryId: 'cat-1',
   branchId: null,
@@ -118,6 +119,12 @@ describe('ledger posting rules', () => {
 
     it('duplicate: not booked at all', () => {
       expect(transactionLegs(facts({ isDuplicate: true }), ACCOUNTS)).toEqual({ skip: 'duplicate' });
+    });
+
+    it('unconfirmed: not booked until the user approves it in Review', () => {
+      expect(transactionLegs(facts({ isVerified: false }), ACCOUNTS)).toEqual({
+        skip: 'unconfirmed',
+      });
     });
 
     it('opening balance: Dr cash / Cr opening-balance equity', () => {

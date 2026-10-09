@@ -57,7 +57,7 @@ describe('AlertBanner', () => {
     const link = await screen.findByRole('link');
     expect(link).toHaveAttribute(
       'href',
-      '/statements/top-categories?focus=category%3Amarketing%20and%20advertising',
+      '/reports?tab=cash-flow&focus=category%3Amarketing%20and%20advertising',
     );
     expect(link).toHaveTextContent('Category is rising');
   });

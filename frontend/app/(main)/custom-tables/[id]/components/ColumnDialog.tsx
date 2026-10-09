@@ -5,8 +5,9 @@ import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { Select } from '@/app/components/ui/select';
 import type { ColumnDialogState, ColumnDraft } from '../hooks/useColumnEditor';
 import { COLOR_PRESETS } from '../utils/colorPalette';
-import type { ColumnType, SelectOptionDef } from '../utils/types';
+import type { ColumnType, CustomTableColumn, SelectOptionDef } from '../utils/types';
 import { OptionChip } from './cells/SelectEditors';
+import { FormulaEditor } from './FormulaEditor';
 
 export interface ColumnDialogLabels {
   addTitle: string;
@@ -22,6 +23,9 @@ export interface ColumnDialogLabels {
   formatPercent: string;
   expression: string;
   expressionHint: string;
+  formulaPreview: string;
+  formulaNoRows: string;
+  formulaChecking: string;
   options: string;
   optionPlaceholder: string;
   addOption: string;
@@ -39,6 +43,9 @@ interface ColumnDialogProps {
   draft: ColumnDraft;
   setDraft: React.Dispatch<React.SetStateAction<ColumnDraft>>;
   saving: boolean;
+  tableId: string | null;
+  /** Existing columns: formula autocomplete offers them by title. */
+  columns: CustomTableColumn[];
   relationTargets: Array<{ id: string; name: string }>;
   onSave: () => void;
   onClose: () => void;
@@ -129,11 +136,14 @@ function OptionsEditor({
 }
 
 function TypeFields({
+  state,
   draft,
   setDraft,
+  tableId,
+  columns,
   relationTargets,
   labels,
-}: Omit<ColumnDialogProps, 'state' | 'saving' | 'onSave' | 'onClose'>) {
+}: Omit<ColumnDialogProps, 'saving' | 'onSave' | 'onClose'>) {
   const patch = (next: Partial<ColumnDraft>) => setDraft(prev => ({ ...prev, ...next }));
   return (
     <>
@@ -176,16 +186,14 @@ function TypeFields({
         </div>
       ) : null}
       {draft.type === 'formula' ? (
-        <label className="lumio-ct__field lumio-ct__field--wide">
-          <span className="lumio-ct__label">{labels.expression}</span>
-          <input
-            className="lumio-ct__input lumio-ct__input--mono"
-            value={draft.expression}
-            placeholder="[amount] * [qty]"
-            onChange={event => patch({ expression: event.target.value })}
-          />
-          <span className="lumio-ct__hint">{labels.expressionHint}</span>
-        </label>
+        <FormulaEditor
+          tableId={tableId}
+          columnKey={state.mode === 'edit' ? state.column.key : null}
+          columns={columns}
+          value={draft.expression}
+          onChange={expression => patch({ expression })}
+          labels={labels}
+        />
       ) : null}
       {draft.type === 'relation' ? (
         <div className="lumio-ct__field lumio-ct__field--wide">

@@ -55,6 +55,7 @@ import { NotificationsService } from '../../src/modules/notifications/notificati
 import { ReportsService } from '../../src/modules/reports/reports.service';
 import { TransactionsService } from '../../src/modules/transactions/transactions.service';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
+import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace-currency.service';
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
@@ -213,6 +214,7 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
         BalanceService,
         DashboardService,
         BudgetsService,
+        WorkspaceCurrencyService,
         ReportsService,
         { provide: TaxAssignmentService, useValue: { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } },
         { provide: AuditService, useValue: auditStub },
@@ -312,6 +314,8 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
       debit: amount,
       credit: null,
       currency: 'KZT',
+      // Only confirmed rows count in any aggregate.
+      isVerified: true,
       categoryId,
     });
 
@@ -332,6 +336,7 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
         debit: null,
         credit: 50000,
         currency: 'KZT',
+        isVerified: true,
       }),
     );
 

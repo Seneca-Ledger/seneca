@@ -5,6 +5,7 @@ import {
   isReceiptDerivedStatement,
   paginateStatements,
   reconcileFiltersWithColumns,
+  resolvePendingReview,
   resolveStatementViewAction,
 } from './StatementsListView.utils';
 import { DEFAULT_STATEMENT_FILTERS } from './filters/statement-filters';
@@ -252,6 +253,24 @@ describe('StatementsListView utils', () => {
     expect(result.nextDraftFilters).toEqual({
       ...DEFAULT_STATEMENT_FILTERS,
       keywords: 'keep',
+    });
+  });
+
+  describe('resolvePendingReview', () => {
+    const counts = { 'statement-1': 3 };
+
+    it("counts a statement's rows still waiting in Review", () => {
+      expect(resolvePendingReview({ id: 'statement-1', status: 'completed' }, false, counts)).toBe(3);
+      expect(resolvePendingReview({ id: 'statement-2', status: 'completed' }, false, counts)).toBe(0);
+    });
+
+    it('counts a receipt as one until it is approved, rejected or failed', () => {
+      for (const status of ['new', 'parsed', 'needs_review', 'draft', 'reviewed']) {
+        expect(resolvePendingReview({ id: 'r', status }, true, counts)).toBe(1);
+      }
+      for (const status of ['approved', 'rejected', 'failed']) {
+        expect(resolvePendingReview({ id: 'r', status }, true, counts)).toBe(0);
+      }
     });
   });
 });

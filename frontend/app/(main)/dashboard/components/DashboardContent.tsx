@@ -3,6 +3,7 @@
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import type React from 'react';
+import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import type { DashboardTabId } from '../helpers/dashboard-url-state';
 import { DashboardErrorBanner } from './DashboardErrorBanner';
@@ -72,13 +73,10 @@ type DashboardContentProps = {
   activeTab: DashboardTabId;
   setActiveTab: (tab: DashboardTabId) => void;
   formatAmount: (value: number) => string;
-  statusHeading: string;
-  greetingSubtitle: string;
   periodBanner: string | null;
   displayMonth: Date;
   changeMonth: (year: number, month: number) => void;
   locale: string;
-  exportMenu: unknown;
   headerLabels: React.ComponentProps<typeof DashboardHeader>['labels'];
 };
 
@@ -90,13 +88,10 @@ export function DashboardContent({
   activeTab,
   setActiveTab,
   formatAmount,
-  statusHeading,
-  greetingSubtitle,
   periodBanner,
   displayMonth,
   changeMonth,
   locale,
-  exportMenu,
   headerLabels,
 }: DashboardContentProps): React.JSX.Element {
   if (error) {
@@ -110,18 +105,16 @@ export function DashboardContent({
   return (
     <>
       <DashboardHeader
-        statusHeading={statusHeading}
-        greetingSubtitle={greetingSubtitle}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         displayMonth={displayMonth}
         changeMonth={changeMonth}
         locale={locale}
         periodBanner={periodBanner}
-        exportMenu={exportMenu}
         labels={headerLabels}
       />
       <MissingRatesBanner currencies={data.snapshot?.missingRates ?? []} />
+      <UnconfirmedNotice style={{ margin: '0 16px 12px' }} />
       <DashboardTabContent
         activeTab={activeTab}
         data={data}

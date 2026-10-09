@@ -6,6 +6,7 @@ import {
   categoryColorFor,
   resolveCategoryVisual,
 } from './category-defaults';
+import { categoryIconFor } from './category-icon-choices';
 import systemCategories from './systemCategories.content';
 
 describe('category-defaults', () => {
@@ -33,6 +34,13 @@ describe('category-defaults', () => {
     const visual = resolveCategoryVisual({ name: 'Groceries', color: null });
     expect(visual.color).toBe(NEUTRAL_CATEGORY_COLOR);
     expect(visual.Icon).toBe(CATEGORY_DEFAULTS.uncategorized.Icon);
+    expect(visual.iconUrl).toBeNull();
+  });
+
+  it('uses an icon picked in the category editor over the default by name', () => {
+    const visual = resolveCategoryVisual({ name: 'Rent', icon: 'mdi:airplane' });
+    expect(visual.Icon).toBe(categoryIconFor('mdi:airplane'));
+    expect(visual.Icon).not.toBe(CATEGORY_DEFAULTS.rent.Icon);
     expect(visual.iconUrl).toBeNull();
   });
 

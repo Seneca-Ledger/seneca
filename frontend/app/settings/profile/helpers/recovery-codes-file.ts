@@ -5,7 +5,7 @@ import { format as formatDate } from 'date-fns';
 export type RecoveryCodesFileFormat = 'pdf' | 'docx';
 
 export type RecoveryCodesFileContent = {
-  /** UI locale: `ar` lays the document out right to left, as the app does. */
+  /** UI locale: picks where words may break when a line is drawn by the browser. */
   locale: string;
   title: string;
   /** Short lines under the title, e.g. the account and the generation date. */
@@ -31,13 +31,10 @@ type PdfMakeLike = {
   ): { getBlob(callback: (blob: Blob) => void): void };
 };
 
-const isRtl = (locale: string): boolean => locale.startsWith('ar');
-
 /**
  * What the Roboto bundled with pdfmake 0.2 draws, checked glyph by glyph against the
  * font: Latin with Vietnamese and Romanian letters, Cyrillic with Kazakh, dashes,
- * quotes, the euro sign. It has no CJK, Hangul, Devanagari or Arabic, and pdfmake
- * can neither shape Arabic nor lay it out right to left.
+ * quotes, the euro sign. It has no CJK, Hangul or Devanagari.
  */
 const ROBOTO_TEXT =
   /^[\u0020-\u007e\u00a0-\u017f\u01a0\u01a1\u01af\u01b0\u0218-\u021b\u0400-\u0486\u0488-\u04ff\u1ea0-\u1ef9\u2000-\u200b\u2010\u2011\u2013-\u2015\u2018-\u201e\u2020-\u2022\u2026\u20ac\u2116]*$/;
@@ -65,7 +62,7 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, locale: string):
 }
 
 /**
- * Draws the text with the browser, whose fonts, shaping and bidi cover every script
+ * Draws the text with the browser, whose fonts and shaping cover every script
  * the app ships in. The PDF gets it as an image; the codes themselves never need this.
  */
 function drawText(
@@ -88,10 +85,8 @@ function drawText(
   ctx.font = font;
   ctx.fillStyle = style.color ?? '#000000';
   ctx.textBaseline = 'middle';
-  ctx.direction = isRtl(locale) ? 'rtl' : 'ltr';
-  ctx.textAlign = isRtl(locale) ? 'right' : 'left';
   lines.forEach((line, index) => {
-    ctx.fillText(line, isRtl(locale) ? canvas.width : 0, (index + 0.5) * lineHeight);
+    ctx.fillText(line, 0, (index + 0.5) * lineHeight);
   });
   return {
     image: canvas.toDataURL('image/png'),
@@ -101,9 +96,7 @@ function drawText(
 }
 
 function pdfLine(text: string, style: LineStyle, locale: string): Record<string, unknown> {
-  return ROBOTO_TEXT.test(text)
-    ? { text, ...style, alignment: isRtl(locale) ? 'right' : 'left' }
-    : drawText(text, style, locale);
+  return ROBOTO_TEXT.test(text) ? { text, ...style } : drawText(text, style, locale);
 }
 
 async function buildPdf(content: RecoveryCodesFileContent): Promise<Blob> {
@@ -123,7 +116,6 @@ async function buildPdf(content: RecoveryCodesFileContent): Promise<Blob> {
       ...content.codes.map(code => ({
         text: code,
         fontSize: 15,
-        alignment: isRtl(locale) ? 'right' : 'left',
         margin: [0, 3, 0, 3],
       })),
     ],
@@ -135,7 +127,6 @@ async function buildPdf(content: RecoveryCodesFileContent): Promise<Blob> {
 
 async function buildDocx(content: RecoveryCodesFileContent): Promise<Blob> {
   const { Document, HeadingLevel, Packer, Paragraph, TextRun } = await import('docx');
-  const rtl = isRtl(content.locale);
   const document = new Document({
     title: content.title,
     sections: [
@@ -143,27 +134,22 @@ async function buildDocx(content: RecoveryCodesFileContent): Promise<Blob> {
         children: [
           new Paragraph({
             heading: HeadingLevel.HEADING_1,
-            bidirectional: rtl,
-            children: [new TextRun({ text: content.title, rightToLeft: rtl })],
+            children: [new TextRun({ text: content.title })],
           }),
           ...content.details.map(
             line =>
               new Paragraph({
-                bidirectional: rtl,
-                children: [new TextRun({ text: line, color: '555555', rightToLeft: rtl })],
+                children: [new TextRun({ text: line, color: '555555' })],
               }),
           ),
           new Paragraph({
             spacing: { before: 240, after: 240 },
-            bidirectional: rtl,
-            children: [new TextRun({ text: content.hint, rightToLeft: rtl })],
+            children: [new TextRun({ text: content.hint })],
           }),
-          // The codes read left to right in any language.
           ...content.codes.map(
             code =>
               new Paragraph({
                 spacing: { after: 80 },
-                bidirectional: rtl,
                 children: [new TextRun({ text: code, font: 'Courier New', size: 28 })],
               }),
           ),

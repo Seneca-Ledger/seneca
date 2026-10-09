@@ -50,7 +50,13 @@ export class InvoicesScheduler {
     }
     await this.invoicesService.cloneAsDraft(template, lineItems);
 
-    const next = advanceIssueDate(template.nextIssueDate as string, template.recurrenceInterval);
+    // Anchored on the template's own issue date: advancing from a clamped
+    // month-end (28 February) would otherwise move the whole series onto the 28th.
+    const next = advanceIssueDate(
+      template.nextIssueDate as string,
+      template.recurrenceInterval,
+      template.issueDate,
+    );
     await this.invoiceRepository.update({ id: template.id }, { nextIssueDate: next });
   }
 }

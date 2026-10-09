@@ -13,10 +13,15 @@ import { useIntlayer } from '@/app/i18n';
 import { Spinner } from '../ui/spinner';
 import { CryptoPortfolioCard } from './CryptoPortfolioCard';
 import { computeNet, computeSavingsRate } from './dashboard-stats.util';
+import { GoalsProgressCard } from './GoalsProgressCard';
+import { NetWorthCard } from './NetWorthCard';
+import { OverviewLayout } from './OverviewLayout';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
+import { SpendCalendarCard } from './SpendCalendarCard';
 import { TopCategoriesCard } from './TopCategoriesCard';
 import { CardLink, DashboardCard, KpiCard } from './ui';
 import { useMonthLabel } from './use-month-label';
+import { WorkspaceActivityCard } from './WorkspaceActivityCard';
 
 interface OverviewTabProps {
   data: DashboardData;
@@ -132,42 +137,59 @@ export function OverviewTab({
   const viewAllHref = useMemo(() => monthRangeHref(displayMonth), [displayMonth]);
 
   // A workspace that never imported anything gets the onboarding CTA; a month
-  // without transactions still shows zeroed KPIs and empty cards.
+  // without transactions still shows zeroed KPIs and empty cards. The activity
+  // feed stays either way: someone who just joined a household should see that
+  // their partner has been working, not an invitation to start from scratch.
   if (!data.dataHealth?.lastUploadDate) {
-    return <OverviewEmptyState />;
+    return (
+      <div className="lumio-dashboard__tab">
+        <OverviewEmptyState />
+        <WorkspaceActivityCard />
+      </div>
+    );
   }
 
   return (
-    <div className="lumio-dashboard__tab">
-      <KpiRow
-        data={data}
-        formatAmount={formatAmount}
-        monthLabel={monthLabel}
-        isLoading={isLoading}
-      />
-      <CryptoPortfolioCard
-        formatAmount={formatAmount}
-        month={monthKey(displayMonth)}
-        monthLabel={monthLabel}
-      />
-      <div className="lumio-dashboard__grid lumio-dashboard__grid--split">
-        <DashboardCard
-          title={t.topCategoriesTitle}
-          subtitle={monthLabel}
-          action={<CardLink href="/statements/top-categories">{t.viewAll}</CardLink>}
-        >
-          <TopCategoriesCard categories={data.topCategories ?? []} formatAmount={formatAmount} />
-        </DashboardCard>
-        <RecentTransactionsCard
-          transactions={data.recentTransactions ?? []}
-          formatAmount={formatAmount}
-          viewAllHref={viewAllHref}
-        />
-      </div>
-      <div className="lumio-dashboard__grid lumio-dashboard__grid--pair">
-        <BudgetSummaryWidget />
-        <CashRunwayWidget formatAmount={formatAmount} />
-      </div>
-    </div>
+    <OverviewLayout
+      sections={{
+        kpis: (
+          <KpiRow
+            data={data}
+            formatAmount={formatAmount}
+            monthLabel={monthLabel}
+            isLoading={isLoading}
+          />
+        ),
+        crypto: (
+          <CryptoPortfolioCard
+            formatAmount={formatAmount}
+            month={monthKey(displayMonth)}
+            monthLabel={monthLabel}
+          />
+        ),
+        'top-categories': (
+          <DashboardCard
+            title={t.topCategoriesTitle}
+            subtitle={monthLabel}
+            action={<CardLink href="/reports?tab=cash-flow">{t.viewAll}</CardLink>}
+          >
+            <TopCategoriesCard categories={data.topCategories ?? []} formatAmount={formatAmount} />
+          </DashboardCard>
+        ),
+        'recent-transactions': (
+          <RecentTransactionsCard
+            transactions={data.recentTransactions ?? []}
+            formatAmount={formatAmount}
+            viewAllHref={viewAllHref}
+          />
+        ),
+        'spend-calendar': <SpendCalendarCard displayMonth={displayMonth} />,
+        goals: <GoalsProgressCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
+        'net-worth': <NetWorthCard />,
+        budgets: <BudgetSummaryWidget />,
+        'cash-runway': <CashRunwayWidget formatAmount={formatAmount} />,
+        activity: <WorkspaceActivityCard />,
+      }}
+    />
   );
 }

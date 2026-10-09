@@ -4,7 +4,9 @@ import { Alert, Box, Button, Checkbox, CircularProgress, Stack, Typography } fro
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/app/lib/api';
-import { tokens } from '@/lib/theme-tokens';
+import { OnboardingLayout } from './OnboardingLayout';
+import { OnboardingLogo } from './OnboardingProgress';
+import { StepHeading } from './StepHeading';
 
 interface DisclaimerStatus {
   version: string;
@@ -108,97 +110,75 @@ export function DisclaimerGate({
   };
 
   return (
-    <Box
-      component="main"
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        px: { xs: 2, sm: 3 },
-        py: { xs: 3, sm: 4 },
-      }}
-    >
-      <Box
-        sx={{
-          width: '100%',
-          maxWidth: 640,
-          borderRadius: tokens.radius.lg,
-          border: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-          p: { xs: 2.5, sm: 4 },
-        }}
-      >
-        <Stack spacing={2.5}>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{ fontWeight: 600, fontSize: { xs: 24, sm: 28 }, color: 'text.primary' }}
-          >
-            {title}
-          </Typography>
+    <OnboardingLayout header={<OnboardingLogo />}>
+      <Stack spacing={3}>
+        <StepHeading title={title} subtitle={intro} />
 
-          <Typography sx={{ fontSize: 15, lineHeight: 1.7, color: 'text.secondary' }}>
-            {intro}
-          </Typography>
-
-          <Stack component="ul" spacing={1.25} sx={{ listStyle: 'disc', m: 0, pl: 2.5 }}>
-            {points.map(point => (
-              <Typography
-                key={point}
-                component="li"
-                sx={{ fontSize: 14, lineHeight: 1.7, color: 'text.secondary' }}
-              >
-                {point}
-              </Typography>
-            ))}
-          </Stack>
-
-          {failed ? <Alert severity="error">{errorLabel}</Alert> : null}
-
-          <Box
-            component="label"
-            sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, cursor: 'pointer' }}
-          >
-            <Checkbox
-              checked={checked}
-              onChange={event => setChecked(event.target.checked)}
-              disabled={submitting}
-              sx={{ p: 0, mt: '2px' }}
-              inputProps={{ 'aria-label': consentLabel }}
-            />
-            <Typography sx={{ fontSize: 14, lineHeight: 1.6, color: 'text.primary' }}>
-              {consentLabel}
+        <Stack component="ul" spacing={1.25} sx={{ listStyle: 'disc', m: 0, pl: 2.5 }}>
+          {points.map(point => (
+            <Typography
+              key={point}
+              component="li"
+              sx={{ fontSize: 14, lineHeight: 1.7, color: 'var(--muted-foreground)' }}
+            >
+              {point}
             </Typography>
-          </Box>
-
-          <Button
-            variant="contained"
-            onClick={handleAccept}
-            disabled={!checked || submitting}
-            sx={{
-              alignSelf: 'flex-start',
-              borderRadius: tokens.radius.md,
-              fontWeight: 600,
-              fontSize: 14,
-              textTransform: 'none',
-              px: 3,
-              py: 1,
-              '&:disabled': { cursor: 'not-allowed', opacity: 0.5 },
-            }}
-          >
-            {submitting ? (
-              <Stack direction="row" spacing={1} alignItems="center">
-                <CircularProgress size={16} color="inherit" />
-                <span>{savingLabel}</span>
-              </Stack>
-            ) : (
-              acceptLabel
-            )}
-          </Button>
+          ))}
         </Stack>
-      </Box>
-    </Box>
+
+        {failed ? <Alert severity="error">{errorLabel}</Alert> : null}
+
+        <Box
+          component="label"
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 1.25,
+            pt: 3,
+            cursor: 'pointer',
+            borderTop: '1px solid var(--border-color)',
+          }}
+        >
+          <Checkbox
+            checked={checked}
+            onChange={event => setChecked(event.target.checked)}
+            disabled={submitting}
+            sx={{ p: 0, mt: '2px' }}
+            inputProps={{ 'aria-label': consentLabel }}
+          />
+          <Typography sx={{ fontSize: 14, lineHeight: 1.6, color: 'var(--foreground)' }}>
+            {consentLabel}
+          </Typography>
+        </Box>
+
+        <Button
+          variant="contained"
+          disableElevation
+          onClick={handleAccept}
+          disabled={!checked || submitting}
+          sx={{
+            alignSelf: 'flex-start',
+            height: 44,
+            px: 3,
+            borderRadius: 'var(--radius-md)',
+            fontWeight: 600,
+            fontSize: 15,
+            textTransform: 'none',
+            bgcolor: 'var(--primary-fill)',
+            color: 'var(--primary-foreground)',
+            '&:hover': { bgcolor: 'var(--primary-fill-hover)' },
+          }}
+        >
+          {submitting ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CircularProgress size={16} color="inherit" />
+              <span>{savingLabel}</span>
+            </Stack>
+          ) : (
+            acceptLabel
+          )}
+        </Button>
+      </Stack>
+    </OnboardingLayout>
   );
 }

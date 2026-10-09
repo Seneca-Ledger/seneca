@@ -17,6 +17,13 @@ import { Workspace } from './workspace.entity';
 
 type JsonObject = Record<string, unknown>;
 
+/** Where a table was filled from and how to refresh it; null for hand-made tables. */
+export interface CustomTableSourceBinding {
+  kind: string;
+  filters: JsonObject;
+  syncedAt: string | null;
+}
+
 export enum CustomTableSource {
   MANUAL = 'manual',
   // 'google_sheets_import' still exists in the Postgres enum type
@@ -91,6 +98,9 @@ export class CustomTable {
 
   @Column({ name: 'data_entry_synced_at', type: 'timestamp', nullable: true })
   dataEntrySyncedAt: Date | null;
+
+  @Column({ name: 'source_binding', type: 'jsonb', nullable: true })
+  sourceBinding: CustomTableSourceBinding | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

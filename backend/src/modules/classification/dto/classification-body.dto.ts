@@ -11,11 +11,3 @@ export class ClassifyBulkDto {
   @IsUUID('4', { each: true })
   transactionIds: string[];
 }
-
-export class RecordLearningDto {
-  @IsUUID('4')
-  transactionId: string;
-
-  @IsUUID('4')
-  categoryId: string;
-}

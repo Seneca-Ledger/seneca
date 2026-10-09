@@ -10,6 +10,7 @@ import {
 import { Button } from '@/app/components/ui/button';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { StatementDetails, Transaction } from './types';
 
 interface SummaryBarProps {
@@ -61,7 +62,7 @@ export default function SummaryBar({
       return sum + (Number.isNaN(creditValue) ? 0 : creditValue);
     }, 0);
 
-    const currency = transactions[0]?.currency || 'KZT';
+    const currency = transactions[0]?.currency || FALLBACK_CURRENCY;
 
     return {
       totalParsed,

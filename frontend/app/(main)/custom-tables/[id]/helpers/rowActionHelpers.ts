@@ -62,9 +62,11 @@ export async function updateRowPatchRequest(
   tableId: string,
   rowId: string,
   patchData: CustomTableRowPatch,
+  styles?: Record<string, Record<string, unknown>>,
 ): Promise<CustomTableRowPatch> {
   const response = await apiClient.patch(`/custom-tables/${tableId}/rows/${rowId}`, {
     data: patchData,
+    ...(styles ? { styles } : {}),
   });
   return extractRowData(response.data);
 }

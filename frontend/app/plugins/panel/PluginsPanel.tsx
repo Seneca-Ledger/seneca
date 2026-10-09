@@ -16,6 +16,7 @@ import {
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
+import { AiAssistantDrawer } from '../ai-assistant/AiAssistantDrawer';
 import { usePluginState } from '../hooks/usePluginState';
 import { McpServerDrawer } from '../mcp-server/McpServerDrawer';
 import type { PluginKey } from '../types';
@@ -41,7 +42,7 @@ function usePlugins(): PluginRowItem[] {
       name: t.cards.aiAssistant.name.value,
       description: t.cards.aiAssistant.description,
       icon: <SmartToyIcon sx={{ fontSize: 22 }} />,
-      configurable: false,
+      configurable: true,
     },
     {
       key: 'webhooks',
@@ -179,6 +180,12 @@ export function PluginsPanel(): React.JSX.Element {
         </Box>
       </DrawerShell>
 
+      <AiAssistantDrawer
+        isOpen={open && item === 'ai-assistant'}
+        onClose={closeAppPanel}
+        onBack={closeAppPanelItem}
+        zIndex={1400}
+      />
       <WebhooksDrawer
         isOpen={open && item === 'webhooks'}
         onClose={closeAppPanel}

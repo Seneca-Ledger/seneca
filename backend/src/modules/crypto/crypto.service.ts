@@ -8,10 +8,14 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { countedSql } from '../../common/utils/counted-transactions.util';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
-import { CryptoWallet } from '../../entities/crypto-wallet.entity';
+import {
+  CryptoWallet,
+  type CryptoWalletBalance,
+  CryptoWalletKind,
+} from '../../entities/crypto-wallet.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
-import { Workspace } from '../../entities/workspace.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
@@ -24,31 +28,31 @@ import {
   normalizeAddress,
   SUPPORTED_CHAIN_IDS,
 } from './crypto.constants';
+import { CryptoBalanceService } from './crypto-balance.service';
+import type { CryptoHolding } from './crypto-holdings.service';
+import { CryptoHoldingsService } from './crypto-holdings.service';
 import { CryptoPriceService } from './crypto-price.service';
 import type { WalletSyncResult } from './crypto-sync.service';
 import { CryptoSyncService } from './crypto-sync.service';
-import { addDecimals } from './crypto-transfer.mapper';
 import type { ConnectCryptoWalletDto } from './dto/connect-crypto-wallet.dto';
+import type { ManualHoldingDto } from './dto/manual-holding.dto';
 
 export interface CryptoWalletView {
   id: string;
-  address: string;
+  address: string | null;
+  /** `onchain` is an address we read, `manual` is a line the user keeps. */
+  kind: CryptoWalletKind;
+  /**
+   * The lines the user typed, for a manual wallet. An on-chain wallet's balances
+   * are not repeated here: the holdings table already shows them, priced.
+   */
+  balances: CryptoWalletBalance[];
   chainId: number;
   chainName: string;
   label: string | null;
   lastSyncedAt: string | null;
   lastSyncError: string | null;
   transactionCount: number;
-}
-
-export interface CryptoHolding {
-  asset: string;
-  /** Amount held on-chain, as a decimal string. */
-  amount: string;
-  /** Current price of one unit, in the workspace currency. */
-  price: number;
-  /** Current value in the workspace currency. */
-  value: number;
 }
 
 export interface CryptoSummary {
@@ -61,6 +65,13 @@ export interface CryptoSummary {
   expense: number;
   walletCount: number;
   holdings: CryptoHolding[];
+  /** Assets held that no price source knows, so the page can admit the gap. */
+  unpriced: { asset: string; amount: string }[];
+  /** What the portfolio cost, and what it has gained since — null when nothing is known. */
+  cost: number | null;
+  unrealized: number | null;
+  /** Profit already taken, over the whole recorded history. */
+  realized: number;
   /**
    * Percent change of the portfolio against yesterday's daily prices, holding
    * today's amounts fixed — the price move only. Null when yesterday's price is
@@ -108,12 +119,12 @@ export class CryptoService {
     private readonly walletRepo: Repository<CryptoWallet>,
     @InjectRepository(Transaction)
     private readonly transactionRepo: Repository<Transaction>,
-    @InjectRepository(Workspace)
-    private readonly workspaceRepo: Repository<Workspace>,
     private readonly syncService: CryptoSyncService,
     private readonly priceService: CryptoPriceService,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly auditService: AuditService,
+    private readonly holdingsService: CryptoHoldingsService,
+    private readonly balanceService: CryptoBalanceService,
   ) {}
 
   async findAll(workspaceId: string): Promise<CryptoWalletView[]> {
@@ -136,8 +147,13 @@ export class CryptoService {
     return wallets.map(wallet => ({
       id: wallet.id,
       address: wallet.address,
+      kind: wallet.kind,
+      balances: wallet.kind === CryptoWalletKind.MANUAL ? (wallet.balances ?? []) : [],
       chainId: wallet.chainId,
-      chainName: CHAIN_NAMES[wallet.chainId] ?? 'Blockchain',
+      chainName:
+        wallet.kind === CryptoWalletKind.MANUAL
+          ? 'Manual'
+          : (CHAIN_NAMES[wallet.chainId] ?? 'Blockchain'),
       label: wallet.label,
       lastSyncedAt: wallet.lastSyncedAt?.toISOString() ?? null,
       lastSyncError: wallet.lastSyncError,
@@ -211,6 +227,127 @@ export class CryptoService {
     return (await this.findAll(workspaceId)).filter(view => createdIds.has(view.id));
   }
 
+  /**
+   * Adds or replaces one hand-kept holding. Every such line of a workspace lives
+   * on a single wallet of kind `manual`: it is not an address, so there is nothing
+   * to sync and nothing to tell two of them apart by.
+   */
+  async upsertManualHolding(
+    workspaceId: string,
+    userId: string,
+    dto: ManualHoldingDto,
+  ): Promise<CryptoWalletView> {
+    const asset = dto.asset.trim().toUpperCase();
+    if (Number(dto.amount) <= 0) {
+      throw new BadRequestException('An amount is a positive number');
+    }
+
+    const wallet = await this.getOrCreateManualWallet(workspaceId, userId, dto.label);
+    const balance: CryptoWalletBalance = {
+      asset,
+      amount: dto.amount,
+      ...(dto.costPerUnit === undefined ? {} : { costPerUnit: dto.costPerUnit }),
+    };
+    const balances = [...(wallet.balances ?? []).filter(item => item.asset !== asset), balance];
+    await this.walletRepo.update(wallet.id, {
+      balances,
+      ...(dto.label ? { label: dto.label } : {}),
+    });
+
+    await this.recordAudit([
+      {
+        workspaceId,
+        actorType: ActorType.USER,
+        actorId: userId,
+        entityType: EntityType.CRYPTO_WALLET,
+        entityId: wallet.id,
+        action: AuditAction.UPDATE,
+        meta: { asset, amount: dto.amount, manual: true },
+      },
+    ]);
+    await this.balanceService.writePortfolioSnapshot(workspaceId, userId);
+
+    const view = (await this.findAll(workspaceId)).find(item => item.id === wallet.id);
+    if (!view) {
+      throw new NotFoundException('Crypto wallet not found');
+    }
+    return view;
+  }
+
+  /** Removes one hand-kept holding. The wallet stays, even with nothing on it. */
+  async removeManualHolding(workspaceId: string, userId: string, asset: string): Promise<void> {
+    const ticker = asset.trim().toUpperCase();
+    const wallet = await this.walletRepo.findOne({
+      where: { workspaceId, kind: CryptoWalletKind.MANUAL },
+    });
+    const balance = wallet?.balances?.find(item => item.asset === ticker);
+    if (!(wallet && balance)) {
+      throw new NotFoundException('Holding not found');
+    }
+
+    await this.walletRepo.update(wallet.id, {
+      balances: wallet.balances.filter(item => item.asset !== ticker),
+    });
+    await this.recordAudit([
+      {
+        workspaceId,
+        actorType: ActorType.USER,
+        actorId: userId,
+        entityType: EntityType.CRYPTO_WALLET,
+        entityId: wallet.id,
+        action: AuditAction.DELETE,
+        meta: { asset: ticker, manual: true },
+      },
+    ]);
+    await this.balanceService.writePortfolioSnapshot(workspaceId, userId);
+  }
+
+  private async getOrCreateManualWallet(
+    workspaceId: string,
+    userId: string,
+    label?: string,
+  ): Promise<CryptoWallet> {
+    const existing = await this.walletRepo.findOne({
+      where: { workspaceId, kind: CryptoWalletKind.MANUAL },
+    });
+    if (existing) {
+      return existing;
+    }
+    return this.walletRepo.save(
+      this.walletRepo.create({
+        workspaceId,
+        address: null,
+        kind: CryptoWalletKind.MANUAL,
+        // Not a chain: a manual line is not on one, and nothing may sync it.
+        chainId: 0,
+        label: label ?? 'Manual holdings',
+        balances: [],
+        connectedByUserId: userId,
+      }),
+    );
+  }
+
+  /**
+   * Realized gains over a period, sale by sale. A year is the usual question, so
+   * the controller takes one and turns it into the range.
+   */
+  getGains(workspaceId: string, range: { from?: string; to?: string }) {
+    return this.holdingsService.realizedGains(workspaceId, range);
+  }
+
+  /** The year's sales split by whose wallet they happened in; for a tax return. */
+  getGainsByOwner(workspaceId: string, range: { from?: string; to?: string }) {
+    return this.holdingsService.realizedGainsByOwner(workspaceId, range);
+  }
+
+  /** The portfolio's value day by day, as the balance sheet recorded it. */
+  getHistory(
+    workspaceId: string,
+    days: number,
+  ): Promise<{ currency: string; series: { date: string; value: number }[] }> {
+    return this.balanceService.getHistory(workspaceId, days);
+  }
+
   /** The networks a wallet can be connected on, for the connect form. */
   getNetworks(): { chainId: number; name: string; family: ChainFamily; nativeAsset: string }[] {
     return SUPPORTED_CHAIN_IDS.map(chainId => ({
@@ -223,6 +360,9 @@ export class CryptoService {
 
   async sync(workspaceId: string, walletId: string, userId: string): Promise<WalletSyncResult> {
     const wallet = await this.getOwnedWallet(workspaceId, walletId);
+    if (wallet.kind === CryptoWalletKind.MANUAL) {
+      throw new BadRequestException('A manual holding has no chain to sync');
+    }
     const result = await this.syncService.syncWallet(wallet);
     // A sync that found nothing new changed nothing worth a log entry.
     if (result.imported > 0) {
@@ -290,11 +430,12 @@ export class CryptoService {
     const currency = await this.getWorkspaceCurrency(workspaceId);
     const window = month ? monthWindow(month) : { since: daysAgo(days), until: null };
 
-    const [walletCount, flows, holdings] = await Promise.all([
+    const [walletCount, flows, portfolio] = await Promise.all([
       this.walletRepo.count({ where: { workspaceId } }),
       this.getFlows(workspaceId, window.since, window.until),
-      this.getHoldings(workspaceId, currency),
+      this.holdingsService.getHoldings(workspaceId, currency),
     ]);
+    const holdings = portfolio.holdings;
 
     return {
       currency,
@@ -303,6 +444,8 @@ export class CryptoService {
       expense: flows.expense,
       walletCount,
       holdings,
+      unpriced: portfolio.unpriced,
+      ...totalGain(holdings),
       portfolioChangeSinceYesterday: await this.getPortfolioChangeSinceYesterday(
         holdings,
         currency,
@@ -398,7 +541,11 @@ export class CryptoService {
       .addSelect('SUM(t.amount)', 'total')
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.crypto_wallet_id IS NOT NULL')
-      .andWhere('t.transaction_date >= :since', { since });
+      // A swap and a purchase from a bank account are paired moves, not income and
+      // not spending; only their fee legs stay, and those are unpaired.
+      .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere('t.transaction_date >= :since', { since })
+      .andWhere(countedSql('t'));
     if (until) {
       query.andWhere('t.transaction_date < :until', { until });
     }
@@ -415,56 +562,6 @@ export class CryptoService {
     };
   }
 
-  /**
-   * Holdings are the balances the last sync read off the chain, summed across the
-   * workspace's wallets. They are deliberately NOT derived from the booked
-   * transfers: a transfer that fails to import (an unpriceable asset, a rate-limited
-   * price lookup) would otherwise move the portfolio silently, and a balance that
-   * changed without a transfer — staking accrued in place, a rebasing token — would
-   * never show up at all.
-   *
-   * An asset we cannot price is dropped rather than counted at zero, which is also
-   * what keeps airdropped spam tokens out of the total.
-   */
-  private async getHoldings(workspaceId: string, currency: string): Promise<CryptoHolding[]> {
-    const wallets = await this.walletRepo.find({
-      where: { workspaceId },
-      select: ['id', 'balances'],
-    });
-
-    const amountByAsset = new Map<string, string>();
-    for (const wallet of wallets) {
-      for (const balance of wallet.balances ?? []) {
-        amountByAsset.set(
-          balance.asset,
-          addDecimals(amountByAsset.get(balance.asset) ?? '0', balance.amount),
-        );
-      }
-    }
-
-    if (amountByAsset.size === 0) {
-      return [];
-    }
-
-    const usdPrices = await this.priceService.getCurrentUsdPrices([...amountByAsset.keys()]);
-    const usdToCurrency = await this.exchangeRatesService.getRate(
-      'USD',
-      currency,
-      undefined,
-      workspaceId,
-    );
-
-    return [...amountByAsset.entries()]
-      .filter(([asset, amount]) => Number(amount) > 0 && usdPrices[asset] !== undefined)
-      .map(([asset, amount]) => ({
-        asset,
-        amount,
-        price: round2(usdPrices[asset] * usdToCurrency),
-        value: round2(Number(amount) * usdPrices[asset] * usdToCurrency),
-      }))
-      .sort((a, b) => b.value - a.value);
-  }
-
   private async getOwnedWallet(workspaceId: string, walletId: string): Promise<CryptoWallet> {
     const wallet = await this.walletRepo.findOne({ where: { id: walletId, workspaceId } });
     if (!wallet) {
@@ -473,12 +570,8 @@ export class CryptoService {
     return wallet;
   }
 
-  private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
-    const workspace = await this.workspaceRepo.findOne({
-      where: { id: workspaceId },
-      select: ['id', 'currency'],
-    });
-    return workspace?.currency ?? 'USD';
+  private getWorkspaceCurrency(workspaceId: string): Promise<string> {
+    return this.holdingsService.getWorkspaceCurrency(workspaceId);
   }
 }
 
@@ -492,8 +585,33 @@ function walletAuditSnapshot(wallet: CryptoWallet): Record<string, unknown> {
   };
 }
 
-function shortenAddress(address: string): string {
+function shortenAddress(address: string | null): string {
+  if (!address) {
+    return '';
+  }
   return address.length > 12 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
+}
+
+/**
+ * The portfolio's cost and profit are the sum of the holdings that have a basis.
+ * An asset whose purchases are unknown is left out of the cost rather than counted
+ * at zero, which would read as pure profit.
+ */
+function totalGain(holdings: CryptoHolding[]): {
+  cost: number | null;
+  unrealized: number | null;
+  realized: number;
+} {
+  const withBasis = holdings.filter(holding => holding.cost !== null);
+  const realized = round2(holdings.reduce((sum, holding) => sum + holding.realized, 0));
+  if (withBasis.length === 0) {
+    return { cost: null, unrealized: null, realized };
+  }
+  return {
+    cost: round2(withBasis.reduce((sum, holding) => sum + (holding.cost ?? 0), 0)),
+    unrealized: round2(withBasis.reduce((sum, holding) => sum + (holding.unrealized ?? 0), 0)),
+    realized,
+  };
 }
 
 function round2(value: number): number {

@@ -47,6 +47,20 @@ export class AuditController {
     });
   }
 
+  /**
+   * Who in the household did what lately.
+   *
+   * Behind `TRANSACTION_VIEW`, not `AUDIT_VIEW`: everyone sharing the money can
+   * see each other move it. The full audit — sign-ins, keys, member changes,
+   * before/after of every edit — stays with the owner and the admins.
+   */
+  @Get('activity')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  async activity(@WorkspaceId() workspaceId: string, @Query('limit') limitRaw?: string) {
+    const limit = limitRaw ? Number(limitRaw) : undefined;
+    return { items: await this.auditService.findWorkspaceActivity(workspaceId, limit) };
+  }
+
   @Get('entity/:entityType/:entityId')
   @WorkspaceAuth(Permission.AUDIT_VIEW)
   async getByEntity(

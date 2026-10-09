@@ -212,4 +212,22 @@ describe('NotificationsService', () => {
       workspaceId: 'workspace-1',
     });
   });
+
+  it('hides notifications about trashed or deleted statements and receipts from the list and the count', async () => {
+    const listQb = createQueryBuilderMock();
+    const countQb = createQueryBuilderMock();
+    notificationRepository.createQueryBuilder
+      .mockReturnValueOnce(listQb)
+      .mockReturnValueOnce(countQb);
+
+    await service.findByRecipient('user-1', 'workspace-1', 30, 0);
+    await service.getUnreadCount('user-1', 'workspace-1');
+
+    for (const qb of [listQb, countQb]) {
+      const clauses: string[] = qb.andWhere.mock.calls.map((call: unknown[]) => String(call[0]));
+      const filter = clauses.find(clause => clause.includes('FROM statements'));
+      expect(filter).toContain('s.deleted_at IS NULL');
+      expect(filter).toContain('FROM receipts');
+    }
+  });
 });

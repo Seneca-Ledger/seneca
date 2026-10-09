@@ -178,6 +178,11 @@ describe('addressFamily', () => {
     ['bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh', 'bitcoin'],
     ['3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy', 'bitcoin'],
     ['vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg', 'solana'],
+    // A whole wallet rather than one address, and still Bitcoin.
+    [
+      'zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs',
+      'bitcoin',
+    ],
     ['not an address', null],
   ])('reads %s as %s', (address, family) => {
     expect(addressFamily(address)).toBe(family);

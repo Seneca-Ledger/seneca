@@ -21,6 +21,25 @@ import type { UpdateNotificationPreferencesDto } from './dto/update-notification
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { type NotificationMessageKey, renderNotification } from './notification-translations';
 
+/**
+ * Notifications about a statement or receipt that has since been trashed or
+ * deleted lead to a "not found" page, so they are hidden from the list and the
+ * unread count. Restoring a statement from the trash brings them back.
+ */
+const POINTS_AT_EXISTING_DOCUMENT = `(
+  notification.entity_id IS NULL
+  OR notification.entity_type IS NULL
+  OR notification.entity_type NOT IN ('statement', 'receipt')
+  OR EXISTS (
+    SELECT 1 FROM statements s
+    WHERE notification.entity_type = 'statement' AND s.id = notification.entity_id AND s.deleted_at IS NULL
+  )
+  OR EXISTS (
+    SELECT 1 FROM receipts r
+    WHERE notification.entity_type = 'receipt' AND r.id = notification.entity_id
+  )
+)`;
+
 type NotificationPreferenceKey =
   | 'statementUploaded'
   | 'importCommitted'
@@ -284,6 +303,7 @@ export class NotificationsService {
       .createQueryBuilder('notification')
       .where('notification.recipientId = :recipientId', { recipientId })
       .andWhere('notification.inApp = true')
+      .andWhere(POINTS_AT_EXISTING_DOCUMENT)
       .orderBy('notification.createdAt', 'DESC')
       .take(normalizedLimit)
       .skip(normalizedOffset);
@@ -299,7 +319,8 @@ export class NotificationsService {
       .createQueryBuilder('notification')
       .where('notification.recipientId = :recipientId', { recipientId })
       .andWhere('notification.inApp = true')
-      .andWhere('notification.isRead = false');
+      .andWhere('notification.isRead = false')
+      .andWhere(POINTS_AT_EXISTING_DOCUMENT);
 
     qb.andWhere('notification.workspaceId = :workspaceId', { workspaceId });
 

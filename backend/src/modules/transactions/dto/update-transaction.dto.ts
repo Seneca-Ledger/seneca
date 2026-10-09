@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  ValidateIf,
 } from 'class-validator';
 import { TransactionType } from '../../../entities/transaction.entity';
 
@@ -74,6 +75,16 @@ export class UpdateTransactionDto {
   @IsOptional()
   walletId?: string;
 
+  /**
+   * Which member of the household the row belongs to. `null` hands it back to
+   * the household as shared, which is why it is nullable rather than just
+   * optional: leaving it out means "do not touch", sending null means "shared".
+   */
+  @IsUUID()
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  ownerMemberId?: string | null;
+
   @IsString()
   @IsOptional()
   article?: string;
@@ -93,4 +104,12 @@ export class UpdateTransactionDto {
   @IsBoolean()
   @IsOptional()
   isVerified?: boolean;
+
+  /**
+   * Hides what the row was from the rest of the household. Only its owner may
+   * set it, and only on a row that is theirs.
+   */
+  @IsBoolean()
+  @IsOptional()
+  isPrivate?: boolean;
 }

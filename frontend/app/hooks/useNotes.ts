@@ -6,7 +6,14 @@ import { apiQuery, unwrapEnvelope } from '@/app/lib/query-fn';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useWorkspaceId } from './useWorkspaceId';
 
-export type NoteEntityType = 'statement' | 'receipt';
+/** Whatever a household argues about; the server keeps the same closed list. */
+export type NoteEntityType =
+  | 'statement'
+  | 'receipt'
+  | 'transaction'
+  | 'budget'
+  | 'goal'
+  | 'invoice';
 
 export interface Note {
   id: string;

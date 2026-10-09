@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import type { StatementStage, StatementStageActionId } from '@/app/lib/statement-workflow';
 import type {
   BranchOption,
   CategoryOption,
@@ -50,10 +49,6 @@ export type StatementFormStateResult = {
   setStatementCategoryDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   statementCategorySaving: boolean;
   setStatementCategorySaving: React.Dispatch<React.SetStateAction<boolean>>;
-  stageActionLoadingId: StatementStageActionId | null;
-  setStageActionLoadingId: React.Dispatch<React.SetStateAction<StatementStageActionId | null>>;
-  currentStage: StatementStage;
-  setCurrentStage: React.Dispatch<React.SetStateAction<StatementStage>>;
   bulkCategoryId: string;
   setBulkCategoryId: React.Dispatch<React.SetStateAction<string>>;
   metadataForm: MetaForm;
@@ -84,10 +79,6 @@ export function useStatementFormState(): StatementFormStateResult {
   const [bulkCategoryDialogOpen, setBulkCategoryDialogOpen] = useState(false);
   const [statementCategoryDrawerOpen, setStatementCategoryDrawerOpen] = useState(false);
   const [statementCategorySaving, setStatementCategorySaving] = useState(false);
-  const [stageActionLoadingId, setStageActionLoadingId] = useState<StatementStageActionId | null>(
-    null,
-  );
-  const [currentStage, setCurrentStage] = useState<StatementStage>('submit');
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [metadataForm, setMetadataForm] = useState({
     balanceStart: '',
@@ -135,10 +126,6 @@ export function useStatementFormState(): StatementFormStateResult {
     setStatementCategoryDrawerOpen,
     statementCategorySaving,
     setStatementCategorySaving,
-    stageActionLoadingId,
-    setStageActionLoadingId,
-    currentStage,
-    setCurrentStage,
     bulkCategoryId,
     setBulkCategoryId,
     metadataForm,

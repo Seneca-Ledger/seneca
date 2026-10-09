@@ -2,6 +2,7 @@
  * Shared currency formatting utilities used across transaction and analytics views.
  */
 
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 
 /**
@@ -16,7 +17,7 @@ export const resolveLocale = (locale?: string): string => resolveLocaleTag(local
  */
 export const resolveCurrencyCode = (
   currency: string | null | undefined,
-  fallback = 'KZT',
+  fallback = FALLBACK_CURRENCY,
 ): string => {
   const normalized = String(currency ?? '')
     .trim()
@@ -34,7 +35,7 @@ export const COMPACT_NOTATION_CEILING = 1e15;
  * Formats a numeric `value` as a localised currency string.
  *
  * @param value     - Numeric amount to format.
- * @param currency  - ISO 4217 currency code (e.g. 'KZT', 'USD').
+ * @param currency  - ISO 4217 currency code (e.g. 'EUR', 'USD').
  * @param locale    - App locale key ('en' | 'ru' | 'kk').  Defaults to 'en'.
  */
 export const formatMoney = (

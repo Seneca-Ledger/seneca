@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import * as xlsx from 'xlsx';
-import { type ReadableTabularFile, TabularFileError, readTabularFile } from './tabularFileReader';
+import {
+  pickDefaultSheet,
+  type ReadableTabularFile,
+  readTabularFile,
+  readTabularWorkbook,
+  TabularFileError,
+} from './tabularFileReader';
 
 function makeFile(name: string, data: ArrayBuffer | string): ReadableTabularFile {
   const buffer =
@@ -66,5 +72,33 @@ describe('readTabularFile', () => {
 
   it('rejects a file with no usable rows', async () => {
     await expect(readTabularFile(xlsxFile([['', '']]))).rejects.toBeInstanceOf(TabularFileError);
+  });
+
+  it('exposes formulas, number formats and dates of every sheet', async () => {
+    const sheet = xlsx.utils.aoa_to_sheet([
+      ['Date', 'Amount', 'Share'],
+      [new Date(2026, 8, 15), 1500.5, 0.12],
+      ['Total', { t: 'n', f: 'SUM(B2:B2)', v: 1500.5 }, ''],
+    ]);
+    sheet.C2.z = '0%';
+    const book = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(book, sheet, 'Data');
+    xlsx.utils.book_append_sheet(book, xlsx.utils.aoa_to_sheet([['x']]), 'Notes');
+    const buffer = xlsx.write(book, { bookType: 'xlsx', type: 'array', cellDates: true }) as ArrayBuffer;
+
+    const workbook = await readTabularWorkbook(makeFile('book.xlsx', buffer));
+
+    expect(workbook.sheets.map(s => s.name)).toEqual(['Data', 'Notes']);
+    expect(pickDefaultSheet(workbook)).toBe(0);
+    const data = workbook.sheets[0].rows;
+    expect(data[1][0]).toMatchObject({ text: '2026-09-15', kind: 'date' });
+    expect(data[1][2]).toMatchObject({ kind: 'number', numFmt: '0%' });
+    expect(data[2][1]).toMatchObject({ formula: 'SUM(B2:B2)' });
+  });
+
+  it('decodes a windows-1251 csv', async () => {
+    const bytes = new Uint8Array([0xc4, 0xe0, 0xf2, 0xe0, 0x2c, 0x31, 0x0a]); // "Дата,1\n"
+    const rows = await readTabularFile(makeFile('bank.csv', bytes.buffer as ArrayBuffer));
+    expect(rows[0][0]).toBe('Дата');
   });
 });

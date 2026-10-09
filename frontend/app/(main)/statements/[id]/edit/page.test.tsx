@@ -1,3 +1,5 @@
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -32,8 +34,23 @@ vi.mock('@/app/i18n', () => {
   const token = (value: string) => ({ value });
 
   const content = {
+    // Read by the shared Spinner (uiShell dictionary); the mock serves every key.
+    loading: token('Loading'),
+    errors: {
+      loadData: token('Failed to load'),
+      saveTransaction: token('Failed to save'),
+      deleteTransaction: token('Failed to delete'),
+      updateTransactions: token('Failed to update'),
+      deleteTransactions: token('Failed to delete'),
+      assignCategory: token('Failed to assign'),
+    },
     labels: {
       back: 'Back',
+      disabledSuffix: token(' (disabled)'),
+      exportDescription: token('Exported statement'),
+      requireCategory: token('Category required'),
+      selectCategoryHint: token('Select a category'),
+      statementNamePrefix: token('Statement'),
       transactionsCount: token('transactions'),
       parsingDetails: token('Parsing details'),
       exportButton: token('Export to table'),
@@ -121,6 +138,11 @@ vi.mock('@/app/i18n', () => {
     useLocale: () => ({ locale: 'en' }),
   };
 });
+
+// The page reads the custom-tables dictionary for export column titles only.
+vi.mock('@/app/(main)/custom-tables/labels', () => ({
+  buildSourceColumnTitles: () => ({}),
+}));
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'statement-1' }),
@@ -210,6 +232,7 @@ describe('EditStatementPage locale', () => {
               debit: 125,
               credit: 0,
               transactionType: 'expense',
+              isVerified: false,
               categoryId: 'cat-1',
               category: { id: 'cat-1', name: 'Services', isEnabled: true },
             },
@@ -242,7 +265,11 @@ describe('EditStatementPage locale', () => {
     const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
-      root.render(<EditStatementPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {
@@ -271,7 +298,11 @@ describe('EditStatementPage locale', () => {
     );
 
     await act(async () => {
-      root.render(<EditStatementPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
       await Promise.resolve();
     });
 
@@ -290,7 +321,11 @@ describe('EditStatementPage locale', () => {
     const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
-      root.render(<EditStatementPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {
@@ -308,7 +343,11 @@ describe('EditStatementPage locale', () => {
     const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
-      root.render(<EditStatementPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {
@@ -334,7 +373,11 @@ describe('EditStatementPage locale', () => {
     const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
-      root.render(<EditStatementPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {
@@ -365,7 +408,11 @@ describe('EditStatementPage locale', () => {
     const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
-      root.render(<EditStatementPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {
@@ -407,66 +454,22 @@ describe('EditStatementPage locale', () => {
     expect(startDateLabel).toBeNull();
   });
 
-  it('creates a payable draft when moving a statement to pay', async () => {
-    const { default: EditStatementPage } = await import('./page');
-
-    window.localStorage.setItem(
-      'lumio-statement-stage',
-      JSON.stringify({ 'statement-1': 'approve' }),
-    );
-
-    apiPost.mockResolvedValue({
-      data: {
-        id: 'payable-1',
-        vendor: 'Test counterparty',
-        amount: 125,
-        currency: 'KZT',
-      },
-    });
-
-    await act(async () => {
-      root.render(<EditStatementPage />);
-    });
-
-    await act(async () => {
-      await flushPromises();
-    });
-
-    const payButton = Array.from(container.querySelectorAll('button')).find(
-      button => button.textContent?.trim() === 'Pay',
-    );
-
-    expect(payButton).toBeTruthy();
-
-    await act(async () => {
-      payButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await flushPromises();
-    });
-
-    expect(apiPost).toHaveBeenCalledWith('/payables', {
-      vendor: 'Test counterparty',
-      amount: 125,
-      currency: 'KZT',
-      dueDate: '2026-03-17',
-      source: 'statement',
-      statementId: 'statement-1',
-      comment: 'Created from statement statement.pdf',
-    });
-    expect(push).toHaveBeenCalledWith('/statements/pay');
-  });
-
   it('uses shared detail action buttons for statement header actions', async () => {
     const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
-      root.render(<EditStatementPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {
       await flushPromises();
     });
 
-    const actionLabels = ['Export to table', 'Submit'];
+    const actionLabels = ['Export to table'];
 
     for (const label of actionLabels) {
       const actionButton = Array.from(container.querySelectorAll('button')).find(button =>
@@ -478,5 +481,56 @@ describe('EditStatementPage locale', () => {
       expect(actionButton?.className).toContain('rounded-lg');
       expect(actionButton?.className).not.toContain('rounded-full');
     }
+  });
+
+  it('offers no review-stage moves: what is left to check lives in Review', async () => {
+    const { default: EditStatementPage } = await import('./page');
+
+    await act(async () => {
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
+    });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    const labels = Array.from(container.querySelectorAll('button')).map(button =>
+      button.textContent?.trim(),
+    );
+    for (const stageLabel of ['Submit', 'Unapprove', 'Pay', 'Return to approve']) {
+      expect(labels).not.toContain(stageLabel);
+    }
+  });
+
+  it('confirms every categorised row of the statement in one go', async () => {
+    const { default: EditStatementPage } = await import('./page');
+    apiPost.mockResolvedValue({ data: { approved: 1, uncategorized: 0 } });
+
+    await act(async () => {
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
+    });
+    await act(async () => {
+      await flushPromises();
+    });
+    const loadsBefore = apiGet.mock.calls.length;
+
+    const confirmButton = Array.from(container.querySelectorAll('button')).find(
+      button => button.textContent?.trim() === 'Confirm all',
+    ) as HTMLButtonElement | undefined;
+    expect(confirmButton?.disabled).toBe(false);
+    await act(async () => {
+      confirmButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await flushPromises();
+    });
+
+    expect(apiPost).toHaveBeenCalledWith('/review-inbox/statements/statement-1/approve');
+    expect(apiGet.mock.calls.length).toBeGreaterThan(loadsBefore);
   });
 });

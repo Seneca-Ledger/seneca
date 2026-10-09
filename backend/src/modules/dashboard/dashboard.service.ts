@@ -9,6 +9,8 @@ import {
   type Repository,
   type SelectQueryBuilder,
 } from 'typeorm';
+import { countedSql, onlyCounted } from '../../common/utils/counted-transactions.util';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { Payable, PayableDirection, PayableStatus } from '../../entities/payable.entity';
 import { Receipt, ReceiptStatus } from '../../entities/receipt.entity';
 import { BankName, Statement, StatementStatus } from '../../entities/statement.entity';
@@ -214,8 +216,10 @@ export class DashboardService {
       .innerJoin('t.statement', 's')
       .select([
         't.currency AS currency',
-        'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE 0 END), 0) AS income',
-        'COALESCE(SUM(CASE WHEN t.transactionType = :expense THEN t.debit ELSE 0 END), 0) AS expense',
+        // Income and expense count confirmed rows only; unapproved cash below is
+        // what still waits, so it keeps the unconfirmed ones on purpose.
+        `COALESCE(SUM(CASE WHEN t.transactionType = :income AND ${countedSql('t')} THEN t.credit ELSE 0 END), 0) AS income`,
+        `COALESCE(SUM(CASE WHEN t.transactionType = :expense AND ${countedSql('t')} THEN t.debit ELSE 0 END), 0) AS expense`,
         'COALESCE(SUM(CASE WHEN s.status IN (:...unapprovedStatuses) THEN (CASE WHEN t.transactionType = :income THEN t.credit ELSE -t.debit END) ELSE 0 END), 0) AS "unapprovedCash"',
       ])
       .where('s.workspaceId = :workspaceId', { workspaceId })
@@ -340,10 +344,7 @@ export class DashboardService {
   }
 
   private normalizeCurrency(currency: string | null | undefined): string {
-    const normalized = String(currency || '')
-      .trim()
-      .toUpperCase();
-    return /^[A-Z]{3}$/.test(normalized) ? normalized : 'KZT';
+    return currencyCodeOrDefault(currency);
   }
 
   private async convertDashboardAmount(
@@ -945,7 +946,8 @@ export class DashboardService {
   ): Promise<number> {
     const query = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
 
-    this.applyWorkspaceStatementFilters(query, workspaceId, true);
+    // A "needs attention" count: unconfirmed rows are exactly the ones to fix.
+    this.applyWorkspaceStatementFilters(query, workspaceId, true, { confirmedOnly: false });
     query.andWhere('t.categoryId IS NULL');
 
     return this.withinWindow(query, 't.transactionDate', window).getCount();
@@ -1098,7 +1100,10 @@ export class DashboardService {
     window: DashboardWindow,
   ): Promise<Array<{ month: string; total: string; uncategorized: string }>> {
     const query = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
-    this.applyActiveStatementTransactionFilters(query, workspaceId, window.since, window.endDate);
+    // Data health counts every row, confirmed or not: it shows what needs work.
+    this.applyActiveStatementTransactionFilters(query, workspaceId, window.since, window.endDate, {
+      confirmedOnly: false,
+    });
     return query
       .select("TO_CHAR(t.transactionDate, 'YYYY-MM')", 'month')
       .addSelect('COUNT(t.id)', 'total')
@@ -1281,7 +1286,12 @@ export class DashboardService {
         where: {
           workspaceId,
           direction: PayableDirection.PAYABLE,
-          status: In([PayableStatus.TO_PAY, PayableStatus.SCHEDULED, PayableStatus.OVERDUE]),
+          status: In([
+            PayableStatus.TO_PAY,
+            PayableStatus.SCHEDULED,
+            PayableStatus.OVERDUE,
+            PayableStatus.PARTIALLY_PAID,
+          ]),
           deletedAt: IsNull(),
         },
       }),
@@ -1321,13 +1331,14 @@ export class DashboardService {
     let unscheduledCommitted = 0;
 
     for (const payable of payables) {
+      // A partly paid bill is still owed, but only what is left of it.
       const amount = await this.convertDashboardAmount(
-        payable.amount,
+        Number(payable.amount) - Number(payable.paidAmount ?? 0),
         payable.currency,
         currency,
         payable.workspaceId,
       );
-      if (amount === 0) {
+      if (amount <= 0) {
         continue;
       }
       const dueDate = this.parseDateOnly(payable.dueDate);
@@ -1662,28 +1673,28 @@ export class DashboardService {
   }
 
   private applyActiveStatementTransactionFilters(
-    query: {
-      where: (sql: string, params?: object) => unknown;
-      andWhere: (sql: string, params?: object) => unknown;
-    },
+    query: SelectQueryBuilder<Transaction>,
     workspaceId: string,
     since: Date,
     endDate: Date,
+    options: { confirmedOnly?: boolean } = {},
   ) {
-    this.applyWorkspaceStatementFilters(query, workspaceId, true);
+    this.applyWorkspaceStatementFilters(query, workspaceId, true, options);
     query.andWhere('t.transactionDate BETWEEN :since AND :endDate', { since, endDate });
   }
 
   private applyWorkspaceStatementFilters(
-    query: {
-      where: (sql: string, params?: object) => unknown;
-      andWhere: (sql: string, params?: object) => unknown;
-    },
+    query: SelectQueryBuilder<Transaction>,
     workspaceId: string,
     excludeDuplicates: boolean,
+    { confirmedOnly = true }: { confirmedOnly?: boolean } = {},
   ) {
     query.where('s.workspaceId = :workspaceId', { workspaceId });
     query.andWhere('s.deletedAt IS NULL');
+    // Only what the user confirmed counts in any figure; data-health counts opt out.
+    if (confirmedOnly) {
+      onlyCounted(query, 't');
+    }
     if (excludeDuplicates) {
       query.andWhere('t.isDuplicate = false');
       query.andWhere('t.transferPairId IS NULL');

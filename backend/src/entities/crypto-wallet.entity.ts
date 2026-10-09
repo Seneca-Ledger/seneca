@@ -11,12 +11,29 @@ import {
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 
-/** One asset the address currently holds, as read from the chain. */
+/** One asset the wallet currently holds: read from the chain, or entered by hand. */
 export interface CryptoWalletBalance {
   /** Ticker, uppercase. */
   asset: string;
   /** Native amount as a decimal string — 18-decimal tokens overflow `number`. */
   amount: string;
+  /**
+   * What one unit cost, in the workspace currency, for a holding entered by hand.
+   * An on-chain balance has no such field: its cost basis comes from the transfers
+   * that built it. Undefined means "unknown", which is not the same as zero.
+   */
+  costPerUnit?: number;
+}
+
+/**
+ * `onchain` is an address we read; `manual` is a line the user keeps themselves,
+ * in cold storage they would rather not name an address for; `exchange` is an
+ * account whose rows came from a CSV the exchange exported.
+ */
+export enum CryptoWalletKind {
+  ONCHAIN = 'onchain',
+  MANUAL = 'manual',
+  EXCHANGE = 'exchange',
 }
 
 /**
@@ -37,9 +54,16 @@ export class CryptoWallet {
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
-  /** Always stored lowercase so the unique constraint catches case variants. */
-  @Column({ type: 'varchar', length: 42 })
-  address: string;
+  /**
+   * Always stored lowercase so the unique constraint catches case variants.
+   * Null for a manual holding: there is no address to read. Wide enough for a
+   * Bitcoin extended public key (111 characters), which stands for a whole wallet.
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  address: string | null;
+
+  @Column({ name: 'kind', type: 'varchar', length: 8, default: CryptoWalletKind.ONCHAIN })
+  kind: CryptoWalletKind;
 
   /** EVM chain id. 1 = Ethereum mainnet, the only chain synced today. */
   @Column({ name: 'chain_id', type: 'int', default: 1 })

@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { In, Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { Category, Receipt } from '../../../entities';
 import { GmailOAuthService } from './gmail-oauth.service';
@@ -107,7 +108,7 @@ export class GmailReceiptExportService {
       parsedData.date || receipt.receivedAt.toISOString().split('T')[0],
       parsedData.vendor || receipt.sender,
       parsedData.amount || '',
-      parsedData.currency || 'KZT',
+      parsedData.currency || appDefaultCurrency(),
       parsedData.tax || '',
       parsedData.subtotal || '',
       parsedData.category || '',
@@ -146,7 +147,7 @@ export class GmailReceiptExportService {
     const parsedData = this.getParsedData(receipt);
     const vendor = parsedData.vendor || receipt.sender || 'Unknown';
     const amount = parsedData.amount ?? '';
-    const currency = parsedData.currency || 'KZT';
+    const currency = parsedData.currency || appDefaultCurrency();
     const date = parsedData.date || receipt.receivedAt?.toISOString().split('T')[0] || '';
 
     const subject = amount

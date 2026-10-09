@@ -12,13 +12,6 @@ import {
   toggleStatementSelection,
 } from '@/app/lib/statement-selection';
 import {
-  type StatementStage,
-  type StatementStageUpdateResult,
-  statementStageSkipMessage,
-  updateReceiptStages,
-  updateStatementStages,
-} from '@/app/lib/statement-workflow';
-import {
   DUPLICATE_GROUP_TONES,
   type DuplicateGroupTone,
   getDeleteEndpoint,
@@ -56,30 +49,6 @@ export type DuplicateOverride = {
   position?: number;
   total?: number;
 };
-
-const NO_STAGE_MOVES: StatementStageUpdateResult = { updated: [], skipped: [] };
-
-/** One toast for a bulk stage move: how many moved, and why the first refused one did not. */
-function notifyStageMoveResult(
-  movedCount: number,
-  skipped: StatementStageUpdateResult['skipped'],
-  labels: { movedCount: string; movedPartial: string },
-): void {
-  if (skipped.length === 0) {
-    toast.success(labels.movedCount.replace('{count}', String(movedCount)));
-    return;
-  }
-  const reason = statementStageSkipMessage(skipped[0].code);
-  const message = labels.movedPartial
-    .replace('{count}', String(movedCount))
-    .replace('{skipped}', String(skipped.length))
-    .replace('{reason}', reason);
-  if (movedCount === 0) {
-    toast.error(message);
-  } else {
-    toast(message);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Merge helpers (extracted to reduce cognitive complexity)
@@ -199,7 +168,6 @@ interface UseStatementSelectionParams {
   duplicateMetaById: Map<string, DuplicateMeta>;
   setDuplicateOverrides: React.Dispatch<React.SetStateAction<Record<string, DuplicateOverride>>>;
   search: string;
-  stage: string;
   onRefreshStatements: (opts?: {
     silent?: boolean;
     showErrorToast?: boolean;
@@ -223,7 +191,6 @@ export interface UseStatementSelectionResult {
   handleToggleSelectAll: (checked: boolean) => void;
   handleExportSelected: () => Promise<void>;
   handleDeleteSelected: () => Promise<void>;
-  handleMoveSelectedToStage: (target: StatementStage) => Promise<void>;
   handleMarkSelectedAsDuplicate: () => void;
   handleDismissSelectedDuplicates: () => void;
   handleSelectDetectedDuplicates: () => void;
@@ -241,7 +208,6 @@ export function useStatementSelection({
   duplicateMetaById,
   setDuplicateOverrides,
   search,
-  stage,
   onRefreshStatements,
   onRefreshGmail,
 }: UseStatementSelectionParams): UseStatementSelectionResult {
@@ -430,45 +396,6 @@ export function useStatementSelection({
     });
   };
 
-  const handleMoveSelectedToStage = async (target: StatementStage): Promise<void> => {
-    const selected = displayStatements.filter(statement =>
-      selectedStatementIds.includes(statement.id),
-    );
-    if (selected.length === 0) {
-      return;
-    }
-    // Gmail and scanned receipts are rows of the receipts table, with their own endpoint.
-    const isReceipt = (statement: StatementLike): boolean =>
-      isGmailStatement(statement) || isScanReceiptStatement(statement);
-    const receiptIds = selected.filter(isReceipt).map(statement => statement.id);
-    const statementIds = selected.filter(s => !isReceipt(s)).map(statement => statement.id);
-
-    try {
-      const [statementResult, receiptResult] = await Promise.all([
-        statementIds.length > 0 ? updateStatementStages(statementIds, target) : NO_STAGE_MOVES,
-        receiptIds.length > 0 ? updateReceiptStages(receiptIds, target) : NO_STAGE_MOVES,
-      ]);
-      const updated = [...statementResult.updated, ...receiptResult.updated];
-      setSelectedStatementIds(prev => prev.filter(id => !updated.includes(id)));
-      setSelectedActionsOpen(false);
-      await Promise.all([
-        onRefreshStatements({ search, showErrorToast: false }),
-        receiptIds.length > 0 ? onRefreshGmail({ showErrorToast: false }) : Promise.resolve(),
-      ]);
-      notifyStageMoveResult(
-        updated.length,
-        [...statementResult.skipped, ...receiptResult.skipped],
-        {
-          movedCount: selectionText.movedCount.value,
-          movedPartial: selectionText.movedPartial.value,
-        },
-      );
-    } catch (error) {
-      console.error('Failed to move selected items:', error);
-      toast.error(selectionText.moveFailed.value);
-    }
-  };
-
   const handleMarkSelectedAsDuplicate = () => {
     if (selectedStatementIds.length === 0) {
       return;
@@ -627,9 +554,7 @@ export function useStatementSelection({
     setSelectedStatementIds(prev => prev.filter(id => !processedIds.has(id)));
 
     await onRefreshStatements({ silent: true, search, showErrorToast: false });
-    if (stage === 'submit') {
-      await onRefreshGmail({ silent: true, showErrorToast: false });
-    }
+    await onRefreshGmail({ silent: true, showErrorToast: false });
 
     const skipHint = plan.skippedGmailCount
       ? ` ${selectionText.mergeSkipHint.value.replace('{count}', String(plan.skippedGmailCount))}`
@@ -677,7 +602,6 @@ export function useStatementSelection({
     handleToggleSelectAll,
     handleExportSelected,
     handleDeleteSelected,
-    handleMoveSelectedToStage,
     handleMarkSelectedAsDuplicate,
     handleDismissSelectedDuplicates,
     handleSelectDetectedDuplicates,

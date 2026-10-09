@@ -7,6 +7,7 @@ import {
   PayableSource,
   PayableStatus,
 } from '@/entities/payable.entity';
+import { PayablePayment } from '@/entities/payable-payment.entity';
 import { Workspace } from '@/entities/workspace.entity';
 import { ExchangeRatesService } from '@/modules/exchange-rates/exchange-rates.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
@@ -16,6 +17,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 function createRepositoryMock<T extends object>() {
   const repository: any = {
@@ -26,13 +28,20 @@ function createRepositoryMock<T extends object>() {
     softRemove: jest.fn(async (data: Partial<T>) => data as T),
     createQueryBuilder: jest.fn(),
   };
-  // markAsPaid locks the row in a transaction; route it back to the same mocks.
+  // markAsPaid locks the row in a transaction and writes the payment log;
+  // route both back to the same mocks. `find` defaults to empty so a bill with
+  // no payments reads as unpaid rather than throwing.
   repository.manager = {
     transaction: jest.fn(async (work: (manager: unknown) => Promise<unknown>) =>
       work({
         getRepository: () => ({
           findOneOrFail: (...args: unknown[]) => repository.findOne(...args),
+          findOne: (...args: unknown[]) => repository.findOne(...args),
+          find: async (...args: unknown[]) => (await repository.find(...args)) ?? [],
+          create: (...args: unknown[]) => repository.create(...args),
           save: (...args: unknown[]) => repository.save(...args),
+          update: jest.fn(),
+          delete: jest.fn(),
         }),
       }),
     ),
@@ -84,9 +93,14 @@ describe('PayablesService', () => {
     testingModule = await Test.createTestingModule({
       providers: [
         PayablesService,
+        workspaceCurrencyProvider(),
         {
           provide: getRepositoryToken(Payable),
           useValue: createRepositoryMock<Payable>(),
+        },
+        {
+          provide: getRepositoryToken(PayablePayment),
+          useValue: createRepositoryMock<PayablePayment>(),
         },
         {
           provide: getRepositoryToken(Transaction),
@@ -455,6 +469,19 @@ describe('PayablesService', () => {
           linkedTransactionId: 'tx-1',
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('findPaymentCandidates', () => {
+    it('offers only confirmed transactions as the payment of a bill', async () => {
+      jest.spyOn(payableRepository, 'findOne').mockResolvedValue(payableEntity);
+      const query = jest.fn(async () => []);
+      (transactionRepository as unknown as { query: jest.Mock }).query = query;
+
+      await service.findPaymentCandidates('payable-1', 'workspace-1');
+
+      const [sql] = query.mock.calls[0] as unknown as [string];
+      expect(sql).toContain('t.is_verified = true');
     });
   });
 

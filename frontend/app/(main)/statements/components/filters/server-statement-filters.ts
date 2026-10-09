@@ -32,7 +32,11 @@ const COLUMN_SCREEN_MAP: Record<string, StatementFilterScreen[]> = {
   exported: ['exported'],
 };
 
+// Type and status lost their own chips on the page, so the drawer carries them
+// whatever the visible columns are.
 const ALWAYS_VISIBLE_SCREENS: StatementFilterScreen[] = [
+  'type',
+  'status',
   'date',
   'groupBy',
   'has',

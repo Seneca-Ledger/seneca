@@ -1,22 +1,19 @@
 'use client';
 
 import Skeleton from '@mui/material/Skeleton';
-import { useTheme } from 'next-themes';
 import type React from 'react';
 import { useMemo } from 'react';
 import {
   formatMonthParam,
   parseMonthParam,
 } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
-import { LazyCategoryDonut } from '@/app/components/charts/lazy-charts';
-import { LazyECharts } from '@/app/components/ui/lazy-echarts';
+import { LazyCategoryDonut, LazySpendTrendBars } from '@/app/components/charts/lazy-charts';
 import type { DashboardTrends } from '@/app/hooks/useDashboard';
 import { useDashboardTrends } from '@/app/hooks/useDashboard';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { categoryColorFor } from '@/app/lib/category-defaults';
 import { CashFlowCard } from './CashFlowCard';
 import { CategoryIconBadge } from './CategoryIconBadge';
-import { buildDailyTrendOption } from './helpers/trends-chart-options';
 import { DashboardCard, KpiCard, ListRow } from './ui';
 import { useMonthLabel } from './use-month-label';
 
@@ -106,39 +103,30 @@ function CardState({
 function SpendTrendCard({
   state,
   monthLabel,
+  formatAmount,
 }: {
   state: SectionState;
   monthLabel: string;
+  formatAmount: Formatter;
 }): React.JSX.Element {
   const t = useIntlayer('trendsTab');
-  const { resolvedTheme } = useTheme();
-  const option = useMemo(
-    () =>
-      state.trends
-        ? buildDailyTrendOption({
-            actual: state.trends.dailyTrend,
-            forecast: state.trends.forecast ?? [],
-            isDark: resolvedTheme === 'dark',
-            labels: {
-              income: t.income.value,
-              expense: t.expense.value,
-              forecastSuffix: t.forecastSuffix.value,
-              forecastLabel: t.forecastLabel.value,
-            },
-          })
-        : null,
-    [state.trends, resolvedTheme, t],
-  );
+  const { locale } = useLocale();
   return (
     <DashboardCard title={t.spendTrendTitle} subtitle={monthLabel}>
       <CardState state={state} emptyLabel={t.noTrendDataForPeriod}>
-        {option ? (
+        {state.trends?.dailyTrend.length ? (
           <div className="lumio-dashboard__chart">
-            <LazyECharts
-              style={{ height: '100%', width: '100%' }}
-              option={option}
-              notMerge
-              lazyUpdate
+            <LazySpendTrendBars
+              actual={state.trends.dailyTrend}
+              forecast={state.trends.forecast ?? []}
+              locale={locale}
+              labels={{
+                income: t.income.value,
+                expense: t.expense.value,
+                forecastSuffix: t.forecastSuffix.value,
+                forecastLabel: t.forecastLabel.value,
+              }}
+              formatAmount={formatAmount}
             />
           </div>
         ) : (
@@ -219,7 +207,7 @@ export function TrendsTab({
       />
       {trends && <TrendsKpis trends={trends} formatAmount={formatAmount} />}
       <div className="lumio-dashboard__grid lumio-dashboard__grid--wide">
-        <SpendTrendCard state={state} monthLabel={monthLabel} />
+        <SpendTrendCard state={state} monthLabel={monthLabel} formatAmount={formatAmount} />
         <CategoryBreakdownCard state={state} formatAmount={formatAmount} />
       </div>
     </div>

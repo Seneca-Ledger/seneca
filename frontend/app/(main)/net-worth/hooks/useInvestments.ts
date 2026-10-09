@@ -9,12 +9,12 @@ import apiClient from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
 import { queryKeys } from '@/app/lib/query-keys';
 
+/** Coins are not here: they live on the crypto page, as wallets. */
 export type InvestmentAssetClass =
   | 'stock'
   | 'etf'
   | 'fund'
   | 'bond'
-  | 'crypto'
   | 'cash'
   | 'real_estate'
   | 'other';
@@ -24,7 +24,6 @@ export const ASSET_CLASSES: InvestmentAssetClass[] = [
   'etf',
   'fund',
   'bond',
-  'crypto',
   'cash',
   'real_estate',
   'other',

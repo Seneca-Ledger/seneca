@@ -16,7 +16,8 @@ export default function AuthLayout({ children, sideContent, topRightAction }: Au
     <Grid container sx={{ minHeight: '100vh', overflow: 'hidden' }}>
       {/* Left Side - Form */}
       <Grid
-        size={{ xs: 12, md: 5, lg: 4 }}
+        size={{ xs: 12, md: 6 }}
+        className="lumio-auth-form-panel"
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -32,7 +33,6 @@ export default function AuthLayout({ children, sideContent, topRightAction }: Au
           p: 6,
           position: 'relative',
           zIndex: 20,
-          boxShadow: { md: '10px 0 30px rgba(0, 0, 0, 0.25)' },
         }}
       >
         {topRightAction ? (
@@ -51,9 +51,9 @@ export default function AuthLayout({ children, sideContent, topRightAction }: Au
         </motion.div>
       </Grid>
 
-      {/* Right Side - Visual (Deep Blue) */}
+      {/* Right side — the hero over the layout's grid-and-glow backdrop */}
       <Grid
-        size={{ xs: 0, md: 7, lg: 8 }}
+        size={{ xs: 0, md: 6 }}
         sx={{
           display: { xs: 'none', md: 'flex' },
           flexDirection: 'column',
@@ -68,7 +68,7 @@ export default function AuthLayout({ children, sideContent, topRightAction }: Au
         }}
       >
         {/* Content Overlay */}
-        <Box sx={{ position: 'relative', zIndex: 10, textAlign: 'center', maxWidth: '600px' }}>
+        <Box sx={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '600px' }}>
           <AnimatePresence mode="wait">
             <motion.div
               initial={{ opacity: 0, y: 20 }}

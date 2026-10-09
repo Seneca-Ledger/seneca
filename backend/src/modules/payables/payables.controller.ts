@@ -21,6 +21,7 @@ import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AddPayablePaymentDto, AllocateTransactionDto } from './dto/add-payable-payment.dto';
 import { CreatePayableDto } from './dto/create-payable.dto';
 import { FilterPayablesDto } from './dto/filter-payables.dto';
 import { MarkPayablePaidDto } from './dto/mark-payable-paid.dto';
@@ -67,6 +68,60 @@ export class PayablesController {
     @WorkspaceId() workspaceId: string,
   ) {
     return this.payablesService.findPaymentCandidates(id, workspaceId);
+  }
+
+  @Get(':id/payments')
+  @WorkspaceAuth(Permission.PAYABLE_VIEW)
+  async listPayments(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payablesService.listPayments(id, workspaceId);
+  }
+
+  @Post(':id/payments')
+  @WorkspaceAuth(Permission.PAYABLE_EDIT)
+  @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  async addPayment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AddPayablePaymentDto,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payablesService.addPayment(id, workspaceId, user.id, dto);
+  }
+
+  @Delete(':id/payments/:paymentId')
+  @WorkspaceAuth(Permission.PAYABLE_EDIT)
+  @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  async removePayment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payablesService.removePayment(id, paymentId, workspaceId);
+  }
+
+  /** Which bills one transaction probably covers; writes nothing. */
+  @Get('allocation-suggestion/:transactionId')
+  @WorkspaceAuth(Permission.PAYABLE_VIEW)
+  async suggestAllocation(
+    @Param('transactionId', new ParseUUIDPipe()) transactionId: string,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payablesService.suggestAllocation(workspaceId, transactionId);
+  }
+
+  /** One transaction spread over several bills. */
+  @Post('allocate')
+  @WorkspaceAuth(Permission.PAYABLE_EDIT)
+  @Audit({ entityType: EntityType.PAYABLE, includeDiff: false, isUndoable: false })
+  async allocate(
+    @Body() dto: AllocateTransactionDto,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payablesService.allocateTransaction(workspaceId, user.id, dto);
   }
 
   @Put(':id')

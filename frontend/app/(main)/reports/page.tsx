@@ -3,22 +3,30 @@
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import Typography from '@mui/material/Typography';
 import { useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { BarChart3, CalendarDays, DollarSign, List, PieChart, Scale } from '@/app/components/icons';
+import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import BalanceSheet from './components/BalanceSheet';
+import { CashFlowTab } from './components/cash-flow/CashFlowTab';
 import { CashFlowView } from './components/cash-flow/CashFlowView';
 import { type ReportGenerateParams, ReportGenerator } from './components/ReportGenerator';
 import { ReportHistory } from './components/ReportHistory';
 import { ReportSchedules } from './components/ReportSchedules';
 import { type ReportTemplate, ReportTemplateCard } from './components/ReportTemplateCard';
 import { TaxReturnView } from './components/TaxReturnView';
+
+type ReportsTab = 'templates' | 'history' | 'schedules' | 'tax' | 'cash-flow';
+
+const LINKED_TABS: ReportsTab[] = ['tax', 'cash-flow'];
+
+const readLinkedTab = (value: string | null): ReportsTab | null =>
+  LINKED_TABS.find(tab => tab === value) ?? null;
 
 // eslint-disable-next-line max-lines-per-function
 export default function ReportsPage(): React.JSX.Element {
@@ -90,18 +98,19 @@ export default function ReportsPage(): React.JSX.Element {
     },
   ];
 
-  const [tab, setTab] = useState<'templates' | 'cashflow' | 'history' | 'schedules' | 'tax'>(
-    'templates',
-  );
-  // Only the tax tab is linked to (threshold notifications). Followed on change,
-  // not just read once: the link can be opened while this page is already up.
-  const linkedToTax = useSearchParams().get('tab') === 'tax';
+  const [tab, setTab] = useState<ReportsTab>('cash-flow');
+  // Tax (threshold notifications) and cash flow (advice links) are linked to.
+  // Followed on change, not just read once: the link can be opened while this
+  // page is already up.
+  const linkedTab = readLinkedTab(useSearchParams().get('tab'));
   useEffect(() => {
-    if (linkedToTax) {
-      setTab('tax');
+    if (linkedTab) {
+      setTab(linkedTab);
     }
-  }, [linkedToTax]);
-  useAttentionFocus();
+  }, [linkedTab]);
+  // Read once for the whole page: a second reader would find the parameter
+  // already cleared and never ring its row.
+  const focusId = useAttentionFocus();
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
   const [showBalanceSheet, setShowBalanceSheet] = useState(false);
 
@@ -147,11 +156,9 @@ export default function ReportsPage(): React.JSX.Element {
           >
             ← {text('backToTemplates', 'Back to templates')}
           </button>
-          <Typography variant="h5" fontWeight={700}>
-            {text('balanceSheetTitle', 'Balance Sheet')}
-          </Typography>
         </Box>
         <Box sx={{ px: { xs: 2, sm: 4 }, pb: 4 }}>
+          <UnconfirmedNotice style={{ marginBottom: 16 }} />
           <BalanceSheet />
         </Box>
       </Box>
@@ -160,21 +167,18 @@ export default function ReportsPage(): React.JSX.Element {
 
   return (
     <Box>
-      <Box sx={{ px: { xs: 2, sm: 4 }, pt: 4, pb: 0 }}>
-        <Typography variant="h5" fontWeight={700}>
-          {text('title', 'Reports')}
-        </Typography>
-        <Typography variant="body2" sx={{ mt: 0.5, color: 'var(--muted-foreground)' }}>
-          {text('subtitle', 'Generate financial reports and export documents')}
-        </Typography>
-      </Box>
-
-      <Box sx={{ mt: 2, borderBottom: '1px solid var(--border)', px: { xs: 2, sm: 4 } }}>
+      <Box
+        sx={{
+          mt: 'var(--lumio-page-top, 16px)',
+          borderBottom: '1px solid var(--border)',
+          px: { xs: 2, sm: 4 },
+        }}
+      >
         <Tabs
           data-tour-id="reports-tabs"
           value={tab}
           // eslint-disable-next-line max-params
-          onChange={(_e, v: 'templates' | 'cashflow' | 'history' | 'schedules' | 'tax') => {
+          onChange={(_e, v: ReportsTab) => {
             setTab(v);
             setSelectedTemplate(null);
           }}
@@ -182,8 +186,8 @@ export default function ReportsPage(): React.JSX.Element {
           scrollButtons={false}
           sx={sharedMuiTabsSx}
         >
+          <Tab value="cash-flow" label={text('tabCashFlow', 'Cash flow')} />
           <Tab value="templates" label={text('tabTemplates', 'Templates')} />
-          <Tab value="cashflow" label={text('tabCashFlow', 'Cash flow')} />
           <Tab
             value="schedules"
             label={text('tabSchedules', 'Schedules')}
@@ -199,8 +203,14 @@ export default function ReportsPage(): React.JSX.Element {
       </Box>
 
       <Box sx={{ px: { xs: 2, sm: 4 }, py: 3 }}>
+        <UnconfirmedNotice style={{ marginBottom: 16 }} />
         {tab === 'tax' && <TaxReturnView />}
-        {tab === 'cashflow' && <CashFlowView />}
+        {tab === 'cash-flow' && (
+          <>
+            <CashFlowView />
+            <CashFlowTab focusId={focusId} />
+          </>
+        )}
         {tab === 'templates' && (
           <>
             <Box

@@ -34,10 +34,17 @@ function buildService() {
     user: { id: 'u1', name: 'Пётр', email: 'p@example.com' },
   });
 
+  // The targets a note can hang off; these cases only use statements, so the
+  // rest just have to exist.
+  const absentTarget = { exists: jest.fn(async () => false) };
   const service = new NotesService(
     noteRepository as never,
     statementRepository as never,
     receiptRepository as never,
+    absentTarget as never,
+    absentTarget as never,
+    absentTarget as never,
+    absentTarget as never,
     workspaceMemberRepository as never,
     eventEmitter as never,
   );

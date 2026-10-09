@@ -242,6 +242,8 @@ const buildNewColumnMapping = ({
     mode: 'new',
     newTitle: resolvedTitle,
     newType: selection.newType ?? inferNewColumnType(field),
+    ...(selection.newConfig ? { newConfig: selection.newConfig } : {}),
+    ...(selection.formula ? { formula: selection.formula } : {}),
   };
 };
 

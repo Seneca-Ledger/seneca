@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { forEachIssueRowWithSchema } from './column-auto-fix.util';
 
@@ -475,7 +476,7 @@ export class ColumnAutoFixService {
     });
 
     // Determine default currency
-    let defaultCurrency = 'KZT'; // Default fallback
+    let defaultCurrency = appDefaultCurrency();
     let maxCount = 0;
     for (const [currency, count] of commonCurrencies.entries()) {
       if (count > maxCount) {
@@ -712,7 +713,7 @@ export class ColumnAutoFixService {
       case 'paymentPurpose':
         return 'Transaction';
       case 'currency':
-        return 'KZT';
+        return appDefaultCurrency();
       case 'exchangeRate':
         return 1;
       case 'debit':

@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import * as fs from 'fs';
 import * as pdfParse from 'pdf-parse';
 import { stripHtmlForAi } from '../../../common/utils/ai-response.util';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import {
   createReceiptAmountHelpers,
   DEFAULT_RECEIPT_SYMBOL_TO_CURRENCY,
@@ -164,7 +165,7 @@ export class GmailReceiptParserService {
 
     return {
       amount: amountWithCurrency?.amount ?? fallbackAmount,
-      currency: amountWithCurrency?.currency || 'KZT',
+      currency: amountWithCurrency?.currency || appDefaultCurrency(),
       date: normalizeDateHeader(context.dateHeader),
       vendor,
       confidence: vendor ? 0.6 : 0.3,
@@ -209,7 +210,7 @@ export class GmailReceiptParserService {
           ) {
             return {
               amount: universal.totalAmount,
-              currency: universal.currency || 'KZT',
+              currency: universal.currency || appDefaultCurrency(),
               date: universal.date ? universal.date.toISOString().split('T')[0] : undefined,
               vendor: universal.vendor,
               tax: universal.tax,
@@ -227,7 +228,8 @@ export class GmailReceiptParserService {
 
       const amountWithCurrency = await this.extractAmountWithCurrency(text);
       const amount = amountWithCurrency?.amount;
-      const currency = amountWithCurrency?.currency || this.extractCurrency(text) || 'KZT';
+      const currency =
+        amountWithCurrency?.currency || this.extractCurrency(text) || appDefaultCurrency();
       const date = this.extractDate(text);
       const vendor = await this.extractVendorWithAi(text, context);
       const tax = this.extractTax(text);
@@ -301,7 +303,11 @@ export class GmailReceiptParserService {
         const fragmentCurrency = this.amountHelpers.extractCurrency(fragment);
         const lineCurrency = this.amountHelpers.extractCurrency(line);
         const currency =
-          parsed.currency || fragmentCurrency || lineCurrency || documentCurrency || 'KZT';
+          parsed.currency ||
+          fragmentCurrency ||
+          lineCurrency ||
+          documentCurrency ||
+          appDefaultCurrency();
         const explicitCurrency = Boolean(parsed.currency || fragmentCurrency);
 
         candidates.push({
@@ -336,13 +342,32 @@ export class GmailReceiptParserService {
     };
   }
 
+  /**
+   * First date-looking token that is actually a plausible receipt date. Digits
+   * inside DOIs, phone numbers or page references also match the shapes, so
+   * every candidate is checked: whole token, real calendar date, sane year.
+   */
   private extractDate(text: string): string | undefined {
-    const patterns = [/\d{2}[-/.]\d{2}[-/.]\d{4}/, /\d{4}[-/.]\d{2}[-/.]\d{2}/];
+    const patterns = [
+      /(?<![\d.])(\d{2})[-/.](\d{2})[-/.](\d{4})(?![\d.])/g,
+      /(?<![\d.])(\d{4})[-/.](\d{2})[-/.](\d{2})(?![\d.])/g,
+    ];
+    const maxYear = new Date().getFullYear() + 1;
 
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match) {
-        return match[0];
+    for (const [index, pattern] of patterns.entries()) {
+      for (const match of text.matchAll(pattern)) {
+        const [token, a, b, c] = match;
+        const year = Number(index === 0 ? c : a);
+        const month = Number(b);
+        const day = Number(index === 0 ? a : c);
+        const calendar = new Date(Date.UTC(year, month - 1, day));
+        const real =
+          calendar.getUTCFullYear() === year &&
+          calendar.getUTCMonth() === month - 1 &&
+          calendar.getUTCDate() === day;
+        if (real && year >= 1990 && year <= maxYear) {
+          return token;
+        }
       }
     }
 

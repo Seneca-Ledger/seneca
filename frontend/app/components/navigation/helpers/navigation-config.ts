@@ -3,6 +3,7 @@ import {
   BarChart2,
   Building2,
   Calculator,
+  Compass,
   CreditCard,
   FileText,
   Flag,
@@ -147,7 +148,7 @@ export function buildNavItems(nav: {
     {
       label: nav.forecast as ReactNode,
       path: '/forecast',
-      icon: React.createElement(TrendingUp, { size: 18 }),
+      icon: React.createElement(Compass, { size: 18 }),
       // Reads the same aggregates as the dashboard and net worth (Permission.REPORT_VIEW).
       permission: 'report.view',
     },

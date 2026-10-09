@@ -5,6 +5,7 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsUUID,
@@ -23,6 +24,15 @@ export class ReviewInboxQueryDto {
   @IsOptional()
   @IsEnum(ReviewInboxKind)
   kind?: ReviewInboxKind;
+
+  /**
+   * `me` keeps someone else's rows out of the queue: mine plus everything the
+   * household has not handed to anyone. Anything else is the whole workspace.
+   * Receipts and detected subscriptions belong to no one, so they ignore it.
+   */
+  @IsOptional()
+  @IsIn(['me', 'anyone'])
+  reviewer?: 'me' | 'anyone';
 
   /** Both bounds are inclusive calendar dates; together they make a "vacation mode" selection. */
   @IsOptional()

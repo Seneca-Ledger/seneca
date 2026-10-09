@@ -58,6 +58,8 @@ function createService(options: {
   contributions?: Record<string, Record<string, number>>;
   /** Rate curve to KZT by currency; absent means no rate at all. */
   rates?: Record<string, number | Array<{ date: string; rate: number }>>;
+  /** Spot price of one ounce, by day; absent means that day has no quote. */
+  metalRate?: number | ((date: string) => number | null);
 }) {
   const accounts = (options.accounts ?? ACCOUNTS).map(account => ({
     parentId: null,
@@ -133,6 +135,11 @@ function createService(options: {
       }
       return typeof rate === 'number' ? [{ date: fromDate, rate }] : rate;
     }),
+    getRateQuote: jest.fn(async (_from: string, _to: string, date: string) => {
+      const spot =
+        typeof options.metalRate === 'function' ? options.metalRate(date) : (options.metalRate ?? null);
+      return spot ? { rate: spot, rateDate: date, stale: false } : null;
+    }),
   } as any;
 
   const investments = {
@@ -158,7 +165,7 @@ function createService(options: {
     investments,
   );
 
-  return { service, balanceService, exchangeRates, investments };
+  return { service, balanceService, exchangeRates, investments, transactionQueryBuilder };
 }
 
 describe('NetWorthService', () => {
@@ -678,6 +685,24 @@ describe('NetWorthService', () => {
     });
   });
 
+  it('starts the all-time chart at the first confirmed transaction', async () => {
+    const { service, transactionQueryBuilder } = createService({});
+
+    await service.getNetWorth(WORKSPACE_ID, { range: 'all' });
+
+    expect(transactionQueryBuilder.andWhere).toHaveBeenCalledWith('transaction.isVerified = true');
+  });
+
+  it('starts the year-to-date chart on the first of January', async () => {
+    const { service } = createService({});
+
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: 'ytd' });
+
+    const today = new Date().toISOString().split('T')[0];
+    expect(result.series[0].date).toBe(`${today.slice(0, 4)}-01-01`);
+    expect(result.series[result.series.length - 1].date).toBe(today);
+  });
+
   it('returns a flat zero series for a workspace with nothing in it', async () => {
     const { service } = createService({});
 
@@ -686,5 +711,41 @@ describe('NetWorthService', () => {
     expect(result.current).toBe(0);
     expect(result.breakdown).toEqual([]);
     expect(result.series.every(point => point.value === 0)).toBe(true);
+  });
+
+  it('measures the same net worth in ounces, each point at its own day', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 80_000 }],
+      // Gold doubles over the window: the same money is worth half the ounces.
+      metalRate: (date: string) => (date < daysAgo(15) ? 2_000 : 4_000),
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '30d' }, undefined, 'XAU' as never);
+
+    expect(result.current).toBe(80_000);
+    expect(result.denominated).toMatchObject({ metal: 'XAU', unit: 'ozt' });
+    expect(result.denominated?.series[0]?.value).toBe(40);
+    expect(result.denominated?.current).toBe(20);
+    expect(result.denominated?.change).toBe(-20);
+  });
+
+  it('offers no ounce figures at all when no day has a quote', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 80_000 }],
+      metalRate: () => null,
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '30d' }, undefined, 'XAU' as never);
+    expect(result.denominated).toBeNull();
+  });
+
+  it('says nothing about metal unless it is asked to', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 80_000 }],
+      metalRate: 4_000,
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, { range: '30d' });
+    expect(result.denominated).toBeNull();
   });
 });

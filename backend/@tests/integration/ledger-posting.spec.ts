@@ -122,6 +122,8 @@ describe('ledger posting engine (real Postgres)', () => {
         paymentPurpose: 'Purpose',
         currency: 'EUR',
         transactionType: TransactionType.EXPENSE,
+        // Booked rows are confirmed ones; a test about unconfirmed rows overrides it.
+        isVerified: true,
         ...fields,
       }),
     );
@@ -185,7 +187,7 @@ describe('ledger posting engine (real Postgres)', () => {
     entryRepo = dataSource.getRepository(JournalEntry);
     onRateLookup = defaultRates;
 
-    const workspace = await dataSource.getRepository(Workspace).save({ name: 'Ledger WS' });
+    const workspace = await dataSource.getRepository(Workspace).save({ name: 'Ledger WS', currency: 'USD' });
     workspaceId = workspace.id;
     const user = await dataSource.getRepository(User).save(
       dataSource.getRepository(User).create({

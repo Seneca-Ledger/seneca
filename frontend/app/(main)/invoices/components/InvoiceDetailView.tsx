@@ -4,31 +4,45 @@
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { MarkPaidDialog } from '@/app/(main)/statements/components/payables/MarkPaidDialog';
+import {
+  MarkPaidDialog,
+  type MarkPaidResult,
+} from '@/app/(main)/statements/components/payables/MarkPaidDialog';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronLeft, Trash2 } from '@/app/components/icons';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
+import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import {
+  type CreateCreditNoteInput,
+  type CreditNote,
+  creditNotesApi,
+} from '@/app/lib/credit-notes-api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
 import {
   type Client,
   type CreateInvoiceInput,
   clientsApi,
   type Invoice,
+  type InvoiceDelivery,
   type InvoiceLineItemInput,
   type InvoiceRecurrenceInterval,
+  type InvoiceStatus,
   invoicesApi,
+  type SendInvoiceEmailInput,
 } from '@/app/lib/invoices-api';
-import { type MarkPayablePaidInput, type Payable, payablesApi } from '@/app/lib/payables-api';
-import { getInvoiceStatusVariant } from './invoices-format';
+import { type Payable, payablesApi } from '@/app/lib/payables-api';
+import { CreditNoteDialog } from './CreditNoteDialog';
+import { InvoiceEmailDrawer } from './InvoiceEmailDrawer';
+import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
 
 interface TaxRateOption {
   id: string;
@@ -46,15 +60,24 @@ const addDays = (iso: string, days: number): string => {
   return date.toISOString().slice(0, 10);
 };
 
-function computeTotals(lineItems: InvoiceLineItemInput[], taxRates: TaxRateOption[]) {
+/**
+ * The same split the backend does, so the drawer and the saved invoice agree:
+ * a tax-inclusive price has its tax extracted, an exclusive one has it added.
+ */
+function computeTotals(
+  lineItems: InvoiceLineItemInput[],
+  taxRates: TaxRateOption[],
+  pricesIncludeTax: boolean,
+) {
   const rateById = new Map(taxRates.map(rate => [rate.id, rate.rate]));
   let subtotal = 0;
   let taxTotal = 0;
   for (const item of lineItems) {
-    const net = Number(item.quantity || 0) * Number(item.unitPrice || 0);
+    const amount = Number(item.quantity || 0) * Number(item.unitPrice || 0);
     const pct = item.taxRateId ? (rateById.get(item.taxRateId) ?? 0) : 0;
-    subtotal += net;
-    taxTotal += net * (pct / 100);
+    const tax = pricesIncludeTax ? (amount * pct) / (100 + pct) : (amount * pct) / 100;
+    subtotal += pricesIncludeTax ? amount - tax : amount;
+    taxTotal += tax;
   }
   const round = (value: number) => Math.round(value * 100) / 100;
   return {
@@ -74,6 +97,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
   const { currentWorkspace } = useWorkspace();
   const { locale } = useLocale();
   const t = useIntlayer('invoicesPage');
+  const settingsLabels = useIntlayer('invoiceSettings');
   const isNew = invoiceId === 'new';
 
   const [loading, setLoading] = useState(!isNew);
@@ -83,7 +107,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
   const [clientId, setClientId] = useState('');
   const [issueDate, setIssueDate] = useState(todayIso());
   const [dueDate, setDueDate] = useState(addDays(todayIso(), 14));
-  const [currency, setCurrency] = useState('KZT');
+  const [currency, setCurrency] = useState(FALLBACK_CURRENCY);
   const {
     currencyDrawerOpen,
     setCurrencyDrawerOpen,
@@ -97,11 +121,17 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
     pushRecentCurrency,
   } = useCurrencyPickerState(currency);
   const [notes, setNotes] = useState('');
+  const [pricesIncludeTax, setPricesIncludeTax] = useState(false);
   const [lineItems, setLineItems] = useState<InvoiceLineItemInput[]>([emptyLine()]);
   const [recurrenceInterval, setRecurrenceInterval] = useState<InvoiceRecurrenceInterval | ''>('');
   const [saving, setSaving] = useState(false);
   const [acting, setActing] = useState(false);
   const [payingPayable, setPayingPayable] = useState<Payable | null>(null);
+  const [removingPaymentId, setRemovingPaymentId] = useState<string | null>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [deliveries, setDeliveries] = useState<InvoiceDelivery[]>([]);
+  const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
+  const [creditingInvoice, setCreditingInvoice] = useState<Invoice | null>(null);
 
   const isEditable = isNew || invoice?.status === 'draft';
 
@@ -119,7 +149,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
 
   const loadInvoice = useCallback(async () => {
     if (isNew) {
-      setCurrency(currentWorkspace?.currency?.toUpperCase() || 'KZT');
+      setCurrency(currentWorkspace?.currency?.toUpperCase() || FALLBACK_CURRENCY);
       return;
     }
     setLoading(true);
@@ -133,6 +163,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
         setCurrency(data.currency);
         setNotes(data.notes || '');
         setRecurrenceInterval(data.recurrenceInterval || '');
+        setPricesIncludeTax(Boolean(data.pricesIncludeTax));
         setLineItems(
           (data.lineItems || []).map(item => ({
             description: item.description,
@@ -147,6 +178,15 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
         toast.error(getApiErrorMessage(error, t.detail.notFound.value));
       })
       .finally(() => setLoading(false));
+    // A failed delivery is not a reason to fail opening the invoice.
+    await invoicesApi
+      .deliveries(invoiceId)
+      .then(setDeliveries)
+      .catch(() => setDeliveries([]));
+    await creditNotesApi
+      .forInvoice(invoiceId)
+      .then(setCreditNotes)
+      .catch(() => setCreditNotes([]));
   }, [invoiceId, isNew, currentWorkspace, t.detail.notFound.value]);
 
   useEffect(() => {
@@ -154,7 +194,21 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
     void loadInvoice();
   }, [loadOptions, loadInvoice]);
 
-  const totals = useMemo(() => computeTotals(lineItems, taxRates), [lineItems, taxRates]);
+  // Read one key at a time: indexing an intlayer dictionary with a variable
+  // types as `any` and silently loses a missing status.
+  const statusLabels: Record<InvoiceStatus, string> = {
+    draft: String(t.statusLabels.draft.value),
+    sent: String(t.statusLabels.sent.value),
+    partially_paid: String(t.statusLabels.partially_paid.value),
+    paid: String(t.statusLabels.paid.value),
+    overdue: String(t.statusLabels.overdue.value),
+    void: String(t.statusLabels.void.value),
+  };
+
+  const totals = useMemo(
+    () => computeTotals(lineItems, taxRates, pricesIncludeTax),
+    [lineItems, taxRates, pricesIncludeTax],
+  );
 
   const updateLine = (index: number, patch: Partial<InvoiceLineItemInput>): void => {
     setLineItems(current => current.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -180,6 +234,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
     dueDate,
     currency,
     notes: notes || undefined,
+    pricesIncludeTax,
     lineItems: lineItems.map(line => ({
       description: line.description.trim(),
       quantity: Number(line.quantity),
@@ -208,6 +263,84 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
         toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value));
       })
       .finally(() => setSaving(false));
+  };
+
+  /**
+   * Picking a client on a new invoice also sets the due date from its payment
+   * terms: "net 30" is a property of the relationship, not something to retype.
+   */
+  const handlePickClient = (next: string): void => {
+    setClientId(next);
+    const picked = clients.find(client => client.id === next);
+    if (isNew && picked?.paymentTermsDays != null) {
+      setDueDate(addDays(issueDate, picked.paymentTermsDays));
+    }
+  };
+
+  /**
+   * Appends a late-fee line, computed from what this client is actually
+   * overdue on — not from the invoice being written. The user adds it; nothing
+   * is charged behind their back.
+   */
+  const handleAddLateFee = async (): Promise<void> => {
+    if (!clientId) {
+      return;
+    }
+    await invoicesApi
+      .lateFeeQuote(clientId)
+      .then(quote => {
+        const match = quote.amounts.find(entry => entry.currency === currency);
+        if (!match || match.fee <= 0) {
+          toast.error(t.detail.lateFeeNone.value);
+          return;
+        }
+        setLineItems(previous => [
+          ...previous,
+          {
+            description: String(t.detail.lateFeeLine.value).replace(
+              '{percent}',
+              String(quote.percent),
+            ),
+            quantity: 1,
+            unitPrice: match.fee,
+          },
+        ]);
+      })
+      .catch(error => {
+        toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value));
+      });
+  };
+
+  const handleEmail = async (payload: SendInvoiceEmailInput): Promise<void> => {
+    if (!invoice) {
+      return;
+    }
+    await invoicesApi
+      .sendEmail(invoice.id, payload)
+      .then(delivery => {
+        setEmailOpen(false);
+        setDeliveries(previous => [delivery, ...previous]);
+        if (delivery.status === 'sent') {
+          toast.success(t.detail.deliverySent.value);
+        } else if (delivery.status === 'skipped') {
+          toast.error(t.detail.deliverySkipped.value);
+        } else {
+          toast.error(delivery.error || t.detail.deliveryFailed.value);
+        }
+      })
+      .catch(error => {
+        toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value));
+      });
+  };
+
+  /** The document as the client will get it, before the number is spent. */
+  const handlePreview = async (): Promise<void> => {
+    if (!invoice) {
+      return;
+    }
+    await invoicesApi.openPreview(invoice.id).catch(error => {
+      toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value));
+    });
   };
 
   const handleSend = async (): Promise<void> => {
@@ -263,17 +396,52 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
       .catch(error => toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value)));
   };
 
-  const confirmMarkPaid = async (
-    payable: Payable,
-    payload: MarkPayablePaidInput,
-  ): Promise<void> => {
-    await payablesApi
-      .markAsPaid(payable.id, payload)
-      .then(async () => {
-        setPayingPayable(null);
+  const confirmMarkPaid = async (payable: Payable, result: MarkPaidResult): Promise<void> => {
+    await (result.kind === 'full'
+      ? payablesApi.markAsPaid(payable.id, result.payload)
+      : payablesApi.addPayment(payable.id, result.payload)
+    )
+      .then(async updated => {
+        // Still short: the dialog stays open for the next instalment.
+        setPayingPayable(updated.status === 'partially_paid' ? updated : null);
         await loadInvoice();
       })
       .catch(error => toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value)));
+  };
+
+  const createCreditNote = async (payload: CreateCreditNoteInput): Promise<void> => {
+    setActing(true);
+    await creditNotesApi
+      .create(payload)
+      .then(async () => {
+        setCreditingInvoice(null);
+        await loadInvoice();
+      })
+      .catch(error => toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value)))
+      .finally(() => setActing(false));
+  };
+
+  const voidCreditNote = async (noteId: string): Promise<void> => {
+    setActing(true);
+    await creditNotesApi
+      .void(noteId)
+      .then(async () => {
+        await loadInvoice();
+      })
+      .catch(error => toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value)))
+      .finally(() => setActing(false));
+  };
+
+  const removePayment = async (payable: Payable, paymentId: string): Promise<void> => {
+    setRemovingPaymentId(paymentId);
+    await payablesApi
+      .removePayment(payable.id, paymentId)
+      .then(async updated => {
+        setPayingPayable(updated);
+        await loadInvoice();
+      })
+      .catch(error => toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value)))
+      .finally(() => setRemovingPaymentId(null));
   };
 
   if (loading) {
@@ -295,7 +463,9 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
           {invoice?.invoiceNumber ?? t.detail.newTitle}
         </h1>
         {invoice && (
-          <Badge variant={getInvoiceStatusVariant(invoice.status)}>{invoice.status}</Badge>
+          <Badge variant={getInvoiceStatusVariant(invoice.status)}>
+            {statusLabels[invoice.status] ?? invoice.status}
+          </Badge>
         )}
         <div className="lumio-invoice-detail__actions">
           {invoice?.status !== 'draft' && invoice && (
@@ -308,9 +478,26 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
               {t.actions.downloadPdf.value}
             </Button>
           )}
+          {invoice && invoice.status !== 'draft' && invoice.status !== 'void' && (
+            <Button variant="outline" onClick={() => setEmailOpen(true)}>
+              {t.detail.emailAction.value}
+            </Button>
+          )}
           {invoice?.payableId && invoice.status !== 'paid' && invoice.status !== 'void' && (
             <Button variant="outline" onClick={() => void handleRecordPayment()}>
               {t.actions.recordPayment.value}
+            </Button>
+          )}
+          {/* Credit what the client no longer owes — the only correction left
+              once an invoice is paid, where void is refused. */}
+          {invoice && invoice.status !== 'draft' && invoice.status !== 'void' && (
+            <Button variant="outline" onClick={() => setCreditingInvoice(invoice)}>
+              {t.detail.creditNoteAction.value}
+            </Button>
+          )}
+          {invoice?.status === 'draft' && (
+            <Button variant="outline" onClick={() => void handlePreview()}>
+              {t.detail.previewPdf.value}
             </Button>
           )}
           {invoice?.status === 'draft' && (
@@ -341,7 +528,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             id="invoice-client"
             value={clientId}
             disabled={!isEditable}
-            onChange={setClientId}
+            onChange={handlePickClient}
             options={
               clients.length > 0
                 ? clients.map(client => ({ value: client.id, label: client.name }))
@@ -387,6 +574,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             <Select
               fullWidth
               id="invoice-recurrence"
+              sx={FORM_CONTROL_SX}
               value={recurrenceInterval || 'none'}
               disabled={!isEditable}
               onChange={next =>
@@ -402,6 +590,21 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             />
           </div>
         </div>
+
+        <label
+          className="lumio-payable-drawer__field-group"
+          style={{ flexDirection: 'row', gap: 8 }}
+        >
+          <input
+            type="checkbox"
+            checked={pricesIncludeTax}
+            disabled={!isEditable}
+            onChange={event => setPricesIncludeTax(event.target.checked)}
+          />
+          <span className="lumio-payable-drawer__field-label">
+            {t.detail.pricesIncludeTax.value}
+          </span>
+        </label>
 
         <div>
           <div style={{ overflowX: 'auto' }}>
@@ -545,6 +748,27 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
               <span>{t.columns.total.value}</span>
               <span>{formatMoney(totals.total, currency, locale)}</span>
             </div>
+            {/* Payments against the invoice: what the client still owes is the
+                number they care about, and it is not the total. */}
+            {Number(invoice?.amountPaid ?? 0) > 0 && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                  <span>{t.detail.amountPaid.value}</span>
+                  <span>{formatMoney(Number(invoice?.amountPaid), currency, locale)}</span>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: 14,
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>{t.detail.amountDue.value}</span>
+                  <span>{formatMoney(Number(invoice?.amountDue), currency, locale)}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -561,6 +785,108 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
           />
         </div>
 
+        {invoice && invoice.status !== 'draft' && (
+          <div className="lumio-payable-drawer__field-group">
+            <span className="lumio-payable-drawer__field-label">
+              {t.detail.deliveryHistory.value}
+            </span>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              {invoice.viewedAt
+                ? `${String(settingsLabels.viewed.value)} · ${formatInvoiceDate(invoice.viewedAt, locale)}`
+                : settingsLabels.notViewed.value}
+            </p>
+            {deliveries.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                {t.detail.deliveryNone.value}
+              </p>
+            ) : (
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+                {deliveries.map(delivery => (
+                  <li key={delivery.id} style={{ fontSize: 13 }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      {formatInvoiceDate(delivery.createdAt, locale)}
+                    </span>{' '}
+                    {delivery.recipient} —{' '}
+                    <span
+                      style={{
+                        color:
+                          delivery.status === 'sent' ? 'var(--foreground)' : 'var(--destructive)',
+                      }}
+                    >
+                      {delivery.status === 'sent'
+                        ? t.detail.deliverySent.value
+                        : delivery.status === 'skipped'
+                          ? t.detail.deliverySkipped.value
+                          : delivery.error || t.detail.deliveryFailed.value}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {creditNotes.length > 0 && (
+          <div className="lumio-payable-drawer__field-group">
+            <span className="lumio-payable-drawer__field-label">
+              {t.detail.creditNotesTitle.value}
+            </span>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+              {creditNotes.map(note => (
+                <li
+                  key={note.id}
+                  style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
+                >
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    {formatInvoiceDate(note.issueDate, locale)}
+                  </span>
+                  <span style={{ fontWeight: 600 }}>{note.creditNoteNumber}</span>
+                  <span>
+                    {formatMoney(
+                      Number(
+                        note.applications?.find(
+                          application => application.invoiceId === invoice?.id,
+                        )?.amount ?? note.total,
+                      ),
+                      note.currency,
+                      locale,
+                    )}
+                  </span>
+                  {note.status === 'void' && <span>{t.statusLabels.void.value}</span>}
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      void creditNotesApi.downloadPdf(
+                        note.id,
+                        `${note.creditNoteNumber ?? 'credit-note'}.pdf`,
+                      )
+                    }
+                  >
+                    {t.actions.downloadPdf.value}
+                  </Button>
+                  {note.status === 'issued' && (
+                    <Button
+                      variant="outline"
+                      disabled={acting}
+                      onClick={() => void voidCreditNote(note.id)}
+                    >
+                      {t.actions.void.value}
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {isEditable && lineItems.length > 0 && clientId ? (
+          <div>
+            <Button variant="outline" onClick={() => void handleAddLateFee()}>
+              {t.detail.lateFeeAdd.value}
+            </Button>
+          </div>
+        ) : null}
+
         {isEditable && (
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <Button variant="outline" onClick={() => router.push('/invoices')}>
@@ -573,11 +899,41 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
         )}
       </div>
 
+      <CreditNoteDialog
+        invoice={creditingInvoice}
+        creditable={
+          Math.round((Number(invoice?.total ?? 0) - Number(invoice?.amountCredited ?? 0)) * 100) /
+          100
+        }
+        submitting={acting}
+        onClose={() => setCreditingInvoice(null)}
+        onConfirm={payload => void createCreditNote(payload)}
+      />
+
       <MarkPaidDialog
         payable={payingPayable}
         submitting={false}
+        removingPaymentId={removingPaymentId}
         onClose={() => setPayingPayable(null)}
-        onConfirm={(payable, payload) => void confirmMarkPaid(payable, payload)}
+        onConfirm={(payable, result) => void confirmMarkPaid(payable, result)}
+        onRemovePayment={(payable, paymentId) => void removePayment(payable, paymentId)}
+      />
+
+      <InvoiceEmailDrawer
+        open={emailOpen}
+        onClose={() => setEmailOpen(false)}
+        onSubmit={handleEmail}
+        defaultRecipient={invoice?.client?.email ?? ''}
+        labels={{
+          title: t.detail.emailTitle.value,
+          recipient: t.detail.emailRecipient.value,
+          subject: t.detail.emailSubject.value,
+          message: t.detail.emailMessage.value,
+          hint: t.detail.emailHint.value,
+          send: t.actions.send.value,
+          sending: t.actions.saving.value,
+          cancel: t.actions.cancel.value,
+        }}
       />
 
       <CurrencyDrawer

@@ -112,6 +112,7 @@ export function mapTronTransfers(input: {
         amount: formatUnits(fee, TRX_DECIMALS),
         direction: 'out',
         counterparty: to,
+        leg: 'fee',
       });
     }
 

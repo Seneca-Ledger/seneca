@@ -86,6 +86,9 @@ export const CHAIN_NAMES: Record<number, string> = Object.fromEntries(
   SUPPORTED_CHAIN_IDS.map(id => [id, CHAINS[id].name]),
 );
 
+/** xpub, ypub or zpub: the account key a Bitcoin wallet exports. */
+export const EXTENDED_KEY_PATTERN = /^[xyz]pub[1-9A-HJ-NP-Za-km-z]{95,115}$/;
+
 export const EVM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 /** Base58check, always starting with `T`. Case-sensitive, unlike an EVM address. */
 export const TRON_ADDRESS_PATTERN = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
@@ -106,6 +109,10 @@ const BASE58_PATTERN = /^[1-9A-HJ-NP-Za-km-z]+$/;
 export function familyForAddress(address: string): ChainFamily | null {
   if (EVM_ADDRESS_PATTERN.test(address)) {
     return 'evm';
+  }
+  // An extended public key is a whole Bitcoin wallet rather than one address.
+  if (EXTENDED_KEY_PATTERN.test(address) && hasBase58Checksum(address)) {
+    return 'bitcoin';
   }
   if (TRON_ADDRESS_PATTERN.test(address) && hasBase58Checksum(address)) {
     return 'tron';

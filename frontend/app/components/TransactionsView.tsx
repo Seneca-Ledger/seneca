@@ -17,6 +17,7 @@ import { Search as SearchIcon } from '@/app/components/icons';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 
 export interface Transaction {
@@ -86,7 +87,7 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
         locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
         {
           style: 'currency',
-          currency: currency || 'KZT',
+          currency: currency || FALLBACK_CURRENCY,
           minimumFractionDigits: 2,
         },
       ).format(amount);
@@ -189,7 +190,7 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
       transactionDate: tx => formatDate(tx.transactionDate),
       debit: tx => (tx.debit > 0 ? formatAmount(tx.debit, tx.currency) : t.dash),
       credit: tx => (tx.credit > 0 ? formatAmount(tx.credit, tx.currency) : t.dash),
-      currency: tx => tx.currency || 'KZT',
+      currency: tx => tx.currency || FALLBACK_CURRENCY,
       exchangeRate: tx =>
         tx.exchangeRate
           ? tx.exchangeRate.toLocaleString(

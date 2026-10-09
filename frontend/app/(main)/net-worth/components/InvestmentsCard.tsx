@@ -19,12 +19,19 @@ import {
   useInvestments,
 } from '../hooks/useInvestments';
 
-export const ASSET_CLASS_KEYS: Record<InvestmentAssetClass, string> = {
+/**
+ * Labels for every asset class net worth can show. `crypto` is not a holding
+ * class any more — the wallets are — but the balance sheet still has a crypto
+ * line, and it needs a name here. `metal` is a holding class, entered on the
+ * metals card rather than in the holding form.
+ */
+export const ASSET_CLASS_KEYS: Record<InvestmentAssetClass | 'crypto' | 'metal', string> = {
   stock: 'classStock',
   etf: 'classEtf',
   fund: 'classFund',
   bond: 'classBond',
   crypto: 'classCrypto',
+  metal: 'classMetal',
   cash: 'classCash',
   real_estate: 'classRealEstate',
   other: 'classOther',

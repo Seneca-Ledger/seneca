@@ -28,6 +28,7 @@ export interface TableToolbarLabels {
   exportXlsx: string;
   exportCsv: string;
   sendToStatements: string;
+  refreshSource: string;
   deleteSelected: string;
 }
 
@@ -46,6 +47,9 @@ interface TableToolbarProps {
   onImportFile: (file: File) => void;
   onExport: (format: 'xlsx' | 'csv') => void;
   onSendToStatements: () => void;
+  /** Only for tables filled from app data. */
+  onRefreshSource?: () => void;
+  refreshing?: boolean;
   onDeleteSelected: () => void;
   /** Filter button and chips, rendered next to the search box. */
   filters?: React.ReactNode;
@@ -84,14 +88,15 @@ function ColumnsMenu({
             {column.title}
           </DropdownMenuCheckboxItem>
         ))}
-        {hidden.length ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onColumnVisibilityChange({})}>
-              {labels.showAllColumns}
-            </DropdownMenuItem>
-          </>
-        ) : null}
+        {/* MUI Menu walks its children for focus; a Fragment hides them, so give it an array. */}
+        {hidden.length
+          ? [
+              <DropdownMenuSeparator key="separator" />,
+              <DropdownMenuItem key="show-all" onClick={() => onColumnVisibilityChange({})}>
+                {labels.showAllColumns}
+              </DropdownMenuItem>,
+            ]
+          : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -178,6 +183,17 @@ export function TableToolbar(props: TableToolbarProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {props.onRefreshSource ? (
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            disabled={props.refreshing}
+            onClick={props.onRefreshSource}
+          >
+            {labels.refreshSource}
+          </Button>
+        ) : null}
         <Button variant="outline" size="sm" type="button" onClick={props.onSendToStatements}>
           {labels.sendToStatements}
         </Button>

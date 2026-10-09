@@ -2,6 +2,7 @@
 
 import { Check, ChevronDown } from '@/app/components/icons';
 import { useLocale } from '@/app/i18n';
+import { isPrivateCategory } from '@/app/lib/private-category';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -39,7 +40,7 @@ function CategoryMenuItems({
   return (
     <div className="lumio-tx-cat-menu">
       {categories
-        .filter(cat => cat.isEnabled !== false)
+        .filter(cat => !isPrivateCategory(cat) && cat.isEnabled !== false)
         .map(cat => (
           <DropdownMenuItem
             key={cat.id}

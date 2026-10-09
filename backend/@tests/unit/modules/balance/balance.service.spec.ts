@@ -356,6 +356,16 @@ describe('BalanceService', () => {
     });
   });
 
+  it('counts only confirmed transactions in retained earnings', async () => {
+    const builder = queryBuilderReturning([{ currency: 'KZT', totalCredit: '500', totalDebit: '100' }]);
+    transactionRepository.createQueryBuilder.mockReturnValue(builder);
+
+    const earnings = await (service as any).getRetainedEarnings('ws-1', '2026-02-28');
+
+    expect(earnings).toEqual(new Map([['KZT', 400]]));
+    expect(builder.andWhere).toHaveBeenCalledWith('transaction.isVerified = true');
+  });
+
   describe('getCashSeries', () => {
     beforeEach(() => {
       workspaceMemberRepository.find.mockResolvedValue([{ userId: 'user-1' }]);
@@ -381,6 +391,8 @@ describe('BalanceService', () => {
       expect(builder.andWhere).toHaveBeenCalledWith(
         '(transaction.statementId IS NULL OR statement.deletedAt IS NULL)',
       );
+      // Unconfirmed rows wait in Review and move no balance.
+      expect(builder.andWhere).toHaveBeenCalledWith('transaction.isVerified = true');
     });
 
     it('holds a transfer whose legs post on different days at one date', async () => {

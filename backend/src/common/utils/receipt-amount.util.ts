@@ -50,7 +50,10 @@ export function extractCurrency(
   const normalized = text.replace(/\u00a0/g, ' ');
   const supportedCurrencies = new Set(amountParser.getSupportedCurrencies());
 
-  const codeMatches = normalized.toUpperCase().match(/\b[A-Z]{3}\b/g) || [];
+  // Not `\b[A-Z]{3}\b`: receipts print the code glued to the number
+  // ("90,000.00KZT"), and a digit on the left kills the word boundary. Letters
+  // on either side still rule a match out, so TOTAL does not read as TOT.
+  const codeMatches = normalized.toUpperCase().match(/(?<![A-Z])[A-Z]{3}(?![A-Z])/g) || [];
   for (const code of codeMatches) {
     if (supportedCurrencies.has(code)) {
       return code;

@@ -275,10 +275,6 @@ export default function TablesReportsView() {
     >
       <div style={{ marginBottom: 20, flexShrink: 0 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 600, color: c.ink900 }}>{reportsT.title}</h1>
-            <p style={{ fontSize: 14, color: c.ink500 }}>{reportsT.subtitle}</p>
-          </div>
           <div
             style={{
               display: 'inline-flex',

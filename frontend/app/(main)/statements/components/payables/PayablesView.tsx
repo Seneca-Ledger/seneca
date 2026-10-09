@@ -2,32 +2,33 @@
 'use client';
 
 import Skeleton from '@mui/material/Skeleton';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Download, RefreshCcw } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useAuth } from '@/app/hooks/useAuth';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import {
   type CreatePayableInput,
-  type ExportPayablesParams,
   type ListPayablesParams,
-  type MarkPayablePaidInput,
   type Payable,
   type PayableDirection,
-  type PayablesExportFormat,
   type PayablesSummary,
   payablesApi,
   type UpdatePayableInput,
 } from '@/app/lib/payables-api';
+import { queryKeys } from '@/app/lib/query-keys';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import { tokens } from '@/lib/theme-tokens';
+import { StatementsQueueTabs } from '../StatementsQueueTabs';
 import { CreatePayableDrawer } from './CreatePayableDrawer';
-import { MarkPaidDialog } from './MarkPaidDialog';
+import { MarkPaidDialog, type MarkPaidResult } from './MarkPaidDialog';
 import PayableFiltersBar from './PayableFiltersBar';
 import PayableSummaryCards from './PayableSummaryCards';
 import PayablesList from './PayablesList';
@@ -152,17 +153,6 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
   return fallback;
 };
 
-const triggerBlobDownload = (blob: Blob, fileName: string) => {
-  const url = window.URL.createObjectURL(new Blob([blob]));
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', fileName);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-};
-
 type PayablesViewProps = {
   /** Which side of the ledger this view manages. Defaults to money the workspace owes. */
   direction?: PayableDirection;
@@ -190,6 +180,8 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         : tx(['payables', ...path], payableFallback),
     [direction, tx],
   );
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
   const [summary, setSummary] = useState<PayablesSummary>(DEFAULT_SUMMARY);
   const [items, setItems] = useState<Payable[]>([]);
   const [filters, setFilters] = useState<PayablesFiltersState>(DEFAULT_PAYABLES_FILTERS);
@@ -197,15 +189,15 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [, setRefreshing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingPayable, setEditingPayable] = useState<Payable | null>(null);
   const [saving, setSaving] = useState(false);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [payingPayable, setPayingPayable] = useState<Payable | null>(null);
+  const [removingPaymentId, setRemovingPaymentId] = useState<string | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [exporting, setExporting] = useState<PayablesExportFormat | null>(null);
   const [queryPage, setQueryPage] = useState(1);
   const requestVersionRef = useRef(0);
 
@@ -218,6 +210,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
       status:
         status === 'to_pay' ||
         status === 'scheduled' ||
+        status === 'partially_paid' ||
         status === 'paid' ||
         status === 'overdue' ||
         status === 'archived'
@@ -256,10 +249,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         'Track money owed to you: upcoming, overdue, and already received payments.',
       ),
       add: dx(['add'], 'Add payable', 'Add receivable'),
-      refresh: tx(['payables', 'refresh'], 'Refresh'),
       export: tx(['payables', 'export'], 'Export'),
-      exportCsv: tx(['payables', 'exportCsv'], 'Export CSV'),
-      exportXlsx: tx(['payables', 'exportXlsx'], 'Export XLSX'),
       summary: {
         toPay: dx(['summary', 'toPay'], 'To Pay', 'To Receive'),
         overdue: tx(['payables', 'summary', 'overdue'], 'Overdue'),
@@ -279,6 +269,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         statusOptions: {
           to_pay: dx(['status', 'toPay'], 'To pay', 'To receive'),
           scheduled: tx(['payables', 'status', 'scheduled'], 'Scheduled'),
+          partially_paid: dx(['status', 'partiallyPaid'], 'Partially paid', 'Partially received'),
           paid: dx(['status', 'paid'], 'Paid', 'Received'),
           overdue: tx(['payables', 'status', 'overdue'], 'Overdue'),
           archived: tx(['payables', 'status', 'archived'], 'Archived'),
@@ -313,10 +304,12 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         statusLabels: {
           to_pay: dx(['status', 'toPay'], 'To pay', 'To receive'),
           scheduled: tx(['payables', 'status', 'scheduled'], 'Scheduled'),
+          partially_paid: dx(['status', 'partiallyPaid'], 'Partially paid', 'Partially received'),
           paid: dx(['status', 'paid'], 'Paid', 'Received'),
           overdue: tx(['payables', 'status', 'overdue'], 'Overdue'),
           archived: tx(['payables', 'status', 'archived'], 'Archived'),
         },
+        amountPaid: dx(['list', 'amountPaid'], 'paid', 'received'),
         sourceLabels: {
           manual: tx(['payables', 'sources', 'manual'], 'Manual'),
           invoice: tx(['payables', 'sources', 'invoice'], 'Invoice'),
@@ -403,12 +396,6 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
           'Failed to delete receivable',
         ),
         deleteConfirm: tx(['payables', 'toasts', 'deleteConfirm'], 'Delete {vendor}?'),
-        exportSuccess: tx(['payables', 'toasts', 'exportSuccess'], 'Export started'),
-        exportFailed: dx(
-          ['toasts', 'exportFailed'],
-          'Failed to export payables',
-          'Failed to export receivables',
-        ),
       },
     }),
     [dx, tx],
@@ -541,15 +528,20 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
     setPayingPayable(payable);
   };
 
-  const confirmMarkPaid = async (
-    payable: Payable,
-    payload: MarkPayablePaidInput,
-  ): Promise<void> => {
+  const confirmMarkPaid = async (payable: Payable, result: MarkPaidResult): Promise<void> => {
     setMarkingPaidId(payable.id);
 
     await (async () => {
-      await payablesApi.markAsPaid(payable.id, payload);
-      setPayingPayable(null);
+      const updated =
+        result.kind === 'full'
+          ? await payablesApi.markAsPaid(payable.id, result.payload)
+          : await payablesApi.addPayment(payable.id, result.payload);
+      // A bill that is still short keeps the dialog open on its new outstanding
+      // amount: instalments arrive one after another.
+      setPayingPayable(updated.status === 'partially_paid' ? updated : null);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.payablePayments({ workspaceId, payableId: payable.id }),
+      });
       toast.success(labels.toasts.markPaidSuccess);
       await loadData({ silent: true });
     })()
@@ -559,6 +551,25 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
       })
       .finally(async () => {
         setMarkingPaidId(null);
+      });
+  };
+
+  const removePayment = async (payable: Payable, paymentId: string): Promise<void> => {
+    setRemovingPaymentId(paymentId);
+
+    await (async () => {
+      const updated = await payablesApi.removePayment(payable.id, paymentId);
+      setPayingPayable(updated);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.payablePayments({ workspaceId, payableId: payable.id }),
+      });
+      await loadData({ silent: true });
+    })()
+      .catch(async error => {
+        toast.error(getApiErrorMessage(error, labels.toasts.markPaidFailed));
+      })
+      .finally(async () => {
+        setRemovingPaymentId(null);
       });
   };
 
@@ -596,28 +607,6 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
       })
       .finally(async () => {
         setDeletingId(null);
-      });
-  };
-
-  const handleExport = async (format: PayablesExportFormat): Promise<void> => {
-    setExporting(format);
-
-    await (async () => {
-      const result = await payablesApi.exportList({
-        ...buildPayablesListParams(filters, { direction }),
-        format,
-      } as ExportPayablesParams);
-      triggerBlobDownload(
-        result.blob,
-        result.fileName || `payables.${format === 'csv' ? 'csv' : 'xlsx'}`,
-      );
-      toast.success(labels.toasts.exportSuccess);
-    })()
-      .catch(async error => {
-        toast.error(getErrorMessage(error, labels.toasts.exportFailed));
-      })
-      .finally(async () => {
-        setExporting(null);
       });
   };
 
@@ -684,50 +673,41 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
               alignItems: 'flex-start',
             }}
           >
-            <div>
-              <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--foreground)' }}>
-                {labels.title}
-              </h1>
-              <p
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <StatementsQueueTabs />
+              </div>
+              <div
                 style={{
-                  marginTop: 8,
-                  maxWidth: 768,
-                  fontSize: 14,
-                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 12,
+                  flexShrink: 0,
                 }}
               >
-                {labels.subtitle}
-              </p>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-              <Button variant="outline" onClick={() => router.push('/statements/reconcile')}>
-                {tx(['payables', 'reconcile'], 'Reconcile with the bank')}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void loadData({ silent: true })}
-                disabled={refreshing}
-              >
-                <RefreshCcw size={16} />
-                {labels.refresh}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void handleExport('csv')}
-                disabled={exporting !== null}
-              >
-                <Download size={16} />
-                {labels.exportCsv}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void handleExport('excel')}
-                disabled={exporting !== null}
-              >
-                <Download size={16} />
-                {labels.exportXlsx}
-              </Button>
-              <Button onClick={openCreateDrawer}>{labels.add}</Button>
+                <PayableFiltersBar
+                  value={filters}
+                  onChange={handleFiltersChange}
+                  onReset={() => handleFiltersChange(DEFAULT_PAYABLES_FILTERS)}
+                  labels={labels.filters}
+                />
+                {/* Keeps the primary actions from reading as more filter buttons. */}
+                <span
+                  aria-hidden
+                  style={{
+                    width: 1,
+                    alignSelf: 'stretch',
+                    minHeight: 24,
+                    background: 'var(--border-color)',
+                    flexShrink: 0,
+                  }}
+                />
+                <Button variant="outline" onClick={() => router.push('/statements/reconcile')}>
+                  {tx(['payables', 'reconcile'], 'Reconcile with the bank')}
+                </Button>
+                <Button onClick={openCreateDrawer}>{labels.add}</Button>
+              </div>
             </div>
           </div>
         </div>
@@ -746,15 +726,8 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
           <PayableSummaryCards
             summary={summary}
             locale={locale}
-            currency={(currentWorkspace.currency || 'KZT').toUpperCase()}
+            currency={(currentWorkspace.currency || FALLBACK_CURRENCY).toUpperCase()}
             labels={labels.summary}
-          />
-
-          <PayableFiltersBar
-            value={filters}
-            onChange={handleFiltersChange}
-            onReset={() => handleFiltersChange(DEFAULT_PAYABLES_FILTERS)}
-            labels={labels.filters}
           />
 
           <PayablesList
@@ -781,16 +754,18 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
       </div>
 
       <MarkPaidDialog
+        removingPaymentId={removingPaymentId}
+        onRemovePayment={(payable, paymentId) => void removePayment(payable, paymentId)}
         payable={payingPayable}
         submitting={markingPaidId !== null}
         onClose={() => setPayingPayable(null)}
-        onConfirm={(payable, payload) => void confirmMarkPaid(payable, payload)}
+        onConfirm={(payable, result) => void confirmMarkPaid(payable, result)}
       />
 
       <CreatePayableDrawer
         open={drawerOpen}
         payable={editingPayable}
-        defaultCurrency={(currentWorkspace.currency || 'KZT').toUpperCase()}
+        defaultCurrency={(currentWorkspace.currency || FALLBACK_CURRENCY).toUpperCase()}
         saving={saving}
         onClose={() => {
           setDrawerOpen(false);

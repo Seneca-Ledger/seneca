@@ -7,14 +7,16 @@ import {
   BarChart2,
   FileText,
   LayoutDashboard,
-  Menu,
   Plus,
   Receipt,
   ScanLine,
   Upload,
+  User,
 } from '@/app/components/icons';
+import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import { AUTH_ROUTE_PREFIXES } from '@/app/lib/auth-routes';
+import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
 import { isNavItemActive } from '../navigation/helpers/navigation-config';
 import { MobileMenuDrawer } from './MobileMenuDrawer';
 
@@ -45,8 +47,10 @@ export default function MobileBottomBar() {
   const pathname = usePathname();
   const router = useRouter();
   const { shell } = useIntlayer('navigation');
+  const { user } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   const closeFab = useCallback(() => setFabOpen(false), []);
 
@@ -68,6 +72,8 @@ export default function MobileBottomBar() {
   if (HIDDEN_PATHS.some(p => pathname?.startsWith(p))) {
     return null;
   }
+
+  const avatarUrl = normalizeAvatarUrl(user?.avatarUrl);
 
   return (
     <>
@@ -144,14 +150,26 @@ export default function MobileBottomBar() {
           <BarChart2 size={22} />
         </Link>
 
-        {/* Tab 5: Menu */}
+        {/* Tab 5: the account — the menu drawer, with the account entry at its foot */}
         <button
           type="button"
           className="lumio-bottom-bar__tab"
           onClick={() => setDrawerOpen(true)}
           aria-label={shell.openMenu.value}
         >
-          <Menu size={22} />
+          <span className="lumio-account__avatar lumio-account__avatar--tab">
+            {avatarUrl && !avatarError ? (
+              <img
+                src={avatarUrl}
+                alt=""
+                onError={() => {
+                  setAvatarError(true);
+                }}
+              />
+            ) : (
+              <User size={16} />
+            )}
+          </span>
         </button>
       </nav>
 

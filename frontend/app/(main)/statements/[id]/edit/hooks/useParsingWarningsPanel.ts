@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
 import type { CurrencySearchItem } from '@/app/lib/statement-expense-drawer';
 import { buildCurrencySearchIndex } from '@/app/lib/statement-expense-drawer';
 import {
@@ -30,8 +31,6 @@ export interface SelectedWarning {
 
 const isCurrencySearchItem = (item: CurrencySearchItem | undefined): item is CurrencySearchItem =>
   item !== undefined;
-
-const DEFAULT_RECENT_CURRENCIES = ['KZT', 'USD', 'EUR', 'RUB'] as const;
 
 interface EntryMaps {
   byKey: Map<string, EditableWarningEntry>;

@@ -1,3 +1,4 @@
+import { countedSql } from '@/common/utils/counted-transactions.util';
 import { BudgetPeriodType } from '@/entities/budget.entity';
 import { StoicClass } from '@/entities/category.entity';
 import { StoicLedgerService } from '@/modules/budgets/stoic/stoic-ledger.service';
@@ -155,7 +156,7 @@ describe('StoicLedgerService', () => {
     });
   });
 
-  it('scopes the spending query to the workspace and leaves duplicates out', async () => {
+  it('scopes the spending query to the workspace, confirmed rows only, no duplicates', async () => {
     const { ledger, transactions } = service([], []);
 
     await ledger.monthlyBalance('ws-1', 1, NOW);
@@ -164,6 +165,7 @@ describe('StoicLedgerService', () => {
       workspaceId: 'ws-1',
     });
     expect(transactions.qb.andWhere).toHaveBeenCalledWith('t.is_duplicate = false');
+    expect(transactions.qb.andWhere).toHaveBeenCalledWith(countedSql('t'));
   });
 
   it('converts spending and limits into the workspace currency', async () => {

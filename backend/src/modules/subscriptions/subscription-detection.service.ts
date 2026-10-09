@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { countedSql } from '../../common/utils/counted-transactions.util';
 import {
   NotificationCategory,
   NotificationSeverity,
@@ -47,6 +48,7 @@ export class SubscriptionDetectionService {
       .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(countedSql('t'))
       .andWhere('t.transaction_date >= :since', { since })
       .andWhere('t.counterparty_name IS NOT NULL')
       .orderBy('t.transaction_date', 'ASC')

@@ -1,6 +1,7 @@
 'use client';
 
 import type React from 'react';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { Transaction } from '../TransactionsView';
 import { getNamedObjectLabel, getTransactionValue, resolveLocale } from './column-helpers';
 
@@ -41,7 +42,7 @@ export const buildCreditRenderer =
 export const buildCurrencyRenderer =
   () =>
   (tx: Transaction): React.ReactNode =>
-    tx.currency ?? 'KZT';
+    tx.currency ?? FALLBACK_CURRENCY;
 
 export const buildExchangeRateRenderer =
   (cfg: RendererConfig) =>

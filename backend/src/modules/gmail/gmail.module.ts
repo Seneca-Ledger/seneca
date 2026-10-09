@@ -16,6 +16,7 @@ import {
 import { AuditModule } from '../audit/audit.module';
 import { ParsingModule } from '../parsing/parsing.module';
 import { ReceiptsModule } from '../receipts/receipts.module';
+import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { GmailController } from './gmail.controller';
 import { GmailScheduler } from './gmail.scheduler';
 import { GmailReceiptProcessor } from './gmail-receipt-processor';
@@ -51,6 +52,7 @@ import { GmailWebhookService } from './services/gmail-webhook.service';
     ParsingModule,
     ReceiptsModule,
     // GoogleDriveModule removed: GmailReceiptExportService now uses GmailOAuthService
+    WorkspaceCurrencyModule,
   ],
   controllers: [GmailController, GmailWebhookController],
   providers: [

@@ -182,6 +182,23 @@ export function TransactionRow({
                 {tx.transferPairKind === 'reimbursement' ? t.reimbursementBadge : t.transferBadge}
               </span>
             )}
+            {tx.isVerified === false && (
+              <span
+                data-testid="unconfirmed-badge"
+                style={{
+                  marginLeft: 8,
+                  border: '1px solid var(--color-warning-soft-border)',
+                  background: 'var(--color-warning-soft-bg)',
+                  padding: '1px 6px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'var(--color-warning-soft-text)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t.unconfirmedBadge}
+              </span>
+            )}
           </div>
         </td>
         <td

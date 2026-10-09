@@ -156,7 +156,7 @@ Lumio is a full-stack financial operations platform built for teams that need to
 - **WebSocket Support** — Live updates via Socket.IO for notifications and import progress.
 - **Observability** — Prometheus-format metrics endpoint (`/api/v1/metrics`), structured JSON logs, and correlation IDs — point your own collector at it.
 - **Guided Onboarding** — 9 interactive feature tours.
-- **Localization** — The UI ships in 21 languages via Intlayer; English is the default locale.
+- **Localization** — The UI ships in 35 languages via Intlayer; English is the default locale.
 - **Content Background** — A bundled or uploaded photo behind the app content, with adjustable dimming.
 
 </details>
@@ -228,7 +228,7 @@ Setting expectations upfront:
 | Drag & Drop | @dnd-kit/core + @dnd-kit/sortable |
 | Data Fetching | TanStack Query v5 + Axios v1 (cookie credentials) |
 | Real-time | socket.io-client v4 |
-| i18n | Intlayer v7 + next-intlayer (21 locales) |
+| i18n | Intlayer v7 + next-intlayer (35 locales) |
 | Maps | Leaflet 1.9 |
 | Onboarding | driver.js |
 | PDF Viewer | react-pdf v10 |

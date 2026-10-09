@@ -24,4 +24,19 @@ describe('resolveOnboardingText', () => {
 
     expect(resolveOnboardingText(token, 'Welcome', 'ru')).toBe('Старт');
   });
+
+  it('reads the value of an intlayer node the `in` operator cannot see', () => {
+    // react-intlayer returns its nodes as proxies: `value` answers a read but not
+    // `'value' in node`, which used to send every string to the English fallback.
+    const node = new Proxy(
+      { $$typeof: Symbol.for('react.element') },
+      {
+        get: (target, key) => (key === 'value' ? 'Richten Sie Ihren Arbeitsbereich ein' : Reflect.get(target, key)),
+      },
+    );
+
+    expect(resolveOnboardingText(node, 'Set up your workspace', 'de')).toBe(
+      'Richten Sie Ihren Arbeitsbereich ein',
+    );
+  });
 });

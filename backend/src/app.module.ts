@@ -28,7 +28,6 @@ import {
   Branch,
   Budget,
   Category,
-  CategoryLearning,
   CustomTable,
   CustomTableColumn,
   CustomTableRow,
@@ -47,6 +46,7 @@ import {
   OpenProtocolSettings,
   ParsingRule,
   Payable,
+  PayeeOverride,
   Receipt,
   ReceiptProcessingJob,
   SharedLink,
@@ -75,6 +75,7 @@ import { BalanceModule } from './modules/balance/balance.module';
 import { BankSyncModule } from './modules/bank-sync/bank-sync.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { BudgetsModule } from './modules/budgets/budgets.module';
+import { BusinessProfileModule } from './modules/business-profile/business-profile.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ClassificationModule } from './modules/classification/classification.module';
 import { CryptoModule } from './modules/crypto/crypto.module';
@@ -82,6 +83,7 @@ import { CustomTablesModule } from './modules/custom-tables/custom-tables.module
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DataEntryModule } from './modules/data-entry/data-entry.module';
 import { DropboxModule } from './modules/dropbox/dropbox.module';
+import { EntityImportsModule } from './modules/entity-imports/entity-imports.module';
 import { ExchangeRatesModule } from './modules/exchange-rates/exchange-rates.module';
 import { ForecastModule } from './modules/forecast/forecast.module';
 import { GmailModule } from './modules/gmail/gmail.module';
@@ -115,6 +117,7 @@ import { TelegramModule } from './modules/telegram/telegram.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { UsersModule } from './modules/users/users.module';
 import { VendorIconsModule } from './modules/vendor-icons/vendor-icons.module';
+import { ViewPreferencesModule } from './modules/view-preferences/view-preferences.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
@@ -177,7 +180,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
       Statement,
       Transaction,
       Category,
-      CategoryLearning,
+      PayeeOverride,
       Branch,
       Wallet,
       TelegramReport,
@@ -238,6 +241,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     GoalsModule,
     WalletsModule,
     TransactionsModule,
+    ViewPreferencesModule,
     ReportsModule,
     StorageModule,
     TelegramModule,
@@ -246,6 +250,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     LedgerModule,
     DataEntryModule,
     CustomTablesModule,
+    EntityImportsModule,
     WorkspacesModule,
     NotesModule,
     MapsModule,
@@ -259,6 +264,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     SearchModule,
     PayablesModule,
     InvoicesModule,
+    BusinessProfileModule,
     ExchangeRatesModule,
     SubscriptionsModule,
     ReviewInboxModule,

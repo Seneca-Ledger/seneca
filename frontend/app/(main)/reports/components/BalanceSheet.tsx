@@ -24,6 +24,7 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import apiClient from '../../../lib/api';
@@ -221,7 +222,7 @@ function BalanceSheet(): React.JSX.Element {
     });
   }, [sheetQuery.data]);
 
-  const currencyCode = sheet?.currency || 'KZT';
+  const currencyCode = sheet?.currency || FALLBACK_CURRENCY;
 
   const formatCurrency = useCallback(
     // A history row carries the currency it was entered in, which need not be
@@ -267,7 +268,7 @@ function BalanceSheet(): React.JSX.Element {
           accountId,
           amount: parsed,
           date: effectiveDate,
-          currency: sheet?.currency || 'KZT',
+          currency: sheet?.currency || FALLBACK_CURRENCY,
         });
 
         setSaveHint(text('balanceSaved', 'Balance saved'));

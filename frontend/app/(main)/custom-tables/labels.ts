@@ -1,6 +1,7 @@
 import type { useIntlayer } from '@/app/i18n';
-import type { CreateFromStatementsModalLabels } from './components/CreateFromStatementsModal';
 import type { CreateTableDialogLabels } from './components/CreateTableDialog';
+import type { SourceFilterPanelLabels } from './components/SourceFilterPanel';
+import { SOURCE_KINDS, type SourceKind } from './sources';
 import { TABLE_TEMPLATES, type TableTemplateId } from './templates';
 
 type Dictionary = ReturnType<typeof useIntlayer<'customTablesPage'>>;
@@ -12,7 +13,6 @@ export interface ListLabels {
   header: { title: string; subtitle: string };
   actions: Record<
     | 'newTable'
-    | 'fromStatements'
     | 'open'
     | 'delete'
     | 'search'
@@ -26,12 +26,9 @@ export interface ListLabels {
   empty: { title: string; description: string };
   toasts: Record<
     | 'loadTablesFailed'
-    | 'loadStatementsFailed'
     | 'created'
     | 'createFailed'
-    | 'selectAtLeastOneStatement'
-    | 'createdFromStatement'
-    | 'createFromStatementFailed'
+    | 'createdFromSource'
     | 'deleted'
     | 'deleteFailed',
     string
@@ -41,7 +38,6 @@ export interface ListLabels {
     partialFailed: string;
     columnTitles: Record<string, string>;
   };
-  createFromStatements: CreateFromStatementsModalLabels & { namingHint: string };
   confirmDelete: Record<
     | 'title'
     | 'messageWithNamePrefix'
@@ -71,15 +67,66 @@ const columnTitles = (t: Dictionary): Record<string, string> => {
   return Object.fromEntries(Object.entries(node).map(([key, item]) => [key, item.value]));
 };
 
+const plain = (node: Record<string, { value: string }>): Record<string, string> =>
+  Object.fromEntries(Object.entries(node).map(([key, item]) => [key, item.value]));
+
+const sourceLabels = (t: Dictionary): Record<SourceKind, { name: string; description: string }> =>
+  Object.fromEntries(
+    SOURCE_KINDS.map(source => [
+      source.id,
+      {
+        name: t.createFromSource.sources[source.id].name.value,
+        description: t.createFromSource.sources[source.id].description.value,
+      },
+    ]),
+  ) as Record<SourceKind, { name: string; description: string }>;
+
+const sourcePanelLabels = (t: Dictionary): SourceFilterPanelLabels => ({
+  filters: record(t.createFromSource.filters, [
+    'title',
+    'dateFrom',
+    'dateTo',
+    'categories',
+    'categoriesEmpty',
+    'type',
+    'currency',
+    'currencyPlaceholder',
+    'statements',
+    'statementsEmpty',
+    'status',
+    'direction',
+    'dueFrom',
+    'dueTo',
+    'any',
+    'selected',
+  ]),
+  options: plain(t.createFromSource.options as Record<string, { value: string }>),
+  preview: record(t.createFromSource.preview, [
+    'title',
+    'count',
+    'loading',
+    'empty',
+    'overwriteNote',
+    'failed',
+  ]),
+});
+
+/**
+ * Template and source fields share one title map: the same field means the
+ * same word. Also used by the statement page when it fills a table from one statement.
+ */
+export const buildSourceColumnTitles = (t: Dictionary): Record<string, string> => ({
+  ...columnTitles(t),
+  ...plain(t.createFromSource.columns as Record<string, { value: string }>),
+});
+
 /** Plain strings for the components: they never see intlayer nodes. */
 export function buildListLabels(t: Dictionary): ListLabels {
-  const cfs = t.createFromStatements;
-  const extra = t.createFromStatementsExtra;
+  const allColumnTitles = buildSourceColumnTitles(t);
   return {
     header: record(t.header, ['title', 'subtitle']),
     actions: record(t.actions, [
       'newTable',
-      'fromStatements',
       'open',
       'delete',
       'search',
@@ -90,17 +137,16 @@ export function buildListLabels(t: Dictionary): ListLabels {
     ]),
     columns: record(t.columns, ['name', 'source', 'category', 'rows', 'updated']),
     empty: record(t.empty, ['title', 'description']),
-    toasts: record(t.toasts, [
-      'loadTablesFailed',
-      'loadStatementsFailed',
-      'created',
-      'createFailed',
-      'selectAtLeastOneStatement',
-      'createdFromStatement',
-      'createFromStatementFailed',
-      'deleted',
-      'deleteFailed',
-    ]),
+    toasts: {
+      createdFromSource: t.createFromSource.toasts.createdFromSource.value,
+      ...record(t.toasts, [
+        'loadTablesFailed',
+        'created',
+        'createFailed',
+        'deleted',
+        'deleteFailed',
+      ]),
+    },
     create: {
       ...record(t.create, [
         'title',
@@ -121,50 +167,12 @@ export function buildListLabels(t: Dictionary): ListLabels {
       blankName: t.create.templates.blank.name.value,
       blankDescription: t.create.templates.blank.description.value,
       templates: templateLabels(t),
-      columnTitles: columnTitles(t),
-    },
-    createFromStatements: {
-      ...record(cfs, [
-        'title',
-        'stepCounter',
-        'nameOptional',
-        'namePlaceholder',
-        'descriptionOptional',
-        'descriptionPlaceholder',
-        'statementsLoading',
-        'statementsEmpty',
-        'hint',
-        'searchPlaceholder',
-        'sourceFilter',
-        'sourceAll',
-        'groupBy',
-        'groupBySource',
-        'groupByPeriod',
-        'sourceLabel',
-        'periodLabel',
-        'fileLabel',
-        'rowsLabel',
-        'selectedLabel',
-        'duplicateUploads',
-        'noSearchResults',
-        'previewTitle',
-        'previewSummary',
-        'previewRows',
-        'previewEditable',
-        'next',
-        'back',
-        'createWithRows',
-        'creating',
-      ]),
-      ...record(extra, [
-        'step1',
-        'step2',
-        'step1Description',
-        'step2Description',
-        'cancel',
-        'create',
-        'namingHint',
-      ]),
+      columnTitles: allColumnTitles,
+      groupTemplates: t.createFromSource.groupTemplates.value,
+      groupSources: t.createFromSource.groupSources.value,
+      sources: sourceLabels(t),
+      sourceColumnTitles: allColumnTitles,
+      sourcePanel: sourcePanelLabels(t),
     },
     confirmDelete: record(t.confirmDelete, [
       'title',

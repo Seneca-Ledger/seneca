@@ -232,7 +232,6 @@ describe('StatementProcessingService', () => {
         }),
       ]),
       'ws-1',
-      'user-1',
     );
 
     // No account number in parser metadata falls back to 'Unknown', never to

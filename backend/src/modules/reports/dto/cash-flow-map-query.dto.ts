@@ -42,4 +42,12 @@ export class CashFlowMapQueryDto {
   @IsOptional()
   @IsIn(['json', 'csv'])
   format?: 'json' | 'csv';
+
+  /**
+   * Whose rows to count: `me`, `shared` for the ones nobody claimed, or a
+   * membership id. Left out, the whole workspace is counted.
+   */
+  @IsOptional()
+  @IsString()
+  owner?: string;
 }

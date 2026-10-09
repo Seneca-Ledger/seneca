@@ -8,7 +8,7 @@ import { WorkspaceContextGuard } from '../../common/guards/workspace-context.gua
 import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ClassifyBulkDto, RecordLearningDto } from './dto/classification-body.dto';
+import { ClassifyBulkDto } from './dto/classification-body.dto';
 import { ClassificationService } from './services/classification.service';
 
 @Controller('classification')
@@ -116,25 +116,5 @@ export class ClassificationController {
     }
 
     return results;
-  }
-
-  @Post('learn')
-  @HttpCode(HttpStatus.OK)
-  async recordLearning(
-    @Body() body: RecordLearningDto,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    const transaction = await this.transactionRepository.findOne({
-      where: { id: body.transactionId, workspaceId },
-    });
-
-    if (!transaction) {
-      throw new Error('Transaction not found');
-    }
-
-    await this.classificationService.learnFromCorrection(transaction, body.categoryId, user.id);
-
-    return { message: 'Learning recorded successfully' };
   }
 }

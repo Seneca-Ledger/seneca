@@ -1,3 +1,4 @@
+import { countedSql } from '@/common/utils/counted-transactions.util';
 import { NotFoundException } from '@nestjs/common';
 import { BudgetPeriodType } from '@/entities/budget.entity';
 import { GoalPlanService } from '@/modules/goals/goal-plan.service';
@@ -17,6 +18,8 @@ interface Options {
   estimatedTotal?: number;
   workspaceCurrency?: string;
   rate?: number;
+  /** Collects the conditions the income query was given. */
+  incomeClauses?: string[];
 }
 
 function createService(options: Options) {
@@ -54,7 +57,10 @@ function createService(options: Options) {
         select: jest.fn(() => builder),
         addSelect: jest.fn(() => builder),
         where: jest.fn(() => builder),
-        andWhere: jest.fn(() => builder),
+        andWhere: jest.fn((clause: string) => {
+          options.incomeClauses?.push(clause);
+          return builder;
+        }),
         groupBy: jest.fn(() => builder),
         getRawMany: jest.fn(async () => options.income ?? []),
       };
@@ -200,6 +206,20 @@ describe('GoalPlanService', () => {
     // normalised to 400k is 800k committed.
     expect(plan.capacity).toEqual({ income: 800000, committed: 800000, free: 0 });
     expect(plan.status).toBe('not_feasible');
+  });
+
+  it('reads income from confirmed transactions only', async () => {
+    const incomeClauses: string[] = [];
+    const service = createService({
+      goal: relocation,
+      contributed: { total: '0', inWindow: '0' },
+      income: [{ currency: 'KZT', total: '2400000' }],
+      incomeClauses,
+    });
+
+    await service.getPlan(GOAL_ID, WORKSPACE_ID, NOW);
+
+    expect(incomeClauses).toContain(countedSql('t'));
   });
 
   it('ignores a budget whose window has closed', async () => {

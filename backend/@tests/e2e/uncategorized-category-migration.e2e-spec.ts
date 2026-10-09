@@ -46,8 +46,8 @@ describe('Migration: one Uncategorized category per workspace and type (e2e)', (
     )[0].id as string;
   const insertBudget = (categoryId: string, period: string) =>
     dataSource.query(
-      `INSERT INTO budgets (workspace_id, category_id, name, limit_amount, period_type, current_period_start)
-       VALUES ($1, $2, $3, 100, $4, '2026-10-01')`,
+      `INSERT INTO budgets (workspace_id, category_id, name, limit_amount, period_type, current_period_start, currency)
+       VALUES ($1, $2, $3, 100, $4, '2026-10-01', 'KZT')`,
       [owner.workspaceId, categoryId, `b-${categoryId.slice(0, 4)}-${period}`, period],
     );
 

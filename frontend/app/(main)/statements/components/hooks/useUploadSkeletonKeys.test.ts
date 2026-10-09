@@ -13,7 +13,6 @@ type Props = Parameters<typeof useUploadSkeletonKeys>[0];
 
 const base: Props = {
   workspaceId: 'ws-1',
-  enabled: true,
   receiptRows: [],
   statements: [],
   limit: 30,
@@ -96,13 +95,9 @@ describe('useUploadSkeletonKeys', () => {
     expect(store.result.current).toEqual([]);
   });
 
-  it('shows nothing outside the submit stage or for another workspace', () => {
+  it('shows nothing for another workspace', () => {
     upload(2, 'ws-2');
-    const { result, rerender } = renderKeys();
-    expect(result.current).toEqual([]);
-
-    upload(1);
-    rerender({ ...base, enabled: false });
+    const { result } = renderKeys();
     expect(result.current).toEqual([]);
   });
 

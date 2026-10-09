@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Not, Repository } from 'typeorm';
+import { Between, IsNull, Not, Repository } from 'typeorm';
+import { countedWhere } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
 import { TaxThresholdPeriod } from '../../entities/tax-jurisdiction.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
@@ -97,12 +98,14 @@ export class TaxThresholdService {
         : Number(jurisdiction.registrationThreshold);
 
     const sales = await this.transactionRepository.find({
-      where: {
+      // Money moved in from the user's own account is not turnover.
+      where: countedWhere({
         workspaceId,
+        transferPairId: IsNull(),
         transactionType: TransactionType.INCOME,
         transactionDate: Between(new Date(periodStart), new Date(periodEnd)),
         taxNetAmount: Not(null as never),
-      },
+      }),
     });
 
     let turnoverMinor = 0;

@@ -1,3 +1,7 @@
+import { addDays, format, isValid, parseISO } from 'date-fns';
+import { getPresetRange } from '@/app/(main)/statements/components/filters/statement-filter-internals';
+import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
+
 /** Mirrors `ReviewInboxItem` on the backend; the union is narrowed by `kind`. */
 export type ReviewTransactionItem = {
   kind: 'transaction';
@@ -13,6 +17,8 @@ export type ReviewTransactionItem = {
   categorySource: string | null;
   categoryReason: string | null;
   statementId: string | null;
+  /** The receipt behind the row (a scan, or one attached to it). */
+  receiptId: string | null;
 };
 
 export type ReviewReceiptItem = {
@@ -156,4 +162,29 @@ export function targetIds(
   }
   const current = items[cursor];
   return current ? [current.id] : [];
+}
+
+const isoDay = (date: Date): string => format(date, 'yyyy-MM-dd');
+
+/**
+ * The statements Date dropdown's value as the inclusive `from`/`to` days the
+ * review endpoint filters on. "After" and "before" exclude the day itself, the
+ * way the statements list applies them.
+ */
+export function dateFilterToRange(
+  filter: StatementFilterDate | null,
+  now: Date,
+): { from: string; to: string } {
+  if (filter?.preset) {
+    const { start, end } = getPresetRange(filter.preset, now);
+    return { from: isoDay(start), to: isoDay(end) };
+  }
+  const day = filter?.date ? parseISO(filter.date) : null;
+  if (!(day && isValid(day) && filter?.mode)) return { from: '', to: '' };
+  if (filter.mode === 'after') return { from: isoDay(addDays(day, 1)), to: '' };
+  const dayTo = filter.dateTo ? parseISO(filter.dateTo) : null;
+  const end = dayTo && isValid(dayTo) ? dayTo : day;
+  if (filter.mode === 'before') return { from: '', to: isoDay(addDays(end, -1)) };
+  const [first, last] = day <= end ? [day, end] : [end, day];
+  return { from: isoDay(first), to: isoDay(last) };
 }

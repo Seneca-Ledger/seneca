@@ -3,9 +3,7 @@
 import { Box, Button, Tab, Tabs, Typography } from '@mui/material';
 import type React from 'react';
 import { useState } from 'react';
-import { Sparkles } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
-import { tokens } from '@/lib/theme-tokens';
 import { ChatTab } from './components/ChatTab';
 import { ModelCatalogTab } from './components/ModelCatalogTab';
 import { generateInsight } from './insights/generate-insight';
@@ -36,27 +34,10 @@ export default function AiAnalysisPage(): React.JSX.Element {
   };
 
   return (
-    <Box component="main" sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: 5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-        <Box
-          sx={{
-            p: 1,
-            borderRadius: tokens.radius.full,
-            bgcolor: 'rgba(var(--color-primary-rgb), 0.1)',
-            display: 'flex',
-          }}
-        >
-          <Sparkles size={22} />
-        </Box>
-        <Typography component="h1" sx={{ fontSize: 24, fontWeight: 600 }}>
-          {t.title}
-        </Typography>
-      </Box>
-
-      <Typography sx={{ fontSize: 14, color: 'var(--text-secondary)', mb: 3 }}>
-        {t.subtitle}
-      </Typography>
-
+    <Box
+      component="main"
+      sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--lumio-page-top, 40px)', pb: 5 }}
+    >
       <Tabs
         value={tab}
         onChange={(_event, next: AiAnalysisTab) => setTab(next)}

@@ -6,10 +6,12 @@ import { DailyQuoteBanner } from './DailyQuoteBanner';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn() }));
 const auth = vi.hoisted(() => ({ user: { showDailyQuote: true } as { showDailyQuote?: boolean } }));
+const route = vi.hoisted(() => ({ pathname: '/dashboard' }));
 
 vi.mock('@/app/lib/api', () => ({ default: apiMocks }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/hooks/useAuth', () => ({ useAuth: () => auth }));
+vi.mock('next/navigation', () => ({ usePathname: () => route.pathname }));
 vi.mock('@/app/i18n', () => ({
   useLocale: () => ({ locale: 'de' }),
   useIntlayer: () =>
@@ -59,6 +61,16 @@ describe('DailyQuoteBanner', () => {
     expect(screen.queryByText(quote.quote.text)).toBeNull();
     expect(apiMocks.get).not.toHaveBeenCalledWith('/insights/daily-quote', expect.anything());
     auth.user = { showDailyQuote: true };
+  });
+
+  it('stays off on top spenders without asking for a quote', async () => {
+    route.pathname = '/reports';
+    renderWithQuery(<DailyQuoteBanner />);
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(screen.queryByText(quote.quote.text)).toBeNull();
+    expect(apiMocks.get).not.toHaveBeenCalledWith('/insights/daily-quote', expect.anything());
+    route.pathname = '/dashboard';
   });
 
   it('stays hidden for the rest of the day once closed', async () => {

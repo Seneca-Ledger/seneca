@@ -2,6 +2,7 @@ import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, type Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
+import { countedSql } from '../../common/utils/counted-transactions.util';
 import { fromMinor, toMinor } from '../../common/utils/money.util';
 import {
   ActorType,
@@ -411,9 +412,9 @@ export class LedgerSyncService {
       wallet_balance: string | null;
     }> = await this.workspaceRepository.query(
       // A wallet's own rows book to it unless they sit on a statement, and
-      // duplicates are not booked at all; its opening balance is booked only
-      // for an active wallet with no statement rows. The expected balance
-      // follows the same rules.
+      // duplicates and unconfirmed rows are not booked at all; its opening
+      // balance is booked only for an active wallet with no statement rows.
+      // The expected balance follows the same rules.
       `SELECT a."id", a."code", a."name", a."currency", a."statement_account_key",
               -- NULL for a statement account, which has no wallet.
               (CASE WHEN w."id" IS NULL THEN NULL
@@ -426,7 +427,8 @@ export class LedgerSyncService {
                             * coalesce(t."amount", t."debit", t."credit"))
                    FROM "transactions" t
                   WHERE t."wallet_id" = w."id" AND t."statement_id" IS NULL
-                    AND NOT t."is_duplicate" AND upper(t."currency") = upper(w."currency")
+                    AND NOT t."is_duplicate" AND ${countedSql('t')}
+                    AND upper(t."currency") = upper(w."currency")
                ), 0))::numeric(15,2) AS "wallet_balance",
               coalesce((SELECT sum(l."debit" - l."credit")
                           FROM "journal_lines" l JOIN "journal_entries" e ON e."id" = l."entry_id"

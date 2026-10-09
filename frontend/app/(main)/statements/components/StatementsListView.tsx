@@ -22,7 +22,6 @@ import type {
   ManualExpenseDraft,
   TaxRateOption,
 } from '@/app/lib/statement-expense-drawer';
-import type { StatementStage } from '@/app/lib/statement-workflow';
 import type { MergeDuplicatesPlan } from './hooks/useStatementSelection';
 import { useStatementsView } from './hooks/useStatementsView';
 import {
@@ -33,9 +32,8 @@ import {
 import { StatementsListHeader } from './StatementsListHeader';
 import { StatementsListTable } from './StatementsListTable';
 import { isGmailStatement, resolveStatementViewAction } from './StatementsListView.utils';
+import { StatementsTableToolbar } from './StatementsTableToolbar';
 import { uploadScanDrawerFiles as runUploadScanDrawerFiles } from './statement-upload';
-
-type Props = { stage: StatementStage };
 
 // A created row normally replaces its placeholder within one refetch. The
 // fallback covers a row the list never shows (hidden by search or a filter) or
@@ -192,11 +190,11 @@ function MergeDuplicatesSummary({
 
 // ---- Main component ----
 
-export default function StatementsListView({ stage }: Props): React.JSX.Element {
+export default function StatementsListView(): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const listScrollRef = useRef<HTMLDivElement | null>(null);
-  const v = useStatementsView({ stage, router, searchParams, listScrollRef });
+  const v = useStatementsView({ router, searchParams, listScrollRef });
   const queryClient = useQueryClient();
   const workspaceId = useWorkspaceId();
   const listText = useIntlayer('statementsListUi');
@@ -204,25 +202,13 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
   useLockBodyScroll(v.expenseDrawerOpen);
 
   useKeyboardShortcuts({
-    'Shift+x': () => v.handleToggleSelectAll(true),
+    'Shift+KeyX': () => v.handleToggleSelectAll(true),
     'Shift+Delete': () => {
       void v.handleDeleteSelected();
     },
   });
 
   const { t, filterState, listHeaderLabels, paginationLabels, uploadLabels } = v;
-
-  // Pay is left out: moving to Pay creates a payable from each statement's
-  // transactions, which the statement page does one statement at a time.
-  const bulkStageMove =
-    stage === 'submit'
-      ? { label: listText.submit.value, onMove: () => void v.handleMoveSelectedToStage('approve') }
-      : stage === 'approve'
-        ? {
-            label: listText.unapprove.value,
-            onMove: () => void v.handleMoveSelectedToStage('submit'),
-          }
-        : undefined;
 
   // Опции загрузчика растворились: search — часть ключа запроса, ошибку
   // рапортует сам хук данных. Остаётся только сбросить страницу и перезапросить.
@@ -358,18 +344,12 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
         isReadyToRefresh={v.isReadyToRefresh}
       />
       <StatementsListHeader
-        searchInput={v.searchInput}
-        searchPlaceholder={resolveLabel(t.searchPlaceholder, 'Search statements')}
         selectedCount={v.selectedCount}
         selectedActionsOpen={v.selectedActionsOpen}
         hasSelectedDuplicates={v.hasSelectedDuplicates}
-        loading={v.isPending}
         draftFilters={filterState.draftFilters}
         activeFilterCount={v.activeFilterCount}
-        typeDropdownOpen={filterState.typeDropdownOpen}
-        statusDropdownOpen={filterState.statusDropdownOpen}
         dateDropdownOpen={filterState.dateDropdownOpen}
-        fromDropdownOpen={filterState.fromDropdownOpen}
         filtersDrawerOpen={filterState.filtersDrawerOpen}
         filtersDrawerScreen={filterState.filtersDrawerScreen}
         columnsDrawerOpen={filterState.columnsDrawerOpen}
@@ -377,7 +357,6 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
         visibleFilterScreens={v.visibleFilterScreens}
         routeFilterLabel={v.routeFilterLabel}
         onResetRouteFilter={v.resetRouteFilters}
-        duplicateStatementIds={v.duplicateStatementIds}
         typeOptions={v.typeOptions}
         statusOptions={v.statusOptions}
         datePresets={v.datePresets}
@@ -392,20 +371,13 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
         mergeDuplicatesLabel={mergeDuplicatesLabel}
         dismissDuplicateLabel={dismissDuplicateLabel}
         markDuplicateLabel={markDuplicateLabel}
-        selectDuplicatesLabel={selectDuplicatesLabel}
-        onSearchChange={v.setSearchInput}
         onToggleActionsOpen={() => v.setSelectedActionsOpen(prev => !prev)}
         onMerge={v.handleMergeSelectedDuplicates}
         onDismiss={v.handleDismissSelectedDuplicates}
         onMarkDuplicate={v.handleMarkSelectedAsDuplicate}
         onExport={v.handleExportSelected}
         onDelete={v.handleDeleteSelected}
-        stageMove={bulkStageMove}
-        onSelectDetectedDuplicates={v.handleSelectDetectedDuplicates}
-        onTypeDropdownChange={filterState.setTypeDropdownOpen}
-        onStatusDropdownChange={filterState.setStatusDropdownOpen}
         onDateDropdownChange={filterState.setDateDropdownOpen}
-        onFromDropdownChange={filterState.setFromDropdownOpen}
         onFiltersDrawerClose={() => filterState.setFiltersDrawerOpen(false)}
         onFiltersDrawerOpen={() => {
           filterState.setDraftFilters(filterState.appliedFilters);
@@ -420,26 +392,11 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
           filterState.applyFilterChanges();
           filterState.setFiltersDrawerOpen(false);
         }}
-        onApplyType={() => filterState.applyAndClose(() => filterState.setTypeDropdownOpen(false))}
-        onResetType={() =>
-          filterState.resetAndClose('type', () => filterState.setTypeDropdownOpen(false))
-        }
-        onApplyStatus={() =>
-          filterState.applyAndClose(() => filterState.setStatusDropdownOpen(false))
-        }
-        onResetStatus={() =>
-          filterState.resetAndClose('statuses', () => filterState.setStatusDropdownOpen(false))
-        }
         onApplyDate={() => filterState.applyAndClose(() => filterState.setDateDropdownOpen(false))}
         onResetDate={() =>
           filterState.resetAndClose('date', () => filterState.setDateDropdownOpen(false))
         }
-        onApplyFrom={() => filterState.applyAndClose(() => filterState.setFromDropdownOpen(false))}
-        onResetFrom={() =>
-          filterState.resetAndClose('from', () => filterState.setFromDropdownOpen(false))
-        }
         onColumnsClose={() => filterState.setColumnsDrawerOpen(false)}
-        onColumnsOpen={filterState.handleColumnsOpen}
         onColumnsToggle={filterState.updateColumnsToggle}
         onColumnsReorder={filterState.handleReorderColumns}
         onColumnsSave={filterState.handleSaveColumns}
@@ -455,6 +412,32 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
           entityIds={v.paginatedDisplayStatements.map(statement => statement.id)}
         >
           <StatementsListTable
+            toolbar={
+              <StatementsTableToolbar
+                loading={v.isPending}
+                draftFilters={filterState.draftFilters}
+                fromOptions={v.fromOptions}
+                fromDropdownOpen={filterState.fromDropdownOpen}
+                duplicateStatementIds={v.duplicateStatementIds}
+                labels={{
+                  from: v.filterLabels.from,
+                  columns: v.filterLabels.columns,
+                  apply: v.filterOptionLabels.apply,
+                  reset: v.filterOptionLabels.reset,
+                  selectDuplicates: selectDuplicatesLabel,
+                }}
+                onFromDropdownChange={filterState.setFromDropdownOpen}
+                onUpdateFilters={filterState.updateFilter}
+                onApplyFrom={() =>
+                  filterState.applyAndClose(() => filterState.setFromDropdownOpen(false))
+                }
+                onResetFrom={() =>
+                  filterState.resetAndClose('from', () => filterState.setFromDropdownOpen(false))
+                }
+                onSelectDetectedDuplicates={v.handleSelectDetectedDuplicates}
+                onColumnsOpen={filterState.handleColumnsOpen}
+              />
+            }
             loading={v.isPending}
             displayStatements={v.displayStatements}
             paginatedStatements={v.paginatedDisplayStatements}
@@ -469,6 +452,7 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
             rangeEnd={v.rangeEnd}
             total={v.total}
             duplicateMetaById={v.duplicateMetaById}
+            statementReviewCounts={v.statementReviewCounts}
             columns={v.appliedColumnsWithLabels}
             currentExchangeRateLabels={v.currentExchangeRateLabels}
             workspaceCurrency={v.currentWorkspace?.currency}

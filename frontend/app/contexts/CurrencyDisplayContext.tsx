@@ -11,7 +11,7 @@ interface CurrencyDisplayContextType {
   /** When true, show amounts converted to workspaceCurrency. */
   showConverted: boolean;
   toggleShowConverted: () => void;
-  /** Resolved workspace currency code (e.g. 'KZT'). */
+  /** Resolved workspace currency code (e.g. 'EUR'). */
   workspaceCurrency: string;
 }
 

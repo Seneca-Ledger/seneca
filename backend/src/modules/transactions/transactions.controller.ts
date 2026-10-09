@@ -18,11 +18,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
+import { parseOwnerFilter } from '../../common/utils/transaction-owner.util';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
@@ -69,6 +70,7 @@ export class TransactionsController {
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
     // Accept both snake_case and camelCase for backward compatibility
     @Query('statement_id') statementIdSnake?: string,
     @Query('statementId') statementIdCamel?: string,
@@ -83,6 +85,7 @@ export class TransactionsController {
     @Query('limit') limit?: string,
     @Query('currency') currency?: string,
     @Query('convert_to') convertTo?: string,
+    @Query('owner') owner?: string,
   ) {
     // Prefer snake_case for backward compatibility, fall back to camelCase
     const statementId = statementIdSnake || statementIdCamel;
@@ -90,17 +93,22 @@ export class TransactionsController {
     const dateTo = dateToSnake || endDateCamel;
     const categoryId = categoryIdSnake || categoryIdCamel;
 
-    const result = await this.transactionsService.findAll(workspaceId, {
-      statementId,
-      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
-      dateTo: dateTo ? new Date(dateTo) : undefined,
-      type,
-      categoryId,
-      currency,
-      convertTo,
-      page: page ? Number.parseInt(page) : 1,
-      limit: limit ? Number.parseInt(limit) : 50,
-    });
+    const result = await this.transactionsService.findAll(
+      workspaceId,
+      {
+        statementId,
+        dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+        dateTo: dateTo ? new Date(dateTo) : undefined,
+        type,
+        categoryId,
+        currency,
+        convertTo,
+        owner: parseOwnerFilter(owner, selfMemberId),
+        page: page ? Number.parseInt(page) : 1,
+        limit: limit ? Number.parseInt(limit) : 50,
+      },
+      selfMemberId,
+    );
 
     // Include 'items' field for backward compatibility
     return {
@@ -115,8 +123,9 @@ export class TransactionsController {
     @Param('id') id: string,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.transactionsService.findOne(id, workspaceId);
+    return this.transactionsService.findOneFor(id, workspaceId, selfMemberId);
   }
 
   @Put(':id')
@@ -126,8 +135,9 @@ export class TransactionsController {
     @Body() updateDto: UpdateTransactionDto,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.transactionsService.update(id, workspaceId, user.id, updateDto);
+    return this.transactionsService.update(id, workspaceId, user.id, updateDto, null, selfMemberId);
   }
 
   @Get(':id/split')
@@ -169,6 +179,7 @@ export class TransactionsController {
     @Body() body: BulkUpdateRequestDto,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     // Support both {items} and {ids, updates} formats for backward compatibility
     let items: BulkUpdateItemDto[];
@@ -186,7 +197,7 @@ export class TransactionsController {
       );
     }
 
-    return this.transactionsService.bulkUpdate(workspaceId, user.id, items);
+    return this.transactionsService.bulkUpdate(workspaceId, user.id, items, selfMemberId);
   }
 
   @Delete(':id')

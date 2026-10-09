@@ -17,6 +17,18 @@ export const ERR = {
   TABLE_NO_ROWS_TO_CONVERT: 'Table has no rows to convert',
   TABLE_NO_VALID_ROWS_TO_CONVERT: 'Table has no valid rows to convert',
   TABLE_NOT_LINKED_TO_DATA_ENTRY: 'Table is not linked to data entry',
+  TABLE_NOT_LINKED_TO_SOURCE: 'Table is not linked to an app data source',
+  SOURCE_KIND_UNKNOWN: 'Unknown data source',
+  SOURCE_EMPTY: 'No records match the selected filters',
+  SOURCE_TOO_MANY_ROWS: 'Too many records match the filters (limit {{limit}}); narrow them down',
+  SOURCE_FILTER_INVALID: 'Invalid data source filter value',
+  SOURCE_COLUMNS_NOT_FOUND: 'The table has no columns linked to its data source',
+  // ── entity imports (spreadsheet → app records) ──────────────────────────
+  IMPORT_TARGET_UNKNOWN: 'Unknown import target',
+  IMPORT_MAPPING_INCOMPLETE: 'Required columns are not mapped: {{fields}}',
+  IMPORT_NO_VALID_ROWS: 'No rows could be imported',
+  IMPORT_BATCH_NOT_FOUND: 'Import batch not found',
+  IMPORT_BATCH_ALREADY_UNDONE: 'This import has already been undone',
   TABLES_NOT_FOUND: 'One or more tables were not found',
   TOO_MANY_CUSTOM_COLUMNS:
     'Too many custom columns ({{count}}). Simplify the names or build the table from a single tab (limit {{limit}}).',
@@ -40,6 +52,7 @@ export const ERR = {
   COLUMN_NOT_RELATION: 'Column is not a relation',
   RELATION_COLUMN_REQUIRED: 'No relation column specified',
   COLUMN_FORMULA_REQUIRED: 'A formula column requires a formula',
+  COLUMN_FORMULA_CYCLE: 'The formula refers to itself through other formula columns',
   COLUMN_CURRENCY_INVALID: 'Currency must be a 3-letter ISO 4217 code',
   COLUMN_PRECISION_INVALID: 'Decimal places must be a whole number from 0 to 6',
   COLUMN_FORMAT_INVALID: 'Number format must be "plain" or "percent"',
@@ -125,6 +138,9 @@ export const ERR = {
   MEMBER_ALREADY_IN_WORKSPACE: 'User is already in the workspace',
   MEMBER_CANNOT_REMOVE_OWNER: 'The workspace owner cannot be removed',
   MEMBER_CANNOT_CHANGE_OWN_ROLE: 'You cannot change your own role',
+  MEMBER_PERMISSIONS_ROLE_INVALID: 'Only members have individual permissions',
+  TRANSACTION_PRIVATE_NOT_OWNER:
+    'Only the person a transaction belongs to can make it private; assign it to yourself first',
   INVITATION_NOT_FOUND: 'Invitation not found',
   INVITATION_NOT_FOUND_OR_USED: 'Invitation not found or already used',
   INVITATION_INVALID: 'Invalid invitation',
@@ -140,9 +156,6 @@ export const ERR = {
 
   // ── statements ──────────────────────────────────────────────────────────
   STATEMENT_NOT_FOUND: 'Statement not found',
-  STATEMENT_REQUIRED: 'Select a statement',
-  STATEMENT_NO_TRANSACTIONS: 'The selected statement has no transactions',
-  STATEMENT_TOO_MANY: 'Too many statements (limit 10)',
   STATEMENT_NOT_AWAITING_BALANCE: 'The statement is not awaiting balance confirmation',
   STATEMENT_DUPLICATE_FILE: 'This statement has already been uploaded (duplicate file)',
   STATEMENT_DUPLICATE_RECENT: 'A similar statement was uploaded recently',
@@ -199,6 +212,10 @@ export const ERR = {
     'Balances were already revalued on {{date}}; revalue on that day or later',
 
   // Payables
+  PAYABLE_PAYMENT_NOT_POSITIVE: 'A payment must be more than zero',
+  PAYABLE_PAYMENT_EXCEEDS_OUTSTANDING:
+    'That is more than the {{outstanding}} still outstanding on this bill',
+  PAYABLE_PAYMENT_NOT_FOUND: 'Payment not found',
   PAYABLE_PAYMENT_AMBIGUOUS: 'Link a transaction or pay from a wallet, not both',
   PAYABLE_WALLET_NOT_FOUND: 'Wallet not found in this workspace',
   PAYABLE_WALLET_CURRENCY_MISMATCH:
@@ -212,6 +229,19 @@ export const ERR = {
   INVOICE_ZERO_TOTAL: 'An invoice with no line items cannot be sent',
   INVOICE_NOT_VOIDABLE: 'A paid invoice cannot be voided',
   INVOICE_CLIENT_NOT_FOUND: 'Client not found in this workspace',
+  INVOICE_PROFILE_INCOMPLETE:
+    'Fill in your business details before sending an invoice (missing: {{fields}})',
+  INVOICE_NOT_SENT_YET: 'Issue the invoice before emailing it',
+  INVOICE_NO_RECIPIENT: 'This client has no email address, and none was given',
+
+  // ── credit notes ─────────────────────────────────────────────────────────
+  CREDIT_NOTE_INVOICE_NOT_CREDITABLE: 'Only an issued invoice can be credited',
+  CREDIT_NOTE_EXCEEDS_INVOICE:
+    'Invoice {{number}} has only {{creditable}} left that can be credited',
+  CREDIT_NOTE_MIXED_CLIENTS: 'One credit note covers the invoices of one client',
+  CREDIT_NOTE_MIXED_CURRENCIES: 'One credit note covers invoices in one currency',
+  CREDIT_NOTE_ZERO_TOTAL: 'A credit note must credit more than zero',
+  CREDIT_NOTE_ALREADY_VOID: 'This credit note is already void',
 } as const;
 
 export type ErrorCode = keyof typeof ERR;

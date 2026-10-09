@@ -1,6 +1,6 @@
 /**
  * Shared utilities for side panel components.
- * Used by StatementsSidePanel and the statements side panel.
+ * Used by the statements queue tabs and other intlayer-fed labels.
  */
 
 /**

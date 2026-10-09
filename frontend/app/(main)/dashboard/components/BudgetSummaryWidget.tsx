@@ -1,12 +1,14 @@
 'use client';
 
 import LinearProgress from '@mui/material/LinearProgress';
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type React from 'react';
-import { useEffect, useState } from 'react';
 import { CardLink, DashboardCard } from '@/app/components/dashboard/ui';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
+import { apiQuery } from '@/app/lib/query-fn';
+import { queryKeys } from '@/app/lib/query-keys';
 
 interface BudgetSummary {
   id: string;
@@ -36,25 +38,24 @@ const PERCENT_CLASS: Record<ReturnType<typeof getColor>, string> = {
   error: 'lumio-dashboard__amount--negative',
 };
 
+function mostUsed(budgets: BudgetSummary[]): BudgetSummary[] {
+  return [...budgets].sort((a, b) => b.percentUsed - a.percentUsed).slice(0, VISIBLE_BUDGETS);
+}
+
+/**
+ * The same cache entry as the budgets page, so the widget is drawn at once when
+ * Overview is opened again — and is already fresh after a budget is edited there.
+ */
 function useBudgets(): { budgets: BudgetSummary[]; loaded: boolean } {
-  const [budgets, setBudgets] = useState<BudgetSummary[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    apiClient
-      .get('/budgets')
-      .then(res => {
-        const data: BudgetSummary[] = res.data?.data ?? res.data ?? [];
-        const sorted = [...data]
-          .sort((a, b) => b.percentUsed - a.percentUsed)
-          .slice(0, VISIBLE_BUDGETS);
-        setBudgets(sorted);
-      })
-      .catch(() => {
-        // A failed fetch simply shows the empty state.
-      })
-      .finally(() => setLoaded(true));
-  }, []);
-  return { budgets, loaded };
+  const workspaceId = useWorkspaceId();
+  const { data, isPending } = useQuery({
+    queryKey: queryKeys.budgets(workspaceId),
+    queryFn: ({ signal }) => apiQuery<BudgetSummary[]>({ url: '/budgets', signal }),
+    enabled: Boolean(workspaceId),
+    select: mostUsed,
+  });
+  // A failed fetch simply shows the empty state.
+  return { budgets: data ?? [], loaded: !isPending };
 }
 
 export function BudgetSummaryWidget(): React.JSX.Element | null {

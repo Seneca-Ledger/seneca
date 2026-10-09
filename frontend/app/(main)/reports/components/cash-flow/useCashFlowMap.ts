@@ -49,13 +49,15 @@ export interface CashFlowFilters {
   includeTransfers: boolean;
   /** Empty = every category. */
   categories: string[];
+  /** `me`, `shared`, a membership id, or null for the whole household. */
+  owner: string | null;
 }
 
 export function useCashFlowMap() {
   const workspaceId = useWorkspaceId();
   const [filters, setFilters] = useState<CashFlowFilters>(() => {
     const [from, to] = presetRangeValues(PERIOD_PRESETS[0]);
-    return { from, to, compare: true, includeTransfers: false, categories: [] };
+    return { from, to, compare: true, includeTransfers: false, categories: [], owner: null };
   });
 
   const params = useMemo(() => {
@@ -63,6 +65,7 @@ export function useCashFlowMap() {
     if (filters.compare) query.compare = true;
     if (filters.includeTransfers) query.includeTransfers = true;
     if (filters.categories.length > 0) query.categories = filters.categories.join(',');
+    if (filters.owner) query.owner = filters.owner;
     return query;
   }, [filters]);
 

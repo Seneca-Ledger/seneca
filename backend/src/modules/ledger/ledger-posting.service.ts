@@ -133,6 +133,7 @@ function factsOf(tx: Transaction): TransactionFacts {
     taxReverseCharge: tx.taxReverseCharge,
     taxNotionalAmount: tx.taxNotionalAmount,
     isDuplicate: tx.isDuplicate,
+    isVerified: tx.isVerified,
     cryptoWalletId: tx.cryptoWalletId,
     categoryId: tx.categoryId,
     branchId: tx.branchId,
@@ -312,6 +313,74 @@ export class LedgerPostingService {
       baseCurrency,
       memo: params.memo ?? null,
       source: JournalEntrySource.INVOICE,
+      lines,
+      userId: params.userId ?? null,
+    });
+  }
+
+  /**
+   * Books a credit note: the mirror of `postInvoice`. Dr each line's income
+   * account for its net amount and Dr VAT payable for the tax — revenue that
+   * was recognised is taken back — and Cr Accounts Receivable for the gross,
+   * so the client's debt falls by exactly what the note credits.
+   */
+  async postCreditNote(manager: EntityManager, params: PostInvoiceParams): Promise<JournalEntry> {
+    const baseCurrency = await this.baseCurrencyOf(params.workspaceId);
+    const system = await this.accountsService.systemAccountIds(params.workspaceId);
+    const receivablesAccountId = system[LEDGER_ACCOUNT_CODES.RECEIVABLES];
+    const salesRevenueAccountId = system[LEDGER_ACCOUNT_CODES.SALES_REVENUE];
+
+    const legs: Leg[] = [];
+    let grossMinor = 0;
+    let taxMinor = 0;
+    for (const line of params.lines) {
+      const netLineMinor = toMinor(line.amount);
+      const taxLineMinor = toMinor(line.taxAmount || 0);
+      if (netLineMinor === 0 && taxLineMinor === 0) {
+        continue;
+      }
+      const counterpartAccountId = line.categoryId
+        ? ((await this.accountsService.categoryAccountId(params.workspaceId, line.categoryId)) ??
+          salesRevenueAccountId)
+        : salesRevenueAccountId;
+      if (netLineMinor !== 0) {
+        legs.push({
+          accountId: counterpartAccountId,
+          side: 'debit',
+          amountMinor: netLineMinor,
+          categoryId: line.categoryId ?? null,
+        });
+      }
+      grossMinor += netLineMinor + taxLineMinor;
+      taxMinor += taxLineMinor;
+    }
+    if (taxMinor !== 0) {
+      legs.push({
+        accountId: system[LEDGER_ACCOUNT_CODES.VAT_PAYABLE],
+        side: 'debit',
+        amountMinor: taxMinor,
+      });
+    }
+    if (grossMinor === 0) {
+      throw new BadRequestException('Cannot post a zero-amount credit note to the ledger');
+    }
+    legs.push({ accountId: receivablesAccountId, side: 'credit', amountMinor: grossMinor });
+
+    const currency = params.currency.toUpperCase();
+    const lines = await this.convert(
+      legs,
+      currency,
+      baseCurrency,
+      params.entryDate,
+      params.workspaceId,
+    );
+
+    return this.book(manager, {
+      workspaceId: params.workspaceId,
+      entryDate: params.entryDate,
+      baseCurrency,
+      memo: params.memo ?? null,
+      source: JournalEntrySource.CREDIT_NOTE,
       lines,
       userId: params.userId ?? null,
     });
@@ -734,13 +803,22 @@ export class LedgerPostingService {
     // Settling an invoice-sourced receivable clears Accounts Receivable rather
     // than booking new income: the revenue was already booked when the
     // invoice was sent, and booking it again here would count it twice.
-    const settlesInvoice = await this.payableRepository.exists({
-      where: {
-        workspaceId: tx.workspaceId,
-        linkedTransactionId: tx.id,
-        source: PayableSource.INVOICE,
-      },
-    });
+    // Either the bill's single legacy link or any payment row pointing at this
+    // transaction: one wire can settle four invoices, and each of those is a
+    // payment, not a link.
+    const [{ settles }]: Array<{ settles: boolean }> = await this.payableRepository.query(
+      `SELECT EXISTS (
+         SELECT 1
+           FROM "payables" p
+           LEFT JOIN "payable_payments" pp ON pp."payable_id" = p."id"
+          WHERE p."workspace_id" = $1
+            AND p."source" = $2
+            AND p."deleted_at" IS NULL
+            AND (p."linked_transaction_id" = $3 OR pp."transaction_id" = $3)
+       ) AS "settles"`,
+      [tx.workspaceId, PayableSource.INVOICE, tx.id],
+    );
+    const settlesInvoice = settles;
     const counterpart = settlesInvoice
       ? system[LEDGER_ACCOUNT_CODES.RECEIVABLES]
       : tx.categoryId

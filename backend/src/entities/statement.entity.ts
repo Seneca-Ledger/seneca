@@ -192,7 +192,7 @@ export class Statement {
   })
   balanceEnd: number | null;
 
-  @Column({ default: 'KZT' })
+  @Column()
   currency: string;
 
   @ManyToOne(() => Category, { nullable: true })

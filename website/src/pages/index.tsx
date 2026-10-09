@@ -47,7 +47,7 @@ const features = [
   {
     title: 'Self-hosted by design',
     description:
-      'One Docker Compose stack, encrypted backups, Prometheus-format metrics, structured JSON logs, and a UI in 21 languages. MIT licensed.',
+      'One Docker Compose stack, encrypted backups, Prometheus-format metrics, structured JSON logs, and a UI in 36 languages. MIT licensed.',
   },
 ];
 

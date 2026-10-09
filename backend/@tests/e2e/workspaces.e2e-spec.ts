@@ -279,6 +279,119 @@ describe('Workspaces (e2e)', () => {
     });
   });
 
+  /**
+   * The toggles are the whole point of the `member` role, and the viewer role
+   * is worth nothing if it can still write. Both used to be broken: a missing
+   * toggle read as "allowed", so a viewer could edit, and the category toggle
+   * was never consulted because the guard asked for an admin first.
+   */
+  describe('member permissions', () => {
+    const asWorkspace = (account: E2eAccount, req: request.Test) =>
+      as(account, req).set('x-workspace-id', owner.workspaceId);
+
+    beforeAll(async () => {
+      await as(
+        owner,
+        request(server()).patch(`/workspaces/${owner.workspaceId}/members/${member.userId}/role`),
+      )
+        .send({ role: 'member' })
+        .expect(200);
+    });
+
+    it('gives a member nothing until a toggle says so', async () => {
+      await as(
+        owner,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditStatements: true } })
+        .expect(200);
+
+      await asWorkspace(member, request(server()).post('/categories'))
+        .send({ name: `no-toggle-${stamp}`, type: 'expense' })
+        .expect(403);
+    });
+
+    it('lets the member create a category once canEditCategories is on', async () => {
+      const res = await as(
+        owner,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditStatements: true, canEditCategories: true } })
+        .expect(200);
+      expect(res.body.permissions).toMatchObject({ canEditCategories: true });
+
+      await asWorkspace(member, request(server()).post('/categories'))
+        .send({ name: `with-toggle-${stamp}`, type: 'expense' })
+        .expect(201);
+    });
+
+    it('refuses permission changes from the member themselves', () => {
+      return as(
+        member,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditCategories: true } })
+        .expect(403);
+    });
+
+    it('keeps a viewer read-only even with every toggle in the row', async () => {
+      await as(
+        owner,
+        request(server()).patch(`/workspaces/${owner.workspaceId}/members/${member.userId}/role`),
+      )
+        .send({ role: 'viewer' })
+        .expect(200);
+
+      // Changing the role clears the toggles, so put them back behind the API's
+      // back: the rule under test is that the role wins over the column, not
+      // that the column happens to be empty.
+      await dataSource.query(
+        `UPDATE workspace_members
+         SET permissions = '{"canEditStatements":true,"canEditCategories":true}'::jsonb
+         WHERE workspace_id = $1 AND user_id = $2`,
+        [owner.workspaceId, member.userId],
+      );
+
+      await asWorkspace(member, request(server()).get('/categories')).expect(200);
+      await asWorkspace(member, request(server()).post('/categories'))
+        .send({ name: `viewer-${stamp}`, type: 'expense' })
+        .expect(403);
+    });
+
+    it('has no toggles to set on a viewer', () => {
+      return as(
+        owner,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditCategories: true } })
+        .expect(400);
+    });
+
+    it('lets the owner create a goal and export a report', async () => {
+      await asWorkspace(owner, request(server()).post('/goals'))
+        .send({ name: `goal-${stamp}`, targetAmount: 1000, currency: 'EUR' })
+        .expect(201);
+
+      // Only the guard is under test here; the export itself may still fail on
+      // an empty workspace, and that is not a permission problem.
+      await asWorkspace(owner, request(server()).post('/reports/workspace-export'))
+        .send({ format: 'csv' })
+        .expect(res => {
+          if (res.status === 403) {
+            throw new Error('report export is forbidden for the workspace owner');
+          }
+        });
+    });
+  });
+
   describe('removing members', () => {
     it('refuses to remove the owner', () => {
       return as(

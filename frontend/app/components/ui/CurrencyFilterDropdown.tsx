@@ -10,7 +10,7 @@ import { FilterChipButton } from '@/app/components/ui/filter-chip-button';
 import { useIntlayer } from '@/app/i18n';
 
 interface CurrencyFilterDropdownProps {
-  /** All currency codes present in the current dataset (e.g. ['KZT', 'USD', 'EUR']). */
+  /** All currency codes present in the current dataset (e.g. ['GBP', 'USD', 'EUR']). */
   currencies: string[];
   /** Currently selected currency code, or null for "all". */
   value: string | null;

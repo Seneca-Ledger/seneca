@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import { DataGridSkeleton } from '@/app/components/data-grid';
+import { ImportSuggestionBanner } from '@/app/components/import-wizard/ImportSuggestionBanner';
 import { Button } from '@/app/components/ui/button';
 import { rememberRowCount, useSkeletonRows } from '../rowCountMemory';
 import { ColumnDialog } from './components/ColumnDialog';
@@ -12,6 +13,7 @@ import { FilterBar } from './components/FilterBar';
 import { GroupSummary } from './components/GroupSummary';
 import { ImportPreviewDialog } from './components/ImportPreviewDialog';
 import { SendToStatementsDialog } from './components/SendToStatementsDialog';
+import { SummariesBar } from './components/SummariesBar';
 import { ROW_HEIGHT, TableGrid } from './components/TableGrid';
 import { TablePageHeader } from './components/TablePageHeader';
 import { TableToolbar } from './components/TableToolbar';
@@ -53,12 +55,26 @@ function Dialogs({ state }: { state: CustomTablePageState }) {
         draft={state.columnEditor.draft}
         setDraft={state.columnEditor.setDraft}
         saving={state.columnEditor.saving}
+        tableId={state.data.table?.id ?? null}
+        columns={state.columns}
         relationTargets={state.relationTargets}
         onSave={() => void state.columnEditor.save()}
         onClose={state.columnEditor.close}
         labels={labels.columnDialog}
       />
-      <ImportPreviewDialog paste={state.paste} columns={state.columns} labels={labels.import} />
+      <ImportPreviewDialog
+        paste={state.paste}
+        columns={state.columns}
+        labels={labels.import}
+        typeLabels={labels.columnDialog.types}
+        banner={
+          <ImportSuggestionBanner
+            rows={state.paste.pasteRawRows}
+            enabled={state.paste.pastePreviewOpen}
+            onImported={() => state.paste.resetPastePreview()}
+          />
+        }
+      />
       <SendToStatementsDialog
         open={state.convert.open}
         busy={state.convert.busy}
@@ -114,6 +130,8 @@ function TablePage({ state, skeletonRows }: { state: CustomTablePageState; skele
         onImportFile={file => void state.paste.startFileImport(file)}
         onExport={format => void state.exportView(format)}
         onSendToStatements={() => state.setConvert({ open: true, busy: false, result: null })}
+        onRefreshSource={table.sourceBinding ? () => void state.runRefreshSource() : undefined}
+        refreshing={state.refreshing}
         onDeleteSelected={() => state.setPendingDelete({ kind: 'rows' })}
         labels={labels.toolbar}
         filters={
@@ -160,6 +178,15 @@ function TablePage({ state, skeletonRows }: { state: CustomTablePageState; skele
         onEditColumn={state.columnEditor.openEdit}
         onDeleteColumn={column => state.setPendingDelete({ kind: 'column', column })}
         labels={labels.grid}
+      />
+      <SummariesBar
+        tableId={table.id}
+        columns={columns}
+        items={state.summaries.items}
+        saving={state.summaries.saving}
+        onUpsert={state.summaries.upsert}
+        onRemove={state.summaries.remove}
+        labels={labels.summaries}
       />
       <Dialogs state={state} />
     </div>

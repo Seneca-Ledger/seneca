@@ -13,6 +13,7 @@ import * as bcrypt from 'bcrypt';
 import { createHmac, randomUUID } from 'crypto';
 import type { StringValue } from 'ms';
 import { IsNull, type Repository } from 'typeorm';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { DEV_DEFAULTS } from '../../common/utils/dev-defaults';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { requireSecret } from '../../common/utils/required-secret.util';
@@ -157,6 +158,7 @@ export class AuthService {
         this.workspaceRepository.create({
           name: `${user.name || user.email} workspace`,
           ownerId: user.id,
+          currency: currencyCodeOrDefault(null),
         }),
       );
 
@@ -315,6 +317,7 @@ export class AuthService {
     const workspace = this.workspaceRepository.create({
       name: workspaceName,
       ownerId: user.id,
+      currency: currencyCodeOrDefault(null),
     });
 
     const savedWorkspace = await this.workspaceRepository.save(workspace);

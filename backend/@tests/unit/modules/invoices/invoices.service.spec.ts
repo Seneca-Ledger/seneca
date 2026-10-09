@@ -11,6 +11,9 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
+import { BusinessProfileService } from '@/modules/business-profile/business-profile.service';
+import { InvoiceSettingsService } from '@/modules/invoices/invoice-settings.service';
 
 jest.mock('@/modules/invoices/invoice-document', () => ({
   buildInvoicePdf: jest.fn(async () => Buffer.from('pdf')),
@@ -103,6 +106,19 @@ describe('InvoicesService', () => {
     testingModule = await Test.createTestingModule({
       providers: [
         InvoicesService,
+        workspaceCurrencyProvider(),
+        {
+          provide: InvoiceSettingsService,
+          useValue: { get: jest.fn(async () => ({ paymentTermsDays: 14, lateFeePercent: 0 })) },
+        },
+        {
+          provide: BusinessProfileService,
+          useValue: {
+            get: jest.fn(async () => ({ legalName: 'Us', addressLines: 'Somewhere' })),
+            missingRequiredFields: jest.fn(() => []),
+            logoDataUri: jest.fn(async () => null),
+          },
+        },
         { provide: getRepositoryToken(Invoice), useValue: invoiceRepository },
         { provide: getRepositoryToken(Client), useValue: clientRepository },
         { provide: getRepositoryToken(Payable), useValue: payableRepository },
@@ -266,16 +282,21 @@ describe('InvoicesService', () => {
       expect(invoice.status).toBe(InvoiceStatus.VOID);
     });
 
-    it('refuses to void a paid invoice', async () => {
+    it('refuses to void an invoice whose receivable is paid', async () => {
+      // The invoice row says 'sent' — it always does, 'paid' lives on the
+      // receivable — so the guard has to read the receivable to see it.
       invoiceRepository.findOne.mockResolvedValue({
         id: 'invoice-1',
         workspaceId: 'workspace-1',
-        status: InvoiceStatus.PAID,
+        status: InvoiceStatus.SENT,
+        payableId: 'payable-1',
       } as Invoice);
+      payableRepository.findOne.mockResolvedValue({ status: PayableStatus.PAID } as Payable);
 
       await expect(service.void('invoice-1', 'workspace-1', 'user-1')).rejects.toBeInstanceOf(
         ConflictException,
       );
+      expect(payableRepository.update).not.toHaveBeenCalled();
     });
   });
 });

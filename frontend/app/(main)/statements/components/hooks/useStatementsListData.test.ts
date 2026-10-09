@@ -23,7 +23,6 @@ describe('useStatementsListData', () => {
       useStatementsListData({
         appliedFilters: DEFAULT_STATEMENT_FILTERS,
         search: '',
-        stage: 'submit',
         user: { id: 'u1' },
         page: 1,
         pageSize: 20,

@@ -1,20 +1,25 @@
 import type { DashboardData } from '@/app/hooks/useDashboard';
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { type render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderWithQuery } from '@/app/test/query-wrapper';
 import '../test-setup';
 import { OverviewTab } from '../OverviewTab';
 
 const apiGet = vi.hoisted(() => vi.fn());
 
-vi.mock('@/app/lib/api', () => ({ default: { get: apiGet } }));
+// `apiBaseUrl` is read at module load by the goal cover thumbnail.
+vi.mock('@/app/lib/api', () => ({ default: { get: apiGet }, apiBaseUrl: 'http://api.test/api/v1' }));
 
 vi.mock('@/app/contexts/WorkspaceContext', () => ({
   useWorkspace: () => ({ currentWorkspace: { id: 'workspace-1' }, loading: false }),
 }));
 
 vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }));
+
+// The spend calendar has its own test; here it only needs an authenticated user.
+vi.mock('@/app/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' } }) }));
 
 vi.mock('next/dynamic', () => ({
   default: () => () => <div data-testid="mock-echarts" />,
@@ -84,7 +89,7 @@ function renderTab(
   data: DashboardData,
   formatAmount: (value: number) => string = value => String(value),
 ): ReturnType<typeof render> {
-  return render(
+  return renderWithQuery(
     <OverviewTab
       data={data}
       formatAmount={formatAmount}

@@ -10,6 +10,14 @@ vi.mock('@/app/hooks/useIsMobile', () => ({
   useIsMobile: () => viewportState.isMobile,
 }));
 
+vi.mock('@/app/contexts/CurrencyDisplayContext', () => ({
+  useCurrencyDisplay: () => ({
+    showConverted: false,
+    toggleShowConverted: () => undefined,
+    workspaceCurrency: 'KZT',
+  }),
+}));
+
 const token = (value: string) => ({ value });
 
 vi.mock('next-intlayer', () => ({
@@ -125,5 +133,34 @@ describe('TransactionsTable mobile view', () => {
 
     expect(container.querySelector('table')).toBeTruthy();
     expect(container.querySelector('[data-testid="transaction-card-tx-1"]')).toBeNull();
+  });
+
+  it('marks only the rows nobody confirmed yet, on desktop and mobile', async () => {
+    const rows: Transaction[] = [
+      { ...transactions[0], id: 'tx-open', isVerified: false },
+      { ...transactions[0], id: 'tx-open-too', isVerified: false },
+      { ...transactions[0], id: 'tx-done', isVerified: true },
+    ];
+    for (const isMobile of [false, true]) {
+      viewportState.isMobile = isMobile;
+      const container = document.createElement('div');
+      const root = createRoot(container);
+
+      await act(async () => {
+        root.render(
+          <TransactionsTable
+            transactions={rows}
+            categories={categories}
+            selectedIds={[]}
+            onSelectRows={() => undefined}
+            onRowClick={() => undefined}
+            filters={filters}
+            onFilterChange={() => undefined}
+          />,
+        );
+      });
+
+      expect(container.querySelectorAll('[data-testid="unconfirmed-badge"]')).toHaveLength(2);
+    }
   });
 });

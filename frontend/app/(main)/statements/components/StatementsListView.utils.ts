@@ -437,6 +437,23 @@ export const resolveStatementViewAction = (
   return { type: 'route', href: `/storage/${statement.id}` };
 };
 
+const SETTLED_RECEIPT_STATUSES = new Set(['approved', 'rejected', 'failed']);
+
+/**
+ * How much of a document still waits in Review: a statement's undecided rows,
+ * or one for a receipt that has not been approved (or dropped) yet.
+ */
+export const resolvePendingReview = (
+  document: { id: string; status: string },
+  isReceipt: boolean,
+  statementReviewCounts: Record<string, number>,
+): number => {
+  if (isReceipt) {
+    return SETTLED_RECEIPT_STATUSES.has(document.status) ? 0 : 1;
+  }
+  return statementReviewCounts[document.id] ?? 0;
+};
+
 export const paginateStatements = <T>(statements: T[], page: number, pageSize: number): T[] => {
   if (pageSize <= 0) {
     return [];

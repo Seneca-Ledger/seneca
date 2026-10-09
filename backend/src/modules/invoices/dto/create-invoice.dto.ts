@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsOptional,
@@ -20,8 +21,10 @@ export class CreateInvoiceDto {
   @IsDateString()
   issueDate: string;
 
+  /** Omitted: derived from the issue date and the client's payment terms. */
+  @IsOptional()
   @IsDateString()
-  dueDate: string;
+  dueDate?: string;
 
   @IsOptional()
   @IsString()
@@ -31,6 +34,11 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  /** True when the line prices already contain their tax. */
+  @IsOptional()
+  @IsBoolean()
+  pricesIncludeTax?: boolean;
 
   @IsArray()
   @ArrayMinSize(1)

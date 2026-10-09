@@ -3,6 +3,7 @@
 
 import { useTheme } from 'next-themes';
 import { useCallback, useState } from 'react';
+import toast from 'react-hot-toast';
 import {
   Building2,
   Calendar,
@@ -14,13 +15,18 @@ import {
 import { Select } from '@/app/components/ui/select';
 import { useCurrencyDisplay } from '@/app/contexts/CurrencyDisplayContext';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { isPrivateCategory, pickableCategories } from '@/app/lib/private-category';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
 import { ConvertedAmountRow } from './ConvertedAmountRow';
 import { formatAmount, formatDate } from './helpers/transactionFormatters';
+import { useBulkUpdateOwner } from './hooks/useBulkUpdateOwner';
 import { useContributionLink } from './hooks/useContributionLink';
 import { useTransactionSplit } from './hooks/useTransactionSplit';
 import { useTransferLink } from './hooks/useTransferLink';
+import { useWorkspaceMembers } from './hooks/useWorkspaceMembers';
+import { OWNER_SHARED, ownerValueToMemberId } from './OwnerFilterDropdown';
 import { SplitTransactionDialog } from './SplitTransactionDialog';
 import type { Category, Transaction } from './types';
 
@@ -44,10 +50,15 @@ export function TransactionDetailsTab({
 }: TransactionDetailsTabProps) {
   const { locale } = useLocale();
   const t = useIntlayer('transactionsDrawer');
+  const tOwner = useIntlayer('transactionOwner');
   const { showConverted, workspaceCurrency } = useCurrencyDisplay();
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [ownerSaving, setOwnerSaving] = useState(false);
+  const [privateSaving, setPrivateSaving] = useState(false);
+  const members = useWorkspaceMembers();
+  const updateOwner = useBulkUpdateOwner();
   const [updating, setUpdating] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
 
@@ -86,7 +97,7 @@ export function TransactionDetailsTab({
   // The pre-split total the backend validates against: the positive side of the
   // row, not `transaction.amount`, which the mappers sign for display.
   const splitTotal = transaction.debit > 0 ? Number(transaction.debit) : Number(transaction.credit);
-  const splitCategories = categories.filter(cat => cat.isEnabled !== false);
+  const splitCategories = pickableCategories(categories);
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleUpdateCategory = async () => {
@@ -103,6 +114,40 @@ export function TransactionDetailsTab({
       .finally(async () => {
         setUpdating(false);
       });
+  };
+
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+  const handleUpdateOwner = async (value: string) => {
+    const successMessage = tOwner.ownerUpdated.value;
+    const failureMessage = tOwner.ownerUpdateFailed.value;
+    setOwnerSaving(true);
+    await updateOwner
+      .mutateAsync({ txIds: [transaction.id], ownerMemberId: ownerValueToMemberId(value) })
+      .then(
+        () => toast.success(successMessage),
+        (error: unknown) => {
+          console.error('Failed to update owner:', error);
+          toast.error(failureMessage);
+        },
+      )
+      .finally(() => setOwnerSaving(false));
+  };
+
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+  const handleTogglePrivate = async (next: boolean) => {
+    const successMessage = tOwner.ownerUpdated.value;
+    const failureMessage = tOwner.ownerUpdateFailed.value;
+    setPrivateSaving(true);
+    await updateOwner
+      .mutateAsync({ txIds: [transaction.id], isPrivate: next })
+      .then(
+        () => toast.success(successMessage),
+        (error: unknown) => {
+          console.error('Failed to update privacy:', error);
+          toast.error(failureMessage);
+        },
+      )
+      .finally(() => setPrivateSaving(false));
   };
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -189,10 +234,14 @@ export function TransactionDetailsTab({
                 {showConverted && transaction.convertedAmount !== undefined
                   ? formatAmount(
                       transaction.convertedAmount,
-                      transaction.convertedCurrency ?? 'KZT',
+                      transaction.convertedCurrency ?? FALLBACK_CURRENCY,
                       locale,
                     )
-                  : formatAmount(transaction.debit, transaction.currency ?? 'KZT', locale)}
+                  : formatAmount(
+                      transaction.debit,
+                      transaction.currency ?? FALLBACK_CURRENCY,
+                      locale,
+                    )}
                 {showConverted && transaction.convertedAmount !== undefined && (
                   <div
                     style={{
@@ -202,7 +251,11 @@ export function TransactionDetailsTab({
                       color: 'var(--color-error-soft-border)',
                     }}
                   >
-                    {formatAmount(transaction.debit, transaction.currency ?? 'KZT', locale)}
+                    {formatAmount(
+                      transaction.debit,
+                      transaction.currency ?? FALLBACK_CURRENCY,
+                      locale,
+                    )}
                   </div>
                 )}
               </>
@@ -223,10 +276,14 @@ export function TransactionDetailsTab({
                 {showConverted && transaction.convertedAmount !== undefined
                   ? formatAmount(
                       transaction.convertedAmount,
-                      transaction.convertedCurrency ?? 'KZT',
+                      transaction.convertedCurrency ?? FALLBACK_CURRENCY,
                       locale,
                     )
-                  : formatAmount(transaction.credit, transaction.currency ?? 'KZT', locale)}
+                  : formatAmount(
+                      transaction.credit,
+                      transaction.currency ?? FALLBACK_CURRENCY,
+                      locale,
+                    )}
                 {showConverted && transaction.convertedAmount !== undefined && (
                   <div
                     style={{
@@ -236,7 +293,11 @@ export function TransactionDetailsTab({
                       color: 'var(--color-success-soft-border)',
                     }}
                   >
-                    {formatAmount(transaction.credit, transaction.currency ?? 'KZT', locale)}
+                    {formatAmount(
+                      transaction.credit,
+                      transaction.currency ?? FALLBACK_CURRENCY,
+                      locale,
+                    )}
                   </div>
                 )}
               </>
@@ -436,7 +497,7 @@ export function TransactionDetailsTab({
                 options={[
                   { value: '', label: t.selectCategory.value },
                   ...categories
-                    .filter(cat => cat.isEnabled !== false)
+                    .filter(cat => !isPrivateCategory(cat) && cat.isEnabled !== false)
                     .map(cat => ({ value: cat.id, label: getCategoryDisplayName(cat, locale) })),
                 ]}
                 sx={{ flex: 1 }}
@@ -450,6 +511,59 @@ export function TransactionDetailsTab({
                 {updating ? t.updating.value : t.apply.value}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Who in the household it belongs to */}
+        {members.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label
+              htmlFor="owner-select"
+              style={{ display: 'block', fontSize: 12, fontWeight: 600, color: c.ink800 }}
+            >
+              {tOwner.assignOwner.value}
+            </label>
+            <Select
+              id="owner-select"
+              value={transaction.ownerMemberId ?? OWNER_SHARED}
+              onChange={value => void handleUpdateOwner(value)}
+              disabled={ownerSaving}
+              options={[
+                { value: OWNER_SHARED, label: tOwner.shared.value },
+                ...members.map(member => ({
+                  value: member.memberId,
+                  label: member.isSelf ? tOwner.me.value : member.label,
+                })),
+              ]}
+              sx={{ flex: 1 }}
+            />
+          </div>
+        )}
+
+        {/* Hidden from the rest of the household */}
+        {members.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                color: c.ink800,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={transaction.isPrivate === true}
+                disabled={privateSaving || !transaction.ownerMemberId}
+                onChange={event => void handleTogglePrivate(event.target.checked)}
+              />
+              {tOwner.makePrivate.value}
+            </label>
+            <span style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
+              {transaction.ownerMemberId ? tOwner.privateHint.value : tOwner.privateOwnerOnly.value}
+            </span>
           </div>
         )}
 
@@ -647,7 +761,7 @@ export function TransactionDetailsTab({
           open={splitOpen}
           transactionId={transaction.id}
           totalAmount={splitTotal}
-          currency={transaction.currency ?? 'KZT'}
+          currency={transaction.currency ?? FALLBACK_CURRENCY}
           categories={splitCategories}
           saving={splitSaving}
           locale={locale}

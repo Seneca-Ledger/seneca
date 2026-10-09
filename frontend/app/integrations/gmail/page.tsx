@@ -2,7 +2,6 @@
 'use client';
 
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
-import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { useCallback, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -363,35 +362,7 @@ export default function GmailIntegrationPage(): React.JSX.Element {
   if (!user) return <GmailNotLoggedInView t={t} />;
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: 5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 3 }}>
-        <Box
-          sx={{
-            p: 1,
-            borderRadius: tokens.radius.full,
-            bgcolor: 'rgba(var(--color-primary-rgb), 0.1)',
-            overflow: 'hidden',
-            display: 'flex',
-          }}
-        >
-          <Image
-            src="/icons/gmail.png"
-            alt="Gmail"
-            width={24}
-            height={24}
-            style={{ height: 24, width: 24, objectFit: 'contain' }}
-          />
-        </Box>
-        <Box>
-          <Typography variant="h4" style={{ fontWeight: 700, color: c.ink900 }}>
-            {t.header.title.value}
-          </Typography>
-          <Typography style={{ color: c.ink700, marginTop: 4 }}>
-            {t.header.subtitle.value}
-          </Typography>
-        </Box>
-      </Box>
-
+    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--lumio-page-top, 40px)', pb: 5 }}>
       {loading && (
         <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           <CircularProgress size={16} />

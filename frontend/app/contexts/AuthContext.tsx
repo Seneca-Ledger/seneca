@@ -17,6 +17,7 @@ import { readLocaleFromCookie, syncLocaleFromUser } from '@/app/lib/locale';
 import { getQueryClient } from '@/app/lib/query-client';
 import {
   DEFAULT_THEME_PREFERENCE,
+  forgetStoredUser,
   resolveThemePreference,
   THEME_STORAGE_EVENT,
   type ThemePreference,
@@ -70,7 +71,7 @@ const clearStoredSession = (): void => {
   // two removals stay to evict values left over from before that migration.
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
-  localStorage.removeItem('user');
+  forgetStoredUser();
   // The CSRF cookie is readable, so it is ours to clear — and it must be, or
   // the next mount still believes there is a session.
   clearCsrfCookie();

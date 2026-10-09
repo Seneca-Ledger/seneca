@@ -19,7 +19,7 @@ export class WorkspaceResponseDto {
   icon: string | null;
   color: string | null;
   backgroundImage: string | null;
-  currency: string | null;
+  currency: string;
   isFavorite: boolean;
   settings: JsonObject | null;
   ownerId: string | null;

@@ -1,10 +1,11 @@
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import type { Transaction } from '../types';
 
 export function formatNumber(
   value: number | undefined | null,
   locale: string,
-  currency = 'KZT',
+  currency = FALLBACK_CURRENCY,
 ): string {
   if (value === undefined || value === null) return '—';
   return `${new Intl.NumberFormat(locale, {

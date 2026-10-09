@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { type Reviewer, useDefaultReviewer } from '@/app/components/review/useReviewer';
+import { useHouseholdMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
 import type { Category } from '@/app/components/transactions/types';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
@@ -28,6 +30,11 @@ const CATEGORIES_STALE_TIME = 5 * 60 * 1000;
 export interface UseReviewInboxResult {
   kind: ReviewInboxKind;
   setKind: (kind: ReviewInboxKind) => void;
+  /** Whose backlog the queue is showing; absent when the workspace has one member. */
+  reviewer: Reviewer;
+  setReviewer: (reviewer: Reviewer) => void;
+  /** False for a workspace of one: nobody to filter against. */
+  canFilterByReviewer: boolean;
   from: string;
   to: string;
   setFrom: (value: string) => void;
@@ -65,6 +72,11 @@ export function useReviewInbox(): UseReviewInboxResult {
 
   const kindParam = searchParams.get('kind');
   const kind: ReviewInboxKind = isReviewInboxKind(kindParam) ? kindParam : 'transaction';
+  const members = useHouseholdMembers();
+  const defaultReviewer = useDefaultReviewer();
+  const reviewerParam = searchParams.get('reviewer');
+  const reviewer: Reviewer =
+    reviewerParam === 'me' || reviewerParam === 'anyone' ? reviewerParam : defaultReviewer;
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -79,9 +91,27 @@ export function useReviewInbox(): UseReviewInboxResult {
     [router],
   );
 
+  const setReviewer = useCallback(
+    (next: Reviewer) => {
+      setSelected(new Set());
+      setCursor(-1);
+      const query = new URLSearchParams(searchParams.toString());
+      query.set('reviewer', next);
+      if (kind === 'transaction') query.delete('kind');
+      router.replace(`/review?${query.toString()}`);
+    },
+    [kind, router, searchParams],
+  );
+
   const params = useMemo(
-    () => ({ kind, limit: PAGE_SIZE, ...(from ? { from } : {}), ...(to ? { to } : {}) }),
-    [kind, from, to],
+    () => ({
+      kind,
+      limit: PAGE_SIZE,
+      reviewer,
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+    }),
+    [kind, reviewer, from, to],
   );
 
   const pageQuery = useQuery({
@@ -205,6 +235,9 @@ export function useReviewInbox(): UseReviewInboxResult {
   return {
     kind,
     setKind,
+    reviewer,
+    setReviewer,
+    canFilterByReviewer: members.length > 0,
     from,
     to,
     setFrom,

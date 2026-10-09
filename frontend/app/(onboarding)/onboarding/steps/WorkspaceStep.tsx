@@ -1,40 +1,50 @@
 'use client';
 
-import { Box, Button, Stack, Typography } from '@mui/material';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import { useEffect, useState } from 'react';
-import { BackgroundSelector } from '@/app/(main)/workspaces/components/BackgroundSelector';
 import { CurrencySelector } from '@/app/(main)/workspaces/components/CurrencySelector';
-import { AVAILABLE_BACKGROUNDS } from '@/app/(main)/workspaces/constants';
-import { useIntlayer } from '@/app/i18n';
-import { tokens } from '@/lib/theme-tokens';
-import { getNestedOnboardingValue, resolveOnboardingText } from '../lib/resolveOnboardingText';
+import { ArrowLeft, Briefcase, Home } from '@/app/components/icons';
+import type { WorkspaceProfile } from '@/app/components/navigation/helpers/navigation-config';
+import { ChoiceCards } from '@/app/components/ui/choice-cards';
+import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
+import { LocaleField } from '../components/LocaleField';
+import { FieldLabel, OnboardingTextField } from '../components/OnboardingField';
+import { StepHeading } from '../components/StepHeading';
+import { useOnboardingText } from '../lib/useOnboardingText';
 import type { SupportedLocale } from '../useOnboardingWizard';
 
 interface WorkspaceStepProps {
   locale: SupportedLocale;
   workspaceName: string;
   workspaceCurrency: string;
-  workspaceBackgroundImage: string | null;
+  profile: WorkspaceProfile | null;
   onWorkspaceNameChange: (value: string) => void;
   onWorkspaceCurrencyChange: (value: string) => void;
-  onWorkspaceBackgroundImageChange: (value: string | null) => void;
+  onProfileChange: (value: WorkspaceProfile) => void;
+  /** The currency list takes over the panel; the page hides its navigation meanwhile. */
   onCurrencyPickerOpenChange?: (open: boolean) => void;
+  /**
+   * Given only when this flow skips the language step (another workspace is being
+   * created): the language is then asked here instead.
+   */
+  onLocaleChange?: (locale: SupportedLocale) => void;
 }
 
 export function WorkspaceStep({
   locale,
   workspaceName,
   workspaceCurrency,
-  workspaceBackgroundImage,
+  profile,
   onWorkspaceNameChange,
   onWorkspaceCurrencyChange,
-  onWorkspaceBackgroundImageChange,
+  onProfileChange,
   onCurrencyPickerOpenChange,
+  onLocaleChange,
 }: WorkspaceStepProps) {
-  const t = useIntlayer('onboardingPage');
+  const text = useOnboardingText(locale);
+  const { tx: settingsText } = useSettingsText();
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
-  const text = (path: string[], fallback = '') =>
-    resolveOnboardingText(getNestedOnboardingValue(t, path), fallback, locale);
 
   useEffect(() => {
     onCurrencyPickerOpenChange?.(currencyPickerOpen);
@@ -47,191 +57,129 @@ export function WorkspaceStep({
     [onCurrencyPickerOpenChange],
   );
 
-  const isCustomBackground = Boolean(
-    workspaceBackgroundImage && !AVAILABLE_BACKGROUNDS.includes(workspaceBackgroundImage),
-  );
-
   if (currencyPickerOpen) {
     return (
-      <Box component="section">
-        <Stack spacing={2}>
-          <Box sx={{ width: '100%' }}>
-            <CurrencySelector
-              selectedCurrency={workspaceCurrency || null}
-              onSelect={value => onWorkspaceCurrencyChange(value)}
-              mode="inline"
-              open={currencyPickerOpen}
-              onOpenChange={setCurrencyPickerOpen}
-              showLabel={false}
-              showTrigger={false}
-              minimal
-            />
-
-            <Box sx={{ mt: 1.5 }}>
-              <Button
-                variant="outlined"
-                onClick={() => setCurrencyPickerOpen(false)}
-                sx={{
-                  borderRadius: tokens.radius.md,
-                  borderColor: 'divider',
-                  bgcolor: 'background.paper',
-                  color: 'text.primary',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  textTransform: 'none',
-                  px: 2,
-                  py: 0.75,
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                {text(['navigation', 'back'], 'Back')}
-              </Button>
-            </Box>
-          </Box>
-        </Stack>
+      <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <StepHeading
+          title={text(['workspace', 'currencyPickerTitle'], 'Select a currency')}
+          subtitle={text(
+            ['workspace', 'currencyPickerSubtitle'],
+            'Find and select the currency that will be used by default.',
+          )}
+        />
+        <CurrencySelector
+          selectedCurrency={workspaceCurrency || null}
+          onSelect={value => onWorkspaceCurrencyChange(value)}
+          mode="inline"
+          open={currencyPickerOpen}
+          onOpenChange={setCurrencyPickerOpen}
+          showLabel={false}
+          showTrigger={false}
+          minimal
+          size="large"
+        />
+        <Button
+          variant="text"
+          onClick={() => setCurrencyPickerOpen(false)}
+          startIcon={<ArrowLeft size={18} />}
+          sx={{
+            alignSelf: 'flex-start',
+            ml: -1.5,
+            textTransform: 'none',
+            fontSize: 15,
+            fontWeight: 500,
+            color: 'var(--muted-foreground)',
+            '&:hover': { color: 'var(--foreground)', bgcolor: 'transparent' },
+          }}
+        >
+          {text(['navigation', 'back'], 'Back')}
+        </Button>
       </Box>
     );
   }
 
+  const profileLabel = text(['workspace', 'profileLabel'], 'What is this workspace for?');
+
   return (
-    <Box component="section">
-      <Stack spacing={2}>
-        <Box>
-          <Typography
-            variant="h4"
-            style={{ fontWeight: 600 }}
-            sx={{ fontSize: { xs: 24, sm: 30 }, color: 'text.primary' }}
-          >
-            {text(['workspace', 'title'], 'Set up your first workspace')}
-          </Typography>
-          <Typography
-            style={{ marginTop: 6 }}
-            sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }}
-          >
-            {text(
-              ['workspace', 'subtitle'],
-              'Set workspace name and default currency for accurate data tracking.',
-            )}
-          </Typography>
+    <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <StepHeading
+        title={text(['workspace', 'title'], 'Set up your first workspace')}
+        subtitle={text(
+          ['workspace', 'subtitle'],
+          'Set workspace name and default currency for accurate data tracking.',
+        )}
+      />
+
+      <OnboardingTextField
+        id="workspace-name"
+        label={text(['workspace', 'nameLabel'], 'Workspace name')}
+        value={workspaceName}
+        onChange={onWorkspaceNameChange}
+        placeholder={text(['workspace', 'namePlaceholder'], 'For example: My Company workspace')}
+      />
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <CurrencySelector
+          selectedCurrency={workspaceCurrency || null}
+          onSelect={value => onWorkspaceCurrencyChange(value)}
+          mode="inline"
+          open={currencyPickerOpen}
+          onOpenChange={setCurrencyPickerOpen}
+        />
+        <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
+          {text(
+            ['workspace', 'currencyHint'],
+            'This currency will be used by default for new records.',
+          )}
         </Box>
+      </Box>
 
-        <Box
-          sx={{
-            display: 'grid',
-            gap: 1.5,
-            gridTemplateColumns: { xs: '1fr', xl: 'minmax(0,1fr) minmax(280px,420px)' },
-          }}
-        >
-          <Stack spacing={1}>
-            <label
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.14em',
-                color: 'var(--mui-palette-text-secondary)',
-              }}
-              htmlFor="workspace-name"
-            >
-              {text(['workspace', 'nameLabel'], 'Workspace name')}
-            </label>
-            <input
-              id="workspace-name"
-              type="text"
-              value={workspaceName}
-              onChange={event => onWorkspaceNameChange(event.target.value)}
-              placeholder={text(
-                ['workspace', 'namePlaceholder'],
-                'For example: My Company workspace',
-              )}
-              style={{
-                width: '100%',
-                border: '1px solid var(--mui-palette-divider)',
-                borderRadius: tokens.radius.md,
-                background: 'var(--mui-palette-background-paper)',
-                padding: '10px 12px',
-                fontSize: 14,
-                color: 'var(--mui-palette-text-primary)',
-              }}
-            />
-          </Stack>
+      {onLocaleChange ? (
+        <LocaleField
+          label={text(['language', 'localeLabel'], 'Language')}
+          value={locale}
+          onChange={onLocaleChange}
+          hint={text(
+            ['language', 'timeZoneHint'],
+            'You can always change this later in profile settings.',
+          )}
+        />
+      ) : null}
 
-          <Stack spacing={0.5}>
-            <CurrencySelector
-              selectedCurrency={workspaceCurrency || null}
-              onSelect={value => onWorkspaceCurrencyChange(value)}
-              mode="inline"
-              open={currencyPickerOpen}
-              onOpenChange={setCurrencyPickerOpen}
-            />
-            <Typography style={{ fontSize: 12 }} sx={{ color: 'text.secondary' }}>
-              {text(
-                ['workspace', 'currencyHint'],
-                'This currency will be used by default for new records.',
-              )}
-            </Typography>
-          </Stack>
-        </Box>
-
-        <Stack spacing={1}>
-          <Typography
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.14em',
-            }}
-            sx={{ color: 'text.secondary' }}
-          >
-            {text(['workspace', 'backgroundLabel'], 'Workspace background')}
-          </Typography>
-
-          <BackgroundSelector
-            selectedBackground={
-              workspaceBackgroundImage && AVAILABLE_BACKGROUNDS.includes(workspaceBackgroundImage)
-                ? workspaceBackgroundImage
-                : null
-            }
-            onSelect={onWorkspaceBackgroundImageChange}
-            backgrounds={AVAILABLE_BACKGROUNDS}
-            compact
-          />
-
-          <Stack spacing={0.75}>
-            <label
-              style={{ fontSize: 12, color: 'var(--mui-palette-text-primary)' }}
-              htmlFor="workspace-custom-background"
-            >
-              {text(['workspace', 'customBackgroundLabel'], 'Custom image (URL)')}
-            </label>
-            <input
-              id="workspace-custom-background"
-              type="url"
-              value={isCustomBackground ? workspaceBackgroundImage || '' : ''}
-              onChange={event => onWorkspaceBackgroundImageChange(event.target.value || null)}
-              placeholder={text(
-                ['workspace', 'customBackgroundPlaceholder'],
-                'https://example.com/my-image.jpg',
-              )}
-              style={{
-                width: '100%',
-                border: '1px solid var(--mui-palette-divider)',
-                borderRadius: tokens.radius.md,
-                background: 'var(--mui-palette-background-paper)',
-                padding: '10px 12px',
-                fontSize: 14,
-                color: 'var(--mui-palette-text-primary)',
-              }}
-            />
-            <Typography style={{ fontSize: 12 }} sx={{ color: 'text.secondary' }}>
-              {text(
-                ['workspace', 'customBackgroundHint'],
-                'Paste your own image URL or choose one of the presets below.',
-              )}
-            </Typography>
-          </Stack>
-        </Stack>
-      </Stack>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <FieldLabel id="workspace-profile-label">{profileLabel}</FieldLabel>
+        <ChoiceCards<WorkspaceProfile>
+          aria-labelledby="workspace-profile-label"
+          value={profile}
+          onChange={onProfileChange}
+          options={[
+            {
+              value: 'home',
+              icon: <Home size={20} />,
+              title: settingsText(['workspaceProfileCard', 'home'], 'Home'),
+              description: settingsText(
+                ['workspaceProfileCard', 'homeHint'],
+                'Personal or family money',
+              ),
+            },
+            {
+              value: 'business',
+              icon: <Briefcase size={20} />,
+              title: settingsText(['workspaceProfileCard', 'business'], 'Business'),
+              description: settingsText(
+                ['workspaceProfileCard', 'businessHint'],
+                'Invoices, payables, ledger, tax',
+              ),
+            },
+          ]}
+        />
+        {/* Says why Next is greyed out; it goes once the question is answered. */}
+        {profile ? null : (
+          <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
+            {text(['workspace', 'profileRequired'], 'Choose one to continue.')}
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 }

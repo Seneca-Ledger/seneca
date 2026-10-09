@@ -1,7 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { calculateStringSimilarity } from '../../../common/utils/string-similarity.util';
 import { Category, CategoryType, Receipt, Transaction } from '../../../entities';
 import { ApplicationSettingsService } from '../../application-settings/application-settings.service';
 import { AiCategoryClassifier } from '../../classification/helpers/ai-category-classifier.helper';
@@ -149,12 +148,12 @@ export class ReceiptCategoryService {
         return aiMatch;
       }
 
-      const keywordMatch = this.matchByKeywords(vendor, categories);
-      if (keywordMatch) {
-        return keywordMatch;
-      }
-
-      return this.matchBySimilarity(vendor, categories);
+      // Nothing is guessed from the vendor's own name. The keyword lexicon
+      // below matches by substring, so "Travelodge" hit "travel" and
+      // "Rentokil" hit the Rent category; it stays only for receipt line
+      // items (`receipt-split.service.ts`), where the text really is a
+      // product description and there is no payee to learn from.
+      return null;
     } catch (error) {
       this.logger.error('Failed to suggest category', error);
       return null;
@@ -347,23 +346,5 @@ export class ReceiptCategoryService {
     }
 
     return null;
-  }
-
-  private matchBySimilarity(vendor: string, categories: Category[]): Category | null {
-    const vendorLower = vendor.toLowerCase();
-    let bestMatch: Category | null = null;
-    let bestSimilarity = 0;
-
-    for (const category of categories) {
-      const categoryLower = category.name.toLowerCase();
-      const similarity = calculateStringSimilarity(vendorLower, categoryLower);
-
-      if (similarity > bestSimilarity && similarity > 0.7) {
-        bestSimilarity = similarity;
-        bestMatch = category;
-      }
-    }
-
-    return bestMatch;
   }
 }

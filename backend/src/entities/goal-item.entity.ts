@@ -60,7 +60,7 @@ export class GoalItem {
   @Column({ name: 'actual_amount', type: 'decimal', precision: 15, scale: 2, nullable: true })
   actualAmount: number | null;
 
-  @Column({ default: 'KZT' })
+  @Column()
   currency: string;
 
   /**

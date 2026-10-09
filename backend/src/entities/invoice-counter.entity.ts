@@ -22,4 +22,11 @@ export class InvoiceCounter {
   /** bigint comes back from the driver as a string. */
   @Column({ name: 'next_invoice_no', type: 'bigint', default: 1 })
   nextInvoiceNo: string;
+
+  @Column({ name: 'credit_note_prefix', type: 'varchar', length: 20, default: 'CN-' })
+  creditNotePrefix: string;
+
+  /** Its own sequence: a credit note is not an invoice. */
+  @Column({ name: 'next_credit_note_no', type: 'bigint', default: 1 })
+  nextCreditNoteNo: string;
 }

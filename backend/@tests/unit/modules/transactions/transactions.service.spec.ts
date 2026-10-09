@@ -1,6 +1,7 @@
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { Statement } from '@/entities/statement.entity';
 import { Transaction, TransactionType } from '@/entities/transaction.entity';
+import { Category } from '@/entities/category.entity';
 import { User, UserRole } from '@/entities/user.entity';
 import { WorkspaceMember, WorkspaceRole } from '@/entities/workspace-member.entity';
 import { AuditService } from '@/modules/audit/audit.service';
@@ -81,6 +82,14 @@ describe('TransactionsService', () => {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: {
             findOne: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(Category),
+          useValue: {
+            findOne: jest.fn(async () => null),
+            create: jest.fn(value => value),
+            save: jest.fn(async value => value),
           },
         },
         {
@@ -329,25 +338,15 @@ describe('TransactionsService', () => {
       );
     });
 
-    it('triggers learning when categoryId changes', async () => {
-      jest.spyOn(transactionRepository, 'save').mockResolvedValue({
-        ...mockTransaction,
-        workspaceId: 'ws-1',
-        paymentPurpose: 'Оплата аренды',
-        counterpartyName: 'ТОО Арендодатель',
-        categoryId: 'cat-2',
-      } as Transaction);
+    it('marks a changed category as the user\'s own pick, with nothing else to record', async () => {
+      // The row's own category is what the payee history reads next time, so a
+      // correction teaches by itself — there is no second store to write to.
+      jest.spyOn(transactionRepository, 'save').mockImplementation(async entity => entity as never);
 
-      await service.update('1', 'ws-1', '1', { categoryId: 'cat-2' });
+      const saved = await service.update('1', 'ws-1', '1', { categoryId: 'cat-2' });
 
-      expect(classificationService.learnFromCorrection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: '1',
-          categoryId: 'cat-2',
-        }),
-        'cat-2',
-        '1',
-      );
+      expect(saved.categorySource).toBe('manual');
+      expect(saved.categoryReason).toBeNull();
     });
 
     it('drops the loaded category object so the new id is what gets saved', async () => {

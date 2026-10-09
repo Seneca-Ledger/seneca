@@ -20,10 +20,13 @@ export type TopMerchantsViewModelReturn = TopAnalyticsViewModelReturn<
   TopMerchantsDataReturn
 >;
 
-export const useTopMerchantsViewModel = (): TopMerchantsViewModelReturn =>
-  useTopAnalyticsViewModel({
-    useStateHook: useTopMerchantsState,
-    useDataHook: useTopMerchantsData,
-    createTx,
-    buildLabels: buildTopMerchantsLabels,
-  });
+export const useTopMerchantsViewModel = (month: Date): TopMerchantsViewModelReturn =>
+  useTopAnalyticsViewModel(
+    {
+      useStateHook: useTopMerchantsState,
+      useDataHook: useTopMerchantsData,
+      createTx,
+      buildLabels: buildTopMerchantsLabels,
+    },
+    month,
+  );

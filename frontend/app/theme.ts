@@ -79,7 +79,8 @@ const getSharedOptions = (
       MuiButton: {
         styleOverrides: {
           root: {
-            borderRadius: tokens.radius.full,
+            // Square-ish, the same corner the toolbar controls use — not a pill.
+            borderRadius: tokens.radius.md,
             padding: '8px 18px',
             height: 40,
             fontSize: '14px',
@@ -122,6 +123,18 @@ const getSharedOptions = (
                 },
           outlined: {
             boxShadow: 'none',
+          },
+          // A secondary action is a white button with dark text, not green-on-
+          // transparent: the accent is reserved for the one primary action on a
+          // screen. Error and other colours keep their own outlined look.
+          outlinedPrimary: {
+            backgroundColor: c.surface,
+            borderColor: c.ink150,
+            color: c.ink900,
+            '&:hover': {
+              backgroundColor: c.ink50,
+              borderColor: c.ink300,
+            },
           },
         },
       },

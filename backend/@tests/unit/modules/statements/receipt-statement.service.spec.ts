@@ -215,6 +215,56 @@ describe('ReceiptStatementService', () => {
     expect(result).toEqual([expect.objectContaining({ id: 'stmt-ocr-1' })]);
   });
 
+  it('leaves the scan uncategorised when the receipt names no category', async () => {
+    const file = {
+      path: '/tmp/receipt.jpg',
+      originalname: 'receipt.jpg',
+      mimetype: 'image/jpeg',
+      size: 1024,
+    } as Express.Multer.File;
+
+    jest.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
+    jest
+      .spyOn(statementRepository, 'save')
+      .mockImplementation(async (input: any) => ({ id: 'stmt-nocat-1', ...input }));
+    jest.spyOn(statementRepository, 'update').mockResolvedValue({ affected: 1 } as any);
+    jest.spyOn(transactionRepository, 'create').mockImplementation((input: any) => input);
+    jest
+      .spyOn(transactionRepository, 'save')
+      .mockImplementation(async (input: any) => ({ id: 'tx-nocat-1', ...input }));
+    jest.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
+      id: 'receipt-3',
+      status: ReceiptStatus.DRAFT,
+      subject: 'receipt.jpg',
+      parsedData: {
+        amount: 1463,
+        currency: 'USD',
+        vendor: 'Invoice 295560440015',
+        date: '2026-10-04',
+        validationIssues: [],
+        transactionType: 'expense',
+      },
+      extractionMethod: 'ocr_hybrid',
+      metadata: {},
+    } as any);
+
+    await service.createFromReceiptScan({
+      user: mockUser as User,
+      workspaceId: 'ws-1',
+      files: [file],
+    });
+
+    // No guess: an arbitrary enabled expense category used to land here and
+    // showed up in Review as though someone had picked it.
+    expect(categoryRepository.findOne).not.toHaveBeenCalled();
+    expect(statementRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: null }),
+    );
+    expect(transactionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: null }),
+    );
+  });
+
   it('creates an uploaded statement without transaction when amount is missing', async () => {
     const file = {
       path: '/tmp/receipt.pdf',

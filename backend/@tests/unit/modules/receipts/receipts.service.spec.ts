@@ -14,6 +14,7 @@ import { ActorType, AuditAction, EntityType } from '../../../../src/entities/aud
 import { AuditService } from '../../../../src/modules/audit/audit.service';
 import { ReceiptsService } from '../../../../src/modules/receipts/receipts.service';
 import { ReceiptProcessorService } from '../../../../src/modules/receipts/services/receipt-processor.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 describe('ReceiptsService', () => {
   let service: ReceiptsService;
@@ -102,6 +103,7 @@ describe('ReceiptsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReceiptsService,
+        workspaceCurrencyProvider(),
         { provide: getRepositoryToken(Receipt), useValue: receiptRepository },
         { provide: getRepositoryToken(ReceiptProcessingJob), useValue: jobRepository },
         { provide: getRepositoryToken(Transaction), useValue: transactionRepository },

@@ -19,7 +19,7 @@ describe('EmptyState', () => {
         action={<button type="button">Add</button>}
       />,
     );
-    expect(screen.getByTestId('illustration').getAttribute('src')).toBe(
+    expect(screen.getAllByTestId('illustration')[0].getAttribute('src')).toBe(
       '/images/empty-states/reports.svg',
     );
     expect(screen.getByRole('heading', { name: 'Nothing yet' })).toBeInTheDocument();
@@ -30,6 +30,19 @@ describe('EmptyState', () => {
   it('applies the compact modifier and a smaller illustration size', () => {
     const { container } = render(<EmptyState illustration="no-data" size="sm" compact />);
     expect(container.firstElementChild?.className).toContain('lumio-empty-state--compact');
-    expect(screen.getByTestId('illustration').className).toContain('lumio-empty-illustration--sm');
+    expect(screen.getAllByTestId('illustration')[0].className).toContain(
+      'lumio-empty-illustration--sm',
+    );
+  });
+
+  it('renders a light and a dark file for an illustration that has both', () => {
+    render(<EmptyState illustration="no-data" />);
+    const images = screen.getAllByTestId('illustration');
+    expect(images.map(image => image.getAttribute('src'))).toEqual([
+      '/images/empty-states/no-data.svg',
+      '/images/empty-states/no-data-dark.svg',
+    ]);
+    expect(images[0].className).toContain('lumio-empty-illustration--light-only');
+    expect(images[1].className).toContain('lumio-empty-illustration--dark-only');
   });
 });

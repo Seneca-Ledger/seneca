@@ -42,10 +42,6 @@ export default function AuditPage() {
     <div className="audit-page">
       {/* Header */}
       <div className="audit-page__head">
-        <div>
-          <h1 className="audit-page__title">{t.pageTitle}</h1>
-          <p className="audit-page__subtitle">{t.pageSubtitle}</p>
-        </div>
         <button
           type="button"
           onClick={() => toast(t.exportComingSoon.value)}

@@ -1,3 +1,4 @@
+import { countedSql } from '@/common/utils/counted-transactions.util';
 import { NotFoundException } from '@nestjs/common';
 import { BudgetPeriodType } from '@/entities/budget.entity';
 import { GoalFlowService } from '@/modules/goals/goal-flow.service';
@@ -23,10 +24,14 @@ interface Rows {
  */
 function createTransactionRepo(rows: Rows) {
   const calls: string[][] = [];
+  /** Every condition each transaction query was given, one list per query. */
+  const conditions: string[][] = [];
 
   const createQueryBuilder = jest.fn(() => {
     const aliases: string[] = [];
+    const clauses: string[] = [];
     calls.push(aliases);
+    conditions.push(clauses);
     const builder: Record<string, unknown> = {
       select: jest.fn(() => builder),
       addSelect: jest.fn((_expression: string, alias: string) => {
@@ -34,7 +39,10 @@ function createTransactionRepo(rows: Rows) {
         return builder;
       }),
       where: jest.fn(() => builder),
-      andWhere: jest.fn(() => builder),
+      andWhere: jest.fn((clause: string) => {
+        clauses.push(clause);
+        return builder;
+      }),
       groupBy: jest.fn(() => builder),
       addGroupBy: jest.fn(() => builder),
       getRawMany: jest.fn(async () =>
@@ -44,7 +52,7 @@ function createTransactionRepo(rows: Rows) {
     return builder;
   });
 
-  return { repo: { createQueryBuilder } as never, createQueryBuilder };
+  return { repo: { createQueryBuilder } as never, createQueryBuilder, conditions };
 }
 
 function createService(options: {
@@ -56,7 +64,11 @@ function createService(options: {
   workspaceCurrency?: string | null;
   rate?: number;
 }) {
-  const { repo: transactionRepository, createQueryBuilder } = createTransactionRepo(
+  const {
+    repo: transactionRepository,
+    createQueryBuilder,
+    conditions,
+  } = createTransactionRepo(
     options.rows ?? {},
   );
 
@@ -118,6 +130,7 @@ function createService(options: {
       exchangeRatesService,
     ),
     createQueryBuilder,
+    conditions,
     exchangeRatesService: exchangeRatesService as unknown as { getRate: jest.Mock },
   };
 }
@@ -174,6 +187,21 @@ describe('GoalFlowService', () => {
       120,
     );
     expect(result.nodes.some(node => node.id === 'category:category-1a')).toBe(true);
+  });
+
+  it('counts only the spending the user confirmed', async () => {
+    const { service, conditions } = createService({
+      goal,
+      budgets: [budget()],
+      categories: [{ id: 'category-1', name: 'Home', parentId: null }],
+    });
+
+    await service.getFlow(GOAL_ID, WORKSPACE_ID, undefined, anchor);
+
+    expect(conditions.length).toBeGreaterThan(0);
+    for (const clauses of conditions) {
+      expect(clauses).toContain(countedSql('t'));
+    }
   });
 
   it('converts every currency into the workspace currency', async () => {

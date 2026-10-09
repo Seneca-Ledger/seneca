@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Users,
 } from '@/app/components/icons';
+import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
@@ -31,9 +32,12 @@ interface CardDef {
 interface AiAssistantDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Set when the drawer sits on top of the plugin catalogue. */
+  onBack?: () => void;
+  zIndex?: number;
 }
 
-export function AiAssistantDrawer({ isOpen, onClose }: AiAssistantDrawerProps) {
+export function AiAssistantDrawer({ isOpen, onClose, onBack, zIndex }: AiAssistantDrawerProps) {
   const t = useIntlayer('aiAssistantDrawer');
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
 
@@ -107,7 +111,14 @@ export function AiAssistantDrawer({ isOpen, onClose }: AiAssistantDrawerProps) {
   );
 
   return (
-    <DrawerShell isOpen={isOpen} onClose={onClose} title={t.title} position="right" width="lg">
+    <DrawerShell
+      isOpen={isOpen}
+      onClose={onClose}
+      title={onBack ? <PanelBackTitle title={t.title} onBack={onBack} /> : t.title}
+      position="right"
+      width="lg"
+      zIndex={zIndex}
+    >
       <Box sx={{ px: 2, pb: 2 }}>
         <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', mb: 2.5 }}>
           {t.subtitle}

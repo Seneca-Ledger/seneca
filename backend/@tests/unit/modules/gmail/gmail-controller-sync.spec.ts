@@ -14,6 +14,7 @@ import { GmailReceiptExportService } from '../../../../src/modules/gmail/service
 import { GmailSyncService } from '../../../../src/modules/gmail/services/gmail-sync.service';
 import { GmailWatchService } from '../../../../src/modules/gmail/services/gmail-watch.service';
 import { GmailService } from '../../../../src/modules/gmail/services/gmail.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 describe('GmailController - Sync Endpoint', () => {
   let controller: GmailController;
@@ -23,6 +24,7 @@ describe('GmailController - Sync Endpoint', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GmailController],
       providers: [
+        workspaceCurrencyProvider(),
         {
           provide: GmailSyncService,
           useValue: {

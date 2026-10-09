@@ -1,41 +1,17 @@
 'use client';
 
 import { Box } from '@mui/material';
-import BuildingBackground from './BuildingBackground';
-import MoneyAnimation from './MoneyAnimation';
 
+/**
+ * Backdrop of every auth page: a faint 32px grid and one soft emerald glow over
+ * an off-white (day) or near-black green (night) — `.lumio-auth-backdrop` in
+ * _auth.scss. Pure CSS: nothing animates, nothing to load.
+ */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export default function AuthRootLayout({ children }: { children: React.ReactNode }) {
-  // Deep green palette
-  const darkGreen = '#021a0e';
-
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        // Not 100vw: that counts the scrollbar gutter, so the page sat 11px
-        // wider than the viewport and shifted under its own overflow.
-        width: '100%',
-        background: `linear-gradient(180deg, ${darkGreen} 0%, #0a3d20 100%)`,
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Persistent Background Elements */}
-      {/* We only want these visible on the right side on desktop, 
-          but simpler to render full screen and let the form cover the left side. */}
-
-      {/* Apply a mask or positioning so buildings/money don't appear under the form? 
-          Actually, if the form is opaque white, it doesn't matter if they are behind it.
-          Visuals might be "wasted" GPU cycles but acceptable.
-          However, for "Money" popping out, we might want them restricted to right side?
-          Let's just keep them full screen for now; it might look cool if a coin flies behind the form.
-      */}
-      <BuildingBackground />
-      <MoneyAnimation />
-
-      {/* Page Content */}
+    <div className="lumio-auth-backdrop">
       <Box sx={{ position: 'relative', zIndex: 10 }}>{children}</Box>
-    </Box>
+    </div>
   );
 }

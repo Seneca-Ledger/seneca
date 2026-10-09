@@ -61,7 +61,7 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
 
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => i18nContent,
-  useLocale: () => ({ locale: 'ru', setLocale: vi.fn() }),
+  useLocale: () => ({ locale: 'ru', availableLocales: ['ru', 'en'], setLocale: vi.fn() }),
 }));
 
 // Настоящий список — 418 зон, и отрисовка стольких кнопок в jsdom уходит за

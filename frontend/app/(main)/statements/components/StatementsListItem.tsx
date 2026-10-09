@@ -1,11 +1,14 @@
 'use client';
 
 import MuiTooltip from '@mui/material/Tooltip';
+import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { formatMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
 import { BankLogoAvatar } from '@/app/components/BankLogoAvatar';
 import { DocumentTypeIcon } from '@/app/components/DocumentTypeIcon';
+import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import {
   AlertCircle,
   CheckCircle2,
@@ -19,6 +22,7 @@ import { PDFThumbnail } from '@/app/components/PDFThumbnail';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { tokens } from '@/lib/theme-tokens';
 import {
   DEFAULT_STATEMENT_COLUMNS,
@@ -26,6 +30,7 @@ import {
   type StatementColumnId,
   statementColumnWidthStyle,
 } from './columns/statement-columns';
+import { resolveStatementSortDate } from './StatementsListView.utils';
 
 export type StatementListItem = {
   id: string;
@@ -219,6 +224,8 @@ type Props = {
   columns?: StatementColumn[];
   currentExchangeRateLabels?: Record<string, string>;
   workspaceCurrency?: string | null;
+  /** Rows of this statement still in Review, or 1 for a receipt not yet approved. */
+  pendingReview?: number;
 };
 
 const EMPTY_CELL = '—';
@@ -272,6 +279,30 @@ const firstNonEmpty = (...values: Array<unknown>): string | null => {
 const formatBoolean = (value: boolean | null, yes: string, no: string): string => {
   if (value === null) return EMPTY_CELL;
   return value ? yes : no;
+};
+
+/**
+ * How long the pointer has to rest on the category chip before it lights up.
+ * Until it does, the chip is still part of the row and a click opens the
+ * statement — the green sweep is what says "this one goes somewhere else".
+ */
+const CATEGORY_LINK_DELAY_MS = 450;
+
+/**
+ * The category chip opens the Top categories leaderboard on the statement's own
+ * month with that category's row ringed — the same `?month=&focus=category:<name>`
+ * contract advice links use (app/components/insights/insight-href.ts, read by
+ * app/hooks/useAttentionFocus.ts). The leaderboard has no category ids, so rows
+ * are keyed by the lowercased name.
+ */
+const categoryHref = (categoryLabel: string, statement: StatementListItem): string => {
+  const params = new URLSearchParams();
+  const sortDate = resolveStatementSortDate(statement);
+  if (sortDate > 0) {
+    params.set('month', formatMonthParam(new Date(sortDate)));
+  }
+  params.set('focus', `category:${categoryLabel.trim().toLowerCase()}`);
+  return `/reports?tab=cash-flow&${params.toString()}`;
 };
 
 function StatusBadge({
@@ -339,6 +370,7 @@ export function StatementsListItem({
   columns = DEFAULT_STATEMENT_COLUMNS,
   currentExchangeRateLabels,
   workspaceCurrency,
+  pendingReview = 0,
 }: Props) {
   const { resolvedTheme } = useTheme();
   const listText = useIntlayer('statementsListUi');
@@ -356,6 +388,24 @@ export function StatementsListItem({
     setPreviewVisible(false);
     setPreviewPosition(null);
   }, []);
+
+  const [categoryLit, setCategoryLit] = useState(false);
+  const categoryTimerRef = useRef<number | undefined>(undefined);
+
+  const lightCategoryAfterDwell = useCallback(() => {
+    window.clearTimeout(categoryTimerRef.current);
+    categoryTimerRef.current = window.setTimeout(
+      () => setCategoryLit(true),
+      CATEGORY_LINK_DELAY_MS,
+    );
+  }, []);
+
+  const unlightCategory = useCallback(() => {
+    window.clearTimeout(categoryTimerRef.current);
+    setCategoryLit(false);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(categoryTimerRef.current), []);
 
   const resolvedTypeLabel = typeLabel || statement.fileType;
   const isGmailReceipt = statement.source === 'gmail';
@@ -510,7 +560,7 @@ export function StatementsListItem({
     statement.parsingDetails?.metadataExtracted?.currency,
     statement.parsingDetails?.metadataExtracted?.headerDisplay?.currencyDisplay,
   );
-  const targetCurrency = normalizeExchangeRateCurrency(workspaceCurrency) ?? 'KZT';
+  const targetCurrency = normalizeExchangeRateCurrency(workspaceCurrency) ?? FALLBACK_CURRENCY;
   const usdExchangeRateLabel = targetCurrency
     ? currentExchangeRateLabels?.[`USD:${targetCurrency}`]
     : null;
@@ -548,6 +598,56 @@ export function StatementsListItem({
       {value || EMPTY_CELL}
     </span>
   );
+
+  const handleCategoryClick = (event: React.MouseEvent<HTMLAnchorElement>): void => {
+    // Ctrl/cmd/shift-click is the browser's own "open elsewhere"; let it be,
+    // and only keep it off the row.
+    if (event.metaKey || event.ctrlKey || event.shiftKey) {
+      event.stopPropagation();
+      return;
+    }
+    if (!categoryLit) {
+      // Not lit yet, so the chip is still just a cell of the row: swallow the
+      // navigation and let the click bubble up and open the statement.
+      event.preventDefault();
+      return;
+    }
+    event.stopPropagation();
+  };
+
+  const renderCategoryCell = (): React.JSX.Element => {
+    if (!categoryLabel) return renderPlainCell('category', null);
+    return (
+      <Link
+        href={categoryHref(categoryLabel, statement)}
+        className={`lumio-stmt-category-link${categoryLit ? ' lumio-stmt-category-link--lit' : ''}`}
+        onClick={handleCategoryClick}
+        onMouseEnter={lightCategoryAfterDwell}
+        onMouseLeave={unlightCategory}
+        // Keyboard focus has no pointer crossing the column to ignore, so it
+        // lights the chip at once and Enter goes to the leaderboard.
+        onFocus={() => setCategoryLit(true)}
+        onBlur={unlightCategory}
+        title={listText.categoryLink.value.replace('{category}', categoryLabel)}
+      >
+        <span className="lumio-stmt-category-link__badge">
+          <CategoryIconBadge
+            name={categoryLabel}
+            color={statement.category?.color}
+            icon={statement.category?.icon}
+            size={22}
+          />
+        </span>
+        <span
+          className="lumio-stmt-category-link__text"
+          data-label={categoryLabel}
+          style={{ ...textCellStyle('category'), width: 'auto', minWidth: 0 }}
+        >
+          {categoryLabel}
+        </span>
+      </Link>
+    );
+  };
 
   const renderReceiptCell = (): React.JSX.Element => (
     <div style={{ position: 'relative', pointerEvents: 'auto' }}>
@@ -664,6 +764,13 @@ export function StatementsListItem({
         >
           {isProcessing ? listText.processing : merchantLabel}
         </span>
+
+        {pendingReview > 0 && !isProcessing ? (
+          <span className="lumio-stmt-badge lumio-stmt-badge--review" style={{ flexShrink: 0 }}>
+            {listText.toReview}
+            {isReceipt ? null : ` · ${pendingReview}`}
+          </span>
+        ) : null}
 
         {hasError ? (
           <AlertCircle size={16} style={{ color: c.danger, marginLeft: 4 }} />
@@ -803,7 +910,7 @@ export function StatementsListItem({
         firstNonEmpty(statement.user?.name, statement.user?.email, statement.sender),
       );
     if (columnId === 'to') return renderPlainCell(columnId, sourceLabel);
-    if (columnId === 'category') return renderPlainCell(columnId, categoryLabel);
+    if (columnId === 'category') return renderCategoryCell();
     if (columnId === 'tag') return renderPlainCell(columnId, tagsLabel);
     if (columnId === 'amount') return renderAmountCell();
     if (columnId === 'action') return renderActionCell();

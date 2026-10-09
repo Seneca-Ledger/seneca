@@ -173,7 +173,22 @@ export function TransactionMobileCard({
           >
             <div className="lumio-tx-card__header">
               <div className="lumio-tx-card__name">
-                <p>{tx.counterpartyName}</p>
+                <p>
+                  {tx.counterpartyName}
+                  {tx.isVerified === false ? (
+                    <span
+                      data-testid="unconfirmed-badge"
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: 'var(--color-warning-soft-text)',
+                      }}
+                    >
+                      {t.unconfirmedBadge}
+                    </span>
+                  ) : null}
+                </p>
                 <p>{formatters.formatDate(tx.transactionDate)}</p>
               </div>
               <MobileAmounts tx={tx} formatters={formatters} />

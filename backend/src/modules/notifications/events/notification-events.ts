@@ -28,7 +28,8 @@ export interface MemberInvitedEvent extends WorkspaceActorEvent {
 
 export interface NoteMentionedEvent extends WorkspaceActorEvent {
   noteId: string;
-  entityType: 'statement' | 'receipt';
+  /** Any `NoteEntityType`; the notification only uses it to build a link. */
+  entityType: string;
   entityId: string;
   /** Начало заметки — весь текст в уведомление не кладём. */
   excerpt: string;

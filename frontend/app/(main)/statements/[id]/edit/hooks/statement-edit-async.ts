@@ -1,20 +1,6 @@
-import type { Dispatch, SetStateAction } from 'react';
 import { toast } from 'react-hot-toast';
-import { getIntlayer } from 'react-intlayer';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
-import { payablesApi } from '@/app/lib/payables-api';
-import type {
-  StatementStage,
-  StatementStageAction,
-  StatementStageActionId,
-} from '@/app/lib/statement-workflow';
-import {
-  isStageActionBlocked,
-  statementStageSkipMessage,
-  updateStatementStages,
-} from '@/app/lib/statement-workflow';
 import type {
   BranchOption,
   CategoryOption,
@@ -28,7 +14,6 @@ import {
   normalizeNumberInput,
   parseNullableNumber,
 } from '../editHelpers';
-import { buildPayableFromStatement } from '../payable-from-statement';
 
 type MetaForm = {
   balanceStart: string;
@@ -137,6 +122,8 @@ type ExportMsgs = {
   statementNamePrefix: string;
 };
 type ExportArgs = {
+  /** Translated titles per source field (see custom-tables `buildSourceColumnTitles`). */
+  columnTitles: Record<string, string>;
   statementId: string;
   statement: Statement | null;
   router: { push: (p: string) => void };
@@ -145,6 +132,7 @@ type ExportArgs = {
 };
 
 export async function exportToCustomTable({
+  columnTitles,
   statementId,
   statement,
   router,
@@ -161,10 +149,13 @@ export async function exportToCustomTable({
     const description = messages.exportDescription
       .replace('{{dateFrom}}', formatDate(statement.statementDateFrom))
       .replace('{{dateTo}}', formatDate(statement.statementDateTo));
-    const response = await apiClient.post('/custom-tables/from-statements', {
-      statementIds: [statementId],
+    // A table bound to the statement: "Refresh from source" pulls new transactions later.
+    const response = await apiClient.post('/custom-tables/from-source', {
+      kind: 'transactions',
+      filters: { statementIds: [statementId] },
       name,
       description,
+      columnTitles,
     });
     const tableId = getExportTableId(response);
     if (tableId) {
@@ -240,85 +231,6 @@ export async function convertDroppedSampleAction({
   }
   setSuccess(true);
   setTimeout(() => setSuccess(false), 3000);
-}
-
-const stageErrorMessages = () =>
-  getIntlayer('statementStageErrors', readLocaleFromCookie() ?? DEFAULT_LOCALE);
-
-const stageErrorFor = (actionId?: string): string => {
-  const messages = stageErrorMessages();
-  return actionId === 'pay' ? messages.createPayableFailed.value : messages.updateStageFailed.value;
-};
-
-type StageArgs = {
-  action: StatementStageAction;
-  stageActionToasts: Record<StatementStageActionId, string>;
-  missingCategoryCount: number;
-  statement: Statement | null;
-  transactions: Transaction[];
-  router: { push: (p: string) => void };
-  setStageActionLoadingId: (v: StatementStageActionId | null) => void;
-  setCurrentStage: Dispatch<SetStateAction<StatementStage>>;
-};
-
-function isStageActionReady(
-  statement: Statement | null,
-  actionId: StatementStageActionId,
-  missingCount: number,
-): statement is Statement {
-  return Boolean(statement?.id) && !isStageActionBlocked(actionId, missingCount);
-}
-
-async function handlePayStageAction(
-  statement: Statement,
-  transactions: Transaction[],
-  setId: (v: null) => void,
-): Promise<boolean> {
-  const payableDraft = buildPayableFromStatement({ statement, transactions });
-  if (!payableDraft) {
-    toast.error(stageErrorMessages().noExpenseAmount.value);
-    setId(null);
-    return false;
-  }
-  await payablesApi.create(payableDraft);
-  return true;
-}
-
-export async function processStageAction({
-  action,
-  stageActionToasts,
-  missingCategoryCount,
-  statement,
-  transactions,
-  router,
-  setStageActionLoadingId,
-  setCurrentStage,
-}: StageArgs): Promise<void> {
-  if (!isStageActionReady(statement, action.id, missingCategoryCount)) {
-    return;
-  }
-  setStageActionLoadingId(action.id);
-  try {
-    if (action.id === 'pay') {
-      if (!(await handlePayStageAction(statement, transactions, setStageActionLoadingId))) {
-        return;
-      }
-    }
-    const { skipped } = await updateStatementStages([statement.id], action.nextStage);
-    if (skipped.length > 0) {
-      setStageActionLoadingId(null);
-      toast.error(statementStageSkipMessage(skipped[0].code) ?? stageErrorFor());
-      return;
-    }
-    setCurrentStage(action.nextStage);
-    setStageActionLoadingId(null);
-    toast.success(stageActionToasts[action.id]);
-    router.push(action.redirectPath);
-  } catch (err) {
-    console.error('Failed to process stage action:', err);
-    setStageActionLoadingId(null);
-    toast.error(stageErrorFor(action.id));
-  }
 }
 
 function resolveSelectedCategory(

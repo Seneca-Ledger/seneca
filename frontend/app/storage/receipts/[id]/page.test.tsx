@@ -26,6 +26,7 @@ const apiMocks = vi.hoisted(() => ({
 const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
   back: vi.fn(),
+  searchParams: new URLSearchParams(),
 }));
 
 vi.mock('@/app/lib/api', () => ({
@@ -76,6 +77,7 @@ vi.mock('@mui/material/DialogActions', () => ({
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'receipt-1' }),
   useRouter: () => ({ push: routerMocks.push, back: routerMocks.back }),
+  useSearchParams: () => routerMocks.searchParams,
 }));
 
 // The map pulls in Leaflet and React Query; its own test covers it.
@@ -113,6 +115,7 @@ describe('ReceiptDocumentPage', () => {
     });
 
     routerMocks.push.mockReset();
+    routerMocks.searchParams = new URLSearchParams();
     apiMocks.mockApiGet.mockReset();
     apiMocks.mockApiPatch.mockReset();
     apiMocks.mockApiPost.mockReset();
@@ -481,6 +484,107 @@ describe('ReceiptDocumentPage', () => {
       expect(actionButton).toBeTruthy();
       expect(actionButton?.tagName.toLowerCase()).toBe('button');
     }
+  });
+
+  it('returns to the documents list after approving the receipt', async () => {
+    apiMocks.mockApiGet.mockImplementation((url: string) => {
+      if (url === '/receipts/receipt-1') {
+        return Promise.resolve({
+          data: {
+            id: 'receipt-1',
+            subject: 'Receipt',
+            sender: 'camera-scan',
+            source: 'scan',
+            status: 'draft',
+            receivedAt: '2026-03-29T10:30:00.000Z',
+            metadata: { attachments: [] },
+            parsedData: {
+              vendor: 'Store',
+              amount: 500,
+              currency: 'KZT',
+              date: '2026-03-29',
+              lineItems: [],
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    apiMocks.mockApiPatch.mockResolvedValue({ data: {} });
+    apiMocks.mockApiPost.mockResolvedValue({ receipt: {}, transaction: { id: 'tx-1' } });
+
+    await act(async () => {
+      root.render(
+        <TestProviders>
+          <ReceiptDocumentPage />
+        </TestProviders>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const approveButton = Array.from(container.querySelectorAll('button')).find(button =>
+      button.textContent?.includes('Approve receipt'),
+    );
+    await act(async () => {
+      approveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(apiMocks.mockApiPost).toHaveBeenCalledWith('receipt-1', {});
+    expect(routerMocks.push).toHaveBeenCalledWith('/statements/submit');
+  });
+
+  it('returns to Review after approving a receipt opened from there', async () => {
+    apiMocks.mockApiGet.mockImplementation((url: string) => {
+      if (url === '/receipts/receipt-1') {
+        return Promise.resolve({
+          data: {
+            id: 'receipt-1',
+            subject: 'Receipt',
+            sender: 'camera-scan',
+            source: 'scan',
+            status: 'draft',
+            receivedAt: '2026-03-29T10:30:00.000Z',
+            metadata: { attachments: [] },
+            parsedData: {
+              vendor: 'Store',
+              amount: 500,
+              currency: 'KZT',
+              date: '2026-03-29',
+              lineItems: [],
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    routerMocks.searchParams = new URLSearchParams('from=review');
+    apiMocks.mockApiPatch.mockResolvedValue({ data: {} });
+    apiMocks.mockApiPost.mockResolvedValue({ receipt: {}, transaction: { id: 'tx-1' } });
+
+    await act(async () => {
+      root.render(
+        <TestProviders>
+          <ReceiptDocumentPage />
+        </TestProviders>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const approveButton = Array.from(container.querySelectorAll('button')).find(button =>
+      button.textContent?.includes('Approve receipt'),
+    );
+    await act(async () => {
+      approveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(apiMocks.mockApiPost).toHaveBeenCalledWith('receipt-1', {});
+    expect(routerMocks.push).toHaveBeenCalledWith('/review');
   });
 
   it('renders store receipt image previews much larger on the receipt details page', async () => {

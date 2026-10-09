@@ -21,6 +21,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateMemberPermissionsDto } from './dto/update-member-permissions.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { WorkspacesService } from './workspaces.service';
@@ -158,6 +159,22 @@ export class WorkspacesController {
     @Body() dto: UpdateMemberRoleDto,
   ) {
     return this.workspacesService.updateMemberRole(workspaceId, user.id, userId, dto.role);
+  }
+
+  @Patch(':id/members/:userId/permissions')
+  @UseGuards(JwtAuthGuard)
+  async updateWorkspaceMemberPermissions(
+    @CurrentUser() user: User,
+    @Param('id') workspaceId: string,
+    @Param('userId') userId: string,
+    @Body() dto: UpdateMemberPermissionsDto,
+  ) {
+    return this.workspacesService.updateMemberPermissions(
+      workspaceId,
+      user.id,
+      userId,
+      dto.permissions,
+    );
   }
 
   @Delete(':id/invitations/:invitationId')

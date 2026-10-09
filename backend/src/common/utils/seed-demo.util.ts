@@ -12,6 +12,7 @@ import {
   WorkspaceRole,
 } from '@/entities';
 import { DEFAULT_BALANCE_ACCOUNTS } from '@/modules/balance/balance-default-accounts';
+import { currencyCodeOrDefault } from './currency.util';
 
 export const DEMO_EMAIL = 'demo@lumio.dev';
 export const DEMO_PASSWORD = 'demo123';
@@ -105,6 +106,7 @@ export async function seedDemoData({
       workspaceRepository.create({
         name: `${user.name || user.email} workspace`,
         ownerId: user.id,
+        currency: currencyCodeOrDefault(null),
       }),
     );
 

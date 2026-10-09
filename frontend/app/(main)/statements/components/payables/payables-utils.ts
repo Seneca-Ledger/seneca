@@ -1,3 +1,4 @@
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type {
   Payable,
   PayableDirection,
@@ -64,7 +65,7 @@ export const toNumber = (value: number | string | null | undefined): number => {
 
 export const formatMoney = (
   value: number | string | null | undefined,
-  currency = 'KZT',
+  currency = FALLBACK_CURRENCY,
   locale = 'en',
 ): string =>
   new Intl.NumberFormat(resolveLocale(locale), {
@@ -81,6 +82,10 @@ export const formatPayableDate = (value?: string | null, locale = 'en'): string 
   }
   return formatStoredDate(date, resolveLocale(locale));
 };
+
+/** What is still owed on a bill: its amount less the payments recorded against it. */
+export const outstandingOf = (payable: Pick<Payable, 'amount' | 'paidAmount'>): number =>
+  Math.round((toNumber(payable.amount) - toNumber(payable.paidAmount)) * 100) / 100;
 
 export const isPayableOverdue = (payable: Pick<Payable, 'status' | 'dueDate'>): boolean => {
   if (!payable.dueDate) {
@@ -110,6 +115,9 @@ export const getPayableStatusVariant = (
   }
   if (status === 'paid') {
     return 'success' as const;
+  }
+  if (status === 'partially_paid') {
+    return 'info' as const;
   }
   if (status === 'scheduled') {
     return 'info' as const;

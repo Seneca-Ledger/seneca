@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
@@ -14,6 +15,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { formatMoney } from '@/app/lib/format-money';
 import { type Invoice, type InvoiceStatus, invoicesApi } from '@/app/lib/invoices-api';
+import { InvoiceAgeingPanel } from './InvoiceAgeingPanel';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
 
 const PAGE_SIZE = 20;
@@ -121,6 +123,17 @@ export function InvoicesListView(): React.JSX.Element {
       });
   };
 
+  // Read one key at a time: indexing an intlayer dictionary with a variable
+  // types as `any` and silently loses a missing status.
+  const statusLabels: Record<InvoiceStatus, string> = {
+    draft: String(t.statusLabels.draft.value),
+    sent: String(t.statusLabels.sent.value),
+    partially_paid: String(t.statusLabels.partially_paid.value),
+    paid: String(t.statusLabels.paid.value),
+    overdue: String(t.statusLabels.overdue.value),
+    void: String(t.statusLabels.void.value),
+  };
+
   if (authLoading || workspaceLoading || loading) {
     return (
       <div className="container-shared lumio-stmt-list" style={{ padding: '40px 16px' }}>
@@ -144,22 +157,23 @@ export function InvoicesListView(): React.JSX.Element {
             display: 'flex',
             flexWrap: 'wrap',
             gap: 16,
-            justifyContent: 'space-between',
+            justifyContent: 'flex-end',
             alignItems: 'flex-start',
           }}
         >
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--foreground)' }}>{t.title}</h1>
-            <p
-              style={{ marginTop: 8, maxWidth: 640, fontSize: 14, color: 'var(--text-secondary)' }}
-            >
-              {t.subtitle}
-            </p>
-          </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <Button variant="outline" onClick={() => router.push('/invoices/clients')}>
               {t.clientsNav}
             </Button>
+            <ImportFromFileButton
+              target="invoices"
+              onImported={() => void load()}
+              renderTrigger={(open, label) => (
+                <Button variant="outline" onClick={open}>
+                  {label}
+                </Button>
+              )}
+            />
             <Button onClick={() => router.push('/invoices/new')}>{t.newInvoice}</Button>
           </div>
         </div>
@@ -173,15 +187,18 @@ export function InvoicesListView(): React.JSX.Element {
           }}
           options={[
             { value: 'all', label: t.columns.status.value },
-            { value: 'draft', label: t.statusLabels.draft.value },
-            { value: 'sent', label: t.statusLabels.sent.value },
-            { value: 'paid', label: t.statusLabels.paid.value },
-            { value: 'overdue', label: t.statusLabels.overdue.value },
-            { value: 'void', label: t.statusLabels.void.value },
+            { value: 'draft', label: statusLabels.draft },
+            { value: 'sent', label: statusLabels.sent },
+            { value: 'partially_paid', label: statusLabels.partially_paid },
+            { value: 'paid', label: statusLabels.paid },
+            { value: 'overdue', label: statusLabels.overdue },
+            { value: 'void', label: statusLabels.void },
           ]}
           sx={{ maxWidth: 220 }}
         />
       </div>
+
+      <InvoiceAgeingPanel />
 
       {items.length === 0 ? (
         <div className="lumio-payable-list__empty">
@@ -225,7 +242,7 @@ export function InvoicesListView(): React.JSX.Element {
                     </td>
                     <td className="lumio-payable-list__td">
                       <Badge variant={getInvoiceStatusVariant(invoice.status)}>
-                        {t.statusLabels[invoice.status]?.value ?? invoice.status}
+                        {statusLabels[invoice.status] ?? invoice.status}
                       </Badge>
                     </td>
                     <td
@@ -233,6 +250,20 @@ export function InvoicesListView(): React.JSX.Element {
                       style={{ textAlign: 'right', fontWeight: 600 }}
                     >
                       {formatMoney(Number(invoice.total), invoice.currency, locale)}
+                      {/* A part-paid invoice is neither unpaid nor settled. */}
+                      {Number(invoice.amountPaid ?? 0) > 0 &&
+                        Number(invoice.amountDue ?? 0) > 0 && (
+                          <div
+                            style={{
+                              fontWeight: 400,
+                              fontSize: 13,
+                              color: 'var(--text-secondary)',
+                            }}
+                          >
+                            {t.detail.amountDue.value}{' '}
+                            {formatMoney(Number(invoice.amountDue), invoice.currency, locale)}
+                          </div>
+                        )}
                     </td>
                     <td className="lumio-payable-list__td">
                       <div className="lumio-payable-list__actions">

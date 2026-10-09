@@ -76,6 +76,14 @@ describe('notificationHref', () => {
     ).toBe('/storage/gmail-receipts/r-1');
   });
 
+  it('opens the review queue for the weekly digest, not a statement named by the workspace id', () => {
+    expect(
+      notificationHref(
+        make({ type: 'transaction.uncategorized', entityType: 'review-inbox', entityId: 'ws-1' }),
+      ),
+    ).toBe('/review');
+  });
+
   it('sends deleted statements to the trash and membership changes to members', () => {
     expect(notificationHref(make({ type: 'data.deleted', entityType: 'statement' }))).toBe(
       '/statements/trash',

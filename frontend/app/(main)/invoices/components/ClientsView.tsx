@@ -9,6 +9,7 @@ import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustrati
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import {
   type Client,
   type CreateClientInput,
@@ -20,8 +21,9 @@ import { ClientDrawer } from './ClientDrawer';
 export function ClientsView(): React.JSX.Element {
   const router = useRouter();
   const t = useIntlayer('invoicesPage');
+  const invoiceSettings = useIntlayer('invoiceSettings');
   const { currentWorkspace } = useWorkspace();
-  const defaultCurrency = currentWorkspace?.currency?.toUpperCase() || 'KZT';
+  const defaultCurrency = currentWorkspace?.currency?.toUpperCase() || FALLBACK_CURRENCY;
 
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +98,7 @@ export function ClientsView(): React.JSX.Element {
         >
           <ChevronLeft size={20} />
         </button>
-        <h1 style={{ fontSize: 22, fontWeight: 600, flex: 1 }}>{t.clients.title}</h1>
+        <div style={{ flex: 1 }} />
         <Button
           onClick={() => {
             setEditingClient(null);
@@ -182,6 +184,9 @@ export function ClientsView(): React.JSX.Element {
           billingAddress: t.clients.billingAddress.value,
           taxId: t.clients.taxId.value,
           currency: t.detail.currency.value,
+          locale: t.clients.locale.value,
+          reminders: invoiceSettings.clientReminders.value,
+          paymentTerms: invoiceSettings.clientPaymentTerms.value,
           save: t.actions.save.value,
           saving: t.actions.saving.value,
           cancel: t.actions.cancel.value,

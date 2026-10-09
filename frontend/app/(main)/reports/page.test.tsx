@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
@@ -9,6 +9,7 @@ vi.mock('@/app/i18n', () => ({
       subtitle: { value: 'Genere des rapports localises' },
       tabTemplates: { value: 'Modeles' },
       tabHistory: { value: 'Historique' },
+      tabCashFlow: { value: 'Flux de tresorerie (onglet)' },
       backToTemplates: { value: 'Retour aux modeles' },
       balanceSheetTitle: { value: 'Bilan localise' },
       templatePnlName: { value: 'PnL localise' },
@@ -29,6 +30,22 @@ vi.mock('@/app/lib/api', () => ({
   },
 }));
 
+// Reads the Review counts through React Query; its own test covers it.
+vi.mock('@/app/components/review/UnconfirmedNotice', () => ({ UnconfirmedNotice: () => null }));
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(''),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  usePathname: () => '/reports',
+}));
+
+vi.mock('@/app/hooks/useAttentionFocus', () => ({ useAttentionFocus: () => null }));
+
+// The tab has its own tests; here only its label on the tab strip matters.
+vi.mock('./components/cash-flow/CashFlowTab', () => ({
+  CashFlowTab: () => <div>Cash Flow Tab</div>,
+}));
+
 vi.mock('./components/BalanceSheet', () => ({
   default: () => <div>Balance Sheet</div>,
 }));
@@ -42,28 +59,20 @@ vi.mock('./components/ReportHistory', () => ({
 }));
 
 describe('ReportsPage', () => {
-  it('uses dark-safe page and card surfaces for templates', async () => {
-    const { default: ReportsPage } = await import('./page');
-    const { container } = render(<ReportsPage />);
-
-    const reportsHeading = screen.getByText('Rapports');
-    const templateTitle = screen.getByText('PnL localise');
-    const templateCard = templateTitle.closest('[class*="bg-card"]');
-
-    expect(reportsHeading.className).toContain('text-foreground');
-    expect(container.firstElementChild?.className).toContain('bg-background');
-    expect(templateCard?.className).toContain('bg-card');
-    expect(templateCard?.className).not.toContain('bg-white');
-  });
+  // Explicit, so one failing case cannot leave its tree mounted and make the
+  // next one find two of every tab.
+  afterEach(cleanup);
 
   it('renders localized page copy and tab labels from i18n', async () => {
     const { default: ReportsPage } = await import('./page');
     render(<ReportsPage />);
 
-    expect(screen.getByText('Rapports')).toBeInTheDocument();
-    expect(screen.getByText('Genere des rapports localises')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Modeles' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Historique' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Flux de tresorerie (onglet)' })).toBeInTheDocument();
+
+    // The page opens on Cash flow, so the templates are one click away.
+    fireEvent.click(screen.getByRole('tab', { name: 'Modeles' }));
     expect(screen.getByText('Balance locale')).toBeInTheDocument();
     expect(screen.getByText('Description balance localisee')).toBeInTheDocument();
   });

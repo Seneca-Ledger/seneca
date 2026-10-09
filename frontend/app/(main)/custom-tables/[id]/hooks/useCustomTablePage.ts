@@ -23,6 +23,7 @@ import { useTableAggregates } from './useTableAggregates';
 import { useTableData } from './useTableData';
 import { useTableGrid } from './useTableGrid';
 import { useTableGroups } from './useTableGroups';
+import { useTableSummaries } from './useTableSummaries';
 
 interface ConvertState {
   open: boolean;
@@ -95,6 +96,15 @@ export function useCustomTablePage(tableId: string) {
     selection: aggregates,
     refreshToken,
   });
+  const summaries = useTableSummaries({
+    tableId,
+    isAuthenticated,
+    refreshToken,
+    messages: {
+      loadFailed: labels.summaries.loadFailed,
+      saveFailed: labels.summaries.saveFailed,
+    },
+  });
   const [groupBy, setGroupBy] = useState<string | null>(null);
   const groupState = useTableGroups({
     tableId,
@@ -127,10 +137,16 @@ export function useCustomTablePage(tableId: string) {
     messages: labels.toasts,
   });
 
+  // A new or changed formula column changes every row: reload them with the table.
+  const reloadTableAndRows = useCallback(async () => {
+    await data.loadTable();
+    await grid.loadRows({ reset: true });
+  }, [data.loadTable, grid.loadRows]);
+
   const columnEditor = useColumnEditor({
     tableId,
     defaultCurrency,
-    reloadTable: data.loadTable,
+    reloadTable: reloadTableAndRows,
     messages: {
       saved: labels.toasts.columnSaved,
       saveFailed: labels.toasts.columnSaveFailed,
@@ -140,13 +156,18 @@ export function useCustomTablePage(tableId: string) {
   });
 
   const onInsertSuccess = useCallback(
-    (createdCount: number, onUndo: () => void) =>
+    (
+      { createdCount, issueCount }: { createdCount: number; issueCount: number },
+      onUndo: () => void,
+    ) =>
       showUndoToast(
-        labels.import.inserted.replace('{{count}}', String(createdCount)),
+        (issueCount ? labels.import.insertedWithIssues : labels.import.inserted)
+          .replace('{{count}}', String(createdCount))
+          .replace('{{issues}}', String(issueCount)),
         labels.import.undo,
         onUndo,
       ),
-    [labels.import.inserted, labels.import.undo],
+    [labels.import.inserted, labels.import.insertedWithIssues, labels.import.undo],
   );
 
   const paste = usePasteImport({
@@ -193,6 +214,31 @@ export function useCustomTablePage(tableId: string) {
       setConvert(prev => ({ ...prev, busy: false }));
     });
   }, [tableId, labels.convert.failed]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const runRefreshSource = useCallback(async () => {
+    setRefreshing(true);
+    await (async () => {
+      const response = await apiClient.post(`/custom-tables/${tableId}/refresh-from-source`);
+      const result = (response.data?.data ?? response.data) as {
+        inserted: number;
+        updated: number;
+      };
+      toast.success(
+        labels.toasts.refreshed
+          .replace('{{inserted}}', String(result.inserted))
+          .replace('{{updated}}', String(result.updated)),
+      );
+      await data.loadTable();
+      await grid.loadRows({ reset: true });
+      onRowsChanged();
+    })()
+      .catch(async error => {
+        console.error('Failed to refresh table from source:', error);
+        toast.error(getApiErrorMessage(error, labels.toasts.refreshFailed));
+      })
+      .finally(async () => setRefreshing(false));
+  }, [tableId, data, grid, onRowsChanged, labels.toasts]);
 
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
@@ -294,6 +340,9 @@ export function useCustomTablePage(tableId: string) {
     convert,
     setConvert,
     runConvert,
+    refreshing,
+    runRefreshSource,
+    summaries,
     pendingDelete,
     setPendingDelete,
     selectedIds,

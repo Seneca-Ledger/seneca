@@ -1,5 +1,6 @@
 import axios, { type AxiosResponse } from 'axios';
 import { CSRF_HEADER, clearCsrfCookie, getCsrfHeaders, getCsrfToken } from './csrf';
+import { isPublicPath } from './public-paths';
 import { getQueryClient } from './query-client';
 
 type GmailReceiptParsedDataUpdate = {
@@ -195,7 +196,9 @@ apiClient.interceptors.response.use(
         // Редирект не мгновенный: запросы в полёте успели бы отрезолвиться
         // в кэш уже разлогиненного пользователя.
         getQueryClient().clear();
-        if (window.location.pathname !== '/login') {
+        // Signed-out visitors on register, password reset or an invite get a
+        // 401 from any stray query; sending them to /login would break the page.
+        if (!isPublicPath(window.location.pathname)) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);

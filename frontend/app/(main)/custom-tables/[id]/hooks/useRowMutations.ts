@@ -101,9 +101,22 @@ export function useRowMutations({
         await promoteDraftRow(rowId, nextData);
         return;
       }
+      // A cell the import kept as text stops being an issue once someone edits it.
+      const clearIssue = Boolean(rows.find(r => r.id === rowId)?.styles?.[columnKey]?.importIssue);
       // The reply carries recomputed formulas, so it wins over the local patch.
-      const serverData = await updateRowPatchRequest(tableId, rowId, { [columnKey]: value });
-      setRows(prev => applyRowDataPatch(prev, rowId, { [columnKey]: value, ...serverData }));
+      const serverData = await updateRowPatchRequest(
+        tableId,
+        rowId,
+        { [columnKey]: value },
+        clearIssue ? { [columnKey]: {} } : undefined,
+      );
+      setRows(prev =>
+        applyRowDataPatch(prev, rowId, { [columnKey]: value, ...serverData }).map(row =>
+          clearIssue && row.id === rowId
+            ? { ...row, styles: { ...(row.styles ?? {}), [columnKey]: {} } }
+            : row,
+        ),
+      );
       onRowsChanged();
     },
     [tableId, rows, setRows, onRowsChanged, promoteDraftRow],

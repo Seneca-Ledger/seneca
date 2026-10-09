@@ -1,0 +1,87 @@
+// _account-menu.scss — the account entry at the foot of the sidebar and of the
+// mobile menu drawer. Shaped like a nav row on purpose: in the collapsed rail it
+// folds to the same 40px square as the icons above it.
+@use '../abstracts' as *;
+
+.lumio-account__trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  flex: 0 0 auto;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 0 10px;
+  border: none;
+  border-radius: $lumio-radius-md;
+  background: transparent;
+  color: $lumio-color-text-secondary;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+
+  @include dark { color: $lumio-color-text-secondary-dk; }
+
+  &:hover {
+    background: $lumio-color-ink-50;
+    color: $lumio-color-text-primary;
+
+    @include dark {
+      background: $lumio-color-ink-100-dk;
+      color: $lumio-color-text-primary-dk;
+    }
+  }
+
+  // The drawer is a page-sized surface, so its rows keep the drawer's own type.
+  &--mobile {
+    max-height: none;
+    padding: 8px;
+    font-size: 14px;
+  }
+}
+
+.lumio-account__avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: $lumio-radius-full;
+  background: $lumio-color-ink-100;
+  color: $lumio-color-ink-500;
+  overflow: hidden;
+
+  @include dark {
+    background: $lumio-color-ink-200-dk;
+    color: $lumio-color-ink-500-dk;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  // The bottom bar's tab is a bare avatar, so it carries the tab's own colour.
+  &--tab {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.lumio-account__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lumio-account__caret {
+  flex-shrink: 0;
+  opacity: 0.6;
+}

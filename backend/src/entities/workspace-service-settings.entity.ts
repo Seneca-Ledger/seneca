@@ -17,6 +17,8 @@ export enum WorkspaceServiceSettingsKey {
   SMTP = 'smtp',
   TELEGRAM = 'telegram',
   APP = 'app',
+  /** Precious metals: what a dealer pays below spot, per metal. */
+  METALS = 'metals',
 }
 
 @Entity('workspace_service_settings')

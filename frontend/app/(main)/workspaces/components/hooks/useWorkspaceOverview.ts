@@ -3,12 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import apiClient from '@/app/lib/api';
+import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
 } from '@/app/lib/statement-expense-drawer';
-
-const DEFAULT_RECENT_CURRENCIES = ['KZT', 'USD', 'EUR', 'RUB'] as const;
 
 export type WorkspaceInfo = {
   id: string;

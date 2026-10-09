@@ -14,6 +14,11 @@ type NotificationLink = Pick<NotificationItem, 'type' | 'entityType' | 'entityId
  * nowhere sensible to go; the item then only marks itself read.
  */
 export function notificationHref(notification: NotificationLink): string | null {
+  // The weekly review digest reuses `transaction.uncategorized`, but its
+  // entityId is the workspace, not a statement.
+  if (notification.entityType === 'review-inbox') {
+    return '/review';
+  }
   const byType = TYPE_ROUTES[notification.type];
   if (byType) {
     return byType(notification);

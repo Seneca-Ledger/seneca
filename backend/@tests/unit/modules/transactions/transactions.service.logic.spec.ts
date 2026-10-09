@@ -36,6 +36,7 @@ describe('TransactionsService', () => {
       statementRepository as any,
       userRepository as any,
       workspaceMemberRepository as any,
+      { findOne: jest.fn(async () => null), create: jest.fn(x => x), save: jest.fn(async x => x) } as any,
       cacheManager as any,
       auditService as any,
     );

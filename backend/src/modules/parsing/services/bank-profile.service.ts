@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import * as yaml from 'js-yaml';
 import { basename, extname, join, resolve } from 'path';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import {
   createAmountFormat,
   createSharedProfileSections,
@@ -185,7 +186,10 @@ export class BankProfileService {
       return isoCurrency;
     }
 
-    return profile.country === 'US' ? 'USD' : 'KZT';
+    // Only the country the profile itself declares; anything else is the
+    // installation's own currency rather than a guess.
+    const byCountry: Record<string, string> = { KZ: 'KZT', US: 'USD' };
+    return byCountry[profile.country ?? ''] ?? appDefaultCurrency();
   }
 
   private normalizeColumnType(name: string): ColumnDefinition['type'] {

@@ -20,6 +20,7 @@ import { ReportSchedulesScheduler } from './report-schedules.scheduler';
 import { ReportSchedulesService } from './report-schedules.service';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
+import { SpendFlowService } from './spend-flow.service';
 
 @Module({
   imports: [
@@ -42,7 +43,13 @@ import { ReportsService } from './reports.service';
     ExchangeRatesModule,
   ],
   controllers: [ReportsController],
-  providers: [ReportsService, ReportSchedulesService, ReportSchedulesScheduler, CashFlowMapService],
+  providers: [
+    ReportsService,
+    ReportSchedulesService,
+    ReportSchedulesScheduler,
+    SpendFlowService,
+    CashFlowMapService,
+  ],
   exports: [ReportsService, ReportSchedulesService],
 })
 export class ReportsModule {}

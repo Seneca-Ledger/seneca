@@ -45,6 +45,8 @@ export type Transaction = {
   currency?: string | null;
   paymentPurpose?: string | null;
   transactionType?: 'income' | 'expense' | null;
+  /** Confirmed by a person in Review; only confirmed rows count in any number. */
+  isVerified?: boolean;
   createdAt?: string | null;
   workspaceId?: string;
   workspaceName?: string;

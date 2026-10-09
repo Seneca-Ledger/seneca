@@ -14,6 +14,8 @@ export interface UseTransactionDataOptions {
   showConverted: boolean;
   workspaceCurrency: string;
   currencyFilter: string | null;
+  /** `me`, `shared`, a membership id, or null for the whole workspace. */
+  owner?: string | null;
   /** YYYY-MM-DD, inclusive. */
   startDate?: string | null;
   /** YYYY-MM-DD, inclusive. */
@@ -41,6 +43,7 @@ export function useTransactionData({
   showConverted,
   workspaceCurrency,
   currencyFilter,
+  owner,
   startDate,
   endDate,
 }: UseTransactionDataOptions): UseTransactionDataResult {
@@ -49,6 +52,7 @@ export function useTransactionData({
   const params: Record<string, string | number> = { limit: 500 };
   if (showConverted) params.convert_to = workspaceCurrency;
   if (currencyFilter) params.currency = currencyFilter;
+  if (owner) params.owner = owner;
   if (startDate) params.startDate = startDate;
   if (endDate) params.endDate = endDate;
 

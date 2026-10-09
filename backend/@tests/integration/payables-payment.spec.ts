@@ -38,6 +38,7 @@ import { LedgerPostingService } from '../../src/modules/ledger/ledger-posting.se
 import { NotificationsService } from '../../src/modules/notifications/notifications.service';
 import { PayablesService } from '../../src/modules/payables/payables.service';
 import { PayablesExportService } from '../../src/modules/payables/payables-export.service';
+import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace-currency.service';
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
@@ -101,6 +102,8 @@ describe('settling payables (real Postgres)', () => {
         transactionType: TransactionType.EXPENSE,
         amount: 120,
         debit: 120,
+        // Only a confirmed bank row may settle a bill.
+        isVerified: true,
         ...fields,
       }),
     );
@@ -150,6 +153,7 @@ describe('settling payables (real Postgres)', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         PayablesService,
+        WorkspaceCurrencyService,
         LedgerPostingService,
         LedgerAccountsService,
         { provide: ExchangeRatesService, useValue: { getRateQuote: jest.fn(), getRate: jest.fn() } },
@@ -167,7 +171,9 @@ describe('settling payables (real Postgres)', () => {
     payableRepo = dataSource.getRepository(Payable);
 
     workspaceId = (
-      await dataSource.getRepository(Workspace).save({ name: 'Bills WS', ledgerBaseCurrency: 'EUR' })
+      await dataSource
+        .getRepository(Workspace)
+        .save({ name: 'Bills WS', currency: 'EUR', ledgerBaseCurrency: 'EUR' })
     ).id;
     userId = (
       await dataSource.getRepository(User).save(
@@ -219,9 +225,11 @@ describe('settling payables (real Postgres)', () => {
     const payable = await bill();
     const named = await transaction({ counterpartyName: 'ACME GmbH', transactionDate: new Date(daysAgo(10)) });
     const closest = await transaction({ transactionDate: new Date(daysAgo(2)) });
-    // Not candidates: other amount, other currency, income, a duplicate,
-    // too old, on a trashed statement, already settling another bill.
-    await transaction({ amount: 121, debit: 121 });
+    // Offered too, but last: money of about the right size is a candidate since
+    // partial payments exist — it just sorts behind the exact matches.
+    const near = await transaction({ amount: 121, debit: 121 });
+    // Not candidates: other currency, income, a duplicate, too old, on a
+    // trashed statement, already settling another bill.
     await transaction({ currency: 'USD' });
     await transaction({ transactionType: TransactionType.INCOME, debit: null, credit: 120 });
     await transaction({ isDuplicate: true });
@@ -247,7 +255,7 @@ describe('settling payables (real Postgres)', () => {
 
     const candidates = await payables.findPaymentCandidates(payable.id, workspaceId);
 
-    expect(candidates.map(candidate => candidate.id)).toEqual([named.id, closest.id]);
+    expect(candidates.map(candidate => candidate.id)).toEqual([named.id, closest.id, near.id]);
     expect(candidates[0]).toMatchObject({ vendorMatch: true, amount: '120.00', currency: 'EUR' });
   });
 
@@ -327,7 +335,7 @@ describe('settling payables (real Postgres)', () => {
       .save({ userId, workspaceId, name: 'USD', currency: 'USD' });
     const payable = await bill();
     const linked = await bill({ linkedTransactionId: (await transaction({})).id });
-    const foreignWorkspace = (await dataSource.getRepository(Workspace).save({ name: 'Other' })).id;
+    const foreignWorkspace = (await dataSource.getRepository(Workspace).save({ name: 'Other', currency: 'EUR' })).id;
     const foreignWallet = await dataSource
       .getRepository(Wallet)
       .save({ userId, workspaceId: foreignWorkspace, name: 'Theirs', currency: 'EUR' });

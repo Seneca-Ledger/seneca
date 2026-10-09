@@ -2,6 +2,7 @@
 
 import { Popover } from '@mui/material';
 import { useState } from 'react';
+import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { Filter, X } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { Select } from '@/app/components/ui/select';
@@ -128,22 +129,34 @@ function FilterForm({
         />
       ) : null}
       {needsValue && column?.type !== 'boolean' ? (
-        <input
-          className="lumio-ct__filter-input"
-          type={type}
-          aria-label={currentOp === 'between' ? labels.from : labels.value}
-          value={value}
-          onChange={event => setValue(event.target.value)}
-        />
+        type === 'date' ? (
+          <CustomDatePicker
+            label={currentOp === 'between' ? labels.from : labels.value}
+            value={value || null}
+            onChange={setValue}
+          />
+        ) : (
+          <input
+            className="lumio-ct__filter-input"
+            type={type}
+            aria-label={currentOp === 'between' ? labels.from : labels.value}
+            value={value}
+            onChange={event => setValue(event.target.value)}
+          />
+        )
       ) : null}
       {needsValue && currentOp === 'between' ? (
-        <input
-          className="lumio-ct__filter-input"
-          type={type}
-          aria-label={labels.to}
-          value={valueTo}
-          onChange={event => setValueTo(event.target.value)}
-        />
+        type === 'date' ? (
+          <CustomDatePicker label={labels.to} value={valueTo || null} onChange={setValueTo} />
+        ) : (
+          <input
+            className="lumio-ct__filter-input"
+            type={type}
+            aria-label={labels.to}
+            value={valueTo}
+            onChange={event => setValueTo(event.target.value)}
+          />
+        )
       ) : null}
       <Button type="submit" size="sm">
         {labels.apply}

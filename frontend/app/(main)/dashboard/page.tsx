@@ -37,8 +37,6 @@ function DashboardPageInner(): React.JSX.Element {
     setActiveTab,
     refetch,
     formatAmount,
-    statusHeading,
-    greetingSubtitle,
     periodBanner,
     displayMonth,
     changeMonth,
@@ -75,13 +73,10 @@ function DashboardPageInner(): React.JSX.Element {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           formatAmount={formatAmount}
-          statusHeading={statusHeading}
-          greetingSubtitle={greetingSubtitle}
           periodBanner={periodBanner}
           displayMonth={displayMonth}
           changeMonth={changeMonth}
           locale={locale}
-          exportMenu={t.exportMenu}
           headerLabels={headerLabels}
         />
       </Box>

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PromptMessage } from '@/app/(main)/ai-analysis/chat/build-prompt';
 import * as chatsApi from '@/app/(main)/ai-analysis/chat/chats-api';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { currencyOr } from '@/app/lib/currency';
 import { parseIntent } from '../tools/registry';
 import type { ChatTool } from '../tools/types';
 import {
@@ -60,6 +62,7 @@ function toHistory(turns: AgentTurn[]): PromptMessage[] {
 }
 
 export function useAgentChat(engine: AgentEngine | null, modelId: string) {
+  const { currentWorkspace } = useWorkspace();
   const [turns, setTurns] = useState<AgentTurn[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +142,10 @@ export function useAgentChat(engine: AgentEngine | null, modelId: string) {
       setBusy(true);
       setError(null);
 
-      const system: PromptMessage = { role: 'system', content: buildAgentSystemPrompt(todayIso()) };
+      const system: PromptMessage = {
+        role: 'system',
+        content: buildAgentSystemPrompt(todayIso(), currencyOr(currentWorkspace?.currency)),
+      };
       const history = toHistory(turnsRef.current);
       const userTurn: AgentTurn = { id: nextId(), role: 'user', content: question };
       setTurns(previous => [...previous, userTurn]);
@@ -263,7 +269,7 @@ export function useAgentChat(engine: AgentEngine | null, modelId: string) {
           setBusy(false);
         });
     },
-    [engine, busy, persist, patchAction],
+    [engine, busy, persist, patchAction, currentWorkspace?.currency],
   );
 
   /** Runs a previously proposed write action after the user's explicit tap. */

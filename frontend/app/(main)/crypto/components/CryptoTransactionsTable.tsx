@@ -10,7 +10,7 @@ import type React from 'react';
 import { ArrowDownRight, ArrowUpRight } from '@/app/components/icons';
 import { formatMoney } from '@/app/lib/format-money';
 import { type CryptoTransaction, isSupportedAddress } from '../hooks/useCrypto';
-import { shortenAddress } from './CryptoWalletCard';
+import { shortenAddress } from './address';
 import { TokenIcon } from './TokenIcon';
 
 type CryptoTransactionsTableLabels = {

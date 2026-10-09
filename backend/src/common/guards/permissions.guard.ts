@@ -6,10 +6,11 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { type User, UserRole } from '../../entities/user.entity';
-import {
-  type WorkspaceMemberPermissions,
+import type {
+  WorkspaceMemberPermissions,
   WorkspaceRole,
 } from '../../entities/workspace-member.entity';
+import { workspaceRoleAllows } from '../authz/workspace-permissions';
 import { PERMISSIONS_KEY } from '../decorators/require-permission.decorator';
 import type { Permission } from '../enums/permissions.enum';
 import { Permission as PermissionEnum, ROLE_PERMISSIONS } from '../enums/permissions.enum';
@@ -105,93 +106,8 @@ export class PermissionsGuard implements CanActivate {
     workspaceRole?: WorkspaceRole,
     workspaceMemberPermissions?: WorkspaceMemberPermissions | null,
   ): boolean {
-    if (!workspaceRole) {
-      return false;
-    }
-
-    const hasAuditPermission = requiredPermissions.every(permission =>
-      [PermissionEnum.AUDIT_VIEW, PermissionEnum.AUDIT_LOG_VIEW].includes(permission),
+    return requiredPermissions.every(permission =>
+      workspaceRoleAllows(permission, workspaceRole, workspaceMemberPermissions),
     );
-
-    if (hasAuditPermission) {
-      return [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(workspaceRole);
-    }
-
-    const workspaceAdminPermissions = new Set<Permission>([
-      PermissionEnum.WORKSPACE_SETTINGS_MANAGE,
-      PermissionEnum.INTEGRATION_MANAGE,
-    ]);
-    const isWorkspaceAdminPermission = requiredPermissions.every(permission =>
-      workspaceAdminPermissions.has(permission),
-    );
-
-    if (isWorkspaceAdminPermission) {
-      return [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(workspaceRole);
-    }
-
-    const statementPermissions = new Set<Permission>([
-      PermissionEnum.STATEMENT_UPLOAD,
-      PermissionEnum.STATEMENT_EDIT,
-      PermissionEnum.STATEMENT_DELETE,
-      PermissionEnum.TRANSACTION_EDIT,
-      PermissionEnum.TRANSACTION_DELETE,
-      PermissionEnum.TRANSACTION_BULK_UPDATE,
-    ]);
-
-    const isStatementPermission = requiredPermissions.every(permission =>
-      statementPermissions.has(permission),
-    );
-
-    if (isStatementPermission) {
-      if ([WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(workspaceRole)) {
-        return true;
-      }
-      if (workspaceMemberPermissions?.canEditStatements === false) {
-        return false;
-      }
-      return true;
-    }
-
-    // Workspace owners/admins manage these workspace-scoped resources
-    // (budgets, wallets, payables, categories, branches, subscriptions, ledger)
-    // even if their global user role only grants view access.
-    const workspaceManagedPermissions = new Set<Permission>([
-      PermissionEnum.BUDGET_CREATE,
-      PermissionEnum.BUDGET_EDIT,
-      PermissionEnum.BUDGET_DELETE,
-      PermissionEnum.WALLET_CREATE,
-      PermissionEnum.WALLET_EDIT,
-      PermissionEnum.WALLET_DELETE,
-      PermissionEnum.PAYABLE_CREATE,
-      PermissionEnum.PAYABLE_EDIT,
-      PermissionEnum.PAYABLE_DELETE,
-      PermissionEnum.INVOICE_CREATE,
-      PermissionEnum.INVOICE_EDIT,
-      PermissionEnum.INVOICE_DELETE,
-      PermissionEnum.CLIENT_CREATE,
-      PermissionEnum.CLIENT_EDIT,
-      PermissionEnum.CLIENT_DELETE,
-      PermissionEnum.CATEGORY_CREATE,
-      PermissionEnum.CATEGORY_EDIT,
-      PermissionEnum.CATEGORY_DELETE,
-      PermissionEnum.BRANCH_CREATE,
-      PermissionEnum.BRANCH_EDIT,
-      PermissionEnum.BRANCH_DELETE,
-      PermissionEnum.SUBSCRIPTION_CREATE,
-      PermissionEnum.SUBSCRIPTION_EDIT,
-      PermissionEnum.SUBSCRIPTION_DELETE,
-      PermissionEnum.LEDGER_POST,
-      PermissionEnum.LEDGER_MANAGE_ACCOUNTS,
-    ]);
-
-    const isWorkspaceManagedPermission = requiredPermissions.every(permission =>
-      workspaceManagedPermissions.has(permission),
-    );
-
-    if (isWorkspaceManagedPermission) {
-      return [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(workspaceRole);
-    }
-
-    return false;
   }
 }

@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as xlsx from 'xlsx';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { assertSafeZipDecompressionRatio } from '../../../common/utils/zip-bomb-guard.util';
 import { type BankName, FileType } from '../../../entities/statement.entity';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
@@ -75,7 +76,7 @@ export class ExcelParser extends BaseTabularParser {
       .slice(0, 5)
       .map(r => (r || []).join(' '))
       .join(' ');
-    const detectedCurrency = this.detectCurrency(headerSample) || 'KZT';
+    const detectedCurrency = this.detectCurrency(headerSample) || appDefaultCurrency();
 
     // Extract metadata from first few rows or filename
     const metadata = this.extractMetadata(filePath, data, detectedCurrency);
@@ -108,7 +109,7 @@ export class ExcelParser extends BaseTabularParser {
   private extractMetadata(
     _filePath: string,
     data: ExcelRow[],
-    detectedCurrency = 'KZT',
+    detectedCurrency = appDefaultCurrency(),
   ): ParsedStatement['metadata'] {
     // Try to extract from first rows or use defaults
     const accountNumber = this.extractAccountNumberFromData(data) || 'Unknown';

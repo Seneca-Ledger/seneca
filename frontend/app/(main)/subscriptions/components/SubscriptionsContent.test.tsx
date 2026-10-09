@@ -94,6 +94,7 @@ const renderContent = (
       setFormData={vi.fn()}
       saving={false}
       openCreate={vi.fn()}
+      invalidate={vi.fn(async () => undefined)}
       openEdit={vi.fn()}
       closeDialog={vi.fn()}
       handleSave={vi.fn()}

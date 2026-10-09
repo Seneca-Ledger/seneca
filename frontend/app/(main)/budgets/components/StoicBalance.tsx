@@ -1,10 +1,15 @@
 'use client';
 
 import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
 import Skeleton from '@mui/material/Skeleton';
 import { useTheme } from '@mui/material/styles';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import { useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useMonthLabel } from '@/app/components/dashboard/use-month-label';
+import { ChevronLeft, ChevronRight } from '@/app/components/icons';
 import { tokens } from '@/lib/theme-tokens';
 import {
   STOIC_CLASSES,
@@ -115,7 +120,7 @@ function ShareBar({
   );
 }
 
-/** One card per class: what it covers, and its planned and actual share this month. */
+/** One card per class: what it covers, and its planned and actual share that month. */
 function ClassLegend({ month }: { month: StoicMonth }): React.JSX.Element {
   const { t, names, hints } = useClassText();
   const mode = useTheme().palette.mode;
@@ -168,14 +173,73 @@ function ClassLegend({ month }: { month: StoicMonth }): React.JSX.Element {
   );
 }
 
+/** "2026-08" as the date its month starts on, for the locale formatter. */
+function monthStart(monthKey: string): Date {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(year, (month || 1) - 1, 1);
+}
+
+/** The month being read, and the arrows that walk the loaded months. */
+function MonthNav({
+  months,
+  index,
+  onChange,
+  previousLabel,
+  nextLabel,
+}: {
+  months: StoicMonth[];
+  index: number;
+  onChange: (index: number) => void;
+  previousLabel: string;
+  nextLabel: string;
+}): React.JSX.Element {
+  const label = useMonthLabel(monthStart(months[index].month));
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      {/* Older months are further down the list, which is newest first. */}
+      <IconButton
+        size="small"
+        aria-label={previousLabel}
+        disabled={index >= months.length - 1}
+        onClick={() => onChange(index + 1)}
+      >
+        <ChevronLeft size={18} />
+      </IconButton>
+      <Typography variant="body2" sx={{ minWidth: 120, textAlign: 'center' }}>
+        {label}
+      </Typography>
+      <IconButton
+        size="small"
+        aria-label={nextLabel}
+        disabled={index <= 0}
+        onClick={() => onChange(index - 1)}
+      >
+        <ChevronRight size={18} />
+      </IconButton>
+    </Box>
+  );
+}
+
 /**
  * Plan against reality in the four Stoic classes, and the place where the
  * user decides which class each category belongs to. The Stoic advice on the
  * Advice page reads the same numbers.
+ *
+ * Which month it reads is the advice's to choose: in the first days of a
+ * month the advice judges the one that just ended (`?month=YYYY-MM`), and
+ * landing on the running month instead would ring a card holding a few days
+ * of spending rather than the month the advice weighed.
  */
 export function StoicBalance(): React.JSX.Element | null {
   const { t, names } = useClassText();
   const { balance, isPending, classify, classifying } = useStoicBalance();
+  const months = balance?.months ?? [];
+  const linkedMonth = useSearchParams()?.get('month') ?? null;
+  const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+  // Derived rather than stored: the months arrive after the first render, so
+  // a linked month can only be resolved once they are here.
+  const linkedIndex = months.findIndex(month => month.month === linkedMonth);
+  const monthIndex = pickedIndex ?? (linkedIndex >= 0 ? linkedIndex : 0);
 
   if (isPending) {
     return <Skeleton variant="rounded" height={220} sx={{ mb: 3 }} />;
@@ -184,7 +248,7 @@ export function StoicBalance(): React.JSX.Element | null {
     return null;
   }
 
-  const current = balance.months[0];
+  const current = months[monthIndex];
   const hasPlan = current ? Object.values(current.intended).some(value => value > 0) : false;
   const hasSpending = current ? Object.values(current.actual).some(value => value > 0) : false;
 
@@ -201,9 +265,28 @@ export function StoicBalance(): React.JSX.Element | null {
         bgcolor: 'background.paper',
       }}
     >
-      <Typography id="stoic-balance-title" variant="subtitle1" fontWeight={600}>
-        {t.stoicTitle.value}
-      </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+        }}
+      >
+        <Typography id="stoic-balance-title" variant="subtitle1" fontWeight={600}>
+          {t.stoicTitle.value}
+        </Typography>
+        {current && (
+          <MonthNav
+            months={months}
+            index={monthIndex}
+            onChange={setPickedIndex}
+            previousLabel={t.previousMonth.value}
+            nextLabel={t.nextMonth.value}
+          />
+        )}
+      </Box>
       <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
         {t.stoicSubtitle.value}
       </Typography>

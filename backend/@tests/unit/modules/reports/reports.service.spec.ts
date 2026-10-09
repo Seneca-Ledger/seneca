@@ -446,9 +446,11 @@ describe('generateFromTemplate', () => {
       categoryIds: ['22222222-2222-4222-8222-222222222222'],
     });
 
-    const where = mockTransactionRepository.find.mock.calls[0][0].where;
-    expect(where.walletId).toBeDefined();
-    expect(where.categoryId).toBeDefined();
+    // Both alternatives (no statement / statement not trashed) carry the filters.
+    for (const where of mockTransactionRepository.find.mock.calls[0][0].where) {
+      expect(where.walletId).toBeDefined();
+      expect(where.categoryId).toBeDefined();
+    }
   });
 
   it('omits the filter keys entirely when the arrays are empty', async () => {
@@ -820,12 +822,12 @@ describe('exportWorkspaceTransactions', () => {
     expect(qb.where).toHaveBeenCalledWith('transaction.workspaceId = :workspaceId', {
       workspaceId: 'ws-42',
     });
-    expect(qb.andWhere).toHaveBeenNthCalledWith(1, 'transaction.isDuplicate = false');
-    expect(qb.andWhere).toHaveBeenNthCalledWith(2, 'transaction.transferPairId IS NULL');
-    expect(qb.andWhere).toHaveBeenNthCalledWith(
-      3,
-      '(transaction.statementId IS NULL OR statement.deletedAt IS NULL)',
-    );
+    // Only confirmed rows are exported; a row waiting in Review is not.
+    expect(qb.andWhere).toHaveBeenNthCalledWith(1, 'transaction.isVerified = true');
+    expect(qb.andWhere).toHaveBeenNthCalledWith(2, 'transaction.isDuplicate = false');
+    // Trashed statements are left out through a subquery, not a join.
+    expect(qb.andWhere).toHaveBeenNthCalledWith(3, expect.stringContaining('deleted_at IS NOT NULL'));
+    expect(qb.andWhere).toHaveBeenNthCalledWith(4, 'transaction.transferPairId IS NULL');
     expect(excelSpy).toHaveBeenCalledWith([{ id: 'tx-1' }], expect.stringContaining('workspace-transactions-'));
     expect(result.fileName).toMatch(/^workspace-transactions-.*\.xlsx$/);
     expect(result.mimeType).toBe(

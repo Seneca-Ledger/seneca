@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUUID, ValidateIf } from 'class-validator';
 
 export class CreateWalletDto {
   @IsString()
@@ -19,4 +19,13 @@ export class CreateWalletDto {
   @IsNumber()
   @IsOptional()
   initialBalance?: number;
+
+  /**
+   * Whose account this is in the household; `null` means shared. Transactions
+   * imported into it start on the same person.
+   */
+  @IsUUID()
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  ownerMemberId?: string | null;
 }

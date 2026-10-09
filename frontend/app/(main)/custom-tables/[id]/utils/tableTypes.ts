@@ -27,6 +27,12 @@ export interface CustomTable {
   name: string;
   description: string | null;
   source: string;
+  /** Set when the table was filled from app data and can be refreshed. */
+  sourceBinding?: {
+    kind: string;
+    filters: Record<string, unknown>;
+    syncedAt: string | null;
+  } | null;
   categoryId?: string | null;
   category?: CustomTableCategory | null;
   columns: CustomTablePageColumn[];

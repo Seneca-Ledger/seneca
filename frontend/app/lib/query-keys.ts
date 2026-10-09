@@ -17,6 +17,8 @@ export const queryKeys = {
     ['dashboard', 'health-history', o.workspaceId, o.year] as const,
   dashboardCashFlow: (o: { workspaceId: string | null; range: string; month: string | null }) =>
     ['dashboard', 'cash-flow', o.workspaceId, o.range, o.month] as const,
+  dashboardCommitments: (workspaceId: string | null, days: number) =>
+    ['dashboard', 'commitments', workspaceId, days] as const,
   statements: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['statements', o.workspaceId, o.params] as const,
   gmailReceipts: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
@@ -26,19 +28,28 @@ export const queryKeys = {
   categories: (workspaceId: string | null) => ['categories', workspaceId] as const,
   reviewInbox: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['review-inbox', o.workspaceId, o.params] as const,
-  reviewInboxCounts: (workspaceId: string | null) =>
-    ['review-inbox', workspaceId, 'counts'] as const,
+  reviewInboxCounts: (workspaceId: string | null, reviewer?: string) =>
+    ['review-inbox', workspaceId, 'counts', reviewer ?? 'anyone'] as const,
+  reviewInboxByStatement: (workspaceId: string | null) =>
+    ['review-inbox', workspaceId, 'statements'] as const,
   wallets: (workspaceId: string | null) => ['wallets', workspaceId] as const,
   payablePaymentCandidates: (o: { workspaceId: string | null; payableId: string }) =>
     ['payables', o.workspaceId, o.payableId, 'payment-candidates'] as const,
+  payablePayments: (o: { workspaceId: string | null; payableId: string }) =>
+    ['payables', o.workspaceId, o.payableId, 'payments'] as const,
   // Tile-server configuration is the same in every workspace, hence no workspace segment.
   mapStyles: () => ['map-styles'] as const,
   categoryUsage: (workspaceId: string | null) => ['categories', workspaceId, 'usage'] as const,
   goalsList: (workspaceId: string | null) => ['goals', 'list', workspaceId] as const,
+  // Sits under the plain list prefix, so a contribution invalidates both.
+  goalsMonth: (o: { workspaceId: string | null; month: string }) =>
+    ['goals', 'list', o.workspaceId, o.month] as const,
   goalFlow: (o: { workspaceId: string | null; goalId: string; month: string }) =>
     ['goals', 'flow', o.workspaceId, o.goalId, o.month] as const,
   goalPlan: (o: { workspaceId: string | null; goalId: string }) =>
     ['goals', 'plan', o.workspaceId, o.goalId] as const,
+  spendFlow: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
+    ['reports', 'spend-flow', o.workspaceId, o.params] as const,
   goalItems: (o: { workspaceId: string | null; goalId: string }) =>
     ['goals', 'items', o.workspaceId, o.goalId] as const,
   // Локаль в ключе: сервер отдаёт текст совета на языке интерфейса, поэтому
@@ -74,6 +85,11 @@ export const queryKeys = {
     ['storage-files', o.workspaceId, o.listMode] as const,
   taxReturn: (o: { workspaceId: string | null; periodStart: string; periodEnd: string }) =>
     ['tax-return', o.workspaceId, o.periodStart, o.periodEnd] as const,
+  // The jurisdiction catalogue is global reference data (JWT-only on the server), the one
+  // place a key rightly has no workspace segment.
+  taxJurisdictions: () => ['tax-jurisdictions'] as const,
+  taxJurisdictionRates: (o: { code: string | null; date: string }) =>
+    ['tax-jurisdictions', o.code, 'rates', o.date] as const,
   // Prefix ['income-tax', workspaceId] invalidates every part of the declaration at once.
   incomeTaxDisclaimer: (workspaceId: string | null) =>
     ['income-tax', workspaceId, 'disclaimer'] as const,
@@ -96,19 +112,25 @@ export const queryKeys = {
   forecast: (o: { workspaceId: string | null; days: number; scenario: string }) =>
     ['forecast', o.workspaceId, o.days, o.scenario] as const,
   investments: (workspaceId: string | null) => ['investments', workspaceId] as const,
+  metals: (workspaceId: string | null) => ['metals', workspaceId] as const,
   reconciliation: (workspaceId: string | null) => ['reconciliation', workspaceId] as const,
   cashFlowMap: (o: { workspaceId: string | null; params: string }) =>
     ['reports', o.workspaceId, 'cash-flow-map', o.params] as const,
-  netWorth: (o: { workspaceId: string | null; range: string }) =>
-    ['net-worth', o.workspaceId, o.range] as const,
+  netWorth: (o: { workspaceId: string | null; range: string; denominate?: string | null }) =>
+    ['net-worth', o.workspaceId, o.range, o.denominate ?? null] as const,
   cryptoWallets: (workspaceId: string | null) => ['crypto', 'wallets', workspaceId] as const,
   cryptoSummary: (workspaceId: string | null) => ['crypto', 'summary', workspaceId] as const,
+  // Under cryptoSummary, so whatever refreshes the crypto page refreshes the dashboard card too.
+  cryptoMonthSummary: (workspaceId: string | null, month: string) =>
+    ['crypto', 'summary', workspaceId, month] as const,
   cryptoTransactions: (workspaceId: string | null) =>
     ['crypto', 'transactions', workspaceId] as const,
   cryptoNetworks: (workspaceId: string | null) => ['crypto', 'networks', workspaceId] as const,
+  cryptoHistory: (workspaceId: string | null) => ['crypto', 'history', workspaceId] as const,
+  cryptoGains: (workspaceId: string | null, year: number | null) =>
+    ['crypto', 'gains', workspaceId, year] as const,
   notifications: (workspaceId: string | null) => ['notifications', workspaceId] as const,
   searchRecent: (workspaceId: string | null) => ['search', workspaceId, 'recent'] as const,
-  searchFavorites: (workspaceId: string | null) => ['search', workspaceId, 'favorites'] as const,
   search: (o: { workspaceId: string | null; q: string }) =>
     ['search', o.workspaceId, 'query', o.q] as const,
   notes: (o: { workspaceId: string | null; entityType: string; entityId: string }) =>

@@ -8,9 +8,13 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
+import { Budget } from '../../entities/budget.entity';
+import { Goal } from '../../entities/goal.entity';
+import { Invoice } from '../../entities/invoice.entity';
 import { Note, NoteEntityType } from '../../entities/note.entity';
 import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
+import { Transaction } from '../../entities/transaction.entity';
 import { WorkspaceMember, WorkspaceRole } from '../../entities/workspace-member.entity';
 import type { NoteMentionedEvent } from '../notifications/events/notification-events';
 
@@ -25,6 +29,18 @@ export interface NoteView {
 
 const MAX_BODY_LENGTH = 4000;
 
+/** Колонки `notes`, в одной из которых лежит цель заметки. */
+type NoteTargetColumn =
+  | 'statementId'
+  | 'receiptId'
+  | 'transactionId'
+  | 'budgetId'
+  | 'goalId'
+  | 'invoiceId';
+
+/** Любой репозиторий, у объектов которого есть id и воркспейс. */
+type TargetRepository = Repository<{ id: string; workspaceId: string }>;
+
 @Injectable()
 export class NotesService {
   constructor(
@@ -34,10 +50,54 @@ export class NotesService {
     private readonly statementRepository: Repository<Statement>,
     @InjectRepository(Receipt)
     private readonly receiptRepository: Repository<Receipt>,
+    @InjectRepository(Transaction)
+    private readonly transactionRepository: Repository<Transaction>,
+    @InjectRepository(Budget)
+    private readonly budgetRepository: Repository<Budget>,
+    @InjectRepository(Goal)
+    private readonly goalRepository: Repository<Goal>,
+    @InjectRepository(Invoice)
+    private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * Куда ложится заметка и где искать её объект — одной таблицей, чтобы новый
+   * тип цели был одной строкой, а не ещё одной веткой в трёх местах.
+   */
+  private get targets(): Record<
+    NoteEntityType,
+    { column: NoteTargetColumn; repository: Repository<{ id: string; workspaceId: string }> }
+  > {
+    return {
+      [NoteEntityType.STATEMENT]: {
+        column: 'statementId',
+        repository: this.statementRepository as TargetRepository,
+      },
+      [NoteEntityType.RECEIPT]: {
+        column: 'receiptId',
+        repository: this.receiptRepository as TargetRepository,
+      },
+      [NoteEntityType.TRANSACTION]: {
+        column: 'transactionId',
+        repository: this.transactionRepository as TargetRepository,
+      },
+      [NoteEntityType.BUDGET]: {
+        column: 'budgetId',
+        repository: this.budgetRepository as TargetRepository,
+      },
+      [NoteEntityType.GOAL]: {
+        column: 'goalId',
+        repository: this.goalRepository as TargetRepository,
+      },
+      [NoteEntityType.INVOICE]: {
+        column: 'invoiceId',
+        repository: this.invoiceRepository as TargetRepository,
+      },
+    };
+  }
 
   /**
    * Внешний ключ не пускает заметку к несуществующему объекту, но ничего не
@@ -48,9 +108,9 @@ export class NotesService {
     entityType: NoteEntityType,
     entityId: string,
   ): Promise<void> {
-    const repository =
-      entityType === NoteEntityType.STATEMENT ? this.statementRepository : this.receiptRepository;
-    const exists = await repository.exists({ where: { id: entityId, workspaceId } });
+    const exists = await this.targets[entityType].repository.exists({
+      where: { id: entityId, workspaceId },
+    });
     if (!exists) {
       throw new NotFoundException(appError('NOTE_TARGET_NOT_FOUND'));
     }
@@ -60,10 +120,16 @@ export class NotesService {
   private targetColumns(
     entityType: NoteEntityType,
     entityId: string,
-  ): Pick<Note, 'statementId' | 'receiptId'> {
-    return entityType === NoteEntityType.STATEMENT
-      ? { statementId: entityId, receiptId: null }
-      : { statementId: null, receiptId: entityId };
+  ): Pick<Note, NoteTargetColumn> {
+    const empty: Pick<Note, NoteTargetColumn> = {
+      statementId: null,
+      receiptId: null,
+      transactionId: null,
+      budgetId: null,
+      goalId: null,
+      invoiceId: null,
+    };
+    return { ...empty, [this.targets[entityType].column]: entityId };
   }
 
   private toView(note: Note): NoteView {
@@ -215,7 +281,7 @@ export class NotesService {
       return {};
     }
 
-    const column = entityType === NoteEntityType.STATEMENT ? 'n.statementId' : 'n.receiptId';
+    const column = `n.${this.targets[entityType].column}`;
     const rows = await this.noteRepository
       .createQueryBuilder('n')
       .select(column, 'entity_id')

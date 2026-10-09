@@ -41,26 +41,49 @@ export function selectedOptions(
 }
 
 /** Plain-text rendering of a cell, used for read-only display and titles. */
+/**
+ * A cell whose text does not fit the column (an import kept it as is, or the
+ * column changed type later) shows that text rather than a dash: hiding it
+ * would make the value impossible to fix from the grid.
+ */
 export function formatCellText(
   column: CustomTableColumn,
   row: CustomTableGridRow,
   fallbackCurrency: string,
   booleanLabels: { yes: string; no: string },
 ): string {
+  const formatted = formatTypedCellText(column, row, fallbackCurrency, booleanLabels);
+  const value = row.data?.[column.key];
+  if (formatted === EMPTY_CELL && typeof value === 'string' && value.trim()) {
+    return value;
+  }
+  return formatted;
+}
+
+function formatTypedCellText(
+  column: CustomTableColumn,
+  row: CustomTableGridRow,
+  fallbackCurrency: string,
+  booleanLabels: { yes: string; no: string },
+): string {
   const value = row.data?.[column.key] ?? null;
-  switch (column.type) {
+  const type = column.type === 'formula' ? formulaResultType(column) : column.type;
+  switch (type) {
     case 'number':
-    case 'currency':
-    case 'formula': {
+    case 'currency': {
       const n = asNumber(value);
       return n === null || Number.isNaN(n)
         ? EMPTY_CELL
         : formatCellNumber(n, numberFormatFor(column, fallbackCurrency));
     }
     case 'date':
-      return typeof value === 'string' && value ? formatStoredDate(new Date(value)) : EMPTY_CELL;
+      return typeof value === 'string' && value && !Number.isNaN(new Date(value).getTime())
+        ? formatStoredDate(new Date(value))
+        : EMPTY_CELL;
     case 'boolean':
       return value === true ? booleanLabels.yes : value === false ? booleanLabels.no : EMPTY_CELL;
+    case 'text':
+      return typeof value === 'string' && value ? value : EMPTY_CELL;
     case 'select':
     case 'multi_select':
       return (
@@ -78,8 +101,15 @@ export function formatCellText(
   }
 }
 
+const formulaResultType = (column: CustomTableColumn): 'number' | 'text' | 'boolean' | 'date' => {
+  const declared = column.config?.resultType;
+  return declared === 'text' || declared === 'boolean' || declared === 'date' ? declared : 'number';
+};
+
 export const isNumericColumn = (column: CustomTableColumn): boolean =>
-  column.type === 'number' || column.type === 'currency' || column.type === 'formula';
+  column.type === 'number' ||
+  column.type === 'currency' ||
+  (column.type === 'formula' && formulaResultType(column) === 'number');
 
 export const isEditableColumn = (column: CustomTableColumn): boolean =>
   column.type !== 'formula' && column.type !== 'relation' && column.type !== 'ai';

@@ -23,6 +23,12 @@ export interface TableListItem {
   description: string | null;
   source: string;
   sourceDetails?: string | null;
+  /** Set when the table was filled from app data and can be refreshed. */
+  sourceBinding?: {
+    kind: string;
+    filters: Record<string, unknown>;
+    syncedAt: string | null;
+  } | null;
   categoryId?: string | null;
   category?: TableCategory | null;
   createdAt: string;

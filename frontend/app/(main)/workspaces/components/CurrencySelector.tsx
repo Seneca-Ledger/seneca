@@ -7,6 +7,7 @@ import React, { useMemo, useState } from 'react';
 import { Check, ChevronDown, Search, X } from '@/app/components/icons';
 import { closeOnBackdropClick } from '@/app/components/ui/backdrop-click';
 import { useIntlayer } from '@/app/i18n';
+import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
@@ -24,9 +25,9 @@ interface CurrencySelectorProps {
   title?: string;
   minimal?: boolean;
   showPanelHeader?: boolean;
+  /** 'large' for full-screen flows: form-sized search and rows, and the list takes the height. */
+  size?: 'default' | 'large';
 }
-
-const DEFAULT_RECENT_CURRENCIES = ['USD', 'EUR', 'KZT', 'RUB'] as const;
 
 function useCurrencyOpenState({
   open,
@@ -115,12 +116,14 @@ function useCurrencySearch({
 type CurrencyItemBtnProps = {
   item: CurrencySearchItem;
   minimal: boolean;
+  large?: boolean;
   onSelect: (code: string) => void;
   isSelected?: boolean;
 };
 function CurrencyItemButton({
   item,
   minimal,
+  large = false,
   onSelect,
   isSelected,
 }: CurrencyItemBtnProps): React.JSX.Element {
@@ -135,7 +138,7 @@ function CurrencyItemButton({
         justifyContent: 'space-between',
         background: isSelected ? 'rgba(var(--primary-rgb,22,129,24),0.1)' : 'none',
         border: 'none',
-        padding: minimal ? '8px 12px' : '10px 12px',
+        padding: large ? '12px 14px' : minimal ? '8px 12px' : '10px 12px',
         cursor: 'pointer',
         textAlign: 'left',
         borderRadius: tokens.radius.md,
@@ -143,7 +146,7 @@ function CurrencyItemButton({
     >
       <span
         style={{
-          fontSize: 14,
+          fontSize: large ? 16 : 14,
           fontWeight: isSelected ? 600 : 500,
           color: isSelected ? 'var(--primary)' : 'var(--foreground)',
         }}
@@ -158,9 +161,15 @@ function CurrencyItemButton({
 type RecentsListProps = {
   items: CurrencySearchItem[];
   minimal: boolean;
+  large?: boolean;
   onSelect: (code: string) => void;
 };
-function RecentsList({ items, minimal, onSelect }: RecentsListProps): React.JSX.Element | null {
+function RecentsList({
+  items,
+  minimal,
+  large,
+  onSelect,
+}: RecentsListProps): React.JSX.Element | null {
   const t = useIntlayer('workspaceCurrencySelector');
   if (items.length === 0) return null;
   return (
@@ -185,6 +194,7 @@ function RecentsList({ items, minimal, onSelect }: RecentsListProps): React.JSX.
             key={`recent-${item.code}`}
             item={item}
             minimal={minimal}
+            large={large}
             onSelect={onSelect}
           />
         ))}
@@ -196,11 +206,13 @@ function RecentsList({ items, minimal, onSelect }: RecentsListProps): React.JSX.
 type AllCurrenciesListProps = {
   items: CurrencySearchItem[];
   minimal: boolean;
+  large?: boolean;
   onSelect: (code: string) => void;
 };
 function AllCurrenciesList({
   items,
   minimal,
+  large,
   onSelect,
 }: AllCurrenciesListProps): React.JSX.Element {
   const t = useIntlayer('workspaceCurrencySelector');
@@ -223,7 +235,13 @@ function AllCurrenciesList({
       <Box sx={{ mt: minimal ? 0.75 : 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {items.length > 0 ? (
           items.map(item => (
-            <CurrencyItemButton key={item.code} item={item} minimal={minimal} onSelect={onSelect} />
+            <CurrencyItemButton
+              key={item.code}
+              item={item}
+              minimal={minimal}
+              large={large}
+              onSelect={onSelect}
+            />
           ))
         ) : (
           <Box sx={{ bgcolor: 'var(--muted)', borderRadius: tokens.radius.md, px: 1.5, py: 1.25 }}>
@@ -237,8 +255,32 @@ function AllCurrenciesList({
   );
 }
 
+/** Search and list dimensions per variant; kept out of the panel so its markup stays one shape. */
+function panelMetrics(minimal: boolean, large: boolean) {
+  if (large) {
+    return {
+      iconSize: 18,
+      iconLeft: 14,
+      inputBorder: '1px solid var(--border)',
+      inputPadding: '13px 14px 13px 42px',
+      inputFontSize: 16,
+      // Fills what the page leaves around it instead of a third of the screen.
+      listMaxHeight: 'max(320px, calc(100vh - 380px))',
+    };
+  }
+  return {
+    iconSize: 16,
+    iconLeft: 12,
+    inputBorder: minimal ? '1px solid transparent' : '1px solid var(--border)',
+    inputPadding: '10px 12px 10px 40px',
+    inputFontSize: 14,
+    listMaxHeight: minimal ? '34vh' : '72vh',
+  };
+}
+
 type PanelProps = {
   minimal: boolean;
+  large: boolean;
   showPanelHeader: boolean;
   title: string;
   search: string;
@@ -255,6 +297,7 @@ type PanelProps = {
 // eslint-disable-next-line max-lines-per-function, complexity
 function CurrencyPanel({
   minimal,
+  large,
   showPanelHeader,
   title,
   search,
@@ -268,6 +311,7 @@ function CurrencyPanel({
   onSelect,
 }: PanelProps): React.JSX.Element {
   const t = useIntlayer('workspaceCurrencySelector');
+  const metrics = panelMetrics(minimal, large);
   return (
     <Box
       sx={
@@ -314,10 +358,10 @@ function CurrencyPanel({
       )}
       <Box sx={{ position: 'relative', mb: minimal ? 1 : 1.5, mt: minimal ? 1 : 0 }}>
         <Search
-          size={16}
+          size={metrics.iconSize}
           style={{
             position: 'absolute',
-            left: 12,
+            left: metrics.iconLeft,
             top: '50%',
             transform: 'translateY(-50%)',
             color: 'var(--muted-foreground)',
@@ -331,10 +375,10 @@ function CurrencyPanel({
           placeholder={t.search.value}
           style={{
             width: '100%',
-            border: minimal ? '1px solid transparent' : '1px solid var(--border)',
+            border: metrics.inputBorder,
             background: minimal ? 'var(--card-bg)' : 'var(--card)',
-            padding: '10px 12px 10px 40px',
-            fontSize: 14,
+            padding: metrics.inputPadding,
+            fontSize: metrics.inputFontSize,
             color: 'var(--foreground)',
             borderRadius: tokens.radius.md,
             boxSizing: 'border-box',
@@ -345,7 +389,7 @@ function CurrencyPanel({
         sx={{
           overflowY: 'auto',
           pr: 0.5,
-          maxHeight: minimal ? '34vh' : '72vh',
+          maxHeight: metrics.listMaxHeight,
           display: 'flex',
           flexDirection: 'column',
           gap: minimal ? 0.75 : 1.5,
@@ -355,14 +399,25 @@ function CurrencyPanel({
           <CurrencyItemButton
             item={selectedCurrencyItem}
             minimal={minimal}
+            large={large}
             onSelect={onSelect}
             isSelected
           />
         )}
         {currencyQuery.length === 0 && (
-          <RecentsList items={recentCurrencyItems} minimal={minimal} onSelect={onSelect} />
+          <RecentsList
+            items={recentCurrencyItems}
+            minimal={minimal}
+            large={large}
+            onSelect={onSelect}
+          />
         )}
-        <AllCurrenciesList items={allCurrencyItems} minimal={minimal} onSelect={onSelect} />
+        <AllCurrenciesList
+          items={allCurrencyItems}
+          minimal={minimal}
+          large={large}
+          onSelect={onSelect}
+        />
       </Box>
     </Box>
   );
@@ -380,6 +435,7 @@ export function CurrencySelector({
   title: titleProp,
   minimal = false,
   showPanelHeader = true,
+  size = 'default',
 }: CurrencySelectorProps): React.JSX.Element {
   const t = useIntlayer('workspaceCurrencySelector');
   const title = titleProp ?? t.selectCurrency.value;
@@ -407,6 +463,7 @@ export function CurrencySelector({
   const panel = (
     <CurrencyPanel
       minimal={minimal}
+      large={size === 'large'}
       showPanelHeader={showPanelHeader}
       title={title}
       search={search}

@@ -5,7 +5,6 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { apiQuery } from '@/app/lib/query-fn';
 import { queryKeys } from '@/app/lib/query-keys';
 import { hasProcessingStatements } from '@/app/lib/statement-status';
-import { migrateLocalStatementStages } from '@/app/lib/statement-workflow';
 import type { StatementFilters } from '../filters/statement-filters';
 import {
   buildStatementRequestParams,
@@ -61,9 +60,6 @@ export function useStatementsQuery<T extends StatementRecord = StatementRecord>(
     // применяться к уже производному массиву, иначе каждый опрос отдаёт новые
     // референсы и перерисовывает весь список.
     queryFn: async ({ signal }) => {
-      // The list is filtered by each row's server-side stage, so this browser's
-      // pre-server stages must land there before the first fetch.
-      await migrateLocalStatementStages();
       const payload = await apiQuery<StatementRecord[] | null>({
         url: '/statements',
         params,

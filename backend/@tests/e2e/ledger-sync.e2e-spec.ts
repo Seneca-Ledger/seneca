@@ -107,6 +107,8 @@ describe('Ledger sync (e2e)', () => {
       transactionDate: new Date('2026-06-15'),
       counterpartyName: 'Counterparty',
       paymentPurpose: 'Purpose',
+      // The ledger books only rows a person confirmed.
+      isVerified: true,
     };
     await txRepo.save([
       txRepo.create({

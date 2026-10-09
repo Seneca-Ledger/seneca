@@ -60,16 +60,10 @@ export function createStatementsTour(texts: {
         title: uploadStep?.title.value ?? 'Upload and Scan',
         description:
           uploadStep?.description.value ??
-          'Open the menu to add new statements from scan, local upload, email, or cloud sources.',
-        side: 'top',
-        align: 'start',
-      },
-      {
-        selector: '[data-tour-id="search-bar"]',
-        title: steps.searchBar.title.value,
-        description: steps.searchBar.description.value,
+          'Opens the receipt scanner straight away: drop in a file or a photo, or switch to manual entry in the same panel.',
+        // The trigger moved from the sidebar's foot into the page header.
         side: 'bottom',
-        align: 'start',
+        align: 'end',
       },
       {
         selector: '[data-tour-id="statements-filters"]',

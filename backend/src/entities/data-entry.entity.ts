@@ -55,7 +55,7 @@ export class DataEntry {
   @Column({ type: 'text', nullable: true })
   note: string | null;
 
-  @Column({ type: 'varchar', length: 10, default: 'KZT' })
+  @Column({ type: 'varchar', length: 10 })
   currency: string;
 
   @Column({ name: 'custom_field_name', type: 'varchar', length: 120, nullable: true })

@@ -1,186 +1,132 @@
 'use client';
 
-import { Box, Stack, Typography } from '@mui/material';
-import { CheckCircle2, type LucideIcon } from '@/app/components/icons';
+import Box from '@mui/material/Box';
+import type { ReactNode } from 'react';
 import { useIntlayer } from '@/app/i18n';
-import { tokens } from '@/lib/theme-tokens';
-import { getNestedOnboardingValue, resolveOnboardingText } from '../lib/resolveOnboardingText';
-import type { SupportedLocale } from '../useOnboardingWizard';
-
-interface ConnectedIntegration {
-  key: string;
-  title: string;
-  icon: LucideIcon;
-}
+import { LOCALE_ENDONYMS } from '@/app/lib/locale';
+import { formatTimeZoneLabel } from '@/app/lib/timezone';
+import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
+import { FlagIcon } from '../components/FlagIcon';
+import { StepHeading } from '../components/StepHeading';
+import type { OnboardingMode } from '../lib/onboarding-flow';
+import { countryName } from '../lib/tax-countries';
+import { useOnboardingText } from '../lib/useOnboardingText';
+import type { OnboardingData } from '../useOnboardingWizard';
 
 interface CompletionStepProps {
-  locale: SupportedLocale;
-  timeZone: string | null;
-  workspaceName: string;
-  workspaceCurrency: string;
-  workspaceBackgroundImage: string | null;
-  connectedIntegrations: ConnectedIntegration[];
+  data: OnboardingData;
+  mode: OnboardingMode;
 }
 
-export function CompletionStep({
-  locale,
-  timeZone,
-  workspaceName,
-  workspaceCurrency,
-  workspaceBackgroundImage,
-  connectedIntegrations,
-}: CompletionStepProps) {
-  const t = useIntlayer('onboardingPage');
-  const text = (path: string[], fallback = '') =>
-    resolveOnboardingText(getNestedOnboardingValue(t, path), fallback, locale);
+export function CompletionStep({ data, mode }: CompletionStepProps) {
+  const text = useOnboardingText(data.locale);
+  const { tx: settingsText } = useSettingsText();
+  const declaration = useIntlayer('taxDeclarationPage');
+  const notSet = text(['completion', 'notSet'], 'not set');
 
-  const localeLabel = text(['language', 'localeOptions', locale], locale);
+  const taxpayerLabel: Record<NonNullable<OnboardingData['taxpayerType']>, string> = {
+    employee: String(declaration.typeEmployee.value),
+    self_employed: String(declaration.typeSelfEmployed.value),
+    company: String(declaration.typeCompany.value),
+  };
+
+  const rows: Array<{ key: string; label: string; value: ReactNode }> = [
+    {
+      key: 'language',
+      label: text(['completion', 'summary', 'language'], 'Language'),
+      value: LOCALE_ENDONYMS[data.locale],
+    },
+    ...(mode === 'standard'
+      ? [
+          {
+            key: 'timeZone',
+            label: text(['completion', 'summary', 'timeZone'], 'Timezone'),
+            value: data.timeZone ? formatTimeZoneLabel(data.timeZone, data.locale) : notSet,
+          },
+        ]
+      : []),
+    {
+      key: 'workspace',
+      label: text(['completion', 'summary', 'workspace'], 'Workspace'),
+      value: data.workspaceName.trim() || notSet,
+    },
+    {
+      key: 'currency',
+      label: text(['completion', 'summary', 'currency'], 'Currency'),
+      value: data.workspaceCurrency || notSet,
+    },
+    {
+      key: 'profile',
+      label: text(['completion', 'summary', 'profile'], 'Workspace type'),
+      value: data.profile
+        ? settingsText(['workspaceProfileCard', data.profile], data.profile)
+        : notSet,
+    },
+    {
+      key: 'taxCountry',
+      label: text(['completion', 'summary', 'taxCountry'], 'Tax residence'),
+      value: data.taxCountry ? (
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+          <FlagIcon code={data.taxCountry} size={18} />
+          {countryName(data.taxCountry, data.locale)}
+        </Box>
+      ) : (
+        notSet
+      ),
+    },
+    ...(data.taxCountry
+      ? [
+          {
+            key: 'taxpayer',
+            label: text(['completion', 'summary', 'taxpayer'], 'Files as'),
+            value: data.taxpayerType ? taxpayerLabel[data.taxpayerType] : notSet,
+          },
+        ]
+      : []),
+  ];
 
   return (
-    <Box component="section">
-      <Stack spacing={3}>
-        <Box
-          sx={{
-            display: 'inline-flex',
-            borderRadius: tokens.radius.full,
-            border: '1px solid',
-            borderColor: 'primary.light',
-            bgcolor: 'primary.50',
-            p: 1.5,
-          }}
-        >
-          <CheckCircle2
-            style={{ height: 28, width: 28, color: 'var(--mui-palette-primary-main)' }}
-          />
-        </Box>
+    <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <StepHeading
+        title={text(['completion', 'title'], 'Done! Setup complete')}
+        subtitle={text(
+          ['completion', 'subtitle'],
+          'Press the button below to continue to your workspace.',
+        )}
+      />
 
-        <Box>
-          <Typography
-            variant="h4"
-            style={{ fontWeight: 600 }}
-            sx={{ fontSize: { xs: 24, sm: 30 }, color: 'text.primary' }}
-          >
-            {text(['completion', 'title'], 'Done! Setup complete')}
-          </Typography>
-          <Typography
-            style={{ marginTop: 8 }}
-            sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }}
-          >
-            {text(
-              ['completion', 'subtitle'],
-              'Press the button below to continue to your workspace.',
-            )}
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            borderRadius: tokens.radius.lg,
-            border: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-            p: 2,
-          }}
-        >
-          <Typography
-            style={{
-              marginBottom: 12,
-              fontSize: 12,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
+      <Box component="dl" sx={{ m: 0, borderTop: '1px solid var(--border-color)' }}>
+        {rows.map(row => (
+          <Box
+            key={row.key}
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 3fr)',
+              gap: 2,
+              py: 1.5,
+              borderBottom: '1px solid var(--border-color)',
+              fontSize: 14,
             }}
-            sx={{ color: 'text.secondary' }}
           >
-            {text(['completion', 'summaryTitle'], 'Your setup')}
-          </Typography>
-          <Stack component="ul" spacing={1} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            <li>
-              <Typography style={{ fontSize: 14 }} sx={{ color: 'text.primary' }}>
-                {text(['completion', 'summary', 'language'], 'Language: {value}').replace(
-                  '{value}',
-                  localeLabel,
-                )}
-              </Typography>
-            </li>
-            <li>
-              <Typography style={{ fontSize: 14 }} sx={{ color: 'text.primary' }}>
-                {text(['completion', 'summary', 'timeZone'], 'Timezone: {value}').replace(
-                  '{value}',
-                  timeZone || 'UTC',
-                )}
-              </Typography>
-            </li>
-            <li>
-              <Typography style={{ fontSize: 14 }} sx={{ color: 'text.primary' }}>
-                {text(['completion', 'summary', 'workspace'], 'Workspace: {value}').replace(
-                  '{value}',
-                  workspaceName || '-',
-                )}
-              </Typography>
-            </li>
-            <li>
-              <Typography style={{ fontSize: 14 }} sx={{ color: 'text.primary' }}>
-                {text(['completion', 'summary', 'currency'], 'Currency: {value}').replace(
-                  '{value}',
-                  workspaceCurrency || text(['completion', 'notSet'], 'not set'),
-                )}
-              </Typography>
-            </li>
-            <li>
-              <Typography style={{ fontSize: 14 }} sx={{ color: 'text.primary' }}>
-                {text(
-                  ['completion', 'summary', 'background'],
-                  'Workspace background: {value}',
-                ).replace(
-                  '{value}',
-                  workspaceBackgroundImage
-                    ? text(['completion', 'backgroundSet'], 'set')
-                    : text(['completion', 'notSet'], 'not set'),
-                )}
-              </Typography>
-            </li>
-            <li>
-              <Typography style={{ fontSize: 14 }} sx={{ color: 'text.primary' }}>
-                {text(['completion', 'summary', 'integrations'], 'Connected integrations:')}
-              </Typography>
-            </li>
-          </Stack>
-
-          <Box sx={{ mt: 2, borderTop: '1px solid', borderColor: 'divider', pt: 1.5 }}>
-            {connectedIntegrations.length > 0 ? (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-                {connectedIntegrations.map(integration => {
-                  const Icon = integration.icon;
-                  return (
-                    <Box
-                      key={integration.key}
-                      sx={{
-                        display: 'inline-flex',
-                        height: 36,
-                        width: 36,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: tokens.radius.full,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: 'action.hover',
-                      }}
-                      title={integration.title}
-                    >
-                      <Icon size={18} aria-hidden />
-                    </Box>
-                  );
-                })}
-              </Box>
-            ) : (
-              <Typography style={{ fontSize: 14 }} sx={{ color: 'text.secondary' }}>
-                {text(['completion', 'noIntegrations'], 'No integrations connected')}
-              </Typography>
-            )}
+            <Box component="dt" sx={{ color: 'var(--muted-foreground)' }}>
+              {row.label}
+            </Box>
+            <Box component="dd" sx={{ m: 0, color: 'var(--foreground)', minWidth: 0 }}>
+              {row.value}
+            </Box>
           </Box>
-        </Box>
-      </Stack>
+        ))}
+      </Box>
+
+      <Box
+        component="p"
+        sx={{ m: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--muted-foreground)' }}
+      >
+        {text(
+          ['completion', 'laterHint'],
+          'Mail import, file storage, AI and Telegram can be connected at any time under Integrations.',
+        )}
+      </Box>
     </Box>
   );
 }

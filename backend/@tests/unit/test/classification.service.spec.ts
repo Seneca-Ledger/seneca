@@ -1,7 +1,7 @@
 import type { Branch } from '@/entities/branch.entity';
 import type { CategorizationRule } from '@/entities/categorization-rule.entity';
-import type { CategoryLearning } from '@/entities/category-learning.entity';
 import { type Category, CategoryType } from '@/entities/category.entity';
+import type { PayeeOverride } from '@/entities/payee-override.entity';
 import { type Transaction, TransactionType } from '@/entities/transaction.entity';
 import type { Wallet } from '@/entities/wallet.entity';
 import { AuditService } from '@/modules/audit/audit.service';
@@ -21,7 +21,8 @@ function createRepoMock<T>() {
 describe('ClassificationService', () => {
   let service: ClassificationService;
   const categoryRepo = createRepoMock<Category>();
-  const categoryLearningRepo = createRepoMock<CategoryLearning>();
+  const transactionRepo = createRepoMock<Transaction>();
+  const payeeOverrideRepo = createRepoMock<PayeeOverride>();
   const branchRepo = createRepoMock<Branch>();
   const walletRepo = createRepoMock<Wallet>();
   const categorizationRuleRepo = createRepoMock<CategorizationRule>();
@@ -35,7 +36,8 @@ describe('ClassificationService', () => {
     branchRepo.find.mockResolvedValue([]);
     service = new ClassificationService(
       categoryRepo as any,
-      categoryLearningRepo as any,
+      transactionRepo as any,
+      payeeOverrideRepo as any,
       branchRepo as any,
       walletRepo as any,
       categorizationRuleRepo as any,

@@ -1,5 +1,10 @@
 import { parseCurrencyCell, parseDateCell, parseNumberCell, parsePaidCell } from './pasteParser';
-import type { PasteColumnMapping, PasteErrorKey, PastePreviewCell } from './pasteTypes';
+import type {
+  PasteColumnMapping,
+  PasteErrorKey,
+  PastePreviewCell,
+  PasteRowStyles,
+} from './pasteTypes';
 import type { CustomTableCellValue, CustomTableRowPatch } from './types';
 
 // ---------------------------------------------------------------------------
@@ -11,6 +16,8 @@ export type ParsedRowResult = {
   cells: PastePreviewCell[];
   errors: Record<PasteErrorKey, number>;
   hasError: boolean;
+  /** Ячейки, оставленные текстом, — чтобы подсветить их после вставки. */
+  styles: PasteRowStyles | null;
 };
 
 type CellParseResult = {
@@ -71,10 +78,15 @@ type RowAcc = {
   cells: PastePreviewCell[];
   errors: Record<PasteErrorKey, number>;
   hasError: boolean;
+  styles: PasteRowStyles | null;
 };
 
 const processColumn = (col: PasteColumnMapping, editedValue: string, acc: RowAcc): void => {
-  const { parsedValue, errorFlag, errorKey } = parseCellByField(col, editedValue);
+  const isFormula = col.mode === 'new' && col.newType === 'formula';
+  const parsed = parseCellByField(col, editedValue);
+  const { parsedValue } = parsed;
+  const errorFlag = isFormula ? false : parsed.errorFlag;
+  const errorKey = isFormula ? null : parsed.errorKey;
   if (errorFlag && errorKey) {
     acc.errors[errorKey] += 1;
   }
@@ -82,9 +94,17 @@ const processColumn = (col: PasteColumnMapping, editedValue: string, acc: RowAcc
     acc.hasError = true;
   }
   acc.cells.push({ value: editedValue.trim(), error: errorFlag, sourceIndex: col.sourceIndex });
-  if (col.columnKey) {
-    acc.rowData[col.columnKey] = parsedValue;
+  if (!col.columnKey || (col.mode === 'new' && col.newType === 'formula')) {
+    // Формульная колонка считается сервером: значение из файла только показывается.
+    return;
   }
+  if (errorFlag) {
+    // Нераспознанная ячейка не должна ронять импорт: пусть войдёт как текст и подсветится.
+    acc.rowData[col.columnKey] = editedValue.trim() || null;
+    acc.styles = { ...(acc.styles ?? {}), [col.columnKey]: { importIssue: true } };
+    return;
+  }
+  acc.rowData[col.columnKey] = parsedValue;
 };
 
 export type BuildRowArgs = {
@@ -105,6 +125,7 @@ export const buildRowData = ({
     cells: [],
     errors: { date: 0, amount: 0, currency: 0, paid: 0 },
     hasError: false,
+    styles: null,
   };
   for (const col of mappedColumns) {
     const { sourceIndex } = col;

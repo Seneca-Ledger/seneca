@@ -40,3 +40,8 @@ export const LazyRoiLines = dynamic(() => import('./RoiLines').then(module => mo
   ssr: false,
   loading: ChartSkeleton,
 });
+
+export const LazySpendTrendBars = dynamic(
+  () => import('./SpendTrendBars').then(module => module.SpendTrendBars),
+  { ssr: false, loading: ChartSkeleton },
+);

@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Receipt } from '../../../../src/entities/receipt.entity';
 import { Subscription } from '../../../../src/entities/subscription.entity';
 import { Transaction } from '../../../../src/entities/transaction.entity';
-import { Workspace } from '../../../../src/entities/workspace.entity';
+import { Statement } from '../../../../src/entities/statement.entity';
 import { DuplicateDecision } from '../../../../src/modules/review-inbox/dto/review-inbox.dto';
 import { ReviewInboxService } from '../../../../src/modules/review-inbox/review-inbox.service';
 import { CrossStatementDeduplicationService } from '../../../../src/modules/transactions/services/cross-statement-deduplication.service';
@@ -24,7 +24,7 @@ describe('ReviewInboxService', () => {
         { provide: getRepositoryToken(Transaction), useValue: transactionRepository },
         { provide: getRepositoryToken(Receipt), useValue: { count: jest.fn(), findAndCount: jest.fn() } },
         { provide: getRepositoryToken(Subscription), useValue: { count: jest.fn(), findAndCount: jest.fn() } },
-        { provide: getRepositoryToken(Workspace), useValue: { findOne: jest.fn(async () => null) } },
+        { provide: getRepositoryToken(Statement), useValue: { findOne: jest.fn(async () => null) } },
         { provide: TransactionsService, useValue: transactionsService },
         { provide: CrossStatementDeduplicationService, useValue: deduplicationService },
       ],

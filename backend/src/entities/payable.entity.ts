@@ -16,6 +16,8 @@ import { Workspace } from './workspace.entity';
 export enum PayableStatus {
   TO_PAY = 'to_pay',
   SCHEDULED = 'scheduled',
+  /** Some money has arrived, but not all of it. */
+  PARTIALLY_PAID = 'partially_paid',
   PAID = 'paid',
   OVERDUE = 'overdue',
   ARCHIVED = 'archived',
@@ -68,7 +70,7 @@ export class Payable {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount: number;
 
-  @Column({ type: 'varchar', length: 3, default: 'KZT' })
+  @Column({ type: 'varchar', length: 3 })
   currency: string;
 
   @Column({ name: 'due_date', type: 'date', nullable: true })
@@ -106,6 +108,13 @@ export class Payable {
 
   @Column({ name: 'paid_at', type: 'timestamptz', nullable: true })
   paidAt: Date | null;
+
+  /**
+   * Sum of the payments against it, kept alongside them so a list does not
+   * have to aggregate to show what is still outstanding.
+   */
+  @Column({ name: 'paid_amount', type: 'decimal', precision: 15, scale: 2, default: 0 })
+  paidAmount: number;
 
   @Column({ name: 'due_soon_notified_at', type: 'timestamptz', nullable: true })
   dueSoonNotifiedAt: Date | null;

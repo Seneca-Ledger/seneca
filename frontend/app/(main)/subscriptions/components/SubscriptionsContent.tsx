@@ -19,6 +19,7 @@ import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 
 import { Pencil, Trash2 } from '@/app/components/icons';
+import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useIntlayer } from '@/app/i18n';
@@ -68,6 +69,7 @@ interface SubscriptionsContentProps {
   setFormData: (data: SubscriptionFormData) => void;
   saving: boolean;
   openCreate: () => void;
+  invalidate: () => Promise<void>;
   openEdit: (subscription: SubscriptionItem) => void;
   closeDialog: () => void;
   handleSave: () => void;
@@ -197,47 +199,71 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
   }, [props.chargeCalendar, visibleSubscriptions]);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, flex: 1 }}>
+    <Box
+      sx={{
+        px: { xs: 2, md: 3 },
+        pt: 'var(--lumio-page-top, 16px)',
+        pb: { xs: 2, md: 3 },
+        flex: 1,
+      }}
+    >
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'space-between',
           alignItems: 'center',
           gap: 2,
           mb: 3,
         }}
       >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            {t.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t.subtitle}
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          onClick={() => {
-            void apiClient
-              .get<Blob>('/subscriptions/business-report', {
-                params: { format: 'csv' },
-                responseType: 'blob',
-              })
-              .then(response => {
-                const url = URL.createObjectURL(response.data);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = 'business-subscriptions.csv';
-                link.click();
-                URL.revokeObjectURL(url);
-              });
-          }}
+        {/* The MuiTabs root itself gets a negative margin from the theme's
+            scrollable-tabs focus-ring override, which cancels an sx margin
+            set directly on it — so the spacing lives on this row instead. */}
+        <Tabs
+          value={props.statusFilter}
+          onChange={(_, value) => props.setStatusFilter(value)}
+          variant="scrollable"
+          allowScrollButtonsMobile
         >
-          {t.businessReport}
-        </Button>
-        <Button variant="contained" onClick={props.openCreate}>
-          {t.addSubscription}
-        </Button>
+          <Tab value="all" label={t.tabAll.value} />
+          <Tab value="detected" label={t.tabDetected.value} />
+          <Tab value="active" label={t.tabActive.value} />
+          <Tab value="paused" label={t.tabPaused.value} />
+          <Tab value="cancelled" label={t.tabCancelled.value} />
+        </Tabs>
+        <Box sx={{ display: 'flex', gap: 1.5, ml: 'auto', flexShrink: 0 }}>
+          <ImportFromFileButton
+            target="subscriptions"
+            onImported={() => void props.invalidate()}
+            renderTrigger={(open, label) => (
+              <Button variant="outlined" onClick={open}>
+                {label}
+              </Button>
+            )}
+          />
+          <Button
+            variant="outlined"
+            onClick={() => {
+              void apiClient
+                .get<Blob>('/subscriptions/business-report', {
+                  params: { format: 'csv' },
+                  responseType: 'blob',
+                })
+                .then(response => {
+                  const url = URL.createObjectURL(response.data);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = 'business-subscriptions.csv';
+                  link.click();
+                  URL.revokeObjectURL(url);
+                });
+            }}
+          >
+            {t.businessReport}
+          </Button>
+          <Button variant="contained" onClick={props.openCreate}>
+            {t.addSubscription}
+          </Button>
+        </Box>
       </Box>
       <Box
         sx={{
@@ -300,23 +326,6 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
             </CardContent>
           </Card>
         ))}
-      </Box>
-      {/* The MuiTabs root itself gets a negative margin from the theme's
-          scrollable-tabs focus-ring override, which cancels an sx margin
-          set directly on it — so the spacing lives on this wrapper instead. */}
-      <Box sx={{ mt: 3, mb: 4 }}>
-        <Tabs
-          value={props.statusFilter}
-          onChange={(_, value) => props.setStatusFilter(value)}
-          variant="scrollable"
-          allowScrollButtonsMobile
-        >
-          <Tab value="all" label={t.tabAll.value} />
-          <Tab value="detected" label={t.tabDetected.value} />
-          <Tab value="active" label={t.tabActive.value} />
-          <Tab value="paused" label={t.tabPaused.value} />
-          <Tab value="cancelled" label={t.tabCancelled.value} />
-        </Tabs>
       </Box>
       <Box
         sx={{

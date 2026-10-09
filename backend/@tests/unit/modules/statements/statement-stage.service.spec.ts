@@ -73,7 +73,12 @@ function buildService(options: {
   const membership =
     options.role === null
       ? null
-      : { role: options.role ?? WorkspaceRole.MEMBER, permissions: options.permissions ?? {} };
+      : {
+          role: options.role ?? WorkspaceRole.MEMBER,
+          // A member writes only where a toggle says so; these cases are about
+          // stage movement, so the toggle is on unless a case sets it.
+          permissions: options.permissions ?? { canEditStatements: true },
+        };
   const workspaceMemberRepository = { findOne: jest.fn(async () => membership) };
   const userRepository = { findOne: jest.fn(async () => ({ id: ME, email: 'me@example.com' })) };
   const auditService = { createBatchEvents: jest.fn(async () => ({ batchId: 'b', events: [] })) };

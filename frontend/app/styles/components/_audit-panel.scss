@@ -33,7 +33,7 @@
 /* ── Activity log page layout ─────────────────────────────────── */
 .audit-page {
   max-width: 900px;
-  padding: 32px 24px;
+  padding: var(--lumio-page-top, 32px) 24px 32px;
 }
 
 .audit-page__head {
@@ -103,7 +103,6 @@
   background: $color-card-bg;
   border: 1px solid $lumio-color-ink-150;
   border-radius: $lumio-radius-md;
-  outline: none;
   transition: border-color 0.12s;
 
   @include dark {
@@ -121,6 +120,7 @@
   }
 
   &:focus {
+    outline: none;
     border-color: var(--primary);
   }
 }

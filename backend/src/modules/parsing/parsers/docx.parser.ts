@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { assertSafeZipDecompressionRatio } from '../../../common/utils/zip-bomb-guard.util';
 
 import AdmZip = require('adm-zip');
@@ -36,7 +37,7 @@ export class DocxParser extends BaseTabularParser {
 
     const tables = this.extractTables(xml);
     const fullText = this.extractPlainText(xml);
-    const detectedCurrency = this.detectCurrency(fullText) || 'KZT';
+    const detectedCurrency = this.detectCurrency(fullText) || appDefaultCurrency();
     const contextYear = this.findContextYear(fullText);
 
     const transactions: ParsedTransaction[] = [];

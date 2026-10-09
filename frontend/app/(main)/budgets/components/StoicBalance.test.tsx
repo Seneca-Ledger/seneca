@@ -6,14 +6,18 @@ import type { StoicBalance as StoicBalanceData } from '../hooks/useStoicBalance'
 import { StoicBalance } from './StoicBalance';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
+const searchParams = vi.hoisted(() => ({ current: new URLSearchParams() }));
 
 vi.mock('@/app/lib/api', () => ({ default: apiMocks }));
+vi.mock('next/navigation', () => ({ useSearchParams: () => searchParams.current }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
 // Every dictionary entry renders as its own key, so the test reads the keys.
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () =>
     new Proxy({}, { get: (_, key: string) => ({ value: key, toString: () => key }) }),
+  // The month above the classes is formatted, not translated.
+  useLocale: () => ({ locale: 'en' }),
 }));
 
 const totals = (partial: Partial<StoicBalanceData['months'][number]['actual']>) => ({
@@ -32,6 +36,13 @@ const balance: StoicBalanceData = {
       monthsAgo: 0,
       intended: totals({ necessity: 500, leisure: 100 }),
       actual: totals({ necessity: 300, leisure: 300, unclassified: 50 }),
+      overBudgetCategoryIds: [],
+    },
+    {
+      month: '2026-08',
+      monthsAgo: 1,
+      intended: totals({ necessity: 500, leisure: 100 }),
+      actual: totals({ necessity: 900, leisure: 100 }),
       overBudgetCategoryIds: [],
     },
   ],
@@ -91,6 +102,7 @@ describe('StoicBalance', () => {
   beforeEach(() => {
     apiMocks.get.mockReset().mockResolvedValue({ data: balance });
     apiMocks.put.mockReset().mockResolvedValue({ data: {} });
+    searchParams.current = new URLSearchParams();
   });
 
   it('shows plan and reality as shares, and asks about unjudged categories first', async () => {
@@ -117,6 +129,25 @@ describe('StoicBalance', () => {
       expect(apiMocks.put).toHaveBeenCalledWith('/categories/misc', { stoicClass: 'virtue' }),
     );
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(2));
+  });
+
+  it('reads the month an advice link names, not the running one', async () => {
+    // In the first days of a month the advice judges the month that ended;
+    // showing September here would ring a card the advice never weighed.
+    searchParams.current = new URLSearchParams('month=2026-08');
+    renderWithQuery(<StoicBalance />);
+
+    expect(await screen.findByRole('img', { name: /actual: classNecessity 90%/ })).toBeTruthy();
+  });
+
+  it('walks back to the month before it and forward again', async () => {
+    renderWithQuery(<StoicBalance />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'previousMonth' }));
+    expect(await screen.findByRole('img', { name: /actual: classNecessity 90%/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'nextMonth' }));
+    expect(await screen.findByRole('img', { name: /actual: .*classLeisure 46%/ })).toBeTruthy();
   });
 
   it('lets a virtue category be marked as help given to others', async () => {

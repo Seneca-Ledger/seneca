@@ -32,8 +32,13 @@ export class Workspace {
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'background_image' })
   backgroundImage: string | null;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
-  currency: string | null;
+  /**
+   * The currency this workspace works in, and the one every amount in it falls
+   * back to. Required: a workspace without a currency is how a hardcoded
+   * default used to leak into transactions, budgets and invoices.
+   */
+  @Column({ type: 'varchar', length: 10 })
+  currency: string;
 
   /**
    * Currency the double-entry ledger balances in. NULL means the ledger is off

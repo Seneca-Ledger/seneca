@@ -4,11 +4,21 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Between, In, IsNull, MoreThanOrEqual, type Repository } from 'typeorm';
+import {
+  Between,
+  In,
+  IsNull,
+  MoreThanOrEqual,
+  type Repository,
+  type SelectQueryBuilder,
+} from 'typeorm';
 import * as xlsx from 'xlsx';
 import { appError } from '../../common/errors/app-error';
+import { countedWhere, onlyCounted } from '../../common/utils/counted-transactions.util';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { formatMoney } from '../../common/utils/format-money.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
+import { applyOwnerFilter, parseOwnerFilter } from '../../common/utils/transaction-owner.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Branch } from '../../entities/branch.entity';
@@ -1244,32 +1254,28 @@ export class ReportsService {
     endOfDay.setHours(23, 59, 59, 999);
 
     // Get income transactions
-    const incomeTransactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    const incomeTransactions = await this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionType = :type', { type: TransactionType.INCOME })
       .andWhere('transaction.transactionDate >= :start', { start: startOfDay })
       .andWhere('transaction.transactionDate <= :end', { end: endOfDay })
       .getMany();
 
     // Get expense transactions
-    const expenseTransactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    const expenseTransactions = await this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionType = :type', { type: TransactionType.EXPENSE })
       .andWhere('transaction.transactionDate >= :start', { start: startOfDay })
       .andWhere('transaction.transactionDate <= :end', { end: endOfDay })
       .getMany();
 
     // Calculate income block
-    const incomeTotal = incomeTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const incomeTotal = incomeTransactions.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const counterpartyMap = new Map<string, { amount: number; count: number }>();
     incomeTransactions.forEach(t => {
       const existing = counterpartyMap.get(t.counterpartyName) || { amount: 0, count: 0 };
       counterpartyMap.set(t.counterpartyName, {
-        amount: existing.amount + (t.amount || 0),
+        amount: existing.amount + Number(t.amount ?? 0),
         count: existing.count + 1,
       });
     });
@@ -1280,7 +1286,7 @@ export class ReportsService {
       .slice(0, 10);
 
     // Calculate expense block
-    const expenseTotal = expenseTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const expenseTotal = expenseTransactions.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const categoryMap = new Map<string, { name: string; amount: number; count: number }>();
     expenseTransactions.forEach(t => {
       const categoryId = t.categoryId || 'uncategorized';
@@ -1288,7 +1294,7 @@ export class ReportsService {
       const existing = categoryMap.get(categoryId) || { name: categoryName, amount: 0, count: 0 };
       categoryMap.set(categoryId, {
         name: categoryName,
-        amount: existing.amount + (t.amount || 0),
+        amount: existing.amount + Number(t.amount ?? 0),
         count: existing.count + 1,
       });
     });
@@ -1347,12 +1353,10 @@ export class ReportsService {
     const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
     // Get all transactions for the month
-    const transactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    const transactions = await this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.branch', 'branch')
       .leftJoinAndSelect('transaction.wallet', 'wallet')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :start', { start: startDate })
       .andWhere('transaction.transactionDate <= :end', { end: endDate })
       .getMany();
@@ -1360,12 +1364,12 @@ export class ReportsService {
     // Calculate daily trends
     const dailyMap = new Map<string, { income: number; expense: number }>();
     transactions.forEach(t => {
-      const dateKey = t.transactionDate.toISOString().split('T')[0];
+      const dateKey = dayOf(t.transactionDate);
       const existing = dailyMap.get(dateKey) || { income: 0, expense: 0 };
       if (t.transactionType === TransactionType.INCOME) {
-        existing.income += t.amount || 0;
+        existing.income += Number(t.amount ?? 0);
       } else {
-        existing.expense += t.amount || 0;
+        existing.expense += Number(t.amount ?? 0);
       }
       dailyMap.set(dateKey, existing);
     });
@@ -1384,7 +1388,7 @@ export class ReportsService {
         const existing = categoryMap.get(categoryId) || { name: categoryName, amount: 0, count: 0 };
         categoryMap.set(categoryId, {
           name: categoryName,
-          amount: existing.amount + (t.amount || 0),
+          amount: existing.amount + Number(t.amount ?? 0),
           count: existing.count + 1,
         });
       });
@@ -1405,7 +1409,7 @@ export class ReportsService {
     transactions.forEach(t => {
       const existing = counterpartyMap.get(t.counterpartyName) || { amount: 0, count: 0 };
       counterpartyMap.set(t.counterpartyName, {
-        amount: existing.amount + (t.amount || 0),
+        amount: existing.amount + Number(t.amount ?? 0),
         count: existing.count + 1,
       });
     });
@@ -1425,27 +1429,25 @@ export class ReportsService {
     const previousStartDate = new Date(year, month - 2, 1);
     const previousEndDate = new Date(year, month - 1, 0, 23, 59, 59, 999);
 
-    const previousTransactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
+    const previousTransactions = await this.countedTransactions(workspaceId)
       .andWhere('transaction.transactionDate >= :start', { start: previousStartDate })
       .andWhere('transaction.transactionDate <= :end', { end: previousEndDate })
       .getMany();
 
     const currentIncome = transactions
       .filter(t => t.transactionType === TransactionType.INCOME)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const currentExpense = transactions
       .filter(t => t.transactionType === TransactionType.EXPENSE)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const currentDifference = currentIncome - currentExpense;
 
     const previousIncome = previousTransactions
       .filter(t => t.transactionType === TransactionType.INCOME)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const previousExpense = previousTransactions
       .filter(t => t.transactionType === TransactionType.EXPENSE)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const previousDifference = previousIncome - previousExpense;
 
     const incomeChange = currentIncome - previousIncome;
@@ -1519,17 +1521,15 @@ export class ReportsService {
    * Latest transaction date in ISO (YYYY-MM-DD) or null
    */
   async getLatestTransactionDate(workspaceId: string): Promise<string | null> {
-    const latest = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
+    const latest = await this.countedTransactions(workspaceId)
       .orderBy('transaction.transactionDate', 'DESC')
       .select('transaction.transactionDate', 'transactionDate')
-      .getRawOne<{ transactionDate: Date }>();
+      .getRawOne<{ transactionDate: Date | string }>();
 
     if (!latest?.transactionDate) {
       return null;
     }
-    return latest.transactionDate.toISOString().split('T')[0];
+    return dayOf(latest.transactionDate);
   }
 
   /**
@@ -1540,12 +1540,10 @@ export class ReportsService {
     const dateTo = new Date(dto.dateTo);
 
     // Build query
-    const queryBuilder = this.transactionRepository
-      .createQueryBuilder('transaction')
+    const queryBuilder = this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.branch', 'branch')
       .leftJoinAndSelect('transaction.wallet', 'wallet')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :dateFrom', { dateFrom })
       .andWhere('transaction.transactionDate <= :dateTo', { dateTo });
 
@@ -1587,15 +1585,16 @@ export class ReportsService {
           key = t.walletId || 'unassigned';
           label = t.wallet?.name || 'Не назначен';
           break;
-        case ReportGroupBy.DAY:
-          key = t.transactionDate.toISOString().split('T')[0];
-          label = t.transactionDate.toLocaleDateString('ru-RU');
+        case ReportGroupBy.DAY: {
+          key = dayOf(t.transactionDate);
+          const [year, month, day] = key.split('-');
+          label = `${day}.${month}.${year}`;
           break;
+        }
         case ReportGroupBy.MONTH: {
-          const month = t.transactionDate.getMonth() + 1;
-          const year = t.transactionDate.getFullYear();
-          key = `${year}-${month.toString().padStart(2, '0')}`;
-          label = `${month.toString().padStart(2, '0')}.${year}`;
+          const [year, month] = dayOf(t.transactionDate).split('-');
+          key = `${year}-${month}`;
+          label = `${month}.${year}`;
           break;
         }
         default:
@@ -1611,13 +1610,13 @@ export class ReportsService {
         transactions: [],
       };
 
-      existing.totalAmount += t.amount || 0;
+      existing.totalAmount += Number(t.amount ?? 0);
       existing.transactionCount += 1;
       existing.transactions.push({
         id: t.id,
-        date: t.transactionDate.toISOString().split('T')[0],
+        date: dayOf(t.transactionDate),
         counterparty: t.counterpartyName,
-        amount: t.amount || 0,
+        amount: Number(t.amount ?? 0),
         category: t.category?.name,
         branch: t.branch?.name,
         wallet: t.wallet?.name,
@@ -1630,10 +1629,10 @@ export class ReportsService {
 
     const totalIncome = transactions
       .filter(t => t.transactionType === TransactionType.INCOME)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const totalExpense = transactions
       .filter(t => t.transactionType === TransactionType.EXPENSE)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
 
     const report: CustomReport = {
       dateFrom: dto.dateFrom,
@@ -1687,16 +1686,10 @@ export class ReportsService {
     workspaceId: string,
     format: WorkspaceExportFormat,
   ): Promise<{ filePath: string; fileName: string; mimeType: string }> {
-    const transactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    const transactions = await this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.branch', 'branch')
       .leftJoinAndSelect('transaction.wallet', 'wallet')
-      .leftJoin('transaction.statement', 'statement')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.isDuplicate = false')
-      .andWhere('transaction.transferPairId IS NULL')
-      .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
       .orderBy('transaction.transactionDate', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC')
       .getMany();
@@ -1758,7 +1751,7 @@ export class ReportsService {
       debit: transaction.debit != null ? Number(transaction.debit) : null,
       credit: transaction.credit != null ? Number(transaction.credit) : null,
       amount: transaction.amount != null ? Number(transaction.amount) : null,
-      currency: transaction.currency || 'KZT',
+      currency: currencyCodeOrDefault(transaction.currency),
       category: neutralize(transaction.category?.name) || UNCATEGORIZED_CATEGORY_NAME,
       branch: neutralize(transaction.branch?.name),
       wallet: neutralize(transaction.wallet?.name),
@@ -2188,10 +2181,8 @@ export class ReportsService {
     since.setDate(since.getDate() - safeDays);
     since.setHours(0, 0, 0, 0);
 
-    const transactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    const transactions = await this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :since', { since })
       .orderBy('transaction.updatedAt', 'DESC')
       .take(2000)
@@ -2267,6 +2258,7 @@ export class ReportsService {
   async getTopCategoriesReport(
     workspaceId: string,
     query: TopCategoriesQueryDto,
+    selfMemberId: string | null = null,
   ): Promise<TopCategoriesReport> {
     const safeLimit = Number.isFinite(query.limit)
       ? Math.min(Math.max(query.limit || 20, 1), 100)
@@ -2277,11 +2269,9 @@ export class ReportsService {
       ? new Date(query.dateFrom)
       : new Date(new Date(to).setDate(to.getDate() - 30));
 
-    const qb = this.transactionRepository
-      .createQueryBuilder('transaction')
+    const qb = this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.statement', 'statement')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :from', { from })
       .andWhere('transaction.transactionDate <= :to', { to });
 
@@ -2298,6 +2288,8 @@ export class ReportsService {
     if (query.bankName) {
       qb.andWhere('statement.bankName = :bankName', { bankName: query.bankName });
     }
+
+    applyOwnerFilter(qb, 'transaction', parseOwnerFilter(query.owner, selfMemberId));
 
     if (query.counterparties) {
       const counterparties = query.counterparties
@@ -2518,6 +2510,7 @@ export class ReportsService {
   async getSpendOverTimeReport(
     workspaceId: string,
     query: SpendOverTimeQueryDto,
+    selfMemberId: string | null = null,
   ): Promise<{
     groupBy: string;
     dateFrom: string;
@@ -2548,11 +2541,9 @@ export class ReportsService {
     const from = this.toStartOfUtcDay(startDate);
     const to = this.toEndOfUtcDay(endDate);
 
-    const qb = this.transactionRepository
-      .createQueryBuilder('transaction')
+    const qb = this.countedTransactions(workspaceId)
       .innerJoin('transaction.statement', 'statement')
       .leftJoin('transaction.category', 'category')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :from', { from })
       .andWhere('transaction.transactionDate <= :to', { to });
 
@@ -2569,6 +2560,8 @@ export class ReportsService {
     if (query.bankName) {
       qb.andWhere('statement.bankName = :bankName', { bankName: query.bankName });
     }
+
+    applyOwnerFilter(qb, 'transaction', parseOwnerFilter(query.owner, selfMemberId));
 
     if (query.counterparties) {
       const counterparties = query.counterparties
@@ -2919,10 +2912,7 @@ export class ReportsService {
   }
 
   private normalizeCurrency(currency: string | null | undefined): string {
-    const normalized = String(currency || '')
-      .trim()
-      .toUpperCase();
-    return /^[A-Z]{3}$/.test(normalized) ? normalized : 'KZT';
+    return currencyCodeOrDefault(currency);
   }
 
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
@@ -2957,6 +2947,22 @@ export class ReportsService {
     return rates;
   }
 
+  /**
+   * What a report, export or summary counts: confirmed rows (a row waiting in
+   * Review is listed elsewhere, never summed) that are not suspected
+   * duplicates, not transfers between the user's own accounts and not on a
+   * trashed statement. The trash check is a subquery so callers can still join
+   * the statement under their own alias.
+   */
+  private countedTransactions(workspaceId: string): SelectQueryBuilder<Transaction> {
+    return onlyCounted(
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+      'transaction',
+    ).andWhere('transaction.transferPairId IS NULL');
+  }
+
   private async loadReportRows(
     workspaceId: string,
     dto: GenerateReportDto,
@@ -2965,18 +2971,18 @@ export class ReportsService {
     const dateTo = new Date(dto.dateTo);
     dateTo.setUTCHours(23, 59, 59, 999);
 
+    const where = countedWhere({
+      workspaceId,
+      transferPairId: IsNull(),
+      transactionDate: Between(dateFrom, dateTo),
+      // An empty array would compile to `IN ()` and match nothing, so an
+      // unset filter has to drop the key entirely rather than pass [].
+      ...(dto.walletIds?.length ? { walletId: In(dto.walletIds) } : {}),
+      ...(dto.categoryIds?.length ? { categoryId: In(dto.categoryIds) } : {}),
+    });
     const [transactions, currency] = await Promise.all([
       this.transactionRepository.find({
-        where: {
-          workspaceId,
-          isDuplicate: false,
-          transferPairId: IsNull(),
-          transactionDate: Between(dateFrom, dateTo),
-          // An empty array would compile to `IN ()` and match nothing, so an
-          // unset filter has to drop the key entirely rather than pass [].
-          ...(dto.walletIds?.length ? { walletId: In(dto.walletIds) } : {}),
-          ...(dto.categoryIds?.length ? { categoryId: In(dto.categoryIds) } : {}),
-        },
+        where,
         relations: ['category'],
       }),
       this.getWorkspaceCurrency(workspaceId),
@@ -3271,4 +3277,13 @@ export class ReportsService {
       contentType,
     };
   }
+}
+
+/**
+ * The calendar day of a `date` column as YYYY-MM-DD. Postgres hands such a
+ * column back as that string, not as the `Date` the entity declares, so
+ * calling Date methods on it throws.
+ */
+function dayOf(value: Date | string): string {
+  return typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10);
 }

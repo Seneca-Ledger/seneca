@@ -89,6 +89,9 @@ async function bootstrap() {
   // Serve only public frontend assets and explicitly public upload subtrees.
   const publicPath = path.join(__dirname, 'public');
   for (const mount of resolveStaticAssetMounts(uploadsDir, publicPath)) {
+    if (mount.ensure) {
+      fs.mkdirSync(mount.root, { recursive: true });
+    }
     if (fs.existsSync(mount.root)) {
       // biome-ignore lint/correctness/useHookAtTopLevel: NestJS app.use* methods are not React hooks
       app.useStaticAssets(mount.root, mount.prefix ? { prefix: mount.prefix } : undefined);
@@ -130,7 +133,9 @@ async function bootstrap() {
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
-    exposedHeaders: ['x-request-id', 'x-trace-id'],
+    // content-disposition: file downloads read the server's file name from it;
+    // hidden from cross-origin JS, every export fell back to a generic name.
+    exposedHeaders: ['x-request-id', 'x-trace-id', 'content-disposition'],
   });
 
   // Swagger / OpenAPI

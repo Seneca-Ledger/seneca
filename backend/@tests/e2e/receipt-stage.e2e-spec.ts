@@ -50,8 +50,8 @@ describe('Receipt stage and approval (e2e)', () => {
   async function insertStatement(account: E2eAccount): Promise<string> {
     const [row] = await dataSource.query(
       `INSERT INTO statements
-         (user_id, workspace_id, file_name, file_path, file_type, file_size, file_hash, bank_name, status)
-       VALUES ($1, $2, 'scan.jpg', '/dev/null', 'image', 1, md5(random()::text), 'other', 'completed')
+         (user_id, workspace_id, file_name, file_path, file_type, file_size, file_hash, bank_name, status, currency)
+       VALUES ($1, $2, 'scan.jpg', '/dev/null', 'image', 1, md5(random()::text), 'other', 'completed', 'USD')
        RETURNING id`,
       [account.userId, account.workspaceId],
     );
@@ -210,6 +210,7 @@ describe('Receipt stage and approval (e2e)', () => {
           counterpartyName: 'Race probe',
           paymentPurpose: 'Race probe',
           amount: 3,
+          currency: 'USD',
           transactionType: TransactionType.EXPENSE,
         })),
       ),

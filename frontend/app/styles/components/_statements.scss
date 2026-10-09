@@ -321,14 +321,14 @@
   height: calc(100vh - $global-nav-height);
   min-height: 0;
   overflow: hidden;
-  padding: 24px 16px;
+  padding: var(--lumio-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: 24px;
+    padding: var(--lumio-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: 24px 32px;
+    padding: var(--lumio-page-top, 24px) 32px 24px;
   }
 
   &__header {
@@ -377,7 +377,6 @@
     padding: 12px 16px 12px 44px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 
     @include dark {
@@ -387,6 +386,7 @@
     }
 
     &:focus {
+      outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
@@ -1054,7 +1054,6 @@
     padding: 0 16px 0 48px;
     font-size: 16px;
     color: $color-foreground;
-    outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 
     @include dark {
@@ -1064,6 +1063,7 @@
     }
 
     &:focus {
+      outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
     }
@@ -1255,50 +1255,6 @@
 }
 
 /* ── Payables ──────────────────────────────────────────── */
-.lumio-payable-filters {
-  border-radius: $lumio-radius-lg;
-  border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
-  padding: 16px;
-
-  @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
-  }
-
-  &__inner {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    @media (min-width: 1280px) {
-      flex-direction: row;
-      align-items: center;
-    }
-  }
-
-  &__search {
-    position: relative;
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-
-    @media (min-width: 640px) {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    @media (min-width: 1280px) {
-      grid-template-columns: repeat(4, 1fr);
-      align-items: center;
-    }
-  }
-}
-
 .lumio-payable-list {
   border-radius: $lumio-radius-lg;
   border: 1px solid #e5e7eb;
@@ -1482,14 +1438,14 @@
 // Unlike .lumio-stmt-list this page has no inner scroller, so it must not cap
 // its own height — the form flows and the shell's main area scrolls.
 .lumio-invoice-detail {
-  padding: 24px 16px;
+  padding: var(--lumio-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: 24px;
+    padding: var(--lumio-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: 24px 32px;
+    padding: var(--lumio-page-top, 24px) 32px 24px;
   }
 
   &__header {
@@ -1664,11 +1620,6 @@
   &__field-group {
     display: grid;
     gap: 8px;
-
-    &--floating-select {
-      display: block;
-      position: relative;
-    }
   }
 
   &__field-label {
@@ -1678,24 +1629,6 @@
 
     @include dark {
       color: $lumio-color-ink-700-dk;
-    }
-  }
-
-  &__field-group--floating-select &__field-label {
-    position: absolute;
-    z-index: 1;
-    top: -7px;
-    left: 12px;
-    padding: 0 4px;
-    background: $lumio-color-surface;
-    font-size: 12px;
-    line-height: 1;
-    color: #64748b;
-    pointer-events: none;
-
-    @include dark {
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-500-dk;
     }
   }
 
@@ -1712,14 +1645,15 @@
   &__currency-trigger {
     display: flex;
     width: 100%;
-    height: 40px;
+    // Same as FORM_CONTROL_SX, so it lines up with the Amount input beside it.
+    height: 48px;
     align-items: center;
     border-radius: $lumio-radius-md;
     border: 1px solid $color-border;
     background: $lumio-color-surface;
-    padding: 0 12px;
+    padding: 0 14px;
     color: $color-foreground;
-    font-size: 14px;
+    font-size: 16px;
     text-align: left;
     cursor: pointer;
     outline: none;
@@ -1768,6 +1702,28 @@
 }
 
 /* ── SpendOverTime / TopCategories / TopMerchants ─────────── */
+/* ── Reports → Cash flow: the three leaderboards as stacked sections ── */
+.lumio-cash-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* The tab's header owns the month and the toggles, so a section needs
+     nothing but its name to say which leaderboard this is. */
+  &__section-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+}
+
 .lumio-view-page {
   display: flex;
   flex-direction: column;
@@ -1892,7 +1848,6 @@
     padding: 12px 16px 12px 44px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 
     @include dark {
@@ -1902,6 +1857,7 @@
     }
 
     &:focus {
+      outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
@@ -2572,14 +2528,14 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: 24px 16px;
+  padding: var(--lumio-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: 24px;
+    padding: var(--lumio-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: 24px 32px;
+    padding: var(--lumio-page-top, 24px) 32px 24px;
   }
 
   &__header {
@@ -2614,7 +2570,6 @@
     padding: 12px 16px 12px 44px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s;
 
     @include dark {
@@ -2632,6 +2587,7 @@
     }
 
     &:focus {
+      outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
@@ -3177,6 +3133,101 @@
   }
 }
 
+// The category chip in a statement row is a link to that category's row on the
+// Top categories leaderboard. It stays quiet at first and only answers a hover
+// that lingers: the green sweep is an invitation to click, not a hover state,
+// so it must not fire while the pointer crosses the column on its way
+// elsewhere. The `--lit` class is put on by the component after that wait
+// (CATEGORY_LINK_DELAY_MS in StatementsListItem.tsx) and is also what makes the
+// link navigate — before it, a click belongs to the row — so the wait lives
+// there, in one place, rather than in a `transition-delay` here.
+.lumio-stmt-category-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+
+  &__badge {
+    display: flex;
+    flex-shrink: 0;
+    // The wrapper hugs the circle: with a line box of its own it would be
+    // taller than the badge, and anything it painted would show as corners
+    // around the round icon.
+    line-height: 0;
+  }
+
+  // The badge paints itself in the category's own colour through an inline MUI
+  // class; two class names plus a child selector outrank it.
+  & &__badge > * {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  &__text {
+    position: relative;
+    min-width: 0;
+
+    // A second copy of the label, in green, fading in over the first: a
+    // gradient cannot be transitioned, so the shimmer needs a layer of its own.
+    // `attr()` keeps it out of the DOM and out of the accessibility tree.
+    &::after {
+      content: attr(data-label);
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      // The bright band is mixed with white rather than taken from
+      // --primary-200: that token is translucent in dark mode, and a
+      // translucent stop behind `background-clip: text` punches a hole in the
+      // glyphs instead of lighting them up.
+      background: linear-gradient(
+        100deg,
+        var(--primary) 30%,
+        color-mix(in srgb, var(--primary) 45%, #fff) 45%,
+        var(--primary) 60%
+      );
+      background-size: 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  }
+
+  // Lit: the label shimmers green and the icon breathes green from the inside.
+  // The pulse is the circle's own fill, never a ring around it — an outer glow
+  // on a 22px badge reads as a square smudge, not as a halo.
+  &--lit &__text::after {
+    opacity: 1;
+
+    @media (prefers-reduced-motion: no-preference) {
+      animation: lumio-category-link-shimmer 2.4s linear infinite;
+    }
+  }
+
+  &--lit &__badge > * {
+    background-color: color-mix(in srgb, var(--primary) 20%, transparent);
+    color: var(--primary);
+
+    @media (prefers-reduced-motion: no-preference) {
+      animation: lumio-category-link-pulse 2.4s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes lumio-category-link-shimmer {
+  to { background-position: -300% 0; }
+}
+
+@keyframes lumio-category-link-pulse {
+  50% { background-color: color-mix(in srgb, var(--primary) 38%, transparent); }
+}
+
 // On the flat white list the app's filled grey checkbox read as one more
 // tile under every row; here an unchecked box is just an outline.
 .lumio-stmt-list-item,
@@ -3227,14 +3278,14 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: 16px;
+  padding: var(--lumio-page-top, 16px) 16px 16px;
 
   @media (min-width: 640px) {
-    padding: 16px 24px;
+    padding: var(--lumio-page-top, 16px) 24px 16px;
   }
 
   @media (min-width: 1024px) {
-    padding: 16px 32px;
+    padding: var(--lumio-page-top, 16px) 32px 16px;
   }
 
   &__header {
@@ -3264,7 +3315,6 @@
     padding: 8px 16px 8px 40px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s;
 
     @include dark {
@@ -3282,6 +3332,7 @@
     }
 
     &:focus {
+      outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
@@ -3311,6 +3362,21 @@
     overflow-x: auto;
     overflow-y: visible;
     padding-bottom: 8px;
+  }
+
+  // The list's own controls, on the first row inside the white block: From on the
+  // left edge, the column picker on the right.
+  &__table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid $lumio-color-ink-150;
+
+    @include dark {
+      border-bottom-color: $lumio-color-ink-150-dk;
+    }
   }
 
   // One white block for the whole list; rows inside are flat and divided
@@ -4035,14 +4101,14 @@
   height: calc(100vh - $global-nav-height);
   min-height: 0;
   overflow: hidden;
-  padding: 24px 16px;
+  padding: var(--lumio-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: 24px;
+    padding: var(--lumio-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: 24px 32px;
+    padding: var(--lumio-page-top, 24px) 32px 24px;
   }
 
   &__body {
@@ -4149,7 +4215,6 @@
     padding: 8px 16px 8px 40px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s;
 
     @include dark {
@@ -4159,6 +4224,7 @@
     }
 
     &:focus {
+      outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
@@ -4427,52 +4493,290 @@
 /* ── Unapproved-cash filter row ───────────────────────────
    Seven tracks beside each other on desktop; the same row wrapped to three
    and then two on narrower screens, where seven inputs could not fit. */
-.lumio-filter-grid {
-  display: grid;
-  gap: 8px;
-  /* Seven `1fr` tracks, as before: on a wide row they size to their contents,
-     which keeps the two selects' labels whole. */
-  grid-template-columns: repeat(7, 1fr);
+/* ── Spend-over-time drill-down ───────────────────────────
+   The table on wider screens, a two-line list per operation on phones. */
+.lumio-spend-drill {
+  &__list {
+    display: none;
+  }
 
   @include respond-to('md') {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+    &__table {
+      display: none;
+    }
 
-  @include respond-to('sm') {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+    &__list {
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
 
-  &__search {
-    position: relative;
-    grid-column: span 2;
+    &__item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 4px 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+
+      &:last-child {
+        border-bottom: 0;
+      }
+    }
+
+    &__merchant {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    &__amount {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--foreground);
+      white-space: nowrap;
+    }
+
+    &__meta {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
   }
 }
 
 /* ── Spend-over-time calendar ─────────────────────────────
-   A day cell needs about 100px to show a merchant and an amount. Narrower
-   than that the cells' contents ran across their neighbours, so the month
-   grid keeps a workable width and the wrapper scrolls sideways instead. */
+   Desktop: a month of day cards, each listing its top merchants.
+   Phones: a card needs ~100px for a merchant, seven of those do not fit, so
+   the grid shrinks to day numbers with a short total and the month's days
+   with spending are listed under it instead. */
 .lumio-spend-calendar {
-  &__scroll {
-    @include respond-to('md') {
-      overflow-x: auto;
-      overscroll-behavior-x: contain;
-    }
-  }
-
   &__grid {
-    @include respond-to('md') {
-      min-width: 700px;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px;
+
+    &--weekdays {
+      margin-bottom: 10px;
     }
   }
 
-  /* The day number and the day's total share one line while there is room for
-     both; on the narrower cells the total drops under the number instead of
-     running over the cell's edge. */
-  &__day-head {
-    @include respond-to('md') {
-      flex-wrap: wrap;
-      gap: 2px;
+  &__weekday {
+    padding: 0 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+
+  &__day {
+    min-width: 0;
+    min-height: 62px;
+    padding: 8px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--foreground);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 4px;
+    text-align: left;
+    cursor: default;
+
+    &--active {
+      background: rgba(92, 196, 98, 0.1);
+      cursor: pointer;
+    }
+
+    &--outside {
+      border-style: dashed;
+      border-color: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.01);
+      opacity: 0.5;
+    }
+  }
+
+  &__day-number {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  &__day-total {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  &__day-compact {
+    display: none;
+  }
+
+  &__agenda {
+    display: none;
+  }
+
+  &__empty {
+    margin-top: 16px;
+    border-radius: 16px;
+    border: 1px dashed var(--border-color);
+    padding: 20px;
+    text-align: center;
+    color: var(--muted-foreground);
+  }
+
+  @include respond-to('lg') {
+    &__grid {
+      gap: 6px;
+    }
+
+    &__day {
+      min-height: 54px;
+      padding: 6px;
+    }
+  }
+
+  @include respond-to('md') {
+    &__grid {
+      gap: 4px;
+
+      &--weekdays {
+        margin-bottom: 6px;
+      }
+    }
+
+    &__weekday {
+      padding: 0;
+      font-size: 10px;
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+
+    &__day {
+      min-height: 0;
+      aspect-ratio: 1 / 1.1;
+      padding: 4px 2px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      text-align: center;
+
+      &--outside {
+        border-color: transparent;
+        background: transparent;
+        opacity: 0.35;
+      }
+    }
+
+    &__day-number {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    &__day--active &__day-number {
+      font-weight: 700;
+    }
+
+    &__day-total {
+      display: none;
+    }
+
+    &__day-compact {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: clip;
+      white-space: nowrap;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      color: var(--primary);
+    }
+
+    &__agenda {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 14px 0 0;
+      padding: 14px 0 0;
+      list-style: none;
+      border-top: 1px solid var(--border-color);
+    }
+
+    &__agenda-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--foreground);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    &__agenda-date {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      width: 36px;
+    }
+
+    &__agenda-day {
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    &__agenda-weekday {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+    }
+
+    &__agenda-merchants {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    &__agenda-total {
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    &__empty {
+      margin-top: 12px;
+      padding: 14px;
     }
   }
 }

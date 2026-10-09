@@ -71,7 +71,7 @@ export interface DataHealthLabels {
 export const HREFS = {
   uncategorized: '/statements/submit?categoryId=uncategorized',
   statementErrors: '/statements?status=error',
-  pendingReview: '/statements/approve',
+  pendingReview: '/review',
   receipts: '/statements/submit?status=needs_review',
   parsingWarnings: '/statements?filter=has_errors',
 } as const;

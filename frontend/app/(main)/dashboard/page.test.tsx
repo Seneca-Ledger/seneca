@@ -11,6 +11,9 @@ const effectivePeriod = vi.hoisted(() => ({ current: null as string | null }));
 
 const searchParams = vi.hoisted(() => ({ current: new URLSearchParams() }));
 
+// Reads the Review counts through React Query; its own test covers it.
+vi.mock('@/app/components/review/UnconfirmedNotice', () => ({ UnconfirmedNotice: () => null }));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace }),
   usePathname: () => '/dashboard',
@@ -74,12 +77,6 @@ vi.mock('@/app/components/dashboard/TrendsTab', () => ({
 
 vi.mock('@/app/components/dashboard/DataHealthTab', () => ({
   DataHealthTab: () => <div>Data health tab</div>,
-}));
-
-vi.mock('@/app/components/dashboard/ExportDropdown', () => ({
-  ExportDropdown: ({ t }: { t: { button: { value: string } } }) => (
-    <div data-testid="export-dropdown">{t.button.value}</div>
-  ),
 }));
 
 vi.mock('@/app/contexts/WorkspaceContext', () => ({
@@ -150,16 +147,12 @@ vi.mock('@/app/i18n', () => ({
       ready: { value: 'Ready' },
       idle: { value: 'Idle' },
     },
-    exportMenu: {
-      button: { value: 'Export' },
-    },
     tabs: {
       financeOps: { value: 'Finance Ops' },
       overview: { value: 'Overview' },
       trends: { value: 'Trends' },
       dataHealth: { value: 'Data Health' },
     },
-    uploadStatement: { value: 'Upload statement' },
     periodBanner: { value: 'Showing latest available period: {period}' },
     monthStripLabel: { value: 'Select month' },
     previousYear: { value: 'Previous year' },
@@ -181,28 +174,6 @@ describe('DashboardPage', () => {
     replace.mockClear();
     searchParams.current = new URLSearchParams();
     effectivePeriod.current = null;
-  });
-
-  it('renders the export dropdown in the header actions', () => {
-    render(<DashboardPage />);
-
-    expect(screen.getByTestId('export-dropdown')).toHaveTextContent('Export');
-  });
-
-  it('links Upload statement to statements with the scan drawer open', () => {
-    render(<DashboardPage />);
-
-    const link = screen.getByRole('link', { name: /upload statement/i });
-
-    expect(link.getAttribute('href')).toBe('/statements?openExpenseDrawer=scan');
-  });
-
-  it('renders the Upload statement action as a circular icon button', () => {
-    render(<DashboardPage />);
-
-    const link = screen.getByRole('link', { name: /upload statement/i });
-
-    expect(link.className).toContain('lumio-dashboard-header__icon-btn');
   });
 
   it('orders tabs Overview, Trends, Finance Ops, Data Health and defaults to Overview', () => {

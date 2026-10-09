@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-
 import { AuditEventDrawer } from '@/app/audit/components/AuditEventDrawer';
+import { NotesPanel } from '@/app/components/notes/NotesPanel';
 import { useIntlayer } from '@/app/i18n';
 
 import { DrawerShell } from '../ui/drawer-shell';
@@ -36,7 +36,8 @@ export default function DetailsDrawer({
   onSplitDone,
 }: DetailsDrawerProps) {
   const t = useIntlayer('transactionsDrawer');
-  const [activeTab, setActiveTab] = useState<'details' | 'files' | 'history'>('details');
+  const notes = useIntlayer('notes');
+  const [activeTab, setActiveTab] = useState<'details' | 'files' | 'notes' | 'history'>('details');
   const filesLabels = {
     tabTitle: t.filesTabTitle.value,
     tagsTitle: t.filesTagsTitle.value,
@@ -87,6 +88,13 @@ export default function DetailsDrawer({
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('notes')}
+            className={`lumio-tx-drawer__tab${activeTab === 'notes' ? ' lumio-tx-drawer__tab--active' : ''}`}
+          >
+            {notes.title}
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('history')}
             className={`lumio-tx-drawer__tab${activeTab === 'history' ? ' lumio-tx-drawer__tab--active' : ''}`}
           >
@@ -105,6 +113,11 @@ export default function DetailsDrawer({
         )}
         {activeTab === 'files' && (
           <TransactionFilesTab transactionId={transaction.id} labels={filesLabels} />
+        )}
+        {activeTab === 'notes' && (
+          <div style={{ padding: 16 }}>
+            <NotesPanel entityType="transaction" entityId={transaction.id} />
+          </div>
         )}
         {activeTab === 'history' && (
           <TransactionHistoryTab

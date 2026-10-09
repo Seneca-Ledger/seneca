@@ -2,11 +2,17 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { act, render, screen } from '@testing-library/react';
 import React from 'react';
+import { renderToString } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetQueryClient } from './lib/query-client';
 
 const workspaceState = vi.hoisted(() => ({
   currentWorkspaceId: 'workspace-1',
+}));
+
+const themeMocks = vi.hoisted(() => ({
+  createAppTheme: vi.fn((_mode: string) => ({})),
+  persistPaletteModeCookie: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -57,6 +63,7 @@ vi.mock('@/app/lib/theme-preference', () => ({
   DEFAULT_THEME_PREFERENCE: 'light',
   THEME_STORAGE_EVENT: 'lumio-theme-change',
   getStoredThemePreference: () => 'light',
+  persistPaletteModeCookie: themeMocks.persistPaletteModeCookie,
   resolveThemePreference: (value: string) => value,
 }));
 
@@ -95,7 +102,7 @@ vi.mock('./hooks/useHTMLLanguage', () => ({
 }));
 
 vi.mock('./theme', () => ({
-  createAppTheme: () => ({}),
+  createAppTheme: themeMocks.createAppTheme,
 }));
 
 describe('Providers', () => {
@@ -185,5 +192,24 @@ describe('Providers', () => {
     );
 
     expect(screen.getByTestId('probe').textContent).toBe('probe-2');
+  });
+
+  it('renders the server markup in the palette mode remembered in the cookie', async () => {
+    const { Providers } = await import('./providers');
+    themeMocks.createAppTheme.mockClear();
+
+    // No effects on the server: this is the pre-mount render the user sees before hydration.
+    renderToString(<Providers initialLocale="en" initialPaletteMode="dark">test</Providers>);
+
+    expect(themeMocks.createAppTheme.mock.calls.map(call => call[0])).toEqual(['dark']);
+  });
+
+  it('remembers the resolved palette mode for the next server render', async () => {
+    const { Providers } = await import('./providers');
+    themeMocks.persistPaletteModeCookie.mockClear();
+
+    render(<Providers initialLocale="en" initialPaletteMode="dark">test</Providers>);
+
+    expect(themeMocks.persistPaletteModeCookie).toHaveBeenLastCalledWith('light');
   });
 });

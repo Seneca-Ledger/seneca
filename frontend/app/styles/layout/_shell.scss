@@ -1,33 +1,39 @@
 // _shell.scss — BEM block for the vertical sidebar shell
 @use '../abstracts' as *;
 
-// Height of the logo block atop the main sidebar, top margin included. Fixed, so
-// the second sidebar can put its first heading level with "Workspace" in CSS alone.
-$lumio-sidebar-brand-height: 92px;
+// Height of the brand row atop the sidebar; the same in every state, so nothing
+// shifts when the rail opens.
+$lumio-sidebar-brand-height: 44px;
 // The logo-lockup.svg viewBox, cropped to the artwork, so the lockup can be sized by height alone.
 // Quoted: it is a CSS `aspect-ratio` value, not a division for Sass to fold.
 $lumio-logo-lockup-ratio: '1716 / 370';
-// Vertical centre of the logo text inside that block.
-$lumio-sidebar-brand-center: $lumio-focus-ring-reach +
-  ($lumio-sidebar-brand-height - $lumio-focus-ring-reach) * 0.5;
 
 // ── Layout shell ──
 .lumio-shell {
-  // Shared with the logo, which centres itself on the sidebar's right edge.
-  --lumio-sidebar-width: 192px;
-  // Top padding of the sidebar section label, which the panel heading lines up to.
-  --lumio-nav-label-pad-top: 8px;
+  // Desktop has no top bar. The page starts on the brand row's line instead, so a
+  // page whose first row is a tab strip puts those tabs level with the logo.
+  --global-nav-height: #{$lumio-focus-ring-reach};
+  // Top gutter a page adds on its own: none on desktop, where the brand row above
+  // is the gutter. The mobile top bar brings it back below 1024px.
+  --lumio-page-top: 0px;
+  --lumio-sidebar-width-full: 192px;
+  // Collapsed rail: wide enough for the 36px nav pills and their focus ring.
+  --lumio-sidebar-width-rail: 56px;
+  --lumio-sidebar-width: var(--lumio-sidebar-width-full);
 
   display: flex;
   min-height: 100vh;
 
   &__sidebar {
     width: var(--lumio-sidebar-width);
+    transition: width 0.18s ease;
     flex-shrink: 0;
+    // Without this the flex item's automatic minimum size keeps it at the width
+    // of its widest label, so the collapsed rail would never narrow.
+    min-width: 0;
     display: flex;
     flex-direction: column;
     background: $lumio-color-surface;
-    // No divider: the second sidebar (ShellSidePanel) sits right next to it.
     position: sticky;
     top: 0;
     height: 100vh;
@@ -40,44 +46,6 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
     }
   }
 
-  // Second sidebar (ShellSidePanel): full height, beside the main one. Hidden in
-  // CSS rather than JS so the server HTML already has it on desktop; phones use
-  // the drawer from MainSidePanelLayout.
-  &__side-panel {
-    display: none;
-    flex-shrink: 0;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    z-index: 35;
-
-    @media (min-width: 1200px) {
-      display: block;
-    }
-
-    // First heading on the same line as the main sidebar's "Workspace" label;
-    // 6px is the heading's own top padding.
-    [data-side-panel-sections] {
-      padding-top: calc(#{$lumio-sidebar-brand-height} + var(--lumio-nav-label-pad-top) - 6px);
-    }
-  }
-
-  // The side panel's upload menu, portaled out of the panel column so it can rise
-  // over the page backdrop (StatementsCircularUploadMenu). Pinned where the panel
-  // footer puts it: the column starts at the sidebar's edge and fills the viewport
-  // height; 16px/12px are the footer's padding.
-  &__panel-fab {
-    display: none;
-    position: fixed;
-    left: calc(var(--lumio-sidebar-width) + 16px);
-    bottom: 12px;
-    pointer-events: none;
-
-    @media (min-width: 1200px) {
-      display: block;
-    }
-  }
-
   &__content {
     flex: 1;
     display: flex;
@@ -85,50 +53,182 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
     min-width: 0;
     background: $lumio-color-bg;
 
+    // The top bar used to be this gutter. Declared through --global-nav-height,
+    // which is what the full-height pages subtract from 100vh, so they still fit.
+    > main {
+      padding-top: var(--global-nav-height, 0px);
+    }
+
     @include dark {
       background: $lumio-color-bg-dk;
     }
   }
 }
 
+// ── Collapsed rail ──
+// The collapse button narrows the shared width variable, so the sidebar and
+// everything laid out from it (the side panel, the page, the panel FAB) move
+// together. Hovering or focusing into the rail puts the full width back the same
+// way, which is why the label-hiding visuals below are scoped to "collapsed and
+// idle" while the rail's sizing holds in both states.
+.lumio-shell:has(.lumio-shell__sidebar--rail) {
+  --lumio-sidebar-width: var(--lumio-sidebar-width-rail);
+}
+
+// Keyboard focus reopens it the same way hovering does; `:focus-visible`, not
+// `:focus-within`, so clicking the collapse button itself does not hold it open.
+// The open account menu holds it too: the menu is sized to the full sidebar, and
+// the pointer leaves the rail the moment it moves onto the menu.
+.lumio-shell:has(.lumio-shell__sidebar--rail:hover),
+.lumio-shell:has(.lumio-shell__sidebar--rail :focus-visible),
+.lumio-shell:has(.lumio-account__trigger[aria-expanded='true']) {
+  --lumio-sidebar-width: var(--lumio-sidebar-width-full);
+}
+
+// Idle rail: square targets around the icons, labels folded away.
+.lumio-shell__sidebar--rail:not(:hover):not(:has(:focus-visible)):not(
+    :has(.lumio-account__trigger[aria-expanded='true'])
+  ) {
+  // Only the emblem fits across a 56px rail, so it takes the whole row. Its own
+  // side padding goes too, or the emblem sits off the rail's centre line.
+  .lumio-sidebar__brand {
+    justify-content: center;
+    // The gap would still count against the zero-width actions and shift the
+    // emblem a pixel off the column the icons below it sit on.
+    gap: 0;
+    padding: 0;
+  }
+
+  .lumio-sidebar__brand-link {
+    padding: 0;
+  }
+
+  // Zero width AND no auto margin: an `auto` margin soaks up the free space and
+  // beats `justify-content`, which would leave the emblem pinned to the left.
+  .lumio-sidebar__brand-actions {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    margin-left: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .lumio-sidebar__nav-item,
+  .lumio-sidebar__support-link,
+  .lumio-account__trigger {
+    justify-content: center;
+    gap: 0;
+    width: 40px;
+    margin: 0 auto;
+    padding: 0;
+  }
+
+  // Kept in the DOM so links keep their accessible names.
+  .lumio-sidebar__nav-label,
+  .lumio-sidebar__support-label,
+  .lumio-account__name,
+  .lumio-account__caret {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumio-shell__sidebar {
+    transition: none;
+  }
+}
+
 // ── Brand ──
 // Inset from the sidebar edges by the focus-ring reach: the sidebar clips overflow.
+// The wordmark is gone: the emblem alone heads the sidebar and the room it used to
+// take now carries search, notifications, settings and the collapse toggle.
 .lumio-sidebar__brand {
   display: flex;
   align-items: center;
-  // The logo alone heads the sidebar now (no workspace switcher or CTA under it),
-  // so it is larger and given the room those two used to take.
+  gap: 2px;
   margin: $lumio-focus-ring-reach $lumio-focus-ring-reach 0;
-  height: $lumio-sidebar-brand-height - $lumio-focus-ring-reach;
-  padding: 0 16px - $lumio-focus-ring-reach;
+  height: $lumio-sidebar-brand-height;
+  padding: 0 8px - $lumio-focus-ring-reach;
   box-sizing: border-box;
   flex-shrink: 0;
   width: calc(100% - #{2 * $lumio-focus-ring-reach});
   text-decoration: none;
 
-  // An SVG loaded as a background cannot reach `currentColor`, so dark mode swaps
-  // in a variant whose wording is white and whose emblem stays green.
-  &-mark {
-    flex: 0 0 auto;
-    height: 33px;
-    aspect-ratio: #{$lumio-logo-lockup-ratio};
-    background: url('/images/logo-lockup.svg') no-repeat center / contain;
-
-    @include dark { background-image: url('/images/logo-lockup-dark.svg'); }
+  &-link {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 0 6px;
+    text-decoration: none;
   }
 
-  &-meta {
-    font-size: 10px;
-    font-weight: 600;
-    color: $lumio-color-ink-400;
-    background: $lumio-color-ink-100;
-    border-radius: $lumio-radius-xs;
-    padding: 1px 5px;
-    letter-spacing: 0.02em;
+  // The brand green is near-black against the dark sidebar, so the mark gets
+  // the same accent the illustrations use there.
+  &-emblem {
+    display: block;
+    width: 24px;
+    height: 24px;
+    background: url('/images/logo-mark.svg') no-repeat center / contain;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
-      background: $lumio-color-ink-200-dk;
+      background-image: url('/images/logo-mark-dark.svg');
+    }
+  }
+
+  &-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    // Fades rather than blinks when the rail opens and closes.
+    transition: opacity 0.2s ease;
+  }
+
+  &-action {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: $lumio-radius-full;
+    background: transparent;
+    color: $lumio-color-ink-500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.1s, color 0.1s;
+
+    @include dark { color: $lumio-color-ink-500-dk; }
+
+    &:hover {
+      background: $lumio-color-ink-100;
+      color: $lumio-color-text-primary;
+
+      @include dark {
+        background: $lumio-color-ink-100-dk;
+        color: $lumio-color-text-primary-dk;
+      }
+    }
+
+    // Unread notifications: the count itself is in the panel the bell opens.
+    &-dot {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 7px;
+      height: 7px;
+      border-radius: $lumio-radius-full;
+      background: var(--destructive);
+      border: 1.5px solid $lumio-color-surface;
+
+      @include dark { border-color: $lumio-color-surface-dk; }
     }
   }
 }
@@ -136,42 +236,32 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
 // ── Navigation ──
 .lumio-sidebar__nav {
   flex: 1;
-  // Column so the items can share the spare height (see __nav-item).
   display: flex;
   flex-direction: column;
+  gap: 2px;
   // Bottom room keeps the last item's focus ring inside the scroll area.
-  padding: 0 10px $lumio-focus-ring-reach;
+  padding: 0 8px $lumio-focus-ring-reach;
   overflow-y: auto;
 }
 
-.lumio-sidebar__section-label {
-  flex-shrink: 0;
-  font-size: 10.5px;
-  font-weight: 600;
-  // Same token as the statements panel's section titles ("Work queue"), so the
-  // two sidebars' headings read as one level in both themes.
-  color: var(--muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: var(--lumio-nav-label-pad-top) 8px 4px;
-}
-
+// One size for the whole sidebar: pinned open, peeked open or collapsed, the rows
+// and their type are identical — only the labels fold away. Rows that grew into
+// the spare height are what used to make the pinned sidebar look oversized next
+// to the peeked rail.
 .lumio-sidebar__nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  // Rows grow into the height left under the menu instead of leaving it empty
-  // on tall screens, and shrink back to 36px (then scroll) on short ones.
-  flex: 1 1 auto;
-  min-height: 36px;
-  max-height: 56px;
-  padding: 7px 10px;
-  border-radius: $lumio-radius-full;
+  flex: 0 0 auto;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 0 10px;
+  border-radius: $lumio-radius-md;
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 500;
   color: $lumio-color-text-secondary;
   text-align: left;
@@ -220,16 +310,44 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
     flex-shrink: 0;
     opacity: 0.7;
   }
+}
 
-  &-label {
-    flex: 1;
-  }
+// The Review icon with its waiting dot; a slot of its own because the icon is dimmed.
+.lumio-sidebar__nav-icon-slot {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+}
+
+// Something waits in Review. Smaller than the bell's dot and without a ring, so it
+// sits on the active item's tint as well as on the plain sidebar.
+.lumio-sidebar__nav-dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: $lumio-radius-full;
+  background: var(--destructive);
+}
+
+// Top level, not `&-label` under the item: that compiles to `__nav-item-label`,
+// which no markup carries, so the labels used to wrap while the width animated.
+.lumio-sidebar__nav-label {
+  flex: 1;
+  // The sidebar clips its overflow, so the labels slide out of view instead of
+  // re-wrapping while the width animates.
+  white-space: nowrap;
 }
 
 // ── Footer / Storage widget ──
+// Search, the account entry and the support link, stacked under the nav.
 .lumio-sidebar__footer {
   flex-shrink: 0;
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
   border-top: 1px solid $lumio-color-border;
 
   @include dark { border-top-color: $lumio-color-border-dk; }
@@ -238,14 +356,17 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
 .lumio-sidebar__support-link {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 14px;
-  border-radius: $lumio-radius-full;
+  flex: 0 0 auto;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 0 10px;
+  border-radius: $lumio-radius-md;
   border: 1px solid var(--primary-100);
   background: var(--primary-50);
   color: var(--primary-strong);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -270,6 +391,10 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
 
 .lumio-sidebar__support-icon {
   font-size: 16px;
+}
+
+.lumio-sidebar__support-label {
+  white-space: nowrap;
 }
 
 .lumio-sidebar__storage {
@@ -317,9 +442,11 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
 }
 
 // ── TopBar ──
+// Mobile only: on desktop the sidebar carries everything this bar used to hold,
+// so it is switched on in the narrow breakpoint below instead.
 .lumio-topbar {
   height: 52px;
-  display: flex;
+  display: none;
   align-items: center;
   gap: 8px;
   padding: 0 20px;
@@ -348,41 +475,6 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
       background: url('/images/logo-lockup.svg') no-repeat center / contain;
 
       @include dark { background-image: url('/images/logo-lockup-dark.svg'); }
-    }
-  }
-
-  &__right {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-    margin-left: auto;
-  }
-
-  &__icon-btn {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-full;
-    border: none;
-    background: transparent;
-    color: $lumio-color-ink-500;
-    cursor: pointer;
-    transition: background 0.1s, color 0.1s;
-    font-family: inherit;
-
-    @include dark { color: $lumio-color-ink-500-dk; }
-
-    &:hover {
-      background: $lumio-color-ink-100;
-      color: $lumio-color-text-primary;
-
-      @include dark {
-        background: $lumio-color-ink-100-dk;
-        color: $lumio-color-text-primary-dk;
-      }
     }
   }
 
@@ -417,74 +509,48 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
   to { background-position: -300% 0; }
 }
 
-// ── Responsive ──
-// With the second sidebar showing (ShellSidePanel, same 1200px breakpoint) the
-// logo sits centred on the seam between the two columns. Fixed positioning lets it
-// out of the sidebar's overflow clip; the brand block keeps its fixed height, so
-// the room it took in the sidebar stays.
-@media (min-width: 1200px) {
-  .lumio-sidebar__brand-mark {
-    position: fixed;
-    top: $lumio-sidebar-brand-center;
-    left: var(--lumio-sidebar-width);
-    z-index: 45;
-    transform: translate(-50%, -50%);
-  }
+// ── Auth pages ──
+// The same lockup heading the sign-in forms. A class of its own: the sidebar's
+// mark turns `position: fixed` on wide screens to sit on the column seam.
+.lumio-auth-logo {
+  display: block;
+  height: 40px;
+  aspect-ratio: #{$lumio-logo-lockup-ratio};
+  margin: 0 auto 24px;
+  background: url('/images/logo-lockup.svg') no-repeat center / contain;
+
+  @include dark { background-image: url('/images/logo-lockup-dark.svg'); }
 }
 
+// ── Responsive ──
 // Wide screens: a wider sidebar and larger type, so it doesn't look tiny.
+// Wide screens get a wider sidebar, but not bigger rows: the collapsed rail keeps
+// its own size, and the two states have to match.
 @media (min-width: 1600px) {
   .lumio-shell {
-    --lumio-sidebar-width: 220px;
-    --lumio-nav-label-pad-top: 12px;
-  }
-
-  .lumio-sidebar__nav-item {
-    gap: 12px;
-    padding: 8px 12px;
-    font-size: 14.5px;
-  }
-
-  .lumio-sidebar__section-label {
-    font-size: 11px;
-    padding: var(--lumio-nav-label-pad-top) 12px 6px;
+    --lumio-sidebar-width-full: 220px;
   }
 }
 
 @media (max-width: 1023px) {
+  // The top bar is back as a real row here, so the shell adds no gutter; the page
+  // keeps its own, since there is no brand row beside it to line up with.
+  .lumio-shell {
+    --global-nav-height: 0px;
+    --lumio-page-top: 24px;
+  }
+
   .lumio-shell__sidebar {
     display: none;
+  }
+
+  .lumio-topbar {
+    display: flex;
   }
 
   .lumio-topbar__mobile-logo {
     display: flex;
     flex: 1;
-  }
-
-  // Strip container to avatar-only on mobile (.lumio-topbar parent raises specificity)
-  .lumio-topbar .lumio-navigation__user-menu-trigger {
-    min-width: 0;
-    width: 32px;
-    max-width: 32px;
-    height: 32px;
-    padding: 0;
-    gap: 0;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    border-radius: $lumio-radius-sm;
-    justify-content: center;
-    overflow: hidden;
-  }
-
-  .lumio-topbar .lumio-navigation__user-menu-label {
-    display: none;
-  }
-
-  .lumio-topbar .lumio-navigation__trigger-avatar {
-    width: 28px;
-    height: 28px;
-    flex-shrink: 0;
   }
 
   .lumio-shell__content > main {

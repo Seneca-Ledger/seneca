@@ -14,10 +14,12 @@ import { Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { Permission } from '../../common/enums/permissions.enum';
+import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { CategorizationRule } from '../../entities/categorization-rule.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
+import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateCategorizationRuleDto } from './dto/create-categorization-rule.dto';
@@ -49,6 +51,8 @@ export class CategorizationRulesController {
     private categorizationRuleRepository: Repository<CategorizationRule>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
+    @InjectRepository(WorkspaceMember)
+    private workspaceMemberRepository: Repository<WorkspaceMember>,
     private classificationService: ClassificationService,
     private auditService: AuditService,
   ) {}
@@ -103,6 +107,12 @@ export class CategorizationRulesController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
+    await assertOwnerMemberInWorkspace(
+      this.workspaceMemberRepository,
+      workspaceId,
+      dto.result?.ownerMemberId,
+    );
+
     const rule = this.categorizationRuleRepository.create({
       userId: user.id,
       workspaceId,
@@ -164,6 +174,11 @@ export class CategorizationRulesController {
       rule.conditions = dto.conditions;
     }
     if (dto.result !== undefined) {
+      await assertOwnerMemberInWorkspace(
+        this.workspaceMemberRepository,
+        workspaceId,
+        dto.result.ownerMemberId,
+      );
       rule.result = dto.result;
     }
     if (dto.priority !== undefined) {

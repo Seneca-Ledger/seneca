@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { countedSql } from '../../../common/utils/counted-transactions.util';
 import { Budget } from '../../../entities/budget.entity';
 import { InsightCategory, InsightSeverity, InsightType } from '../../../entities/insight.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
@@ -62,7 +63,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
     ]);
 
     const candidates = await Promise.all([
-      this.risingCategoryAdvice(context.workspaceId, categoryTotals),
+      this.risingCategoryAdvice(context.workspaceId, categoryTotals, now),
       this.unbudgetedTopCategoryAdvice(context.workspaceId, categoryTotals),
     ]);
 
@@ -128,6 +129,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       .andWhere('t.transaction_date <= :end', { end })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(countedSql('t'))
       .groupBy('t.category_id')
       .addGroupBy('category.name')
       .addGroupBy("date_trunc('month', t.transaction_date)")
@@ -149,6 +151,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
   private async risingCategoryAdvice(
     workspaceId: string,
     totals: CategoryMonthTotal[],
+    now: Date,
   ): Promise<InsightCandidate | null> {
     const trailingByCategory = new Map<string, number>();
     for (const row of totals.filter(item => item.monthIndex !== 0)) {
@@ -189,6 +192,9 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       },
       deduplicationKey: `financial:category_rising:${workspaceId}:${best.row.categoryId}`,
       data: {
+        // The month the comparison is about: the link carries it so the
+        // leaderboard it opens shows this month's total, not an all-time one.
+        month: monthKey(now),
         categoryId: best.row.categoryId,
         categoryName: best.row.categoryName,
         current: round2(best.row.total),
@@ -281,6 +287,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       messageParams: { rate: Math.round(currentRate), diff: Math.abs(Math.round(diff)) },
       deduplicationKey: `financial:savings_rate:${workspaceId}:${monthKey(now)}`,
       data: {
+        month: monthKey(now),
         currentRate: Math.round(currentRate),
         previousRate: Math.round(previousRate),
         income: round2(current.income),
@@ -312,6 +319,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       .andWhere('t.transaction_date <= :end', { end })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(countedSql('t'))
       .setParameters({ income: TransactionType.INCOME, expense: TransactionType.EXPENSE })
       .getRawOne<{ income: string; spent: string }>();
 

@@ -11,7 +11,6 @@ const baseParams = {
   duplicateMetaById: new Map(),
   setDuplicateOverrides: vi.fn(),
   search: '',
-  stage: 'submit',
   onRefreshStatements: async () => {},
   onRefreshGmail: async () => {},
 };

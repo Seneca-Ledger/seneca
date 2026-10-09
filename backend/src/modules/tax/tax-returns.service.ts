@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Not, Repository } from 'typeorm';
+import { Between, IsNull, Not, Repository } from 'typeorm';
+import { countedWhere } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import {
@@ -111,11 +112,13 @@ export class TaxReturnsService {
     }
 
     const transactions = await this.transactionRepository.find({
-      where: {
+      // A transfer between the user's own accounts is not a taxable supply.
+      where: countedWhere({
         workspaceId,
+        transferPairId: IsNull(),
         transactionDate: Between(new Date(periodStart), new Date(periodEnd)),
         taxAmount: Not(null as never),
-      },
+      }),
       order: { transactionDate: 'ASC' },
     });
 

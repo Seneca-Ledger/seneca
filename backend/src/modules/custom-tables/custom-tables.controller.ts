@@ -32,7 +32,7 @@ import { CreateCustomTableDto } from './dto/create-custom-table.dto';
 import { CreateCustomTableColumnDto } from './dto/create-custom-table-column.dto';
 import { CreateCustomTableFromDataEntryDto } from './dto/create-custom-table-from-data-entry.dto';
 import { CreateCustomTableFromDataEntryCustomTabDto } from './dto/create-custom-table-from-data-entry-custom-tab.dto';
-import { CreateCustomTableFromStatementsDto } from './dto/create-custom-table-from-statements.dto';
+import { CreateCustomTableFromSourceDto } from './dto/create-custom-table-from-source.dto';
 import { CreateCustomTableRowDto } from './dto/create-custom-table-row.dto';
 import { FillAiColumnDto } from './dto/fill-ai-column.dto';
 import {
@@ -42,11 +42,14 @@ import {
   CustomTableRowFilterDto,
   CustomTableRowSortDto,
 } from './dto/list-custom-table-rows.dto';
+import { PreviewCustomTableSourceDto } from './dto/preview-custom-table-source.dto';
+import { PreviewFormulaDto } from './dto/preview-formula.dto';
 import { ReorderCustomTableColumnsDto } from './dto/reorder-custom-table-columns.dto';
 import { UpdateCustomTableDto } from './dto/update-custom-table.dto';
 import { UpdateCustomTableColumnDto } from './dto/update-custom-table-column.dto';
 import { UpdateCustomTableColumnStyleDto } from './dto/update-custom-table-column-style.dto';
 import { UpdateCustomTableRowDto } from './dto/update-custom-table-row.dto';
+import { UpdateCustomTableSummariesDto } from './dto/update-custom-table-summaries.dto';
 import { UpdateCustomTableViewSettingsColumnDto } from './dto/update-custom-table-view-settings.dto';
 import {
   UpdateCustomTableRulesDto,
@@ -191,15 +194,78 @@ export class CustomTablesController {
     return table;
   }
 
-  @Post('from-statements')
+  @Post('source-preview')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
-  async createFromStatements(
+  async previewSource(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateCustomTableFromStatementsDto,
+    @Body() dto: PreviewCustomTableSourceDto,
   ) {
-    const table = await this.customTablesService.createFromStatements(user.id, workspaceId, dto);
+    return this.customTablesService.previewSource(user.id, workspaceId, dto);
+  }
+
+  @Post('from-source')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  async createFromSource(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Body() dto: CreateCustomTableFromSourceDto,
+  ) {
+    const table = await this.customTablesService.createFromSource(user.id, workspaceId, dto);
     await this.customTablesCache.bumpList(workspaceId);
+    return table;
+  }
+
+  @Post(':id/refresh-from-source')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  async refreshFromSource(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const result = await this.customTablesService.refreshFromSource(user.id, workspaceId, id);
+    await this.customTablesCache.bumpTable(workspaceId, id);
+    await this.customTablesCache.bumpRows(workspaceId, id);
+    await this.customTablesCache.bumpList(workspaceId);
+    return result;
+  }
+
+  @Post(':id/formula-preview')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  async previewFormula(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: PreviewFormulaDto,
+  ) {
+    return this.customTablesService.previewFormula(user.id, workspaceId, id, dto);
+  }
+
+  @Get(':id/summaries')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  async getSummaries(
+    @CurrentUser() _user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.customTablesService.getSummaries(workspaceId, id);
+  }
+
+  @Patch(':id/view-settings/summaries')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  async updateViewSettingsSummaries(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateCustomTableSummariesDto,
+  ) {
+    const table = await this.customTablesService.updateViewSettingsSummaries(
+      user.id,
+      workspaceId,
+      id,
+      dto,
+    );
+    await this.customTablesCache.bumpTable(workspaceId, id);
     return table;
   }
 
@@ -522,6 +588,7 @@ export class CustomTablesController {
   ) {
     const result = await this.customTablesService.fillAiColumn(workspaceId, tableId, dto);
     await this.customTablesCache.bumpTable(workspaceId, tableId);
+    await this.customTablesCache.bumpRows(workspaceId, tableId);
     return result;
   }
 

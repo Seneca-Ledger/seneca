@@ -1,3 +1,4 @@
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import type { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 
 /**
@@ -9,12 +10,9 @@ import type { ExchangeRatesService } from '../exchange-rates/exchange-rates.serv
  * EUR deposit is worth.
  */
 
-/** Falls back to KZT rather than throwing: a bad code must not lose the amount. */
+/** Falls back rather than throwing: a bad code must not lose the amount. */
 export function normalizeCurrency(currency: string | null | undefined): string {
-  const normalized = String(currency || '')
-    .trim()
-    .toUpperCase();
-  return /^[A-Z]{3}$/.test(normalized) ? normalized : 'KZT';
+  return currencyCodeOrDefault(currency);
 }
 
 export function toNumber(value: unknown): number {

@@ -1,7 +1,5 @@
 'use client';
 
-import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
-import ExtensionOutlinedIcon from '@mui/icons-material/ExtensionOutlined';
 import { Box, Stack, Typography } from '@mui/material';
 import { useTheme } from 'next-themes';
 import type React from 'react';
@@ -42,8 +40,6 @@ export type ProtocolIntegrationPageProps = {
   importPath?: string;
   syncPath?: string;
   embedded?: boolean;
-  /** Drops the icon and title block when the surrounding drawer already names it. */
-  hideHeading?: boolean;
   onConnectionStatusChange?: (connected: boolean) => void | Promise<void>;
 };
 
@@ -67,8 +63,6 @@ export type ConfigField = {
 };
 
 export function ProtocolIntegrationPage({
-  title,
-  description,
   statusPath,
   settingsPath,
   settingsMethod = 'post',
@@ -76,12 +70,10 @@ export function ProtocolIntegrationPage({
   fields,
   presets,
   workflow,
-  icon,
   filesPath,
   importPath,
   syncPath,
   embedded = false,
-  hideHeading = false,
   onConnectionStatusChange,
 }: ProtocolIntegrationPageProps): React.JSX.Element {
   const { resolvedTheme } = useTheme();
@@ -234,37 +226,6 @@ export function ProtocolIntegrationPage({
       }}
     >
       <Stack spacing={3}>
-        {hideHeading ? null : (
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-            <Box
-              sx={{
-                width: 48,
-                height: 48,
-                borderRadius: tokens.radius.md,
-                bgcolor: connected ? c.successSoft : c.ink100,
-                color: connected ? c.success : c.ink600,
-                display: 'grid',
-                placeItems: 'center',
-                flexShrink: 0,
-              }}
-            >
-              {connected ? (
-                <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />
-              ) : (
-                (icon ?? <ExtensionOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />)
-              )}
-            </Box>
-            <Stack spacing={0.75}>
-              <Typography component="h1" sx={{ color: c.ink900, fontSize: 28, fontWeight: 700 }}>
-                {title}
-              </Typography>
-              <Typography sx={{ color: c.ink600, fontSize: 15, lineHeight: 1.6 }}>
-                {description}
-              </Typography>
-            </Stack>
-          </Box>
-        )}
-
         <Box
           sx={{
             border: `1px solid ${c.ink150}`,

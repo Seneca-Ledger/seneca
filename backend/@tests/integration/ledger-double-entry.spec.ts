@@ -59,7 +59,7 @@ describe('ledger double-entry invariant (real Postgres)', () => {
 
   async function createWorkspace(): Promise<string> {
     const { rows } = await db.query(
-      `INSERT INTO "workspaces" ("name") VALUES ('ledger test') RETURNING "id"`,
+      `INSERT INTO "workspaces" ("name", "currency") VALUES ('ledger test', 'USD') RETURNING "id"`,
     );
     return rows[0].id;
   }
@@ -428,8 +428,9 @@ describe('ledger double-entry invariant (real Postgres)', () => {
   it('keeps one live entry per transaction, but lets a reversal share the source', async () => {
     const { rows } = await db.query(
       `INSERT INTO "transactions"
-         ("workspace_id", "transaction_date", "counterparty_name", "payment_purpose", "transaction_type")
-       VALUES ($1, '2026-09-01', 'Shop', 'Groceries', 'expense') RETURNING "id"`,
+         ("workspace_id", "transaction_date", "counterparty_name", "payment_purpose",
+          "transaction_type", "currency")
+       VALUES ($1, '2026-09-01', 'Shop', 'Groceries', 'expense', 'USD') RETURNING "id"`,
       [workspaceId],
     );
     const transactionId = rows[0].id;

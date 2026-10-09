@@ -18,6 +18,8 @@ import {
 import { getQueryClient } from '@/app/lib/query-client';
 import {
   getStoredThemePreference,
+  persistPaletteModeCookie,
+  type ResolvedAppTheme,
   resolveThemePreference,
   THEME_STORAGE_EVENT,
 } from '@/app/lib/theme-preference';
@@ -109,14 +111,18 @@ function WorkspaceScopedProviders({
 export function Providers({
   children,
   initialLocale,
+  initialPaletteMode = 'light',
 }: {
   children: React.ReactNode;
   initialLocale: AppLocale;
+  initialPaletteMode?: ResolvedAppTheme;
 }): React.JSX.Element {
   const { resolvedTheme } = useNextTheme();
   const [mounted, setMounted] = useState(false);
   const [locale, setLocale] = useState<AppLocale>(() => readLocaleFromCookie() ?? initialLocale);
-  const paletteMode = mounted && resolvedTheme === 'dark' ? 'dark' : 'light';
+  // Before mount, the server's guess from the cookie, so hydration matches the SSR markup.
+  const paletteMode: ResolvedAppTheme =
+    mounted && resolvedTheme ? (resolvedTheme === 'dark' ? 'dark' : 'light') : initialPaletteMode;
   const { density, reduceMotion } = useAppearancePreferences();
   const muiTheme = useMemo(
     () => createAppTheme(paletteMode, { density, reduceMotion }),
@@ -125,6 +131,9 @@ export function Providers({
   useEffect(() => {
     setMounted(true);
   }, []);
+  useEffect(() => {
+    if (mounted && resolvedTheme) persistPaletteModeCookie(paletteMode);
+  }, [mounted, resolvedTheme, paletteMode]);
   useEffect(() => {
     setLocale(readLocaleFromCookie() ?? initialLocale);
   }, [initialLocale]);

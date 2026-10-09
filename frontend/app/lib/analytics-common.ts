@@ -13,12 +13,13 @@ import type {
   StatementMeta,
   Transaction,
 } from '@/app/(main)/statements/types/statement-types';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
 
-/** Normalizes a raw currency string to a 3-letter ISO code, falling back to KZT. */
+/** Normalizes a raw currency string to a 3-letter ISO code, falling back to the installation default. */
 export const resolveCurrencyCode = (
   currency: string | null | undefined,
-  fallback = 'KZT',
+  fallback = FALLBACK_CURRENCY,
 ): string => {
   const normalized = String(currency || '')
     .trim()

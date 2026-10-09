@@ -36,26 +36,24 @@ export interface UseGmailSyncSkeletonsResult {
  * были и в кэш React Query не переезжают.
  */
 export function useGmailSyncSkeletons({
-  stage,
   pageSize,
 }: {
-  stage: string;
   pageSize: number;
 }): UseGmailSyncSkeletonsResult {
   const [gmailSyncSkeletonKeys, setGmailSyncSkeletonKeys] = useState<string[]>([]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || stage !== 'submit') {
+    if (typeof window === 'undefined') {
       return;
     }
     const count = readStoredGmailSyncCount();
     if (count > 0) {
       setGmailSyncSkeletonKeys(buildGmailSyncSkeletonKeys(Math.min(count, pageSize)));
     }
-  }, [stage]);
+  }, [pageSize]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || stage !== 'submit') {
+    if (typeof window === 'undefined') {
       return;
     }
 
@@ -71,7 +69,7 @@ export function useGmailSyncSkeletons({
     return () => {
       window.removeEventListener(STATEMENTS_GMAIL_SYNC_EVENT, handleGmailSyncEvent);
     };
-  }, [stage]);
+  }, [pageSize]);
 
   return { gmailSyncSkeletonKeys, setGmailSyncSkeletonKeys };
 }

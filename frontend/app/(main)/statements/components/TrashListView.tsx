@@ -483,11 +483,6 @@ export default function TrashListView() {
   return (
     <div className="container-shared lumio-trash-list">
       <div className="lumio-trash-list__header">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: c.ink900 }}>{labels.title}</h1>
-          <p style={{ fontSize: 14, color: c.ink500 }}>{labels.retentionPolicy}</p>
-        </div>
-
         <div className="lumio-trash-list__search-row">
           <div className="lumio-trash-list__search">
             <Search className="lumio-trash-list__search-icon" size={16} />

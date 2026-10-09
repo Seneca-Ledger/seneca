@@ -11,9 +11,6 @@ export function createCustomTablesTour(texts: {
     createExport?: { title: string; description: string };
     fromStatement?: { title: string; description: string };
     createOptionFromStatement?: { title: string; description: string };
-    createDropdown?: { title: string; description: string };
-    importButtons?: { title: string; description: string };
-    createButton?: { title: string; description: string };
     search: { title: string; description: string };
     sourceFilter?: { title: string; description: string };
     tablesList: { title: string; description: string };
@@ -23,8 +20,6 @@ export function createCustomTablesTour(texts: {
 }): TourConfig {
   const createExportStep =
     texts.steps.createExport ?? texts.steps.fromStatement ?? texts.steps.createOptionFromStatement;
-  const createDropdownStep =
-    texts.steps.createDropdown ?? texts.steps.importButtons ?? texts.steps.createButton;
 
   return {
     id: 'custom-tables-tour',
@@ -46,15 +41,6 @@ export function createCustomTablesTour(texts: {
           createExportStep?.description ??
           'Start a new export-style custom table from the available creation options.',
         selector: '[data-tour-id="custom-tables-create-export"]',
-        side: 'bottom',
-        align: 'end',
-      },
-      {
-        title: createDropdownStep?.title ?? 'Create Dropdown',
-        description:
-          createDropdownStep?.description ??
-          'Open the create menu to choose how you want to add a new custom table.',
-        selector: '[data-tour-id="custom-tables-create-dropdown"]',
         side: 'bottom',
         align: 'end',
       },

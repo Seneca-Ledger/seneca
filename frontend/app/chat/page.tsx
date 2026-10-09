@@ -7,7 +7,6 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalModel } from '@/app/(main)/ai-analysis/llm/useLocalModel';
 import { RECOMMENDED_MODEL_ID, resolveCatalog } from '@/app/(main)/ai-analysis/model-catalog';
-import { Sparkles } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import { isExperimentalModeEnabled } from '@/app/lib/experimental-mode';
 import { tokens } from '@/lib/theme-tokens';
@@ -125,20 +124,13 @@ export default function ChatModePage(): React.JSX.Element {
         minHeight: '100dvh',
       }}
     >
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
-        <Box
-          sx={{
-            p: 1,
-            borderRadius: tokens.radius.full,
-            bgcolor: 'rgba(var(--color-primary-rgb), 0.1)',
-            display: 'flex',
-          }}
-        >
-          <Sparkles size={20} />
-        </Box>
-        <Typography component="h1" sx={{ fontSize: 20, fontWeight: 600, flexGrow: 1 }}>
-          {t.title}
-        </Typography>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="flex-end"
+        spacing={1.5}
+        sx={{ mb: 2 }}
+      >
         <Button size="small" variant="text" onClick={startNewChat} disabled={busy}>
           {t.newChat}
         </Button>

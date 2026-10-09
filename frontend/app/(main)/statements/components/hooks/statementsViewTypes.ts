@@ -4,7 +4,6 @@ import type { RefObject } from 'react';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { usePullToRefresh } from '@/app/hooks/usePullToRefresh';
 import type { StatementExpenseMode } from '@/app/lib/statement-expense-drawer';
-import type { StatementStage } from '@/app/lib/statement-workflow';
 import type { useManualExpenseOptions } from './useManualExpenseOptions';
 import type { useStatementPreview } from './useStatementPreview';
 import type { useStatementsDuplicates } from './useStatementsDuplicates';
@@ -19,7 +18,6 @@ export interface StatementsStatement {
   subject?: string;
   sender?: string;
   status: string;
-  stage?: StatementStage | null;
   totalTransactions: number;
   totalDebit?: number | string | null;
   totalCredit?: number | string | null;
@@ -79,7 +77,6 @@ export interface StatementsStatement {
 }
 
 export interface UseStatementsViewParams {
-  stage: StatementStage;
   router: AppRouterInstance;
   searchParams: ReadonlyURLSearchParams;
   /** Owned by the view: keeping the ref out of the returned state object lets
@@ -145,7 +142,6 @@ export interface StatementsViewState {
   handleToggleSelectAll: () => void;
   handleExportSelected: () => Promise<void>;
   handleDeleteSelected: () => Promise<void>;
-  handleMoveSelectedToStage: (target: StatementStage) => Promise<void>;
   handleMarkSelectedAsDuplicate: () => Promise<void>;
   handleDismissSelectedDuplicates: () => Promise<void>;
   handleSelectDetectedDuplicates: () => Promise<void>;

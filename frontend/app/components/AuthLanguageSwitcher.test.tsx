@@ -15,13 +15,15 @@ vi.mock('@/app/i18n', () => ({
   useLocale: () => ({
     locale: 'en',
     setLocale: localeMocks.setLocale,
-    availableLocales: ['ru', 'en', 'kk'],
+    availableLocales: ['ru', 'en', 'kk', 'de', 'fr'],
   }),
   useIntlayer: () => ({
     languages: {
       ru: { value: 'Русский' },
       en: { value: 'English' },
       kk: { value: 'Қазақша' },
+      de: { value: 'Deutsch' },
+      fr: { value: 'Français' },
     },
     languageModal: {
       title: 'Choose language',
@@ -77,7 +79,7 @@ describe('AuthLanguageSwitcher', () => {
     toastMocks.success.mockReset();
   });
 
-  it('uses theme-aware selected row styles in the language drawer', async () => {
+  it("uses the app language drawer's selected row style", async () => {
     await act(async () => {
       root.render(<AuthLanguageSwitcher />);
       await Promise.resolve();
@@ -95,8 +97,28 @@ describe('AuthLanguageSwitcher', () => {
       button.textContent?.includes('English'),
     );
 
+    // The sign-in page reuses the app's language drawer, selected-row style included.
     expect(selectedLanguage).toBeTruthy();
-    expect(selectedLanguage?.className).toContain('bg-muted');
-    expect(selectedLanguage?.className).not.toContain('bg-[#ebe8e2]');
+    expect(selectedLanguage?.className).toContain('lumio-navigation__lang-option--selected');
+  });
+
+  it('lists English first, then Germanic, then Romance, then the rest', async () => {
+    await act(async () => {
+      root.render(<AuthLanguageSwitcher />);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      container
+        .querySelector('button[aria-label="English"]')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const names = ['English', 'Deutsch', 'Français', 'Русский', 'Қазақша'];
+    const order = Array.from(document.querySelectorAll('button'))
+      .map(button => names.find(name => button.textContent?.includes(name)))
+      .filter((name): name is string => Boolean(name) && name !== undefined);
+    // The trigger repeats "English" before the drawer list; drop it.
+    expect(order.slice(-names.length)).toEqual(names);
   });
 });

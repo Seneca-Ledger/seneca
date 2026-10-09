@@ -7,6 +7,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { LogOut } from '@/app/components/icons';
 import { Alert } from '@/app/components/ui/alert';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { Spinner } from '@/app/components/ui/spinner';
 import { formatDateTime, type UserFormatPreferences } from '@/app/lib/user-format';
 import { getSessionIcon, type UserSession } from '@/app/settings/profile/profileHelpers';
@@ -46,6 +47,7 @@ export function SessionsSection({
 }: Props) {
   return (
     <Stack spacing={2.5}>
+      <EmptyStateIllustration name="sessions" size="sm" />
       {sessionsMessage && <Alert variant="success">{sessionsMessage}</Alert>}
       {sessionsError && <Alert variant="error">{sessionsError}</Alert>}
       <Alert variant="warning">

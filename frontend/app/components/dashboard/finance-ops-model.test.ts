@@ -118,7 +118,7 @@ const baseData: DashboardData = {
       type: 'statements_pending_review',
       count: 2,
       label: '2 statements need review',
-      href: '/statements/approve',
+      href: '/review',
     },
   ],
   cashFlow: [],
@@ -207,7 +207,7 @@ describe('buildFinanceOpsModel', () => {
     expect(hrefOf('period-close-checklist')).toBe('/statements/submit');
     // Anomalies open the overdue payables the evidence line is quoting.
     expect(hrefOf('anomaly-feed')).toBe('/statements/pay?status=overdue');
-    expect(hrefOf('reconciliation-dashboard')).toBe('/statements/unapproved-cash');
+    expect(hrefOf('reconciliation-dashboard')).toBe('/review');
     // Nothing may link back to the page the tab already lives on.
     expect(model.features.map(feature => feature.href)).not.toContain('/dashboard');
   });
@@ -220,7 +220,7 @@ describe('buildFinanceOpsModel', () => {
     );
 
     expect(model.features.find(feature => feature.id === 'anomaly-feed')?.href).toBe(
-      '/statements/top-merchants',
+      '/reports?tab=cash-flow',
     );
   });
 });

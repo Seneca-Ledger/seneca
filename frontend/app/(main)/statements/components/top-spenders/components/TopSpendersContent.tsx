@@ -1,5 +1,7 @@
 'use client';
 
+import { AnalyticsFlowSection } from '@/app/(main)/statements/components/analytics/flow/AnalyticsFlowSection';
+import type { AnalyticsViewMode } from '@/app/(main)/statements/components/analytics/flow/analytics-flow.types';
 import { TopSpendersLeaderboard } from '@/app/(main)/statements/components/top-spenders/components/TopSpendersLeaderboard';
 import { TopSpendersStatCards } from '@/app/(main)/statements/components/top-spenders/components/TopSpendersStatCards';
 import type { useTopSpendersViewModel } from '@/app/(main)/statements/components/top-spenders/hooks/useTopSpendersViewModel';
@@ -44,11 +46,11 @@ function TopSpendersLeaderboardSection({ vm }: Props): React.JSX.Element {
   );
 }
 
-export function TopSpendersContent({ vm }: Props): React.JSX.Element {
+function TopSpendersNumbers({ vm }: Props): React.JSX.Element {
   const isIncomeView = vm.activeFlowType === 'income';
   const { labels, workspaceCurrency } = vm;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
+    <>
       <TopSpendersStatCards
         totals={vm.totals}
         comparison={vm.comparison}
@@ -62,6 +64,33 @@ export function TopSpendersContent({ vm }: Props): React.JSX.Element {
         vsPreviousPeriodLabel={labels.vsPreviousPeriod}
       />
       <TopSpendersLeaderboardSection vm={vm} />
+    </>
+  );
+}
+
+/**
+ * Chart mode is the illustration alone; table mode holds every figure. The
+ * cards stay with the table: they count statements, the chart transactions,
+ * and side by side the two totals would read as a contradiction.
+ */
+export function TopSpendersContent({
+  vm,
+  viewMode,
+  month,
+}: Props & { viewMode: AnalyticsViewMode; month: Date }): React.JSX.Element {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
+      {viewMode === 'chart' ? (
+        <AnalyticsFlowSection
+          groupBy="category-merchant"
+          flowType={vm.activeFlowType}
+          month={month}
+          resolvedTheme={vm.resolvedTheme}
+          labels={vm.labels}
+        />
+      ) : (
+        <TopSpendersNumbers vm={vm} />
+      )}
     </div>
   );
 }

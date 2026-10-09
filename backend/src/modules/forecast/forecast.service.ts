@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository } from 'typeorm';
+import { In, IsNull, type Repository } from 'typeorm';
+import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
+import { Payable, PayableDirection, PayableStatus } from '../../entities/payable.entity';
 import { StatementStatus } from '../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
@@ -12,6 +14,7 @@ import { GoalsService } from '../goals/goals.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import type { ForecastQueryDto } from './dto/forecast-query.dto';
 import {
+  type AveragedParty,
   addDays,
   computeForecast,
   detectRecurringIncome,
@@ -20,6 +23,7 @@ import {
   formatDateOnly,
   projectIncome,
   type RecurringIncome,
+  sameParty,
 } from './forecast.engine';
 
 export interface ForecastResponse extends ForecastResult {
@@ -28,6 +32,8 @@ export interface ForecastResponse extends ForecastResult {
   profile: 'home' | 'business';
   /** What the everyday average was built from. */
   everydayMonthly: number;
+  /** Income per month beyond the detected paydays, from the same history. */
+  irregularIncomeMonthly: number;
   monthlyIncome: number;
   monthlyExpense: number;
   monthsObserved: number;
@@ -38,6 +44,14 @@ export interface ForecastResponse extends ForecastResult {
 
 const HISTORY_MONTHS = 3;
 const INCOME_LOOKBACK_MONTHS = 12;
+/** Dated items are read a year ahead whatever the horizon: the runway is read over a year. */
+const PROJECTION_DAYS = 365;
+const OPEN_PAYABLE_STATUSES = [
+  PayableStatus.TO_PAY,
+  PayableStatus.SCHEDULED,
+  PayableStatus.OVERDUE,
+  PayableStatus.PARTIALLY_PAID,
+];
 
 /**
  * Collects the dated money the workspace already knows about and hands it to
@@ -51,6 +65,8 @@ export class ForecastService {
     private readonly transactionRepository: Repository<Transaction>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
+    @InjectRepository(Payable)
+    private readonly payableRepository: Repository<Payable>,
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
     private readonly dashboardService: DashboardService,
@@ -64,16 +80,18 @@ export class ForecastService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayKey = formatDateOnly(today);
-    const horizonEnd = addDays(todayKey, horizonDays - 1);
+    const projectionDays = Math.max(horizonDays, PROJECTION_DAYS);
+    const projectionEnd = addDays(todayKey, projectionDays - 1);
 
     const workspace = await this.workspaceRepository.findOne({ where: { id: workspaceId } });
     const currency = normalizeCurrency(workspace?.currency);
     const profile = readWorkspaceProfile(workspace);
 
-    const [commitments, invoices, goals, history, incomeRows] = await Promise.all([
-      this.dashboardService.getCommitments(workspaceId, horizonDays),
-      this.invoiceEvents(workspaceId, currency, todayKey, horizonEnd),
-      this.goalEvents(workspaceId, currency, todayKey, horizonEnd),
+    const [commitments, receivables, invoices, goals, history, incomeRows] = await Promise.all([
+      this.dashboardService.getCommitments(workspaceId, projectionDays),
+      this.receivableEvents(workspaceId, currency, todayKey, projectionEnd),
+      this.invoiceEvents(workspaceId, currency, todayKey, projectionEnd),
+      this.goalEvents(workspaceId, currency, todayKey, projectionEnd),
       this.monthlyHistory(workspaceId, currency, today),
       this.incomeHistory(workspaceId, today),
     ]);
@@ -86,7 +104,7 @@ export class ForecastService {
       sourceId: `income:${index}`,
     }));
     const incomeEvents = recurring.flatMap(income =>
-      projectIncome(income, income.sourceId, todayKey, horizonEnd),
+      projectIncome(income, income.sourceId, todayKey, projectionEnd),
     );
 
     const committed: ForecastEvent[] = commitments.items.map(item => ({
@@ -99,17 +117,31 @@ export class ForecastService {
     }));
 
     // Everyday spending = what history says leaves the account beyond the
-    // subscriptions the forecast already places on their days. Payables are
-    // rarely in the history until paid, so they are not netted out.
+    // subscriptions the forecast already places on their days. A bill from a
+    // party in that history stands in for its share (see the engine).
     const subscriptionsMonthly = await this.subscriptionsMonthly(workspaceId, currency);
     const everydayMonthly = Math.max(0, history.monthlyExpense - subscriptionsMonthly);
+    const subscriptionVendors = commitments.items
+      .filter(item => item.source === 'subscription')
+      .map(item => item.label);
+    const expenseParties = history.expenseByParty.filter(
+      party => !subscriptionVendors.some(vendor => sameParty(vendor, party.party)),
+    );
+    // Income beyond the paydays (one-off clients, refunds) is averaged like
+    // spending; leaving it out would project only the costs of a freelancer.
+    const incomeParties = history.incomeByParty.filter(
+      party => !recurring.some(income => sameParty(income.label, party.party)),
+    );
+    const irregularIncomeMonthly = incomeParties.reduce((sum, party) => sum + party.monthly, 0);
 
     const result = computeForecast({
       today: todayKey,
       horizonDays,
       openingBalance: commitments.openingBalance,
-      events: [...committed, ...invoices, ...goals, ...incomeEvents],
+      events: [...committed, ...receivables, ...invoices, ...goals, ...incomeEvents],
       everydayMonthly,
+      irregularIncomeMonthly,
+      averagedParties: { expense: expenseParties, income: incomeParties },
       scenario: {
         exclude: query.exclude,
         incomeFactor: query.incomeFactor,
@@ -122,6 +154,7 @@ export class ForecastService {
       currency,
       profile,
       everydayMonthly: round(everydayMonthly),
+      irregularIncomeMonthly: round(irregularIncomeMonthly),
       monthlyIncome: round(history.monthlyIncome),
       monthlyExpense: round(history.monthlyExpense),
       monthsObserved: history.monthsObserved,
@@ -130,7 +163,58 @@ export class ForecastService {
     };
   }
 
-  /** Sent invoices on their due date as money in; an overdue one is expected "now". */
+  /**
+   * Open receivables (what the Receive tab lists) on their due date as money
+   * in, less what was already paid; an overdue one is expected "now". Undated
+   * ones have no day to land on and are left out.
+   */
+  private async receivableEvents(
+    workspaceId: string,
+    currency: string,
+    today: string,
+    horizonEnd: string,
+  ): Promise<ForecastEvent[]> {
+    const receivables = await this.payableRepository.find({
+      where: {
+        workspaceId,
+        direction: PayableDirection.RECEIVABLE,
+        status: In(OPEN_PAYABLE_STATUSES),
+        deletedAt: IsNull(),
+      },
+    });
+    const events: ForecastEvent[] = [];
+    for (const receivable of receivables) {
+      if (!receivable.dueDate) continue;
+      // A `date` column arrives as a string, though the entity types it as a Date.
+      const due =
+        receivable.dueDate instanceof Date
+          ? formatDateOnly(receivable.dueDate)
+          : String(receivable.dueDate).slice(0, 10);
+      const date = due < today ? today : due;
+      if (date > horizonEnd) continue;
+      const amount = await this.convert(
+        Number(receivable.amount) - Number(receivable.paidAmount ?? 0),
+        receivable.currency,
+        currency,
+        workspaceId,
+      );
+      if (amount <= 0) continue;
+      events.push({
+        date,
+        label: receivable.vendor,
+        amount,
+        kind: 'invoice',
+        sourceId: receivable.id,
+        isOverdue: due < today,
+      });
+    }
+    return events;
+  }
+
+  /**
+   * Sent invoices on their due date as money in; an overdue one is expected
+   * "now". An invoice that opened a receivable is counted through it.
+   */
   private async invoiceEvents(
     workspaceId: string,
     currency: string,
@@ -143,6 +227,7 @@ export class ForecastService {
     });
     const events: ForecastEvent[] = [];
     for (const invoice of invoices) {
+      if (invoice.payableId) continue;
       const due = String(invoice.dueDate).slice(0, 10);
       const date = due < today ? today : due;
       if (date > horizonEnd) continue;
@@ -205,18 +290,28 @@ export class ForecastService {
     return events;
   }
 
-  /** Average monthly income and expense over the last full months, in the workspace currency. */
+  /**
+   * Average monthly income and expense over the last full months, in the
+   * workspace currency, in total and per counterparty.
+   */
   private async monthlyHistory(
     workspaceId: string,
     currency: string,
     today: Date,
-  ): Promise<{ monthlyIncome: number; monthlyExpense: number; monthsObserved: number }> {
+  ): Promise<{
+    monthlyIncome: number;
+    monthlyExpense: number;
+    monthsObserved: number;
+    incomeByParty: AveragedParty[];
+    expenseByParty: AveragedParty[];
+  }> {
     const since = new Date(today.getFullYear(), today.getMonth() - HISTORY_MONTHS, 1);
     const until = new Date(today.getFullYear(), today.getMonth(), 0);
-    const rows = await this.transactionRepository
+    const historyQuery = this.transactionRepository
       .createQueryBuilder('t')
       .innerJoin('t.statement', 's')
       .select('t.currency', 'currency')
+      .addSelect('t.counterpartyName', 'party')
       .addSelect(
         'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE 0 END), 0)',
         'income',
@@ -225,7 +320,8 @@ export class ForecastService {
         'COALESCE(SUM(CASE WHEN t.transactionType = :expense THEN t.debit ELSE 0 END), 0)',
         'expense',
       )
-      .where('s.workspaceId = :workspaceId', { workspaceId })
+      .where('s.workspaceId = :workspaceId', { workspaceId });
+    const rows = await onlyCounted(historyQuery, 't')
       .andWhere('s.deletedAt IS NULL')
       .andWhere('s.status NOT IN (:...excluded)', {
         excluded: [StatementStatus.ERROR, StatementStatus.PROCESSING],
@@ -236,31 +332,45 @@ export class ForecastService {
       .andWhere('t.transactionDate <= :until', { until })
       .setParameters({ income: TransactionType.INCOME, expense: TransactionType.EXPENSE })
       .groupBy('t.currency')
-      .getRawMany<{ currency: string; income: string; expense: string }>();
+      .addGroupBy('t.counterpartyName')
+      .getRawMany<{ currency: string; party: string | null; income: string; expense: string }>();
 
     let income = 0;
     let expense = 0;
+    const byParty = new Map<string, { party: string; income: number; expense: number }>();
     for (const row of rows) {
-      income += await this.convert(
+      const rowIncome = await this.convert(
         Number.parseFloat(row.income),
         row.currency,
         currency,
         workspaceId,
       );
-      expense += await this.convert(
+      const rowExpense = await this.convert(
         Number.parseFloat(row.expense),
         row.currency,
         currency,
         workspaceId,
       );
+      income += rowIncome;
+      expense += rowExpense;
+      const party = (row.party ?? '').trim();
+      if (!party) continue;
+      const key = party.toLowerCase();
+      const totals = byParty.get(key) ?? { party, income: 0, expense: 0 };
+      totals.income += rowIncome;
+      totals.expense += rowExpense;
+      byParty.set(key, totals);
     }
-    const earliest = await this.transactionRepository
+    // History starts at the first confirmed row: unconfirmed ones do not count yet.
+    const earliestQuery = this.transactionRepository
       .createQueryBuilder('t')
       .innerJoin('t.statement', 's')
       .select('MIN(t.transactionDate)', 'first')
       .where('s.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('s.deletedAt IS NULL')
-      .getRawOne<{ first: string | Date | null }>();
+      .andWhere('s.deletedAt IS NULL');
+    const earliest = await onlyCounted(earliestQuery, 't').getRawOne<{
+      first: string | Date | null;
+    }>();
     const firstDate = earliest?.first ? new Date(earliest.first) : null;
     // A young workspace has fewer full months than the window; divide by what it has.
     const monthsObserved = firstDate
@@ -274,16 +384,22 @@ export class ForecastService {
           ),
         )
       : HISTORY_MONTHS;
+    const perMonth = (pick: 'income' | 'expense'): AveragedParty[] =>
+      [...byParty.values()]
+        .filter(totals => totals[pick] > 0)
+        .map(totals => ({ party: totals.party, monthly: totals[pick] / monthsObserved }));
     return {
       monthlyIncome: income / monthsObserved,
       monthlyExpense: expense / monthsObserved,
       monthsObserved,
+      incomeByParty: perMonth('income'),
+      expenseByParty: perMonth('expense'),
     };
   }
 
   private async incomeHistory(workspaceId: string, today: Date) {
     const since = new Date(today.getFullYear(), today.getMonth() - INCOME_LOOKBACK_MONTHS, 1);
-    return this.transactionRepository
+    const incomeQuery = this.transactionRepository
       .createQueryBuilder('t')
       .innerJoin('t.statement', 's')
       .select([
@@ -291,7 +407,8 @@ export class ForecastService {
         't.credit AS amount',
         't.transactionDate AS "transactionDate"',
       ])
-      .where('s.workspaceId = :workspaceId', { workspaceId })
+      .where('s.workspaceId = :workspaceId', { workspaceId });
+    return onlyCounted(incomeQuery, 't')
       .andWhere('s.deletedAt IS NULL')
       .andWhere('t.transactionType = :income', { income: TransactionType.INCOME })
       .andWhere('t.isDuplicate = false')

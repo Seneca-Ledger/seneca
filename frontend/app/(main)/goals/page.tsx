@@ -107,25 +107,20 @@ export default function GoalsPage() {
   };
 
   return (
-    <Box component="main" sx={{ px: { xs: 2, md: 4 }, py: 3, width: '100%' }}>
+    <Box
+      component="main"
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+    >
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           alignItems: 'flex-start',
           gap: 2,
           mb: 3,
           flexWrap: 'wrap',
         }}
       >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            {t.title}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {t.subtitle}
-          </Typography>
-        </Box>
         <Button variant="contained" onClick={openCreate}>
           {t.newGoal}
         </Button>
@@ -147,7 +142,7 @@ export default function GoalsPage() {
       )}
 
       {!(isPending || error) && goals.length === 0 && (
-        <EmptyState illustration="activity" description={t.empty} />
+        <EmptyState illustration="goals" description={t.empty} />
       )}
 
       <Box
@@ -166,15 +161,22 @@ export default function GoalsPage() {
             goal={goal}
             locale={locale}
             labels={{
-              addContribution: t.addContribution.value,
-              edit: t.edit.value,
-              remove: t.remove.value,
               reached: t.reached.value,
               remaining: t.remaining.value,
             }}
-            onContribute={openContribution}
-            onEdit={openEdit}
-            onDelete={item => void deleteGoal(item.id)}
+            actions={
+              <>
+                <Button size="small" variant="outlined" onClick={() => openContribution(goal)}>
+                  {t.addContribution}
+                </Button>
+                <Button size="small" onClick={() => openEdit(goal)}>
+                  {t.edit}
+                </Button>
+                <Button size="small" color="error" onClick={() => void deleteGoal(goal.id)}>
+                  {t.remove}
+                </Button>
+              </>
+            }
           />
         ))}
       </Box>
@@ -184,12 +186,27 @@ export default function GoalsPage() {
         title={editing ? t.edit.value : t.newGoal.value}
         form={form}
         saving={saving}
+        currentCover={editing?.cover ?? null}
         labels={{
           name: t.nameLabel.value,
           target: t.targetLabel.value,
           date: t.dateLabel.value,
           save: t.save.value,
           cancel: t.cancel.value,
+          cover: t.coverLabel.value,
+          chooseCover: t.chooseCover.value,
+          picker: {
+            title: t.coverPickerTitle.value,
+            presets: t.coverPresets.value,
+            photos: t.coverPhotos.value,
+            searchPlaceholder: t.coverSearchPlaceholder.value,
+            search: t.coverSearch.value,
+            noResults: t.coverNoResults.value,
+            searchHint: t.coverSearchHint.value,
+            licenceNote: t.coverLicenceNote.value,
+            remove: t.coverRemove.value,
+            close: t.close.value,
+          },
         }}
         onChange={setForm}
         onClose={() => setFormOpen(false)}

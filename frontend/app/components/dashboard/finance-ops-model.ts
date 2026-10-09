@@ -1,5 +1,6 @@
 import { fillTemplate } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
 import type { DashboardActionItem, DashboardData } from '@/app/hooks/useDashboard';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 
 export type FinanceOpsFeatureStatus = 'ready' | 'review' | 'blocked';
 
@@ -147,7 +148,7 @@ export function buildFinanceOpsModel(
     totalPayable: data.snapshot?.totalPayable ?? 0,
     totalOverdue: data.snapshot?.totalOverdue ?? 0,
     unapprovedCash: data.snapshot?.unapprovedCash ?? 0,
-    currency: data.snapshot?.currency ?? 'KZT',
+    currency: data.snapshot?.currency ?? FALLBACK_CURRENCY,
   };
   const actions = data.actions ?? [];
   const topCategories = data.topCategories ?? [];
@@ -174,7 +175,7 @@ export function buildFinanceOpsModel(
       id: 'review-clear',
       label: labels.checklist.reviewQueueClear,
       done: dataHealth.statementsPendingReview === 0 && dataHealth.statementsWithErrors === 0,
-      href: '/statements/approve',
+      href: '/review',
     },
     {
       id: 'categories-clear',
@@ -192,7 +193,7 @@ export function buildFinanceOpsModel(
       id: 'cash-approved',
       label: labels.checklist.cashReconciled,
       done: Math.abs(snapshot.unapprovedCash) === 0,
-      href: '/statements/unapproved-cash',
+      href: '/review',
     },
   ];
 
@@ -213,13 +214,13 @@ export function buildFinanceOpsModel(
     {
       id: 'review-statements',
       label: labels.savedViews.statementReview,
-      href: '/statements/approve',
+      href: '/review',
       count: dataHealth.statementsPendingReview,
     },
     {
       id: 'large-expenses',
       label: labels.savedViews.largeExpenses,
-      href: '/statements/top-spenders',
+      href: '/reports?tab=cash-flow',
       count: 0,
     },
     {
@@ -237,7 +238,7 @@ export function buildFinanceOpsModel(
       summary: labels.features.importReviewInbox.summary,
       pendingCount: importPending,
       status: statusFor(importPending, dataHealth.statementsWithErrors > 0),
-      href: importPending > 0 ? '/statements/approve' : '/statements/submit?openExpenseDrawer=scan',
+      href: importPending > 0 ? '/review' : '/statements/submit?openExpenseDrawer=scan',
       primaryAction:
         importPending > 0
           ? labels.features.importReviewInbox.primaryActionOpen
@@ -297,8 +298,7 @@ export function buildFinanceOpsModel(
       summary: labels.features.anomalyDetectionFeed.summary,
       pendingCount: anomalyPending,
       status: statusFor(anomalyPending),
-      href:
-        snapshot.totalOverdue > 0 ? '/statements/pay?status=overdue' : '/statements/top-merchants',
+      href: snapshot.totalOverdue > 0 ? '/statements/pay?status=overdue' : '/reports?tab=cash-flow',
       primaryAction: labels.features.anomalyDetectionFeed.primaryAction,
       evidence:
         snapshot.totalOverdue > 0
@@ -315,7 +315,7 @@ export function buildFinanceOpsModel(
       summary: labels.features.reconciliationDashboard.summary,
       pendingCount: reconciliationPending,
       status: statusFor(reconciliationPending),
-      href: '/statements/unapproved-cash',
+      href: '/review',
       primaryAction: labels.features.reconciliationDashboard.primaryAction,
       evidence: fillTemplate(labels.features.reconciliationDashboard.evidence, {
         netFlow: formatAmount(snapshot.netFlow30d),

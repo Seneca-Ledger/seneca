@@ -8,6 +8,7 @@ import type {
   ReceiptCategoryOption,
 } from '@/app/components/receipts/receipt-types';
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 
@@ -26,7 +27,7 @@ function extractParsedFields(
     return {
       vendor: '',
       amount: '',
-      currency: 'KZT',
+      currency: FALLBACK_CURRENCY,
       date: '',
       tax: '',
       paymentMethod: '',
@@ -38,7 +39,7 @@ function extractParsedFields(
   return {
     vendor: pd.vendor ?? '',
     amount: pd.amount ?? '',
-    currency: pd.currency ?? 'KZT',
+    currency: pd.currency ?? FALLBACK_CURRENCY,
     date: pd.date ? pd.date.split('T')[0] : '',
     tax: pd.tax ?? '',
     paymentMethod: pd.paymentMethod ?? '',

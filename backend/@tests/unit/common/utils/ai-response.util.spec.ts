@@ -1,3 +1,4 @@
+import { appDefaultCurrency } from '@/common/utils/currency.util';
 import { normalizeDate, normalizeNumber } from '@/common/utils/number-normalizer.util';
 import {
   mapParsedTransaction,
@@ -37,7 +38,7 @@ describe('AI response utilities', () => {
       debit: 1200.5,
       credit: undefined,
       paymentPurpose: 'Invoice payment',
-      currency: 'KZT',
+      currency: appDefaultCurrency(),
     });
   });
 

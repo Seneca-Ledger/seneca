@@ -3,6 +3,7 @@
 import { Box, Chip, TableCell, TableRow, Typography } from '@mui/material';
 import React from 'react';
 import { Calendar } from '@/app/components/icons';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { Transaction } from './types';
 
 type DocumentTransactionRowProps = {
@@ -118,7 +119,7 @@ export function DocumentTransactionRow({
       </TableCell>
       <TableCell>
         <Typography variant="body2" color="text.secondary" fontFamily="monospace">
-          {transaction.currency || 'KZT'}
+          {transaction.currency || FALLBACK_CURRENCY}
         </Typography>
       </TableCell>
     </TableRow>

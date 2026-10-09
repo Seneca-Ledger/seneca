@@ -9,6 +9,7 @@ import { User } from '../../../../src/entities/user.entity';
 import { WorkspaceMember } from '../../../../src/entities/workspace-member.entity';
 import { Category } from '../../../../src/entities/category.entity';
 import { TaxRate } from '../../../../src/entities/tax-rate.entity';
+import { Wallet } from '../../../../src/entities/wallet.entity';
 import { AuditService } from '../../../../src/modules/audit/audit.service';
 import { StatementParsingQueue } from '../../../../src/modules/parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../../../../src/modules/parsing/services/statement-processing.service';
@@ -16,6 +17,7 @@ import { ReceiptStatementService } from '../../../../src/modules/statements/serv
 import { StatementsService } from '../../../../src/modules/statements/statements.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 // Mock the file hash calculation
 jest.mock('../../../../src/common/utils/file-hash.util', () => ({
@@ -73,6 +75,7 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StatementsService,
+        workspaceCurrencyProvider(),
         {
           provide: getRepositoryToken(Statement),
           useValue: mockRepositories.statement,
@@ -100,6 +103,10 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
         {
           provide: getRepositoryToken(TaxRate),
           useValue: mockRepositories.taxRate,
+        },
+        {
+          provide: getRepositoryToken(Wallet),
+          useValue: { findOne: jest.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),

@@ -4,6 +4,12 @@ import { retry, TimeoutError, withTimeout } from '../../common/utils/async.util'
 import type { User } from '../../entities/user.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
 
+export interface MailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
+
 export interface SendMailParams {
   to: string;
   subject: string;
@@ -11,6 +17,12 @@ export interface SendMailParams {
   html?: string;
   /** Whose workspace SMTP settings to use; falls back to the SMTP_* env vars. */
   user?: User | null;
+  /**
+   * Which workspace's SMTP settings to use. Without it the user's *home*
+   * workspace decides, which is the wrong server for mail about another one.
+   */
+  workspaceId?: string;
+  attachments?: MailAttachment[];
 }
 
 /**
@@ -24,13 +36,16 @@ export class MailerService {
 
   constructor(private readonly applicationSettingsService: ApplicationSettingsService) {}
 
-  async isConfigured(user?: User | null): Promise<boolean> {
-    const smtp = await this.applicationSettingsService.getSmtpSettings(user);
+  async isConfigured(user?: User | null, workspaceId?: string): Promise<boolean> {
+    const smtp = await this.applicationSettingsService.getSmtpSettings(user, workspaceId);
     return Boolean((smtp?.host || process.env.SMTP_HOST) && (smtp?.from || process.env.SMTP_FROM));
   }
 
   async send(params: SendMailParams): Promise<boolean> {
-    const smtp = await this.applicationSettingsService.getSmtpSettings(params.user);
+    const smtp = await this.applicationSettingsService.getSmtpSettings(
+      params.user,
+      params.workspaceId,
+    );
     const host = smtp?.host || process.env.SMTP_HOST;
     const from = smtp?.from || process.env.SMTP_FROM;
 
@@ -61,6 +76,7 @@ export class MailerService {
             subject: params.subject,
             text: params.text,
             html: params.html,
+            attachments: params.attachments,
             replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
           }),
           Number.isFinite(timeoutMs) ? timeoutMs : 10000,

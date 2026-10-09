@@ -117,7 +117,9 @@ describe('ledger reports (real Postgres)', () => {
     const accounts = moduleRef.get(LedgerAccountsService);
 
     workspaceId = (
-      await dataSource.getRepository(Workspace).save({ name: 'Reports WS', ledgerBaseCurrency: 'EUR' })
+      await dataSource
+        .getRepository(Workspace)
+        .save({ name: 'Reports WS', currency: 'EUR', ledgerBaseCurrency: 'EUR' })
     ).id;
     const userId = (
       await dataSource.getRepository(User).save(
@@ -304,11 +306,13 @@ describe('ledger reports (real Postgres)', () => {
   });
 
   it('refuses a workspace without the ledger, and another workspace account', async () => {
-    const off = (await dataSource.getRepository(Workspace).save({ name: 'Off' })).id;
+    const off = (await dataSource.getRepository(Workspace).save({ name: 'Off', currency: 'USD' })).id;
     expect(await httpError(reports.profitAndLoss(off, {}))).toEqual({ status: 409, code: 'LEDGER_DISABLED' });
 
     const other = (
-      await dataSource.getRepository(Workspace).save({ name: 'Other', ledgerBaseCurrency: 'EUR' })
+      await dataSource
+        .getRepository(Workspace)
+        .save({ name: 'Other', currency: 'EUR', ledgerBaseCurrency: 'EUR' })
     ).id;
     expect(await httpError(reports.accountLedger(other, ids.bank, {}))).toEqual({
       status: 404,

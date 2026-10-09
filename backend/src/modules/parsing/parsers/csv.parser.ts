@@ -1,6 +1,7 @@
 import csv = require('csv-parser');
 
 import * as fs from 'fs';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { type BankName, FileType } from '../../../entities/statement.entity';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { BaseTabularParser } from './base-tabular.parser';
@@ -19,7 +20,7 @@ export class CsvParser extends BaseTabularParser {
   async parse(filePath: string, cachedText?: string): Promise<ParsedStatement> {
     // Detect currency from raw file content before streaming rows
     const rawContent = fs.readFileSync(filePath, 'utf-8').slice(0, 4096);
-    const detectedCurrency = this.detectCurrency(rawContent) || 'KZT';
+    const detectedCurrency = this.detectCurrency(rawContent) || appDefaultCurrency();
 
     return new Promise((resolve, reject) => {
       const transactions: ParsedTransaction[] = [];

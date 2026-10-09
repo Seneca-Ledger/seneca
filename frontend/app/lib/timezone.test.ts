@@ -21,7 +21,7 @@ describe('formatTimeZoneLabel', () => {
   });
 
   it('keeps the identifier first so the list stays sorted by continent', () => {
-    for (const locale of ['ru', 'ja', 'ar']) {
+    for (const locale of ['ru', 'ja', 'hi']) {
       expect(formatTimeZoneLabel('Africa/Abidjan', locale).startsWith('Africa/Abidjan')).toBe(true);
     }
   });

@@ -118,6 +118,26 @@ describe('Forecast (e2e)', () => {
     );
   });
 
+  it('expects the money a client owes on its due date', async () => {
+    await as(owner, request(server()).post('/payables'))
+      .send({
+        direction: 'receivable',
+        vendor: 'Client Co',
+        amount: 800,
+        currency: 'USD',
+        dueDate: inDays(7),
+      })
+      .expect(201);
+
+    const res = await as(owner, request(server()).get('/forecast?days=30')).expect(200);
+
+    expect(res.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'invoice', label: 'Client Co', amount: 800 }),
+      ]),
+    );
+  });
+
   it('accepts only the three horizons', () => {
     return as(owner, request(server()).get('/forecast?days=45')).expect(400);
   });

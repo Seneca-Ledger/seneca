@@ -12,6 +12,7 @@ import { ArrowDownRight, ArrowUpRight } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -28,6 +29,7 @@ import { AllocationCard } from './AllocationCard';
 import { AttributionCard } from './AttributionCard';
 import { CustomRange } from './CustomRange';
 import { ASSET_CLASS_KEYS, InvestmentsCard } from './InvestmentsCard';
+import { MetalsCard } from './MetalsCard';
 import { NetWorthChart } from './NetWorthChart';
 import { RiskCard } from './RiskCard';
 
@@ -178,37 +180,55 @@ export function NetWorthContent() {
     setCustom,
     setView,
     setExcluded,
+    denominate,
+    setDenominate,
     classify,
   } = useNetWorth();
 
-  const currency = data?.currency ?? 'KZT';
+  const currency = data?.currency ?? FALLBACK_CURRENCY;
   // The next round number, and when this window's pace would reach it.
   const milestone = data
     ? nextMilestone(data.current, data.change, daysBetween(data.from, data.to))
     : null;
-  const isPositive = (data?.change ?? 0) >= 0;
+  // Measured in metal, the figures are ounces; the money ones stay untouched
+  // underneath, so the toggle changes the unit and nothing else.
+  const inMetal = denominate ? (data?.denominated ?? null) : null;
+  const formatOunces = (value: number) =>
+    `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value)} ozt`;
+  const show = (value: number) =>
+    inMetal ? formatOunces(value) : formatMoney(value, currency, locale);
+  const headline = inMetal ?? data;
+  const isPositive = (headline?.change ?? 0) >= 0;
   const hasData = Boolean(data && (data.assetsTotal !== 0 || data.liabilitiesTotal !== 0));
 
   return (
-    <Box sx={{ px: { xs: 2, md: 4 }, py: 3, width: '100%' }}>
+    <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}>
       <Box
         sx={{
           display: 'flex',
           flexWrap: 'wrap',
           gap: 2,
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           alignItems: 'flex-start',
           mb: 3,
         }}
       >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            {t.title}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {t.subtitle}
-          </Typography>
-        </Box>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={denominate ?? 'money'}
+          onChange={(_event, next: string | null) =>
+            next && setDenominate(next === 'money' ? null : 'XAU')
+          }
+          aria-label={t.ouncesOfGold.value}
+        >
+          <ToggleButton value="money" sx={{ px: 1.5, textTransform: 'none' }}>
+            {currency}
+          </ToggleButton>
+          <ToggleButton value="XAU" sx={{ px: 1.5, textTransform: 'none' }}>
+            {t.ouncesOfGold}
+          </ToggleButton>
+        </ToggleButtonGroup>
 
         <RangeControls
           range={range}
@@ -254,7 +274,7 @@ export function NetWorthContent() {
             }}
           >
             <Typography variant="h3" fontWeight={700} sx={{ lineHeight: 1.1 }}>
-              {formatMoney(data.current, currency, locale)}
+              {show(headline?.current ?? 0)}
             </Typography>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1 }}>
@@ -268,15 +288,20 @@ export function NetWorthContent() {
                 sx={{ fontWeight: 600, color: isPositive ? 'success.main' : 'error.main' }}
               >
                 {isPositive ? '+' : '−'}
-                {formatMoney(Math.abs(data.change), currency, locale)}
-                {data.changePercent !== null &&
-                  ` (${isPositive ? '+' : '−'}${Math.abs(data.changePercent)}%)`}
+                {show(Math.abs(headline?.change ?? 0))}
+                {headline?.changePercent != null &&
+                  ` (${isPositive ? '+' : '−'}${Math.abs(headline.changePercent)}%)`}
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                 {t.overPeriod}
               </Typography>
             </Box>
-            {display.allTimeHigh && data.allTimeHigh && (
+            {denominate && !inMetal && (
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                {t.noMetalPrice}
+              </Typography>
+            )}
+            {display.allTimeHigh && !inMetal && data.allTimeHigh && (
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                 {t.allTimeHigh.value
                   .replace('{{value}}', formatMoney(data.allTimeHigh.value, currency, locale))
@@ -284,7 +309,7 @@ export function NetWorthContent() {
               </Typography>
             )}
 
-            {milestone && (
+            {milestone && !inMetal && (
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                 {t.milestoneRemaining.value
                   .replace('{{target}}', formatMoney(milestone.target, currency, locale))
@@ -306,11 +331,11 @@ export function NetWorthContent() {
             {hasData ? (
               <Box sx={{ mt: 2 }}>
                 <NetWorthChart
-                  points={data.series}
+                  points={inMetal ? inMetal.series : data.series}
                   positive={isPositive}
                   view={view}
                   zeroBaseline={display.zeroBaseline}
-                  formatValue={value => formatMoney(value, currency, locale)}
+                  formatValue={show}
                   labels={{
                     assets: t.assets.value,
                     liabilities: t.liabilities.value,
@@ -319,7 +344,7 @@ export function NetWorthContent() {
                 />
               </Box>
             ) : (
-              <EmptyState illustration="reports" description={t.empty} compact />
+              <EmptyState illustration="net-worth" description={t.empty} compact />
             )}
 
             <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
@@ -399,6 +424,8 @@ export function NetWorthContent() {
           />
 
           <InvestmentsCard currency={currency} locale={locale} />
+
+          <MetalsCard currency={currency} locale={locale} />
 
           <RiskCard
             byRisk={data.byRisk}

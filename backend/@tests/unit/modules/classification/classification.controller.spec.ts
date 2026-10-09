@@ -12,7 +12,6 @@ describe('ClassificationController', () => {
     const transactionRepository = createRepoMock();
     const classificationService = {
       classifyTransaction: jest.fn(async () => ({ categoryId: 'cat-1' })),
-      learnFromCorrection: jest.fn(async () => undefined),
     };
     const transaction = { id: 'tx-1', workspaceId: 'ws-1' };
     transactionRepository.findOne.mockResolvedValue(transaction);
@@ -29,11 +28,10 @@ describe('ClassificationController', () => {
     });
   });
 
-  it('scopes bulk classification and learning by workspaceId', async () => {
+  it('scopes bulk classification by workspaceId', async () => {
     const transactionRepository = createRepoMock();
     const classificationService = {
       classifyTransaction: jest.fn(async () => ({ categoryId: 'cat-1' })),
-      learnFromCorrection: jest.fn(async () => undefined),
     };
     transactionRepository.findOne.mockResolvedValue({ id: 'tx-1', workspaceId: 'ws-1' });
     const controller = new ClassificationController(
@@ -42,16 +40,8 @@ describe('ClassificationController', () => {
     );
 
     await controller.classifyBulk({ transactionIds: ['tx-1'] }, { id: 'u1' } as any, 'ws-1');
-    await controller.recordLearning(
-      { transactionId: 'tx-1', categoryId: 'cat-1' },
-      { id: 'u1' } as any,
-      'ws-1',
-    );
 
     expect(transactionRepository.findOne).toHaveBeenNthCalledWith(1, {
-      where: { id: 'tx-1', workspaceId: 'ws-1' },
-    });
-    expect(transactionRepository.findOne).toHaveBeenNthCalledWith(2, {
       where: { id: 'tx-1', workspaceId: 'ws-1' },
     });
     expect(classificationService.classifyTransaction).toHaveBeenCalledWith(

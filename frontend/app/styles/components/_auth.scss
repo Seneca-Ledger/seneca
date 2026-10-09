@@ -1,0 +1,62 @@
+@use '../abstracts' as *;
+
+/* BEM block: lumio-auth — the sign-in pages' backdrop and hero.
+   Light by day, dark by night: the theme follows the app's auto schedule. */
+
+.lumio-auth-backdrop {
+  --auth-grid-line: rgba(15, 23, 42, 0.055);
+  min-height: 100vh;
+  // Not 100vw: that counts the scrollbar gutter.
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background-color: #f5f7f6;
+  background-image:
+    radial-gradient(ellipse 60% 50% at 72% 45%, rgba(16, 185, 129, 0.13), transparent 70%),
+    linear-gradient(var(--auth-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--auth-grid-line) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+
+  @include dark {
+    --auth-grid-line: rgba(255, 255, 255, 0.045);
+    background-color: #07110c;
+    background-image:
+      radial-gradient(ellipse 60% 50% at 72% 45%, rgba(16, 185, 129, 0.22), transparent 70%),
+      linear-gradient(var(--auth-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--auth-grid-line) 1px, transparent 1px);
+  }
+}
+
+.lumio-auth-hero {
+  color: #0b1a14;
+
+  @include dark { color: #f1f5f4; }
+
+  &__tagline {
+    color: rgba(11, 26, 20, 0.62);
+
+    @include dark { color: rgba(241, 245, 244, 0.72); }
+  }
+
+  &__check {
+    border: 1px solid rgba(5, 150, 105, 0.35);
+    background: rgba(255, 255, 255, 0.7);
+    color: #059669;
+
+    @include dark {
+      border-color: rgba(52, 211, 153, 0.45);
+      background: transparent;
+      color: #34d399;
+    }
+  }
+}
+
+/* The form panel: a hairline seam by day, a soft shadow by night. */
+.lumio-auth-form-panel {
+  border-right: 1px solid $color-border;
+
+  @include dark {
+    border-right-color: transparent;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.25);
+  }
+}

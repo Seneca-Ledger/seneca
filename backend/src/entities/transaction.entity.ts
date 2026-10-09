@@ -1,4 +1,6 @@
 import {
+  BeforeInsert,
+  BeforeUpdate,
   Column,
   CreateDateColumn,
   Entity,
@@ -10,6 +12,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { payeeKeyOf } from '../common/utils/payee-key.util';
 import { Branch } from './branch.entity';
 import { Category } from './category.entity';
 import { CryptoWallet } from './crypto-wallet.entity';
@@ -20,6 +23,7 @@ import { TaxRate } from './tax-rate.entity';
 import { TaxRule } from './tax-rule.entity';
 import { Wallet } from './wallet.entity';
 import { Workspace } from './workspace.entity';
+import { WorkspaceMember } from './workspace-member.entity';
 
 /** Why a given rate ended up on a transaction. */
 export enum TaxSource {
@@ -53,6 +57,13 @@ export enum TransactionCategorySource {
 }
 
 /** What a pair of linked legs represents. */
+/**
+ * A synced row is the value that moved, the fee that moved it, or a move between
+ * two places the user already owns — which changes where coins are and nothing
+ * about what they cost, so it is neither income, spending, nor a lot event.
+ */
+export type CryptoLeg = 'value' | 'fee' | 'move';
+
 export enum TransferPairKind {
   /** Money moved between the user's own accounts. */
   TRANSFER = 'transfer',
@@ -82,10 +93,12 @@ export enum TransferPairSource {
 // Makes a crypto sync idempotent: re-reading the chain re-offers rows we already
 // have, and the insert simply loses the race with itself. One on-chain transaction
 // can legitimately produce several rows (a native transfer plus a token transfer,
-// or an in and an out leg), which is why asset and direction are part of the key.
+// or an in and an out leg), which is why asset, direction and leg are part of the
+// key. `crypto_leg` is never null on a synced row, so the index cannot be defeated
+// by Postgres treating NULLs as distinct.
 @Index(
   'IDX_transactions_crypto_tx',
-  ['workspaceId', 'cryptoWalletId', 'cryptoTxHash', 'cryptoAsset', 'transactionType'],
+  ['workspaceId', 'cryptoWalletId', 'cryptoTxHash', 'cryptoAsset', 'transactionType', 'cryptoLeg'],
   { unique: true, where: '"crypto_tx_hash" IS NOT NULL' },
 )
 export class Transaction {
@@ -148,7 +161,7 @@ export class Transaction {
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   amount: number | null;
 
-  @Column({ default: 'KZT' })
+  @Column()
   currency: string;
 
   @Column({ name: 'exchange_rate', type: 'decimal', precision: 10, scale: 4, nullable: true })
@@ -188,6 +201,42 @@ export class Transaction {
   @Column({ name: 'wallet_id', type: 'uuid', nullable: true })
   walletId: string | null;
 
+  /**
+   * Which member of the household this row belongs to; NULL means it is shared.
+   *
+   * It points at the membership, not the user, so ownership is scoped to this
+   * workspace, and SET NULL means a member leaving turns their rows into shared
+   * ones instead of deleting them. A new row inherits it from its wallet.
+   */
+  @ManyToOne(() => WorkspaceMember, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'owner_member_id' })
+  ownerMember: WorkspaceMember | null;
+
+  @Column({ name: 'owner_member_id', type: 'uuid', nullable: true })
+  ownerMemberId: string | null;
+
+  /**
+   * Hides what the row was, never that it happened: the date and the amount
+   * stay visible to the whole household, the merchant and the purpose do not.
+   *
+   * Only the row's owner can set it, and only on a row that is theirs — a row
+   * the household shares has nobody to keep a secret from.
+   */
+  @Column({ name: 'is_private', type: 'boolean', default: false })
+  isPrivate: boolean;
+
+  /**
+   * The category the row had before it went private; `categoryId` is the
+   * workspace's `Private` category while it is. Restored when privacy is
+   * turned off.
+   */
+  @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'private_category_id' })
+  privateCategory: Category | null;
+
+  @Column({ name: 'private_category_id', type: 'uuid', nullable: true })
+  privateCategoryId: string | null;
+
   @ManyToOne(() => CryptoWallet, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'crypto_wallet_id' })
   cryptoWallet: CryptoWallet | null;
@@ -211,6 +260,25 @@ export class Transaction {
   @Column({ name: 'crypto_tx_hash', type: 'varchar', length: 66, nullable: true })
   cryptoTxHash: string | null;
 
+  /**
+   * Which part of an on-chain transaction this row is: the value that moved, or
+   * the fee the chain charged when it could not be folded onto a transfer (a
+   * failed call, or a swap, whose two legs cancel out while its fee does not).
+   */
+  @Column({ name: 'crypto_leg', type: 'varchar', length: 8, nullable: true })
+  cryptoLeg: CryptoLeg | null;
+
+  /** Fee folded onto this transfer, in `cryptoFeeAsset`; included in `amount`. */
+  @Column({ name: 'crypto_fee_amount', type: 'decimal', precision: 38, scale: 18, nullable: true })
+  cryptoFeeAmount: string | null;
+
+  @Column({ name: 'crypto_fee_asset', type: 'varchar', length: 20, nullable: true })
+  cryptoFeeAsset: string | null;
+
+  /** The folded fee's value in `currency`; the rest of `amount` is the transfer itself. */
+  @Column({ name: 'crypto_fee_fiat', type: 'decimal', precision: 15, scale: 2, nullable: true })
+  cryptoFeeFiat: number | null;
+
   @Column({ nullable: true })
   article: string | null;
 
@@ -219,6 +287,27 @@ export class Transaction {
 
   @Column({ name: 'vendor_normalized', nullable: true })
   vendorNormalized: string | null;
+
+  /**
+   * The payee this row belongs to, normalised so the same shop keys the same
+   * every time (`descriptor-normalizer.ts`). Internal: the raw descriptor is
+   * what the user sees and what their rules match. Null when the descriptor
+   * held no name to key on.
+   */
+  @Index()
+  @Column({ name: 'payee_key', type: 'text', nullable: true })
+  payeeKey: string | null;
+
+  /**
+   * Derived on write so that every path that books a transaction — import,
+   * scan, receipt, payable, manual entry, custom table, Telegram — keys the
+   * payee the same way without having to remember to.
+   */
+  @BeforeInsert()
+  @BeforeUpdate()
+  derivePayeeKey(): void {
+    this.payeeKey = payeeKeyOf(this);
+  }
 
   @Column({ name: 'category_hint', nullable: true })
   categoryHint: string | null;

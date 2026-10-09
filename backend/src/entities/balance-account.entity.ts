@@ -52,6 +52,10 @@ export enum RiskLevel {
 export enum BalanceAccountKind {
   INVESTMENT = 'investment',
   RETIREMENT = 'retirement',
+  /** The crypto wallets' portfolio, written by the crypto module after each sync. */
+  CRYPTO = 'crypto',
+  /** Physical precious metals, one sub-account holding every lot. */
+  METALS = 'metals',
 }
 
 export enum BalanceAutoSource {
