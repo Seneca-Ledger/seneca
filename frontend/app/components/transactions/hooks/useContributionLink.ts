@@ -12,23 +12,34 @@ export interface InvestmentAccountOption {
 }
 
 /**
- * Marks an expense as money moved into an investment account, or takes the
- * mark off again. The accounts are fetched when the person asks, not before.
+ * What a row is to an investment account: an expense paid into it, income
+ * taken back out of it, or a dividend or interest it paid.
+ */
+export type InvestmentLinkRole = 'contribution' | 'withdrawal' | 'income';
+
+/**
+ * Links a row to an investment account as one of those, or takes the link
+ * off again. The accounts are fetched when the person asks, not before.
  */
 export function useContributionLink(onDone: () => void | Promise<void>) {
   const t = useIntlayer('transactionsDrawer');
   const [accounts, setAccounts] = useState<InvestmentAccountOption[] | null>(null);
+  const [role, setRole] = useState<InvestmentLinkRole>('contribution');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const loadAccounts = useCallback(async () => {
-    setLoading(true);
-    await apiClient
-      .get<InvestmentAccountOption[]>('/investments')
-      .then(response => setAccounts(response.data ?? []))
-      .catch(() => toast.error(t.transfer.toasts.failed.value));
-    setLoading(false);
-  }, [t.transfer.toasts.failed.value]);
+  const loadAccounts = useCallback(
+    async (nextRole: InvestmentLinkRole = 'contribution') => {
+      setRole(nextRole);
+      setLoading(true);
+      await apiClient
+        .get<InvestmentAccountOption[]>('/investments')
+        .then(response => setAccounts(response.data ?? []))
+        .catch(() => toast.error(t.transfer.toasts.failed.value));
+      setLoading(false);
+    },
+    [t.transfer.toasts.failed.value],
+  );
 
   const clearAccounts = useCallback(() => setAccounts(null), []);
 
@@ -36,7 +47,7 @@ export function useContributionLink(onDone: () => void | Promise<void>) {
     async (transactionId: string, accountId: string) => {
       setSaving(true);
       await apiClient
-        .post('/investments/contributions', { transactionId, accountId })
+        .post('/investments/contributions', { transactionId, accountId, role })
         .then(async () => {
           setAccounts(null);
           toast.success(t.transfer.toasts.linked.value);
@@ -45,7 +56,7 @@ export function useContributionLink(onDone: () => void | Promise<void>) {
         .catch(() => toast.error(t.transfer.toasts.failed.value));
       setSaving(false);
     },
-    [onDone, t.transfer.toasts.failed.value, t.transfer.toasts.linked.value],
+    [onDone, role, t.transfer.toasts.failed.value, t.transfer.toasts.linked.value],
   );
 
   const unlink = useCallback(
@@ -63,5 +74,5 @@ export function useContributionLink(onDone: () => void | Promise<void>) {
     [onDone, t.transfer.toasts.failed.value, t.transfer.toasts.unlinked.value],
   );
 
-  return { accounts, loading, saving, loadAccounts, clearAccounts, link, unlink };
+  return { accounts, role, loading, saving, loadAccounts, clearAccounts, link, unlink };
 }

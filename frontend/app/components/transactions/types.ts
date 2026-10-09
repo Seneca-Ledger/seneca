@@ -46,7 +46,8 @@ export interface Transaction {
   transferPairId?: string | null;
   transferPairSource?: 'auto' | 'manual' | 'rejected' | null;
   transferPairKind?: 'transfer' | 'reimbursement' | 'investment' | null;
-  // The investment account an expense was moved into (a one-leg transfer of kind `investment`)
+  // The investment account the row is linked to: an expense moved into it or income taken
+  // out of it (a one-leg transfer of kind `investment`), or a dividend it paid (no pair)
   investmentAccountId?: string | null;
   // Incoming row that pays back an expense (full repayments also become a pair)
   reimbursementOfId?: string | null;

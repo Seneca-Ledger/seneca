@@ -92,6 +92,10 @@ export function TransactionDetailsTab({
   } = useTransferLink(handleSplitDone);
   const isReimbursementPair = transaction.transferPairKind === 'reimbursement';
   const isInvestmentPair = transaction.transferPairKind === 'investment';
+  // A dividend or interest an investment account paid: linked, but income, so never paired.
+  const isInvestmentIncome =
+    Boolean(transaction.investmentAccountId) && !transaction.transferPairId;
+  const isIncome = transaction.transactionType === 'income';
   const contribution = useContributionLink(handleSplitDone);
 
   // The pre-split total the backend validates against: the positive side of the
@@ -458,10 +462,17 @@ export function TransactionDetailsTab({
       {transaction.transferPairId && (
         <div className="lumio-tx-detail__cat-badge" data-testid="transfer-badge">
           {isInvestmentPair
-            ? t.investment.badge.value
+            ? isIncome
+              ? t.investment.withdrawalBadge.value
+              : t.investment.badge.value
             : isReimbursementPair
               ? t.reimbursement.badge.value
               : t.transfer.badge.value}
+        </div>
+      )}
+      {isInvestmentIncome && (
+        <div className="lumio-tx-detail__cat-badge" data-testid="investment-income-badge">
+          {t.investment.incomeBadge.value}
         </div>
       )}
       {transaction.reimbursementOf && (
@@ -592,6 +603,7 @@ export function TransactionDetailsTab({
         {/* Reimbursement of an expense (incoming rows only) */}
         {onSplitDone &&
           transaction.transactionType === 'income' &&
+          !isInvestmentIncome &&
           (transaction.reimbursementOfId ? (
             <button
               type="button"
@@ -646,10 +658,55 @@ export function TransactionDetailsTab({
             )
           ))}
 
+        {/* Money taken out of an investment account, or what it paid (incoming rows only) */}
+        {onSplitDone &&
+          isIncome &&
+          !transaction.reimbursementOfId &&
+          (isInvestmentPair || isInvestmentIncome ? (
+            <button
+              type="button"
+              onClick={() => contribution.unlink(transaction.id)}
+              disabled={contribution.saving}
+              className="lumio-tx-detail__ignore-btn"
+            >
+              {t.investment.unlinkIncome.value}
+            </button>
+          ) : (
+            !transaction.transferPairId && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void contribution.loadAccounts('withdrawal');
+                  }}
+                  disabled={
+                    contribution.saving || contribution.loading || Boolean(transaction.splitGroupId)
+                  }
+                  className="lumio-tx-detail__ignore-btn"
+                >
+                  {t.investment.linkWithdrawal.value}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void contribution.loadAccounts('income');
+                  }}
+                  disabled={
+                    contribution.saving || contribution.loading || Boolean(transaction.splitGroupId)
+                  }
+                  className="lumio-tx-detail__ignore-btn"
+                >
+                  {t.investment.linkIncome.value}
+                </button>
+              </>
+            )
+          ))}
+
         {/* Transfer between own accounts */}
         {onSplitDone &&
           !isReimbursementPair &&
           !isInvestmentPair &&
+          !isInvestmentIncome &&
           !transaction.reimbursementOfId &&
           (transaction.transferPairId ? (
             <button
@@ -683,7 +740,11 @@ export function TransactionDetailsTab({
 
       {contribution.accounts && (
         <div className="lumio-tx-detail__section" data-testid="contribution-accounts">
-          <div className="lumio-tx-detail__label">{t.investment.pick.value}</div>
+          <div className="lumio-tx-detail__label">
+            {contribution.role === 'contribution'
+              ? t.investment.pick.value
+              : t.investment.pickSource.value}
+          </div>
           {contribution.accounts.length === 0 ? (
             <div className="lumio-tx-detail__label">{t.investment.none.value}</div>
           ) : (
