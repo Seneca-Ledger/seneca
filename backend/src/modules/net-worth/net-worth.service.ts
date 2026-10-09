@@ -603,18 +603,20 @@ export class NetWorthService {
     kept: number;
   }): Promise<NetWorthResponse['savings']> {
     const { workspaceId, converter, from, to, kept } = input;
-    const rows = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .leftJoin('transaction.statement', 'statement')
-      .select('transaction.transactionDate', 'date')
-      .addSelect('transaction.currency', 'currency')
-      .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
+    // Income a person confirmed, the same rows the cash line counts.
+    const rows = await onlyCounted(
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .leftJoin('transaction.statement', 'statement')
+        .select('transaction.transactionDate', 'date')
+        .addSelect('transaction.currency', 'currency')
+        .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+      'transaction',
+    )
       .andWhere('transaction.transactionDate > :from', { from })
       .andWhere('transaction.transactionDate <= :to', { to })
       .andWhere('transaction.transferPairId IS NULL')
-      .andWhere('transaction.isDuplicate = false')
-      .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
       .groupBy('transaction.transactionDate')
       .addGroupBy('transaction.currency')
       .getRawMany<{ date: string; currency: string; credit: string }>();

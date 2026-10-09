@@ -76,6 +76,8 @@ describe('Net worth truth (e2e)', () => {
         transactionType: input.debit ? TransactionType.EXPENSE : TransactionType.INCOME,
         transferPairId: input.pairId,
         transferPairKind: input.kind,
+        // Confirmed, or the cash walk leaves the leg out and there is nothing to align.
+        isVerified: true,
       }),
     );
   }
@@ -91,6 +93,10 @@ describe('Net worth truth (e2e)', () => {
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
     owner = await registerAccount(app, emails.owner, 'Net Worth Owner');
+    // A new workspace no longer defaults to tenge; every figure here is in it.
+    await as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+      .send({ currency: 'KZT' })
+      .expect(200);
 
     // The accounts are seeded on the first read of the sheet.
     const accounts = await as(owner, request(server()).get('/reports/balance/accounts')).expect(200);
@@ -229,6 +235,9 @@ describe('Net worth truth (e2e)', () => {
     const workspaceId = created.body.id ?? created.body.data?.id;
     const asIt = (req: request.Test) =>
       req.set('Authorization', `Bearer ${owner.token}`).set('x-workspace-id', workspaceId);
+    await as(owner, request(server()).patch(`/workspaces/${workspaceId}`))
+      .send({ currency: 'KZT' })
+      .expect(200);
 
     const before = await asIt(request(server()).get('/reports/balance/sheet')).expect(200);
     const fixed = findAccountId(before.body, 'ASSET_FIXED');
