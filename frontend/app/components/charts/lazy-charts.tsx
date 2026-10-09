@@ -36,6 +36,11 @@ export const LazyMonthlyStackedBars = dynamic(
   { ssr: false, loading: ChartSkeleton },
 );
 
+export const LazyReturnsArea = dynamic(
+  () => import('./ReturnsArea').then(module => module.ReturnsArea),
+  { ssr: false, loading: ChartSkeleton },
+);
+
 export const LazyRoiLines = dynamic(() => import('./RoiLines').then(module => module.RoiLines), {
   ssr: false,
   loading: ChartSkeleton,

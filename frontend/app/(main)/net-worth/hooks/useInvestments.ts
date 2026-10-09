@@ -49,6 +49,12 @@ export interface InvestmentAccount {
   currency: string;
   value: number;
   contributed: number;
+  /** Taken back out of the account to the user's own cash. */
+  withdrawn: number;
+  /** Dividends and interest the account paid out. */
+  income: number;
+  /** Contributed less withdrawn. */
+  netInvested: number;
   gain: number;
   holdings: InvestmentHolding[];
 }
