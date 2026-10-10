@@ -210,9 +210,12 @@ jobs:
           node scripts/sync-contracts.mjs --check
           node --test scripts/sync-contracts.test.mjs
 
+  # Deliberately not behind `lint`. Everything downstream used to wait on it, so a
+  # single misformatted line skipped typecheck, tests and build and reported one
+  # failure while real type errors reached main unseen.
   typecheck:
     runs-on: ubuntu-latest
-    needs: [lint, shellcheck, hadolint, trivy-config]
+    needs: [shellcheck, hadolint, trivy-config]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -243,7 +246,7 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [typecheck]
     services:
       postgres:
         image: postgres:16
@@ -360,7 +363,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, tests]
+    needs: [typecheck, tests]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -391,7 +394,7 @@ jobs:
 
   dependency-scan:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [typecheck]
     env:
       ALLOWED_LICENSES: >-
         MIT;MIT*;MIT-0;Apache-2.0;ISC;BSD;BSD*;BSD-2-Clause;BSD-3-Clause;0BSD;Unlicense;
