@@ -34,4 +34,9 @@ export class CreateCategoryDto {
   @IsBoolean()
   @IsOptional()
   helpsOthers?: boolean | null;
+
+  /** Spending here matters for the tax return: shown in the tax-year report and the tax pack. */
+  @IsBoolean()
+  @IsOptional()
+  taxRelevant?: boolean;
 }

@@ -14,8 +14,11 @@ import { germanIncomeTax, hasGermanTariff } from './tariff';
  * Anlage EÜR — cash-basis profit statement for the self-employed (§ 4 Abs. 3 EStG).
  *
  * Line and field numbers were checked against the 2025 form published with the
- * BMF letter of 29.08.2025. Lines whose number was not checked carry NULL; the
- * limits applied below are quoted from the same letter's instructions.
+ * BMF letter of 29.08.2025 (VAT lines 18/57/58, gifts 62, entertainment 63 and
+ * the catch-all line 60 in a second pass on 2026-10-11). Lines whose number was
+ * not checked carry NULL; the limits applied below are quoted from the same
+ * letter's instructions. Gifts and entertainment have two fields: not
+ * deductible (164 / 165) and deductible (174 / 175).
  */
 
 const ENTERTAINMENT_DEDUCTIBLE_PERCENT = 70;
@@ -55,6 +58,14 @@ const LINES: FormLine[] = [
     lineNo: '17',
     fieldNo: '140',
     label: 'VAT collected, incl. on private use (vereinnahmte Umsatzsteuer)',
+    suggestedFor: [],
+  },
+  {
+    key: 'vat_refunded',
+    section: 'income',
+    lineNo: '18',
+    fieldNo: '141',
+    label: 'VAT refunded by the tax office (vom Finanzamt erstattete Umsatzsteuer)',
     suggestedFor: [],
   },
   {
@@ -132,24 +143,24 @@ const LINES: FormLine[] = [
   {
     key: 'entertainment',
     section: 'expense',
-    lineNo: null,
-    fieldNo: null,
+    lineNo: '63',
+    fieldNo: '165 / 175',
     label: 'Business entertainment, 70% deductible (Bewirtungsaufwendungen)',
     suggestedFor: ['Meals and entertainment'],
   },
   {
     key: 'gifts',
     section: 'expense',
-    lineNo: null,
-    fieldNo: null,
+    lineNo: '62',
+    fieldNo: '164 / 174',
     label: 'Gifts to business contacts, max. 50 EUR per recipient (Geschenke)',
     suggestedFor: [],
   },
   {
     key: 'other_expenses',
     section: 'expense',
-    lineNo: null,
-    fieldNo: null,
+    lineNo: '60',
+    fieldNo: '183',
     label: 'Other fully deductible business expenses (übrige Betriebsausgaben)',
     suggestedFor: [
       'Fees and charges',
@@ -159,6 +170,22 @@ const LINES: FormLine[] = [
       'Maintenance and repairs',
       'Other expenses',
     ],
+  },
+  {
+    key: 'input_vat_paid',
+    section: 'expense',
+    lineNo: '57',
+    fieldNo: '185',
+    label: 'Input VAT paid (gezahlte Vorsteuerbeträge)',
+    suggestedFor: [],
+  },
+  {
+    key: 'vat_paid_to_office',
+    section: 'expense',
+    lineNo: '58',
+    fieldNo: '186',
+    label: 'VAT paid to the tax office (an das Finanzamt gezahlte Umsatzsteuer)',
+    suggestedFor: [],
   },
   {
     key: 'not_business',
@@ -358,5 +385,9 @@ export const deEuerPack: RulePack = {
   formEditionYear: 2025,
   filingChannel: 'ELSTER (elster.de) — registration for a certificate can take up to two weeks',
   lines: LINES,
+  // Under cash accounting VAT is income when collected and an expense when
+  // paid, so a VAT-registered business reports revenue and costs net and the
+  // tax on these two lines.
+  vatLines: { output: 'vat_received', input: 'input_vat_paid' },
   compute,
 };

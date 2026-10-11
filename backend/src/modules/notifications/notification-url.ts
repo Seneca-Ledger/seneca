@@ -68,7 +68,13 @@ const subscriptionRoute = (notification: NotificationLink): string =>
     notification.entityId === null ? null : `subscription:${notification.entityId}`,
   );
 
-const taxRoute = (): string => withFocus('/reports?tab=tax', 'tax:threshold');
+// The threshold only concerns a business not yet registered for VAT, whose
+// reports show it on the Tax year tab.
+const taxRoute = (): string => withFocus('/reports?tab=tax-year', 'tax:threshold');
+
+// A VAT return is filed from the VAT tab; the income tax return from its own page.
+const taxDeadlineRoute = (notification: NotificationLink): string =>
+  readString(notification.meta, 'kind') === 'income_tax' ? '/tax-declaration' : '/reports?tab=tax';
 
 const TYPE_ROUTES: Record<string, (notification: NotificationLink) => string | null> = {
   'receipt.uncategorized': n =>
@@ -88,6 +94,9 @@ const TYPE_ROUTES: Record<string, (notification: NotificationLink) => string | n
   'subscription.detected': subscriptionRoute,
   'tax.threshold.warning': taxRoute,
   'tax.threshold.reached': taxRoute,
+  'tax.deadline.upcoming': taxDeadlineRoute,
+  'tax.deadline.overdue': taxDeadlineRoute,
+  'tax.rates.official_changed': () => withFocus('/workspaces/overview', 'tax:official-rates'),
   'member.invited': () => '/workspaces/members',
   'member.joined': () => '/workspaces/members',
   'data.deleted': n => (n.entityType === 'statement' ? '/statements/trash' : entityRoute(n)),

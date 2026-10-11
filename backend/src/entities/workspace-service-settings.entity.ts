@@ -19,6 +19,16 @@ export enum WorkspaceServiceSettingsKey {
   APP = 'app',
   /** Precious metals: what a dealer pays below spot, per metal. */
   METALS = 'metals',
+  /** Tax reserve: the share of income to set aside, and where tax payments are booked. */
+  TAX_RESERVE = 'tax_reserve',
+  /** How often the workspace files VAT returns, and whether it holds a standing extension. */
+  VAT_FILING = 'vat_filing',
+  /** Which tax-deadline reminders were already sent, so each goes out once. */
+  TAX_REMINDERS = 'tax_reminders',
+  /** DATEV export: chart, adviser and client numbers, bank account, category → account mapping. */
+  DATEV = 'datev',
+  /** Differences from the EU's official VAT rates: which were announced and which were dismissed. */
+  OFFICIAL_RATES = 'official_rates',
 }
 
 @Entity('workspace_service_settings')

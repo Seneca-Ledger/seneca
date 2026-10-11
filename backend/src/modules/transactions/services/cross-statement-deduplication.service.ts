@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, type FindOptionsWhere, In, Repository } from 'typeorm';
+import { taxLockedConflict } from '../../../common/utils/tax-lock.util';
 import { Statement } from '../../../entities/statement.entity';
 import { Transaction } from '../../../entities/transaction.entity';
 
@@ -141,6 +142,11 @@ export class CrossStatementDeduplicationService {
 
     for (const group of duplicateGroups) {
       for (const duplicate of group.duplicates) {
+        // A row on a filed tax return stays counted: flagging it would take it
+        // out of the totals that return was built from.
+        if (duplicate.transaction.taxLocked) {
+          continue;
+        }
         await this.transactionRepository.update(duplicate.transaction.id, {
           isDuplicate: true,
           duplicateOfId: group.master.id,
@@ -174,8 +180,12 @@ export class CrossStatementDeduplicationService {
       throw new Error('One or more transactions not found');
     }
 
-    const master = transactions[0];
-    const duplicates = transactions.slice(1);
+    const master = transactions.find(row => row.id === transactionIds[0]) ?? transactions[0];
+    const duplicates = transactions.filter(row => row.id !== master.id);
+    const locked = duplicates.filter(row => row.taxLocked).length;
+    if (locked > 0) {
+      throw taxLockedConflict(locked);
+    }
 
     // Mark duplicates
     for (const duplicate of duplicates) {

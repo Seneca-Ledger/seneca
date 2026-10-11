@@ -17,6 +17,15 @@ export interface Client {
   remindersEnabled: boolean;
   /** "Net 30" for this client; null follows the workspace term. */
   paymentTermsDays: number | null;
+  /** The billing address in parts, for e-invoices (XRechnung). */
+  street?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  countryCode?: string | null;
+  /** Quoted on every invoice to this client (XRechnung BT-10). */
+  buyerReference?: string | null;
+  /** Goods or services: which tax-free EU supply a reverse-charged line is. */
+  supplyType?: 'goods' | 'services' | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +39,12 @@ export interface CreateClientInput {
   locale?: string;
   remindersEnabled?: boolean;
   paymentTermsDays?: number;
+  street?: string;
+  postalCode?: string;
+  city?: string;
+  countryCode?: string;
+  buyerReference?: string;
+  supplyType?: 'goods' | 'services' | null;
 }
 
 export type UpdateClientInput = Partial<CreateClientInput>;
@@ -42,6 +57,10 @@ export interface InvoiceLineItem {
   unitPrice: number | string;
   taxRateId: string | null;
   categoryId: string | null;
+  /** Unit of measure, UN/ECE Rec 20: C62 one, HUR hour, DAY day, MON month… */
+  unitCode?: string;
+  /** Discount (negative) or surcharge (positive) on quantity × unit price, in percent. */
+  adjustmentPercent?: number | string | null;
   sortOrder: number;
 }
 
@@ -51,6 +70,8 @@ export interface InvoiceLineItemInput {
   unitPrice: number;
   taxRateId?: string;
   categoryId?: string;
+  unitCode?: string;
+  adjustmentPercent?: number;
 }
 
 export interface Invoice {
@@ -82,6 +103,10 @@ export interface Invoice {
   recurrenceInterval: InvoiceRecurrenceInterval | null;
   nextIssueDate: string | null;
   recurrenceEndDate: string | null;
+  /** The buyer's reference (XRechnung BT-10); empty falls back to the client's. */
+  buyerReference?: string | null;
+  /** When the goods or service were delivered. */
+  deliveryDate?: string | null;
   lineItems?: InvoiceLineItem[];
   createdAt: string;
   updatedAt: string;
@@ -97,6 +122,8 @@ export interface CreateInvoiceInput {
   lineItems: InvoiceLineItemInput[];
   recurrenceInterval?: InvoiceRecurrenceInterval;
   recurrenceEndDate?: string;
+  buyerReference?: string;
+  deliveryDate?: string;
 }
 
 export type UpdateInvoiceInput = Partial<CreateInvoiceInput>;
@@ -269,6 +296,25 @@ export const invoicesApi = {
     // Revoked late: the new tab needs the url to still resolve when it loads.
     window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
   },
+  /** What the invoice, its client or the business profile still lack for an XRechnung. */
+  async checkXRechnung(id: string): Promise<{ missing: string[] }> {
+    return (await apiClient.get<{ missing: string[] }>(`/invoices/${id}/xrechnung/check`)).data;
+  },
+
+  async downloadXRechnung(id: string, fileName: string): Promise<void> {
+    const response = await apiClient.get<Blob>(`/invoices/${id}/xrechnung`, {
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/xml' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   async downloadPdf(id: string, fileName: string): Promise<void> {
     const response = await apiClient.get<Blob>(`/invoices/${id}/pdf`, { responseType: 'blob' });
     const url = window.URL.createObjectURL(new Blob([response.data]));

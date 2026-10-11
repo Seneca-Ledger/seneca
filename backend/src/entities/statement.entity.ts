@@ -66,6 +66,8 @@ export enum FileType {
   QIF = 'qif',
   CAMT = 'camt',
   MT940 = 'mt940',
+  /** A structured e-invoice (XRechnung, UBL or CII) uploaded as the XML itself. */
+  XML = 'xml',
 }
 
 @Entity('statements')

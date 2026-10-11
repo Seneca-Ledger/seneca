@@ -33,6 +33,7 @@ import { BusinessProfileService } from '../../src/modules/business-profile/busin
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { CreditNotesService } from '../../src/modules/invoices/credit-notes.service';
 import { InvoiceSettingsService } from '../../src/modules/invoices/invoice-settings.service';
+import { InvoiceXRechnungService } from '../../src/modules/invoices/invoice-xrechnung.service';
 import { InvoicesService } from '../../src/modules/invoices/invoices.service';
 import { LedgerAccountsService } from '../../src/modules/ledger/ledger-accounts.service';
 import { LedgerPostingService } from '../../src/modules/ledger/ledger-posting.service';
@@ -158,6 +159,7 @@ describe('credit notes (real Postgres)', () => {
       providers: [
         InvoicesService,
         CreditNotesService,
+        InvoiceXRechnungService,
         InvoiceSettingsService,
         BusinessProfileService,
         WorkspaceCurrencyService,

@@ -8,6 +8,8 @@ import { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditModule } from '../audit/audit.module';
 import { ClassificationModule } from '../classification/classification.module';
+import { ReferenceDataModule } from '../reference-data/reference-data.module';
+import { TaxModule } from '../tax/tax.module';
 import { PayeesController } from './payees.controller';
 import { PayeesService } from './payees.service';
 import { TransactionPayeeSubscriber } from './transaction-payee.subscriber';
@@ -17,6 +19,8 @@ import { TransactionPayeeSubscriber } from './transaction-payee.subscriber';
     TypeOrmModule.forFeature([Payee, PayeeAlias, Category, Transaction, User, WorkspaceMember]),
     AuditModule,
     ClassificationModule,
+    TaxModule,
+    ReferenceDataModule,
   ],
   controllers: [PayeesController],
   providers: [PayeesService, TransactionPayeeSubscriber],

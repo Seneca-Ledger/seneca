@@ -19,4 +19,12 @@ export class CreateTaxRateDto {
   @IsBoolean()
   @IsOptional()
   isEnabled?: boolean;
+
+  /**
+   * The buyer, not the seller, accounts for the tax: an intra-EU B2B supply.
+   * The rate still sets the notional figure the return reports on both sides.
+   */
+  @IsBoolean()
+  @IsOptional()
+  isReverseCharge?: boolean;
 }

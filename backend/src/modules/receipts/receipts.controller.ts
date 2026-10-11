@@ -22,7 +22,7 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { Permission } from '../../common/enums/permissions.enum';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
-import { validateFile } from '../../common/utils/file-validator.util';
+import { isEInvoiceXml, validateFile } from '../../common/utils/file-validator.util';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { multerConfig } from '../../config/multer.config';
 import type { User } from '../../entities';
@@ -52,6 +52,9 @@ const SUPPORTED_RECEIPT_MIME_TYPES = new Set([
   'image/bmp',
   'image/tiff',
   'application/pdf',
+  // A structured e-invoice (XRechnung) sent as the XML itself.
+  'application/xml',
+  'text/xml',
 ]);
 
 @Controller('receipts')
@@ -80,7 +83,7 @@ export class ReceiptsController {
     }
 
     files.forEach(file => {
-      validateFile(file);
+      validateFile(file, { allowEInvoiceXml: true });
       this.assertReceiptFileSupported(file);
     });
 
@@ -113,7 +116,7 @@ export class ReceiptsController {
       throw new BadRequestException('No file provided');
     }
 
-    validateFile(file);
+    validateFile(file, { allowEInvoiceXml: true });
     this.assertReceiptFileSupported(file);
 
     return this.receiptsService.createFromScan({
@@ -326,8 +329,11 @@ export class ReceiptsController {
   }
 
   private assertReceiptFileSupported(file: MulterFile): void {
-    if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException('Only image and PDF receipt files are supported');
+    const isXml = file.mimetype === 'application/xml' || file.mimetype === 'text/xml';
+    if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype) || (isXml && !isEInvoiceXml(file))) {
+      throw new BadRequestException(
+        'Only image, PDF and e-invoice XML receipt files are supported',
+      );
     }
   }
 }

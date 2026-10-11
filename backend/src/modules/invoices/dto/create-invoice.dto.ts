@@ -53,4 +53,15 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsDateString()
   recurrenceEndDate?: string;
+
+  /** The buyer's reference for this invoice (XRechnung BT-10); empty uses the client's. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  buyerReference?: string;
+
+  /** When the goods or service were delivered. */
+  @IsOptional()
+  @IsDateString()
+  deliveryDate?: string;
 }

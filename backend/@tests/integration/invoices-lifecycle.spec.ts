@@ -38,6 +38,7 @@ import { PublicInvoicesService } from '../../src/modules/invoices/public-invoice
 import { MailerService } from '../../src/modules/mailer/mailer.service';
 import { LedgerAccountsService } from '../../src/modules/ledger/ledger-accounts.service';
 import { LedgerPostingService } from '../../src/modules/ledger/ledger-posting.service';
+import { InvoiceXRechnungService } from '../../src/modules/invoices/invoice-xrechnung.service';
 import { InvoicesService } from '../../src/modules/invoices/invoices.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace-currency.service';
@@ -134,6 +135,7 @@ describe('invoice status (real Postgres)', () => {
       providers: [
         InvoicesService,
         InvoiceDeliveryService,
+        InvoiceXRechnungService,
         InvoiceRemindersService,
         InvoiceSettingsService,
         InvoiceAgeingService,

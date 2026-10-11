@@ -12,6 +12,13 @@ import { TaxJurisdiction } from './tax-jurisdiction.entity';
 import { User } from './user.entity';
 import { WorkspaceMember } from './workspace-member.entity';
 
+export enum VatStatus {
+  REGISTERED = 'registered',
+  /** Exempt under a small-business scheme: invoices carry no VAT. */
+  SMALL_BUSINESS = 'small_business',
+  NOT_REGISTERED = 'not_registered',
+}
+
 @Entity('workspaces')
 export class Workspace {
   @PrimaryGeneratedColumn('uuid')
@@ -68,6 +75,14 @@ export class Workspace {
 
   @Column({ name: 'tax_jurisdiction_id', type: 'uuid', nullable: true })
   taxJurisdictionId: string | null;
+
+  /**
+   * Whether this workspace charges VAT. Only `registered` workspaces have tax
+   * assessed on their transactions; a household or a small business exempt
+   * from VAT (Kleinunternehmer and the like) has none to report or reclaim.
+   */
+  @Column({ name: 'vat_status', type: 'varchar', length: 20, default: VatStatus.REGISTERED })
+  vatStatus: VatStatus;
 
   /** How far the registration-threshold alert has escalated: 0, 80 or 100. */
   @Column({ name: 'tax_threshold_alert_level', type: 'int', default: 0 })

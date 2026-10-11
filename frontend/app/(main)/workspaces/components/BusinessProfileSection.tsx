@@ -16,10 +16,15 @@ import { SettingsSection } from './SettingsSection';
 /** Every editable field, in the order the document prints them. */
 const FIELDS = [
   ['legalName'],
+  ['contactName'],
   ['addressLines'],
+  ['street'],
+  ['postalCode'],
+  ['city'],
   ['countryCode'],
   ['registrationId'],
   ['taxId'],
+  ['taxNumber'],
   ['email'],
   ['phone'],
   ['website'],
@@ -53,7 +58,12 @@ export function BusinessProfileSection(): React.ReactElement {
   // a dynamic lookup on it collapses to `never`.
   const label: Record<keyof BusinessProfileInput, string> = {
     legalName: String(t.legalName.value),
+    contactName: String(t.contactName.value),
     addressLines: String(t.addressLines.value),
+    street: String(t.street.value),
+    postalCode: String(t.postalCode.value),
+    city: String(t.city.value),
+    taxNumber: String(t.taxNumber.value),
     countryCode: String(t.countryCode.value),
     registrationId: String(t.registrationId.value),
     taxId: String(t.taxId.value),
@@ -164,6 +174,7 @@ export function BusinessProfileSection(): React.ReactElement {
               )}
             </Alert>
           ) : null}
+          <Alert severity="info">{t.einvoiceHint}</Alert>
 
           <Box
             sx={{

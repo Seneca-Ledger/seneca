@@ -218,7 +218,25 @@ export function resolveFileType(file: {
   return textStatementFormatOf(file) ?? byMime;
 }
 
-export function validateFile(file: Express.Multer.File): void {
+/**
+ * Whether an uploaded XML file is a structured e-invoice: an EN 16931
+ * invoice in UBL (Invoice, CreditNote) or CII (CrossIndustryInvoice).
+ */
+export function isEInvoiceXml(file: { path?: string | null }): boolean {
+  const sample = file.path ? readTextSample(file.path) : null;
+  return (
+    sample !== null &&
+    /<(?:[\w-]+:)?(?:Invoice|CreditNote|CrossIndustryInvoice)[\s>]/.test(
+      // Past the declaration and any comments in front of the root element.
+      sample.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->/g, ''),
+    )
+  );
+}
+
+export function validateFile(
+  file: Express.Multer.File,
+  options: { allowEInvoiceXml?: boolean } = {},
+): void {
   if (!file) {
     throw new BadRequestException('No file provided');
   }
@@ -235,7 +253,8 @@ export function validateFile(file: Express.Multer.File): void {
       `File type ${file.mimetype} is not allowed. Allowed types: PDF, XLSX, XLS, CSV, DOCX, OFX, QIF, camt.053, MT940, JPG, PNG, TIFF, BMP, WEBP`,
     );
   }
-  if (LOOSE_TEXT_MIMES.has(file.mimetype) && !textStatementFormatOf(file)) {
+  const isEInvoice = options.allowEInvoiceXml === true && isEInvoiceXml(file);
+  if (LOOSE_TEXT_MIMES.has(file.mimetype) && !isEInvoice && !textStatementFormatOf(file)) {
     throw new BadRequestException(
       'File content is not a recognised statement format (OFX/QFX, QIF, camt.053 or MT940)',
     );

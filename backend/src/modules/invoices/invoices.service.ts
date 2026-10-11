@@ -34,6 +34,7 @@ import { buildInvoicePdf } from './invoice-document';
 import { documentLines, priceLines, totalsOf } from './invoice-pricing';
 import { advanceIssueDate, shiftDueDate } from './invoice-recurrence.util';
 import { InvoiceSettingsService } from './invoice-settings.service';
+import { InvoiceXRechnungService } from './invoice-xrechnung.service';
 
 /**
  * The status a user sees, in SQL.
@@ -91,6 +92,8 @@ interface DraftInput {
   recurrenceInterval: InvoiceRecurrenceInterval | null;
   recurrenceEndDate: string | null;
   sourceRecurringInvoiceId: string | null;
+  buyerReference: string | null;
+  deliveryDate: string | null;
 }
 
 @Injectable()
@@ -104,6 +107,7 @@ export class InvoicesService {
     private readonly workspaceCurrency: WorkspaceCurrencyService,
     private readonly businessProfile: BusinessProfileService,
     private readonly settingsService: InvoiceSettingsService,
+    private readonly xrechnung: InvoiceXRechnungService,
   ) {}
 
   async create(workspaceId: string, dto: CreateInvoiceDto): Promise<Invoice> {
@@ -123,6 +127,8 @@ export class InvoicesService {
       recurrenceInterval: dto.recurrenceInterval ?? null,
       recurrenceEndDate: dto.recurrenceEndDate ?? null,
       sourceRecurringInvoiceId: null,
+      buyerReference: dto.buyerReference?.trim() || null,
+      deliveryDate: dto.deliveryDate ?? null,
     });
   }
 
@@ -144,10 +150,16 @@ export class InvoicesService {
         unitPrice: Number(item.unitPrice),
         taxRateId: item.taxRateId ?? undefined,
         categoryId: item.categoryId ?? undefined,
+        unitCode: item.unitCode,
+        adjustmentPercent:
+          item.adjustmentPercent === null ? undefined : Number(item.adjustmentPercent),
       })),
       recurrenceInterval: null,
       recurrenceEndDate: null,
       sourceRecurringInvoiceId: template.id,
+      buyerReference: template.buyerReference,
+      // A recurring invoice is for a new period; its delivery date is not the template's.
+      deliveryDate: null,
     });
   }
 
@@ -327,13 +339,20 @@ export class InvoicesService {
       );
       invoice.payableId = payable.id;
 
-      const pdf = await buildInvoicePdf({
+      // A German business's invoice is stored as a ZUGFeRD hybrid when its
+      // XRechnung can be written: the file sent, downloaded and kept is then
+      // the e-invoice itself.
+      const pdf = await this.xrechnung.invoiceHybridPdf(
+        manager,
         invoice,
-        client,
-        profile,
-        lines: await documentLines(manager, lineItems, invoice.pricesIncludeTax),
-        logo: await this.businessProfile.logoDataUri(profile),
-      });
+        await buildInvoicePdf({
+          invoice,
+          client,
+          profile,
+          lines: await documentLines(manager, lineItems, invoice.pricesIncludeTax),
+          logo: await this.businessProfile.logoDataUri(profile),
+        }),
+      );
       const fileSize = pdf.length;
       const fileHash = createHash('sha256').update(pdf).digest('hex');
       // Written via `update`, not the entity object: `fileData` must never ride
@@ -489,6 +508,8 @@ export class InvoicesService {
             : null,
           recurrenceEndDate: input.recurrenceEndDate,
           sourceRecurringInvoiceId: input.sourceRecurringInvoiceId,
+          buyerReference: input.buyerReference,
+          deliveryDate: input.deliveryDate,
         }),
       );
       await this.replaceLineItems(manager, invoice.id, input.lineItems);
@@ -514,6 +535,8 @@ export class InvoicesService {
         unitPrice: item.unitPrice,
         taxRateId: item.taxRateId ?? null,
         categoryId: item.categoryId ?? null,
+        unitCode: item.unitCode ?? 'C62',
+        adjustmentPercent: item.adjustmentPercent || null,
         sortOrder: index,
       })),
     );
@@ -632,6 +655,12 @@ export class InvoicesService {
     }
     if (dto.recurrenceEndDate !== undefined) {
       invoice.recurrenceEndDate = dto.recurrenceEndDate ?? null;
+    }
+    if (dto.buyerReference !== undefined) {
+      invoice.buyerReference = dto.buyerReference?.trim() || null;
+    }
+    if (dto.deliveryDate !== undefined) {
+      invoice.deliveryDate = dto.deliveryDate || null;
     }
   }
 

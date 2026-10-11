@@ -15,6 +15,14 @@ export interface BusinessProfile {
   bankCode: string | null;
   paymentInstructions: string | null;
   invoiceFooter: string | null;
+  /** The address in parts, for e-invoices (XRechnung). */
+  street: string | null;
+  postalCode: string | null;
+  city: string | null;
+  /** Steuernummer, apart from the VAT id in `taxId`. */
+  taxNumber: string | null;
+  /** Who the buyer can ask about an invoice. */
+  contactName: string | null;
   logoFile: string | null;
   /** Fields an invoice cannot be sent without that are still empty. */
   missingRequired: string[];

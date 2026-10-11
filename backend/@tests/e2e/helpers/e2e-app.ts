@@ -4,6 +4,10 @@ import { ThrottlerStorage } from '@nestjs/throttler';
 import request, { type Response } from 'supertest';
 import type { DataSource } from 'typeorm';
 import { ACCESS_TOKEN_COOKIE } from '../../../src/modules/auth/auth-cookies';
+import {
+  REFERENCE_FETCH,
+  type ReferenceFetch,
+} from '../../../src/modules/reference-data/reference-fetch';
 
 /**
  * A throttler store that never counts. Every e2e suite reaches the API from the
@@ -20,10 +24,27 @@ const unlimitedStorage: ThrottlerStorage = {
   }),
 };
 
+/**
+ * What reference data (holidays, EU VAT rates, VIES) gets instead of the
+ * internet. By default every call fails, as on an instance without network,
+ * so no suite depends on outside services; a suite that needs an answer sets
+ * `referenceFetch.handler` and resets it afterwards.
+ */
+export const referenceFetch: { handler: ReferenceFetch | null } = { handler: null };
+
+const offlineFetch: ReferenceFetch = async (input, init) => {
+  if (referenceFetch.handler) {
+    return referenceFetch.handler(input, init);
+  }
+  throw new Error('No network in e2e tests');
+};
+
 export function e2eTestingModule(metadata: ModuleMetadata): TestingModuleBuilder {
   return Test.createTestingModule(metadata)
     .overrideProvider(ThrottlerStorage)
-    .useValue(unlimitedStorage);
+    .useValue(unlimitedStorage)
+    .overrideProvider(REFERENCE_FETCH)
+    .useValue(offlineFetch);
 }
 
 /** A cookie the response set. Tokens travel only as HttpOnly cookies, never in the body. */

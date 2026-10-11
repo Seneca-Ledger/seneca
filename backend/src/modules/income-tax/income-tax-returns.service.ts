@@ -7,6 +7,7 @@ import { AuditService } from '../audit/audit.service';
 import type { IncomeTaxDraft } from './income-tax.types';
 import { IncomeTaxDisclaimerService } from './income-tax-disclaimer.service';
 import {
+  buildIncomeTaxCsv,
   buildIncomeTaxFileName,
   buildIncomeTaxPdf,
   buildIncomeTaxXlsx,
@@ -168,13 +169,20 @@ export class IncomeTaxReturnsService {
     workspaceId: string,
     userId: string,
     taxYear: number,
-    format: 'pdf' | 'xlsx',
+    format: 'pdf' | 'xlsx' | 'csv',
   ): Promise<{ buffer: Buffer; fileName: string; contentType: string }> {
     // A document leaves the app and can be handed on; it should not exist
     // without the user having acknowledged what it is and is not.
     await this.disclaimerService.assertAccepted(userId);
     const draft = await this.getDraft(workspaceId, taxYear);
 
+    if (format === 'csv') {
+      return {
+        buffer: buildIncomeTaxCsv(draft),
+        fileName: buildIncomeTaxFileName(draft, 'csv'),
+        contentType: 'text/csv; charset=utf-8',
+      };
+    }
     if (format === 'pdf') {
       return {
         buffer: await buildIncomeTaxPdf(draft),

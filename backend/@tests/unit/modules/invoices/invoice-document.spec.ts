@@ -111,6 +111,50 @@ describe('buildInvoicePdf', () => {
     expect(text).toContain('2026-03-15');
   });
 
+  it('prints the client address from its parts when no address was typed', async () => {
+    const text = await textOf({
+      client: {
+        ...client,
+        billingAddress: null,
+        street: 'Marktplatz 5',
+        postalCode: '80331',
+        city: 'München',
+        countryCode: 'de',
+      } as Client,
+    });
+    expect(text).toContain('Marktplatz 5 80331 München DE');
+  });
+
+  it('prints a line discount or surcharge under its description', async () => {
+    const text = await textOf({
+      lines: [line({ adjustmentPercent: -10 }), line({ description: 'Rush', adjustmentPercent: 15 })],
+    });
+    expect(text).toContain('Integration work Discount 10%');
+    expect(text).toContain('Rush Surcharge 15%');
+  });
+
+  it('prints the delivery date and the buyer reference when there are some', async () => {
+    const text = await textOf({
+      invoice: { ...invoice, deliveryDate: '2026-02-27', buyerReference: null } as Invoice,
+      client: { ...client, buyerReference: 'PO-4711' } as Client,
+    });
+    expect(text).toContain('Delivery date: 2026-02-27');
+    expect(text).toContain('Your reference: PO-4711');
+
+    const plain = await textOf();
+    expect(plain).not.toContain('Delivery date');
+    expect(plain).not.toContain('Your reference');
+  });
+
+  it('prints them in German as a German invoice reads them', async () => {
+    const text = await textOf({
+      invoice: { ...invoice, deliveryDate: '2026-02-27', buyerReference: 'Kostenstelle 12' } as Invoice,
+      client: { ...client, locale: 'de' } as Client,
+    });
+    expect(text).toContain('Leistungsdatum: 2026-02-27');
+    expect(text).toContain('Ihre Referenz: Kostenstelle 12');
+  });
+
   it('breaks the tax down per rate', async () => {
     const text = await textOf({
       lines: [

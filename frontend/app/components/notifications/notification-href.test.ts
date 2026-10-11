@@ -59,12 +59,12 @@ describe('notificationHref', () => {
     expect(notificationHref(make({ type: 'subscription.detected' }))).toBe('/subscriptions');
   });
 
-  it('opens the tax tab on the threshold card, not the workspace overview', () => {
+  it('opens the tax year tab on the threshold card, not the workspace overview', () => {
     expect(
       notificationHref(
         make({ type: 'tax.threshold.reached', entityType: 'workspace', entityId: 'w-1' }),
       ),
-    ).toBe('/reports?tab=tax&focus=tax%3Athreshold');
+    ).toBe('/reports?tab=tax-year&focus=tax%3Athreshold');
   });
 
   it('keeps statement notifications on the statement editor', () => {

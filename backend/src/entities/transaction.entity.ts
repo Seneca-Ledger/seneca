@@ -375,6 +375,14 @@ export class Transaction {
   @Column({ name: 'tax_rule_id', type: 'uuid', nullable: true })
   taxRuleId: string | null;
 
+  /**
+   * Overrides the category's tax-relevant mark for this one row: a doctor's
+   * bill in "Health" that is deductible when the gym membership is not.
+   * NULL follows the category.
+   */
+  @Column({ name: 'tax_relevant', type: 'boolean', nullable: true })
+  taxRelevant: boolean | null;
+
   /** Set once this row has been included in a filed return. */
   @Column({ name: 'tax_locked', default: false })
   taxLocked: boolean;

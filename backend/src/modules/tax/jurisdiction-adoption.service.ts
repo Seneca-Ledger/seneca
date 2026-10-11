@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { EntityManager } from 'typeorm';
 import { Repository } from 'typeorm';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
+import { TaxRateKind } from '../../entities/tax-jurisdiction-rate.entity';
 import { TaxRate } from '../../entities/tax-rate.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { AuditService } from '../audit/audit.service';
@@ -109,8 +110,33 @@ export class JurisdictionAdoptionService {
           isEnabled: true,
         };
 
-        await manager.save(TaxRate, existing ? manager.merge(TaxRate, existing, fields) : fields);
+        // A copy: save() writes the new id back into the object it is given,
+        // and `fields` is reused for the reverse-charge twin below.
+        await manager.save(
+          TaxRate,
+          existing ? manager.merge(TaxRate, existing, { ...fields }) : { ...fields },
+        );
         adopted++;
+
+        // Inside the EU, a supply to a VAT-registered business in another
+        // member state is invoiced without VAT. A reverse-charge twin of the
+        // standard rate is what an invoice line or a purchase picks for it;
+        // its rate still gives the notional figure the return reports.
+        if (jurisdiction.isEu && source.kind === TaxRateKind.STANDARD) {
+          const code = `${source.code}_RC`;
+          const twin = await manager.findOne(TaxRate, {
+            where: { workspaceId, code, validFrom: source.validFrom },
+          });
+          const twinFields = {
+            ...fields,
+            code,
+            name: `${source.name} — reverse charge`,
+            isDefault: false,
+            isReverseCharge: true,
+          };
+          await manager.save(TaxRate, twin ? manager.merge(TaxRate, twin, twinFields) : twinFields);
+          adopted++;
+        }
       }
 
       await manager.update(Workspace, { id: workspaceId }, { taxJurisdictionId: jurisdiction.id });

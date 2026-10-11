@@ -29,6 +29,7 @@ import { UpdateInvoiceSettingsDto } from './dto/update-invoice-settings.dto';
 import { InvoiceAgeingService } from './invoice-ageing.service';
 import { InvoiceDeliveryService } from './invoice-delivery.service';
 import { InvoiceSettingsService } from './invoice-settings.service';
+import { InvoiceXRechnungService } from './invoice-xrechnung.service';
 import { InvoicesService } from './invoices.service';
 
 @Controller('invoices')
@@ -39,6 +40,7 @@ export class InvoicesController {
     private readonly invoiceSettingsService: InvoiceSettingsService,
     private readonly invoiceAgeingService: InvoiceAgeingService,
     private readonly creditNotesService: CreditNotesService,
+    private readonly xrechnungService: InvoiceXRechnungService,
   ) {}
 
   @Post()
@@ -129,6 +131,33 @@ export class InvoicesController {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', buildContentDisposition('attachment', fileName));
     res.send(data);
+  }
+
+  /**
+   * The issued invoice as an XRechnung (EN 16931, CII), the e-invoice German
+   * B2B customers must accept. A 400 lists what is missing for it.
+   */
+  @Get(':id/xrechnung')
+  @WorkspaceAuth(Permission.INVOICE_VIEW)
+  async downloadXRechnung(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @WorkspaceId() workspaceId: string,
+    @Res() res: Response,
+  ) {
+    const { fileName, data } = await this.xrechnungService.file(id, workspaceId);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', buildContentDisposition('attachment', fileName));
+    res.send(data);
+  }
+
+  /** What the invoice, its client or the business profile still lack for an XRechnung. */
+  @Get(':id/xrechnung/check')
+  @WorkspaceAuth(Permission.INVOICE_VIEW)
+  async checkXRechnung(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.xrechnungService.check(id, workspaceId);
   }
 
   @Get(':id/preview')

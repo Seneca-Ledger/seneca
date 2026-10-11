@@ -131,8 +131,8 @@ export class IncomeTaxController {
     @Query('format') format: string,
     @Res() res: Response,
   ): Promise<void> {
-    if (format !== 'pdf' && format !== 'xlsx') {
-      throw new BadRequestException("Format must be 'pdf' or 'xlsx'");
+    if (format !== 'pdf' && format !== 'xlsx' && format !== 'csv') {
+      throw new BadRequestException("Format must be 'pdf', 'xlsx' or 'csv'");
     }
 
     const { buffer, fileName, contentType } = await this.returnsService.export(

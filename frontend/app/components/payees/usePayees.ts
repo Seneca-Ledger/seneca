@@ -53,7 +53,20 @@ export function useUpdatePayee() {
       name?: string;
       mode?: PayeeMode;
       categoryId?: string | null;
+      countryCode?: string | null;
+      vatId?: string | null;
+      supplyType?: 'goods' | 'services' | null;
     }) => apiClient.patch<Payee>(`/payees/${id}`, body).then(response => response.data),
+    onSuccess: invalidate,
+  });
+}
+
+/** Asks VIES again whether the payee's VAT number is valid. */
+export function useRecheckPayeeVat() {
+  const invalidate = useInvalidatePayees();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiClient.post<Payee>(`/payees/${id}/vat-check`, {}).then(response => response.data),
     onSuccess: invalidate,
   });
 }

@@ -18,7 +18,10 @@ import { appError } from '../../common/errors/app-error';
 import { retry, TimeoutError, withTimeout } from '../../common/utils/async.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { mergeProcessingSettings } from '../../common/utils/workspace-processing.util';
-import { mergeWorkspaceProfile } from '../../common/utils/workspace-profile.util';
+import {
+  mergeWorkspaceProfile,
+  readWorkspaceProfile,
+} from '../../common/utils/workspace-profile.util';
 import {
   invitationRoleKey,
   renderInvitation,
@@ -34,6 +37,7 @@ import {
   WorkspaceRole,
 } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
+import { VatStatus } from '../../entities/workspace.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
@@ -45,6 +49,7 @@ import type {
   WorkspaceUpdatedEvent,
 } from '../notifications/events/notification-events';
 import { TaxRatesService } from '../tax/tax-rates.service';
+import { WorkspaceTaxSettingsService } from '../tax/workspace-tax-settings.service';
 import type { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import type { InviteMemberDto } from './dto/invite-member.dto';
 import type { UpdateWorkspaceDto } from './dto/update-workspace.dto';
@@ -74,6 +79,8 @@ export class WorkspacesService {
     private readonly eventEmitter?: EventEmitter2,
     @Optional()
     private readonly applicationSettingsService?: ApplicationSettingsService,
+    @Optional()
+    private readonly taxSettingsService?: WorkspaceTaxSettingsService,
   ) {}
 
   private async resolveActorName(userId: string): Promise<string> {
@@ -920,6 +927,8 @@ export class WorkspacesService {
       currency: currencyCodeOrDefault(dto.currency),
       ownerId: userId,
       settings: dto.profile ? mergeWorkspaceProfile(null, dto.profile) : null,
+      // A household does not charge VAT; a business says so in its tax settings.
+      ...(dto.profile === 'home' && { vatStatus: VatStatus.NOT_REGISTERED }),
     });
 
     const savedWorkspace = await this.workspaceRepository.save(workspace);
@@ -1021,11 +1030,18 @@ export class WorkspacesService {
         settings: mergeProcessingSettings(workspace.settings, dto.processing),
       }),
     });
+    const becameHome = dto.profile === 'home' && readWorkspaceProfile(workspace) !== 'home';
     if (dto.profile !== undefined) {
       workspace.settings = mergeWorkspaceProfile(workspace.settings, dto.profile);
     }
 
     const updated = await this.workspaceRepository.save(workspace);
+    // Turning a workspace into household money stops VAT being assessed on it.
+    // Switching back to business leaves the status alone: whether the business
+    // is VAT-registered is a separate answer, given in the tax settings.
+    if (becameHome) {
+      await this.taxSettingsService?.setVatStatus(updated.id, VatStatus.NOT_REGISTERED, userId);
+    }
     const stats = await this.getWorkspaceStats(updated.id);
 
     // Audit: record workspace updates for traceability and rollback.

@@ -248,7 +248,8 @@ describe('Tax jurisdictions (e2e)', () => {
           WHERE workspace_id = $1 AND code LIKE 'DE_%'`,
         [workspaceId],
       );
-      expect(count).toBe(3);
+      // Three statutory rates plus the reverse-charge twin of the standard one.
+      expect(count).toBe(4);
     });
 
     it('rejects an unknown country without touching the rate set', async () => {

@@ -33,7 +33,7 @@ import {
   type MemberSortBy,
 } from './workspace-members.utils';
 
-type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
+type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer' | 'accountant';
 
 type WorkspaceOverview = {
   workspace: { id: string; name: string; ownerId?: string | null; createdAt?: string };
@@ -81,11 +81,18 @@ type InvitePermissions = {
 };
 
 const INVITATION_EXPIRY_DAYS = 7;
-const ALL_ROLES: WorkspaceRole[] = ['owner', 'admin', 'member', 'viewer'];
+const ALL_ROLES: WorkspaceRole[] = ['owner', 'admin', 'member', 'viewer', 'accountant'];
 
 const SORT_OPTIONS: MemberSortBy[] = ['name', 'role', 'joinedAt'];
 
-const ROLE_FILTER_OPTIONS: MemberRoleFilter[] = ['all', 'owner', 'admin', 'viewer', 'member'];
+const ROLE_FILTER_OPTIONS: MemberRoleFilter[] = [
+  'all',
+  'owner',
+  'admin',
+  'viewer',
+  'member',
+  'accountant',
+];
 
 const PERMISSION_KEYS: Array<keyof InvitePermissions> = [
   'canEditStatements',
@@ -311,7 +318,7 @@ export default function WorkspaceMembersView() {
       return true;
     }
 
-    return member.role === 'member' || member.role === 'viewer';
+    return member.role === 'member' || member.role === 'viewer' || member.role === 'accountant';
   };
 
   const getAllowedRoleTargets = (member: WorkspaceOverview['members'][number]): WorkspaceRole[] => {
@@ -330,7 +337,7 @@ export default function WorkspaceMembersView() {
       return [];
     }
 
-    return ['member', 'viewer'];
+    return ['member', 'viewer', 'accountant'];
   };
 
   const handleInvite = async (event: React.FormEvent) => {
@@ -788,6 +795,7 @@ export default function WorkspaceMembersView() {
                   options={[
                     { value: 'member', label: t.roles.member.value },
                     { value: 'viewer', label: t.roles.viewer.value },
+                    { value: 'accountant', label: t.roles.accountant.value },
                     { value: 'admin', label: t.roles.admin.value },
                   ]}
                 />

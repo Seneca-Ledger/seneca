@@ -2,12 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, IsNull, Not, Repository } from 'typeorm';
+import { Between, In, IsNull, Not, Repository } from 'typeorm';
 import { countedWhere } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
+import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util';
 import { TaxThresholdPeriod } from '../../entities/tax-jurisdiction.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
-import { Workspace } from '../../entities/workspace.entity';
+import { VatStatus, Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { TaxThresholdReachedEvent } from '../notifications/events/notification-events';
 import { JurisdictionAdoptionService } from './jurisdiction-adoption.service';
@@ -23,7 +24,12 @@ export interface ThresholdStatus {
   periodEnd: string;
   /** Identifies the measuring window, so an alert can be tied to it. */
   window: string;
+  /** Currencies of sales left out for want of an exchange rate on their day. */
+  missingRateCurrencies: string[];
 }
+
+/** Income that is not a sale: moving money, borrowing, wages, tax refunds. */
+const NOT_TURNOVER: ReadonlySet<string> = new Set(['transfer', 'loan', 'salary', 'tax']);
 
 /**
  * Watches taxable turnover against the registration threshold.
@@ -85,6 +91,20 @@ export class TaxThresholdService {
    * counts — purchases do not make you liable to register.
    */
   async getStatus(workspaceId: string, now: Date = new Date()): Promise<ThresholdStatus | null> {
+    // The threshold is what obliges a business to register for VAT. One that
+    // is registered is past it, and a household never has to register.
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: { id: true, vatStatus: true, settings: true },
+    });
+    if (
+      !workspace ||
+      workspace.vatStatus === VatStatus.REGISTERED ||
+      readWorkspaceProfile(workspace) === 'home'
+    ) {
+      return null;
+    }
+
     const jurisdiction = await this.adoptionService.getCurrentJurisdiction(workspaceId);
     if (!jurisdiction) {
       return null;
@@ -97,6 +117,9 @@ export class TaxThresholdService {
         ? null
         : Number(jurisdiction.registrationThreshold);
 
+    // Every categorised sale, not only the ones VAT was worked out on: a
+    // business below the threshold has no VAT assessed at all, and it is the
+    // one this exists for.
     const sales = await this.transactionRepository.find({
       // Money moved in from the user's own account is not turnover.
       where: countedWhere({
@@ -104,27 +127,42 @@ export class TaxThresholdService {
         transferPairId: IsNull(),
         transactionType: TransactionType.INCOME,
         transactionDate: Between(new Date(periodStart), new Date(periodEnd)),
-        taxNetAmount: Not(null as never),
+        categoryId: Not(IsNull()),
       }),
     });
 
     let turnoverMinor = 0;
+    const missing = new Set<string>();
     for (const sale of sales) {
-      const net = Number(sale.taxNetAmount ?? 0);
+      if (sale.transactionNature && NOT_TURNOVER.has(sale.transactionNature)) {
+        continue;
+      }
+      // Turnover is the net of what was sold, not the VAT on it.
+      const net = Number(
+        sale.taxNetAmount !== null && !sale.taxReverseCharge
+          ? sale.taxNetAmount
+          : (sale.amount ?? sale.credit ?? 0),
+      );
       if (!Number.isFinite(net) || net === 0) {
         continue;
       }
 
       const from = (sale.currency || jurisdiction.currency).toUpperCase();
+      // Never `getRate`: it answers 1 without a rate, and a dollar sale
+      // would count as one tenge towards the threshold.
       const rate =
         from === jurisdiction.currency
           ? 1
-          : await this.exchangeRatesService.getRate(
+          : await this.exchangeRatesService.getRateOrNull(
               from,
               jurisdiction.currency,
               new Date(sale.transactionDate),
               workspaceId,
             );
+      if (rate === null) {
+        missing.add(from);
+        continue;
+      }
 
       turnoverMinor += roundHalfAwayFromZero(toMinor(net) * rate);
     }
@@ -139,6 +177,7 @@ export class TaxThresholdService {
       periodStart,
       periodEnd,
       window,
+      missingRateCurrencies: [...missing],
     };
   }
 
@@ -199,8 +238,13 @@ export class TaxThresholdService {
   /** Only workspaces that have chosen a jurisdiction are worth examining. */
   @Cron(CronExpression.EVERY_DAY_AT_6AM)
   async checkAll(): Promise<void> {
+    // Registered workspaces are past the threshold; getStatus skips them and
+    // households too, but there is no point loading them.
     const workspaces = await this.workspaceRepository.find({
-      where: { taxJurisdictionId: Not(null as never) },
+      where: {
+        taxJurisdictionId: Not(IsNull()),
+        vatStatus: In([VatStatus.NOT_REGISTERED, VatStatus.SMALL_BUSINESS]),
+      },
       select: ['id'],
     });
 

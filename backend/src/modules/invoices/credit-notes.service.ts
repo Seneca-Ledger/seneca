@@ -26,6 +26,7 @@ import { CreateCreditNoteDto } from './dto/create-credit-note.dto';
 import { FilterInvoicesDto } from './dto/filter-invoices.dto';
 import { buildCreditNotePdf } from './invoice-document';
 import { documentLines, priceLines, totalsOf } from './invoice-pricing';
+import { InvoiceXRechnungService } from './invoice-xrechnung.service';
 
 /** One invoice's share of a credit note, resolved against what it can carry. */
 interface ResolvedApplication {
@@ -56,6 +57,7 @@ export class CreditNotesService {
     private readonly ledgerPostingService: LedgerPostingService,
     private readonly businessProfile: BusinessProfileService,
     private readonly payables: PayablesService,
+    private readonly xrechnung: InvoiceXRechnungService,
   ) {}
 
   async findAll(workspaceId: string, filters: FilterInvoicesDto) {
@@ -181,7 +183,13 @@ export class CreditNotesService {
 
       // Written last and through `update`: the bytes must never ride along on
       // a saved entity and end up in a response.
-      const pdf = await this.renderPdf(manager, saved, lineItems, resolved);
+      // As an invoice: a German business's credit note is kept as a ZUGFeRD
+      // hybrid (type 381) when its XRechnung can be written.
+      const pdf = await this.xrechnung.creditNoteHybridPdf(
+        manager,
+        saved,
+        await this.renderPdf(manager, saved, lineItems, resolved),
+      );
       const fileHash = createHash('sha256').update(pdf).digest('hex');
       await manager
         .getRepository(CreditNote)
@@ -354,6 +362,8 @@ export class CreditNotesService {
             unitPrice,
             taxRateId: line.taxRateId,
             categoryId: line.categoryId,
+            unitCode: line.unitCode ?? 'C62',
+            adjustmentPercent: line.adjustmentPercent ?? null,
             sortOrder: sortOrder++,
           }),
         );

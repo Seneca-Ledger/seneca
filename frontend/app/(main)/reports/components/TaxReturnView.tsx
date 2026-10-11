@@ -6,7 +6,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  LinearProgress,
   Stack,
   Table,
   TableBody,
@@ -17,13 +16,16 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import { apiQuery } from '@/app/lib/query-fn';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
+import { TaxThresholdCard } from './TaxThresholdCard';
 import {
   exportFileName,
   formatMoney,
@@ -31,14 +33,23 @@ import {
   type PeriodPreset,
   periodFor,
   saveBlob,
+  type TaxDeadline,
   type TaxReturnRecord,
   type TaxReturnTotals,
-  type ThresholdStatus,
+  type VatFiling,
 } from './tax-return.helpers';
+import { UstvaCard } from './UstvaCard';
 
-const PRESETS = [
+const QUARTER_PRESETS = [
   { key: 'thisQuarter', label: 'presetThisQuarter' },
   { key: 'lastQuarter', label: 'presetLastQuarter' },
+  { key: 'thisYear', label: 'presetThisYear' },
+] as const satisfies ReadonlyArray<{ key: PeriodPreset; label: string }>;
+
+// A monthly filer files months; the quarter buttons would offer a period it never files.
+const MONTH_PRESETS = [
+  { key: 'thisMonth', label: 'presetThisMonth' },
+  { key: 'lastMonth', label: 'presetLastMonth' },
   { key: 'thisYear', label: 'presetThisYear' },
 ] as const satisfies ReadonlyArray<{ key: PeriodPreset; label: string }>;
 
@@ -84,7 +95,32 @@ export function TaxReturnView(): React.ReactElement {
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   const [period, setPeriod] = useState(() => periodFor('thisQuarter'));
-  const [threshold, setThreshold] = useState<ThresholdStatus | null>(null);
+  const filing = useQuery({
+    queryKey: queryKeys.taxVatFiling(workspaceId),
+    queryFn: ({ signal }) => apiQuery<VatFiling>({ url: '/tax/settings/vat-filing', signal }),
+    enabled: Boolean(workspaceId),
+  });
+  const deadlines = useQuery({
+    queryKey: queryKeys.taxDeadlines(workspaceId),
+    queryFn: ({ signal }) => apiQuery<TaxDeadline[]>({ url: '/tax/deadlines', signal }),
+    enabled: Boolean(workspaceId),
+  });
+  const presets = filing.data?.frequency === 'monthly' ? MONTH_PRESETS : QUARTER_PRESETS;
+  // A return filed outside Lumio: stop the reminders, lock nothing.
+  const filedElsewhere = useMutation({
+    mutationFn: (periodEnd: string) =>
+      apiClient.put('/tax/deadlines/filed-elsewhere', {
+        kind: 'vat_return',
+        periodEnd,
+        filed: true,
+      }),
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.taxDeadlines(workspaceId) }),
+  });
+  // The returns that matter now: the next one due and any missed one.
+  const vatDeadlines = (deadlines.data ?? []).filter(
+    item => item.kind === 'vat_return' && !item.done && item.daysLeft >= -60,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,26 +145,27 @@ export function TaxReturnView(): React.ReactElement {
   const record = returnQuery.data?.record ?? null;
   const totals = returnQuery.data?.totals ?? null;
 
-  useEffect(() => {
-    apiClient
-      .get<ThresholdStatus | null>('/tax/settings/threshold')
-      .then(response => setThreshold(response.data ?? null))
-      .catch(() => setThreshold(null));
-  }, []);
-
   const actMutation = useMutation({
     mutationFn: (action: 'file' | 'reopen') => apiClient.post(`/tax/returns/${action}`, period),
     onSuccess: () => setError(null),
-    onError: (_error, action) =>
-      setError(action === 'file' ? t.fileFailed.value : t.reopenFailed.value),
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+    // The server says why a filing was refused (rows without an exchange rate,
+    // say); that beats a generic line.
+    onError: (caught, action) =>
+      setError(
+        getApiErrorMessage(caught, action === 'file' ? t.fileFailed.value : t.reopenFailed.value),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+      // Filing or reopening changes which returns are still due.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.taxDeadlines(workspaceId) });
+    },
   });
 
   const act = async (action: 'file' | 'reopen') => {
     actMutation.mutate(action);
   };
 
-  const download = async (format: 'pdf' | 'xlsx') => {
+  const download = async (format: 'pdf' | 'xlsx' | 'csv') => {
     setBusy(true);
     setError(null);
 
@@ -153,7 +190,7 @@ export function TaxReturnView(): React.ReactElement {
   return (
     <Stack spacing={2.5}>
       <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-        {PRESETS.map(preset => (
+        {presets.map(preset => (
           <Button
             key={preset.key}
             size="small"
@@ -184,38 +221,49 @@ export function TaxReturnView(): React.ReactElement {
         <Alert severity="error">{error ?? t.buildFailed}</Alert>
       ) : null}
 
-      {threshold?.threshold ? (
-        <Box
-          data-attention="tax:threshold"
-          sx={{
-            borderRadius: tokens.radius.lg,
-            border: '1px solid',
-            borderColor: 'divider',
-            p: 2,
-          }}
-        >
-          <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>
-            {t.registrationThreshold}
-          </Typography>
-          <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.5 }}>
-            {t.thresholdProgress.value
-              .replace('{turnover}', formatMoney(threshold.turnover, threshold.currency))
-              .replace('{threshold}', formatMoney(threshold.threshold, threshold.currency))
-              .replace('{percent}', String(Math.round(threshold.percentUsed)))}
-          </Typography>
-          <LinearProgress
-            variant="determinate"
-            value={Math.min(100, threshold.percentUsed)}
-            color={
-              threshold.percentUsed >= 100
-                ? 'error'
-                : threshold.percentUsed >= 80
-                  ? 'warning'
-                  : 'primary'
-            }
-            sx={{ mt: 1, borderRadius: 999, height: 6 }}
-          />
-        </Box>
+      <TaxThresholdCard />
+
+      {vatDeadlines.length > 0 ? (
+        <Stack spacing={1} data-testid="vat-deadlines">
+          {vatDeadlines.map(item => (
+            <Alert
+              key={item.periodEnd}
+              severity={item.daysLeft < 0 ? 'error' : item.daysLeft <= 7 ? 'warning' : 'info'}
+              action={
+                <Stack direction="row" spacing={0.5}>
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      setPeriod({ periodStart: item.periodStart, periodEnd: item.periodEnd })
+                    }
+                    sx={{ textTransform: 'none' }}
+                  >
+                    {t.openPeriod.value}
+                  </Button>
+                  <Button
+                    size="small"
+                    disabled={filedElsewhere.isPending}
+                    onClick={() => filedElsewhere.mutate(item.periodEnd)}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    {t.filedElsewhere.value}
+                  </Button>
+                </Stack>
+              }
+            >
+              {(item.daysLeft < 0 ? t.deadlineOverdue : t.deadlineDue).value
+                .replace('{returnName}', item.returnName)
+                .replace('{periodStart}', item.periodStart)
+                .replace('{periodEnd}', item.periodEnd)
+                .replace('{dueDate}', item.dueDate)}
+            </Alert>
+          ))}
+          {vatDeadlines[0].checkedAt ? (
+            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+              {t.deadlinesBasis.value.replace('{checkedAt}', vatDeadlines[0].checkedAt)}
+            </Typography>
+          ) : null}
+        </Stack>
       ) : null}
 
       {returnQuery.isPending ? (
@@ -292,6 +340,14 @@ export function TaxReturnView(): React.ReactElement {
                 XLSX
               </Button>
               <Button
+                variant="outlined"
+                disabled={busy || actMutation.isPending}
+                onClick={() => download('csv')}
+                sx={{ borderRadius: tokens.radius.md, textTransform: 'none', fontWeight: 600 }}
+              >
+                CSV
+              </Button>
+              <Button
                 variant={isFiled ? 'outlined' : 'contained'}
                 disabled={busy || actMutation.isPending}
                 onClick={() => act(isFiled ? 'reopen' : 'file')}
@@ -308,6 +364,19 @@ export function TaxReturnView(): React.ReactElement {
           </Stack>
 
           {isFiled ? <Alert severity="info">{t.filedNotice}</Alert> : null}
+
+          <UstvaCard period={period} lines={totals?.lines ?? []} />
+
+          {!isFiled && totals?.missingRates && totals.missingRates.length > 0 ? (
+            <Alert severity="warning">
+              {t.missingRates.value
+                .replace('{count}', String(totals.missingRates.length))
+                .replace(
+                  '{currencies}',
+                  [...new Set(totals.missingRates.map(row => row.currency))].join(', '),
+                )}
+            </Alert>
+          ) : null}
 
           {totals && totals.lines.length > 0 ? (
             <Box sx={{ overflowX: 'auto' }}>

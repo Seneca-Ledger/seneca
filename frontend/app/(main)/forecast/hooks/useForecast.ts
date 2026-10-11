@@ -51,6 +51,8 @@ export interface ForecastData {
   lowestBalanceDate: string;
   shortfallDate: string | null;
   safeToSpend: { amount: number; untilDate: string; nextIncomeDate: string | null };
+  /** Held for tax by the workspace's own rule; already out of safe-to-spend. */
+  taxReserve?: number;
   runwayMonths: number | null;
   everydayMonthly: number;
   irregularIncomeMonthly: number;

@@ -112,4 +112,13 @@ export class UpdateTransactionDto {
   @IsBoolean()
   @IsOptional()
   isPrivate?: boolean;
+
+  /**
+   * Marks this one row as mattering for the tax return, or not, whatever its
+   * category says. Null hands the decision back to the category.
+   */
+  @ValidateIf((_dto, value) => value !== null)
+  @IsBoolean()
+  @IsOptional()
+  taxRelevant?: boolean | null;
 }

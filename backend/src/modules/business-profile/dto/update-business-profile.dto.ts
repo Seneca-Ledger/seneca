@@ -69,4 +69,31 @@ export class UpdateBusinessProfileDto {
   @IsString()
   @MaxLength(2000)
   invoiceFooter?: string;
+
+  /** The address in parts, for e-invoices. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  street?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  postalCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  city?: string;
+
+  /** Steuernummer, apart from the VAT id. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  taxNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  contactName?: string;
 }

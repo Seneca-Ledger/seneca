@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
@@ -12,6 +12,7 @@ import { DashboardService } from '../dashboard/dashboard.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { GoalsService } from '../goals/goals.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { TaxReserveService } from '../tax/tax-reserve.service';
 import type { ForecastQueryDto } from './dto/forecast-query.dto';
 import {
   type AveragedParty,
@@ -40,6 +41,11 @@ export interface ForecastResponse extends ForecastResult {
   recurringIncome: Array<RecurringIncome & { sourceId: string }>;
   /** Payables without a due date: owed, but not placeable on the curve. */
   unscheduledCommitted: number;
+  /**
+   * Money held for tax by the workspace's own rule (VAT collected, a share of
+   * earnings, minus tax already paid). Already taken out of safe-to-spend.
+   */
+  taxReserve: number;
 }
 
 const HISTORY_MONTHS = 3;
@@ -73,6 +79,8 @@ export class ForecastService {
     private readonly goalsService: GoalsService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly exchangeRatesService: ExchangeRatesService,
+    @Optional()
+    private readonly taxReserveService?: TaxReserveService,
   ) {}
 
   async getForecast(workspaceId: string, query: ForecastQueryDto): Promise<ForecastResponse> {
@@ -149,8 +157,25 @@ export class ForecastService {
       },
     });
 
+    // What the tax office is owed is in the balance but not spendable. Only
+    // the reserve in the workspace currency is subtracted; the reserve is
+    // computed in that currency.
+    const reserve = this.taxReserveService
+      ? await this.taxReserveService.getReserve(workspaceId, today)
+      : null;
+    const taxReserve = reserve && reserve.currency === currency ? reserve.total : 0;
+    const safeToSpend =
+      taxReserve > 0
+        ? {
+            ...result.safeToSpend,
+            amount: Math.max(0, Math.round((result.safeToSpend.amount - taxReserve) * 100) / 100),
+          }
+        : result.safeToSpend;
+
     return {
       ...result,
+      safeToSpend,
+      taxReserve,
       currency,
       profile,
       everydayMonthly: round(everydayMonthly),

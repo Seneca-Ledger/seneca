@@ -25,7 +25,12 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { Permission } from '../../common/enums/permissions.enum';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
-import { unlinkAll, validateFile, validateFiles } from '../../common/utils/file-validator.util';
+import {
+  isEInvoiceXml,
+  unlinkAll,
+  validateFile,
+  validateFiles,
+} from '../../common/utils/file-validator.util';
 import { pipeFileStreamResponse } from '../../common/utils/stream-response.util';
 import { multerConfig } from '../../config/multer.config';
 import { EntityType } from '../../entities/audit-event.entity';
@@ -53,6 +58,9 @@ const SUPPORTED_RECEIPT_MIME_TYPES = new Set([
   'image/bmp',
   'image/tiff',
   'application/pdf',
+  // A structured e-invoice (XRechnung) sent as the XML itself.
+  'application/xml',
+  'text/xml',
 ]);
 
 interface ThumbnailErrorLike {
@@ -170,7 +178,7 @@ export class StatementsController {
 
     try {
       for (const file of files) {
-        validateFile(file);
+        validateFile(file, { allowEInvoiceXml: true });
         this.assertReceiptFileSupported(file);
       }
     } catch (error) {
@@ -332,8 +340,11 @@ export class StatementsController {
   }
 
   private assertReceiptFileSupported(file: Express.Multer.File): void {
-    if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException('Only image and PDF receipt files are supported');
+    const isXml = file.mimetype === 'application/xml' || file.mimetype === 'text/xml';
+    if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype) || (isXml && !isEInvoiceXml(file))) {
+      throw new BadRequestException(
+        'Only image, PDF and e-invoice XML receipt files are supported',
+      );
     }
   }
 

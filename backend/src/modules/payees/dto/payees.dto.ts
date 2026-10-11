@@ -4,10 +4,12 @@ import {
   ArrayNotEmpty,
   IsArray,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -52,6 +54,25 @@ export class UpdatePayeeDto {
   @ValidateIf((_dto, value) => value !== null)
   @IsUUID()
   categoryId?: string | null;
+
+  /** ISO-3166-1 alpha-2 of the payee's seat; null clears it. */
+  @IsOptional()
+  @ValidateIf((_dto, value) => value !== null)
+  @Matches(/^[A-Za-z]{2}$/, { message: 'countryCode must be a two-letter country code' })
+  countryCode?: string | null;
+
+  /** The payee's VAT number; null or blank clears it. */
+  @IsOptional()
+  @ValidateIf((_dto, value) => value !== null)
+  @IsString()
+  @MaxLength(32)
+  vatId?: string | null;
+
+  /** What the payee supplies: decides the VAT return line of a cross-border reverse charge. */
+  @IsOptional()
+  @ValidateIf((_dto, value) => value !== null)
+  @IsIn(['goods', 'services'])
+  supplyType?: 'goods' | 'services' | null;
 }
 
 export class MergePayeesDto {

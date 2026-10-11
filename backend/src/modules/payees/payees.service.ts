@@ -2,10 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { type DataSource, In, type Repository } from 'typeorm';
+import { type DataSource, In, IsNull, LessThan, Not, Or, type Repository } from 'typeorm';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Category } from '../../entities/category.entity';
 import { Payee, PayeeMode } from '../../entities/payee.entity';
@@ -13,6 +15,8 @@ import { Transaction, TransactionCategorySource } from '../../entities/transacti
 import { AuditService } from '../audit/audit.service';
 import { hasDecidedCategory } from '../classification/engine/category-decision';
 import { ClassificationService } from '../classification/services/classification.service';
+import { ViesService } from '../reference-data/vies.service';
+import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import type {
   MergePayeesDto,
   PayeesQueryDto,
@@ -30,9 +34,23 @@ export type PayeeView = {
   category: CategoryRef | null;
   /** What a new row of this payee would be filed as now, and why. */
   defaultCategory: (CategoryRef & { source: TransactionCategorySource }) | null;
+  /** Seat and VAT number: what decides reverse charge on purchases from this payee. */
+  countryCode: string | null;
+  vatId: string | null;
+  /** What VIES said about `vatId`; NULL when not asked or it could not answer. */
+  vatIdStatus: 'valid' | 'invalid' | null;
+  /** The name the number is registered to, when VIES gave one. */
+  vatIdName: string | null;
+  vatIdCheckedAt: string | null;
+  /** Goods or services, for the line of the VAT return a reverse charge goes on. */
+  supplyType: 'goods' | 'services' | null;
   transactionCount: number;
   lastSeen: string | null;
 };
+
+/** Numbers VIES could not answer for are asked again after this long. */
+const VIES_RETRY_AFTER_MS = 20 * 60 * 60 * 1000;
+const VIES_RETRY_BATCH = 100;
 
 const DEFAULT_LIMIT = 50;
 
@@ -57,7 +75,11 @@ export class PayeesService {
     private readonly dataSource: DataSource,
     private readonly classificationService: ClassificationService,
     private readonly auditService: AuditService,
+    private readonly taxAssignmentService: TaxAssignmentService,
+    private readonly viesService: ViesService,
   ) {}
+
+  private readonly logger = new Logger(PayeesService.name);
 
   async list(
     workspaceId: string,
@@ -88,6 +110,12 @@ export class PayeesService {
           'payee.name AS name',
           'payee.mode AS mode',
           'payee.categoryId AS "categoryId"',
+          'payee.countryCode AS "countryCode"',
+          'payee.vatId AS "vatId"',
+          'payee.vatIdStatus AS "vatIdStatus"',
+          'payee.vatIdName AS "vatIdName"',
+          'payee.vatIdCheckedAt AS "vatIdCheckedAt"',
+          'payee.supplyType AS "supplyType"',
           'COUNT(transaction.id)::int AS "transactionCount"',
           'MAX(transaction.transactionDate) AS "lastSeen"',
         ])
@@ -101,6 +129,12 @@ export class PayeesService {
           name: string;
           mode: PayeeMode;
           categoryId: string | null;
+          countryCode: string | null;
+          vatId: string | null;
+          vatIdStatus: 'valid' | 'invalid' | null;
+          vatIdName: string | null;
+          vatIdCheckedAt: Date | string | null;
+          supplyType: 'goods' | 'services' | null;
           transactionCount: number;
           lastSeen: Date | string | null;
         }>(),
@@ -142,6 +176,12 @@ export class PayeesService {
                 source: match.source,
               }
             : null,
+        countryCode: row.countryCode,
+        vatId: row.vatId,
+        vatIdStatus: row.vatIdStatus,
+        vatIdName: row.vatIdName,
+        vatIdCheckedAt: row.vatIdCheckedAt ? new Date(row.vatIdCheckedAt).toISOString() : null,
+        supplyType: row.supplyType,
         transactionCount: Number(row.transactionCount),
         lastSeen: row.lastSeen ? new Date(row.lastSeen).toISOString().slice(0, 10) : null,
       };
@@ -157,7 +197,14 @@ export class PayeesService {
     dto: UpdatePayeeDto,
   ): Promise<Payee> {
     const payee = await this.findPayee(workspaceId, id);
-    const before = { name: payee.name, mode: payee.mode, categoryId: payee.categoryId };
+    const before = {
+      name: payee.name,
+      mode: payee.mode,
+      categoryId: payee.categoryId,
+      countryCode: payee.countryCode,
+      vatId: payee.vatId,
+      supplyType: payee.supplyType,
+    };
 
     if (dto.name !== undefined) {
       const name = dto.name.trim();
@@ -192,8 +239,26 @@ export class PayeesService {
     payee.mode = mode;
     // A pin means nothing outside "always"; keeping it would resurface later.
     payee.categoryId = mode === PayeeMode.ALWAYS ? categoryId : null;
+    if (dto.countryCode !== undefined) {
+      payee.countryCode = dto.countryCode ? dto.countryCode.toUpperCase() : null;
+    }
+    if (dto.vatId !== undefined) {
+      payee.vatId = dto.vatId?.trim() || null;
+    }
+    if (dto.supplyType !== undefined) {
+      payee.supplyType = dto.supplyType;
+    }
 
+    const vatChanged = payee.countryCode !== before.countryCode || payee.vatId !== before.vatId;
+    if (vatChanged) {
+      await this.checkVatId(payee);
+    }
     const saved = await this.payeeRepository.save(payee);
+    // Who the supplier is decides whether its purchases are reverse-charged,
+    // so every unfiled row of this payee is assessed again.
+    if (vatChanged) {
+      await this.taxAssignmentService.reassess(workspaceId, { payeeId: saved.id });
+    }
     await this.auditService.createEvent({
       workspaceId,
       actorType: ActorType.USER,
@@ -203,10 +268,78 @@ export class PayeesService {
       action: AuditAction.UPDATE,
       diff: {
         before,
-        after: { name: saved.name, mode: saved.mode, categoryId: saved.categoryId },
+        after: {
+          name: saved.name,
+          mode: saved.mode,
+          categoryId: saved.categoryId,
+          countryCode: saved.countryCode,
+          vatId: saved.vatId,
+          supplyType: saved.supplyType,
+        },
       },
     });
     return saved;
+  }
+
+  /**
+   * Asks VIES about the payee's VAT number and keeps the answer on the
+   * payee. An invalid number stops its purchases being reverse-charged; an
+   * unanswered one (the register is down) is treated as before, unverified.
+   */
+  private async checkVatId(payee: Payee): Promise<void> {
+    if (!(payee.vatId && payee.countryCode && this.viesService.covers(payee.countryCode))) {
+      payee.vatIdStatus = null;
+      payee.vatIdName = null;
+      payee.vatIdCheckedAt = null;
+      return;
+    }
+    const result = await this.viesService.check(payee.countryCode, payee.vatId);
+    payee.vatIdStatus = result.status === 'unavailable' ? null : result.status;
+    payee.vatIdName = result.status === 'valid' ? result.name : null;
+    payee.vatIdCheckedAt = result.checkedAt;
+  }
+
+  /** Checks the payee's VAT number again now; its rows are reassessed when the answer changed. */
+  async recheckVatId(workspaceId: string, id: string): Promise<Payee> {
+    const payee = await this.findPayee(workspaceId, id);
+    const before = payee.vatIdStatus;
+    await this.checkVatId(payee);
+    const saved = await this.payeeRepository.save(payee);
+    if (saved.vatIdStatus !== before) {
+      await this.taxAssignmentService.reassess(workspaceId, { payeeId: saved.id });
+    }
+    return saved;
+  }
+
+  /**
+   * Asks again about numbers VIES could not answer for: a member state's
+   * register is often down for hours, and until it answers an invalid
+   * number would go on being reverse-charged.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
+  async recheckUnansweredVatIds(now: Date = new Date()): Promise<number> {
+    const payees = await this.payeeRepository.find({
+      where: {
+        vatId: Not(IsNull()),
+        countryCode: Not(IsNull()),
+        vatIdStatus: IsNull(),
+        vatIdCheckedAt: Or(IsNull(), LessThan(new Date(now.getTime() - VIES_RETRY_AFTER_MS))),
+      },
+      order: { vatIdCheckedAt: { direction: 'ASC', nulls: 'FIRST' } },
+      take: VIES_RETRY_BATCH,
+    });
+    let answered = 0;
+    for (const payee of payees) {
+      try {
+        const saved = await this.recheckVatId(payee.workspaceId, payee.id);
+        if (saved.vatIdStatus !== null) {
+          answered++;
+        }
+      } catch (error) {
+        this.logger.warn(`VIES re-check failed for payee ${payee.id}: ${(error as Error).message}`);
+      }
+    }
+    return answered;
   }
 
   /**
@@ -284,7 +417,8 @@ export class PayeesService {
       : await this.findOrCreateByName(workspaceId, dto.name as string);
 
     const updates: Partial<Transaction> = { payeeId: payee.id };
-    if (!hasDecidedCategory(transaction)) {
+    // A row on a filed tax return keeps its category; only its payee moves.
+    if (!(hasDecidedCategory(transaction) || transaction.taxLocked)) {
       const match = await this.classificationService.categoryForPayee(workspaceId, payee.id);
       if (match) {
         updates.categoryId = match.categoryId;
@@ -304,6 +438,8 @@ export class PayeesService {
       // update(), not save(): the subscriber would re-derive the payee from the descriptor.
       await manager.update(Transaction, { id: transaction.id, workspaceId }, updates);
     });
+    // Written with update(), so the tax subscriber did not see the new payee or category.
+    await this.taxAssignmentService.reassess(workspaceId, { ids: [transaction.id] });
 
     await this.auditService.createEvent({
       workspaceId,

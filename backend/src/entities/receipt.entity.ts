@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { EInvoiceSummary } from '../modules/e-invoices/einvoice-summary';
 import { StatementStage } from './statement.entity';
 import { Transaction, type TransactionCategorySource } from './transaction.entity';
 import { User } from './user.entity';
@@ -178,6 +179,8 @@ export class Receipt {
     transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
     confidence?: number;
     validationIssues?: string[];
+    /** Set when the file is a structured e-invoice: what its XML says beyond the fields above. */
+    einvoice?: EInvoiceSummary;
   };
 
   @Column({ type: 'varchar', length: 32, nullable: true, name: 'language' })

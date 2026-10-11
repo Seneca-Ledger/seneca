@@ -298,8 +298,9 @@ describe('ReceiptsService', () => {
       { categoryId: 'cat-1' },
     );
     // The person picked it, so it is recorded as theirs and teaches the payee.
+    // Rows on a filed tax return keep the category they were filed under.
     expect(transactionRepository.update).toHaveBeenCalledWith(
-      { statementId: 'statement-1', workspaceId: 'workspace-1' },
+      { statementId: 'statement-1', workspaceId: 'workspace-1', taxLocked: false },
       { categoryId: 'cat-1', categorySource: 'manual', categoryReason: null },
     );
   });

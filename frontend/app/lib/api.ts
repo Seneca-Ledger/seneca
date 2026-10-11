@@ -373,12 +373,41 @@ export interface ReceiptRecord {
     transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
     confidence?: number;
     validationIssues?: string[];
+    /** Set when the file is a structured e-invoice, read from its XML. */
+    einvoice?: EInvoiceSummary;
   };
   locationLat?: number | null;
   locationLng?: number | null;
   locationSource?: ReceiptLocationSource | null;
   locationAccuracyM?: number | null;
   locationUpdatedAt?: string | null;
+}
+
+/** What a receipt keeps of a structured e-invoice's XML (XRechnung, ZUGFeRD / Factur-X). */
+export interface EInvoiceSummary {
+  syntax: 'ubl' | 'cii';
+  profile: string | null;
+  /** False for ZUGFeRD MINIMUM / BASIC-WL: not an e-invoice in Germany. */
+  meetsEn16931: boolean;
+  typeCode: string | null;
+  number: string | null;
+  dueDate: string | null;
+  deliveryDate: string | null;
+  iban: string | null;
+  seller: {
+    name: string | null;
+    vatId: string | null;
+    taxNumber: string | null;
+    countryCode: string | null;
+  };
+  reverseCharge: boolean;
+  vat: Array<{
+    category: string;
+    rate: number | null;
+    base: number;
+    tax: number;
+    exemptionReason: string | null;
+  }>;
 }
 
 export interface ReceiptListFilters {
