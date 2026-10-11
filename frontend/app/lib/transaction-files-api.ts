@@ -1,5 +1,5 @@
 import apiClient from '@/app/lib/api';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface TransactionTag {
   id: string;
@@ -36,7 +36,9 @@ export const transactionFilesApi = {
 
   /** Sends the complete desired tag set — the server replaces, it does not merge. */
   async setTags(transactionId: string, tagIds: string[]): Promise<TransactionTag[]> {
-    const response = await apiClient.put(`/transactions/${transactionId}/tags`, { tagIds });
+    const response = await apiClient.put(`/transactions/${transactionId}/tags`, {
+      tagIds,
+    } satisfies ContractInput<'SetTransactionTagsBody'>);
     return unwrap<TransactionTag[]>(response) ?? [];
   },
 

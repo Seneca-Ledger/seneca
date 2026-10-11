@@ -140,7 +140,10 @@ export function useWebhookSubscriptions() {
 
   const createMutation = useMutation({
     mutationFn: (data: { name: string; url: string; secret: string; events: WebhookEventName[] }) =>
-      apiClient.post('/webhook-subscriptions', data),
+      apiClient.post(
+        '/webhook-subscriptions',
+        data satisfies ContractInput<'CreateWebhookSubscriptionBody'>,
+      ),
     onSuccess: () => toast.success(t.toasts.subscriptionCreated.value),
     onError: () => toast.error(t.toasts.subscriptionCreateFailed.value),
     onSettled: invalidate,

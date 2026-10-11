@@ -1,4 +1,5 @@
 import { api } from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export type ImportTarget =
   | 'transactions'
@@ -130,12 +131,18 @@ export const suggestImport = async (
   headers: string[],
   samples: string[][],
 ): Promise<ImportSuggestion> => {
-  const response = await api.post('/entity-imports/suggest', { headers, samples });
+  const response = await api.post('/entity-imports/suggest', {
+    headers,
+    samples,
+  } satisfies ContractInput<'SuggestImportBody'>);
   return unwrap<ImportSuggestion>(response.data);
 };
 
 export const runEntityImport = async (payload: ImportRunPayload): Promise<ImportRunResult> => {
-  const response = await api.post('/entity-imports', payload);
+  const response = await api.post(
+    '/entity-imports',
+    payload satisfies ContractInput<'RunEntityImportBody'>,
+  );
   return unwrap<ImportRunResult>(response.data);
 };
 
@@ -143,13 +150,30 @@ export const undoEntityImport = async (batchId: string): Promise<void> => {
   await api.delete(`/entity-imports/${batchId}`);
 };
 
+/** Import targets a custom table can be built from; metals have no table source. */
+export type TableSourceTarget = ContractInput<'CreateCustomTableFromSourceBody'>['kind'];
+
+const TABLE_SOURCE_TARGETS: readonly TableSourceTarget[] = [
+  'transactions',
+  'payables',
+  'subscriptions',
+  'invoices',
+  'budgets',
+];
+
+export const isTableSourceTarget = (target: ImportTarget): target is TableSourceTarget =>
+  TABLE_SOURCE_TARGETS.some(source => source === target);
+
 export const createTableFromImport = async (payload: {
-  kind: ImportTarget;
+  kind: TableSourceTarget;
   filters: Record<string, unknown>;
   name: string;
   currency: string;
   columnTitles: Record<string, string>;
 }): Promise<string | null> => {
-  const response = await api.post('/custom-tables/from-source', payload);
+  const response = await api.post(
+    '/custom-tables/from-source',
+    payload satisfies ContractInput<'CreateCustomTableFromSourceBody'>,
+  );
   return unwrap<{ tableId?: string }>(response.data)?.tableId ?? null;
 };

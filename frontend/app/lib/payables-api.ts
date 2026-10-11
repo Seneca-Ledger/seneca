@@ -9,7 +9,7 @@ import type {
   PayablesSummary,
   PaymentCandidate,
 } from '@/app/lib/contracts';
-import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 export type {
   PayableDirection,
@@ -165,12 +165,18 @@ export const payablesApi = {
   },
 
   async create(payload: CreatePayableInput): Promise<Payable> {
-    const response = await apiClient.post<Payable>('/payables', payload);
+    const response = await apiClient.post<Payable>(
+      '/payables',
+      payload satisfies ContractInput<'CreatePayableBody'>,
+    );
     return unwrapData(response);
   },
 
   async update(id: string, payload: UpdatePayableInput): Promise<Payable> {
-    const response = await apiClient.put<Payable>(`/payables/${id}`, payload);
+    const response = await apiClient.put<Payable>(
+      `/payables/${id}`,
+      payload satisfies ContractInput<'UpdatePayableBody'>,
+    );
     return unwrapData(response);
   },
 
@@ -189,7 +195,10 @@ export const payablesApi = {
   },
 
   async addPayment(id: string, payload: AddPayablePaymentInput): Promise<Payable> {
-    const response = await apiClient.post<Payable>(`/payables/${id}/payments`, payload);
+    const response = await apiClient.post<Payable>(
+      `/payables/${id}/payments`,
+      payload satisfies ContractInput<'AddPayablePaymentBody'>,
+    );
     return unwrapData(response);
   },
 
@@ -199,7 +208,10 @@ export const payablesApi = {
   },
 
   async allocate(payload: AllocateTransactionInput): Promise<Payable[]> {
-    const response = await apiClient.post<Payable[]>('/payables/allocate', payload);
+    const response = await apiClient.post<Payable[]>(
+      '/payables/allocate',
+      payload satisfies ContractInput<'AllocateTransactionBody'>,
+    );
     return unwrapData(response);
   },
 
@@ -211,7 +223,10 @@ export const payablesApi = {
   },
 
   async markAsPaid(id: string, payload: MarkPayablePaidInput = {}): Promise<Payable> {
-    const response = await apiClient.put<Payable>(`/payables/${id}/mark-paid`, payload);
+    const response = await apiClient.put<Payable>(
+      `/payables/${id}/mark-paid`,
+      payload satisfies ContractInput<'MarkPayablePaidBody'>,
+    );
     return unwrapData(response);
   },
 
@@ -226,9 +241,13 @@ export const payablesApi = {
   },
 
   async exportList(params: ExportPayablesParams): Promise<ExportPayablesResult> {
-    const response = await apiClient.post<Blob>('/payables/export', params, {
-      responseType: 'blob',
-    });
+    const response = await apiClient.post<Blob>(
+      '/payables/export',
+      params satisfies ContractInput<'FilterPayablesBody'>,
+      {
+        responseType: 'blob',
+      },
+    );
 
     return {
       blob: response.data,

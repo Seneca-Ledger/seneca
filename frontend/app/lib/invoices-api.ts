@@ -90,11 +90,17 @@ export const clientsApi = {
     return checkContract('Client', unwrapData(response), '/clients/:id');
   },
   async create(payload: CreateClientInput): Promise<Client> {
-    const response = await apiClient.post<Client>('/clients', payload);
+    const response = await apiClient.post<Client>(
+      '/clients',
+      payload satisfies ContractInput<'CreateClientBody'>,
+    );
     return unwrapData(response);
   },
   async update(id: string, payload: UpdateClientInput): Promise<Client> {
-    const response = await apiClient.put<Client>(`/clients/${id}`, payload);
+    const response = await apiClient.put<Client>(
+      `/clients/${id}`,
+      payload satisfies ContractInput<'UpdateClientBody'>,
+    );
     return unwrapData(response);
   },
   async delete(id: string): Promise<{ message: string }> {
@@ -154,11 +160,17 @@ export const invoicesApi = {
     return checkContract('InvoiceSettings', unwrapData(response), '/invoices/settings');
   },
   async updateSettings(payload: InvoiceSettingsInput): Promise<InvoiceSettings> {
-    const response = await apiClient.put<InvoiceSettings>('/invoices/settings', payload);
+    const response = await apiClient.put<InvoiceSettings>(
+      '/invoices/settings',
+      payload satisfies ContractInput<'UpdateInvoiceSettingsBody'>,
+    );
     return unwrapData(response);
   },
   async sendEmail(id: string, payload: SendInvoiceEmailInput = {}): Promise<InvoiceDelivery> {
-    const response = await apiClient.post<InvoiceDelivery>(`/invoices/${id}/deliveries`, payload);
+    const response = await apiClient.post<InvoiceDelivery>(
+      `/invoices/${id}/deliveries`,
+      payload satisfies ContractInput<'SendInvoiceEmailBody'>,
+    );
     return unwrapData(response);
   },
   async deliveries(id: string): Promise<InvoiceDelivery[]> {
