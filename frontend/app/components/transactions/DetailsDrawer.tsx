@@ -8,7 +8,6 @@ import { useIntlayer } from '@/app/i18n';
 import { DrawerShell } from '../ui/drawer-shell';
 import { useTransactionHistory } from './hooks/useTransactionHistory';
 import { TransactionDetailsTab } from './TransactionDetailsTab';
-import { TransactionFilesTab } from './TransactionFilesTab';
 import { TransactionHistoryTab } from './TransactionHistoryTab';
 import type { Category, Transaction } from './types';
 
@@ -24,7 +23,7 @@ interface DetailsDrawerProps {
 
 /**
  * Drawer component for displaying full transaction details and actions.
- * Composes TransactionDetailsTab + TransactionHistoryTab behind a tab switcher.
+ * Composes the actions, notes and history of a transaction behind a tab switcher.
  */
 export default function DetailsDrawer({
   open,
@@ -37,19 +36,8 @@ export default function DetailsDrawer({
 }: DetailsDrawerProps) {
   const t = useIntlayer('transactionsDrawer');
   const notes = useIntlayer('notes');
-  const [activeTab, setActiveTab] = useState<'details' | 'files' | 'notes' | 'history'>('details');
-  const filesLabels = {
-    tabTitle: t.filesTabTitle.value,
-    tagsTitle: t.filesTagsTitle.value,
-    tagsEmpty: t.filesTagsEmpty.value,
-    attachmentsTitle: t.filesAttachmentsTitle.value,
-    attachmentsEmpty: t.filesAttachmentsEmpty.value,
-    upload: t.filesUpload.value,
-    loadFailed: t.filesLoadFailed.value,
-    saveFailed: t.filesSaveFailed.value,
-    uploadFailed: t.filesUploadFailed.value,
-    deleteFailed: t.filesDeleteFailed.value,
-  };
+  const [activeTab, setActiveTab] = useState<'details' | 'notes' | 'history'>('details');
+
   const {
     historyEvents,
     historyLoading,
@@ -81,13 +69,6 @@ export default function DetailsDrawer({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('files')}
-            className={`lumio-tx-drawer__tab${activeTab === 'files' ? ' lumio-tx-drawer__tab--active' : ''}`}
-          >
-            {filesLabels.tabTitle}
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveTab('notes')}
             className={`lumio-tx-drawer__tab${activeTab === 'notes' ? ' lumio-tx-drawer__tab--active' : ''}`}
           >
@@ -110,9 +91,6 @@ export default function DetailsDrawer({
             onMarkIgnored={onMarkIgnored}
             onSplitDone={onSplitDone}
           />
-        )}
-        {activeTab === 'files' && (
-          <TransactionFilesTab transactionId={transaction.id} labels={filesLabels} />
         )}
         {activeTab === 'notes' && (
           <div style={{ padding: 16 }}>

@@ -1090,38 +1090,6 @@
     gap: 12px;
   }
 
-  &__icon-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  &__icon {
-    background-color: $lumio-color-ink-100;
-    padding: 8px;
-    border-radius: $lumio-radius-sm;
-
-    @include dark {
-      background-color: $lumio-color-ink-100-dk;
-    }
-
-    &--white {
-      background-color: $lumio-color-surface;
-      padding: 8px;
-      border-radius: $lumio-radius-sm;
-      border: 1px solid $lumio-color-ink-100;
-
-      @include dark {
-        background-color: $lumio-color-surface-dk;
-        border-color: $lumio-color-ink-100-dk;
-      }
-    }
-  }
-
-  &__field {
-    flex: 1;
-  }
-
   &__label {
     font-size: 12px;
     font-weight: 600;
@@ -1143,112 +1111,6 @@
     @include dark {
       color: $lumio-color-ink-900-dk;
     }
-  }
-
-  &__card {
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-md;
-    background-color: rgba($lumio-color-ink-50, 0.6);
-    padding: 16px;
-
-    @include dark {
-      border-color: $lumio-color-ink-150-dk;
-      background-color: rgba($lumio-color-ink-50-dk, 0.8);
-    }
-
-    &--blue {
-      border-color: #bfdbfe;
-      background-color: rgba(59, 130, 246, 0.06);
-
-      @include dark {
-        border-color: rgba($lumio-color-info-dk, 0.4);
-        background-color: $lumio-color-info-soft-dk;
-      }
-    }
-  }
-
-  &__amount-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  &__amount-card {
-    border: 1px solid;
-    border-radius: $lumio-radius-md;
-    padding: 16px;
-
-    &--debit {
-      border-color: #fecaca;
-      background-color: rgba(239, 68, 68, 0.06);
-
-      @include dark {
-        border-color: rgba($lumio-color-danger-dk, 0.4);
-        background-color: $lumio-color-surface-error-dk;
-      }
-    }
-
-    &--credit {
-      border-color: #a7f3d0;
-      background-color: rgba(16, 185, 129, 0.06);
-
-      @include dark {
-        border-color: rgba($lumio-color-success-dk, 0.4);
-        background-color: $lumio-color-success-soft-dk;
-      }
-    }
-  }
-
-  &__amount-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    font-weight: 600;
-
-    &--debit {
-      color: #b91c1c;
-
-      @include dark {
-        color: $lumio-color-danger-dk;
-      }
-    }
-
-    &--credit {
-      color: #15803d;
-
-      @include dark {
-        color: $lumio-color-success-dk;
-      }
-    }
-  }
-
-  &__amount-value {
-    margin-top: 8px;
-    font-size: 18px;
-    font-weight: 600;
-
-    &--debit {
-      color: #b91c1c;
-
-      @include dark {
-        color: $lumio-color-danger-dk;
-      }
-    }
-
-    &--credit {
-      color: #15803d;
-
-      @include dark {
-        color: $lumio-color-success-dk;
-      }
-    }
-  }
-
-  &__row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 14px;
   }
 
   &__actions {
@@ -1306,35 +1168,6 @@
       }
     }
   }
-
-  &__apply-btn {
-    background-color: var(--primary-fill);
-    padding: 8px 16px;
-    border-radius: $lumio-radius-md;
-    font-size: 14px;
-    font-weight: 600;
-    color: white;
-    border: none;
-    cursor: pointer;
-    transition: opacity 150ms;
-
-    @include dark {
-      background-color: $color-primary-dk;
-      color: $lumio-color-ink-900;
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
-  }
-}
-
-// Export modal
-.lumio-export-modal {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
 
   &__option {
     position: relative;
