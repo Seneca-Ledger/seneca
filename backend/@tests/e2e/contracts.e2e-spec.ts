@@ -47,6 +47,10 @@ import {
   GoalFlowResponse,
   GoalList,
   GoalPlanResponse,
+  IncomeTaxDisclaimer,
+  IncomeTaxDraft,
+  IncomeTaxMappings,
+  IncomeTaxProfile,
   InsightList,
   InvestmentAccountList,
   InvitationPreview,
@@ -54,6 +58,7 @@ import {
   InvoiceDeliveryList,
   InvoiceListPage,
   InvoiceSettings,
+  JurisdictionRateList,
   LateFeeQuote,
   LocalCategorizationStatus,
   MetalReceiptList,
@@ -90,6 +95,12 @@ import {
   SubscriptionDuplicateGroups,
   SubscriptionList,
   SubscriptionSummary,
+  TaxJurisdictionList,
+  TaxRateList,
+  TaxReturnPreview,
+  TaxReturnRecord,
+  TaxRuleList,
+  TaxThresholdStatus,
   TelegramBotStatus,
   TelegramReportPage,
   TransactionAttachmentList,
@@ -102,6 +113,7 @@ import {
   WorkspaceDetail,
   WorkspaceList,
   WorkspaceOverview,
+  WorkspaceTaxSettings,
 } from '../../src/contracts';
 import {
   deleteUserByEmail,
@@ -869,6 +881,61 @@ describe('API contracts (e2e)', () => {
       matches(SharedTableRows, rows.body);
       expect(rows.body.items).toHaveLength(3);
       matches(AvailableCustomTables, (await get('/reports/custom-tables/available')).body);
+    });
+  });
+
+  describe('tax and income tax', () => {
+    const taxYear = 2025;
+    const send = (method: 'post' | 'put', url: string, body: object) =>
+      request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send(body);
+
+    beforeAll(async () => {
+      await send('put', '/tax/settings/jurisdiction', { code: 'DE' }).expect(200);
+      await send('put', '/income-tax/profile', {
+        taxYear,
+        taxpayerType: 'self_employed',
+        details: { homeOfficeDays: 120 },
+      }).expect(200);
+      const categories = await get('/categories?type=expense');
+      const rates = await get('/tax-rates');
+      await send('post', '/tax/rules', {
+        categoryId: categories.body[0].id,
+        taxRateCode: rates.body.find((rate: { code: string | null }) => rate.code).code,
+        direction: 'expense',
+      }).expect(201);
+    });
+
+    it('GET the jurisdictions, their rates, the workspace rates, settings and threshold', async () => {
+      const jurisdictions = await get('/tax/jurisdictions');
+      matches(TaxJurisdictionList, jurisdictions.body);
+      expect(jurisdictions.body.length).toBeGreaterThan(10);
+      matches(JurisdictionRateList, (await get('/tax/jurisdictions/DE/rates')).body);
+      const rates = await get('/tax-rates');
+      matches(TaxRateList, rates.body);
+      expect(rates.body.length).toBeGreaterThan(0);
+      matches(TaxRateList, (await get('/tax/settings/rates')).body);
+      matches(WorkspaceTaxSettings, (await get('/tax/settings')).body);
+      matches(TaxThresholdStatus, (await get('/tax/settings/threshold')).body);
+      matches(TaxRuleList, (await get('/tax/rules')).body);
+    });
+
+    it('GET /tax/returns/preview and /tax/returns/period', async () => {
+      const period = 'periodStart=2026-01-01&periodEnd=2026-12-31';
+      matches(TaxReturnPreview, (await get(`/tax/returns/preview?${period}`)).body);
+      matches(TaxReturnRecord, (await get(`/tax/returns/period?${period}`)).body);
+    });
+
+    it('GET the income tax disclaimer, profile, mappings and draft', async () => {
+      matches(IncomeTaxDisclaimer, (await get('/income-tax/disclaimer')).body);
+      const profile = await get(`/income-tax/profile?taxYear=${taxYear}`);
+      matches(IncomeTaxProfile, profile.body);
+      expect(profile.body.filingInfo).not.toBeNull();
+      matches(IncomeTaxMappings, (await get(`/income-tax/mappings?taxYear=${taxYear}`)).body);
+      matches(IncomeTaxDraft, (await get(`/income-tax/returns/${taxYear}`)).body);
     });
   });
 });

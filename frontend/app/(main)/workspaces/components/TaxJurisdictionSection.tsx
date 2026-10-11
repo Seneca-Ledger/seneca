@@ -14,7 +14,7 @@ import {
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import { SettingsSection } from './SettingsSection';
 import {
@@ -76,15 +76,15 @@ export function TaxJurisdictionSection({
     let cancelled = false;
 
     Promise.all([
-      apiClient.get<Jurisdiction[]>('/tax/jurisdictions'),
-      apiClient.get<{ jurisdiction: Jurisdiction | null }>('/tax/settings'),
+      apiQueryDecoded({ url: '/tax/jurisdictions', contract: 'TaxJurisdictionList' }),
+      apiQueryDecoded({ url: '/tax/settings', contract: 'WorkspaceTaxSettings' }),
     ])
       .then(([list, settings]) => {
         if (cancelled) {
           return;
         }
-        setJurisdictions(list.data ?? []);
-        const code = settings.data?.jurisdiction?.code ?? '';
+        setJurisdictions(list);
+        const code = settings.jurisdiction?.code ?? '';
         setCurrentCode(code);
         setSelectedCode(code);
       })
@@ -115,11 +115,14 @@ export function TaxJurisdictionSection({
     let cancelled = false;
     const on = todayLocal();
 
-    apiClient
-      .get<JurisdictionRate[]>(`/tax/jurisdictions/${selectedCode}/rates?date=${on}`)
-      .then(response => {
+    apiQueryDecoded({
+      url: `/tax/jurisdictions/${selectedCode}/rates`,
+      params: { date: on },
+      contract: 'JurisdictionRateList',
+    })
+      .then(rates => {
         if (!cancelled) {
-          setRates(ratesInForce(response.data ?? [], on));
+          setRates(ratesInForce(rates, on));
         }
       })
       .catch(() => {
