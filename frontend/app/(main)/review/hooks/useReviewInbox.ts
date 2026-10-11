@@ -14,7 +14,6 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient, { receiptsApi } from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
@@ -125,7 +124,8 @@ export function useReviewInbox(): UseReviewInboxResult {
 
   const pageQuery = useQuery({
     queryKey: queryKeys.reviewInbox({ workspaceId, params }),
-    queryFn: ({ signal }) => apiQuery<ReviewInboxPage>({ url: '/review-inbox', params, signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/review-inbox', params, signal, contract: 'ReviewInboxPage' }),
     enabled: Boolean(workspaceId),
   });
 

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { type DataSource, In, type Repository } from 'typeorm';
+import type { PayeePendingReview, PayeesPage } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Category } from '../../entities/category.entity';
 import { Payee, PayeeMode } from '../../entities/payee.entity';
@@ -59,10 +60,7 @@ export class PayeesService {
     private readonly auditService: AuditService,
   ) {}
 
-  async list(
-    workspaceId: string,
-    query: PayeesQueryDto,
-  ): Promise<{ data: PayeeView[]; total: number; page: number; limit: number }> {
+  async list(workspaceId: string, query: PayeesQueryDto): Promise<PayeesPage> {
     const page = query.page ?? 1;
     const limit = query.limit ?? DEFAULT_LIMIT;
     const search = query.search?.trim() ?? '';
@@ -336,7 +334,7 @@ export class PayeesService {
     workspaceId: string,
     payeeId: string,
     excludeTransactionId?: string,
-  ): Promise<{ transactionIds: string[] }> {
+  ): Promise<PayeePendingReview> {
     await this.findPayee(workspaceId, payeeId);
     const query = this.transactionRepository
       .createQueryBuilder('transaction')

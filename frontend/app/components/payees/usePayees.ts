@@ -4,9 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type { Payee, PayeeChoice, PayeeMode, PayeesPage, TransactionPayeeResult } from './types';
+import type { Payee, PayeeChoice, PayeeMode, TransactionPayeeResult } from './types';
 
 /** One page of the workspace's payees, newest-seen first, filtered by name. */
 export function usePayeesList(search: string, limit: number, page = 1) {
@@ -16,7 +16,9 @@ export function usePayeesList(search: string, limit: number, page = 1) {
     queryKey: queryKeys.payees({ workspaceId, params }),
     // Not apiQuery: it would unwrap `data` and drop the total the pager needs.
     queryFn: ({ signal }) =>
-      apiClient.get<PayeesPage>('/payees', { params, signal }).then(response => response.data),
+      apiClient
+        .get('/payees', { params, signal })
+        .then(response => checkContract('PayeesPage', response.data, '/payees')),
     enabled: Boolean(workspaceId),
     // Keeps the list on screen while the search changes, but never shows one
     // workspace's payees under another's name.
@@ -85,8 +87,9 @@ export function fetchPendingReview(
   payeeId: string,
   excludeTransactionId?: string,
 ): Promise<{ transactionIds: string[] }> {
-  return apiQuery<{ transactionIds: string[] }>({
+  return apiQueryDecoded({
     url: `/payees/${payeeId}/pending-review`,
     params: excludeTransactionId ? { excludeTransactionId } : undefined,
+    contract: 'PayeePendingReview',
   });
 }

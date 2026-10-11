@@ -34,7 +34,11 @@ import {
   MonthGoalList,
   NetWorthResponse,
   NotificationList,
+  PayeePendingReview,
+  PayeesPage,
+  ReviewInboxByStatement,
   ReviewInboxCounts,
+  ReviewInboxPage,
   SubscriptionChargeCalendar,
   SubscriptionDuplicateGroups,
   SubscriptionList,
@@ -364,6 +368,35 @@ describe('API contracts (e2e)', () => {
       const duplicates = await get('/subscriptions/duplicates');
       matches(SubscriptionDuplicateGroups, duplicates.body);
       expect(duplicates.body).toHaveLength(1);
+    });
+  });
+
+  describe('review inbox and payees', () => {
+    beforeAll(async () => {
+      // The queue holds the rows nobody has confirmed yet.
+      await dataSource.query('UPDATE transactions SET is_verified = false WHERE workspace_id = $1', [
+        owner.workspaceId,
+      ]);
+    });
+
+    it('GET /review-inbox, every kind', async () => {
+      for (const kind of ['transaction', 'receipt', 'duplicate', 'subscription']) {
+        const res = await get(`/review-inbox?kind=${kind}&reviewer=anyone`);
+        matches(ReviewInboxPage, res.body);
+      }
+      const transactions = await get('/review-inbox?kind=transaction&reviewer=anyone');
+      expect(transactions.body.items.length).toBeGreaterThan(0);
+    });
+
+    it('GET /review-inbox/statements', async () => {
+      matches(ReviewInboxByStatement, (await get('/review-inbox/statements')).body);
+    });
+
+    it('GET /payees and /payees/:id/pending-review', async () => {
+      const res = await get('/payees');
+      matches(PayeesPage, res.body);
+      expect(res.body.data.length).toBeGreaterThan(0);
+      matches(PayeePendingReview, (await get(`/payees/${res.body.data[0].id}/pending-review`)).body);
     });
   });
 });
