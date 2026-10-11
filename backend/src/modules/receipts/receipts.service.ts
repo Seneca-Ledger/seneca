@@ -182,13 +182,23 @@ export class ReceiptsService {
     return { data: await this.withCategories(data, workspaceId), total, page, limit };
   }
 
-  async findOne(id: string, workspaceId: string): Promise<ReceiptWithCategory | null> {
+  async findOne(
+    id: string,
+    workspaceId: string,
+  ): Promise<(ReceiptWithCategory & { transactionSplit: boolean }) | null> {
     const receipt = await this.receiptRepository.findOne({ where: { id, workspaceId } });
     if (!receipt) {
       return null;
     }
     const [withCategory] = await this.withCategories([receipt], workspaceId);
-    return withCategory;
+    // Whether the row it documents is split by its items, so the page offers undo.
+    const transaction = receipt.transactionId
+      ? await this.transactionRepository.findOne({
+          where: { id: receipt.transactionId, workspaceId },
+          select: { id: true, splitGroupId: true },
+        })
+      : null;
+    return Object.assign(withCategory, { transactionSplit: Boolean(transaction?.splitGroupId) });
   }
 
   private withCategories(receipts: Receipt[], workspaceId: string): Promise<ReceiptWithCategory[]> {

@@ -13,6 +13,7 @@ import {
   extractLineItemsFromLines,
   extractMerchantAddress,
   extractAmountFragments as extractSharedAmountFragments,
+  lineItemsReconcile,
 } from '../../../common/utils/receipt-extraction.util';
 import {
   AiDocumentExtractor,
@@ -424,6 +425,13 @@ export class UniversalExtractorService {
       return primary;
     }
 
+    // The figures the merged document ends up with, so either side's line items
+    // are judged against the same total.
+    const figures = {
+      totalAmount: primary.totalAmount ?? aiResult.totalAmount,
+      subtotal: primary.subtotal ?? aiResult.subtotal,
+      tax: primary.tax ?? aiResult.tax,
+    };
     const merged: ParsedDocument = {
       ...primary,
       totalAmount: primary.totalAmount ?? aiResult.totalAmount,
@@ -441,7 +449,11 @@ export class UniversalExtractorService {
       tax: primary.tax ?? aiResult.tax,
       taxRate: primary.taxRate ?? aiResult.taxRate,
       subtotal: primary.subtotal ?? aiResult.subtotal,
-      lineItems: primary.lineItems.length ? primary.lineItems : aiResult.lineItems || [],
+      lineItems: lineItemsReconcile(primary.lineItems, figures)
+        ? primary.lineItems
+        : lineItemsReconcile(aiResult.lineItems ?? [], figures)
+          ? (aiResult.lineItems ?? [])
+          : primary.lineItems,
       categoryHint: primary.categoryHint || aiResult.categoryHint,
       paymentMethod: primary.paymentMethod || aiResult.paymentMethod,
       documentNumber: primary.documentNumber || aiResult.documentNumber,
@@ -475,14 +487,21 @@ export class UniversalExtractorService {
       }
     }
 
-    if (doc.lineItems.length > 0 && doc.totalAmount) {
+    // Items that do not add up to the document are page numbers, dates and
+    // postcodes read as prices: worse than none, so they are dropped, not kept
+    // with a warning.
+    if (doc.lineItems.length > 0 && !lineItemsReconcile(doc.lineItems, doc)) {
       const lineItemsSum = doc.lineItems.reduce((sum, item) => sum + item.amount, 0);
-      const compareTo = doc.subtotal || doc.totalAmount;
-      if (Math.abs(lineItemsSum - compareTo) > compareTo * 0.05) {
-        validationIssues.push(
-          `Line items sum (${lineItemsSum.toFixed(2)}) does not match total (${compareTo.toFixed(2)})`,
-        );
-      }
+      validationIssues.push(
+        `Line items sum (${lineItemsSum.toFixed(2)}) does not match the total; line items dropped`,
+      );
+      return {
+        ...doc,
+        lineItems: [],
+        fieldConfidence: { ...doc.fieldConfidence, lineItems: 0 },
+        validationIssues,
+        language: doc.language,
+      };
     }
 
     return {

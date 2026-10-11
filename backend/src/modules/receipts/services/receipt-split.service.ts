@@ -17,6 +17,17 @@ export interface ReceiptSplitSuggestion {
   splittable: boolean;
   /** The line items with the category the suggestion assigned to each. */
   items: SplitLineItem[];
+  /** The transaction is split already: undo that first, nothing is suggested. */
+  alreadySplit: boolean;
+  /** Where items without a category go: the receipt's, else the transaction's category. */
+  fallbackCategoryId: string | null;
+}
+
+/** A line with the category the user settled on in the preview. */
+export interface ReviewedSplitItem {
+  description: string;
+  amount: number;
+  categoryId?: string | null;
 }
 
 /**
@@ -37,55 +48,24 @@ export class ReceiptSplitService {
   ) {}
 
   async suggest(receiptId: string, workspaceId: string): Promise<ReceiptSplitSuggestion> {
-    const receipt = await this.receiptRepository.findOne({ where: { id: receiptId, workspaceId } });
-    if (!receipt) {
-      throw new NotFoundException('Receipt not found');
-    }
-    if (!receipt.transactionId) {
-      throw new BadRequestException('Approve the receipt first so there is a transaction to split');
-    }
-    const transaction = await this.transactionRepository.findOne({
-      where: { id: receipt.transactionId, workspaceId },
-    });
-    if (!transaction) {
-      throw new NotFoundException('Transaction not found');
-    }
-    if (transaction.splitGroupId) {
-      throw new BadRequestException('The transaction is already split');
-    }
-    const lines = (receipt.parsedData?.lineItems ?? []).filter(
-      item => item.description?.trim() && Number(item.amount) > 0,
-    );
-    if (lines.length < 2) {
-      throw new BadRequestException('The receipt needs at least two line items');
-    }
-
-    const categories = await this.categoryRepository.find({ where: { workspaceId } });
-    const enabled = categories.filter(category => category.isEnabled !== false);
-    const items = await this.categorise(receipt, lines, enabled);
-    const fallback = receipt.parsedData?.categoryId ?? transaction.categoryId ?? null;
-    const total = Math.abs(
-      Number(transaction.amount) || Number(transaction.debit) || Number(transaction.credit) || 0,
-    );
-    const parts = groupLineItemsIntoParts(items, total, fallback);
-    const nameOf = new Map(categories.map(category => [category.id, category.name]));
-
-    return {
-      transactionId: transaction.id,
-      total,
-      currency: transaction.currency,
-      parts: parts.map(part => ({
-        ...part,
-        categoryName: part.categoryId ? (nameOf.get(part.categoryId) ?? null) : null,
-      })),
-      splittable: parts.length >= 2,
-      items,
-    };
+    return this.build(receiptId, workspaceId);
   }
 
-  /** Applies the suggestion through the ordinary split and remembers each line's category. */
-  async apply(receiptId: string, workspaceId: string, userId: string) {
-    const suggestion = await this.suggest(receiptId, workspaceId);
+  /**
+   * Applies the split through the ordinary transaction split and remembers each
+   * line's category. `reviewed` is the preview as the user corrected it; it must
+   * be the receipt's own lines, only the categories may differ.
+   */
+  async apply(
+    receiptId: string,
+    workspaceId: string,
+    userId: string,
+    reviewed?: ReviewedSplitItem[],
+  ) {
+    const suggestion = await this.build(receiptId, workspaceId, reviewed);
+    if (suggestion.alreadySplit) {
+      throw new BadRequestException('The transaction is already split');
+    }
     if (!suggestion.splittable) {
       throw new BadRequestException('All line items fall into one category');
     }
@@ -111,6 +91,97 @@ export class ReceiptSplitService {
       },
     );
     return { suggestion, transactions };
+  }
+
+  private async build(
+    receiptId: string,
+    workspaceId: string,
+    reviewed?: ReviewedSplitItem[],
+  ): Promise<ReceiptSplitSuggestion> {
+    const receipt = await this.receiptRepository.findOne({ where: { id: receiptId, workspaceId } });
+    if (!receipt) {
+      throw new NotFoundException('Receipt not found');
+    }
+    if (!receipt.transactionId) {
+      throw new BadRequestException('Approve the receipt first so there is a transaction to split');
+    }
+    const transaction = await this.transactionRepository.findOne({
+      where: { id: receipt.transactionId, workspaceId },
+    });
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+    const total = Math.abs(
+      Number(transaction.amount) || Number(transaction.debit) || Number(transaction.credit) || 0,
+    );
+    if (transaction.splitGroupId) {
+      // Checked before categorising, which may ask the model: nothing to suggest.
+      return {
+        transactionId: transaction.id,
+        total,
+        currency: transaction.currency,
+        parts: [],
+        splittable: false,
+        items: [],
+        alreadySplit: true,
+        fallbackCategoryId: null,
+      };
+    }
+    const lines = (receipt.parsedData?.lineItems ?? []).filter(
+      item => item.description?.trim() && Number(item.amount) > 0,
+    );
+    if (lines.length < 2) {
+      throw new BadRequestException('The receipt needs at least two line items');
+    }
+
+    const categories = await this.categoryRepository.find({ where: { workspaceId } });
+    const enabled = categories.filter(category => category.isEnabled !== false);
+    const items = reviewed
+      ? this.checkReviewed(lines, reviewed, enabled)
+      : await this.categorise(receipt, lines, enabled);
+    const fallback = receipt.parsedData?.categoryId ?? transaction.categoryId ?? null;
+    const parts = groupLineItemsIntoParts(items, total, fallback);
+    const nameOf = new Map(categories.map(category => [category.id, category.name]));
+
+    return {
+      transactionId: transaction.id,
+      total,
+      currency: transaction.currency,
+      parts: parts.map(part => ({
+        ...part,
+        categoryName: part.categoryId ? (nameOf.get(part.categoryId) ?? null) : null,
+      })),
+      splittable: parts.length >= 2,
+      items,
+      alreadySplit: false,
+      fallbackCategoryId: fallback,
+    };
+  }
+
+  /** The reviewed preview must be the receipt's own lines, in order; only categories may change. */
+  private checkReviewed(
+    lines: NonNullable<Receipt['parsedData']>['lineItems'] & object,
+    reviewed: ReviewedSplitItem[],
+    categories: Category[],
+  ): SplitLineItem[] {
+    const known = new Set(categories.map(category => category.id));
+    const sameLines =
+      reviewed.length === lines.length &&
+      lines.every(
+        (line, index) =>
+          line.description.trim() === reviewed[index].description.trim() &&
+          Math.abs(Number(line.amount) - reviewed[index].amount) < 0.005,
+      );
+    if (!sameLines) {
+      throw new BadRequestException('The receipt lines changed; reload the split preview');
+    }
+    return reviewed.map(item => {
+      const categoryId = item.categoryId ?? null;
+      if (categoryId && !known.has(categoryId)) {
+        throw new BadRequestException('Unknown category');
+      }
+      return { description: item.description.trim(), amount: item.amount, categoryId };
+    });
   }
 
   /** Keeps an existing category, then keywords, then the model, then the fallback. */

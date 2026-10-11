@@ -122,6 +122,21 @@ describe('ReceiptsService', () => {
     service = module.get(ReceiptsService);
   });
 
+  it('says whether the transaction a receipt documents is split', async () => {
+    receiptRepository.findOne.mockResolvedValueOnce({ id: 'receipt-1', transactionId: 'tx-1' });
+    transactionRepository.findOne.mockResolvedValueOnce({ id: 'tx-1', splitGroupId: 'group-1' });
+
+    const split = await service.findOne('receipt-1', 'workspace-1');
+
+    expect(split?.transactionSplit).toBe(true);
+    expect(transactionRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'tx-1', workspaceId: 'workspace-1' } }),
+    );
+
+    receiptRepository.findOne.mockResolvedValueOnce({ id: 'receipt-2', transactionId: null });
+    expect((await service.findOne('receipt-2', 'workspace-1'))?.transactionSplit).toBe(false);
+  });
+
   it('creates upload receipt, creates a processing job, and processes it', async () => {
     const result = await service.createFromUpload({
       userId: 'user-1',

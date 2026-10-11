@@ -329,12 +329,20 @@ export interface ReceiptSplitSuggestion {
     items: string[];
   }>;
   splittable: boolean;
+  /** The receipt lines with the category each was given. */
+  items: Array<{ description: string; amount: number; categoryId: string | null }>;
+  /** The transaction is split already; nothing is suggested. */
+  alreadySplit: boolean;
+  /** Where lines without a category land. */
+  fallbackCategoryId: string | null;
 }
 
 export interface ReceiptRecord {
   id: string;
   statementId?: string | null;
   transactionId?: string | null;
+  /** The transaction it documents is split by its items (single-receipt reads only). */
+  transactionSplit?: boolean;
   subject: string;
   sender: string;
   source: string;
@@ -454,8 +462,12 @@ export const receiptsApi = {
     return response.data as ReceiptSplitSuggestion;
   },
 
-  splitByLineItems: async (id: string): Promise<{ suggestion: ReceiptSplitSuggestion }> => {
-    const response = await apiClient.post(`/receipts/${id}/split`);
+  /** `items`: the preview as the user corrected it; the receipt's lines with their categories. */
+  splitByLineItems: async (
+    id: string,
+    items?: ReceiptSplitSuggestion['items'],
+  ): Promise<{ suggestion: ReceiptSplitSuggestion }> => {
+    const response = await apiClient.post(`/receipts/${id}/split`, items ? { items } : {});
     return response.data as { suggestion: ReceiptSplitSuggestion };
   },
 

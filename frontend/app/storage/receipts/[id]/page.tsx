@@ -846,6 +846,7 @@ export default function ReceiptDocumentPage() {
 
         <ReceiptTransactionMatch
           receipt={receipt}
+          categories={categories}
           saving={saving}
           onApprove={handleApprove}
           onChanged={loadData}

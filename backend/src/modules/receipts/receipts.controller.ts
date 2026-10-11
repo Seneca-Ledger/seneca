@@ -27,6 +27,7 @@ import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { multerConfig } from '../../config/multer.config';
 import type { User } from '../../entities';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ApplyReceiptSplitDto } from './dto/apply-receipt-split.dto';
 import { ApproveReceiptDto } from './dto/approve-receipt.dto';
 import { BulkApproveDto } from './dto/bulk-approve.dto';
 import { PlaceSuggestionsDto } from './dto/place-suggestions.dto';
@@ -281,10 +282,11 @@ export class ReceiptsController {
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async split(
     @Param('id') id: string,
+    @Body() dto: ApplyReceiptSplitDto,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
-    return this.receiptSplitService.apply(id, workspaceId, user.id);
+    return this.receiptSplitService.apply(id, workspaceId, user.id, dto?.items);
   }
 
   @Post('bulk-approve')

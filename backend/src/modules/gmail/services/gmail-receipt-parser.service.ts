@@ -14,6 +14,7 @@ import {
   extractLineItemsFromLines,
   extractAmountFragments as extractSharedAmountFragments,
   isLikelySentence as isSharedLikelySentence,
+  lineItemsReconcile,
   scoreAmountCandidate as scoreSharedAmountCandidate,
 } from '../../../common/utils/receipt-extraction.util';
 import { extractBrandFromSender } from '../../../common/utils/sender-brand.util';
@@ -163,14 +164,16 @@ export class GmailReceiptParserService {
       }
     }
 
+    const amount = amountWithCurrency?.amount ?? fallbackAmount;
     return {
-      amount: amountWithCurrency?.amount ?? fallbackAmount,
+      amount,
       currency: amountWithCurrency?.currency || appDefaultCurrency(),
       date: normalizeDateHeader(context.dateHeader),
       vendor,
       confidence: vendor ? 0.6 : 0.3,
       transactionType,
-      lineItems,
+      // The amount scan may have read a different total than the extractor did.
+      lineItems: lineItemsReconcile(lineItems, { totalAmount: amount }) ? lineItems : [],
     };
   }
 
@@ -235,11 +238,8 @@ export class GmailReceiptParserService {
       const tax = this.extractTax(text);
       let lineItems = await this.extractLineItems(text);
 
-      if (amount !== undefined && amount > 0 && lineItems.length > 0) {
-        const lineItemsTotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
-        if (lineItemsTotal > amount * 2) {
-          lineItems = [];
-        }
+      if (!lineItemsReconcile(lineItems, { totalAmount: amount, tax })) {
+        lineItems = [];
       }
 
       let subtotal: number | undefined;
