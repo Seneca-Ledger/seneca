@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { unwrapEnvelope } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { normalizeSourceFilters, type SourceFilters, type SourceKind } from '../sources';
 
@@ -33,9 +34,15 @@ export function useSourcePreview(params: {
   const query = useQuery({
     queryKey: [...queryKeys.customTables(workspaceId), 'source-preview', params.kind, filters],
     queryFn: async ({ signal }) => {
+      // `enabled` keeps this from running before a source is picked.
+      if (!params.kind) return null;
       const response = await apiClient.post(
         '/custom-tables/source-preview',
-        { kind: params.kind, filters, columnTitles: params.columnTitles },
+        {
+          kind: params.kind,
+          filters,
+          columnTitles: params.columnTitles,
+        } satisfies ContractInput<'PreviewCustomTableSourceBody'>,
         { signal },
       );
       return unwrapEnvelope<SourcePreview>(response.data);

@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface PushStatus {
   supported: boolean;
@@ -62,12 +63,14 @@ export async function subscribeThisDevice(): Promise<boolean> {
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     }));
-  const json = subscription.toJSON();
+  const { endpoint, keys } = subscription.toJSON();
+  // A browser that hands back no endpoint or keys has given us nothing to push to.
+  if (!(endpoint && keys?.p256dh && keys.auth)) return false;
   await apiClient.post('/push/subscriptions', {
-    endpoint: json.endpoint,
-    keys: json.keys,
+    endpoint,
+    keys: { p256dh: keys.p256dh, auth: keys.auth },
     userAgent: navigator.userAgent,
-  });
+  } satisfies ContractInput<'PushSubscriptionBody'>);
   return true;
 }
 

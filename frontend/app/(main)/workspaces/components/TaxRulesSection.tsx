@@ -15,6 +15,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { checkContract } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import { SettingsSection } from './SettingsSection';
@@ -102,7 +103,7 @@ export function TaxRulesSection(): React.ReactElement {
         categoryId: draft.categoryId || undefined,
         taxRateCode: draft.taxRateCode,
         direction: draft.direction,
-      });
+      } satisfies ContractInput<'CreateTaxRuleBody'>);
       setDraft({ categoryId: '', taxRateCode: '', direction: 'both' });
       await load();
     })()

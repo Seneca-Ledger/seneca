@@ -4,6 +4,7 @@ import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } 
 import toast from 'react-hot-toast';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import {
   getScheduledTheme,
   getStoredThemePreference,
@@ -67,7 +68,7 @@ export function useThemePreference({
       await (async () => {
         const response = await apiClient.patch('/users/me/preferences', {
           themePreference: nextThemePreference,
-        });
+        } satisfies ContractInput<'UpdateMyPreferencesBody'>);
 
         if (previousUser) {
           const mergedUser = {

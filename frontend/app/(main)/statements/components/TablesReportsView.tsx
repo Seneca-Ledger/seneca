@@ -11,6 +11,7 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -132,7 +133,7 @@ export default function TablesReportsView() {
     queryFn: async ({ signal }) => {
       const response = await apiClient.post<TablesReportResponse>(
         '/reports/custom-tables/report',
-        reportPayload,
+        reportPayload satisfies ContractInput<'CustomTablesReportBody'>,
         { signal },
       );
       return response.data;
@@ -167,7 +168,10 @@ export default function TablesReportsView() {
           payload.tableIds = selectedTableIds;
         }
 
-        const response = await apiClient.post('/reports/custom-tables/report/drill-down', payload);
+        const response = await apiClient.post(
+          '/reports/custom-tables/report/drill-down',
+          payload satisfies ContractInput<'CustomTablesReportDrillDownBody'>,
+        );
         setDrillDown(response.data);
       })().catch(async () => {
         setDrillDown({ counterparty, items: [] });

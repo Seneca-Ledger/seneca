@@ -7,6 +7,8 @@ import type {
   Payable,
   SubscriptionItem,
   WalletItem,
+  WorkspaceDetail,
+  WorkspaceMember,
 } from '@/app/lib/contracts';
 
 // Wire-format fixtures: outside production every API response is checked
@@ -180,6 +182,38 @@ export function payableRow(overrides: Partial<Payable> & Pick<Payable, 'id' | 'v
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
     deletedAt: null,
+    ...overrides,
+  };
+}
+
+export function workspaceMember(
+  overrides: Partial<WorkspaceMember> & Pick<WorkspaceMember, 'id'>,
+): WorkspaceMember {
+  return {
+    memberId: `member-${overrides.id}`,
+    role: 'member',
+    permissions: null,
+    joinedAt: TIMESTAMP,
+    ...overrides,
+  };
+}
+
+/** `GET /workspaces/:id`: the workspace with its members. */
+export function workspaceDetail(overrides: Partial<WorkspaceDetail> = {}): WorkspaceDetail {
+  return {
+    id: 'workspace-1',
+    name: 'Home',
+    description: null,
+    icon: null,
+    color: null,
+    backgroundImage: null,
+    currency: 'USD',
+    isFavorite: false,
+    settings: null,
+    ownerId: 'user-1',
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+    members: [],
     ...overrides,
   };
 }

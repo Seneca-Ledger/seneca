@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import {
   resolveThemePreference,
   THEME_STORAGE_EVENT,
@@ -64,7 +65,10 @@ export function useAppearance(
 
     await (async () => {
       setAppearanceLoading(true);
-      const response = await apiClient.patch('/users/me/preferences', patch);
+      const response = await apiClient.patch(
+        '/users/me/preferences',
+        patch satisfies ContractInput<'UpdateMyPreferencesBody'>,
+      );
       const nextUser = { ...(user || {}), ...(response.data?.user || {}), ...patch };
 
       setUser(nextUser as User);
@@ -103,7 +107,7 @@ export function useAppearance(
       setAppearanceLoading(true);
       const response = await apiClient.patch('/users/me/preferences', {
         themePreference: nextThemePreference,
-      });
+      } satisfies ContractInput<'UpdateMyPreferencesBody'>);
 
       const responseUser = response.data?.user;
       const nextUser = responseUser

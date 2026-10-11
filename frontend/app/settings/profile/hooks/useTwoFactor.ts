@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 export type TwoFactorStatus = {
@@ -94,7 +95,9 @@ export function useTwoFactor(
   const startSetup = useCallback(
     (password: string) =>
       run(async () => {
-        const response = await apiClient.post<TwoFactorSetup>('/auth/2fa/setup', { password });
+        const response = await apiClient.post<TwoFactorSetup>('/auth/2fa/setup', {
+          password,
+        } satisfies ContractInput<'TwoFactorPasswordBody'>);
         setSetup(response.data);
       }),
     [run],
@@ -105,7 +108,7 @@ export function useTwoFactor(
       run(async () => {
         const response = await apiClient.post<{ recoveryCodes: string[] }>('/auth/2fa/enable', {
           code: code.trim(),
-        });
+        } satisfies ContractInput<'TwoFactorCodeBody'>);
         setSetup(null);
         setRecoveryCodes(response.data.recoveryCodes);
         setMessage(messages.enabledMessage);
@@ -116,7 +119,9 @@ export function useTwoFactor(
   const disable = useCallback(
     (password: string) =>
       run(async () => {
-        await apiClient.post('/auth/2fa/disable', { password });
+        await apiClient.post('/auth/2fa/disable', {
+          password,
+        } satisfies ContractInput<'TwoFactorPasswordBody'>);
         setSetup(null);
         setRecoveryCodes(null);
         setMessage(messages.disabledMessage);
@@ -129,7 +134,7 @@ export function useTwoFactor(
       run(async () => {
         const response = await apiClient.post<{ recoveryCodes: string[] }>(
           '/auth/2fa/recovery-codes',
-          { password },
+          { password } satisfies ContractInput<'TwoFactorPasswordBody'>,
         );
         setRecoveryCodes(response.data.recoveryCodes);
       }),

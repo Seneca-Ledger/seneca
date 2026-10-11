@@ -7,6 +7,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import type { Metal, MetalWeightUnit as WeightUnit } from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
@@ -79,7 +80,10 @@ export function useMetals() {
   });
 
   const addLot = useCallback(
-    (input: MetalLotInput) => mutation.mutateAsync(() => apiClient.post('/metals/lots', input)),
+    (input: MetalLotInput) =>
+      mutation.mutateAsync(() =>
+        apiClient.post('/metals/lots', input satisfies ContractInput<'UpsertMetalLotBody'>),
+      ),
     [mutation.mutateAsync],
   );
   const deleteLot = useCallback(
@@ -88,19 +92,28 @@ export function useMetals() {
   );
   const sellLot = useCallback(
     (id: string, input: SellLotInput) =>
-      mutation.mutateAsync(() => apiClient.post(`/metals/lots/${id}/sell`, input)),
+      mutation.mutateAsync(() =>
+        apiClient.post(
+          `/metals/lots/${id}/sell`,
+          input satisfies ContractInput<'SellMetalLotBody'>,
+        ),
+      ),
     [mutation.mutateAsync],
   );
   const setDealerDiscount = useCallback(
     (metal: Metal, percent: number) =>
       mutation.mutateAsync(() =>
-        apiClient.patch('/metals/settings', { dealerDiscount: { [metal]: percent } }),
+        apiClient.patch('/metals/settings', {
+          dealerDiscount: { [metal]: percent },
+        } satisfies ContractInput<'MetalSettingsBody'>),
       ),
     [mutation.mutateAsync],
   );
   const updateLot = useCallback(
     (id: string, input: LotDetailsInput) =>
-      mutation.mutateAsync(() => apiClient.patch(`/metals/lots/${id}`, input)),
+      mutation.mutateAsync(() =>
+        apiClient.patch(`/metals/lots/${id}`, input satisfies ContractInput<'UpsertMetalLotBody'>),
+      ),
     [mutation.mutateAsync],
   );
   const uploadPhoto = useCallback(

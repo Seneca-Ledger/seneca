@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { getCreatedRowResponse } from '../utils/tableHelpers';
 import type { CustomTableGridRow, CustomTableRowPatch } from '../utils/types';
 import { isDraftRowId } from './draftRowHelpers';
@@ -50,7 +51,9 @@ export async function createRowRequest(
   rowCount: number,
   data: CustomTableRowPatch,
 ): Promise<CustomTableGridRow> {
-  const response = await apiClient.post(`/custom-tables/${tableId}/rows`, { data });
+  const response = await apiClient.post(`/custom-tables/${tableId}/rows`, {
+    data,
+  } satisfies ContractInput<'CreateCustomTableRowBody'>);
   const created = parseCreateRowResponse(response.data, rowCount);
   if (!created) {
     throw new Error('Invalid create row response');
@@ -67,6 +70,6 @@ export async function updateRowPatchRequest(
   const response = await apiClient.patch(`/custom-tables/${tableId}/rows/${rowId}`, {
     data: patchData,
     ...(styles ? { styles } : {}),
-  });
+  } satisfies ContractInput<'UpdateCustomTableRowBody'>);
   return extractRowData(response.data);
 }

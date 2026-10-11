@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 export const duplicateResolutions = ['skip', 'mark_duplicate', 'force_import'] as const;
@@ -92,13 +93,17 @@ export function useProcessing(
       setError(null);
       setMessage(null);
 
-      await apiClient.patch(`/workspaces/${workspaceId}`, { processing: patch }).then(
-        () => setMessage(messages.savedMessage),
-        (err: unknown) => {
-          setSettings(rollbackRef.current);
-          setError(getApiErrorMessage(err, messages.saveError));
-        },
-      );
+      await apiClient
+        .patch(`/workspaces/${workspaceId}`, {
+          processing: patch,
+        } satisfies ContractInput<'UpdateWorkspaceBody'>)
+        .then(
+          () => setMessage(messages.savedMessage),
+          (err: unknown) => {
+            setSettings(rollbackRef.current);
+            setError(getApiErrorMessage(err, messages.saveError));
+          },
+        );
       setSaving(false);
     },
     [messages.saveError, messages.savedMessage, workspaceId],

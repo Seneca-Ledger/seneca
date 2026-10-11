@@ -7,7 +7,11 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+
+/** The events a webhook subscription can listen to. */
+export type WebhookEventName = ContractInput<'CreateWebhookSubscriptionBody'>['events'][number];
 
 export interface WebhookEndpoint {
   id: string;
@@ -48,7 +52,10 @@ export function useWebhookEndpoints() {
   }, [queryClient, workspaceId]);
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => apiClient.post('/webhook-endpoints', { name }),
+    mutationFn: (name: string) =>
+      apiClient.post('/webhook-endpoints', {
+        name,
+      } satisfies ContractInput<'CreateWebhookEndpointBody'>),
     onSuccess: response => {
       setNewToken((response.data as WebhookEndpointFull).token);
       toast.success(t.toasts.endpointCreated.value);
@@ -66,7 +73,9 @@ export function useWebhookEndpoints() {
 
   const toggleMutation = useMutation({
     mutationFn: (variables: { id: string; isActive: boolean }) =>
-      apiClient.patch(`/webhook-endpoints/${variables.id}`, { isActive: !variables.isActive }),
+      apiClient.patch(`/webhook-endpoints/${variables.id}`, {
+        isActive: !variables.isActive,
+      } satisfies ContractInput<'UpdateWebhookEndpointBody'>),
     onError: () => toast.error(t.toasts.endpointUpdateFailed.value),
     onSettled: invalidate,
   });
@@ -126,7 +135,7 @@ export function useWebhookSubscriptions() {
   }, [queryClient, workspaceId]);
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; url: string; secret: string; events: string[] }) =>
+    mutationFn: (data: { name: string; url: string; secret: string; events: WebhookEventName[] }) =>
       apiClient.post('/webhook-subscriptions', data),
     onSuccess: () => toast.success(t.toasts.subscriptionCreated.value),
     onError: () => toast.error(t.toasts.subscriptionCreateFailed.value),
@@ -145,7 +154,7 @@ export function useWebhookSubscriptions() {
   }, [invalidate]);
 
   const create = useCallback(
-    async (data: { name: string; url: string; secret: string; events: string[] }) => {
+    async (data: { name: string; url: string; secret: string; events: WebhookEventName[] }) => {
       createMutation.mutate(data);
     },
     [createMutation.mutate],

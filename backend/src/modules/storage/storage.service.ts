@@ -1208,16 +1208,20 @@ export class StorageService {
       throw new NotFoundException('File not found');
     }
 
+    // The dialog takes a user id or the email a member signs in with.
     const granteeMembership = await this.workspaceMemberRepository.findOne({
-      where: { userId: dto.userId, workspaceId: statement.workspaceId },
+      where: dto.userId.includes('@')
+        ? { workspaceId: statement.workspaceId, user: { email: dto.userId.trim().toLowerCase() } }
+        : { workspaceId: statement.workspaceId, userId: dto.userId },
     });
     if (!granteeMembership) {
       throw new NotFoundException('User not found in this workspace');
     }
+    const granteeId = granteeMembership.userId;
 
     // Check if permission already exists
     const existing = await this.filePermissionRepository.findOne({
-      where: { statementId, userId: dto.userId },
+      where: { statementId, userId: granteeId },
     });
 
     if (existing) {
@@ -1226,7 +1230,7 @@ export class StorageService {
 
     const permission = this.filePermissionRepository.create({
       statementId,
-      userId: dto.userId,
+      userId: granteeId,
       grantedById,
       permissionType: toEnum(FilePermissionType, dto.permissionType),
       canReshare: dto.canReshare ?? false,

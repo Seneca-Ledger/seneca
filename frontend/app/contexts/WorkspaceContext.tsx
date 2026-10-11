@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { hasSessionCookie } from '@/app/lib/csrf';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { reportContractDrift } from '@/app/lib/query-fn-schema';
 import { api } from '../lib/api';
 
@@ -158,7 +159,9 @@ async function apiUpdateBackground(
   setters: Pick<WorkspaceSetters, 'setWorkspaces' | 'setCurrentWorkspace'>,
 ): Promise<void> {
   try {
-    await api.patch(`/workspaces/${workspaceId}`, { backgroundImage });
+    await api.patch(`/workspaces/${workspaceId}`, {
+      backgroundImage,
+    } satisfies ContractInput<'UpdateWorkspaceBody'>);
     setters.setWorkspaces(prev =>
       prev.map(w => (w.id === workspaceId ? { ...w, backgroundImage } : w)),
     );

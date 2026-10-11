@@ -14,6 +14,7 @@ import { Alert } from '@/app/components/ui/alert';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
 type BackupConfig = {
@@ -105,10 +106,17 @@ export function BackupSection() {
     setError(null);
 
     await (async () => {
+      // The writable settings only: id, passwordConfigured and the last run are
+      // the server's, and the API rejects fields it does not take.
       const response = await apiClient.put<BackupConfig>('/backups/config', {
-        ...config,
+        destinationKind: config.destinationKind,
+        destinationPath: config.destinationPath,
+        dailyTime: config.dailyTime,
+        timeZone: config.timeZone,
+        retentionCount: config.retentionCount,
+        enabled: config.enabled,
         password: password || undefined,
-      });
+      } satisfies ContractInput<'UpdateBackupConfigurationBody'>);
       setConfig(response.data);
       setPassword('');
       setMessage(t.messages.saved.value);

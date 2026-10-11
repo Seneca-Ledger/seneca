@@ -32,6 +32,7 @@ import { useState } from 'react';
 import { Pencil } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import apiClient from '../../lib/api';
@@ -78,10 +79,16 @@ interface User {
   createdAt: string;
 }
 
+type AdminPermission = ContractInput<'UpdatePermissionsBody'>['permissions'][number];
+type UserRole = NonNullable<ContractInput<'UpdateUserBody'>['role']>;
+
+const USER_ROLES: readonly UserRole[] = ['admin', 'user', 'viewer'];
+const isUserRole = (value: string): value is UserRole => USER_ROLES.some(role => role === value);
+
 export default function UsersManagementPage() {
   const t = useIntlayer('adminUsersPage');
   const { locale } = useLocale();
-  const ALL_PERMISSIONS = [
+  const ALL_PERMISSIONS: Array<{ value: AdminPermission; label: string }> = [
     { value: 'statement.view', label: t.permissions.statementView.value },
     { value: 'statement.upload', label: t.permissions.statementUpload.value },
     { value: 'statement.delete', label: t.permissions.statementDelete.value },
@@ -116,7 +123,7 @@ export default function UsersManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [selectedPermissions, setSelectedPermissions] = useState<AdminPermission[]>([]);
   const [saving, setSaving] = useState(false);
 
   const workspaceId = useWorkspaceId();
@@ -154,7 +161,7 @@ export default function UsersManagementPage() {
     await (async () => {
       await apiClient.put(`/users/${editingUser.id}/permissions`, {
         permissions: selectedPermissions,
-      });
+      } satisfies ContractInput<'UpdatePermissionsBody'>);
       setPermissionsDialogOpen(false);
       setEditingUser(null);
       loadUsers();
@@ -190,15 +197,17 @@ export default function UsersManagementPage() {
       });
   };
 
-  const handleTogglePermission = (permission: string) => {
+  const handleTogglePermission = (permission: AdminPermission) => {
     setSelectedPermissions(prev =>
       prev.includes(permission) ? prev.filter(p => p !== permission) : [...prev, permission],
     );
   };
 
-  const handleUpdateRole = async (userId: string, newRole: string) => {
+  const handleUpdateRole = async (userId: string, newRole: UserRole) => {
     await (async () => {
-      await apiClient.put(`/users/${userId}`, { role: newRole });
+      await apiClient.put(`/users/${userId}`, {
+        role: newRole,
+      } satisfies ContractInput<'UpdateUserBody'>);
       loadUsers();
     })().catch(async (err: unknown) => {
       const error = err as { response?: { data?: { message?: string } } };
@@ -208,7 +217,9 @@ export default function UsersManagementPage() {
 
   const handleToggleActive = async (user: User) => {
     await (async () => {
-      await apiClient.put(`/users/${user.id}`, { isActive: !user.isActive });
+      await apiClient.put(`/users/${user.id}`, {
+        isActive: !user.isActive,
+      } satisfies ContractInput<'UpdateUserBody'>);
       loadUsers();
     })().catch(async (err: unknown) => {
       const error = err as { response?: { data?: { message?: string } } };
@@ -295,7 +306,10 @@ export default function UsersManagementPage() {
                         <FormControl size="small" sx={{ minWidth: 120 }}>
                           <Select
                             value={user.role}
-                            onChange={e => handleUpdateRole(user.id, e.target.value)}
+                            onChange={e => {
+                              if (isUserRole(e.target.value))
+                                void handleUpdateRole(user.id, e.target.value);
+                            }}
                           >
                             <MenuItem value="admin">{t.roles.admin}</MenuItem>
                             <MenuItem value="user">{t.roles.user}</MenuItem>

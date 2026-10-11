@@ -1,6 +1,7 @@
 'use client';
 
 import toast from 'react-hot-toast';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import { FOLDER_NAME_MAX, type FolderOption, type StorageFile } from '../storageHelpers';
 
@@ -112,7 +113,9 @@ export async function createFolderHandler(deps: HandlerDeps): Promise<void> {
     return;
   }
   try {
-    const response = await api.post('/storage/folders', { name });
+    const response = await api.post('/storage/folders', {
+      name,
+    } satisfies ContractInput<'CreateFolderBody'>);
     deps.setFolders(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
     deps.setNewFolderName('');
     toast.success(deps.messages.folderCreated);
@@ -128,7 +131,9 @@ export async function renameFolderHandler(deps: HandlerDeps, folderId: string): 
     return;
   }
   try {
-    const response = await api.patch(`/storage/folders/${folderId}`, { name });
+    const response = await api.patch(`/storage/folders/${folderId}`, {
+      name,
+    } satisfies ContractInput<'UpdateFolderBody'>);
     deps.setFolders(prev => applyFolderRename(prev, folderId, response.data));
     deps.setFiles(prev => applyFilesFolderRename(prev, folderId, response.data?.name || name));
     deps.setEditingFolderId(null);
@@ -146,7 +151,9 @@ export async function updateFolderTagHandler(
   tagId: string | null,
 ): Promise<void> {
   try {
-    const response = await api.patch(`/storage/folders/${folderId}`, { tagId });
+    const response = await api.patch(`/storage/folders/${folderId}`, {
+      tagId,
+    } satisfies ContractInput<'UpdateFolderBody'>);
     deps.setFolders(prev => applyFolderRename(prev, folderId, response.data));
     deps.setFolderTagPickerId(null);
   } catch (error) {
@@ -191,7 +198,9 @@ export async function moveToFolderHandler(
   folderId: string | null,
 ): Promise<void> {
   try {
-    await api.patch(`/storage/files/${fileId}/folder`, { folderId });
+    await api.patch(`/storage/files/${fileId}/folder`, {
+      folderId,
+    } satisfies ContractInput<'MoveFileBody'>);
     deps.setFiles(prev =>
       prev.map(file => {
         if (file.id !== fileId) {

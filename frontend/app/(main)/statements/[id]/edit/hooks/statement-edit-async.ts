@@ -2,7 +2,7 @@ import { toast } from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
-import { checkContract } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkBody, checkContract } from '@/app/lib/query-fn-schema';
 import type {
   BranchOption,
   CategoryOption,
@@ -161,7 +161,7 @@ export async function exportToCustomTable({
       name,
       description,
       columnTitles,
-    });
+    } satisfies ContractInput<'CreateCustomTableFromSourceBody'>);
     const tableId = getExportTableId(response);
     if (tableId) {
       toast.success(messages.exportSuccess, { id: toastId });
@@ -220,11 +220,13 @@ export async function convertDroppedSampleAction({
   setTransactions,
   setSuccess,
 }: ConvertArgs): Promise<void> {
-  const response = await apiClient.post(`/statements/${statementId}/convert-dropped-sample`, {
-    index,
-    warning,
-    transaction: sample.transaction,
-  });
+  // The sample is the parser's own record, typed only as unknown here.
+  const body = await checkBody(
+    'ConvertDroppedSampleBody',
+    { index, warning, transaction: sample.transaction },
+    '/statements/:id/convert-dropped-sample',
+  );
+  const response = await apiClient.post(`/statements/${statementId}/convert-dropped-sample`, body);
   const { updatedStatement, createdTransaction } = extractDroppedSampleResult(response.data);
   if (updatedStatement) {
     setStatement(updatedStatement);
@@ -280,7 +282,7 @@ export async function updateStatementCategoryAction({
     setStatementCategorySaving(true);
     const response = await apiClient.patch(`/storage/files/${statement.id}/category`, {
       categoryId: categoryId || null,
-    });
+    } satisfies ContractInput<'UpdateFileCategoryBody'>);
     const selectedCategory = resolveSelectedCategory(
       response.data?.category,
       flatCategories,
@@ -322,7 +324,10 @@ export async function metadataAutoSave({
       statementDateFrom: formData.statementDateFrom || null,
       statementDateTo: formData.statementDateTo || null,
     };
-    const response = await apiClient.patch(`/statements/${statementId}`, payload);
+    const response = await apiClient.patch(
+      `/statements/${statementId}`,
+      payload satisfies ContractInput<'UpdateStatementBody'>,
+    );
     const updatedStatement = response.data?.data || response.data;
     setStatement(updatedStatement as Statement);
     invalidateDocumentLists();

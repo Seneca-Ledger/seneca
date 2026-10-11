@@ -25,6 +25,7 @@ import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -347,7 +348,7 @@ export default function WorkspaceMembersView() {
         email: inviteEmail,
         role: inviteRole,
         permissions: inviteRole === 'member' ? invitePermissions : undefined,
-      });
+      } satisfies ContractInput<'InviteMemberBody'>);
 
       setInviteEmail('');
       toast.success(t.toasts.inviteSent.value);
@@ -382,7 +383,7 @@ export default function WorkspaceMembersView() {
     await (async () => {
       await apiClient.patch(`/workspaces/${overview.workspace.id}/members/${member.id}/role`, {
         role: nextRole,
-      });
+      } satisfies ContractInput<'UpdateMemberRoleBody'>);
       toast.success(t.toasts.roleUpdated.value);
       await loadOverview();
     })()
@@ -414,7 +415,7 @@ export default function WorkspaceMembersView() {
     await (async () => {
       await apiClient.patch(
         `/workspaces/${overview.workspace.id}/members/${member.id}/permissions`,
-        { permissions: next },
+        { permissions: next } satisfies ContractInput<'UpdateMemberPermissionsBody'>,
       );
       toast.success(t.toasts.permissionsUpdated.value);
       // Patch the one row instead of reloading: the menu stays open for the
@@ -469,8 +470,8 @@ export default function WorkspaceMembersView() {
       await apiClient.post(`/workspaces/${overview.workspace.id}/invitations`, {
         email: invite.email,
         role: invite.role,
-        permissions: invite.role === 'member' ? invite.permissions : undefined,
-      });
+        permissions: invite.role === 'member' ? (invite.permissions ?? undefined) : undefined,
+      } satisfies ContractInput<'InviteMemberBody'>);
       toast.success(t.toasts.inviteResent.value);
       await loadOverview();
     })()

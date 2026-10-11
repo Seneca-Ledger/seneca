@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/app/lib/api';
 import { apiQuery, unwrapEnvelope } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useWorkspaceId } from './useWorkspaceId';
@@ -69,13 +70,19 @@ export function useNotes({ entityType, entityId }: NoteTarget): UseNotesState {
 
   const addMutation = useMutation({
     mutationFn: (input: { body: string; mentionedUserIds: string[] }) =>
-      apiClient.post('/notes', { entityType, entityId, ...input }),
+      apiClient.post('/notes', {
+        entityType,
+        entityId,
+        ...input,
+      } satisfies ContractInput<'CreateNoteBody'>),
     onSuccess: invalidate,
   });
 
   const resolveMutation = useMutation({
     mutationFn: (input: { id: string; resolved: boolean }) =>
-      apiClient.patch(`/notes/${input.id}`, { resolved: input.resolved }),
+      apiClient.patch(`/notes/${input.id}`, {
+        resolved: input.resolved,
+      } satisfies ContractInput<'SetNoteResolvedBody'>),
     onSuccess: invalidate,
   });
 
@@ -106,7 +113,10 @@ export function useNoteCounts(
   const query = useQuery({
     queryKey: queryKeys.noteCounts({ workspaceId, entityType, entityIds: stableIds }),
     queryFn: async () => {
-      const response = await apiClient.post('/notes/counts', { entityType, entityIds: stableIds });
+      const response = await apiClient.post('/notes/counts', {
+        entityType,
+        entityIds: stableIds,
+      } satisfies ContractInput<'ListNoteCountsBody'>);
       return unwrapEnvelope<{ counts?: Record<string, number> }>(response.data);
     },
     enabled: stableIds.length > 0,

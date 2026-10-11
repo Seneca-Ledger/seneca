@@ -1,5 +1,6 @@
 import type { PromptMessage } from '@/app/(main)/ai-analysis/chat/build-prompt';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import type { AgentEngine } from './useAgentChat';
 
 /** Which settings answered for this chat: the member's own key, or the workspace's. */
@@ -37,7 +38,7 @@ export function createCloudAgentEngine(onUsage?: (usage: CloudUsage) => void): A
     async complete(messages: PromptMessage[]): Promise<string> {
       const response = await apiClient.post<{ content: string; usage?: CloudUsage }>(
         '/ai-analysis/completions',
-        { messages },
+        { messages } satisfies ContractInput<'CreateChatCompletionBody'>,
       );
       if (response.data.usage) {
         onUsage?.(response.data.usage);

@@ -2,6 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import { FOLDER_NAME_MAX, type FolderOption, type StorageFile } from '../storageHelpers';
 
@@ -148,7 +149,9 @@ export function useStorageFolders(
     }
 
     await (async () => {
-      const response = await api.post('/storage/folders', { name });
+      const response = await api.post('/storage/folders', {
+        name,
+      } satisfies ContractInput<'CreateFolderBody'>);
       setFolders(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
       setNewFolderName('');
       toast.success(messages.folderCreated);
@@ -176,7 +179,9 @@ export function useStorageFolders(
     }
 
     await (async () => {
-      const response = await api.patch(`/storage/folders/${folderId}`, { name });
+      const response = await api.patch(`/storage/folders/${folderId}`, {
+        name,
+      } satisfies ContractInput<'UpdateFolderBody'>);
       setFolders(prev =>
         prev.map(folder => (folder.id === folderId ? { ...folder, ...response.data } : folder)),
       );
@@ -208,7 +213,9 @@ export function useStorageFolders(
 
   const handleUpdateFolderTag = async (folderId: string, tagId: string | null): Promise<void> => {
     await (async () => {
-      const response = await api.patch(`/storage/folders/${folderId}`, { tagId });
+      const response = await api.patch(`/storage/folders/${folderId}`, {
+        tagId,
+      } satisfies ContractInput<'UpdateFolderBody'>);
       setFolders(prev =>
         prev.map(folder => (folder.id === folderId ? { ...folder, ...response.data } : folder)),
       );
@@ -329,7 +336,9 @@ export function useStorageFolders(
 
   const handleMoveToFolder = async (fileId: string, folderId: string | null): Promise<void> => {
     await (async () => {
-      await api.patch(`/storage/files/${fileId}/folder`, { folderId });
+      await api.patch(`/storage/files/${fileId}/folder`, {
+        folderId,
+      } satisfies ContractInput<'MoveFileBody'>);
       setFiles(prev =>
         prev.map(file =>
           file.id === fileId

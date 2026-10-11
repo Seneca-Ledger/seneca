@@ -404,6 +404,21 @@ describe('StorageService', () => {
       expect(filePermissionRepository.save).toHaveBeenCalled();
     });
 
+    it('shares with a member found by the email they sign in with', async () => {
+      const findMember = jest.spyOn(workspaceMemberRepository, 'findOne');
+      jest.spyOn(filePermissionRepository, 'create').mockImplementation(value => value as FilePermission);
+      const saveSpy = jest
+        .spyOn(filePermissionRepository, 'save')
+        .mockImplementation(async value => value as FilePermission);
+
+      await service.grantPermission('1', '1', { ...grantDto, userId: ' Member@Example.com ' });
+
+      expect(findMember).toHaveBeenCalledWith({
+        where: { workspaceId: mockStatement.workspaceId, user: { email: 'member@example.com' } },
+      });
+      expect(saveSpy).toHaveBeenCalledWith(expect.objectContaining({ userId: '2' }));
+    });
+
     it('should verify resource ownership', async () => {
       (service as any).checkFileAccess.mockRejectedValue(new NotFoundException('File not found'));
 

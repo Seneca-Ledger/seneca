@@ -14,6 +14,7 @@ import {
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import { SettingsSection } from './SettingsSection';
 import {
@@ -138,7 +139,9 @@ export function TaxJurisdictionSection({
     setSaved(false);
 
     await (async () => {
-      await apiClient.put('/tax/settings/jurisdiction', { code: selectedCode });
+      await apiClient.put('/tax/settings/jurisdiction', {
+        code: selectedCode,
+      } satisfies ContractInput<'SetJurisdictionBody'>);
       setCurrentCode(selectedCode);
       setSaved(true);
     })()

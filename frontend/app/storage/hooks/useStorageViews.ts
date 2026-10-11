@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import {
   DEFAULT_FILTERS,
@@ -101,7 +102,7 @@ export function useStorageViews(
           filters: filterOpen ? stagedFilters : filters,
           sort,
         },
-      });
+      } satisfies ContractInput<'StorageViewBody'>);
       setViews(prev => [response.data, ...prev]);
       setViewName('');
       setActiveViewId(response.data?.id ?? null);

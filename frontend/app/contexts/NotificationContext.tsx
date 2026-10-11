@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import apiClient from '@/app/lib/api';
 import type { NotificationItem } from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import {
@@ -118,7 +119,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [workspaceId, user, queryClient, queryKey]);
 
   const markAsReadMutation = useMutation({
-    mutationFn: (ids: string[]) => apiClient.post('/notifications/mark-read', { ids }),
+    mutationFn: (ids: string[]) =>
+      apiClient.post('/notifications/mark-read', { ids } satisfies ContractInput<'MarkReadBody'>),
     onMutate: async (ids: string[]) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<NotificationsSnapshot>(queryKey);

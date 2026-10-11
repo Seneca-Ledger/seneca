@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { IsoDateString, optionalNullable } from '../common/requests';
+import { Email, IsoDateString, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const UpdateFileCategoryBody = Schema.Struct({
@@ -88,7 +88,8 @@ export type BulkFileActionBody = Wire<typeof BulkFileActionBody>;
  * DTO for granting file permission to a user
  */
 export const GrantPermissionBody = Schema.Struct({
-  userId: Schema.String.check(Schema.isUUID()),
+  /** The member to share with: their user id, or the email they sign in with. */
+  userId: Schema.Union([Schema.String.check(Schema.isUUID()), Email]),
   permissionType: Schema.Literals(['owner', 'editor', 'viewer', 'downloader']),
   canReshare: optionalNullable(Schema.Boolean),
   expiresAt: optionalNullable(IsoDateString),

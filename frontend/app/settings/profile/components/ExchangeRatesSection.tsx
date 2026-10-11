@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 type Tx = (path: string[], fallback: string) => string;
 
@@ -52,7 +53,7 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
         from: currency,
         to: coverage.currency,
         rate,
-      });
+      } satisfies ContractInput<'ManualRateBody'>);
       toast.success(tx(['exchangeRatesCard', 'saved'], 'Rate saved'));
       setDrafts(current => ({ ...current, [currency]: '' }));
       await load();

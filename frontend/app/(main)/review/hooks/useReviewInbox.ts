@@ -14,6 +14,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient, { receiptsApi } from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
@@ -195,7 +196,7 @@ export function useReviewInbox(): UseReviewInboxResult {
       apiClient.post<{ approved: number }>('/review-inbox/transactions/approve', {
         ids,
         ...(categoryId ? { categoryId } : {}),
-      }),
+      } satisfies ContractInput<'ApproveTransactionsBody'>),
     onSuccess: async (response, variables) => {
       toast.success(fill(approvedText, { count: response.data.approved }));
       afterResolved(variables.ids);
@@ -235,7 +236,10 @@ export function useReviewInbox(): UseReviewInboxResult {
       await simpleMutation
         .mutateAsync({
           id,
-          run: () => apiClient.post(`/review-inbox/duplicates/${id}/resolve`, { decision }),
+          run: () =>
+            apiClient.post(`/review-inbox/duplicates/${id}/resolve`, {
+              decision,
+            } satisfies ContractInput<'ResolveDuplicateBody'>),
         })
         .catch(() => undefined);
     },

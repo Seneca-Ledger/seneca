@@ -10,6 +10,7 @@ import type {
   InvoiceStatus,
   LateFeeQuote,
 } from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { checkContract } from '@/app/lib/query-fn-schema';
 
 export type {
@@ -118,7 +119,7 @@ export const invoicesApi = {
     return invoicesApi.getOne(unwrapData(response).id);
   },
   async update(id: string, payload: UpdateInvoiceInput): Promise<Invoice> {
-    await apiClient.put(`/invoices/${id}`, payload);
+    await apiClient.put(`/invoices/${id}`, payload satisfies ContractInput<'UpdateInvoiceBody'>);
     return invoicesApi.getOne(id);
   },
   async send(id: string): Promise<Invoice> {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import type { FolderOption, StorageFile, TagOption } from '../storageHelpers';
 
@@ -90,7 +91,10 @@ export function useStorageTags(
 
     await (async () => {
       const payload = { name, color: newTagColor || undefined };
-      const response = await api.post('/storage/tags', payload);
+      const response = await api.post(
+        '/storage/tags',
+        payload satisfies ContractInput<'CreateTagBody'>,
+      );
       setTags(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
       setNewTagName('');
       toast.success(messages.tagCreated);
@@ -119,7 +123,7 @@ export function useStorageTags(
       const response = await api.patch(`/storage/tags/${tagId}`, {
         name,
         color: editingTagColor,
-      });
+      } satisfies ContractInput<'UpdateTagBody'>);
       setTags(prev => prev.map(tag => (tag.id === tagId ? { ...tag, ...response.data } : tag)));
       setFolders(prev =>
         prev.map(folder =>

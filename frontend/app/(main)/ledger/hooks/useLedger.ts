@@ -5,6 +5,7 @@ import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import type {
   AccountCard,
@@ -160,11 +161,15 @@ export function useLedgerMutations() {
   const invalidate = useInvalidateLedger();
 
   const enable = useMutation({
-    mutationFn: (baseCurrency: string) => apiClient.put('/ledger/settings', { baseCurrency }),
+    mutationFn: (baseCurrency: string) =>
+      apiClient.put('/ledger/settings', {
+        baseCurrency,
+      } satisfies ContractInput<'EnableLedgerBody'>),
     onSuccess: invalidate,
   });
   const createAccount = useMutation({
-    mutationFn: (input: NewAccountInput) => apiClient.post('/ledger/accounts', input),
+    mutationFn: (input: NewAccountInput) =>
+      apiClient.post('/ledger/accounts', input satisfies ContractInput<'CreateLedgerAccountBody'>),
     onSuccess: invalidate,
   });
   const deleteAccount = useMutation({
@@ -174,8 +179,14 @@ export function useLedgerMutations() {
   const saveDraft = useMutation({
     mutationFn: async (variables: { id: string | null; input: EntryInput }) => {
       const response = variables.id
-        ? await apiClient.patch<JournalEntry>(`/ledger/entries/${variables.id}`, variables.input)
-        : await apiClient.post<JournalEntry>('/ledger/entries', variables.input);
+        ? await apiClient.patch<JournalEntry>(
+            `/ledger/entries/${variables.id}`,
+            variables.input satisfies ContractInput<'UpdateJournalEntryBody'>,
+          )
+        : await apiClient.post<JournalEntry>(
+            '/ledger/entries',
+            variables.input satisfies ContractInput<'CreateJournalEntryBody'>,
+          );
       return response.data;
     },
     onSuccess: invalidate,
@@ -190,7 +201,7 @@ export function useLedgerMutations() {
       (
         await apiClient.post<JournalEntry>(`/ledger/entries/${variables.id}/reverse`, {
           ...(variables.date ? { date: variables.date } : {}),
-        })
+        } satisfies ContractInput<'ReverseJournalEntryBody'>)
       ).data,
     onSuccess: invalidate,
   });
@@ -200,7 +211,11 @@ export function useLedgerMutations() {
   });
   const revalue = useMutation({
     mutationFn: async (date: string) =>
-      (await apiClient.post<RevaluationResult>('/ledger/revaluations', { date })).data,
+      (
+        await apiClient.post<RevaluationResult>('/ledger/revaluations', {
+          date,
+        } satisfies ContractInput<'RevalueLedgerBody'>)
+      ).data,
     onSuccess: invalidate,
   });
 

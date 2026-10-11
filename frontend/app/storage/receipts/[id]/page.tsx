@@ -25,6 +25,7 @@ import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/li
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { tokens } from '@/lib/theme-tokens';
@@ -389,7 +390,7 @@ export default function ReceiptDocumentPage() {
       await (async () => {
         await apiClient.patch(`/receipts/${receipt.id}`, {
           parsedData: nextPayload,
-        });
+        } satisfies ContractInput<'UpdateReceiptBody'>);
         lastSavedPayloadRef.current = serializedPayload;
         invalidateDocumentLists();
         setReceipt(currentReceipt =>
@@ -442,7 +443,7 @@ export default function ReceiptDocumentPage() {
       const currentPayload = buildParsedDataPayload(formValue);
       await apiClient.patch(`/receipts/${receipt.id}`, {
         parsedData: currentPayload,
-      });
+      } satisfies ContractInput<'UpdateReceiptBody'>);
       lastSavedPayloadRef.current = JSON.stringify(currentPayload);
       await receiptsApi.approveReceipt(receipt.id, options);
       toast.success(t.approved.value);
@@ -520,7 +521,7 @@ export default function ReceiptDocumentPage() {
           '{date}',
           formatStoredDate(receipt.receivedAt),
         ),
-      });
+      } satisfies ContractInput<'CreateCustomTableBody'>);
 
       const createdTable = createTableResponse.data?.data || createTableResponse.data;
       const tableId = createdTable?.id;
@@ -536,7 +537,7 @@ export default function ReceiptDocumentPage() {
           apiClient.post(`/custom-tables/${tableId}/columns`, {
             title: column.title,
             type: column.type,
-          }),
+          } satisfies ContractInput<'CreateCustomTableColumnBody'>),
         ),
       );
 
@@ -569,7 +570,7 @@ export default function ReceiptDocumentPage() {
 
       await apiClient.post(`/custom-tables/${tableId}/rows/batch`, {
         rows,
-      });
+      } satisfies ContractInput<'BatchCreateCustomTableRowsBody'>);
 
       toast.success(t.exportSuccess.value);
       router.push(`/custom-tables/${tableId}`);

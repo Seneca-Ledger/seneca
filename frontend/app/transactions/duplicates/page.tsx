@@ -11,6 +11,7 @@ import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import DuplicateGroupCard from './components/DuplicateGroupCard';
 
 interface DuplicateTransaction {
@@ -160,7 +161,7 @@ export default function TransactionDuplicatesPage() {
 
       const response = await apiClient.post('/transactions/duplicates/mark', {
         groups: groupsToMark,
-      });
+      } satisfies ContractInput<'MarkDuplicatesBody'>);
 
       setSuccess(t.markSuccess.value.replace('{count}', String(response.data.markedCount)));
       setSelectedGroups(new Set());

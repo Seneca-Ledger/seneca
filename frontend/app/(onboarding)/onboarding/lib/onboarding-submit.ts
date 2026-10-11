@@ -1,3 +1,4 @@
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import type { OnboardingData } from '../useOnboardingWizard';
 import type { OnboardingMode } from './onboarding-flow';
 
@@ -33,7 +34,7 @@ async function prepareWorkspace(
       currency: data.workspaceCurrency.trim().toUpperCase() || undefined,
       backgroundImage: data.workspaceBackgroundImage ?? undefined,
       profile: data.profile ?? undefined,
-    });
+    } satisfies ContractInput<'CreateWorkspaceBody'>);
     const workspaceId = created.data?.id;
     if (!workspaceId) {
       throw new Error('Workspace was not created');
@@ -46,7 +47,9 @@ async function prepareWorkspace(
     throw new Error('No workspace to set up');
   }
   if (data.profile) {
-    await api.patch(`/workspaces/${currentWorkspaceId}`, { profile: data.profile });
+    await api.patch(`/workspaces/${currentWorkspaceId}`, {
+      profile: data.profile,
+    } satisfies ContractInput<'UpdateWorkspaceBody'>);
   }
   return currentWorkspaceId;
 }
@@ -60,9 +63,20 @@ async function writeTax(
   if (!data.taxCountry) {
     return;
   }
-  await api.put('/tax/settings/jurisdiction', { code: data.taxCountry }, scoped);
+  await api.put(
+    '/tax/settings/jurisdiction',
+    { code: data.taxCountry } satisfies ContractInput<'SetJurisdictionBody'>,
+    scoped,
+  );
   if (data.taxpayerType) {
-    await api.put('/income-tax/profile', { taxYear, taxpayerType: data.taxpayerType }, scoped);
+    await api.put(
+      '/income-tax/profile',
+      {
+        taxYear,
+        taxpayerType: data.taxpayerType,
+      } satisfies ContractInput<'UpdateIncomeTaxProfileBody'>,
+      scoped,
+    );
   }
 }
 
@@ -80,7 +94,10 @@ async function writeBusiness(
   // One country for the workspace: the documents' country is the tax one.
   await api.put(
     '/business-profile',
-    { ...trimmed, countryCode: data.taxCountry ?? undefined },
+    {
+      ...trimmed,
+      countryCode: data.taxCountry ?? undefined,
+    } satisfies ContractInput<'UpdateBusinessProfileBody'>,
     scoped,
   );
 }
@@ -113,14 +130,16 @@ export async function submitOnboarding(
 
   if (mode === 'create-workspace') {
     // The language is the account's, asked again here because this flow has no language step.
-    const preferences = await api.patch('/users/me/preferences', { locale: data.locale });
+    const preferences = await api.patch('/users/me/preferences', {
+      locale: data.locale,
+    } satisfies ContractInput<'UpdateMyPreferencesBody'>);
     return { workspaceId, user: preferences.data?.user };
   }
 
   await api.patch('/users/me/preferences', {
     dateFormat: data.dateFormat,
     firstDayOfWeek: data.firstDayOfWeek,
-  });
+  } satisfies ContractInput<'UpdateMyPreferencesBody'>);
 
   const completed = await api.patch('/users/me/onboarding', {
     locale: data.locale,
@@ -128,7 +147,7 @@ export async function submitOnboarding(
     workspaceName: data.workspaceName.trim() || undefined,
     workspaceCurrency: data.workspaceCurrency.trim().toUpperCase() || undefined,
     workspaceBackgroundImage: data.workspaceBackgroundImage ?? undefined,
-  });
+  } satisfies ContractInput<'CompleteOnboardingBody'>);
 
   return { workspaceId, user: completed.data?.user };
 }

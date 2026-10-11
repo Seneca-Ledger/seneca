@@ -14,6 +14,7 @@ import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import { syncLocaleFromUser } from '@/app/lib/locale';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
 import { tokens } from '@/lib/theme-tokens';
 import { AuthHero } from '../AuthHero';
@@ -88,7 +89,7 @@ function RegisterPageContent(): React.JSX.Element {
       const response = await apiClient.post('/auth/register', {
         ...formData,
         invitationToken: inviteToken || undefined,
-      });
+      } satisfies ContractInput<'RegisterBody'>);
 
       const { user } = response.data;
 

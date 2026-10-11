@@ -3,6 +3,7 @@ import type {
   DashboardResponse,
   DashboardTrendsResponse as TrendsResponse,
 } from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import type { ContextInput } from './build-context';
 
 /**
@@ -60,6 +61,9 @@ export interface SearchResult {
  * pharmacy" — that needs the individual rows.
  */
 export async function searchTransactions(query: string, limit = 8): Promise<SearchResult> {
-  const response = await apiClient.post<SearchResult>('/ai-analysis/search', { query, limit });
+  const response = await apiClient.post<SearchResult>('/ai-analysis/search', {
+    query,
+    limit,
+  } satisfies ContractInput<'SearchTransactionsBody'>);
   return response.data;
 }

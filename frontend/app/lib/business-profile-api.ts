@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 /** The issuer's side of every document the workspace sends. */
 export interface BusinessProfile {
@@ -29,7 +30,10 @@ export const businessProfileApi = {
   },
 
   async update(input: BusinessProfileInput): Promise<BusinessProfile> {
-    const { data } = await apiClient.put<BusinessProfile>('/business-profile', input);
+    const { data } = await apiClient.put<BusinessProfile>(
+      '/business-profile',
+      input satisfies ContractInput<'UpdateBusinessProfileBody'>,
+    );
     return data;
   },
 

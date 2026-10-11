@@ -9,6 +9,7 @@ import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import AuthLayout from '../AuthLayout';
 
 type Status = 'checking' | 'confirmed' | 'failed';
@@ -29,7 +30,7 @@ function VerifyEmailContent(): React.JSX.Element {
     }
 
     apiClient
-      .post('/users/me/email/confirm', { token })
+      .post('/users/me/email/confirm', { token } satisfies ContractInput<'ConfirmEmailChangeBody'>)
       .then(() => {
         setStatus('confirmed');
       })

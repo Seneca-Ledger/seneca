@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export type Category = {
   id: string;
@@ -148,10 +149,13 @@ function useCategoryForm(
         parentId: restFormData.parentId || undefined,
       };
       if (editingCategory) {
-        await apiClient.put(`/categories/${editingCategory.id}`, data);
+        await apiClient.put(
+          `/categories/${editingCategory.id}`,
+          data satisfies ContractInput<'UpdateCategoryBody'>,
+        );
         toast.success(toastMessages.updated);
       } else {
-        await apiClient.post('/categories', data);
+        await apiClient.post('/categories', data satisfies ContractInput<'CreateCategoryBody'>);
         toast.success(toastMessages.created);
       }
       await loadCategories();
@@ -224,7 +228,9 @@ function usePerformToggle(
     setTogglingIds(prev => new Set(prev).add(category.id));
 
     await (async () => {
-      await apiClient.put(`/categories/${category.id}`, { isEnabled: nextEnabled });
+      await apiClient.put(`/categories/${category.id}`, {
+        isEnabled: nextEnabled,
+      } satisfies ContractInput<'UpdateCategoryBody'>);
       setCategories(
         categories.map(item =>
           item.id === category.id ? { ...item, isEnabled: nextEnabled } : item,
@@ -298,7 +304,9 @@ function useCategoryToggle({
     await (async () => {
       await Promise.all(
         Array.from(selectedIds).map(id =>
-          apiClient.put(`/categories/${id}`, { isEnabled: enable }),
+          apiClient.put(`/categories/${id}`, {
+            isEnabled: enable,
+          } satisfies ContractInput<'UpdateCategoryBody'>),
         ),
       );
       toast.success(enable ? 'Categories enabled' : 'Categories disabled');

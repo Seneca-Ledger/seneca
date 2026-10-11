@@ -6,6 +6,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
 import { apiQuery } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { exportFileName } from '../tax-declaration.helpers';
 import type {
@@ -73,13 +74,19 @@ export function useTaxDeclaration(taxYear: number) {
 
   const saveProfile = useMutation({
     mutationFn: (body: { taxpayerType: TaxpayerType; details: Record<string, unknown> }) =>
-      apiClient.put('/income-tax/profile', { taxYear, ...body }),
+      apiClient.put('/income-tax/profile', {
+        taxYear,
+        ...body,
+      } satisfies ContractInput<'UpdateIncomeTaxProfileBody'>),
     onSuccess: invalidateAll,
   });
 
   const saveMappings = useMutation({
     mutationFn: (entries: MappingEntry[]) =>
-      apiClient.put('/income-tax/mappings', { taxYear, entries }),
+      apiClient.put('/income-tax/mappings', {
+        taxYear,
+        entries,
+      } satisfies ContractInput<'SaveIncomeTaxMappingsBody'>),
     onSuccess: invalidateAll,
   });
 

@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { mapApiRecordToTransaction, type TransactionApiRecord } from '../helpers/transactionMapper';
 import type { Transaction } from '../types';
 
@@ -72,7 +73,9 @@ export function useTransferLink(onDone: () => void | Promise<void>): UseTransfer
     async (transactionId: string, otherId: string) => {
       setSaving(true);
       await apiClient
-        .post(`/transactions/${transactionId}/link-transfer`, { otherId })
+        .post(`/transactions/${transactionId}/link-transfer`, {
+          otherId,
+        } satisfies ContractInput<'LinkTransferBody'>)
         .then(async () => {
           toast.success(linkedText);
           setCandidates(null);
@@ -107,7 +110,9 @@ export function useTransferLink(onDone: () => void | Promise<void>): UseTransfer
     async (transactionId: string, expenseId: string) => {
       setSaving(true);
       await apiClient
-        .post(`/transactions/${transactionId}/link-reimbursement`, { expenseId })
+        .post(`/transactions/${transactionId}/link-reimbursement`, {
+          expenseId,
+        } satisfies ContractInput<'LinkReimbursementBody'>)
         .then(async () => {
           toast.success(reimbursedText);
           setCandidates(null);

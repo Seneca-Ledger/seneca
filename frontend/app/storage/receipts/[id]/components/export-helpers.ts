@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import type { EditableReceiptParsedData } from '@/app/components/receipts/receipt-types';
 import type { ReceiptRecord } from '@/app/lib/api';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { buildParsedDataPayload } from '../hooks/useReceiptData';
 
@@ -134,7 +135,7 @@ export async function createExportTable({
   const createRes = await apiClient.post('/custom-tables', {
     name: `Receipt ${receipt.subject}`.slice(0, 120),
     description: `Exported from scanned receipt on ${formatStoredDate(receipt.receivedAt)}`,
-  });
+  } satisfies ContractInput<'CreateCustomTableBody'>);
   const createdTable = (createRes.data?.data || createRes.data) as Record<string, unknown>;
   const tableId = createdTable?.id as string | undefined;
   if (!tableId) {
@@ -144,12 +145,17 @@ export async function createExportTable({
   }
   const createdColumns = await Promise.all(
     exportData.columns.map(col =>
-      apiClient.post(`/custom-tables/${tableId}/columns`, { title: col.title, type: col.type }),
+      apiClient.post(`/custom-tables/${tableId}/columns`, {
+        title: col.title,
+        type: col.type,
+      } satisfies ContractInput<'CreateCustomTableColumnBody'>),
     ),
   );
   const columnKeyByTitle = buildColumnKeyMap(exportData.columns, createdColumns);
   const rows = exportData.rows.map(row => ({ data: buildRowData(row, columnKeyByTitle) }));
-  await apiClient.post(`/custom-tables/${tableId}/rows/batch`, { rows });
+  await apiClient.post(`/custom-tables/${tableId}/rows/batch`, {
+    rows,
+  } satisfies ContractInput<'BatchCreateCustomTableRowsBody'>);
   toast.success('Table created successfully');
   router.push(`/custom-tables/${tableId}`);
 }

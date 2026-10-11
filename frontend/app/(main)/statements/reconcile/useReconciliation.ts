@@ -6,6 +6,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export type AgeingBucket = 'current' | 'd1_30' | 'd31_60' | 'd61_90' | 'd90_plus';
@@ -68,7 +69,10 @@ export function useReconciliation() {
   const failed = t.confirmFailed.value;
   const confirmMutation = useMutation({
     mutationFn: (input: { payableId: string; transactionId: string }) =>
-      apiClient.post('/reconciliation/confirm', input),
+      apiClient.post(
+        '/reconciliation/confirm',
+        input satisfies ContractInput<'ConfirmReconciliationBody'>,
+      ),
     onSuccess: () => toast.success(confirmed),
     onError: () => toast.error(failed),
     onSettled: () =>

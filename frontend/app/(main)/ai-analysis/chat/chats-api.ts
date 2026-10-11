@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import type { ChatMessage } from './build-prompt';
 
 export interface ChatSummary {
@@ -27,7 +28,7 @@ export async function createChat(modelId: string, firstQuestion: string): Promis
   const response = await apiClient.post<ChatSummary>('/ai-analysis/chats', {
     modelId,
     firstQuestion,
-  });
+  } satisfies ContractInput<'CreateAiChatBody'>);
   return response.data;
 }
 
@@ -46,7 +47,7 @@ export async function appendMessage(
     role,
     content,
     ...(actionPayload ? { actionPayload } : {}),
-  });
+  } satisfies ContractInput<'AppendAiChatMessageBody'>);
 }
 
 export async function deleteChat(id: string): Promise<void> {

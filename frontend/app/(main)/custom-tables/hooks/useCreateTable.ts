@@ -7,6 +7,7 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import {
   buildSourcePayload,
   EMPTY_SOURCE_FILTERS,
@@ -88,7 +89,7 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
             categoryId: form.categoryId,
             currency: resolveCurrencyCode(currentWorkspace?.currency),
             titles: columnTitles,
-          }),
+          }) satisfies ContractInput<'CreateCustomTableFromSourceBody'>,
         );
         const created = (response.data?.data ?? response.data) as { tableId?: string } | null;
         toast.success(messages.createdFromSource);
@@ -102,7 +103,7 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
         name,
         description: form.description.trim() || undefined,
         categoryId: form.categoryId || undefined,
-      });
+      } satisfies ContractInput<'CreateCustomTableBody'>);
       const created = (response.data?.data ?? response.data) as { id?: string } | null;
       if (created?.id && template) {
         const toastId = toast.loading(messages.applying);

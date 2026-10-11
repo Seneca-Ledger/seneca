@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import {
   defaultNotificationChannels,
   defaultNotificationSettings,
@@ -99,13 +100,18 @@ export function useNotifications(
 
       // Promise chain rather than try/finally so React Compiler can memoize
       // this hook.
-      await apiClient.patch('/notifications/preferences', payload).then(
-        () => setNotificationMessage(messages.savedMessage),
-        () => {
-          setNotificationSettings(rollbackRef.current);
-          setNotificationError(messages.saveError);
-        },
-      );
+      await apiClient
+        .patch(
+          '/notifications/preferences',
+          payload satisfies ContractInput<'UpdateNotificationPreferencesBody'>,
+        )
+        .then(
+          () => setNotificationMessage(messages.savedMessage),
+          () => {
+            setNotificationSettings(rollbackRef.current);
+            setNotificationError(messages.saveError);
+          },
+        );
       setNotificationSavingKey(null);
     },
     [messages.saveError, messages.savedMessage],

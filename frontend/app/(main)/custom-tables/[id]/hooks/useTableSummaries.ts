@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface SummaryItem {
   id: string;
@@ -69,7 +70,7 @@ export function useTableSummaries({
       return (async () => {
         await apiClient.patch(`/custom-tables/${tableId}/view-settings/summaries`, {
           summaries: next,
-        });
+        } satisfies ContractInput<'UpdateCustomTableSummariesBody'>);
         await load();
         return true;
       })()

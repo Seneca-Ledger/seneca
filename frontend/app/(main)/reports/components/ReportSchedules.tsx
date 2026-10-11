@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Trash2 } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 
 type Cadence = 'daily' | 'weekly' | 'monthly';
@@ -98,7 +99,12 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
     setError(null);
 
     await (async () => {
-      await apiClient.post('/reports/schedules', { templateId, format, cadence, recipients });
+      await apiClient.post('/reports/schedules', {
+        templateId,
+        format,
+        cadence,
+        recipients,
+      } satisfies ContractInput<'CreateReportScheduleBody'>);
       setRecipientsRaw('');
       await load();
     })()
@@ -111,7 +117,9 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
   };
 
   const toggle = async (row: ReportScheduleRow): Promise<void> => {
-    await apiClient.patch(`/reports/schedules/${row.id}`, { isActive: !row.isActive });
+    await apiClient.patch(`/reports/schedules/${row.id}`, {
+      isActive: !row.isActive,
+    } satisfies ContractInput<'UpdateReportScheduleActiveBody'>);
     await load();
   };
 

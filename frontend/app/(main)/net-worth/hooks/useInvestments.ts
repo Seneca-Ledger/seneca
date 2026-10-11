@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
@@ -69,7 +70,12 @@ export function useInvestments() {
 
   const createAccount = useCallback(
     (name: string, kind: 'investment' | 'retirement') =>
-      mutation.mutateAsync(() => apiClient.post('/investments/accounts', { name, kind })),
+      mutation.mutateAsync(() =>
+        apiClient.post('/investments/accounts', {
+          name,
+          kind,
+        } satisfies ContractInput<'CreateInvestmentAccountBody'>),
+      ),
     [mutation.mutateAsync],
   );
   const deleteAccount = useCallback(
@@ -79,13 +85,21 @@ export function useInvestments() {
   const addHolding = useCallback(
     (accountId: string, input: HoldingInput) =>
       mutation.mutateAsync(() =>
-        apiClient.post(`/investments/accounts/${accountId}/holdings`, input),
+        apiClient.post(
+          `/investments/accounts/${accountId}/holdings`,
+          input satisfies ContractInput<'UpsertHoldingBody'>,
+        ),
       ),
     [mutation.mutateAsync],
   );
   const updateHolding = useCallback(
     (id: string, input: HoldingInput) =>
-      mutation.mutateAsync(() => apiClient.patch(`/investments/holdings/${id}`, input)),
+      mutation.mutateAsync(() =>
+        apiClient.patch(
+          `/investments/holdings/${id}`,
+          input satisfies ContractInput<'UpsertHoldingBody'>,
+        ),
+      ),
     [mutation.mutateAsync],
   );
   const deleteHolding = useCallback(

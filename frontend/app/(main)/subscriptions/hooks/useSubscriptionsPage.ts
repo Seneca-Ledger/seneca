@@ -10,6 +10,7 @@ import type {
   SubscriptionItem as SubscriptionRow,
   SubscriptionSummary as SummaryContract,
 } from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { guessVendorDomain } from '../components/vendor-domain.utils';
@@ -230,8 +231,14 @@ export function useSubscriptionsPage() {
       .mutateAsync({
         run: () =>
           editingId
-            ? apiClient.put(`/subscriptions/${editingId}`, payload)
-            : apiClient.post('/subscriptions', payload),
+            ? apiClient.put(
+                `/subscriptions/${editingId}`,
+                payload satisfies ContractInput<'UpdateSubscriptionBody'>,
+              )
+            : apiClient.post(
+                '/subscriptions',
+                payload satisfies ContractInput<'CreateSubscriptionBody'>,
+              ),
         success: editingId ? text.toastUpdated.value : text.toastCreated.value,
         failure: text.toastSaveFailed.value,
       })
@@ -284,7 +291,10 @@ export function useSubscriptionsPage() {
   const assignOwner = useCallback(
     async (id: string, ownerId: string) => {
       rowMutation.mutate({
-        run: () => apiClient.patch(`/subscriptions/${id}/owner`, { ownerId }),
+        run: () =>
+          apiClient.patch(`/subscriptions/${id}/owner`, {
+            ownerId,
+          } satisfies ContractInput<'AssignSubscriptionOwnerBody'>),
         success: text.toastOwnerAssigned.value,
         failure: text.toastOwnerAssignFailed.value,
       });
@@ -336,7 +346,11 @@ export function useSubscriptionsPage() {
       values: { note?: string; reviewAt?: string; realizedAnnualSavings?: number } = {},
     ) => {
       rowMutation.mutate({
-        run: () => apiClient.post(`/subscriptions/${id}/decisions`, { decision, ...values }),
+        run: () =>
+          apiClient.post(`/subscriptions/${id}/decisions`, {
+            decision,
+            ...values,
+          } satisfies ContractInput<'RecordSubscriptionDecisionBody'>),
         success: text.toastDecisionSaved.value,
         failure: text.toastDecisionFailed.value,
       });

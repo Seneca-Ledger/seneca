@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import type { CustomTableColumn } from '../utils/types';
 
 export interface FormulaEditorLabels {
@@ -155,7 +156,11 @@ export function FormulaEditor({
     setChecking(true);
     const timer = window.setTimeout(() => {
       apiClient
-        .post(`/custom-tables/${tableId}/formula-preview`, { expression: value, columnKey, scope })
+        .post(`/custom-tables/${tableId}/formula-preview`, {
+          expression: value,
+          columnKey: columnKey ?? undefined,
+          scope,
+        } satisfies ContractInput<'PreviewFormulaBody'>)
         .then(response => setPreview((response.data?.data ?? response.data) as PreviewResult))
         .catch(() => setPreview(null))
         .finally(() => setChecking(false));

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { findHeaderRow } from '../utils/importRows';
 import {
   buildPastePreview,
@@ -494,10 +495,10 @@ export function usePasteImport({
     for (const col of ordered) {
       created.push(
         await apiClient.post(`/custom-tables/${tableId}/columns`, {
-          title: col.newTitle?.trim(),
+          title: (col.newTitle ?? '').trim(),
           type: col.newType ?? 'text',
           ...(col.newConfig ? { config: col.newConfig } : {}),
-        }),
+        } satisfies ContractInput<'CreateCustomTableColumnBody'>),
       );
     }
     for (let i = 0; i < created.length; i++) {
@@ -553,7 +554,7 @@ export function usePasteImport({
     }));
     await apiClient.patch(`/custom-tables/${tableId}/view-settings/summaries`, {
       summaries: [...existing, ...summaries].slice(0, 20),
-    });
+    } satisfies ContractInput<'UpdateCustomTableSummariesBody'>);
   };
 
   const applyTotals = async (totals: PasteTotals, keyMap: Map<string, string>): Promise<void> => {
@@ -565,7 +566,7 @@ export function usePasteImport({
       await apiClient.patch(`/custom-tables/${tableId}/view-settings/columns`, {
         columnKey: keyMap.get(key) || key,
         aggregate,
-      });
+      } satisfies ContractInput<'UpdateCustomTableViewSettingsColumnBody'>);
     }
     await loadTable();
   };
@@ -599,7 +600,7 @@ export function usePasteImport({
         const chunk = payloadRows.slice(index, index + CHUNK_SIZE);
         const response = await apiClient.post(`/custom-tables/${tableId}/rows/batch`, {
           rows: chunk,
-        });
+        } satisfies ContractInput<'BatchCreateCustomTableRowsBody'>);
         created.push(...extractBatchInsertResult(response, chunk.length).normalizedRows);
         setPasteProgress({ done: Math.min(index + CHUNK_SIZE, total), total });
       }

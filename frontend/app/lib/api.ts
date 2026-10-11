@@ -1,4 +1,5 @@
 import axios, { type AxiosResponse } from 'axios';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { CSRF_HEADER, clearCsrfCookie, getCsrfHeaders, getCsrfToken } from './csrf';
 import { isPublicPath } from './public-paths';
 import { getQueryClient } from './query-client';
@@ -271,7 +272,7 @@ export type ReceiptLocationSource =
 export interface ReceiptPlace {
   name: string;
   category: string | null;
-  osmType: string;
+  osmType: 'node' | 'way' | 'relation';
   osmId: string;
 }
 
@@ -283,7 +284,7 @@ export interface PlaceCandidate {
   locality: string | null;
   lat: number;
   lng: number;
-  osmType: string;
+  osmType: 'node' | 'way' | 'relation';
   osmId: string;
   distanceM: number;
   matchesVendor: boolean;
@@ -398,7 +399,10 @@ export const receiptsApi = {
     return response.data as ReceiptRecord;
   },
 
-  updateReceipt: async (id: string, data: Partial<ReceiptRecord>): Promise<ReceiptRecord> => {
+  updateReceipt: async (
+    id: string,
+    data: ContractInput<'UpdateReceiptBody'>,
+  ): Promise<ReceiptRecord> => {
     const response = await apiClient.patch(`/receipts/${id}`, data);
     return response.data as ReceiptRecord;
   },
@@ -407,7 +411,10 @@ export const receiptsApi = {
     id: string,
     point: { latitude: number; longitude: number; place?: ReceiptPlace },
   ): Promise<ReceiptRecord> => {
-    const response = await apiClient.patch(`/receipts/${id}/location`, point);
+    const response = await apiClient.patch(
+      `/receipts/${id}/location`,
+      point satisfies ContractInput<'UpdateReceiptLocationBody'>,
+    );
     return (response.data?.data ?? response.data) as ReceiptRecord;
   },
 
@@ -418,7 +425,10 @@ export const receiptsApi = {
     longitude: number;
     accuracy: number;
   }): Promise<PlaceSuggestions> => {
-    const response = await apiClient.post('/receipts/place-suggestions', fix);
+    const response = await apiClient.post(
+      '/receipts/place-suggestions',
+      fix satisfies ContractInput<'PlaceSuggestionsBody'>,
+    );
     return (response.data?.data ?? response.data) as PlaceSuggestions;
   },
 
@@ -431,7 +441,10 @@ export const receiptsApi = {
     id: string,
     options: { transactionId?: string | null } = {},
   ): Promise<{ receipt: ReceiptRecord; transaction: { id: string }; attached: boolean }> => {
-    const response = await apiClient.post(`/receipts/${id}/approve`, options);
+    const response = await apiClient.post(
+      `/receipts/${id}/approve`,
+      options satisfies ContractInput<'ApproveReceiptBody'>,
+    );
     return response.data as {
       receipt: ReceiptRecord;
       transaction: { id: string };

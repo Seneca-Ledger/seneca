@@ -16,6 +16,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
 import type { DeviceLocation } from '@/app/lib/device-location';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import type {
   CreateTaxRatePayload,
@@ -281,7 +282,10 @@ export default function StatementsListView(): React.JSX.Element {
   };
 
   const handleCreateTaxRate = async (payload: CreateTaxRatePayload): Promise<TaxRateOption> => {
-    const response = await apiClient.post('/tax-rates', payload);
+    const response = await apiClient.post(
+      '/tax-rates',
+      payload satisfies ContractInput<'CreateTaxRateBody'>,
+    );
     const created = response.data as TaxRateOption & { rate: number | string };
     await v.loadManualExpenseOptions();
     return {

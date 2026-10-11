@@ -14,6 +14,7 @@ import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import { syncLocaleFromUser } from '@/app/lib/locale';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
 import { tokens } from '@/lib/theme-tokens';
 import { AuthHero } from '../AuthHero';
@@ -66,7 +67,7 @@ function LoginPageContent(): React.JSX.Element {
         email,
         password,
         ...(twoFactorCode ? { twoFactorCode: twoFactorCode.trim() } : {}),
-      });
+      } satisfies ContractInput<'LoginBody'>);
 
       // Password was right, but the account also needs a second factor.
       if (response.data?.twoFactorRequired) {
