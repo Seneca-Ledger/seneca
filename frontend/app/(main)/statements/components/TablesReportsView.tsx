@@ -11,7 +11,7 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -89,11 +89,10 @@ export default function TablesReportsView() {
   useEffect(() => {
     let mounted = true;
 
-    apiClient
-      .get('/reports/custom-tables/available')
-      .then(response => {
+    apiQueryDecoded({ url: '/reports/custom-tables/available', contract: 'AvailableCustomTables' })
+      .then(tables => {
         if (!mounted) return;
-        setAvailableTables(Array.isArray(response.data) ? response.data : []);
+        setAvailableTables(tables);
       })
       .catch(() => {
         if (!mounted) return;

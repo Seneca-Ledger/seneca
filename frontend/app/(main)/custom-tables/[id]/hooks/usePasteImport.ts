@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { findHeaderRow } from '../utils/importRows';
 import {
   buildPastePreview,
@@ -543,11 +543,11 @@ export function usePasteImport({
     if (!summaries.length) {
       return;
     }
-    const response = await apiClient.get(`/custom-tables/${tableId}/summaries`);
-    const payload = (response.data?.data ?? response.data) as {
-      items?: Array<{ id: string; title: string; expression: string }>;
-    };
-    const existing = (payload?.items ?? []).map(({ id, title, expression }) => ({
+    const { items } = await apiQueryDecoded({
+      url: `/custom-tables/${tableId}/summaries`,
+      contract: 'CustomTableSummaries',
+    });
+    const existing = items.map(({ id, title, expression }) => ({
       id,
       title,
       expression,

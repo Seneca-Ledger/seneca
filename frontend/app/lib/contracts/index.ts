@@ -7,6 +7,7 @@ export * from './budgets/budgets';
 export * from './common/requests';
 export * from './common/wire';
 export * from './crypto/crypto';
+export * from './custom-tables/custom-tables';
 export * from './dashboard/dashboard';
 export * from './feed/feed';
 export * from './forecast/forecast';

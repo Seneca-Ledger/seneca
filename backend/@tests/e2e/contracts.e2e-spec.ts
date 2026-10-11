@@ -13,6 +13,7 @@ import { Receipt, ReceiptSource, ReceiptStatus } from '../../src/entities/receip
 import {
   AdminUserList,
   AgeingReport,
+  AvailableCustomTables,
   BackupConfiguration,
   BackupRunList,
   BalanceSheetResponse,
@@ -29,6 +30,12 @@ import {
   CryptoTransactionList,
   CryptoWalletList,
   CurrentUser,
+  CustomTableAggregates,
+  CustomTableDetail,
+  CustomTableGroups,
+  CustomTableList,
+  CustomTableRowPage,
+  CustomTableSummaries,
   DashboardCommitmentsResponse,
   DashboardHealthHistoryResponse,
   DashboardMonthlyCashFlowResponse,
@@ -71,6 +78,8 @@ import {
   ReviewInboxCounts,
   ReviewInboxPage,
   SharedFileAccess,
+  SharedTableRows,
+  SharedTableView,
   StatementDetail,
   StorageFileDetails,
   StorageFileList,
@@ -770,6 +779,96 @@ describe('API contracts (e2e)', () => {
       expect(one.body.category).not.toBeNull();
       matches(ReceiptTransactionMatches, (await get(`/receipts/${receiptId}/transaction-matches`)).body);
       matches(ReceiptSplitSuggestion, (await get(`/receipts/${receiptId}/split-suggestion`)).body);
+    });
+  });
+
+  describe('custom tables', () => {
+    let tableId: string;
+    let shareToken: string;
+    const send = (method: 'post' | 'patch', url: string, body: object) =>
+      request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send(body);
+
+    beforeAll(async () => {
+      const categories = await get('/categories?type=expense');
+      const table = await send('post', '/custom-tables', {
+        name: 'Contract costs',
+        description: 'Checked against its contract',
+        categoryId: categories.body[0].id,
+      }).expect(201);
+      tableId = table.body.id;
+      const amount = await send('post', `/custom-tables/${tableId}/columns`, {
+        title: 'Amount',
+        type: 'number',
+      }).expect(201);
+      const vendor = await send('post', `/custom-tables/${tableId}/columns`, {
+        title: 'Vendor',
+        type: 'text',
+      }).expect(201);
+      await send('post', `/custom-tables/${tableId}/columns`, {
+        title: 'Kind',
+        type: 'select',
+        config: { options: ['Rent', 'Food'] },
+      }).expect(201);
+      for (const [value, name] of [
+        [120.5, 'Landlord'],
+        [30, 'Cafe'],
+        [30, 'Cafe'],
+      ] as const) {
+        await send('post', `/custom-tables/${tableId}/rows`, {
+          data: { [amount.body.key]: value, [vendor.body.key]: name },
+        }).expect(201);
+      }
+      await send('patch', `/custom-tables/${tableId}/view-settings/summaries`, {
+        summaries: [{ title: 'Total', expression: `SUM([${amount.body.key}])` }],
+      }).expect(200);
+      shareToken = (await send('post', `/custom-tables/${tableId}/shares`, {}).expect(201)).body.token;
+    });
+
+    it('GET /custom-tables and /custom-tables/:id', async () => {
+      const list = await get('/custom-tables');
+      matches(CustomTableList, list.body);
+      expect(list.body.items[0].category).not.toBeNull();
+      const detail = await get(`/custom-tables/${tableId}`);
+      matches(CustomTableDetail, detail.body);
+      expect(detail.body.columns).toHaveLength(3);
+    });
+
+    it('GET rows, aggregates, groups and summaries', async () => {
+      const detail = await get(`/custom-tables/${tableId}`);
+      const [amount, vendor] = detail.body.columns;
+      const rows = await get(`/custom-tables/${tableId}/rows`);
+      matches(CustomTableRowPage, rows.body);
+      expect(rows.body.items).toHaveLength(3);
+      const aggs = encodeURIComponent(
+        JSON.stringify([
+          { col: amount.key, fn: 'sum' },
+          { col: vendor.key, fn: 'count' },
+        ]),
+      );
+      matches(CustomTableAggregates, (await get(`/custom-tables/${tableId}/aggregates?aggs=${aggs}`)).body);
+      const groups = await get(`/custom-tables/${tableId}/groups?groupBy=${vendor.key}&aggs=${aggs}`);
+      matches(CustomTableGroups, groups.body);
+      expect(groups.body.items.length).toBe(2);
+      const summaries = await get(`/custom-tables/${tableId}/summaries`);
+      matches(CustomTableSummaries, summaries.body);
+      expect(summaries.body.items).toHaveLength(1);
+    });
+
+    it('GET the public share and /reports/custom-tables/available', async () => {
+      const view = await request(app.getHttpServer())
+        .get(`/public/custom-tables/${shareToken}`)
+        .expect(200);
+      matches(SharedTableView, view.body);
+      const rows = await request(app.getHttpServer())
+        .get(`/public/custom-tables/${shareToken}/rows`)
+        .expect(200);
+      matches(SharedTableRows, rows.body);
+      expect(rows.body.items).toHaveLength(3);
+      matches(AvailableCustomTables, (await get('/reports/custom-tables/available')).body);
     });
   });
 });

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import apiClient from '@/app/lib/api';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import type { CustomTable } from '../utils/tableTypes';
 
@@ -59,11 +58,12 @@ export function useTableData({
     setLoading(true);
 
     await (async () => {
-      const response = await apiClient.get(`/custom-tables/${tableId}`);
-      const payload = response.data?.data || response.data;
+      const payload = await apiQueryDecoded({
+        url: `/custom-tables/${tableId}`,
+        contract: 'CustomTableDetail',
+      });
       setTable(payload);
-      const currentCategoryId = payload?.categoryId || payload?.category?.id || '';
-      setCategoryId(currentCategoryId || '');
+      setCategoryId(payload.categoryId ?? '');
     })()
       .catch(async error => {
         console.error('Failed to load table:', error);

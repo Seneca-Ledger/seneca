@@ -10,7 +10,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { downloadTableExport } from '../../exportTable';
 import type { ConvertResult } from '../components/SendToStatementsDialog';
 import { showUndoToast } from '../components/UndoToast';
@@ -290,13 +290,8 @@ export function useCustomTablePage(tableId: string) {
     if (columnEditor.dialog.mode === 'closed' || relationTargets.length) {
       return;
     }
-    apiClient
-      .get('/custom-tables')
-      .then(response => {
-        const items = (response.data?.data ?? response.data ?? []) as Array<{
-          id: string;
-          name: string;
-        }>;
+    apiQueryDecoded({ url: '/custom-tables', contract: 'CustomTableList' })
+      .then(({ items }) => {
         setRelationTargets(
           items.filter(item => item.id !== tableId).map(({ id, name }) => ({ id, name })),
         );
