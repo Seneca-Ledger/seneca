@@ -72,7 +72,7 @@ async function main() {
     try {
       const tables = await extractTablesFromPdf(filePath);
       console.log(
-        `[*] pdfplumber tables rows=${tables.rows?.length || 0}, structured=${tables.structured?.length || 0}`,
+        `[*] pdfplumber tables rowSets=${tables.rowSets.map(rows => rows.length).join('/') || 0}, structured=${tables.structured?.length || 0}`,
       );
     } catch (error) {
       console.error('[!] Failed to extract tables for debug:', error);
