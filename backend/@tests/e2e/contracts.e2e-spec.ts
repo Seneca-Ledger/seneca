@@ -35,6 +35,10 @@ import {
   NetWorthResponse,
   NotificationList,
   ReviewInboxCounts,
+  SubscriptionChargeCalendar,
+  SubscriptionDuplicateGroups,
+  SubscriptionList,
+  SubscriptionSummary,
   UnreadCount,
   WalletList,
   WorkspaceDetail,
@@ -309,5 +313,57 @@ describe('API contracts (e2e)', () => {
       matches(CryptoGains, (await get('/crypto/gains?year=2026')).body);
       matches(CryptoNetworkList, (await get('/crypto/networks')).body);
     }, 120_000);
+  });
+
+  describe('subscriptions', () => {
+    beforeAll(async () => {
+      const send = (method: 'post' | 'patch', url: string, body: object) =>
+        request(app.getHttpServer())
+          [method](url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send(body);
+      const next = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+      const categories = await get('/categories?type=expense');
+      const created = await send('post', '/subscriptions', {
+        vendorName: 'Netflix',
+        amount: 12.99,
+        frequency: 'monthly',
+        currency: 'USD',
+        categoryId: categories.body[0].id,
+        nextChargeDate: next,
+      }).expect(201);
+      // The same service on two plans is what /duplicates reports.
+      await send('post', '/subscriptions', {
+        vendorName: 'Netflix',
+        amount: 15.49,
+        frequency: 'annual',
+        currency: 'USD',
+        nextChargeDate: next,
+      }).expect(201);
+      const me = await get('/auth/me');
+      await send('patch', `/subscriptions/${created.body.id}/owner`, { ownerId: me.body.id }).expect(
+        200,
+      );
+    });
+
+    it('GET /subscriptions, money as decimal strings', async () => {
+      const res = await get('/subscriptions');
+      matches(SubscriptionList, res.body);
+      expect(res.body.map((row: { amount: string }) => row.amount).sort()).toEqual([
+        '12.99',
+        '15.49',
+      ]);
+    });
+
+    it('GET /subscriptions/summary, /charge-calendar and /duplicates', async () => {
+      matches(SubscriptionSummary, (await get('/subscriptions/summary')).body);
+      const calendar = await get('/subscriptions/charge-calendar?months=6');
+      matches(SubscriptionChargeCalendar, calendar.body);
+      expect(calendar.body.rows.length).toBeGreaterThan(0);
+      const duplicates = await get('/subscriptions/duplicates');
+      matches(SubscriptionDuplicateGroups, duplicates.body);
+      expect(duplicates.body).toHaveLength(1);
+    });
   });
 });

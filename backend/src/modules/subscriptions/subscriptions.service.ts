@@ -8,6 +8,11 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThanOrEqual, Repository } from 'typeorm';
+import type {
+  SubscriptionChargeCalendar,
+  SubscriptionDuplicateGroups,
+  SubscriptionSummary,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
 import {
@@ -390,18 +395,7 @@ export class SubscriptionsService {
     }
   }
 
-  async getSummary(workspaceId: string): Promise<{
-    totalMonthlyCost: number;
-    activeCount: number;
-    upcomingCount: number;
-    upcoming30DaysCount: number;
-    priceChangeCount: number;
-    /** What this year costs more (or less) because of the flagged price changes, in the workspace currency. */
-    priceChangeYearlyEffect: number;
-    duplicateCount: number;
-    overdueReviewCount: number;
-    realizedAnnualSavings: number;
-  }> {
+  async getSummary(workspaceId: string): Promise<SubscriptionSummary> {
     const active = await this.subscriptionRepository.find({
       where: { workspaceId, status: SubscriptionStatus.ACTIVE },
     });
@@ -499,19 +493,7 @@ export class SubscriptionsService {
   async getChargeCalendar(
     workspaceId: string,
     months = DEFAULT_CALENDAR_MONTHS,
-  ): Promise<{
-    currency: string | null;
-    months: string[];
-    monthTotals: number[];
-    rows: {
-      subscriptionId: string;
-      vendorName: string;
-      vendorDomain: string | null;
-      amounts: number[];
-      /** Subscriptions are the default; bills to pay and invoices to be paid share the grid. */
-      kind?: 'subscription' | 'payable' | 'invoice';
-    }[];
-  }> {
+  ): Promise<SubscriptionChargeCalendar> {
     const horizon = Math.min(Math.max(Math.trunc(months) || DEFAULT_CALENDAR_MONTHS, 1), 12);
     const [active, workspace] = await Promise.all([
       this.subscriptionRepository.find({
@@ -827,20 +809,7 @@ export class SubscriptionsService {
   }
 
   /** Rows that look like the same service paid twice: two plans, two cards, two members. */
-  async getDuplicates(workspaceId: string): Promise<
-    Array<{
-      key: string;
-      items: Array<{
-        id: string;
-        vendorName: string;
-        amount: number;
-        currency: string;
-        frequency: SubscriptionFrequency;
-        status: SubscriptionStatus;
-        ownerId: string | null;
-      }>;
-    }>
-  > {
+  async getDuplicates(workspaceId: string): Promise<SubscriptionDuplicateGroups> {
     const subs = await this.subscriptionRepository.find({
       where: { workspaceId, status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.DETECTED]) },
     });

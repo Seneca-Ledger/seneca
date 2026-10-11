@@ -10,6 +10,7 @@ export * from './goals/goal-items';
 export * from './goals/goals';
 export * from './reference/reference';
 export * from './statements/statement-list';
+export * from './subscriptions/subscriptions';
 export * from './transactions/transaction-list';
 export * from './wealth/balance-sheet';
 export * from './wealth/investments';

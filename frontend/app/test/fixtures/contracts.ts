@@ -4,6 +4,7 @@ import type {
   CategoryRef,
   CryptoHolding,
   CryptoSummary,
+  SubscriptionItem,
   WalletItem,
 } from '@/app/lib/contracts';
 
@@ -117,6 +118,42 @@ export function cryptoSummary(overrides: Partial<CryptoSummary> = {}): CryptoSum
     unrealized: null,
     realized: 0,
     portfolioChangeSinceYesterday: null,
+    ...overrides,
+  };
+}
+
+/** A `GET /subscriptions` row as the API sends it (money as decimal strings). */
+export function subscriptionRow(
+  overrides: Partial<SubscriptionItem> & Pick<SubscriptionItem, 'id' | 'vendorName'>,
+): SubscriptionItem {
+  return {
+    workspaceId: 'workspace-1',
+    vendorRaw: null,
+    vendorDomain: null,
+    amount: '10.00',
+    currency: 'USD',
+    frequency: 'monthly',
+    status: 'active',
+    ownerId: null,
+    reviewAt: null,
+    reviewStatus: 'current',
+    riskStatus: 'none',
+    cancellationReason: null,
+    realizedAnnualSavings: '0.00',
+    confidence: null,
+    nextChargeDate: null,
+    lastChargeDate: null,
+    categoryId: null,
+    category: null,
+    usageCount: 0,
+    usageSince: null,
+    lastUsedAt: null,
+    sinkingGoalId: null,
+    detectionMeta: null,
+    createdById: 'user-1',
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+    costPerUse: null,
     ...overrides,
   };
 }
