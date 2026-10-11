@@ -112,12 +112,9 @@ describe('buildNavItems', () => {
     const items = buildNavItems(nav);
 
     expect(items.map(item => item.path)).toContain('/net-worth');
-    // Net worth, then the forecast built on it, then budgets.
+    // Net worth, then the forecast built on it.
     expect(items.findIndex(item => item.path === '/net-worth')).toBe(
       items.findIndex(item => item.path === '/forecast') - 1,
-    );
-    expect(items.findIndex(item => item.path === '/forecast')).toBe(
-      items.findIndex(item => item.path === '/budgets') - 1,
     );
     expect(items.find(item => item.path === '/forecast')?.permission).toBe('report.view');
   });

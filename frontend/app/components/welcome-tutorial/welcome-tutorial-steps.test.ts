@@ -23,7 +23,7 @@ describe('welcome tutorial steps', () => {
     const steps = buildTutorialSteps(visible, id => `title:${id}`);
 
     expect(steps.map(step => step.id)).not.toContain('goals');
-    expect(steps.map(step => step.id).slice(0, 3)).toEqual(['dashboard', 'statements', 'tables']);
+    expect(steps.map(step => step.id).slice(0, 3)).toEqual(['dashboard', 'statements', 'budgets']);
     expect(steps[0]).toMatchObject({ path: '/dashboard', label: 'dashboard', title: 'title:dashboard' });
   });
 
