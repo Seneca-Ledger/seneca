@@ -21,44 +21,14 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { BalanceAccountNode } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import apiClient from '../../../lib/api';
 
 type BalanceExportFormat = 'excel' | 'pdf';
-
-type BalanceAccountNode = {
-  id: string;
-  code: string;
-  name: string;
-  nameEn: string | null;
-  nameKk: string | null;
-  accountType: 'asset' | 'liability' | 'equity';
-  isEditable: boolean;
-  isAutoComputed: boolean;
-  isExpandable: boolean;
-  amount: number;
-  children: BalanceAccountNode[];
-  position: number;
-};
-
-type BalanceSheetResponse = {
-  date: string;
-  currency: string;
-  assets: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  liabilities: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  difference: number;
-  isBalanced: boolean;
-  /** Currencies left out of the totals because no exchange rate was found. */
-  missingRates?: string[];
-};
 
 const resolveLocale = (locale: string): string => {
   if (locale === 'ru') return 'ru-RU';
@@ -169,13 +139,13 @@ function BalanceSheet(): React.JSX.Element {
 
   const sheetQuery = useQuery({
     queryKey: queryKeys.balanceSheet({ workspaceId, date: effectiveDate ?? null, locale }),
-    queryFn: async ({ signal }) => {
-      const response = await apiClient.get('/reports/balance/sheet', {
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: '/reports/balance/sheet',
         params: { ...(effectiveDate ? { date: effectiveDate } : {}), locale },
         signal,
-      });
-      return (response.data?.data || response.data) as BalanceSheetResponse;
-    },
+        contract: 'BalanceSheetResponse',
+      }),
     // Смена даты и сохранение баланса перезагружают отчёт; таблица держится на
     // экране до прихода новых цифр, но только внутри того же воркспейса.
     placeholderData: (previous, previousQuery) =>

@@ -4,85 +4,34 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type {
+  CapitalRole,
+  NetWorthResponse as NetWorthData,
+  NetWorthRange,
+  RiskLevel,
+} from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
-export type NetWorthRange = '30d' | '90d' | '180d' | 'ytd' | '1y' | '3y' | '5y' | 'all';
+export type {
+  CapitalRole,
+  NetWorthAssetLine,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthRange,
+  NetWorthResponse as NetWorthData,
+  RiskLevel,
+} from '@/app/lib/contracts';
 
 export const NET_WORTH_RANGES: NetWorthRange[] = ['30d', '90d', '180d', '1y', '3y', '5y', 'all'];
-
-export interface NetWorthPoint {
-  date: string;
-  value: number;
-}
-
-export interface NetWorthBreakdownItem {
-  code: string;
-  name: string;
-  amount: number;
-  percent: number;
-}
-
-export type CapitalRole = 'income' | 'neutral' | 'drain';
-export type RiskLevel = 'low' | 'medium' | 'high';
 
 export const CAPITAL_ROLES: CapitalRole[] = ['income', 'neutral', 'drain'];
 export const RISK_LEVELS: RiskLevel[] = ['low', 'medium', 'high'];
 
 /** The share of assets above which the 80/20 rule is considered broken. */
 export const RISKY_ALLOCATION_THRESHOLD = 20;
-
-export interface NetWorthClassificationItem {
-  key: string | null;
-  amount: number;
-  percent: number;
-}
-
-export interface NetWorthAssetLine {
-  id: string;
-  code: string;
-  name: string;
-  amount: number;
-  capitalRole: CapitalRole | null;
-  riskLevel: RiskLevel | null;
-  isClassifiable: boolean;
-}
-
-export interface NetWorthData {
-  range: NetWorthRange;
-  currency: string;
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  assetsTotal: number;
-  liabilitiesTotal: number;
-  series: NetWorthPoint[];
-  breakdown: NetWorthBreakdownItem[];
-  byRisk: NetWorthClassificationItem[];
-  byRole: NetWorthClassificationItem[];
-  riskyPercent: number;
-  assetLines: NetWorthAssetLine[];
-  /** Currencies left out of the figures because no exchange rate was found. */
-  missingRates?: string[];
-  /** The highest sampled net worth over the whole history, and when. */
-  allTimeHigh?: { value: number; date: string } | null;
-  /** Investment holdings by asset class, plus cash and the other sheet lines. */
-  byAssetClass?: NetWorthClassificationItem[];
-  /** The same figures in troy ounces of a metal; only when asked for. */
-  denominated?: NetWorthDenominated | null;
-}
-
-/** Net worth measured in metal: what the money figures buy in ounces. */
-export interface NetWorthDenominated {
-  metal: 'XAU' | 'XAG' | 'XPT' | 'XPD';
-  unit: 'ozt';
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  series: NetWorthPoint[];
-}
 
 export type ClassificationPatch = {
   capitalRole?: CapitalRole | null;
@@ -125,10 +74,11 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
-      apiQuery<NetWorthData>({
+      apiQueryDecoded({
         url: '/reports/net-worth',
         params: denominate ? { range, denominate } : { range },
         signal,
+        contract: 'NetWorthResponse',
       }),
     // Смена периода не должна гасить карточки: данные прошлого запроса живут
     // на экране до прихода новых, но только внутри того же воркспейса.

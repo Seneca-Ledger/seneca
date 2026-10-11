@@ -2,6 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import { countedSql } from '../../common/utils/counted-transactions.util';
+import type {
+  InvestmentHolding as HoldingView,
+  InvestmentAccount as InvestmentAccountView,
+} from '../../contracts';
 import { BalanceAccount, BalanceAccountKind } from '../../entities/balance-account.entity';
 import {
   InvestmentAssetClass,
@@ -24,31 +28,7 @@ import { normalizeStockSymbol, StockPriceService } from './stock-price.service';
 
 const INVESTMENTS_SECTION_CODE = 'ASSET_INVESTMENTS';
 
-export interface HoldingView {
-  id: string;
-  symbol: string | null;
-  name: string;
-  assetClass: InvestmentAssetClass;
-  quantity: number;
-  price: number;
-  priceCurrency: string;
-  priceSource: InvestmentPriceSource;
-  pricedAt: Date | null;
-  /** quantity × price in the workspace currency. */
-  value: number;
-}
-
-export interface InvestmentAccountView {
-  id: string;
-  name: string;
-  kind: BalanceAccountKind;
-  currency: string;
-  value: number;
-  /** Sum of the expenses linked to this account as contributions. */
-  contributed: number;
-  gain: number;
-  holdings: HoldingView[];
-}
+export type { HoldingView, InvestmentAccountView };
 
 /**
  * Investment and retirement accounts: sub-accounts of the balance sheet's
@@ -103,7 +83,8 @@ export class InvestmentsService {
       views.push({
         id: account.id,
         name: account.name,
-        kind: account.accountKind as BalanceAccountKind,
+        // The query above reads only these two kinds.
+        kind: account.accountKind as BalanceAccountKind.INVESTMENT | BalanceAccountKind.RETIREMENT,
         currency,
         value,
         contributed: round2(paidIn),
@@ -332,7 +313,7 @@ export class InvestmentsService {
       price,
       priceCurrency: holding.priceCurrency,
       priceSource: holding.priceSource,
-      pricedAt: holding.pricedAt,
+      pricedAt: holding.pricedAt?.toISOString() ?? null,
       value: round2(value),
     };
   }

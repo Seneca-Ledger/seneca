@@ -5,96 +5,31 @@ import { useCallback, useState } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import type {
+  ChainFamily,
+  CryptoGains,
+  CryptoHistory,
+  CryptoNetwork,
+  CryptoSummary,
+  CryptoTransaction,
+  CryptoWallet,
+} from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
-/** An address we read, a line the user keeps, or a CSV an exchange exported. */
-export type CryptoWalletKind = 'onchain' | 'manual' | 'exchange';
-
-export interface CryptoWalletBalance {
-  asset: string;
-  amount: string;
-  costPerUnit?: number;
-}
-
-export interface CryptoWallet {
-  id: string;
-  address: string | null;
-  kind: CryptoWalletKind;
-  /** Filled for a manual wallet only. */
-  balances: CryptoWalletBalance[];
-  chainId: number;
-  chainName: string;
-  label: string | null;
-  lastSyncedAt: string | null;
-  lastSyncError: string | null;
-  transactionCount: number;
-}
-
-export interface CryptoHolding {
-  asset: string;
-  amount: string;
-  /** Current price of one unit, in the summary currency. */
-  price: number;
-  value: number;
-  /** Null when no purchase of this asset is on record. */
-  avgCost: number | null;
-  cost: number | null;
-  unrealized: number | null;
-  unrealizedPercent: number | null;
-  realized: number;
-  basisIncomplete: boolean;
-}
-
-export interface CryptoSummary {
-  currency: string;
-  portfolioValue: number;
-  income: number;
-  expense: number;
-  walletCount: number;
-  holdings: CryptoHolding[];
-  /** Held but unpriceable, so deliberately outside `portfolioValue`. */
-  unpriced: { asset: string; amount: string }[];
-  cost: number | null;
-  unrealized: number | null;
-  realized: number;
-  /** Percent move against yesterday's prices; null when a price is missing. */
-  portfolioChangeSinceYesterday: number | null;
-}
-
-export interface CryptoHistory {
-  currency: string;
-  series: { date: string; value: number }[];
-}
-
-export interface CryptoDisposal {
-  /** Unique within the report: same coin, same day, same size can happen twice. */
-  id: string;
-  asset: string;
-  date: string;
-  amount: number;
-  proceeds: number;
-  cost: number;
-  gain: number;
-  /** Null when no purchase backs the sale at all. */
-  acquiredOn: string | null;
-  heldDays: number | null;
-  /** Coins in this sale that no purchase backs. */
-  uncoveredAmount: number;
-  uncoveredProceeds: number;
-  /** True when part of the sale has no cost to measure against. */
-  costIncomplete: boolean;
-}
-
-export interface CryptoGains {
-  currency: string;
-  disposals: CryptoDisposal[];
-  proceeds: number;
-  cost: number;
-  gain: number;
-  /** How many rows carry coins without a purchase behind them. */
-  incompleteCount?: number;
-}
+export type {
+  ChainFamily,
+  CryptoDisposal,
+  CryptoGains,
+  CryptoHistory,
+  CryptoHolding,
+  CryptoNetwork,
+  CryptoSummary,
+  CryptoTransaction,
+  CryptoWallet,
+  CryptoWalletBalance,
+  CryptoWalletKind,
+} from '@/app/lib/contracts';
 
 export interface ExchangeImportResult {
   exchange: string;
@@ -107,31 +42,6 @@ export interface ManualHoldingInput {
   asset: string;
   amount: string;
   costPerUnit?: number;
-}
-
-export interface CryptoTransaction {
-  id: string;
-  date: string;
-  walletId: string;
-  walletLabel: string | null;
-  walletAddress: string | null;
-  walletChainName: string | null;
-  direction: 'in' | 'out';
-  asset: string | null;
-  cryptoAmount: string | null;
-  amount: number;
-  currency: string;
-  counterparty: string | null;
-  txHash: string | null;
-}
-
-export type ChainFamily = 'evm' | 'tron' | 'bitcoin' | 'solana';
-
-export interface CryptoNetwork {
-  chainId: number;
-  name: string;
-  family: ChainFamily;
-  nativeAsset: string;
 }
 
 const EVM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
@@ -219,22 +129,26 @@ export function useCrypto(): UseCryptoState {
 
   const walletsQuery = useQuery({
     queryKey: queryKeys.cryptoWallets(workspaceId),
-    queryFn: ({ signal }) => apiQuery<CryptoWallet[]>({ url: '/crypto/wallets', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/crypto/wallets', signal, contract: 'CryptoWalletList' }),
   });
 
   const summaryQuery = useQuery({
     queryKey: queryKeys.cryptoSummary(workspaceId),
-    queryFn: ({ signal }) => apiQuery<CryptoSummary>({ url: '/crypto/summary', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/crypto/summary', signal, contract: 'CryptoSummary' }),
   });
 
   const transactionsQuery = useQuery({
     queryKey: queryKeys.cryptoTransactions(workspaceId),
-    queryFn: ({ signal }) => apiQuery<CryptoTransaction[]>({ url: '/crypto/transactions', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/crypto/transactions', signal, contract: 'CryptoTransactionList' }),
   });
 
   const historyQuery = useQuery({
     queryKey: queryKeys.cryptoHistory(workspaceId),
-    queryFn: ({ signal }) => apiQuery<CryptoHistory>({ url: '/crypto/history', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/crypto/history', signal, contract: 'CryptoHistory' }),
   });
 
   // Год приходит в ключ запроса: смена года — другой запрос, а не ручная перезагрузка.
@@ -242,17 +156,19 @@ export function useCrypto(): UseCryptoState {
   const gainsQuery = useQuery({
     queryKey: queryKeys.cryptoGains(workspaceId, gainsYear),
     queryFn: ({ signal }) =>
-      apiQuery<CryptoGains>({
+      apiQueryDecoded({
         url: '/crypto/gains',
         params: gainsYear ? { year: gainsYear } : undefined,
         signal,
+        contract: 'CryptoGains',
       }),
   });
 
   // Список сетей статичен на сервере — один запрос на сессию.
   const networksQuery = useQuery({
     queryKey: queryKeys.cryptoNetworks(workspaceId),
-    queryFn: ({ signal }) => apiQuery<CryptoNetwork[]>({ url: '/crypto/networks', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/crypto/networks', signal, contract: 'CryptoNetworkList' }),
     staleTime: Number.POSITIVE_INFINITY,
   });
 

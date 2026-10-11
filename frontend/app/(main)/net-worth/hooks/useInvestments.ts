@@ -6,8 +6,10 @@ import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+
+export type { InvestmentAccount, InvestmentHolding } from '@/app/lib/contracts';
 
 /** Coins are not here: they live on the crypto page, as wallets. */
 export type InvestmentAssetClass =
@@ -29,30 +31,6 @@ export const ASSET_CLASSES: InvestmentAssetClass[] = [
   'other',
 ];
 
-export interface InvestmentHolding {
-  id: string;
-  symbol: string | null;
-  name: string;
-  assetClass: InvestmentAssetClass;
-  quantity: number;
-  price: number;
-  priceCurrency: string;
-  priceSource: 'manual' | 'auto';
-  pricedAt: string | null;
-  value: number;
-}
-
-export interface InvestmentAccount {
-  id: string;
-  name: string;
-  kind: 'investment' | 'retirement';
-  currency: string;
-  value: number;
-  contributed: number;
-  gain: number;
-  holdings: InvestmentHolding[];
-}
-
 export interface HoldingInput {
   symbol?: string | null;
   name?: string;
@@ -69,7 +47,8 @@ export function useInvestments() {
 
   const query = useQuery({
     queryKey: queryKeys.investments(workspaceId),
-    queryFn: ({ signal }) => apiQuery<InvestmentAccount[]>({ url: '/investments', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/investments', signal, contract: 'InvestmentAccountList' }),
     enabled: Boolean(workspaceId),
   });
 

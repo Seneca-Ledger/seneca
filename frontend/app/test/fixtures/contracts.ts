@@ -1,4 +1,11 @@
-import type { BudgetItem, CategoryItem, CategoryRef, WalletItem } from '@/app/lib/contracts';
+import type {
+  BudgetItem,
+  CategoryItem,
+  CategoryRef,
+  CryptoHolding,
+  CryptoSummary,
+  WalletItem,
+} from '@/app/lib/contracts';
 
 // Wire-format fixtures: outside production every API response is checked
 // against its contract, so a mock has to look like what the backend sends.
@@ -78,6 +85,38 @@ export function budgetItem(
     availableAmount: 100,
     carriedAmount: 0,
     isActive: true,
+    ...overrides,
+  };
+}
+
+export function cryptoHolding(
+  overrides: Partial<CryptoHolding> & Pick<CryptoHolding, 'asset' | 'amount' | 'value'>,
+): CryptoHolding {
+  return {
+    price: 0,
+    avgCost: null,
+    cost: null,
+    unrealized: null,
+    unrealizedPercent: null,
+    realized: 0,
+    basisIncomplete: false,
+    ...overrides,
+  };
+}
+
+export function cryptoSummary(overrides: Partial<CryptoSummary> = {}): CryptoSummary {
+  return {
+    currency: 'USD',
+    portfolioValue: 0,
+    income: 0,
+    expense: 0,
+    walletCount: 1,
+    holdings: [],
+    unpriced: [],
+    cost: null,
+    unrealized: null,
+    realized: 0,
+    portfolioChangeSinceYesterday: null,
     ...overrides,
   };
 }

@@ -4,6 +4,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, type Repository } from 'typeorm';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type {
+  Metal,
+  MetalLot as MetalLotView,
+  MetalReceipt as MetalReceiptView,
+  MetalSale as MetalSaleView,
+  MetalsSummary as MetalsSummaryView,
+  MetalTotals as MetalTotalsView,
+} from '../../contracts';
 import { BalanceAccount, BalanceAccountKind } from '../../entities/balance-account.entity';
 import {
   InvestmentAssetClass,
@@ -37,119 +45,7 @@ const HOLDING_PERIOD_JURISDICTIONS = new Set(['DE']);
 
 export type DealerDiscounts = Record<InvestmentMetal, number>;
 
-export interface MetalLotView {
-  id: string;
-  metal: InvestmentMetal;
-  name: string;
-  /** Pieces in the lot. */
-  quantity: number;
-  unitWeight: number;
-  weightUnit: MetalWeightUnit;
-  purity: number;
-  /** Fine metal in the lot, troy ounces. */
-  fineOunces: number;
-  /** Spot price of one fine troy ounce. */
-  price: number;
-  priceCurrency: string;
-  priceSource: InvestmentPriceSource;
-  /** The day the price is quoted for, so the UI can say how old it is. */
-  pricedAt: Date | null;
-  /** Melt value in the workspace currency. */
-  value: number;
-  acquiredOn: string | null;
-  counterparty: string | null;
-  /** What was paid, as entered and in the workspace currency. */
-  costTotal: number | null;
-  costCurrency: string | null;
-  cost: number | null;
-  /** value − cost; null when the lot has no recorded cost. */
-  gain: number | null;
-  /** What one fine ounce cost, the number people compare lots by. */
-  costPerOunce: number | null;
-  /** Paid over the melt value on the day it was bought, and as a share of it. */
-  premium: number | null;
-  premiumPercent: number | null;
-  /** Melt value less what a dealer keeps: what selling would actually bring. */
-  dealerValue: number;
-  /** Dealer value against cost, in percent; null without a cost. */
-  roi: number | null;
-  /** Germany only: the day a private sale stops being taxable (§ 23 EStG). */
-  taxFreeFrom: string | null;
-  /** Where the photo of the lot is served from; null when there is none. */
-  photoUrl: string | null;
-  storageLocation: string | null;
-  /** What it is insured for, as entered and in the workspace currency. */
-  insuredValue: number | null;
-  insuredCurrency: string | null;
-  insured: number | null;
-  /** The receipt that proves the purchase, enough of it to recognise. */
-  receipt: MetalReceiptView | null;
-  /** Whose metal it is; a tax return belongs to a person, not to a workspace. */
-  ownerUserId: string | null;
-}
-
-/** A purchase receipt as the metals card needs it. */
-export interface MetalReceiptView {
-  id: string;
-  vendor: string | null;
-  date: string | null;
-  amount: number | null;
-  currency: string | null;
-}
-
-export interface MetalTotalsView {
-  metal: InvestmentMetal;
-  fineOunces: number;
-  price: number;
-  pricedAt: Date | null;
-  value: number;
-  cost: number;
-  gain: number;
-  /** Average cost of a fine ounce across the lots still held. */
-  costPerOunce: number | null;
-  dealerValue: number;
-  /** Percent below spot a dealer pays for this metal. */
-  dealerDiscount: number;
-  /** Result of the sales already made, in the workspace currency. */
-  realized: number;
-}
-
-export interface MetalSaleView {
-  id: string;
-  metal: InvestmentMetal;
-  lotName: string;
-  quantity: number;
-  fineOunces: number;
-  proceeds: number;
-  proceedsCurrency: string;
-  costBasis: number | null;
-  /** proceeds − cost basis, in the workspace currency. */
-  realized: number | null;
-  soldOn: string;
-  /** The day the sold pieces were bought; null when the lot never said. */
-  acquiredOn: string | null;
-  counterparty: string | null;
-  ownerUserId: string | null;
-}
-
-export interface MetalsSummaryView {
-  currency: string;
-  value: number;
-  cost: number;
-  gain: number;
-  dealerValue: number;
-  realized: number;
-  /** What the lots are insured for in total; zero when nobody filled it in. */
-  insured: number;
-  byMetal: MetalTotalsView[];
-  lots: MetalLotView[];
-  sales: MetalSaleView[];
-  dealerDiscount: DealerDiscounts;
-  /** The balance-sheet account the lots sit on; null until the first lot. */
-  accountId: string | null;
-  /** Country the workspace files tax in, so the UI knows whose rules apply. */
-  jurisdiction: string | null;
-}
+export type { MetalLotView, MetalReceiptView, MetalSaleView, MetalsSummaryView, MetalTotalsView };
 
 /** What a single pass over the lots needs; the rates are memoised per request. */
 interface ViewContext {
@@ -215,8 +111,8 @@ export class MetalsService {
       select: ['id'],
     });
 
-    const byMetal = new Map<InvestmentMetal, MetalTotalsView>();
-    const totalsFor = (metal: InvestmentMetal): MetalTotalsView => {
+    const byMetal = new Map<Metal, MetalTotalsView>();
+    const totalsFor = (metal: Metal): MetalTotalsView => {
       const existing = byMetal.get(metal);
       if (existing) return existing;
       const created: MetalTotalsView = {
@@ -245,6 +141,7 @@ export class MetalsService {
       totals.gain = round2(totals.value - totals.cost);
       totals.price = lot.price;
       // The oldest quote wins: a total is only as fresh as its stalest lot.
+      // ISO timestamps order the same way as the instants they name.
       if (lot.pricedAt && (!totals.pricedAt || lot.pricedAt < totals.pricedAt)) {
         totals.pricedAt = lot.pricedAt;
       }
@@ -613,7 +510,7 @@ export class MetalsService {
       price,
       priceCurrency: lot.priceCurrency,
       priceSource: lot.priceSource,
-      pricedAt: lot.pricedAt,
+      pricedAt: lot.pricedAt?.toISOString() ?? null,
       value,
       acquiredOn,
       counterparty: lot.counterparty,

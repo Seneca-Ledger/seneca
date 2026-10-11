@@ -9,8 +9,15 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import {
+  BalanceSheetResponse,
   BudgetList,
   CategoryList,
+  CryptoGains,
+  CryptoHistory,
+  CryptoNetworkList,
+  CryptoSummary,
+  CryptoTransactionList,
+  CryptoWalletList,
   CurrentUser,
   DashboardCommitmentsResponse,
   DashboardHealthHistoryResponse,
@@ -21,7 +28,11 @@ import {
   GoalList,
   GoalPlanResponse,
   InsightList,
+  InvestmentAccountList,
+  MetalReceiptList,
+  MetalsSummary,
   MonthGoalList,
+  NetWorthResponse,
   NotificationList,
   ReviewInboxCounts,
   UnreadCount,
@@ -221,5 +232,82 @@ describe('API contracts (e2e)', () => {
       matches(GoalFlowResponse, (await get(`/goals/${goalId}/flow?month=${month}`)).body);
       matches(GoalPlanResponse, (await get(`/goals/${goalId}/plan`)).body);
     });
+  });
+
+  describe('wealth', () => {
+    const post = (url: string, body: object) =>
+      request(app.getHttpServer())
+        .post(url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send(body)
+        .expect(201);
+
+    beforeAll(async () => {
+      // Prices in the workspace currency, so nothing has to be fetched or converted.
+      const { currency } = (await get('/reports/balance/sheet')).body;
+      const account = await post('/investments/accounts', { name: 'Broker', kind: 'investment' });
+      await post(`/investments/accounts/${account.body.id}/holdings`, {
+        symbol: 'VWCE',
+        name: 'All-World',
+        assetClass: 'etf',
+        quantity: 3,
+        price: 100,
+        priceCurrency: currency,
+      });
+      await post('/metals/lots', {
+        metal: 'XAU',
+        name: 'Krugerrand',
+        quantity: 1,
+        unitWeight: 1,
+        weightUnit: 'ozt',
+        purity: 0.9167,
+        acquiredOn: '2025-01-15',
+        costTotal: 2500,
+        costCurrency: currency,
+        price: 2600,
+        priceCurrency: currency,
+      });
+      await post('/crypto/holdings', { asset: 'BTC', amount: '0.5', costPerUnit: 100 });
+    }, 60_000);
+
+    it('GET /investments', async () => {
+      const res = await get('/investments');
+      matches(InvestmentAccountList, res.body);
+      expect(res.body[0].holdings[0].pricedAt).toEqual(expect.any(String));
+    });
+
+    it('GET /metals and /metals/receipt-options', async () => {
+      const res = await get('/metals');
+      matches(MetalsSummary, res.body);
+      expect(res.body.lots).toHaveLength(1);
+      expect(res.body.byMetal[0].pricedAt).toEqual(expect.any(String));
+      matches(MetalReceiptList, (await get('/metals/receipt-options')).body);
+    });
+
+    it('GET /reports/net-worth', async () => {
+      const res = await get('/reports/net-worth?range=30d');
+      matches(NetWorthResponse, res.body);
+      expect(res.body.assetLines.length).toBeGreaterThan(0);
+    });
+
+    it('GET /reports/balance/sheet', async () => {
+      const res = await get('/reports/balance/sheet');
+      matches(BalanceSheetResponse, res.body);
+      expect(res.body.assets.sections.length).toBeGreaterThan(0);
+    });
+
+    it('GET /crypto/*', async () => {
+      const wallets = await get('/crypto/wallets');
+      matches(CryptoWalletList, wallets.body);
+      expect(wallets.body[0].balances[0].asset).toBe('BTC');
+      matches(CryptoSummary, (await get('/crypto/summary')).body);
+      const month = new Date().toISOString().slice(0, 7);
+      matches(CryptoSummary, (await get(`/crypto/summary?month=${month}`)).body);
+      matches(CryptoTransactionList, (await get('/crypto/transactions')).body);
+      matches(CryptoHistory, (await get('/crypto/history')).body);
+      matches(CryptoGains, (await get('/crypto/gains?year=2026')).body);
+      matches(CryptoNetworkList, (await get('/crypto/networks')).body);
+    }, 120_000);
   });
 });

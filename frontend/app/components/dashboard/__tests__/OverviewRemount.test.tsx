@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BudgetSummaryWidget } from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
 import { CashRunwayWidget } from '@/app/(main)/dashboard/components/CashRunwayWidget';
-import { budgetItem } from '@/app/test/fixtures/contracts';
+import { budgetItem, cryptoSummary } from '@/app/test/fixtures/contracts';
 import { createTestQueryClient, renderWithQuery } from '@/app/test/query-wrapper';
 import { CryptoPortfolioCard } from '../CryptoPortfolioCard';
 
@@ -29,14 +29,7 @@ vi.mock('next/link', () => ({
 }));
 
 const RESPONSES: Record<string, unknown> = {
-  '/crypto/summary': {
-    currency: 'EUR',
-    portfolioValue: 5532,
-    income: 0,
-    expense: 0,
-    walletCount: 1,
-    holdings: [],
-  },
+  '/crypto/summary': cryptoSummary({ currency: 'EUR', portfolioValue: 5532 }),
   '/budgets': [
     budgetItem({ id: 'b-1', name: 'Travel', currency: 'EUR', spentAmount: 10, percentUsed: 10 }),
   ],

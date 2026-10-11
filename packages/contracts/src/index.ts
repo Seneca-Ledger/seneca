@@ -1,6 +1,7 @@
 export * from './auth/current-user';
 export * from './budgets/budgets';
 export * from './common/wire';
+export * from './crypto/crypto';
 export * from './dashboard/dashboard';
 export * from './feed/feed';
 export * from './goals/goal-items';
@@ -8,4 +9,8 @@ export * from './goals/goals';
 export * from './reference/reference';
 export * from './statements/statement-list';
 export * from './transactions/transaction-list';
+export * from './wealth/balance-sheet';
+export * from './wealth/investments';
+export * from './wealth/metals';
+export * from './wealth/net-worth';
 export * from './workspaces/workspaces';

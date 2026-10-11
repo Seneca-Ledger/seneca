@@ -5,6 +5,7 @@ import { In, type Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import type { BalanceAccountNode, BalanceSheetResponse } from '../../contracts';
 import {
   ActorType,
   AuditAction,
@@ -36,38 +37,6 @@ import type { UpdateBalanceSnapshotDto } from './dto/update-balance-snapshot.dto
 
 /** The one line whose risk is fixed rather than chosen. */
 export const CASH_ACCOUNT_CODE = 'ASSET_CASH';
-
-type BalanceAccountNode = {
-  id: string;
-  code: string;
-  name: string;
-  nameEn: string | null;
-  nameKk: string | null;
-  accountType: BalanceAccountType;
-  isEditable: boolean;
-  isAutoComputed: boolean;
-  isExpandable: boolean;
-  amount: number;
-  children: BalanceAccountNode[];
-  position: number;
-};
-
-type BalanceSheetResponse = {
-  date: string;
-  currency: string;
-  assets: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  liabilities: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  difference: number;
-  isBalanced: boolean;
-  /** Currencies left out of the totals because no rate to `currency` was found. */
-  missingRates: string[];
-};
 
 const LIVE_STATEMENT_STATUSES = [
   StatementStatus.PARSED,
