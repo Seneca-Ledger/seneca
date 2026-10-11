@@ -3,7 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { NotificationItem } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import {
   connectNotificationsSocket,
@@ -13,23 +14,7 @@ import {
 import { useAuthContext } from './AuthContext';
 import { useWorkspace } from './WorkspaceContext';
 
-export interface NotificationItem {
-  id: string;
-  recipientId: string;
-  workspaceId: string | null;
-  type: string;
-  category: string;
-  severity: 'info' | 'warn' | 'error';
-  title: string;
-  message: string;
-  isRead: boolean;
-  actorId: string | null;
-  actorName: string | null;
-  entityType: string | null;
-  entityId: string | null;
-  meta: Record<string, unknown> | null;
-  createdAt: string;
-}
+export type { NotificationItem } from '@/app/lib/contracts';
 
 export type NotificationContextValue = {
   notifications: NotificationItem[];
@@ -69,10 +54,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     queryKey,
     queryFn: async ({ signal }): Promise<NotificationsSnapshot> => {
       const [list, unread] = await Promise.all([
-        apiQuery<{ items?: NotificationItem[] }>({ url: '/notifications', params, signal }),
-        apiQuery<{ count?: number }>({ url: '/notifications/unread-count', params, signal }),
+        apiQueryDecoded({
+          url: '/notifications',
+          params,
+          signal,
+          contract: 'NotificationList',
+          drift: 'report',
+        }),
+        apiQueryDecoded({
+          url: '/notifications/unread-count',
+          params,
+          signal,
+          contract: 'UnreadCount',
+          drift: 'report',
+        }),
       ]);
-      return { items: list.items ?? [], unreadCount: unread.count ?? 0 };
+      return { items: list.items, unreadCount: unread.count };
     },
     // `user` реактивен, в отличие от прежнего чтения localStorage: логин в той же
     // вкладке теперь сам запускает загрузку. workspaceLoading сохраняет прежнее

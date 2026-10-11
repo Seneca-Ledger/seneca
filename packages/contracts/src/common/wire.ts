@@ -1,5 +1,4 @@
 import * as Schema from 'effect/Schema';
-import type { DeepMutable } from 'effect/Types';
 
 /**
  * How Postgres values arrive in JSON. TypeORM hands `decimal`/`numeric` columns
@@ -19,4 +18,13 @@ export const Timestamp = Schema.String;
  * The TypeScript type of a contract. Mutable on purpose: it is plain JSON, which
  * the backend builds up and the frontend passes to ordinary array helpers.
  */
-export type Wire<S extends Schema.Top> = DeepMutable<S['Type']>;
+export type Wire<S extends Schema.Top> = Mutable<S['Type']>;
+
+/** Readonly-free copy of a decoded type. Unlike effect's DeepMutable it leaves `unknown` alone. */
+type Mutable<T> = unknown extends T
+  ? T
+  : T extends ReadonlyArray<infer Item>
+    ? Array<Mutable<Item>>
+    : T extends object
+      ? { -readonly [K in keyof T]: Mutable<T[K]> }
+      : T;

@@ -40,10 +40,35 @@ export async function checkContract<K extends ContractName>(
   return payload as ContractType<K>;
 }
 
-/** `apiQuery` whose result is typed, and outside production checked, by a contract. */
-export async function apiQueryDecoded<K extends ContractName>(
-  options: ApiQueryOptions & { contract: K },
+/**
+ * checkContract for requests whose failure handling would mislead on drift —
+ * the session load signs the user out, the workspace load blanks the app.
+ * Outside production a mismatch is logged instead of thrown.
+ */
+export async function reportContractDrift<K extends ContractName>(
+  name: K,
+  payload: unknown,
+  url: string,
 ): Promise<ContractType<K>> {
-  const { contract, ...query } = options;
-  return checkContract(contract, await apiQuery<unknown>(query), query.url);
+  try {
+    return await checkContract(name, payload, url);
+  } catch (error) {
+    console.error(error);
+    return payload as ContractType<K>;
+  }
+}
+
+/**
+ * `apiQuery` whose result is typed, and outside production checked, by a
+ * contract. `drift: 'report'` logs a mismatch instead of throwing — for
+ * background feeds, where a thrown error would only leave an empty list.
+ */
+export async function apiQueryDecoded<K extends ContractName>(
+  options: ApiQueryOptions & { contract: K; drift?: 'throw' | 'report' },
+): Promise<ContractType<K>> {
+  const { contract, drift = 'throw', ...query } = options;
+  const payload = await apiQuery<unknown>(query);
+  return drift === 'report'
+    ? reportContractDrift(contract, payload, query.url)
+    : checkContract(contract, payload, query.url);
 }

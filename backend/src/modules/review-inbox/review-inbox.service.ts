@@ -7,6 +7,7 @@ import {
   parseReviewerFilter,
 } from '../../common/utils/transaction-owner.util';
 import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
+import type { ReviewInboxCounts } from '../../contracts';
 import { Receipt, ReceiptSource, ReceiptStatus } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Subscription, SubscriptionStatus } from '../../entities/subscription.entity';
@@ -23,13 +24,7 @@ import {
 /** No reviewer asked for: the whole workspace's backlog. */
 const ALL_OWNERS: OwnerFilter = { kind: 'all' };
 
-export interface ReviewInboxCounts {
-  transaction: number;
-  receipt: number;
-  duplicate: number;
-  subscription: number;
-  total: number;
-}
+export type { ReviewInboxCounts };
 
 export type ReviewInboxItem =
   | {

@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { hasSessionCookie } from '@/app/lib/csrf';
+import { reportContractDrift } from '@/app/lib/query-fn-schema';
 import { api } from '../lib/api';
 
 type WorkspaceSettings = Record<string, unknown>;
@@ -21,7 +22,7 @@ interface WorkspaceStats {
   integrationCount: number;
   recentActivity: boolean;
   memberCount: number;
-  lastAccessedAt: Date | null;
+  lastAccessedAt: string | null;
 }
 
 interface Workspace {
@@ -31,14 +32,14 @@ interface Workspace {
   icon: string | null;
   color: string | null;
   backgroundImage: string | null;
-  currency: string | null;
+  currency: string;
   isFavorite: boolean;
   settings: WorkspaceSettings | null;
   ownerId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   memberRole?: string;
-  memberPermissions?: WorkspacePermissions;
+  memberPermissions?: WorkspacePermissions | null;
   stats?: WorkspaceStats;
 }
 
@@ -86,7 +87,12 @@ async function fetchAndSetWorkspaces({
     setLoading(true);
     setError(null);
     const response = await api.get('/workspaces');
-    const data: Workspace[] = response.data;
+    // Drift is reported, not thrown: the catch below would leave the app without a workspace.
+    const data: Workspace[] = await reportContractDrift(
+      'WorkspaceList',
+      response.data,
+      '/workspaces',
+    );
     setWorkspaces(data);
     const storedId = localStorage.getItem('currentWorkspaceId');
     const found = storedId ? data.find(w => w.id === storedId) : null;

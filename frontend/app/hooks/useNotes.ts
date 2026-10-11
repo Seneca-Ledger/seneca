@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/app/lib/api';
 import { apiQuery, unwrapEnvelope } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useWorkspaceId } from './useWorkspaceId';
 
@@ -121,10 +122,7 @@ export function useWorkspaceMembers(): WorkspaceMemberOption[] {
   const query = useQuery({
     queryKey: queryKeys.workspaceMembers(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<{ members?: Array<{ id: string; name?: string; email?: string }> }>({
-        url: `/workspaces/${workspaceId}`,
-        signal,
-      }),
+      apiQueryDecoded({ url: `/workspaces/${workspaceId}`, signal, contract: 'WorkspaceDetail' }),
     enabled: Boolean(workspaceId),
     staleTime: 5 * 60 * 1000,
   });

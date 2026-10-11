@@ -9,11 +9,19 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import {
+  CurrentUser,
   DashboardCommitmentsResponse,
   DashboardHealthHistoryResponse,
   DashboardMonthlyCashFlowResponse,
   DashboardResponse,
   DashboardTrendsResponse,
+  InsightList,
+  NotificationList,
+  ReviewInboxCounts,
+  UnreadCount,
+  WorkspaceDetail,
+  WorkspaceList,
+  WorkspaceOverview,
 } from '../../src/contracts';
 import {
   deleteUserByEmail,
@@ -98,6 +106,48 @@ describe('API contracts (e2e)', () => {
 
     it('GET /dashboard/commitments', async () => {
       matches(DashboardCommitmentsResponse, (await get('/dashboard/commitments?days=60')).body);
+    });
+  });
+
+  describe('app shell', () => {
+    it('GET /auth/me, without credentials or bookkeeping columns', async () => {
+      const res = await get('/auth/me');
+      matches(CurrentUser, res.body);
+      for (const field of ['passwordHash', 'tokenVersion', 'googleId', 'twoFactorSecret', 'isActive']) {
+        expect(res.body).not.toHaveProperty(field);
+      }
+    });
+
+    it('GET /workspaces', async () => {
+      const res = await get('/workspaces');
+      matches(WorkspaceList, res.body);
+      expect(res.body.length).toBeGreaterThan(0);
+    });
+
+    it('GET /workspaces/me', async () => {
+      const res = await get('/workspaces/me');
+      matches(WorkspaceOverview, res.body);
+      expect(res.body.members.length).toBeGreaterThan(0);
+    });
+
+    it('GET /workspaces/:id', async () => {
+      const res = await get(`/workspaces/${owner.workspaceId}`);
+      matches(WorkspaceDetail, res.body);
+      expect(res.body.members[0]).toHaveProperty('memberId');
+    });
+
+    it('GET /notifications and /notifications/unread-count', async () => {
+      matches(NotificationList, (await get('/notifications')).body);
+      matches(UnreadCount, (await get('/notifications/unread-count')).body);
+    });
+
+    it('GET /insights', async () => {
+      matches(InsightList, (await get('/insights?limit=50&locale=en')).body);
+    });
+
+    it('GET /review-inbox/counts', async () => {
+      const res = await get('/review-inbox/counts');
+      matches(ReviewInboxCounts, res.body);
     });
   });
 });

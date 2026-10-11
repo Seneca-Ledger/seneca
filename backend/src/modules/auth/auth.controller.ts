@@ -16,6 +16,7 @@ import type { Request, Response } from 'express';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
+import type { CurrentUser as CurrentUserView } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { AuthService, type SessionContext } from './auth.service';
 import {
@@ -24,6 +25,7 @@ import {
   setAuthCookies,
   setCsrfCookie,
 } from './auth-cookies';
+import { toCurrentUser } from './current-user.view';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import type { AuthResponseDto, TwoFactorChallengeDto } from './dto/auth-response.dto';
@@ -258,7 +260,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getProfile(@CurrentUser() user: User): Promise<User> {
-    return user;
+  async getProfile(@CurrentUser() user: User): Promise<CurrentUserView> {
+    return toCurrentUser(user);
   }
 }
