@@ -9,9 +9,13 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import {
+  AgeingReport,
   BalanceSheetResponse,
   BudgetList,
   CategoryList,
+  Client,
+  ClientList,
+  CreditNoteList,
   CryptoGains,
   CryptoHistory,
   CryptoNetworkList,
@@ -29,7 +33,12 @@ import {
   GoalList,
   GoalPlanResponse,
   InsightList,
+  Invoice,
+  InvoiceDeliveryList,
+  InvoiceListPage,
+  InvoiceSettings,
   InvestmentAccountList,
+  LateFeeQuote,
   MetalReceiptList,
   MetalsSummary,
   MonthGoalList,
@@ -407,6 +416,71 @@ describe('API contracts (e2e)', () => {
       matches(ForecastResponse, res.body);
       expect(res.body.events.length).toBeGreaterThan(0);
       matches(ForecastResponse, (await get('/forecast?days=30&expenseFactor=1.2')).body);
+    });
+  });
+
+  describe('invoices', () => {
+    let clientId: string;
+    let invoiceId: string;
+
+    beforeAll(async () => {
+      const send = (method: 'post' | 'put', url: string, body?: object) =>
+        request(app.getHttpServer())
+          [method](url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send(body);
+      // Sending needs the seller's details on the document.
+      await send('put', '/business-profile', {
+        legalName: 'Contract Studio',
+        addressLines: '1 Main St',
+      }).expect(200);
+      const client = await send('post', '/clients', {
+        name: 'Acme GmbH',
+        email: 'billing@acme.example',
+        currency: 'USD',
+      }).expect(201);
+      clientId = client.body.id;
+      const invoice = await send('post', '/invoices', {
+        clientId,
+        issueDate: '2026-01-05',
+        dueDate: '2026-02-04',
+        currency: 'USD',
+        lineItems: [{ description: 'Design work', quantity: 2, unitPrice: 150.5 }],
+      }).expect(201);
+      invoiceId = invoice.body.id;
+      await send('put', `/invoices/${invoiceId}/send`).expect(200);
+      await send('post', '/credit-notes', {
+        reason: 'Discount',
+        applications: [{ invoiceId, amount: 20 }],
+      }).expect(201);
+      // No SMTP in the test env: the attempt is still recorded, as skipped or failed.
+      await send('post', `/invoices/${invoiceId}/deliveries`, {});
+    }, 60_000);
+
+    it('GET /clients and /clients/:id', async () => {
+      matches(ClientList, (await get('/clients')).body);
+      matches(Client, (await get(`/clients/${clientId}`)).body);
+    });
+
+    it('GET /invoices and /invoices/:id, money as decimal strings', async () => {
+      const list = await get('/invoices');
+      matches(InvoiceListPage, list.body);
+      const one = await get(`/invoices/${invoiceId}`);
+      matches(Invoice, one.body);
+      expect(one.body.total).toBe('301.00');
+      expect(one.body.lineItems[0].unitPrice).toBe('150.50');
+      expect(one.body.amountCredited).toBe(20);
+    });
+
+    it('GET the ageing, settings, late fee, deliveries and credit notes', async () => {
+      matches(AgeingReport, (await get('/invoices/ageing')).body);
+      matches(InvoiceSettings, (await get('/invoices/settings')).body);
+      matches(LateFeeQuote, (await get(`/invoices/clients/${clientId}/late-fee`)).body);
+      matches(InvoiceDeliveryList, (await get(`/invoices/${invoiceId}/deliveries`)).body);
+      const notes = await get(`/invoices/${invoiceId}/credit-notes`);
+      matches(CreditNoteList, notes.body);
+      expect(notes.body).toHaveLength(1);
     });
   });
 });

@@ -7,6 +7,7 @@ export * from './feed/feed';
 export * from './forecast/forecast';
 export * from './goals/goal-items';
 export * from './goals/goals';
+export * from './invoices/invoices';
 export * from './payees/payees';
 export * from './reference/reference';
 export * from './review/review-inbox';

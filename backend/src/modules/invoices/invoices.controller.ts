@@ -16,6 +16,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
+import type { InvoiceSettings, LateFeeQuote } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
@@ -56,7 +57,7 @@ export class InvoicesController {
 
   @Get('settings')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
-  async getSettings(@WorkspaceId() workspaceId: string) {
+  async getSettings(@WorkspaceId() workspaceId: string): Promise<InvoiceSettings> {
     const [numbering, settings] = await Promise.all([
       this.invoicesService.getNumberingSettings(workspaceId),
       this.invoiceSettingsService.get(workspaceId),
@@ -87,7 +88,7 @@ export class InvoicesController {
   async lateFee(
     @Param('clientId', new ParseUUIDPipe()) clientId: string,
     @WorkspaceId() workspaceId: string,
-  ) {
+  ): Promise<LateFeeQuote> {
     const [{ lateFeePercent }, overdue] = await Promise.all([
       this.invoiceSettingsService.get(workspaceId),
       this.invoiceAgeingService.overdueByCurrency(workspaceId, clientId),
