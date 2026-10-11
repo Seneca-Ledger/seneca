@@ -108,3 +108,31 @@ export const ExchangeRateQuote = Schema.Struct({
   missing: Schema.Boolean,
 });
 export type ExchangeRateQuote = Wire<typeof ExchangeRateQuote>;
+
+/** `GET /integrations/simplefin/status`: the bank feed and its accounts. Never the access URL. */
+export const BankSyncStatus = Schema.Struct({
+  connected: Schema.Boolean,
+  status: Schema.Literals(['connected', 'disconnected', 'needs_reauth']),
+  settings: Schema.NullOr(
+    Schema.Struct({
+      provider: Schema.String,
+      autoSync: Schema.Boolean,
+      accounts: Schema.Array(
+        Schema.Struct({
+          id: Schema.String,
+          name: Schema.String,
+          org: Schema.String,
+          currency: Schema.String,
+          enabled: Schema.Boolean,
+          walletId: Schema.NullOr(Schema.String),
+          lastSyncAt: Schema.NullOr(Schema.String),
+          balance: Schema.NullOr(Schema.Number),
+          balanceDate: Schema.NullOr(Schema.String),
+        }),
+      ),
+      lastSyncAt: Schema.NullOr(Schema.String),
+      lastError: Schema.NullOr(Schema.String),
+    }),
+  ),
+});
+export type BankSyncStatus = Wire<typeof BankSyncStatus>;

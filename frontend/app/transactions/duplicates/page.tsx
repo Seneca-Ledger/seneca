@@ -11,31 +11,11 @@ import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import type { DuplicateGroups } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import DuplicateGroupCard from './components/DuplicateGroupCard';
 
-interface DuplicateTransaction {
-  id: string;
-  date: string;
-  amount: number;
-  counterparty: string;
-  purpose: string;
-  statementId: string;
-  similarity?: number;
-  matchType?: string;
-  matchedFields?: string[];
-}
-
-interface DuplicateGroup {
-  master: DuplicateTransaction;
-  duplicates: DuplicateTransaction[];
-  confidence: number;
-}
-
-interface DuplicatesResponse {
-  totalGroups: number;
-  groups: DuplicateGroup[];
-}
+type DuplicateGroup = DuplicateGroups['groups'][number];
 
 function DuplicateGroupCardSkeleton() {
   return (
@@ -111,12 +91,12 @@ export default function TransactionDuplicatesPage() {
     await (async () => {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get<DuplicatesResponse>('/transactions/duplicates/detect', {
-        params: {
-          threshold: 0.85,
-        },
+      const response = await apiQueryDecoded({
+        url: '/transactions/duplicates/detect',
+        params: { threshold: 0.85 },
+        contract: 'DuplicateGroups',
       });
-      setDuplicateGroups(response.data.groups);
+      setDuplicateGroups(response.groups);
     })()
       .catch(async (error: unknown) => {
         setError(getApiErrorMessage(error, t.loadFailed.value));

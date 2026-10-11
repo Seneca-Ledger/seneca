@@ -5,8 +5,7 @@ import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export const STOIC_CLASSES = ['necessity', 'work', 'virtue', 'leisure'] as const;
@@ -76,7 +75,8 @@ export function useStoicBalance(): {
 
   const query = useQuery({
     queryKey: queryKeys.stoicBalance(workspaceId),
-    queryFn: ({ signal }) => apiQuery<StoicBalance>({ url: '/budgets/stoic-balance', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/budgets/stoic-balance', signal, contract: 'StoicBalance' }),
   });
 
   const classify = useMutation({

@@ -71,10 +71,9 @@ export function BankSyncPanel({
 
   useEffect(() => {
     let mounted = true;
-    apiClient
-      .get<BankSyncStatus>(`${BASE}/status`)
-      .then(response => {
-        if (mounted) applyStatus(response.data);
+    apiQueryDecoded({ url: `${BASE}/status`, contract: 'BankSyncStatus' })
+      .then(status => {
+        if (mounted) applyStatus(status);
       })
       .catch(() => {
         if (mounted) setMessage({ tone: 'error', text: t.loadFailed.value });
@@ -146,8 +145,7 @@ export function BankSyncPanel({
       'sync',
       async () => {
         const response = await apiClient.post<BankSyncResult>(`${BASE}/sync`);
-        const refreshed = await apiClient.get<BankSyncStatus>(`${BASE}/status`);
-        applyStatus(refreshed.data);
+        applyStatus(await apiQueryDecoded({ url: `${BASE}/status`, contract: 'BankSyncStatus' }));
         const failed = response.data.accounts.find(account => account.error);
         if (failed) return { tone: 'error', text: `${t.syncFailed.value}: ${failed.error}` };
         if (response.data.imported === 0) return { tone: 'ok', text: t.nothingNew.value };

@@ -67,6 +67,7 @@ export * from './requests/wallets';
 export * from './requests/webhooks';
 export * from './requests/workspaces';
 export * from './review/review-inbox';
+export * from './search/search';
 export * from './settings/backups';
 export * from './settings/business-profile';
 export * from './settings/settings';

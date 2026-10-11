@@ -10,6 +10,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { BackupRun, BackupRunStatus, BackupRunTrigger } from '../../src/entities/backup-run.entity';
 import { Receipt, ReceiptSource, ReceiptStatus } from '../../src/entities/receipt.entity';
+import { Transaction, TransactionType } from '../../src/entities/transaction.entity';
 import {
   Subscription,
   SubscriptionFrequency,
@@ -26,8 +27,11 @@ import {
   BackupConfiguration,
   BackupRunList,
   BalanceSheetResponse,
+  BankSyncStatus,
+  BudgetImpact,
   BudgetList,
   BusinessProfileResponse,
+  CashFlowMap,
   CategoryList,
   CategoryUsageCount,
   ChatCompletionStatus,
@@ -54,6 +58,7 @@ import {
   DashboardResponse,
   DashboardTrendsResponse,
   DisclaimerStatus,
+  DuplicateGroups,
   ExchangeRateCoverage,
   ExchangeRateQuote,
   ForecastResponse,
@@ -94,6 +99,7 @@ import {
   PayeePendingReview,
   PayeesPage,
   PaymentCandidateList,
+  PublicInvoiceView,
   PushPublicKey,
   ReceiptListPage,
   ReceiptRecord,
@@ -105,10 +111,13 @@ import {
   ReviewInboxByStatement,
   ReviewInboxCounts,
   ReviewInboxPage,
+  SearchResponse,
   SharedFileAccess,
   SharedTableRows,
   SharedTableView,
+  SpendFlow,
   StatementDetail,
+  StoicBalance,
   StorageFileDetails,
   StorageFileList,
   StorageFolderList,
@@ -128,6 +137,7 @@ import {
   TelegramBotStatus,
   TelegramReportPage,
   TransactionAttachmentList,
+  TransactionCandidates,
   TransactionList,
   TrialBalance,
   TwoFactorStatus,
@@ -976,9 +986,14 @@ describe('API contracts (e2e)', () => {
         .set('x-workspace-id', owner.workspaceId)
         .send({ baseCurrency: 'USD' })
         .expect(200);
-      // The worker books the history in the background.
+      // The worker books the history in the background. Integrity can read "up
+      // to date" before the first job runs, so wait for the entries themselves.
       for (let attempt = 0; attempt < 60; attempt++) {
-        if ((await get('/ledger/integrity')).body.upToDate) {
+        const [integrity, entries] = await Promise.all([
+          get('/ledger/integrity'),
+          get('/ledger/entries'),
+        ]);
+        if (integrity.body.upToDate && entries.body.data.length > 0) {
           break;
         }
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -1113,6 +1128,80 @@ describe('API contracts (e2e)', () => {
       const detail = await get(`/subscriptions/${detected.id}`);
       matches(SubscriptionDetail, detail.body);
       expect(detail.body.charges).toHaveLength(1);
+    });
+  });
+
+  describe('reports, search and the remaining views', () => {
+    it('GET the budget impact of an expense and the Stoic balance', async () => {
+      const categories = await get('/categories?type=expense');
+      matches(
+        BudgetImpact,
+        (await get(`/budgets/impact?categoryId=${categories.body[0].id}&amount=500`)).body,
+      );
+      matches(StoicBalance, (await get('/budgets/stoic-balance')).body);
+    });
+
+    it('GET a sent invoice through its public link', async () => {
+      const [row] = await dataSource.query(
+        'SELECT share_token FROM invoices WHERE workspace_id = $1 AND share_token IS NOT NULL LIMIT 1',
+        [owner.workspaceId],
+      );
+      const view = await request(app.getHttpServer())
+        .get(`/public/invoices/${row.share_token}`)
+        .expect(200);
+      matches(PublicInvoiceView, view.body);
+      expect(view.body.lines.length).toBeGreaterThan(0);
+    });
+
+    it('GET the cash-flow map and the spend flow', async () => {
+      // Reports count reviewed rows only; the manual expense is still waiting.
+      await dataSource.query(
+        'UPDATE transactions SET is_verified = true WHERE workspace_id = $1',
+        [owner.workspaceId],
+      );
+      matches(CashFlowMap, (await get('/reports/cash-flow-map')).body);
+      const flow = await get('/reports/spend-flow?type=expense');
+      matches(SpendFlow, flow.body);
+      expect(flow.body.nodes.length).toBeGreaterThan(0);
+    });
+
+    it('GET /search and /search/recent', async () => {
+      const found = await get('/search?q=Contract');
+      matches(SearchResponse, found.body);
+      expect(found.body.results.length).toBeGreaterThan(0);
+      matches(SearchResponse, (await get('/search/recent')).body);
+    });
+
+    it('GET transfer and reimbursement candidates and the duplicate groups', async () => {
+      const transactionId = (await get('/transactions')).body.data[0].id;
+      matches(
+        TransactionCandidates,
+        (await get(`/transactions/${transactionId}/transfer-candidates`)).body,
+      );
+      // Only an incoming row can be a reimbursement: book one next to the expense.
+      const repository = dataSource.getRepository(Transaction);
+      const { id: _id, createdAt: _c, updatedAt: _u, fingerprint: _f, ...expense } =
+        await repository.findOneByOrFail({ id: transactionId });
+      const income = await repository.save({
+        ...expense,
+        transactionType: TransactionType.INCOME,
+        debit: null,
+        credit: 42.5,
+        counterpartyName: 'Contract refund',
+      });
+      matches(
+        TransactionCandidates,
+        (await get(`/transactions/${income.id}/reimbursement-candidates`)).body,
+      );
+      // The same expense booked twice (manual entry refuses it, an import would not).
+      await repository.save({ ...expense, counterpartyName: expense.counterpartyName });
+      const duplicates = await get('/transactions/duplicates/detect');
+      matches(DuplicateGroups, duplicates.body);
+      expect(duplicates.body.groups.length).toBeGreaterThan(0);
+    });
+
+    it('GET the bank feed status', async () => {
+      matches(BankSyncStatus, (await get('/integrations/simplefin/status')).body);
     });
   });
 });

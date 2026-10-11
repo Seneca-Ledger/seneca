@@ -13,8 +13,14 @@ export type TransactionApiRecord = Partial<Transaction> & {
 const decimal = (value: string | null): number | undefined =>
   value === null ? undefined : Number(value);
 
-/** A statement row off the wire (money as decimal strings, nulls) in the shape the mapper takes. */
-export function fromStatementTransaction(tx: StatementTransaction): TransactionApiRecord {
+type Relations = 'category' | 'branch' | 'wallet';
+
+/** A transaction row off the wire; candidate lists come without the relations. */
+type WireTransactionRow = Omit<StatementTransaction, Relations | 'amount'> &
+  Partial<Pick<StatementTransaction, Relations | 'amount'>>;
+
+/** A row off the wire (money as decimal strings, nulls) in the shape the mapper takes. */
+export function fromStatementTransaction(tx: WireTransactionRow): TransactionApiRecord {
   return {
     ...tx,
     documentNumber: tx.documentNumber ?? undefined,
