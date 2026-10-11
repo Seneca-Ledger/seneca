@@ -11,9 +11,17 @@ import { AppModule } from '../../src/app.module';
 import { BackupRun, BackupRunStatus, BackupRunTrigger } from '../../src/entities/backup-run.entity';
 import { Receipt, ReceiptSource, ReceiptStatus } from '../../src/entities/receipt.entity';
 import {
+  Subscription,
+  SubscriptionFrequency,
+  SubscriptionStatus,
+} from '../../src/entities/subscription.entity';
+import {
   AccountLedger,
   AdminUserList,
   AgeingReport,
+  AiChatList,
+  AiChatTranscript,
+  AllocationSuggestion,
   AvailableCustomTables,
   BackupConfiguration,
   BackupRunList,
@@ -21,6 +29,8 @@ import {
   BudgetList,
   BusinessProfileResponse,
   CategoryList,
+  CategoryUsageCount,
+  ChatCompletionStatus,
   Client,
   ClientList,
   CreditNoteList,
@@ -37,6 +47,7 @@ import {
   CustomTableList,
   CustomTableRowPage,
   CustomTableSummaries,
+  DailyQuote,
   DashboardCommitmentsResponse,
   DashboardHealthHistoryResponse,
   DashboardMonthlyCashFlowResponse,
@@ -44,6 +55,7 @@ import {
   DashboardTrendsResponse,
   DisclaimerStatus,
   ExchangeRateCoverage,
+  ExchangeRateQuote,
   ForecastResponse,
   GoalFlowResponse,
   GoalList,
@@ -67,10 +79,12 @@ import {
   LedgerIntegrity,
   LedgerSettings,
   LocalCategorizationStatus,
+  MapStyles,
   MetalReceiptList,
   MetalsSummary,
   MonthGoalList,
   NetWorthResponse,
+  NoteList,
   NotificationList,
   NotificationPreferences,
   Payable,
@@ -86,6 +100,8 @@ import {
   ReceiptSplitSuggestion,
   ReceiptTransactionMatches,
   ReconciliationResponse,
+  ReportHistoryList,
+  ReportScheduleList,
   ReviewInboxByStatement,
   ReviewInboxCounts,
   ReviewInboxPage,
@@ -99,6 +115,7 @@ import {
   StorageTagList,
   StorageViewList,
   SubscriptionChargeCalendar,
+  SubscriptionDetail,
   SubscriptionDuplicateGroups,
   SubscriptionList,
   SubscriptionSummary,
@@ -118,6 +135,9 @@ import {
   UserPermissions,
   UserSessionList,
   WalletList,
+  WebhookEndpointList,
+  WebhookSubscriptionList,
+  WorkspaceActivity,
   WorkspaceDetail,
   WorkspaceList,
   WorkspaceOverview,
@@ -989,6 +1009,110 @@ describe('API contracts (e2e)', () => {
 
     it('GET /reconciliation', async () => {
       matches(ReconciliationResponse, (await get('/reconciliation')).body);
+    });
+  });
+
+  describe('the rest of the reads', () => {
+    let transactionId: string;
+    const send = (method: 'post' | 'put', url: string, body: object) =>
+      request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send(body);
+
+    beforeAll(async () => {
+      transactionId = (await get('/transactions')).body.data[0].id;
+      const chat = await send('post', '/ai-analysis/chats', {
+        modelId: 'local-model',
+        firstQuestion: 'Where does my money go?',
+      }).expect(201);
+      await send('post', `/ai-analysis/chats/${chat.body.id}/messages`, {
+        role: 'assistant',
+        content: 'Mostly coffee.',
+        actionPayload: { kind: 'none' },
+      }).expect(201);
+      await send('post', '/notes', {
+        entityType: 'transaction',
+        entityId: transactionId,
+        body: 'Ask about this one',
+      }).expect(201);
+      await send('post', '/reports/generate', {
+        templateId: 'pnl',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-12-31',
+        format: 'csv',
+      }).expect(201);
+      await send('post', '/reports/schedules', {
+        templateId: 'pnl',
+        format: 'pdf',
+        cadence: 'monthly',
+        recipients: ['accountant@example.com'],
+      }).expect(201);
+      await send('post', '/webhook-endpoints', { name: 'Contract inbound' }).expect(201);
+      await send('post', '/webhook-subscriptions', {
+        name: 'Contract outbound',
+        url: 'https://example.com/hooks/lumio',
+        secret: 'contract-signing-secret',
+        events: ['transaction.created'],
+      }).expect(201);
+    });
+
+    it('GET the AI chats, one transcript and the completion status', async () => {
+      const chats = await get('/ai-analysis/chats');
+      matches(AiChatList, chats.body);
+      const transcript = await get(`/ai-analysis/chats/${chats.body[0].id}`);
+      matches(AiChatTranscript, transcript.body);
+      expect(transcript.body.messages.length).toBeGreaterThan(0);
+      matches(ChatCompletionStatus, (await get('/ai-analysis/completions/status')).body);
+    });
+
+    it('GET activity, a usage count, a rate, the daily quote and the map styles', async () => {
+      matches(WorkspaceActivity, (await get('/audit-events/activity?limit=8')).body);
+      const categories = await get('/categories?type=expense');
+      matches(CategoryUsageCount, (await get(`/categories/${categories.body[0].id}/usage-count`)).body);
+      matches(ExchangeRateQuote, (await get('/exchange-rates?from=USD&to=USD')).body);
+      matches(DailyQuote, (await get('/insights/daily-quote')).body);
+      matches(MapStyles, (await get('/maps/styles')).body);
+    });
+
+    it('GET notes and an allocation suggestion', async () => {
+      const notes = await get(`/notes?entityType=transaction&entityId=${transactionId}`);
+      matches(NoteList, notes.body);
+      expect(notes.body.items).toHaveLength(1);
+      matches(
+        AllocationSuggestion,
+        (await get(`/payables/allocation-suggestion/${transactionId}`)).body,
+      );
+    });
+
+    it('GET the report history and schedules, webhooks and a subscription', async () => {
+      const history = await get('/reports/history');
+      matches(ReportHistoryList, history.body);
+      expect(history.body.length).toBeGreaterThan(0);
+      matches(ReportScheduleList, (await get('/reports/schedules')).body);
+      matches(WebhookEndpointList, (await get('/webhook-endpoints')).body);
+      matches(WebhookSubscriptionList, (await get('/webhook-subscriptions')).body);
+      const subscriptions = await get('/subscriptions');
+      matches(SubscriptionDetail, (await get(`/subscriptions/${subscriptions.body[0].id}`)).body);
+    });
+
+    it('confirms a detected subscription and returns its charges', async () => {
+      // Confirming records the charges detection found; it used to fail on the
+      // charge table's match_status column.
+      const detected = await dataSource.getRepository(Subscription).save({
+        workspaceId: owner.workspaceId,
+        vendorName: 'Contract Coffee',
+        amount: 42.5,
+        currency: 'USD',
+        frequency: SubscriptionFrequency.MONTHLY,
+        status: SubscriptionStatus.DETECTED,
+        detectionMeta: { transactionIds: [transactionId] },
+      });
+      await send('post', `/subscriptions/${detected.id}/confirm`, {}).expect(201);
+      const detail = await get(`/subscriptions/${detected.id}`);
+      matches(SubscriptionDetail, detail.body);
+      expect(detail.body.charges).toHaveLength(1);
     });
   });
 });

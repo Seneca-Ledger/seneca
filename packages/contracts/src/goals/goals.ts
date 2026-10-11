@@ -175,3 +175,21 @@ export const GoalPlanResponse = Schema.Struct({
   status: GoalPlanStatus,
 });
 export type GoalPlanResponse = Wire<typeof GoalPlanResponse>;
+
+/** `GET /goals/covers/search`: openly licensed photos for a goal's cover. */
+export const GoalCoverSearchPage = Schema.Struct({
+  results: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      title: Schema.String,
+      creator: Schema.NullOr(Schema.String),
+      license: Schema.String,
+      licenseUrl: Schema.NullOr(Schema.String),
+      attribution: Schema.String,
+      sourceUrl: Schema.NullOr(Schema.String),
+    }),
+  ),
+  page: Schema.Number,
+  hasMore: Schema.Boolean,
+});
+export type GoalCoverSearchPage = Wire<typeof GoalCoverSearchPage>;

@@ -1,0 +1,37 @@
+import * as Schema from 'effect/Schema';
+import { Timestamp, type Wire } from '../common/wire';
+
+const ChatSummary = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  modelId: Schema.String,
+  updatedAt: Timestamp,
+});
+
+/** `GET /ai-analysis/chats`: the caller's saved chats, newest first. */
+export const AiChatList = Schema.Array(ChatSummary);
+export type AiChatList = Wire<typeof AiChatList>;
+
+/** `GET /ai-analysis/chats/:id`. */
+export const AiChatTranscript = Schema.Struct({
+  ...ChatSummary.fields,
+  messages: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      role: Schema.Literals(['user', 'assistant', 'tool']),
+      content: Schema.String,
+      /** A tool call's arguments or an action the assistant proposed. */
+      actionPayload: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
+      createdAt: Timestamp,
+    }),
+  ),
+});
+export type AiChatTranscript = Wire<typeof AiChatTranscript>;
+
+/** `GET /ai-analysis/completions/status`: whether a cloud model is set up, and whose key. */
+export const ChatCompletionStatus = Schema.Struct({
+  configured: Schema.Boolean,
+  model: Schema.NullOr(Schema.String),
+  source: Schema.Literals(['personal', 'workspace', 'env', 'disabled']),
+});
+export type ChatCompletionStatus = Wire<typeof ChatCompletionStatus>;

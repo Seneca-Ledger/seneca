@@ -383,13 +383,13 @@ export default function WorkspaceCategoriesView() {
     const nextEnabled = category.isEnabled === false;
 
     if (!nextEnabled) {
-      const usage = await apiClient
-        .get(`/categories/${category.id}/usage-count`)
-        .then(response => response.data as CategoryUsageCount)
-        .catch((err: unknown) => {
-          console.error('Failed to get category usage count:', err);
-          return null;
-        });
+      const usage = await apiQueryDecoded({
+        url: `/categories/${category.id}/usage-count`,
+        contract: 'CategoryUsageCount',
+      }).catch((err: unknown) => {
+        console.error('Failed to get category usage count:', err);
+        return null;
+      });
       if (usage && usage.total > 0) {
         setDisableConfirm({ category, usage });
         return;

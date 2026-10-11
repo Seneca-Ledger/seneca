@@ -1,0 +1,24 @@
+import * as Schema from 'effect/Schema';
+import { Timestamp, type Wire } from '../common/wire';
+
+/** `GET /audit-events/activity`: recent changes in the workspace, for the dashboard. */
+export const WorkspaceActivity = Schema.Struct({
+  items: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      actorName: Schema.String,
+      actorType: Schema.String,
+      action: Schema.String,
+      entityType: Schema.String,
+      entityId: Schema.String,
+      description: Schema.NullOr(Schema.String),
+      /** Translated on the client; `description` is the fallback. */
+      descriptionKey: Schema.NullOr(Schema.String),
+      descriptionParams: Schema.NullOr(
+        Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Number])),
+      ),
+      createdAt: Timestamp,
+    }),
+  ),
+});
+export type WorkspaceActivity = Wire<typeof WorkspaceActivity>;

@@ -1,6 +1,6 @@
 import type { PromptMessage } from '@/app/(main)/ai-analysis/chat/build-prompt';
 import apiClient from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import type { AgentEngine } from './useAgentChat';
 
 /** Which settings answered for this chat: the member's own key, or the workspace's. */
@@ -20,8 +20,10 @@ export interface CloudUsage {
 
 /** Whether chat mode has a BYO-key cloud model for this member. */
 export async function fetchCloudProviderStatus(): Promise<CloudProviderStatus> {
-  const response = await apiClient.get<CloudProviderStatus>('/ai-analysis/completions/status');
-  return response.data;
+  return apiQueryDecoded({
+    url: '/ai-analysis/completions/status',
+    contract: 'ChatCompletionStatus',
+  });
 }
 
 /**

@@ -65,3 +65,20 @@ export const ReviewInboxCounts = Schema.Struct({
   total: Schema.Number,
 });
 export type ReviewInboxCounts = Wire<typeof ReviewInboxCounts>;
+
+/** `GET /insights/daily-quote`: today's Stoic quote, picked for a pending insight when there is one. */
+export const DailyQuote = Schema.Struct({
+  date: Schema.String,
+  quote: Schema.Struct({
+    id: Schema.String,
+    text: Schema.String,
+    author: Schema.String,
+    source: Schema.String,
+    sourceUrl: Schema.String,
+  }),
+  theme: Schema.NullOr(Schema.String),
+  reason: Schema.NullOr(
+    Schema.Struct({ insightId: Schema.String, type: Schema.String, title: Schema.String }),
+  ),
+});
+export type DailyQuote = Wire<typeof DailyQuote>;

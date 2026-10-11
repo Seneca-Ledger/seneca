@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/app/lib/api';
-import { apiQuery, unwrapEnvelope } from '@/app/lib/query-fn';
+import { unwrapEnvelope } from '@/app/lib/query-fn';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
@@ -31,10 +31,6 @@ export interface WorkspaceMemberOption {
   name: string;
 }
 
-interface NotesPayload {
-  items?: Note[];
-}
-
 interface NoteTarget {
   entityType: NoteEntityType;
   entityId: string;
@@ -58,7 +54,12 @@ export function useNotes({ entityType, entityId }: NoteTarget): UseNotesState {
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
-      apiQuery<NotesPayload>({ url: '/notes', params: { entityType, entityId }, signal }),
+      apiQueryDecoded({
+        url: '/notes',
+        params: { entityType, entityId },
+        signal,
+        contract: 'NoteList',
+      }),
     enabled: Boolean(entityId),
   });
 

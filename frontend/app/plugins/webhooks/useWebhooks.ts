@@ -6,8 +6,7 @@ import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 /** The events a webhook subscription can listen to. */
@@ -44,7 +43,8 @@ export function useWebhookEndpoints() {
 
   const query = useQuery({
     queryKey: queryKeys.webhookEndpoints(workspaceId),
-    queryFn: ({ signal }) => apiQuery<WebhookEndpoint[]>({ url: '/webhook-endpoints', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/webhook-endpoints', signal, contract: 'WebhookEndpointList' }),
   });
 
   const invalidate = useCallback((): Promise<void> => {
@@ -125,7 +125,11 @@ export function useWebhookSubscriptions() {
   const query = useQuery({
     queryKey: queryKeys.webhookSubscriptions(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<WebhookSubscription[]>({ url: '/webhook-subscriptions', signal }),
+      apiQueryDecoded({
+        url: '/webhook-subscriptions',
+        signal,
+        contract: 'WebhookSubscriptionList',
+      }),
   });
 
   const invalidate = useCallback((): Promise<void> => {

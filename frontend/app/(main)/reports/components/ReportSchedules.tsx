@@ -14,7 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Trash2 } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 
 type Cadence = 'daily' | 'weekly' | 'monthly';
@@ -79,9 +79,11 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    const response = await apiClient.get('/reports/schedules').catch(() => null);
-    const payload = response?.data;
-    setRows(Array.isArray(payload) ? payload : ((payload?.data as ReportScheduleRow[]) ?? []));
+    const schedules = await apiQueryDecoded({
+      url: '/reports/schedules',
+      contract: 'ReportScheduleList',
+    }).catch(() => []);
+    setRows(schedules);
   }, []);
 
   useEffect(() => {

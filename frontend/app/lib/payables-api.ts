@@ -9,7 +9,7 @@ import type {
   PayablesSummary,
   PaymentCandidate,
 } from '@/app/lib/contracts';
-import { checkContract } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 
 export type {
   PayableDirection,
@@ -204,10 +204,10 @@ export const payablesApi = {
   },
 
   async allocationSuggestion(transactionId: string): Promise<AllocationSuggestion> {
-    const response = await apiClient.get<AllocationSuggestion>(
-      `/payables/allocation-suggestion/${transactionId}`,
-    );
-    return unwrapData(response);
+    return apiQueryDecoded({
+      url: `/payables/allocation-suggestion/${transactionId}`,
+      contract: 'AllocationSuggestion',
+    });
   },
 
   async markAsPaid(id: string, payload: MarkPayablePaidInput = {}): Promise<Payable> {

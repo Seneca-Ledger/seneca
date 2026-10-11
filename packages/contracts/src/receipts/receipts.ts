@@ -149,3 +149,10 @@ export const ReceiptSplitSuggestion = Schema.Struct({
   splittable: Schema.Boolean,
 });
 export type ReceiptSplitSuggestion = Wire<typeof ReceiptSplitSuggestion>;
+
+/** `GET /maps/styles`: the map styles the tile proxy serves. */
+export const MapStyles = Schema.Struct({
+  styles: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
+  defaultStyleId: Schema.NullOr(Schema.String),
+});
+export type MapStyles = Wire<typeof MapStyles>;

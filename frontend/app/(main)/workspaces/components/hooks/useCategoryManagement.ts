@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import type { CategoryItem } from '@/app/lib/contracts';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { checkContract } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 /** A row of `GET /categories`. */
 export type Category = CategoryItem;
@@ -278,13 +277,13 @@ function useCategoryToggle({
     }
     const nextEnabled = category.isEnabled === false;
     if (!nextEnabled) {
-      const usage = await apiClient
-        .get(`/categories/${category.id}/usage-count`)
-        .then(response => response.data as CategoryUsageCount)
-        .catch((err: unknown) => {
-          console.error('Failed to get usage count:', err);
-          return null;
-        });
+      const usage = await apiQueryDecoded({
+        url: `/categories/${category.id}/usage-count`,
+        contract: 'CategoryUsageCount',
+      }).catch((err: unknown) => {
+        console.error('Failed to get usage count:', err);
+        return null;
+      });
       if (usage && usage.total > 0) {
         setDisableConfirm({ category, usage });
         return;

@@ -96,3 +96,15 @@ export const PushPublicKey = Schema.Struct({
   publicKey: Schema.NullOr(Schema.String),
 });
 export type PushPublicKey = Wire<typeof PushPublicKey>;
+
+/** `GET /exchange-rates`: one rate for a date, and whether it is stale or missing. */
+export const ExchangeRateQuote = Schema.Struct({
+  from: Schema.String,
+  to: Schema.String,
+  rate: Schema.Number,
+  date: Schema.NullOr(Schema.String),
+  rateDate: Schema.NullOr(Schema.String),
+  stale: Schema.Boolean,
+  missing: Schema.Boolean,
+});
+export type ExchangeRateQuote = Wire<typeof ExchangeRateQuote>;

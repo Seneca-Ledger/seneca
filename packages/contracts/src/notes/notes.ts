@@ -1,0 +1,18 @@
+import * as Schema from 'effect/Schema';
+import { Timestamp, type Wire } from '../common/wire';
+
+/** `GET /notes`: the notes on one record, oldest first. */
+export const NoteList = Schema.Struct({
+  items: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      body: Schema.String,
+      mentionedUserIds: Schema.Array(Schema.String),
+      resolvedAt: Schema.NullOr(Timestamp),
+      createdAt: Timestamp,
+      /** null once the author has left the workspace. */
+      author: Schema.NullOr(Schema.Struct({ id: Schema.String, name: Schema.String })),
+    }),
+  ),
+});
+export type NoteList = Wire<typeof NoteList>;

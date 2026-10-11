@@ -1,0 +1,39 @@
+import * as Schema from 'effect/Schema';
+import { Timestamp, type Wire } from '../common/wire';
+
+/** `GET /reports/history`: generated report files. Never their server path. */
+export const ReportHistoryList = Schema.Array(
+  Schema.Struct({
+    id: Schema.String,
+    templateId: Schema.String,
+    templateName: Schema.String,
+    dateFrom: Schema.String,
+    dateTo: Schema.String,
+    format: Schema.String,
+    fileName: Schema.String,
+    fileSize: Schema.Number,
+    generatedAt: Timestamp,
+  }),
+);
+export type ReportHistoryList = Wire<typeof ReportHistoryList>;
+
+/** `GET /reports/schedules`. */
+export const ReportScheduleList = Schema.Array(
+  Schema.Struct({
+    id: Schema.String,
+    templateId: Schema.String,
+    format: Schema.String,
+    cadence: Schema.Literals(['daily', 'weekly', 'monthly']),
+    recipients: Schema.Array(Schema.String),
+    walletIds: Schema.Array(Schema.String),
+    categoryIds: Schema.Array(Schema.String),
+    groupBy: Schema.NullOr(Schema.String),
+    locale: Schema.NullOr(Schema.String),
+    isActive: Schema.Boolean,
+    lastRunAt: Schema.NullOr(Timestamp),
+    nextRunAt: Timestamp,
+    lastError: Schema.NullOr(Schema.String),
+    createdAt: Timestamp,
+  }),
+);
+export type ReportScheduleList = Wire<typeof ReportScheduleList>;
