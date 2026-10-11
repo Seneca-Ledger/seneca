@@ -1,38 +1,36 @@
 import apiClient from '@/app/lib/api';
+import type {
+  PayableDirection,
+  PayableListPage,
+  PayablePayment,
+  Payable as PayableRow,
+  PayableSource,
+  PayableStatus,
+  PayablesSummary,
+  PaymentCandidate,
+} from '@/app/lib/contracts';
+import { checkContract } from '@/app/lib/query-fn-schema';
 
-export type PayableStatus =
-  | 'to_pay'
-  | 'scheduled'
-  | 'partially_paid'
-  | 'paid'
-  | 'overdue'
-  | 'archived';
-export type PayableSource = 'statement' | 'invoice' | 'manual';
+export type {
+  PayableDirection,
+  PayableListPage as ListPayablesResponse,
+  PayablePayment,
+  PayableSource,
+  PayableStatus,
+  PayablesSummary,
+  PaymentCandidate,
+} from '@/app/lib/contracts';
+
 export type PayablesExportFormat = 'csv' | 'excel';
-/** `payable` is money the workspace owes; `receivable` is money owed to it. */
-export type PayableDirection = 'payable' | 'receivable';
-
-export interface Payable {
-  id: string;
-  direction: PayableDirection;
-  vendor: string;
+/**
+ * A bill as the pages hold it. Reads send `amount` and `paidAmount` as decimal
+ * strings; the payment endpoints answer with the saved row, where `paidAmount`
+ * has just been recomputed as a number. Both pass through `Number()` here.
+ */
+export type Payable = Omit<PayableRow, 'amount' | 'paidAmount'> & {
   amount: number | string;
-  currency: string;
-  dueDate: string | null;
-  status: PayableStatus;
-  /** The sum of the payments recorded against the bill. */
   paidAmount: number | string;
-  linkedTransactionId: string | null;
-  source: PayableSource;
-  isRecurring: boolean;
-  comment: string | null;
-  statementId: string | null;
-  paidAt: string | null;
-  dueSoonNotifiedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt?: string | null;
-}
+};
 
 export interface ListPayablesParams {
   direction?: PayableDirection;
@@ -47,25 +45,6 @@ export interface ListPayablesParams {
   maxAmount?: number;
   includeArchived?: boolean;
   sort?: 'dueDateAsc' | 'dueDateDesc' | 'amountDesc' | 'vendorAsc';
-}
-
-export interface ListPayablesResponse {
-  data: Payable[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-export interface PayablesSummary {
-  toPay: number;
-  overdue: number;
-  dueThisWeek: number;
-  paidThisMonth: number;
-  paidTotal: number;
-  toPayCount: number;
-  overdueCount: number;
-  paidTotalCount: number;
 }
 
 export interface CreatePayableInput {
@@ -102,19 +81,6 @@ export interface MarkPayablePaidInput {
   payFromWalletId?: string;
   paidOn?: string;
   categoryId?: string;
-}
-
-/** One payment against a bill; a bill may have several. */
-export interface PayablePayment {
-  id: string;
-  payableId: string;
-  amount: number | string;
-  /** What the processor kept: the bank received `amount - feeAmount`. */
-  feeAmount: number | string;
-  paidOn: string;
-  transactionId: string | null;
-  comment: string | null;
-  createdAt: string;
 }
 
 export interface AddPayablePaymentInput {
@@ -154,17 +120,6 @@ export interface AllocationSuggestion {
   }>;
 }
 
-/** A transaction that may be the payment of a bill. */
-export interface PaymentCandidate {
-  id: string;
-  transactionDate: string;
-  amount: string;
-  currency: string;
-  counterpartyName: string;
-  paymentPurpose: string;
-  vendorMatch: boolean;
-}
-
 export interface ExportPayablesParams extends ListPayablesParams {
   format: PayablesExportFormat;
 }
@@ -192,21 +147,21 @@ const parseContentDispositionFilename = (headerValue?: string): string => {
 };
 
 export const payablesApi = {
-  async list(params: ListPayablesParams = {}): Promise<ListPayablesResponse> {
-    const response = await apiClient.get<ListPayablesResponse>('/payables', { params });
-    return unwrapData(response);
+  async list(params: ListPayablesParams = {}): Promise<PayableListPage> {
+    const response = await apiClient.get('/payables', { params });
+    return checkContract('PayableListPage', unwrapData(response), '/payables');
   },
 
   async getOne(id: string): Promise<Payable> {
-    const response = await apiClient.get<Payable>(`/payables/${id}`);
-    return unwrapData(response);
+    const response = await apiClient.get(`/payables/${id}`);
+    return checkContract('Payable', unwrapData(response), '/payables/:id');
   },
 
   async getSummary(direction?: PayableDirection): Promise<PayablesSummary> {
-    const response = await apiClient.get<PayablesSummary>('/payables/summary', {
+    const response = await apiClient.get('/payables/summary', {
       params: direction ? { direction } : undefined,
     });
-    return unwrapData(response);
+    return checkContract('PayablesSummary', unwrapData(response), '/payables/summary');
   },
 
   async create(payload: CreatePayableInput): Promise<Payable> {
@@ -220,13 +175,17 @@ export const payablesApi = {
   },
 
   async paymentCandidates(id: string): Promise<PaymentCandidate[]> {
-    const response = await apiClient.get<PaymentCandidate[]>(`/payables/${id}/payment-candidates`);
-    return unwrapData(response);
+    const response = await apiClient.get(`/payables/${id}/payment-candidates`);
+    return checkContract(
+      'PaymentCandidateList',
+      unwrapData(response),
+      '/payables/:id/payment-candidates',
+    );
   },
 
   async payments(id: string): Promise<PayablePayment[]> {
-    const response = await apiClient.get<PayablePayment[]>(`/payables/${id}/payments`);
-    return unwrapData(response);
+    const response = await apiClient.get(`/payables/${id}/payments`);
+    return checkContract('PayablePaymentList', unwrapData(response), '/payables/:id/payments');
   },
 
   async addPayment(id: string, payload: AddPayablePaymentInput): Promise<Payable> {

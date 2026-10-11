@@ -4,6 +4,7 @@ import type {
   CategoryRef,
   CryptoHolding,
   CryptoSummary,
+  Payable,
   SubscriptionItem,
   WalletItem,
 } from '@/app/lib/contracts';
@@ -154,6 +155,31 @@ export function subscriptionRow(
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
     costPerUse: null,
+    ...overrides,
+  };
+}
+
+/** A `GET /payables` row as the API sends it (money as decimal strings). */
+export function payableRow(overrides: Partial<Payable> & Pick<Payable, 'id' | 'vendor'>): Payable {
+  return {
+    workspaceId: 'workspace-1',
+    direction: 'payable',
+    amount: '100.00',
+    currency: 'USD',
+    dueDate: null,
+    status: 'to_pay',
+    paidAmount: '0.00',
+    linkedTransactionId: null,
+    source: 'manual',
+    isRecurring: false,
+    comment: null,
+    statementId: null,
+    paidAt: null,
+    dueSoonNotifiedAt: null,
+    createdById: 'user-1',
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+    deletedAt: null,
     ...overrides,
   };
 }

@@ -11,6 +11,7 @@ import { appError } from '../../common/errors/app-error';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import type { PayablesSummary, PaymentCandidate } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import { Category } from '../../entities/category.entity';
 import {
@@ -40,16 +41,7 @@ import { UpdatePayableDto } from './dto/update-payable.dto';
 import { PayablesExportService } from './payables-export.service';
 
 /** A transaction that may be the payment of a bill. */
-export interface PaymentCandidate {
-  id: string;
-  transactionDate: string;
-  amount: string;
-  currency: string;
-  counterpartyName: string;
-  paymentPurpose: string;
-  /** The counterparty or purpose names the bill's vendor. */
-  vendorMatch: boolean;
-}
+export type { PaymentCandidate };
 
 /** A proposed split of one transaction over several bills. */
 export interface AllocationSuggestion {
@@ -810,16 +802,7 @@ export class PayablesService {
   async getSummary(
     workspaceId: string,
     direction: PayableDirection = PayableDirection.PAYABLE,
-  ): Promise<{
-    toPay: number;
-    overdue: number;
-    dueThisWeek: number;
-    paidThisMonth: number;
-    paidTotal: number;
-    toPayCount: number;
-    overdueCount: number;
-    paidTotalCount: number;
-  }> {
+  ): Promise<PayablesSummary> {
     const rows = await this.payableRepository.find({
       where: { workspaceId, direction, deletedAt: IsNull() },
       select: {

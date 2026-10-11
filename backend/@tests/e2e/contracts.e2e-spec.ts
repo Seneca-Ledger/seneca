@@ -44,6 +44,11 @@ import {
   MonthGoalList,
   NetWorthResponse,
   NotificationList,
+  Payable,
+  PayableListPage,
+  PayablePaymentList,
+  PayablesSummary,
+  PaymentCandidateList,
   PayeePendingReview,
   PayeesPage,
   ReviewInboxByStatement,
@@ -481,6 +486,47 @@ describe('API contracts (e2e)', () => {
       const notes = await get(`/invoices/${invoiceId}/credit-notes`);
       matches(CreditNoteList, notes.body);
       expect(notes.body).toHaveLength(1);
+    });
+  });
+
+  describe('payables', () => {
+    let payableId: string;
+
+    beforeAll(async () => {
+      const post = (url: string, body: object) =>
+        request(app.getHttpServer())
+          .post(url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send(body)
+          .expect(201);
+      const payable = await post('/payables', {
+        vendor: 'Contract Coffee',
+        amount: 120.4,
+        currency: 'USD',
+        dueDate: '2026-12-01',
+      });
+      payableId = payable.body.id;
+      await post(`/payables/${payableId}/payments`, { amount: 20, paidOn: '2026-10-01' });
+    });
+
+    it('GET /payables (both directions) and /payables/:id', async () => {
+      const bills = await get('/payables?direction=payable');
+      matches(PayableListPage, bills.body);
+      expect(bills.body.data[0].paidAmount).toBe('20.00');
+      // The sent invoice above put a receivable here.
+      const receivables = await get('/payables?direction=receivable');
+      matches(PayableListPage, receivables.body);
+      expect(receivables.body.data.length).toBeGreaterThan(0);
+      matches(Payable, (await get(`/payables/${payableId}`)).body);
+    });
+
+    it('GET /payables/summary, payments and payment candidates', async () => {
+      matches(PayablesSummary, (await get('/payables/summary?direction=payable')).body);
+      const payments = await get(`/payables/${payableId}/payments`);
+      matches(PayablePaymentList, payments.body);
+      expect(payments.body).toHaveLength(1);
+      matches(PaymentCandidateList, (await get(`/payables/${payableId}/payment-candidates`)).body);
     });
   });
 });
