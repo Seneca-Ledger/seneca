@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import {
   defaultNotificationChannels,
   defaultNotificationSettings,
   type NotificationChannel,
-  type NotificationDigestMode,
   type NotificationPreferences,
   type NotificationSettings,
 } from '@/app/settings/profile/profileHelpers';
@@ -54,16 +53,18 @@ export function useNotifications(
     const load = async () => {
       setNotificationsLoading(true);
       setNotificationError(null);
-      await apiClient.get('/notifications/preferences').then(
-        response => {
+      await apiQueryDecoded({
+        url: '/notifications/preferences',
+        contract: 'NotificationPreferences',
+      }).then(
+        data => {
           if (!active) return;
-          const data = response.data || {};
           setNotificationSettings({
             // The API fills the matrix in, but a stale row must not blank out the UI.
-            channels: { ...defaultNotificationChannels, ...(data.channels || {}) },
-            digestMode: (data.digestMode as NotificationDigestMode) || 'instant',
-            quietHoursStart: data.quietHoursStart ?? null,
-            quietHoursEnd: data.quietHoursEnd ?? null,
+            channels: { ...defaultNotificationChannels, ...data.channels },
+            digestMode: data.digestMode,
+            quietHoursStart: data.quietHoursStart,
+            quietHoursEnd: data.quietHoursEnd,
           });
         },
         () => {

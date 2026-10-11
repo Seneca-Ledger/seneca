@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 type Tx = (path: string[], fallback: string) => string;
 
@@ -35,9 +35,8 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
     new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(rate);
 
   const load = async () => {
-    await apiClient
-      .get<Coverage>('/exchange-rates/coverage')
-      .then(response => setCoverage(response?.data ?? null))
+    await apiQueryDecoded({ url: '/exchange-rates/coverage', contract: 'ExchangeRateCoverage' })
+      .then(setCoverage)
       .catch(() => setCoverage(null));
   };
   useEffect(() => {

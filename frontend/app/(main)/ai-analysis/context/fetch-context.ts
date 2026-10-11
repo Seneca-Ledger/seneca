@@ -1,9 +1,5 @@
 import apiClient from '@/app/lib/api';
-import type {
-  DashboardResponse,
-  DashboardTrendsResponse as TrendsResponse,
-} from '@/app/lib/contracts';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import type { ContextInput } from './build-context';
 
 /**
@@ -19,22 +15,26 @@ const TREND_DAYS = 90;
 
 export async function fetchContextInput(): Promise<ContextInput> {
   const [dashboard, trends] = await Promise.all([
-    apiClient.get<DashboardResponse>('/dashboard', { params: { range: RANGE } }),
-    apiClient.get<TrendsResponse>('/dashboard/trends', { params: { days: TREND_DAYS } }),
+    apiQueryDecoded({ url: '/dashboard', params: { range: RANGE }, contract: 'DashboardResponse' }),
+    apiQueryDecoded({
+      url: '/dashboard/trends',
+      params: { days: TREND_DAYS },
+      contract: 'DashboardTrendsResponse',
+    }),
   ]);
 
   return {
-    snapshot: dashboard.data.snapshot,
+    snapshot: dashboard.snapshot,
     // `name` is null for uncategorized spend; the prompt needs a word, not "null".
-    topCategories: dashboard.data.topCategories.map(category => ({
+    topCategories: dashboard.topCategories.map(category => ({
       name: category.name ?? 'Uncategorized',
       amount: category.amount,
       count: category.count,
     })),
-    topMerchants: [...dashboard.data.topMerchants],
-    incomeSources: [...trends.data.counterparties],
-    cashFlow: [...dashboard.data.cashFlow],
-    uncategorizedTransactions: dashboard.data.dataHealth.uncategorizedTransactions,
+    topMerchants: [...dashboard.topMerchants],
+    incomeSources: [...trends.counterparties],
+    cashFlow: [...dashboard.cashFlow],
+    uncategorizedTransactions: dashboard.dataHealth.uncategorizedTransactions,
   };
 }
 

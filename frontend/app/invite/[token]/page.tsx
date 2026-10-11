@@ -8,6 +8,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { hasSessionCookie } from '@/app/lib/csrf';
+import { checkContract, reportContractDrift } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
 import { forgetStoredUser } from '@/app/lib/theme-preference';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
@@ -57,8 +58,11 @@ export default function AcceptInvitePage() {
 
     apiClient
       .get(`/workspaces/invitations/${token}`)
-      .then(response => {
-        setInvitation(response.data);
+      .then(response =>
+        checkContract('InvitationPreview', response.data, '/workspaces/invitations/:token'),
+      )
+      .then(preview => {
+        setInvitation(preview);
       })
       .catch((err: unknown) => {
         setInvitationError(getApiErrorMessage(err, t.errors.loadFailed.value));
@@ -74,8 +78,9 @@ export default function AcceptInvitePage() {
     setAuthLoading(true);
     apiClient
       .get('/auth/me')
-      .then(response => {
-        setUser(response.data);
+      .then(response => reportContractDrift('CurrentUser', response.data, '/auth/me'))
+      .then(currentUser => {
+        setUser(currentUser);
       })
       .catch(() => {
         forgetStoredUser();

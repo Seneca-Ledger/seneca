@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 export type TwoFactorStatus = {
@@ -56,8 +56,7 @@ export function useTwoFactor(
     await (async () => {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get<TwoFactorStatus>('/auth/2fa');
-      setStatus(response.data);
+      setStatus(await apiQueryDecoded({ url: '/auth/2fa', contract: 'TwoFactorStatus' }));
     })()
       .catch(async (err: unknown) => {
         setError(getApiErrorMessage(err, messages.loadError));

@@ -69,8 +69,8 @@ export interface StorageFile {
 export interface CategoryOption {
   id: string;
   name: string;
-  color?: string;
-  icon?: string;
+  color?: string | null;
+  icon?: string | null;
   isEnabled?: boolean;
 }
 

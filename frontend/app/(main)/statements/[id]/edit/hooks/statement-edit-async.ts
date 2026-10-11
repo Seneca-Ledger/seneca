@@ -96,9 +96,9 @@ export async function loadStatementData(
     set.setStatement(statementData);
     const rows = await checkContract('TransactionList', extractApiData(tRes), transactionsUrl);
     set.setTransactions(rows.map(toEditableTransaction));
-    set.setCategories(extractListData<CategoryOption>(cRes));
+    set.setCategories(await checkContract('CategoryList', extractListData(cRes), '/categories'));
     set.setBranches(extractListData<BranchOption>(bRes));
-    set.setWallets(extractListData<WalletOption>(wRes));
+    set.setWallets(await checkContract('WalletList', extractListData(wRes), '/wallets'));
     set.setMetadataForm(buildMetadataForm(statementData, extractMeta(statementData)));
   } catch (err: unknown) {
     set.setError(getApiErrorMessage(err, messages.loadDataError));

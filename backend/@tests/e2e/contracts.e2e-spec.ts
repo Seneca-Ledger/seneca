@@ -8,10 +8,15 @@ import { Schema } from 'effect';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { BackupRun, BackupRunStatus, BackupRunTrigger } from '../../src/entities/backup-run.entity';
 import {
+  AdminUserList,
   AgeingReport,
+  BackupConfiguration,
+  BackupRunList,
   BalanceSheetResponse,
   BudgetList,
+  BusinessProfileResponse,
   CategoryList,
   Client,
   ClientList,
@@ -28,29 +33,35 @@ import {
   DashboardMonthlyCashFlowResponse,
   DashboardResponse,
   DashboardTrendsResponse,
+  DisclaimerStatus,
+  ExchangeRateCoverage,
   ForecastResponse,
   GoalFlowResponse,
   GoalList,
   GoalPlanResponse,
   InsightList,
+  InvestmentAccountList,
+  InvitationPreview,
   Invoice,
   InvoiceDeliveryList,
   InvoiceListPage,
   InvoiceSettings,
-  InvestmentAccountList,
   LateFeeQuote,
+  LocalCategorizationStatus,
   MetalReceiptList,
   MetalsSummary,
   MonthGoalList,
   NetWorthResponse,
   NotificationList,
+  NotificationPreferences,
   Payable,
   PayableListPage,
   PayablePaymentList,
   PayablesSummary,
-  PaymentCandidateList,
   PayeePendingReview,
   PayeesPage,
+  PaymentCandidateList,
+  PushPublicKey,
   ReviewInboxByStatement,
   ReviewInboxCounts,
   ReviewInboxPage,
@@ -58,7 +69,12 @@ import {
   SubscriptionDuplicateGroups,
   SubscriptionList,
   SubscriptionSummary,
+  TelegramBotStatus,
+  TelegramReportPage,
+  TwoFactorStatus,
   UnreadCount,
+  UserPermissions,
+  UserSessionList,
   WalletList,
   WorkspaceDetail,
   WorkspaceList,
@@ -527,6 +543,93 @@ describe('API contracts (e2e)', () => {
       matches(PayablePaymentList, payments.body);
       expect(payments.body).toHaveLength(1);
       matches(PaymentCandidateList, (await get(`/payables/${payableId}/payment-candidates`)).body);
+    });
+  });
+
+  describe('settings and account', () => {
+    const send = (method: 'post' | 'put', url: string, body: object) =>
+      request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send(body);
+
+    it('GET /auth/2fa and /auth/sessions', async () => {
+      matches(TwoFactorStatus, (await get('/auth/2fa')).body);
+      const sessions = await get('/auth/sessions');
+      matches(UserSessionList, sessions.body);
+      expect(sessions.body.length).toBeGreaterThan(0);
+    });
+
+    it('GET /backups/config before and after setup, and /backups/runs', async () => {
+      // Not set up: Nest sends null as an empty body, which the client reads as ''.
+      expect((await get('/backups/config')).text).toBe('');
+      await send('put', '/backups/config', {
+        destinationKind: 'local',
+        password: 'contract-backup-pass',
+      }).expect(200);
+      const config = await get('/backups/config');
+      matches(BackupConfiguration, config.body);
+      expect(config.body.passwordConfigured).toBe(true);
+      await dataSource.getRepository(BackupRun).save({
+        workspaceId: owner.workspaceId,
+        configurationId: config.body.id,
+        trigger: BackupRunTrigger.MANUAL,
+        status: BackupRunStatus.SUCCEEDED,
+        sizeBytes: '2048',
+        startedAt: new Date(),
+        finishedAt: new Date(),
+      });
+      const runs = await get('/backups/runs');
+      matches(BackupRunList, runs.body);
+      expect(runs.body[0].sizeBytes).toBe('2048');
+    });
+
+    it('GET /business-profile, never saved and saved', async () => {
+      // A workspace of its own: the invoices above already saved this one's profile.
+      const workspace = await send('post', '/workspaces', { name: 'Contracts Fresh' }).expect(201);
+      const fresh = await request(app.getHttpServer())
+        .get('/business-profile')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', workspace.body.id)
+        .expect(200);
+      matches(BusinessProfileResponse, fresh.body);
+      expect(fresh.body.missingRequired).toEqual(['legalName', 'addressLines']);
+      const saved = await get('/business-profile');
+      matches(BusinessProfileResponse, saved.body);
+      expect(saved.body.missingRequired).toEqual([]);
+    });
+
+    it('GET exchange-rate coverage, notification preferences and integration settings', async () => {
+      matches(ExchangeRateCoverage, (await get('/exchange-rates/coverage')).body);
+      const preferences = await get('/notifications/preferences');
+      matches(NotificationPreferences, preferences.body);
+      expect(Object.keys(preferences.body.channels).length).toBeGreaterThan(0);
+      matches(LocalCategorizationStatus, (await get('/settings/local-categorization')).body);
+      matches(TelegramBotStatus, (await get('/settings/notifications/telegram')).body);
+      matches(TelegramReportPage, (await get('/telegram/reports')).body);
+      matches(PushPublicKey, (await get('/push/public-key')).body);
+    });
+
+    it('GET /users, /users/:id/permissions and /users/me/disclaimer', async () => {
+      // The admin page is for the instance admin, not a workspace owner.
+      await dataSource.query('UPDATE users SET role = $1 WHERE id = $2', ['admin', owner.userId]);
+      const users = await get('/users');
+      matches(AdminUserList, users.body);
+      expect(users.body.length).toBeGreaterThan(0);
+      matches(UserPermissions, (await get(`/users/${users.body[0].id}/permissions`)).body);
+      matches(DisclaimerStatus, (await get('/users/me/disclaimer')).body);
+    });
+
+    it('GET /workspaces/invitations/:token', async () => {
+      const invite = await send('post', `/workspaces/${owner.workspaceId}/invitations`, {
+        email: `contracts-invitee-${Date.now()}@example.com`,
+        role: 'member',
+      }).expect(201);
+      const preview = await request(app.getHttpServer())
+        .get(`/workspaces/invitations/${invite.body.invitation.token}`)
+        .expect(200);
+      matches(InvitationPreview, preview.body);
     });
   });
 });

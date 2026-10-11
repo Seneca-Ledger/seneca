@@ -32,11 +32,10 @@ import { useState } from 'react';
 import { Pencil } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import apiClient from '../../lib/api';
-import { apiQuery } from '../../lib/query-fn';
 import { queryKeys } from '../../lib/query-keys';
 
 const USER_ROW_SKELETON_KEYS = ['user-0', 'user-1', 'user-2', 'user-3', 'user-4', 'user-5'];
@@ -131,7 +130,7 @@ export default function UsersManagementPage() {
 
   const usersQuery = useQuery({
     queryKey: queryKeys.adminUsers(workspaceId),
-    queryFn: ({ signal }) => apiQuery<User[]>({ url: '/users', signal }),
+    queryFn: ({ signal }) => apiQueryDecoded({ url: '/users', signal, contract: 'AdminUserList' }),
   });
 
   const users = usersQuery.data ?? [];
@@ -141,8 +140,11 @@ export default function UsersManagementPage() {
 
   const handleEditPermissions = async (user: User) => {
     await (async () => {
-      const response = await apiClient.get(`/users/${user.id}/permissions`);
-      setSelectedPermissions(response.data.customPermissions || []);
+      const permissions = await apiQueryDecoded({
+        url: `/users/${user.id}/permissions`,
+        contract: 'UserPermissions',
+      });
+      setSelectedPermissions(permissions.customPermissions);
       setEditingUser(user);
       setPermissionsDialogOpen(true);
     })().catch(async (err: unknown) => {

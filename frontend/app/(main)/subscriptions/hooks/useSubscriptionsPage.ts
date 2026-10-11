@@ -179,10 +179,12 @@ export function useSubscriptionsPage() {
 
   useEffect(() => {
     if (!currentWorkspace?.id) return;
-    void apiClient
-      .get(`/workspaces/${currentWorkspace.id}`)
-      .then(res => {
-        setWorkspaceMembers(res.data?.members ?? []);
+    void apiQueryDecoded({
+      url: `/workspaces/${currentWorkspace.id}`,
+      contract: 'WorkspaceDetail',
+    })
+      .then(workspace => {
+        setWorkspaceMembers(workspace.members);
       })
       .catch(() => setWorkspaceMembers([]));
   }, [currentWorkspace?.id]);

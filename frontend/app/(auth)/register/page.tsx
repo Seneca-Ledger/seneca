@@ -14,7 +14,7 @@ import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import { syncLocaleFromUser } from '@/app/lib/locale';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
 import { tokens } from '@/lib/theme-tokens';
 import { AuthHero } from '../AuthHero';
@@ -58,9 +58,11 @@ function RegisterPageContent(): React.JSX.Element {
     setInviteLoading(true);
     apiClient
       .get(`/workspaces/invitations/${inviteToken}`)
-      .then(response => {
-        const email = response.data?.email;
-        if (typeof email === 'string' && email.trim()) {
+      .then(response =>
+        checkContract('InvitationPreview', response.data, '/workspaces/invitations/:token'),
+      )
+      .then(({ email }) => {
+        if (email.trim()) {
           setFormData(prev => ({ ...prev, email }));
           setEmailLocked(true);
         }

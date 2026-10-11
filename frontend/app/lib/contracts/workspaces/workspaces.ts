@@ -93,3 +93,13 @@ export const WorkspaceDetail = Schema.Struct({
   members: Schema.Array(WorkspaceMember),
 });
 export type WorkspaceDetail = Wire<typeof WorkspaceDetail>;
+
+/** `GET /workspaces/invitations/:token`: public, so only what the invite page shows. */
+export const InvitationPreview = Schema.Struct({
+  status: Schema.Literals(['pending', 'accepted', 'cancelled', 'expired']),
+  email: Schema.String,
+  workspace: Schema.Struct({ id: Schema.String, name: Schema.String }),
+  role: WorkspaceRole,
+  expiresAt: Schema.NullOr(Timestamp),
+});
+export type InvitationPreview = Wire<typeof InvitationPreview>;

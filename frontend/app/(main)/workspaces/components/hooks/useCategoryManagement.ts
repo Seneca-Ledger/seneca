@@ -1,19 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
+import type { CategoryItem } from '@/app/lib/contracts';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { checkContract } from '@/app/lib/query-fn-schema';
 
-export type Category = {
-  id: string;
-  name: string;
-  type: 'income' | 'expense';
-  isSystem?: boolean;
-  source?: 'system' | 'user' | 'parsing';
-  isEnabled?: boolean;
-  color?: string;
-  icon?: string;
-  parentId?: string;
-};
+/** A row of `GET /categories`. */
+export type Category = CategoryItem;
 
 export type CategoryUsageCount = {
   transactions: number;
@@ -100,7 +93,7 @@ function useCategoryData(
         apiClient.get('/categories'),
         apiClient.get('/categories/usage/counts'),
       ]);
-      setCategories(categoriesRes.data);
+      setCategories(await checkContract('CategoryList', categoriesRes.data, '/categories'));
       setUsageCounts(usageRes.data);
     })()
       .catch(async err => {

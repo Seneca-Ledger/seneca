@@ -5,6 +5,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 
 type BankSyncAccount = {
@@ -78,10 +79,9 @@ export function BankSyncPanel({
       .catch(() => {
         if (mounted) setMessage({ tone: 'error', text: t.loadFailed.value });
       });
-    apiClient
-      .get<WalletOption[]>('/wallets')
-      .then(response => {
-        if (mounted && Array.isArray(response.data)) setWallets(response.data);
+    apiQueryDecoded({ url: '/wallets', contract: 'WalletList' })
+      .then(wallets => {
+        if (mounted) setWallets(wallets);
       })
       .catch(() => undefined);
     return () => {

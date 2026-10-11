@@ -7,6 +7,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { rememberRowCount } from '../rowCountMemory';
 
@@ -73,7 +74,7 @@ export function useTablesList({ enabled, messages }: UseTablesListParams) {
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
     queryFn: async ({ signal }) =>
-      readList<TableCategory>(await apiQuery<unknown>({ url: '/categories', signal })),
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     enabled: enabled && Boolean(workspaceId),
   });
 

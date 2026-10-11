@@ -2,6 +2,7 @@
 
 export * from './api-keys/api-keys';
 export * from './auth/current-user';
+export * from './auth/security';
 export * from './budgets/budgets';
 export * from './common/requests';
 export * from './common/wire';
@@ -61,9 +62,13 @@ export * from './requests/wallets';
 export * from './requests/webhooks';
 export * from './requests/workspaces';
 export * from './review/review-inbox';
+export * from './settings/backups';
+export * from './settings/business-profile';
+export * from './settings/settings';
 export * from './statements/statement-list';
 export * from './subscriptions/subscriptions';
 export * from './transactions/transaction-list';
+export * from './users/users';
 export * from './wealth/balance-sheet';
 export * from './wealth/investments';
 export * from './wealth/metals';

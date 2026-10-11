@@ -10,7 +10,7 @@ import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { ReceiptParsedDataForm } from './ReceiptParsedDataForm';
@@ -152,11 +152,10 @@ export function ReceiptDetailPanel({
 
     let active = true;
 
-    apiClient
-      .get('/categories')
-      .then(response => {
+    apiQueryDecoded({ url: '/categories', contract: 'CategoryList' })
+      .then(categories => {
         if (active) {
-          setCategories(response.data ?? []);
+          setCategories(categories);
         }
       })
       .catch(() => {

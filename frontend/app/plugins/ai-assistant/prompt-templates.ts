@@ -1,18 +1,20 @@
-import apiClient from '@/app/lib/api';
 import type {
   DashboardResponse,
   DashboardTopCategory,
   DashboardTrendsResponse as TrendsResponse,
 } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
-async function fetchDashboard(range: '7d' | '30d' | '90d' = '30d'): Promise<DashboardResponse> {
-  const res = await apiClient.get('/dashboard', { params: { range } });
-  return res.data;
+function fetchDashboard(range: '7d' | '30d' | '90d' = '30d'): Promise<DashboardResponse> {
+  return apiQueryDecoded({ url: '/dashboard', params: { range }, contract: 'DashboardResponse' });
 }
 
-async function fetchTrends(days = 30): Promise<TrendsResponse> {
-  const res = await apiClient.get('/dashboard/trends', { params: { days } });
-  return res.data;
+function fetchTrends(days = 30): Promise<TrendsResponse> {
+  return apiQueryDecoded({
+    url: '/dashboard/trends',
+    params: { days },
+    contract: 'DashboardTrendsResponse',
+  });
 }
 
 function formatCategories(

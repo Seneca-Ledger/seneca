@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 export const duplicateResolutions = ['skip', 'mark_duplicate', 'force_import'] as const;
@@ -59,10 +59,17 @@ export function useProcessing(
     const load = async () => {
       setLoading(true);
       setError(null);
-      await apiClient.get(`/workspaces/${workspaceId}`).then(
-        response => {
+      await apiQueryDecoded({
+        url: `/workspaces/${workspaceId}`,
+        contract: 'WorkspaceDetail',
+      }).then(
+        workspace => {
           if (!active) return;
-          setSettings({ ...DEFAULTS, ...(response.data?.settings?.processing || {}) });
+          // `settings` is the workspace's free-form blob; `processing` is this page's part.
+          const processing = workspace.settings?.processing as
+            | Partial<ProcessingSettings>
+            | undefined;
+          setSettings({ ...DEFAULTS, ...(processing ?? {}) });
         },
         (err: unknown) => {
           if (active) setError(getApiErrorMessage(err, messages.loadError));
