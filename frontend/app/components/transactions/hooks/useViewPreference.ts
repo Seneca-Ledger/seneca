@@ -8,7 +8,7 @@ import api from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
 
 /** The pages that remember themselves; the server keeps the same closed list. */
-export type ViewScope = 'transactions' | 'review' | 'reports' | 'dashboard';
+export type ViewScope = 'transactions' | 'review' | 'reports' | 'dashboard' | 'onboarding';
 
 /** Long: this is read once on mount and written by the page itself. */
 const PREFERENCE_STALE_TIME = 30 * 60 * 1000;
