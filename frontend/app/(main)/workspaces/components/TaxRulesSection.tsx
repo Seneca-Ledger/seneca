@@ -15,6 +15,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import { SettingsSection } from './SettingsSection';
 
@@ -69,13 +70,13 @@ export function TaxRulesSection(): React.ReactElement {
     await (async () => {
       const [rulesResponse, categoriesResponse, ratesResponse] = await Promise.all([
         apiClient.get<TaxRule[]>('/tax/rules'),
-        apiClient.get<Category[] | { data: Category[] }>('/categories'),
+        apiClient.get<unknown>('/categories'),
         apiClient.get<WorkspaceRate[]>('/tax/settings/rates'),
       ]);
 
       setRules(rulesResponse.data ?? []);
-      const categoryData = categoriesResponse.data;
-      setCategories(Array.isArray(categoryData) ? categoryData : (categoryData?.data ?? []));
+      // The list is never wrapped in `{ data }`; the contract says so.
+      setCategories(await checkContract('CategoryList', categoriesResponse.data, '/categories'));
       // Only coded rates can be named by a rule; hand-made ones have no code.
       setRates((ratesResponse.data ?? []).filter(rate => Boolean(rate.code)));
       setError(null);

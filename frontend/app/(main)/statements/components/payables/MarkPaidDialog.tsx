@@ -20,7 +20,7 @@ import {
   type PayablePayment,
   payablesApi,
 } from '@/app/lib/payables-api';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import {
   AmountFields,
@@ -83,11 +83,12 @@ function usePaymentOptions(payable: Payable) {
   });
   const wallets = useQuery({
     queryKey: queryKeys.wallets(workspaceId),
-    queryFn: ({ signal }) => apiQuery<WalletOption[]>({ url: '/wallets', signal }),
+    queryFn: ({ signal }) => apiQueryDecoded({ url: '/wallets', signal, contract: 'WalletList' }),
   });
   const categories = useQuery({
     queryKey: queryKeys.categories(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Category[]>({ url: '/categories', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
   });
 
   return {

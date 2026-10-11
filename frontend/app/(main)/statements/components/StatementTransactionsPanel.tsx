@@ -15,6 +15,7 @@ import { Spinner } from '@/app/components/ui/spinner';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 const EMPTY_CELL = '—';
@@ -52,7 +53,8 @@ export function StatementTransactionsPanel({
   });
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Category[]>({ url: '/categories', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     staleTime: 5 * 60_000,
   });
   const categories = categoriesQuery.data ?? [];

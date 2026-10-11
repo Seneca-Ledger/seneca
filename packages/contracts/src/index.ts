@@ -3,6 +3,7 @@ export * from './common/wire';
 export * from './dashboard/dashboard';
 export * from './feed/feed';
 export * from './goals/goal-items';
+export * from './reference/reference';
 export * from './statements/statement-list';
 export * from './transactions/transaction-list';
 export * from './workspaces/workspaces';

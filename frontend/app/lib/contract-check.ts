@@ -3,8 +3,11 @@
 import * as Exit from 'effect/Exit';
 import * as Schema from 'effect/Schema';
 import * as SchemaIssue from 'effect/SchemaIssue';
+// Not from query-fn-schema: that module pulls in query-fn, which tests mock
+// and the vitest setup must not load first.
+import { ContractMismatchError } from './contract-error';
 import * as contracts from './contracts';
-import { ContractMismatchError, type ContractName } from './query-fn-schema';
+import type { ContractName } from './query-fn-schema';
 
 const toIssues = SchemaIssue.makeFormatterStandardSchemaV1();
 

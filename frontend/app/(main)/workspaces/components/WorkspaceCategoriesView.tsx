@@ -31,6 +31,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { CATEGORY_ICON_CHOICES, categoryIconFor } from '@/app/lib/category-icon-choices';
 import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
@@ -43,9 +44,9 @@ interface Category {
   isSystem?: boolean;
   source?: 'system' | 'user' | 'parsing';
   isEnabled?: boolean;
-  color?: string;
-  icon?: string;
-  parentId?: string;
+  color?: string | null;
+  icon?: string | null;
+  parentId?: string | null;
 }
 
 const SOURCE_BADGE_COLORS: Record<
@@ -71,7 +72,7 @@ interface CategoryUsageCount {
   total: number;
 }
 
-const resolveIconUrl = (iconValue?: string) => {
+const resolveIconUrl = (iconValue?: string | null) => {
   if (!iconValue) {
     return null;
   }
@@ -251,7 +252,8 @@ export default function WorkspaceCategoriesView() {
 
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Category[]>({ url: '/categories', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     enabled: Boolean(user),
   });
 

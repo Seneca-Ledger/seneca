@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -7,7 +8,7 @@ import { describe, expect, it } from 'vitest';
  * Only contract-check.ts, which production compiles out, may import them as
  * values; everything else imports their types.
  */
-const APP = path.join(process.cwd(), 'app');
+const APP = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VALUE_IMPORT = /^import\s+(?!type\b)[^;]*from\s+'(?:@\/app\/lib|\.{1,2}(?:\/[\w.-]+)*)\/contracts';/m;
 
 function sourceFiles(dir: string): string[] {

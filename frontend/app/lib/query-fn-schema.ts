@@ -10,16 +10,7 @@ export type ContractName = {
 }[keyof ContractSchemas];
 export type ContractType<K extends ContractName> = Wire<ContractSchemas[K]>;
 
-/** The API answered with something its contract in packages/contracts does not describe. */
-export class ContractMismatchError extends Error {
-  constructor(
-    readonly url: string,
-    readonly issues: string[],
-  ) {
-    super(`Response from ${url} does not match its contract:\n${issues.join('\n')}`);
-    this.name = 'ContractMismatchError';
-  }
-}
+export { ContractMismatchError } from './contract-error';
 
 /**
  * Types an API payload by its contract, and in development, tests and e2e also

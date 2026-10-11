@@ -9,6 +9,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import {
+  CategoryList,
   CurrentUser,
   DashboardCommitmentsResponse,
   DashboardHealthHistoryResponse,
@@ -19,6 +20,7 @@ import {
   NotificationList,
   ReviewInboxCounts,
   UnreadCount,
+  WalletList,
   WorkspaceDetail,
   WorkspaceList,
   WorkspaceOverview,
@@ -148,6 +150,26 @@ describe('API contracts (e2e)', () => {
     it('GET /review-inbox/counts', async () => {
       const res = await get('/review-inbox/counts');
       matches(ReviewInboxCounts, res.body);
+    });
+  });
+
+  describe('reference data', () => {
+    it('GET /categories, with parents and children', async () => {
+      const res = await get('/categories');
+      matches(CategoryList, res.body);
+      expect(res.body.length).toBeGreaterThan(0);
+    });
+
+    it('GET /wallets', async () => {
+      await request(app.getHttpServer())
+        .post('/wallets')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send({ name: 'Contract Wallet', currency: 'USD', initialBalance: 12.5 })
+        .expect(201);
+      const res = await get('/wallets');
+      matches(WalletList, res.body);
+      expect(res.body[0].initialBalance).toBe('12.50');
     });
   });
 });

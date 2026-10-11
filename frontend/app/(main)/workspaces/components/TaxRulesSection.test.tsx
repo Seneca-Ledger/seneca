@@ -15,11 +15,12 @@ vi.mock('@/app/lib/api', () => ({
   },
 }));
 
+import { categoryItem } from '@/app/test/fixtures/contracts';
 import { TaxRulesSection } from './TaxRulesSection';
 
 const CATEGORIES = [
-  { id: 'cat-rent', name: 'Аренда', type: 'expense' },
-  { id: 'cat-food', name: 'Материалы', type: 'expense' },
+  categoryItem({ id: 'cat-rent', name: 'Аренда' }),
+  categoryItem({ id: 'cat-food', name: 'Материалы' }),
 ];
 
 const RATES = [
