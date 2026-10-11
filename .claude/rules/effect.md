@@ -30,6 +30,6 @@ Effect (`effect` 4.x) is adopted incrementally. NestJS, TypeORM, React Query and
 - Tests run under Jest: call the service, or `effects.run(...)`, and assert on the result. Mock HTTP with `global.fetch` returning a real `Response`; `EffectRuntime` reads `globalThis.fetch` per request.
 
 ## Frontend
-- Import Effect by subpath (`effect/Schema`, `effect/Exit`); Biome rejects the `effect` barrel. The decoder still costs ~67 kB gzip in the webpack production build (measured 2026-10 on the goal page): one shared chunk, loaded only by routes that decode.
-- Decode responses with `apiQueryDecoded` / `decodeResponse` from `app/lib/query-fn-schema.ts`. A mismatch throws in development and tests and is logged in production.
-- Keep Effect imports out of modules every page loads (`query-fn.ts`, `api.ts`), so it lands only in the chunks that use a contract.
+- Type responses by contract with `apiQueryDecoded({ ..., contract: 'Name' })` / `checkContract('Name', payload, url)` from `app/lib/query-fn-schema.ts`. Outside production they also check the payload and throw `ContractMismatchError` on drift; production compiles the check out, so effect (~67 kB gzip in the webpack build) never ships.
+- Import contracts as types only (`import type`). Only `app/lib/contract-check.ts` imports the schemas as values; `contract-imports.test.ts` enforces it.
+- Import Effect by subpath (`effect/Schema`, `effect/Exit`); Biome rejects the `effect` barrel.

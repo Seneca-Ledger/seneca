@@ -1,4 +1,4 @@
-import { GoalItemsResponse } from './contracts';
+import type { GoalItemsResponse } from './contracts';
 import { apiQuery } from './query-fn';
 import { apiQueryDecoded } from './query-fn-schema';
 
@@ -116,5 +116,5 @@ export function fetchGoalPlan(goalId: string, signal?: AbortSignal): Promise<Goa
 }
 
 export function fetchGoalItems(goalId: string, signal?: AbortSignal): Promise<GoalItemsResponse> {
-  return apiQueryDecoded({ url: `/goals/${goalId}/items`, signal, schema: GoalItemsResponse });
+  return apiQueryDecoded({ url: `/goals/${goalId}/items`, signal, contract: 'GoalItemsResponse' });
 }

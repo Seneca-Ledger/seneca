@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GoalItemsResponse } from './contracts';
-import { ContractMismatchError, decodeResponse } from './query-fn-schema';
+import { ContractMismatchError, checkContract } from './query-fn-schema';
 
 /** What GET /goals/:id/items returns (goal-items.service.ts buildResponse). */
 const goalItems = {
@@ -28,37 +27,38 @@ const goalItems = {
   },
 };
 
-describe('decodeResponse', () => {
+describe('checkContract', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
-  it('returns a payload that matches its contract', () => {
-    expect(decodeResponse(GoalItemsResponse, goalItems, '/goals/g/items')).toEqual(goalItems);
+  it('returns a payload that matches its contract', async () => {
+    await expect(checkContract('GoalItemsResponse', goalItems, '/goals/g/items')).resolves.toBe(
+      goalItems,
+    );
   });
 
-  it('lets fields the contract does not know yet through', () => {
+  it('lets fields the contract does not know yet through', async () => {
     const withNewField = {
       ...goalItems,
       addedLater: true,
       items: [{ ...goalItems.items[0], tags: ['move'] }],
     };
-    expect(decodeResponse(GoalItemsResponse, withNewField, '/goals/g/items')).toEqual(withNewField);
+    await expect(checkContract('GoalItemsResponse', withNewField, '/goals/g/items')).resolves.toEqual(
+      withNewField,
+    );
   });
 
-  it('throws outside production, naming the url and the drifted field', () => {
+  it('throws outside production, naming the url and the drifted field', async () => {
     const drifted = {
       ...goalItems,
       items: [{ ...goalItems.items[0], status: 'cancelled', estimatedAmount: '120' }],
     };
 
-    let error: unknown;
-    try {
-      decodeResponse(GoalItemsResponse, drifted, '/goals/g/items');
-    } catch (caught) {
-      error = caught;
-    }
+    const error = await checkContract('GoalItemsResponse', drifted, '/goals/g/items').catch(
+      (caught: unknown) => caught,
+    );
 
     expect(error).toBeInstanceOf(ContractMismatchError);
     expect((error as ContractMismatchError).url).toBe('/goals/g/items');
@@ -68,12 +68,12 @@ describe('decodeResponse', () => {
     ]);
   });
 
-  it('logs and passes the payload through in production', () => {
+  it('passes the payload through unchecked in production', async () => {
     vi.stubEnv('NODE_ENV', 'production');
-    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const drifted = { ...goalItems, summary: null };
 
-    expect(decodeResponse(GoalItemsResponse, drifted, '/goals/g/items')).toBe(drifted);
-    expect(log).toHaveBeenCalledWith(expect.any(ContractMismatchError));
+    await expect(checkContract('GoalItemsResponse', drifted, '/goals/g/items')).resolves.toBe(
+      drifted,
+    );
   });
 });
