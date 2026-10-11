@@ -33,6 +33,17 @@ export class Workspace {
   backgroundImage: string | null;
 
   /**
+   * Credit for a background found through the photo search. A CC-BY picture
+   * may not be shown without naming its author and licence, so these travel
+   * with the copied file and are cleared whenever the background changes.
+   */
+  @Column({ type: 'varchar', length: 400, nullable: true, name: 'background_attribution' })
+  backgroundAttribution: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true, name: 'background_source_url' })
+  backgroundSourceUrl: string | null;
+
+  /**
    * The currency this workspace works in, and the one every amount in it falls
    * back to. Required: a workspace without a currency is how a hardcoded
    * default used to leak into transactions, budgets and invoices.

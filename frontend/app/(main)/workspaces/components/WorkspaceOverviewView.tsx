@@ -1,6 +1,9 @@
 'use client';
 
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,6 +21,7 @@ import {
 } from '@/app/lib/statement-expense-drawer';
 import { tokens } from '@/lib/theme-tokens';
 import { AVAILABLE_BACKGROUNDS } from '../constants';
+import { BackgroundPhotoSearch } from './BackgroundPhotoSearch';
 import { BackgroundSelector } from './BackgroundSelector';
 import { BusinessProfileSection } from './BusinessProfileSection';
 import { InvoiceSettingsSection } from './InvoiceSettingsSection';
@@ -67,8 +71,13 @@ export default function WorkspaceOverviewView() {
   const router = useRouter();
   const t = useIntlayer('workspaceOverview');
   const tc = useIntlayer('workspaceCurrencySelector');
-  const { currentWorkspace, refreshWorkspaces, clearWorkspace, updateWorkspaceBackground } =
-    useWorkspace();
+  const {
+    currentWorkspace,
+    refreshWorkspaces,
+    clearWorkspace,
+    updateWorkspaceBackground,
+    setWorkspaceBackgroundPhoto,
+  } = useWorkspace();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -77,6 +86,7 @@ export default function WorkspaceOverviewView() {
   const [deleting, setDeleting] = useState(false);
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const [savingBackground, setSavingBackground] = useState(false);
+  const [backgroundTab, setBackgroundTab] = useState<'gallery' | 'search'>('gallery');
   const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -221,17 +231,11 @@ export default function WorkspaceOverviewView() {
     setCurrencyDrawerOpen(false);
   };
 
-  const handleBackgroundChange = async (background: string) => {
-    if (!currentWorkspace) {
-      return;
-    }
+  const saveBackground = async (save: () => Promise<void>) => {
     setSavingBackground(true);
 
     await (async () => {
-      await updateWorkspaceBackground({
-        workspaceId: currentWorkspace.id,
-        backgroundImage: background,
-      });
+      await save();
       toast.success(t.toasts.backgroundUpdated.value);
       setShowBackgroundPicker(false);
     })()
@@ -243,6 +247,24 @@ export default function WorkspaceOverviewView() {
       });
   };
 
+  const handleBackgroundChange = async (background: string) => {
+    if (!currentWorkspace) {
+      return;
+    }
+    await saveBackground(() =>
+      updateWorkspaceBackground({ workspaceId: currentWorkspace.id, backgroundImage: background }),
+    );
+  };
+
+  const handleBackgroundPhotoPick = async (photoId: string) => {
+    if (!currentWorkspace) {
+      return;
+    }
+    await saveBackground(() =>
+      setWorkspaceBackgroundPhoto({ workspaceId: currentWorkspace.id, photoId }),
+    );
+  };
+
   if (!currentWorkspace) {
     return null;
   }
@@ -250,8 +272,6 @@ export default function WorkspaceOverviewView() {
   return (
     <Box
       sx={{
-        height: 'calc(100vh - var(--global-nav-height, 0px))',
-        overflowY: 'auto',
         bgcolor: 'var(--background)',
       }}
     >
@@ -336,6 +356,28 @@ export default function WorkspaceOverviewView() {
               {t.background.change}
             </Box>
           </Box>
+          {/* A searched photo is shown only with its credit — the CC licence asks for it. */}
+          {currentWorkspace.backgroundAttribution && (
+            <Typography
+              variant="caption"
+              data-testid="workspace-background-credit"
+              sx={{ display: 'block', maxWidth: 360, mt: 1, color: 'var(--muted-foreground)' }}
+            >
+              {currentWorkspace.backgroundAttribution}
+              {currentWorkspace.backgroundSourceUrl && (
+                <>
+                  {' '}
+                  <Link
+                    href={currentWorkspace.backgroundSourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {t.background.source}
+                  </Link>
+                </>
+              )}
+            </Typography>
+          )}
         </SettingsSection>
 
         <SettingsSection title={t.details.title} description={t.details.description}>
@@ -518,16 +560,31 @@ export default function WorkspaceOverviewView() {
             <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', mb: 1.5 }}>
               {t.background.drawerHint}
             </Typography>
+            <Tabs
+              value={backgroundTab}
+              onChange={(_, value: 'gallery' | 'search') => setBackgroundTab(value)}
+              sx={{ mb: 1.5 }}
+            >
+              <Tab value="gallery" label={t.background.tabGallery} />
+              <Tab value="search" label={t.background.tabSearch} />
+            </Tabs>
             {savingBackground && (
               <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
                 {t.details.saving}
               </Typography>
             )}
-            <BackgroundSelector
-              selectedBackground={currentWorkspace.backgroundImage}
-              onSelect={handleBackgroundChange}
-              backgrounds={AVAILABLE_BACKGROUNDS}
-            />
+            {backgroundTab === 'gallery' ? (
+              <BackgroundSelector
+                selectedBackground={currentWorkspace.backgroundImage}
+                onSelect={handleBackgroundChange}
+                backgrounds={AVAILABLE_BACKGROUNDS}
+              />
+            ) : (
+              <BackgroundPhotoSearch
+                disabled={savingBackground}
+                onPick={handleBackgroundPhotoPick}
+              />
+            )}
           </Box>
         </Box>
       </DrawerShell>

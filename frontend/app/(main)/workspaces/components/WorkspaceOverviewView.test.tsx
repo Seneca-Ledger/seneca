@@ -13,7 +13,9 @@ const currentWorkspaceMock = vi.hoisted(() => ({
   name: 'Denis workspace',
   description: 'Workspace description',
   currency: 'EUR',
-  backgroundImage: null,
+  backgroundImage: null as string | null,
+  backgroundAttribution: null as string | null,
+  backgroundSourceUrl: null as string | null,
   settings: {},
   memberRole: 'owner',
 }));
@@ -130,6 +132,39 @@ describe('WorkspaceOverviewView', () => {
         backgroundImage: 'ferdinand-stohr-W1FIkdPAB7E-unsplash.jpg',
       });
     });
+  });
+
+  it('credits a searched background photo under the preview', async () => {
+    Object.assign(currentWorkspaceMock, {
+      backgroundImage: '/uploads/workspace-backgrounds/photo.jpg',
+      backgroundAttribution: '"Fjord" by Ann is licensed under CC BY 2.0.',
+      backgroundSourceUrl: 'https://www.flickr.com/photos/ann/1',
+    });
+    try {
+      const { default: WorkspaceOverviewView } = await import('./WorkspaceOverviewView');
+
+      render(<WorkspaceOverviewView />);
+
+      const credit = screen.getByTestId('workspace-background-credit');
+      expect(credit.textContent).toContain('"Fjord" by Ann is licensed under CC BY 2.0.');
+      expect(screen.getByRole('link', { name: 'Source' }).getAttribute('href')).toBe(
+        'https://www.flickr.com/photos/ann/1',
+      );
+    } finally {
+      Object.assign(currentWorkspaceMock, {
+        backgroundImage: null,
+        backgroundAttribution: null,
+        backgroundSourceUrl: null,
+      });
+    }
+  });
+
+  it('shows no credit line for a bundled background', async () => {
+    const { default: WorkspaceOverviewView } = await import('./WorkspaceOverviewView');
+
+    render(<WorkspaceOverviewView />);
+
+    expect(screen.queryByTestId('workspace-background-credit')).toBeNull();
   });
 
   it('uses dark-safe text styles in the workspace background drawer', async () => {
