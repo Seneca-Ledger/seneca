@@ -2,6 +2,14 @@ import { addDays, format, isValid, parseISO } from 'date-fns';
 import { getPresetRange } from '@/app/(main)/statements/components/filters/statement-filter-internals';
 import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
 
+/** The file a row came from: the receipt when there is one, else the statement. */
+export type ReviewInboxDocument = {
+  source: 'receipt' | 'statement';
+  id: string;
+  fileName: string | null;
+  fileType: string | null;
+};
+
 /** Mirrors `ReviewInboxItem` on the backend; the union is narrowed by `kind`. */
 export type ReviewTransactionItem = {
   kind: 'transaction';
@@ -21,6 +29,8 @@ export type ReviewTransactionItem = {
   statementId: string | null;
   /** The receipt behind the row (a scan, or one attached to it). */
   receiptId: string | null;
+  /** Null when there is no file, or the row is someone else's private one. */
+  document: ReviewInboxDocument | null;
 };
 
 export type ReviewReceiptItem = {
@@ -43,6 +53,7 @@ export type ReviewDuplicateItem = {
   duplicateOfId: string | null;
   confidence: number | null;
   matchType: string | null;
+  document: ReviewInboxDocument | null;
 };
 
 export type ReviewSubscriptionItem = {
@@ -90,6 +101,26 @@ export interface ReviewInboxPage {
 
 export function isReviewInboxKind(value: string | null | undefined): value is ReviewInboxKind {
   return REVIEW_INBOX_KINDS.includes(value as ReviewInboxKind);
+}
+
+/** The file behind a row, shown as its thumbnail and opened by a click on the row. */
+export function documentOf(item: ReviewInboxItem): ReviewInboxDocument | null {
+  switch (item.kind) {
+    case 'transaction':
+    case 'duplicate':
+      return item.document ?? null;
+    case 'receipt':
+      return { source: 'receipt', id: item.id, fileName: null, fileType: null };
+    case 'subscription':
+      return null;
+  }
+}
+
+/** Where a row's document opens, the way Documents opens it. */
+export function documentHref(document: ReviewInboxDocument): string {
+  return document.source === 'receipt'
+    ? `/storage/receipts/${document.id}?from=review`
+    : `/statements/${document.id}/edit`;
 }
 
 /** The name a row is grouped and bulk-handled by. */

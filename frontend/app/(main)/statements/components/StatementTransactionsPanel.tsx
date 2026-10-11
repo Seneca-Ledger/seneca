@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import DetailsDrawer from '@/app/components/transactions/DetailsDrawer';
 import {
@@ -108,7 +109,7 @@ export function StatementTransactionsPanel({
                 {tx.isPrivate ? EMPTY_CELL : tx.counterpartyName || EMPTY_CELL}
               </span>
               <span className="lumio-stmt-tx-panel__category">
-                {tx.category ? (
+                {tx.category && hasChosenCategory(tx.category.name) ? (
                   <>
                     <CategoryIconBadge
                       name={tx.category.name}
@@ -119,7 +120,7 @@ export function StatementTransactionsPanel({
                     <span>{tx.category.name}</span>
                   </>
                 ) : (
-                  EMPTY_CELL
+                  <NoCategoryBadge size={18} />
                 )}
               </span>
               <span

@@ -2,32 +2,36 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
-import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
-import Popover from '@mui/material/Popover';
 import Skeleton from '@mui/material/Skeleton';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { statementColumnWidthStyle } from '@/app/(main)/statements/components/columns/statement-columns';
 import { DateFilterDropdown } from '@/app/(main)/statements/components/filters/DateFilterDropdown';
 import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
+import { useStatementPreview } from '@/app/(main)/statements/components/hooks/useStatementPreview';
 import {
   buildDateModes,
   buildDatePresets,
   buildFilterLabels,
   buildFilterOptionLabels,
+  buildListHeaderLabels,
 } from '@/app/(main)/statements/components/StatementsListView.utils';
 import { StatementsToolbarButton } from '@/app/(main)/statements/components/StatementsToolbarButton';
-import { ChevronDown, Pencil } from '@/app/components/icons';
-import { PayeePicker } from '@/app/components/payees/PayeePicker';
+import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
+import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
+import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
+import { ChevronDown } from '@/app/components/icons';
+import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
 import {
   formatAmount,
   formatDate,
 } from '@/app/components/transactions/helpers/transactionFormatters';
 import { Alert } from '@/app/components/ui/alert';
+import { Checkbox } from '@/app/components/ui/checkbox';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import { Select } from '@/app/components/ui/select';
@@ -39,13 +43,53 @@ import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import type { UseReviewInboxResult } from '../hooks/useReviewInbox';
 import {
   dateFilterToRange,
+  documentHref,
+  documentOf,
   groupByPayee,
+  payeeOf,
   REVIEW_INBOX_KINDS,
+  type ReviewInboxDocument,
   type ReviewInboxItem,
   type ReviewInboxKind,
 } from '../lib/review-inbox-model';
 
 const SWIPE_THRESHOLD_PX = 80;
+
+/** The checkbox slot of a Documents row and of its header. */
+const SELECT_CELL_SX = {
+  width: 16,
+  display: 'flex',
+  justifyContent: 'center',
+  flexShrink: 0,
+  opacity: 0.7,
+} as const;
+
+/** Review rows sit on the Documents column widths, so both lists line up the same way. */
+type ReviewColumn = 'receipt' | 'merchant' | 'category' | 'amount';
+
+const columnStyle = (column: ReviewColumn): React.CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  overflow: 'hidden',
+  justifyContent: column === 'receipt' ? 'center' : column === 'amount' ? 'flex-end' : undefined,
+  ...statementColumnWidthStyle(column),
+});
+
+// No `display` here: on phones the statements stylesheet hides the column
+// titles, and an inline display would win over it.
+const headerStyle = (column: ReviewColumn): React.CSSProperties => ({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  textAlign: column === 'receipt' ? 'center' : column === 'amount' ? 'right' : 'left',
+  ...statementColumnWidthStyle(column),
+});
+
+/** Same words, ignoring case and spacing: "Invoice number 29…" vs "Invoice number29…". */
+function sameText(a: string, b: string): boolean {
+  const normalize = (text: string) => text.replace(/\s+/g, '').toLowerCase();
+  return normalize(a) === normalize(b);
+}
 
 function fill(template: string, params: Record<string, string | number>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(params[key] ?? ''));
@@ -56,24 +100,22 @@ type Props = { state: UseReviewInboxResult };
 // eslint-disable-next-line max-lines-per-function, complexity
 export function ReviewInboxView({ state }: Props) {
   const t = useIntlayer('reviewInbox');
-  const tPayees = useIntlayer('payees');
   const tOwner = useIntlayer('transactionOwner');
   const drawer = useIntlayer('transactionsDrawer');
   const { locale } = useLocale();
   const isMobile = useIsMobile();
+  const router = useRouter();
+  // The thumbnail opens the file in the same viewer Documents uses.
+  const preview = useStatementPreview();
   const [grouped, setGrouped] = useState(false);
   const [categoryId, setCategoryId] = useState('');
-  // The row whose payee is being changed, and where its picker opens.
-  const [payeeEdit, setPayeeEdit] = useState<{
-    item: Extract<ReviewInboxItem, { kind: 'transaction' }>;
-    anchor: HTMLElement;
-  } | null>(null);
   const categorySelectRef = useRef<HTMLDivElement | null>(null);
   // The statements Date dropdown, so both pages filter by date the same way.
   const statementsText = useIntlayer('statementsPage');
   const filterOptionLabels = buildFilterOptionLabels(statementsText, (path, fallback) =>
     resolveLabel(getNestedValue(statementsText, path), fallback),
   );
+  const listHeaderLabels = buildListHeaderLabels(statementsText);
   const datePresets = buildDatePresets(filterOptionLabels);
   const dateModes = buildDateModes(filterOptionLabels);
   const [dateOpen, setDateOpen] = useState(false);
@@ -176,76 +218,17 @@ export function ReviewInboxView({ state }: Props) {
     !busy,
   );
 
-  const renderTransaction = (item: Extract<ReviewInboxItem, { kind: 'transaction' }>) => {
-    // The payee by the name the user knows; the bank's own wording underneath.
-    const title = item.payee?.name ?? item.counterpartyName;
-    const detail =
-      item.payee && item.payee.name !== item.counterpartyName
-        ? item.counterpartyName
-        : item.paymentPurpose;
-    return (
-      <>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <DocumentTitle
-            href={
-              item.receiptId
-                ? `/storage/receipts/${item.receiptId}?from=review`
-                : item.statementId
-                  ? `/statements/${item.statementId}/edit`
-                  : null
-            }
-            label={title}
-          />
-          <IconButton
-            size="small"
-            aria-label={tPayees.changePayee.value}
-            title={tPayees.changePayee.value}
-            disabled={busy}
-            onClick={event => {
-              event.stopPropagation();
-              setPayeeEdit({ item, anchor: event.currentTarget });
-            }}
-            sx={{ p: 0.25, opacity: 0.6, '&:hover': { opacity: 1 } }}
-          >
-            <Pencil size={14} />
-          </IconButton>
-        </Box>
-        <Typography variant="caption" color="text.secondary" noWrap title={detail}>
-          {formatDate(item.date, locale)} · {detail}
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-          {item.categoryName ? (
-            <Chip size="small" label={item.categoryName} />
-          ) : (
-            <Chip size="small" variant="outlined" label={t.uncategorized.value} />
-          )}
-          {item.categorySource && (
-            <Chip
-              size="small"
-              variant="outlined"
-              label={`${sourceLabels[item.categorySource] ?? item.categorySource}${
-                item.categoryReason ? ` · ${item.categoryReason}` : ''
-              }`}
-            />
-          )}
-        </Box>
-      </>
-    );
-  };
+  const openPreview = (document: ReviewInboxDocument): void =>
+    preview.openPreview({
+      fileId: document.id,
+      fileName: document.fileName ?? 'document',
+      source: document.source,
+    });
 
-  const renderRow = (item: ReviewInboxItem, index: number) => {
-    const isCursor = index === cursor;
-    const isSelected = selected.has(item.id);
-    const amount =
-      'amount' in item && item.amount !== null
-        ? formatAmount(item.amount, ('currency' in item && item.currency) || 'KZT', locale)
-        : '—';
-
-    let body: React.ReactNode;
-    let actions: React.ReactNode;
+  /** The amount column's actions for one row; also sizes the header's action column. */
+  const renderActions = (item: ReviewInboxItem): React.ReactNode => {
     if (item.kind === 'transaction') {
-      body = renderTransaction(item);
-      actions = (
+      return (
         <Button
           size="small"
           variant="outlined"
@@ -255,22 +238,9 @@ export function ReviewInboxView({ state }: Props) {
           {categoryId ? t.approveWithCategory.value : t.approveAsIs.value}
         </Button>
       );
-    } else if (item.kind === 'duplicate') {
-      body = (
-        <>
-          <Typography variant="body2" fontWeight={600} noWrap>
-            {item.counterpartyName}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatDate(item.date, locale)} · {t.duplicateOf.value}{' '}
-            {item.duplicateOfId ? item.duplicateOfId.slice(0, 8) : '—'}
-            {item.confidence !== null
-              ? ` · ${fill(t.confidence.value, { value: Math.round(item.confidence * 100) })}`
-              : ''}
-          </Typography>
-        </>
-      );
-      actions = (
+    }
+    if (item.kind === 'duplicate') {
+      return (
         <>
           <Button
             size="small"
@@ -289,20 +259,9 @@ export function ReviewInboxView({ state }: Props) {
           </Button>
         </>
       );
-    } else if (item.kind === 'receipt') {
-      body = (
-        <>
-          <DocumentTitle
-            href={`/storage/receipts/${item.id}?from=review`}
-            label={item.vendor ?? '—'}
-          />
-          <Typography variant="caption" color="text.secondary">
-            {item.date ? formatDate(item.date, locale) : '—'} ·{' '}
-            {item.issues.map(issue => issueLabels[issue] ?? issue).join(', ')}
-          </Typography>
-        </>
-      );
-      actions = (
+    }
+    if (item.kind === 'receipt') {
+      return (
         <>
           <Button
             size="small"
@@ -321,83 +280,223 @@ export function ReviewInboxView({ state }: Props) {
           </Button>
         </>
       );
-    } else {
-      body = (
-        <>
-          <Typography variant="body2" fontWeight={600} noWrap>
-            {item.vendorName}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {item.frequency}
-            {item.nextChargeDate ? ` · ${formatDate(item.nextChargeDate, locale)}` : ''}
-            {item.confidence !== null
-              ? ` · ${fill(t.confidence.value, { value: Math.round(item.confidence * 100) })}`
-              : ''}
-          </Typography>
-        </>
-      );
-      actions = (
-        <>
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={busy}
-            onClick={() => void state.decideSubscription(item.id, 'dismiss')}
-          >
-            {t.dismissSubscription.value}
-          </Button>
-          <Button
-            size="small"
-            disabled={busy}
-            onClick={() => void state.decideSubscription(item.id, 'confirm')}
-          >
-            {t.confirmSubscription.value}
-          </Button>
-        </>
-      );
     }
+    return (
+      <>
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={busy}
+          onClick={() => void state.decideSubscription(item.id, 'dismiss')}
+        >
+          {t.dismissSubscription.value}
+        </Button>
+        <Button
+          size="small"
+          disabled={busy}
+          onClick={() => void state.decideSubscription(item.id, 'confirm')}
+        >
+          {t.confirmSubscription.value}
+        </Button>
+      </>
+    );
+  };
+
+  /** Name on top, date and what else is known underneath — the Documents merchant cell. */
+  const renderMerchant = (item: ReviewInboxItem): React.ReactNode => {
+    let title: string;
+    let meta: string;
+    if (item.kind === 'transaction') {
+      // The payee by the name the user knows; the bank's own wording underneath,
+      // unless it only repeats the name (a scan's purpose is often its vendor).
+      title = item.payee?.name ?? item.counterpartyName;
+      const detail = [item.counterpartyName, item.paymentPurpose].find(
+        text => text && !sameText(text, title),
+      );
+      meta = [formatDate(item.date, locale), detail].filter(Boolean).join(' · ');
+    } else if (item.kind === 'duplicate') {
+      title = item.counterpartyName;
+      meta = [
+        formatDate(item.date, locale),
+        `${t.duplicateOf.value} ${item.duplicateOfId ? item.duplicateOfId.slice(0, 8) : '—'}`,
+        item.confidence !== null
+          ? fill(t.confidence.value, { value: Math.round(item.confidence * 100) })
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    } else if (item.kind === 'receipt') {
+      title = item.vendor ?? '—';
+      meta = [
+        item.date ? formatDate(item.date, locale) : '—',
+        item.issues.map(issue => issueLabels[issue] ?? issue).join(', '),
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    } else {
+      title = item.vendorName;
+      meta = [
+        item.frequency,
+        item.nextChargeDate ? formatDate(item.nextChargeDate, locale) : '',
+        item.confidence !== null
+          ? fill(t.confidence.value, { value: Math.round(item.confidence * 100) })
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    }
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+          <Typography
+            component="span"
+            noWrap
+            title={title}
+            sx={{ fontWeight: 600, fontSize: 15, color: 'var(--foreground)' }}
+          >
+            {title}
+          </Typography>
+        </Box>
+        <Typography
+          variant="caption"
+          noWrap
+          title={meta}
+          sx={{ fontSize: 11, fontWeight: 500, color: 'var(--muted-foreground)', mt: 0.25 }}
+        >
+          {meta}
+        </Typography>
+        {/* Phones have no category column: the category goes under the name. */}
+        {isMobile && item.kind === 'transaction' ? (
+          <Box sx={{ mt: 0.5, fontSize: 12, minWidth: 0 }}>{renderCategory(item)}</Box>
+        ) : null}
+      </Box>
+    );
+  };
+
+  /** A chosen category as Documents shows it; otherwise it says there is none yet. */
+  const renderCategory = (item: Extract<ReviewInboxItem, { kind: 'transaction' }>) => {
+    if (!hasChosenCategory(item.categoryName)) {
+      return <NoCategoryBadge />;
+    }
+    const category = categories.find(entry => entry.id === item.categoryId);
+    const label = category ? getCategoryDisplayName(category, locale) : item.categoryName;
+    const source = item.categorySource
+      ? `${sourceLabels[item.categorySource] ?? item.categorySource}${
+          item.categoryReason ? ` · ${item.categoryReason}` : ''
+        }`
+      : null;
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+        <CategoryIconBadge
+          name={item.categoryName}
+          color={category?.color}
+          icon={category?.icon}
+          size={22}
+        />
+        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <Typography component="span" noWrap title={label} sx={{ fontSize: 14 }}>
+            {label}
+          </Typography>
+          {/* Who picked it — a rule, the history, the model — since that is what is being checked. */}
+          {source ? (
+            <Typography
+              component="span"
+              noWrap
+              title={source}
+              sx={{ fontSize: 11, color: 'var(--muted-foreground)' }}
+            >
+              {source}
+            </Typography>
+          ) : null}
+        </Box>
+      </Box>
+    );
+  };
+
+  const showCategoryColumn = kind === 'transaction' && !isMobile;
+
+  const renderRow = (item: ReviewInboxItem, index: number) => {
+    const isCursor = index === cursor;
+    const isSelected = selected.has(item.id);
+    const amount =
+      'amount' in item && item.amount !== null
+        ? formatAmount(item.amount, ('currency' in item && item.currency) || 'KZT', locale)
+        : '—';
+    const document = documentOf(item);
+    const href = document ? documentHref(document) : null;
 
     const row = (
       <Box
         key={item.id}
         data-testid="review-row"
         data-cursor={isCursor ? 'true' : undefined}
-        onClick={() => setCursor(index)}
+        onClick={() => {
+          setCursor(index);
+          if (href) router.push(href);
+        }}
         className={`lumio-stmt-list-item${isSelected ? ' lumio-stmt-list-item--selected' : ''}`}
         sx={{
           display: 'flex',
           alignItems: 'center',
-          gap: 1.5,
+          cursor: href ? 'pointer' : 'default',
           // The keyboard cursor reads like a hovered row, not a framed one.
           ...(isCursor && !isSelected ? { bgcolor: 'action.hover' } : {}),
         }}
       >
-        <Checkbox
-          size="small"
-          checked={isSelected}
-          onChange={() => toggle(item.id)}
-          onClick={event => event.stopPropagation()}
-          inputProps={{ 'aria-label': item.id }}
-        />
-        <Box sx={{ flex: 1, minWidth: 0 }}>{body}</Box>
-        <Typography
-          variant="body2"
-          sx={{
-            fontSize: 19,
-            lineHeight: 1,
-            fontWeight: 900,
-            letterSpacing: '-0.025em',
-            fontVariantNumeric: 'tabular-nums',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {amount}
-        </Typography>
-        {!isMobile && (
-          <Box sx={{ display: 'flex', gap: 1 }} onClick={event => event.stopPropagation()}>
-            {actions}
-          </Box>
-        )}
+        <Box sx={{ ...SELECT_CELL_SX, mr: 2 }}>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => toggle(item.id)}
+            onClick={event => event.stopPropagation()}
+            aria-label={payeeOf(item)}
+            style={{ height: 16, width: 16 }}
+          />
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+          <div style={columnStyle('receipt')}>
+            {document ? (
+              <DocumentThumbnailPreview
+                fileId={document.id}
+                fileName={document.fileName ?? payeeOf(item)}
+                fileType={
+                  document.source === 'receipt'
+                    ? 'pdf'
+                    : (document.fileType ?? document.fileName ?? '')
+                }
+                source={document.source}
+                onOpen={() => openPreview(document)}
+                testId={`review-thumbnail-${item.id}`}
+              />
+            ) : null}
+          </div>
+          <div style={columnStyle('merchant')}>{renderMerchant(item)}</div>
+          {showCategoryColumn && item.kind === 'transaction' ? (
+            <div style={columnStyle('category')}>{renderCategory(item)}</div>
+          ) : null}
+          <div style={isMobile ? { flex: '0 0 auto' } : columnStyle('amount')}>
+            <Typography
+              component="span"
+              sx={{
+                fontSize: 19,
+                lineHeight: 1,
+                fontWeight: 900,
+                letterSpacing: '-0.025em',
+                fontVariantNumeric: 'tabular-nums',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {amount}
+            </Typography>
+          </div>
+          {!isMobile && (
+            <Box
+              sx={{ display: 'flex', gap: 1, flex: '0 0 auto' }}
+              onClick={event => event.stopPropagation()}
+            >
+              {renderActions(item)}
+            </Box>
+          )}
+        </Box>
       </Box>
     );
 
@@ -412,7 +511,7 @@ export function ReviewInboxView({ state }: Props) {
         {row}
         {item.kind !== 'transaction' && (
           <Box sx={{ display: 'flex', gap: 1, px: 1.5, pb: 1, justifyContent: 'flex-end' }}>
-            {actions}
+            {renderActions(item)}
           </Box>
         )}
       </SwipeableRow>
@@ -420,6 +519,51 @@ export function ReviewInboxView({ state }: Props) {
   };
 
   const allSelected = items.length > 0 && items.every(item => selected.has(item.id));
+  // Column titles over the rows, on the same widths, as on Documents.
+  const header = (
+    <div className="lumio-stmt-list-view__desktop-header">
+      <Box sx={{ ...SELECT_CELL_SX, mr: 2 }}>
+        <Checkbox
+          checked={allSelected}
+          indeterminate={selected.size > 0 && !allSelected}
+          disabled={items.length === 0}
+          onCheckedChange={() =>
+            allSelected ? clearSelection() : selectIds(items.map(item => item.id))
+          }
+          aria-label={t.selectAll.value}
+        />
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+        <div data-column-id="receipt" style={headerStyle('receipt')}>
+          <span className="u-visually-hidden">{listHeaderLabels.receipt}</span>
+        </div>
+        <div data-column-id="merchant" style={headerStyle('merchant')}>
+          {filterOptionLabels.columnMerchant} · {listHeaderLabels.date}
+        </div>
+        {showCategoryColumn ? (
+          <div data-column-id="category" style={headerStyle('category')}>
+            {filterOptionLabels.columnCategory}
+          </div>
+        ) : null}
+        <div data-column-id="amount" style={headerStyle('amount')}>
+          {filterOptionLabels.columnAmount}
+        </div>
+        {/* An invisible copy of the first row's buttons, so this column is as
+            wide as theirs and Amount sits right above the amounts. */}
+        {orderedItems[0] ? (
+          <Box
+            data-column-id="action"
+            aria-hidden
+            inert
+            sx={{ display: 'flex', gap: 1, flex: '0 0 auto', visibility: 'hidden', height: 0 }}
+          >
+            {renderActions(orderedItems[0])}
+          </Box>
+        ) : null}
+      </Box>
+    </div>
+  );
+
   const listBody = state.isPending ? (
     ['a', 'b', 'c'].map(key => (
       <Box key={key} className="lumio-stmt-list-item">
@@ -544,16 +688,6 @@ export function ReviewInboxView({ state }: Props) {
           <Box
             sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, minWidth: 0 }}
           >
-            <Checkbox
-              size="small"
-              checked={allSelected}
-              indeterminate={selected.size > 0 && !allSelected}
-              disabled={items.length === 0}
-              onChange={() =>
-                allSelected ? clearSelection() : selectIds(items.map(item => item.id))
-              }
-              inputProps={{ 'aria-label': t.selectAll.value }}
-            />
             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 88 }}>
               {fill(t.selected.value, { count: selected.size })}
             </Typography>
@@ -597,60 +731,19 @@ export function ReviewInboxView({ state }: Props) {
             </Typography>
           ) : null}
         </div>
+        {header}
         {listBody}
       </div>
-      <Popover
-        open={Boolean(payeeEdit)}
-        anchorEl={payeeEdit?.anchor ?? null}
-        onClose={() => setPayeeEdit(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        disableAutoFocus
-      >
-        {payeeEdit ? (
-          <Box sx={{ p: 2 }}>
-            <PayeePicker
-              current={payeeEdit.item.payee}
-              disabled={busy}
-              onPick={(choice, name) => {
-                const { item } = payeeEdit;
-                setPayeeEdit(null);
-                void state.changePayee(item.id, choice, name);
-              }}
-            />
-          </Box>
-        ) : null}
-      </Popover>
+      {preview.preview.fileId ? (
+        <PDFPreviewModal
+          isOpen={preview.preview.isOpen}
+          onClose={preview.closePreview}
+          fileId={preview.preview.fileId}
+          fileName={preview.preview.fileName}
+          source={preview.preview.source}
+        />
+      ) : null}
     </div>
-  );
-}
-
-/** A row's name, linked to the document it came from when there is one. */
-function DocumentTitle({ href, label }: { href: string | null; label: string }) {
-  if (!href) {
-    return (
-      <Typography variant="body2" fontWeight={600} noWrap title={label}>
-        {label}
-      </Typography>
-    );
-  }
-  return (
-    <Typography
-      component={Link}
-      href={href}
-      variant="body2"
-      fontWeight={600}
-      noWrap
-      title={label}
-      onClick={event => event.stopPropagation()}
-      sx={{
-        display: 'block',
-        color: 'inherit',
-        textDecoration: 'none',
-        '&:hover': { color: 'var(--primary)', textDecoration: 'underline' },
-      }}
-    >
-      {label}
-    </Typography>
   );
 }
 

@@ -321,6 +321,19 @@ describe('Review inbox (e2e)', () => {
 
     expect(byId.get(scanRowId)).toBe(receipt.id);
     expect(byId.get(bankRowId)).toBeNull();
+    // The thumbnail: the receipt for a scan, the statement file for a bank row.
+    const documents = new Map(
+      res.body.items.map((item: { id: string; document: unknown }) => [item.id, item.document]),
+    );
+    expect(documents.get(scanRowId)).toEqual({
+      source: 'receipt',
+      id: receipt.id,
+      fileName: 'bank.csv',
+      fileType: 'csv',
+    });
+    expect(documents.get(bankRowId)).toEqual(
+      expect.objectContaining({ source: 'statement', fileType: 'csv' }),
+    );
     await dataSource.query('DELETE FROM receipts WHERE workspace_id = $1', [owner.workspaceId]);
     await dataSource.query('DELETE FROM transactions WHERE id = ANY($1)', [[scanRowId, bankRowId]]);
   });

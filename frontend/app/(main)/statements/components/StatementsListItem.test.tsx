@@ -1056,6 +1056,64 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.textContent).toContain('1 USD = 3.72 ILS');
   });
 
+  it('says a one-purchase document has no category yet, but leaves a multi-row statement blank', () => {
+    const renderCategory = (
+      statement: Partial<StatementsListItemProps['statement']>,
+      props: Partial<StatementsListItemProps> = {},
+    ): HTMLElement | null => {
+      const root = createRoot(container);
+      act(() => {
+        root.render(
+          <StatementsListItem
+            statement={
+              {
+                id: 'no-category',
+                source: 'scan',
+                fileName: 'scan.jpg',
+                status: 'completed',
+                createdAt: '2026-02-05T00:00:00Z',
+                bankName: 'other',
+                fileType: 'image',
+                ...statement,
+              } as StatementsListItemProps['statement']
+            }
+            viewLabel="View"
+            isReceipt
+            isProcessing={false}
+            merchantLabel="Lidl"
+            amountLabel="9.99 EUR"
+            dateLabel="02/05/2026"
+            onView={() => undefined}
+            onIconClick={() => undefined}
+            columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+            {...props}
+          />,
+        );
+      });
+      const cell = container.querySelector(
+        '[data-testid="statement-column-no-category-category"]',
+      ) as HTMLElement | null;
+      const snapshot = cell?.cloneNode(true) as HTMLElement | null;
+      act(() => root.unmount());
+      return snapshot;
+    };
+
+    // A scan with nothing picked, and one still in the Uncategorized fallback.
+    expect(renderCategory({})?.querySelector('[data-testid="no-category-badge"]')).toBeTruthy();
+    expect(
+      renderCategory({ category: { id: 'u', name: 'Uncategorized' } })?.querySelector(
+        '[data-testid="no-category-badge"]',
+      ),
+    ).toBeTruthy();
+    // A bank statement's category is only the majority of its rows'.
+    const multiRow = renderCategory(
+      { source: 'statement', fileType: 'pdf' },
+      { isReceipt: false, transactionCount: 24 },
+    );
+    expect(multiRow?.querySelector('[data-testid="no-category-badge"]')).toBeNull();
+    expect(multiRow?.textContent).toBe('—');
+  });
+
   it('links the category chip to that category on the Top categories leaderboard', () => {
     const root = createRoot(container);
 

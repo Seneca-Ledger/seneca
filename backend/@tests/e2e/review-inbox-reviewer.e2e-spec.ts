@@ -142,6 +142,20 @@ describe('Review inbox reviewer (e2e)', () => {
     expect(merchantsOf(theirs.body)).toEqual(['Ours', 'Theirs']);
   });
 
+  it('shows no file behind someone else’s private row', async () => {
+    // The thumbnail would name the merchant the redacted descriptor hides.
+    await transactions().update(ids.theirs, { isPrivate: true });
+    const documentOf = (body: { items: Array<{ id: string; document: unknown }> }) =>
+      body.items.find(item => item.id === ids.theirs)?.document;
+
+    const mine = await as(owner, request(server()).get('/review-inbox')).expect(200);
+    expect(documentOf(mine.body)).toBeNull();
+    const theirs = await as(partner, request(server()).get('/review-inbox')).expect(200);
+    expect(documentOf(theirs.body)).toEqual(expect.objectContaining({ source: 'statement' }));
+
+    await transactions().update(ids.theirs, { isPrivate: false });
+  });
+
   it('counts what the queue will actually show', async () => {
     const res = await as(owner, request(server()).get('/review-inbox?reviewer=me')).expect(200);
     expect(res.body.counts.transaction).toBe(2);
