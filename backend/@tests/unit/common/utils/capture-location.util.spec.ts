@@ -1,9 +1,8 @@
+import { decodeBody, rejectedFields } from '../../../helpers/schema-body';
+import { UploadReceiptScanBody } from '@/contracts';
 import exifr from 'exifr';
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
 import { toCaptureLocation } from '@/common/utils/capture-location.util';
 import { readExifGps } from '@/common/utils/exif-gps.util';
-import { UploadReceiptScanDto } from '@/modules/statements/dto/upload-receipt-scan.dto';
 
 jest.mock('exifr', () => ({ __esModule: true, default: { gps: jest.fn() } }));
 
@@ -31,22 +30,21 @@ describe('toCaptureLocation', () => {
 });
 
 describe('capture location multipart fields', () => {
-  it('coerces string fields to numbers', async () => {
-    const dto = plainToInstance(UploadReceiptScanDto, {
+  it('coerces string fields to numbers', () => {
+    const { value, errors } = decodeBody(UploadReceiptScanBody, {
       latitude: '43.2383',
       longitude: '76.9453',
       accuracy: '12',
     });
 
-    await expect(validate(dto)).resolves.toHaveLength(0);
-    expect(dto.latitude).toBe(43.2383);
+    expect(errors).toEqual([]);
+    expect(value?.latitude).toBe(43.2383);
   });
 
-  it('rejects a latitude beyond the pole', async () => {
-    const dto = plainToInstance(UploadReceiptScanDto, { latitude: '91', longitude: '0' });
-
-    const errors = await validate(dto);
-    expect(errors.map(error => error.property)).toEqual(['latitude']);
+  it('rejects a latitude beyond the pole', () => {
+    expect(rejectedFields(UploadReceiptScanBody, { latitude: '91', longitude: '0' })).toEqual([
+      'latitude',
+    ]);
   });
 });
 

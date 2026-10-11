@@ -1,0 +1,83 @@
+import * as Schema from 'effect/Schema';
+import * as Struct from 'effect/Struct';
+import { Email } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+export const CreateWorkspaceBody = Schema.Struct({
+  name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(255)),
+  description: Schema.optional(Schema.String.check(Schema.isMaxLength(500))),
+  icon: Schema.optional(Schema.String.check(Schema.isMaxLength(50))),
+  color: Schema.optional(Schema.String.check(Schema.isMaxLength(7))),
+  backgroundImage: Schema.optional(Schema.String.check(Schema.isMaxLength(255))),
+  currency: Schema.optional(Schema.String.check(Schema.isMaxLength(10))),
+  /** Home hides the business pages from the navigation; business is the default. */
+  profile: Schema.optional(Schema.Literals(['home', 'business'])),
+});
+export type CreateWorkspaceBody = Wire<typeof CreateWorkspaceBody>;
+
+export const WorkspaceProcessingInput = Schema.Struct({
+  /** 0 categorises almost everything, 1 only exact matches. */
+  categorizationThreshold: Schema.optional(
+    Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+  ),
+  duplicateResolution: Schema.optional(Schema.Literals(['skip', 'force_import', 'mark_duplicate'])),
+  aiCategorization: Schema.optional(Schema.Boolean),
+  aiMerchantNormalization: Schema.optional(Schema.Boolean),
+  merchantLearning: Schema.optional(Schema.Boolean),
+});
+export type WorkspaceProcessingInput = Wire<typeof WorkspaceProcessingInput>;
+
+export const UpdateWorkspaceBody = CreateWorkspaceBody.mapFields(
+  Struct.map(Schema.optional),
+).mapFields(
+  Struct.assign({
+    isFavorite: Schema.optional(Schema.Boolean),
+    /** How this workspace categorises and de-duplicates incoming data. */
+    processing: Schema.optional(WorkspaceProcessingInput),
+  }),
+);
+export type UpdateWorkspaceBody = Wire<typeof UpdateWorkspaceBody>;
+
+export const WorkspaceMemberPermissionsInput = Schema.Struct({
+  canEditStatements: Schema.optional(Schema.Boolean),
+  canEditCustomTables: Schema.optional(Schema.Boolean),
+  canEditCategories: Schema.optional(Schema.Boolean),
+  canEditDataEntry: Schema.optional(Schema.Boolean),
+  canShareFiles: Schema.optional(Schema.Boolean),
+});
+export type WorkspaceMemberPermissionsInput = Wire<typeof WorkspaceMemberPermissionsInput>;
+
+export const InviteMemberBody = Schema.Struct({
+  email: Email,
+  role: Schema.optional(Schema.Literals(['owner', 'admin', 'member', 'viewer'])),
+  permissions: Schema.optional(WorkspaceMemberPermissionsInput),
+});
+export type InviteMemberBody = Wire<typeof InviteMemberBody>;
+
+export const UpdateMemberRoleBody = Schema.Struct({
+  role: Schema.Literals(['owner', 'admin', 'member', 'viewer']),
+});
+export type UpdateMemberRoleBody = Wire<typeof UpdateMemberRoleBody>;
+
+export const MemberPermissionsInput = Schema.Struct({
+  canEditStatements: Schema.optional(Schema.Boolean),
+  canEditCustomTables: Schema.optional(Schema.Boolean),
+  canEditCategories: Schema.optional(Schema.Boolean),
+  canEditDataEntry: Schema.optional(Schema.Boolean),
+  canShareFiles: Schema.optional(Schema.Boolean),
+});
+export type MemberPermissionsInput = Wire<typeof MemberPermissionsInput>;
+
+/**
+ * Replaces a member's toggles wholesale: a key left out is a right not granted,
+ * because a missing toggle means "no" everywhere in the authz table.
+ */
+export const UpdateMemberPermissionsBody = Schema.Struct({
+  permissions: MemberPermissionsInput,
+});
+export type UpdateMemberPermissionsBody = Wire<typeof UpdateMemberPermissionsBody>;
+
+export const AcceptInvitationBody = Schema.Struct({
+  token: Schema.String,
+});
+export type AcceptInvitationBody = Wire<typeof AcceptInvitationBody>;

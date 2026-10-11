@@ -8,10 +8,14 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThanOrEqual, Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import type {
+  CreateSubscriptionBody,
+  RecordSubscriptionDecisionBody,
   SubscriptionChargeCalendar,
   SubscriptionDuplicateGroups,
   SubscriptionSummary,
+  UpdateSubscriptionBody,
 } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
@@ -45,9 +49,6 @@ import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { GoalsService } from '../goals/goals.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { projectMonthlyCharges } from './charge-calendar.util';
-import type { CreateSubscriptionDto } from './dto/create-subscription.dto';
-import type { RecordSubscriptionDecisionDto } from './dto/record-subscription-decision.dto';
-import type { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import {
   costPerUse,
   describePriceChange,
@@ -123,14 +124,14 @@ export class SubscriptionsService {
   async create(
     workspaceId: string,
     userId: string,
-    dto: CreateSubscriptionDto,
+    dto: CreateSubscriptionBody,
   ): Promise<Subscription> {
     const subscription = this.subscriptionRepository.create({
       workspaceId,
       createdById: userId,
       vendorName: dto.vendorName,
       amount: dto.amount,
-      frequency: dto.frequency,
+      frequency: toEnum(SubscriptionFrequency, dto.frequency),
       currency: dto.currency ?? 'USD',
       categoryId: dto.categoryId ?? null,
       nextChargeDate: dto.nextChargeDate ? new Date(dto.nextChargeDate) : null,
@@ -194,14 +195,15 @@ export class SubscriptionsService {
     id: string,
     workspaceId: string,
     userId: string,
-    dto: UpdateSubscriptionDto,
+    dto: UpdateSubscriptionBody,
   ): Promise<Subscription> {
     const subscription = await this.findOne(id, workspaceId);
     const before = subscriptionSnapshot(subscription);
     if (dto.vendorName !== undefined) subscription.vendorName = dto.vendorName;
     if (dto.amount !== undefined) subscription.amount = dto.amount;
-    if (dto.frequency !== undefined) subscription.frequency = dto.frequency;
-    if (dto.status !== undefined) subscription.status = dto.status;
+    if (dto.frequency !== undefined)
+      subscription.frequency = toEnum(SubscriptionFrequency, dto.frequency);
+    if (dto.status !== undefined) subscription.status = toEnum(SubscriptionStatus, dto.status);
     if (dto.currency !== undefined) subscription.currency = dto.currency;
     if (dto.categoryId !== undefined) subscription.categoryId = dto.categoryId;
     if (dto.nextChargeDate !== undefined)
@@ -323,7 +325,7 @@ export class SubscriptionsService {
     id: string,
     workspaceId: string,
     actorId: string,
-    dto: RecordSubscriptionDecisionDto,
+    dto: RecordSubscriptionDecisionBody,
   ): Promise<Subscription> {
     const subscription = await this.findOne(id, workspaceId);
     const before = subscriptionSnapshot(subscription);
@@ -354,7 +356,7 @@ export class SubscriptionsService {
         workspaceId,
         subscriptionId: id,
         actorId,
-        decision: dto.decision,
+        decision: toEnum(SubscriptionDecisionType, dto.decision),
         note: dto.note ?? null,
         savingsAmount: dto.realizedAnnualSavings ?? null,
       }),
@@ -372,7 +374,7 @@ export class SubscriptionsService {
         name: saved.vendorName,
         change: 'decision_recorded',
         decision: {
-          type: dto.decision,
+          type: toEnum(SubscriptionDecisionType, dto.decision),
           note: dto.note ?? null,
           realizedAnnualSavings: dto.realizedAnnualSavings ?? null,
           reviewAt: dto.reviewAt ?? null,

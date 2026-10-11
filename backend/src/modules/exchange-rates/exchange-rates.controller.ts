@@ -1,12 +1,12 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Controller, Get, Post, Query } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { BulkConvertBody, ManualRateBody } from '../../contracts';
 import { Workspace } from '../../entities/workspace.entity';
-import { BulkConvertDto } from './dto/convert.dto';
-import { ManualRateDto } from './dto/manual-rate.dto';
 import { ExchangeRatesService } from './exchange-rates.service';
 
 @Controller('exchange-rates')
@@ -62,7 +62,10 @@ export class ExchangeRatesController {
   /** A rate entered by hand for one day; wins over the provider for that day, in this workspace. */
   @Post('manual')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  async setManual(@WorkspaceId() workspaceId: string, @Body() dto: ManualRateDto) {
+  async setManual(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(ManualRateBody) dto: ManualRateBody,
+  ) {
     return this.exchangeRatesService.setManualRate(
       workspaceId,
       dto.from,
@@ -74,7 +77,10 @@ export class ExchangeRatesController {
 
   @Post('convert')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
-  async bulkConvert(@WorkspaceId() workspaceId: string, @Body() dto: BulkConvertDto) {
+  async bulkConvert(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(BulkConvertBody) dto: BulkConvertBody,
+  ) {
     const items = dto.items.map(item => ({
       amount: item.amount,
       currency: item.currency,

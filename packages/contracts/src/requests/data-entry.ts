@@ -1,0 +1,37 @@
+import * as Schema from 'effect/Schema';
+import { IsoDateString } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+export const CreateDataEntryBody = Schema.Struct({
+  type: Schema.Literals(['cash', 'raw', 'debit', 'credit']),
+  date: IsoDateString,
+  amount: Schema.Finite,
+  note: Schema.optional(Schema.NullOr(Schema.String)),
+  currency: Schema.optional(Schema.String),
+  customFieldName: Schema.optional(
+    Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120)),
+  ),
+  customFieldIcon: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(120)))),
+  customFieldValue: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(2000)))),
+  customTabId: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
+}).check(
+  // A custom value needs the field it belongs to.
+  Schema.makeFilter(body =>
+    (body.customFieldValue ?? '').trim().length === 0 || body.customFieldName !== undefined
+      ? undefined
+      : 'customFieldName is required with customFieldValue',
+  ),
+);
+export type CreateDataEntryBody = Wire<typeof CreateDataEntryBody>;
+
+export const CreateDataEntryCustomFieldBody = Schema.Struct({
+  name: Schema.String.check(Schema.isMaxLength(120)),
+  icon: Schema.optional(Schema.String.check(Schema.isMaxLength(120))),
+});
+export type CreateDataEntryCustomFieldBody = Wire<typeof CreateDataEntryCustomFieldBody>;
+
+export const UpdateDataEntryCustomFieldBody = Schema.Struct({
+  name: Schema.optional(Schema.String.check(Schema.isMaxLength(120))),
+  icon: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(120)))),
+});
+export type UpdateDataEntryCustomFieldBody = Wire<typeof UpdateDataEntryCustomFieldBody>;

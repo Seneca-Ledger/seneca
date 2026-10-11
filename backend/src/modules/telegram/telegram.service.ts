@@ -6,6 +6,7 @@ import * as path from 'path';
 import type { Repository } from 'typeorm';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { formatMoney } from '../../common/utils/format-money.util';
+import type { ConnectTelegramBody, SendTelegramReportBody } from '../../contracts';
 import { CategoryType } from '../../entities/category.entity';
 import { IdempotencyKey } from '../../entities/idempotency-key.entity';
 import type { Insight } from '../../entities/insight.entity';
@@ -24,8 +25,6 @@ import type { DailyReport } from '../reports/interfaces/daily-report.interface';
 import type { MonthlyReport } from '../reports/interfaces/monthly-report.interface';
 import { ReportsService } from '../reports/reports.service';
 import { StatementsService } from '../statements/statements.service';
-import type { ConnectTelegramDto } from './dto/connect-telegram.dto';
-import type { SendTelegramReportDto } from './dto/send-report.dto';
 import { parseExpenseText } from './telegram-inbound.util';
 import {
   renderTelegramMessage,
@@ -168,7 +167,7 @@ export class TelegramService {
   }
 
   /** The bot then answers for `workspaceId`, the workspace open when connecting. */
-  async connectAccount(user: User, workspaceId: string, dto: ConnectTelegramDto): Promise<User> {
+  async connectAccount(user: User, workspaceId: string, dto: ConnectTelegramBody): Promise<User> {
     if (!dto.chatId) {
       throw new BadRequestException('chatId is required to connect Telegram');
     }
@@ -211,7 +210,7 @@ export class TelegramService {
     return membership ? workspaceId : null;
   }
 
-  async sendReport(user: User, dto: SendTelegramReportDto, workspaceId: string) {
+  async sendReport(user: User, dto: SendTelegramReportBody, workspaceId: string) {
     const chatId = dto.chatId || user.telegramChatId;
     if (!chatId) {
       throw new BadRequestException(

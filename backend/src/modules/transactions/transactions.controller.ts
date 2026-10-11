@@ -1,7 +1,6 @@
 import * as fs from 'node:fs';
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
@@ -20,25 +19,27 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
 import { parseOwnerFilter } from '../../common/utils/transaction-owner.util';
+import type { BulkUpdateItemInput } from '../../contracts';
+import {
+  BulkUpdateRequestBody,
+  DetectTransfersBody,
+  LinkReimbursementBody,
+  LinkTransferBody,
+  MarkDuplicatesBody,
+  MergeDuplicatesBody,
+  SetTransactionTagsBody,
+  SplitTransactionBody,
+  UpdateTransactionBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { BulkUpdateItemDto } from './dto/bulk-update-transaction.dto';
-import { BulkUpdateRequestDto } from './dto/bulk-update-transaction.dto';
-import { MarkDuplicatesDto, MergeDuplicatesDto } from './dto/duplicate-actions.dto';
-import { SetTransactionTagsDto } from './dto/set-transaction-tags.dto';
-import { SplitTransactionDto } from './dto/split-transaction.dto';
-import {
-  DetectTransfersDto,
-  LinkReimbursementDto,
-  LinkTransferDto,
-} from './dto/transfer-actions.dto';
-import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { CrossStatementDeduplicationService } from './services/cross-statement-deduplication.service';
 import { TransactionAttachmentsService } from './services/transaction-attachments.service';
 import { TransactionTagsService } from './services/transaction-tags.service';
@@ -132,7 +133,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateTransactionDto,
+    @SchemaBody(UpdateTransactionBody) updateDto: UpdateTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
@@ -153,7 +154,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async split(
     @Param('id') id: string,
-    @Body() splitDto: SplitTransactionDto,
+    @SchemaBody(SplitTransactionBody) splitDto: SplitTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -176,13 +177,13 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_BULK_UPDATE)
   async bulkUpdate(
-    @Body() body: BulkUpdateRequestDto,
+    @SchemaBody(BulkUpdateRequestBody) body: BulkUpdateRequestBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     // Support both {items} and {ids, updates} formats for backward compatibility
-    let items: BulkUpdateItemDto[];
+    let items: BulkUpdateItemInput[];
 
     if (body.items) {
       items = body.items;
@@ -256,7 +257,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async markDuplicates(
-    @Body() body: MarkDuplicatesDto,
+    @SchemaBody(MarkDuplicatesBody) body: MarkDuplicatesBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -279,7 +280,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async mergeDuplicates(
-    @Body() body: MergeDuplicatesDto,
+    @SchemaBody(MergeDuplicatesBody) body: MergeDuplicatesBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -323,7 +324,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async detectTransfers(
-    @Body() body: DetectTransfersDto,
+    @SchemaBody(DetectTransfersBody) body: DetectTransfersBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -346,7 +347,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async linkTransfer(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: LinkTransferDto,
+    @SchemaBody(LinkTransferBody) body: LinkTransferBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -382,7 +383,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async linkReimbursement(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: LinkReimbursementDto,
+    @SchemaBody(LinkReimbursementBody) body: LinkReimbursementBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -412,7 +413,7 @@ export class TransactionsController {
   @Audit({ entityType: EntityType.TRANSACTION, includeDiff: true })
   async setTags(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: SetTransactionTagsDto,
+    @SchemaBody(SetTransactionTagsBody) dto: SetTransactionTagsBody,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.transactionTagsService.setTags(id, workspaceId, dto.tagIds);

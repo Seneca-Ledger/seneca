@@ -17,6 +17,7 @@ import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { DEV_DEFAULTS } from '../../common/utils/dev-defaults';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { requireSecret } from '../../common/utils/required-secret.util';
+import type { LoginBody, RegisterBody } from '../../contracts';
 import {
   AuthSession,
   User,
@@ -31,8 +32,6 @@ import { AuditAction, EntityType, Severity } from '../../entities/audit-event.en
 import { AuditService } from '../audit/audit.service';
 import { CategoriesService } from '../categories/categories.service';
 import type { AuthResponseDto, LoginResultDto } from './dto/auth-response.dto';
-import type { LoginDto } from './dto/login.dto';
-import type { RegisterDto } from './dto/register.dto';
 import { recordSecurityEvent } from './security-audit.util';
 import type { JwtPayload } from './strategies/jwt.strategy';
 import type { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
@@ -188,7 +187,7 @@ export class AuthService {
   }
 
   async register(
-    registerDto: RegisterDto,
+    registerDto: RegisterBody,
     sessionContext?: SessionContext,
   ): Promise<AuthResponseDto> {
     const normalizedEmail = registerDto.email.trim().toLowerCase();
@@ -233,7 +232,7 @@ export class AuthService {
     return this.generateTokens(savedUser, sessionContext);
   }
 
-  async login(loginDto: LoginDto, sessionContext?: SessionContext): Promise<LoginResultDto> {
+  async login(loginDto: LoginBody, sessionContext?: SessionContext): Promise<LoginResultDto> {
     const normalizedEmail = loginDto.email.trim().toLowerCase();
     const user = await this.userRepository.findOne({
       where: { email: normalizedEmail },

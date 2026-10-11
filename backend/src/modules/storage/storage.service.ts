@@ -12,10 +12,22 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { In, IsNull, type Repository } from 'typeorm';
 import { workspaceMemberCanEdit } from '../../common/authz/workspace-permissions';
+import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
+import type {
+  CreateFolderBody,
+  CreateSharedLinkBody,
+  CreateTagBody,
+  GrantPermissionBody,
+  StorageViewBody,
+  UpdateFolderBody,
+  UpdatePermissionBody,
+  UpdateSharedLinkBody,
+  UpdateTagBody,
+} from '../../contracts';
 import {
   Category,
   FilePermission,
@@ -34,15 +46,6 @@ import {
 } from '../../entities';
 import { MetricsService } from '../observability/metrics.service';
 import { StatementsService } from '../statements/statements.service';
-import type { CreateFolderDto } from './dto/create-folder.dto';
-import type { CreateSharedLinkDto } from './dto/create-shared-link.dto';
-import type { CreateTagDto } from './dto/create-tag.dto';
-import type { GrantPermissionDto } from './dto/grant-permission.dto';
-import type { StorageViewDto } from './dto/storage-view.dto';
-import type { UpdateFolderDto } from './dto/update-folder.dto';
-import type { UpdatePermissionDto } from './dto/update-permission.dto';
-import type { UpdateSharedLinkDto } from './dto/update-shared-link.dto';
-import type { UpdateTagDto } from './dto/update-tag.dto';
 import type { StorageViewFilters } from './interfaces/storage-view-filters.interface';
 import { buildStorageCategoryWhere } from './storage-category-scope.util';
 
@@ -393,7 +396,7 @@ export class StorageService {
     return { ...saved, tags };
   }
 
-  async createTag(dto: CreateTagDto, workspaceId: string) {
+  async createTag(dto: CreateTagBody, workspaceId: string) {
     const tag = this.tagRepository.create({
       name: dto.name,
       color: dto.color ?? null,
@@ -409,7 +412,7 @@ export class StorageService {
     });
   }
 
-  async updateTag(tagId: string, dto: UpdateTagDto, workspaceId: string) {
+  async updateTag(tagId: string, dto: UpdateTagBody, workspaceId: string) {
     const tag = await this.tagRepository.findOne({
       where: { id: tagId, workspaceId },
     });
@@ -453,7 +456,7 @@ export class StorageService {
     ];
   }
 
-  async createFolder(dto: CreateFolderDto, userId: string, workspaceId: string) {
+  async createFolder(dto: CreateFolderBody, userId: string, workspaceId: string) {
     let tag = null;
     const tagId = dto.tagId === '' ? null : dto.tagId;
     if (tagId) {
@@ -481,7 +484,7 @@ export class StorageService {
     });
   }
 
-  async updateFolder(folderId: string, dto: UpdateFolderDto, userId: string, workspaceId: string) {
+  async updateFolder(folderId: string, dto: UpdateFolderBody, userId: string, workspaceId: string) {
     const folder = await this.folderRepository.findOne({
       where: { id: folderId, userId, workspaceId },
     });
@@ -615,7 +618,7 @@ export class StorageService {
     return { status: 'deleted' };
   }
 
-  async createView(dto: StorageViewDto, workspaceId: string) {
+  async createView(dto: StorageViewBody, workspaceId: string) {
     const view = this.storageViewRepository.create({
       name: dto.name,
       workspaceId,
@@ -1003,7 +1006,7 @@ export class StorageService {
   async createSharedLink(
     statementId: string,
     userId: string,
-    dto: CreateSharedLinkDto,
+    dto: CreateSharedLinkBody,
   ): Promise<SharedLink> {
     // Check if user has permission to share
     await this.checkFileAccess(userId, statementId, 'share');
@@ -1028,7 +1031,7 @@ export class StorageService {
       statementId,
       userId,
       token,
-      permission: dto.permission,
+      permission: toEnum(SharePermissionLevel, dto.permission),
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
       password: hashedPassword,
       allowAnonymous: dto.allowAnonymous ?? true,
@@ -1064,7 +1067,7 @@ export class StorageService {
   async updateSharedLink(
     linkId: string,
     userId: string,
-    dto: UpdateSharedLinkDto,
+    dto: UpdateSharedLinkBody,
   ): Promise<SharedLink> {
     const link = await this.sharedLinkRepository.findOne({
       where: { id: linkId },
@@ -1079,7 +1082,7 @@ export class StorageService {
 
     // Update fields
     if (dto.permission !== undefined) {
-      link.permission = dto.permission;
+      link.permission = toEnum(SharePermissionLevel, dto.permission);
     }
     if (dto.expiresAt !== undefined) {
       link.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
@@ -1088,7 +1091,7 @@ export class StorageService {
       link.password = dto.password ? await hashPassword(dto.password) : null;
     }
     if (dto.status !== undefined) {
-      link.status = dto.status;
+      link.status = toEnum(ShareLinkStatus, dto.status);
     }
     if (dto.allowAnonymous !== undefined) {
       link.allowAnonymous = dto.allowAnonymous;
@@ -1190,7 +1193,7 @@ export class StorageService {
   async grantPermission(
     statementId: string,
     grantedById: string,
-    dto: GrantPermissionDto,
+    dto: GrantPermissionBody,
   ): Promise<FilePermission> {
     // Check if granter has permission to share
     await this.checkFileAccess(grantedById, statementId, 'share');
@@ -1225,7 +1228,7 @@ export class StorageService {
       statementId,
       userId: dto.userId,
       grantedById,
-      permissionType: dto.permissionType,
+      permissionType: toEnum(FilePermissionType, dto.permissionType),
       canReshare: dto.canReshare ?? false,
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
       isActive: true,
@@ -1254,7 +1257,7 @@ export class StorageService {
   async updatePermission(
     permissionId: string,
     userId: string,
-    dto: UpdatePermissionDto,
+    dto: UpdatePermissionBody,
   ): Promise<FilePermission> {
     const permission = await this.filePermissionRepository.findOne({
       where: { id: permissionId },
@@ -1269,7 +1272,7 @@ export class StorageService {
 
     // Update fields
     if (dto.permissionType !== undefined) {
-      permission.permissionType = dto.permissionType;
+      permission.permissionType = toEnum(FilePermissionType, dto.permissionType);
     }
     if (dto.canReshare !== undefined) {
       permission.canReshare = dto.canReshare;

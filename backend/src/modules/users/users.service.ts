@@ -9,20 +9,29 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { IsNull, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { hashPassword } from '../../common/utils/password-hash.util';
+import type {
+  ChangeEmailBody,
+  ChangePasswordBody,
+  CompleteOnboardingBody,
+  UpdateMyPreferencesBody,
+  UpdateUserBody,
+} from '../../contracts';
 import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
-import { User, UserRole } from '../../entities/user.entity';
+import {
+  DateFormatPreference,
+  ThemePreference,
+  UiDensity,
+  User,
+  UserRole,
+} from '../../entities/user.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { AuditService } from '../audit/audit.service';
 import { recordSecurityEvent } from '../auth/security-audit.util';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { CURRENT_DISCLAIMER_VERSION } from './disclaimer.constant';
-import type { ChangeEmailDto } from './dto/change-email.dto';
-import type { ChangePasswordDto } from './dto/change-password.dto';
-import type { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
-import type { UpdateMyPreferencesDto } from './dto/update-my-preferences.dto';
-import type { UpdateUserDto } from './dto/update-user.dto';
 import { EmailChangeService } from './services/email-change.service';
 
 @Injectable()
@@ -148,7 +157,7 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto, currentUser: User): Promise<User> {
+  async update(id: string, updateUserDto: UpdateUserBody, currentUser: User): Promise<User> {
     // Only admins can update users
     if (currentUser.role !== UserRole.ADMIN && currentUser.id !== id) {
       throw new ForbiddenException('You can only update your own profile');
@@ -287,7 +296,7 @@ export class UsersService {
    * which mails a confirmation link to the new address. The account keeps its
    * current email until that link is opened.
    */
-  async requestEmailChange(userId: string, dto: ChangeEmailDto): Promise<void> {
+  async requestEmailChange(userId: string, dto: ChangeEmailBody): Promise<void> {
     const user = await this.findOneWithPassword(userId);
 
     const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
@@ -299,7 +308,7 @@ export class UsersService {
     await this.emailChangeService.requestEmailChange(user, dto.email);
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+  async changePassword(userId: string, dto: ChangePasswordBody): Promise<void> {
     const user = await this.findOneWithPassword(userId);
 
     const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
@@ -323,7 +332,7 @@ export class UsersService {
     });
   }
 
-  async updateMyPreferences(userId: string, dto: UpdateMyPreferencesDto): Promise<User> {
+  async updateMyPreferences(userId: string, dto: UpdateMyPreferencesBody): Promise<User> {
     const user = await this.findOneWithPassword(userId);
 
     if (dto.name !== undefined) {
@@ -337,20 +346,20 @@ export class UsersService {
       user.timeZone = tz === null ? null : String(tz).trim() || null;
     }
     if (dto.themePreference !== undefined) {
-      user.themePreference = dto.themePreference;
+      user.themePreference = toEnum(ThemePreference, dto.themePreference);
     }
     if (dto.mapStylePreference !== undefined) {
       const style = dto.mapStylePreference;
       user.mapStylePreference = style === null ? null : String(style).trim() || null;
     }
     if (dto.dateFormat !== undefined) {
-      user.dateFormat = dto.dateFormat;
+      user.dateFormat = toEnum(DateFormatPreference, dto.dateFormat);
     }
     if (dto.firstDayOfWeek !== undefined) {
       user.firstDayOfWeek = dto.firstDayOfWeek;
     }
     if (dto.uiDensity !== undefined) {
-      user.uiDensity = dto.uiDensity;
+      user.uiDensity = toEnum(UiDensity, dto.uiDensity);
     }
     if (dto.reduceMotion !== undefined) {
       user.reduceMotion = dto.reduceMotion;
@@ -368,7 +377,7 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
-  async completeOnboarding(userId: string, dto: CompleteOnboardingDto): Promise<User> {
+  async completeOnboarding(userId: string, dto: CompleteOnboardingBody): Promise<User> {
     const user = await this.findOneWithPassword(userId);
 
     if (!user.workspaceId) {

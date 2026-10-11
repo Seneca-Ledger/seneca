@@ -16,6 +16,14 @@ import {
   fetchPublicUrl,
 } from '../../common/utils/egress-url.util';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
+import type {
+  SaveAiSettingsBody,
+  SaveAppSettingsBody,
+  SaveLocalCategorizationBody,
+  SaveSmtpSettingsBody,
+  SaveTelegramSettingsBody,
+  TestLocalCategorizationBody,
+} from '../../contracts';
 import {
   User,
   UserAiSettings,
@@ -23,14 +31,6 @@ import {
   WorkspaceServiceSettingsKey,
 } from '../../entities';
 import { TransactionCategorizer } from '../classification/helpers/transaction-categorizer';
-import type {
-  SaveAiSettingsDto,
-  SaveAppSettingsDto,
-  SaveLocalCategorizationDto,
-  SaveSmtpSettingsDto,
-  SaveTelegramSettingsDto,
-  TestLocalCategorizationDto,
-} from './dto/application-settings.dto';
 
 export type AiRuntimeSettings = {
   enabled: boolean;
@@ -122,7 +122,7 @@ export class ApplicationSettingsService {
     };
   }
 
-  async saveAiSettings(user: User, input: SaveAiSettingsDto, requestWorkspaceId?: string) {
+  async saveAiSettings(user: User, input: SaveAiSettingsBody, requestWorkspaceId?: string) {
     const existing = await this.findSettings(
       user,
       WorkspaceServiceSettingsKey.AI,
@@ -178,7 +178,7 @@ export class ApplicationSettingsService {
     };
   }
 
-  async savePersonalAiSettings(user: User, input: SaveAiSettingsDto, requestWorkspaceId?: string) {
+  async savePersonalAiSettings(user: User, input: SaveAiSettingsBody, requestWorkspaceId?: string) {
     const workspaceId = this.requireWorkspaceId(user, requestWorkspaceId);
     const existing = await this.findPersonalAiSettings(user, requestWorkspaceId);
     const config = {
@@ -266,7 +266,7 @@ export class ApplicationSettingsService {
     };
   }
 
-  async saveSmtpSettings(user: User, input: SaveSmtpSettingsDto, requestWorkspaceId?: string) {
+  async saveSmtpSettings(user: User, input: SaveSmtpSettingsBody, requestWorkspaceId?: string) {
     const existing = await this.findSettings(
       user,
       WorkspaceServiceSettingsKey.SMTP,
@@ -317,7 +317,7 @@ export class ApplicationSettingsService {
 
   async saveTelegramSettings(
     user: User,
-    input: SaveTelegramSettingsDto,
+    input: SaveTelegramSettingsBody,
     requestWorkspaceId?: string,
   ) {
     const existing = await this.findSettings(
@@ -353,7 +353,7 @@ export class ApplicationSettingsService {
     };
   }
 
-  async saveAppSettings(user: User, input: SaveAppSettingsDto, requestWorkspaceId?: string) {
+  async saveAppSettings(user: User, input: SaveAppSettingsBody, requestWorkspaceId?: string) {
     const publicUrl = this.normalizeOrigin(this.requiredString(input.publicUrl, 'publicUrl'));
     await this.saveSettings(
       user,
@@ -393,7 +393,7 @@ export class ApplicationSettingsService {
 
   async saveLocalCategorizationSettings(
     user: User,
-    input: SaveLocalCategorizationDto,
+    input: SaveLocalCategorizationBody,
     requestWorkspaceId?: string,
   ) {
     const existing = await this.findSettings(
@@ -467,7 +467,7 @@ export class ApplicationSettingsService {
 
   async testLocalCategorization(
     user: User,
-    input: TestLocalCategorizationDto,
+    input: TestLocalCategorizationBody,
     requestWorkspaceId?: string,
   ) {
     const runtime = await this.getLocalCategorizationSettings(user, requestWorkspaceId);

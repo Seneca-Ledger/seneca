@@ -8,10 +8,12 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql } from '../../common/utils/counted-transactions.util';
+import type { CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
-import { Budget, BudgetRolloverMode } from '../../entities/budget.entity';
+import { Budget, BudgetPeriodType, BudgetRolloverMode } from '../../entities/budget.entity';
 import { Category } from '../../entities/category.entity';
 import { Goal } from '../../entities/goal.entity';
 import {
@@ -34,8 +36,6 @@ import {
 } from './budget-period.util';
 import { percentOf, resolveAvailable } from './budget-rollover.util';
 import type { BudgetImpactQueryDto } from './dto/budget-impact-query.dto';
-import type { CreateBudgetDto } from './dto/create-budget.dto';
-import type { UpdateBudgetDto } from './dto/update-budget.dto';
 
 export interface BudgetWithSpending extends Budget {
   spentAmount: number;
@@ -72,8 +72,9 @@ export class BudgetsService {
     private readonly exchangeRatesService?: ExchangeRatesService,
   ) {}
 
-  async create(workspaceId: string, userId: string, dto: CreateBudgetDto): Promise<Budget> {
+  async create(workspaceId: string, userId: string, dto: CreateBudgetBody): Promise<Budget> {
     const goalId = dto.goalId ?? null;
+    const periodType = toEnum(BudgetPeriodType, dto.periodType);
 
     // Scoped by goal as well as category: the household grocery limit and the
     // "food during the move" limit are different intents over the same
@@ -82,7 +83,7 @@ export class BudgetsService {
       where: {
         workspaceId,
         categoryId: dto.categoryId,
-        periodType: dto.periodType,
+        periodType,
         goalId: goalId ?? IsNull(),
       },
     });
@@ -96,7 +97,7 @@ export class BudgetsService {
     assertWindowOrdered(dto.startsOn, dto.endsOn);
     await this.assertGoalInWorkspace(dto.goalId, workspaceId);
 
-    const { start } = computePeriodRange(dto.periodType, new Date());
+    const { start } = computePeriodRange(periodType, new Date());
 
     const budget = this.budgetRepository.create({
       workspaceId,
@@ -105,8 +106,8 @@ export class BudgetsService {
       categoryId: dto.categoryId,
       limitAmount: dto.limitAmount,
       currency: await this.workspaceCurrency.resolveFor(workspaceId, dto.currency),
-      periodType: dto.periodType,
-      rolloverMode: dto.rolloverMode ?? BudgetRolloverMode.NONE,
+      periodType,
+      rolloverMode: toEnum(BudgetRolloverMode, dto.rolloverMode) ?? BudgetRolloverMode.NONE,
       currentPeriodStart: start,
       goalId,
       startsOn: dto.startsOn ?? null,
@@ -150,7 +151,7 @@ export class BudgetsService {
     id: string,
     workspaceId: string,
     userId: string,
-    dto: UpdateBudgetDto,
+    dto: UpdateBudgetBody,
   ): Promise<Budget> {
     const budget = await this.budgetRepository.findOne({
       where: { id, workspaceId },

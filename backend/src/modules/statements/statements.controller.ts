@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
@@ -22,26 +21,29 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
 import { unlinkAll, validateFile, validateFiles } from '../../common/utils/file-validator.util';
 import { pipeFileStreamResponse } from '../../common/utils/stream-response.util';
 import { multerConfig } from '../../config/multer.config';
+import {
+  ConvertDroppedSampleBody,
+  CreateManualExpenseBody,
+  UpdateStatementBody,
+  UpdateStatementStageBody,
+  UploadReceiptScanBody,
+  UploadStatementBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
+import { StatementStage } from '../../entities/statement.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ConvertDroppedSampleDto } from './dto/convert-dropped-sample.dto';
-import { CreateManualExpenseDto } from './dto/create-manual-expense.dto';
 import { FilterStatementsDto } from './dto/filter-statements.dto';
-import { UpdateStatementDto } from './dto/update-statement.dto';
-import {
-  UpdateStatementStageDto,
-  UpdateStatementStageResultDto,
-} from './dto/update-statement-stage.dto';
-import { UploadReceiptScanDto } from './dto/upload-receipt-scan.dto';
-import { UploadStatementDto } from './dto/upload-statement.dto';
+import { UpdateStatementStageResultDto } from './dto/update-statement-stage.dto';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { StatementStageService } from './services/statement-stage.service';
 import { StatementsService } from './statements.service';
@@ -97,7 +99,7 @@ export class StatementsController {
   @UseInterceptors(FilesInterceptor('file', 1, multerConfig))
   async uploadLegacy(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() uploadDto: UploadStatementDto,
+    @SchemaBody(UploadStatementBody) uploadDto: UploadStatementBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Headers('idempotency-key') idempotencyKey?: string,
@@ -111,7 +113,7 @@ export class StatementsController {
   @UseInterceptors(FilesInterceptor('files', 2, multerConfig))
   async upload(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() uploadDto: UploadStatementDto,
+    @SchemaBody(UploadStatementBody) uploadDto: UploadStatementBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Headers('idempotency-key') idempotencyKey?: string,
@@ -125,7 +127,7 @@ export class StatementsController {
   @UseInterceptors(FilesInterceptor('files', 5, multerConfig))
   async createManualExpense(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() payload: CreateManualExpenseDto,
+    @SchemaBody(CreateManualExpenseBody) payload: CreateManualExpenseBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Headers('idempotency-key') idempotencyKey?: string,
@@ -160,7 +162,7 @@ export class StatementsController {
   @UseInterceptors(FilesInterceptor('files', 5, multerConfig))
   async uploadReceipt(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() body: UploadReceiptScanDto,
+    @SchemaBody(UploadReceiptScanBody) body: UploadReceiptScanBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -210,7 +212,7 @@ export class StatementsController {
 
   private async handleUpload(
     files: Express.Multer.File[],
-    uploadDto: UploadStatementDto,
+    uploadDto: UploadStatementBody,
     user: User,
     workspaceId: string,
     idempotencyKey: string | undefined,
@@ -434,13 +436,13 @@ export class StatementsController {
   @ApiOperation({ summary: 'Move one or more statements to a review-workflow stage' })
   @ApiResponse({ status: 200, type: UpdateStatementStageResultDto })
   async updateStage(
-    @Body() dto: UpdateStatementStageDto,
+    @SchemaBody(UpdateStatementStageBody) dto: UpdateStatementStageBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ): Promise<UpdateStatementStageResultDto> {
     return this.statementStageService.updateStage(
       dto.statementIds,
-      dto.stage,
+      toEnum(StatementStage, dto.stage),
       user.id,
       workspaceId,
     );
@@ -482,7 +484,7 @@ export class StatementsController {
   @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateStatementDto,
+    @SchemaBody(UpdateStatementBody) updateDto: UpdateStatementBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -493,7 +495,7 @@ export class StatementsController {
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async convertDroppedSample(
     @Param('id') id: string,
-    @Body() payload: ConvertDroppedSampleDto,
+    @SchemaBody(ConvertDroppedSampleBody) payload: ConvertDroppedSampleBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

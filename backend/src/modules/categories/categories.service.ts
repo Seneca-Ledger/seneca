@@ -11,14 +11,14 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import type { FindOptionsWhere, Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
+import type { CreateCategoryBody, UpdateCategoryBody } from '../../contracts';
 import { Statement, Transaction, User, WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
-import { Category, CategorySource, CategoryType } from '../../entities/category.entity';
+import { Category, CategorySource, CategoryType, StoicClass } from '../../entities/category.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CategoryChangedEvent } from '../notifications/events/notification-events';
-import type { CreateCategoryDto } from './dto/create-category.dto';
-import type { UpdateCategoryDto } from './dto/update-category.dto';
 
 const DEFAULT_SYSTEM_CATEGORIES: ReadonlyArray<{
   name: string;
@@ -110,12 +110,13 @@ export class CategoriesService {
   async create(
     workspaceId: string,
     userId: string,
-    createDto: CreateCategoryDto,
+    createDto: CreateCategoryBody,
   ): Promise<Category> {
     await this.ensureCanEditCategories(workspaceId, userId);
+    const type = toEnum(CategoryType, createDto.type);
     // Check for duplicate name
     const existing = await this.categoryRepository.findOne({
-      where: { workspaceId, name: createDto.name, type: createDto.type },
+      where: { workspaceId, name: createDto.name, type },
     });
 
     if (existing) {
@@ -126,6 +127,8 @@ export class CategoriesService {
       workspaceId,
       userId,
       ...createDto,
+      type,
+      stoicClass: toEnum(StoicClass, createDto.stoicClass),
       isSystem: false,
       source: CategorySource.USER,
       isEnabled: createDto.isEnabled ?? true,
@@ -271,7 +274,7 @@ export class CategoriesService {
     id: string,
     workspaceId: string,
     userId: string,
-    updateDto: UpdateCategoryDto,
+    updateDto: UpdateCategoryBody,
   ): Promise<Category> {
     await this.ensureCanEditCategories(workspaceId, userId);
     const category = await this.findOne(id, workspaceId);

@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
@@ -25,6 +24,8 @@ import * as path from 'path';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -37,25 +38,22 @@ import {
 import { removeUploadedFile, validateImageSignature } from '../../common/utils/file-validator.util';
 import { deletedResponse } from '../../common/utils/responses.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import {
+  AddPermissionBody,
+  ChangeEmailBody,
+  ChangePasswordBody,
+  CompleteOnboardingBody,
+  ConfirmEmailChangeBody,
+  DeleteMyAccountBody,
+  RemovePermissionBody,
+  UpdateMyPreferencesBody,
+  UpdatePermissionsBody,
+  UpdateUserBody,
+} from '../../contracts';
 import { type User, UserRole } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { CURRENT_DISCLAIMER_VERSION } from './disclaimer.constant';
-import { ChangeEmailDto } from './dto/change-email.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
-import { ConfirmEmailChangeDto } from './dto/confirm-email-change.dto';
-import { DeleteMyAccountDto } from './dto/delete-my-account.dto';
-import { UpdateMyPreferencesDto } from './dto/update-my-preferences.dto';
-// Value import, not `import type`: a type-only import erases the DTO class, so
-// the global ValidationPipe sees an `Object` metatype and validates nothing —
-// arbitrary strings then reach the users.permissions column.
-import {
-  AddPermissionDto,
-  RemovePermissionDto,
-  UpdatePermissionsDto,
-} from './dto/update-permissions.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { AccountDataService } from './services/account-data.service';
 import { EmailChangeService } from './services/email-change.service';
 import { PermissionsService } from './services/permissions.service';
@@ -99,7 +97,10 @@ export class UsersController {
   }
 
   @Patch('me/onboarding')
-  async completeOnboarding(@CurrentUser() currentUser: User, @Body() dto: CompleteOnboardingDto) {
+  async completeOnboarding(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(CompleteOnboardingBody) dto: CompleteOnboardingBody,
+  ) {
     const updatedUser = await this.usersService.completeOnboarding(currentUser.id, dto);
     const safeUser = this.toSafeUser(updatedUser);
     return { user: safeUser, message: 'Onboarding completed successfully' };
@@ -111,7 +112,10 @@ export class UsersController {
   }
 
   @Delete('me')
-  async deleteMyAccount(@CurrentUser() currentUser: User, @Body() dto: DeleteMyAccountDto) {
+  async deleteMyAccount(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(DeleteMyAccountBody) dto: DeleteMyAccountBody,
+  ) {
     await this.accountDataService.deleteMyAccount(currentUser.id, dto.currentPassword);
     return deletedResponse('Account');
   }
@@ -194,7 +198,7 @@ export class UsersController {
   @Put(':id')
   async update(
     @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
+    @SchemaBody(UpdateUserBody) updateUserDto: UpdateUserBody,
     @CurrentUser() currentUser: User,
   ): Promise<User> {
     return this.usersService.update(id, updateUserDto, currentUser);
@@ -227,13 +231,13 @@ export class UsersController {
   @WorkspaceAuth(Permission.USER_MANAGE)
   async updatePermissions(
     @Param('id') id: string,
-    @Body() dto: UpdatePermissionsDto,
+    @SchemaBody(UpdatePermissionsBody) dto: UpdatePermissionsBody,
     @CurrentUser() currentUser: User,
     @WorkspaceId() workspaceId: string,
   ) {
     const user = await this.permissionsService.updateUserPermissions(
       id,
-      dto.permissions,
+      dto.permissions.map(permission => toEnum(Permission, permission)),
       currentUser,
       workspaceId,
     );
@@ -248,13 +252,13 @@ export class UsersController {
   @WorkspaceAuth(Permission.USER_MANAGE)
   async addPermission(
     @Param('id') id: string,
-    @Body() dto: AddPermissionDto,
+    @SchemaBody(AddPermissionBody) dto: AddPermissionBody,
     @CurrentUser() currentUser: User,
     @WorkspaceId() workspaceId: string,
   ) {
     const user = await this.permissionsService.addPermission(
       id,
-      dto.permission,
+      toEnum(Permission, dto.permission),
       currentUser,
       workspaceId,
     );
@@ -269,13 +273,13 @@ export class UsersController {
   @WorkspaceAuth(Permission.USER_MANAGE)
   async removePermission(
     @Param('id') id: string,
-    @Body() dto: RemovePermissionDto,
+    @SchemaBody(RemovePermissionBody) dto: RemovePermissionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() currentUser: User,
   ) {
     const user = await this.permissionsService.removePermission(
       id,
-      dto.permission,
+      toEnum(Permission, dto.permission),
       workspaceId,
       currentUser.id,
     );
@@ -305,7 +309,10 @@ export class UsersController {
   // online guessing oracle for anyone holding a stolen session.
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('me/email')
-  async changeEmail(@CurrentUser() currentUser: User, @Body() dto: ChangeEmailDto) {
+  async changeEmail(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(ChangeEmailBody) dto: ChangeEmailBody,
+  ) {
     await this.usersService.requestEmailChange(currentUser.id, dto);
 
     // The address does not change until the link lands; say so rather than
@@ -320,20 +327,26 @@ export class UsersController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('me/email/confirm')
   @HttpCode(HttpStatus.OK)
-  async confirmEmailChange(@Body() dto: ConfirmEmailChangeDto) {
+  async confirmEmailChange(@SchemaBody(ConfirmEmailChangeBody) dto: ConfirmEmailChangeBody) {
     const { email } = await this.emailChangeService.confirmEmailChange(dto.token);
     return { email, message: 'Email address confirmed.' };
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('me/password')
-  async changePassword(@CurrentUser() currentUser: User, @Body() dto: ChangePasswordDto) {
+  async changePassword(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(ChangePasswordBody) dto: ChangePasswordBody,
+  ) {
     await this.usersService.changePassword(currentUser.id, dto);
     return { message: 'Password updated successfully' };
   }
 
   @Patch('me/preferences')
-  async updateMyPreferences(@CurrentUser() currentUser: User, @Body() dto: UpdateMyPreferencesDto) {
+  async updateMyPreferences(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(UpdateMyPreferencesBody) dto: UpdateMyPreferencesBody,
+  ) {
     const updatedUser = await this.usersService.updateMyPreferences(currentUser.id, dto);
     const safeUser = this.toSafeUser(updatedUser);
     return { user: safeUser, message: 'Profile updated successfully' };

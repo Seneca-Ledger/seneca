@@ -1,18 +1,19 @@
-import { Body, Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import {
+  ImportFilesBody,
+  ListImapFoldersBody,
+  SaveImapSettingsBody,
+  SaveS3SettingsBody,
+  SaveWebdavSettingsBody,
+} from '../../contracts';
 import { IntegrationProvider } from '../../entities';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import {
-  ImportFilesDto,
-  ListImapFoldersDto,
-  SaveImapSettingsDto,
-  SaveS3SettingsDto,
-  SaveWebdavSettingsDto,
-} from './dto/open-protocol-settings.dto';
 import { OpenProtocolIntegrationsService } from './open-protocol-integrations.service';
 
 @Controller('integrations')
@@ -30,7 +31,7 @@ export class OpenProtocolIntegrationsController {
   saveS3Settings(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveS3SettingsDto,
+    @SchemaBody(SaveS3SettingsBody) body: SaveS3SettingsBody,
   ) {
     return this.openProtocolIntegrationsService.saveS3Settings(user, workspaceId, {
       endpoint: this.stringValue(body.endpoint),
@@ -55,7 +56,7 @@ export class OpenProtocolIntegrationsController {
   importS3Files(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: ImportFilesDto,
+    @SchemaBody(ImportFilesBody) body: ImportFilesBody,
   ) {
     return this.openProtocolIntegrationsService.importS3Files(
       user,
@@ -90,7 +91,7 @@ export class OpenProtocolIntegrationsController {
   saveWebdavSettings(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveWebdavSettingsDto,
+    @SchemaBody(SaveWebdavSettingsBody) body: SaveWebdavSettingsBody,
   ) {
     return this.openProtocolIntegrationsService.saveWebdavSettings(user, workspaceId, {
       url: this.stringValue(body.url),
@@ -111,7 +112,7 @@ export class OpenProtocolIntegrationsController {
   importWebdavFiles(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: ImportFilesDto,
+    @SchemaBody(ImportFilesBody) body: ImportFilesBody,
   ) {
     return this.openProtocolIntegrationsService.importWebdavFiles(
       user,
@@ -143,7 +144,7 @@ export class OpenProtocolIntegrationsController {
   saveImapSettings(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveImapSettingsDto,
+    @SchemaBody(SaveImapSettingsBody) body: SaveImapSettingsBody,
   ) {
     return this.openProtocolIntegrationsService.saveImapSettings(user, workspaceId, {
       host: this.stringValue(body.host),
@@ -157,7 +158,7 @@ export class OpenProtocolIntegrationsController {
 
   @Post('imap/folders')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  listImapFolders(@Body() body: ListImapFoldersDto) {
+  listImapFolders(@SchemaBody(ListImapFoldersBody) body: ListImapFoldersBody) {
     return this.openProtocolIntegrationsService.listImapFolders({
       host: this.stringValue(body.host) ?? '',
       port: this.numberValue(body.port) ?? 993,

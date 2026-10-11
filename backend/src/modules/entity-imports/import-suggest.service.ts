@@ -1,6 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
+import type { SuggestImportBody } from '../../contracts';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
-import type { SuggestImportDto } from './dto/suggest-import.dto';
 import { AiImportMapperHelper } from './helpers/ai-import-mapper.helper';
 import { parseImportDate, parseImportNumber } from './helpers/import-values';
 import {
@@ -113,7 +113,7 @@ export class ImportSuggestService {
     return { score: Math.min(score, 0.99), columns };
   }
 
-  async suggest(workspaceId: string, dto: SuggestImportDto): Promise<ImportSuggestion> {
+  async suggest(workspaceId: string, dto: SuggestImportBody): Promise<ImportSuggestion> {
     const headers = dto.headers.map(header => String(header ?? ''));
     const samples = dto.samples ?? [];
     const profiles = profileColumns(headers, samples);

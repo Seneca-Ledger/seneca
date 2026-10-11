@@ -1,20 +1,16 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
+import {
+  CreateCategorizationRuleBody,
+  TestCategorizationRuleBody,
+  UpdateCategorizationRuleBody,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { CategorizationRule } from '../../entities/categorization-rule.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -22,9 +18,6 @@ import type { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateCategorizationRuleDto } from './dto/create-categorization-rule.dto';
-import { TestCategorizationRuleDto } from './dto/test-categorization-rule.dto';
-import { UpdateCategorizationRuleDto } from './dto/update-categorization-rule.dto';
 import type { ClassificationCondition } from './interfaces/classification-rule.interface';
 import { ClassificationService } from './services/classification.service';
 
@@ -103,7 +96,7 @@ export class CategorizationRulesController {
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
   async create(
-    @Body() dto: CreateCategorizationRuleDto,
+    @SchemaBody(CreateCategorizationRuleBody) dto: CreateCategorizationRuleBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -147,7 +140,7 @@ export class CategorizationRulesController {
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
   async update(
     @Param('id') id: string,
-    @Body() dto: UpdateCategorizationRuleDto,
+    @SchemaBody(UpdateCategorizationRuleBody) dto: UpdateCategorizationRuleBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -244,7 +237,7 @@ export class CategorizationRulesController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
   async testRule(
-    @Body() dto: TestCategorizationRuleDto,
+    @SchemaBody(TestCategorizationRuleBody) dto: TestCategorizationRuleBody,
     @CurrentUser() _user: User,
     @WorkspaceId() _workspaceId: string,
   ) {

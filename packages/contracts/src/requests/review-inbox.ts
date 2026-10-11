@@ -1,0 +1,17 @@
+import * as Schema from 'effect/Schema';
+import type { Wire } from '../common/wire';
+
+export const ApproveTransactionsBody = Schema.Struct({
+  ids: Schema.Array(Schema.String.check(Schema.isUUID())).check(
+    Schema.isMinLength(1),
+    Schema.isMaxLength(500),
+  ),
+  /** Omitted: keep whatever category the row has and only mark it reviewed. */
+  categoryId: Schema.optional(Schema.String.check(Schema.isUUID())),
+});
+export type ApproveTransactionsBody = Wire<typeof ApproveTransactionsBody>;
+
+export const ResolveDuplicateBody = Schema.Struct({
+  decision: Schema.Literals(['confirm', 'keep']),
+});
+export type ResolveDuplicateBody = Wire<typeof ResolveDuplicateBody>;

@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type { UpdateBankSyncSettingsBody } from '../../contracts';
 import {
   Integration,
   IntegrationProvider,
@@ -19,7 +20,6 @@ import {
 import { StatementsService } from '../statements/statements.service';
 import { buildOfxStatement, ofxFileName, providerRowKey } from './bank-sync-ofx.util';
 import { type BankSyncAccount, BankSyncAuthError } from './bank-sync-provider.interface';
-import type { UpdateBankSyncSettingsDto } from './dto/bank-sync.dto';
 import { SimpleFinProvider } from './simplefin.provider';
 
 /** How far back the first pull of an account reaches. */
@@ -130,7 +130,7 @@ export class BankSyncService {
 
   async updateSettings(
     workspaceId: string,
-    dto: UpdateBankSyncSettingsDto,
+    dto: UpdateBankSyncSettingsBody,
   ): Promise<BankSyncStatus> {
     const { settings } = await this.requireConnected(workspaceId);
     const config = this.configOf(settings);

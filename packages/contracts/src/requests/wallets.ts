@@ -1,0 +1,24 @@
+import * as Schema from 'effect/Schema';
+import * as Struct from 'effect/Struct';
+import type { Wire } from '../common/wire';
+
+export const CreateWalletBody = Schema.Struct({
+  name: Schema.String,
+  accountNumber: Schema.optional(Schema.String),
+  bankName: Schema.optional(Schema.String),
+  currency: Schema.optional(Schema.String),
+  initialBalance: Schema.optional(Schema.Finite),
+  /**
+   * Whose account this is in the household; `null` means shared. Transactions
+   * imported into it start on the same person.
+   */
+  ownerMemberId: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
+});
+export type CreateWalletBody = Wire<typeof CreateWalletBody>;
+
+export const UpdateWalletBody = CreateWalletBody.mapFields(Struct.map(Schema.optional)).mapFields(
+  Struct.assign({
+    isActive: Schema.optional(Schema.Boolean),
+  }),
+);
+export type UpdateWalletBody = Wire<typeof UpdateWalletBody>;

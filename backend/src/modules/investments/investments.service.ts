@@ -1,10 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import type {
+  CreateInvestmentAccountBody,
   InvestmentHolding as HoldingView,
   InvestmentAccount as InvestmentAccountView,
+  UpsertHoldingBody,
 } from '../../contracts';
 import { BalanceAccount, BalanceAccountKind } from '../../entities/balance-account.entity';
 import {
@@ -21,8 +24,6 @@ import {
 import { Workspace } from '../../entities/workspace.entity';
 import { BalanceService } from '../balance/balance.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import type { CreateInvestmentAccountDto } from './dto/create-investment-account.dto';
-import type { UpsertHoldingDto } from './dto/upsert-holding.dto';
 import { pricedUnits } from './metal-weight.util';
 import { normalizeStockSymbol, StockPriceService } from './stock-price.service';
 
@@ -98,7 +99,7 @@ export class InvestmentsService {
   async createAccount(
     userId: string,
     workspaceId: string,
-    dto: CreateInvestmentAccountDto,
+    dto: CreateInvestmentAccountBody,
   ): Promise<InvestmentAccountView> {
     await this.balanceService.seedDefaultAccounts(workspaceId);
     const section = await this.accountRepository.findOne({
@@ -111,7 +112,7 @@ export class InvestmentsService {
     });
     await this.accountRepository.update(
       { id: created.id, workspaceId },
-      { accountKind: dto.kind ?? BalanceAccountKind.INVESTMENT },
+      { accountKind: toEnum(BalanceAccountKind, dto.kind) ?? BalanceAccountKind.INVESTMENT },
     );
     const view = (await this.listAccounts(workspaceId)).find(account => account.id === created.id);
     if (!view) throw new NotFoundException('Investment account not found');
@@ -137,7 +138,7 @@ export class InvestmentsService {
     userId: string,
     workspaceId: string,
     accountId: string,
-    dto: UpsertHoldingDto,
+    dto: UpsertHoldingBody,
   ): Promise<HoldingView> {
     await this.requireAccount(workspaceId, accountId);
     if (!(dto.name || dto.symbol)) {
@@ -149,7 +150,7 @@ export class InvestmentsService {
       accountId,
       symbol,
       name: dto.name ?? symbol ?? '',
-      assetClass: dto.assetClass ?? InvestmentAssetClass.OTHER,
+      assetClass: toEnum(InvestmentAssetClass, dto.assetClass) ?? InvestmentAssetClass.OTHER,
       quantity: dto.quantity ?? 0,
       price: dto.price ?? 0,
       priceCurrency: (dto.priceCurrency ?? 'USD').toUpperCase(),
@@ -171,14 +172,15 @@ export class InvestmentsService {
     userId: string,
     workspaceId: string,
     holdingId: string,
-    dto: UpsertHoldingDto,
+    dto: UpsertHoldingBody,
   ): Promise<HoldingView> {
     const holding = await this.requireHolding(workspaceId, holdingId);
     if (dto.symbol !== undefined) {
       holding.symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     }
     if (dto.name !== undefined) holding.name = dto.name;
-    if (dto.assetClass !== undefined) holding.assetClass = dto.assetClass;
+    if (dto.assetClass !== undefined)
+      holding.assetClass = toEnum(InvestmentAssetClass, dto.assetClass);
     if (dto.quantity !== undefined) holding.quantity = dto.quantity;
     if (dto.price !== undefined) {
       holding.price = dto.price;

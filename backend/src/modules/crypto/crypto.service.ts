@@ -10,12 +10,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import type {
+  ConnectCryptoWalletBody,
   CryptoGains,
   CryptoHistory,
   CryptoNetworkList,
   CryptoSummary,
   CryptoTransaction as CryptoTransactionView,
   CryptoWallet as CryptoWalletView,
+  ManualHoldingBody,
 } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import {
@@ -41,8 +43,6 @@ import { CryptoHoldingsService } from './crypto-holdings.service';
 import { CryptoPriceService } from './crypto-price.service';
 import type { WalletSyncResult } from './crypto-sync.service';
 import { CryptoSyncService } from './crypto-sync.service';
-import type { ConnectCryptoWalletDto } from './dto/connect-crypto-wallet.dto';
-import type { ManualHoldingDto } from './dto/manual-holding.dto';
 
 export type { CryptoSummary, CryptoTransactionView, CryptoWalletView };
 
@@ -118,7 +118,7 @@ export class CryptoService {
   async connect(
     workspaceId: string,
     userId: string,
-    dto: ConnectCryptoWalletDto,
+    dto: ConnectCryptoWalletBody,
   ): Promise<CryptoWalletView[]> {
     const family = familyForAddress(dto.address);
     const defaultChainId = chainIdForAddress(dto.address);
@@ -184,7 +184,7 @@ export class CryptoService {
   async upsertManualHolding(
     workspaceId: string,
     userId: string,
-    dto: ManualHoldingDto,
+    dto: ManualHoldingBody,
   ): Promise<CryptoWalletView> {
     const asset = dto.asset.trim().toUpperCase();
     if (Number(dto.amount) <= 0) {

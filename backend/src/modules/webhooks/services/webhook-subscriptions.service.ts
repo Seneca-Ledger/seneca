@@ -1,13 +1,16 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { toEnum } from '../../../common/effect/to-enum';
 import { assertPublicEgressUrl } from '../../../common/utils/egress-url.util';
+import type {
+  CreateWebhookSubscriptionBody,
+  UpdateWebhookSubscriptionBody,
+} from '../../../contracts';
 import { AuditAction, EntityType, Severity } from '../../../entities/audit-event.entity';
 import { WebhookEvent, WebhookSubscription } from '../../../entities/webhook-subscription.entity';
 import { AuditService } from '../../audit/audit.service';
 import { recordSecurityEvent } from '../../auth/security-audit.util';
-import type { CreateWebhookSubscriptionDto } from '../dto/create-webhook-subscription.dto';
-import type { UpdateWebhookSubscriptionDto } from '../dto/update-webhook-subscription.dto';
 
 @Injectable()
 export class WebhookSubscriptionsService {
@@ -21,11 +24,15 @@ export class WebhookSubscriptionsService {
 
   async create(
     workspaceId: string,
-    dto: CreateWebhookSubscriptionDto,
+    dto: CreateWebhookSubscriptionBody,
     actorId: string,
   ): Promise<WebhookSubscription> {
     await assertPublicEgressUrl(dto.url);
-    const entity = this.repo.create({ ...dto, workspaceId });
+    const entity = this.repo.create({
+      ...dto,
+      events: dto.events.map(event => toEnum(WebhookEvent, event)),
+      workspaceId,
+    });
     const saved = await this.repo.save(entity);
     await this.recordEvent(workspaceId, actorId, saved.id, AuditAction.CREATE, Severity.WARN, {
       before: null,
@@ -49,7 +56,7 @@ export class WebhookSubscriptionsService {
   async update(
     id: string,
     workspaceId: string,
-    dto: UpdateWebhookSubscriptionDto,
+    dto: UpdateWebhookSubscriptionBody,
     actorId: string,
   ): Promise<WebhookSubscription> {
     const sub = await this.findOne(id, workspaceId);

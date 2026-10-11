@@ -18,12 +18,12 @@ import {
 } from '@/entities';
 import { MetricsService } from '@/modules/observability/metrics.service';
 import { StatementsService } from '@/modules/statements/statements.service';
-import type { CreateSharedLinkDto } from '@/modules/storage/dto/create-shared-link.dto';
 import { StorageService } from '@/modules/storage/storage.service';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import type { CreateSharedLinkBody } from '../../../../src/contracts';
 
 describe('StorageService', () => {
   let testingModule: TestingModule;
@@ -289,7 +289,7 @@ describe('StorageService', () => {
   });
 
   describe('createSharedLink', () => {
-    const createDto: CreateSharedLinkDto = {
+    const createDto: CreateSharedLinkBody = {
       permission: SharePermissionLevel.VIEW,
       expiresAt: new Date(Date.now() + 86400000).toISOString(),
     };

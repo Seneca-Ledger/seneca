@@ -2,13 +2,13 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder } from 'typeorm';
 import { Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
+import type { CreateTaxRuleBody, UpdateTaxRuleBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { TaxRate } from '../../entities/tax-rate.entity';
 import { TaxRule, TaxRuleDirection } from '../../entities/tax-rule.entity';
 import { AuditService } from '../audit/audit.service';
-import type { CreateTaxRuleDto } from './dto/create-tax-rule.dto';
-import type { UpdateTaxRuleDto } from './dto/update-tax-rule.dto';
 
 @Injectable()
 export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
@@ -83,11 +83,11 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     }
   }
 
-  async create(workspaceId: string, dto: CreateTaxRuleDto, userId?: string): Promise<TaxRule> {
+  async create(workspaceId: string, dto: CreateTaxRuleBody, userId?: string): Promise<TaxRule> {
     const code = dto.taxRateCode.trim();
     await this.assertCodeExists(workspaceId, code);
 
-    const direction = dto.direction ?? TaxRuleDirection.BOTH;
+    const direction = toEnum(TaxRuleDirection, dto.direction) ?? TaxRuleDirection.BOTH;
     const categoryId = dto.categoryId ?? null;
 
     const duplicate = await this.repository.findOne({
@@ -124,7 +124,7 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
   async update(
     id: string,
     workspaceId: string,
-    dto: UpdateTaxRuleDto,
+    dto: UpdateTaxRuleBody,
     userId?: string,
   ): Promise<TaxRule> {
     const rule = await this.findOne(id, workspaceId);
@@ -148,7 +148,7 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     // either has to re-check for a clash with an existing rule.
     const nextCategoryId =
       dto.categoryId !== undefined ? (dto.categoryId ?? null) : rule.categoryId;
-    const nextDirection = dto.direction ?? rule.direction;
+    const nextDirection = toEnum(TaxRuleDirection, dto.direction) ?? rule.direction;
 
     if (nextCategoryId !== rule.categoryId || nextDirection !== rule.direction) {
       const clash = await this.repository.findOne({

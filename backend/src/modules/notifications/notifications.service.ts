@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, type Repository } from 'typeorm';
+import type { UpdateNotificationPreferencesBody } from '../../contracts';
 import {
   Notification,
   NotificationCategory,
@@ -17,7 +18,6 @@ import {
 } from '../../entities/notification-preference.entity';
 import { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
-import type { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { type NotificationMessageKey, renderNotification } from './notification-translations';
 
@@ -378,7 +378,7 @@ export class NotificationsService {
 
   async updatePreferences(
     userId: string,
-    dto: UpdateNotificationPreferencesDto,
+    dto: UpdateNotificationPreferencesBody,
   ): Promise<NotificationPreference> {
     const preferences = await this.getPreferences(userId);
     const { channels, ...rest } = dto;

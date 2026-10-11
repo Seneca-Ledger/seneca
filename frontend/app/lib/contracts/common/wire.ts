@@ -22,6 +22,12 @@ export const Timestamp = Schema.String;
  */
 export type Wire<S extends Schema.Top> = Mutable<S['Type']>;
 
+/**
+ * What a client sends for a request-body schema: its encoded side. Differs from
+ * `Wire` only where the body decodes something (a numeric string, a default).
+ */
+export type WireInput<S extends Schema.Top> = Mutable<S['Encoded']>;
+
 /** Readonly-free copy of a decoded type. Unlike effect's DeepMutable it leaves `unknown` alone. */
 type Mutable<T> = unknown extends T
   ? T

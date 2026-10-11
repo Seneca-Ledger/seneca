@@ -16,10 +16,10 @@ import type { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type { SetGoalCoverBody } from '../../contracts';
 import { Goal } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { AuditService } from '../audit/audit.service';
-import type { SetGoalCoverDto } from './dto/set-goal-cover.dto';
 import {
   COVER_CONTENT_TYPES,
   COVER_DIRECTORY,
@@ -176,7 +176,7 @@ export class GoalCoversService {
     goalId: string,
     workspaceId: string,
     userId: string,
-    dto: SetGoalCoverDto,
+    dto: SetGoalCoverBody,
   ): Promise<Goal> {
     const hasPreset = Boolean(dto.preset);
     const hasPhoto = Boolean(dto.photoId);
