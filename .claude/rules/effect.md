@@ -22,7 +22,7 @@ Effect (`effect` 4.x) is adopted incrementally. NestJS, TypeORM, React Query and
 
 ## Backend
 - Request bodies: `@SchemaBody(Contract) body: Contract` from `src/common/effect/schema-body.ts`. It rejects unknown properties and answers 400 in the class-validator shape, so clients see no difference from a DTO.
-- Run Effects from Nest code only through `EffectRuntime.run` (`src/common/effect/effect-runtime.ts`), never `Effect.runPromise`/`runSync` directly. It owns the shared layers (HTTP client) and turns a `DomainError` into the same response as `throw new XxxException(appError(code))`.
+- Run Effects from Nest code through `EffectRuntime.run` (`src/common/effect/effect-runtime.ts`). It owns the shared layers (HTTP client) and turns a `DomainError` into the same response as `throw new XxxException(appError(code))`. The one exception: a self-contained Effect (no services, failures already handled) inside a class Nest does not construct, such as `BaseAiHelper`, may use `Effect.runPromise`. Never `runSync` in a request path.
 - Typed domain failures: `new DomainError({ status, code, params? })` with a code from `src/common/errors/app-error.ts`. Anything else that fails or dies ends up as a logged 500.
 - Inside an Effect, fail only with tagged errors (`Data.TaggedError`, effect's own). A plain `Error` subclass in the error channel makes TypeScript drop structurally compatible members such as `TimeoutError` from the union, so a handler silently misses them. Translate to Nest exceptions at the boundary with an exhaustive `switch` on `_tag` (see `toListingException` in `bank-sync/simplefin.provider.ts`).
 - Nest services stay the composition root. Pass what an Effect needs as arguments or `Effect.provideService`; do not register Nest providers as Layers.
