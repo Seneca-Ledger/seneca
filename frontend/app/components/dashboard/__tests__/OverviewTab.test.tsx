@@ -65,6 +65,7 @@ const baseData: DashboardData = {
     totalOverdue: 0,
     unapprovedCash: 0,
     currency: 'KZT',
+    missingRates: [],
   },
   actions: [],
   cashFlow: [],

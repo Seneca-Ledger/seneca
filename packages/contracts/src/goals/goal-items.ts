@@ -1,7 +1,8 @@
 import * as Schema from 'effect/Schema';
+import type { Wire } from '../common/wire';
 
 export const GoalItemStatus = Schema.Literals(['planned', 'paid']);
-export type GoalItemStatus = typeof GoalItemStatus.Type;
+export type GoalItemStatus = Wire<typeof GoalItemStatus>;
 
 const Name = Schema.String.check(Schema.isBetweenLength(1, 150));
 const Amount = Schema.Number.check(Schema.isFinite(), Schema.isGreaterThanOrEqualTo(0));
@@ -24,7 +25,7 @@ export const GoalItem = Schema.Struct({
   /** ISO timestamp. */
   createdAt: Schema.String,
 });
-export type GoalItem = typeof GoalItem.Type;
+export type GoalItem = Wire<typeof GoalItem>;
 
 /** Every goal-item route answers with the whole list, so writes refresh the cache in one go. */
 export const GoalItemsResponse = Schema.Struct({
@@ -45,7 +46,7 @@ export const GoalItemsResponse = Schema.Struct({
     unallocated: Schema.Number,
   }),
 });
-export type GoalItemsResponse = typeof GoalItemsResponse.Type;
+export type GoalItemsResponse = Wire<typeof GoalItemsResponse>;
 
 /**
  * Only the fields that can be cleared take null: `actualAmount` (not paid
@@ -61,11 +62,11 @@ export const CreateGoalItemBody = Schema.Struct({
   status: Schema.optional(GoalItemStatus),
   note: Schema.optional(Schema.NullOr(Note)),
 });
-export type CreateGoalItemBody = typeof CreateGoalItemBody.Type;
+export type CreateGoalItemBody = Wire<typeof CreateGoalItemBody>;
 
 export const UpdateGoalItemBody = Schema.Struct({
   ...CreateGoalItemBody.fields,
   name: Schema.optional(Name),
   estimatedAmount: Schema.optional(Amount),
 });
-export type UpdateGoalItemBody = typeof UpdateGoalItemBody.Type;
+export type UpdateGoalItemBody = Wire<typeof UpdateGoalItemBody>;

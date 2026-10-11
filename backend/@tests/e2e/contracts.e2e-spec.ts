@@ -1,0 +1,103 @@
+jest.mock('franc', () => ({
+  franc: () => 'und',
+}));
+
+import { type INestApplication, ValidationPipe } from '@nestjs/common';
+import type { TestingModule } from '@nestjs/testing';
+import { Schema } from 'effect';
+import request from 'supertest';
+import { DataSource } from 'typeorm';
+import { AppModule } from '../../src/app.module';
+import {
+  DashboardCommitmentsResponse,
+  DashboardHealthHistoryResponse,
+  DashboardMonthlyCashFlowResponse,
+  DashboardResponse,
+  DashboardTrendsResponse,
+} from '../../src/contracts';
+import {
+  deleteUserByEmail,
+  type E2eAccount,
+  e2eTestingModule,
+  registerAccount,
+} from './helpers/e2e-app';
+
+/**
+ * Every response the frontend checks against a contract in development is
+ * checked here against the real backend, with data in it, so a contract that
+ * only matches empty answers does not pass.
+ */
+describe('API contracts (e2e)', () => {
+  let app: INestApplication;
+  let dataSource: DataSource;
+  const email = `contracts-${Date.now()}@example.com`;
+  let owner: E2eAccount;
+
+  const get = (url: string) =>
+    request(app.getHttpServer())
+      .get(url)
+      .set('Authorization', `Bearer ${owner.token}`)
+      .set('x-workspace-id', owner.workspaceId)
+      .expect(200);
+  const matches = (schema: Schema.Top, body: unknown) =>
+    Schema.decodeUnknownSync(schema as Schema.Codec<unknown, unknown>, {
+      onExcessProperty: 'ignore',
+    })(body);
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await e2eTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
+    await app.init();
+    dataSource = moduleFixture.get<DataSource>(DataSource);
+
+    owner = await registerAccount(app, email, 'Contracts Owner');
+    const categories = await get('/categories?type=expense');
+    const today = new Date().toISOString().slice(0, 10);
+    await request(app.getHttpServer())
+      .post('/statements/manual-expense')
+      .set('Authorization', `Bearer ${owner.token}`)
+      .set('x-workspace-id', owner.workspaceId)
+      .field('amount', '42.50')
+      .field('currency', 'USD')
+      .field('merchant', 'Contract Coffee')
+      .field('categoryId', categories.body[0].id)
+      .field('date', today)
+      .expect(201);
+  });
+
+  afterAll(async () => {
+    if (dataSource) {
+      await deleteUserByEmail(dataSource, email);
+    }
+    await app.close();
+  });
+
+  describe('dashboard', () => {
+    it('GET /dashboard', async () => {
+      const res = await get('/dashboard?range=30d');
+      matches(DashboardResponse, res.body);
+      expect(res.body.recentTransactions.length).toBeGreaterThan(0);
+    });
+
+    it('GET /dashboard/trends', async () => {
+      matches(DashboardTrendsResponse, (await get('/dashboard/trends?days=30')).body);
+    });
+
+    it('GET /dashboard/cash-flow', async () => {
+      matches(DashboardMonthlyCashFlowResponse, (await get('/dashboard/cash-flow?range=12m')).body);
+    });
+
+    it('GET /dashboard/health-history', async () => {
+      matches(DashboardHealthHistoryResponse, (await get('/dashboard/health-history')).body);
+    });
+
+    it('GET /dashboard/commitments', async () => {
+      matches(DashboardCommitmentsResponse, (await get('/dashboard/commitments?days=60')).body);
+    });
+  });
+});

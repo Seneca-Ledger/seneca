@@ -11,6 +11,23 @@ import {
 } from 'typeorm';
 import { countedSql, onlyCounted } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import type {
+  DashboardActionItem,
+  DashboardCashFlowPoint,
+  DashboardCommitmentDay,
+  DashboardCommitmentItem,
+  DashboardCommitmentsResponse,
+  DashboardDataHealth,
+  DashboardFinancialSnapshot,
+  DashboardHealthHistoryResponse,
+  DashboardHealthMonth,
+  DashboardMonthlyCashFlowResponse,
+  DashboardRecentTransaction,
+  DashboardResponse,
+  DashboardTopCategory,
+  DashboardTopMerchant,
+  DashboardTrendsResponse,
+} from '../../contracts';
 import { Payable, PayableDirection, PayableStatus } from '../../entities/payable.entity';
 import { Receipt, ReceiptStatus } from '../../entities/receipt.entity';
 import { BankName, Statement, StatementStatus } from '../../entities/statement.entity';
@@ -33,25 +50,6 @@ import {
   getYearWindowBounds,
   parseMonthWindow,
 } from './dashboard-window.util';
-import type {
-  DashboardCommitmentDay,
-  DashboardCommitmentItem,
-  DashboardCommitmentsResponse,
-} from './interfaces/dashboard-commitments.interface';
-import type {
-  DashboardActionItem,
-  DashboardCashFlowPoint,
-  DashboardDataHealth,
-  DashboardFinancialSnapshot,
-  DashboardHealthHistoryResponse,
-  DashboardHealthMonth,
-  DashboardMonthlyCashFlowResponse,
-  DashboardRecentTransaction,
-  DashboardResponse,
-  DashboardTopCategory,
-  DashboardTopMerchant,
-} from './interfaces/dashboard-response.interface';
-import type { DashboardTrendsResponse } from './interfaces/dashboard-trends.interface';
 
 /** How many individual categories the donut shows before folding the rest into "Other". */
 const TOP_CATEGORIES_LIMIT = 8;

@@ -1,4 +1,5 @@
 import * as Schema from 'effect/Schema';
+import type { DeepMutable } from 'effect/Types';
 
 /**
  * How Postgres values arrive in JSON. TypeORM hands `decimal`/`numeric` columns
@@ -13,3 +14,9 @@ export const DateOnly = Schema.String.check(
 );
 /** ISO timestamp, as JSON.stringify writes a Date. */
 export const Timestamp = Schema.String;
+
+/**
+ * The TypeScript type of a contract. Mutable on purpose: it is plain JSON, which
+ * the backend builds up and the frontend passes to ordinary array helpers.
+ */
+export type Wire<S extends Schema.Top> = DeepMutable<S['Type']>;

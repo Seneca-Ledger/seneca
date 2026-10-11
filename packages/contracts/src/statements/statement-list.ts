@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { DateOnly, DecimalString, Timestamp } from '../common/wire';
+import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
 
 export const StatementStatus = Schema.Literals([
   'uploaded',
@@ -10,10 +10,10 @@ export const StatementStatus = Schema.Literals([
   'needs_review',
   'error',
 ]);
-export type StatementStatus = typeof StatementStatus.Type;
+export type StatementStatus = Wire<typeof StatementStatus>;
 
 export const StatementStage = Schema.Literals(['submit', 'approve', 'pay']);
-export type StatementStage = typeof StatementStage.Type;
+export type StatementStage = Wire<typeof StatementStage>;
 
 /**
  * One row of `GET /statements` (inside the `{ data }` envelope). Only the
@@ -69,7 +69,7 @@ export const StatementListItem = Schema.Struct({
     cardLabel: Schema.NullOr(Schema.String),
   }),
 });
-export type StatementListItem = typeof StatementListItem.Type;
+export type StatementListItem = Wire<typeof StatementListItem>;
 
 export const StatementList = Schema.Array(StatementListItem);
-export type StatementList = typeof StatementList.Type;
+export type StatementList = Wire<typeof StatementList>;

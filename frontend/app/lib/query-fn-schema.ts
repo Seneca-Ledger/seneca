@@ -1,5 +1,6 @@
 import type { Schema } from 'effect';
 import type * as Contracts from './contracts';
+import type { Wire } from './contracts';
 import { type ApiQueryOptions, apiQuery } from './query-fn';
 
 type ContractSchemas = typeof Contracts;
@@ -7,7 +8,7 @@ type ContractSchemas = typeof Contracts;
 export type ContractName = {
   [K in keyof ContractSchemas]: ContractSchemas[K] extends Schema.Top ? K : never;
 }[keyof ContractSchemas];
-export type ContractType<K extends ContractName> = ContractSchemas[K]['Type'];
+export type ContractType<K extends ContractName> = Wire<ContractSchemas[K]>;
 
 /** The API answered with something its contract in packages/contracts does not describe. */
 export class ContractMismatchError extends Error {

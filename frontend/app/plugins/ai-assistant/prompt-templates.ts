@@ -1,37 +1,9 @@
 import apiClient from '@/app/lib/api';
-
-interface DashboardSnapshot {
-  totalBalance: number;
-  income30d: number;
-  expense30d: number;
-  netFlow30d: number;
-  currency: string;
-}
-
-interface DashboardTopCategory {
-  name: string;
-  amount: number;
-  count: number;
-}
-
-interface DashboardTopMerchant {
-  name: string;
-  amount: number;
-  count: number;
-}
-
-interface DashboardResponse {
-  snapshot: DashboardSnapshot;
-  topCategories: DashboardTopCategory[];
-  topMerchants: DashboardTopMerchant[];
-  cashFlow: Array<{ date: string; income: number; expense: number }>;
-}
-
-interface TrendsResponse {
-  dailyTrend: Array<{ date: string; income: number; expense: number }>;
-  categories: Array<{ name: string; amount: number; count: number }>;
-  counterparties: Array<{ name: string; amount: number; count: number }>;
-}
+import type {
+  DashboardResponse,
+  DashboardTopCategory,
+  DashboardTrendsResponse as TrendsResponse,
+} from '@/app/lib/contracts';
 
 async function fetchDashboard(range: '7d' | '30d' | '90d' = '30d'): Promise<DashboardResponse> {
   const res = await apiClient.get('/dashboard', { params: { range } });
@@ -43,18 +15,22 @@ async function fetchTrends(days = 30): Promise<TrendsResponse> {
   return res.data;
 }
 
-function formatCategories(categories: DashboardTopCategory[], currency: string): string {
+function formatCategories(
+  categories: ReadonlyArray<Pick<DashboardTopCategory, 'name' | 'amount' | 'count'>>,
+  currency: string,
+): string {
   return categories
     .slice(0, 10)
     .map(
       (c, i) =>
-        `${i + 1}. ${c.name}: ${c.amount.toLocaleString()} ${currency} (${c.count} transactions)`,
+        // `name` is null for uncategorized spend.
+        `${i + 1}. ${c.name ?? 'Uncategorized'}: ${c.amount.toLocaleString()} ${currency} (${c.count} transactions)`,
     )
     .join('\n');
 }
 
 function formatCounterparties(
-  counterparties: Array<{ name: string; amount: number; count: number }>,
+  counterparties: TrendsResponse['counterparties'],
   currency: string,
 ): string {
   return counterparties
@@ -66,10 +42,7 @@ function formatCounterparties(
     .join('\n');
 }
 
-function formatDailyTrend(
-  daily: Array<{ date: string; income: number; expense: number }>,
-  currency: string,
-): string {
+function formatDailyTrend(daily: TrendsResponse['dailyTrend'], currency: string): string {
   return daily
     .slice(-14)
     .map(
@@ -180,10 +153,7 @@ Note: This is for informational purposes only. Always consult a qualified tax pr
     async buildPrompt() {
       const [dashboard, trends] = await Promise.all([fetchDashboard('30d'), fetchTrends(30)]);
       const daily = formatDailyTrend(trends.dailyTrend, dashboard.snapshot.currency);
-      const cats = formatCategories(
-        trends.categories.map(c => ({ ...c, count: c.count })),
-        dashboard.snapshot.currency,
-      );
+      const cats = formatCategories(trends.categories, dashboard.snapshot.currency);
       return `You are a financial fraud and anomaly detection specialist. Here is my daily transaction data for the last 30 days (showing last 14 days):
 
 ${daily}

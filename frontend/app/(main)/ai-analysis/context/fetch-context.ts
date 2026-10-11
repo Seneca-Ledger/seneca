@@ -1,4 +1,8 @@
 import apiClient from '@/app/lib/api';
+import type {
+  DashboardResponse,
+  DashboardTrendsResponse as TrendsResponse,
+} from '@/app/lib/contracts';
 import type { ContextInput } from './build-context';
 
 /**
@@ -8,24 +12,6 @@ import type { ContextInput } from './build-context';
  * adds no new query surface over financial data — it reuses the same aggregates
  * the dashboard renders.
  */
-
-interface DashboardResponse {
-  snapshot: {
-    totalBalance: number;
-    income30d: number;
-    expense30d: number;
-    netFlow30d: number;
-    currency: string;
-  };
-  cashFlow: Array<{ date: string; income: number; expense: number }>;
-  topMerchants: Array<{ name: string; amount: number; count: number }>;
-  topCategories: Array<{ name: string; amount: number; count: number }>;
-  dataHealth?: { uncategorizedTransactions?: number };
-}
-
-interface TrendsResponse {
-  counterparties: Array<{ name: string; amount: number; count: number }>;
-}
 
 const RANGE = '90d';
 const TREND_DAYS = 90;
@@ -38,11 +24,16 @@ export async function fetchContextInput(): Promise<ContextInput> {
 
   return {
     snapshot: dashboard.data.snapshot,
-    topCategories: dashboard.data.topCategories ?? [],
-    topMerchants: dashboard.data.topMerchants ?? [],
-    incomeSources: trends.data.counterparties ?? [],
-    cashFlow: dashboard.data.cashFlow ?? [],
-    uncategorizedTransactions: dashboard.data.dataHealth?.uncategorizedTransactions ?? 0,
+    // `name` is null for uncategorized spend; the prompt needs a word, not "null".
+    topCategories: dashboard.data.topCategories.map(category => ({
+      name: category.name ?? 'Uncategorized',
+      amount: category.amount,
+      count: category.count,
+    })),
+    topMerchants: [...dashboard.data.topMerchants],
+    incomeSources: [...trends.data.counterparties],
+    cashFlow: [...dashboard.data.cashFlow],
+    uncategorizedTransactions: dashboard.data.dataHealth.uncategorizedTransactions,
   };
 }
 
