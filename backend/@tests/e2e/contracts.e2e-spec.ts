@@ -9,6 +9,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import {
+  BudgetList,
   CategoryList,
   CurrentUser,
   DashboardCommitmentsResponse,
@@ -16,7 +17,11 @@ import {
   DashboardMonthlyCashFlowResponse,
   DashboardResponse,
   DashboardTrendsResponse,
+  GoalFlowResponse,
+  GoalList,
+  GoalPlanResponse,
   InsightList,
+  MonthGoalList,
   NotificationList,
   ReviewInboxCounts,
   UnreadCount,
@@ -170,6 +175,51 @@ describe('API contracts (e2e)', () => {
       const res = await get('/wallets');
       matches(WalletList, res.body);
       expect(res.body[0].initialBalance).toBe('12.50');
+    });
+  });
+
+  describe('budgets and goals', () => {
+    const month = new Date().toISOString().slice(0, 7);
+    let goalId: string;
+
+    beforeAll(async () => {
+      const post = (url: string, body: object) =>
+        request(app.getHttpServer())
+          .post(url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send(body)
+          .expect(201);
+      const goal = await post('/goals', { name: 'Move', targetAmount: 1000, currency: 'USD' });
+      goalId = goal.body.id;
+      await post(`/goals/${goalId}/contributions`, { amount: 100 });
+      const categories = await get('/categories?type=expense');
+      await post('/budgets', {
+        name: 'Food for the move',
+        categoryId: categories.body[0].id,
+        limitAmount: 250.5,
+        periodType: 'monthly',
+        currency: 'USD',
+        goalId,
+      });
+    });
+
+    it('GET /budgets', async () => {
+      const res = await get('/budgets');
+      matches(BudgetList, res.body);
+      expect(res.body[0].limitAmount).toBe('250.50');
+    });
+
+    it('GET /goals and /goals?month=', async () => {
+      matches(GoalList, (await get('/goals')).body);
+      const monthly = await get(`/goals?month=${month}`);
+      matches(MonthGoalList, monthly.body);
+      expect(monthly.body.length).toBeGreaterThan(0);
+    });
+
+    it('GET /goals/:id/flow and /plan', async () => {
+      matches(GoalFlowResponse, (await get(`/goals/${goalId}/flow?month=${month}`)).body);
+      matches(GoalPlanResponse, (await get(`/goals/${goalId}/plan`)).body);
     });
   });
 });

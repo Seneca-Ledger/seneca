@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BudgetSummaryWidget } from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
 import { CashRunwayWidget } from '@/app/(main)/dashboard/components/CashRunwayWidget';
+import { budgetItem } from '@/app/test/fixtures/contracts';
 import { createTestQueryClient, renderWithQuery } from '@/app/test/query-wrapper';
 import { CryptoPortfolioCard } from '../CryptoPortfolioCard';
 
@@ -37,14 +38,7 @@ const RESPONSES: Record<string, unknown> = {
     holdings: [],
   },
   '/budgets': [
-    {
-      id: 'b-1',
-      name: 'Travel',
-      limitAmount: 100,
-      spentAmount: 10,
-      percentUsed: 10,
-      currency: 'EUR',
-    },
+    budgetItem({ id: 'b-1', name: 'Travel', currency: 'EUR', spentAmount: 10, percentUsed: 10 }),
   ],
   '/dashboard/commitments': {
     currency: 'EUR',
@@ -52,6 +46,7 @@ const RESPONSES: Record<string, unknown> = {
     openingBalance: 1000,
     totalCommitted: 50,
     unscheduledCommitted: 0,
+    days: [{ date: '2026-10-07', outflow: 50, balance: 950 }],
     items: [
       {
         date: '2026-10-07',
@@ -76,7 +71,8 @@ const CARDS: Array<{ name: string; ui: React.ReactElement; shows: string }> = [
     ui: <CryptoPortfolioCard formatAmount={money} month="2026-10" monthLabel="October 2026" />,
     shows: '€5532',
   },
-  { name: 'budgets', ui: <BudgetSummaryWidget />, shows: 'Travel' },
+  // The widget names a budget by its category.
+  { name: 'budgets', ui: <BudgetSummaryWidget />, shows: 'Groceries' },
   { name: 'cash runway', ui: <CashRunwayWidget formatAmount={money} />, shows: 'Telekom' },
 ];
 

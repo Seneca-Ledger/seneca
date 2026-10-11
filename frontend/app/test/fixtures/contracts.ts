@@ -1,4 +1,4 @@
-import type { CategoryItem, WalletItem } from '@/app/lib/contracts';
+import type { BudgetItem, CategoryItem, CategoryRef, WalletItem } from '@/app/lib/contracts';
 
 // Wire-format fixtures: outside production every API response is checked
 // against its contract, so a mock has to look like what the backend sends.
@@ -28,6 +28,14 @@ export function categoryItem(
   };
 }
 
+/** A category as it is nested in another row (no parent or children). */
+export function categoryRef(
+  overrides: Partial<CategoryRef> & Pick<CategoryRef, 'id' | 'name'>,
+): CategoryRef {
+  const { parent: _parent, children: _children, ...category } = categoryItem(overrides);
+  return category;
+}
+
 export function walletItem(
   overrides: Partial<WalletItem> & Pick<WalletItem, 'id' | 'name'>,
 ): WalletItem {
@@ -42,6 +50,34 @@ export function walletItem(
     ownerMemberId: null,
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
+    ...overrides,
+  };
+}
+
+export function budgetItem(
+  overrides: Partial<BudgetItem> & Pick<BudgetItem, 'id' | 'name'>,
+): BudgetItem {
+  const category = overrides.category ?? categoryRef({ id: 'category-1', name: 'Groceries' });
+  return {
+    workspaceId: 'workspace-1',
+    categoryId: category.id,
+    category,
+    limitAmount: '100.00',
+    currency: 'USD',
+    periodType: 'monthly',
+    rolloverMode: 'none',
+    currentPeriodStart: '2026-01-01',
+    startsOn: null,
+    endsOn: null,
+    goalId: null,
+    createdById: 'user-1',
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+    spentAmount: 0,
+    percentUsed: 0,
+    availableAmount: 100,
+    carriedAmount: 0,
+    isActive: true,
     ...overrides,
   };
 }

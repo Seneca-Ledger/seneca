@@ -3,6 +3,7 @@ import type { DashboardData } from '@/app/hooks/useDashboard';
 import { type render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { budgetItem, categoryRef } from '@/app/test/fixtures/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import '../test-setup';
 import { OverviewTab } from '../OverviewTab';
@@ -163,14 +164,14 @@ describe('OverviewTab', () => {
         return Promise.resolve({
           data: {
             data: [
-              {
+              budgetItem({
                 id: 'b1',
                 name: 'Marketing',
-                limitAmount: 100,
+                category: categoryRef({ id: 'c1', name: 'Marketing' }),
                 spentAmount: 90,
                 percentUsed: 90,
                 currency: 'KZT',
-              },
+              }),
             ],
           },
         });
@@ -184,6 +185,7 @@ describe('OverviewTab', () => {
               openingBalance: 1000,
               totalCommitted: 200,
               unscheduledCommitted: 0,
+              days: [{ date: '2026-03-01', outflow: 200, balance: 800 }],
               items: [
                 {
                   date: '2026-03-01',

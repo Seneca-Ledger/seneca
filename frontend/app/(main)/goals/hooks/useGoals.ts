@@ -4,13 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { GoalCover } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
-/** How the goal's picture should be drawn. Mirrors the server's GoalCover. */
-export type GoalCover =
-  | { kind: 'preset'; preset: string }
-  | { kind: 'photo'; url: string; attribution: string | null; sourceUrl: string | null };
+/** How the goal's picture should be drawn. */
+export type { GoalCover } from '@/app/lib/contracts';
 
 /**
  * What the picker hands back, which is not the same shape the server returns:
@@ -96,7 +95,7 @@ export function useGoals(): UseGoalsState {
 
   const query = useQuery({
     queryKey: queryKeys.goalsList(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Goal[]>({ url: '/goals', signal }),
+    queryFn: ({ signal }) => apiQueryDecoded({ url: '/goals', signal, contract: 'GoalList' }),
   });
 
   const mutation = useMutation({

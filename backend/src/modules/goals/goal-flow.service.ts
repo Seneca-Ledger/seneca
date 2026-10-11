@@ -3,8 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql } from '../../common/utils/counted-transactions.util';
+import type {
+  GoalFlowBudget,
+  GoalFlowLink,
+  GoalFlowNode,
+  GoalFlowNodeKind,
+  GoalFlowResponse,
+} from '../../contracts';
 import { Goal, GoalContribution } from '../../entities';
-import { Budget, type BudgetPeriodType } from '../../entities/budget.entity';
+import { Budget } from '../../entities/budget.entity';
 import type { Category } from '../../entities/category.entity';
 import { DataEntry, DataEntryType } from '../../entities/data-entry.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
@@ -35,68 +42,7 @@ import {
  */
 const MERCHANTS_PER_CATEGORY = 5;
 
-export type GoalFlowNodeKind = 'goal' | 'budget' | 'category' | 'merchant' | 'other';
-
-export interface GoalFlowNode {
-  /** `<kind>:<id>` — sankey links address nodes by name, so it must be unique. */
-  id: string;
-  kind: GoalFlowNodeKind;
-  name: string;
-  /** Declared intent. Null below the budget level, where nothing was declared. */
-  planned: number | null;
-  actual: number;
-  color: string | null;
-  /** Set on the rolled-up tail only: how many merchants it stands for. */
-  mergedCount?: number;
-}
-
-export interface GoalFlowLink {
-  source: string;
-  target: string;
-  value: number;
-}
-
-export interface GoalFlowBudget {
-  id: string;
-  name: string;
-  periodType: BudgetPeriodType;
-  /** The limit as the user typed it, in the budget's own currency. */
-  limitAmount: number;
-  limitCurrency: string;
-  /** That limit converted and scaled to one month, which is what the tree sums. */
-  plannedMonthly: number;
-  actualMonthly: number;
-  /** The budget's native window, so these figures reconcile with the budgets page. */
-  nativePeriod: { start: string; end: string; actual: number };
-  percentUsed: number;
-  category: { id: string; name: string; color: string | null; icon: string | null } | null;
-}
-
-export interface GoalFlowResponse {
-  goal: {
-    id: string;
-    name: string;
-    targetAmount: number;
-    currentAmount: number;
-    remaining: number;
-    targetDate: string | null;
-  };
-  month: string;
-  /** Workspace currency. Every amount below is already converted into it. */
-  currency: string;
-  plannedTotal: number;
-  actualTotal: number;
-  /** Positive means overspending against the declared plan. */
-  variance: number;
-  nodes: GoalFlowNode[];
-  links: GoalFlowLink[];
-  budgets: GoalFlowBudget[];
-  /**
-   * Spending the tree cannot place. Cash entries carry no category, so they are
-   * counted but never drawn — showing the number beats a silently low total.
-   */
-  excluded: { cashAmount: number; cashEntryCount: number };
-}
+export type { GoalFlowBudget, GoalFlowLink, GoalFlowNode, GoalFlowNodeKind, GoalFlowResponse };
 
 interface CategoryTotalRow {
   categoryId: string;
