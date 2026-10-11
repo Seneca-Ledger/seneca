@@ -66,7 +66,8 @@ describe('Sidebar Review dot', () => {
 
     renderWithQuery(<Sidebar />);
 
-    expect(apiGet).not.toHaveBeenCalled();
+    // The member list may load (it decides whose backlog counts); the counts may not.
+    expect(apiGet).not.toHaveBeenCalledWith('/review-inbox/counts', expect.anything());
     expect(screen.queryByTestId('review-waiting-dot')).toBeNull();
   });
 });
