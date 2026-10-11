@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Repository } from 'typeorm';
-import { retry, TimeoutError } from '../../common/utils/async.util';
+import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { formatMoney } from '../../common/utils/format-money.util';
 import { CategoryType } from '../../entities/category.entity';
 import { IdempotencyKey } from '../../entities/idempotency-key.entity';
@@ -412,55 +412,43 @@ export class TelegramService {
       settings?.timeoutMs || Number.parseInt(process.env.TELEGRAM_TIMEOUT_MS || '10000', 10);
     const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 10000;
 
-    const sendOnce = async () => {
-      const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+    const sendOnce = async (signal: AbortSignal) => {
+      const response = await fetch(`${apiBase}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          disable_web_page_preview: true,
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+        }),
+        signal,
+      });
 
-      try {
-        const response = await fetch(`${apiBase}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text,
-            disable_web_page_preview: true,
-            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-          }),
-          signal: controller.signal,
-        });
-
-        if (response.status >= 500) {
-          throw new TelegramApiError('Telegram API temporary error', response.status);
-        }
-
-        const payload = (await response.json()) as TelegramSendMessageResponse;
-
-        if (!payload.ok) {
-          const description = payload?.description || 'Unknown error';
-          const errorCode = payload?.error_code ? Number(payload.error_code) : undefined;
-          this.logger.error(`Failed to send Telegram message: ${description}`);
-          throw new TelegramApiError(description, response.status, errorCode);
-        }
-
-        return { messageId: String(payload.result?.message_id || '') };
-      } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new TimeoutError('Telegram request timed out');
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeoutHandle);
+      if (response.status >= 500) {
+        throw new TelegramApiError('Telegram API temporary error', response.status);
       }
+
+      const payload = (await response.json()) as TelegramSendMessageResponse;
+
+      if (!payload.ok) {
+        const description = payload?.description || 'Unknown error';
+        const errorCode = payload?.error_code ? Number(payload.error_code) : undefined;
+        this.logger.error(`Failed to send Telegram message: ${description}`);
+        throw new TelegramApiError(description, response.status, errorCode);
+      }
+
+      return { messageId: String(payload.result?.message_id || '') };
     };
 
     try {
-      return await retry(sendOnce, {
+      return await attemptWithRetry(sendOnce, {
+        timeoutMs,
+        timeoutMessage: 'Telegram request timed out',
         retries: 2,
         baseDelayMs: 500,
         maxDelayMs: 5000,
-        isRetryable: error =>
-          error instanceof TimeoutError ||
-          (error instanceof TelegramApiError && (error.statusCode || 0) >= 500),
+        retryable: error => error instanceof TelegramApiError && (error.statusCode || 0) >= 500,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -14,8 +14,8 @@ import { render } from '@react-email/render';
 import nodemailer from 'nodemailer';
 import * as React from 'react';
 import type { Repository } from 'typeorm';
+import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { appError } from '../../common/errors/app-error';
-import { retry, TimeoutError, withTimeout } from '../../common/utils/async.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { mergeProcessingSettings } from '../../common/utils/workspace-processing.util';
 import { mergeWorkspaceProfile } from '../../common/utils/workspace-profile.util';
@@ -1204,33 +1204,30 @@ export class WorkspacesService {
       const timeoutMs =
         smtp?.timeoutMs || Number.parseInt(process.env.SMTP_TIMEOUT_MS || '10000', 10);
 
-      await retry(
+      await attemptWithRetry(
         () =>
-          withTimeout(
-            transporter.sendMail({
-              from: smtpFrom,
-              to: params.email,
-              subject: renderInvitation(locale, 'subject', { workspace: params.workspaceName }),
-              html,
-              text: workspaceInvitationEmailText({
-                workspaceName: params.workspaceName,
-                invitationLink: params.invitationLink,
-                invitedBy: params.invitedBy,
-                roleLabel: params.role
-                  ? renderInvitation(locale, invitationRoleKey(params.role))
-                  : null,
-                locale,
-              }),
-              replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
+          transporter.sendMail({
+            from: smtpFrom,
+            to: params.email,
+            subject: renderInvitation(locale, 'subject', { workspace: params.workspaceName }),
+            html,
+            text: workspaceInvitationEmailText({
+              workspaceName: params.workspaceName,
+              invitationLink: params.invitationLink,
+              invitedBy: params.invitedBy,
+              roleLabel: params.role
+                ? renderInvitation(locale, invitationRoleKey(params.role))
+                : null,
+              locale,
             }),
-            Number.isFinite(timeoutMs) ? timeoutMs : 10000,
-            'SMTP request timed out',
-          ),
+            replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
+          }),
         {
+          timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 10000,
+          timeoutMessage: 'SMTP request timed out',
           retries: 1,
           baseDelayMs: 300,
           maxDelayMs: 2000,
-          isRetryable: err => err instanceof TimeoutError,
         },
       );
     } catch (error) {
