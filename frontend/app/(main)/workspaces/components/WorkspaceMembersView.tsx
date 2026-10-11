@@ -172,7 +172,7 @@ const TOOLBAR_BUTTON_SX = {
   },
 } satisfies SxProps<Theme>;
 
-// A flat row: hairline under it, a faint wash on hover. The ••• button only
+// A flat row: hairline only between rows, a faint wash on hover. The ••• button only
 // shows on hover or keyboard focus; touch screens have no hover, so there it stays.
 const MEMBER_ROW_SX = {
   display: 'flex',
@@ -184,8 +184,7 @@ const MEMBER_ROW_SX = {
   py: 1.25,
   mx: -1.5,
   borderRadius: tokens.radius.sm,
-  borderBottom: '1px solid',
-  borderColor: HAIRLINE,
+  '& + &': { borderTop: '1px solid', borderColor: HAIRLINE },
   transition: 'background-color 120ms ease',
   '&:hover': { bgcolor: (theme: Theme) => alpha(theme.palette.text.primary, 0.04) },
   '& .members-row-actions': { opacity: 0, transition: 'opacity 120ms ease' },
@@ -194,7 +193,7 @@ const MEMBER_ROW_SX = {
   '@media (hover: none)': { '& .members-row-actions': { opacity: 1 } },
 } satisfies SxProps<Theme>;
 
-/** Mirrors a loaded member row: flat, hairline underneath, 32px avatar. */
+/** Mirrors a loaded member row: flat, hairline between rows, 32px avatar. */
 function MemberRowSkeleton(): React.JSX.Element {
   return (
     <Box
@@ -204,8 +203,7 @@ function MemberRowSkeleton(): React.JSX.Element {
         justifyContent: 'space-between',
         gap: 1.5,
         py: 1.25,
-        borderBottom: '1px solid',
-        borderColor: HAIRLINE,
+        '& + &': { borderTop: '1px solid', borderColor: HAIRLINE },
       }}
     >
       <Box sx={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: 1.5 }}>
@@ -271,14 +269,15 @@ export default function WorkspaceMembersView() {
   const isOwnerOrAdmin = currentMembership?.role === 'owner' || currentMembership?.role === 'admin';
   const isWorkspaceOwner = currentMembership?.role === 'owner';
 
+  // Search, sort and role filter only earn their place once there is more than
+  // one member; while hidden they must not filter, or a leftover query hides the owner.
+  const showListControls = (overview?.members.length ?? 0) > 1;
   const visibleMembers = useMemo(
     () =>
-      filterAndSortMembers(overview?.members || [], {
-        searchEmail,
-        roleFilter,
-        sortBy,
-      }),
-    [overview?.members, roleFilter, searchEmail, sortBy],
+      showListControls
+        ? filterAndSortMembers(overview?.members || [], { searchEmail, roleFilter, sortBy })
+        : overview?.members || [],
+    [overview?.members, roleFilter, searchEmail, showListControls, sortBy],
   );
 
   const loadOverview = async () => {
@@ -575,9 +574,8 @@ export default function WorkspaceMembersView() {
               <MemberRowSkeleton key={key} />
             ))}
           </Box>
-          <Box sx={{ pt: 2.5, borderTop: '1px solid', borderColor: HAIRLINE }}>
+          <Box sx={{ pt: 2 }}>
             <Skeleton variant="text" width={170} height={18} />
-            <Skeleton variant="text" width={150} height={14} />
           </Box>
         </Box>
       </Box>
@@ -629,84 +627,88 @@ export default function WorkspaceMembersView() {
             gap: 1.5,
           }}
         >
-          <TextField
-            aria-label={t.searchAria.value}
-            placeholder={t.searchPlaceholder.value}
-            value={searchEmail}
-            onChange={e => setSearchEmail(e.target.value)}
-            size="small"
-            variant="outlined"
-            sx={{
-              width: { xs: '100%', sm: 240 },
-              '& .MuiOutlinedInput-root': { bgcolor: 'transparent' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border)' },
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={16} style={{ color: 'var(--muted-foreground)' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <Button
-            variant="text"
-            size="small"
-            onClick={e => setSortMenuAnchor(e.currentTarget)}
-            endIcon={<ChevronDown size={14} />}
-            sx={TOOLBAR_BUTTON_SX}
-          >
-            {t.sortButton.value.replace('{value}', t.sort[sortBy].value)}
-          </Button>
-          <Menu
-            anchorEl={sortMenuAnchor}
-            open={Boolean(sortMenuAnchor)}
-            onClose={() => setSortMenuAnchor(null)}
-            aria-label={t.sortMenuAria.value}
-          >
-            {SORT_OPTIONS.map(option => (
-              <MenuItem
-                key={option}
-                selected={option === sortBy}
-                onClick={() => {
-                  setSortBy(option);
-                  setSortMenuAnchor(null);
+          {showListControls && (
+            <>
+              <TextField
+                aria-label={t.searchAria.value}
+                placeholder={t.searchPlaceholder.value}
+                value={searchEmail}
+                onChange={e => setSearchEmail(e.target.value)}
+                size="small"
+                variant="outlined"
+                sx={{
+                  width: { xs: '100%', sm: 240 },
+                  '& .MuiOutlinedInput-root': { bgcolor: 'transparent' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border)' },
                 }}
-              >
-                {t.sort[option]}
-              </MenuItem>
-            ))}
-          </Menu>
-
-          <Button
-            variant="text"
-            size="small"
-            onClick={e => setRoleMenuAnchor(e.currentTarget)}
-            endIcon={<ChevronDown size={14} />}
-            sx={TOOLBAR_BUTTON_SX}
-          >
-            {t.roleButton.value.replace('{value}', getRoleFilterLabel(roleFilter))}
-          </Button>
-          <Menu
-            anchorEl={roleMenuAnchor}
-            open={Boolean(roleMenuAnchor)}
-            onClose={() => setRoleMenuAnchor(null)}
-            aria-label={t.roleMenuAria.value}
-          >
-            {ROLE_FILTER_OPTIONS.map(option => (
-              <MenuItem
-                key={option}
-                selected={option === roleFilter}
-                onClick={() => {
-                  setRoleFilter(option);
-                  setRoleMenuAnchor(null);
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search size={16} style={{ color: 'var(--muted-foreground)' }} />
+                    </InputAdornment>
+                  ),
                 }}
+              />
+
+              <Button
+                variant="text"
+                size="small"
+                onClick={e => setSortMenuAnchor(e.currentTarget)}
+                endIcon={<ChevronDown size={14} />}
+                sx={TOOLBAR_BUTTON_SX}
               >
-                {getRoleFilterLabel(option)}
-              </MenuItem>
-            ))}
-          </Menu>
+                {t.sortButton.value.replace('{value}', t.sort[sortBy].value)}
+              </Button>
+              <Menu
+                anchorEl={sortMenuAnchor}
+                open={Boolean(sortMenuAnchor)}
+                onClose={() => setSortMenuAnchor(null)}
+                aria-label={t.sortMenuAria.value}
+              >
+                {SORT_OPTIONS.map(option => (
+                  <MenuItem
+                    key={option}
+                    selected={option === sortBy}
+                    onClick={() => {
+                      setSortBy(option);
+                      setSortMenuAnchor(null);
+                    }}
+                  >
+                    {t.sort[option]}
+                  </MenuItem>
+                ))}
+              </Menu>
+
+              <Button
+                variant="text"
+                size="small"
+                onClick={e => setRoleMenuAnchor(e.currentTarget)}
+                endIcon={<ChevronDown size={14} />}
+                sx={TOOLBAR_BUTTON_SX}
+              >
+                {t.roleButton.value.replace('{value}', getRoleFilterLabel(roleFilter))}
+              </Button>
+              <Menu
+                anchorEl={roleMenuAnchor}
+                open={Boolean(roleMenuAnchor)}
+                onClose={() => setRoleMenuAnchor(null)}
+                aria-label={t.roleMenuAria.value}
+              >
+                {ROLE_FILTER_OPTIONS.map(option => (
+                  <MenuItem
+                    key={option}
+                    selected={option === roleFilter}
+                    onClick={() => {
+                      setRoleFilter(option);
+                      setRoleMenuAnchor(null);
+                    }}
+                  >
+                    {getRoleFilterLabel(option)}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          )}
 
           <Button
             variant="contained"
@@ -799,6 +801,10 @@ export default function WorkspaceMembersView() {
                     { value: 'admin', label: t.roles.admin.value },
                   ]}
                 />
+                {/* What the chosen role can do, right where it is chosen. */}
+                <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
+                  {t.roleTooltips[inviteRole].value}
+                </Typography>
               </Box>
             </Box>
 
@@ -997,15 +1003,12 @@ export default function WorkspaceMembersView() {
                             </Menu>
                           </>
                         ) : (
-                          // A light outlined tag, not a filled badge.
+                          // Plain muted text, no tag outline.
                           <Box
                             component="span"
                             sx={{
                               display: 'inline-block',
-                              border: '1px solid var(--border)',
-                              borderRadius: tokens.radius.sm,
                               px: 1,
-                              py: '1px',
                               fontSize: 12,
                               fontWeight: 500,
                               color: 'var(--muted-foreground)',
@@ -1118,36 +1121,31 @@ export default function WorkspaceMembersView() {
           )}
         </Box>
 
-        {/* Pending invitations: a lower section under a thin rule, not a box. */}
-        <Box sx={{ pt: 2.5, borderTop: '1px solid', borderColor: HAIRLINE }}>
+        {/* Pending invitations: separated by whitespace alone, no rule. */}
+        <Box sx={{ pt: 2 }}>
           <Typography
             component="h2"
-            sx={{
-              fontSize: 12,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'var(--muted-foreground)',
-            }}
+            sx={{ fontSize: 13, fontWeight: 500, color: 'var(--muted-foreground)' }}
           >
-            {t.pending.title} · {overview.invitations.length}
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{ display: 'block', mt: 0.5, color: 'var(--muted-foreground)', opacity: 0.8 }}
-          >
-            {t.pending.expiry.value.replace('{days}', String(INVITATION_EXPIRY_DAYS))}
+            {t.pending.title}
+            {overview.invitations.length > 0 ? ` · ${overview.invitations.length}` : null}
           </Typography>
 
           {overview.invitations.length === 0 ? (
             <Typography
               variant="body2"
-              sx={{ mt: 1.5, color: 'var(--muted-foreground)', opacity: 0.6 }}
+              sx={{ mt: 0.5, color: 'var(--muted-foreground)', opacity: 0.7 }}
             >
               {t.pending.empty}
             </Typography>
           ) : (
             <Box sx={{ mt: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{ display: 'block', mb: 0.5, color: 'var(--muted-foreground)', opacity: 0.8 }}
+              >
+                {t.pending.expiry.value.replace('{days}', String(INVITATION_EXPIRY_DAYS))}
+              </Typography>
               {overview.invitations.map(invite => {
                 const isResending = resendingInvitationId === invite.id;
                 const isRevoking = revokingInvitationId === invite.id;
