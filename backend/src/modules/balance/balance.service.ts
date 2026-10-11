@@ -776,7 +776,7 @@ export class BalanceService {
   }
 
   async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotBody) {
-    const snapshotDate = this.resolveDate(dto.date);
+    const snapshotDate = this.resolveDate(dto.date ?? undefined);
     const account = await this.balanceAccountRepository.findOne({
       where: {
         id: dto.accountId,

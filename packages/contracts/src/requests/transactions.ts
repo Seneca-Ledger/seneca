@@ -1,48 +1,48 @@
 import * as Schema from 'effect/Schema';
-import { IsoDateString, isAtMostTwoDecimals } from '../common/requests';
+import { IsoDateString, isAtMostTwoDecimals, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const UpdateTransactionBody = Schema.Struct({
-  transactionDate: Schema.optional(IsoDateString),
-  documentNumber: Schema.optional(Schema.String),
-  counterpartyName: Schema.optional(Schema.String),
-  counterpartyBin: Schema.optional(Schema.String),
-  counterpartyAccount: Schema.optional(Schema.String),
-  counterpartyBank: Schema.optional(Schema.String),
-  debit: Schema.optional(Schema.Finite),
-  credit: Schema.optional(Schema.Finite),
-  amountForeign: Schema.optional(Schema.Finite),
-  exchangeRate: Schema.optional(Schema.Finite),
-  amount: Schema.optional(Schema.Finite),
-  currency: Schema.optional(Schema.String),
-  paymentPurpose: Schema.optional(Schema.String),
-  categoryId: Schema.optional(Schema.String.check(Schema.isUUID())),
-  branchId: Schema.optional(Schema.String.check(Schema.isUUID())),
-  walletId: Schema.optional(Schema.String.check(Schema.isUUID())),
+  transactionDate: optionalNullable(IsoDateString),
+  documentNumber: optionalNullable(Schema.String),
+  counterpartyName: optionalNullable(Schema.String),
+  counterpartyBin: optionalNullable(Schema.String),
+  counterpartyAccount: optionalNullable(Schema.String),
+  counterpartyBank: optionalNullable(Schema.String),
+  debit: optionalNullable(Schema.Finite),
+  credit: optionalNullable(Schema.Finite),
+  amountForeign: optionalNullable(Schema.Finite),
+  exchangeRate: optionalNullable(Schema.Finite),
+  amount: optionalNullable(Schema.Finite),
+  currency: optionalNullable(Schema.String),
+  paymentPurpose: optionalNullable(Schema.String),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  branchId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  walletId: optionalNullable(Schema.String.check(Schema.isUUID())),
   /**
    * Which member of the household the row belongs to. `null` hands it back to
    * the household as shared, which is why it is nullable rather than just
    * optional: leaving it out means "do not touch", sending null means "shared".
    */
-  ownerMemberId: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
-  article: Schema.optional(Schema.String),
-  activityType: Schema.optional(Schema.String),
-  transactionType: Schema.optional(Schema.Literals(['income', 'expense'])),
-  comments: Schema.optional(Schema.String),
-  isVerified: Schema.optional(Schema.Boolean),
+  ownerMemberId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  article: optionalNullable(Schema.String),
+  activityType: optionalNullable(Schema.String),
+  transactionType: optionalNullable(Schema.Literals(['income', 'expense'])),
+  comments: optionalNullable(Schema.String),
+  isVerified: optionalNullable(Schema.Boolean),
   /**
    * Hides what the row was from the rest of the household. Only its owner may
    * set it, and only on a row that is theirs.
    */
-  isPrivate: Schema.optional(Schema.Boolean),
+  isPrivate: optionalNullable(Schema.Boolean),
 });
 export type UpdateTransactionBody = Wire<typeof UpdateTransactionBody>;
 
 export const SplitPartInput = Schema.Struct({
   amount: Schema.Finite.check(isAtMostTwoDecimals, Schema.isGreaterThan(0)),
-  categoryId: Schema.optional(Schema.String.check(Schema.isUUID())),
-  paymentPurpose: Schema.optional(Schema.String.check(Schema.isMaxLength(500))),
-  comments: Schema.optional(Schema.String.check(Schema.isMaxLength(1000))),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  paymentPurpose: optionalNullable(Schema.String.check(Schema.isMaxLength(500))),
+  comments: optionalNullable(Schema.String.check(Schema.isMaxLength(1000))),
 });
 export type SplitPartInput = Wire<typeof SplitPartInput>;
 
@@ -64,9 +64,9 @@ export type BulkUpdateItemInput = Wire<typeof BulkUpdateItemInput>;
  * both shapes are modelled here as optional fields and the handler picks one.
  */
 export const BulkUpdateRequestBody = Schema.Struct({
-  items: Schema.optional(Schema.Array(BulkUpdateItemInput)),
-  ids: Schema.optional(Schema.Array(Schema.String)),
-  updates: Schema.optional(UpdateTransactionBody),
+  items: optionalNullable(Schema.Array(BulkUpdateItemInput)),
+  ids: optionalNullable(Schema.Array(Schema.String)),
+  updates: optionalNullable(UpdateTransactionBody),
 });
 export type BulkUpdateRequestBody = Wire<typeof BulkUpdateRequestBody>;
 
@@ -93,7 +93,7 @@ export type MergeDuplicatesBody = Wire<typeof MergeDuplicatesBody>;
 
 export const DetectTransfersBody = Schema.Struct({
   /** Limit the run to the rows of one statement; omitted means the whole workspace. */
-  statementId: Schema.optional(Schema.String.check(Schema.isUUID())),
+  statementId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type DetectTransfersBody = Wire<typeof DetectTransfersBody>;
 

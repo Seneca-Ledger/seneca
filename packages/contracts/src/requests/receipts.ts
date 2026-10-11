@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
-import { NumericInput } from '../common/requests';
+import { NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 /**
@@ -8,13 +8,13 @@ import type { Wire } from '../common/wire';
  * fields next to the file, hence the Number coercion.
  */
 export const CaptureLocationFieldsInput = Schema.Struct({
-  latitude: Schema.optional(
+  latitude: optionalNullable(
     NumericInput.check(Schema.isGreaterThanOrEqualTo(-90), Schema.isLessThanOrEqualTo(90)),
   ),
-  longitude: Schema.optional(
+  longitude: optionalNullable(
     NumericInput.check(Schema.isGreaterThanOrEqualTo(-180), Schema.isLessThanOrEqualTo(180)),
   ),
-  accuracy: Schema.optional(
+  accuracy: optionalNullable(
     NumericInput.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100000)),
   ),
 });
@@ -22,7 +22,7 @@ export type CaptureLocationFieldsInput = Wire<typeof CaptureLocationFieldsInput>
 
 export const UploadReceiptBody = CaptureLocationFieldsInput.mapFields(
   Struct.assign({
-    language: Schema.optional(Schema.String),
+    language: optionalNullable(Schema.String),
   }),
 );
 export type UploadReceiptBody = Wire<typeof UploadReceiptBody>;
@@ -35,7 +35,7 @@ export const PlaceSuggestionsBody = Schema.Struct({
     Schema.isGreaterThanOrEqualTo(-180),
     Schema.isLessThanOrEqualTo(180),
   ),
-  accuracy: Schema.optional(
+  accuracy: optionalNullable(
     Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100000)),
   ),
 });
@@ -44,7 +44,7 @@ export type PlaceSuggestionsBody = Wire<typeof PlaceSuggestionsBody>;
 /** The OpenStreetMap place the user picked from the list of places nearby. */
 export const ReceiptPlaceInput = Schema.Struct({
   name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200)),
-  category: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(64)))),
+  category: optionalNullable(Schema.String.check(Schema.isMaxLength(64))),
   osmType: Schema.Literals(['node', 'way', 'relation']),
   osmId: Schema.String.check(Schema.isPattern(/^\d{1,20}$/)),
 });
@@ -56,12 +56,12 @@ export const UpdateReceiptLocationBody = Schema.Struct({
     Schema.isGreaterThanOrEqualTo(-180),
     Schema.isLessThanOrEqualTo(180),
   ),
-  place: Schema.optional(ReceiptPlaceInput),
+  place: optionalNullable(ReceiptPlaceInput),
 });
 export type UpdateReceiptLocationBody = Wire<typeof UpdateReceiptLocationBody>;
 
 export const UpdateReceiptBody = Schema.Struct({
-  status: Schema.optional(
+  status: optionalNullable(
     Schema.Literals([
       'new',
       'parsed',
@@ -73,7 +73,7 @@ export const UpdateReceiptBody = Schema.Struct({
       'failed',
     ]),
   ),
-  parsedData: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  parsedData: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type UpdateReceiptBody = Wire<typeof UpdateReceiptBody>;
 
@@ -91,12 +91,12 @@ export const ApproveReceiptBody = Schema.Struct({
    * The bank row to attach the receipt to. Omitted: the stored suggestion is
    * used when there is one. `null`: book a new transaction regardless.
    */
-  transactionId: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
+  transactionId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type ApproveReceiptBody = Wire<typeof ApproveReceiptBody>;
 
 export const BulkApproveBody = Schema.Struct({
   receiptIds: Schema.Array(Schema.String.check(Schema.isUUID())),
-  categoryId: Schema.optional(Schema.String.check(Schema.isUUID())),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type BulkApproveBody = Wire<typeof BulkApproveBody>;

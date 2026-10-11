@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { NumericInput } from '../common/requests';
+import { NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 /**
@@ -10,57 +10,57 @@ import type { Wire } from '../common/wire';
  * the service, while these DTOs reject unknown properties at the boundary.
  */
 export const SaveS3SettingsBody = Schema.Struct({
-  endpoint: Schema.optional(Schema.String),
-  region: Schema.optional(Schema.String),
-  bucket: Schema.optional(Schema.String),
-  prefix: Schema.optional(Schema.String),
-  accessKeyId: Schema.optional(Schema.String),
-  secretAccessKey: Schema.optional(Schema.String),
-  forcePathStyle: Schema.optional(Schema.Boolean),
-  autoBackup: Schema.optional(Schema.Boolean),
+  endpoint: optionalNullable(Schema.String),
+  region: optionalNullable(Schema.String),
+  bucket: optionalNullable(Schema.String),
+  prefix: optionalNullable(Schema.String),
+  accessKeyId: optionalNullable(Schema.String),
+  secretAccessKey: optionalNullable(Schema.String),
+  forcePathStyle: optionalNullable(Schema.Boolean),
+  autoBackup: optionalNullable(Schema.Boolean),
 });
 export type SaveS3SettingsBody = Wire<typeof SaveS3SettingsBody>;
 
 export const ImportFilesBody = Schema.Struct({
-  fileIds: Schema.optional(Schema.Array(Schema.String)),
+  fileIds: optionalNullable(Schema.Array(Schema.String)),
 });
 export type ImportFilesBody = Wire<typeof ImportFilesBody>;
 
 export const SaveWebdavSettingsBody = Schema.Struct({
-  url: Schema.optional(Schema.String),
-  rootPath: Schema.optional(Schema.String),
-  username: Schema.optional(Schema.String),
-  password: Schema.optional(Schema.String),
+  url: optionalNullable(Schema.String),
+  rootPath: optionalNullable(Schema.String),
+  username: optionalNullable(Schema.String),
+  password: optionalNullable(Schema.String),
 });
 export type SaveWebdavSettingsBody = Wire<typeof SaveWebdavSettingsBody>;
 
 export const SaveImapSettingsBody = Schema.Struct({
-  host: Schema.optional(Schema.String),
-  port: Schema.optional(
+  host: optionalNullable(Schema.String),
+  port: optionalNullable(
     NumericInput.check(
       Schema.isInt(),
       Schema.isGreaterThanOrEqualTo(1),
       Schema.isLessThanOrEqualTo(65535),
     ),
   ),
-  secure: Schema.optional(Schema.Boolean),
-  mailbox: Schema.optional(Schema.String),
-  user: Schema.optional(Schema.String),
-  pass: Schema.optional(Schema.String),
+  secure: optionalNullable(Schema.Boolean),
+  mailbox: optionalNullable(Schema.String),
+  user: optionalNullable(Schema.String),
+  pass: optionalNullable(Schema.String),
 });
 export type SaveImapSettingsBody = Wire<typeof SaveImapSettingsBody>;
 
 export const ListImapFoldersBody = Schema.Struct({
-  host: Schema.optional(Schema.String),
-  port: Schema.optional(
+  host: optionalNullable(Schema.String),
+  port: optionalNullable(
     NumericInput.check(
       Schema.isInt(),
       Schema.isGreaterThanOrEqualTo(1),
       Schema.isLessThanOrEqualTo(65535),
     ),
   ),
-  secure: Schema.optional(Schema.Boolean),
-  user: Schema.optional(Schema.String),
-  pass: Schema.optional(Schema.String),
+  secure: optionalNullable(Schema.Boolean),
+  user: optionalNullable(Schema.String),
+  pass: optionalNullable(Schema.String),
 });
 export type ListImapFoldersBody = Wire<typeof ListImapFoldersBody>;

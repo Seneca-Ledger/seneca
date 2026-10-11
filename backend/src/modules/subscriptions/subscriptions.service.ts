@@ -199,15 +199,16 @@ export class SubscriptionsService {
   ): Promise<Subscription> {
     const subscription = await this.findOne(id, workspaceId);
     const before = subscriptionSnapshot(subscription);
-    if (dto.vendorName !== undefined) subscription.vendorName = dto.vendorName;
-    if (dto.amount !== undefined) subscription.amount = dto.amount;
-    if (dto.frequency !== undefined)
+    if (dto.vendorName != null) subscription.vendorName = dto.vendorName;
+    if (dto.amount != null) subscription.amount = dto.amount;
+    if (dto.frequency != null)
       subscription.frequency = toEnum(SubscriptionFrequency, dto.frequency);
-    if (dto.status !== undefined) subscription.status = toEnum(SubscriptionStatus, dto.status);
-    if (dto.currency !== undefined) subscription.currency = dto.currency;
+    if (dto.status != null) subscription.status = toEnum(SubscriptionStatus, dto.status);
+    if (dto.currency != null) subscription.currency = dto.currency;
     if (dto.categoryId !== undefined) subscription.categoryId = dto.categoryId;
+    // null clears the date (new Date(null) would have stored 1970-01-01).
     if (dto.nextChargeDate !== undefined)
-      subscription.nextChargeDate = new Date(dto.nextChargeDate);
+      subscription.nextChargeDate = dto.nextChargeDate ? new Date(dto.nextChargeDate) : null;
     if (dto.vendorDomain !== undefined) subscription.vendorDomain = dto.vendorDomain;
     const saved = await this.subscriptionRepository.save(subscription);
     await this.audit({

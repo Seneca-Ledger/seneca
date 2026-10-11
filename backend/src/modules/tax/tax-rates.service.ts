@@ -202,7 +202,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
     const taxRate = await this.findOne(id, workspaceId);
     const before = this.snapshotTaxRate(taxRate);
 
-    if (updateDto.name !== undefined) {
+    if (updateDto.name != null) {
       const normalizedName = updateDto.name.trim();
       if (!normalizedName) {
         throw new BadRequestException('Tax rate name is required');
@@ -219,15 +219,15 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       taxRate.name = normalizedName;
     }
 
-    if (updateDto.rate !== undefined) {
+    if (updateDto.rate != null) {
       taxRate.rate = updateDto.rate;
     }
 
-    if (updateDto.isEnabled !== undefined) {
+    if (updateDto.isEnabled != null) {
       taxRate.isEnabled = updateDto.isEnabled;
     }
 
-    if (updateDto.isDefault !== undefined) {
+    if (updateDto.isDefault != null) {
       if (updateDto.isDefault) {
         await this.clearOverlappingDefaults(workspaceId, taxRate.validFrom, taxRate.validTo, id);
       }

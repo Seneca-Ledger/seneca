@@ -71,7 +71,7 @@ export class ExchangeRatesController {
       dto.from,
       dto.to,
       dto.rate,
-      dto.date,
+      dto.date ?? undefined,
     );
   }
 

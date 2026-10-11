@@ -250,7 +250,7 @@ export class DataEntryService {
     if (!item) {
       throw new NotFoundException(appError('COLUMN_NOT_FOUND'));
     }
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       const name = dto.name.trim();
       if (!name.length) {
         throw new BadRequestException(appError('COLUMN_TITLE_REQUIRED'));

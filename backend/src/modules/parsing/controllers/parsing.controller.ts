@@ -56,9 +56,9 @@ export class ParsingController {
     const ext = path.extname(file.originalname || '').toLowerCase();
     const buffer = await fs.readFile(file.path);
     const context = {
-      sender: payload.sender,
-      subject: payload.subject,
-      emailBody: payload.emailBody,
+      sender: payload.sender ?? undefined,
+      subject: payload.subject ?? undefined,
+      emailBody: payload.emailBody ?? undefined,
       fileNameHint: file.originalname,
     };
 

@@ -234,22 +234,22 @@ export class MetalsService {
     const lot = await this.requireLot(workspaceId, lotId);
     const currency = await this.workspaceCurrency(workspaceId);
     if (dto.metal !== undefined) lot.metal = toEnum(InvestmentMetal, dto.metal);
-    if (dto.name !== undefined) lot.name = dto.name;
-    if (dto.quantity !== undefined) {
+    if (dto.name != null) lot.name = dto.name;
+    if (dto.quantity != null) {
       if (dto.quantity <= 0) throw new BadRequestException('A lot needs at least one piece');
       lot.quantity = dto.quantity;
     }
-    if (dto.unitWeight !== undefined) {
+    if (dto.unitWeight != null) {
       if (dto.unitWeight <= 0) throw new BadRequestException('A lot needs the weight of one piece');
       lot.unitWeight = dto.unitWeight;
     }
     if (dto.weightUnit !== undefined) lot.weightUnit = toEnum(MetalWeightUnit, dto.weightUnit);
     if (dto.purity !== undefined) lot.purity = dto.purity;
-    if (dto.acquiredOn !== undefined) lot.acquiredOn = dto.acquiredOn.slice(0, 10);
+    if (dto.acquiredOn != null) lot.acquiredOn = dto.acquiredOn.slice(0, 10);
     if (dto.costTotal !== undefined) {
       lot.costTotal = dto.costTotal;
       lot.costCurrency = (dto.costCurrency ?? lot.costCurrency ?? currency).toUpperCase();
-    } else if (dto.costCurrency !== undefined) {
+    } else if (dto.costCurrency != null) {
       lot.costCurrency = dto.costCurrency.toUpperCase();
     }
     if (dto.counterparty !== undefined) lot.counterparty = dto.counterparty;
@@ -257,7 +257,7 @@ export class MetalsService {
     if (dto.insuredValue !== undefined) {
       lot.insuredValue = dto.insuredValue;
       lot.insuredCurrency = (dto.insuredCurrency ?? lot.insuredCurrency ?? currency).toUpperCase();
-    } else if (dto.insuredCurrency !== undefined) {
+    } else if (dto.insuredCurrency != null) {
       lot.insuredCurrency = dto.insuredCurrency.toUpperCase();
     }
     if (dto.ownerUserId !== undefined) {
@@ -279,8 +279,8 @@ export class MetalsService {
         ? await this.requireReceiptId(workspaceId, dto.receiptId)
         : null;
     }
-    if (dto.priceCurrency !== undefined) lot.priceCurrency = dto.priceCurrency.toUpperCase();
-    if (dto.price !== undefined) {
+    if (dto.priceCurrency != null) lot.priceCurrency = dto.priceCurrency.toUpperCase();
+    if (dto.price != null) {
       lot.price = dto.price;
       lot.priceSource = InvestmentPriceSource.MANUAL;
       lot.pricedAt = new Date();

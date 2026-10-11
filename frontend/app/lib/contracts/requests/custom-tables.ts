@@ -2,7 +2,7 @@
 
 import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
-import { IsoDateString } from '../common/requests';
+import { IsoDateString, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 // #rrggbb или #rrggbbaa: заливка колонки хранится с прозрачностью, чтобы
@@ -21,35 +21,35 @@ export type SetCommentResolvedBody = Wire<typeof SetCommentResolvedBody>;
 
 export const CreateCustomTableShareBody = Schema.Struct({
   /** Срок жизни ссылки в днях; по умолчанию 30, максимум год. */
-  expiresInDays: Schema.optional(
+  expiresInDays: optionalNullable(
     Schema.Int.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(365)),
   ),
 });
 export type CreateCustomTableShareBody = Wire<typeof CreateCustomTableShareBody>;
 
 export const CreateExportScheduleBody = Schema.Struct({
-  format: Schema.optional(Schema.Literals(['csv', 'xlsx'])),
+  format: optionalNullable(Schema.Literals(['csv', 'xlsx'])),
   /** От часа до месяца: чаще смысла нет, реже — уже не расписание. */
-  intervalHours: Schema.optional(
+  intervalHours: optionalNullable(
     Schema.Int.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(744)),
   ),
   /** { filters, sort, columnKeys } — тот же «текущий вид», что у ручного экспорта. */
-  viewConfig: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown))),
+  viewConfig: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type CreateExportScheduleBody = Wire<typeof CreateExportScheduleBody>;
 
 export const CreateCustomTableBody = Schema.Struct({
   name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120)),
-  description: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(2000)))),
-  categoryId: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
+  description: optionalNullable(Schema.String.check(Schema.isMaxLength(2000))),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type CreateCustomTableBody = Wire<typeof CreateCustomTableBody>;
 
 export const CreateCustomTableFromDataEntryBody = Schema.Struct({
   scope: Schema.Literals(['type', 'all']),
-  type: Schema.optional(Schema.Literals(['cash', 'raw', 'debit', 'credit'])),
-  name: Schema.optional(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120))),
-  description: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(2000)))),
+  type: optionalNullable(Schema.Literals(['cash', 'raw', 'debit', 'credit'])),
+  name: optionalNullable(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120))),
+  description: optionalNullable(Schema.String.check(Schema.isMaxLength(2000))),
 }).check(
   Schema.makeFilter(body =>
     body.scope !== 'type' || body.type !== undefined
@@ -61,8 +61,8 @@ export type CreateCustomTableFromDataEntryBody = Wire<typeof CreateCustomTableFr
 
 export const CreateCustomTableFromDataEntryCustomTabBody = Schema.Struct({
   customTabId: Schema.String.check(Schema.isUUID()),
-  name: Schema.optional(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120))),
-  description: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(2000)))),
+  name: optionalNullable(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120))),
+  description: optionalNullable(Schema.String.check(Schema.isMaxLength(2000))),
 });
 export type CreateCustomTableFromDataEntryCustomTabBody = Wire<
   typeof CreateCustomTableFromDataEntryCustomTabBody
@@ -70,21 +70,21 @@ export type CreateCustomTableFromDataEntryCustomTabBody = Wire<
 
 /** Union of every source's filters; each adapter reads only its own. */
 export const SourceFiltersInput = Schema.Struct({
-  dateFrom: Schema.optional(IsoDateString),
-  dateTo: Schema.optional(IsoDateString),
-  categoryIds: Schema.optional(
+  dateFrom: optionalNullable(IsoDateString),
+  dateTo: optionalNullable(IsoDateString),
+  categoryIds: optionalNullable(
     Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(100)),
   ),
-  type: Schema.optional(Schema.String.check(Schema.isMaxLength(32))),
-  currency: Schema.optional(Schema.String.check(Schema.isBetweenLength(3, 3))),
-  statementIds: Schema.optional(
+  type: optionalNullable(Schema.String.check(Schema.isMaxLength(32))),
+  currency: optionalNullable(Schema.String.check(Schema.isBetweenLength(3, 3))),
+  statementIds: optionalNullable(
     Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(10)),
   ),
-  status: Schema.optional(Schema.String.check(Schema.isMaxLength(32))),
-  direction: Schema.optional(Schema.String.check(Schema.isMaxLength(32))),
-  dueDateFrom: Schema.optional(IsoDateString),
-  dueDateTo: Schema.optional(IsoDateString),
-  ids: Schema.optional(
+  status: optionalNullable(Schema.String.check(Schema.isMaxLength(32))),
+  direction: optionalNullable(Schema.String.check(Schema.isMaxLength(32))),
+  dueDateFrom: optionalNullable(IsoDateString),
+  dueDateTo: optionalNullable(IsoDateString),
+  ids: optionalNullable(
     Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(5000)),
   ),
 });
@@ -92,19 +92,19 @@ export type SourceFiltersInput = Wire<typeof SourceFiltersInput>;
 
 export const PreviewCustomTableSourceBody = Schema.Struct({
   kind: Schema.Literals(['transactions', 'subscriptions', 'payables', 'invoices', 'budgets']),
-  filters: Schema.optional(SourceFiltersInput),
+  filters: optionalNullable(SourceFiltersInput),
   /** Translated column titles per source field; English fallback otherwise. */
-  columnTitles: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  columnTitles: optionalNullable(Schema.Record(Schema.String, Schema.String)),
 });
 export type PreviewCustomTableSourceBody = Wire<typeof PreviewCustomTableSourceBody>;
 
 export const CreateCustomTableFromSourceBody = PreviewCustomTableSourceBody.mapFields(
   Struct.assign({
-    name: Schema.optional(Schema.String.check(Schema.isMaxLength(120))),
-    description: Schema.optional(Schema.String.check(Schema.isMaxLength(500))),
-    categoryId: Schema.optional(Schema.String.check(Schema.isUUID())),
+    name: optionalNullable(Schema.String.check(Schema.isMaxLength(120))),
+    description: optionalNullable(Schema.String.check(Schema.isMaxLength(500))),
+    categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
     /** Workspace currency for money columns, same as the templates flow. */
-    currency: Schema.optional(Schema.String.check(Schema.isPattern(/^[A-Za-z]{3}$/))),
+    currency: optionalNullable(Schema.String.check(Schema.isPattern(/^[A-Za-z]{3}$/))),
   }),
 );
 export type CreateCustomTableFromSourceBody = Wire<typeof CreateCustomTableFromSourceBody>;
@@ -112,14 +112,14 @@ export type CreateCustomTableFromSourceBody = Wire<typeof CreateCustomTableFromS
 export const PreviewFormulaBody = Schema.Struct({
   expression: Schema.String.check(Schema.isMaxLength(500)),
   /** Key of the column being edited, so its own old formula is not treated as a dependency. */
-  columnKey: Schema.optional(Schema.String.check(Schema.isMaxLength(64))),
+  columnKey: optionalNullable(Schema.String.check(Schema.isMaxLength(64))),
   /** `table` previews a summary (no current row, only column totals). */
-  scope: Schema.optional(Schema.Literals(['row', 'table'])),
+  scope: optionalNullable(Schema.Literals(['row', 'table'])),
 });
 export type PreviewFormulaBody = Wire<typeof PreviewFormulaBody>;
 
 export const CustomTableSummaryInput = Schema.Struct({
-  id: Schema.optional(Schema.String.check(Schema.isMaxLength(64))),
+  id: optionalNullable(Schema.String.check(Schema.isMaxLength(64))),
   title: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(80)),
   /** Formula over column totals, e.g. `SUM([income]) - SUM([expense])`. */
   expression: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(500)),
@@ -132,15 +132,15 @@ export const UpdateCustomTableSummariesBody = Schema.Struct({
 export type UpdateCustomTableSummariesBody = Wire<typeof UpdateCustomTableSummariesBody>;
 
 export const UpdateCustomTableBody = Schema.Struct({
-  name: Schema.optional(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120))),
-  description: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(2000)))),
-  categoryId: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
+  name: optionalNullable(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120))),
+  description: optionalNullable(Schema.String.check(Schema.isMaxLength(2000))),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type UpdateCustomTableBody = Wire<typeof UpdateCustomTableBody>;
 
 export const CreateCustomTableColumnBody = Schema.Struct({
   title: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120)),
-  type: Schema.optional(
+  type: optionalNullable(
     Schema.Literals([
       'text',
       'number',
@@ -154,34 +154,34 @@ export const CreateCustomTableColumnBody = Schema.Struct({
       'ai',
     ]),
   ),
-  isRequired: Schema.optional(Schema.Boolean),
-  isUnique: Schema.optional(Schema.Boolean),
-  position: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
-  config: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown))),
+  isRequired: optionalNullable(Schema.Boolean),
+  isUnique: optionalNullable(Schema.Boolean),
+  position: optionalNullable(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
+  config: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type CreateCustomTableColumnBody = Wire<typeof CreateCustomTableColumnBody>;
 
 export const UpdateCustomTableColumnBody = CreateCustomTableColumnBody.mapFields(
-  Struct.map(Schema.optional),
+  Struct.map(optionalNullable),
 );
 export type UpdateCustomTableColumnBody = Wire<typeof UpdateCustomTableColumnBody>;
 
 export const ColumnStyleTextFormatInput = Schema.Struct({
-  foregroundColor: Schema.optional(HexColor),
-  bold: Schema.optional(Schema.Boolean),
+  foregroundColor: optionalNullable(HexColor),
+  bold: optionalNullable(Schema.Boolean),
 });
 export type ColumnStyleTextFormatInput = Wire<typeof ColumnStyleTextFormatInput>;
 
 export const ColumnStylePartInput = Schema.Struct({
-  backgroundColor: Schema.optional(HexColor),
-  textFormat: Schema.optional(ColumnStyleTextFormatInput),
+  backgroundColor: optionalNullable(HexColor),
+  textFormat: optionalNullable(ColumnStyleTextFormatInput),
 });
 export type ColumnStylePartInput = Wire<typeof ColumnStylePartInput>;
 
 /** Части, которых нет в теле, не меняются; null сбрасывает часть. */
 export const UpdateCustomTableColumnStyleBody = Schema.Struct({
-  header: Schema.optional(Schema.NullOr(ColumnStylePartInput)),
-  cell: Schema.optional(Schema.NullOr(ColumnStylePartInput)),
+  header: optionalNullable(ColumnStylePartInput),
+  cell: optionalNullable(ColumnStylePartInput),
 });
 export type UpdateCustomTableColumnStyleBody = Wire<typeof UpdateCustomTableColumnStyleBody>;
 
@@ -204,22 +204,22 @@ export type ClassifyPaidStatusBody = Wire<typeof ClassifyPaidStatusBody>;
 
 export const CreateCustomTableRowBody = Schema.Struct({
   data: Schema.Record(Schema.String, Schema.Unknown),
-  styles: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-  rowNumber: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
+  styles: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
+  rowNumber: optionalNullable(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
 });
 export type CreateCustomTableRowBody = Wire<typeof CreateCustomTableRowBody>;
 
 export const UpdateCustomTableRowBody = Schema.Struct({
   data: Schema.Record(Schema.String, Schema.Unknown),
-  styles: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  styles: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type UpdateCustomTableRowBody = Wire<typeof UpdateCustomTableRowBody>;
 
 export const BatchRowItemInput = Schema.Struct({
   data: Schema.Record(Schema.String, Schema.Unknown),
-  rowNumber: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
+  rowNumber: optionalNullable(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
   /** Cell styles by column key, e.g. an import marking cells it kept as text. */
-  styles: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  styles: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type BatchRowItemInput = Wire<typeof BatchRowItemInput>;
 
@@ -244,28 +244,28 @@ export const CustomTableSavedViewInput = Schema.Struct({
   id: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(64)),
   name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120)),
   /** Состояние панели фильтров: ключ колонки -> условие. */
-  columnFilters: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-  sort: Schema.optional(Schema.NullOr(CustomTableSavedViewSortInput)),
-  columnOrder: Schema.optional(Schema.Array(Schema.String).check(Schema.isMaxLength(500))),
-  hiddenColumnKeys: Schema.optional(Schema.Array(Schema.String).check(Schema.isMaxLength(500))),
+  columnFilters: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
+  sort: optionalNullable(CustomTableSavedViewSortInput),
+  columnOrder: optionalNullable(Schema.Array(Schema.String).check(Schema.isMaxLength(500))),
+  hiddenColumnKeys: optionalNullable(Schema.Array(Schema.String).check(Schema.isMaxLength(500))),
   /** Ключ колонки -> функция итога. */
-  aggregates: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  aggregates: optionalNullable(Schema.Record(Schema.String, Schema.String)),
 });
 export type CustomTableSavedViewInput = Wire<typeof CustomTableSavedViewInput>;
 
 export const UpdateCustomTableViewsBody = Schema.Struct({
   views: Schema.Array(CustomTableSavedViewInput).check(Schema.isMaxLength(50)),
-  activeViewId: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(64)))),
+  activeViewId: optionalNullable(Schema.String.check(Schema.isMaxLength(64))),
 });
 export type UpdateCustomTableViewsBody = Wire<typeof UpdateCustomTableViewsBody>;
 
 export const UpdateCustomTableViewSettingsColumnBody = Schema.Struct({
   columnKey: Schema.String,
-  width: Schema.optional(
+  width: optionalNullable(
     Schema.Int.check(Schema.isGreaterThanOrEqualTo(60), Schema.isLessThanOrEqualTo(1200)),
   ),
   /** Функция итога для колонки; null снимает итог. */
-  aggregate: Schema.optional(Schema.NullOr(Schema.Literals(['sum', 'avg', 'min', 'max', 'count']))),
+  aggregate: optionalNullable(Schema.Literals(['sum', 'avg', 'min', 'max', 'count'])),
 });
 export type UpdateCustomTableViewSettingsColumnBody = Wire<
   typeof UpdateCustomTableViewSettingsColumnBody

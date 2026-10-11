@@ -1,5 +1,6 @@
 import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
+import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const NoteTargetInput = Schema.Struct({
@@ -11,7 +12,7 @@ export type NoteTargetInput = Wire<typeof NoteTargetInput>;
 export const CreateNoteBody = NoteTargetInput.mapFields(
   Struct.assign({
     body: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(4000)),
-    mentionedUserIds: Schema.optional(
+    mentionedUserIds: optionalNullable(
       Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(10)),
     ),
   }),

@@ -1,14 +1,16 @@
 import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 /**
  * The networks a wallet can be read from: Ethereum, Optimism, Polygon, Base,
  * Arbitrum, Tron, and the synthetic ids for Bitcoin and Solana. Mirrors
- * CHAINS in the backend's crypto.constants.
+ * CHAINS in the backend's crypto.constants; a spec holds them equal.
  */
-const SupportedChainId = Schema.Literals([
+export const SupportedChainId = Schema.Literals([
   1, 10, 137, 8453, 42161, 728126428, 2000000000, 2000000501,
 ]);
+export type SupportedChainId = Wire<typeof SupportedChainId>;
 
 /**
  * A coin the user keeps themselves: on an exchange, or in cold storage they would
@@ -26,8 +28,8 @@ export const ManualHoldingBody = Schema.Struct({
     Schema.isPattern(/^\d+(\.\d{1,18})?$/, { message: 'An amount is a positive decimal' }),
   ),
   /** What one unit cost, in the workspace currency. Omitted when unknown. */
-  costPerUnit: Schema.optional(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
-  label: Schema.optional(Schema.String.check(Schema.isBetweenLength(1, 100))),
+  costPerUnit: optionalNullable(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
+  label: optionalNullable(Schema.String.check(Schema.isBetweenLength(1, 100))),
 });
 export type ManualHoldingBody = Wire<typeof ManualHoldingBody>;
 
@@ -40,14 +42,14 @@ export const ConnectCryptoWalletBody = Schema.Struct({
    */
   address: Schema.String.check(Schema.isBetweenLength(26, 120)),
   /** Optional: one network. Read off the address format when both fields are absent. */
-  chainId: Schema.optional(SupportedChainId),
+  chainId: optionalNullable(SupportedChainId),
   /**
    * Optional: several networks for one EVM address, which is the same address on
    * every EVM chain. One wallet is created per chain.
    */
-  chainIds: Schema.optional(
+  chainIds: optionalNullable(
     Schema.Array(SupportedChainId).check(Schema.isMinLength(1), Schema.isMaxLength(8)),
   ),
-  label: Schema.optional(Schema.String.check(Schema.isBetweenLength(1, 100))),
+  label: optionalNullable(Schema.String.check(Schema.isBetweenLength(1, 100))),
 });
 export type ConnectCryptoWalletBody = Wire<typeof ConnectCryptoWalletBody>;

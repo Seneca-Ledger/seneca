@@ -1,4 +1,5 @@
 import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 /** One test a categorization rule runs on a transaction. */
@@ -32,27 +33,27 @@ export const ClassificationResultInput = Schema.Struct({
   article: Schema.optional(Schema.String),
   activityType: Schema.optional(Schema.String),
   /** Hands the row to one member, or to the household with `null`. */
-  ownerMemberId: Schema.optional(Schema.NullOr(Schema.String)),
+  ownerMemberId: optionalNullable(Schema.String),
 });
 export type ClassificationResultInput = Wire<typeof ClassificationResultInput>;
 
 export const CreateCategorizationRuleBody = Schema.Struct({
   name: Schema.String.check(Schema.isMinLength(1)),
-  description: Schema.optional(Schema.String),
+  description: optionalNullable(Schema.String),
   conditions: Schema.Array(ClassificationConditionInput).check(Schema.isMinLength(1)),
   result: ClassificationResultInput,
-  priority: Schema.optional(Schema.Int),
-  isActive: Schema.optional(Schema.Boolean),
+  priority: optionalNullable(Schema.Int),
+  isActive: optionalNullable(Schema.Boolean),
 });
 export type CreateCategorizationRuleBody = Wire<typeof CreateCategorizationRuleBody>;
 
 export const UpdateCategorizationRuleBody = Schema.Struct({
-  name: Schema.optional(Schema.String),
-  description: Schema.optional(Schema.String),
-  conditions: Schema.optional(Schema.Array(ClassificationConditionInput)),
-  result: Schema.optional(ClassificationResultInput),
-  priority: Schema.optional(Schema.Int),
-  isActive: Schema.optional(Schema.Boolean),
+  name: optionalNullable(Schema.String),
+  description: optionalNullable(Schema.String),
+  conditions: optionalNullable(Schema.Array(ClassificationConditionInput)),
+  result: optionalNullable(ClassificationResultInput),
+  priority: optionalNullable(Schema.Int),
+  isActive: optionalNullable(Schema.Boolean),
 });
 export type UpdateCategorizationRuleBody = Wire<typeof UpdateCategorizationRuleBody>;
 

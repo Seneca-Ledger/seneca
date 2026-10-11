@@ -420,7 +420,7 @@ export class StorageService {
       throw new NotFoundException('Tag not found');
     }
 
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       tag.name = dto.name.trim();
     }
     if (dto.color !== undefined) {
@@ -492,7 +492,7 @@ export class StorageService {
       throw new NotFoundException('Folder not found');
     }
 
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       folder.name = dto.name.trim();
     }
     if (dto.tagId !== undefined) {
@@ -1081,7 +1081,7 @@ export class StorageService {
     await this.checkFileAccess(userId, link.statementId, 'share');
 
     // Update fields
-    if (dto.permission !== undefined) {
+    if (dto.permission != null) {
       link.permission = toEnum(SharePermissionLevel, dto.permission);
     }
     if (dto.expiresAt !== undefined) {
@@ -1090,10 +1090,10 @@ export class StorageService {
     if (dto.password !== undefined) {
       link.password = dto.password ? await hashPassword(dto.password) : null;
     }
-    if (dto.status !== undefined) {
+    if (dto.status != null) {
       link.status = toEnum(ShareLinkStatus, dto.status);
     }
-    if (dto.allowAnonymous !== undefined) {
+    if (dto.allowAnonymous != null) {
       link.allowAnonymous = dto.allowAnonymous;
     }
     if (dto.description !== undefined) {
@@ -1271,16 +1271,16 @@ export class StorageService {
     await this.checkFileAccess(userId, permission.statementId, 'share');
 
     // Update fields
-    if (dto.permissionType !== undefined) {
+    if (dto.permissionType != null) {
       permission.permissionType = toEnum(FilePermissionType, dto.permissionType);
     }
-    if (dto.canReshare !== undefined) {
+    if (dto.canReshare != null) {
       permission.canReshare = dto.canReshare;
     }
     if (dto.expiresAt !== undefined) {
       permission.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
     }
-    if (dto.isActive !== undefined) {
+    if (dto.isActive != null) {
       permission.isActive = dto.isActive;
     }
 

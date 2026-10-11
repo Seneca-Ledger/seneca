@@ -1,4 +1,5 @@
 import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const MarkReadBody = Schema.Struct({
@@ -11,37 +12,33 @@ export const UpdateNotificationPreferencesBody = Schema.Struct({
    * Per-event channel matrix, keyed by preference key (e.g. `statementUploaded`).
    * The service still normalises it against the known keys.
    */
-  channels: Schema.optional(
+  channels: optionalNullable(
     Schema.Record(
       Schema.String,
       Schema.Struct({
-        inApp: Schema.optional(Schema.Boolean),
-        email: Schema.optional(Schema.Boolean),
-        telegram: Schema.optional(Schema.Boolean),
-        push: Schema.optional(Schema.Boolean),
+        inApp: optionalNullable(Schema.Boolean),
+        email: optionalNullable(Schema.Boolean),
+        telegram: optionalNullable(Schema.Boolean),
+        push: optionalNullable(Schema.Boolean),
       }),
     ),
   ),
-  digestMode: Schema.optional(Schema.Literals(['instant', 'daily', 'weekly'])),
-  quietHoursStart: Schema.optional(
-    Schema.NullOr(
-      Schema.Int.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(23)),
-    ),
+  digestMode: optionalNullable(Schema.Literals(['instant', 'daily', 'weekly'])),
+  quietHoursStart: optionalNullable(
+    Schema.Int.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(23)),
   ),
-  quietHoursEnd: Schema.optional(
-    Schema.NullOr(
-      Schema.Int.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(23)),
-    ),
+  quietHoursEnd: optionalNullable(
+    Schema.Int.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(23)),
   ),
-  statementUploaded: Schema.optional(Schema.Boolean),
-  importCommitted: Schema.optional(Schema.Boolean),
-  categoryChanges: Schema.optional(Schema.Boolean),
-  memberActivity: Schema.optional(Schema.Boolean),
-  dataDeleted: Schema.optional(Schema.Boolean),
-  workspaceUpdated: Schema.optional(Schema.Boolean),
-  parsingErrors: Schema.optional(Schema.Boolean),
-  importFailures: Schema.optional(Schema.Boolean),
-  uncategorizedItems: Schema.optional(Schema.Boolean),
-  subscriptionPrompts: Schema.optional(Schema.Boolean),
+  statementUploaded: optionalNullable(Schema.Boolean),
+  importCommitted: optionalNullable(Schema.Boolean),
+  categoryChanges: optionalNullable(Schema.Boolean),
+  memberActivity: optionalNullable(Schema.Boolean),
+  dataDeleted: optionalNullable(Schema.Boolean),
+  workspaceUpdated: optionalNullable(Schema.Boolean),
+  parsingErrors: optionalNullable(Schema.Boolean),
+  importFailures: optionalNullable(Schema.Boolean),
+  uncategorizedItems: optionalNullable(Schema.Boolean),
+  subscriptionPrompts: optionalNullable(Schema.Boolean),
 });
 export type UpdateNotificationPreferencesBody = Wire<typeof UpdateNotificationPreferencesBody>;

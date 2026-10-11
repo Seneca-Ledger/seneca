@@ -64,6 +64,11 @@ export class WorkspaceTaxController {
     @SchemaBody(SetJurisdictionBody) dto: SetJurisdictionBody,
     @CurrentUser() user: User,
   ) {
-    return this.adoptionService.adopt(workspaceId, dto.code, dto.effectiveFrom, user.id);
+    return this.adoptionService.adopt(
+      workspaceId,
+      dto.code,
+      dto.effectiveFrom ?? undefined,
+      user.id,
+    );
   }
 }

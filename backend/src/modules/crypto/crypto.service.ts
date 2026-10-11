@@ -18,6 +18,7 @@ import type {
   CryptoTransaction as CryptoTransactionView,
   CryptoWallet as CryptoWalletView,
   ManualHoldingBody,
+  SupportedChainId,
 } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import {
@@ -191,11 +192,11 @@ export class CryptoService {
       throw new BadRequestException('An amount is a positive number');
     }
 
-    const wallet = await this.getOrCreateManualWallet(workspaceId, userId, dto.label);
+    const wallet = await this.getOrCreateManualWallet(workspaceId, userId, dto.label ?? undefined);
     const balance: CryptoWalletBalance = {
       asset,
       amount: dto.amount,
-      ...(dto.costPerUnit === undefined ? {} : { costPerUnit: dto.costPerUnit }),
+      ...(dto.costPerUnit == null ? {} : { costPerUnit: dto.costPerUnit }),
     };
     const balances = [...(wallet.balances ?? []).filter(item => item.asset !== asset), balance];
     await this.walletRepo.update(wallet.id, {
@@ -297,7 +298,8 @@ export class CryptoService {
   /** The networks a wallet can be connected on, for the connect form. */
   getNetworks(): CryptoNetworkList {
     return SUPPORTED_CHAIN_IDS.map(chainId => ({
-      chainId,
+      // The contract spells these ids out; supported-chain-ids.spec holds them equal.
+      chainId: chainId as SupportedChainId,
       name: CHAINS[chainId].name,
       family: CHAINS[chainId].family,
       nativeAsset: CHAINS[chainId].nativeAsset,

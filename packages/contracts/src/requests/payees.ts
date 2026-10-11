@@ -1,11 +1,12 @@
 import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const UpdatePayeeBody = Schema.Struct({
-  name: Schema.optional(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
-  mode: Schema.optional(Schema.Literals(['auto', 'always', 'never'])),
+  name: optionalNullable(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
+  mode: optionalNullable(Schema.Literals(['auto', 'always', 'never'])),
   /** The pinned category; required with `mode: always`, null clears it. */
-  categoryId: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type UpdatePayeeBody = Wire<typeof UpdatePayeeBody>;
 
@@ -19,8 +20,8 @@ export type MergePayeesBody = Wire<typeof MergePayeesBody>;
 
 /** Either an existing payee, or a name to find or create one by. */
 export const SetTransactionPayeeBody = Schema.Struct({
-  payeeId: Schema.optional(Schema.String.check(Schema.isUUID())),
-  name: Schema.optional(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
+  payeeId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  name: optionalNullable(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
 }).check(
   Schema.makeFilter(body =>
     body.payeeId !== undefined || body.name !== undefined

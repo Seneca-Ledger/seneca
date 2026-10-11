@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { toEnum } from '../../../common/effect/to-enum';
+import { withoutNulls } from '../../../common/effect/without-nulls';
 import { assertPublicEgressUrl } from '../../../common/utils/egress-url.util';
 import type {
   CreateWebhookSubscriptionBody,
@@ -29,7 +30,7 @@ export class WebhookSubscriptionsService {
   ): Promise<WebhookSubscription> {
     await assertPublicEgressUrl(dto.url);
     const entity = this.repo.create({
-      ...dto,
+      ...withoutNulls(dto),
       events: dto.events.map(event => toEnum(WebhookEvent, event)),
       workspaceId,
     });

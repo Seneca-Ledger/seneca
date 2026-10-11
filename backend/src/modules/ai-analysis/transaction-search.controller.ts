@@ -24,7 +24,7 @@ export class TransactionSearchController {
     @WorkspaceId() workspaceId: string,
     @SchemaBody(SearchTransactionsBody) body: SearchTransactionsBody,
   ) {
-    return this.searchService.search(workspaceId, body.query, body.limit);
+    return this.searchService.search(workspaceId, body.query, body.limit ?? undefined);
   }
 
   // Tighter still: one call embeds up to a few hundred transactions.
@@ -34,6 +34,6 @@ export class TransactionSearchController {
     @WorkspaceId() workspaceId: string,
     @SchemaBody(BackfillEmbeddingsBody) body: BackfillEmbeddingsBody,
   ) {
-    return this.searchService.backfill(workspaceId, body.batchSize);
+    return this.searchService.backfill(workspaceId, body.batchSize ?? undefined);
   }
 }

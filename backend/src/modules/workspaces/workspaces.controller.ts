@@ -14,6 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
@@ -185,7 +186,7 @@ export class WorkspacesController {
       workspaceId,
       user.id,
       userId,
-      dto.permissions,
+      withoutNulls(dto.permissions),
     );
   }
 

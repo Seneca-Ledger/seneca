@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, IsNull, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
@@ -1071,10 +1072,10 @@ export class PayablesService {
     const willBePaid = nextStatus === PayableStatus.PAID;
 
     return {
-      ...dto,
-      direction: toEnum(PayableDirection, dto.direction),
-      status: toEnum(PayableStatus, dto.status),
-      source: toEnum(PayableSource, dto.source),
+      ...withoutNulls(dto),
+      direction: toEnum(PayableDirection, dto.direction) ?? undefined,
+      status: toEnum(PayableStatus, dto.status) ?? undefined,
+      source: toEnum(PayableSource, dto.source) ?? undefined,
       dueDate: dto.dueDate !== undefined ? this.parseDate(dto.dueDate) : undefined,
       linkedTransactionId:
         dto.linkedTransactionId === undefined ? undefined : dto.linkedTransactionId,

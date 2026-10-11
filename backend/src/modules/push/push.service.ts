@@ -53,7 +53,7 @@ export class PushService {
     row.userId = userId;
     row.p256dh = dto.keys.p256dh;
     row.auth = dto.keys.auth;
-    if (dto.userAgent !== undefined) {
+    if (dto.userAgent != null) {
       row.userAgent = dto.userAgent.slice(0, 255);
     }
     row.lastUsedAt = new Date();

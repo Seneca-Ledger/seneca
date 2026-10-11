@@ -114,7 +114,7 @@ export class CategorizationRulesController {
       conditions: dto.conditions,
       result: dto.result,
       priority: dto.priority || 0,
-      isActive: dto.isActive !== undefined ? dto.isActive : true,
+      isActive: dto.isActive ?? true,
       matchCount: 0,
       lastMatchedAt: null,
     });
@@ -157,16 +157,16 @@ export class CategorizationRulesController {
     }
 
     const before = this.toAuditSnapshot(rule);
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       rule.name = dto.name;
     }
     if (dto.description !== undefined) {
       rule.description = dto.description;
     }
-    if (dto.conditions !== undefined) {
+    if (dto.conditions != null) {
       rule.conditions = dto.conditions;
     }
-    if (dto.result !== undefined) {
+    if (dto.result != null) {
       await assertOwnerMemberInWorkspace(
         this.workspaceMemberRepository,
         workspaceId,
@@ -174,10 +174,10 @@ export class CategorizationRulesController {
       );
       rule.result = dto.result;
     }
-    if (dto.priority !== undefined) {
+    if (dto.priority != null) {
       rule.priority = dto.priority;
     }
-    if (dto.isActive !== undefined) {
+    if (dto.isActive != null) {
       rule.isActive = dto.isActive;
     }
 

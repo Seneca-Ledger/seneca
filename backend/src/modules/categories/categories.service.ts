@@ -12,6 +12,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import type { FindOptionsWhere, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import type { CreateCategoryBody, UpdateCategoryBody } from '../../contracts';
 import { Statement, Transaction, User, WorkspaceMember } from '../../entities';
@@ -126,7 +127,7 @@ export class CategoriesService {
     const category = this.categoryRepository.create({
       workspaceId,
       userId,
-      ...createDto,
+      ...withoutNulls(createDto),
       type,
       stoicClass: toEnum(StoicClass, createDto.stoicClass),
       isSystem: false,

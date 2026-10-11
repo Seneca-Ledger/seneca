@@ -149,13 +149,13 @@ export class GoalsService {
     assertFound(goal, 'Goal');
     const before = goalSnapshot(goal);
 
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       goal.name = dto.name;
     }
-    if (dto.targetAmount !== undefined) {
+    if (dto.targetAmount != null) {
       goal.targetAmount = dto.targetAmount;
     }
-    if (dto.currency !== undefined) {
+    if (dto.currency != null) {
       goal.currency = dto.currency;
     }
     if (dto.targetDate !== undefined) {

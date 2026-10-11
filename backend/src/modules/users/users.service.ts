@@ -335,36 +335,36 @@ export class UsersService {
   async updateMyPreferences(userId: string, dto: UpdateMyPreferencesBody): Promise<User> {
     const user = await this.findOneWithPassword(userId);
 
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       user.name = dto.name.trim();
     }
-    if (dto.locale !== undefined) {
+    if (dto.locale != null) {
       user.locale = dto.locale;
     }
     if (dto.timeZone !== undefined) {
       const tz = dto.timeZone;
       user.timeZone = tz === null ? null : String(tz).trim() || null;
     }
-    if (dto.themePreference !== undefined) {
+    if (dto.themePreference != null) {
       user.themePreference = toEnum(ThemePreference, dto.themePreference);
     }
     if (dto.mapStylePreference !== undefined) {
       const style = dto.mapStylePreference;
       user.mapStylePreference = style === null ? null : String(style).trim() || null;
     }
-    if (dto.dateFormat !== undefined) {
+    if (dto.dateFormat != null) {
       user.dateFormat = toEnum(DateFormatPreference, dto.dateFormat);
     }
     if (dto.firstDayOfWeek !== undefined) {
       user.firstDayOfWeek = dto.firstDayOfWeek;
     }
-    if (dto.uiDensity !== undefined) {
+    if (dto.uiDensity != null) {
       user.uiDensity = toEnum(UiDensity, dto.uiDensity);
     }
-    if (dto.reduceMotion !== undefined) {
+    if (dto.reduceMotion != null) {
       user.reduceMotion = dto.reduceMotion;
     }
-    if (dto.showDailyQuote !== undefined) {
+    if (dto.showDailyQuote != null) {
       user.showDailyQuote = dto.showDailyQuote;
     }
 
@@ -385,7 +385,7 @@ export class UsersService {
       user.workspaceId = ensuredWorkspace.id;
     }
 
-    if (dto.locale !== undefined) {
+    if (dto.locale != null) {
       user.locale = dto.locale;
     }
 
@@ -405,21 +405,21 @@ export class UsersService {
       });
 
       if (workspace) {
-        if (dto.workspaceName !== undefined) {
+        if (dto.workspaceName != null) {
           const workspaceName = dto.workspaceName.trim();
           if (workspaceName.length > 0) {
             workspace.name = workspaceName;
           }
         }
 
-        if (dto.workspaceCurrency !== undefined) {
+        if (dto.workspaceCurrency != null) {
           const workspaceCurrency = dto.workspaceCurrency.trim().toUpperCase();
           if (workspaceCurrency.length > 0) {
             workspace.currency = workspaceCurrency;
           }
         }
 
-        if (dto.workspaceBackgroundImage !== undefined) {
+        if (dto.workspaceBackgroundImage != null) {
           const workspaceBackgroundImage = dto.workspaceBackgroundImage.trim();
           workspace.backgroundImage =
             workspaceBackgroundImage.length > 0 ? workspaceBackgroundImage : null;

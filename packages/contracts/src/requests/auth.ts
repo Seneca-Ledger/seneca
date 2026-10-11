@@ -1,13 +1,13 @@
 import * as Schema from 'effect/Schema';
-import { Email } from '../common/requests';
+import { Email, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const RegisterBody = Schema.Struct({
   email: Email,
   password: Schema.String.check(Schema.isMinLength(8)),
   name: Schema.String,
-  company: Schema.optional(Schema.String),
-  invitationToken: Schema.optional(Schema.String),
+  company: optionalNullable(Schema.String),
+  invitationToken: optionalNullable(Schema.String),
 });
 export type RegisterBody = Wire<typeof RegisterBody>;
 
@@ -15,7 +15,7 @@ export const LoginBody = Schema.Struct({
   email: Email,
   password: Schema.String,
   /** TOTP code or recovery code, required only when the account has 2FA enabled. */
-  twoFactorCode: Schema.optional(Schema.String),
+  twoFactorCode: optionalNullable(Schema.String),
 });
 export type LoginBody = Wire<typeof LoginBody>;
 

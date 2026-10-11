@@ -235,13 +235,13 @@ export class LedgerAccountsService {
       }
       account.parentId = dto.parentId;
     }
-    if (dto.code !== undefined) {
+    if (dto.code != null) {
       account.code = dto.code.toUpperCase();
     }
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       account.name = dto.name.trim();
     }
-    if (dto.position !== undefined) {
+    if (dto.position != null) {
       account.position = dto.position;
     }
 

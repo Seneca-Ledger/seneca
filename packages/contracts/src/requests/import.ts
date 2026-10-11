@@ -1,9 +1,10 @@
 import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const CommitImportBody = Schema.Struct({
   /** Transaction index → what to do with that conflicting row. */
-  resolutions: Schema.optional(
+  resolutions: optionalNullable(
     Schema.Record(
       Schema.String.check(Schema.isPattern(/^-?\d+$/)),
       Schema.Literals(['skip', 'force_import', 'mark_duplicate']),

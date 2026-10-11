@@ -178,16 +178,15 @@ export class InvestmentsService {
     if (dto.symbol !== undefined) {
       holding.symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     }
-    if (dto.name !== undefined) holding.name = dto.name;
-    if (dto.assetClass !== undefined)
-      holding.assetClass = toEnum(InvestmentAssetClass, dto.assetClass);
-    if (dto.quantity !== undefined) holding.quantity = dto.quantity;
-    if (dto.price !== undefined) {
+    if (dto.name != null) holding.name = dto.name;
+    if (dto.assetClass != null) holding.assetClass = toEnum(InvestmentAssetClass, dto.assetClass);
+    if (dto.quantity != null) holding.quantity = dto.quantity;
+    if (dto.price != null) {
       holding.price = dto.price;
       holding.priceSource = InvestmentPriceSource.MANUAL;
       holding.pricedAt = new Date();
     }
-    if (dto.priceCurrency !== undefined) holding.priceCurrency = dto.priceCurrency.toUpperCase();
+    if (dto.priceCurrency != null) holding.priceCurrency = dto.priceCurrency.toUpperCase();
     await this.holdingRepository.save(holding);
     await this.writeSnapshot(userId, workspaceId, holding.accountId);
     return this.holdingView(holding, await this.workspaceCurrency(workspaceId));

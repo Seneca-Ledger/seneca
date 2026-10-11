@@ -134,7 +134,7 @@ export class BankSyncService {
   ): Promise<BankSyncStatus> {
     const { settings } = await this.requireConnected(workspaceId);
     const config = this.configOf(settings);
-    if (dto.autoSync !== undefined) config.autoSync = dto.autoSync;
+    if (dto.autoSync != null) config.autoSync = dto.autoSync;
     if (dto.accounts) {
       const walletIds = dto.accounts
         .map(item => item.walletId)
@@ -149,7 +149,7 @@ export class BankSyncService {
       for (const change of dto.accounts) {
         const account = config.accounts.find(item => item.id === change.id);
         if (!account) throw new NotFoundException(`Account ${change.id} is not in this connection`);
-        if (change.enabled !== undefined) account.enabled = change.enabled;
+        if (change.enabled != null) account.enabled = change.enabled;
         if (change.walletId !== undefined) {
           if (change.walletId !== null && !known.has(change.walletId)) {
             throw new BadRequestException('Wallet does not belong to this workspace');

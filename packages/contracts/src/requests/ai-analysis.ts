@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { NumericInput } from '../common/requests';
+import { NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const CreateAiChatBody = Schema.Struct({
@@ -12,7 +12,7 @@ export const AppendAiChatMessageBody = Schema.Struct({
   role: Schema.Literals(['user', 'assistant', 'tool']),
   content: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(20000)),
   /** Structured action record for tool turns; absent on plain text messages. */
-  actionPayload: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  actionPayload: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type AppendAiChatMessageBody = Wire<typeof AppendAiChatMessageBody>;
 
@@ -51,7 +51,7 @@ export type CreateChatCompletionBody = Wire<typeof CreateChatCompletionBody>;
 
 export const SearchTransactionsBody = Schema.Struct({
   query: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(500)),
-  limit: Schema.optional(
+  limit: optionalNullable(
     NumericInput.check(
       Schema.isInt(),
       Schema.isGreaterThanOrEqualTo(1),
@@ -62,7 +62,7 @@ export const SearchTransactionsBody = Schema.Struct({
 export type SearchTransactionsBody = Wire<typeof SearchTransactionsBody>;
 
 export const BackfillEmbeddingsBody = Schema.Struct({
-  batchSize: Schema.optional(
+  batchSize: optionalNullable(
     NumericInput.check(
       Schema.isInt(),
       Schema.isGreaterThanOrEqualTo(1),

@@ -77,7 +77,7 @@ export class ReviewInboxController {
       workspaceId,
       user.id,
       body.ids,
-      body.categoryId,
+      body.categoryId ?? undefined,
     );
   }
 

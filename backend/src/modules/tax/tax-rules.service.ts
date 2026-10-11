@@ -130,17 +130,17 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     const rule = await this.findOne(id, workspaceId);
     const before = this.snapshotTaxRule(rule);
 
-    if (dto.taxRateCode !== undefined) {
+    if (dto.taxRateCode != null) {
       const code = dto.taxRateCode.trim();
       await this.assertCodeExists(workspaceId, code);
       rule.taxRateCode = code;
     }
 
-    if (dto.priority !== undefined) {
+    if (dto.priority != null) {
       rule.priority = dto.priority;
     }
 
-    if (dto.isEnabled !== undefined) {
+    if (dto.isEnabled != null) {
       rule.isEnabled = dto.isEnabled;
     }
 

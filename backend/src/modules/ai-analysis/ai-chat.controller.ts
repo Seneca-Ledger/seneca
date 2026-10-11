@@ -56,7 +56,7 @@ export class AiChatController {
       id,
       toEnum(AiChatRole, body.role),
       body.content,
-      body.actionPayload,
+      body.actionPayload ?? undefined,
     );
   }
 

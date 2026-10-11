@@ -1,4 +1,5 @@
 import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const ApproveTransactionsBody = Schema.Struct({
@@ -7,7 +8,7 @@ export const ApproveTransactionsBody = Schema.Struct({
     Schema.isMaxLength(500),
   ),
   /** Omitted: keep whatever category the row has and only mark it reviewed. */
-  categoryId: Schema.optional(Schema.String.check(Schema.isUUID())),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type ApproveTransactionsBody = Wire<typeof ApproveTransactionsBody>;
 

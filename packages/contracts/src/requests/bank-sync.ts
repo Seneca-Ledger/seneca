@@ -1,4 +1,5 @@
 import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const ConnectBankSyncBody = Schema.Struct({
@@ -9,14 +10,14 @@ export type ConnectBankSyncBody = Wire<typeof ConnectBankSyncBody>;
 
 export const BankSyncAccountSettingInput = Schema.Struct({
   id: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(256)),
-  enabled: Schema.optional(Schema.Boolean),
+  enabled: optionalNullable(Schema.Boolean),
   /** The wallet the pulled rows land in; null detaches. */
-  walletId: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
+  walletId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type BankSyncAccountSettingInput = Wire<typeof BankSyncAccountSettingInput>;
 
 export const UpdateBankSyncSettingsBody = Schema.Struct({
-  autoSync: Schema.optional(Schema.Boolean),
-  accounts: Schema.optional(Schema.Array(BankSyncAccountSettingInput)),
+  autoSync: optionalNullable(Schema.Boolean),
+  accounts: optionalNullable(Schema.Array(BankSyncAccountSettingInput)),
 });
 export type UpdateBankSyncSettingsBody = Wire<typeof UpdateBankSyncSettingsBody>;

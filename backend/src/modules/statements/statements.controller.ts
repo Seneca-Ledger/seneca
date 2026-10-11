@@ -23,6 +23,7 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
@@ -184,8 +185,8 @@ export class StatementsController {
       user,
       workspaceId,
       files,
-      language: body?.language,
-      captureLocation: toCaptureLocation(body),
+      language: body?.language ?? undefined,
+      captureLocation: toCaptureLocation(body && withoutNulls(body)),
     });
 
     return { data };

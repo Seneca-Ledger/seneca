@@ -44,7 +44,7 @@ export class CustomTableSharesController {
     @SchemaBody(CreateCustomTableShareBody) dto: CreateCustomTableShareBody,
   ) {
     const { share, token } = await this.sharesService.createShare(user.id, workspaceId, tableId, {
-      expiresInDays: dto.expiresInDays,
+      expiresInDays: dto.expiresInDays ?? undefined,
     });
     return {
       id: share.id,
@@ -85,7 +85,8 @@ export class CustomTableSharesController {
   ) {
     return this.exportSchedulesService.createSchedule(user.id, workspaceId, tableId, {
       ...dto,
-      format: toEnum(ExportScheduleFormat, dto.format),
+      intervalHours: dto.intervalHours ?? undefined,
+      format: toEnum(ExportScheduleFormat, dto.format) ?? undefined,
     });
   }
 

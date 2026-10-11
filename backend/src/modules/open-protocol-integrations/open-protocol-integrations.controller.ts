@@ -180,7 +180,7 @@ export class OpenProtocolIntegrationsController {
     return this.openProtocolIntegrationsService.disconnect(workspaceId, IntegrationProvider.IMAP);
   }
 
-  private getFileIds(body: { fileIds?: string[] }): string[] {
+  private getFileIds(body: { fileIds?: string[] | null }): string[] {
     return Array.isArray(body?.fileIds) ? body.fileIds.filter(Boolean) : [];
   }
 

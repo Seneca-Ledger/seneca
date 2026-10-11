@@ -16,6 +16,7 @@ import * as React from 'react';
 import type { Repository } from 'typeorm';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { mergeProcessingSettings } from '../../common/utils/workspace-processing.util';
@@ -1005,11 +1006,11 @@ export class WorkspacesService {
       }),
       ...(dto.isFavorite !== undefined && { isFavorite: dto.isFavorite }),
       // Merged, not replaced: `settings` is a shared blob.
-      ...(dto.processing !== undefined && {
-        settings: mergeProcessingSettings(workspace.settings, dto.processing),
+      ...(dto.processing != null && {
+        settings: mergeProcessingSettings(workspace.settings, withoutNulls(dto.processing)),
       }),
     });
-    if (dto.profile !== undefined) {
+    if (dto.profile != null) {
       workspace.settings = mergeWorkspaceProfile(workspace.settings, dto.profile);
     }
 

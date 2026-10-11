@@ -1,10 +1,28 @@
 import * as Schema from 'effect/Schema';
 import * as SchemaTransformation from 'effect/SchemaTransformation';
+import * as Struct from 'effect/Struct';
 
 /**
  * Building blocks for request bodies. They reproduce what the class-validator
  * DTOs accepted, so moving a body onto a schema changes no client's 400s.
  */
+
+/**
+ * What `@IsOptional()` accepted: the key may be missing, undefined or null.
+ * Services that clear a field on null (a category, a wallet, an amount) get
+ * exactly what they got from the class-validator DTOs.
+ */
+interface OptionalNullable extends Struct.Lambda {
+  <S extends Schema.Top>(self: S): Schema.optional<Schema.NullOr<S>>;
+  readonly '~lambda.out': this['~lambda.in'] extends Schema.Top
+    ? Schema.optional<Schema.NullOr<this['~lambda.in']>>
+    : never;
+}
+
+// A Struct lambda, so PartialType-style bodies can map every field through it.
+export const optionalNullable = Struct.lambda<OptionalNullable>(schema =>
+  Schema.optional(Schema.NullOr(schema)),
+);
 
 /** A number that may arrive as a numeric string: multipart fields, query-shaped bodies. */
 export const NumericInput = Schema.Union([Schema.Finite, Schema.FiniteFromString]);

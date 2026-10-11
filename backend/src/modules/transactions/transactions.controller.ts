@@ -328,7 +328,7 @@ export class TransactionsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.transferPairingService.detectAndApply(workspaceId, body.statementId);
+    return this.transferPairingService.detectAndApply(workspaceId, body.statementId ?? undefined);
   }
 
   @Get(':id/transfer-candidates')

@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, type Repository } from 'typeorm';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import type { UpdateNotificationPreferencesBody } from '../../contracts';
 import {
   Notification,
@@ -385,7 +386,10 @@ export class NotificationsService {
     Object.assign(preferences, rest);
 
     if (channels) {
-      preferences.channels = this.normalizeChannels(preferences, channels);
+      preferences.channels = this.normalizeChannels(
+        preferences,
+        Object.fromEntries(Object.entries(channels).map(([key, set]) => [key, withoutNulls(set)])),
+      );
     }
 
     return this.preferenceRepository.save(preferences);

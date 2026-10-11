@@ -159,7 +159,7 @@ export class PayeesService {
     const payee = await this.findPayee(workspaceId, id);
     const before = { name: payee.name, mode: payee.mode, categoryId: payee.categoryId };
 
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       const name = dto.name.trim();
       if (!name) {
         throw new BadRequestException('A payee needs a name');

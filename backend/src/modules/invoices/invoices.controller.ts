@@ -13,6 +13,7 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
@@ -77,10 +78,10 @@ export class InvoicesController {
     @WorkspaceId() workspaceId: string,
   ) {
     const numbering =
-      dto.prefix === undefined
+      dto.prefix == null
         ? await this.invoicesService.getNumberingSettings(workspaceId)
         : await this.invoicesService.updateNumberPrefix(workspaceId, dto.prefix);
-    const settings = await this.invoiceSettingsService.update(workspaceId, dto);
+    const settings = await this.invoiceSettingsService.update(workspaceId, withoutNulls(dto));
     return { ...numbering, ...settings };
   }
 
@@ -184,7 +185,7 @@ export class InvoicesController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.invoiceDeliveryService.sendEmail(id, workspaceId, user, dto);
+    return this.invoiceDeliveryService.sendEmail(id, workspaceId, user, withoutNulls(dto));
   }
 
   @Get(':id/deliveries')

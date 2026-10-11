@@ -2883,7 +2883,7 @@ export class ReportsService {
     const payload = await this.balanceService.exportBalanceSheet(
       workspaceId,
       { date: dto.dateTo, format: dto.format as BalanceExportFormat },
-      dto.locale,
+      dto.locale ?? undefined,
     );
 
     const fileName = `${baseName}.${dto.format === 'pdf' ? 'pdf' : 'xlsx'}`;

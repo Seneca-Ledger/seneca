@@ -607,31 +607,27 @@ export class InvoicesService {
     if (dto.clientId) {
       invoice.clientId = dto.clientId;
     }
-    if (dto.issueDate !== undefined) {
+    if (dto.issueDate != null) {
       invoice.issueDate = dto.issueDate;
     }
-    if (dto.dueDate !== undefined) {
+    if (dto.dueDate != null) {
       invoice.dueDate = dto.dueDate;
     }
-    if (dto.currency !== undefined) {
+    if (dto.currency != null) {
       invoice.currency = dto.currency;
     }
     if (dto.notes !== undefined) {
       invoice.notes = dto.notes ?? null;
     }
-    if (dto.pricesIncludeTax !== undefined) {
+    if (dto.pricesIncludeTax != null) {
       invoice.pricesIncludeTax = dto.pricesIncludeTax;
     }
     if (dto.recurrenceInterval !== undefined) {
-      invoice.isRecurring = !!dto.recurrenceInterval;
-      invoice.recurrenceInterval =
-        toEnum(InvoiceRecurrenceInterval, dto.recurrenceInterval) ?? null;
-      invoice.nextIssueDate = toEnum(InvoiceRecurrenceInterval, dto.recurrenceInterval)
-        ? advanceIssueDate(
-            invoice.issueDate,
-            toEnum(InvoiceRecurrenceInterval, dto.recurrenceInterval),
-          )
-        : null;
+      // null stops the recurrence.
+      const interval = toEnum(InvoiceRecurrenceInterval, dto.recurrenceInterval);
+      invoice.isRecurring = !!interval;
+      invoice.recurrenceInterval = interval;
+      invoice.nextIssueDate = interval ? advanceIssueDate(invoice.issueDate, interval) : null;
     }
     if (dto.recurrenceEndDate !== undefined) {
       invoice.recurrenceEndDate = dto.recurrenceEndDate ?? null;

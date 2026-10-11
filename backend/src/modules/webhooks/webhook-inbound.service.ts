@@ -120,7 +120,7 @@ export class WebhookInboundService {
         userId: user.id,
         workspaceId: endpoint.workspaceId,
         files: [resolvedFile],
-        language: dto.language,
+        language: dto.language ?? undefined,
       });
     } finally {
       if (isTemp) {

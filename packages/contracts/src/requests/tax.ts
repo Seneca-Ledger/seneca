@@ -1,23 +1,23 @@
 import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
-import { IsoDateString, NumericInput } from '../common/requests';
+import { IsoDateString, NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const CreateTaxRateBody = Schema.Struct({
   name: Schema.String.check(Schema.isMinLength(1)),
   rate: NumericInput.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
-  isDefault: Schema.optional(Schema.Boolean),
-  isEnabled: Schema.optional(Schema.Boolean),
+  isDefault: optionalNullable(Schema.Boolean),
+  isEnabled: optionalNullable(Schema.Boolean),
 });
 export type CreateTaxRateBody = Wire<typeof CreateTaxRateBody>;
 
 export const UpdateTaxRateBody = Schema.Struct({
-  name: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
-  rate: Schema.optional(
+  name: optionalNullable(Schema.String.check(Schema.isMinLength(1))),
+  rate: optionalNullable(
     NumericInput.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
   ),
-  isDefault: Schema.optional(Schema.Boolean),
-  isEnabled: Schema.optional(Schema.Boolean),
+  isDefault: optionalNullable(Schema.Boolean),
+  isEnabled: optionalNullable(Schema.Boolean),
 });
 export type UpdateTaxRateBody = Wire<typeof UpdateTaxRateBody>;
 
@@ -29,16 +29,16 @@ export type TaxReturnPeriodBody = Wire<typeof TaxReturnPeriodBody>;
 
 export const CreateTaxRuleBody = Schema.Struct({
   /** Omit for a catch-all rule covering its whole direction. */
-  categoryId: Schema.optional(Schema.String.check(Schema.isUUID())),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
   /** Stable rate code, e.g. 'KZ_STANDARD'. Resolved per transaction date. */
   taxRateCode: Schema.String.check(Schema.isBetweenLength(1, 40)),
-  priority: Schema.optional(Schema.Int),
-  direction: Schema.optional(Schema.Literals(['expense', 'income', 'both'])),
-  isEnabled: Schema.optional(Schema.Boolean),
+  priority: optionalNullable(Schema.Int),
+  direction: optionalNullable(Schema.Literals(['expense', 'income', 'both'])),
+  isEnabled: optionalNullable(Schema.Boolean),
 });
 export type CreateTaxRuleBody = Wire<typeof CreateTaxRuleBody>;
 
-export const UpdateTaxRuleBody = CreateTaxRuleBody.mapFields(Struct.map(Schema.optional));
+export const UpdateTaxRuleBody = CreateTaxRuleBody.mapFields(Struct.map(optionalNullable));
 export type UpdateTaxRuleBody = Wire<typeof UpdateTaxRuleBody>;
 
 export const SetJurisdictionBody = Schema.Struct({
@@ -48,6 +48,6 @@ export const SetJurisdictionBody = Schema.Struct({
    * Day the new rate set takes over, defaulting to today. Rates of a previous
    * jurisdiction are closed off the day before, so history stays resolvable.
    */
-  effectiveFrom: Schema.optional(IsoDateString),
+  effectiveFrom: optionalNullable(IsoDateString),
 });
 export type SetJurisdictionBody = Wire<typeof SetJurisdictionBody>;

@@ -1,5 +1,6 @@
 import * as Schema from 'effect/Schema';
 import { Timestamp, type Wire } from '../common/wire';
+import { SupportedChainId } from '../requests/crypto';
 
 /** Coin amounts stay decimal strings: 18-decimal tokens overflow a JS number. */
 const CoinAmount = Schema.String;
@@ -142,7 +143,7 @@ export const ChainFamily = Schema.Literals(['evm', 'tron', 'bitcoin', 'solana'])
 export type ChainFamily = Wire<typeof ChainFamily>;
 
 export const CryptoNetwork = Schema.Struct({
-  chainId: Schema.Number,
+  chainId: SupportedChainId,
   name: Schema.String,
   family: ChainFamily,
   nativeAsset: Schema.String,

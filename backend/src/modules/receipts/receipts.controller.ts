@@ -21,6 +21,7 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
 import { validateFile } from '../../common/utils/file-validator.util';
@@ -95,8 +96,8 @@ export class ReceiptsController {
           userId: user.id,
           workspaceId,
           files: [file],
-          language: dto.language,
-          captureLocation: toCaptureLocation(dto),
+          language: dto.language ?? undefined,
+          captureLocation: toCaptureLocation(withoutNulls(dto)),
         }),
       ),
     );
@@ -125,8 +126,8 @@ export class ReceiptsController {
       userId: user.id,
       workspaceId,
       file,
-      language: dto.language,
-      captureLocation: toCaptureLocation(dto),
+      language: dto.language ?? undefined,
+      captureLocation: toCaptureLocation(withoutNulls(dto)),
     });
   }
 
@@ -148,7 +149,7 @@ export class ReceiptsController {
     const suggestions = await this.placeSuggestionService.suggest(
       dto.statementId,
       workspaceId,
-      dto,
+      withoutNulls(dto),
     );
     if (!suggestions) {
       throw new BadRequestException('Receipt not found');
@@ -186,7 +187,12 @@ export class ReceiptsController {
     @SchemaBody(UpdateReceiptLocationBody) dto: UpdateReceiptLocationBody,
     @CurrentUser() user: User,
   ) {
-    const receipt = await this.locationService.setManual(id, workspaceId, dto, user.id);
+    const receipt = await this.locationService.setManual(
+      id,
+      workspaceId,
+      withoutNulls(dto),
+      user.id,
+    );
     if (!receipt) {
       throw new BadRequestException('Receipt not found');
     }
@@ -223,7 +229,7 @@ export class ReceiptsController {
     const receipt = await this.receiptsService.update(
       id,
       workspaceId,
-      { ...dto, status: toEnum(ReceiptStatus, dto.status) },
+      { ...withoutNulls(dto), status: toEnum(ReceiptStatus, dto.status) ?? undefined },
       user.id,
     );
     if (!receipt) {
@@ -313,7 +319,12 @@ export class ReceiptsController {
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
-    return this.receiptsService.bulkApprove(dto.receiptIds, workspaceId, user.id, dto.categoryId);
+    return this.receiptsService.bulkApprove(
+      dto.receiptIds,
+      workspaceId,
+      user.id,
+      dto.categoryId ?? undefined,
+    );
   }
 
   @Delete(':id')

@@ -20,6 +20,7 @@ import {
 } from 'typeorm';
 import * as xlsx from 'xlsx';
 import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
 import { appDefaultCurrency, currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
@@ -896,7 +897,7 @@ export class CustomTablesService {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const table = await this.requireTable(workspaceId, tableId);
     const before = { ...table };
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       table.name = dto.name;
     }
     if (dto.description !== undefined) {
@@ -1603,7 +1604,9 @@ export class CustomTablesService {
     const rows = await this.fetchSourceRows(
       adapter,
       workspaceId,
-      this.normalizeSourceFilters(dto.filters) as SourceFilters,
+      this.normalizeSourceFilters(
+        dto.filters ? withoutNulls(dto.filters) : undefined,
+      ) as SourceFilters,
     );
     return {
       count: rows.length,
@@ -1623,7 +1626,9 @@ export class CustomTablesService {
   ): Promise<{ tableId: string; columnsCreated: number; rowsCreated: number }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const adapter = this.requireSources().get(dto.kind);
-    const filters = this.normalizeSourceFilters(dto.filters);
+    const filters = this.normalizeSourceFilters(
+      dto.filters ? withoutNulls(dto.filters) : undefined,
+    );
     const sourceRows = await this.fetchSourceRows(adapter, workspaceId, filters as SourceFilters);
     if (!sourceRows.length) {
       throw new BadRequestException(appError('SOURCE_EMPTY'));
@@ -2452,10 +2457,10 @@ export class CustomTablesService {
     await this.requireTable(workspaceId, tableId);
 
     const type = toEnum(CustomTableColumnType, dto.type);
-    this.validateNumberConfig(type, dto.config);
-    this.validateSelectConfig(type, dto.config);
-    await this.validateFormulaConfig(tableId, type, dto.config, null, dto.title);
-    await this.validateRelationConfig(workspaceId, type, dto.config);
+    this.validateNumberConfig(type ?? undefined, dto.config);
+    this.validateSelectConfig(type ?? undefined, dto.config);
+    await this.validateFormulaConfig(tableId, type ?? undefined, dto.config, null, dto.title);
+    await this.validateRelationConfig(workspaceId, type ?? undefined, dto.config);
 
     const position = dto.position ?? (await this.getNextColumnPosition(tableId));
     const column = this.customTableColumnRepository.create({
@@ -2535,19 +2540,19 @@ export class CustomTablesService {
     }
 
     const before = { ...column };
-    if (dto.title !== undefined) {
+    if (dto.title != null) {
       column.title = dto.title;
     }
-    if (dto.type !== undefined) {
+    if (dto.type != null) {
       column.type = toEnum(CustomTableColumnType, dto.type);
     }
-    if (dto.isRequired !== undefined) {
+    if (dto.isRequired != null) {
       column.isRequired = dto.isRequired;
     }
-    if (dto.isUnique !== undefined) {
+    if (dto.isUnique != null) {
       column.isUnique = dto.isUnique;
     }
-    if (dto.position !== undefined) {
+    if (dto.position != null) {
       column.position = dto.position;
     }
     if (dto.config !== undefined) {
@@ -4500,7 +4505,7 @@ export class CustomTablesService {
       columns[columnKey] && typeof columns[columnKey] === 'object' ? columns[columnKey] : {};
     const next = { ...existing };
 
-    if (dto.width !== undefined) {
+    if (dto.width != null) {
       next.width = dto.width;
     }
 

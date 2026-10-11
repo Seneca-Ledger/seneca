@@ -1,3 +1,4 @@
+export * from './api-keys/api-keys';
 export * from './auth/current-user';
 export * from './budgets/budgets';
 export * from './common/requests';
@@ -16,6 +17,7 @@ export * from './requests/ai-analysis';
 export * from './requests/api-keys';
 export * from './requests/application-settings';
 export * from './requests/auth';
+export * from './requests/backups';
 export * from './requests/balance';
 export * from './requests/bank-sync';
 export * from './requests/branches';
