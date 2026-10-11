@@ -1,0 +1,15 @@
+import * as Schema from 'effect/Schema';
+
+/**
+ * How Postgres values arrive in JSON. TypeORM hands `decimal`/`numeric` columns
+ * over as strings and `date` columns as `YYYY-MM-DD`, whatever the entity type
+ * says; reading them as numbers needs an explicit `Number(...)`.
+ */
+export const DecimalString = Schema.String.check(
+  Schema.isPattern(/^-?\d+(\.\d+)?$/, { message: 'Expected a decimal string' }),
+);
+export const DateOnly = Schema.String.check(
+  Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/, { message: 'Expected YYYY-MM-DD' }),
+);
+/** ISO timestamp, as JSON.stringify writes a Date. */
+export const Timestamp = Schema.String;

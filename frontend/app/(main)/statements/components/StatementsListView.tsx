@@ -299,7 +299,7 @@ export default function StatementsListView(): React.JSX.Element {
     id: string;
     source?: string;
     fileName: string;
-    parsingDetails?: { importPreview?: { attachments?: number } };
+    parsingDetails?: { importPreview?: { attachments?: number } } | null;
   }): void => {
     const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
     if (isReceipt) {
