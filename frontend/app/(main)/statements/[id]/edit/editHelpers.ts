@@ -1,5 +1,6 @@
 // Pure helper functions and types for the Statement Edit page
 
+import type { TransactionListItem } from '@/app/lib/contracts';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { ParsingDroppedSample } from './ParsingWarningsPanel';
 
@@ -54,6 +55,40 @@ export interface Transaction {
   };
   branch?: { id: string; name: string };
   wallet?: { id: string; name: string };
+}
+
+/**
+ * A row of `GET /transactions` as the edit page holds it: amounts as numbers
+ * (the API sends decimal strings), absent values as undefined.
+ */
+export function toEditableTransaction(row: TransactionListItem): Transaction {
+  const amount = (value: string | null) => (value === null ? undefined : Number(value));
+  const text = (value: string | null) => value ?? undefined;
+  return {
+    id: row.id,
+    transactionDate: row.transactionDate,
+    isVerified: row.isVerified,
+    documentNumber: text(row.documentNumber),
+    counterpartyName: row.counterpartyName,
+    counterpartyBin: text(row.counterpartyBin),
+    counterpartyAccount: text(row.counterpartyAccount),
+    counterpartyBank: text(row.counterpartyBank),
+    debit: amount(row.debit),
+    credit: amount(row.credit),
+    paymentPurpose: row.paymentPurpose,
+    currency: row.currency,
+    exchangeRate: amount(row.exchangeRate),
+    amountForeign: amount(row.amountForeign),
+    categoryId: text(row.categoryId),
+    branchId: text(row.branchId),
+    walletId: text(row.walletId),
+    article: text(row.article),
+    comments: text(row.comments),
+    transactionType: row.transactionType,
+    category: row.category ?? undefined,
+    branch: row.branch ?? undefined,
+    wallet: row.wallet ?? undefined,
+  };
 }
 
 export interface StatementParsingDetails {

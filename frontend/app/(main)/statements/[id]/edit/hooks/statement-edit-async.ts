@@ -2,6 +2,7 @@ import { toast } from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import type {
   BranchOption,
   CategoryOption,
@@ -14,6 +15,7 @@ import {
   normalizeDateInput,
   normalizeNumberInput,
   parseNullableNumber,
+  toEditableTransaction,
 } from '../editHelpers';
 
 type MetaForm = {
@@ -82,16 +84,18 @@ export async function loadStatementData(
   try {
     set.setLoading(true);
     set.setOptionsLoading(true);
+    const transactionsUrl = `/transactions?statement_id=${statementId}&limit=1000`;
     const [sRes, tRes, cRes, bRes, wRes] = await Promise.all([
       apiClient.get(`/statements/${statementId}`),
-      apiClient.get(`/transactions?statement_id=${statementId}&limit=1000`),
+      apiClient.get(transactionsUrl),
       apiClient.get('/categories'),
       apiClient.get('/branches'),
       apiClient.get('/wallets'),
     ]);
     const statementData = extractApiData<Statement>(sRes);
     set.setStatement(statementData);
-    set.setTransactions(extractApiData<Transaction[]>(tRes));
+    const rows = await checkContract('TransactionList', extractApiData(tRes), transactionsUrl);
+    set.setTransactions(rows.map(toEditableTransaction));
     set.setCategories(extractListData<CategoryOption>(cRes));
     set.setBranches(extractListData<BranchOption>(bRes));
     set.setWallets(extractListData<WalletOption>(wRes));

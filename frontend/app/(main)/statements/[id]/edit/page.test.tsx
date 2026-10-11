@@ -228,17 +228,40 @@ describe('EditStatementPage locale', () => {
       if (url === '/transactions?statement_id=statement-1&limit=1000') {
         return Promise.resolve({
           data: [
+            // The wire format (packages/contracts TransactionListItem): decimals
+            // as strings, `date` columns as YYYY-MM-DD, absent values as null.
             {
               id: 'tx-1',
-              transactionDate: '2026-03-17T00:00:00.000Z',
-              counterpartyName: 'Test counterparty',
-              paymentPurpose: 'Payment for services',
-              debit: 125,
-              credit: 0,
+              transactionDate: '2026-03-17',
               transactionType: 'expense',
               isVerified: false,
+              documentNumber: null,
+              counterpartyName: 'Test counterparty',
+              counterpartyBin: null,
+              counterpartyAccount: null,
+              counterpartyBank: null,
+              paymentPurpose: 'Payment for services',
+              debit: '125.00',
+              credit: null,
+              currency: 'KZT',
+              exchangeRate: null,
+              amountForeign: null,
               categoryId: 'cat-1',
-              category: { id: 'cat-1', name: 'Services', isEnabled: true },
+              branchId: null,
+              walletId: null,
+              article: null,
+              comments: null,
+              category: {
+                id: 'cat-1',
+                name: 'Services',
+                isEnabled: true,
+                isSystem: false,
+                source: 'user',
+              },
+              branch: null,
+              wallet: null,
+              createdAt: '2026-03-17T08:00:00.000Z',
+              updatedAt: '2026-03-17T08:00:00.000Z',
             },
           ],
         });
