@@ -24,6 +24,7 @@ import {
   DashboardMonthlyCashFlowResponse,
   DashboardResponse,
   DashboardTrendsResponse,
+  ForecastResponse,
   GoalFlowResponse,
   GoalList,
   GoalPlanResponse,
@@ -397,6 +398,15 @@ describe('API contracts (e2e)', () => {
       matches(PayeesPage, res.body);
       expect(res.body.data.length).toBeGreaterThan(0);
       matches(PayeePendingReview, (await get(`/payees/${res.body.data[0].id}/pending-review`)).body);
+    });
+  });
+
+  describe('forecast', () => {
+    it('GET /forecast, with the subscriptions above as events', async () => {
+      const res = await get('/forecast?days=90');
+      matches(ForecastResponse, res.body);
+      expect(res.body.events.length).toBeGreaterThan(0);
+      matches(ForecastResponse, (await get('/forecast?days=30&expenseFactor=1.2')).body);
     });
   });
 });

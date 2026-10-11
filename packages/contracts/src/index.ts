@@ -4,6 +4,7 @@ export * from './common/wire';
 export * from './crypto/crypto';
 export * from './dashboard/dashboard';
 export * from './feed/feed';
+export * from './forecast/forecast';
 export * from './goals/goal-items';
 export * from './goals/goals';
 export * from './payees/payees';
