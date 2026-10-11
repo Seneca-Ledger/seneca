@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import * as fs from 'fs';
-import * as pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse';
 import { stripHtmlForAi } from '../../../common/utils/ai-response.util';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import {

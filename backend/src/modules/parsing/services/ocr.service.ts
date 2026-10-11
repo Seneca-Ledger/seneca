@@ -225,9 +225,8 @@ export class OcrService {
 
   async extractTextFromScannedPdf(pdfBuffer: Buffer, options: OcrOptions = {}): Promise<OcrResult> {
     const pdfParseModule = await import('pdf-parse');
-    // pdf-parse is CommonJS and this build has no esModuleInterop, so the
-    // dynamic import resolves to the exported function itself, not a namespace
-    // with a `default`.
+    // pdf-parse is CommonJS: with esModuleInterop the function is `default`;
+    // the fallback covers a loader that hands back the export itself.
     const pdfParse = pdfParseModule.default ?? pdfParseModule;
     const data = await (pdfParse as (buf: Buffer) => Promise<{ text: string }>)(pdfBuffer);
     const existingText = (data.text || '').trim();
