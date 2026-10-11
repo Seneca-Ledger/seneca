@@ -16,22 +16,9 @@ import { resolveAllowedOrigins } from './common/utils/cors-origins';
 import { resolveStaticAssetMounts } from './common/utils/static-assets.util';
 import { resolveUploadsDir } from './common/utils/uploads.util';
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value || value.trim() === '') {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
+// Required environment variables are checked by validateEnv when AppModule
+// loads its config (src/config/env.schema.ts).
 async function bootstrap() {
-  if (process.env.NODE_ENV === 'production') {
-    requireEnv('DATABASE_URL');
-    requireEnv('JWT_SECRET');
-    requireEnv('JWT_REFRESH_SECRET');
-    requireEnv('INTEGRATIONS_ENCRYPTION_KEY');
-  }
-
   const uploadsDir = resolveUploadsDir();
   // Ensure reports directory exists
   const reportsDir = path.join(uploadsDir, 'reports');

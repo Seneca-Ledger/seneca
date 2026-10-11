@@ -1,4 +1,6 @@
+import { GoalItemsResponse } from './contracts';
 import { apiQuery } from './query-fn';
+import { apiQueryDecoded } from './query-fn-schema';
 
 export type GoalFlowNodeKind = 'goal' | 'budget' | 'category' | 'merchant' | 'other';
 
@@ -80,47 +82,12 @@ export function fetchGoalFlow(
   });
 }
 
-export type GoalItemStatus = 'planned' | 'paid';
-
-export interface GoalItem {
-  id: string;
-  name: string;
-  estimatedAmount: number;
-  /** What it really cost. Null while the line is still only a plan. */
-  actualAmount: number | null;
-  currency: string;
-  /** `YYYY-MM`, or null for a cost with no date yet. */
-  dueMonth: string | null;
-  status: GoalItemStatus;
-  note: string | null;
-  createdAt: string;
-}
-
-export interface GoalItemsResponse {
-  /** The goal's currency. Every figure in `summary` is converted into it. */
-  currency: string;
-  items: GoalItem[];
-  summary: {
-    estimatedTotal: number;
-    /** The actual where known, the estimate until then. */
-    committedTotal: number;
-    paidTotal: number;
-    outstanding: number;
-    targetAmount: number;
-    /** Target minus estimate; negative means the estimate outgrew the goal. */
-    unallocated: number;
-  };
-}
-
-export interface GoalItemPayload {
-  name: string;
-  estimatedAmount: number;
-  actualAmount?: number | null;
-  currency?: string;
-  dueMonth?: string | null;
-  status?: GoalItemStatus;
-  note?: string | null;
-}
+export type {
+  CreateGoalItemBody as GoalItemPayload,
+  GoalItem,
+  GoalItemStatus,
+  GoalItemsResponse,
+} from './contracts';
 
 export type GoalPlanStatus = 'reached' | 'no_deadline' | 'on_track' | 'tight' | 'not_feasible';
 
@@ -149,5 +116,5 @@ export function fetchGoalPlan(goalId: string, signal?: AbortSignal): Promise<Goa
 }
 
 export function fetchGoalItems(goalId: string, signal?: AbortSignal): Promise<GoalItemsResponse> {
-  return apiQuery<GoalItemsResponse>({ url: `/goals/${goalId}/items`, signal });
+  return apiQueryDecoded({ url: `/goals/${goalId}/items`, signal, schema: GoalItemsResponse });
 }
