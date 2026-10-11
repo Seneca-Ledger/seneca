@@ -311,10 +311,10 @@ export class StorageController {
   @UseGuards(WorkspaceContextGuard)
   async createView(
     @SchemaBody(StorageViewBody) dto: StorageViewBody,
-    @CurrentUser() _user: User,
+    @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return await this.storageService.createView(dto, workspaceId);
+    return await this.storageService.createView(dto, user.id, workspaceId);
   }
 
   /**

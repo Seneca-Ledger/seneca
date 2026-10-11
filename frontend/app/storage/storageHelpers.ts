@@ -1,6 +1,7 @@
 import { resolveBankLogo } from '@bank-logos';
 import type { PopoverProps } from '@mui/material';
 import type { CSSProperties } from 'react';
+import type { StorageFile as StorageFileRow, StorageFolder } from '@/app/lib/contracts';
 
 // ─── Shared Types ─────────────────────────────────────────────────────────────
 
@@ -19,13 +20,8 @@ export interface TagOption {
   userId?: string | null;
 }
 
-export interface FolderOption {
-  id: string;
-  name: string;
-  userId?: string | null;
-  tagId?: string | null;
-  tag?: TagOption | null;
-}
+/** A folder, as `GET /storage/folders` and the file rows send it. */
+export type FolderOption = StorageFolder;
 
 export interface StorageView {
   id: string;
@@ -34,37 +30,8 @@ export interface StorageView {
   createdAt: string;
 }
 
-export interface StorageFile {
-  id: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-  bankName: string;
-  status: string;
-  createdAt: string;
-  deletedAt?: string | null;
-  isOwner: boolean;
-  permissionType?: string;
-  canReshare: boolean;
-  sharedLinksCount: number;
-  categoryId?: string | null;
-  category?: {
-    id: string;
-    name: string;
-    color?: string;
-    icon?: string;
-    isEnabled?: boolean;
-  } | null;
-  folderId?: string | null;
-  folder?: FolderOption | null;
-  tags?: TagOption[];
-  metadata?: {
-    accountNumber?: string;
-    periodStart?: string;
-    periodEnd?: string;
-  };
-  fileAvailability?: FileAvailability;
-}
+/** A row of the file list, as `GET /storage/files` sends it. */
+export type StorageFile = StorageFileRow;
 
 export interface CategoryOption {
   id: string;

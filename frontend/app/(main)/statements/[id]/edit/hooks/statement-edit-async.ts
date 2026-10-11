@@ -7,6 +7,7 @@ import type {
   BranchOption,
   CategoryOption,
   Statement,
+  StatementParsingDetails,
   Transaction,
   WalletOption,
 } from '../editHelpers';
@@ -92,7 +93,16 @@ export async function loadStatementData(
       apiClient.get('/branches'),
       apiClient.get('/wallets'),
     ]);
-    const statementData = extractApiData<Statement>(sRes);
+    const detail = await checkContract(
+      'StatementDetail',
+      extractApiData(sRes),
+      `/statements/${statementId}`,
+    );
+    // The parser's blob: the editor reads it through its own lenient type.
+    const statementData: Statement = {
+      ...detail,
+      parsingDetails: detail.parsingDetails as StatementParsingDetails | null,
+    };
     set.setStatement(statementData);
     const rows = await checkContract('TransactionList', extractApiData(tRes), transactionsUrl);
     set.setTransactions(rows.map(toEditableTransaction));

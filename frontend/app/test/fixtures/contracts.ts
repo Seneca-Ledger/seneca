@@ -5,6 +5,7 @@ import type {
   CryptoHolding,
   CryptoSummary,
   Payable,
+  ReceiptRecord,
   SubscriptionItem,
   WalletItem,
   WorkspaceDetail,
@@ -214,6 +215,36 @@ export function workspaceDetail(overrides: Partial<WorkspaceDetail> = {}): Works
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
     members: [],
+    ...overrides,
+  };
+}
+
+export function receiptRecord(
+  overrides: Partial<ReceiptRecord> & Pick<ReceiptRecord, 'id'>,
+): ReceiptRecord {
+  return {
+    statementId: null,
+    transactionId: null,
+    source: 'scan',
+    subject: 'Receipt',
+    sender: 'scan',
+    receivedAt: TIMESTAMP,
+    status: 'draft',
+    stage: 'submit',
+    language: null,
+    metadata: null,
+    parsedData: null,
+    confidence: null,
+    taxAmount: null,
+    isDuplicate: false,
+    duplicateOfId: null,
+    locationLat: null,
+    locationLng: null,
+    locationSource: null,
+    locationAccuracyM: null,
+    locationUpdatedAt: null,
+    category: null,
+    createdAt: TIMESTAMP,
     ...overrides,
   };
 }

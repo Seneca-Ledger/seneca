@@ -497,13 +497,14 @@ describe('StorageService', () => {
       } as StorageView);
 
       await service.createTag({ name: 'A' } as any, 'ws-1');
-      await service.createView({ name: 'View', filters: {} } as any, 'ws-1');
+      await service.createView({ name: 'View', filters: {} } as any, 'user-1', 'ws-1');
 
       expect(tagRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ workspaceId: 'ws-1' }),
       );
+      // user_id is NOT NULL: a view without its author never saved.
       expect(viewRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ workspaceId: 'ws-1' }),
+        expect.objectContaining({ userId: 'user-1', workspaceId: 'ws-1' }),
       );
     });
   });

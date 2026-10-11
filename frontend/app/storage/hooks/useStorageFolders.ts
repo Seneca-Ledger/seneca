@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import { FOLDER_NAME_MAX, type FolderOption, type StorageFile } from '../storageHelpers';
 
@@ -129,8 +129,7 @@ export function useStorageFolders(
 
   const loadFolders = async (): Promise<void> => {
     await (async () => {
-      const response = await api.get('/storage/folders');
-      setFolders(response.data || []);
+      setFolders(await apiQueryDecoded({ url: '/storage/folders', contract: 'StorageFolderList' }));
     })().catch(async error => {
       console.error('Failed to load folders:', error);
       toast.error(messages.loadFoldersFailed);
@@ -193,7 +192,7 @@ export function useStorageFolders(
           }
           const folder = file.folder
             ? { ...file.folder, name: newName }
-            : { id: folderId, name: newName };
+            : { id: folderId, name: newName, userId: null, tagId: null };
           return { ...file, folder };
         }),
       );

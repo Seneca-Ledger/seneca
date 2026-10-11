@@ -618,9 +618,10 @@ export class StorageService {
     return { status: 'deleted' };
   }
 
-  async createView(dto: StorageViewBody, workspaceId: string) {
+  async createView(dto: StorageViewBody, userId: string, workspaceId: string) {
     const view = this.storageViewRepository.create({
       name: dto.name,
+      userId,
       workspaceId,
       filters: dto.filters || {},
     });

@@ -4,10 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import api from '../../lib/api';
-import { apiQuery } from '../../lib/query-fn';
 import { queryKeys } from '../../lib/query-keys';
 import type { StorageFile } from '../storageHelpers';
 
@@ -72,10 +71,11 @@ export function useStorageFiles(
   const filesQuery = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
-      apiQuery<StorageFile[]>({
+      apiQueryDecoded({
         url: '/storage/files',
         params: listMode === 'trash' ? { deleted: 'only' } : undefined,
         signal,
+        contract: 'StorageFileList',
       }),
   });
 

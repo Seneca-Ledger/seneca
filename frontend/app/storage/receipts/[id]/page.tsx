@@ -25,7 +25,7 @@ import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/li
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { tokens } from '@/lib/theme-tokens';
@@ -274,15 +274,10 @@ export default function ReceiptDocumentPage() {
       setLoading(true);
       setError(null);
 
-      const [receiptResponse, categoriesResponse] = await Promise.all([
-        apiClient.get(`/receipts/${receiptId}`),
-        apiClient.get('/categories'),
+      const [nextReceipt, nextCategories] = await Promise.all([
+        apiQueryDecoded({ url: `/receipts/${receiptId}`, contract: 'ReceiptRecord' }),
+        apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }),
       ]);
-
-      const nextReceipt = (receiptResponse.data?.data || receiptResponse.data) as ReceiptRecord;
-      const nextCategories = (categoriesResponse.data?.data ||
-        categoriesResponse.data ||
-        []) as ReceiptCategoryOption[];
 
       setReceipt(nextReceipt);
       setFormValue(buildInitialForm(nextReceipt));

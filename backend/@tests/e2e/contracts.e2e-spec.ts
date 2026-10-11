@@ -9,6 +9,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { BackupRun, BackupRunStatus, BackupRunTrigger } from '../../src/entities/backup-run.entity';
+import { Receipt, ReceiptSource, ReceiptStatus } from '../../src/entities/receipt.entity';
 import {
   AdminUserList,
   AgeingReport,
@@ -62,15 +63,28 @@ import {
   PayeesPage,
   PaymentCandidateList,
   PushPublicKey,
+  ReceiptListPage,
+  ReceiptRecord,
+  ReceiptSplitSuggestion,
+  ReceiptTransactionMatches,
   ReviewInboxByStatement,
   ReviewInboxCounts,
   ReviewInboxPage,
+  SharedFileAccess,
+  StatementDetail,
+  StorageFileDetails,
+  StorageFileList,
+  StorageFolderList,
+  StorageTagList,
+  StorageViewList,
   SubscriptionChargeCalendar,
   SubscriptionDuplicateGroups,
   SubscriptionList,
   SubscriptionSummary,
   TelegramBotStatus,
   TelegramReportPage,
+  TransactionAttachmentList,
+  TransactionList,
   TwoFactorStatus,
   UnreadCount,
   UserPermissions,
@@ -630,6 +644,132 @@ describe('API contracts (e2e)', () => {
         .get(`/workspaces/invitations/${invite.body.invitation.token}`)
         .expect(200);
       matches(InvitationPreview, preview.body);
+    });
+  });
+
+  describe('storage, receipts and attachments', () => {
+    let statementId: string;
+    let transactionId: string;
+    let tagId: string;
+    let receiptId: string;
+    const send = (method: 'post' | 'put', url: string, body: object) =>
+      request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send(body);
+
+    beforeAll(async () => {
+      const files = await get('/storage/files');
+      statementId = files.body[0].id;
+      const rows = await get(`/transactions?statement_id=${statementId}`);
+      transactionId = rows.body.data[0].id;
+      tagId = (await send('post', '/storage/tags', { name: 'Contracts', color: '#22c55e' }).expect(201))
+        .body.id;
+      await send('put', `/transactions/${transactionId}/tags`, { tagIds: [tagId] }).expect(200);
+      await send('post', '/storage/folders', { name: 'Contracts folder', tagId }).expect(201);
+      await send('post', '/storage/views', { name: 'Contracts view', filters: { search: 'x' } }).expect(
+        201,
+      );
+      await send('post', `/storage/files/${statementId}/share`, {
+        permission: 'download',
+        password: 'contract-share',
+        description: 'For the accountant',
+      }).expect(201);
+      const member = await registerAccount(app, `contracts-member-${Date.now()}@example.com`, 'Member');
+      const invite = await send('post', `/workspaces/${owner.workspaceId}/invitations`, {
+        email: member.email,
+        role: 'member',
+      }).expect(201);
+      await request(app.getHttpServer())
+        .post(`/workspaces/invitations/${invite.body.invitation.token}/accept`)
+        .set('Authorization', `Bearer ${member.token}`)
+        .expect(200);
+      await send('post', `/storage/files/${statementId}/permissions`, {
+        userId: member.email,
+        permissionType: 'viewer',
+      }).expect(201);
+      await request(app.getHttpServer())
+        .post(`/transactions/${transactionId}/attachments`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .attach('file', Buffer.from('%PDF-1.4 contract'), {
+          filename: 'invoice.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(201);
+      const categories = await get('/categories?type=expense');
+      const receipt = await dataSource.getRepository(Receipt).save({
+        userId: owner.userId,
+        workspaceId: owner.workspaceId,
+        source: ReceiptSource.SCAN,
+        subject: 'Contract Coffee receipt',
+        sender: 'scan',
+        receivedAt: new Date(),
+        status: ReceiptStatus.NEEDS_REVIEW,
+        transactionId,
+        confidence: 0.87,
+        taxAmount: 1.5,
+        metadata: { attachments: [{ id: 'a1', filename: 'r.jpg', mimeType: 'image/jpeg', size: 10 }] },
+        parsedData: {
+          amount: 42.5,
+          currency: 'USD',
+          vendor: 'Contract Coffee',
+          categoryId: categories.body[0].id,
+          lineItems: [
+            { description: 'Coffee', amount: 30 },
+            { description: 'Cake', amount: 12.5, categoryId: categories.body[1].id },
+          ],
+        },
+      });
+      receiptId = receipt.id;
+    });
+
+    it('GET /storage/files, /storage/files/:id, folders, tags and views', async () => {
+      const files = await get('/storage/files');
+      matches(StorageFileList, files.body);
+      const details = await get(`/storage/files/${statementId}`);
+      matches(StorageFileDetails, details.body);
+      expect(details.body.sharedLinks[0].password).toBe('******');
+      expect(details.body.permissions).toHaveLength(1);
+      expect(details.body.transactions.length).toBeGreaterThan(0);
+      matches(StorageFolderList, (await get('/storage/folders')).body);
+      matches(StorageTagList, (await get('/storage/tags')).body);
+      matches(StorageViewList, (await get('/storage/views')).body);
+    });
+
+    it('GET /storage/shared/:token, public', async () => {
+      const details = await get(`/storage/files/${statementId}`);
+      const res = await request(app.getHttpServer())
+        .get(`/storage/shared/${details.body.sharedLinks[0].token}`)
+        .set('x-share-password', 'contract-share')
+        .expect(200);
+      matches(SharedFileAccess, res.body);
+      expect(res.body.transactions.length).toBeGreaterThan(0);
+    });
+
+    it('GET /statements/:id', async () => {
+      matches(StatementDetail, (await get(`/statements/${statementId}`)).body);
+    });
+
+    it('GET /transactions/:id/tags and /attachments', async () => {
+      const tags = await get(`/transactions/${transactionId}/tags`);
+      matches(StorageTagList, tags.body);
+      expect(tags.body).toHaveLength(1);
+      const attachments = await get(`/transactions/${transactionId}/attachments`);
+      matches(TransactionAttachmentList, attachments.body);
+      expect(attachments.body).toHaveLength(1);
+    });
+
+    it('GET /receipts, /receipts/:id, its matches and its split', async () => {
+      const page = await get('/receipts');
+      matches(ReceiptListPage, page.body);
+      expect(page.body.data.length).toBeGreaterThan(0);
+      const one = await get(`/receipts/${receiptId}`);
+      matches(ReceiptRecord, one.body);
+      expect(one.body.category).not.toBeNull();
+      matches(ReceiptTransactionMatches, (await get(`/receipts/${receiptId}/transaction-matches`)).body);
+      matches(ReceiptSplitSuggestion, (await get(`/receipts/${receiptId}/split-suggestion`)).body);
     });
   });
 });

@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
 export interface TransactionTag {
   id: string;
@@ -23,13 +24,14 @@ const unwrap = <T>(response: { data: unknown }): T => {
 export const transactionFilesApi = {
   /** The workspace-wide tag vocabulary, shared with statements and files. */
   async listWorkspaceTags(): Promise<TransactionTag[]> {
-    const response = await apiClient.get('/storage/tags');
-    return unwrap<TransactionTag[]>(response) ?? [];
+    return apiQueryDecoded({ url: '/storage/tags', contract: 'StorageTagList' });
   },
 
   async getTags(transactionId: string): Promise<TransactionTag[]> {
-    const response = await apiClient.get(`/transactions/${transactionId}/tags`);
-    return unwrap<TransactionTag[]>(response) ?? [];
+    return apiQueryDecoded({
+      url: `/transactions/${transactionId}/tags`,
+      contract: 'StorageTagList',
+    });
   },
 
   /** Sends the complete desired tag set — the server replaces, it does not merge. */
@@ -39,8 +41,10 @@ export const transactionFilesApi = {
   },
 
   async listAttachments(transactionId: string): Promise<TransactionAttachment[]> {
-    const response = await apiClient.get(`/transactions/${transactionId}/attachments`);
-    return unwrap<TransactionAttachment[]>(response) ?? [];
+    return apiQueryDecoded({
+      url: `/transactions/${transactionId}/attachments`,
+      contract: 'TransactionAttachmentList',
+    });
   },
 
   async uploadAttachment(transactionId: string, file: File): Promise<TransactionAttachment> {

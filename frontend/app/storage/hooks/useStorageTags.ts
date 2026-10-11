@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import type { FolderOption, StorageFile, TagOption } from '../storageHelpers';
 
@@ -74,8 +74,7 @@ export function useStorageTags(
 
   const loadTags = async (): Promise<void> => {
     await (async () => {
-      const response = await api.get('/storage/tags');
-      setTags(response.data || []);
+      setTags(await apiQueryDecoded({ url: '/storage/tags', contract: 'StorageTagList' }));
     })().catch(async error => {
       console.error('Failed to load tags:', error);
       toast.error(messages.loadTagsFailed);

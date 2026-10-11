@@ -1,7 +1,7 @@
 'use client';
 
 import toast from 'react-hot-toast';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import { FOLDER_NAME_MAX, type FolderOption, type StorageFile } from '../storageHelpers';
 
@@ -78,7 +78,7 @@ function applyFilesFolderRename(
     }
     const folder = file.folder
       ? { ...file.folder, name: newName }
-      : { id: folderId, name: newName };
+      : { id: folderId, name: newName, userId: null, tagId: null };
     return { ...file, folder };
   });
 }
@@ -99,8 +99,7 @@ export async function loadFoldersHandler(
   setFolders: React.Dispatch<React.SetStateAction<FolderOption[]>>,
 ): Promise<void> {
   try {
-    const response = await api.get('/storage/folders');
-    setFolders(response.data || []);
+    setFolders(await apiQueryDecoded({ url: '/storage/folders', contract: 'StorageFolderList' }));
   } catch (error) {
     console.error('Failed to load folders:', error);
     toast.error(messages.loadFoldersFailed);
