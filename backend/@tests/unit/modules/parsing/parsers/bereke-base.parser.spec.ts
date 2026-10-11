@@ -191,7 +191,7 @@ describe('BerekeBaseParser', () => {
         },
       ],
     });
-    (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+    (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
 
     const result = await parser.parse('/tmp/mock.pdf');
 
@@ -205,7 +205,7 @@ describe('BerekeBaseParser', () => {
     const text = ['Bereke statement', 'Opening balance 0,00', 'Closing balance 500,00'].join('\n');
 
     (extractTextAndLayoutFromPdf as jest.Mock).mockResolvedValue({ text, rows: [] });
-    (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+    (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
 
     const result = await parser.parse('/tmp/mock.pdf');
 

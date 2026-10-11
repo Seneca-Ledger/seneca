@@ -37,12 +37,15 @@ jest.mock('@/common/utils/pdf-parser.util', () => {
     }),
     extractTablesFromPdf: jest.fn(async (filePath: string) => {
       if (filePath.includes('kaspi')) {
-        return { rows: mockData.KASPI_MOCK_TABLE_ROWS, structured: [] };
+        return { rowSets: [mockData.KASPI_MOCK_TABLE_ROWS], structured: [] };
       }
       if (filePath.includes('bereke')) {
-        return { rows: mockData.BEREKE_MOCK_TABLE_ROWS, structured: mockData.BEREKE_MOCK_STRUCTURED };
+        return {
+          rowSets: [mockData.BEREKE_MOCK_TABLE_ROWS],
+          structured: mockData.BEREKE_MOCK_STRUCTURED,
+        };
       }
-      return { rows: [], structured: [] };
+      return { rowSets: [], structured: [] };
     }),
     extractTextAndLayoutFromPdf: jest.fn(async (filePath: string) => {
       if (filePath.includes('bereke')) {

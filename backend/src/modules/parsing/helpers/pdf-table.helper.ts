@@ -44,7 +44,7 @@ export function mapPdfTableRowsToTransactions(
 ): ParsedTransaction[] {
   const normalized = (tableRows || [])
     .map(row => (row || []).map(cell => sanitizeCell(cell)))
-    .filter(row => row.some(cell => cell));
+    .filter(row => row.some(cell => cell) && !isColumnNumberingRow(row));
 
   if (!normalized.length) {
     return [];
@@ -92,34 +92,37 @@ export function mapPdfTableRowsToTransactions(
   return transactions;
 }
 
-export function mergeTransactions(
-  primary: ParsedTransaction[],
-  secondary: ParsedTransaction[],
+/**
+ * Picks one extraction out of several attempts at the same statement. The
+ * attempts are never unioned: a weaker extractor misreads rows rather than
+ * missing them, so a union adds its misreads next to the correct rows. The
+ * first attempt whose rows carry the opening balance to the closing balance
+ * wins; without balances, or when none reconciles, the first non-empty attempt
+ * in the caller's order of trust wins.
+ */
+export function pickReconciledTransactions(
+  attempts: ParsedTransaction[][],
+  balanceStart: number | null | undefined,
+  balanceEnd: number | null | undefined,
 ): ParsedTransaction[] {
-  const result: ParsedTransaction[] = [];
-  const seen = new Set<string>();
-
-  const pushUnique = (tx: ParsedTransaction) => {
-    const key = buildSignature(tx);
-    if (seen.has(key)) {
-      return;
+  const nonEmpty = attempts.filter(attempt => attempt.length > 0);
+  if (balanceStart != null && balanceEnd != null) {
+    const reconciled = nonEmpty.find(attempt => {
+      const net = attempt.reduce((sum, tx) => sum + (tx.credit ?? 0) - (tx.debit ?? 0), 0);
+      // Same cent tolerance as the balance check in statement processing.
+      return Math.abs(balanceStart + net - balanceEnd) <= 0.01;
+    });
+    if (reconciled) {
+      return reconciled;
     }
-    seen.add(key);
-    result.push(tx);
-  };
-
-  primary.forEach(pushUnique);
-  secondary.forEach(pushUnique);
-
-  return result;
+  }
+  return nonEmpty[0] ?? [];
 }
 
-function buildSignature(tx: ParsedTransaction): string {
-  const datePart = tx.transactionDate ? tx.transactionDate.toISOString().split('T')[0] : 'no-date';
-  const amount = tx.debit ?? tx.credit ?? 0;
-  const doc = tx.documentNumber || '';
-  const name = (tx.counterpartyName || '').toLowerCase();
-  return `${datePart}|${doc}|${name}|${amount}`;
+/** The "1 2 3 … 9" row many statements print under the header to number the columns. */
+function isColumnNumberingRow(row: string[]): boolean {
+  const filled = row.filter(Boolean);
+  return filled.length >= 3 && filled.every((cell, index) => cell === String(index + 1));
 }
 
 function sanitizeCell(cell: unknown): string {
@@ -395,8 +398,10 @@ function buildColumnStats(dataRows: string[][]): Array<{
         textScore += cell.length;
       }
 
-      // BIN/Account/BIC/Currency detection
-      if (/\b\d{11,12}\b/.test(cell.replace(/\s+/g, ''))) {
+      // BIN/Account/BIC/Currency detection. A BIN cell starts with the BIN
+      // ("БИН: 530526401311 KZ38…"); a purpose that merely quotes one
+      // mid-sentence must not turn the purpose column into the BIN column.
+      if (/^(?:(?:БИН|ИИН)(?:\/(?:БИН|ИИН))?:?\s*)?\d{11,12}(?!\d)/i.test(cell.trim())) {
         binMatches += 1;
       }
       if (/KZ\d{10,}|[A-Z0-9]{20,}/i.test(cell)) {
@@ -476,8 +481,11 @@ function buildTransactionFromRow(
   }
 
   const documentNumber = valueAt(row, columnMap.document) || extractDocument(row);
-  const bin = valueAt(row, columnMap.bin) || extractBin(row);
-  const account = valueAt(row, columnMap.account) || extractAccount(row);
+  // The mapped cell can hold more than the value ("БИН: 5305… KZ38…").
+  const binCell = valueAt(row, columnMap.bin);
+  const accountCell = valueAt(row, columnMap.account);
+  const bin = extractBin([binCell ?? '']) || binCell || extractBin(row);
+  const account = extractAccount([accountCell ?? '']) || accountCell || extractAccount(row);
   const bank = valueAt(row, columnMap.bank) || extractBank(row);
   const knp = valueAt(row, columnMap.knp);
   const currency =
@@ -594,7 +602,9 @@ function extractBin(row: string[]): string | undefined {
 
 function extractAccount(row: string[]): string | undefined {
   const text = row.join(' ');
-  const match = text.match(/KZ\d{10,}|[A-Z0-9]{20,}/i);
+  // A KZ IBAN is 20 characters and may contain letters (KZ33914044601KZ0028P);
+  // without the full form first, `KZ\d{10,}` cuts it at the first letter.
+  const match = text.match(/KZ\d{2}[0-9A-Z]{16}|KZ\d{10,}|[A-Z0-9]{20,}/i);
   return match ? match[0].toUpperCase() : undefined;
 }
 

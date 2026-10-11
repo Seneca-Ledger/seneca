@@ -17,7 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run test:unit",
     "test:unit": "jest --config jest.unit.config.ts",
-    "test:golden": "GOLDEN_ENABLED=1 jest --config jest.unit.config.ts src/modules/parsing/__tests__/parsing.golden.spec.ts",
+    "test:golden": "GOLDEN_ENABLED=1 jest --config jest.unit.config.ts --testMatch '<rootDir>/src/modules/parsing/__tests__/parsing.golden.spec.ts'",
     "golden:record": "ts-node -r tsconfig-paths/register scripts/record-golden.ts",
     "test:parsing": "jest --config jest.unit.config.ts @tests/unit/test/parsing-regression.spec.ts",
     "test:e2e": "jest --config jest.e2e.config.ts --forceExit",

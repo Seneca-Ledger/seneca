@@ -2,7 +2,10 @@ import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { extractTablesFromPdf, extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
 import { AiTransactionExtractor } from '../helpers/ai-transaction-extractor.helper';
-import { mapPdfTableRowsToTransactions } from '../helpers/pdf-table.helper';
+import {
+  mapPdfTableRowsToTransactions,
+  pickReconciledTransactions,
+} from '../helpers/pdf-table.helper';
 import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
 import { BaseParser } from './base.parser';
 
@@ -21,7 +24,7 @@ export class GenericPdfParser extends BaseParser {
 
   async parse(filePath: string, cachedText?: string): Promise<ParsedStatement> {
     let text = '';
-    let tableRows: string[][] = [];
+    let rowSets: string[][][] = [];
 
     try {
       text = cachedText ?? (await extractTextFromPdf(filePath));
@@ -31,7 +34,7 @@ export class GenericPdfParser extends BaseParser {
 
     try {
       const extracted = await extractTablesFromPdf(filePath);
-      tableRows = extracted.rows || [];
+      rowSets = extracted.rowSets;
     } catch (error) {
       this.logger.warn('Failed to extract PDF tables:', (error as Error)?.message);
     }
@@ -39,12 +42,25 @@ export class GenericPdfParser extends BaseParser {
     const headerInfo = this.extractHeaderFromText(text);
     const localeInfo = this.detectLocale(text);
     const detectedCurrency = this.detectCurrency(text) || appDefaultCurrency();
-    const tableTransactions = mapPdfTableRowsToTransactions(tableRows, {
-      defaultCurrency: detectedCurrency,
-      stopWords: ['итого', 'оборот', 'остаток'],
-    });
+    const balanceStart =
+      this.extractBalance(text, 'Остаток на начало') ??
+      this.extractBalance(text, 'Остаток на начало периода') ??
+      this.extractBalance(text, 'Входящий остаток');
+    const balanceEnd =
+      this.extractBalance(text, 'Остаток на конец') ??
+      this.extractBalance(text, 'Остаток на конец периода') ??
+      this.extractBalance(text, 'Исходящий остаток');
 
-    let transactions = tableTransactions;
+    let transactions = pickReconciledTransactions(
+      rowSets.map(rows =>
+        mapPdfTableRowsToTransactions(rows, {
+          defaultCurrency: detectedCurrency,
+          stopWords: ['итого', 'оборот', 'остаток'],
+        }),
+      ),
+      balanceStart,
+      balanceEnd,
+    );
 
     if (!transactions.length && this.aiExtractor.isAvailable() && text.trim().length) {
       try {
@@ -66,15 +82,6 @@ export class GenericPdfParser extends BaseParser {
         : null;
     const dateFrom = dateRange.from || minDate || new Date();
     const dateTo = dateRange.to || maxDate || dateFrom;
-
-    const balanceStart =
-      this.extractBalance(text, 'Остаток на начало') ??
-      this.extractBalance(text, 'Остаток на начало периода') ??
-      this.extractBalance(text, 'Входящий остаток');
-    const balanceEnd =
-      this.extractBalance(text, 'Остаток на конец') ??
-      this.extractBalance(text, 'Остаток на конец периода') ??
-      this.extractBalance(text, 'Исходящий остаток');
 
     return {
       metadata: {

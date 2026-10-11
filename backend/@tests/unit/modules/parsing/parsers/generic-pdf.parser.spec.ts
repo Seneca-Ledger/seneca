@@ -48,7 +48,7 @@ describe('GenericPdfParser', () => {
       const text = ['Statement', 'Остаток на начало 0,00', 'Остаток на конец 500,00'].join('\n');
 
       (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 
@@ -69,7 +69,7 @@ describe('GenericPdfParser', () => {
       ].join('\n');
 
       (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 

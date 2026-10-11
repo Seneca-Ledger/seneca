@@ -1,17 +1,23 @@
 /**
  * Records golden fixtures for the parsing suite.
  *
- *   npm run golden:record -- docs/statements-examples/kaspi/kaspi-bank.pdf kaspi
+ *   npm run golden:record -- golden/kaspi/sample3.pdf
  *   npm run golden:record -- --all
  *
- * Copies the statement into `backend/golden/<bank>/` and writes the parser's
- * output next to it as `<file>.expected.json`.
+ * Writes the parser's output next to each statement as
+ * `<file>.expected.json`. Statements go into `backend/golden/<bank>/` already
+ * anonymized — keep the real file in the git-ignored `backend/golden-private/`
+ * and run it through `scripts/anonymize_statement_pdf.py` first. This script
+ * never copies a statement anywhere.
  *
  * A recording is NOT a verified fixture. It captures whatever the parser does
- * today, bugs included — the existing kaspi fixture, for instance, has a table
- * header row recorded as a transaction. Always diff the printed reconciliation
- * against the real statement before committing, and delete rows the parser
- * invented rather than adjusting the expected totals to match them.
+ * today, bugs included. Check every row against the statement before
+ * committing, and delete rows the parser invented rather than adjusting the
+ * expected totals to match them. A fixture whose balances do not reconcile is
+ * rejected by the golden test.
+ *
+ * Dates are written as local wall-clock time without a zone ("2025-11-25T23:59:59"),
+ * the way the statement prints them, so the fixture reads the same in any TZ.
  *
  * Requires python3 with pdfplumber on PATH (same prerequisite as parsing).
  */
@@ -21,7 +27,6 @@ import { FileType } from '../src/entities/statement.entity';
 import { ParserFactoryService } from '../src/modules/parsing/services/parser-factory.service';
 
 const GOLDEN_ROOT = path.resolve(__dirname, '../golden');
-const EXAMPLES_ROOT = path.resolve(__dirname, '../../docs/statements-examples');
 
 function guessFileType(filePath: string): FileType {
   const ext = path.extname(filePath).toLowerCase();
@@ -37,30 +42,51 @@ function guessFileType(filePath: string): FileType {
   return FileType.PDF;
 }
 
-async function record(sourcePath: string, bank: string): Promise<boolean> {
-  const factory = new ParserFactoryService();
-  const fileType = guessFileType(sourcePath);
+function toLocalIso(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+}
 
-  const detected = await factory.detectBankAndFormat(sourcePath, fileType);
-  const parser = await factory.getParser(detected.bankName, fileType, sourcePath);
+function withLocalDates(value: unknown): unknown {
+  if (value instanceof Date) {
+    return toLocalIso(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(withLocalDates);
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, withLocalDates(entry)]),
+    );
+  }
+  return value;
+}
+
+async function record(statementPath: string): Promise<boolean> {
+  const factory = new ParserFactoryService();
+  const fileType = guessFileType(statementPath);
+
+  const detected = await factory.detectBankAndFormat(statementPath, fileType);
+  const parser = await factory.getParser(detected.bankName, fileType, statementPath);
   if (!parser) {
-    console.error(`✗ ${sourcePath}: no parser (detected ${detected.bankName})`);
+    console.error(`✗ ${statementPath}: no parser (detected ${detected.bankName})`);
     return false;
   }
 
-  const parsed = await parser.parse(sourcePath);
-
-  const targetDir = path.join(GOLDEN_ROOT, bank);
-  fs.mkdirSync(targetDir, { recursive: true });
-  const targetFile = path.join(targetDir, path.basename(sourcePath));
-  fs.copyFileSync(sourcePath, targetFile);
-  fs.writeFileSync(`${targetFile}.expected.json`, `${JSON.stringify(parsed, null, 2)}\n`);
+  const parsed = await parser.parse(statementPath);
+  fs.writeFileSync(
+    `${statementPath}.expected.json`,
+    `${JSON.stringify(withLocalDates(parsed), null, 2)}\n`,
+  );
 
   const debits = parsed.transactions.reduce((acc, t) => acc + (Number(t.debit) || 0), 0);
   const credits = parsed.transactions.reduce((acc, t) => acc + (Number(t.credit) || 0), 0);
   const { balanceStart, balanceEnd } = parsed.metadata;
 
-  console.log(`✓ ${path.relative(GOLDEN_ROOT, targetFile)}`);
+  console.log(`✓ ${path.relative(GOLDEN_ROOT, statementPath)}`);
   console.log(`    parser:       ${parser.constructor.name}`);
   console.log(`    transactions: ${parsed.transactions.length}`);
   console.log(`    debit/credit: ${debits.toFixed(2)} / ${credits.toFixed(2)}`);
@@ -77,44 +103,41 @@ async function record(sourcePath: string, bank: string): Promise<boolean> {
   return true;
 }
 
-function collectExamples(): Array<{ file: string; bank: string }> {
-  if (!fs.existsSync(EXAMPLES_ROOT)) {
-    return [];
-  }
-  return fs
-    .readdirSync(EXAMPLES_ROOT, { withFileTypes: true })
-    .filter(entry => entry.isDirectory())
-    .flatMap(dir =>
-      fs
-        .readdirSync(path.join(EXAMPLES_ROOT, dir.name))
-        .map(name => ({ file: path.join(EXAMPLES_ROOT, dir.name, name), bank: dir.name })),
-    );
+function collectGoldenStatements(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      return collectGoldenStatements(full);
+    }
+    return entry.name.endsWith('.expected.json') ? [] : [full];
+  });
 }
 
 async function main() {
   const args = process.argv.slice(2);
   const targets =
     args[0] === '--all'
-      ? collectExamples()
-      : args.length === 2
-        ? [{ file: path.resolve(args[0]), bank: args[1] }]
+      ? collectGoldenStatements(GOLDEN_ROOT)
+      : args.length === 1
+        ? [path.resolve(args[0])]
         : null;
 
   if (!targets) {
-    console.error('usage: record-golden <statement-file> <bank> | record-golden --all');
+    console.error('usage: record-golden <golden statement file> | record-golden --all');
     process.exit(2);
     return;
   }
 
-  if (targets.length === 0) {
-    console.error(`No statements found under ${EXAMPLES_ROOT}`);
-    process.exit(1);
+  const outside = targets.find(target => !target.startsWith(`${GOLDEN_ROOT}${path.sep}`));
+  if (outside) {
+    console.error(`${outside} is not under ${GOLDEN_ROOT}; anonymize it into golden/<bank>/ first.`);
+    process.exit(2);
     return;
   }
 
   let clean = 0;
   for (const target of targets) {
-    if (await record(target.file, target.bank)) {
+    if (await record(target)) {
       clean++;
     }
   }

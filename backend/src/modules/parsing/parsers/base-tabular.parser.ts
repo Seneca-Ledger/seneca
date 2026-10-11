@@ -11,6 +11,10 @@ export abstract class BaseTabularParser extends BaseParser {
    * when free-text cells accidentally parse as dates.
    */
   protected normalizeCellDate(value: unknown): Date | null {
+    if (value instanceof Date) {
+      // Already resolved by the caller (e.g. CSV with a per-file day/month order).
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
     if (typeof value === 'number' && value >= 15000 && value <= 80000) {
       // Excel serial date: days since 1899-12-30 (range ≈ 1941..2119)
       const date = new Date(Date.UTC(1899, 11, 30) + value * 86400000);
