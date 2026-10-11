@@ -13,6 +13,7 @@ import {
   In,
   IsNull,
   Not,
+  type QueryDeepPartialEntity,
   QueryFailedError,
   type Repository,
   type SelectQueryBuilder,
@@ -686,13 +687,17 @@ export class CustomTablesService {
 
     for (const column of columns) {
       const source = this.getColumnSourceConfig(column.config);
-      if (source?.kind === 'data_entry_field' && source.field && !fieldKeyByName[source.field]) {
+      if (
+        source?.kind === 'data_entry_field' &&
+        source.field &&
+        !fieldKeyByName[source.field as DataEntryFieldKey]
+      ) {
         fieldKeyByName[source.field as DataEntryFieldKey] = column.key;
       }
       if (
         source?.kind === 'data_entry_custom_tab' &&
         source.field &&
-        !fieldKeyByName[source.field]
+        !fieldKeyByName[source.field as DataEntryFieldKey]
       ) {
         fieldKeyByName[source.field as DataEntryFieldKey] = column.key;
       }
@@ -1850,7 +1855,13 @@ export class CustomTablesService {
         await manager.update(
           CustomTable,
           { id: table.id },
-          { sourceBinding: { ...binding, syncedAt } },
+          {
+            // jsonb: TypeORM's deep-partial type cannot express `unknown` values.
+            sourceBinding: {
+              ...binding,
+              syncedAt,
+            } as QueryDeepPartialEntity<CustomTable>['sourceBinding'],
+          },
         );
       });
     } catch (error) {
@@ -3543,7 +3554,7 @@ export class CustomTablesService {
       columns.forEach((col, index) => {
         const aggregate = viewColumns[col.key]?.aggregate;
         const fn = aggregate ? FN[aggregate] : undefined;
-        if (!fn) {
+        if (!aggregate || !fn) {
           return;
         }
         const letter = xlsx.utils.encode_col(index);
@@ -4071,7 +4082,13 @@ export class CustomTablesService {
       }
       await this.customTableRowRepository.update(
         { id: row.id },
-        { data: { ...((row.data ?? {}) as Record<string, unknown>), [column.key]: value } },
+        {
+          // jsonb: TypeORM's deep-partial type cannot express `unknown` values.
+          data: {
+            ...((row.data ?? {}) as Record<string, unknown>),
+            [column.key]: value,
+          } as QueryDeepPartialEntity<CustomTableRow>['data'],
+        },
       );
     }
 

@@ -107,17 +107,19 @@ export class SearchService {
       .take(PER_KIND_LIMIT)
       .getMany();
 
+    // The inner join drops rows without a statement; this only tells the compiler.
+    const hits = rows.flatMap(row => (row.statement ? [{ row, statement: row.statement }] : []));
     const receipts = await this.scanReceipts(
       workspaceId,
-      rows.map(row => row.statement),
+      hits.map(hit => hit.statement),
     );
-    return rows.map(row => ({
+    return hits.map(({ row, statement }) => ({
       kind: 'transaction' as const,
       id: row.id,
       title: row.counterpartyName,
       subtitle: row.paymentPurpose || null,
       // A row lives in its document; there is no separate transactions list.
-      href: documentHref(row.statement, receipts),
+      href: documentHref(statement, receipts),
     }));
   }
 

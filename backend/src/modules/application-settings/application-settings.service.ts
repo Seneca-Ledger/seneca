@@ -136,7 +136,7 @@ export class ApplicationSettingsService {
     };
     const secrets = this.mergeSecrets(existing, ['apiKey'], input);
     const runtime = this.aiRuntimeFromParts(config, secrets, 'workspace');
-    await assertPublicEgressUrl(runtime.baseUrl);
+    await assertPublicEgressUrl(runtime.baseUrl ?? '');
     await this.assertAiConnection(runtime);
     await this.saveSettings(
       user,
@@ -189,7 +189,7 @@ export class ApplicationSettingsService {
     };
     const secrets = this.mergeSecrets(existing, ['apiKey'], input);
     const runtime = this.aiRuntimeFromParts(config, secrets, 'personal');
-    await assertPublicEgressUrl(runtime.baseUrl);
+    await assertPublicEgressUrl(runtime.baseUrl ?? '');
     await this.assertAiConnection(runtime);
 
     const entity =
@@ -283,7 +283,7 @@ export class ApplicationSettingsService {
     };
     const secrets = this.mergeSecrets(existing, ['pass'], input);
     const runtime = this.smtpRuntimeFromParts(config, secrets, 'workspace');
-    await assertPublicEgressHost(runtime.host);
+    await assertPublicEgressHost(runtime.host ?? '');
     await this.assertSmtpConnection(runtime);
     await this.saveSettings(
       user,
@@ -426,7 +426,7 @@ export class ApplicationSettingsService {
 
   async installLocalCategorizationModel(
     user: User,
-    file: UploadedModelArchive,
+    file: UploadedModelArchive | undefined,
     requestWorkspaceId?: string,
   ) {
     if (!file?.buffer?.length) {

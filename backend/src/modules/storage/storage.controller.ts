@@ -136,7 +136,7 @@ export class StorageController {
     @CurrentUser() user: User,
     @Body() dto: MoveFileDto,
   ) {
-    return await this.storageService.moveFileToFolder(statementId, user.id, dto.folderId);
+    return await this.storageService.moveFileToFolder(statementId, user.id, dto.folderId ?? null);
   }
 
   /**
@@ -267,7 +267,7 @@ export class StorageController {
   @UseGuards(WorkspaceContextGuard)
   async deleteFolder(
     @Param('id') folderId: string,
-    @Query('deleteFiles') deleteFiles: string | undefined,
+    @Query('deleteFiles') deleteFiles: string,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

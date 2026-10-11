@@ -273,7 +273,7 @@ export class EntityImportService {
       if (!uncategorized.length) {
         return;
       }
-      const classified = [];
+      const classified: Partial<Transaction>[] = [];
       for (const tx of uncategorized) {
         classified.push(await this.classificationService.classifyTransaction(tx, userId));
       }
@@ -381,14 +381,17 @@ export class EntityImportService {
     return { undone: true, removed, restored: batch.updatedRefs.length };
   }
 
-  private entityTypeOf(target: ImportTargetKind): EntityType {
-    return {
+  private entityTypeOf(target: ImportTargetKind): EntityType | null {
+    const types: Record<ImportTargetKind, EntityType | null> = {
       transactions: EntityType.STATEMENT,
       payables: EntityType.PAYABLE,
       subscriptions: EntityType.SUBSCRIPTION,
       invoices: EntityType.INVOICE,
       budgets: EntityType.BUDGET,
-    }[target];
+      // No audit entity type for metal lots yet.
+      metals: null,
+    };
+    return types[target];
   }
 
   private async audit(
@@ -399,12 +402,16 @@ export class EntityImportService {
     action: AuditAction,
     meta: Record<string, unknown>,
   ) {
+    const entityType = this.entityTypeOf(target);
+    if (!entityType) {
+      return;
+    }
     try {
       await this.auditService.createEvent({
         workspaceId,
         actorType: ActorType.USER,
         actorId: userId,
-        entityType: this.entityTypeOf(target),
+        entityType,
         entityId: batchId,
         action,
         diff: null,

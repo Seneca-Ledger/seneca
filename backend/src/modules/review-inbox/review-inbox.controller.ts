@@ -42,7 +42,7 @@ export class ReviewInboxController {
   async counts(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('reviewer') reviewer: string | undefined,
+    @Query('reviewer') reviewer: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.reviewInboxService.counts(workspaceId, parseReviewerFilter(reviewer, selfMemberId));

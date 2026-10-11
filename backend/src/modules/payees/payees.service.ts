@@ -283,7 +283,9 @@ export class PayeesService {
       ? await this.findPayee(workspaceId, dto.payeeId)
       : await this.findOrCreateByName(workspaceId, dto.name as string);
 
-    const updates: Partial<Transaction> = { payeeId: payee.id };
+    const updates: Partial<
+      Pick<Transaction, 'payeeId' | 'categoryId' | 'categorySource' | 'categoryReason'>
+    > = { payeeId: payee.id };
     if (!hasDecidedCategory(transaction)) {
       const match = await this.classificationService.categoryForPayee(workspaceId, payee.id);
       if (match) {

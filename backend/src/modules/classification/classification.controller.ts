@@ -110,7 +110,7 @@ export class ClassificationController {
         results.failed++;
         results.errors.push({
           transactionId,
-          error: error.message || 'Unknown error',
+          error: (error instanceof Error && error.message) || 'Unknown error',
         });
       }
     }

@@ -127,19 +127,19 @@ export class Transaction {
   @Column({ name: 'transaction_date', type: 'date' })
   transactionDate: Date;
 
-  @Column({ name: 'document_number', nullable: true })
+  @Column({ type: 'varchar', name: 'document_number', nullable: true })
   documentNumber: string | null;
 
   @Column({ name: 'counterparty_name' })
   counterpartyName: string;
 
-  @Column({ name: 'counterparty_bin', nullable: true })
+  @Column({ type: 'varchar', name: 'counterparty_bin', nullable: true })
   counterpartyBin: string | null;
 
-  @Column({ name: 'counterparty_account', nullable: true })
+  @Column({ type: 'varchar', name: 'counterparty_account', nullable: true })
   counterpartyAccount: string | null;
 
-  @Column({ name: 'counterparty_bank', nullable: true })
+  @Column({ type: 'varchar', name: 'counterparty_bank', nullable: true })
   counterpartyBank: string | null;
 
   /**
@@ -280,13 +280,13 @@ export class Transaction {
   @Column({ name: 'crypto_fee_fiat', type: 'decimal', precision: 15, scale: 2, nullable: true })
   cryptoFeeFiat: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   article: string | null;
 
-  @Column({ name: 'activity_type', nullable: true })
+  @Column({ type: 'varchar', name: 'activity_type', nullable: true })
   activityType: string | null;
 
-  @Column({ name: 'vendor_normalized', nullable: true })
+  @Column({ type: 'varchar', name: 'vendor_normalized', nullable: true })
   vendorNormalized: string | null;
 
   /**
@@ -322,7 +322,7 @@ export class Transaction {
     this.payeeKey = payeeKeyOf(this);
   }
 
-  @Column({ name: 'category_hint', nullable: true })
+  @Column({ type: 'varchar', name: 'category_hint', nullable: true })
   categoryHint: string | null;
 
   /** See `TransactionCategorySource`. Null on rows classified before it was recorded. */
@@ -333,7 +333,7 @@ export class Transaction {
   @Column({ name: 'category_reason', type: 'varchar', length: 255, nullable: true })
   categoryReason: string | null;
 
-  @Column({ name: 'transaction_nature', nullable: true })
+  @Column({ type: 'varchar', name: 'transaction_nature', nullable: true })
   transactionNature: string | null;
 
   @Column({ name: 'tax_detected', default: false })
@@ -454,7 +454,7 @@ export class Transaction {
   @Column({ name: 'duplicate_confidence', type: 'decimal', precision: 3, scale: 2, nullable: true })
   duplicateConfidence: number | null;
 
-  @Column({ name: 'duplicate_match_type', length: 50, nullable: true })
+  @Column({ type: 'varchar', name: 'duplicate_match_type', length: 50, nullable: true })
   duplicateMatchType: string | null;
 
   /**
@@ -507,7 +507,7 @@ export class Transaction {
   @Column({ name: 'investment_account_id', type: 'uuid', nullable: true })
   investmentAccountId: string | null;
 
-  @Column({ name: 'fingerprint', length: 64, nullable: true })
+  @Column({ type: 'varchar', name: 'fingerprint', length: 64, nullable: true })
   fingerprint: string | null;
 
   @ManyToOne(() => ImportSession, { nullable: true, onDelete: 'SET NULL' })

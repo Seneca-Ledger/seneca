@@ -168,7 +168,7 @@ export class NotificationsService {
 
     const notification = this.notificationRepository.create({
       recipientId: payload.recipientId,
-      workspaceId: payload.workspaceId ?? null,
+      workspaceId: payload.workspaceId ?? undefined,
       type: payload.type,
       category: payload.category,
       severity: payload.severity ?? NotificationSeverity.INFO,

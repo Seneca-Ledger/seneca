@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { type EntityManager, Repository } from 'typeorm';
+import { type EntityManager, type QueryDeepPartialEntity, Repository } from 'typeorm';
 import type { CaptureLocation } from '../../common/utils/capture-location.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
@@ -883,9 +883,9 @@ export function receiptAuditSnapshot(receipt: Receipt): Record<string, unknown> 
 function scanTransactionUpdate(
   fields: Partial<Transaction>,
   hasDate: boolean,
-): Partial<Transaction> {
+): QueryDeepPartialEntity<Transaction> {
   const { statementId: _statementId, workspaceId: _workspaceId, transactionDate, ...rest } = fields;
-  const update: Partial<Transaction> = Object.fromEntries(
+  const update: QueryDeepPartialEntity<Transaction> = Object.fromEntries(
     Object.entries(rest).filter(([, value]) => value !== null && value !== undefined),
   );
   if (hasDate) {

@@ -148,7 +148,6 @@ export class PayablesService {
       where: {
         id,
         workspaceId,
-        deletedAt: null,
       },
     });
 

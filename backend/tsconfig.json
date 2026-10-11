@@ -20,11 +20,13 @@
     "lib": ["ES2022"],
     "sourceMap": true,
     "outDir": "./dist",
-    // TS 6 defaults: rootDir follows the tsconfig folder (dist/src/main.js),
-    // `types` is empty and `strict` is on. Pinned to keep the previous build.
+    // TS 6 defaults: rootDir follows the tsconfig folder (dist/src/main.js) and
+    // `types` is empty. Pinned to keep the previous build.
     "rootDir": "./src",
     "types": ["*"],
-    "strict": false,
+    "strict": true,
+    // Entities and DTOs are filled by TypeORM and class-transformer, not constructors.
+    "strictPropertyInitialization": false,
     "baseUrl": "./",
     "ignoreDeprecations": "6.0",
     "incremental": true,
@@ -32,9 +34,6 @@
     // dist/ that `nest build` wipes, and the next build would skip emitting.
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
-    "strictNullChecks": false,
-    "noImplicitAny": false,
-    "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "useDefineForClassFields": false,

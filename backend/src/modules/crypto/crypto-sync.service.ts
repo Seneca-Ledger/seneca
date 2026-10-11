@@ -78,6 +78,9 @@ const BITCOIN_GAP_LIMIT = 20;
 const BITCOIN_MAX_ADDRESSES = 200;
 const ONE_DAY_SECONDS = 86_400;
 
+/** An on-chain wallet: the only kind with an address to read. */
+type AddressedWallet = CryptoWallet & { address: string };
+
 export interface WalletSyncResult {
   imported: number;
   skipped: number;
@@ -104,7 +107,7 @@ export class CryptoSyncService {
   ) {}
 
   /** One reader per chain family; each returns the chain's balances and transfers. */
-  private readonly readers: Record<ChainFamily, (wallet: CryptoWallet) => Promise<ChainRead>> = {
+  private readonly readers: Record<ChainFamily, (wallet: AddressedWallet) => Promise<ChainRead>> = {
     evm: wallet => this.readEvm(wallet),
     tron: wallet => this.readTron(wallet),
     bitcoin: wallet => this.readBitcoin(wallet),
@@ -197,6 +200,9 @@ export class CryptoSyncService {
     if (!family) {
       throw new Error(`Chain ${wallet.chainId} is not supported`);
     }
+    if (!hasAddress(wallet)) {
+      throw new Error('A wallet without an address has no chain to read');
+    }
     return this.readers[family](wallet);
   }
 
@@ -206,7 +212,7 @@ export class CryptoSyncService {
    * plus the gap we scan past the last one — which is the price of a balance that
    * is actually right.
    */
-  private async readBitcoin(wallet: CryptoWallet): Promise<ChainRead> {
+  private async readBitcoin(wallet: AddressedWallet): Promise<ChainRead> {
     const addresses = isExtendedKey(wallet.address)
       ? await this.discoverBitcoinAddresses(wallet.address)
       : [wallet.address];
@@ -264,7 +270,7 @@ export class CryptoSyncService {
     return found.length > 0 ? found : deriveAddresses(extendedKey, { chain: 0, from: 0, count: 1 });
   }
 
-  private async readSolana(wallet: CryptoWallet): Promise<ChainRead> {
+  private async readSolana(wallet: AddressedWallet): Promise<ChainRead> {
     // Sequential: the public RPC's budget is per second, and the history alone is
     // one request per transaction.
     const lamports = await this.solana.getLamports(wallet.address);
@@ -282,7 +288,7 @@ export class CryptoSyncService {
     };
   }
 
-  private async readTron(wallet: CryptoWallet): Promise<ChainRead> {
+  private async readTron(wallet: AddressedWallet): Promise<ChainRead> {
     const [account, transactions, tokenTransfers, ownAddresses] = await Promise.all([
       this.tronGrid.getAccount(wallet.address),
       this.tronGrid.getTransactions(wallet.address),
@@ -302,7 +308,7 @@ export class CryptoSyncService {
     };
   }
 
-  private async readEvm(wallet: CryptoWallet): Promise<ChainRead> {
+  private async readEvm(wallet: AddressedWallet): Promise<ChainRead> {
     const nativeAsset = NATIVE_ASSET_BY_CHAIN[wallet.chainId] ?? 'ETH';
     // Which contracts count as real money on this chain. A chain we have no table
     // for prices no tokens at all, which is safer than trusting another chain's.
@@ -357,7 +363,7 @@ export class CryptoSyncService {
   }
 
   /** The address's current native-coin balance, in wei. */
-  private async fetchNativeBalance(wallet: CryptoWallet): Promise<string> {
+  private async fetchNativeBalance(wallet: AddressedWallet): Promise<string> {
     const data = await this.explorerGet(wallet.chainId, {
       module: 'account',
       action: 'balance',
@@ -372,7 +378,7 @@ export class CryptoSyncService {
   }
 
   /** The address's current token balances. An address holding none returns no rows. */
-  private async fetchTokenBalances(wallet: CryptoWallet): Promise<EtherscanTokenBalance[]> {
+  private async fetchTokenBalances(wallet: AddressedWallet): Promise<EtherscanTokenBalance[]> {
     const data = await this.explorerGet(wallet.chainId, {
       module: 'account',
       action: 'tokenlist',
@@ -534,7 +540,7 @@ export class CryptoSyncService {
       where: { workspaceId, chainId },
       select: ['address'],
     });
-    return wallets.map(wallet => wallet.address);
+    return wallets.flatMap(wallet => (wallet.address ? [wallet.address] : []));
   }
 
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
@@ -546,7 +552,7 @@ export class CryptoSyncService {
   }
 
   private async fetchEtherscan<T>(
-    wallet: CryptoWallet,
+    wallet: AddressedWallet,
     action: 'txlist' | 'tokentx',
   ): Promise<T[]> {
     const params = new URLSearchParams({
@@ -641,6 +647,10 @@ function describeTransfer(transfer: ChainTransfer): string {
   const verb = transfer.direction === 'in' ? 'Received' : 'Sent';
   const fee = transfer.fee ? ` (fee ${transfer.fee.amount} ${transfer.fee.asset})` : '';
   return `${verb} ${transfer.amount} ${transfer.asset}${fee}`;
+}
+
+function hasAddress(wallet: CryptoWallet): wallet is AddressedWallet {
+  return typeof wallet.address === 'string' && wallet.address.length > 0;
 }
 
 function shortenAddress(address: string): string {

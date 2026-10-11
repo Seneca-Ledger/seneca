@@ -594,7 +594,7 @@ export class TransactionsService {
     if (foreignTotal !== null) {
       foreignAmounts[lastIndex] = this.round2(
         foreignTotal -
-          foreignAmounts.slice(0, lastIndex).reduce((sum, value) => sum + (value ?? 0), 0),
+          foreignAmounts.slice(0, lastIndex).reduce<number>((sum, value) => sum + (value ?? 0), 0),
       );
     }
 

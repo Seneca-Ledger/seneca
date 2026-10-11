@@ -8,6 +8,7 @@ import type { Repository } from 'typeorm';
 // DataSource is imported as a value, not a type: Nest resolves this constructor
 // parameter from the emitted design:paramtypes metadata, which `import type` erases.
 import { DataSource } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { toMinor } from '../../../common/utils/money.util';
 import { extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
@@ -264,7 +265,7 @@ export class StatementProcessingService {
   }
 
   private validateStatement(
-    metadata: ParsedStatement['metadata'],
+    metadata: { balanceStart?: number | null; balanceEnd?: number | null },
     transactions: ParsedTransaction[],
     dropInfo?: { rawCount: number; droppedCount: number },
   ): {
@@ -704,7 +705,9 @@ export class StatementProcessingService {
       // StaleStatementReaper would reset+re-enqueue it while this run is
       // still writing to it.
       statement.parsingDetails = parsingDetails;
-      await this.statementRepository.update(statement.id, { parsingDetails });
+      await this.statementRepository.update(statement.id, {
+        parsingDetails,
+      } as QueryDeepPartialEntity<Statement>);
 
       // Extract enhanced metadata from raw text
       addLog('info', 'Extracting statement headers and metadata...');
@@ -888,7 +891,9 @@ export class StatementProcessingService {
       // Heartbeat: createTransactions() above does real DB inserts and can
       // run long on a large statement; see the earlier heartbeat comment.
       statement.parsingDetails = parsingDetails;
-      await this.statementRepository.update(statement.id, { parsingDetails });
+      await this.statementRepository.update(statement.id, {
+        parsingDetails,
+      } as QueryDeepPartialEntity<Statement>);
 
       const validationResult = this.validateStatement(
         enrichedMetadata,
@@ -1368,8 +1373,8 @@ export class StatementProcessingService {
     accountNumber: string;
     dateFrom: Date;
     dateTo: Date;
-    balanceStart: number | null | undefined;
-    balanceEnd: number | null | undefined;
+    balanceStart: number | null;
+    balanceEnd: number | null;
     currency: string;
   } {
     const transactionDates = transactions.map(t => t.transactionDate).filter((d): d is Date => !!d);

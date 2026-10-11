@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import type { Repository } from 'typeorm';
+import { IsNull, type Repository } from 'typeorm';
 import { Permission } from '../../common/enums/permissions.enum';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
@@ -41,7 +41,7 @@ export class UsersService {
 
   private getUserFindAllOptions(workspaceId: string, limit = 20) {
     return {
-      where: { deletedAt: null, workspaceMemberships: { workspaceId } } as const,
+      where: { deletedAt: IsNull(), workspaceMemberships: { workspaceId } },
       take: limit,
       order: { createdAt: 'DESC' as const },
     };
@@ -405,7 +405,9 @@ export class UsersService {
 
         if (dto.workspaceCurrency !== undefined) {
           const workspaceCurrency = dto.workspaceCurrency.trim().toUpperCase();
-          workspace.currency = workspaceCurrency.length > 0 ? workspaceCurrency : null;
+          if (workspaceCurrency.length > 0) {
+            workspace.currency = workspaceCurrency;
+          }
         }
 
         if (dto.workspaceBackgroundImage !== undefined) {

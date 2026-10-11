@@ -182,7 +182,7 @@ export class ReportsController {
         : date ||
           (await this.reportsService.getLatestTransactionDate(workspaceId)) ||
           new Date().toISOString().split('T')[0];
-    return this.reportsService.generateDailyReport(workspaceId, reportDate);
+    return this.reportsService.generateDailyReport(workspaceId, reportDate ?? '');
   }
 
   @Get('monthly')

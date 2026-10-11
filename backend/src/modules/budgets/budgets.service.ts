@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository } from 'typeorm';
+import { In, IsNull, type Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
@@ -83,7 +83,7 @@ export class BudgetsService {
         workspaceId,
         categoryId: dto.categoryId,
         periodType: dto.periodType,
-        goalId,
+        goalId: goalId ?? IsNull(),
       },
     });
 

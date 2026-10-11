@@ -89,12 +89,10 @@ export class StorageService {
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
     private readonly fileStorageService: FileStorageService,
     private readonly statementsService: StatementsService,
-    @Optional()
     @InjectRepository(Transaction)
-    private readonly transactionRepository?: Repository<Transaction>,
-    @Optional()
+    private readonly transactionRepository: Repository<Transaction>,
     @InjectRepository(Category)
-    private readonly categoryRepository?: Repository<Category>,
+    private readonly categoryRepository: Repository<Category>,
     @Optional()
     private readonly metricsService?: MetricsService,
   ) {}
@@ -127,7 +125,7 @@ export class StorageService {
         .getMany();
 
       // Get all statements shared with user (if permissions table exists)
-      let sharedPermissions = [];
+      let sharedPermissions: FilePermission[] = [];
       try {
         sharedPermissions = await this.filePermissionRepository.find({
           where: {
@@ -1167,7 +1165,7 @@ export class StorageService {
     await this.sharedLinkRepository.save(link);
 
     // Get transactions if permission allows
-    let transactions = [];
+    let transactions: Transaction[] = [];
     if (link.permission !== SharePermissionLevel.VIEW) {
       transactions = await this.transactionRepository.find({
         where: { statementId: link.statement.id },

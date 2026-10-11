@@ -48,7 +48,7 @@ export class TelegramReport {
   @Column({ name: 'report_date', type: 'date' })
   reportDate: Date;
 
-  @Column({ name: 'sent_at', nullable: true })
+  @Column({ type: 'timestamp', name: 'sent_at', nullable: true })
   sentAt: Date | null;
 
   @Column({
@@ -58,7 +58,7 @@ export class TelegramReport {
   })
   status: ReportStatus;
 
-  @Column({ name: 'message_id', nullable: true })
+  @Column({ type: 'varchar', name: 'message_id', nullable: true })
   messageId: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

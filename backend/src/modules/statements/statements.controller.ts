@@ -364,7 +364,7 @@ export class StatementsController {
     @Param('id') id: string,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('width') width: string | undefined,
+    @Query('width') width: string,
     @Res() res: Response,
   ) {
     try {

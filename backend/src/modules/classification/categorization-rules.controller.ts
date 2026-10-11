@@ -328,6 +328,8 @@ export class CategorizationRulesController {
         return transaction.counterpartyBin || null;
       case 'document_number':
         return transaction.documentNumber || null;
+      case 'owner':
+        return null;
     }
   }
 

@@ -62,7 +62,7 @@ export class SubscriptionsController {
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
   async businessReport(
     @WorkspaceId() workspaceId: string,
-    @Query('format') format: string | undefined,
+    @Query('format') format: string,
     @Res({ passthrough: true }) res: Response,
   ) {
     const report = await this.subscriptionsService.getBusinessReport(workspaceId);
