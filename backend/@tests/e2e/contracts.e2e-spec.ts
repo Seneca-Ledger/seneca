@@ -11,6 +11,7 @@ import { AppModule } from '../../src/app.module';
 import { BackupRun, BackupRunStatus, BackupRunTrigger } from '../../src/entities/backup-run.entity';
 import { Receipt, ReceiptSource, ReceiptStatus } from '../../src/entities/receipt.entity';
 import {
+  AccountLedger,
   AdminUserList,
   AgeingReport,
   AvailableCustomTables,
@@ -58,8 +59,13 @@ import {
   InvoiceDeliveryList,
   InvoiceListPage,
   InvoiceSettings,
+  JournalEntryDetail,
+  JournalEntryPage,
   JurisdictionRateList,
   LateFeeQuote,
+  LedgerAccountList,
+  LedgerIntegrity,
+  LedgerSettings,
   LocalCategorizationStatus,
   MetalReceiptList,
   MetalsSummary,
@@ -79,6 +85,7 @@ import {
   ReceiptRecord,
   ReceiptSplitSuggestion,
   ReceiptTransactionMatches,
+  ReconciliationResponse,
   ReviewInboxByStatement,
   ReviewInboxCounts,
   ReviewInboxPage,
@@ -105,6 +112,7 @@ import {
   TelegramReportPage,
   TransactionAttachmentList,
   TransactionList,
+  TrialBalance,
   TwoFactorStatus,
   UnreadCount,
   UserPermissions,
@@ -936,6 +944,51 @@ describe('API contracts (e2e)', () => {
       expect(profile.body.filingInfo).not.toBeNull();
       matches(IncomeTaxMappings, (await get(`/income-tax/mappings?taxYear=${taxYear}`)).body);
       matches(IncomeTaxDraft, (await get(`/income-tax/returns/${taxYear}`)).body);
+    });
+  });
+
+  describe('ledger and reconciliation', () => {
+    beforeAll(async () => {
+      matches(LedgerSettings, (await get('/ledger/settings')).body);
+      await request(app.getHttpServer())
+        .put('/ledger/settings')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send({ baseCurrency: 'USD' })
+        .expect(200);
+      // The worker books the history in the background.
+      for (let attempt = 0; attempt < 60; attempt++) {
+        if ((await get('/ledger/integrity')).body.upToDate) {
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }, 60_000);
+
+    it('GET settings, integrity, accounts, entries and one entry', async () => {
+      matches(LedgerSettings, (await get('/ledger/settings')).body);
+      matches(LedgerIntegrity, (await get('/ledger/integrity')).body);
+      const accounts = await get('/ledger/accounts');
+      matches(LedgerAccountList, accounts.body);
+      const entries = await get('/ledger/entries');
+      matches(JournalEntryPage, entries.body);
+      expect(entries.body.data.length).toBeGreaterThan(0);
+      matches(JournalEntryDetail, (await get(`/ledger/entries/${entries.body.data[0].id}`)).body);
+    });
+
+    it('GET an account ledger and the trial balance', async () => {
+      const entry = await get(
+        `/ledger/entries/${(await get('/ledger/entries')).body.data[0].id}`,
+      );
+      const accountId = entry.body.lines[0].accountId;
+      const ledger = await get(`/ledger/reports/accounts/${accountId}`);
+      matches(AccountLedger, ledger.body);
+      expect(ledger.body.lines.length).toBeGreaterThan(0);
+      matches(TrialBalance, (await get('/ledger/reports/trial-balance')).body);
+    });
+
+    it('GET /reconciliation', async () => {
+      matches(ReconciliationResponse, (await get('/reconciliation')).body);
     });
   });
 });

@@ -4,22 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type {
-  AccountCard,
-  AccountType,
-  JournalEntry,
-  JournalEntrySummary,
-  LedgerAccount,
-  LedgerIntegrity,
-  LedgerSettings,
-  Paginated,
-  RevaluationResult,
-  Side,
-  TrialBalance,
-} from '../ledger.types';
+import type { AccountType, JournalEntry, RevaluationResult, Side } from '../ledger.types';
 
 /** While the worker books the backlog, poll so the page fills in by itself. */
 const CATCH_UP_POLL_MS = 3000;
@@ -37,7 +24,8 @@ export function useLedgerSettings() {
   const workspaceId = useWorkspaceId();
   return useQuery({
     queryKey: queryKeys.ledgerSettings(workspaceId),
-    queryFn: ({ signal }) => apiQuery<LedgerSettings>({ url: '/ledger/settings', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/ledger/settings', signal, contract: 'LedgerSettings' }),
   });
 }
 
@@ -45,7 +33,8 @@ export function useLedgerIntegrity(enabled: boolean) {
   const workspaceId = useWorkspaceId();
   return useQuery({
     queryKey: queryKeys.ledgerIntegrity(workspaceId),
-    queryFn: ({ signal }) => apiQuery<LedgerIntegrity>({ url: '/ledger/integrity', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/ledger/integrity', signal, contract: 'LedgerIntegrity' }),
     enabled,
     refetchInterval: query =>
       query.state.data &&
@@ -59,7 +48,8 @@ export function useLedgerAccounts(enabled = true) {
   const workspaceId = useWorkspaceId();
   return useQuery({
     queryKey: queryKeys.ledgerAccounts(workspaceId),
-    queryFn: ({ signal }) => apiQuery<LedgerAccount[]>({ url: '/ledger/accounts', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/ledger/accounts', signal, contract: 'LedgerAccountList' }),
     enabled,
   });
 }
@@ -82,8 +72,11 @@ export function useJournalEntries(filters: EntryFilters) {
     queryKey: queryKeys.ledgerEntries({ workspaceId, params }),
     // Not apiQuery: its envelope unwrapping would strip the list down to `data` and lose `total`.
     queryFn: async ({ signal }) =>
-      (await apiClient.get<Paginated<JournalEntrySummary>>('/ledger/entries', { params, signal }))
-        .data,
+      checkContract(
+        'JournalEntryPage',
+        (await apiClient.get('/ledger/entries', { params, signal })).data,
+        '/ledger/entries',
+      ),
     // Keeps the page visible while paging, but never across a workspace switch.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
@@ -94,7 +87,8 @@ export function useJournalEntry(id: string | null) {
   const workspaceId = useWorkspaceId();
   return useQuery({
     queryKey: queryKeys.ledgerEntry({ workspaceId, id }),
-    queryFn: ({ signal }) => apiQuery<JournalEntry>({ url: `/ledger/entries/${id}`, signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: `/ledger/entries/${id}`, signal, contract: 'JournalEntryDetail' }),
     enabled: Boolean(id),
   });
 }
@@ -110,10 +104,11 @@ export function useTrialBalance(params: PeriodParams, enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.ledgerTrialBalance({ workspaceId, params: { ...params } }),
     queryFn: ({ signal }) =>
-      apiQuery<TrialBalance>({
+      apiQueryDecoded({
         url: '/ledger/reports/trial-balance',
         params: { ...params },
         signal,
+        contract: 'TrialBalance',
       }),
     enabled,
   });
@@ -124,12 +119,12 @@ export function useAccountCard(accountId: string | null, params: PeriodParams & 
   return useQuery({
     queryKey: queryKeys.ledgerAccountCard({ workspaceId, accountId, params: { ...params } }),
     queryFn: async ({ signal }) =>
-      (
-        await apiClient.get<AccountCard>(`/ledger/reports/accounts/${accountId}`, {
-          params: { ...params, limit: 50 },
-          signal,
-        })
-      ).data,
+      await apiQueryDecoded({
+        url: `/ledger/reports/accounts/${accountId}`,
+        params: { ...params, limit: 50 },
+        signal,
+        contract: 'AccountLedger',
+      }),
     enabled: Boolean(accountId),
   });
 }
