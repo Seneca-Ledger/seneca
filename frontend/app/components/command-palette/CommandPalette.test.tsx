@@ -155,6 +155,35 @@ describe('CommandPalette', () => {
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
   });
 
+  it('keeps the cursor where the arrow keys put it', async () => {
+    const input = await open();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const options = screen.getAllByRole('option');
+    expect(options[2].getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('keeps focus in the field when a row or heading is pressed', async () => {
+    await open();
+    const row = screen.getAllByRole('option')[1];
+    expect(fireEvent.mouseDown(row)).toBe(false);
+    expect(fireEvent.mouseDown(screen.getByText('Navigation'))).toBe(false);
+  });
+
+  it('does not scroll the list under a hovering pointer', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    await open();
+    const row = screen.getAllByRole('option')[3];
+    const matches = vi.spyOn(row, 'matches').mockImplementation(sel => sel === ':hover');
+    scrollIntoView.mockClear();
+    fireEvent.mouseMove(row);
+    await waitFor(() => expect(row.getAttribute('aria-selected')).toBe('true'));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    matches.mockRestore();
+  });
+
   it('hides a command the user has no permission for', async () => {
     permissionMocks.hasPermission.mockImplementation((perm: string) => perm !== 'statement.upload');
     await open();

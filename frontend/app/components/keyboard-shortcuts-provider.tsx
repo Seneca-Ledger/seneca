@@ -18,6 +18,7 @@ import {
 } from '@/app/lib/keyboard-shortcuts';
 import { openScanUpload } from '@/app/lib/statement-expense-drawer';
 import { KeyboardShortcutsModal } from './keyboard-shortcuts-modal';
+import { closeAllDrawers } from './ui/drawer-shell';
 
 export function KeyboardShortcutsProvider({
   children,
@@ -30,6 +31,11 @@ export function KeyboardShortcutsProvider({
 
   // Built once: the hook registers bindings on mount and never re-reads the map.
   const bindings = useMemo(() => {
+    // A jump lands on the page itself, not behind a drawer left open on top.
+    const navigate = (href: string): void => {
+      closeAllDrawers();
+      router.push(href);
+    };
     const map: Record<string, (event: KeyboardEvent) => void> = {
       '$mod+KeyK': event => {
         // Without this the browser's own Ctrl/⌘K (the omnibox) fires too.
@@ -42,7 +48,7 @@ export function KeyboardShortcutsProvider({
       },
       'Shift+KeyA': event => {
         event.preventDefault();
-        openScanUpload(href => router.push(href));
+        openScanUpload(navigate);
       },
       [NOTIFICATIONS_BINDING]: event => {
         event.preventDefault();
@@ -51,7 +57,7 @@ export function KeyboardShortcutsProvider({
       [SETTINGS_BINDING]: event => {
         // Also keeps the browser from acting on Ctrl/⌘ + comma.
         event.preventDefault();
-        router.push('/settings/profile');
+        navigate('/settings/profile');
       },
       'Shift+KeyF': event => {
         event.preventDefault();
@@ -77,7 +83,7 @@ export function KeyboardShortcutsProvider({
     for (const [path, binding] of Object.entries(NAV_BINDINGS)) {
       map[binding] = event => {
         event.preventDefault();
-        router.push(path);
+        navigate(path);
       };
     }
     return map;

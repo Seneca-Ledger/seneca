@@ -13,7 +13,7 @@ const MOVES: Record<string, (index: number, count: number) => number> = {
 
 /**
  * The flat row list is one index space, so the cursor is a plain number that
- * wraps at both ends. It resets whenever the rows change — a debounced search
+ * wraps at both ends. It resets whenever the set of rows changes — a debounced search
  * landing must not leave it pointing past the end.
  */
 export function usePaletteKeyboard(
@@ -27,12 +27,13 @@ export function usePaletteKeyboard(
 } {
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // A new rows array is exactly the signal to reset: the cursor must not survive
-  // a landing search and point past the end.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rows is the trigger
+  // Keyed on the row ids, not the array: a re-render that rebuilds the same rows
+  // must not throw the cursor back to the top under the arrow keys or the pointer.
+  const rowIds = rows.map(row => row.id).join('\n');
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rowIds is the trigger
   useEffect(() => {
     setActiveIndex(0);
-  }, [rows]);
+  }, [rowIds]);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {

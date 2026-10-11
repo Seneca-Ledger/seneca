@@ -25,9 +25,11 @@ export function PaletteRowView({
 }): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
 
-  // The cursor is driven by the keyboard, so the list has to follow it.
+  // The keyboard cursor has to stay in view. A row the pointer made active is
+  // already visible; scrolling it would slide another row under the pointer
+  // between mousedown and mouseup, and the click would land on neither.
   useEffect(() => {
-    if (active) {
+    if (active && !ref.current?.matches(':hover')) {
       // jsdom has no scrollIntoView, and neither do some embedded webviews.
       ref.current?.scrollIntoView?.({ block: 'nearest' });
     }

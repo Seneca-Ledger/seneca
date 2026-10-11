@@ -9,6 +9,7 @@ import {
   buildNavItems,
   buildUserMenuNavItems,
 } from '@/app/components/navigation/helpers/navigation-config';
+import { closeAllDrawers } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { isExperimentalModeEnabled, setExperimentalModeEnabled } from '@/app/lib/experimental-mode';
 import { closeCommandPalette, useCommandPaletteOpen } from './command-palette-store';
@@ -30,6 +31,12 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
   const { resolvedTheme, setTheme } = useTheme();
   const [input, setInput] = useState('');
 
+  // A jump lands on the page itself, not behind a drawer left open on top.
+  const navigate = (href: string): void => {
+    closeAllDrawers();
+    router.push(href);
+  };
+
   const commands = buildCommands({
     labels: {
       uploadStatement: t.uploadStatement.value,
@@ -44,7 +51,7 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
       reportBug: navLabelText(shell.reportBug),
     },
     navItems: [...buildNavItems(nav), ...buildUserMenuNavItems(nav)],
-    push: href => router.push(href),
+    push: navigate,
     pathname,
     toggleTheme: () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark'),
     toggleExperimental: () => setExperimentalModeEnabled(!isExperimentalModeEnabled()),
@@ -61,7 +68,7 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
     if (row.kind === 'command') {
       row.command.run();
     } else {
-      router.push(row.result.href);
+      navigate(row.result.href);
     }
   };
 
