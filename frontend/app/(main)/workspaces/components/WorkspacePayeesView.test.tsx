@@ -28,6 +28,10 @@ const REWE = {
   defaultCategory: { id: 'cat-food', name: 'Groceries', source: 'history' },
   countryCode: null,
   vatId: null,
+  vatIdStatus: null,
+  vatIdName: null,
+  vatIdCheckedAt: null,
+  supplyType: null,
   transactionCount: 12,
   lastSeen: '2026-10-01',
 };
@@ -39,6 +43,10 @@ const LIDL = {
   defaultCategory: null,
   countryCode: 'PL',
   vatId: 'PL1234567890',
+  vatIdStatus: null,
+  vatIdName: null,
+  vatIdCheckedAt: null,
+  supplyType: null,
   transactionCount: 1,
   lastSeen: '2026-09-20',
 };
