@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PDFDocument, PDFName } from 'pdf-lib';
-import pdfParse from 'pdf-parse';
+import { parsePdf } from '@/common/utils/pdf-text.util';
 import type { Client } from '@/entities/client.entity';
 import type { Invoice } from '@/entities/invoice.entity';
 import type { WorkspaceBusinessProfile } from '@/entities/workspace-business-profile.entity';
@@ -126,7 +126,7 @@ describe('embedXRechnung (ZUGFeRD, profile XRECHNUNG)', () => {
     expect(text).toContain('/OutputIntents');
 
     // The pages are the same invoice, discount included.
-    const pages = String((await pdfParse(pdf)).text).replace(/\s+/g, ' ');
+    const pages = String((await parsePdf(pdf)).text).replace(/\s+/g, ' ');
     expect(pages).toContain('INV-2026-0042');
     expect(pages).toContain('Rabatt 5%');
   });
