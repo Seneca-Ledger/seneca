@@ -7,7 +7,6 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { Category } from '@/app/components/transactions/types';
 import { Button } from '@/app/components/ui/button';
 import { ModalShell } from '@/app/components/ui/modal-shell';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
@@ -30,7 +29,6 @@ import {
   type CashState,
   PaymentLog,
   today,
-  type WalletOption,
 } from './MarkPaidFields';
 
 type Mode = 'match' | 'cash' | 'plain';

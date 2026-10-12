@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import apiClient, { statementsApi } from '@/app/lib/api';
+import { statementsApi } from '@/app/lib/api';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
 export type BankStat = {
