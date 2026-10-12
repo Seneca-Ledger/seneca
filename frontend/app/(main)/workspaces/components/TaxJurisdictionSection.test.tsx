@@ -2,6 +2,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TaxJurisdictionItem } from '@/app/lib/contracts';
 
 const get = vi.fn();
 const put = vi.fn();
@@ -32,22 +33,48 @@ const LABELS = {
   reportError: 'Report an error',
 };
 
+// The wire format (packages/contracts TaxJurisdictionItem, JurisdictionRateList).
+const jurisdiction = (
+  fields: Pick<TaxJurisdictionItem, 'id' | 'code' | 'name' | 'taxName' | 'currency' | 'scheme'>,
+): TaxJurisdictionItem => ({
+  isEu: false,
+  filingPeriod: 'quarterly',
+  registrationThreshold: null,
+  thresholdPeriod: null,
+  ...fields,
+});
+
 const JURISDICTIONS = [
-  { id: 'j-kz', code: 'KZ', name: 'Kazakhstan', taxName: 'НДС', currency: 'KZT', scheme: 'vat' },
-  { id: 'j-de', code: 'DE', name: 'Germany', taxName: 'USt', currency: 'EUR', scheme: 'vat' },
-  {
+  jurisdiction({
+    id: 'j-kz',
+    code: 'KZ',
+    name: 'Kazakhstan',
+    taxName: 'НДС',
+    currency: 'KZT',
+    scheme: 'vat',
+  }),
+  jurisdiction({
+    id: 'j-de',
+    code: 'DE',
+    name: 'Germany',
+    taxName: 'USt',
+    currency: 'EUR',
+    scheme: 'vat',
+  }),
+  jurisdiction({
     id: 'j-us',
     code: 'US',
     name: 'United States',
     taxName: 'Sales tax',
     currency: 'USD',
     scheme: 'sales_tax',
-  },
+  }),
 ];
 
 // The catalogue holds every version; only the current one should be shown.
 const KZ_RATES = [
   {
+    id: 'r-kz-12',
     code: 'KZ_STANDARD',
     name: 'НДС 12%',
     rate: '12.00',
@@ -57,6 +84,7 @@ const KZ_RATES = [
     validTo: '2025-12-31',
   },
   {
+    id: 'r-kz-16',
     code: 'KZ_STANDARD',
     name: 'НДС 16%',
     rate: '16.00',
@@ -66,6 +94,7 @@ const KZ_RATES = [
     validTo: null,
   },
   {
+    id: 'r-kz-0',
     code: 'KZ_ZERO',
     name: 'НДС 0%',
     rate: '0.00',

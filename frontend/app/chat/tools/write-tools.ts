@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import apiClient from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import type { ChatTool } from './types';
 
 /** Every write the assistant performs is audited as the assistant, not as the user. */
@@ -84,7 +85,7 @@ export const writeTools: ChatTool[] = [
         `/transactions/${p.transactionId}`,
         {
           categoryId: p.categoryId,
-        },
+        } satisfies ContractInput<'UpdateTransactionBody'>,
         { headers: AI_ACTOR_HEADERS },
       );
       return response.data;

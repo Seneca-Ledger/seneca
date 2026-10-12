@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
 
@@ -138,7 +139,7 @@ function useMemberActions({
             email,
             role,
             permissions: role === 'member' ? permissions : undefined,
-          })
+          } satisfies ContractInput<'InviteMemberBody'>)
           .then(() => onRefresh()),
       'Invitation sent',
       'Failed to send invitation',
@@ -155,7 +156,9 @@ function useMemberActions({
     setUpdatingRoleMemberId(member.id);
 
     await (async () => {
-      await apiClient.patch(`/workspaces/${wid}/members/${member.id}/role`, { role: nextRole });
+      await apiClient.patch(`/workspaces/${wid}/members/${member.id}/role`, {
+        role: nextRole,
+      } satisfies ContractInput<'UpdateMemberRoleBody'>);
       toast.success('Role updated');
       await onRefresh();
     })()
@@ -220,8 +223,8 @@ function useInvitationActions({
       await apiClient.post(`/workspaces/${wid}/invitations`, {
         email: invite.email,
         role: invite.role,
-        permissions: invite.role === 'member' ? invite.permissions : undefined,
-      });
+        permissions: invite.role === 'member' ? (invite.permissions ?? undefined) : undefined,
+      } satisfies ContractInput<'InviteMemberBody'>);
       toast.success('Invitation resent');
       await onRefresh();
     })()

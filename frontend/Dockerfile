@@ -1,5 +1,5 @@
 # --- Deps: node_modules keyed only by the lockfile ---
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 
 WORKDIR /app
 
@@ -11,9 +11,9 @@ COPY tailwind.config.* ./
 COPY postcss.config.* ./
 COPY intlayer.config.* ./
 
-# The marker lets scripts/dev-entrypoint.sh detect a lockfile change and refresh
-# the node_modules volume without rebuilding the image.
-RUN npm ci && md5sum package-lock.json > node_modules/.lockfile-hash
+# The marker lets scripts/dev-entrypoint.sh detect a lockfile or Node change and
+# refresh the node_modules volume without rebuilding the image.
+RUN npm ci && echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
 
 # --- Dev stage (used by docker-compose.dev.yml) ---
 # Source is bind-mounted at runtime; Turbopack compiles on demand, so no build here.
@@ -40,7 +40,7 @@ ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 RUN npm run build
 
 # Production stage (standalone output)
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 

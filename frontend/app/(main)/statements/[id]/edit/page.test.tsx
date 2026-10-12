@@ -206,17 +206,22 @@ describe('EditStatementPage locale', () => {
     apiGet.mockImplementation((url: string) => {
       if (url === '/statements/statement-1') {
         return Promise.resolve({
+          // The wire format (packages/contracts StatementDetail).
           data: {
             id: 'statement-1',
             fileName: 'statement.pdf',
+            fileType: 'pdf',
+            bankName: 'kaspi',
             status: 'completed',
+            stage: 'submit',
             totalTransactions: 1,
+            currency: 'KZT',
             categoryId: 'cat-1',
-            category: { id: 'cat-1', name: 'Services', isEnabled: true },
             statementDateFrom: '2026-03-01',
             statementDateTo: '2026-03-17',
-            balanceStart: 100,
-            balanceEnd: 200,
+            balanceStart: '100.00',
+            balanceEnd: '200.00',
+            createdAt: '2026-03-17T09:00:00.000Z',
             parsingDetails: {
               warnings: ['Balance mismatch: expected 1000.00 got 800.00 (diff 200.00)'],
               errors: [],
@@ -228,17 +233,40 @@ describe('EditStatementPage locale', () => {
       if (url === '/transactions?statement_id=statement-1&limit=1000') {
         return Promise.resolve({
           data: [
+            // The wire format (packages/contracts TransactionListItem): decimals
+            // as strings, `date` columns as YYYY-MM-DD, absent values as null.
             {
               id: 'tx-1',
-              transactionDate: '2026-03-17T00:00:00.000Z',
-              counterpartyName: 'Test counterparty',
-              paymentPurpose: 'Payment for services',
-              debit: 125,
-              credit: 0,
+              transactionDate: '2026-03-17',
               transactionType: 'expense',
               isVerified: false,
+              documentNumber: null,
+              counterpartyName: 'Test counterparty',
+              counterpartyBin: null,
+              counterpartyAccount: null,
+              counterpartyBank: null,
+              paymentPurpose: 'Payment for services',
+              debit: '125.00',
+              credit: null,
+              currency: 'KZT',
+              exchangeRate: null,
+              amountForeign: null,
               categoryId: 'cat-1',
-              category: { id: 'cat-1', name: 'Services', isEnabled: true },
+              branchId: null,
+              walletId: null,
+              article: null,
+              comments: null,
+              category: {
+                id: 'cat-1',
+                name: 'Services',
+                isEnabled: true,
+                isSystem: false,
+                source: 'user',
+              },
+              branch: null,
+              wallet: null,
+              createdAt: '2026-03-17T08:00:00.000Z',
+              updatedAt: '2026-03-17T08:00:00.000Z',
             },
           ],
         });

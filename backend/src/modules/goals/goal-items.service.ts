@@ -2,49 +2,25 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
+import type {
+  CreateGoalItemBody,
+  GoalItemStatus as GoalItemStatusName,
+  GoalItemsResponse,
+  UpdateGoalItemBody,
+} from '../../contracts';
 import { Goal } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { GoalItem, GoalItemStatus } from '../../entities/goal-item.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import type { CreateGoalItemDto } from './dto/create-goal-item.dto';
-import type { UpdateGoalItemDto } from './dto/update-goal-item.dto';
 import { buildRateMap, convertWith, normalizeCurrency, round2, toNumber } from './goal-money.util';
 
-export interface GoalItemView {
-  id: string;
-  name: string;
-  estimatedAmount: number;
-  actualAmount: number | null;
-  currency: string;
-  dueMonth: string | null;
-  status: GoalItemStatus;
-  note: string | null;
-  createdAt: Date;
-}
-
-export interface GoalItemsResponse {
-  /** The goal's currency. Every figure in `summary` is converted into it. */
-  currency: string;
-  items: GoalItemView[];
-  summary: {
-    /** What the lines were expected to cost. */
-    estimatedTotal: number;
-    /** The best current number per line: the actual once known, the estimate until then. */
-    committedTotal: number;
-    /** Of that, what has already been paid. */
-    paidTotal: number;
-    outstanding: number;
-    /** The goal's declared target, for comparison with the estimate. */
-    targetAmount: number;
-    /**
-     * Target minus estimate. Negative means the estimate has outgrown the goal —
-     * the number worth seeing before the move, not after.
-     */
-    unallocated: number;
-  };
-}
+/** The contract's status names onto the column enum; a value missing on either side fails to compile. */
+const ITEM_STATUS: Record<GoalItemStatusName, GoalItemStatus> = {
+  planned: GoalItemStatus.PLANNED,
+  paid: GoalItemStatus.PAID,
+};
 
 function itemSnapshot(item: GoalItem) {
   return {
@@ -95,7 +71,7 @@ export class GoalItemsService {
     goalId: string,
     workspaceId: string,
     userId: string,
-    dto: CreateGoalItemDto,
+    dto: CreateGoalItemBody,
   ): Promise<GoalItemsResponse> {
     const goal = await this.requireGoal(goalId, workspaceId);
 
@@ -109,7 +85,7 @@ export class GoalItemsService {
       // Defaults to the goal's currency, which is what most lines will be in.
       currency: normalizeCurrency(dto.currency || goal.currency),
       dueMonth: dto.dueMonth ?? null,
-      status: dto.status ?? GoalItemStatus.PLANNED,
+      status: dto.status ? ITEM_STATUS[dto.status] : GoalItemStatus.PLANNED,
       note: dto.note ?? null,
     });
     const saved = await this.itemRepository.save(item);
@@ -133,7 +109,7 @@ export class GoalItemsService {
     itemId: string,
     workspaceId: string,
     userId: string,
-    dto: UpdateGoalItemDto,
+    dto: UpdateGoalItemBody,
   ): Promise<GoalItemsResponse> {
     const item = await this.itemRepository.findOne({
       where: { id: itemId, goalId, workspaceId },
@@ -157,7 +133,7 @@ export class GoalItemsService {
       item.dueMonth = dto.dueMonth;
     }
     if (dto.status !== undefined) {
-      item.status = dto.status;
+      item.status = ITEM_STATUS[dto.status];
     }
     if (dto.note !== undefined) {
       item.note = dto.note;
@@ -280,7 +256,7 @@ export class GoalItemsService {
         dueMonth: item.dueMonth,
         status: item.status,
         note: item.note,
-        createdAt: item.createdAt,
+        createdAt: item.createdAt.toISOString(),
       })),
       summary: {
         estimatedTotal: round2(estimatedTotal),

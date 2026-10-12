@@ -1,0 +1,74 @@
+import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+/**
+ * A permission an API key may carry: every permission except managing keys,
+ * people, workspace settings and integrations. GRANTABLE_SCOPES in the
+ * backend, held equal by a spec.
+ */
+export const ApiKeyScope = Schema.Literals([
+  'statement.view',
+  'statement.upload',
+  'statement.delete',
+  'statement.edit',
+  'transaction.view',
+  'transaction.edit',
+  'transaction.delete',
+  'transaction.bulk_update',
+  'category.view',
+  'category.create',
+  'category.edit',
+  'category.delete',
+  'branch.view',
+  'branch.create',
+  'branch.edit',
+  'branch.delete',
+  'wallet.view',
+  'wallet.create',
+  'wallet.edit',
+  'wallet.delete',
+  'payable.view',
+  'payable.create',
+  'payable.edit',
+  'payable.delete',
+  'invoice.view',
+  'invoice.create',
+  'invoice.edit',
+  'invoice.delete',
+  'client.view',
+  'client.create',
+  'client.edit',
+  'client.delete',
+  'report.view',
+  'report.export',
+  'telegram.view',
+  'telegram.connect',
+  'telegram.send',
+  'audit_view',
+  'audit_log.view',
+  'budget.view',
+  'budget.create',
+  'budget.edit',
+  'budget.delete',
+  'goal.view',
+  'goal.create',
+  'goal.edit',
+  'goal.delete',
+  'subscription.view',
+  'subscription.create',
+  'subscription.edit',
+  'subscription.delete',
+  'ledger.view',
+  'ledger.post',
+  'ledger.manage_accounts',
+]);
+export type ApiKeyScope = Wire<typeof ApiKeyScope>;
+
+export const CreateApiKeyBody = Schema.Struct({
+  name: Schema.String.check(Schema.isMaxLength(255)),
+  expiresAt: optionalNullable(Schema.String),
+  /** The scopes the key is limited to, e.g. ['transaction.view', 'report.view']. Required for new keys. */
+  scopes: Schema.Array(ApiKeyScope).check(Schema.isUnique()),
+});
+export type CreateApiKeyBody = Wire<typeof CreateApiKeyBody>;

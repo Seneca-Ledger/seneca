@@ -12,7 +12,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient, { receiptsApi } from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import {
@@ -119,13 +119,15 @@ export function useReviewInbox(): UseReviewInboxResult {
 
   const pageQuery = useQuery({
     queryKey: queryKeys.reviewInbox({ workspaceId, params }),
-    queryFn: ({ signal }) => apiQuery<ReviewInboxPage>({ url: '/review-inbox', params, signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/review-inbox', params, signal, contract: 'ReviewInboxPage' }),
     enabled: Boolean(workspaceId),
   });
 
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Category[]>({ url: '/categories', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     staleTime: CATEGORIES_STALE_TIME,
     enabled: Boolean(workspaceId),
   });
@@ -183,13 +185,15 @@ export function useReviewInbox(): UseReviewInboxResult {
   );
 
   const approveMutation = useMutation({
-    mutationFn: ({ ids, categoryId }: { ids: string[]; categoryId?: string }) =>
-      apiClient.post<{ approved: number }>('/review-inbox/transactions/approve', {
+    mutationFn: async ({ ids, categoryId }: { ids: string[]; categoryId?: string }) => {
+      const response = await apiClient.post('/review-inbox/transactions/approve', {
         ids,
         ...(categoryId ? { categoryId } : {}),
-      }),
-    onSuccess: async (response, variables) => {
-      toast.success(fill(approvedText, { count: response.data.approved }));
+      } satisfies ContractInput<'ApproveTransactionsBody'>);
+      return checkContract('ReviewApproved', response.data, '/review-inbox/transactions/approve');
+    },
+    onSuccess: async (result, variables) => {
+      toast.success(fill(approvedText, { count: result.approved }));
       afterResolved(variables.ids);
       if (variables.categoryId) {
         offerToRestOfPayee(variables.ids, variables.categoryId);
@@ -227,7 +231,10 @@ export function useReviewInbox(): UseReviewInboxResult {
       await simpleMutation
         .mutateAsync({
           id,
-          run: () => apiClient.post(`/review-inbox/duplicates/${id}/resolve`, { decision }),
+          run: () =>
+            apiClient.post(`/review-inbox/duplicates/${id}/resolve`, {
+              decision,
+            } satisfies ContractInput<'ResolveDuplicateBody'>),
         })
         .catch(() => undefined);
     },

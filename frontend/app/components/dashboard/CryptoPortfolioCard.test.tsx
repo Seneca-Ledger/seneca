@@ -2,6 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { cryptoHolding, cryptoSummary } from '@/app/test/fixtures/contracts';
 import { createTestQueryClient, renderWithQuery } from '@/app/test/query-wrapper';
 import { CryptoPortfolioCard } from './CryptoPortfolioCard';
 
@@ -21,14 +22,13 @@ vi.mock('next/link', () => ({
 }));
 
 const summaryFor = (income: number, expense: number) => ({
-  data: {
+  data: cryptoSummary({
     currency: 'EUR',
     portfolioValue: 5532,
     income,
     expense,
-    walletCount: 1,
-    holdings: [{ asset: 'ETH', amount: '1', value: 5532 }],
-  },
+    holdings: [cryptoHolding({ asset: 'ETH', amount: '1', value: 5532 })],
+  }),
 });
 
 const format = (value: number) => `${value.toFixed(2)} €`;

@@ -2,7 +2,7 @@ import { renderWithQuery } from '@/app/test/query-wrapper';
 import { selectOption } from '@/app/test/select';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StoicBalance as StoicBalanceData } from '../hooks/useStoicBalance';
+import type { StoicBalance as StoicBalanceData } from '@/app/lib/contracts';
 import { StoicBalance } from './StoicBalance';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
@@ -29,7 +29,9 @@ const totals = (partial: Partial<StoicBalanceData['months'][number]['actual']>) 
   ...partial,
 });
 
+// The wire format (packages/contracts StoicBalance).
 const balance: StoicBalanceData = {
+  currency: 'EUR',
   months: [
     {
       month: '2026-09',
@@ -37,6 +39,8 @@ const balance: StoicBalanceData = {
       intended: totals({ necessity: 500, leisure: 100 }),
       actual: totals({ necessity: 300, leisure: 300, unclassified: 50 }),
       overBudgetCategoryIds: [],
+      spentByCategory: {},
+      limitByCategory: {},
     },
     {
       month: '2026-08',
@@ -44,6 +48,8 @@ const balance: StoicBalanceData = {
       intended: totals({ necessity: 500, leisure: 100 }),
       actual: totals({ necessity: 900, leisure: 100 }),
       overBudgetCategoryIds: [],
+      spentByCategory: {},
+      limitByCategory: {},
     },
   ],
   categories: [

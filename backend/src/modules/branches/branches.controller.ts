@@ -1,13 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
+import { CreateBranchBody, UpdateBranchBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BranchesService } from './branches.service';
-import { CreateBranchDto } from './dto/create-branch.dto';
-import { UpdateBranchDto } from './dto/update-branch.dto';
 
 @Controller('branches')
 export class BranchesController {
@@ -16,7 +16,7 @@ export class BranchesController {
   @Post()
   @WorkspaceAuth(Permission.BRANCH_CREATE)
   async create(
-    @Body() createDto: CreateBranchDto,
+    @SchemaBody(CreateBranchBody) createDto: CreateBranchBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -43,7 +43,7 @@ export class BranchesController {
   @WorkspaceAuth(Permission.BRANCH_EDIT)
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateBranchDto,
+    @SchemaBody(UpdateBranchBody) updateDto: UpdateBranchBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {

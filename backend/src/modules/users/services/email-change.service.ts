@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, type Repository } from 'typeorm';
+import { IsNull, Not, type Repository } from 'typeorm';
 import { requireSecret } from '../../../common/utils/required-secret.util';
 import {
   createVerificationToken,
@@ -53,7 +53,7 @@ export class EmailChangeService {
     }
 
     // One pending change at a time.
-    await this.tokenRepository.delete({ userId: user.id, usedAt: null });
+    await this.tokenRepository.delete({ userId: user.id, usedAt: IsNull() });
 
     const token = createVerificationToken();
     await this.tokenRepository.save(

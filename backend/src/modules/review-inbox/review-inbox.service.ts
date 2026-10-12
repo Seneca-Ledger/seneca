@@ -7,6 +7,13 @@ import {
   parseReviewerFilter,
 } from '../../common/utils/transaction-owner.util';
 import { canReadPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
+import type {
+  ReviewInboxByStatement,
+  ReviewInboxCounts,
+  ReviewInboxDocument,
+  ReviewInboxItem,
+  ReviewInboxPage,
+} from '../../contracts';
 import { Receipt, ReceiptSource, ReceiptStatus } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Subscription, SubscriptionStatus } from '../../entities/subscription.entity';
@@ -23,88 +30,7 @@ import {
 /** No reviewer asked for: the whole workspace's backlog. */
 const ALL_OWNERS: OwnerFilter = { kind: 'all' };
 
-/**
- * The file a row came from, for the list's thumbnail: the receipt when there
- * is one (a scan, or one attached to the row), else the statement.
- */
-export interface ReviewInboxDocument {
-  source: 'receipt' | 'statement';
-  id: string;
-  fileName: string | null;
-  /** The statement's file type; a receipt is always previewable. */
-  fileType: string | null;
-}
-
-export interface ReviewInboxCounts {
-  transaction: number;
-  receipt: number;
-  duplicate: number;
-  subscription: number;
-  total: number;
-}
-
-export type ReviewInboxItem =
-  | {
-      kind: 'transaction';
-      id: string;
-      date: string;
-      counterpartyName: string;
-      paymentPurpose: string;
-      /** Who the row is filed under; null when its descriptor names nobody. */
-      payee: { id: string; name: string } | null;
-      amount: number;
-      currency: string;
-      transactionType: string;
-      categoryId: string | null;
-      categoryName: string | null;
-      categorySource: string | null;
-      categoryReason: string | null;
-      statementId: string | null;
-      /** The receipt behind the row (a scan, or one attached to it); the page to open. */
-      receiptId: string | null;
-      /** Null when there is no file, or the row is someone else's private one. */
-      document: ReviewInboxDocument | null;
-    }
-  | {
-      kind: 'receipt';
-      id: string;
-      date: string | null;
-      vendor: string | null;
-      amount: number | null;
-      currency: string | null;
-      issues: string[];
-    }
-  | {
-      kind: 'duplicate';
-      id: string;
-      date: string;
-      counterpartyName: string;
-      amount: number;
-      currency: string;
-      duplicateOfId: string | null;
-      confidence: number | null;
-      matchType: string | null;
-      document: ReviewInboxDocument | null;
-    }
-  | {
-      kind: 'subscription';
-      id: string;
-      vendorName: string;
-      amount: number;
-      currency: string;
-      frequency: string;
-      confidence: number | null;
-      nextChargeDate: string | null;
-    };
-
-export interface ReviewInboxPage {
-  kind: ReviewInboxKind;
-  counts: ReviewInboxCounts;
-  items: ReviewInboxItem[];
-  total: number;
-  page: number;
-  limit: number;
-}
+export type { ReviewInboxCounts, ReviewInboxItem, ReviewInboxPage };
 
 const DEFAULT_LIMIT = 50;
 
@@ -214,7 +140,7 @@ export class ReviewInboxService {
    * How many rows of each statement still wait here (undecided rows and
    * suspected duplicates), so the documents list can say what is left.
    */
-  async pendingByStatement(workspaceId: string): Promise<Record<string, number>> {
+  async pendingByStatement(workspaceId: string): Promise<ReviewInboxByStatement> {
     const groups = await Promise.all(
       [this.transactionsQuery(workspaceId), this.duplicatesQuery(workspaceId)].map(query =>
         query

@@ -17,11 +17,11 @@ import * as entityIndex from '../../src/entities';
 import { Branch, Category, CategoryType, User, Workspace } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
-import type { JournalLineInputDto } from '../../src/modules/ledger/dto/journal-entry-input.dto';
 import { LedgerAccountsService } from '../../src/modules/ledger/ledger-accounts.service';
 import { LEDGER_ACCOUNT_CODES } from '../../src/modules/ledger/ledger-default-accounts';
 import { LedgerEntriesService } from '../../src/modules/ledger/ledger-entries.service';
 import { LedgerPostingService } from '../../src/modules/ledger/ledger-posting.service';
+import type { JournalLineInput } from '../../src/contracts';
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
@@ -84,8 +84,8 @@ describe('manual journal entries (real Postgres)', () => {
     accountId: string,
     side: 'debit' | 'credit',
     amount: string,
-    extra: Partial<JournalLineInputDto> = {},
-  ): JournalLineInputDto => ({ accountId, side, amount, ...extra });
+    extra: Partial<JournalLineInput> = {},
+  ): JournalLineInput => ({ accountId, side, amount, ...extra });
 
   beforeAll(async () => {
     const admin = new Client({ connectionString: scratchUrl('postgres') });

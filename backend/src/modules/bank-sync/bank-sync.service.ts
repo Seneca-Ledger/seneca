@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type { UpdateBankSyncSettingsBody } from '../../contracts';
 import {
   Integration,
   IntegrationProvider,
@@ -19,7 +20,6 @@ import {
 import { StatementsService } from '../statements/statements.service';
 import { buildOfxStatement, ofxFileName, providerRowKey } from './bank-sync-ofx.util';
 import { type BankSyncAccount, BankSyncAuthError } from './bank-sync-provider.interface';
-import type { UpdateBankSyncSettingsDto } from './dto/bank-sync.dto';
 import { SimpleFinProvider } from './simplefin.provider';
 
 /** How far back the first pull of an account reaches. */
@@ -130,11 +130,11 @@ export class BankSyncService {
 
   async updateSettings(
     workspaceId: string,
-    dto: UpdateBankSyncSettingsDto,
+    dto: UpdateBankSyncSettingsBody,
   ): Promise<BankSyncStatus> {
     const { settings } = await this.requireConnected(workspaceId);
     const config = this.configOf(settings);
-    if (dto.autoSync !== undefined) config.autoSync = dto.autoSync;
+    if (dto.autoSync != null) config.autoSync = dto.autoSync;
     if (dto.accounts) {
       const walletIds = dto.accounts
         .map(item => item.walletId)
@@ -149,7 +149,7 @@ export class BankSyncService {
       for (const change of dto.accounts) {
         const account = config.accounts.find(item => item.id === change.id);
         if (!account) throw new NotFoundException(`Account ${change.id} is not in this connection`);
-        if (change.enabled !== undefined) account.enabled = change.enabled;
+        if (change.enabled != null) account.enabled = change.enabled;
         if (change.walletId !== undefined) {
           if (change.walletId !== null && !known.has(change.walletId)) {
             throw new BadRequestException('Wallet does not belong to this workspace');

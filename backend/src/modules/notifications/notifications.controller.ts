@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   HttpCode,
@@ -10,12 +9,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { MarkReadBody, UpdateNotificationPreferencesBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { MarkReadDto } from './dto/mark-read.dto';
-import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { NotificationsService } from './notifications.service';
 
 @Controller('notifications')
@@ -46,7 +45,7 @@ export class NotificationsController {
 
   @Post('mark-read')
   @HttpCode(HttpStatus.OK)
-  async markAsRead(@CurrentUser() user: User, @Body() dto: MarkReadDto) {
+  async markAsRead(@CurrentUser() user: User, @SchemaBody(MarkReadBody) dto: MarkReadBody) {
     const updated = await this.notificationsService.markAsRead(user.id, dto.ids);
     return { updated };
   }
@@ -66,7 +65,7 @@ export class NotificationsController {
   @Patch('preferences')
   async updatePreferences(
     @CurrentUser() user: User,
-    @Body() dto: UpdateNotificationPreferencesDto,
+    @SchemaBody(UpdateNotificationPreferencesBody) dto: UpdateNotificationPreferencesBody,
   ) {
     return this.notificationsService.updatePreferences(user.id, dto);
   }

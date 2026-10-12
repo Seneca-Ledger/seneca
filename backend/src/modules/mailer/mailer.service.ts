@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import nodemailer from 'nodemailer';
-import { retry, TimeoutError, withTimeout } from '../../common/utils/async.util';
+import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import type { User } from '../../entities/user.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
 
@@ -67,26 +67,23 @@ export class MailerService {
       auth: user && pass ? { user, pass } : undefined,
     });
 
-    await retry(
+    await attemptWithRetry(
       () =>
-        withTimeout(
-          transporter.sendMail({
-            from,
-            to: params.to,
-            subject: params.subject,
-            text: params.text,
-            html: params.html,
-            attachments: params.attachments,
-            replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
-          }),
-          Number.isFinite(timeoutMs) ? timeoutMs : 10000,
-          'SMTP request timed out',
-        ),
+        transporter.sendMail({
+          from,
+          to: params.to,
+          subject: params.subject,
+          text: params.text,
+          html: params.html,
+          attachments: params.attachments,
+          replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
+        }),
       {
+        timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 10000,
+        timeoutMessage: 'SMTP request timed out',
         retries: 1,
         baseDelayMs: 300,
         maxDelayMs: 2000,
-        isRetryable: error => error instanceof TimeoutError,
       },
     );
 

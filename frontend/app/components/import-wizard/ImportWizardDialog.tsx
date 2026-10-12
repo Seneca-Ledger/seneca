@@ -26,6 +26,7 @@ import {
   type ImportRunResult,
   type ImportSuggestion,
   type ImportTarget,
+  isTableSourceTarget,
   runEntityImport,
   suggestImport,
   TARGET_FIELDS,
@@ -271,7 +272,7 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
   };
 
   const openAsTable = async () => {
-    if (!result?.createdIds.length) {
+    if (!(result?.createdIds.length && isTableSourceTarget(result.target))) {
       return;
     }
     setOpeningTable(true);
@@ -347,7 +348,7 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
             {t.actions.undo}
           </MuiButton>
         )}
-        {!undone && result?.createdIds.length ? (
+        {!undone && result?.createdIds.length && isTableSourceTarget(result.target) ? (
           <MuiButton
             type="button"
             variant="contained"

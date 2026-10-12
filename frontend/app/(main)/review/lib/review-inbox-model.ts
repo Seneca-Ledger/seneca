@@ -1,79 +1,20 @@
 import { addDays, format, isValid, parseISO } from 'date-fns';
 import { getPresetRange } from '@/app/(main)/statements/components/filters/statement-filter-internals';
 import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
+import type { ReviewInboxDocument, ReviewInboxItem, ReviewInboxKind } from '@/app/lib/contracts';
 
-/** The file a row came from: the receipt when there is one, else the statement. */
-export type ReviewInboxDocument = {
-  source: 'receipt' | 'statement';
-  id: string;
-  fileName: string | null;
-  fileType: string | null;
-};
-
-/** Mirrors `ReviewInboxItem` on the backend; the union is narrowed by `kind`. */
-export type ReviewTransactionItem = {
-  kind: 'transaction';
-  id: string;
-  date: string;
-  counterpartyName: string;
-  paymentPurpose: string;
-  /** Who the row is filed under; null when its descriptor names nobody. */
-  payee: { id: string; name: string } | null;
-  amount: number;
-  currency: string;
-  transactionType: string;
-  categoryId: string | null;
-  categoryName: string | null;
-  categorySource: string | null;
-  categoryReason: string | null;
-  statementId: string | null;
-  /** The receipt behind the row (a scan, or one attached to it). */
-  receiptId: string | null;
-  /** Null when there is no file, or the row is someone else's private one. */
-  document: ReviewInboxDocument | null;
-};
-
-export type ReviewReceiptItem = {
-  kind: 'receipt';
-  id: string;
-  date: string | null;
-  vendor: string | null;
-  amount: number | null;
-  currency: string | null;
-  issues: string[];
-};
-
-export type ReviewDuplicateItem = {
-  kind: 'duplicate';
-  id: string;
-  date: string;
-  counterpartyName: string;
-  amount: number;
-  currency: string;
-  duplicateOfId: string | null;
-  confidence: number | null;
-  matchType: string | null;
-  document: ReviewInboxDocument | null;
-};
-
-export type ReviewSubscriptionItem = {
-  kind: 'subscription';
-  id: string;
-  vendorName: string;
-  amount: number;
-  currency: string;
-  frequency: string;
-  confidence: number | null;
-  nextChargeDate: string | null;
-};
-
-export type ReviewInboxItem =
-  | ReviewTransactionItem
-  | ReviewReceiptItem
-  | ReviewDuplicateItem
-  | ReviewSubscriptionItem;
-
-export type ReviewInboxKind = ReviewInboxItem['kind'];
+/** The queue's rows, one union narrowed by `kind`. */
+export type {
+  ReviewDuplicateItem,
+  ReviewInboxCounts,
+  ReviewInboxDocument,
+  ReviewInboxItem,
+  ReviewInboxKind,
+  ReviewInboxPage,
+  ReviewReceiptItem,
+  ReviewSubscriptionItem,
+  ReviewTransactionItem,
+} from '@/app/lib/contracts';
 
 export const REVIEW_INBOX_KINDS: ReviewInboxKind[] = [
   'transaction',
@@ -81,23 +22,6 @@ export const REVIEW_INBOX_KINDS: ReviewInboxKind[] = [
   'duplicate',
   'subscription',
 ];
-
-export interface ReviewInboxCounts {
-  transaction: number;
-  receipt: number;
-  duplicate: number;
-  subscription: number;
-  total: number;
-}
-
-export interface ReviewInboxPage {
-  kind: ReviewInboxKind;
-  counts: ReviewInboxCounts;
-  items: ReviewInboxItem[];
-  total: number;
-  page: number;
-  limit: number;
-}
 
 export function isReviewInboxKind(value: string | null | undefined): value is ReviewInboxKind {
   return REVIEW_INBOX_KINDS.includes(value as ReviewInboxKind);

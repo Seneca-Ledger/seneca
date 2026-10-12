@@ -380,7 +380,7 @@ const FIELD_TYPE_MAPPING = {
   TYPE: 'type',
 } as const;
 
-export type FieldType = keyof typeof FIELD_TYPE_MAPPING;
+export type FieldType = (typeof FIELD_TYPE_MAPPING)[keyof typeof FIELD_TYPE_MAPPING];
 
 /**
  * Get field synonyms for a specific language
