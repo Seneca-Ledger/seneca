@@ -86,6 +86,29 @@ export const queryKeys = {
     ['storage-files', o.workspaceId, o.listMode] as const,
   taxReturn: (o: { workspaceId: string | null; periodStart: string; periodEnd: string }) =>
     ['tax-return', o.workspaceId, o.periodStart, o.periodEnd] as const,
+  // Under the 'tax-return' prefix, so whatever refreshes the return refreshes it too.
+  taxUstva: (o: { workspaceId: string | null; periodStart: string; periodEnd: string }) =>
+    ['tax-return', o.workspaceId, 'ustva', o.periodStart, o.periodEnd] as const,
+  // Prefix ['tax-settings', workspaceId] covers the VAT status, the reserve and its amount.
+  taxSettings: (workspaceId: string | null) => ['tax-settings', workspaceId] as const,
+  taxReserveSettings: (workspaceId: string | null) =>
+    ['tax-settings', workspaceId, 'reserve'] as const,
+  taxReserve: (workspaceId: string | null) =>
+    ['tax-settings', workspaceId, 'reserve', 'amount'] as const,
+  taxThreshold: (workspaceId: string | null) => ['tax-settings', workspaceId, 'threshold'] as const,
+  taxVatFiling: (workspaceId: string | null) =>
+    ['tax-settings', workspaceId, 'vat-filing'] as const,
+  taxDeadlines: (workspaceId: string | null) => ['tax-settings', workspaceId, 'deadlines'] as const,
+  taxOfficialRates: (workspaceId: string | null) =>
+    ['tax-settings', workspaceId, 'official-rates'] as const,
+  // Prefix ['datev', workspaceId] covers the settings, the mapping and the previews.
+  datevSettings: (workspaceId: string | null) => ['datev', workspaceId, 'settings'] as const,
+  datevMapping: (o: { workspaceId: string | null; year: number }) =>
+    ['datev', o.workspaceId, 'mapping', o.year] as const,
+  datevPreview: (o: { workspaceId: string | null; from: string; to: string }) =>
+    ['datev', o.workspaceId, 'preview', o.from, o.to] as const,
+  taxYearReport: (o: { workspaceId: string | null; year: number }) =>
+    ['tax-year', o.workspaceId, o.year] as const,
   // The jurisdiction catalogue is global reference data (JWT-only on the server), the one
   // place a key rightly has no workspace segment.
   taxJurisdictions: () => ['tax-jurisdictions'] as const,

@@ -125,4 +125,9 @@ describe('JURISDICTION_SEED', () => {
       }
     });
   });
+  it("starts Austria's 4.9% food rate on 1 July 2026", () => {
+    const rates = (date: string) => ratesOn('AT', date).map(rate => rate.rate);
+    expect(rates('2026-06-30')).not.toContain(4.9);
+    expect(rates('2026-07-01')).toContain(4.9);
+  });
 });

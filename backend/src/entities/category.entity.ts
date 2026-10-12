@@ -120,6 +120,14 @@ export class Category {
   helpsOthers: boolean | null;
 
   /**
+   * Spending here matters for the tax return: deductible, or a record the
+   * user wants at hand when filing. Drives the tax-year report and the
+   * "relevant only" tax pack; it does not decide any figure on a return.
+   */
+  @Column({ name: 'tax_relevant', type: 'boolean', default: false })
+  taxRelevant: boolean;
+
+  /**
    * The income or expense account this category books to. Set on root
    * categories when the chart is seeded; a child without one books to its
    * parent's account.

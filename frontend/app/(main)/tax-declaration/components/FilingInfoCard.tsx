@@ -101,6 +101,12 @@ export function FilingInfoCard({ info }: { info: FilingInfo }): React.ReactEleme
             </Typography>
           ) : null}
 
+          {info.deadlines.length === 0 ? (
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+              {t.noVerifiedDeadline}
+            </Typography>
+          ) : null}
+
           <Stack spacing={0}>
             {info.deadlines.map(deadline => (
               <DateRow
@@ -178,14 +184,24 @@ export function FilingInfoCard({ info }: { info: FilingInfo }): React.ReactEleme
             <Alert severity="info">{preparationLabels[info.authorityPreparation]}</Alert>
           ) : null}
 
-          <MuiLink
-            href={info.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ fontSize: 12, alignSelf: 'flex-start' }}
-          >
-            {t.sourceLabel}
-          </MuiLink>
+          <Box>
+            {info.basis && info.checkedAt ? (
+              <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.5 }}>
+                {(info.basis === 'statute' ? t.basisStatute : t.basisPublished).value.replace(
+                  '{date}',
+                  formatFilingDate(info.checkedAt, locale),
+                )}
+              </Typography>
+            ) : null}
+            <MuiLink
+              href={info.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ fontSize: 12, alignSelf: 'flex-start' }}
+            >
+              {t.sourceLabel}
+            </MuiLink>
+          </Box>
         </Stack>
       </CardContent>
     </Card>

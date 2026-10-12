@@ -6,6 +6,7 @@ import { JournalLine } from '@/entities/journal-line.entity';
 import { Payable, PayableStatus } from '@/entities/payable.entity';
 import { TaxRate } from '@/entities/tax-rate.entity';
 import { LedgerPostingError, LedgerPostingService } from '@/modules/ledger/ledger-posting.service';
+import { InvoiceXRechnungService } from '@/modules/invoices/invoice-xrechnung.service';
 import { InvoicesService } from '@/modules/invoices/invoices.service';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
@@ -125,6 +126,10 @@ describe('InvoicesService', () => {
         {
           provide: LedgerPostingService,
           useValue: { postInvoice: jest.fn(), reverseWithin: jest.fn() },
+        },
+        {
+          provide: InvoiceXRechnungService,
+          useValue: { invoiceHybridPdf: jest.fn(async (_m: unknown, _i: unknown, pdf: Buffer) => pdf) },
         },
       ],
     }).compile();

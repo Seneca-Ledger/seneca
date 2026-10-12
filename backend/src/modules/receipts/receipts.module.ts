@@ -14,6 +14,7 @@ import { AuditModule } from '../audit/audit.module';
 import { ClassificationModule } from '../classification/classification.module';
 import { GeocodingModule } from '../geocoding/geocoding.module';
 import { ParsingModule } from '../parsing/parsing.module';
+import { TaxModule } from '../tax/tax.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { ReceiptsController } from './receipts.controller';
@@ -45,6 +46,7 @@ import { ReceiptStageService } from './services/receipt-stage.service';
     GeocodingModule,
     WorkspaceCurrencyModule,
     TransactionsModule,
+    TaxModule,
   ],
   controllers: [ReceiptsController],
   providers: [

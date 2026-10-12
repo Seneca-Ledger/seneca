@@ -105,6 +105,12 @@ export interface RulePack {
   /** Where the user files the figures themselves; we never file. */
   filingChannel: string | null;
   lines: FormLine[];
+  /**
+   * Where the VAT on a VAT-registered business's rows goes. Rows are then
+   * counted net and their tax lands on these lines; a pack without them
+   * counts rows net and leaves the VAT out, since there it is not income.
+   */
+  vatLines?: { output: string; input: string };
   compute(input: PackInput): PackResult;
 }
 

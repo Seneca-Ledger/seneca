@@ -13,9 +13,11 @@ import type {
   MemberInvitedEvent,
   MemberJoinedEvent,
   NoteMentionedEvent,
+  OfficialVatRatesChangedEvent,
   ParsingErrorEvent,
   ReceiptUncategorizedEvent,
   StatementUploadedEvent,
+  TaxDeadlineUpcomingEvent,
   TaxThresholdReachedEvent,
   TransactionsUncategorizedEvent,
   WorkspaceUpdatedEvent,
@@ -294,6 +296,54 @@ export class NotificationEventsListener {
         periodStart: event.periodStart,
         periodEnd: event.periodEnd,
       },
+    });
+  }
+
+  @OnEvent('tax.rates.official_changed')
+  async onOfficialVatRatesChanged(event: OfficialVatRatesChangedEvent): Promise<void> {
+    await this.notificationsService.createForWorkspaceMembers({
+      workspaceId: event.workspaceId,
+      type: NotificationType.TAX_RATES_OFFICIAL_CHANGED,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      severity: NotificationSeverity.WARN,
+      messageKey: 'tax.rates.official',
+      messageParams: { country: event.country, count: event.count },
+      entityType: 'workspace',
+      entityId: event.workspaceId,
+      meta: { country: event.country, count: event.count },
+    });
+  }
+
+  @OnEvent('tax.deadline.upcoming')
+  async onTaxDeadlineUpcoming(event: TaxDeadlineUpcomingEvent): Promise<void> {
+    const overdue = event.daysLeft < 0;
+    const messageKey = (
+      event.kind === 'vat_return'
+        ? overdue
+          ? 'tax.deadline.vat.overdue'
+          : 'tax.deadline.vat'
+        : 'tax.deadline.income'
+    ) as NotificationMessageKey;
+
+    await this.notificationsService.createForWorkspaceMembers({
+      workspaceId: event.workspaceId,
+      type: overdue
+        ? NotificationType.TAX_DEADLINE_OVERDUE
+        : NotificationType.TAX_DEADLINE_UPCOMING,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      severity:
+        overdue || event.daysLeft <= 1 ? NotificationSeverity.WARN : NotificationSeverity.INFO,
+      messageKey,
+      messageParams: {
+        returnName: event.returnName,
+        periodStart: event.periodStart,
+        periodEnd: event.periodEnd,
+        taxYear: event.periodStart.slice(0, 4),
+        dueDate: event.dueDate,
+      },
+      entityType: 'workspace',
+      entityId: event.workspaceId,
+      meta: { kind: event.kind, dueDate: event.dueDate, daysLeft: event.daysLeft },
     });
   }
 }

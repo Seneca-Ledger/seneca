@@ -53,13 +53,13 @@ export type WorkspaceMemberPermissionsInput = Wire<typeof WorkspaceMemberPermiss
 
 export const InviteMemberBody = Schema.Struct({
   email: Email,
-  role: optionalNullable(Schema.Literals(['owner', 'admin', 'member', 'viewer'])),
+  role: optionalNullable(Schema.Literals(['owner', 'admin', 'member', 'viewer', 'accountant'])),
   permissions: optionalNullable(WorkspaceMemberPermissionsInput),
 });
 export type InviteMemberBody = Wire<typeof InviteMemberBody>;
 
 export const UpdateMemberRoleBody = Schema.Struct({
-  role: Schema.Literals(['owner', 'admin', 'member', 'viewer']),
+  role: Schema.Literals(['owner', 'admin', 'member', 'viewer', 'accountant']),
 });
 export type UpdateMemberRoleBody = Wire<typeof UpdateMemberRoleBody>;
 
@@ -85,3 +85,13 @@ export const AcceptInvitationBody = Schema.Struct({
   token: Schema.String,
 });
 export type AcceptInvitationBody = Wire<typeof AcceptInvitationBody>;
+
+/** `PUT /workspaces/:id/background`: a searched photo to copy in as the background. */
+export const SetWorkspaceBackgroundBody = Schema.Struct({
+  /**
+   * An Openverse image id, as returned by the search. A uuid, which is also
+   * what makes it safe to put in the upstream path: it cannot carry a host.
+   */
+  photoId: Schema.String.check(Schema.isUUID()),
+});
+export type SetWorkspaceBackgroundBody = Wire<typeof SetWorkspaceBackgroundBody>;

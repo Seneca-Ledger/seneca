@@ -16,6 +16,7 @@ const createRepositoryMock = () => ({
 	create: jest.fn((value?: unknown) => value),
 	delete: jest.fn(),
 	update: jest.fn(),
+	count: jest.fn().mockResolvedValue(0),
 	createQueryBuilder: jest.fn(),
 });
 
@@ -443,6 +444,14 @@ describe("CustomTablesService.convertToStatement", () => {
 		expect(result.statementId).toBe("generated-statement-1");
 		expect(transactionRepository.delete).toHaveBeenCalledWith({
 			statementId: "generated-statement-1",
+		});
+		// Rows on a filed tax return would be replaced too, so they are looked for first.
+		expect(transactionRepository.count).toHaveBeenCalledWith({
+			where: {
+				statementId: "generated-statement-1",
+				workspaceId: "workspace-1",
+				taxLocked: true,
+			},
 		});
 		expect(transactionRepository.save).toHaveBeenCalledTimes(1);
 	});

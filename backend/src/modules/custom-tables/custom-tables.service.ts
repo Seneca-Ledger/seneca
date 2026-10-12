@@ -27,6 +27,7 @@ import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { normalizeFilename } from '../../common/utils/filename.util';
 import { generateTransactionFingerprint } from '../../common/utils/fingerprint.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
+import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import type {
   BatchCreateCustomTableRowsBody,
@@ -78,6 +79,7 @@ import { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { ClassificationService } from '../classification/services/classification.service';
+import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { CustomTableSourcesService } from './custom-table-sources.service';
 import { DataEntryToCustomTableScope } from './dto/create-custom-table-from-data-entry.dto';
@@ -186,6 +188,8 @@ export class CustomTablesService {
     @Optional() private readonly formulaRecalc?: FormulaRecalcService,
     // Optional for the same reason: only converting rows to a statement needs it.
     @Optional() private readonly workspaceCurrency?: WorkspaceCurrencyService,
+    // Optional: converted rows are assessed when the tax module is wired in.
+    @Optional() private readonly taxAssignmentService?: TaxAssignmentService,
   ) {}
 
   private getDriverErrorCode(error: unknown): string | undefined {
@@ -2055,6 +2059,14 @@ export class CustomTablesService {
       },
     };
 
+    // Re-converting replaces the statement's rows, and rows on a filed return may not go.
+    if (existingStatement) {
+      await assertNoTaxLockedTransactions(this.transactionRepository, {
+        statementId: existingStatement.id,
+        workspaceId,
+      });
+    }
+
     const beforeStatement = existingStatement ? { ...existingStatement } : null;
     const statement = existingStatement
       ? Object.assign(existingStatement, statementPayload)
@@ -2103,6 +2115,11 @@ export class CustomTablesService {
 
     const savedTransactions = await this.transactionRepository.save(transactions);
     await this.categorizeConvertedTransactions(workspaceId, userId, savedTransactions);
+    // Converted rows are created without tax and categorised with update(),
+    // which the tax subscriber never sees: assess them once they have a category.
+    await this.taxAssignmentService?.reassess(workspaceId, {
+      ids: savedTransactions.map(transaction => transaction.id),
+    });
 
     await this.logEvent({
       userId,

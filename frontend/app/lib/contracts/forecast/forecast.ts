@@ -87,5 +87,10 @@ export const ForecastResponse = Schema.Struct({
   recurringIncome: Schema.Array(ForecastRecurringIncome),
   /** Payables without a due date: owed, but not placeable on the curve. */
   unscheduledCommitted: Schema.Number,
+  /**
+   * Money held for tax by the workspace's own rule (VAT collected, a share of
+   * earnings, minus tax already paid). Already taken out of safe-to-spend.
+   */
+  taxReserve: Schema.optional(Schema.Number),
 });
 export type ForecastResponse = Wire<typeof ForecastResponse>;

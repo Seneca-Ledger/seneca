@@ -45,6 +45,36 @@ const ReceiptMetadata = Schema.Struct({
   place: Schema.optional(ReceiptPlace),
 });
 
+/** What a receipt keeps of a structured e-invoice's XML (XRechnung, ZUGFeRD / Factur-X). */
+export const EInvoiceSummary = Schema.Struct({
+  syntax: Schema.Literals(['ubl', 'cii']),
+  profile: Schema.NullOr(Schema.String),
+  /** False for ZUGFeRD MINIMUM / BASIC-WL: not an e-invoice in Germany. */
+  meetsEn16931: Schema.Boolean,
+  typeCode: Schema.NullOr(Schema.String),
+  number: Schema.NullOr(Schema.String),
+  dueDate: Schema.NullOr(Schema.String),
+  deliveryDate: Schema.NullOr(Schema.String),
+  iban: Schema.NullOr(Schema.String),
+  seller: Schema.Struct({
+    name: Schema.NullOr(Schema.String),
+    vatId: Schema.NullOr(Schema.String),
+    taxNumber: Schema.NullOr(Schema.String),
+    countryCode: Schema.NullOr(Schema.String),
+  }),
+  reverseCharge: Schema.Boolean,
+  vat: Schema.Array(
+    Schema.Struct({
+      category: Schema.String,
+      rate: Schema.NullOr(Schema.Number),
+      base: Schema.Number,
+      tax: Schema.Number,
+      exemptionReason: Schema.NullOr(Schema.String),
+    }),
+  ),
+});
+export type EInvoiceSummary = Wire<typeof EInvoiceSummary>;
+
 /** jsonb from the extraction: every key may be missing. */
 const ReceiptParsedData = Schema.Struct({
   amount: Schema.optional(Schema.Number),
@@ -68,6 +98,8 @@ const ReceiptParsedData = Schema.Struct({
   transactionType: Schema.optional(Schema.Literals(['unknown', 'income', 'expense', 'transfer'])),
   confidence: Schema.optional(Schema.Number),
   validationIssues: Schema.optional(Schema.Array(Schema.String)),
+  /** Set when the file is a structured e-invoice, read from its XML. */
+  einvoice: Schema.optional(EInvoiceSummary),
 });
 
 /** `GET /receipts/:id`, and a row of `GET /receipts`. */

@@ -19,6 +19,8 @@ export interface InvoiceDocumentLine {
   description: string;
   quantity: number;
   unitPrice: number;
+  /** Discount (negative) or surcharge (positive) in percent; null when neither. */
+  adjustmentPercent?: number | null;
   /** Percentage points; null when the line carries no tax. */
   taxRatePercent: number | null;
   taxRateName: string | null;
@@ -144,7 +146,19 @@ function linesTable(
           { text: labels.amount, style: 'tableHeaderRight' },
         ],
         ...lines.map(line => [
-          { text: line.description, style: 'cell' },
+          {
+            text: line.adjustmentPercent
+              ? [
+                  line.description,
+                  {
+                    text: `\n${line.adjustmentPercent < 0 ? labels.discount : labels.surcharge} ${Math.abs(line.adjustmentPercent)}%`,
+                    color: '#666666',
+                    fontSize: 8,
+                  },
+                ]
+              : line.description,
+            style: 'cell',
+          },
           { text: quantity(line.quantity), style: 'cellRight' },
           { text: money(line.unitPrice, currency), style: 'cellRight' },
           {
@@ -214,8 +228,23 @@ function totalsBlock(
   };
 }
 
+/**
+ * The client's address as typed, or else built from the parts an e-invoice
+ * needs (street, postal code, city, country) — a client filled in only for
+ * XRechnung still gets its address on the page, as § 14 UStG requires.
+ */
+function clientAddress(client: Client): string | null {
+  if (client.billingAddress?.trim()) {
+    return client.billingAddress;
+  }
+  const town = [client.postalCode, client.city].filter(Boolean).join(' ');
+  const lines = [client.street, town, client.countryCode?.toUpperCase()].filter(Boolean);
+  return lines.length > 0 ? lines.join('\n') : null;
+}
+
 export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Buffer> {
   const { invoice, client, profile, lines, logo, draft } = input;
+  const buyerReference = invoice.buyerReference || client.buyerReference;
   const labels = renderInvoiceLabels(client.locale);
   const pdfMake = await loadPdfMake();
   const currency = invoice.currency;
@@ -239,7 +268,7 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Buff
   const clientBlock: Content[] = [
     { text: labels.billTo, style: 'blockLabel' },
     ...stack([client.name], 'value'),
-    ...stack([client.billingAddress, labelled(labels.taxId, client.taxId)], 'muted'),
+    ...stack([clientAddress(client), labelled(labels.taxId, client.taxId)], 'muted'),
   ];
 
   const paymentBlock: Content[] = stack(
@@ -287,6 +316,9 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Buff
               [
                 `${labels.issueDate}: ${invoice.issueDate}`,
                 `${labels.dueDate}: ${invoice.dueDate}`,
+                // § 14 Abs. 4 Nr. 6 UStG: when the goods or service were delivered.
+                invoice.deliveryDate ? `${labels.deliveryDate}: ${invoice.deliveryDate}` : null,
+                buyerReference ? `${labels.buyerReference}: ${buyerReference}` : null,
               ],
               'muted',
             ),
@@ -391,7 +423,7 @@ export async function buildCreditNotePdf(input: CreditNoteDocumentInput): Promis
             stack: [
               { text: labels.billTo, style: 'blockLabel' },
               ...stack([client.name], 'value'),
-              ...stack([client.billingAddress, labelled(labels.taxId, client.taxId)], 'muted'),
+              ...stack([clientAddress(client), labelled(labels.taxId, client.taxId)], 'muted'),
             ],
           },
           {

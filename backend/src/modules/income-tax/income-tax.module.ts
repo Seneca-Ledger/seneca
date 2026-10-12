@@ -10,6 +10,7 @@ import { Statement } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { AuditModule } from '../audit/audit.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
+import { ReferenceDataModule } from '../reference-data/reference-data.module';
 import { TaxModule } from '../tax/tax.module';
 import { BdiRatesService } from './bdi-rates.service';
 import { IncomeTaxController } from './income-tax.controller';
@@ -34,6 +35,7 @@ import { NbpRatesService } from './nbp-rates.service';
     TaxModule,
     ExchangeRatesModule,
     AuditModule,
+    ReferenceDataModule,
   ],
   controllers: [IncomeTaxController],
   providers: [

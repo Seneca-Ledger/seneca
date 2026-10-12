@@ -107,6 +107,14 @@ export class Invoice {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   total: number;
 
+  /** The buyer's reference for this invoice (BT-10); empty falls back to the client's. */
+  @Column({ name: 'buyer_reference', type: 'varchar', length: 255, nullable: true })
+  buyerReference: string | null;
+
+  /** When the goods or service were delivered (BT-72, § 14 Abs. 4 Nr. 6 UStG). */
+  @Column({ name: 'delivery_date', type: 'date', nullable: true })
+  deliveryDate: string | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 

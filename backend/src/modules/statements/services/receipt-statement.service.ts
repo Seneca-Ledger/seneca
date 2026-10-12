@@ -18,6 +18,7 @@ import { TaxRate } from '../../../entities/tax-rate.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 import { User } from '../../../entities/user.entity';
 import { AuditService } from '../../audit/audit.service';
+import type { EInvoiceSummary } from '../../e-invoices/einvoice-summary';
 import { ReceiptsService } from '../../receipts/receipts.service';
 import { TaxAssignmentService } from '../../tax/tax-assignment.service';
 
@@ -164,6 +165,40 @@ export class ReceiptStatementService {
     return 'Receipt scan could not be processed';
   }
 
+  /**
+   * An e-invoice names its seller's country and VAT id. A payee that has
+   * neither takes them, and the row is assessed again with them — which is
+   * what makes a purchase from another EU state reverse-charged. A payee the
+   * user already described is left alone. The number is checked in VIES by
+   * the daily re-check of unchecked numbers.
+   */
+  private async adoptSupplierDetails(
+    workspaceId: string,
+    transaction: Transaction,
+    einvoice: EInvoiceSummary | undefined,
+  ): Promise<void> {
+    const seller = einvoice?.seller;
+    if (!(transaction.payeeId && seller?.countryCode && seller.vatId)) {
+      return;
+    }
+    const updated: unknown[] = await this.transactionRepository.manager.query(
+      `UPDATE payees SET country_code = $3, vat_id = $4
+        WHERE id = $1 AND workspace_id = $2 AND country_code IS NULL AND vat_id IS NULL
+        RETURNING id`,
+      [
+        transaction.payeeId,
+        workspaceId,
+        seller.countryCode.toUpperCase().slice(0, 2),
+        seller.vatId.replace(/\s+/g, '').slice(0, 32),
+      ],
+    );
+    // node-postgres hands back [rows, count] for an UPDATE … RETURNING through TypeORM.
+    const rows = Array.isArray(updated[0]) ? (updated[0] as unknown[]) : updated;
+    if (rows.length > 0) {
+      await this.taxAssignmentService.reassess(workspaceId, { ids: [transaction.id] });
+    }
+  }
+
   private async createStatementFromReceiptFile(params: {
     user: User;
     workspaceId: string;
@@ -173,7 +208,11 @@ export class ReceiptStatementService {
   }): Promise<Statement> {
     const { user, workspaceId, file, language, captureLocation } = params;
     const fileName = normalizeFilename(file.originalname);
-    const fileType = getFileTypeFromMime(file.mimetype) as FileType;
+    const fileType = (
+      file.mimetype === 'application/xml' || file.mimetype === 'text/xml'
+        ? FileType.XML
+        : getFileTypeFromMime(file.mimetype)
+    ) as FileType;
     const fileHash = await calculateFileHash(file.path);
     // The same file again is the same document: hand back the one already
     // filed instead of booking its expense a second time.
@@ -345,6 +384,7 @@ export class ReceiptStatementService {
       });
 
       await this.transactionRepository.save(transaction);
+      await this.adoptSupplierDetails(workspaceId, transaction, parsed.einvoice);
     }
 
     await this.auditService.createEvent({

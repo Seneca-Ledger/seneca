@@ -26,6 +26,10 @@ export type NotificationMessageKey =
   | 'subscription.price_changed'
   | 'tax.threshold.warning'
   | 'tax.threshold.reached'
+  | 'tax.deadline.vat'
+  | 'tax.deadline.vat.overdue'
+  | 'tax.deadline.income'
+  | 'tax.rates.official'
   | 'review.waiting';
 
 interface TranslationEntry {
@@ -128,6 +132,24 @@ const ru: TranslationMap = {
     title: 'Порог регистрации достигнут',
     message: 'Оборот достиг порога регистрации {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Скоро срок декларации по НДС',
+    message: '{{returnName}} за {{periodStart}} – {{periodEnd}}: срок подачи {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Срок декларации по НДС прошёл',
+    message:
+      '{{returnName}} за {{periodStart}} – {{periodEnd}} нужно было подать до {{dueDate}}, в Lumio она не подана',
+  },
+  'tax.deadline.income': {
+    title: 'Скоро срок декларации о доходах',
+    message: '{{returnName}} за {{taxYear}}: срок подачи {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Официальные ставки НДС отличаются от ваших',
+    message:
+      'Ставки НДС, которые {{country}} сообщает Еврокомиссии, отличаются от ставок в Lumio. Проверьте их в налоговых настройках пространства.',
+  },
 };
 
 const en: TranslationMap = {
@@ -227,6 +249,24 @@ const en: TranslationMap = {
     title: 'Registration threshold reached',
     message: 'Turnover has reached the {{threshold}} {{currency}} registration threshold',
   },
+  'tax.deadline.vat': {
+    title: 'VAT return due soon',
+    message: '{{returnName}} for {{periodStart}} – {{periodEnd}} is due on {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'VAT return overdue',
+    message:
+      '{{returnName}} for {{periodStart}} – {{periodEnd}} was due on {{dueDate}} and is not filed in Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Income tax return due soon',
+    message: '{{returnName}} for {{taxYear}} is due on {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Official VAT rates differ from yours',
+    message:
+      'The VAT rates {{country}} reports to the European Commission differ from those in Lumio. Review them in the workspace tax settings.',
+  },
 };
 
 const kk: TranslationMap = {
@@ -318,6 +358,24 @@ const kk: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Тіркеу шегіне жетті',
     message: 'Айналым {{threshold}} {{currency}} тіркеу шегіне жетті',
+  },
+  'tax.deadline.vat': {
+    title: 'ҚҰН декларациясының мерзімі жақындады',
+    message: '{{returnName}} ({{periodStart}} – {{periodEnd}}) тапсыру мерзімі — {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'ҚҰН декларациясының мерзімі өтті',
+    message:
+      '{{returnName}} ({{periodStart}} – {{periodEnd}}) {{dueDate}} дейін тапсырылуы керек еді, Lumio-да ол тапсырылмаған',
+  },
+  'tax.deadline.income': {
+    title: 'Табыс салығы декларациясының мерзімі жақындады',
+    message: '{{returnName}} ({{taxYear}}) тапсыру мерзімі — {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Ресми ҚҰН мөлшерлемелері сіздікінен өзгеше',
+    message:
+      '{{country}} Еуропалық комиссияға хабарлаған ҚҰН мөлшерлемелері Lumio-дағы мөлшерлемелерден өзгеше. Оларды жұмыс кеңістігінің салық баптауларынан тексеріңіз.',
   },
 };
 
@@ -427,6 +485,24 @@ const de: TranslationMap = {
     title: 'Registrierungsgrenze erreicht',
     message: 'Der Umsatz hat die Registrierungsgrenze von {{threshold}} {{currency}} erreicht',
   },
+  'tax.deadline.vat': {
+    title: 'USt-Erklärung bald fällig',
+    message: '{{returnName}} für {{periodStart}} – {{periodEnd}} ist am {{dueDate}} fällig',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'USt-Erklärung überfällig',
+    message:
+      '{{returnName}} für {{periodStart}} – {{periodEnd}} war am {{dueDate}} fällig und ist in Lumio nicht eingereicht',
+  },
+  'tax.deadline.income': {
+    title: 'Einkommensteuererklärung bald fällig',
+    message: '{{returnName}} für {{taxYear}} ist am {{dueDate}} fällig',
+  },
+  'tax.rates.official': {
+    title: 'Amtliche USt-Sätze weichen ab',
+    message:
+      'Die USt-Sätze, die {{country}} der Europäischen Kommission meldet, weichen von denen in Lumio ab. Prüfen Sie sie in den Steuereinstellungen des Arbeitsbereichs.',
+  },
 };
 
 const fr: TranslationMap = {
@@ -531,6 +607,24 @@ const fr: TranslationMap = {
   'tax.threshold.reached': {
     title: "Seuil d'immatriculation atteint",
     message: "Le chiffre d'affaires a atteint le seuil de {{threshold}} {{currency}}",
+  },
+  'tax.deadline.vat': {
+    title: 'Déclaration de TVA bientôt due',
+    message: '{{returnName}} pour {{periodStart}} – {{periodEnd}} est due le {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Déclaration de TVA en retard',
+    message:
+      "{{returnName}} pour {{periodStart}} – {{periodEnd}} était due le {{dueDate}} et n'est pas déposée dans Lumio",
+  },
+  'tax.deadline.income': {
+    title: 'Déclaration de revenus bientôt due',
+    message: '{{returnName}} pour {{taxYear}} est due le {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Les taux de TVA officiels diffèrent des vôtres',
+    message:
+      'Les taux de TVA que {{country}} communique à la Commission européenne diffèrent de ceux de Lumio. Vérifiez-les dans les paramètres fiscaux de l’espace de travail.',
   },
 };
 
@@ -637,6 +731,24 @@ const es: TranslationMap = {
     title: 'Umbral de registro alcanzado',
     message: 'La facturación ha alcanzado el umbral de {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Declaración de IVA próxima a vencer',
+    message: '{{returnName}} de {{periodStart}} – {{periodEnd}} vence el {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Declaración de IVA vencida',
+    message:
+      '{{returnName}} de {{periodStart}} – {{periodEnd}} vencía el {{dueDate}} y no está presentada en Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Declaración del impuesto sobre la renta próxima a vencer',
+    message: '{{returnName}} de {{taxYear}} vence el {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Los tipos de IVA oficiales difieren de los suyos',
+    message:
+      'Los tipos de IVA que {{country}} comunica a la Comisión Europea difieren de los de Lumio. Revíselos en la configuración fiscal del espacio de trabajo.',
+  },
 };
 
 const pt: TranslationMap = {
@@ -742,6 +854,24 @@ const pt: TranslationMap = {
     title: 'Limite de registo atingido',
     message: 'O volume de negócios atingiu o limite de {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Declaração de IVA a vencer em breve',
+    message: '{{returnName}} de {{periodStart}} – {{periodEnd}} vence em {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Declaração de IVA atrasada',
+    message:
+      '{{returnName}} de {{periodStart}} – {{periodEnd}} devia ter sido entregue em {{dueDate}} e não está submetida no Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Declaração do imposto sobre o rendimento a vencer em breve',
+    message: '{{returnName}} de {{taxYear}} vence em {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'As taxas de IVA oficiais diferem das suas',
+    message:
+      'As taxas de IVA que {{country}} comunica à Comissão Europeia diferem das do Lumio. Reveja-as nas definições fiscais do espaço de trabalho.',
+  },
 };
 
 const tr: TranslationMap = {
@@ -839,6 +969,24 @@ const tr: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Kayıt eşiğine ulaşıldı',
     message: 'Ciro, {{threshold}} {{currency}} kayıt eşiğine ulaştı',
+  },
+  'tax.deadline.vat': {
+    title: 'KDV beyannamesinin teslim tarihi yaklaşıyor',
+    message: '{{returnName}} ({{periodStart}} – {{periodEnd}}) için son teslim tarihi {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'KDV beyannamesi gecikmiş',
+    message:
+      "{{returnName}} ({{periodStart}} – {{periodEnd}}) için son teslim tarihi {{dueDate}} idi ve Lumio'da verilmedi",
+  },
+  'tax.deadline.income': {
+    title: 'Gelir vergisi beyannamesinin teslim tarihi yaklaşıyor',
+    message: '{{returnName}} ({{taxYear}}) için son teslim tarihi {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Resmî KDV oranları sizinkilerden farklı',
+    message:
+      '{{country}} ülkesinin Avrupa Komisyonu’na bildirdiği KDV oranları Lumio’dakilerden farklı. Bunları çalışma alanının vergi ayarlarında kontrol edin.',
   },
 };
 
@@ -938,6 +1086,24 @@ const uk: TranslationMap = {
     title: 'Поріг реєстрації досягнуто',
     message: 'Оборот досяг порогу реєстрації {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Скоро термін подання декларації з ПДВ',
+    message: '{{returnName}} за {{periodStart}} – {{periodEnd}}: термін подання {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Термін подання декларації з ПДВ минув',
+    message:
+      '{{returnName}} за {{periodStart}} – {{periodEnd}} потрібно було подати до {{dueDate}}, у Lumio вона не подана',
+  },
+  'tax.deadline.income': {
+    title: 'Скоро термін подання декларації про доходи',
+    message: '{{returnName}} за {{taxYear}}: термін подання {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Офіційні ставки ПДВ відрізняються від ваших',
+    message:
+      'Ставки ПДВ, які {{country}} повідомляє Єврокомісії, відрізняються від ставок у Lumio. Перевірте їх у податкових налаштуваннях простору.',
+  },
 };
 
 const zh: TranslationMap = {
@@ -1005,6 +1171,24 @@ const zh: TranslationMap = {
   'tax.threshold.reached': {
     title: '已达到登记门槛',
     message: '营业额已达到 {{threshold}} {{currency}} 的登记门槛',
+  },
+  'tax.deadline.vat': {
+    title: '增值税申报即将到期',
+    message: '{{returnName}}（{{periodStart}} – {{periodEnd}}）的申报截止日期为 {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: '增值税申报已逾期',
+    message:
+      '{{returnName}}（{{periodStart}} – {{periodEnd}}）的申报截止日期为 {{dueDate}}，但 Lumio 中尚未提交',
+  },
+  'tax.deadline.income': {
+    title: '个人所得税申报即将到期',
+    message: '{{returnName}}（{{taxYear}}）的申报截止日期为 {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: '官方增值税税率与您的不同',
+    message:
+      '{{country}} 向欧盟委员会报告的增值税税率与 Lumio 中的不同。请在工作区的税务设置中核对。',
   },
 };
 
@@ -1113,6 +1297,24 @@ const pl: TranslationMap = {
     title: 'Osiągnięto próg rejestracji',
     message: 'Obrót osiągnął próg rejestracji {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Deklaracja VAT wkrótce do złożenia',
+    message: '{{returnName}} za {{periodStart}} – {{periodEnd}} należy złożyć do {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Zaległa deklaracja VAT',
+    message:
+      '{{returnName}} za {{periodStart}} – {{periodEnd}} należało złożyć do {{dueDate}}, a nie jest ona złożona w Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Deklaracja podatku dochodowego wkrótce do złożenia',
+    message: '{{returnName}} za {{taxYear}} należy złożyć do {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Oficjalne stawki VAT różnią się od Twoich',
+    message:
+      'Stawki VAT, które {{country}} zgłasza Komisji Europejskiej, różnią się od stawek w Lumio. Sprawdź je w ustawieniach podatkowych przestrzeni roboczej.',
+  },
 };
 
 const it: TranslationMap = {
@@ -1218,6 +1420,24 @@ const it: TranslationMap = {
     title: 'Soglia di registrazione raggiunta',
     message: 'Il fatturato ha raggiunto la soglia di {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Dichiarazione IVA in scadenza',
+    message: '{{returnName}} per {{periodStart}} – {{periodEnd}} scade il {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Dichiarazione IVA scaduta',
+    message:
+      '{{returnName}} per {{periodStart}} – {{periodEnd}} doveva essere presentata entro il {{dueDate}} e non risulta presentata in Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Dichiarazione dei redditi in scadenza',
+    message: '{{returnName}} per {{taxYear}} scade il {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Le aliquote IVA ufficiali differiscono dalle tue',
+    message:
+      'Le aliquote IVA che {{country}} comunica alla Commissione europea differiscono da quelle in Lumio. Controllale nelle impostazioni fiscali dello spazio di lavoro.',
+  },
 };
 
 const sk: TranslationMap = {
@@ -1318,6 +1538,24 @@ const sk: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Prah registrácie dosiahnutý',
     message: 'Obrat dosiahol prah registrácie {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Daňové priznanie k DPH je čoskoro splatné',
+    message: '{{returnName}} za {{periodStart}} – {{periodEnd}} je splatné {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Daňové priznanie k DPH po splatnosti',
+    message:
+      '{{returnName}} za {{periodStart}} – {{periodEnd}} bolo splatné {{dueDate}} a v Lumio nie je podané',
+  },
+  'tax.deadline.income': {
+    title: 'Daňové priznanie k dani z príjmov je čoskoro splatné',
+    message: '{{returnName}} za {{taxYear}} je splatné {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Oficiálne sadzby DPH sa líšia od vašich',
+    message:
+      'Sadzby DPH, ktoré {{country}} hlási Európskej komisii, sa líšia od sadzieb v Lumio. Skontrolujte ich v daňových nastaveniach pracovného priestoru.',
   },
 };
 
@@ -1429,6 +1667,24 @@ const ja: TranslationMap = {
     title: '登録しきい値に到達',
     message: '売上が登録しきい値 {{threshold}} {{currency}} に達しました',
   },
+  'tax.deadline.vat': {
+    title: '消費税の確定申告の期限が近づいています',
+    message: '{{returnName}}（{{periodStart}} – {{periodEnd}}）の申告期限は {{dueDate}} です',
+  },
+  'tax.deadline.vat.overdue': {
+    title: '消費税の確定申告が期限超過',
+    message:
+      '{{returnName}}（{{periodStart}} – {{periodEnd}}）の申告期限は {{dueDate}} でしたが、Lumio ではまだ提出されていません',
+  },
+  'tax.deadline.income': {
+    title: '所得税の確定申告の期限が近づいています',
+    message: '{{returnName}}（{{taxYear}}）の申告期限は {{dueDate}} です',
+  },
+  'tax.rates.official': {
+    title: '公式の付加価値税率がお使いの税率と異なります',
+    message:
+      '{{country}} が欧州委員会に報告している付加価値税率が Lumio の税率と異なります。ワークスペースの税設定で確認してください。',
+  },
 };
 
 const ko: TranslationMap = {
@@ -1524,6 +1780,24 @@ const ko: TranslationMap = {
     title: '등록 기준액 도달',
     message: '매출이 등록 기준액 {{threshold}} {{currency}}에 도달했습니다',
   },
+  'tax.deadline.vat': {
+    title: '부가가치세 신고 기한 임박',
+    message: '{{returnName}} ({{periodStart}} – {{periodEnd}})의 신고 기한은 {{dueDate}}입니다',
+  },
+  'tax.deadline.vat.overdue': {
+    title: '부가가치세 신고 기한 초과',
+    message:
+      '{{returnName}} ({{periodStart}} – {{periodEnd}})의 신고 기한은 {{dueDate}}였으며 Lumio에 제출되지 않았습니다',
+  },
+  'tax.deadline.income': {
+    title: '소득세 신고 기한 임박',
+    message: '{{returnName}} ({{taxYear}})의 신고 기한은 {{dueDate}}입니다',
+  },
+  'tax.rates.official': {
+    title: '공식 부가가치세율이 설정과 다릅니다',
+    message:
+      '{{country}}이(가) 유럽연합 집행위원회에 보고한 부가가치세율이 Lumio의 세율과 다릅니다. 워크스페이스 세금 설정에서 확인하세요.',
+  },
 };
 
 const hi: TranslationMap = {
@@ -1615,6 +1889,24 @@ const hi: TranslationMap = {
   'tax.threshold.reached': {
     title: 'पंजीकरण सीमा तक पहुंच गया',
     message: 'कारोबार {{threshold}} {{currency}} की पंजीकरण सीमा तक पहुंच गया',
+  },
+  'tax.deadline.vat': {
+    title: 'वैट रिटर्न जल्द देय',
+    message: '{{returnName}} ({{periodStart}} – {{periodEnd}}) {{dueDate}} को देय है',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'वैट रिटर्न अतिदेय',
+    message:
+      '{{returnName}} ({{periodStart}} – {{periodEnd}}) {{dueDate}} को देय था और Lumio में दाखिल नहीं किया गया है',
+  },
+  'tax.deadline.income': {
+    title: 'आयकर रिटर्न जल्द देय',
+    message: '{{returnName}} ({{taxYear}}) {{dueDate}} को देय है',
+  },
+  'tax.rates.official': {
+    title: 'आधिकारिक वैट दरें आपकी दरों से अलग हैं',
+    message:
+      '{{country}} द्वारा यूरोपीय आयोग को बताई गई वैट दरें Lumio की दरों से अलग हैं। इन्हें वर्कस्पेस की टैक्स सेटिंग्स में जाँचें।',
   },
 };
 
@@ -1727,6 +2019,24 @@ const nl: TranslationMap = {
     title: 'Registratiedrempel bereikt',
     message: 'De omzet heeft de registratiedrempel van {{threshold}} {{currency}} bereikt',
   },
+  'tax.deadline.vat': {
+    title: 'Btw-aangifte binnenkort verschuldigd',
+    message: '{{returnName}} voor {{periodStart}} – {{periodEnd}} is verschuldigd op {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Btw-aangifte achterstallig',
+    message:
+      '{{returnName}} voor {{periodStart}} – {{periodEnd}} was verschuldigd op {{dueDate}} en is niet ingediend in Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Aangifte inkomstenbelasting binnenkort verschuldigd',
+    message: '{{returnName}} voor {{taxYear}} is verschuldigd op {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Officiële btw-tarieven wijken af van de uwe',
+    message:
+      'De btw-tarieven die {{country}} aan de Europese Commissie doorgeeft, wijken af van die in Lumio. Controleer ze in de belastinginstellingen van de werkruimte.',
+  },
 };
 
 const sv: TranslationMap = {
@@ -1829,6 +2139,24 @@ const sv: TranslationMap = {
     title: 'Registreringströskeln nådd',
     message: 'Omsättningen har nått registreringströskeln på {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Momsdeklaration snart förfallen',
+    message: '{{returnName}} för {{periodStart}} – {{periodEnd}} förfaller {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Momsdeklaration förfallen',
+    message:
+      '{{returnName}} för {{periodStart}} – {{periodEnd}} skulle lämnas in {{dueDate}} och är inte inlämnad i Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Inkomstdeklaration snart förfallen',
+    message: '{{returnName}} för {{taxYear}} förfaller {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Officiella momssatser skiljer sig från dina',
+    message:
+      'Momssatserna som {{country}} rapporterar till Europeiska kommissionen skiljer sig från dem i Lumio. Kontrollera dem i arbetsytans skatteinställningar.',
+  },
 };
 
 const vi: TranslationMap = {
@@ -1926,6 +2254,24 @@ const vi: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Đã đạt ngưỡng đăng ký',
     message: 'Doanh thu đã đạt ngưỡng đăng ký {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Tờ khai thuế VAT sắp đến hạn',
+    message: '{{returnName}} cho {{periodStart}} – {{periodEnd}} đến hạn vào {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Tờ khai thuế VAT quá hạn',
+    message:
+      '{{returnName}} cho {{periodStart}} – {{periodEnd}} đã đến hạn vào {{dueDate}} và chưa được nộp trong Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Tờ khai thuế thu nhập sắp đến hạn',
+    message: '{{returnName}} cho {{taxYear}} đến hạn vào {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Thuế suất VAT chính thức khác với của bạn',
+    message:
+      'Thuế suất VAT mà {{country}} báo cáo cho Ủy ban châu Âu khác với thuế suất trong Lumio. Hãy kiểm tra trong phần cài đặt thuế của không gian làm việc.',
   },
 };
 
@@ -2028,6 +2374,24 @@ const id: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Ambang pendaftaran tercapai',
     message: 'Omzet telah mencapai ambang pendaftaran {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'SPT PPN segera jatuh tempo',
+    message: '{{returnName}} untuk {{periodStart}} – {{periodEnd}} jatuh tempo pada {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'SPT PPN terlambat',
+    message:
+      '{{returnName}} untuk {{periodStart}} – {{periodEnd}} jatuh tempo pada {{dueDate}} dan belum diajukan di Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'SPT pajak penghasilan segera jatuh tempo',
+    message: '{{returnName}} untuk {{taxYear}} jatuh tempo pada {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Tarif PPN resmi berbeda dari tarif Anda',
+    message:
+      'Tarif PPN yang dilaporkan {{country}} kepada Komisi Eropa berbeda dari tarif di Lumio. Periksa di pengaturan pajak ruang kerja.',
   },
 };
 
@@ -2146,6 +2510,24 @@ const da: TranslationMap = {
     title: 'Registreringsgrænsen er nået',
     message: 'Omsætningen har nået registreringsgrænsen på {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Momsangivelse forfalder snart',
+    message: '{{returnName}} for {{periodStart}} – {{periodEnd}} forfalder {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Momsangivelse overskredet',
+    message:
+      '{{returnName}} for {{periodStart}} – {{periodEnd}} skulle indberettes senest {{dueDate}} og er ikke indberettet i Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Selvangivelse forfalder snart',
+    message: '{{returnName}} for {{taxYear}} forfalder {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Officielle momssatser afviger fra dine',
+    message:
+      'De momssatser, {{country}} indberetter til Europa-Kommissionen, afviger fra dem i Lumio. Gennemgå dem i arbejdsområdets skatteindstillinger.',
+  },
 };
 
 const nb: TranslationMap = {
@@ -2262,6 +2644,24 @@ const nb: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Registreringsgrensen er nådd',
     message: 'Omsetningen har nådd registreringsgrensen på {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Mva-melding forfaller snart',
+    message: '{{returnName}} for {{periodStart}} – {{periodEnd}} forfaller {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Mva-melding forfalt',
+    message:
+      '{{returnName}} for {{periodStart}} – {{periodEnd}} skulle vært levert {{dueDate}} og er ikke levert i Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Skattemelding forfaller snart',
+    message: '{{returnName}} for {{taxYear}} forfaller {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Offisielle mva-satser avviker fra dine',
+    message:
+      'Mva-satsene {{country}} rapporterer til EU-kommisjonen, avviker fra dem i Lumio. Gå gjennom dem i arbeidsområdets skatteinnstillinger.',
   },
 };
 
@@ -2380,6 +2780,24 @@ const nn: TranslationMap = {
     title: 'Registreringsgrensa er nådd',
     message: 'Omsetninga har nådd registreringsgrensa på {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Mva-melding forfell snart',
+    message: '{{returnName}} for {{periodStart}} – {{periodEnd}} forfell {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Mva-melding forfallen',
+    message:
+      '{{returnName}} for {{periodStart}} – {{periodEnd}} skulle vore levert {{dueDate}} og er ikkje levert i Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Skattemelding forfell snart',
+    message: '{{returnName}} for {{taxYear}} forfell {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Offisielle mva-satsar avvik frå dine',
+    message:
+      'Mva-satsane {{country}} rapporterer til EU-kommisjonen, avvik frå dei i Lumio. Gå gjennom dei i skatteinnstillingane for arbeidsområdet.',
+  },
 };
 
 const fi: TranslationMap = {
@@ -2496,6 +2914,24 @@ const fi: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Rekisteröintiraja saavutettu',
     message: 'Liikevaihto on saavuttanut rekisteröintirajan {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'ALV-ilmoitus erääntyy pian',
+    message: '{{returnName}} ajalle {{periodStart}} – {{periodEnd}} erääntyy {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'ALV-ilmoitus myöhässä',
+    message:
+      '{{returnName}} ajalle {{periodStart}} – {{periodEnd}} erääntyi {{dueDate}} eikä sitä ole jätetty Lumiossa',
+  },
+  'tax.deadline.income': {
+    title: 'Veroilmoitus erääntyy pian',
+    message: '{{returnName}} vuodelle {{taxYear}} erääntyy {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Viralliset ALV-kannat poikkeavat omistasi',
+    message:
+      'ALV-kannat, jotka {{country}} ilmoittaa Euroopan komissiolle, poikkeavat Lumion kannoista. Tarkista ne työtilan veroasetuksista.',
   },
 };
 
@@ -2614,6 +3050,24 @@ const is: TranslationMap = {
     title: 'Skráningarþröskuldi náð',
     message: 'Velta hefur náð skráningarþröskuldinum {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'VSK-skýrsla á gjalddaga á næstunni',
+    message: '{{returnName}} fyrir {{periodStart}} – {{periodEnd}} er á gjalddaga {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'VSK-skýrsla í vanskilum',
+    message:
+      '{{returnName}} fyrir {{periodStart}} – {{periodEnd}} átti að skila fyrir {{dueDate}} og hefur ekki verið skilað í Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Skattframtal á gjalddaga á næstunni',
+    message: '{{returnName}} fyrir {{taxYear}} er á gjalddaga {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Opinber VSK-hlutföll eru önnur en þín',
+    message:
+      'VSK-hlutföllin sem {{country}} tilkynnir framkvæmdastjórn ESB eru önnur en í Lumio. Farðu yfir þau í skattastillingum vinnusvæðisins.',
+  },
 };
 
 const fo: TranslationMap = {
@@ -2731,6 +3185,24 @@ const fo: TranslationMap = {
     title: 'Skrásetingarmarkið er nátt',
     message: 'Umsetningurin hevur nátt skrásetingarmarkinum {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'MVG-frágreiðing fellur skjótt',
+    message: '{{returnName}} fyri {{periodStart}} – {{periodEnd}} fellur {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'MVG-frágreiðing er yvir tíðina',
+    message:
+      '{{returnName}} fyri {{periodStart}} – {{periodEnd}} skuldi verið latin inn {{dueDate}} og er ikki latin inn í Lumio',
+  },
+  'tax.deadline.income': {
+    title: 'Skattframtal fellur skjótt',
+    message: '{{returnName}} fyri {{taxYear}} fellur {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Almennir MVG-satsar víkja frá tínum',
+    message:
+      'MVG-satsarnir, sum {{country}} boðar Evropeiska nevndini frá, víkja frá teimum í Lumio. Kanna teir í skattastillingunum fyri arbeiðsøkið.',
+  },
 };
 
 const cs: TranslationMap = {
@@ -2846,6 +3318,24 @@ const cs: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Registrační limit dosažen',
     message: 'Obrat dosáhl registračního limitu {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Přiznání k DPH je brzy splatné',
+    message: '{{returnName}} za {{periodStart}} – {{periodEnd}} je splatné {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Přiznání k DPH po splatnosti',
+    message:
+      '{{returnName}} za {{periodStart}} – {{periodEnd}} bylo splatné {{dueDate}} a v Lumio není podané',
+  },
+  'tax.deadline.income': {
+    title: 'Daňové přiznání k dani z příjmů je brzy splatné',
+    message: '{{returnName}} za {{taxYear}} je splatné {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Oficiální sazby DPH se liší od vašich',
+    message:
+      'Sazby DPH, které {{country}} hlásí Evropské komisi, se liší od sazeb v Lumio. Zkontrolujte je v daňovém nastavení pracovního prostoru.',
   },
 };
 
@@ -2964,6 +3454,24 @@ const bg: TranslationMap = {
     title: 'Прагът за регистрация е достигнат',
     message: 'Оборотът достигна прага за регистрация {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Декларацията по ДДС скоро изтича',
+    message: '{{returnName}} за {{periodStart}} – {{periodEnd}} трябва да се подаде до {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Декларацията по ДДС е просрочена',
+    message:
+      '{{returnName}} за {{periodStart}} – {{periodEnd}} трябваше да се подаде до {{dueDate}}, в Lumio тя не е подадена',
+  },
+  'tax.deadline.income': {
+    title: 'Данъчната декларация за доходите скоро изтича',
+    message: '{{returnName}} за {{taxYear}} трябва да се подаде до {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Официалните ставки на ДДС се различават от вашите',
+    message:
+      'Ставките на ДДС, които {{country}} съобщава на Европейската комисия, се различават от тези в Lumio. Проверете ги в данъчните настройки на работното пространство.',
+  },
 };
 
 const hr: TranslationMap = {
@@ -3079,6 +3587,24 @@ const hr: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Prag za registraciju je dosegnut',
     message: 'Promet je dosegao prag za registraciju {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Prijava PDV-a uskoro dospijeva',
+    message: '{{returnName}} za {{periodStart}} – {{periodEnd}} dospijeva {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Prijava PDV-a dospjela',
+    message:
+      '{{returnName}} za {{periodStart}} – {{periodEnd}} trebala je biti predana do {{dueDate}}, a u Lumiju nije predana',
+  },
+  'tax.deadline.income': {
+    title: 'Porezna prijava uskoro dospijeva',
+    message: '{{returnName}} za {{taxYear}} dospijeva {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Službene stope PDV-a razlikuju se od vaših',
+    message:
+      'Stope PDV-a koje {{country}} prijavljuje Europskoj komisiji razlikuju se od onih u Lumiu. Provjerite ih u poreznim postavkama radnog prostora.',
   },
 };
 
@@ -3197,6 +3723,24 @@ const sr: TranslationMap = {
     title: 'Праг за регистрацију је достигнут',
     message: 'Промет је достигао праг за регистрацију {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Пријава ПДВ-а ускоро доспева',
+    message: '{{returnName}} за {{periodStart}} – {{periodEnd}} доспева {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Пријава ПДВ-а доспела',
+    message:
+      '{{returnName}} за {{periodStart}} – {{periodEnd}} требало је да буде предата до {{dueDate}}, а у Lumio-у није предата',
+  },
+  'tax.deadline.income': {
+    title: 'Пореска пријава ускоро доспева',
+    message: '{{returnName}} за {{taxYear}} доспева {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Званичне стопе ПДВ-а разликују се од ваших',
+    message:
+      'Стопе ПДВ-а које {{country}} пријављује Европској комисији разликују се од оних у Lumio. Проверите их у пореским подешавањима радног простора.',
+  },
 };
 
 const sl: TranslationMap = {
@@ -3312,6 +3856,24 @@ const sl: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Prag za registracijo je dosežen',
     message: 'Promet je dosegel prag za registracijo {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Napoved DDV kmalu zapade',
+    message: '{{returnName}} za {{periodStart}} – {{periodEnd}} zapade {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Napoved DDV je zapadla',
+    message:
+      '{{returnName}} za {{periodStart}} – {{periodEnd}} je morala biti oddana do {{dueDate}}, v Lumio pa ni oddana',
+  },
+  'tax.deadline.income': {
+    title: 'Davčna napoved kmalu zapade',
+    message: '{{returnName}} za {{taxYear}} zapade {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Uradne stopnje DDV se razlikujejo od vaših',
+    message:
+      'Stopnje DDV, ki jih {{country}} sporoča Evropski komisiji, se razlikujejo od tistih v Lumiu. Preverite jih v davčnih nastavitvah delovnega prostora.',
   },
 };
 
@@ -3430,6 +3992,24 @@ const mk: TranslationMap = {
     title: 'Прагот за регистрација е достигнат',
     message: 'Прометот достигна прагот за регистрација {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Пријавата за ДДВ наскоро доспева',
+    message: '{{returnName}} за {{periodStart}} – {{periodEnd}} доспева на {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Пријавата за ДДВ е пречекорена',
+    message:
+      '{{returnName}} за {{periodStart}} – {{periodEnd}} требало да се поднесе до {{dueDate}}, а во Lumio не е поднесена',
+  },
+  'tax.deadline.income': {
+    title: 'Даночната пријава за доход наскоро доспева',
+    message: '{{returnName}} за {{taxYear}} доспева на {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Официјалните стапки на ДДВ се разликуваат од вашите',
+    message:
+      'Стапките на ДДВ што {{country}} ги пријавува до Европската комисија се разликуваат од оние во Lumio. Проверете ги во даночните поставки на работниот простор.',
+  },
 };
 
 const be: TranslationMap = {
@@ -3545,6 +4125,24 @@ const be: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Парог рэгістрацыі дасягнуты',
     message: 'Абарот дасягнуў парога рэгістрацыі {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Дэкларацыя па ПДВ хутка настане',
+    message: '{{returnName}} за {{periodStart}} – {{periodEnd}} трэба падаць да {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Дэкларацыя па ПДВ пратэрмінавана',
+    message:
+      '{{returnName}} за {{periodStart}} – {{periodEnd}} трэба было падаць да {{dueDate}}, у Lumio яна не пададзена',
+  },
+  'tax.deadline.income': {
+    title: 'Дэкларацыя аб падатку на даходы хутка настане',
+    message: '{{returnName}} за {{taxYear}} трэба падаць да {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Афіцыйныя стаўкі ПДВ адрозніваюцца ад вашых',
+    message:
+      'Стаўкі ПДВ, пра якія {{country}} паведамляе Еўракамісіі, адрозніваюцца ад ставак у Lumio. Праверце іх у падатковых наладах прасторы.',
   },
 };
 
@@ -3662,6 +4260,24 @@ const bs: TranslationMap = {
     title: 'Prag za registraciju je dosegnut',
     message: 'Promet je dosegao prag za registraciju {{threshold}} {{currency}}',
   },
+  'tax.deadline.vat': {
+    title: 'Prijava PDV-a uskoro dospijeva',
+    message: '{{returnName}} za {{periodStart}} – {{periodEnd}} dospijeva {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Prijava PDV-a dospjela',
+    message:
+      '{{returnName}} za {{periodStart}} – {{periodEnd}} trebala je biti predana do {{dueDate}}, a u Lumiju nije predana',
+  },
+  'tax.deadline.income': {
+    title: 'Porezna prijava uskoro dospijeva',
+    message: '{{returnName}} za {{taxYear}} dospijeva {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Službene stope PDV-a razlikuju se od vaših',
+    message:
+      'Stope PDV-a koje {{country}} prijavljuje Evropskoj komisiji razlikuju se od onih u Lumiu. Provjerite ih u poreznim postavkama radnog prostora.',
+  },
 };
 
 const hsb: TranslationMap = {
@@ -3777,6 +4393,24 @@ const hsb: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Prag registracije docpěty',
     message: 'Wobrot je prag registracije {{threshold}} {{currency}} docpěł',
+  },
+  'tax.deadline.vat': {
+    title: 'MwSt.-přiznanje bórze dospěje',
+    message: '{{returnName}} za {{periodStart}} – {{periodEnd}} dospěje {{dueDate}}',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'MwSt.-přiznanje přepadnjene',
+    message:
+      '{{returnName}} za {{periodStart}} – {{periodEnd}} dyrbješe {{dueDate}} podate być a w Lumio njeje podate',
+  },
+  'tax.deadline.income': {
+    title: 'Dochodowe přiznanje bórze dospěje',
+    message: '{{returnName}} za {{taxYear}} dospěje {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Oficialne sadźby MwSt. so wot wašich rozeznawaja',
+    message:
+      'Sadźby MwSt., kotrež {{country}} Europskej komisiji zdźěla, so wot tych w Lumio rozeznawaja. Přepruwujće je w dawkowych nastajenjach dźěłoweho ruma.',
   },
 };
 

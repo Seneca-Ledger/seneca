@@ -36,6 +36,15 @@ export const Client = Schema.Struct({
   remindersEnabled: Schema.Boolean,
   /** "Net 30" for this client; null follows the workspace term. */
   paymentTermsDays: Schema.NullOr(Schema.Number),
+  /** The billing address in parts, for e-invoices (XRechnung). */
+  street: Schema.optional(Schema.NullOr(Schema.String)),
+  postalCode: Schema.optional(Schema.NullOr(Schema.String)),
+  city: Schema.optional(Schema.NullOr(Schema.String)),
+  countryCode: Schema.optional(Schema.NullOr(Schema.String)),
+  /** Quoted on every invoice to this client (XRechnung BT-10). */
+  buyerReference: Schema.optional(Schema.NullOr(Schema.String)),
+  /** Goods or services: which tax-free EU supply a reverse-charged line is. */
+  supplyType: Schema.optional(Schema.NullOr(Schema.Literals(['goods', 'services']))),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 });
@@ -52,6 +61,10 @@ export const InvoiceLineItem = Schema.Struct({
   unitPrice: DecimalString,
   taxRateId: Schema.NullOr(Schema.String),
   categoryId: Schema.NullOr(Schema.String),
+  /** Unit of measure, UN/ECE Rec 20: C62 one, HUR hour, DAY day, MON month… */
+  unitCode: Schema.optional(Schema.String),
+  /** Discount (negative) or surcharge (positive) on quantity × unit price, in percent. */
+  adjustmentPercent: Schema.optional(Schema.NullOr(DecimalString)),
   sortOrder: Schema.Number,
 });
 export type InvoiceLineItem = Wire<typeof InvoiceLineItem>;
@@ -86,6 +99,10 @@ export const Invoice = Schema.Struct({
   recurrenceInterval: Schema.NullOr(InvoiceRecurrenceInterval),
   nextIssueDate: Schema.NullOr(DateOnly),
   recurrenceEndDate: Schema.NullOr(DateOnly),
+  /** The buyer's reference (XRechnung BT-10); empty falls back to the client's. */
+  buyerReference: Schema.optional(Schema.NullOr(Schema.String)),
+  /** When the goods or service were delivered. */
+  deliveryDate: Schema.optional(Schema.NullOr(DateOnly)),
   /** Only `GET /invoices/:id` loads the lines. */
   lineItems: Schema.optional(Schema.Array(InvoiceLineItem)),
   createdAt: Timestamp,

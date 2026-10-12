@@ -43,6 +43,7 @@ import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { CreditNoteDialog } from './CreditNoteDialog';
 import { InvoiceEmailDrawer } from './InvoiceEmailDrawer';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
+import { LineAdjustmentInput, UnitSelect, XRechnungMissingAlert } from './XRechnungFields';
 
 interface TaxRateOption {
   id: string;
@@ -50,7 +51,12 @@ interface TaxRateOption {
   rate: number;
 }
 
-const emptyLine = (): InvoiceLineItemInput => ({ description: '', quantity: 1, unitPrice: 0 });
+const emptyLine = (): InvoiceLineItemInput => ({
+  description: '',
+  quantity: 1,
+  unitPrice: 0,
+  unitCode: 'C62',
+});
 
 const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
@@ -59,6 +65,15 @@ const addDays = (iso: string, days: number): string => {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 };
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
+
+/** Quantity × unit price after the line's discount or surcharge, as the backend prices it. */
+function lineAmount(item: InvoiceLineItemInput): number {
+  const base = round2(Number(item.quantity || 0) * Number(item.unitPrice || 0));
+  const percent = Number(item.adjustmentPercent || 0);
+  return round2(base + (percent ? round2((base * percent) / 100) : 0));
+}
 
 /**
  * The same split the backend does, so the drawer and the saved invoice agree:
@@ -73,7 +88,7 @@ function computeTotals(
   let subtotal = 0;
   let taxTotal = 0;
   for (const item of lineItems) {
-    const amount = Number(item.quantity || 0) * Number(item.unitPrice || 0);
+    const amount = lineAmount(item);
     const pct = item.taxRateId ? (rateById.get(item.taxRateId) ?? 0) : 0;
     const tax = pricesIncludeTax ? (amount * pct) / (100 + pct) : (amount * pct) / 100;
     subtotal += pricesIncludeTax ? amount - tax : amount;
@@ -121,6 +136,10 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
     pushRecentCurrency,
   } = useCurrencyPickerState(currency);
   const [notes, setNotes] = useState('');
+  const [buyerReference, setBuyerReference] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [xrechnungMissing, setXrechnungMissing] = useState<string[] | null>(null);
+  const einvoice = useIntlayer('einvoiceFields');
   const [pricesIncludeTax, setPricesIncludeTax] = useState(false);
   const [lineItems, setLineItems] = useState<InvoiceLineItemInput[]>([emptyLine()]);
   const [recurrenceInterval, setRecurrenceInterval] = useState<InvoiceRecurrenceInterval | ''>('');
@@ -159,6 +178,8 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
         setDueDate(data.dueDate.slice(0, 10));
         setCurrency(data.currency);
         setNotes(data.notes || '');
+        setBuyerReference(data.buyerReference || '');
+        setDeliveryDate(data.deliveryDate ? data.deliveryDate.slice(0, 10) : '');
         setRecurrenceInterval(data.recurrenceInterval || '');
         setPricesIncludeTax(Boolean(data.pricesIncludeTax));
         setLineItems(
@@ -168,6 +189,8 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             unitPrice: Number(item.unitPrice),
             taxRateId: item.taxRateId || undefined,
             categoryId: item.categoryId || undefined,
+            unitCode: item.unitCode || 'C62',
+            adjustmentPercent: Number(item.adjustmentPercent || 0) || undefined,
           })),
         );
       })
@@ -232,12 +255,16 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
     currency,
     notes: notes || undefined,
     pricesIncludeTax,
+    buyerReference: buyerReference.trim(),
+    ...(deliveryDate ? { deliveryDate } : {}),
     lineItems: lineItems.map(line => ({
       description: line.description.trim(),
       quantity: Number(line.quantity),
       unitPrice: Number(line.unitPrice),
       taxRateId: line.taxRateId || undefined,
       categoryId: line.categoryId || undefined,
+      unitCode: line.unitCode || 'C62',
+      ...(line.adjustmentPercent ? { adjustmentPercent: line.adjustmentPercent } : {}),
     })),
     recurrenceInterval: recurrenceInterval || undefined,
   });
@@ -331,6 +358,29 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
   };
 
   /** The document as the client will get it, before the number is spent. */
+  /** The XRechnung of the invoice or of one of its credit notes, or what it still needs. */
+  const handleXRechnung = async (note?: CreditNote): Promise<void> => {
+    if (!invoice) {
+      return;
+    }
+    const api = note ? creditNotesApi : invoicesApi;
+    const id = note ? note.id : invoice.id;
+    const fileName = note
+      ? `${note.creditNoteNumber ?? 'credit-note'}.xml`
+      : `${invoice.invoiceNumber ?? 'invoice'}.xml`;
+    try {
+      const { missing } = await api.checkXRechnung(id);
+      if (missing.length > 0) {
+        setXrechnungMissing(missing);
+        return;
+      }
+      setXrechnungMissing(null);
+      await api.downloadXRechnung(id, fileName);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, einvoice.downloadFailed.value));
+    }
+  };
+
   const handlePreview = async (): Promise<void> => {
     if (!invoice) {
       return;
@@ -475,6 +525,11 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
               {t.actions.downloadPdf.value}
             </Button>
           )}
+          {invoice && invoice.status !== 'draft' && (
+            <Button variant="outline" onClick={() => void handleXRechnung()}>
+              {einvoice.downloadXRechnung.value}
+            </Button>
+          )}
           {invoice && invoice.status !== 'draft' && invoice.status !== 'void' && (
             <Button variant="outline" onClick={() => setEmailOpen(true)}>
               {t.detail.emailAction.value}
@@ -516,6 +571,12 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
       </div>
 
       <div style={{ display: 'grid', gap: 16, maxWidth: 900 }}>
+        {xrechnungMissing ? (
+          <XRechnungMissingAlert
+            missing={xrechnungMissing}
+            onClose={() => setXrechnungMissing(null)}
+          />
+        ) : null}
         <div className="lumio-payable-drawer__field-group">
           <label className="lumio-payable-drawer__field-label" htmlFor="invoice-client">
             {t.detail.client.value}
@@ -546,6 +607,26 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             value={dueDate}
             onChange={isEditable ? setDueDate : () => undefined}
           />
+        </div>
+
+        <div className="lumio-payable-drawer__2col">
+          <CustomDatePicker
+            label={einvoice.deliveryDate.value}
+            value={deliveryDate}
+            onChange={isEditable ? setDeliveryDate : () => undefined}
+          />
+          <div className="lumio-payable-drawer__field-group">
+            <label className="lumio-payable-drawer__field-label" htmlFor="invoice-buyer-reference">
+              {einvoice.buyerReference}
+            </label>
+            <Input
+              id="invoice-buyer-reference"
+              value={buyerReference}
+              disabled={!isEditable}
+              placeholder={einvoice.buyerReferencePlaceholder.value}
+              onChange={event => setBuyerReference(event.target.value)}
+            />
+          </div>
         </div>
 
         <div className="lumio-payable-drawer__2col">
@@ -648,6 +729,11 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                           updateLine(index, { quantity: Number(event.target.value) })
                         }
                       />
+                      <UnitSelect
+                        value={line.unitCode || 'C62'}
+                        disabled={!isEditable}
+                        onChange={unitCode => updateLine(index, { unitCode })}
+                      />
                     </td>
                     <td className="lumio-invoice-lines__td" data-label={t.detail.unitPrice.value}>
                       <Input
@@ -659,6 +745,11 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                         onChange={event =>
                           updateLine(index, { unitPrice: Number(event.target.value) })
                         }
+                      />
+                      <LineAdjustmentInput
+                        value={line.adjustmentPercent}
+                        disabled={!isEditable}
+                        onChange={adjustmentPercent => updateLine(index, { adjustmentPercent })}
                       />
                     </td>
                     <td className="lumio-invoice-lines__td" data-label={t.detail.taxRate.value}>
@@ -689,11 +780,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                       className="lumio-invoice-lines__td lumio-invoice-lines__td--right"
                       data-label={t.detail.amount.value}
                     >
-                      {formatMoney(
-                        Number(line.quantity) * Number(line.unitPrice),
-                        currency,
-                        locale,
-                      )}
+                      {formatMoney(lineAmount(line), currency, locale)}
                     </td>
                     {isEditable && (
                       <td className="lumio-invoice-lines__td lumio-invoice-lines__td--actions">
@@ -860,6 +947,9 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                     }
                   >
                     {t.actions.downloadPdf.value}
+                  </Button>
+                  <Button variant="outline" onClick={() => void handleXRechnung(note)}>
+                    {einvoice.downloadXRechnung.value}
                   </Button>
                   {note.status === 'issued' && (
                     <Button

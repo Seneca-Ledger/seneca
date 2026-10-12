@@ -1,4 +1,5 @@
 import * as xlsx from 'xlsx';
+import { toCsv } from '../../common/utils/csv.util';
 import type { IncomeTaxDraft } from './income-tax.types';
 
 /**
@@ -233,6 +234,55 @@ export function buildIncomeTaxXlsx(draft: IncomeTaxDraft): Buffer {
   xlsx.utils.book_append_sheet(workbook, transactions, 'Transactions');
 
   return xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+}
+
+/**
+ * The draft as CSV: figures first, then every transaction behind them, with
+ * plain numbers so a spreadsheet or an accountant's software can add them up.
+ */
+export function buildIncomeTaxCsv(draft: IncomeTaxDraft): Buffer {
+  return Buffer.from(
+    toCsv([
+      ['Income tax declaration draft'],
+      [INCOME_TAX_DOCUMENT_DISCLAIMER],
+      [],
+      ...summaryRows(draft),
+      [],
+      FIGURE_HEADER,
+      ...draft.figures.map(figure => [
+        figure.lineNo ?? '',
+        figure.fieldNo ?? '',
+        figure.label,
+        figure.amount,
+        figure.deductible,
+        figure.transactionCount,
+      ]),
+      [],
+      [
+        'Line',
+        'Date',
+        'Counterparty',
+        'Category',
+        'Currency',
+        'Amount',
+        'Exchange rate',
+        `Amount in ${draft.currency}`,
+      ],
+      ...Object.entries(draft.contributions).flatMap(([lineKey, rows]) =>
+        rows.map(row => [
+          lineKey,
+          row.date,
+          row.counterparty,
+          row.categoryName ?? '',
+          row.currency,
+          row.amount,
+          row.exchangeRate,
+          row.amountConverted,
+        ]),
+      ),
+    ]),
+    'utf8',
+  );
 }
 
 export async function buildIncomeTaxPdf(draft: IncomeTaxDraft): Promise<Buffer> {

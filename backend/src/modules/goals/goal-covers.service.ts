@@ -2,24 +2,20 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import {
-  BadGatewayException,
-  BadRequestException,
-  type HttpException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
-import { Data, Effect, Schema } from 'effect';
-import { HttpClientResponse } from 'effect/http';
 import type { Repository } from 'typeorm';
-import { type AppServices, EffectRuntime } from '../../common/effect/effect-runtime';
-import { contentTypeOf, getWith } from '../../common/effect/http-json';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { assertFound } from '../../common/utils/assert-found.util';
+import {
+  asHttpsUrl,
+  asText,
+  downloadOpenverseThumbnail,
+  type OpenverseJson,
+  type OpenverseResult,
+  requestOpenverseJson,
+} from '../../common/utils/openverse.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import type { SetGoalCoverBody } from '../../contracts';
 import { Goal } from '../../entities';
@@ -68,41 +64,6 @@ const THUMBNAIL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  */
 const USER_AGENT = 'Lumio/1.0 (self-hosted personal finance; goal covers)';
 
-/** The shape Openverse returns, narrowed to the fields that are used. */
-interface OpenverseResult {
-  id?: unknown;
-  title?: unknown;
-  creator?: unknown;
-  license?: unknown;
-  license_url?: unknown;
-  attribution?: unknown;
-  foreign_landing_url?: unknown;
-}
-
-function asText(value: unknown, max: number): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed ? trimmed.slice(0, max) : null;
-}
-
-/**
- * Only https, and only what fits the column. The URL goes to the client as a
- * link, so a `javascript:` value from upstream would be a stored XSS on click.
- */
-function asHttpsUrl(value: unknown, max: number): string | null {
-  const text = asText(value, max);
-  if (!text) {
-    return null;
-  }
-  try {
-    return new URL(text).protocol === 'https:' ? text : null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Pictures for savings goals, searched on Openverse.
  *
@@ -113,39 +74,6 @@ function asHttpsUrl(value: unknown, max: number): string | null {
  * instead of being linked: a goal is kept for years, and the Flickr URL behind
  * a CC photo is not.
  */
-/** Openverse answers JSON objects; every field is read leniently by the callers. */
-const OpenverseJson = Schema.Record(Schema.String, Schema.Unknown);
-
-/** Why a cover request failed, before it becomes a response. */
-class CoverRequestError extends Data.TaggedError('CoverRequestError')<{
-  readonly reason: 'unavailable' | 'quota' | 'unreadable' | 'missing' | 'format' | 'size';
-}> {}
-
-function toCoverException(error: CoverRequestError, action: 'search' | 'download'): HttpException {
-  switch (error.reason) {
-    case 'quota':
-      return new ServiceUnavailableException(
-        action === 'search'
-          ? 'The image search allowance is used up for now — the bundled covers still work'
-          : 'The image allowance is used up for now — the bundled covers still work',
-      );
-    case 'unavailable':
-      return new BadGatewayException(
-        action === 'search'
-          ? 'Image search is unavailable right now'
-          : 'Could not fetch that picture',
-      );
-    case 'unreadable':
-      return new BadGatewayException('Image search returned something unreadable');
-    case 'missing':
-      return new NotFoundException('That picture is no longer available');
-    case 'format':
-      return new BadGatewayException('That picture is in a format Lumio does not store');
-    case 'size':
-      return new BadGatewayException('That picture is too large to store');
-  }
-}
-
 @Injectable()
 export class GoalCoversService {
   private readonly logger = new Logger(GoalCoversService.name);
@@ -315,99 +243,28 @@ export class GoalCoversService {
     }
   }
 
-  /** An Openverse JSON body, read leniently by the callers. */
-  private requestJson(url: string): Promise<Record<string, unknown>> {
-    const logger = this.logger;
-    // Never retried: the anonymous allowance is 200 searches a day.
-    return this.run(
-      'search',
-      getWith(
-        url,
-        {
-          timeout: COVER_SEARCH_TIMEOUT_MS,
-          headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
-        },
-        response =>
-          Effect.gen(function* () {
-            // Worth its own message: the allowance resets, and the person should
-            // be told to wait rather than that the search is broken.
-            if (response.status === 429) {
-              return yield* new CoverRequestError({ reason: 'quota' });
-            }
-            if (response.status < 200 || response.status >= 300) {
-              logger.warn(`Openverse request failed: http_${response.status}`);
-              return yield* new CoverRequestError({ reason: 'unavailable' });
-            }
-            return yield* HttpClientResponse.schemaBodyJson(OpenverseJson)(response).pipe(
-              Effect.mapError(() => new CoverRequestError({ reason: 'unreadable' })),
-            );
-          }),
-      ).pipe(
-        Effect.catchTags({
-          HttpClientError: () => this.networkFailure('Openverse request failed', 'network'),
-          TimeoutError: () => this.networkFailure('Openverse request failed', 'timeout'),
-        }),
-      ),
-    );
+  private requestJson(url: string): Promise<OpenverseJson> {
+    return requestOpenverseJson(url, this.openverseOptions());
   }
 
   private downloadThumbnail(photoId: string): Promise<StoredCoverFile> {
-    const logger = this.logger;
-    return this.run(
-      'download',
-      getWith(
-        `${OPENVERSE_API}${photoId}/thumb/`,
-        { timeout: COVER_DOWNLOAD_TIMEOUT_MS, headers: { 'User-Agent': USER_AGENT } },
-        response =>
-          Effect.gen(function* () {
-            if (response.status === 404) {
-              return yield* new CoverRequestError({ reason: 'missing' });
-            }
-            if (response.status === 429) {
-              return yield* new CoverRequestError({ reason: 'quota' });
-            }
-            if (response.status < 200 || response.status >= 300) {
-              logger.warn(`Goal cover download failed: http_${response.status}`);
-              return yield* new CoverRequestError({ reason: 'unavailable' });
-            }
-            const contentType = contentTypeOf(response);
-            if (!COVER_CONTENT_TYPES[contentType]) {
-              logger.warn(`Goal cover rejected: content_type_${contentType || 'none'}`);
-              return yield* new CoverRequestError({ reason: 'format' });
-            }
-            const body = Buffer.from(yield* response.arrayBuffer);
-            if (body.byteLength === 0 || body.byteLength > COVER_MAX_BYTES) {
-              logger.warn(`Goal cover rejected: size_${body.byteLength}`);
-              return yield* new CoverRequestError({ reason: 'size' });
-            }
-            return { body, contentType };
-          }),
-      ).pipe(
-        Effect.catchTags({
-          HttpClientError: () => this.networkFailure('Goal cover download failed', 'network'),
-          TimeoutError: () => this.networkFailure('Goal cover download failed', 'timeout'),
-        }),
-      ),
-    );
-  }
-
-  private networkFailure(prefix: string, reason: 'network' | 'timeout') {
-    return Effect.suspend(() => {
-      this.logger.warn(`${prefix}: ${reason}`);
-      return Effect.fail(new CoverRequestError({ reason: 'unavailable' }));
+    return downloadOpenverseThumbnail(photoId, {
+      ...this.openverseOptions(),
+      timeoutMs: COVER_DOWNLOAD_TIMEOUT_MS,
+      maxBytes: COVER_MAX_BYTES,
     });
   }
 
-  /** Runs a request; a CoverRequestError becomes the response the picker shows. */
-  private async run<A>(
-    action: 'search' | 'download',
-    effect: Effect.Effect<A, CoverRequestError, AppServices>,
-  ): Promise<A> {
-    try {
-      return await this.effects.run(effect);
-    } catch (error) {
-      throw error instanceof CoverRequestError ? toCoverException(error, action) : error;
-    }
+  private openverseOptions() {
+    return {
+      userAgent: USER_AGENT,
+      timeoutMs: COVER_SEARCH_TIMEOUT_MS,
+      logger: this.logger,
+      label: 'Goal cover',
+      allowanceMessage:
+        'The image search allowance is used up for now — the bundled covers still work',
+      effects: this.effects,
+    };
   }
 
   private async writeCoverFile(image: StoredCoverFile): Promise<string> {

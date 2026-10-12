@@ -1,0 +1,263 @@
+{
+  "DE": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 10, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": 10, "plusDays": null, "exceptions": [] },
+        "annual":    { "monthsAfterPeriodEnd": 7, "day": 31, "plusDays": null, "exceptions": [] }
+      },
+      "frequencyRule": "Quarterly by default; monthly if prior-year VAT exceeded EUR 9,000; no advance returns (annual return only) if prior-year VAT was not more than EUR 2,000 (§18 Abs. 2 UStG). Newly founded businesses file monthly in the founding year and the following year, but for 2021-2026 the actual/projected annual tax decides instead (§18 Abs. 2 UStG).",
+      "shiftsToNextBusinessDay": true,
+      "extension": { "months": 1, "name": "Dauerfristverlängerung", "note": "§46 UStDV: on application the Finanzamt extends filing and payment of the Voranmeldungen by one month. Monthly filers must pay a Sondervorauszahlung of 1/11 of the prior year's advance payments (§47 Abs. 1 UStDV). Does not apply to the annual return." },
+      "returnName": "Umsatzsteuer-Voranmeldung (annual: Umsatzsteuererklärung)",
+      "sources": [
+        "https://www.gesetze-im-internet.de/ustg_1980/__18.html",
+        "https://www.gesetze-im-internet.de/ustdv_1980/__46.html",
+        "https://www.gesetze-im-internet.de/ustdv_1980/__47.html",
+        "https://www.gesetze-im-internet.de/ao_1977/__108.html",
+        "https://www.gesetze-im-internet.de/ao_1977/__149.html"
+      ],
+      "unsure": "Annual return rule = §149 Abs. 2 AO (7 months after the calendar year, i.e. 31 July). With a Steuerberater it is the last day of February of the second following year (§149 Abs. 3 AO), which RULE cannot express."
+    },
+    "incomeTax2026": {
+      "formName": "Einkommensteuererklärung (ESt 1 A)",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-08-02" },
+        { "kind": "adviser", "date": "2028-02-29" }
+      ],
+      "sources": [
+        "https://www.gesetze-im-internet.de/ao_1977/__149.html",
+        "https://www.gesetze-im-internet.de/ao_1977/__108.html"
+      ],
+      "unsure": "Calculated from statute. §149 Abs. 2 AO gives 2027-07-31, which is a Saturday, so §108 Abs. 3 AO moves it to Monday 2027-08-02. Adviser: last day of February 2028 = 2028-02-29 (Tuesday, leap year). No transitional extension under Art. 97 EGAO was found for tax year 2026, but this was not checked further."
+    }
+  },
+  "AT": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 2, "day": 15, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 2, "day": 15, "plusDays": null, "exceptions": [] },
+        "annual":    { "monthsAfterPeriodEnd": 6, "day": 30, "plusDays": null, "exceptions": [] }
+      },
+      "frequencyRule": "Monthly UVA if prior-year turnover exceeded EUR 100,000. Quarterly if it was between EUR 55,000 and EUR 100,000 (monthly is allowed voluntarily). Businesses with prior-year turnover of EUR 55,000 or less are generally exempt from filing UVAs unless the Finanzamt requires them. Due on the 15th of the second month after the period (Q1 -> 15 May).",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Umsatzsteuervoranmeldung (UVA, form U30); annual: Umsatzsteuererklärung (U1)",
+      "sources": [
+        "https://www.usp.gv.at/themen/steuern-finanzen/umsatzsteuer-ueberblick/weitere-informationen-zur-umsatzsteuer/entstehen-der-steuerschuld-und-pflichten/umsatzsteuervoranmeldung.html",
+        "https://www.usp.gv.at/themen/steuern-finanzen/umsatzsteuer-ueberblick/umsatzsteuervoranmeldung-und-umsatzsteuererklaerung.html",
+        "https://www.bmf.gv.at/themen/steuern/fristen-verfahren/fristen-faelligkeiten.html",
+        "https://findok.bmf.gv.at/findok/iwg/82/82899/82899.1.pdf"
+      ],
+      "unsure": "Annual RULE is the FinanzOnline deadline (30 June). A paper annual return is due 30 April, and representatives under the quota system (§134a BAO) have until 31 March of the second following year. RULE cannot express either. The weekend/holiday shift is confirmed for due dates on the BMF page (§210 Abs. 3 BAO: Saturday, Sunday, holiday, Good Friday, 24 Dec -> next day). For filing deadlines (§108 Abs. 3 BAO) it comes from a search summary only, because the RIS statute site blocked fetching."
+    },
+    "incomeTax2026": {
+      "formName": "Einkommensteuererklärung (E1)",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "paper", "date": "2027-04-30" },
+        { "kind": "online", "date": "2027-06-30" },
+        { "kind": "adviser", "date": "2028-03-31" }
+      ],
+      "sources": [
+        "https://www.bmf.gv.at/themen/steuern/fuer-unternehmen/einkommensteuer/einkommensteuererklaerungspflicht.html",
+        "https://www.usp.gv.at/themen/steuern-finanzen/einkommensteuer-ueberblick/weitere-informationen-est/einkommensteuererklaerung.html",
+        "https://findok.bmf.gv.at/findok/iwg/82/82899/82899.1.pdf"
+      ],
+      "unsure": "Paper 30 April and FinanzOnline 30 June of the following year (§134 Abs. 1 BAO). In 2027 both are weekdays (Friday and Wednesday). The adviser date is the quota-system deadline of 31 March of the second following year (§134a BAO, BMF quota decree). It applies only to returns filed by a professional representative under the quota system, and the Finanzamt may grant a Nachfrist to 30 June 2028. Individual extensions are possible on request."
+    }
+  },
+  "PL": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "Monthly (JPK_V7M) by default. Small taxpayers (mały podatnik: prior-year sales incl. VAT up to the equivalent of EUR 2,000,000) may opt for quarterly (JPK_V7K) by notifying the tax office no later than the 25th of the second month of the quarter. Not available to taxpayers registered as active VAT payers for less than 12 months.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "JPK_VAT z deklaracją (JPK_V7M monthly / JPK_V7K quarterly)",
+      "sources": [
+        "https://www.podatki.gov.pl/podatki-firmowe/jednolity-plik-kontrolny/jpk_vat-z-deklaracja/jpk_vat-z-deklaracja",
+        "https://www.biznes.gov.pl/pl/portal/00232"
+      ],
+      "unsure": "Quarterly (JPK_V7K) filers still submit the records part (ewidencja) by the 25th after each of the first two months of the quarter. The declaration part is filed by the 25th after the quarter."
+    },
+    "incomeTax2026": {
+      "formName": "PIT-36 / PIT-36L / PIT-28",
+      "filingOpens": "2027-02-15",
+      "deadlines": [
+        { "kind": "standard", "date": "2027-04-30" }
+      ],
+      "sources": [
+        "https://www.biznes.gov.pl/pl/portal/ou893",
+        "https://www.biznes.gov.pl/pl/portal/ou894",
+        "https://www.gov.pl/web/finanse/zmiany-terminow-rozliczenia-zryczaltowanego-podatku-dochodowego"
+      ],
+      "unsure": "Filing window is 15 February to 30 April of the following year; returns filed earlier count as filed on 15 February. 2027-04-30 is a Friday, so no shift."
+    }
+  },
+  "CZ": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "Monthly by default (§99 ZDPH). Quarterly by choice if prior-year domestic turnover did not exceed CZK 15,000,000 (raised from CZK 10,000,000 from 2025), the payer is not unreliable and not a VAT group, and the change is notified by the end of January (§99a ZDPH). Not allowed for the registration year or the following year.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Daňové přiznání k DPH (filed together with kontrolní hlášení)",
+      "sources": [
+        "https://www.zakonyprolidi.cz/cs/2004-235",
+        "https://www.zakonyprolidi.cz/cs/2009-280",
+        "https://financnisprava.gov.cz/assets/cs/prilohy/d-seznam-dani/82973_Souhrnna-informace-k-novele-DPH-2025.pdf",
+        "https://financnisprava.gov.cz/cs/dane/dane/dan-z-pridane-hodnoty/kontrolni-hlaseni-dph/kdy"
+      ],
+      "unsure": "Deadline is \"do 25 dnů po uplynutí zdaňovacího období\" (§136 odst. 4 daňového řádu; it cannot be extended), which equals the 25th of the following month. Weekend/holiday shift per §33 odst. 4 DŘ. Statute text was read on zakonyprolidi.cz, an unofficial mirror; the FS 2025 amendment note confirms the CZK 15M threshold."
+    },
+    "incomeTax2026": {
+      "formName": "Přiznání k dani z příjmů fyzických osob (DPFO)",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-04-01" },
+        { "kind": "online", "date": "2027-05-03" },
+        { "kind": "adviser", "date": "2027-07-01" }
+      ],
+      "sources": [
+        "https://financnisprava.gov.cz/cs/dane/dane/dan-z-prijmu/fyzicke-osoby/obecne-informace",
+        "https://financnisprava.gov.cz/cs/financni-sprava/media-a-verejnost/tiskove-zpravy-gfr/tiskove-zpravy-2026/krati-se-cas-na-podani-danoveho-priznani",
+        "https://www.zakonyprolidi.cz/cs/2009-280"
+      ],
+      "unsure": "Calculated, not yet published by FS: §136 odst. 1/2 DŘ gives 3 months, 4 months if filed electronically, and 6 months if filed by an adviser (with power of attorney lodged within the 3-month period) or with a mandatory audit. Dates follow FS's counting for tax year 2025 (1.4. / 4.5. / 1.7.2026). For 2027, 1 May is a Saturday and a public holiday, so §33 odst. 4 DŘ moves it to Monday 2027-05-03. 1 April and 1 July 2027 are Thursdays."
+    }
+  },
+  "SK": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "Monthly by default (§77 ods. 1 zákona 222/2004). Quarterly by choice once more than 12 calendar months have passed since the end of the month of registration and turnover in the preceding 12 consecutive months stayed below EUR 100,000 (§77 ods. 2). The change must be notified within 25 days after the month in which the conditions were met. If turnover reaches EUR 100,000, the payer switches back to monthly.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Daňové priznanie k DPH (with kontrolný výkaz)",
+      "sources": [
+        "https://www.slov-lex.sk/static/pdf/2004/222/ZZ_2004_222_20260101.pdf",
+        "https://podpora.financnasprava.sk/816516-Zmena-zda%C5%88ovacieho-obdobia",
+        "https://podpora.financnasprava.sk/195734-Lehota-na-pod%C3%A1vanie-da%C5%88ov%C3%BDch-priznan%C3%AD"
+      ],
+      "unsure": "Deadline is \"do 25 dní po skončení každého zdaňovacieho obdobia\" (§78 ods. 2 písm. a), which equals the 25th of the following month. The weekend/holiday shift (§27 ods. 4 daňového poriadku) is stated by the FS support page in the context of income-tax returns, and the rule is general. Version read: consolidated text in force from 1.1.2026."
+    },
+    "incomeTax2026": {
+      "formName": "Daňové priznanie k dani z príjmov FO, typ B",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-03-31" },
+        { "kind": "with_extension", "date": "2027-06-30" },
+        { "kind": "with_extension", "date": "2027-09-30" }
+      ],
+      "sources": [
+        "https://podpora.financnasprava.sk/516395-Povinnos%C5%A5-poda%C5%A5-da%C5%88ov%C3%A9-priznanie-k-dani-z-pr%C3%ADjmov-FO-za-rok-2026",
+        "https://www.slov-lex.sk/static/pdf/2003/595/ZZ_2003_595_20260101.pdf"
+      ],
+      "unsure": "§49 ods. 2 ZDP: 3 calendar months after the year, so 2027-03-31 (Wednesday). §49 ods. 3: by filing a notice before that date, the deadline extends by up to 3 whole months (2027-06-30), or up to 6 whole months (2027-09-30) if the income includes foreign-source income. The new deadline is the end of the month chosen in the notice. Both extended dates are the maximums."
+    }
+  },
+  "HU": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 20, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": 20, "plusDays": null, "exceptions": [] },
+        "annual":    { "monthsAfterPeriodEnd": 2, "day": 25, "plusDays": null, "exceptions": [] }
+      },
+      "frequencyRule": "The data from the second year before the current one decides. Monthly if the net VAT payable was positive and at least HUF 1,000,000. Annual if the net VAT was between -HUF 250,000 and +HUF 250,000, turnover was not above HUF 50 million and there is no EU (community) VAT number. Quarterly otherwise, and also for holders of an EU VAT number. Taxpayers move to a more frequent period mid-year when they cross these thresholds (Art. 2. melléklet). Taxpayers who chose subjective exemption (alanyi adómentes) file monthly, but only for months with reportable items.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Áfabevallás (form xx65, e.g. 2565 for 2025)",
+      "sources": [
+        "https://nav.gov.hu/pfile/file?path=%2Fnyomtatvanyok%2Fletoltesek%2Fnyomtatvanykitolto_programok%2Fnyomtatvanykitolto_programok_nav%2F2565%2F2565---kitoltesi-utmutato"
+      ],
+      "unsure": "Source is NAV's 2025 filing guide for form 2565; the 2026 guide (2665) was not checked. The guide says the deadline moves to the next working day if it falls on a non-working day (Air. 52. § (4)). It was not verified whether newly formed taxpayers without a predecessor have a special frequency for the registration year and the following year; the guide mentions such a rule but its exact frequency was not confirmed. The Art. statute text (njt.hu) could not be read."
+    },
+    "incomeTax2026": {
+      "formName": "Személyijövedelemadó-bevallás (form yySZJA, e.g. 25SZJA for 2025)",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-05-20" }
+      ],
+      "sources": [
+        "https://nav.gov.hu/sajtoszoba/hirek/Az_egyeni_vallalkozoknak_afas_maganszemelyeknek_ostermeloknek_mindenkepp_foglalkozniuk_kell_a_bevallassal",
+        "https://nav.gov.hu/sajtoszoba/hirek/Indul_a_2026-os_szja-szezon"
+      ],
+      "unsure": "Deadline is 20 May of the following year for all individuals, including egyéni vállalkozók (NAV). 2027-05-20 is a Thursday and Whit Monday 2027 is 17 May, so there is no shift. NAV drafts appear from 15 March (stated for the 2026 season). For sole traders the draft does NOT become the return automatically, so they must submit it themselves. The statute (Art. 2. melléklet) was not read directly."
+    }
+  },
+  "SI": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": null, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": null, "plusDays": null, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "Monthly by default. Quarterly if prior-year taxable turnover was up to and including EUR 210,000 and the taxpayer does no intra-EU transactions that require a recapitulative statement. Always monthly for the first 12 months after receiving a VAT ID, and for non-established taxpayers and VAT groups.",
+      "shiftsToNextBusinessDay": null,
+      "extension": null,
+      "returnName": "Obračun DDV (DDV-O)",
+      "sources": [
+        "https://www.fu.gov.si/fileadmin/Internet/Davki_in_druge_dajatve/Podrocja/Davek_na_dodano_vrednost/Opis/Splosno_o_DDV.doc",
+        "https://www.fu.gov.si/en/taxes_and_other_duties/areas_of_work/value_added_tax_vat/",
+        "https://www.fu.gov.si/fileadmin/Internet/Davki_in_druge_dajatve/Podrocja/Dohodnina/Dohodek_iz_dejavnosti/Opis/Davki_za_zacetnike_-_fizicne_osebe_ki_opravljajo_dejavnost.pdf"
+      ],
+      "unsure": "day is null because the deadline is the LAST WORKING DAY of the month after the period, which RULE cannot express. Taxpayers who must file a recapitulative statement (intra-EU transactions) have a different deadline: the 20th of the following month. No statutory weekend shift was verified for that 20th-day deadline (ZDavP-2/ZUP not readable; PISRS is a JS app), hence null. The main deadline is a working day by definition."
+    },
+    "incomeTax2026": {
+      "formName": "Obračun akontacije dohodnine in dohodnine od dohodka iz dejavnosti (DDD-DDD)",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-03-31" }
+      ],
+      "sources": [
+        "https://www.fu.gov.si/en/business_events_businesses/income_tax_prepayment_calculation_and_the_calculation_of_personal_income_tax_prepayment_on_income_from_self_employment",
+        "https://www.fu.gov.si/fileadmin/Internet/Davki_in_druge_dajatve/Podrocja/Dohodnina/Dohodek_iz_dejavnosti/Opis/Davki_za_zacetnike_-_fizicne_osebe_ki_opravljajo_dejavnost.pdf"
+      ],
+      "unsure": "Self-employed (s.p.) file the annual tax calculation by 31 March of the following year (FURS; it applies to both actual and normed costs). 2027-03-31 is a Wednesday. Individuals without business income get an informativni izračun from FURS instead and file no return, so they have no deadline of the same kind."
+    }
+  },
+  "HR": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": null, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": null, "plusDays": null, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "Monthly by default. Quarterly if prior-year supplies incl. VAT were below EUR 110,000 (čl. 84 st. 2 ZPDV as amended by NN 114/2023, from 2024); such taxpayers may opt for monthly. The original law excludes taxpayers carrying out intra-EU transactions and non-established taxpayers from quarterly filing.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Prijava PDV-a (Obrazac PDV)",
+      "sources": [
+        "https://narodne-novine.nn.hr/clanci/sluzbeni/2025_12_151_2262.html",
+        "https://narodne-novine.nn.hr/clanci/sluzbeni/2023_10_114_1614.html",
+        "https://narodne-novine.nn.hr/clanci/sluzbeni/2013_06_73_1451.html",
+        "https://porezna-uprava.gov.hr/hr/porez-na-doda-nu-vrijednost/4579",
+        "https://porezna-uprava.gov.hr/hr/porezna-reforma/3954"
+      ],
+      "unsure": "CHANGED from 2026: NN 151/2025 (in force 1.1.2026) moved the deadline in čl. 85 st. 6 from the 20th to the LAST DAY of the month after the period. The last 2025 period still used the old rules. day is null because RULE cannot express \"last day of month\". Whether the intra-EU exclusion is still in the current čl. 84 was not re-checked. The weekend shift is shown in practice by Porezna uprava notices (Opći porezni zakon); the article itself was not read."
+    },
+    "incomeTax2026": {
+      "formName": "Godišnja prijava poreza na dohodak (Obrazac DOH)",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-03-01" }
+      ],
+      "sources": [
+        "https://porezna-uprava.gov.hr/hr/godisnjaporeznaprijava/4570",
+        "https://porezna-uprava.gov.hr/hr/rok-za-podnosenje-godisnje-prijave-poreza-na-dohodak-2-ozujka-2026/8369"
+      ],
+      "unsure": "The statutory deadline is the end of February of the following year (\"do kraja veljače tekuće godine za prethodnu godinu\"). 28 Feb 2027 is a Sunday, so the deadline moves to Monday 2027-03-01, as Porezna uprava did for 2025 (2 March 2026). Filing is e-only via ePorezna. Flat-rate (paušalni) self-employed do not file DOH; their own form/deadline was not researched."
+    }
+  }
+}

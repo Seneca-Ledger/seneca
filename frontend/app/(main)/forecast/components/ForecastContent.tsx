@@ -210,6 +210,13 @@ export function ForecastContent() {
                 tone={data.safeToSpend.amount > 0 ? 'success' : 'error'}
               />
             )}
+            {data.taxReserve && data.taxReserve > 0 ? (
+              <Kpi
+                label={t.heldForTax.value}
+                value={formatAmount(data.taxReserve)}
+                note={(data.profile === 'business' ? t.heldForTaxBusiness : t.heldForTaxNote).value}
+              />
+            ) : null}
             <Kpi
               label={t.lowestBalance.value}
               value={formatAmount(data.lowestBalance)}
