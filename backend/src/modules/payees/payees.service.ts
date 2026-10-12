@@ -6,6 +6,14 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { type DataSource, In, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import type {
+  MergePayeesBody,
+  PayeePendingReview,
+  PayeesPage,
+  SetTransactionPayeeBody,
+  UpdatePayeeBody,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Category } from '../../entities/category.entity';
 import { Payee, PayeeMode } from '../../entities/payee.entity';
@@ -13,12 +21,7 @@ import { Transaction, TransactionCategorySource } from '../../entities/transacti
 import { AuditService } from '../audit/audit.service';
 import { hasDecidedCategory } from '../classification/engine/category-decision';
 import { ClassificationService } from '../classification/services/classification.service';
-import type {
-  MergePayeesDto,
-  PayeesQueryDto,
-  SetTransactionPayeeDto,
-  UpdatePayeeDto,
-} from './dto/payees.dto';
+import type { PayeesQueryDto } from './dto/payees.dto';
 
 type CategoryRef = { id: string; name: string };
 
@@ -59,10 +62,7 @@ export class PayeesService {
     private readonly auditService: AuditService,
   ) {}
 
-  async list(
-    workspaceId: string,
-    query: PayeesQueryDto,
-  ): Promise<{ data: PayeeView[]; total: number; page: number; limit: number }> {
+  async list(workspaceId: string, query: PayeesQueryDto): Promise<PayeesPage> {
     const page = query.page ?? 1;
     const limit = query.limit ?? DEFAULT_LIMIT;
     const search = query.search?.trim() ?? '';
@@ -154,12 +154,12 @@ export class PayeesService {
     workspaceId: string,
     userId: string,
     id: string,
-    dto: UpdatePayeeDto,
+    dto: UpdatePayeeBody,
   ): Promise<Payee> {
     const payee = await this.findPayee(workspaceId, id);
     const before = { name: payee.name, mode: payee.mode, categoryId: payee.categoryId };
 
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       const name = dto.name.trim();
       if (!name) {
         throw new BadRequestException('A payee needs a name');
@@ -184,7 +184,7 @@ export class PayeesService {
     if (dto.categoryId) {
       await this.findCategory(workspaceId, dto.categoryId);
     }
-    const mode = dto.mode ?? payee.mode;
+    const mode = toEnum(PayeeMode, dto.mode) ?? payee.mode;
     const categoryId = dto.categoryId !== undefined ? dto.categoryId : payee.categoryId;
     if (mode === PayeeMode.ALWAYS && !categoryId) {
       throw new BadRequestException('Pick the category this payee always gets');
@@ -217,7 +217,7 @@ export class PayeesService {
     workspaceId: string,
     userId: string,
     targetId: string,
-    dto: MergePayeesDto,
+    dto: MergePayeesBody,
   ): Promise<{ payee: Payee; merged: number }> {
     return this.dataSource.transaction(async manager => {
       const target = await manager.findOne(Payee, { where: { id: targetId, workspaceId } });
@@ -266,7 +266,7 @@ export class PayeesService {
     workspaceId: string,
     userId: string,
     transactionId: string,
-    dto: SetTransactionPayeeDto,
+    dto: SetTransactionPayeeBody,
   ): Promise<{
     id: string;
     payee: { id: string; name: string };
@@ -283,7 +283,9 @@ export class PayeesService {
       ? await this.findPayee(workspaceId, dto.payeeId)
       : await this.findOrCreateByName(workspaceId, dto.name as string);
 
-    const updates: Partial<Transaction> = { payeeId: payee.id };
+    const updates: Partial<
+      Pick<Transaction, 'payeeId' | 'categoryId' | 'categorySource' | 'categoryReason'>
+    > = { payeeId: payee.id };
     if (!hasDecidedCategory(transaction)) {
       const match = await this.classificationService.categoryForPayee(workspaceId, payee.id);
       if (match) {
@@ -334,7 +336,7 @@ export class PayeesService {
     workspaceId: string,
     payeeId: string,
     excludeTransactionId?: string,
-  ): Promise<{ transactionIds: string[] }> {
+  ): Promise<PayeePendingReview> {
     await this.findPayee(workspaceId, payeeId);
     const query = this.transactionRepository
       .createQueryBuilder('transaction')

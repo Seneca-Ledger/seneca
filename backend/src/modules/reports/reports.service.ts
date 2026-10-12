@@ -20,6 +20,14 @@ import { formatMoney } from '../../common/utils/format-money.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import { applyOwnerFilter, parseOwnerFilter } from '../../common/utils/transaction-owner.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type {
+  CustomReportBody,
+  CustomTablesReportBody,
+  CustomTablesReportDrillDownBody,
+  CustomTablesSummaryBody,
+  ExportReportBody,
+  GenerateReportBody,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Branch } from '../../entities/branch.entity';
 import { Category } from '../../entities/category.entity';
@@ -39,16 +47,12 @@ import { BalanceService } from '../balance/balance.service';
 import { BalanceExportFormat } from '../balance/dto/export-balance.dto';
 import { UNCATEGORIZED_CATEGORY_NAME } from '../categories/uncategorized-category';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import { type CustomReportDto, ReportGroupBy } from './dto/custom-report.dto';
+import { ReportGroupBy } from './dto/custom-report.dto';
 import {
   CustomTableReportFlowType,
   CustomTableReportSortKey,
-  type CustomTablesReportDrillDownDto,
-  type CustomTablesReportDto,
 } from './dto/custom-tables-report.dto';
-import type { CustomTablesSummaryDto } from './dto/custom-tables-summary.dto';
-import { ExportFormat, type ExportReportDto } from './dto/export-report.dto';
-import type { GenerateReportDto } from './dto/generate-report.dto';
+import { ExportFormat } from './dto/export-report.dto';
 import type { SpendOverTimeQueryDto } from './dto/spend-over-time-query.dto';
 import type { TopCategoriesQueryDto } from './dto/top-categories-query.dto';
 import { WorkspaceExportFormat } from './dto/workspace-export.dto';
@@ -537,7 +541,7 @@ export class ReportsService {
 
   async getCustomTablesSummary(
     workspaceId: string,
-    dto: CustomTablesSummaryDto,
+    dto: CustomTablesSummaryBody,
   ): Promise<CustomTablesSummaryResponse> {
     const version = await this.getReportsVersion(workspaceId);
     const cacheKey = `reports:custom-tables:${workspaceId}:${version}:${JSON.stringify(dto)}`;
@@ -748,7 +752,7 @@ export class ReportsService {
 
   async getCustomTablesReport(
     workspaceId: string,
-    dto: CustomTablesReportDto,
+    dto: CustomTablesReportBody,
   ): Promise<CustomTablesReportResponse> {
     const version = await this.getReportsVersion(workspaceId);
     const cacheKey = `reports:custom-tables-report:${workspaceId}:${version}:${JSON.stringify(dto)}`;
@@ -1063,7 +1067,7 @@ export class ReportsService {
 
   async getCustomTablesReportDrillDown(
     workspaceId: string,
-    dto: CustomTablesReportDrillDownDto,
+    dto: CustomTablesReportDrillDownBody,
   ): Promise<CustomTablesReportDrillDownResponse> {
     const safeDays =
       Number.isFinite(dto.days) && (dto.days as number) > 0
@@ -1535,7 +1539,7 @@ export class ReportsService {
   /**
    * Generate custom report
    */
-  async generateCustomReport(workspaceId: string, dto: CustomReportDto): Promise<CustomReport> {
+  async generateCustomReport(workspaceId: string, dto: CustomReportBody): Promise<CustomReport> {
     const dateFrom = new Date(dto.dateFrom);
     const dateTo = new Date(dto.dateTo);
 
@@ -1658,7 +1662,7 @@ export class ReportsService {
    */
   async exportReport(
     _workspaceId: string,
-    dto: ExportReportDto,
+    dto: ExportReportBody,
     reportData: DailyReport | MonthlyReport | CustomReport,
     locale?: string,
   ): Promise<{ filePath: string; fileName: string }> {
@@ -2800,7 +2804,7 @@ export class ReportsService {
   async generateFromTemplate(
     workspaceId: string,
     userId: string,
-    dto: GenerateReportDto,
+    dto: GenerateReportBody,
   ): Promise<ReportFile> {
     const templateName = ReportsService.TEMPLATE_NAMES[dto.templateId];
     if (!templateName) {
@@ -2840,7 +2844,7 @@ export class ReportsService {
    */
   async previewTemplate(
     workspaceId: string,
-    dto: GenerateReportDto,
+    dto: GenerateReportBody,
     maxRowsPerSection = 20,
   ): Promise<ReportDocument & { truncated: boolean }> {
     if (!ReportsService.TEMPLATE_NAMES[dto.templateId]) {
@@ -2869,7 +2873,7 @@ export class ReportsService {
    */
   private async writeBalanceSheetFile(
     workspaceId: string,
-    dto: GenerateReportDto,
+    dto: GenerateReportBody,
     baseName: string,
   ): Promise<ReportFile> {
     if (dto.format !== 'excel' && dto.format !== 'pdf') {
@@ -2879,7 +2883,7 @@ export class ReportsService {
     const payload = await this.balanceService.exportBalanceSheet(
       workspaceId,
       { date: dto.dateTo, format: dto.format as BalanceExportFormat },
-      dto.locale,
+      dto.locale ?? undefined,
     );
 
     const fileName = `${baseName}.${dto.format === 'pdf' ? 'pdf' : 'xlsx'}`;
@@ -2891,7 +2895,7 @@ export class ReportsService {
 
   private async buildTemplateDocument(
     workspaceId: string,
-    dto: GenerateReportDto,
+    dto: GenerateReportBody,
   ): Promise<ReportDocument> {
     const { currency, rows } = await this.loadReportRows(workspaceId, dto);
     const subtitle = `${dto.dateFrom} — ${dto.dateTo} · ${currency}`;
@@ -2965,7 +2969,7 @@ export class ReportsService {
 
   private async loadReportRows(
     workspaceId: string,
-    dto: GenerateReportDto,
+    dto: GenerateReportBody,
   ): Promise<{ currency: string; rows: TemplateReportRow[] }> {
     const dateFrom = new Date(dto.dateFrom);
     const dateTo = new Date(dto.dateTo);

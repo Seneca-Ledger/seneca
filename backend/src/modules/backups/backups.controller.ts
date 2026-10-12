@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   Get,
   Param,
@@ -14,14 +13,17 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { BackupRunTrigger } from '../../entities';
+import { BackupImportBody, UpdateBackupConfigurationBody } from '../../contracts';
+import { BackupDestinationKind, BackupRunTrigger } from '../../entities';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BackupImportService } from './backup-import.service';
-import { BackupsService, type UpdateBackupConfiguration } from './backups.service';
+import { BackupsService } from './backups.service';
 
 type MulterFile = Express.Multer.File;
 
@@ -49,9 +51,12 @@ export class BackupsController {
   configure(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: UpdateBackupConfiguration,
+    @SchemaBody(UpdateBackupConfigurationBody) body: UpdateBackupConfigurationBody,
   ) {
-    return this.backupsService.configure(user, workspaceId, body);
+    return this.backupsService.configure(user, workspaceId, {
+      ...body,
+      destinationKind: toEnum(BackupDestinationKind, body.destinationKind),
+    });
   }
 
   @Get('runs')
@@ -85,9 +90,9 @@ export class BackupsController {
   previewImport(
     @CurrentUser() user: User,
     @UploadedFile() file: MulterFile | undefined,
-    @Body('password') password: string,
+    @SchemaBody(BackupImportBody) body: BackupImportBody,
   ) {
-    return this.importService.preview(user, this.requiredFile(file), password);
+    return this.importService.preview(user, this.requiredFile(file), body.password);
   }
 
   @Post('imports/:id/restore')
@@ -96,15 +101,14 @@ export class BackupsController {
     @Param('id') importId: string,
     @CurrentUser() user: User,
     @UploadedFile() file: MulterFile | undefined,
-    @Body('password') password: string,
-    @Body('workspaceName') workspaceName?: string,
+    @SchemaBody(BackupImportBody) body: BackupImportBody,
   ) {
     const workspace = await this.importService.restore(
       importId,
       user,
       this.requiredFile(file),
-      password,
-      workspaceName,
+      body.password,
+      body.workspaceName ?? undefined,
     );
     return { workspaceId: workspace.id, workspaceName: workspace.name };
   }

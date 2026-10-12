@@ -1,5 +1,6 @@
-import { sleep } from '@/common/utils/async.util';
 import { Semaphore } from '@/common/utils/semaphore.util';
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 describe('Semaphore', () => {
   it('limits concurrency', async () => {

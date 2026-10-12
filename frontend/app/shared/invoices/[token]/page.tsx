@@ -3,8 +3,8 @@
 import { Alert, Box, Chip, Container, Divider, Paper, Typography } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import api from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
 interface PublicInvoice {
   number: string;
@@ -89,11 +89,10 @@ export default function SharedInvoicePage() {
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .get<PublicInvoice>(`/public/invoices/${token}`)
-      .then(response => {
+    apiQueryDecoded({ url: `/public/invoices/${token}`, contract: 'PublicInvoiceView' })
+      .then(view => {
         if (!cancelled) {
-          setInvoice(response.data);
+          setInvoice(view);
         }
       })
       .catch(reason => {

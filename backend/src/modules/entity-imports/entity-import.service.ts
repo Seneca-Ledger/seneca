@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, type Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
+import type { RunEntityImportBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Budget } from '../../entities/budget.entity';
 import { Category, CategorySource, CategoryType } from '../../entities/category.entity';
@@ -28,7 +29,6 @@ import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { ClassificationService } from '../classification/services/classification.service';
 import { MetalsService } from '../investments/metals.service';
-import type { RunEntityImportDto } from './dto/run-entity-import.dto';
 import { nameKey } from './helpers/import-values';
 import { type ImportTargetKind, TARGET_FIELDS } from './target-aliases';
 import { BudgetsTarget } from './targets/budgets.target';
@@ -112,7 +112,7 @@ export class EntityImportService {
   async run(
     userId: string,
     workspaceId: string,
-    dto: RunEntityImportDto,
+    dto: RunEntityImportBody,
   ): Promise<EntityImportResult> {
     const target = this.targets[dto.target];
     if (!target) {
@@ -273,7 +273,7 @@ export class EntityImportService {
       if (!uncategorized.length) {
         return;
       }
-      const classified = [];
+      const classified: Partial<Transaction>[] = [];
       for (const tx of uncategorized) {
         classified.push(await this.classificationService.classifyTransaction(tx, userId));
       }
@@ -381,14 +381,17 @@ export class EntityImportService {
     return { undone: true, removed, restored: batch.updatedRefs.length };
   }
 
-  private entityTypeOf(target: ImportTargetKind): EntityType {
-    return {
+  private entityTypeOf(target: ImportTargetKind): EntityType | null {
+    const types: Record<ImportTargetKind, EntityType | null> = {
       transactions: EntityType.STATEMENT,
       payables: EntityType.PAYABLE,
       subscriptions: EntityType.SUBSCRIPTION,
       invoices: EntityType.INVOICE,
       budgets: EntityType.BUDGET,
-    }[target];
+      // No audit entity type for metal lots yet.
+      metals: null,
+    };
+    return types[target];
   }
 
   private async audit(
@@ -399,12 +402,16 @@ export class EntityImportService {
     action: AuditAction,
     meta: Record<string, unknown>,
   ) {
+    const entityType = this.entityTypeOf(target);
+    if (!entityType) {
+      return;
+    }
     try {
       await this.auditService.createEvent({
         workspaceId,
         actorType: ActorType.USER,
         actorId: userId,
-        entityType: this.entityTypeOf(target),
+        entityType,
         entityId: batchId,
         action,
         diff: null,

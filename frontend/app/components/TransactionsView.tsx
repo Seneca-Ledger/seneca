@@ -17,28 +17,12 @@ import { Search as SearchIcon } from '@/app/components/icons';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import type { StatementTransaction } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 
-export interface Transaction {
-  id: string;
-  transactionDate: string;
-  documentNumber?: string;
-  counterpartyName: string;
-  counterpartyBin?: string;
-  paymentPurpose: string;
-  debit: number;
-  credit: number;
-  amount: number;
-  transactionType: string;
-  currency?: string;
-  exchangeRate?: number;
-  article?: string;
-  amountForeign?: number;
-  category?: { name: string; isEnabled?: boolean };
-  branch?: { name: string };
-  wallet?: { name: string };
-}
+/** A statement's row as the storage and shared pages receive it: money as decimal strings. */
+export type Transaction = StatementTransaction;
 
 interface TransactionsViewProps {
   transactions: Transaction[];
@@ -188,12 +172,12 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
 
     const renderers: Record<string, (tx: Transaction) => React.ReactNode> = {
       transactionDate: tx => formatDate(tx.transactionDate),
-      debit: tx => (tx.debit > 0 ? formatAmount(tx.debit, tx.currency) : t.dash),
-      credit: tx => (tx.credit > 0 ? formatAmount(tx.credit, tx.currency) : t.dash),
+      debit: tx => (Number(tx.debit) > 0 ? formatAmount(Number(tx.debit), tx.currency) : t.dash),
+      credit: tx => (Number(tx.credit) > 0 ? formatAmount(Number(tx.credit), tx.currency) : t.dash),
       currency: tx => tx.currency || FALLBACK_CURRENCY,
       exchangeRate: tx =>
         tx.exchangeRate
-          ? tx.exchangeRate.toLocaleString(
+          ? Number(tx.exchangeRate).toLocaleString(
               locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
               { minimumFractionDigits: 2 },
             )
@@ -228,7 +212,7 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
       documentNumber: tx => tx.documentNumber || t.dash.value,
       amountForeign: tx =>
         tx.amountForeign
-          ? tx.amountForeign.toLocaleString(
+          ? Number(tx.amountForeign).toLocaleString(
               locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
               { minimumFractionDigits: 2 },
             )

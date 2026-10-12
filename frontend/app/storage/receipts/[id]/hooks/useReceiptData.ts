@@ -10,6 +10,7 @@ import type {
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 
 function buildLineItems(receipt: ReceiptRecord | null): EditableReceiptLineItem[] {
@@ -255,7 +256,9 @@ function usePersistParsedData(
       }
 
       await (async () => {
-        await apiClient.patch(`/receipts/${receipt.id}`, { parsedData: nextPayload });
+        await apiClient.patch(`/receipts/${receipt.id}`, {
+          parsedData: nextPayload,
+        } satisfies ContractInput<'UpdateReceiptBody'>);
         lastSavedRef.current = serialized;
         setReceipt(cur =>
           cur ? { ...cur, parsedData: { ...cur.parsedData, ...nextPayload } } : cur,
@@ -283,7 +286,9 @@ function useApproveReceipt(
 
     await (async () => {
       const payload = buildParsedDataPayload(formValue);
-      await apiClient.patch(`/receipts/${receipt.id}`, { parsedData: payload });
+      await apiClient.patch(`/receipts/${receipt.id}`, {
+        parsedData: payload,
+      } satisfies ContractInput<'UpdateReceiptBody'>);
       lastSavedRef.current = JSON.stringify(payload);
       await receiptsApi.approveReceipt(receipt.id);
       toast.success('Receipt approved.');

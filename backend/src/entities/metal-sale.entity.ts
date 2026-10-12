@@ -60,7 +60,7 @@ export class MetalSale {
   @Column({ name: 'cost_basis', type: 'decimal', precision: 20, scale: 6, nullable: true })
   costBasis: number | null;
 
-  @Column({ name: 'cost_currency', length: 10, nullable: true })
+  @Column({ type: 'varchar', name: 'cost_currency', length: 10, nullable: true })
   costCurrency: string | null;
 
   @Column({ name: 'sold_on', type: 'date' })

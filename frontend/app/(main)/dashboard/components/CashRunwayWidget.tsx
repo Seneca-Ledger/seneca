@@ -7,30 +7,12 @@ import { CardLink, DashboardCard, ListRow } from '@/app/components/dashboard/ui'
 import { AlertTriangle } from '@/app/components/icons';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { DashboardCommitmentsResponse } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { fillTemplate, text } from '../helpers/dashboard-helpers';
 
-interface CommitmentItem {
-  date: string;
-  label: string;
-  amount: number;
-  source: 'payable' | 'subscription';
-  sourceId: string;
-  isOverdue: boolean;
-}
-
-interface Commitments {
-  currency: string;
-  horizonDays: number;
-  openingBalance: number;
-  totalCommitted: number;
-  unscheduledCommitted: number;
-  items: CommitmentItem[];
-  lowestBalance: number;
-  lowestBalanceDate: string;
-  shortfallDate: string | null;
-}
+type Commitments = DashboardCommitmentsResponse;
 
 const HORIZON_DAYS = 60;
 const VISIBLE_ITEMS = 5;
@@ -45,7 +27,8 @@ function useCommitments(): { data: Commitments | null; loaded: boolean } {
   const { data, isPending } = useQuery({
     queryKey: queryKeys.dashboardCommitments(workspaceId, HORIZON_DAYS),
     queryFn: ({ signal }) =>
-      apiQuery<Commitments>({
+      apiQueryDecoded({
+        contract: 'DashboardCommitmentsResponse',
         url: '/dashboard/commitments',
         params: { days: HORIZON_DAYS },
         signal,

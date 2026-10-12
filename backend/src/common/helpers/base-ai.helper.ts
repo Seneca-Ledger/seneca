@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { Data, Duration, Effect, Option, Schedule, Schema } from 'effect';
 import {
   isAiCircuitOpen,
   isAiEnabled,
@@ -6,12 +7,10 @@ import {
   recordAiSuccess,
   withAiConcurrency,
 } from '../../modules/parsing/helpers/ai-runtime.util';
-import { retry, TimeoutError, withTimeout } from '../utils/async.util';
 import { fetchPublicUrl } from '../utils/egress-url.util';
 
 type GenerateJsonOptions = {
   timeoutMs: number;
-  timeoutMessage: string;
   retries: number;
   baseDelayMs: number;
   maxDelayMs: number;
@@ -42,13 +41,30 @@ type OpenAiChatMessage = {
   content: OpenAiMessageContent;
 };
 
-type OpenAiChatResponse = {
-  choices?: Array<{
-    message?: {
-      content?: string | null;
-    };
-  }>;
-};
+const OpenAiChatResponse = Schema.Struct({
+  choices: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        message: Schema.optional(
+          Schema.Struct({ content: Schema.optional(Schema.NullOr(Schema.String)) }),
+        ),
+      }),
+    ),
+  ),
+});
+const decodeChatResponse = Schema.decodeUnknownOption(OpenAiChatResponse);
+
+/** The endpoint answered with an error status, or the request never got an answer. */
+class AiRequestFailed extends Data.TaggedError('AiRequestFailed')<{
+  readonly status?: number;
+}> {}
+
+/** No status (network) or one that may pass on a second try. */
+const isTransient = (error: AiRequestFailed | { readonly _tag: 'TimeoutError' }) =>
+  error._tag === 'TimeoutError' ||
+  error.status === undefined ||
+  error.status === 429 ||
+  error.status >= 500;
 
 export type BaseAiClientConfig = {
   baseUrl?: string | null;
@@ -113,54 +129,62 @@ export abstract class BaseAiHelper {
       return null;
     }
 
-    try {
-      const completion = await retry(
-        () =>
-          withTimeout(
-            withAiConcurrency(() =>
-              this.aiFetch(`${this.aiBaseUrl}/v1/chat/completions`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(this.aiApiKey ? { Authorization: `Bearer ${this.aiApiKey}` } : {}),
-                },
-                body: JSON.stringify({
-                  model: this.aiModel,
-                  messages: this.toOpenAiMessages(contents),
-                  temperature: 0,
-                  response_format: { type: 'json_object' },
-                }),
-              }),
+    const url = `${this.aiBaseUrl}/v1/chat/completions`;
+    const init: RequestInit = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.aiApiKey ? { Authorization: `Bearer ${this.aiApiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        model: this.aiModel,
+        messages: this.toOpenAiMessages(contents),
+        temperature: 0,
+        response_format: { type: 'json_object' },
+      }),
+    };
+
+    // A timeout interrupts the attempt, which aborts the request and frees its
+    // concurrency slot; the old Promise.race left the fetch running and the
+    // slot held until the endpoint finally answered.
+    const attempt = Effect.tryPromise({
+      try: signal => withAiConcurrency(() => this.aiFetch(url, { ...init, signal })),
+      catch: () => new AiRequestFailed({}),
+    }).pipe(
+      Effect.flatMap(response =>
+        response.ok
+          ? Effect.tryPromise({ try: () => response.json(), catch: () => new AiRequestFailed({}) })
+          : Effect.fail(new AiRequestFailed({ status: response.status })),
+      ),
+      Effect.timeout(options.timeoutMs),
+    );
+
+    const maxDelay = Duration.millis(options.maxDelayMs);
+    const content = await Effect.runPromise(
+      attempt.pipe(
+        Effect.retry({
+          times: options.retries,
+          while: isTransient,
+          schedule: Schedule.exponential(options.baseDelayMs).pipe(
+            Schedule.jittered,
+            Schedule.modifyDelay(({ duration }) =>
+              Effect.succeed(Duration.min(duration, maxDelay)),
             ),
-            options.timeoutMs,
-            options.timeoutMessage,
           ),
-        {
-          retries: options.retries,
-          baseDelayMs: options.baseDelayMs,
-          maxDelayMs: options.maxDelayMs,
-          isRetryable: error => error instanceof TimeoutError,
-        },
-      );
+        }),
+        Effect.map(
+          body => Option.getOrUndefined(decodeChatResponse(body))?.choices?.[0]?.message?.content,
+        ),
+        Effect.orElseSucceed(() => undefined),
+      ),
+    );
 
-      if (!completion.ok) {
-        recordAiFailure();
-        return null;
-      }
-
-      const response = (await completion.json()) as OpenAiChatResponse;
-      const content = response.choices?.[0]?.message?.content;
-      if (!content) {
-        recordAiFailure();
-        return null;
-      }
-
-      recordAiSuccess();
-      return content;
-    } catch {
+    if (!content) {
       recordAiFailure();
       return null;
     }
+    recordAiSuccess();
+    return content;
   }
 
   private toOpenAiMessages(contents: AiContent[]): OpenAiChatMessage[] {

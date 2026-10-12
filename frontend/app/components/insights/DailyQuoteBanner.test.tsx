@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { todayKey } from '@/app/hooks/useDailyQuote';
 import { DailyQuoteBanner } from './DailyQuoteBanner';
+import { insightPage } from '@/app/test/fixtures/contracts';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn() }));
 const auth = vi.hoisted(() => ({ user: { showDailyQuote: true } as { showDailyQuote?: boolean } }));
@@ -34,7 +35,10 @@ const quote = {
 describe('DailyQuoteBanner', () => {
   beforeEach(() => {
     localStorage.clear();
-    apiMocks.get.mockReset().mockResolvedValue({ data: quote });
+    // Every other URL answers the quote; the insight feed answers an empty page.
+    apiMocks.get.mockReset().mockImplementation((url: string) =>
+      Promise.resolve({ data: url === '/insights' ? insightPage([]) : quote }),
+    );
   });
 
   it('shows the quote, its source and the advice it answers', async () => {
@@ -90,7 +94,20 @@ describe('DailyQuoteBanner', () => {
       Promise.resolve({
         data:
           url === '/insights'
-            ? { items: [{ id: 'i2', severity: 'warn', title: 'Category is rising' }] }
+            ? insightPage([
+                {
+                  id: 'i2',
+                  type: 'trend.category_rising',
+                  category: 'trend',
+                  severity: 'warn',
+                  title: 'Category is rising',
+                  message: 'Category is rising',
+                  messageKey: null,
+                  messageParams: null,
+                  data: null,
+                  createdAt: '2026-08-01T00:00:00.000Z',
+                },
+              ])
             : quote,
       }),
     );

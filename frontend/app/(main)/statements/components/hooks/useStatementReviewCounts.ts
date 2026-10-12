@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 // Stable fallback: a fresh `{}` on every render would re-run every memo keyed on it.
@@ -17,7 +17,11 @@ export function useStatementReviewCounts(enabled: boolean): Record<string, numbe
   const query = useQuery({
     queryKey: queryKeys.reviewInboxByStatement(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<Record<string, number>>({ url: '/review-inbox/statements', signal }),
+      apiQueryDecoded({
+        url: '/review-inbox/statements',
+        signal,
+        contract: 'ReviewInboxByStatement',
+      }),
     enabled,
   });
   return query.data ?? NO_COUNTS;

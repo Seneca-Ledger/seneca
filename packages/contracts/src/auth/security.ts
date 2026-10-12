@@ -1,0 +1,39 @@
+import * as Schema from 'effect/Schema';
+import { Timestamp, type Wire } from '../common/wire';
+
+/** `GET /auth/2fa`. */
+export const TwoFactorStatus = Schema.Struct({
+  enabled: Schema.Boolean,
+  /** A secret was issued and not confirmed yet. */
+  pendingSetup: Schema.Boolean,
+  recoveryCodesRemaining: Schema.Number,
+});
+export type TwoFactorStatus = Wire<typeof TwoFactorStatus>;
+
+/** One row of `GET /auth/sessions`: a signed-in device. */
+export const UserSession = Schema.Struct({
+  id: Schema.String,
+  device: Schema.String,
+  browser: Schema.String,
+  os: Schema.String,
+  ipAddress: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+  lastUsedAt: Timestamp,
+  isCurrent: Schema.Boolean,
+});
+export type UserSession = Wire<typeof UserSession>;
+
+export const UserSessionList = Schema.Array(UserSession);
+export type UserSessionList = Wire<typeof UserSessionList>;
+
+/** `POST /auth/2fa/setup`: shown once, while the user scans it. */
+export const TwoFactorSetup = Schema.Struct({
+  secret: Schema.String,
+  otpauthUrl: Schema.String,
+  qrDataUrl: Schema.String,
+});
+export type TwoFactorSetup = Wire<typeof TwoFactorSetup>;
+
+/** `POST /auth/2fa/enable` and `/auth/2fa/recovery-codes`: shown once. */
+export const RecoveryCodes = Schema.Struct({ recoveryCodes: Schema.Array(Schema.String) });
+export type RecoveryCodes = Wire<typeof RecoveryCodes>;

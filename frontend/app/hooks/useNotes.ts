@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/app/lib/api';
-import { apiQuery, unwrapEnvelope } from '@/app/lib/query-fn';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useWorkspaceId } from './useWorkspaceId';
 
@@ -29,10 +29,6 @@ export interface WorkspaceMemberOption {
   name: string;
 }
 
-interface NotesPayload {
-  items?: Note[];
-}
-
 interface NoteTarget {
   entityType: NoteEntityType;
   entityId: string;
@@ -56,7 +52,12 @@ export function useNotes({ entityType, entityId }: NoteTarget): UseNotesState {
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
-      apiQuery<NotesPayload>({ url: '/notes', params: { entityType, entityId }, signal }),
+      apiQueryDecoded({
+        url: '/notes',
+        params: { entityType, entityId },
+        signal,
+        contract: 'NoteList',
+      }),
     enabled: Boolean(entityId),
   });
 
@@ -68,13 +69,19 @@ export function useNotes({ entityType, entityId }: NoteTarget): UseNotesState {
 
   const addMutation = useMutation({
     mutationFn: (input: { body: string; mentionedUserIds: string[] }) =>
-      apiClient.post('/notes', { entityType, entityId, ...input }),
+      apiClient.post('/notes', {
+        entityType,
+        entityId,
+        ...input,
+      } satisfies ContractInput<'CreateNoteBody'>),
     onSuccess: invalidate,
   });
 
   const resolveMutation = useMutation({
     mutationFn: (input: { id: string; resolved: boolean }) =>
-      apiClient.patch(`/notes/${input.id}`, { resolved: input.resolved }),
+      apiClient.patch(`/notes/${input.id}`, {
+        resolved: input.resolved,
+      } satisfies ContractInput<'SetNoteResolvedBody'>),
     onSuccess: invalidate,
   });
 
@@ -105,8 +112,11 @@ export function useNoteCounts(
   const query = useQuery({
     queryKey: queryKeys.noteCounts({ workspaceId, entityType, entityIds: stableIds }),
     queryFn: async () => {
-      const response = await apiClient.post('/notes/counts', { entityType, entityIds: stableIds });
-      return unwrapEnvelope<{ counts?: Record<string, number> }>(response.data);
+      const response = await apiClient.post('/notes/counts', {
+        entityType,
+        entityIds: stableIds,
+      } satisfies ContractInput<'ListNoteCountsBody'>);
+      return checkContract('NoteCounts', response.data, '/notes/counts');
     },
     enabled: stableIds.length > 0,
   });
@@ -121,10 +131,7 @@ export function useWorkspaceMembers(): WorkspaceMemberOption[] {
   const query = useQuery({
     queryKey: queryKeys.workspaceMembers(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<{ members?: Array<{ id: string; name?: string; email?: string }> }>({
-        url: `/workspaces/${workspaceId}`,
-        signal,
-      }),
+      apiQueryDecoded({ url: `/workspaces/${workspaceId}`, signal, contract: 'WorkspaceDetail' }),
     enabled: Boolean(workspaceId),
     staleTime: 5 * 60 * 1000,
   });

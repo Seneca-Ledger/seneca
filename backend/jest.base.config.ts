@@ -13,8 +13,8 @@ const baseConfig: Config = {
   transform: {
     '^.+\\.(t|j)sx?$': ['babel-jest', { rootMode: 'upward' }],
   },
-  // otplib and its crypto/base32 plugins ship ESM only, so they need transforming too.
-  transformIgnorePatterns: ['/node_modules/(?!(otplib|@otplib|@scure|@noble)/)'],
+  // otplib and its crypto/base32 plugins and effect ship ESM only, so they need transforming too.
+  transformIgnorePatterns: ['/node_modules/(?!(otplib|@otplib|@scure|@noble|effect|@effect)/)'],
 };
 
 export default baseConfig;

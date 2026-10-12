@@ -4,7 +4,8 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { mapApiRecordToTransaction, type TransactionApiRecord } from '../helpers/transactionMapper';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { fromStatementTransaction, mapApiRecordToTransaction } from '../helpers/transactionMapper';
 import type { Transaction } from '../types';
 
 export type LinkMode = 'transfer' | 'reimbursement';
@@ -54,9 +55,15 @@ export function useTransferLink(onDone: () => void | Promise<void>): UseTransfer
       const path =
         nextMode === 'reimbursement' ? 'reimbursement-candidates' : 'transfer-candidates';
       await apiClient
-        .get<{ data: TransactionApiRecord[] }>(`/transactions/${transactionId}/${path}`)
-        .then(response => {
-          setCandidates((response.data?.data ?? []).map(mapApiRecordToTransaction));
+        .get(`/transactions/${transactionId}/${path}`)
+        // A `{ data }` page: checked raw, as apiQueryDecoded would unwrap it.
+        .then(response =>
+          checkContract('TransactionCandidates', response.data, `/transactions/:id/${path}`),
+        )
+        .then(page => {
+          setCandidates(
+            page.data.map(row => mapApiRecordToTransaction(fromStatementTransaction(row))),
+          );
         })
         .catch((error: unknown) => {
           toast.error(errorMessage(error, failedText));
@@ -72,7 +79,9 @@ export function useTransferLink(onDone: () => void | Promise<void>): UseTransfer
     async (transactionId: string, otherId: string) => {
       setSaving(true);
       await apiClient
-        .post(`/transactions/${transactionId}/link-transfer`, { otherId })
+        .post(`/transactions/${transactionId}/link-transfer`, {
+          otherId,
+        } satisfies ContractInput<'LinkTransferBody'>)
         .then(async () => {
           toast.success(linkedText);
           setCandidates(null);
@@ -107,7 +116,9 @@ export function useTransferLink(onDone: () => void | Promise<void>): UseTransfer
     async (transactionId: string, expenseId: string) => {
       setSaving(true);
       await apiClient
-        .post(`/transactions/${transactionId}/link-reimbursement`, { expenseId })
+        .post(`/transactions/${transactionId}/link-reimbursement`, {
+          expenseId,
+        } satisfies ContractInput<'LinkReimbursementBody'>)
         .then(async () => {
           toast.success(reimbursedText);
           setCandidates(null);

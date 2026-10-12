@@ -348,7 +348,7 @@ export class ImportSessionService {
         this.eventEmitter?.emit('import.failed', {
           workspaceId: session.workspaceId,
           userId: session.userId,
-          statementId: session.statementId,
+          statementId: session.statementId ?? undefined,
           statementName: session.statement?.fileName,
           errorMessage: classified.message,
         } satisfies ImportFailedEvent);
@@ -639,7 +639,7 @@ export class ImportSessionService {
         if (existing) {
           existingById.set(id, existing);
         }
-        return existing;
+        return existing ?? undefined;
       };
 
       for (let i = 0; i < transactions.length; i++) {
@@ -691,7 +691,7 @@ export class ImportSessionService {
               newTransaction.walletId = existing.walletId;
             }
             newTransaction.isDuplicate = true;
-            newTransaction.duplicateOfId = previewData.existingTransactionId;
+            newTransaction.duplicateOfId = previewData.existingTransactionId ?? null;
             newTransaction.duplicateConfidence = previewData.conflictConfidence || null;
             newTransaction.duplicateMatchType = previewData.conflictMatchType || null;
 

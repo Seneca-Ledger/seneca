@@ -39,6 +39,6 @@ export class GmailSettings {
   @Column({ name: 'last_sync_at', type: 'timestamp', nullable: true })
   lastSyncAt: Date | null;
 
-  @Column({ name: 'history_id', nullable: true })
+  @Column({ type: 'varchar', name: 'history_id', nullable: true })
   historyId: string | null;
 }

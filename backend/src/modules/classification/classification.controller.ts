@@ -1,14 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { Body, Controller, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { ClassifyBulkBody } from '../../contracts';
 import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ClassifyBulkDto } from './dto/classification-body.dto';
 import { ClassificationService } from './services/classification.service';
 
 @Controller('classification')
@@ -49,7 +50,7 @@ export class ClassificationController {
   @Post('bulk')
   @HttpCode(HttpStatus.OK)
   async classifyBulk(
-    @Body() body: ClassifyBulkDto,
+    @SchemaBody(ClassifyBulkBody) body: ClassifyBulkBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -110,7 +111,7 @@ export class ClassificationController {
         results.failed++;
         results.errors.push({
           transactionId,
-          error: error.message || 'Unknown error',
+          error: (error instanceof Error && error.message) || 'Unknown error',
         });
       }
     }

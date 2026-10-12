@@ -881,7 +881,10 @@ export class LedgerPostingService {
         select: ['id', 'label', 'address'],
       });
       if (cryptoWallet) {
-        return this.accountsService.cryptoAccountId(tx.workspaceId, cryptoWallet);
+        return this.accountsService.cryptoAccountId(tx.workspaceId, {
+          ...cryptoWallet,
+          address: cryptoWallet.address ?? '',
+        });
       }
     }
     return null;

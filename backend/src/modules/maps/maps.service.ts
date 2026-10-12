@@ -2,6 +2,9 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Cache } from 'cache-manager';
+import { Effect } from 'effect';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { getWith } from '../../common/effect/http-json';
 
 export type MapStyle = { id: string; name: string };
 
@@ -37,6 +40,7 @@ export class MapsService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     configService: ConfigService,
+    private readonly effects: EffectRuntime,
   ) {
     this.baseUrl = this.resolveBaseUrl(configService.get<string>('TILESERVER_URL'));
     const timeout = Number(configService.get<string>('TILESERVER_TIMEOUT_MS'));
@@ -66,30 +70,36 @@ export class MapsService {
       return { status: 'invalid' };
     }
 
-    try {
-      // Plain fetch rather than fetchPublicUrl: the host is operator config and
-      // lives on the private Docker network, which the SSRF guard would reject.
-      const response = await fetch(
+    // Not through the egress guard: the host is operator config on the private
+    // Docker network, which the guard would reject.
+    const logger = this.logger;
+    return this.effects.run<TileResult, never>(
+      getWith(
         `${this.baseUrl}/styles/${style.id}/${coords.z}/${coords.x}/${coords.y}.png`,
-        { signal: AbortSignal.timeout(this.timeoutMs) },
-      );
-      if (!response.ok) {
-        this.logger.warn(`Tile request failed: http_${response.status}`);
-        return { status: 'unavailable' };
-      }
-
-      return {
-        status: 'ok',
-        body: Buffer.from(await response.arrayBuffer()),
-        contentType: response.headers.get('content-type') || 'image/png',
-      };
-    } catch (error) {
-      const name = error instanceof Error ? error.name : '';
-      this.logger.warn(
-        `Tile request failed: ${name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'network'}`,
-      );
-      return { status: 'unavailable' };
-    }
+        { timeout: this.timeoutMs },
+        response =>
+          Effect.gen(function* () {
+            if (response.status < 200 || response.status >= 300) {
+              logger.warn(`Tile request failed: http_${response.status}`);
+              return { status: 'unavailable' } as const;
+            }
+            return {
+              status: 'ok',
+              body: Buffer.from(yield* response.arrayBuffer),
+              contentType: response.headers['content-type'] || 'image/png',
+            } as const;
+          }),
+      ).pipe(
+        Effect.catch(error =>
+          Effect.sync((): TileResult => {
+            logger.warn(
+              `Tile request failed: ${error._tag === 'TimeoutError' ? 'timeout' : 'network'}`,
+            );
+            return { status: 'unavailable' };
+          }),
+        ),
+      ),
+    );
   }
 
   private async loadStyles(): Promise<MapStyle[]> {
@@ -98,38 +108,45 @@ export class MapsService {
       return cached;
     }
 
-    try {
-      const response = await fetch(`${this.baseUrl}/styles.json`, {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-      if (!response.ok) {
-        this.logger.warn(`Map styles request failed: http_${response.status}`);
-        return [];
-      }
+    const logger = this.logger;
+    const styles = await this.effects.run<MapStyle[], never>(
+      getWith(
+        `${this.baseUrl}/styles.json`,
+        { timeout: this.timeoutMs, headers: { Accept: 'application/json' } },
+        response =>
+          Effect.gen(function* () {
+            if (response.status < 200 || response.status >= 300) {
+              logger.warn(`Map styles request failed: http_${response.status}`);
+              return [];
+            }
+            // Read leniently: a style without a usable id or name is skipped.
+            const body = yield* response.json;
+            return (Array.isArray(body) ? body : [])
+              .filter(
+                (item): item is MapStyle =>
+                  typeof item?.id === 'string' &&
+                  STYLE_ID_PATTERN.test(item.id) &&
+                  typeof item?.name === 'string',
+              )
+              .map(({ id, name }) => ({ id, name }));
+          }),
+      ).pipe(
+        Effect.catch(error =>
+          Effect.sync((): MapStyle[] => {
+            logger.warn(
+              `Map styles request failed: ${error._tag === 'TimeoutError' ? 'timeout' : 'network'}`,
+            );
+            return [];
+          }),
+        ),
+      ),
+    );
 
-      const body = (await response.json()) as unknown;
-      const styles = (Array.isArray(body) ? body : [])
-        .filter(
-          (item): item is MapStyle =>
-            typeof item?.id === 'string' &&
-            STYLE_ID_PATTERN.test(item.id) &&
-            typeof item?.name === 'string',
-        )
-        .map(({ id, name }) => ({ id, name }));
-
-      // An empty list is not cached: it usually means the server is still importing.
-      if (styles.length > 0) {
-        await this.writeCache(styles);
-      }
-      return styles;
-    } catch (error) {
-      const name = error instanceof Error ? error.name : '';
-      this.logger.warn(
-        `Map styles request failed: ${name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'network'}`,
-      );
-      return [];
+    // An empty list is not cached: it usually means the server is still importing.
+    if (styles.length > 0) {
+      await this.writeCache(styles);
     }
+    return styles;
   }
 
   // Leaflet requests `{y}.png`, so the last segment arrives with its extension.
