@@ -35,8 +35,6 @@ import {
   periodFor,
   saveBlob,
   type TaxDeadline,
-  type TaxReturnRecord,
-  type TaxReturnTotals,
   type VatFiling,
 } from './tax-return.helpers';
 import { UstvaCard } from './UstvaCard';

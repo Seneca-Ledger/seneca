@@ -13,7 +13,6 @@ import {
   useRecheckPayeeVat,
   useUpdatePayee,
 } from '@/app/components/payees/usePayees';
-import type { Category } from '@/app/components/transactions/types';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { AppPagination } from '@/app/components/ui/pagination';
