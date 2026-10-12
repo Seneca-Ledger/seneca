@@ -2,10 +2,13 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Job } from 'bullmq';
+import { type Job, UnrecoverableError } from 'bullmq';
 import { LessThan, Repository } from 'typeorm';
 import { Statement, StatementStatus } from '../../../entities/statement.entity';
-import { StatementProcessingService } from '../services/statement-processing.service';
+import {
+  StatementProcessingService,
+  StatementRejected,
+} from '../services/statement-processing.service';
 import {
   STATEMENT_PARSING_QUEUE,
   type StatementParsingJob,
@@ -49,7 +52,16 @@ export class StatementParsingProcessor extends WorkerHost {
 
     // Errors propagate so BullMQ retries with backoff. processStatement already
     // recorded the failure on the statement itself before rethrowing.
-    await this.statementProcessingService.processStatement(statementId);
+    const finalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+    try {
+      await this.statementProcessingService.processStatement(statementId, { finalAttempt });
+    } catch (error) {
+      // Another attempt would read the same file and fail the same way.
+      if (error instanceof StatementRejected) {
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
   }
 }
 

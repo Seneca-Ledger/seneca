@@ -23,12 +23,20 @@ const Body = Schema.Struct({
 });
 type Body = typeof Body.Type;
 
+const OptionalBody = Schema.Struct({ note: Schema.optional(Schema.String) });
+type OptionalBody = typeof OptionalBody.Type;
+
 @Controller('probe')
 class ProbeController {
   constructor(private readonly effects: EffectRuntime) {}
 
   @Post('body')
   echo(@SchemaBody(Body) body: Body) {
+    return body;
+  }
+
+  @Post('optional')
+  optional(@SchemaBody(OptionalBody) body: OptionalBody) {
     return body;
   }
 
@@ -94,9 +102,14 @@ describe('Effect bridge', () => {
       ]);
     });
 
-    it('rejects a missing body', async () => {
+    it('rejects a missing body when it has required fields', async () => {
       const res = await request(app.getHttpServer()).post('/probe/body').expect(400);
       expect(res.body.error.code).toBe('BAD_REQUEST');
+    });
+
+    it('takes a missing body as an empty one, as the DTOs did', async () => {
+      const res = await request(app.getHttpServer()).post('/probe/optional').expect(201);
+      expect(res.body).toEqual({});
     });
   });
 

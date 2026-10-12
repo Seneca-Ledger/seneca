@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import type { FolderOption, StorageFile, TagOption } from '../storageHelpers';
 
@@ -73,8 +74,7 @@ export function useStorageTags(
 
   const loadTags = async (): Promise<void> => {
     await (async () => {
-      const response = await api.get('/storage/tags');
-      setTags(response.data || []);
+      setTags(await apiQueryDecoded({ url: '/storage/tags', contract: 'StorageTagList' }));
     })().catch(async error => {
       console.error('Failed to load tags:', error);
       toast.error(messages.loadTagsFailed);
@@ -90,8 +90,12 @@ export function useStorageTags(
 
     await (async () => {
       const payload = { name, color: newTagColor || undefined };
-      const response = await api.post('/storage/tags', payload);
-      setTags(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
+      const response = await api.post(
+        '/storage/tags',
+        payload satisfies ContractInput<'CreateTagBody'>,
+      );
+      const tag = await checkContract('StorageTag', response.data, '/storage/tags');
+      setTags(prev => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
       setNewTagName('');
       toast.success(messages.tagCreated);
     })().catch(async error => {
@@ -119,23 +123,21 @@ export function useStorageTags(
       const response = await api.patch(`/storage/tags/${tagId}`, {
         name,
         color: editingTagColor,
-      });
-      setTags(prev => prev.map(tag => (tag.id === tagId ? { ...tag, ...response.data } : tag)));
+      } satisfies ContractInput<'UpdateTagBody'>);
+      const updated = await checkContract('StorageTag', response.data, '/storage/tags/:id');
+      setTags(prev => prev.map(tag => (tag.id === tagId ? { ...tag, ...updated } : tag)));
       setFolders(prev =>
         prev.map(folder =>
           folder.tagId === tagId || folder.tag?.id === tagId
             ? {
                 ...folder,
-                tag: response.data?.id
-                  ? { ...folder.tag, ...response.data }
-                  : { ...folder.tag, name, color: editingTagColor },
+                tag: { ...folder.tag, ...updated },
               }
             : folder,
         ),
       );
-      const updatedName = (response.data?.name as string | undefined) || name;
-      const updatedColor =
-        (response.data?.color as string | null | undefined) ?? editingTagColor ?? null;
+      const updatedName = (updated.name as string | undefined) || name;
+      const updatedColor = (updated.color as string | null | undefined) ?? editingTagColor ?? null;
       setFiles(prev =>
         prev.map(file => ({
           ...file,

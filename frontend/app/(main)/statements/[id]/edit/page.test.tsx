@@ -206,17 +206,22 @@ describe('EditStatementPage locale', () => {
     apiGet.mockImplementation((url: string) => {
       if (url === '/statements/statement-1') {
         return Promise.resolve({
+          // The wire format (packages/contracts StatementDetail).
           data: {
             id: 'statement-1',
             fileName: 'statement.pdf',
+            fileType: 'pdf',
+            bankName: 'kaspi',
             status: 'completed',
+            stage: 'submit',
             totalTransactions: 1,
+            currency: 'KZT',
             categoryId: 'cat-1',
-            category: { id: 'cat-1', name: 'Services', isEnabled: true },
             statementDateFrom: '2026-03-01',
             statementDateTo: '2026-03-17',
-            balanceStart: 100,
-            balanceEnd: 200,
+            balanceStart: '100.00',
+            balanceEnd: '200.00',
+            createdAt: '2026-03-17T09:00:00.000Z',
             parsingDetails: {
               warnings: ['Balance mismatch: expected 1000.00 got 800.00 (diff 200.00)'],
               errors: [],

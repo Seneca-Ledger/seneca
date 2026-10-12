@@ -8,7 +8,7 @@ import Select from '@mui/material/Select';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 
 interface NamedOption {
@@ -42,20 +42,6 @@ const fieldLabelStyle: React.CSSProperties = {
   color: 'var(--muted-foreground)',
 };
 
-/** Reads the `data` envelope used by the list endpoints, tolerating a bare array. */
-function toOptions(payload: unknown): NamedOption[] {
-  const rows = Array.isArray(payload)
-    ? payload
-    : ((payload as { data?: unknown } | null)?.data ?? []);
-  if (!Array.isArray(rows)) {
-    return [];
-  }
-  return rows
-    .map(row => row as { id?: string; name?: string })
-    .filter((row): row is NamedOption => Boolean(row.id && row.name))
-    .map(row => ({ id: row.id, name: row.name }));
-}
-
 // eslint-disable-next-line max-lines-per-function
 export function ReportScopeFilters({
   value,
@@ -72,15 +58,16 @@ export function ReportScopeFilters({
   useEffect(() => {
     let cancelled = false;
 
+    // Either list may fail on its own (no permission): the other still fills.
     void Promise.all([
-      apiClient.get('/wallets').catch(() => null),
-      apiClient.get('/categories').catch(() => null),
-    ]).then(([walletsResponse, categoriesResponse]) => {
+      apiQueryDecoded({ url: '/wallets', contract: 'WalletList' }).catch(() => []),
+      apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }).catch(() => []),
+    ]).then(([wallets, categories]) => {
       if (cancelled) {
         return;
       }
-      setWallets(toOptions(walletsResponse?.data));
-      setCategories(toOptions(categoriesResponse?.data));
+      setWallets(wallets.map(({ id, name }) => ({ id, name })));
+      setCategories(categories.map(({ id, name }) => ({ id, name })));
     });
 
     return () => {

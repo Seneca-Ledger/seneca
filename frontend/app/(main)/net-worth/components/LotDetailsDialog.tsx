@@ -12,8 +12,8 @@ import { useWorkspaceMembers } from '@/app/hooks/useNotes';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { apiQuery } from '@/app/lib/query-fn';
-import type { LotDetailsInput, MetalLot, MetalReceipt } from '../hooks/useMetals';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import type { LotDetailsInput, MetalLot } from '../hooks/useMetals';
 
 interface LotDetailsDialogProps {
   /** The lot being looked at; the dialog is closed while null. */
@@ -53,7 +53,8 @@ export function LotDetailsDialog({
 
   const receipts = useQuery({
     queryKey: ['metals', 'receipt-options', workspaceId],
-    queryFn: ({ signal }) => apiQuery<MetalReceipt[]>({ url: '/metals/receipt-options', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/metals/receipt-options', signal, contract: 'MetalReceiptList' }),
     enabled: Boolean(workspaceId && lot),
   });
 

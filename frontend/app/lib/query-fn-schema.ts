@@ -1,5 +1,6 @@
-import type { Schema } from 'effect';
+import type * as Schema from 'effect/Schema';
 import type * as Contracts from './contracts';
+import type { Wire, WireInput } from './contracts';
 import { type ApiQueryOptions, apiQuery } from './query-fn';
 
 type ContractSchemas = typeof Contracts;
@@ -7,18 +8,11 @@ type ContractSchemas = typeof Contracts;
 export type ContractName = {
   [K in keyof ContractSchemas]: ContractSchemas[K] extends Schema.Top ? K : never;
 }[keyof ContractSchemas];
-export type ContractType<K extends ContractName> = ContractSchemas[K]['Type'];
+export type ContractType<K extends ContractName> = Wire<ContractSchemas[K]>;
+/** What a client sends for request-body contract K: its encoded side. */
+export type ContractInput<K extends ContractName> = WireInput<ContractSchemas[K]>;
 
-/** The API answered with something its contract in packages/contracts does not describe. */
-export class ContractMismatchError extends Error {
-  constructor(
-    readonly url: string,
-    readonly issues: string[],
-  ) {
-    super(`Response from ${url} does not match its contract:\n${issues.join('\n')}`);
-    this.name = 'ContractMismatchError';
-  }
-}
+export { ContractMismatchError } from './contract-error';
 
 /**
  * Types an API payload by its contract, and in development, tests and e2e also
@@ -39,10 +33,52 @@ export async function checkContract<K extends ContractName>(
   return payload as ContractType<K>;
 }
 
-/** `apiQuery` whose result is typed, and outside production checked, by a contract. */
-export async function apiQueryDecoded<K extends ContractName>(
-  options: ApiQueryOptions & { contract: K },
+/**
+ * A request body the code cannot type statically (built from loose records):
+ * outside production it is checked against its contract before it is sent, so
+ * a field the API would reject fails in development and tests, not as a 400.
+ */
+export async function checkBody<K extends ContractName>(
+  name: K,
+  body: unknown,
+  url: string,
+): Promise<ContractInput<K>> {
+  if (process.env.NODE_ENV !== 'production') {
+    const { assertMatchesContract } = await import('./contract-check');
+    assertMatchesContract(name, body, url, 'error');
+  }
+  return body as ContractInput<K>;
+}
+
+/**
+ * checkContract for requests whose failure handling would mislead on drift —
+ * the session load signs the user out, the workspace load blanks the app.
+ * Outside production a mismatch is logged instead of thrown.
+ */
+export async function reportContractDrift<K extends ContractName>(
+  name: K,
+  payload: unknown,
+  url: string,
 ): Promise<ContractType<K>> {
-  const { contract, ...query } = options;
-  return checkContract(contract, await apiQuery<unknown>(query), query.url);
+  try {
+    return await checkContract(name, payload, url);
+  } catch (error) {
+    console.error(error);
+    return payload as ContractType<K>;
+  }
+}
+
+/**
+ * `apiQuery` whose result is typed, and outside production checked, by a
+ * contract. `drift: 'report'` logs a mismatch instead of throwing — for
+ * background feeds, where a thrown error would only leave an empty list.
+ */
+export async function apiQueryDecoded<K extends ContractName>(
+  options: ApiQueryOptions & { contract: K; drift?: 'throw' | 'report' },
+): Promise<ContractType<K>> {
+  const { contract, drift = 'throw', ...query } = options;
+  const payload = await apiQuery<unknown>(query);
+  return drift === 'report'
+    ? reportContractDrift(contract, payload, query.url)
+    : checkContract(contract, payload, query.url);
 }

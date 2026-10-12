@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -21,16 +20,19 @@ import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { CreateGoalItemBody, UpdateGoalItemBody } from '../../contracts';
+import {
+  CreateContributionBody,
+  CreateGoalBody,
+  CreateGoalItemBody,
+  SetGoalCoverBody,
+  UpdateGoalBody,
+  UpdateGoalItemBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateContributionDto } from './dto/create-contribution.dto';
-import { CreateGoalDto } from './dto/create-goal.dto';
 import { GoalFlowQueryDto } from './dto/goal-flow-query.dto';
 import { ListGoalsQueryDto } from './dto/list-goals-query.dto';
 import { SearchCoversDto } from './dto/search-covers.dto';
-import { SetGoalCoverDto } from './dto/set-goal-cover.dto';
-import { UpdateGoalDto } from './dto/update-goal.dto';
 import { GOAL_COVER_PRESETS } from './goal-cover.constants';
 import { GoalCoversService } from './goal-covers.service';
 import { GoalFlowService } from './goal-flow.service';
@@ -97,7 +99,7 @@ export class GoalsController {
   @Post()
   @WorkspaceAuth(Permission.GOAL_CREATE)
   async create(
-    @Body() createDto: CreateGoalDto,
+    @SchemaBody(CreateGoalBody) createDto: CreateGoalBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -183,7 +185,7 @@ export class GoalsController {
   @ApiResponse({ status: 400, description: 'Neither or both of preset and photoId were sent' })
   async setCover(
     @Param('id') id: string,
-    @Body() coverDto: SetGoalCoverDto,
+    @SchemaBody(SetGoalCoverBody) coverDto: SetGoalCoverBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -214,7 +216,7 @@ export class GoalsController {
   @WorkspaceAuth(Permission.GOAL_EDIT)
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateGoalDto,
+    @SchemaBody(UpdateGoalBody) updateDto: UpdateGoalBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -236,7 +238,7 @@ export class GoalsController {
   @WorkspaceAuth(Permission.GOAL_EDIT)
   async addContribution(
     @Param('id') id: string,
-    @Body() contributionDto: CreateContributionDto,
+    @SchemaBody(CreateContributionBody) contributionDto: CreateContributionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

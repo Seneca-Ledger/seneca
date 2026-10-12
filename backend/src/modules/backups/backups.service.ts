@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import type { UpdateBackupConfigurationBody } from '../../contracts';
 import {
   BackupConfiguration,
   BackupDestinationKind,
@@ -26,14 +27,8 @@ import { BackupDataService } from './backup-data.service';
 import { BackupDestinationService } from './backup-destination.service';
 import { BackupKeyService } from './backup-key.service';
 
-export type UpdateBackupConfiguration = {
+export type UpdateBackupConfiguration = Omit<UpdateBackupConfigurationBody, 'destinationKind'> & {
   destinationKind: BackupDestinationKind;
-  destinationPath?: string;
-  dailyTime?: string;
-  timeZone?: string;
-  retentionCount?: number;
-  enabled?: boolean;
-  password?: string;
 };
 
 @Injectable()
@@ -263,7 +258,7 @@ export class BackupsService {
       }
     }
     if (
-      input.retentionCount !== undefined &&
+      input.retentionCount != null &&
       (!Number.isInteger(input.retentionCount) || input.retentionCount < 1)
     ) {
       throw new BadRequestException('Retention count must be at least one');

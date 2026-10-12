@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
+import type { CreateBranchBody } from '../../contracts';
 import { Branch } from '../../entities/branch.entity';
-import type { CreateBranchDto } from './dto/create-branch.dto';
 
 @Injectable()
 export class BranchesService extends WorkspaceCrudBaseService<Branch> {
@@ -14,7 +14,7 @@ export class BranchesService extends WorkspaceCrudBaseService<Branch> {
     super(repository, 'Branch');
   }
 
-  async create(workspaceId: string, createDto: CreateBranchDto): Promise<Branch> {
+  async create(workspaceId: string, createDto: CreateBranchBody): Promise<Branch> {
     const branch = this.repository.create({
       workspaceId,
       ...createDto,

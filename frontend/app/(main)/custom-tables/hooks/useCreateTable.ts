@@ -7,6 +7,7 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import {
   buildSourcePayload,
   EMPTY_SOURCE_FILTERS,
@@ -88,23 +89,25 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
             categoryId: form.categoryId,
             currency: resolveCurrencyCode(currentWorkspace?.currency),
             titles: columnTitles,
-          }),
+          }) satisfies ContractInput<'CreateCustomTableFromSourceBody'>,
         );
-        const created = (response.data?.data ?? response.data) as { tableId?: string } | null;
+        const created = await checkContract(
+          'CreatedFromSource',
+          response.data,
+          '/custom-tables/from-source',
+        );
         toast.success(messages.createdFromSource);
         close();
-        if (created?.tableId) {
-          router.push(`/custom-tables/${created.tableId}`);
-        }
+        router.push(`/custom-tables/${created.tableId}`);
         return;
       }
       const response = await apiClient.post('/custom-tables', {
         name,
         description: form.description.trim() || undefined,
         categoryId: form.categoryId || undefined,
-      });
-      const created = (response.data?.data ?? response.data) as { id?: string } | null;
-      if (created?.id && template) {
+      } satisfies ContractInput<'CreateCustomTableBody'>);
+      const created = await checkContract('CreatedCustomTable', response.data, '/custom-tables');
+      if (created.id && template) {
         const toastId = toast.loading(messages.applying);
         const { failed } = await applyTemplate({
           tableId: created.id,

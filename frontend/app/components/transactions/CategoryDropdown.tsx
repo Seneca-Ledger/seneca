@@ -53,7 +53,7 @@ function CategoryMenuItems({
                 width: 8,
                 borderRadius: tokens.radius.full,
                 display: 'inline-block',
-                backgroundColor: cat.color,
+                backgroundColor: cat.color ?? undefined,
               }}
             />
             {getCategoryDisplayName(cat, locale)}

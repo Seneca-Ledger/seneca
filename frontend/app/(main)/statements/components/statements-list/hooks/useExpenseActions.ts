@@ -11,6 +11,7 @@ import {
   isNetworkFailure,
   isOfflineStoreAvailable,
 } from '@/app/lib/offline/offline-queue';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import type { StatementCategoryNode } from '@/app/lib/statement-categories';
 import { type ManualExpenseDraft, type TaxRateOption } from '@/app/lib/statement-expense-drawer';
 import {
@@ -129,9 +130,11 @@ export function useExpenseActions({
           apiClient.get('/categories', { params: { type: 'expense' } }),
           apiClient.get('/tax-rates'),
         ]);
-        const rawCategories = (categoriesRes.data?.data ||
-          categoriesRes.data ||
-          []) as StatementCategoryWithEnabled[];
+        const rawCategories: StatementCategoryWithEnabled[] = await checkContract(
+          'CategoryList',
+          categoriesRes.data,
+          '/categories',
+        );
         setManualExpenseCategories(filterEnabledCategories(rawCategories));
         const rawTaxRates = (taxRatesRes.data?.data || taxRatesRes.data || []) as Array<
           TaxRateOption & { rate: number | string }

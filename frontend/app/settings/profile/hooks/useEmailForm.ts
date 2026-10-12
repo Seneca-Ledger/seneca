@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 export type UseEmailFormMessages = {
@@ -51,7 +52,7 @@ export function useEmailForm(
       const response = await apiClient.patch('/users/me/email', {
         email,
         currentPassword: emailPassword,
-      });
+      } satisfies ContractInput<'ChangeEmailBody'>);
 
       setEmailMessage(response.data?.message || messages.successFallback);
       setEmailPassword('');

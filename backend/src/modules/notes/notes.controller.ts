@@ -1,25 +1,14 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
+import { CreateNoteBody, ListNoteCountsBody, SetNoteResolvedBody } from '../../contracts';
+import { NoteEntityType } from '../../entities/note.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import {
-  CreateNoteDto,
-  ListNoteCountsDto,
-  NoteTargetDto,
-  SetNoteResolvedDto,
-} from './dto/note.dto';
+import { NoteTargetDto } from './dto/note.dto';
 import { NotesService } from './notes.service';
 
 /**
@@ -42,12 +31,12 @@ export class NotesController {
   async createNote(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateNoteDto,
+    @SchemaBody(CreateNoteBody) dto: CreateNoteBody,
   ) {
     return this.notesService.createNote(
       user.id,
       workspaceId,
-      dto.entityType,
+      toEnum(NoteEntityType, dto.entityType),
       dto.entityId,
       dto.body,
       dto.mentionedUserIds ?? [],
@@ -56,10 +45,13 @@ export class NotesController {
 
   @Post('counts')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
-  async countNotes(@WorkspaceId() workspaceId: string, @Body() dto: ListNoteCountsDto) {
+  async countNotes(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(ListNoteCountsBody) dto: ListNoteCountsBody,
+  ) {
     const counts = await this.notesService.countOpenByEntity(
       workspaceId,
-      dto.entityType,
+      toEnum(NoteEntityType, dto.entityType),
       dto.entityIds,
     );
     return { counts };
@@ -70,7 +62,7 @@ export class NotesController {
   async setResolved(
     @WorkspaceId() workspaceId: string,
     @Param('id', new ParseUUIDPipe()) noteId: string,
-    @Body() dto: SetNoteResolvedDto,
+    @SchemaBody(SetNoteResolvedBody) dto: SetNoteResolvedBody,
   ) {
     return this.notesService.setResolved(workspaceId, noteId, dto.resolved);
   }

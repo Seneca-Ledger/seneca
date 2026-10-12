@@ -15,6 +15,12 @@ import {
   type OwnerFilter,
 } from '../../common/utils/transaction-owner.util';
 import { redactPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
+import type {
+  BulkUpdateItemInput,
+  SplitPartInput,
+  SplitTransactionBody,
+  UpdateTransactionBody,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Branch } from '../../entities/branch.entity';
 import { Category, CategoryType } from '../../entities/category.entity';
@@ -35,9 +41,6 @@ import { ensurePrivateCategory } from '../categories/private-category';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { DataDeletedEvent } from '../notifications/events/notification-events';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
-import type { BulkUpdateItemDto } from './dto/bulk-update-transaction.dto';
-import type { SplitPartDto, SplitTransactionDto } from './dto/split-transaction.dto';
-import type { UpdateTransactionDto } from './dto/update-transaction.dto';
 
 export type TransactionWithConversion = Transaction & {
   convertedAmount?: number;
@@ -221,12 +224,12 @@ export class TransactionsService {
    * counterparty spelling — stays editable, so locking does not turn the row
    * into a museum piece.
    */
-  private assertTaxEditable(transaction: Transaction, updateDto: UpdateTransactionDto): void {
+  private assertTaxEditable(transaction: Transaction, updateDto: UpdateTransactionBody): void {
     if (!transaction.taxLocked) {
       return;
     }
 
-    const frozen: Array<keyof UpdateTransactionDto> = [
+    const frozen: Array<keyof UpdateTransactionBody> = [
       'amount',
       'debit',
       'credit',
@@ -252,7 +255,7 @@ export class TransactionsService {
     id: string,
     workspaceId: string,
     userId: string,
-    updateDto: UpdateTransactionDto,
+    updateDto: UpdateTransactionBody,
     batchId?: string | null,
     viewerMemberId: string | null = null,
   ): Promise<Transaction> {
@@ -352,7 +355,7 @@ export class TransactionsService {
    */
   private async applyPrivacy(
     transaction: Transaction,
-    updateDto: UpdateTransactionDto,
+    updateDto: UpdateTransactionBody,
     viewerMemberId: string | null,
   ): Promise<boolean> {
     if (updateDto.isPrivate === undefined || updateDto.isPrivate === transaction.isPrivate) {
@@ -391,7 +394,7 @@ export class TransactionsService {
   async bulkUpdate(
     workspaceId: string,
     userId: string,
-    items: BulkUpdateItemDto[],
+    items: BulkUpdateItemInput[],
     viewerMemberId: string | null = null,
   ): Promise<Transaction[]> {
     await this.ensureCanEditStatements(userId, workspaceId);
@@ -456,7 +459,10 @@ export class TransactionsService {
 
   /** Every workspace-scoped reference an update body can carry. */
   private assertWorkspaceOwnedRefs(
-    updateDto: Pick<UpdateTransactionDto, 'categoryId' | 'branchId' | 'walletId' | 'ownerMemberId'>,
+    updateDto: Pick<
+      UpdateTransactionBody,
+      'categoryId' | 'branchId' | 'walletId' | 'ownerMemberId'
+    >,
     workspaceId: string,
   ): Promise<unknown> {
     return Promise.all([
@@ -532,7 +538,7 @@ export class TransactionsService {
    * Called twice: once outside the DB transaction as a cheap fast path, and again
    * on the locked row, which is the read the parts are actually derived from.
    */
-  private assertSplittable(transaction: Transaction, dto: SplitTransactionDto): number {
+  private assertSplittable(transaction: Transaction, dto: SplitTransactionBody): number {
     if (transaction.splitGroupId) {
       throw new BadRequestException('Transaction is already part of a split');
     }
@@ -580,7 +586,7 @@ export class TransactionsService {
   private allocateParts(
     total: number,
     foreignTotal: number | null,
-    parts: SplitPartDto[],
+    parts: SplitPartInput[],
   ): { amounts: number[]; foreignAmounts: (number | null)[] } {
     const amounts = parts.map(part => this.round2(Number(part.amount)));
     const lastIndex = amounts.length - 1;
@@ -612,7 +618,7 @@ export class TransactionsService {
     id: string,
     workspaceId: string,
     userId: string,
-    dto: SplitTransactionDto,
+    dto: SplitTransactionBody,
   ): Promise<Transaction[]> {
     await this.ensureCanEditStatements(userId, workspaceId);
     const original = await this.findOne(id, workspaceId);

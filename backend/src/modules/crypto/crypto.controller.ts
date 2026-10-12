@@ -2,7 +2,6 @@ import { readFile, unlink } from 'node:fs/promises';
 import {
   BadGatewayException,
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
@@ -20,15 +19,15 @@ import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { multerConfig } from '../../config/multer.config';
+import { ConnectCryptoWalletBody, ManualHoldingBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CryptoService } from './crypto.service';
 import { CryptoIconsService } from './crypto-icons.service';
 import { CryptoImportService } from './crypto-import.service';
-import { ConnectCryptoWalletDto } from './dto/connect-crypto-wallet.dto';
-import { ManualHoldingDto } from './dto/manual-holding.dto';
 
 @Controller('crypto')
 export class CryptoController {
@@ -147,7 +146,7 @@ export class CryptoController {
   @Post('holdings')
   @WorkspaceAuth(Permission.WALLET_CREATE)
   async upsertHolding(
-    @Body() dto: ManualHoldingDto,
+    @SchemaBody(ManualHoldingBody) dto: ManualHoldingBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -195,7 +194,7 @@ export class CryptoController {
   @Post('wallets')
   @WorkspaceAuth(Permission.WALLET_CREATE)
   async connect(
-    @Body() dto: ConnectCryptoWalletDto,
+    @SchemaBody(ConnectCryptoWalletBody) dto: ConnectCryptoWalletBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

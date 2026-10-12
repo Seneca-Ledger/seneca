@@ -22,6 +22,7 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -31,8 +32,6 @@ import {
   type PeriodPreset,
   periodFor,
   saveBlob,
-  type TaxReturnRecord,
-  type TaxReturnTotals,
   type ThresholdStatus,
 } from './tax-return.helpers';
 
@@ -94,11 +93,19 @@ export function TaxReturnView(): React.ReactElement {
     queryKey,
     queryFn: async ({ signal }) => {
       const query = `periodStart=${period.periodStart}&periodEnd=${period.periodEnd}`;
-      const [returnResponse, previewResponse] = await Promise.all([
-        apiClient.get<TaxReturnRecord>(`/tax/returns/period?${query}`, { signal }),
-        apiClient.get<TaxReturnTotals>(`/tax/returns/preview?${query}`, { signal }),
+      const [record, totals] = await Promise.all([
+        apiQueryDecoded({
+          url: `/tax/returns/period?${query}`,
+          signal,
+          contract: 'TaxReturnRecord',
+        }),
+        apiQueryDecoded({
+          url: `/tax/returns/preview?${query}`,
+          signal,
+          contract: 'TaxReturnPreview',
+        }),
       ]);
-      return { record: returnResponse.data, totals: previewResponse.data };
+      return { record, totals };
     },
     // Смена периода не должна стирать цифры: прошлый отчёт виден до прихода
     // нового, но только внутри того же воркспейса.
@@ -111,8 +118,12 @@ export function TaxReturnView(): React.ReactElement {
 
   useEffect(() => {
     apiClient
-      .get<ThresholdStatus | null>('/tax/settings/threshold')
-      .then(response => setThreshold(response.data ?? null))
+      .get('/tax/settings/threshold')
+      // No jurisdiction: the null arrives as an empty body.
+      .then(response =>
+        checkContract('TaxThresholdStatus', response.data || null, '/tax/settings/threshold'),
+      )
+      .then(setThreshold)
       .catch(() => setThreshold(null));
   }, []);
 

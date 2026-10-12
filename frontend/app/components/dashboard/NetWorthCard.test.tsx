@@ -62,6 +62,9 @@ function netWorth(overrides: Partial<NetWorthData> = {}): NetWorthData {
     byRole: [],
     riskyPercent: 0,
     assetLines: [],
+    missingRates: [],
+    allTimeHigh: null,
+    byAssetClass: [],
     ...overrides,
   };
 }
