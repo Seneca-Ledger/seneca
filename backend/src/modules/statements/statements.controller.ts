@@ -25,6 +25,7 @@ import { SchemaBody } from '../../common/effect/schema-body';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
+import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
 import {
@@ -73,6 +74,7 @@ interface ThumbnailErrorLike {
 }
 
 @Controller('statements')
+@UseInterceptors(HideInternalColumnsInterceptor)
 export class StatementsController {
   private readonly logger = new Logger(StatementsController.name);
 
