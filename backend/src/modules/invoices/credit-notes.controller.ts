@@ -12,10 +12,14 @@ import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreditNotesService } from './credit-notes.service';
 import { FilterInvoicesDto } from './dto/filter-invoices.dto';
+import { InvoiceXRechnungService } from './invoice-xrechnung.service';
 
 @Controller('credit-notes')
 export class CreditNotesController {
-  constructor(private readonly creditNotesService: CreditNotesService) {}
+  constructor(
+    private readonly creditNotesService: CreditNotesService,
+    private readonly xrechnungService: InvoiceXRechnungService,
+  ) {}
 
   /** Raises and issues the note in one step: there is no draft to keep. */
   @Post()
@@ -52,6 +56,29 @@ export class CreditNotesController {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', buildContentDisposition('attachment', fileName));
     res.send(data);
+  }
+
+  /** The credit note as an XRechnung (type 381) naming the invoice it corrects. */
+  @Get(':id/xrechnung')
+  @WorkspaceAuth(Permission.INVOICE_VIEW)
+  async downloadXRechnung(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @WorkspaceId() workspaceId: string,
+    @Res() res: Response,
+  ) {
+    const { fileName, data } = await this.xrechnungService.creditNoteFile(id, workspaceId);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', buildContentDisposition('attachment', fileName));
+    res.send(data);
+  }
+
+  @Get(':id/xrechnung/check')
+  @WorkspaceAuth(Permission.INVOICE_VIEW)
+  async checkXRechnung(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.xrechnungService.checkCreditNote(id, workspaceId);
   }
 
   /** Voids it: the money goes back on the invoices and the entry is reversed. */

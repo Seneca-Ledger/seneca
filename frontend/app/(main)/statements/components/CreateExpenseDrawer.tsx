@@ -485,7 +485,7 @@ export default function CreateExpenseDrawer({
                   <input
                     ref={scanGalleryInputRef}
                     type="file"
-                    accept="image/*,.pdf"
+                    accept="image/*,.pdf,.xml"
                     style={{ display: 'none' }}
                     multiple
                     onChange={event => handleFilesSelected(event.target.files)}

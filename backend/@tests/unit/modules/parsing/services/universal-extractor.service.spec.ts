@@ -175,6 +175,63 @@ describe('UniversalExtractorService', () => {
     });
   });
 
+  describe('line items', () => {
+    it('keeps items that add up to the total', async () => {
+      const text = 'Payment Receipt\nStore ABC\nItem 1  $10.00\nItem 2  $20.49\nTotal: $30.49';
+      const result = await service.extractFromText(text);
+
+      expect(result.lineItems).toEqual([
+        { description: 'Item 1', amount: 10 },
+        { description: 'Item 2', amount: 20.49 },
+      ]);
+    });
+
+    it.each([
+      'railway-invoice.txt',
+      'anthropic-invoice.txt',
+      'anthropic-receipt.txt',
+      'captions-invoice.txt',
+      'anomaly-invoice.txt',
+    ])('drops the page numbers, dates and postcodes %s yields as items', async file => {
+      const text = readFileSync(join(__dirname, '../fixtures/invoices', file), 'utf8');
+      const result = await service.extractFromText(text);
+
+      expect(result.lineItems).toEqual([]);
+      expect(result.fieldConfidence.lineItems).toBe(0);
+      expect(result.validationIssues.join(' ')).toContain('line items dropped');
+      // The total is untouched: only the items were wrong.
+      expect(result.totalAmount).toBeGreaterThan(0);
+    });
+
+    it("takes the model's items when the heuristic's do not add up", async () => {
+      const ai = {
+        isAvailable: () => true,
+        extractFromText: jest.fn(async () => ({
+          vendor: 'Railway Corporation',
+          lineItems: [
+            { description: 'Hobby plan', amount: 5 },
+            { description: 'Usage', amount: 9.63 },
+          ],
+        })),
+      };
+      const withAi = new UniversalExtractorService(
+        new UniversalAmountParser(),
+        new TransactionTypeDetectorService(),
+        new DocumentClassifierService(),
+        new OcrService(),
+        ai as any,
+      );
+      // No issuer the heuristic can name, so the model is asked.
+      const text = ['Invoice', 'Invoice No. 4711', 'Page 1 of 2', 'Total: $14.63'].join('\n');
+
+      const result = await withAi.extractFromText(text);
+
+      expect(ai.extractFromText).toHaveBeenCalled();
+      expect(result.totalAmount).toBe(14.63);
+      expect(result.lineItems.map(item => item.description)).toEqual(['Hobby plan', 'Usage']);
+    });
+  });
+
   describe('the vendor of an invoice', () => {
     // pdf-parse output of real invoices, with the buyer's details replaced. The
     // label and its value arrive glued ("Invoice number29556044 0015"), which is

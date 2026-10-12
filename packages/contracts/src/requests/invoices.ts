@@ -1,6 +1,12 @@
 import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
-import { Email, IsoDateString, NumericInput, optionalNullable } from '../common/requests';
+import {
+  Email,
+  IsoDateString,
+  isAtMostTwoDecimals,
+  NumericInput,
+  optionalNullable,
+} from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const CreateClientBody = Schema.Struct({
@@ -21,6 +27,15 @@ export const CreateClientBody = Schema.Struct({
       Schema.isLessThanOrEqualTo(365),
     ),
   ),
+  /** The billing address in parts, for e-invoices. */
+  street: optionalNullable(Schema.String.check(Schema.isMaxLength(255))),
+  postalCode: optionalNullable(Schema.String.check(Schema.isMaxLength(16))),
+  city: optionalNullable(Schema.String.check(Schema.isMaxLength(120))),
+  countryCode: optionalNullable(Schema.String.check(Schema.isPattern(/^[A-Za-z]{2}$/))),
+  /** Quoted on every invoice to this client (XRechnung BT-10), e.g. a Leitweg-ID. */
+  buyerReference: optionalNullable(Schema.String.check(Schema.isMaxLength(255))),
+  /** Goods or services: decides the VAT category of a reverse-charged line. */
+  supplyType: optionalNullable(Schema.Literals(['goods', 'services'])),
 });
 export type CreateClientBody = Wire<typeof CreateClientBody>;
 
@@ -52,6 +67,16 @@ export const InvoiceLineItemInput = Schema.Struct({
   unitPrice: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
   taxRateId: optionalNullable(Schema.String.check(Schema.isUUID())),
   categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** Unit of measure, UN/ECE Recommendation 20 (C62 one, HUR hour, DAY day…). */
+  unitCode: optionalNullable(Schema.String.check(Schema.isPattern(/^[A-Z0-9]{1,3}$/))),
+  /** Discount (negative) or surcharge (positive) on quantity × unit price, in percent. */
+  adjustmentPercent: optionalNullable(
+    Schema.Finite.check(
+      isAtMostTwoDecimals,
+      Schema.isGreaterThanOrEqualTo(-100),
+      Schema.isLessThanOrEqualTo(1000),
+    ),
+  ),
 });
 export type InvoiceLineItemInput = Wire<typeof InvoiceLineItemInput>;
 
@@ -69,6 +94,10 @@ export const CreateInvoiceBody = Schema.Struct({
     Schema.Literals(['weekly', 'monthly', 'quarterly', 'yearly']),
   ),
   recurrenceEndDate: optionalNullable(IsoDateString),
+  /** The buyer's reference for this invoice (XRechnung BT-10); empty uses the client's. */
+  buyerReference: optionalNullable(Schema.String.check(Schema.isMaxLength(255))),
+  /** When the goods or service were delivered. */
+  deliveryDate: optionalNullable(IsoDateString),
 });
 export type CreateInvoiceBody = Wire<typeof CreateInvoiceBody>;
 

@@ -35,6 +35,9 @@ export enum NotificationType {
   SUBSCRIPTION_PRICE_CHANGED = 'subscription.price_changed',
   TAX_THRESHOLD_WARNING = 'tax.threshold.warning',
   TAX_THRESHOLD_REACHED = 'tax.threshold.reached',
+  TAX_DEADLINE_UPCOMING = 'tax.deadline.upcoming',
+  TAX_DEADLINE_OVERDUE = 'tax.deadline.overdue',
+  TAX_RATES_OFFICIAL_CHANGED = 'tax.rates.official_changed',
 }
 
 export enum NotificationCategory {

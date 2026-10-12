@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 
-export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
+export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer' | 'accountant';
 
 export type WorkspaceMember = {
   id: string;

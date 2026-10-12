@@ -19,6 +19,9 @@ export class WorkspaceResponseDto {
   icon: string | null;
   color: string | null;
   backgroundImage: string | null;
+  /** Credit line for a searched photo; null for bundled backgrounds. */
+  backgroundAttribution: string | null;
+  backgroundSourceUrl: string | null;
   currency: string;
   isFavorite: boolean;
   settings: JsonObject | null;

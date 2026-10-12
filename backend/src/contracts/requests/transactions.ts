@@ -37,6 +37,11 @@ export const UpdateTransactionBody = Schema.Struct({
    * set it, and only on a row that is theirs.
    */
   isPrivate: optionalNullable(Schema.Boolean),
+  /**
+   * Marks this one row as mattering for the tax return, or not, whatever its
+   * category says. Null hands the decision back to the category.
+   */
+  taxRelevant: optionalNullable(Schema.Boolean),
 });
 export type UpdateTransactionBody = Wire<typeof UpdateTransactionBody>;
 

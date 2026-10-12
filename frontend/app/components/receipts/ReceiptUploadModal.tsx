@@ -176,7 +176,7 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
               whiteSpace: 'nowrap',
             }}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,application/pdf"
+            accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,application/pdf,.xml,application/xml,text/xml"
             multiple
             aria-label="Select receipt files"
             onChange={event => {

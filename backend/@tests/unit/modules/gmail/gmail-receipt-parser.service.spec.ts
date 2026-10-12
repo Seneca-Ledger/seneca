@@ -233,6 +233,32 @@ describe('GmailReceiptParserService', () => {
       expect(typeof parsed?.amount).toBe('number');
     });
 
+    it('drops body line items that do not add up to the amount the email states', async () => {
+      const extractor = {
+        extractFromText: jest.fn(async () => ({
+          lineItems: [
+            { description: 'Page 1 of', amount: 2 },
+            { description: 'Date of issueJune 13,', amount: 202 },
+          ],
+          totalAmount: 204,
+        })),
+      };
+      const bodyService = new GmailReceiptParserService(
+        new UniversalAmountParser(),
+        undefined,
+        extractor as any,
+      );
+
+      const parsed = await bodyService.parseFromEmailOnly({
+        sender: 'billing@railway.com',
+        subject: 'Your invoice',
+        emailBody: '<p>Amount due $14.63</p>',
+      });
+
+      expect(parsed?.amount).toBe(14.63);
+      expect(parsed?.lineItems).toEqual([]);
+    });
+
     it('keeps an unparseable Date header as it is', () => {
       expect(normalizeDateHeader('yesterday-ish')).toBe('yesterday-ish');
       expect(normalizeDateHeader('2026-05-11')).toBe('2026-05-11');

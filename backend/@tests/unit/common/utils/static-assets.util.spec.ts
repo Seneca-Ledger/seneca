@@ -16,6 +16,11 @@ describe('static asset mounts', () => {
         ensure: true,
       },
       {
+        root: '/srv/lumio/uploads/workspace-backgrounds',
+        prefix: '/uploads/workspace-backgrounds',
+        ensure: true,
+      },
+      {
         root: '/srv/lumio/uploads/metal-photos',
         prefix: '/uploads/metal-photos',
         ensure: true,
@@ -29,6 +34,10 @@ describe('static asset mounts', () => {
   it('only creates the subtree that is mounted before anything writes to it', () => {
     const ensured = mounts().filter(mount => mount.ensure);
 
-    expect(ensured.map(mount => mount.prefix)).toEqual(['/uploads/goal-covers', '/uploads/metal-photos']);
+    expect(ensured.map(mount => mount.prefix)).toEqual([
+      '/uploads/goal-covers',
+      '/uploads/workspace-backgrounds',
+      '/uploads/metal-photos',
+    ]);
   });
 });

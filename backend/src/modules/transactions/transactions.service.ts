@@ -9,6 +9,7 @@ import { appError } from '../../common/errors/app-error';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { toMinor } from '../../common/utils/money.util';
+import { taxLockedConflict } from '../../common/utils/tax-lock.util';
 import {
   applyOwnerFilter,
   assertOwnerMemberInWorkspace,
@@ -796,6 +797,14 @@ export class TransactionsService {
         throw new BadRequestException('Transaction is not part of a split');
       }
 
+      // Folding the parts back deletes all but one, and a part on a filed
+      // return may not disappear from under it.
+      if (parts.some(part => part.taxLocked)) {
+        throw new BadRequestException(
+          'Cannot unsplit a transaction whose parts are part of a filed tax return',
+        );
+      }
+
       before = parts.map(part => ({ ...part }));
 
       // A part can be flagged as a duplicate AFTER the split: isSameSplitGroup only
@@ -910,6 +919,9 @@ export class TransactionsService {
   async remove(id: string, workspaceId: string, userId: string): Promise<void> {
     await this.ensureCanEditStatements(userId, workspaceId);
     const transaction = await this.findOne(id, workspaceId);
+    if (transaction.taxLocked) {
+      throw taxLockedConflict(1);
+    }
     // Use delete for simplicity; entity already validated for ownership.
 
     await this.transactionRepository.delete(transaction.id);

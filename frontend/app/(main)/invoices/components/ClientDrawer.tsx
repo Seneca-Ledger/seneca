@@ -8,6 +8,7 @@ import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
+import { useIntlayer } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { Client, CreateClientInput, UpdateClientInput } from '@/app/lib/invoices-api';
 import { LOCALE_DISPLAY_ORDER, LOCALE_ENDONYMS } from '@/app/lib/locale';
@@ -55,6 +56,12 @@ interface ClientFormState {
   locale: string;
   remindersEnabled: boolean;
   paymentTermsDays: string;
+  street: string;
+  postalCode: string;
+  city: string;
+  countryCode: string;
+  buyerReference: string;
+  supplyType: '' | 'goods' | 'services';
 }
 
 const emptyState = (defaultCurrency: string): ClientFormState => ({
@@ -66,6 +73,12 @@ const emptyState = (defaultCurrency: string): ClientFormState => ({
   locale: '',
   remindersEnabled: true,
   paymentTermsDays: '',
+  street: '',
+  postalCode: '',
+  city: '',
+  countryCode: '',
+  buyerReference: '',
+  supplyType: '',
 });
 
 export function ClientDrawer({
@@ -77,6 +90,7 @@ export function ClientDrawer({
   onSubmit,
   labels,
 }: ClientDrawerProps): React.JSX.Element {
+  const einvoice = useIntlayer('einvoiceFields');
   const [form, setForm] = useState<ClientFormState>(() => emptyState(defaultCurrency));
   const {
     currencyDrawerOpen,
@@ -109,6 +123,12 @@ export function ClientDrawer({
             remindersEnabled: client.remindersEnabled ?? true,
             paymentTermsDays:
               client.paymentTermsDays === null ? '' : String(client.paymentTermsDays),
+            street: client.street || '',
+            postalCode: client.postalCode || '',
+            city: client.city || '',
+            countryCode: client.countryCode || '',
+            buyerReference: client.buyerReference || '',
+            supplyType: client.supplyType || '',
           }
         : emptyState(defaultCurrency),
     );
@@ -129,6 +149,15 @@ export function ClientDrawer({
       locale: form.locale.trim().toLowerCase() || undefined,
       remindersEnabled: form.remindersEnabled,
       paymentTermsDays: form.paymentTermsDays.trim() ? Number(form.paymentTermsDays) : undefined,
+      // Sent even when emptied, so a cleared field is cleared on the server.
+      street: form.street.trim(),
+      postalCode: form.postalCode.trim(),
+      city: form.city.trim(),
+      ...(/^[A-Za-z]{2}$/.test(form.countryCode.trim())
+        ? { countryCode: form.countryCode.trim().toUpperCase() }
+        : {}),
+      buyerReference: form.buyerReference.trim(),
+      supplyType: form.supplyType || null,
     });
   };
 
@@ -256,6 +285,98 @@ export function ClientDrawer({
                   value: option.value,
                   label: option.label,
                 }))}
+              />
+            </div>
+            <fieldset
+              className="lumio-payable-drawer__field-group"
+              style={{ border: 0, padding: 0, margin: 0 }}
+            >
+              <legend className="lumio-payable-drawer__field-label">
+                {einvoice.clientSection}
+              </legend>
+              <span style={{ fontSize: 12, opacity: 0.7 }}>{einvoice.clientSectionHint}</span>
+            </fieldset>
+            <div className="lumio-payable-drawer__field-group">
+              <label className="lumio-payable-drawer__field-label" htmlFor="client-street">
+                {einvoice.street}
+              </label>
+              <Input
+                id="client-street"
+                value={form.street}
+                onChange={event => setForm(prev => ({ ...prev, street: event.target.value }))}
+              />
+            </div>
+            <div className="lumio-payable-drawer__2col">
+              <div className="lumio-payable-drawer__field-group">
+                <label className="lumio-payable-drawer__field-label" htmlFor="client-postal-code">
+                  {einvoice.postalCode}
+                </label>
+                <Input
+                  id="client-postal-code"
+                  value={form.postalCode}
+                  onChange={event => setForm(prev => ({ ...prev, postalCode: event.target.value }))}
+                />
+              </div>
+              <div className="lumio-payable-drawer__field-group">
+                <label className="lumio-payable-drawer__field-label" htmlFor="client-city">
+                  {einvoice.city}
+                </label>
+                <Input
+                  id="client-city"
+                  value={form.city}
+                  onChange={event => setForm(prev => ({ ...prev, city: event.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="lumio-payable-drawer__2col">
+              <div className="lumio-payable-drawer__field-group">
+                <label className="lumio-payable-drawer__field-label" htmlFor="client-country">
+                  {einvoice.countryCode}
+                </label>
+                <Input
+                  id="client-country"
+                  maxLength={2}
+                  value={form.countryCode}
+                  onChange={event =>
+                    setForm(prev => ({ ...prev, countryCode: event.target.value.toUpperCase() }))
+                  }
+                />
+              </div>
+              <div className="lumio-payable-drawer__field-group">
+                <label
+                  className="lumio-payable-drawer__field-label"
+                  htmlFor="client-buyer-reference"
+                >
+                  {einvoice.buyerReference}
+                </label>
+                <Input
+                  id="client-buyer-reference"
+                  value={form.buyerReference}
+                  onChange={event =>
+                    setForm(prev => ({ ...prev, buyerReference: event.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="lumio-payable-drawer__field-group">
+              <label className="lumio-payable-drawer__field-label" htmlFor="client-supply-type">
+                {einvoice.supplyType}
+              </label>
+              <Select
+                fullWidth
+                id="client-supply-type"
+                value={form.supplyType || 'unset'}
+                onChange={next =>
+                  setForm(prev => ({
+                    ...prev,
+                    supplyType: next === 'unset' ? '' : (next as 'goods' | 'services'),
+                  }))
+                }
+                options={[
+                  { value: 'unset', label: einvoice.supplyUnset.value },
+                  { value: 'services', label: einvoice.supplyServices.value },
+                  { value: 'goods', label: einvoice.supplyGoods.value },
+                ]}
               />
             </div>
             <div className="lumio-payable-drawer__field-group">

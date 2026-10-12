@@ -49,12 +49,14 @@ describe('OverviewLayout', () => {
 
   it('lays the sections out as this person left them', async () => {
     api.get.mockResolvedValue({
-      data: { state: { overviewRows: [['net-worth', 'kpis'], ['goals']] } },
+      data: { state: { overviewRows: [['getting-started'], ['net-worth', 'kpis'], ['goals']] } },
     });
 
     renderWithQuery(<OverviewLayout sections={sections()} />);
 
-    await waitFor(() => expect(order().slice(0, 3)).toEqual(['net-worth', 'kpis', 'goals']));
+    await waitFor(() =>
+      expect(order().slice(0, 4)).toEqual(['getting-started', 'net-worth', 'kpis', 'goals']),
+    );
     expect(api.get).toHaveBeenCalledWith('/view-preferences/dashboard', expect.anything());
     expect(sectionOf('net-worth card')).not.toHaveClass('lumio-overview__section--wide');
     expect(sectionOf('kpis card')).not.toHaveClass('lumio-overview__section--wide');
@@ -97,6 +99,6 @@ describe('OverviewLayout', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Reset layout' })).not.toBeInTheDocument(),
     );
-    expect(order()[0]).toBe('kpis');
+    expect(order().slice(0, 2)).toEqual(['getting-started', 'kpis']);
   });
 });

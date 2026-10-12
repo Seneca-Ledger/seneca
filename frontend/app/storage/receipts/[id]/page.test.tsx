@@ -802,7 +802,8 @@ describe('ReceiptDocumentPage', () => {
         paymentMethod: '',
         transactionType: 'expense',
         categoryId: undefined,
-        lineItems: [{ description: 'Store', amount: 500 }],
+        // The receipt has no items; its total is not passed off as one.
+        lineItems: [],
       },
     });
   });
@@ -890,7 +891,8 @@ describe('ReceiptDocumentPage', () => {
         paymentMethod: '',
         transactionType: 'expense',
         categoryId: undefined,
-        lineItems: [{ description: 'Store', amount: 500 }],
+        // The receipt has no items; its total is not passed off as one.
+        lineItems: [],
       },
     });
   });

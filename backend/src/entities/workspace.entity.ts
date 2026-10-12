@@ -12,6 +12,13 @@ import { TaxJurisdiction } from './tax-jurisdiction.entity';
 import { User } from './user.entity';
 import { WorkspaceMember } from './workspace-member.entity';
 
+export enum VatStatus {
+  REGISTERED = 'registered',
+  /** Exempt under a small-business scheme: invoices carry no VAT. */
+  SMALL_BUSINESS = 'small_business',
+  NOT_REGISTERED = 'not_registered',
+}
+
 @Entity('workspaces')
 export class Workspace {
   @PrimaryGeneratedColumn('uuid')
@@ -31,6 +38,17 @@ export class Workspace {
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'background_image' })
   backgroundImage: string | null;
+
+  /**
+   * Credit for a background found through the photo search. A CC-BY picture
+   * may not be shown without naming its author and licence, so these travel
+   * with the copied file and are cleared whenever the background changes.
+   */
+  @Column({ type: 'varchar', length: 400, nullable: true, name: 'background_attribution' })
+  backgroundAttribution: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true, name: 'background_source_url' })
+  backgroundSourceUrl: string | null;
 
   /**
    * The currency this workspace works in, and the one every amount in it falls
@@ -57,6 +75,14 @@ export class Workspace {
 
   @Column({ name: 'tax_jurisdiction_id', type: 'uuid', nullable: true })
   taxJurisdictionId: string | null;
+
+  /**
+   * Whether this workspace charges VAT. Only `registered` workspaces have tax
+   * assessed on their transactions; a household or a small business exempt
+   * from VAT (Kleinunternehmer and the like) has none to report or reclaim.
+   */
+  @Column({ name: 'vat_status', type: 'varchar', length: 20, default: VatStatus.REGISTERED })
+  vatStatus: VatStatus;
 
   /** How far the registration-threshold alert has escalated: 0, 80 or 100. */
   @Column({ name: 'tax_threshold_alert_level', type: 'int', default: 0 })

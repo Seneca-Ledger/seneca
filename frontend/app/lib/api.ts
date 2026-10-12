@@ -312,6 +312,9 @@ export type ReceiptSplitSuggestion = ContractReceiptSplitSuggestion;
 /** A receipt as `GET /receipts/:id` sends it. */
 export type ReceiptRecord = ContractReceiptRecord;
 
+/** What a receipt keeps of a structured e-invoice's XML (XRechnung, ZUGFeRD / Factur-X). */
+export type { EInvoiceSummary } from '@/app/lib/contracts';
+
 export interface ReceiptListFilters {
   page?: number;
   limit?: number;
@@ -399,8 +402,13 @@ export const receiptsApi = {
     });
   },
 
-  splitByLineItems: async (id: string): Promise<ReceiptSplitResult> => {
-    const response = await apiClient.post(`/receipts/${id}/split`);
+  /** `items`: the preview as the user corrected it; the receipt's lines with their categories. */
+  splitByLineItems: async (
+    id: string,
+    items?: ReceiptSplitSuggestion['items'],
+  ): Promise<ReceiptSplitResult> => {
+    const body = (items ? { items } : {}) satisfies ContractInput<'ApplyReceiptSplitBody'>;
+    const response = await apiClient.post(`/receipts/${id}/split`, body);
     return checkContract('ReceiptSplitResult', response.data, '/receipts/:id/split');
   },
 

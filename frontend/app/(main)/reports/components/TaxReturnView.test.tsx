@@ -6,11 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const get = vi.fn();
 const post = vi.fn();
+const put = vi.fn();
 
 vi.mock('@/app/lib/api', () => ({
   default: {
     get: (...args: unknown[]) => get(...args),
     post: (...args: unknown[]) => post(...args),
+    put: (...args: unknown[]) => put(...args),
   },
 }));
 
@@ -47,8 +49,20 @@ const TOTALS = {
   ],
 };
 
-function mockApi({ status = 'draft', totals = TOTALS, threshold = null as unknown } = {}) {
+function mockApi({
+  status = 'draft',
+  totals = TOTALS,
+  threshold = null as unknown,
+  filing = null as unknown,
+  deadlines = [] as unknown[],
+} = {}) {
   get.mockImplementation(async (url: string) => {
+    if (url === '/tax/settings/vat-filing') {
+      return { data: filing };
+    }
+    if (url === '/tax/deadlines') {
+      return { data: deadlines };
+    }
     if (url.startsWith('/tax/returns/period')) {
       return { data: { id: 'ret-1', status, currency: 'KZT' } };
     }
@@ -70,6 +84,7 @@ describe('TaxReturnView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     post.mockResolvedValue({ data: {} });
+    put.mockResolvedValue({ data: [] });
   });
 
   it('shows the three headline figures', async () => {
@@ -170,6 +185,105 @@ describe('TaxReturnView', () => {
     expect(await screen.findByText(/No taxed transactions/)).toBeInTheDocument();
   });
 
+  it('warns when rows were left out for want of an exchange rate', async () => {
+    mockApi({
+      totals: {
+        ...TOTALS,
+        missingRates: [
+          { transactionId: 'c', date: '2026-02-12', currency: 'USD' },
+          { transactionId: 'd', date: '2026-02-13', currency: 'USD' },
+        ],
+      } as typeof TOTALS,
+    });
+    renderWithQuery(<TaxReturnView />);
+
+    expect(await screen.findByText(/without an exchange rate for their date: 2 \(USD\)/)).toBeInTheDocument();
+  });
+
+  it("shows the server's reason when filing is refused", async () => {
+    mockApi();
+    post.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: {
+          error: {
+            code: 'TAX_RETURN_MISSING_RATES',
+            message: '2 transactions in USD have no exchange rate for their date. Add the rates before filing.',
+            params: { count: 2, currencies: 'USD' },
+          },
+        },
+      },
+    });
+    renderWithQuery(<TaxReturnView />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /File and lock/i }));
+
+    expect(await screen.findByText(/Add the rates before filing/)).toBeInTheDocument();
+  });
+
+  it('offers months to a monthly filer', async () => {
+    mockApi({ filing: { frequency: 'monthly', isDefault: false, extension: false } });
+    renderWithQuery(<TaxReturnView />);
+
+    expect(await screen.findByRole('button', { name: 'Last month' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Last quarter' })).not.toBeInTheDocument();
+  });
+
+  it('shows the return that is due and opens its period', async () => {
+    mockApi({
+      deadlines: [
+        {
+          kind: 'vat_return',
+          periodStart: '2026-07-01',
+          periodEnd: '2026-09-30',
+          dueDate: '2026-10-12',
+          daysLeft: 2,
+          done: false,
+          filedElsewhere: false,
+          returnName: 'Umsatzsteuer-Voranmeldung',
+          basis: 'statute',
+          checkedAt: '2026-10-10',
+        },
+        {
+          kind: 'vat_return',
+          periodStart: '2026-04-01',
+          periodEnd: '2026-06-30',
+          dueDate: '2026-07-10',
+          daysLeft: -92,
+          done: false,
+          filedElsewhere: false,
+          returnName: 'Umsatzsteuer-Voranmeldung',
+        },
+      ],
+    });
+    renderWithQuery(<TaxReturnView />);
+
+    const banners = await screen.findByTestId('vat-deadlines');
+    // A return missed long ago drops off instead of nagging forever.
+    expect(banners).toHaveTextContent('2026-10-12');
+    expect(banners).not.toHaveTextContent('2026-07-10');
+    // Where the date comes from, and when that was read.
+    expect(banners).toHaveTextContent('2026-10-10');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Filed outside Lumio' }));
+    await waitFor(() =>
+      expect(put).toHaveBeenCalledWith('/tax/deadlines/filed-elsewhere', {
+        kind: 'vat_return',
+        periodEnd: '2026-09-30',
+        filed: true,
+      }),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }));
+    await waitFor(() =>
+      expect(get).toHaveBeenCalledWith(
+        expect.stringContaining('periodStart=2026-07-01&periodEnd=2026-09-30'),
+        expect.anything(),
+      ),
+    );
+  });
+
   it('always carries the advice disclaimer', async () => {
     mockApi();
     renderWithQuery(<TaxReturnView />);
@@ -184,7 +298,7 @@ describe('TaxReturnView', () => {
       URL.revokeObjectURL = vi.fn();
     });
 
-    it.each(['pdf', 'xlsx'] as const)('downloads the return as %s', async format => {
+    it.each(['pdf', 'xlsx', 'csv'] as const)('downloads the return as %s', async format => {
       mockApi();
       get.mockImplementation(async (url: string) => {
         if (url.startsWith('/tax/returns/export')) return { data: new Blob(['x']) };

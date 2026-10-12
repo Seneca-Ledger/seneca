@@ -1,0 +1,179 @@
+'use client';
+
+import clsx from 'clsx';
+import Link from 'next/link';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { Check, ChevronDown, ChevronRight } from '@/app/components/icons';
+import { useViewPreference } from '@/app/components/transactions/hooks/useViewPreference';
+import { useAuth } from '@/app/hooks/useAuth';
+import { useIntlayer } from '@/app/i18n';
+import { DashboardCard } from './ui';
+import { type SetupProgress, useSetupProgress } from './use-setup-progress';
+
+type GettingStartedState = {
+  gettingStartedDismissedAt?: string;
+  gettingStartedCompletedAt?: string;
+};
+
+type StepId = 'upload' | 'categories' | 'budget' | 'goal';
+
+const STEPS: ReadonlyArray<{
+  id: StepId;
+  doneWhen: keyof SetupProgress;
+  href: string;
+  emoji: string;
+}> = [
+  { id: 'upload', doneWhen: 'hasUpload', href: '/statements?openExpenseDrawer=scan', emoji: '📄' },
+  {
+    id: 'categories',
+    doneWhen: 'hasCustomCategories',
+    href: '/workspaces/categories',
+    emoji: '✨',
+  },
+  { id: 'budget', doneWhen: 'hasBudget', href: '/budgets', emoji: '💰' },
+  { id: 'goal', doneWhen: 'hasGoal', href: '/goals', emoji: '🎯' },
+];
+
+const RING_RADIUS = 16;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+
+function ProgressRing({ done, label }: { done: number; label: string }): React.JSX.Element {
+  return (
+    <div className="lumio-getting-started__ring" role="img" aria-label={label}>
+      <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
+        <circle className="lumio-getting-started__ring-track" cx="20" cy="20" r={RING_RADIUS} />
+        <circle
+          className="lumio-getting-started__ring-fill"
+          cx="20"
+          cy="20"
+          r={RING_RADIUS}
+          strokeDasharray={RING_LENGTH}
+          strokeDashoffset={RING_LENGTH * (1 - done / STEPS.length)}
+        />
+      </svg>
+      <span aria-hidden="true">
+        {done}/{STEPS.length}
+      </span>
+    </div>
+  );
+}
+
+interface StepRowProps {
+  step: (typeof STEPS)[number] & { done: boolean };
+  isNext: boolean;
+}
+
+function StepRow({ step, isNext }: StepRowProps): React.JSX.Element {
+  const t = useIntlayer('gettingStartedCard');
+  const text: Record<StepId, { title: React.ReactNode; subtitle: React.ReactNode }> = {
+    upload: { title: t.uploadTitle, subtitle: t.uploadSubtitle },
+    categories: { title: t.categoriesTitle, subtitle: t.categoriesSubtitle },
+    budget: { title: t.budgetTitle, subtitle: t.budgetSubtitle },
+    goal: { title: t.goalTitle, subtitle: t.goalSubtitle },
+  };
+  return (
+    <Link
+      href={step.href}
+      className={clsx(
+        'lumio-getting-started__step',
+        step.done && 'lumio-getting-started__step--done',
+      )}
+    >
+      <span className="lumio-getting-started__check" aria-hidden="true">
+        {step.done && <Check size={12} />}
+      </span>
+      <span className="lumio-getting-started__step-body">
+        <span className="lumio-getting-started__step-title">
+          {text[step.id].title}
+          <span aria-hidden="true">{step.emoji}</span>
+          {isNext && <span className="lumio-getting-started__next">{t.next}</span>}
+        </span>
+        <span className="lumio-getting-started__step-sub">{text[step.id].subtitle}</span>
+      </span>
+      <ChevronRight size={16} className="lumio-dashboard__action-chevron" />
+    </Link>
+  );
+}
+
+/**
+ * The first things a new workspace should do, ticked off from its own data.
+ * Gone for good, per person and workspace, once every step is done or the
+ * person says they'll find their own way.
+ */
+export function GettingStartedCard(): React.JSX.Element | null {
+  const t = useIntlayer('gettingStartedCard');
+  const { user } = useAuth();
+  const { state, save } = useViewPreference<GettingStartedState>('onboarding');
+  const progress = useSetupProgress();
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  const finished = Boolean(state?.gettingStartedDismissedAt || state?.gettingStartedCompletedAt);
+  const allDone = progress ? STEPS.every(step => progress[step.doneWhen]) : false;
+
+  // Remembered, so deleting the only goal later doesn't bring the checklist back.
+  useEffect(() => {
+    if (allDone && state !== undefined && !finished) {
+      save({ ...state, gettingStartedCompletedAt: new Date().toISOString() });
+    }
+  }, [allDone, state, finished, save]);
+
+  if (state === undefined || !progress || finished || allDone) {
+    return null;
+  }
+
+  const steps = STEPS.map(step => ({ ...step, done: progress[step.doneWhen] }));
+  const completed = steps.filter(step => step.done);
+  const open = steps.filter(step => !step.done);
+  const firstName = user?.name?.trim().split(/\s+/)[0];
+  // A function, so a `$` in the name is not read as a replacement pattern.
+  const subtitle = firstName
+    ? t.subtitle.value.replace('{{name}}', () => firstName)
+    : t.subtitleNoName.value;
+  const progressLabel = t.progressLabel.value
+    .replace('{{done}}', String(completed.length))
+    .replace('{{total}}', String(STEPS.length));
+
+  return (
+    <DashboardCard
+      title={t.title}
+      subtitle={subtitle}
+      action={<ProgressRing done={completed.length} label={progressLabel} />}
+      className="lumio-getting-started"
+    >
+      {completed.length > 0 && (
+        <>
+          <button
+            type="button"
+            className="lumio-getting-started__toggle"
+            aria-expanded={showCompleted}
+            onClick={() => setShowCompleted(value => !value)}
+          >
+            {t.completedItems} ({completed.length})
+            <ChevronDown
+              size={14}
+              className={clsx(
+                'lumio-getting-started__toggle-icon',
+                showCompleted && 'lumio-getting-started__toggle-icon--open',
+              )}
+            />
+          </button>
+          {showCompleted &&
+            completed.map(step => <StepRow key={step.id} step={step} isNext={false} />)}
+        </>
+      )}
+      {open.map((step, index) => (
+        <StepRow key={step.id} step={step} isNext={index === 0} />
+      ))}
+      <div className="lumio-getting-started__footer">
+        <button
+          type="button"
+          className="lumio-getting-started__dismiss"
+          onClick={() => save({ ...state, gettingStartedDismissedAt: new Date().toISOString() })}
+        >
+          {t.exploreOnMyOwn}
+        </button>
+      </div>
+    </DashboardCard>
+  );
+}

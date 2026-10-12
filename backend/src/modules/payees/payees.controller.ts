@@ -30,6 +30,16 @@ export class PayeesController {
     return this.payeesService.update(workspaceId, user.id, id, body);
   }
 
+  /** Asks the EU's VIES again whether the payee's VAT number is valid. */
+  @Post('payees/:id/vat-check')
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  async recheckVatId(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payeesService.recheckVatId(workspaceId, id);
+  }
+
   /** Folds `sourceIds` into this payee. */
   @Post('payees/:id/merge')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)

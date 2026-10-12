@@ -5,7 +5,7 @@ jest.mock('franc', () => ({
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull, Not } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { Transaction } from '../../src/entities/transaction.entity';
 import {
@@ -125,6 +125,46 @@ describe('Receipt ↔ transaction (e2e)', () => {
     expect(
       suggestion.body.parts.reduce((sum: number, part: { amount: number }) => sum + part.amount, 0),
     ).toBeCloseTo(80, 2);
+
+    // A preview that is not this receipt's lines is refused and books nothing.
+    await as(request(server()).post(`/receipts/${receiptId}/split`))
+      .send({ items: [{ description: 'Milk 1L', amount: 99, categoryId: categoryIds[0] }] })
+      .expect(400);
+
+    // The categories the user settled on in the preview are the ones booked.
+    await as(request(server()).post(`/receipts/${receiptId}/split`))
+      .send({
+        items: [
+          { description: 'Milk 1L', amount: 20, categoryId: categoryIds[1] },
+          { description: 'Bread', amount: 12, categoryId: categoryIds[1] },
+          { description: 'Shampoo', amount: 48, categoryId: categoryIds[2] },
+        ],
+      })
+      .expect(201);
+    const parts = await transactions().find({
+      where: { workspaceId: owner.workspaceId, splitGroupId: Not(IsNull()) },
+      order: { splitIndex: 'ASC' },
+    });
+    expect(parts.map(part => [part.categoryId, Number(part.amount)])).toEqual([
+      [categoryIds[2], 48],
+      [categoryIds[1], 32],
+    ]);
+
+    const again = await as(
+      request(server()).get(`/receipts/${receiptId}/split-suggestion`),
+    ).expect(200);
+    expect(again.body.alreadySplit).toBe(true);
+
+    // Undo puts the bank row back whole, still documented by the receipt.
+    await as(request(server()).post(`/transactions/${bankRowId}/unsplit`)).expect(200);
+    const restored = await transactions().findOneByOrFail({ id: bankRowId });
+    expect(Number(restored.amount)).toBe(80);
+    expect(restored.splitGroupId).toBeNull();
+    const [stillLinked] = await dataSource.query(
+      'SELECT transaction_id FROM receipts WHERE id = $1',
+      [receiptId],
+    );
+    expect(stillLinked.transaction_id).toBe(bankRowId);
   });
 
   it('a second receipt for the same row is not offered that row', async () => {
