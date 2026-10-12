@@ -64,10 +64,14 @@ export type JurisdictionRateList = Wire<typeof JurisdictionRateList>;
 /** `GET /tax/settings`. */
 export const WorkspaceTaxSettings = Schema.Struct({
   jurisdiction: Schema.NullOr(TaxJurisdictionItem),
+  vatStatus: Schema.Literals(['registered', 'small_business', 'not_registered']),
 });
 export type WorkspaceTaxSettings = Wire<typeof WorkspaceTaxSettings>;
 
-/** `GET /tax/settings/threshold`: null without a jurisdiction. */
+/**
+ * `GET /tax/settings/threshold`: null without a jurisdiction, and for a
+ * workspace that is VAT-registered already or a household (sent as an empty body).
+ */
 export const TaxThresholdStatus = Schema.NullOr(
   Schema.Struct({
     threshold: Schema.NullOr(Schema.Number),
@@ -77,6 +81,8 @@ export const TaxThresholdStatus = Schema.NullOr(
     periodStart: Schema.String,
     periodEnd: Schema.String,
     window: Schema.String,
+    /** Currencies of sales left out for want of an exchange rate on their day. */
+    missingRateCurrencies: Schema.Array(Schema.String),
   }),
 );
 export type TaxThresholdStatus = Wire<typeof TaxThresholdStatus>;
