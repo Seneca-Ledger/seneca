@@ -12,6 +12,7 @@ import { fromMinor, toMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
 import type {
   CreateJournalEntryBody,
+  JournalEntriesQuery,
   JournalLineInput,
   ReverseJournalEntryBody,
   UpdateJournalEntryBody,
@@ -34,7 +35,6 @@ import type {
   JournalEntrySummaryDto,
   PaginatedJournalEntriesDto,
 } from './dto/journal-entry-response.dto';
-import type { ListJournalEntriesDto } from './dto/list-journal-entries.dto';
 import {
   type BaseLine,
   baseDifference,
@@ -97,10 +97,7 @@ export class LedgerEntriesService {
     private readonly auditService: AuditService,
   ) {}
 
-  async list(
-    workspaceId: string,
-    query: ListJournalEntriesDto,
-  ): Promise<PaginatedJournalEntriesDto> {
+  async list(workspaceId: string, query: JournalEntriesQuery): Promise<PaginatedJournalEntriesDto> {
     const { page, limit, skip } = normalizePagination(query, { defaultLimit: 50 });
     const qb = this.entryRepository
       .createQueryBuilder('entry')

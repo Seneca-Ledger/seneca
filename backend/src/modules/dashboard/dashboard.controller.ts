@@ -8,13 +8,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { CashFlowQuery } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { DashboardService } from './dashboard.service';
 import { parseMonthWindow } from './dashboard-window.util';
-import { CashFlowQueryDto } from './dto/cash-flow-query.dto';
 
 const MIN_HISTORY_YEAR = 1970;
 const MAX_HISTORY_YEAR = 9999;
@@ -38,7 +39,10 @@ export class DashboardController {
   }
 
   @Get('cash-flow')
-  async getCashFlow(@WorkspaceId() workspaceId: string, @Query() query: CashFlowQueryDto) {
+  async getCashFlow(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CashFlowQuery) query: CashFlowQuery,
+  ) {
     return this.dashboardService.getMonthlyCashFlow(workspaceId, query.range ?? '12m', query.month);
   }
 

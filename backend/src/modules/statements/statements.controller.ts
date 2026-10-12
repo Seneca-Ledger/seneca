@@ -22,6 +22,7 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -39,6 +40,7 @@ import { multerConfig } from '../../config/multer.config';
 import {
   ConvertDroppedSampleBody,
   CreateManualExpenseBody,
+  StatementsQuery,
   UpdateStatementBody,
   UpdateStatementStageBody,
   UploadReceiptScanBody,
@@ -49,7 +51,6 @@ import { StatementStage } from '../../entities/statement.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { FilterStatementsDto } from './dto/filter-statements.dto';
 import { UpdateStatementStageResultDto } from './dto/update-statement-stage.dto';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { StatementStageService } from './services/statement-stage.service';
@@ -311,7 +312,7 @@ export class StatementsController {
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() filters: FilterStatementsDto,
+    @SchemaQuery(StatementsQuery) filters: StatementsQuery,
   ) {
     const result = await this.statementsService.findAll(workspaceId, filters);
 

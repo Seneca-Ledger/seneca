@@ -2,7 +2,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface CoverSearchResult {
   id: string;
@@ -38,7 +38,7 @@ export function useCoverSearch(): UseCoverSearchState {
     mutationFn: async (term: string) => {
       return apiQueryDecoded({
         url: '/goals/covers/search',
-        params: { q: term },
+        params: { q: term } satisfies ContractInput<'SearchCoversQuery'>,
         contract: 'GoalCoverSearchPage',
       });
     },

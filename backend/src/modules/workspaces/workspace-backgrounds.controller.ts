@@ -1,13 +1,13 @@
-import { Controller, Get, Param, ParseUUIDPipe, Put, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Put, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { SetWorkspaceBackgroundBody } from '../../contracts';
+import { SearchBackgroundsQuery, SetWorkspaceBackgroundBody } from '../../contracts';
 import type { User } from '../../entities';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { SearchBackgroundsDto } from './dto/search-backgrounds.dto';
 import { WorkspaceBackgroundsService } from './workspace-backgrounds.service';
 
 /**
@@ -26,7 +26,7 @@ export class WorkspaceBackgroundsController {
   @ApiResponse({ status: 200, description: 'A page of results with their credit lines' })
   @ApiResponse({ status: 502, description: 'The image search did not answer' })
   @ApiResponse({ status: 503, description: 'The daily search allowance is used up' })
-  search(@Query() query: SearchBackgroundsDto) {
+  search(@SchemaQuery(SearchBackgroundsQuery) query: SearchBackgroundsQuery) {
     return this.backgroundsService.search(query.q, query.page ?? 1);
   }
 

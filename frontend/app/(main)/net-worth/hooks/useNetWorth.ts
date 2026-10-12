@@ -77,7 +77,9 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         url: '/reports/net-worth',
-        params: denominate ? { range, denominate } : { range },
+        params: (denominate
+          ? { range, denominate }
+          : { range }) satisfies ContractInput<'NetWorthQuery'>,
         signal,
         contract: 'NetWorthResponse',
       }),

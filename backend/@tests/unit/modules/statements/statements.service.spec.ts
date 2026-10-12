@@ -11,7 +11,7 @@ import { WorkspaceMember, WorkspaceRole } from '@/entities/workspace-member.enti
 import { AuditService } from '@/modules/audit/audit.service';
 import { StatementParsingQueue } from '@/modules/parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '@/modules/parsing/services/statement-processing.service';
-import { FilterStatementsDto } from '@/modules/statements/dto/filter-statements.dto';
+import type { StatementsQuery } from '@/contracts';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
 import { StatementsService } from '@/modules/statements/statements.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -474,7 +474,7 @@ describe('StatementsService', () => {
         has: ['errors', 'transactions'],
         categoryId: 'cat-1',
         groupBy: 'amount',
-      } satisfies FilterStatementsDto);
+      } satisfies StatementsQuery);
 
       expect(qb.skip).not.toHaveBeenCalled();
       expect(qb.take).toHaveBeenCalledWith(15);
@@ -544,7 +544,7 @@ describe('StatementsService', () => {
       await service.findAll('ws-1', {
         from: ['bank:receipt', 'bank:gmail', 'bank:kaspi'],
         to: ['bank:receipt', 'bank:other'],
-      } satisfies FilterStatementsDto);
+      } satisfies StatementsQuery);
 
       expect(qb.andWhere).toHaveBeenCalledWith(
         expect.stringContaining('statement.bankName IN (:...fromBankNames)'),

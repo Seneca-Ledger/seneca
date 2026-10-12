@@ -1,10 +1,13 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
+import { NetWorthQuery } from '../../contracts';
+import { InvestmentMetal } from '../../entities/investment-holding.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { NetWorthQueryDto } from './dto/net-worth-query.dto';
 import { NetWorthService } from './net-worth.service';
 
 @Controller('reports/net-worth')
@@ -16,13 +19,13 @@ export class NetWorthController {
   async getNetWorth(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: NetWorthQueryDto,
+    @SchemaQuery(NetWorthQuery) query: NetWorthQuery,
   ) {
     return this.netWorthService.getNetWorth(
       workspaceId,
       query.range ?? '90d',
       user.locale,
-      query.denominate,
+      toEnum(InvestmentMetal, query.denominate),
     );
   }
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { statementsApi } from '@/app/lib/api';
 import { blobOf } from '@/app/lib/blob-of';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export type BankStat = {
   bank: string;
@@ -19,7 +19,11 @@ export function useSync() {
 
   useEffect(() => {
     setStatsLoading(true);
-    apiQueryDecoded({ url: '/statements', params: { limit: 1000 }, contract: 'StatementList' })
+    apiQueryDecoded({
+      url: '/statements',
+      params: { limit: 1000 } satisfies ContractInput<'StatementsQuery'>,
+      contract: 'StatementList',
+    })
       .then(items => {
         const byBank = new Map<string, number>();
         for (const item of items) {

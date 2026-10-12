@@ -5,7 +5,7 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { MultiSelect } from '@/app/components/ui/multi-select';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import type { SourcePreview } from '../hooks/useSourcePreview';
 import type { TableCategory } from '../hooks/useTablesList';
@@ -160,7 +160,7 @@ export function SourceFilterPanel(props: SourceFilterPanelProps) {
     queryFn: async ({ signal }) =>
       apiQueryDecoded({
         url: '/statements',
-        params: { page: 1, limit: STATEMENTS_LIMIT },
+        params: { page: 1, limit: STATEMENTS_LIMIT } satisfies ContractInput<'StatementsQuery'>,
         signal,
         contract: 'StatementList',
       }),

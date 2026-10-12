@@ -107,13 +107,14 @@ export function useReviewInbox(): UseReviewInboxResult {
   );
 
   const params = useMemo(
-    () => ({
-      kind,
-      limit: PAGE_SIZE,
-      reviewer,
-      ...(from ? { from } : {}),
-      ...(to ? { to } : {}),
-    }),
+    () =>
+      ({
+        kind,
+        limit: PAGE_SIZE,
+        reviewer,
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
+      }) satisfies ContractInput<'ReviewInboxQuery'>,
     [kind, reviewer, from, to],
   );
 

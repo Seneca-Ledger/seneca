@@ -6,8 +6,8 @@ import { type ReceiptListFilters, type ReceiptListResponse, receiptsApi } from '
 export interface ReceiptsFilterState {
   page: number;
   limit: number;
-  status: string;
-  source: string;
+  status: NonNullable<ReceiptListFilters['status']> | 'all';
+  source: NonNullable<ReceiptListFilters['source']> | 'all';
   search: string;
 }
 

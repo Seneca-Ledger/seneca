@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import type {
   DashboardCashFlowRange,
@@ -141,7 +141,7 @@ export function useDashboardCashFlow(range: DashboardCashFlowRange, month?: stri
       apiQueryDecoded({
         contract: 'DashboardMonthlyCashFlowResponse',
         url: '/dashboard/cash-flow',
-        params: month ? { range, month } : { range },
+        params: (month ? { range, month } : { range }) satisfies ContractInput<'CashFlowQuery'>,
         signal,
       }),
     placeholderData: (previous, previousQuery) =>

@@ -54,7 +54,7 @@ export function useNotes({ entityType, entityId }: NoteTarget): UseNotesState {
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         url: '/notes',
-        params: { entityType, entityId },
+        params: { entityType, entityId } satisfies ContractInput<'NotesQuery'>,
         signal,
         contract: 'NoteList',
       }),

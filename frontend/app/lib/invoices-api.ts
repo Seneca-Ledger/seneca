@@ -9,7 +9,6 @@ import type {
   InvoiceRecurrenceInterval,
   InvoiceReminderResult,
   InvoiceSettings,
-  InvoiceStatus,
   LateFeeQuote,
   XRechnungCheck,
 } from '@/app/lib/contracts';
@@ -83,13 +82,7 @@ export interface SendInvoiceEmailInput {
   message?: string;
 }
 
-export interface ListInvoicesParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: InvoiceStatus;
-  clientId?: string;
-}
+export type ListInvoicesParams = ContractInput<'InvoicesQuery'>;
 
 const unwrapData = <T>(response: { data: T }) => response.data;
 

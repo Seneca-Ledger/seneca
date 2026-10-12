@@ -13,6 +13,7 @@ import type {
   ReviewInboxDocument,
   ReviewInboxItem,
   ReviewInboxPage,
+  ReviewInboxQuery,
 } from '../../contracts';
 import { Receipt, ReceiptSource, ReceiptStatus } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
@@ -21,11 +22,7 @@ import { Transaction } from '../../entities/transaction.entity';
 import { isUncategorizedName } from '../categories/uncategorized-category';
 import { CrossStatementDeduplicationService } from '../transactions/services/cross-statement-deduplication.service';
 import { TransactionsService } from '../transactions/transactions.service';
-import {
-  DuplicateDecision,
-  ReviewInboxKind,
-  type ReviewInboxQueryDto,
-} from './dto/review-inbox.dto';
+import { DuplicateDecision, ReviewInboxKind } from './dto/review-inbox.dto';
 
 /** No reviewer asked for: the whole workspace's backlog. */
 const ALL_OWNERS: OwnerFilter = { kind: 'all' };
@@ -89,7 +86,7 @@ export class ReviewInboxService {
 
   private applyDateRange<T extends { andWhere: (sql: string, params?: object) => T }>(
     query: T,
-    filters: Pick<ReviewInboxQueryDto, 'from' | 'to'>,
+    filters: Pick<ReviewInboxQuery, 'from' | 'to'>,
   ): T {
     let result = query;
     if (filters.from) {
@@ -212,7 +209,7 @@ export class ReviewInboxService {
 
   async list(
     workspaceId: string,
-    filters: ReviewInboxQueryDto,
+    filters: ReviewInboxQuery,
     selfMemberId: string | null = null,
   ): Promise<ReviewInboxPage> {
     const kind = filters.kind ?? ReviewInboxKind.TRANSACTION;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface BudgetImpact {
   budgets: Array<{
@@ -57,7 +57,12 @@ export function BudgetImpactNotice({ categoryId, amount, currency, date }: Props
     const timer = setTimeout(() => {
       apiQueryDecoded({
         url: '/budgets/impact',
-        params: { categoryId, amount: parsedAmount, currency, date: date || undefined },
+        params: {
+          categoryId,
+          amount: parsedAmount,
+          currency,
+          date: date || undefined,
+        } satisfies ContractInput<'BudgetImpactQuery'>,
         signal: controller.signal,
         contract: 'BudgetImpact',
       })

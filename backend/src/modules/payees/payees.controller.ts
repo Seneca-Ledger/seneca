@@ -2,11 +2,16 @@ import { Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
-import { MergePayeesBody, SetTransactionPayeeBody, UpdatePayeeBody } from '../../contracts';
+import {
+  MergePayeesBody,
+  PayeesQuery,
+  SetTransactionPayeeBody,
+  UpdatePayeeBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { PayeesQueryDto } from './dto/payees.dto';
 import { PayeesService } from './payees.service';
 
 @Controller()
@@ -15,7 +20,7 @@ export class PayeesController {
 
   @Get('payees')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
-  async list(@WorkspaceId() workspaceId: string, @Query() query: PayeesQueryDto) {
+  async list(@WorkspaceId() workspaceId: string, @SchemaQuery(PayeesQuery) query: PayeesQuery) {
     return this.payeesService.list(workspaceId, query);
   }
 

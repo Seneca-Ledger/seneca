@@ -7,7 +7,6 @@ import {
   Patch,
   Post,
   Put,
-  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -17,6 +16,7 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { deletedResponse } from '../../common/utils/responses.util';
@@ -24,15 +24,14 @@ import {
   CreateContributionBody,
   CreateGoalBody,
   CreateGoalItemBody,
+  GoalMonthQuery,
+  SearchCoversQuery,
   SetGoalCoverBody,
   UpdateGoalBody,
   UpdateGoalItemBody,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { GoalFlowQueryDto } from './dto/goal-flow-query.dto';
-import { ListGoalsQueryDto } from './dto/list-goals-query.dto';
-import { SearchCoversDto } from './dto/search-covers.dto';
 import { GOAL_COVER_PRESETS } from './goal-cover.constants';
 import { GoalCoversService } from './goal-covers.service';
 import { GoalFlowService } from './goal-flow.service';
@@ -70,7 +69,7 @@ export class GoalsController {
   @ApiResponse({ status: 200, description: 'A page of results with their credit lines' })
   @ApiResponse({ status: 502, description: 'The image search did not answer' })
   @ApiResponse({ status: 503, description: 'The daily search allowance is used up' })
-  async searchCovers(@Query() query: SearchCoversDto) {
+  async searchCovers(@SchemaQuery(SearchCoversQuery) query: SearchCoversQuery) {
     return this.goalCoversService.search(query.q, query.page ?? 1);
   }
 
@@ -108,7 +107,10 @@ export class GoalsController {
 
   @Get()
   @WorkspaceAuth(Permission.GOAL_VIEW)
-  async findAll(@WorkspaceId() workspaceId: string, @Query() query: ListGoalsQueryDto) {
+  async findAll(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(GoalMonthQuery) query: GoalMonthQuery,
+  ) {
     return this.goalsService.findAll(workspaceId, query.month);
   }
 
@@ -121,7 +123,7 @@ export class GoalsController {
   async getFlow(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
-    @Query() query: GoalFlowQueryDto,
+    @SchemaQuery(GoalMonthQuery) query: GoalMonthQuery,
   ) {
     return this.goalFlowService.getFlow(id, workspaceId, query.month);
   }

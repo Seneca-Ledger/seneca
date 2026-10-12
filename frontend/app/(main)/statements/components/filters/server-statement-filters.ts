@@ -1,3 +1,4 @@
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import {
   DEFAULT_STATEMENT_FILTERS,
   resetSingleStatementFilter,
@@ -44,8 +45,18 @@ const ALWAYS_VISIBLE_SCREENS: StatementFilterScreen[] = [
   'limit',
 ];
 
-export const serializeStatementFiltersToQuery = (filters: StatementFilters) => {
-  const params: Record<string, unknown> = {};
+/** The groupings the server sorts by; the rest are applied in the list. */
+const SERVER_GROUP_BY = ['date', 'status', 'type', 'bank', 'user', 'amount'] as const;
+
+/** `GET /statements` query parameters, built up one filter at a time. */
+export type StatementsQueryParams = {
+  -readonly [K in keyof ContractInput<'StatementsQuery'>]: ContractInput<'StatementsQuery'>[K];
+};
+
+export const serializeStatementFiltersToQuery = (
+  filters: StatementFilters,
+): StatementsQueryParams => {
+  const params: StatementsQueryParams = {};
 
   if (filters.type) {
     params.type = filters.type;
@@ -89,8 +100,9 @@ export const serializeStatementFiltersToQuery = (filters: StatementFilters) => {
   if (filters.billable !== null) {
     params.billable = filters.billable;
   }
-  if (filters.groupBy) {
-    params.groupBy = filters.groupBy;
+  const groupBy = SERVER_GROUP_BY.find(value => value === filters.groupBy);
+  if (groupBy) {
+    params.groupBy = groupBy;
   }
   if (filters.has.length > 0) {
     params.has = filters.has;

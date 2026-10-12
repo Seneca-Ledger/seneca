@@ -1,31 +1,21 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  Patch,
-  Post,
-  Put,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  BalanceQuery,
   CreateBalanceAccountBody,
+  ExportBalanceQuery,
   UpdateAccountClassificationBody,
   UpdateBalanceSnapshotBody,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BalanceService } from './balance.service';
-import { BalanceQueryDto } from './dto/balance-query.dto';
-import { ExportBalanceDto } from './dto/export-balance.dto';
 
 @Controller('reports/balance')
 export class BalanceController {
@@ -36,7 +26,7 @@ export class BalanceController {
   async getSheet(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: BalanceQueryDto,
+    @SchemaQuery(BalanceQuery) query: BalanceQuery,
   ): Promise<unknown> {
     return this.balanceService.getBalanceSheet(
       workspaceId,
@@ -50,7 +40,7 @@ export class BalanceController {
   async getAccounts(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: BalanceQueryDto,
+    @SchemaQuery(BalanceQuery) query: BalanceQuery,
   ): Promise<unknown> {
     return this.balanceService.getAccountsTree(
       workspaceId,
@@ -106,7 +96,7 @@ export class BalanceController {
   async exportBalance(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() dto: ExportBalanceDto,
+    @SchemaQuery(ExportBalanceQuery) dto: ExportBalanceQuery,
     @Res() res: Response,
   ) {
     const payload = await this.balanceService.exportBalanceSheet(

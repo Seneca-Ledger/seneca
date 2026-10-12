@@ -33,20 +33,7 @@ export type Payable = Omit<PayableRow, 'amount' | 'paidAmount'> & {
   paidAmount: number | string;
 };
 
-export interface ListPayablesParams {
-  direction?: PayableDirection;
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: PayableStatus;
-  source?: PayableSource;
-  dueDateFrom?: string;
-  dueDateTo?: string;
-  minAmount?: number;
-  maxAmount?: number;
-  includeArchived?: boolean;
-  sort?: 'dueDateAsc' | 'dueDateDesc' | 'amountDesc' | 'vendorAsc';
-}
+export type ListPayablesParams = ContractInput<'PayablesQuery'>;
 
 export interface CreatePayableInput {
   direction?: PayableDirection;

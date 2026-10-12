@@ -6,7 +6,7 @@ import type { IdempotencyService } from '@/common/services/idempotency.service';
 import { buildContentDisposition } from '@/common/utils/http-file.util';
 import { StatementStatus } from '@/entities/statement.entity';
 import type { User } from '@/entities/user.entity';
-import { FilterStatementsDto } from '@/modules/statements/dto/filter-statements.dto';
+import type { StatementsQuery } from '@/contracts';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
 import { StatementsController } from '@/modules/statements/statements.controller';
 import type { StatementsService } from '@/modules/statements/statements.service';
@@ -130,7 +130,7 @@ describe('StatementsController', () => {
       categoryId: 'cat-1',
       type: 'pdf',
       statuses: ['processing', 'error'],
-    } as FilterStatementsDto;
+    } as StatementsQuery;
     const currentUser = { id: 'user-1' } as User;
 
     const result = await controller.findAll(currentUser, 'ws-1', filters);

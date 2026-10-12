@@ -1777,6 +1777,23 @@ describe('API contracts (e2e)', () => {
       ]);
     });
 
+    it('decodes query strings as the DTOs did', async () => {
+      const status = (url: string) =>
+        request(app.getHttpServer())
+          .get(url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .then(res => res.status);
+      // An empty value is absent; numbers, booleans and lists arrive as strings.
+      expect(await status('/statements?page=&limit=5&approved=true&statuses=completed,error')).toBe(200);
+      expect(await status('/statements?statuses=completed&statuses=error')).toBe(200);
+      // Unknown keys and values out of range are refused, as forbidNonWhitelisted had it.
+      expect(await status('/statements?sortBy=date')).toBe(400);
+      expect(await status('/payees?limit=500')).toBe(400);
+      expect(await status('/review-inbox?kind=nonsense')).toBe(400);
+      expect(await status('/view-preferences/nonsense')).toBe(400);
+    });
+
     it('the setup progress, view preferences and the welcome tutorial', async () => {
       matches(SetupProgress, (await get('/dashboard/setup-progress')).body);
       matches(ViewPreferenceState, (await get('/view-preferences/transactions')).body);

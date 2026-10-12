@@ -315,12 +315,7 @@ export type ReceiptRecord = ContractReceiptRecord;
 /** What a receipt keeps of a structured e-invoice's XML (XRechnung, ZUGFeRD / Factur-X). */
 export type { EInvoiceSummary } from '@/app/lib/contracts';
 
-export interface ReceiptListFilters {
-  page?: number;
-  limit?: number;
-  status?: string;
-  source?: string;
-}
+export type ReceiptListFilters = ContractInput<'ReceiptsQuery'>;
 
 export type ReceiptListResponse = ReceiptListPage;
 

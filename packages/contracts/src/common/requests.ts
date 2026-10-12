@@ -59,6 +59,34 @@ export const IsoDateString = Schema.String.check(
   ),
 );
 
+/** A calendar date, `YYYY-MM-DD`, with a real month and day range. */
+export const DateOnlyInput = Schema.String.check(
+  Schema.isPattern(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, {
+    message: 'Expected a date as YYYY-MM-DD',
+  }),
+);
+
+/**
+ * A list in a query string: repeated keys (`?a=x&a=y`), comma-separated
+ * values (`?a=x,y`) or both, trimmed, empty parts dropped.
+ */
+export const StringListInput = Schema.Union([Schema.String, Schema.Array(Schema.String)]).pipe(
+  Schema.decodeTo(
+    Schema.Array(Schema.String),
+    SchemaTransformation.transform({
+      decode: (value: string | ReadonlyArray<string>): ReadonlyArray<string> =>
+        (typeof value === 'string' ? [value] : value)
+          .flatMap(item => item.split(','))
+          .map(item => item.trim())
+          .filter(Boolean),
+      encode: (value: ReadonlyArray<string>): string | ReadonlyArray<string> => value.join(','),
+    }),
+  ),
+);
+
+/** A whole number from a query string, at least 1: page numbers and sizes. */
+export const PageInput = NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1));
+
 export const Email = Schema.String.check(
   Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { message: 'Expected an email address' }),
 );

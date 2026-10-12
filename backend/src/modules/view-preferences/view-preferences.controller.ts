@@ -1,12 +1,12 @@
-import { Controller, Get, Param, Put } from '@nestjs/common';
+import { Controller, Get, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
-import { ViewPreferenceBody } from '../../contracts';
+import { ViewPreferenceBody, ViewScopeParams } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ViewScopeParam } from './dto/view-preference.dto';
 import { ViewPreferencesService } from './view-preferences.service';
 
 /**
@@ -25,7 +25,7 @@ export class ViewPreferencesController {
   async read(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param() params: ViewScopeParam,
+    @SchemaParams(ViewScopeParams) params: ViewScopeParams,
   ) {
     return { state: await this.service.read(user.id, workspaceId, params.scope) };
   }
@@ -35,7 +35,7 @@ export class ViewPreferencesController {
   async write(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param() params: ViewScopeParam,
+    @SchemaParams(ViewScopeParams) params: ViewScopeParams,
     @SchemaBody(ViewPreferenceBody) dto: ViewPreferenceBody,
   ) {
     return { state: await this.service.write(user.id, workspaceId, params.scope, dto.state) };

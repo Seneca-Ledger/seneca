@@ -11,7 +11,12 @@ import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { fromMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
-import type { CreateInvoiceBody, InvoiceLineItemInput, UpdateInvoiceBody } from '../../contracts';
+import type {
+  CreateInvoiceBody,
+  InvoiceLineItemInput,
+  InvoicesQuery,
+  UpdateInvoiceBody,
+} from '../../contracts';
 import { Client } from '../../entities/client.entity';
 import { CreditNoteStatus } from '../../entities/credit-note.entity';
 import { Invoice, InvoiceRecurrenceInterval, InvoiceStatus } from '../../entities/invoice.entity';
@@ -28,7 +33,6 @@ import type { WorkspaceBusinessProfile } from '../../entities/workspace-business
 import { BusinessProfileService } from '../business-profile/business-profile.service';
 import { LedgerPostingError, LedgerPostingService } from '../ledger/ledger-posting.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import { FilterInvoicesDto } from './dto/filter-invoices.dto';
 import { buildInvoicePdf } from './invoice-document';
 import { documentLines, priceLines, totalsOf } from './invoice-pricing';
 import { advanceIssueDate, shiftDueDate } from './invoice-recurrence.util';
@@ -162,7 +166,7 @@ export class InvoicesService {
     });
   }
 
-  async findAll(workspaceId: string, filters: FilterInvoicesDto) {
+  async findAll(workspaceId: string, filters: InvoicesQuery) {
     const { page, limit, skip } = normalizePagination(filters);
     const queryBuilder = this.invoiceRepository
       .createQueryBuilder('invoice')
