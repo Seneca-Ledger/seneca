@@ -7,10 +7,22 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, IsNull, Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import type {
+  AddPayablePaymentBody,
+  AllocateTransactionBody,
+  CreatePayableBody,
+  FilterPayablesBody,
+  MarkPayablePaidBody,
+  PayablesSummary,
+  PaymentCandidate,
+  UpdatePayableBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import { Category } from '../../entities/category.entity';
 import {
@@ -32,24 +44,11 @@ import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import { AddPayablePaymentDto, AllocateTransactionDto } from './dto/add-payable-payment.dto';
-import { CreatePayableDto } from './dto/create-payable.dto';
-import { ExportFormat, FilterPayablesDto, PayablesSortOption } from './dto/filter-payables.dto';
-import type { MarkPayablePaidDto } from './dto/mark-payable-paid.dto';
-import { UpdatePayableDto } from './dto/update-payable.dto';
+import { ExportFormat, PayablesSortOption } from './dto/filter-payables.dto';
 import { PayablesExportService } from './payables-export.service';
 
 /** A transaction that may be the payment of a bill. */
-export interface PaymentCandidate {
-  id: string;
-  transactionDate: string;
-  amount: string;
-  currency: string;
-  counterpartyName: string;
-  paymentPurpose: string;
-  /** The counterparty or purpose names the bill's vendor. */
-  vendorMatch: boolean;
-}
+export type { PaymentCandidate };
 
 /** A proposed split of one transaction over several bills. */
 export interface AllocationSuggestion {
@@ -98,7 +97,7 @@ export class PayablesService {
     private readonly workspaceCurrency: WorkspaceCurrencyService,
   ) {}
 
-  async create(workspaceId: string, userId: string, dto: CreatePayableDto): Promise<Payable> {
+  async create(workspaceId: string, userId: string, dto: CreatePayableBody): Promise<Payable> {
     await this.assertLinkedEntitiesInWorkspace(
       workspaceId,
       dto.linkedTransactionId ?? null,
@@ -108,14 +107,14 @@ export class PayablesService {
     const payable = this.payableRepository.create({
       workspaceId,
       createdById: userId,
-      direction: dto.direction || PayableDirection.PAYABLE,
+      direction: toEnum(PayableDirection, dto.direction) || PayableDirection.PAYABLE,
       vendor: dto.vendor,
       amount: dto.amount,
       currency: await this.workspaceCurrency.resolveFor(workspaceId, dto.currency),
       dueDate: this.parseDate(dto.dueDate),
-      status: dto.status || PayableStatus.TO_PAY,
+      status: toEnum(PayableStatus, dto.status) || PayableStatus.TO_PAY,
       linkedTransactionId: dto.linkedTransactionId || null,
-      source: dto.source || PayableSource.MANUAL,
+      source: toEnum(PayableSource, dto.source) || PayableSource.MANUAL,
       isRecurring: dto.isRecurring ?? false,
       comment: dto.comment || null,
       statementId: dto.statementId || null,
@@ -123,10 +122,10 @@ export class PayablesService {
       dueSoonNotifiedAt: null,
     });
 
-    return this.payableRepository.save(payable);
+    return this.asStored(await this.payableRepository.save(payable));
   }
 
-  async findAll(workspaceId: string, filters: FilterPayablesDto) {
+  async findAll(workspaceId: string, filters: FilterPayablesBody) {
     const { page, limit, skip } = normalizePagination(filters);
     const queryBuilder = this.applySorting(this.buildFilteredQuery(workspaceId, filters), filters)
       .skip(skip)
@@ -148,7 +147,6 @@ export class PayablesService {
       where: {
         id,
         workspaceId,
-        deletedAt: null,
       },
     });
 
@@ -163,7 +161,7 @@ export class PayablesService {
     id: string,
     workspaceId: string,
     _userId: string,
-    dto: UpdatePayableDto,
+    dto: UpdatePayableBody,
   ): Promise<Payable> {
     const payable = await this.findOne(id, workspaceId);
     await this.assertLinkedEntitiesInWorkspace(
@@ -172,7 +170,7 @@ export class PayablesService {
       dto.statementId === undefined ? undefined : (dto.statementId ?? null),
     );
     Object.assign(payable, this.normalizeUpdateDto(dto, payable));
-    return this.payableRepository.save(payable);
+    return this.asStored(await this.payableRepository.save(payable));
   }
 
   /**
@@ -188,7 +186,7 @@ export class PayablesService {
     id: string,
     workspaceId: string,
     userId: string,
-    payload: MarkPayablePaidDto,
+    payload: MarkPayablePaidBody,
   ): Promise<Payable> {
     if (payload.linkedTransactionId && payload.payFromWalletId) {
       throw new BadRequestException(appError('PAYABLE_PAYMENT_AMBIGUOUS'));
@@ -265,7 +263,7 @@ export class PayablesService {
     manager: EntityManager,
     payable: Payable,
     walletId: string,
-    payload: Pick<MarkPayablePaidDto, 'paidOn' | 'categoryId'>,
+    payload: Pick<MarkPayablePaidBody, 'paidOn' | 'categoryId'>,
     /** What was handed over now; the whole bill when not said otherwise. */
     paidAmount?: number,
   ): Promise<string> {
@@ -345,7 +343,7 @@ export class PayablesService {
     id: string,
     workspaceId: string,
     userId: string,
-    dto: AddPayablePaymentDto,
+    dto: AddPayablePaymentBody,
   ): Promise<Payable> {
     if (dto.linkedTransactionId && dto.payFromWalletId) {
       throw new BadRequestException(appError('PAYABLE_PAYMENT_AMBIGUOUS'));
@@ -432,7 +430,7 @@ export class PayablesService {
   async allocateTransaction(
     workspaceId: string,
     userId: string,
-    dto: AllocateTransactionDto,
+    dto: AllocateTransactionBody,
   ): Promise<Payable[]> {
     await this.assertLinkedTransactionInWorkspace(workspaceId, dto.transactionId);
     const settled: Payable[] = [];
@@ -687,7 +685,24 @@ export class PayablesService {
           ? PayableStatus.PARTIALLY_PAID
           : this.unpaidStatusOf(payable);
     }
-    return payables.save(payable);
+    return this.asStored(await payables.save(payable));
+  }
+
+  /**
+   * The payable as a read returns it. `save` leaves the values just assigned
+   * in the money and date columns, where every read has what Postgres sends:
+   * one endpoint must not answer `50` and the next `"50.00"`.
+   */
+  private asStored(payable: Payable): Payable {
+    const decimal = (value: number | string | null | undefined) =>
+      Number(value ?? 0).toFixed(2) as unknown as number;
+    payable.amount = decimal(payable.amount);
+    payable.paidAmount = decimal(payable.paidAmount);
+    // A `date` column reads back as YYYY-MM-DD, not as the Date just assigned.
+    if (payable.dueDate instanceof Date) {
+      payable.dueDate = this.toDateString(payable.dueDate) as unknown as Date;
+    }
+    return payable;
   }
 
   /** What an unpaid bill reads as: overdue if its day has passed, else to pay. */
@@ -811,16 +826,7 @@ export class PayablesService {
   async getSummary(
     workspaceId: string,
     direction: PayableDirection = PayableDirection.PAYABLE,
-  ): Promise<{
-    toPay: number;
-    overdue: number;
-    dueThisWeek: number;
-    paidThisMonth: number;
-    paidTotal: number;
-    toPayCount: number;
-    overdueCount: number;
-    paidTotalCount: number;
-  }> {
+  ): Promise<PayablesSummary> {
     const rows = await this.payableRepository.find({
       where: { workspaceId, direction, deletedAt: IsNull() },
       select: {
@@ -911,13 +917,13 @@ export class PayablesService {
     };
   }
 
-  async getExportData(workspaceId: string, filters: FilterPayablesDto): Promise<Payable[]> {
+  async getExportData(workspaceId: string, filters: FilterPayablesBody): Promise<Payable[]> {
     return this.applySorting(this.buildFilteredQuery(workspaceId, filters), filters).getMany();
   }
 
   private applySorting(
     queryBuilder: ReturnType<PayablesService['buildFilteredQuery']>,
-    filters: FilterPayablesDto,
+    filters: FilterPayablesBody,
   ) {
     switch (filters.sort) {
       case PayablesSortOption.DUE_DATE_DESC:
@@ -933,10 +939,13 @@ export class PayablesService {
 
   async exportData(
     workspaceId: string,
-    filters: FilterPayablesDto,
+    filters: FilterPayablesBody,
   ): Promise<{ filePath: string; fileName: string; contentType: string }> {
     const data = await this.getExportData(workspaceId, filters);
-    return this.payablesExportService.exportPayables(data, filters.format || ExportFormat.EXCEL);
+    return this.payablesExportService.exportPayables(
+      data,
+      toEnum(ExportFormat, filters.format) || ExportFormat.EXCEL,
+    );
   }
 
   isOverdue(payable: Pick<Payable, 'status' | 'dueDate'>): boolean {
@@ -1019,7 +1028,7 @@ export class PayablesService {
     await this.payableRepository.save(payable);
   }
 
-  private buildFilteredQuery(workspaceId: string, filters: FilterPayablesDto) {
+  private buildFilteredQuery(workspaceId: string, filters: FilterPayablesBody) {
     const queryBuilder = this.payableRepository
       .createQueryBuilder('payable')
       .where('payable.workspaceId = :workspaceId', { workspaceId })
@@ -1075,12 +1084,15 @@ export class PayablesService {
     return queryBuilder;
   }
 
-  private normalizeUpdateDto(dto: UpdatePayableDto, current: Payable): Partial<Payable> {
-    const nextStatus = dto.status ?? current.status;
+  private normalizeUpdateDto(dto: UpdatePayableBody, current: Payable): Partial<Payable> {
+    const nextStatus = toEnum(PayableStatus, dto.status) ?? current.status;
     const willBePaid = nextStatus === PayableStatus.PAID;
 
-    return {
-      ...dto,
+    const patch: Partial<Payable> = {
+      ...withoutNulls(dto),
+      direction: toEnum(PayableDirection, dto.direction) ?? undefined,
+      status: toEnum(PayableStatus, dto.status) ?? undefined,
+      source: toEnum(PayableSource, dto.source) ?? undefined,
       dueDate: dto.dueDate !== undefined ? this.parseDate(dto.dueDate) : undefined,
       linkedTransactionId:
         dto.linkedTransactionId === undefined ? undefined : dto.linkedTransactionId,
@@ -1088,6 +1100,11 @@ export class PayablesService {
       statementId: dto.statementId === undefined ? undefined : dto.statementId,
       paidAt: willBePaid ? current.paidAt || new Date() : null,
     };
+    // Left out, not set to undefined: `Object.assign` would blank the field on
+    // the entity, and the saved payable answered without its direction or status.
+    return Object.fromEntries(
+      Object.entries(patch).filter(([, value]) => value !== undefined),
+    ) as Partial<Payable>;
   }
 
   private async assertLinkedEntitiesInWorkspace(

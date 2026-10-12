@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import apiClient from '@/app/lib/api';
 import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
@@ -173,7 +174,7 @@ function useWorkspaceActions(
         name: name.trim(),
         description: description.trim() || undefined,
         currency: currency || undefined,
-      });
+      } satisfies ContractInput<'UpdateWorkspaceBody'>);
       await refreshWorkspaces();
       toast.success('Workspace updated');
     })()

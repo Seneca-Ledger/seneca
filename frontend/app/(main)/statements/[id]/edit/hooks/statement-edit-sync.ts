@@ -2,6 +2,7 @@ import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
 import { getQueryClient } from '@/app/lib/query-client';
+import { type ContractInput, checkBody } from '@/app/lib/query-fn-schema';
 import type { Transaction } from '../editHelpers';
 
 // What PUT /transactions/:id accepts (UpdateTransactionDto). The row being edited
@@ -83,7 +84,10 @@ export async function saveTransactionAction(txId: string, ctx: SaveCtx): Promise
     const updates = buildTransactionUpdate(ctx.original, ctx.editedData[txId] ?? {});
     if (Object.keys(updates).length > 0) {
       // PUT: the API has no PATCH route for transactions.
-      await apiClient.put(`/transactions/${txId}`, updates);
+      await apiClient.put(
+        `/transactions/${txId}`,
+        await checkBody('UpdateTransactionBody', updates, '/transactions/:id'),
+      );
       ctx.setTransactions(prev =>
         prev.map(t => (t.id === txId ? ({ ...t, ...updates } as Transaction) : t)),
       );
@@ -137,7 +141,9 @@ export async function bulkUpdateAction(loadData: () => Promise<void>, ctx: BulkC
     const updates = Array.from(ctx.selectedRows)
       .filter(id => ctx.editedData[id])
       .map(id => ({ id, updates: ctx.editedData[id] }));
-    await apiClient.post('/transactions/bulk-update', { items: updates });
+    await apiClient.post('/transactions/bulk-update', {
+      items: updates,
+    } satisfies ContractInput<'BulkUpdateRequestBody'>);
     await loadData();
     invalidateDocumentLists();
     ctx.setSelectedRows(new Set());
@@ -209,7 +215,9 @@ export async function applyBulkCategoryAction(
       id,
       updates: { categoryId: ctx.bulkCategoryId },
     }));
-    await apiClient.post('/transactions/bulk-update', { items });
+    await apiClient.post('/transactions/bulk-update', {
+      items,
+    } satisfies ContractInput<'BulkUpdateRequestBody'>);
     await loadData();
     invalidateDocumentLists();
     ctx.setSelectedRows(new Set());

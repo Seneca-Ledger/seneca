@@ -43,7 +43,7 @@ function loadExpected(filePath: string): ParsedStatement {
     },
     transactions: tx.map(t => ({
       ...t,
-      transactionDate: new Date(t.transactionDate || t.date),
+      transactionDate: new Date(t.transactionDate || t.date || Number.NaN),
       counterpartyName: typeof t.counterpartyName === 'string' ? t.counterpartyName : '',
       paymentPurpose: typeof t.paymentPurpose === 'string' ? t.paymentPurpose : '',
     })),

@@ -14,6 +14,7 @@ import { Alert } from '@/app/components/ui/alert';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
 type BackupConfig = {
@@ -73,14 +74,20 @@ export function BackupSection() {
     setLoading(true);
 
     await (async () => {
-      const [configResponse, runsResponse] = await Promise.all([
-        apiClient.get<BackupConfig | null>('/backups/config'),
-        apiClient.get<BackupRun[]>('/backups/runs'),
+      const [configResponse, runs] = await Promise.all([
+        apiClient.get('/backups/config'),
+        apiQueryDecoded({ url: '/backups/runs', contract: 'BackupRunList' }),
       ]);
-      if (configResponse.data) {
-        setConfig(configResponse.data);
+      // Not set up yet: the null arrives as an empty body.
+      const stored = await checkContract(
+        'BackupConfiguration',
+        configResponse.data || null,
+        '/backups/config',
+      );
+      if (stored) {
+        setConfig(stored);
       }
-      setRuns(runsResponse.data ?? []);
+      setRuns(runs);
       setError(null);
     })()
       .catch(async () => {
@@ -105,11 +112,21 @@ export function BackupSection() {
     setError(null);
 
     await (async () => {
+      // The writable settings only: id, passwordConfigured and the last run are
+      // the server's, and the API rejects fields it does not take.
       const response = await apiClient.put<BackupConfig>('/backups/config', {
-        ...config,
+        destinationKind: config.destinationKind,
+        destinationPath: config.destinationPath,
+        dailyTime: config.dailyTime,
+        timeZone: config.timeZone,
+        retentionCount: config.retentionCount,
+        enabled: config.enabled,
         password: password || undefined,
-      });
-      setConfig(response.data);
+      } satisfies ContractInput<'UpdateBackupConfigurationBody'>);
+      const saved = await checkContract('BackupConfiguration', response.data, '/backups/config');
+      if (saved) {
+        setConfig(saved);
+      }
       setPassword('');
       setMessage(t.messages.saved.value);
     })()

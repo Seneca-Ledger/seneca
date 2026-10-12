@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { PERIOD_PRESETS, presetRangeValues } from '../report-period-presets';
 
@@ -72,7 +72,7 @@ export function useCashFlowMap() {
   const query = useQuery({
     queryKey: queryKeys.cashFlowMap({ workspaceId, params: JSON.stringify(params) }),
     queryFn: ({ signal }) =>
-      apiQuery<CashFlowMapData>({ url: '/reports/cash-flow-map', params, signal }),
+      apiQueryDecoded({ url: '/reports/cash-flow-map', params, signal, contract: 'CashFlowMap' }),
     enabled: Boolean(workspaceId),
     placeholderData: previous => previous,
   });

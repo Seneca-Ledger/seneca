@@ -2,12 +2,11 @@ import { randomBytes } from 'node:crypto';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { CreateWebhookEndpointBody, UpdateWebhookEndpointBody } from '../../../contracts';
 import { AuditAction, EntityType, Severity } from '../../../entities/audit-event.entity';
 import { WebhookEndpoint } from '../../../entities/webhook-endpoint.entity';
 import { AuditService } from '../../audit/audit.service';
 import { recordSecurityEvent } from '../../auth/security-audit.util';
-import type { CreateWebhookEndpointDto } from '../dto/create-webhook-endpoint.dto';
-import type { UpdateWebhookEndpointDto } from '../dto/update-webhook-endpoint.dto';
 
 @Injectable()
 export class WebhookEndpointsService {
@@ -21,7 +20,7 @@ export class WebhookEndpointsService {
 
   async create(
     workspaceId: string,
-    dto: CreateWebhookEndpointDto,
+    dto: CreateWebhookEndpointBody,
     actorId: string,
   ): Promise<WebhookEndpoint> {
     const token = randomBytes(32).toString('hex');
@@ -48,7 +47,7 @@ export class WebhookEndpointsService {
   async update(
     id: string,
     workspaceId: string,
-    dto: UpdateWebhookEndpointDto,
+    dto: UpdateWebhookEndpointBody,
     actorId: string,
   ): Promise<WebhookEndpoint> {
     const endpoint = await this.findOne(id, workspaceId);

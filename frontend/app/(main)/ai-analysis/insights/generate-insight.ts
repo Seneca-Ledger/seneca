@@ -1,5 +1,6 @@
 import type { MLCEngineInterface } from '@mlc-ai/web-llm';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { DATA_FENCE_CLOSE, DATA_FENCE_OPEN, stripFenceMarkers } from '../chat/build-prompt';
 import { buildContextPacket } from '../context/build-context';
 import { fetchContextInput } from '../context/fetch-context';
@@ -70,7 +71,10 @@ export async function generateInsight(
     periodKey: currentPeriodKey(now),
   };
 
-  await apiClient.post('/ai-analysis/insights', { ...insight, modelId });
+  await apiClient.post('/ai-analysis/insights', {
+    ...insight,
+    modelId,
+  } satisfies ContractInput<'SaveAiInsightBody'>);
 
   return insight;
 }

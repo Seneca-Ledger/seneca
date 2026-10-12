@@ -9,28 +9,12 @@ import {
 import { useCallback } from 'react';
 import { useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { Insight, InsightList, InsightSeverity } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useWorkspaceId } from './useWorkspaceId';
 
-export type InsightSeverity = 'info' | 'warn' | 'critical';
-
-export interface Insight {
-  id: string;
-  type: string;
-  category: string;
-  severity: InsightSeverity;
-  title: string;
-  message: string;
-  messageKey: string | null;
-  messageParams: Record<string, string | number> | null;
-  data: Record<string, unknown> | null;
-  createdAt: string;
-}
-
-interface InsightsPayload {
-  items?: Insight[];
-}
+export type { Insight, InsightSeverity } from '@/app/lib/contracts';
 
 interface UseInsightsOptions {
   /** Which severities to keep. Alerts and advice are the same feed, split here. */
@@ -60,9 +44,9 @@ export function useInsights({ severities }: UseInsightsOptions): UseInsightsStat
   // select обязан быть референциально стабильным: инлайн-стрелка пересчитывала бы
   // фильтр на каждый рендер и отдавала новый массив, отменяя structural sharing.
   const selectBySeverity = useCallback(
-    (payload: InsightsPayload): Insight[] => {
+    (payload: InsightList): Insight[] => {
       const wanted = new Set(key.split(','));
-      return (payload?.items ?? []).filter(item => wanted.has(item.severity));
+      return payload.items.filter(item => wanted.has(item.severity));
     },
     [key],
   );
@@ -70,7 +54,13 @@ export function useInsights({ severities }: UseInsightsOptions): UseInsightsStat
   const query = useQuery({
     queryKey: queryKeys.insights(workspaceId, locale),
     queryFn: ({ signal }) =>
-      apiQuery<InsightsPayload>({ url: '/insights', params: { limit: 50, locale }, signal }),
+      apiQueryDecoded({
+        url: '/insights',
+        params: { limit: 50, locale },
+        signal,
+        contract: 'InsightList',
+        drift: 'report',
+      }),
     select: selectBySeverity,
   });
 
@@ -79,9 +69,9 @@ export function useInsights({ severities }: UseInsightsOptions): UseInsightsStat
     onMutate: async (id: string) => {
       const queryKey = queryKeys.insights(workspaceId, locale);
       await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<InsightsPayload>(queryKey);
-      queryClient.setQueryData<InsightsPayload>(queryKey, current =>
-        current ? { ...current, items: (current.items ?? []).filter(i => i.id !== id) } : current,
+      const previous = queryClient.getQueryData<InsightList>(queryKey);
+      queryClient.setQueryData<InsightList>(queryKey, current =>
+        current ? { ...current, items: current.items.filter(i => i.id !== id) } : current,
       );
       return { previous };
     },

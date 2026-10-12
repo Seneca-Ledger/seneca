@@ -12,6 +12,7 @@ import {
 import { Alert } from '@/app/components/ui/alert';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 type Tx = (path: string[], fallback: string) => string;
@@ -31,7 +32,9 @@ export function WorkspaceProfileSection({ tx }: { tx: Tx }) {
     setSaving(true);
     setError(null);
     try {
-      await apiClient.patch(`/workspaces/${currentWorkspace.id}`, { profile: next });
+      await apiClient.patch(`/workspaces/${currentWorkspace.id}`, {
+        profile: next,
+      } satisfies ContractInput<'UpdateWorkspaceBody'>);
       // The sidebar reads the profile off the workspace, so it has to be re-read.
       await refreshWorkspaces();
     } catch (err: unknown) {

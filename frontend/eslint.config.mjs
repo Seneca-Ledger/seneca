@@ -32,6 +32,8 @@ export default tseslint.config(
       'scripts/**',
       // The service worker is plain browser JS outside the TS project; Biome still checks it.
       'public/sw.js',
+      // Generated from packages/contracts by scripts/sync-contracts.mjs.
+      'app/lib/contracts/**',
     ],
   },
 

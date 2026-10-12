@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Download, FileSpreadsheet, FileText, FileType2 } from '@/app/components/icons';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 type ExportFormat = 'excel' | 'pdf' | 'csv' | 'docx';
 
@@ -80,7 +81,7 @@ async function runExport(format: ExportFormat, t: ExportDropdownProps['t']): Pro
   try {
     const response = await apiClient.post(
       '/reports/workspace-export',
-      { format },
+      { format } satisfies ContractInput<'WorkspaceExportBody'>,
       { responseType: 'blob' },
     );
     const fileName = resolveDownloadFileName(format, response.headers?.['content-disposition']);

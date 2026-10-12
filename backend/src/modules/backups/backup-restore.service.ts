@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import type { DataSource, EntityMetadata, Repository } from 'typeorm';
+import { appDefaultCurrency } from '../../common/utils/currency.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import { WorkspaceRole } from '../../entities';
 import type { User } from '../../entities/user.entity';
@@ -83,7 +84,9 @@ export class BackupRestoreService {
         icon: this.stringOrNull(sourceWorkspace.icon),
         color: this.stringOrNull(sourceWorkspace.color),
         backgroundImage: this.stringOrNull(sourceWorkspace.backgroundImage),
-        currency: this.stringOrNull(sourceWorkspace.currency),
+        // The column is required; a backup taken before that falls back the same
+        // way the RequireWorkspaceCurrency migration backfilled missing ones.
+        currency: this.stringOrNull(sourceWorkspace.currency) ?? appDefaultCurrency(),
         settings: this.objectOrNull(sourceWorkspace.settings),
         ownerId: user.id,
         isFavorite: false,

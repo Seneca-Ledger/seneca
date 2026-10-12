@@ -42,7 +42,6 @@ export class AiMerchantExtractor extends BaseAiHelper {
         ],
         {
           timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 15000,
-          timeoutMessage: 'AI merchant extraction timed out',
           retries: 1,
           baseDelayMs: 300,
           maxDelayMs: 2000,

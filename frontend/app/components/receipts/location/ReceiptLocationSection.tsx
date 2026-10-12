@@ -11,6 +11,7 @@ import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import { type ReceiptLocationSource, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ReceiptRecordUpdate } from '@/app/lib/contracts';
 import { tokens } from '@/lib/theme-tokens';
 import { LazyReceiptLocationMap } from './LazyReceiptLocationMap';
 import { MapStylePicker } from './MapStylePicker';
@@ -120,7 +121,8 @@ export function ReceiptLocationSection({
   };
 
   const applyUpdate = async (
-    request: () => Promise<ReceiptRecord>,
+    // The update answers the stored row without its display category: merged below.
+    request: () => Promise<ReceiptRecordUpdate>,
     failure: string,
   ): Promise<void> => {
     setSaving(true);

@@ -156,7 +156,7 @@ export class NotesService {
   ): Promise<NoteView[]> {
     await this.requireTarget(workspaceId, entityType, entityId);
     const notes = await this.noteRepository.find({
-      where: { workspaceId, ...this.targetColumns(entityType, entityId) },
+      where: { workspaceId, [this.targets[entityType].column]: entityId },
       relations: ['user'],
       order: { createdAt: 'ASC' },
     });

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import type { ChatTool } from './types';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
@@ -50,7 +51,7 @@ export const readTools: ChatTool[] = [
         const response = await apiClient.post('/ai-analysis/search', {
           query: p.search,
           limit: p.limit ?? 20,
-        });
+        } satisfies ContractInput<'SearchTransactionsBody'>);
         return response.data;
       }
       const response = await apiClient.get('/transactions', {

@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -14,18 +13,23 @@ import type { Response } from 'express';
 import * as fs from 'fs';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
+import {
+  AddPayablePaymentBody,
+  AllocateTransactionBody,
+  CreatePayableBody,
+  FilterPayablesBody,
+  MarkPayablePaidBody,
+  UpdatePayableBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { AddPayablePaymentDto, AllocateTransactionDto } from './dto/add-payable-payment.dto';
-import { CreatePayableDto } from './dto/create-payable.dto';
 import { FilterPayablesDto } from './dto/filter-payables.dto';
-import { MarkPayablePaidDto } from './dto/mark-payable-paid.dto';
-import { UpdatePayableDto } from './dto/update-payable.dto';
 import { PayablesService } from './payables.service';
 
 @Controller('payables')
@@ -36,7 +40,7 @@ export class PayablesController {
   @WorkspaceAuth(Permission.PAYABLE_CREATE)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
   async create(
-    @Body() createDto: CreatePayableDto,
+    @SchemaBody(CreatePayableBody) createDto: CreatePayableBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -84,7 +88,7 @@ export class PayablesController {
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
   async addPayment(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: AddPayablePaymentDto,
+    @SchemaBody(AddPayablePaymentBody) dto: AddPayablePaymentBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -117,7 +121,7 @@ export class PayablesController {
   @WorkspaceAuth(Permission.PAYABLE_EDIT)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: false, isUndoable: false })
   async allocate(
-    @Body() dto: AllocateTransactionDto,
+    @SchemaBody(AllocateTransactionBody) dto: AllocateTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -129,7 +133,7 @@ export class PayablesController {
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() updateDto: UpdatePayableDto,
+    @SchemaBody(UpdatePayableBody) updateDto: UpdatePayableBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -141,7 +145,7 @@ export class PayablesController {
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
   async markAsPaid(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() body: MarkPayablePaidDto,
+    @SchemaBody(MarkPayablePaidBody) body: MarkPayablePaidBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -174,7 +178,7 @@ export class PayablesController {
   @Post('export')
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
   async export(
-    @Body() body: FilterPayablesDto,
+    @SchemaBody(FilterPayablesBody) body: FilterPayablesBody,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
   ) {

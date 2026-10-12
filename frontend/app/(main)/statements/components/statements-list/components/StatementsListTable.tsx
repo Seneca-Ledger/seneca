@@ -46,7 +46,7 @@ export interface StatementForTable {
   };
   parsingDetails?: {
     importPreview?: { source?: string; attachments?: number };
-  };
+  } | null;
 }
 
 interface ListHeaderLabels {

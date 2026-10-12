@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   DefaultValuePipe,
   Delete,
@@ -21,6 +20,7 @@ import * as fs from 'fs';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
@@ -29,13 +29,15 @@ import {
   isAllowedCustomIconMime,
   sanitizePublicUploadFilename,
 } from '../../common/utils/public-upload.util';
+import {
+  CreateDataEntryBody,
+  CreateDataEntryCustomFieldBody,
+  UpdateDataEntryCustomFieldBody,
+} from '../../contracts';
 import { DataEntryType } from '../../entities/data-entry.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { DataEntryService } from './data-entry.service';
-import { CreateDataEntryDto } from './dto/create-data-entry.dto';
-import { CreateDataEntryCustomFieldDto } from './dto/create-data-entry-custom-field.dto';
-import { UpdateDataEntryCustomFieldDto } from './dto/update-data-entry-custom-field.dto';
 
 @Controller('data-entry')
 @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
@@ -49,7 +51,7 @@ export class DataEntryController {
   async create(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateDataEntryDto,
+    @SchemaBody(CreateDataEntryBody) dto: CreateDataEntryBody,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     if (idempotencyKey) {
@@ -126,7 +128,7 @@ export class DataEntryController {
   async createCustomField(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateDataEntryCustomFieldDto,
+    @SchemaBody(CreateDataEntryCustomFieldBody) dto: CreateDataEntryCustomFieldBody,
   ) {
     return this.dataEntryService.createCustomField(workspaceId, user.id, dto);
   }
@@ -173,7 +175,7 @@ export class DataEntryController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('id') id: string,
-    @Body() dto: UpdateDataEntryCustomFieldDto,
+    @SchemaBody(UpdateDataEntryCustomFieldBody) dto: UpdateDataEntryCustomFieldBody,
   ) {
     return this.dataEntryService.updateCustomField(workspaceId, user.id, id, dto);
   }

@@ -6,7 +6,7 @@ import { ArrowLeftRight, FileText, Tag, Wallet } from '@/app/components/icons';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useExperimentalMode } from '@/app/lib/experimental-mode';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import type { Command, CommandGroup } from './command-registry';
 
@@ -18,11 +18,6 @@ export interface SearchResult {
   title: string;
   subtitle: string | null;
   href: string;
-}
-
-interface SearchResponse {
-  query: string;
-  results: SearchResult[];
 }
 
 export type PaletteRow =
@@ -83,14 +78,15 @@ export function usePaletteSections(
   const searchQuery = useQuery({
     queryKey: queryKeys.search({ workspaceId, q: query }),
     queryFn: ({ signal }) =>
-      apiQuery<SearchResponse>({ url: '/search', params: { q: query }, signal }),
+      apiQueryDecoded({ url: '/search', params: { q: query }, signal, contract: 'SearchResponse' }),
     enabled: searching,
     placeholderData: keepPreviousData,
   });
 
   const recentQuery = useQuery({
     queryKey: queryKeys.searchRecent(workspaceId),
-    queryFn: ({ signal }) => apiQuery<SearchResponse>({ url: '/search/recent', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/search/recent', signal, contract: 'SearchResponse' }),
     enabled: input.trim().length === 0,
   });
 

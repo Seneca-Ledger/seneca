@@ -3,12 +3,19 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import type {
+  NetWorthAssetLine,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthResponse,
+} from '../../contracts';
 import {
   BalanceAccount,
   BalanceAccountKind,
   BalanceAccountType,
   BalanceSnapshot,
-  CapitalRole,
   RiskLevel,
   Transaction,
   Workspace,
@@ -20,78 +27,14 @@ import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { InvestmentsService } from '../investments/investments.service';
 import type { NetWorthRange } from './dto/net-worth-query.dto';
 
-export interface NetWorthPoint {
-  date: string;
-  value: number;
-}
-
-export interface NetWorthBreakdownItem {
-  code: string;
-  name: string;
-  amount: number;
-  percent: number;
-}
-
-/** One bucket of a classification split. `key` is null for what is unlabelled. */
-export interface NetWorthClassificationItem {
-  key: string | null;
-  amount: number;
-  percent: number;
-}
-
-/** An asset line the user can classify, with what it is currently worth. */
-export interface NetWorthAssetLine {
-  id: string;
-  code: string;
-  name: string;
-  amount: number;
-  capitalRole: CapitalRole | null;
-  riskLevel: RiskLevel | null;
-  /** False for cash, whose risk is fixed rather than chosen. */
-  isClassifiable: boolean;
-}
-
-/**
- * The same net worth measured in troy ounces of a metal. People who hold metal
- * ask what their capital is worth in ounces, because that is the unit their
- * savings are in; it is the money figures divided by the spot price of the day
- * each point belongs to, never by today's.
- */
-export interface NetWorthDenominated {
-  metal: InvestmentMetal;
-  unit: 'ozt';
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  series: NetWorthPoint[];
-}
-
-export interface NetWorthResponse {
-  range: NetWorthRange;
-  currency: string;
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  assetsTotal: number;
-  liabilitiesTotal: number;
-  series: NetWorthPoint[];
-  breakdown: NetWorthBreakdownItem[];
-  byRisk: NetWorthClassificationItem[];
-  byRole: NetWorthClassificationItem[];
-  /** Share of assets sitting in medium or high risk. */
-  riskyPercent: number;
-  assetLines: NetWorthAssetLine[];
-  /** Currencies left out of the figures because no rate to `currency` was found. */
-  missingRates: string[];
-  /** Present only when the caller asked to see the figures in metal. */
-  denominated?: NetWorthDenominated | null;
-  /** The highest sampled net worth over the whole history, and when. */
-  allTimeHigh: { value: number; date: string } | null;
-  /** Investment holdings by asset class; cash and the other sheet lines keep their own buckets. */
-  byAssetClass: NetWorthClassificationItem[];
-}
+export type {
+  NetWorthAssetLine,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthResponse,
+};
 
 /** Days back from today for each range. `all` and `ytd` come from elsewhere. */
 const RANGE_DAYS: Record<Exclude<NetWorthRange, 'all' | 'ytd'>, number> = {

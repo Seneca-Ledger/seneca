@@ -1,18 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
+import type { CategoryItem } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
-export type Category = {
-  id: string;
-  name: string;
-  type: 'income' | 'expense';
-  isSystem?: boolean;
-  source?: 'system' | 'user' | 'parsing';
-  isEnabled?: boolean;
-  color?: string;
-  icon?: string;
-  parentId?: string;
-};
+/** A row of `GET /categories`. */
+export type Category = CategoryItem;
 
 export type CategoryUsageCount = {
   transactions: number;
@@ -99,7 +92,7 @@ function useCategoryData(
         apiClient.get('/categories'),
         apiClient.get('/categories/usage/counts'),
       ]);
-      setCategories(categoriesRes.data);
+      setCategories(await checkContract('CategoryList', categoriesRes.data, '/categories'));
       setUsageCounts(usageRes.data);
     })()
       .catch(async err => {
@@ -148,10 +141,13 @@ function useCategoryForm(
         parentId: restFormData.parentId || undefined,
       };
       if (editingCategory) {
-        await apiClient.put(`/categories/${editingCategory.id}`, data);
+        await apiClient.put(
+          `/categories/${editingCategory.id}`,
+          data satisfies ContractInput<'UpdateCategoryBody'>,
+        );
         toast.success(toastMessages.updated);
       } else {
-        await apiClient.post('/categories', data);
+        await apiClient.post('/categories', data satisfies ContractInput<'CreateCategoryBody'>);
         toast.success(toastMessages.created);
       }
       await loadCategories();
@@ -224,7 +220,9 @@ function usePerformToggle(
     setTogglingIds(prev => new Set(prev).add(category.id));
 
     await (async () => {
-      await apiClient.put(`/categories/${category.id}`, { isEnabled: nextEnabled });
+      await apiClient.put(`/categories/${category.id}`, {
+        isEnabled: nextEnabled,
+      } satisfies ContractInput<'UpdateCategoryBody'>);
       setCategories(
         categories.map(item =>
           item.id === category.id ? { ...item, isEnabled: nextEnabled } : item,
@@ -279,13 +277,13 @@ function useCategoryToggle({
     }
     const nextEnabled = category.isEnabled === false;
     if (!nextEnabled) {
-      const usage = await apiClient
-        .get(`/categories/${category.id}/usage-count`)
-        .then(response => response.data as CategoryUsageCount)
-        .catch((err: unknown) => {
-          console.error('Failed to get usage count:', err);
-          return null;
-        });
+      const usage = await apiQueryDecoded({
+        url: `/categories/${category.id}/usage-count`,
+        contract: 'CategoryUsageCount',
+      }).catch((err: unknown) => {
+        console.error('Failed to get usage count:', err);
+        return null;
+      });
       if (usage && usage.total > 0) {
         setDisableConfirm({ category, usage });
         return;
@@ -298,7 +296,9 @@ function useCategoryToggle({
     await (async () => {
       await Promise.all(
         Array.from(selectedIds).map(id =>
-          apiClient.put(`/categories/${id}`, { isEnabled: enable }),
+          apiClient.put(`/categories/${id}`, {
+            isEnabled: enable,
+          } satisfies ContractInput<'UpdateCategoryBody'>),
         ),
       );
       toast.success(enable ? 'Categories enabled' : 'Categories disabled');
