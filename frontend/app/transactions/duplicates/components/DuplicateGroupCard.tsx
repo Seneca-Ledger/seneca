@@ -7,26 +7,12 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Calendar, DollarSign, User } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
+import type { DuplicateGroups } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 
-interface DuplicateTransaction {
-  id: string;
-  date: string;
-  amount: number;
-  counterparty: string;
-  purpose: string;
-  statementId: string;
-  similarity?: number;
-  matchType?: string;
-  matchedFields?: string[];
-}
-
-interface DuplicateGroup {
-  master: DuplicateTransaction;
-  duplicates: DuplicateTransaction[];
-  confidence: number;
-}
+/** A group from `GET /transactions/duplicates/detect`: amounts are decimal strings. */
+type DuplicateGroup = DuplicateGroups['groups'][number];
 
 interface DuplicateGroupCardProps {
   group: DuplicateGroup;
@@ -52,12 +38,15 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
     );
   };
 
-  const formatAmount = (amount: number) => {
+  const formatAmount = (amount: string | null) => {
+    if (amount === null) {
+      return '—';
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: FALLBACK_CURRENCY,
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(Number(amount));
   };
 
   const getConfidenceColor = (confidence: number): 'success' | 'warning' | 'error' => {

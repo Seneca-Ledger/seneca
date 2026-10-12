@@ -3,14 +3,18 @@ import * as path from 'node:path';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import type {
   Metal,
   MetalLot as MetalLotView,
   MetalReceipt as MetalReceiptView,
   MetalSale as MetalSaleView,
+  MetalSettingsBody,
   MetalsSummary as MetalsSummaryView,
   MetalTotals as MetalTotalsView,
+  SellMetalLotBody,
+  UpsertMetalLotBody,
 } from '../../contracts';
 import { BalanceAccount, BalanceAccountKind } from '../../entities/balance-account.entity';
 import {
@@ -30,9 +34,6 @@ import {
 } from '../../entities/workspace-service-settings.entity';
 import { BalanceService } from '../balance/balance.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import type { MetalSettingsDto } from './dto/metal-settings.dto';
-import type { SellMetalLotDto } from './dto/sell-metal-lot.dto';
-import type { UpsertMetalLotDto } from './dto/upsert-metal-lot.dto';
 import { InvestmentsService } from './investments.service';
 import { fineTroyOunces } from './metal-weight.util';
 
@@ -175,7 +176,11 @@ export class MetalsService {
     };
   }
 
-  async addLot(userId: string, workspaceId: string, dto: UpsertMetalLotDto): Promise<MetalLotView> {
+  async addLot(
+    userId: string,
+    workspaceId: string,
+    dto: UpsertMetalLotBody,
+  ): Promise<MetalLotView> {
     if (!dto.metal) throw new BadRequestException('A lot needs a metal');
     if (!dto.unitWeight || dto.unitWeight <= 0) {
       throw new BadRequestException('A lot needs the weight of one piece');
@@ -185,15 +190,17 @@ export class MetalsService {
 
     const account = await this.ensureMetalsAccount(workspaceId, userId);
     const currency = await this.workspaceCurrency(workspaceId);
-    const weightUnit = dto.weightUnit ?? MetalWeightUnit.TROY_OUNCE;
+    const weightUnit = toEnum(MetalWeightUnit, dto.weightUnit) ?? MetalWeightUnit.TROY_OUNCE;
     const priceCurrency = (dto.priceCurrency ?? currency).toUpperCase();
     const holding = this.holdingRepository.create({
       workspaceId,
       accountId: account.id,
       symbol: null,
-      name: dto.name ?? defaultLotName(dto.metal, quantity, dto.unitWeight, weightUnit),
+      name:
+        dto.name ??
+        defaultLotName(toEnum(InvestmentMetal, dto.metal), quantity, dto.unitWeight, weightUnit),
       assetClass: InvestmentAssetClass.METAL,
-      metal: dto.metal,
+      metal: toEnum(InvestmentMetal, dto.metal),
       quantity,
       unitWeight: dto.unitWeight,
       weightUnit,
@@ -222,27 +229,27 @@ export class MetalsService {
     userId: string,
     workspaceId: string,
     lotId: string,
-    dto: UpsertMetalLotDto,
+    dto: UpsertMetalLotBody,
   ): Promise<MetalLotView> {
     const lot = await this.requireLot(workspaceId, lotId);
     const currency = await this.workspaceCurrency(workspaceId);
-    if (dto.metal !== undefined) lot.metal = dto.metal;
-    if (dto.name !== undefined) lot.name = dto.name;
-    if (dto.quantity !== undefined) {
+    if (dto.metal !== undefined) lot.metal = toEnum(InvestmentMetal, dto.metal);
+    if (dto.name != null) lot.name = dto.name;
+    if (dto.quantity != null) {
       if (dto.quantity <= 0) throw new BadRequestException('A lot needs at least one piece');
       lot.quantity = dto.quantity;
     }
-    if (dto.unitWeight !== undefined) {
+    if (dto.unitWeight != null) {
       if (dto.unitWeight <= 0) throw new BadRequestException('A lot needs the weight of one piece');
       lot.unitWeight = dto.unitWeight;
     }
-    if (dto.weightUnit !== undefined) lot.weightUnit = dto.weightUnit;
+    if (dto.weightUnit !== undefined) lot.weightUnit = toEnum(MetalWeightUnit, dto.weightUnit);
     if (dto.purity !== undefined) lot.purity = dto.purity;
-    if (dto.acquiredOn !== undefined) lot.acquiredOn = dto.acquiredOn.slice(0, 10);
+    if (dto.acquiredOn != null) lot.acquiredOn = dto.acquiredOn.slice(0, 10);
     if (dto.costTotal !== undefined) {
       lot.costTotal = dto.costTotal;
       lot.costCurrency = (dto.costCurrency ?? lot.costCurrency ?? currency).toUpperCase();
-    } else if (dto.costCurrency !== undefined) {
+    } else if (dto.costCurrency != null) {
       lot.costCurrency = dto.costCurrency.toUpperCase();
     }
     if (dto.counterparty !== undefined) lot.counterparty = dto.counterparty;
@@ -250,7 +257,7 @@ export class MetalsService {
     if (dto.insuredValue !== undefined) {
       lot.insuredValue = dto.insuredValue;
       lot.insuredCurrency = (dto.insuredCurrency ?? lot.insuredCurrency ?? currency).toUpperCase();
-    } else if (dto.insuredCurrency !== undefined) {
+    } else if (dto.insuredCurrency != null) {
       lot.insuredCurrency = dto.insuredCurrency.toUpperCase();
     }
     if (dto.ownerUserId !== undefined) {
@@ -272,8 +279,8 @@ export class MetalsService {
         ? await this.requireReceiptId(workspaceId, dto.receiptId)
         : null;
     }
-    if (dto.priceCurrency !== undefined) lot.priceCurrency = dto.priceCurrency.toUpperCase();
-    if (dto.price !== undefined) {
+    if (dto.priceCurrency != null) lot.priceCurrency = dto.priceCurrency.toUpperCase();
+    if (dto.price != null) {
       lot.price = dto.price;
       lot.priceSource = InvestmentPriceSource.MANUAL;
       lot.pricedAt = new Date();
@@ -306,7 +313,7 @@ export class MetalsService {
     userId: string,
     workspaceId: string,
     lotId: string,
-    dto: SellMetalLotDto,
+    dto: SellMetalLotBody,
   ): Promise<{ sale: MetalSaleView; lot: MetalLotView | null }> {
     const lot = await this.requireLot(workspaceId, lotId);
     const held = Number(lot.quantity);
@@ -400,7 +407,7 @@ export class MetalsService {
   async saveSettings(
     userId: string,
     workspaceId: string,
-    dto: MetalSettingsDto,
+    dto: MetalSettingsBody,
   ): Promise<DealerDiscounts> {
     const current = await this.dealerDiscounts(workspaceId);
     const next = { ...current, ...(dto.dealerDiscount ?? {}) };

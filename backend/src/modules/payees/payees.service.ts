@@ -6,7 +6,14 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { type DataSource, In, type Repository } from 'typeorm';
-import type { PayeePendingReview, PayeesPage } from '../../contracts';
+import { toEnum } from '../../common/effect/to-enum';
+import type {
+  MergePayeesBody,
+  PayeePendingReview,
+  PayeesPage,
+  SetTransactionPayeeBody,
+  UpdatePayeeBody,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Category } from '../../entities/category.entity';
 import { Payee, PayeeMode } from '../../entities/payee.entity';
@@ -14,12 +21,7 @@ import { Transaction, TransactionCategorySource } from '../../entities/transacti
 import { AuditService } from '../audit/audit.service';
 import { hasDecidedCategory } from '../classification/engine/category-decision';
 import { ClassificationService } from '../classification/services/classification.service';
-import type {
-  MergePayeesDto,
-  PayeesQueryDto,
-  SetTransactionPayeeDto,
-  UpdatePayeeDto,
-} from './dto/payees.dto';
+import type { PayeesQueryDto } from './dto/payees.dto';
 
 type CategoryRef = { id: string; name: string };
 
@@ -152,12 +154,12 @@ export class PayeesService {
     workspaceId: string,
     userId: string,
     id: string,
-    dto: UpdatePayeeDto,
+    dto: UpdatePayeeBody,
   ): Promise<Payee> {
     const payee = await this.findPayee(workspaceId, id);
     const before = { name: payee.name, mode: payee.mode, categoryId: payee.categoryId };
 
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       const name = dto.name.trim();
       if (!name) {
         throw new BadRequestException('A payee needs a name');
@@ -182,7 +184,7 @@ export class PayeesService {
     if (dto.categoryId) {
       await this.findCategory(workspaceId, dto.categoryId);
     }
-    const mode = dto.mode ?? payee.mode;
+    const mode = toEnum(PayeeMode, dto.mode) ?? payee.mode;
     const categoryId = dto.categoryId !== undefined ? dto.categoryId : payee.categoryId;
     if (mode === PayeeMode.ALWAYS && !categoryId) {
       throw new BadRequestException('Pick the category this payee always gets');
@@ -215,7 +217,7 @@ export class PayeesService {
     workspaceId: string,
     userId: string,
     targetId: string,
-    dto: MergePayeesDto,
+    dto: MergePayeesBody,
   ): Promise<{ payee: Payee; merged: number }> {
     return this.dataSource.transaction(async manager => {
       const target = await manager.findOne(Payee, { where: { id: targetId, workspaceId } });
@@ -264,7 +266,7 @@ export class PayeesService {
     workspaceId: string,
     userId: string,
     transactionId: string,
-    dto: SetTransactionPayeeDto,
+    dto: SetTransactionPayeeBody,
   ): Promise<{
     id: string;
     payee: { id: string; name: string };

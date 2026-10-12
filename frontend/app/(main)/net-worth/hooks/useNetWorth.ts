@@ -10,6 +10,7 @@ import type {
   NetWorthRange,
   RiskLevel,
 } from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
@@ -90,7 +91,7 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
     mutationFn: (variables: { accountId: string; patch: ClassificationPatch }) =>
       apiClient.patch(
         `/reports/balance/accounts/${variables.accountId}/classification`,
-        variables.patch,
+        variables.patch satisfies ContractInput<'UpdateAccountClassificationBody'>,
       ),
     // Выбор в селекте применяется сразу, иначе он «откатывается» на время
     // запроса; проценты и сводки пересчитывает сервер — их ждём.

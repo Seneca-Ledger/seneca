@@ -1,12 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import {
+  CreateInvestmentAccountBody,
+  LinkContributionBody,
+  UpsertHoldingBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateInvestmentAccountDto } from './dto/create-investment-account.dto';
-import { LinkContributionDto } from './dto/link-contribution.dto';
-import { UpsertHoldingDto } from './dto/upsert-holding.dto';
 import { InvestmentsService } from './investments.service';
 
 @Controller('investments')
@@ -24,7 +27,7 @@ export class InvestmentsController {
   async createAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateInvestmentAccountDto,
+    @SchemaBody(CreateInvestmentAccountBody) dto: CreateInvestmentAccountBody,
   ) {
     return this.investmentsService.createAccount(user.id, workspaceId, dto);
   }
@@ -46,7 +49,7 @@ export class InvestmentsController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('id') id: string,
-    @Body() dto: UpsertHoldingDto,
+    @SchemaBody(UpsertHoldingBody) dto: UpsertHoldingBody,
   ) {
     return this.investmentsService.addHolding(user.id, workspaceId, id, dto);
   }
@@ -57,7 +60,7 @@ export class InvestmentsController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('id') id: string,
-    @Body() dto: UpsertHoldingDto,
+    @SchemaBody(UpsertHoldingBody) dto: UpsertHoldingBody,
   ) {
     return this.investmentsService.updateHolding(user.id, workspaceId, id, dto);
   }
@@ -85,7 +88,10 @@ export class InvestmentsController {
   /** Marks an expense as money moved into an investment account (a one-leg transfer). */
   @Post('contributions')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
-  async linkContribution(@WorkspaceId() workspaceId: string, @Body() dto: LinkContributionDto) {
+  async linkContribution(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(LinkContributionBody) dto: LinkContributionBody,
+  ) {
     return this.investmentsService.linkContribution(workspaceId, dto.transactionId, dto.accountId);
   }
 

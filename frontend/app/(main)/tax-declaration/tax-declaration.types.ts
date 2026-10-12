@@ -53,7 +53,8 @@ export type RetentionKind =
   | 'accounting_records';
 
 export interface RetentionInfo {
-  periods: Array<{ kind: RetentionKind; years: number | null; until: string }>;
+  /** Reference data names the kinds: one this list lacks is shown by its key. */
+  periods: Array<{ kind: RetentionKind | (string & {}); years: number | null; until: string }>;
   sourceUrl: string;
 }
 
@@ -62,7 +63,8 @@ export interface FilingInfo {
   taxYear: number;
   formName: string;
   filingOpens: string | null;
-  deadlines: Array<{ kind: DeadlineKind; date: string }>;
+  /** Reference data names the kinds: one this list lacks is shown by its key. */
+  deadlines: Array<{ kind: DeadlineKind | (string & {}); date: string }>;
   authorityPreparation: AuthorityPreparation | null;
   portal: string | null;
   sourceUrl: string;

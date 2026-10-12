@@ -1,6 +1,6 @@
-import type { Schema } from 'effect';
+import type * as Schema from 'effect/Schema';
 import type * as Contracts from './contracts';
-import type { Wire } from './contracts';
+import type { Wire, WireInput } from './contracts';
 import { type ApiQueryOptions, apiQuery } from './query-fn';
 
 type ContractSchemas = typeof Contracts;
@@ -9,6 +9,8 @@ export type ContractName = {
   [K in keyof ContractSchemas]: ContractSchemas[K] extends Schema.Top ? K : never;
 }[keyof ContractSchemas];
 export type ContractType<K extends ContractName> = Wire<ContractSchemas[K]>;
+/** What a client sends for request-body contract K: its encoded side. */
+export type ContractInput<K extends ContractName> = WireInput<ContractSchemas[K]>;
 
 export { ContractMismatchError } from './contract-error';
 
@@ -29,6 +31,23 @@ export async function checkContract<K extends ContractName>(
     assertMatchesContract(name, payload, url);
   }
   return payload as ContractType<K>;
+}
+
+/**
+ * A request body the code cannot type statically (built from loose records):
+ * outside production it is checked against its contract before it is sent, so
+ * a field the API would reject fails in development and tests, not as a 400.
+ */
+export async function checkBody<K extends ContractName>(
+  name: K,
+  body: unknown,
+  url: string,
+): Promise<ContractInput<K>> {
+  if (process.env.NODE_ENV !== 'production') {
+    const { assertMatchesContract } = await import('./contract-check');
+    assertMatchesContract(name, body, url, 'error');
+  }
+  return body as ContractInput<K>;
 }
 
 /**

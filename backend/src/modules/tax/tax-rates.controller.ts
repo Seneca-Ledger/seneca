@@ -1,12 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
+import { CreateTaxRateBody, UpdateTaxRateBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateTaxRateDto } from './dto/create-tax-rate.dto';
-import { UpdateTaxRateDto } from './dto/update-tax-rate.dto';
 import { TaxRatesService } from './tax-rates.service';
 
 @Controller('tax-rates')
@@ -28,7 +28,7 @@ export class TaxRatesController {
   @Post()
   @WorkspaceAuth(Permission.CATEGORY_CREATE)
   async create(
-    @Body() createDto: CreateTaxRateDto,
+    @SchemaBody(CreateTaxRateBody) createDto: CreateTaxRateBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -39,7 +39,7 @@ export class TaxRatesController {
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateTaxRateDto,
+    @SchemaBody(UpdateTaxRateBody) updateDto: UpdateTaxRateBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

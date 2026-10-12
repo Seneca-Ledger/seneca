@@ -8,7 +8,6 @@ import { Pencil, Search as SearchIcon } from '@/app/components/icons';
 import { offerAction } from '@/app/components/payees/offer-action-toast';
 import type { Payee, PayeeMode } from '@/app/components/payees/types';
 import { useMergePayees, usePayeesList, useUpdatePayee } from '@/app/components/payees/usePayees';
-import type { Category } from '@/app/components/transactions/types';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { AppPagination } from '@/app/components/ui/pagination';

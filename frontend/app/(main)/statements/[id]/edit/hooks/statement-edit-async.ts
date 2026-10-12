@@ -2,11 +2,12 @@ import { toast } from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
-import { checkContract } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkBody, checkContract } from '@/app/lib/query-fn-schema';
 import type {
   BranchOption,
   CategoryOption,
   Statement,
+  StatementParsingDetails,
   Transaction,
   WalletOption,
 } from '../editHelpers';
@@ -92,13 +93,22 @@ export async function loadStatementData(
       apiClient.get('/branches'),
       apiClient.get('/wallets'),
     ]);
-    const statementData = extractApiData<Statement>(sRes);
+    const detail = await checkContract(
+      'StatementDetail',
+      extractApiData(sRes),
+      `/statements/${statementId}`,
+    );
+    // The parser's blob: the editor reads it through its own lenient type.
+    const statementData: Statement = {
+      ...detail,
+      parsingDetails: detail.parsingDetails as StatementParsingDetails | null,
+    };
     set.setStatement(statementData);
     const rows = await checkContract('TransactionList', extractApiData(tRes), transactionsUrl);
     set.setTransactions(rows.map(toEditableTransaction));
-    set.setCategories(extractListData<CategoryOption>(cRes));
+    set.setCategories(await checkContract('CategoryList', extractListData(cRes), '/categories'));
     set.setBranches(extractListData<BranchOption>(bRes));
-    set.setWallets(extractListData<WalletOption>(wRes));
+    set.setWallets(await checkContract('WalletList', extractListData(wRes), '/wallets'));
     set.setMetadataForm(buildMetadataForm(statementData, extractMeta(statementData)));
   } catch (err: unknown) {
     set.setError(getApiErrorMessage(err, messages.loadDataError));
@@ -106,12 +116,6 @@ export async function loadStatementData(
     set.setLoading(false);
     set.setOptionsLoading(false);
   }
-}
-
-function getExportTableId(response: {
-  data?: { tableId?: string; id?: string };
-}): string | undefined {
-  return response?.data?.tableId ?? response?.data?.id;
 }
 
 function buildExportName(prefix: string, fileName: string): string {
@@ -161,8 +165,12 @@ export async function exportToCustomTable({
       name,
       description,
       columnTitles,
-    });
-    const tableId = getExportTableId(response);
+    } satisfies ContractInput<'CreateCustomTableFromSourceBody'>);
+    const { tableId } = await checkContract(
+      'CreatedFromSource',
+      response.data,
+      '/custom-tables/from-source',
+    );
     if (tableId) {
       toast.success(messages.exportSuccess, { id: toastId });
       router.push(`/custom-tables/${tableId}`);
@@ -220,11 +228,13 @@ export async function convertDroppedSampleAction({
   setTransactions,
   setSuccess,
 }: ConvertArgs): Promise<void> {
-  const response = await apiClient.post(`/statements/${statementId}/convert-dropped-sample`, {
-    index,
-    warning,
-    transaction: sample.transaction,
-  });
+  // The sample is the parser's own record, typed only as unknown here.
+  const body = await checkBody(
+    'ConvertDroppedSampleBody',
+    { index, warning, transaction: sample.transaction },
+    '/statements/:id/convert-dropped-sample',
+  );
+  const response = await apiClient.post(`/statements/${statementId}/convert-dropped-sample`, body);
   const { updatedStatement, createdTransaction } = extractDroppedSampleResult(response.data);
   if (updatedStatement) {
     setStatement(updatedStatement);
@@ -280,7 +290,7 @@ export async function updateStatementCategoryAction({
     setStatementCategorySaving(true);
     const response = await apiClient.patch(`/storage/files/${statement.id}/category`, {
       categoryId: categoryId || null,
-    });
+    } satisfies ContractInput<'UpdateFileCategoryBody'>);
     const selectedCategory = resolveSelectedCategory(
       response.data?.category,
       flatCategories,
@@ -322,7 +332,10 @@ export async function metadataAutoSave({
       statementDateFrom: formData.statementDateFrom || null,
       statementDateTo: formData.statementDateTo || null,
     };
-    const response = await apiClient.patch(`/statements/${statementId}`, payload);
+    const response = await apiClient.patch(
+      `/statements/${statementId}`,
+      payload satisfies ContractInput<'UpdateStatementBody'>,
+    );
     const updatedStatement = response.data?.data || response.data;
     setStatement(updatedStatement as Statement);
     invalidateDocumentLists();

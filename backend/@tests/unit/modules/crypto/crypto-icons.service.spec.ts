@@ -1,4 +1,5 @@
 import { CryptoIconsService } from '../../../../src/modules/crypto/crypto-icons.service';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 
 const PNG = Buffer.from('89504e470d0a1a0a', 'hex');
 
@@ -10,23 +11,21 @@ function build(fetchImpl: jest.Mock) {
       store.set(key, value);
     }),
   };
-  global.fetch = fetchImpl as unknown as typeof fetch;
-  return { service: new CryptoIconsService(cache as never), cache, store };
+  // The HTTP client passes a URL object; the mocks match on the string.
+  global.fetch = ((input: string | URL, init?: RequestInit) =>
+    fetchImpl(String(input), init)) as unknown as typeof fetch;
+  return { service: new CryptoIconsService(cache as never, new EffectRuntime()), cache, store };
 }
 
-const json = (body: unknown) => ({
-  ok: true,
-  status: 200,
-  headers: new Headers({ 'content-type': 'application/json' }),
-  json: async () => body,
-});
+// Real Responses: the HTTP client reads headers and body the standard way.
+const json = (body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 
-const image = (contentType = 'image/png', body: Buffer = PNG) => ({
-  ok: true,
-  status: 200,
-  headers: new Headers({ 'content-type': contentType }),
-  arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
-});
+const image = (contentType = 'image/png', body: Buffer = PNG) =>
+  new Response(new Uint8Array(body), { status: 200, headers: { 'content-type': contentType } });
 
 describe('CryptoIconsService', () => {
   it('fetches the logo of a coin we price', async () => {
@@ -108,12 +107,7 @@ describe('CryptoIconsService', () => {
   });
 
   it('does not take a rate limit for "this coin has no logo"', async () => {
-    const fetchMock = jest.fn(async () => ({
-      ok: false,
-      status: 429,
-      headers: new Headers(),
-      json: async () => ({}),
-    }));
+    const fetchMock = jest.fn(async () => new Response('{}', { status: 429 }));
     const { service, store } = build(fetchMock as jest.Mock);
 
     expect((await service.fetchIcon('BTC')).status).toBe('unavailable');

@@ -5,7 +5,7 @@ import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import type { GoalCover } from '@/app/lib/contracts';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 /** How the goal's picture should be drawn. */
@@ -83,7 +83,9 @@ async function applyCover(
   }
   await apiClient.put(
     `/goals/${goalId}/cover`,
-    cover.kind === 'preset' ? { preset: cover.preset } : { photoId: cover.photoId },
+    cover.kind === 'preset'
+      ? { preset: cover.preset }
+      : ({ photoId: cover.photoId } satisfies ContractInput<'SetGoalCoverBody'>),
   );
 }
 
@@ -123,8 +125,12 @@ export function useGoals(): UseGoalsState {
   const createGoal = useCallback(
     (form: GoalFormData) =>
       submit(async () => {
-        const response = await apiClient.post<Goal>('/goals', toPayload(form));
-        await applyCover(response.data.id, form.cover);
+        const response = await apiClient.post(
+          '/goals',
+          toPayload(form) satisfies ContractInput<'CreateGoalBody'>,
+        );
+        const goal = await checkContract('GoalWithProgress', response.data, '/goals');
+        await applyCover(goal.id, form.cover);
       }),
     [submit],
   );
@@ -132,7 +138,10 @@ export function useGoals(): UseGoalsState {
   const updateGoal = useCallback(
     (id: string, form: GoalFormData) =>
       submit(async () => {
-        await apiClient.put(`/goals/${id}`, toPayload(form));
+        await apiClient.put(
+          `/goals/${id}`,
+          toPayload(form) satisfies ContractInput<'UpdateGoalBody'>,
+        );
         await applyCover(id, form.cover);
       }),
     [submit],
@@ -151,7 +160,7 @@ export function useGoals(): UseGoalsState {
         apiClient.post(`/goals/${id}/contributions`, {
           amount,
           note: note.trim() === '' ? undefined : note.trim(),
-        }),
+        } satisfies ContractInput<'CreateContributionBody'>),
       ),
     [submit],
   );

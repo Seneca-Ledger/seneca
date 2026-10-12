@@ -13,7 +13,9 @@ import type {
   CryptoSummary,
   CryptoTransaction,
   CryptoWallet,
+  SupportedChainId,
 } from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
@@ -91,7 +93,11 @@ interface UseCryptoState {
   busyWalletId: string | null;
   connecting: boolean;
   refetch: () => void;
-  connectWallet: (address: string, label?: string, chainIds?: number[]) => Promise<boolean>;
+  connectWallet: (
+    address: string,
+    label?: string,
+    chainIds?: SupportedChainId[],
+  ) => Promise<boolean>;
   syncWallet: (id: string) => void;
   removeWallet: (id: string) => void;
   history: CryptoHistory | null;
@@ -178,12 +184,12 @@ export function useCrypto(): UseCryptoState {
   }, [queryClient]);
 
   const connectMutation = useMutation({
-    mutationFn: (variables: { address: string; label?: string; chainIds?: number[] }) =>
+    mutationFn: (variables: { address: string; label?: string; chainIds?: SupportedChainId[] }) =>
       apiClient.post('/crypto/wallets', {
         address: variables.address,
         chainIds: variables.chainIds,
         label: variables.label?.trim() ? variables.label.trim() : undefined,
-      }),
+      } satisfies ContractInput<'ConnectCryptoWalletBody'>),
     onSuccess: invalidateCrypto,
   });
 
@@ -208,7 +214,8 @@ export function useCrypto(): UseCryptoState {
   });
 
   const saveHoldingMutation = useMutation({
-    mutationFn: (holding: ManualHoldingInput) => apiClient.post('/crypto/holdings', holding),
+    mutationFn: (holding: ManualHoldingInput) =>
+      apiClient.post('/crypto/holdings', holding satisfies ContractInput<'ManualHoldingBody'>),
     onSuccess: invalidateCrypto,
   });
 
@@ -218,7 +225,7 @@ export function useCrypto(): UseCryptoState {
   });
 
   const connectWallet = useCallback(
-    async (address: string, label?: string, chainIds?: number[]): Promise<boolean> => {
+    async (address: string, label?: string, chainIds?: SupportedChainId[]): Promise<boolean> => {
       return await connectMutation
         .mutateAsync({ address, label, chainIds })
         .then(() => true)

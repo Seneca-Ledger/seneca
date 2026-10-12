@@ -10,6 +10,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { downloadTableExport } from '../../exportTable';
 import type { ConvertResult } from '../components/SendToStatementsDialog';
 import { showUndoToast } from '../components/UndoToast';
@@ -122,7 +123,10 @@ export function useCustomTablePage(tableId: string) {
         return fn ? { ...rest, [columnKey]: fn } : rest;
       });
       apiClient
-        .patch(`/custom-tables/${tableId}/view-settings/columns`, { columnKey, aggregate: fn })
+        .patch(`/custom-tables/${tableId}/view-settings/columns`, {
+          columnKey,
+          aggregate: fn,
+        } satisfies ContractInput<'UpdateCustomTableViewSettingsColumnBody'>)
         .catch(error => console.error('Failed to persist column aggregate:', error));
     },
     [tableId],
@@ -206,7 +210,11 @@ export function useCustomTablePage(tableId: string) {
     setConvert(prev => ({ ...prev, busy: true }));
     await (async () => {
       const response = await apiClient.post(`/custom-tables/${tableId}/convert-to-statement`);
-      const payload = (response.data?.data ?? response.data) as ConvertResult;
+      const payload = await checkContract(
+        'ConvertedToStatement',
+        response.data,
+        '/custom-tables/:id/convert-to-statement',
+      );
       setConvert({ open: true, busy: false, result: payload });
     })().catch(async error => {
       console.error('Failed to convert table:', error);
@@ -220,10 +228,11 @@ export function useCustomTablePage(tableId: string) {
     setRefreshing(true);
     await (async () => {
       const response = await apiClient.post(`/custom-tables/${tableId}/refresh-from-source`);
-      const result = (response.data?.data ?? response.data) as {
-        inserted: number;
-        updated: number;
-      };
+      const result = await checkContract(
+        'RefreshedFromSource',
+        response.data,
+        '/custom-tables/:id/refresh-from-source',
+      );
       toast.success(
         labels.toasts.refreshed
           .replace('{{inserted}}', String(result.inserted))
@@ -269,7 +278,9 @@ export function useCustomTablePage(tableId: string) {
   const rename = useCallback(
     async (name: string) => {
       await (async () => {
-        await apiClient.patch(`/custom-tables/${tableId}`, { name });
+        await apiClient.patch(`/custom-tables/${tableId}`, {
+          name,
+        } satisfies ContractInput<'UpdateCustomTableBody'>);
         data.setTable(prev => (prev ? { ...prev, name } : prev));
         toast.success(labels.toasts.renamed);
       })().catch(async error => {
@@ -284,13 +295,8 @@ export function useCustomTablePage(tableId: string) {
     if (columnEditor.dialog.mode === 'closed' || relationTargets.length) {
       return;
     }
-    apiClient
-      .get('/custom-tables')
-      .then(response => {
-        const items = (response.data?.data ?? response.data ?? []) as Array<{
-          id: string;
-          name: string;
-        }>;
+    apiQueryDecoded({ url: '/custom-tables', contract: 'CustomTableList' })
+      .then(({ items }) => {
         setRelationTargets(
           items.filter(item => item.id !== tableId).map(({ id, name }) => ({ id, name })),
         );

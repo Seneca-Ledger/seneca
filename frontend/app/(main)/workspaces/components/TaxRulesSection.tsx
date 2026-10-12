@@ -15,7 +15,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { checkContract } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import { SettingsSection } from './SettingsSection';
 
@@ -68,17 +68,16 @@ export function TaxRulesSection(): React.ReactElement {
 
   const load = useCallback(async () => {
     await (async () => {
-      const [rulesResponse, categoriesResponse, ratesResponse] = await Promise.all([
-        apiClient.get<TaxRule[]>('/tax/rules'),
-        apiClient.get<unknown>('/categories'),
-        apiClient.get<WorkspaceRate[]>('/tax/settings/rates'),
+      const [rules, categories, rates] = await Promise.all([
+        apiQueryDecoded({ url: '/tax/rules', contract: 'TaxRuleList' }),
+        apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }),
+        apiQueryDecoded({ url: '/tax/settings/rates', contract: 'TaxRateList' }),
       ]);
 
-      setRules(rulesResponse.data ?? []);
-      // The list is never wrapped in `{ data }`; the contract says so.
-      setCategories(await checkContract('CategoryList', categoriesResponse.data, '/categories'));
+      setRules(rules);
+      setCategories(categories);
       // Only coded rates can be named by a rule; hand-made ones have no code.
-      setRates((ratesResponse.data ?? []).filter(rate => Boolean(rate.code)));
+      setRates(rates.filter(rate => Boolean(rate.code)));
       setError(null);
     })()
       .catch(async () => {
@@ -102,7 +101,7 @@ export function TaxRulesSection(): React.ReactElement {
         categoryId: draft.categoryId || undefined,
         taxRateCode: draft.taxRateCode,
         direction: draft.direction,
-      });
+      } satisfies ContractInput<'CreateTaxRuleBody'>);
       setDraft({ categoryId: '', taxRateCode: '', direction: 'both' });
       await load();
     })()

@@ -1,15 +1,20 @@
 import { Global, Injectable, Module, type OnModuleDestroy } from '@nestjs/common';
 import { Cause, type Effect, Exit, Layer, ManagedRuntime } from 'effect';
-import { FetchHttpClient, type HttpClient } from 'effect/http';
+import { FetchHttpClient, HttpClient } from 'effect/http';
 import { DomainError, toHttpException } from './domain-error';
 
 /** Infrastructure every Effect in the backend may use. Nest services provide the rest per call. */
-const AppLayer = FetchHttpClient.layer.pipe(
-  // effect caches its default `globalThis.fetch` on first use; reading it per
-  // request keeps `global.fetch` mocks in tests working.
-  Layer.provide(
-    Layer.succeed(FetchHttpClient.Fetch, (input, init) => globalThis.fetch(input, init)),
+const AppLayer = Layer.mergeAll(
+  FetchHttpClient.layer.pipe(
+    // effect caches its default `globalThis.fetch` on first use; reading it per
+    // request keeps `global.fetch` mocks in tests working.
+    Layer.provide(
+      Layer.succeed(FetchHttpClient.Fetch, (input, init) => globalThis.fetch(input, init)),
+    ),
   ),
+  // The client would add `traceparent`/`b3` headers to every request. There is
+  // no tracer to join them to, and they would hand our ids to third parties.
+  Layer.succeed(HttpClient.TracerPropagationEnabled, false),
 );
 export type AppServices = HttpClient.HttpClient;
 

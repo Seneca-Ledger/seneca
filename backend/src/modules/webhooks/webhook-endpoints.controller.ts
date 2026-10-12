@@ -1,12 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { CreateWebhookEndpointBody, UpdateWebhookEndpointBody } from '../../contracts';
 import { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateWebhookEndpointDto } from './dto/create-webhook-endpoint.dto';
-import { UpdateWebhookEndpointDto } from './dto/update-webhook-endpoint.dto';
 import { WebhookEndpointsService } from './services/webhook-endpoints.service';
 
 @ApiTags('Webhook Endpoints')
@@ -19,7 +19,7 @@ export class WebhookEndpointsController {
   @ApiOperation({ summary: 'Create inbound webhook endpoint' })
   async create(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateWebhookEndpointDto,
+    @SchemaBody(CreateWebhookEndpointBody) dto: CreateWebhookEndpointBody,
     @CurrentUser() user: User,
   ) {
     return this.service.create(workspaceId, dto, user.id); // token returned only on creation
@@ -47,7 +47,7 @@ export class WebhookEndpointsController {
   async update(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpdateWebhookEndpointDto,
+    @SchemaBody(UpdateWebhookEndpointBody) dto: UpdateWebhookEndpointBody,
     @CurrentUser() user: User,
   ) {
     const { token, ...rest } = await this.service.update(id, workspaceId, dto, user.id);

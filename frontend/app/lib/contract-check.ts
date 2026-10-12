@@ -11,10 +11,21 @@ import type { ContractName } from './query-fn-schema';
 
 const toIssues = SchemaIssue.makeFormatterStandardSchemaV1();
 
-/** Throws ContractMismatchError when `payload` is not what contract `name` describes. */
-export function assertMatchesContract(name: ContractName, payload: unknown, url: string): void {
+/**
+ * Throws ContractMismatchError when `payload` is not what contract `name`
+ * describes. Responses may carry fields the client does not know yet; request
+ * bodies may not (`excess: 'error'`), because the API rejects them.
+ */
+export function assertMatchesContract(
+  name: ContractName,
+  payload: unknown,
+  url: string,
+  excess: 'ignore' | 'error' = 'ignore',
+): void {
   const schema: Schema.Codec<unknown, unknown> = contracts[name];
-  const exit = Schema.decodeUnknownExit(schema, { errors: 'all' })(payload);
+  const exit = Schema.decodeUnknownExit(schema, { errors: 'all', onExcessProperty: excess })(
+    payload,
+  );
   if (Exit.isSuccess(exit)) {
     return;
   }

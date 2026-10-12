@@ -31,6 +31,42 @@ export const getJson = <A>(
     return yield* HttpClientResponse.schemaBodyJson(schema)(response);
   }).pipe(Effect.timeout(options.timeout));
 
+/**
+ * GET and let `read` judge the answer: status, headers and body are read
+ * inside the same `timeout`. For callers that tell "not there" (a 404 worth
+ * caching) from "not now" (anything else), or read text or bytes rather than
+ * JSON. Network failures are retried only with `retry`: most of the providers
+ * this serves have small free quotas.
+ */
+export const getWith = <A, E, R>(
+  url: string,
+  options: {
+    readonly timeout: Duration.Input;
+    readonly headers?: Record<string, string>;
+    readonly retry?: boolean;
+  },
+  read: (response: HttpClientResponse.HttpClientResponse) => Effect.Effect<A, E, R>,
+) =>
+  Effect.gen(function* () {
+    const base = yield* HttpClient.HttpClient;
+    const client = options.retry
+      ? base.pipe(
+          HttpClient.retryTransient({
+            schedule: Schedule.exponential('250 millis').pipe(Schedule.jittered),
+            times: 2,
+          }),
+        )
+      : base;
+    const response = yield* client.execute(
+      HttpClientRequest.get(url).pipe(HttpClientRequest.setHeaders(options.headers ?? {})),
+    );
+    return yield* read(response);
+  }).pipe(Effect.timeout(options.timeout));
+
+/** The media type of a response, without parameters (`image/png; q=1` → `image/png`). */
+export const contentTypeOf = (response: HttpClientResponse.HttpClientResponse): string =>
+  (response.headers['content-type'] ?? '').split(';')[0].trim();
+
 /** True for an HttpClientError carrying a response with this status. */
 export const hasStatus =
   (status: number) =>

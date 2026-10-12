@@ -65,3 +65,31 @@ export const ReviewInboxCounts = Schema.Struct({
   total: Schema.Number,
 });
 export type ReviewInboxCounts = Wire<typeof ReviewInboxCounts>;
+
+/** `GET /insights/daily-quote`: today's Stoic quote, picked for a pending insight when there is one. */
+export const DailyQuote = Schema.Struct({
+  date: Schema.String,
+  quote: Schema.Struct({
+    id: Schema.String,
+    text: Schema.String,
+    author: Schema.String,
+    source: Schema.String,
+    sourceUrl: Schema.String,
+  }),
+  theme: Schema.NullOr(Schema.String),
+  reason: Schema.NullOr(
+    Schema.Struct({ insightId: Schema.String, type: Schema.String, title: Schema.String }),
+  ),
+});
+export type DailyQuote = Wire<typeof DailyQuote>;
+
+/** `POST /review-inbox/transactions/approve`. */
+export const ReviewApproved = Schema.Struct({ approved: Schema.Number });
+export type ReviewApproved = Wire<typeof ReviewApproved>;
+
+/** `POST /review-inbox/statements/:id/approve`: rows left without a category stay in review. */
+export const StatementApproved = Schema.Struct({
+  approved: Schema.Number,
+  uncategorized: Schema.Number,
+});
+export type StatementApproved = Wire<typeof StatementApproved>;

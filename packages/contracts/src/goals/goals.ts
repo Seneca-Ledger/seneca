@@ -35,6 +35,21 @@ export const GoalWithProgress = Schema.Struct({
 });
 export type GoalWithProgress = Wire<typeof GoalWithProgress>;
 
+/** `GET /goals/:id` and `POST /goals/:id/contributions`: the goal with what was put aside. */
+export const GoalDetail = Schema.Struct({
+  ...GoalWithProgress.fields,
+  contributions: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      amount: Schema.Number,
+      contributionDate: Schema.String,
+      note: Schema.NullOr(Schema.String),
+      createdAt: Timestamp,
+    }),
+  ),
+});
+export type GoalDetail = Wire<typeof GoalDetail>;
+
 export const GoalList = Schema.Array(GoalWithProgress);
 export type GoalList = Wire<typeof GoalList>;
 
@@ -175,3 +190,21 @@ export const GoalPlanResponse = Schema.Struct({
   status: GoalPlanStatus,
 });
 export type GoalPlanResponse = Wire<typeof GoalPlanResponse>;
+
+/** `GET /goals/covers/search`: openly licensed photos for a goal's cover. */
+export const GoalCoverSearchPage = Schema.Struct({
+  results: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      title: Schema.String,
+      creator: Schema.NullOr(Schema.String),
+      license: Schema.String,
+      licenseUrl: Schema.NullOr(Schema.String),
+      attribution: Schema.String,
+      sourceUrl: Schema.NullOr(Schema.String),
+    }),
+  ),
+  page: Schema.Number,
+  hasMore: Schema.Boolean,
+});
+export type GoalCoverSearchPage = Wire<typeof GoalCoverSearchPage>;

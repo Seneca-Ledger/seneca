@@ -23,12 +23,17 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { BalanceAccountNode } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import apiClient from '../../../lib/api';
 
 type BalanceExportFormat = 'excel' | 'pdf';
+
+/** Reports are written in Russian, English or Kazakh; any other interface language gets English. */
+const reportLocaleOf = (locale: string): 'ru' | 'en' | 'kk' =>
+  locale === 'ru' || locale === 'kk' ? locale : 'en';
 
 const resolveLocale = (locale: string): string => {
   if (locale === 'ru') return 'ru-RU';
@@ -219,7 +224,7 @@ function BalanceSheet(): React.JSX.Element {
           amount: parsed,
           date: effectiveDate,
           currency: sheet?.currency || FALLBACK_CURRENCY,
-        });
+        } satisfies ContractInput<'UpdateBalanceSnapshotBody'>);
 
         setSaveHint(text('balanceSaved', 'Balance saved'));
         loadSheet();
@@ -254,8 +259,8 @@ function BalanceSheet(): React.JSX.Element {
             dateFrom: snapshotDate,
             dateTo: snapshotDate,
             format,
-            locale,
-          },
+            locale: reportLocaleOf(locale),
+          } satisfies ContractInput<'GenerateReportBody'>,
           { responseType: 'blob' },
         );
 

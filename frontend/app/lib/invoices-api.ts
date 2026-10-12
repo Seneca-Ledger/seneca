@@ -10,6 +10,7 @@ import type {
   InvoiceStatus,
   LateFeeQuote,
 } from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { checkContract } from '@/app/lib/query-fn-schema';
 
 export type {
@@ -89,12 +90,18 @@ export const clientsApi = {
     return checkContract('Client', unwrapData(response), '/clients/:id');
   },
   async create(payload: CreateClientInput): Promise<Client> {
-    const response = await apiClient.post<Client>('/clients', payload);
-    return unwrapData(response);
+    const response = await apiClient.post<Client>(
+      '/clients',
+      payload satisfies ContractInput<'CreateClientBody'>,
+    );
+    return checkContract('Client', unwrapData(response), '/clients');
   },
   async update(id: string, payload: UpdateClientInput): Promise<Client> {
-    const response = await apiClient.put<Client>(`/clients/${id}`, payload);
-    return unwrapData(response);
+    const response = await apiClient.put<Client>(
+      `/clients/${id}`,
+      payload satisfies ContractInput<'UpdateClientBody'>,
+    );
+    return checkContract('Client', unwrapData(response), '/clients/:id');
   },
   async delete(id: string): Promise<{ message: string }> {
     const response = await apiClient.delete<{ message: string }>(`/clients/${id}`);
@@ -118,7 +125,7 @@ export const invoicesApi = {
     return invoicesApi.getOne(unwrapData(response).id);
   },
   async update(id: string, payload: UpdateInvoiceInput): Promise<Invoice> {
-    await apiClient.put(`/invoices/${id}`, payload);
+    await apiClient.put(`/invoices/${id}`, payload satisfies ContractInput<'UpdateInvoiceBody'>);
     return invoicesApi.getOne(id);
   },
   async send(id: string): Promise<Invoice> {
@@ -153,11 +160,17 @@ export const invoicesApi = {
     return checkContract('InvoiceSettings', unwrapData(response), '/invoices/settings');
   },
   async updateSettings(payload: InvoiceSettingsInput): Promise<InvoiceSettings> {
-    const response = await apiClient.put<InvoiceSettings>('/invoices/settings', payload);
-    return unwrapData(response);
+    const response = await apiClient.put<InvoiceSettings>(
+      '/invoices/settings',
+      payload satisfies ContractInput<'UpdateInvoiceSettingsBody'>,
+    );
+    return checkContract('InvoiceSettings', unwrapData(response), '/invoices/settings');
   },
   async sendEmail(id: string, payload: SendInvoiceEmailInput = {}): Promise<InvoiceDelivery> {
-    const response = await apiClient.post<InvoiceDelivery>(`/invoices/${id}/deliveries`, payload);
+    const response = await apiClient.post<InvoiceDelivery>(
+      `/invoices/${id}/deliveries`,
+      payload satisfies ContractInput<'SendInvoiceEmailBody'>,
+    );
     return unwrapData(response);
   },
   async deliveries(id: string): Promise<InvoiceDelivery[]> {

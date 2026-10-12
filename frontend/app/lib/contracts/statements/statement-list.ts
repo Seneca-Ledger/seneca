@@ -75,3 +75,27 @@ export type StatementListItem = Wire<typeof StatementListItem>;
 
 export const StatementList = Schema.Array(StatementListItem);
 export type StatementList = Wire<typeof StatementList>;
+
+/**
+ * `GET /statements/:id`, as the statement editor reads it. The category is not
+ * loaded here: the editor finds it in the category list by `categoryId`.
+ */
+export const StatementDetail = Schema.Struct({
+  id: Schema.String,
+  fileName: Schema.String,
+  fileType: Schema.String,
+  bankName: Schema.String,
+  status: StatementStatus,
+  stage: StatementStage,
+  totalTransactions: Schema.Number,
+  balanceStart: Schema.NullOr(DecimalString),
+  balanceEnd: Schema.NullOr(DecimalString),
+  currency: Schema.String,
+  statementDateFrom: Schema.NullOr(DateOnly),
+  statementDateTo: Schema.NullOr(DateOnly),
+  categoryId: Schema.NullOr(Schema.String),
+  /** Free-form parser output; read leniently by the editor. */
+  parsingDetails: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
+  createdAt: Timestamp,
+});
+export type StatementDetail = Wire<typeof StatementDetail>;

@@ -1,6 +1,6 @@
 import apiClient from '@/app/lib/api';
 import type { Client } from '@/app/lib/invoices-api';
-import { checkContract } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 export type CreditNoteStatus = 'issued' | 'void';
 
@@ -48,7 +48,10 @@ const unwrapData = <T>(response: { data: T }) => response.data;
 
 export const creditNotesApi = {
   async create(payload: CreateCreditNoteInput): Promise<CreditNote> {
-    const response = await apiClient.post<CreditNote>('/credit-notes', payload);
+    const response = await apiClient.post<CreditNote>(
+      '/credit-notes',
+      payload satisfies ContractInput<'CreateCreditNoteBody'>,
+    );
     return unwrapData(response);
   },
 

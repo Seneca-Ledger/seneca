@@ -41,7 +41,9 @@ describe('Sidebar Review dot', () => {
   });
 
   it('shows a dot on Review when something waits there', async () => {
-    apiGet.mockResolvedValue({ data: { total: 2 } });
+    apiGet.mockResolvedValue({
+      data: { transaction: 1, receipt: 1, duplicate: 0, subscription: 0, total: 2 },
+    });
 
     renderWithQuery(<Sidebar />);
 
@@ -53,7 +55,9 @@ describe('Sidebar Review dot', () => {
   });
 
   it('shows no dot when Review is empty', async () => {
-    apiGet.mockResolvedValue({ data: { total: 0 } });
+    apiGet.mockResolvedValue({
+      data: { transaction: 0, receipt: 0, duplicate: 0, subscription: 0, total: 0 },
+    });
 
     renderWithQuery(<Sidebar />);
 

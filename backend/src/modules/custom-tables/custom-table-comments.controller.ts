@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -10,12 +9,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { CreateRowCommentBody, SetCommentResolvedBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CustomTableCommentsService } from './custom-table-comments.service';
-import { CreateRowCommentDto, SetCommentResolvedDto } from './dto/create-row-comment.dto';
 
 @Controller('custom-tables')
 @UseGuards(JwtAuthGuard)
@@ -41,7 +41,7 @@ export class CustomTableCommentsController {
     @WorkspaceId() workspaceId: string,
     @Param('id', new ParseUUIDPipe()) tableId: string,
     @Param('rowId', new ParseUUIDPipe()) rowId: string,
-    @Body() dto: CreateRowCommentDto,
+    @SchemaBody(CreateRowCommentBody) dto: CreateRowCommentBody,
   ) {
     return this.commentsService.addComment(user.id, workspaceId, tableId, rowId, dto.body);
   }
@@ -64,7 +64,7 @@ export class CustomTableCommentsController {
     @WorkspaceId() workspaceId: string,
     @Param('id', new ParseUUIDPipe()) _tableId: string,
     @Param('commentId', new ParseUUIDPipe()) commentId: string,
-    @Body() dto: SetCommentResolvedDto,
+    @SchemaBody(SetCommentResolvedBody) dto: SetCommentResolvedBody,
   ) {
     return this.commentsService.setResolved(user.id, workspaceId, commentId, dto.resolved);
   }

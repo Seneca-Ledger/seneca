@@ -9,6 +9,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
@@ -223,8 +224,12 @@ export function useBudgetsPage() {
   }, [workspaceCurrency]);
 
   const saveMutation = useMutation({
-    mutationFn: (variables: { id: string | null; body: Record<string, unknown> }) =>
-      variables.id
+    mutationFn: (
+      variables:
+        | { id: string; body: ContractInput<'UpdateBudgetBody'> }
+        | { id: null; body: ContractInput<'CreateBudgetBody'> },
+    ): Promise<unknown> =>
+      variables.id !== null
         ? apiClient.put(`/budgets/${variables.id}`, variables.body)
         : apiClient.post('/budgets', variables.body),
     onSettled: invalidate,
@@ -239,32 +244,38 @@ export function useBudgetsPage() {
 
   const handleSave = useCallback(async () => {
     const editingId = editingBudget?.id ?? null;
-    const body = editingId
+    const variables = editingId
       ? {
-          name: formData.name,
-          limitAmount: formData.limitAmount,
-          currency: formData.currency,
-          rolloverMode: formData.rolloverMode,
-          // Explicit null detaches; the API leaves the link alone only when the
-          // field is absent, which the form can never mean.
-          goalId: formData.goalId || null,
-          startsOn: formData.startsOn || null,
-          endsOn: formData.endsOn || null,
+          id: editingId,
+          body: {
+            name: formData.name,
+            limitAmount: formData.limitAmount,
+            currency: formData.currency,
+            rolloverMode: formData.rolloverMode,
+            // Explicit null detaches; the API leaves the link alone only when the
+            // field is absent, which the form can never mean.
+            goalId: formData.goalId || null,
+            startsOn: formData.startsOn || null,
+            endsOn: formData.endsOn || null,
+          },
         }
       : {
-          name: formData.name,
-          categoryId: formData.categoryId,
-          limitAmount: formData.limitAmount,
-          periodType: formData.periodType,
-          rolloverMode: formData.rolloverMode,
-          currency: formData.currency,
-          goalId: formData.goalId || null,
-          startsOn: formData.startsOn || null,
-          endsOn: formData.endsOn || null,
+          id: null,
+          body: {
+            name: formData.name,
+            categoryId: formData.categoryId,
+            limitAmount: formData.limitAmount,
+            periodType: formData.periodType,
+            rolloverMode: formData.rolloverMode,
+            currency: formData.currency,
+            goalId: formData.goalId || null,
+            startsOn: formData.startsOn || null,
+            endsOn: formData.endsOn || null,
+          },
         };
 
     await saveMutation
-      .mutateAsync({ id: editingId, body })
+      .mutateAsync(variables)
       .then(() => {
         toast.success(editingId ? text.toastUpdated.value : text.toastCreated.value);
         closeDialog();

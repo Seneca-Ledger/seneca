@@ -43,3 +43,69 @@ export type BudgetItem = Wire<typeof BudgetItem>;
 
 export const BudgetList = Schema.Array(BudgetItem);
 export type BudgetList = Wire<typeof BudgetList>;
+
+/** `GET /budgets/impact`: what a planned expense would do to budgets and the account. */
+export const BudgetImpact = Schema.Struct({
+  budgets: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      categoryName: Schema.NullOr(Schema.String),
+      currency: Schema.String,
+      availableAmount: Schema.Number,
+      spentAmount: Schema.Number,
+      remainingAfter: Schema.Number,
+      exceeds: Schema.Boolean,
+    }),
+  ),
+  account: Schema.NullOr(
+    Schema.Struct({
+      walletId: Schema.String,
+      name: Schema.String,
+      currency: Schema.String,
+      balance: Schema.Number,
+      balanceAfter: Schema.Number,
+      overdraws: Schema.Boolean,
+    }),
+  ),
+});
+export type BudgetImpact = Wire<typeof BudgetImpact>;
+
+const StoicSplit = Schema.Struct({
+  necessity: Schema.Number,
+  work: Schema.Number,
+  virtue: Schema.Number,
+  leisure: Schema.Number,
+  unclassified: Schema.Number,
+});
+
+/** `GET /budgets/stoic-balance`: intended against actual spending, by Stoic class. */
+export const StoicBalance = Schema.Struct({
+  currency: Schema.String,
+  months: Schema.Array(
+    Schema.Struct({
+      month: Schema.String,
+      monthsAgo: Schema.Number,
+      intended: StoicSplit,
+      actual: StoicSplit,
+      overBudgetCategoryIds: Schema.Array(Schema.String),
+      spentByCategory: Schema.Record(Schema.String, Schema.Number),
+      limitByCategory: Schema.Record(Schema.String, Schema.Number),
+    }),
+  ),
+  categories: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      parentId: Schema.NullOr(Schema.String),
+      stoicClass: Schema.NullOr(Schema.Literals(['necessity', 'work', 'virtue', 'leisure'])),
+      source: Schema.NullOr(Schema.Literals(['user', 'suggested'])),
+      helpsOthers: Schema.Boolean,
+      helpsOthersSource: Schema.Literals(['user', 'suggested']),
+      spent: Schema.Number,
+      active: Schema.Boolean,
+      budgeted: Schema.Boolean,
+    }),
+  ),
+});
+export type StoicBalance = Wire<typeof StoicBalance>;

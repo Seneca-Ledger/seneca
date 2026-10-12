@@ -15,6 +15,7 @@ vi.mock('@/app/lib/api', () => ({
   },
 }));
 
+import type { TaxRateItem } from '@/app/lib/contracts';
 import { categoryItem } from '@/app/test/fixtures/contracts';
 import { TaxRulesSection } from './TaxRulesSection';
 
@@ -23,11 +24,24 @@ const CATEGORIES = [
   categoryItem({ id: 'cat-food', name: 'Материалы' }),
 ];
 
+// The wire format (packages/contracts TaxRateItem).
+const taxRate = (fields: Pick<TaxRateItem, 'id' | 'code' | 'name' | 'rate'>): TaxRateItem => ({
+  isDefault: false,
+  isEnabled: true,
+  jurisdictionId: null,
+  kind: 'standard',
+  validFrom: '1900-01-01',
+  validTo: null,
+  isInclusive: false,
+  isReverseCharge: false,
+  ...fields,
+});
+
 const RATES = [
-  { id: 'r1', code: 'KZ_STANDARD', name: 'НДС 16%', rate: '16.00' },
-  { id: 'r2', code: 'KZ_ZERO', name: 'НДС 0%', rate: '0.00' },
+  taxRate({ id: 'r1', code: 'KZ_STANDARD', name: 'НДС 16%', rate: '16.00' }),
+  taxRate({ id: 'r2', code: 'KZ_ZERO', name: 'НДС 0%', rate: '0.00' }),
   // Hand-made rates have no code, so a rule cannot name one.
-  { id: 'r3', code: null, name: 'Custom 7%', rate: '7.00' },
+  taxRate({ id: 'r3', code: null, name: 'Custom 7%', rate: '7.00' }),
 ];
 
 function mockApi({ rules = [] as unknown[], rates = RATES } = {}) {
@@ -79,6 +93,7 @@ describe('TaxRulesSection', () => {
           id: 'rule-1',
           categoryId: 'cat-rent',
           taxRateCode: 'KZ_ZERO',
+          priority: 0,
           direction: 'expense',
           isEnabled: true,
         },
@@ -97,6 +112,7 @@ describe('TaxRulesSection', () => {
           id: 'rule-1',
           categoryId: null,
           taxRateCode: 'KZ_STANDARD',
+          priority: 0,
           direction: 'both',
           isEnabled: true,
         },
@@ -156,6 +172,7 @@ describe('TaxRulesSection', () => {
           id: 'rule-1',
           categoryId: 'cat-rent',
           taxRateCode: 'KZ_ZERO',
+          priority: 0,
           direction: 'expense',
           isEnabled: true,
         },

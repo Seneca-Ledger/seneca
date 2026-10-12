@@ -31,6 +31,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { CATEGORY_ICON_CHOICES, categoryIconFor } from '@/app/lib/category-icon-choices';
 import { apiQuery } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
@@ -331,10 +332,13 @@ export default function WorkspaceCategoriesView() {
       };
 
       if (editingCategory) {
-        await apiClient.put(`/categories/${editingCategory.id}`, data);
+        await apiClient.put(
+          `/categories/${editingCategory.id}`,
+          data satisfies ContractInput<'UpdateCategoryBody'>,
+        );
         toast.success(t.toasts.updated.value);
       } else {
-        await apiClient.post('/categories', data);
+        await apiClient.post('/categories', data satisfies ContractInput<'CreateCategoryBody'>);
         toast.success(t.toasts.created.value);
       }
 
@@ -351,7 +355,9 @@ export default function WorkspaceCategoriesView() {
     setTogglingIds(prev => new Set(prev).add(category.id));
 
     await (async () => {
-      await apiClient.put(`/categories/${category.id}`, { isEnabled: nextEnabled });
+      await apiClient.put(`/categories/${category.id}`, {
+        isEnabled: nextEnabled,
+      } satisfies ContractInput<'UpdateCategoryBody'>);
       setCategories(prev =>
         prev.map(item => (item.id === category.id ? { ...item, isEnabled: nextEnabled } : item)),
       );
@@ -377,13 +383,13 @@ export default function WorkspaceCategoriesView() {
     const nextEnabled = category.isEnabled === false;
 
     if (!nextEnabled) {
-      const usage = await apiClient
-        .get(`/categories/${category.id}/usage-count`)
-        .then(response => response.data as CategoryUsageCount)
-        .catch((err: unknown) => {
-          console.error('Failed to get category usage count:', err);
-          return null;
-        });
+      const usage = await apiQueryDecoded({
+        url: `/categories/${category.id}/usage-count`,
+        contract: 'CategoryUsageCount',
+      }).catch((err: unknown) => {
+        console.error('Failed to get category usage count:', err);
+        return null;
+      });
       if (usage && usage.total > 0) {
         setDisableConfirm({ category, usage });
         return;
@@ -415,7 +421,9 @@ export default function WorkspaceCategoriesView() {
     await (async () => {
       await Promise.all(
         Array.from(selectedIds).map(id =>
-          apiClient.put(`/categories/${id}`, { isEnabled: enable }),
+          apiClient.put(`/categories/${id}`, {
+            isEnabled: enable,
+          } satisfies ContractInput<'UpdateCategoryBody'>),
         ),
       );
       toast.success(enable ? t.manage.toasts.enabled.value : t.manage.toasts.disabled.value);

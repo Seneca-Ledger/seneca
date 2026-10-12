@@ -25,8 +25,10 @@ vi.mock('@/app/i18n', () => ({
 
 import { renderWithQuery } from '../../test/query-wrapper';
 import { AlertBanner } from './AlertBanner';
+import type { Insight } from '@/app/lib/contracts';
+import { insightPage } from '@/app/test/fixtures/contracts';
 
-function insight(overrides: Record<string, unknown> = {}) {
+function insight(overrides: Partial<Insight> = {}): Insight {
   return {
     id: 'insight-1',
     type: 'trend.spending_up',
@@ -50,7 +52,7 @@ describe('AlertBanner', () => {
   });
 
   it('links the banner body to where the problem can be looked at', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [insight()] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([insight()]) });
 
     renderWithQuery(<AlertBanner />);
 
@@ -63,7 +65,7 @@ describe('AlertBanner', () => {
   });
 
   it('keeps the link off ButtonBase, so the light-theme hover fill does not cover the banner', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [insight()] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([insight()]) });
 
     renderWithQuery(<AlertBanner />);
 
@@ -74,7 +76,7 @@ describe('AlertBanner', () => {
 
   it('leaves an insight with no destination as a plain notice', async () => {
     apiMocks.get.mockResolvedValue({
-      data: { items: [insight({ type: 'ai.summary', data: null })] },
+      data: insightPage([insight({ type: 'ai.summary', data: null })]),
     });
 
     renderWithQuery(<AlertBanner />);
@@ -84,7 +86,7 @@ describe('AlertBanner', () => {
   });
 
   it('keeps dismiss outside the link, so closing does not navigate', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [insight()] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([insight()]) });
 
     renderWithQuery(<AlertBanner />);
 

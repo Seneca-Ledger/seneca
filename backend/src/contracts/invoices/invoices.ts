@@ -199,3 +199,52 @@ export type CreditNote = Wire<typeof CreditNote>;
 
 export const CreditNoteList = Schema.Array(CreditNote);
 export type CreditNoteList = Wire<typeof CreditNoteList>;
+
+/**
+ * `GET /public/invoices/:token`: the invoice as its recipient sees it, already
+ * formatted, with the labels in the invoice's language.
+ */
+export const PublicInvoiceView = Schema.Struct({
+  number: Schema.String,
+  status: Schema.Literals(['sent', 'paid', 'overdue']),
+  issueDate: Schema.String,
+  dueDate: Schema.String,
+  currency: Schema.String,
+  subtotal: Schema.String,
+  taxTotal: Schema.String,
+  total: Schema.String,
+  pricesIncludeTax: Schema.Boolean,
+  notes: Schema.NullOr(Schema.String),
+  locale: Schema.NullOr(Schema.String),
+  /** Document labels; the set grows with the document, so it is an open record. */
+  labels: Schema.Record(Schema.String, Schema.String),
+  issuer: Schema.Struct({
+    legalName: Schema.NullOr(Schema.String),
+    addressLines: Schema.NullOr(Schema.String),
+    registrationId: Schema.NullOr(Schema.String),
+    taxId: Schema.NullOr(Schema.String),
+    email: Schema.NullOr(Schema.String),
+    phone: Schema.NullOr(Schema.String),
+    website: Schema.NullOr(Schema.String),
+    bankName: Schema.NullOr(Schema.String),
+    bankAccount: Schema.NullOr(Schema.String),
+    bankCode: Schema.NullOr(Schema.String),
+    paymentInstructions: Schema.NullOr(Schema.String),
+    invoiceFooter: Schema.NullOr(Schema.String),
+    logoUrl: Schema.NullOr(Schema.String),
+  }),
+  billedTo: Schema.Struct({
+    name: Schema.String,
+    addressLines: Schema.NullOr(Schema.String),
+    taxId: Schema.NullOr(Schema.String),
+  }),
+  lines: Schema.Array(
+    Schema.Struct({
+      description: Schema.String,
+      quantity: Schema.String,
+      unitPrice: Schema.String,
+      amount: Schema.String,
+    }),
+  ),
+});
+export type PublicInvoiceView = Wire<typeof PublicInvoiceView>;

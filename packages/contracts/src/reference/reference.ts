@@ -59,3 +59,11 @@ export type WalletItem = Wire<typeof WalletItem>;
 
 export const WalletList = Schema.Array(WalletItem);
 export type WalletList = Wire<typeof WalletList>;
+
+/** `GET /categories/:id/usage-count`: what deleting the category would touch. */
+export const CategoryUsageCount = Schema.Struct({
+  transactions: Schema.Number,
+  statements: Schema.Number,
+  total: Schema.Number,
+});
+export type CategoryUsageCount = Wire<typeof CategoryUsageCount>;

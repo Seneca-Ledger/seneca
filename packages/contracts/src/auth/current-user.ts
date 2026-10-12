@@ -43,3 +43,40 @@ export const CurrentUser = Schema.Struct({
   welcomeTutorialSeenAt: Schema.NullOr(Timestamp),
 });
 export type CurrentUser = Wire<typeof CurrentUser>;
+
+/**
+ * What the profile updates answer (`PATCH /users/me/preferences`,
+ * `/me/onboarding`, `POST /me/avatar`, `/me/disclaimer`): the user as
+ * `GET /auth/me` gives it, so the client can store it the same way.
+ */
+export const UserUpdateResponse = Schema.Struct({ user: CurrentUser });
+export type UserUpdateResponse = Wire<typeof UserUpdateResponse>;
+
+/** The user that login and registration answer with: enough for the first render. */
+export const AuthUser = Schema.Struct({
+  id: Schema.String,
+  email: Schema.String,
+  name: Schema.String,
+  role: UserRole,
+  workspaceId: Schema.NullOr(Schema.String),
+  /** The workspace open at the last switch; reopened when the user still belongs to it. */
+  lastWorkspaceId: Schema.NullOr(Schema.String),
+  locale: Schema.String,
+  timeZone: Schema.NullOr(Schema.String),
+  themePreference: ThemePreference,
+  mapStylePreference: Schema.NullOr(Schema.String),
+  avatarUrl: Schema.NullOr(Schema.String),
+  onboardingCompletedAt: Schema.NullOr(Timestamp),
+});
+export type AuthUser = Wire<typeof AuthUser>;
+
+/** `POST /auth/register`; the tokens arrive as httpOnly cookies, not in the body. */
+export const RegisterResponse = Schema.Struct({ user: AuthUser });
+export type RegisterResponse = Wire<typeof RegisterResponse>;
+
+/** `POST /auth/login`: the user, or a request for the second factor. */
+export const LoginResponse = Schema.Union([
+  Schema.Struct({ user: AuthUser }),
+  Schema.Struct({ twoFactorRequired: Schema.Literal(true) }),
+]);
+export type LoginResponse = Wire<typeof LoginResponse>;

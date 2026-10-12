@@ -9,7 +9,7 @@ import type {
   PayablesSummary,
   PaymentCandidate,
 } from '@/app/lib/contracts';
-import { checkContract } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 export type {
   PayableDirection,
@@ -165,13 +165,19 @@ export const payablesApi = {
   },
 
   async create(payload: CreatePayableInput): Promise<Payable> {
-    const response = await apiClient.post<Payable>('/payables', payload);
-    return unwrapData(response);
+    const response = await apiClient.post<Payable>(
+      '/payables',
+      payload satisfies ContractInput<'CreatePayableBody'>,
+    );
+    return checkContract('Payable', unwrapData(response), '/payables');
   },
 
   async update(id: string, payload: UpdatePayableInput): Promise<Payable> {
-    const response = await apiClient.put<Payable>(`/payables/${id}`, payload);
-    return unwrapData(response);
+    const response = await apiClient.put<Payable>(
+      `/payables/${id}`,
+      payload satisfies ContractInput<'UpdatePayableBody'>,
+    );
+    return checkContract('Payable', unwrapData(response), '/payables/:id');
   },
 
   async paymentCandidates(id: string): Promise<PaymentCandidate[]> {
@@ -189,35 +195,44 @@ export const payablesApi = {
   },
 
   async addPayment(id: string, payload: AddPayablePaymentInput): Promise<Payable> {
-    const response = await apiClient.post<Payable>(`/payables/${id}/payments`, payload);
-    return unwrapData(response);
+    const response = await apiClient.post<Payable>(
+      `/payables/${id}/payments`,
+      payload satisfies ContractInput<'AddPayablePaymentBody'>,
+    );
+    return checkContract('Payable', unwrapData(response), '/payables/:id/payments');
   },
 
   async removePayment(id: string, paymentId: string): Promise<Payable> {
     const response = await apiClient.delete<Payable>(`/payables/${id}/payments/${paymentId}`);
-    return unwrapData(response);
+    return checkContract('Payable', unwrapData(response), '/payables/:id/payments/:paymentId');
   },
 
   async allocate(payload: AllocateTransactionInput): Promise<Payable[]> {
-    const response = await apiClient.post<Payable[]>('/payables/allocate', payload);
-    return unwrapData(response);
+    const response = await apiClient.post<Payable[]>(
+      '/payables/allocate',
+      payload satisfies ContractInput<'AllocateTransactionBody'>,
+    );
+    return checkContract('PayableList', unwrapData(response), '/payables/allocate');
   },
 
   async allocationSuggestion(transactionId: string): Promise<AllocationSuggestion> {
-    const response = await apiClient.get<AllocationSuggestion>(
-      `/payables/allocation-suggestion/${transactionId}`,
-    );
-    return unwrapData(response);
+    return apiQueryDecoded({
+      url: `/payables/allocation-suggestion/${transactionId}`,
+      contract: 'AllocationSuggestion',
+    });
   },
 
   async markAsPaid(id: string, payload: MarkPayablePaidInput = {}): Promise<Payable> {
-    const response = await apiClient.put<Payable>(`/payables/${id}/mark-paid`, payload);
-    return unwrapData(response);
+    const response = await apiClient.put<Payable>(
+      `/payables/${id}/mark-paid`,
+      payload satisfies ContractInput<'MarkPayablePaidBody'>,
+    );
+    return checkContract('Payable', unwrapData(response), '/payables/:id/mark-paid');
   },
 
   async archive(id: string): Promise<Payable> {
     const response = await apiClient.put<Payable>(`/payables/${id}/archive`);
-    return unwrapData(response);
+    return checkContract('Payable', unwrapData(response), '/payables/:id/archive');
   },
 
   async delete(id: string): Promise<{ message: string }> {
@@ -226,9 +241,13 @@ export const payablesApi = {
   },
 
   async exportList(params: ExportPayablesParams): Promise<ExportPayablesResult> {
-    const response = await apiClient.post<Blob>('/payables/export', params, {
-      responseType: 'blob',
-    });
+    const response = await apiClient.post<Blob>(
+      '/payables/export',
+      params satisfies ContractInput<'FilterPayablesBody'>,
+      {
+        responseType: 'blob',
+      },
+    );
 
     return {
       blob: response.data,

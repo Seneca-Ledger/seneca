@@ -1,12 +1,19 @@
 import type {
+  AuthUser,
   BudgetItem,
   CategoryItem,
   CategoryRef,
   CryptoHolding,
   CryptoSummary,
+  CurrentUser,
+  Insight,
   Payable,
+  ReceiptRecord,
   SubscriptionItem,
   WalletItem,
+  WorkspaceDetail,
+  WorkspaceMember,
+  WorkspaceSummary,
 } from '@/app/lib/contracts';
 
 // Wire-format fixtures: outside production every API response is checked
@@ -182,4 +189,124 @@ export function payableRow(overrides: Partial<Payable> & Pick<Payable, 'id' | 'v
     deletedAt: null,
     ...overrides,
   };
+}
+
+export function workspaceMember(
+  overrides: Partial<WorkspaceMember> & Pick<WorkspaceMember, 'id'>,
+): WorkspaceMember {
+  return {
+    memberId: `member-${overrides.id}`,
+    role: 'member',
+    permissions: null,
+    joinedAt: TIMESTAMP,
+    ...overrides,
+  };
+}
+
+/** `GET /workspaces/:id`: the workspace with its members. */
+export function workspaceDetail(overrides: Partial<WorkspaceDetail> = {}): WorkspaceDetail {
+  return {
+    id: 'workspace-1',
+    name: 'Home',
+    description: null,
+    icon: null,
+    color: null,
+    backgroundImage: null,
+    currency: 'USD',
+    isFavorite: false,
+    settings: null,
+    ownerId: 'user-1',
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+    members: [],
+    ...overrides,
+  };
+}
+
+export function receiptRecord(
+  overrides: Partial<ReceiptRecord> & Pick<ReceiptRecord, 'id'>,
+): ReceiptRecord {
+  return {
+    statementId: null,
+    transactionId: null,
+    source: 'scan',
+    subject: 'Receipt',
+    sender: 'scan',
+    receivedAt: TIMESTAMP,
+    status: 'draft',
+    stage: 'submit',
+    language: null,
+    metadata: null,
+    parsedData: null,
+    confidence: null,
+    taxAmount: null,
+    isDuplicate: false,
+    duplicateOfId: null,
+    locationLat: null,
+    locationLng: null,
+    locationSource: null,
+    locationAccuracyM: null,
+    locationUpdatedAt: null,
+    category: null,
+    createdAt: TIMESTAMP,
+    ...overrides,
+  };
+}
+
+/** `POST /workspaces`, and a row of `GET /workspaces`. */
+export function workspaceSummary(overrides: Partial<WorkspaceSummary> = {}): WorkspaceSummary {
+  const { members: _members, ...summary } = workspaceDetail();
+  return { ...summary, ...overrides };
+}
+
+/** `GET /auth/me`, and the `user` of the profile updates. */
+export function currentUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
+  return {
+    id: 'user-1',
+    email: 'user@example.com',
+    name: 'User',
+    role: 'user',
+    workspaceId: 'workspace-1',
+    permissions: null,
+    telegramId: null,
+    telegramChatId: null,
+    locale: 'en',
+    timeZone: null,
+    dateFormat: 'auto',
+    firstDayOfWeek: null,
+    uiDensity: 'comfortable',
+    reduceMotion: false,
+    showDailyQuote: true,
+    themePreference: 'auto',
+    mapStylePreference: null,
+    lastLogin: null,
+    avatarUrl: null,
+    onboardingCompletedAt: null,
+    welcomeTutorialSeenAt: null,
+    ...overrides,
+  };
+}
+
+/** The `user` of `POST /auth/login` and `POST /auth/register`. */
+export function authUser(overrides: Partial<AuthUser> = {}): AuthUser {
+  return {
+    id: 'user-1',
+    email: 'user@example.com',
+    name: 'User',
+    role: 'user',
+    workspaceId: null,
+    lastWorkspaceId: null,
+    locale: 'en',
+    timeZone: null,
+    themePreference: 'auto',
+    mapStylePreference: null,
+    avatarUrl: null,
+    onboardingCompletedAt: null,
+    ...overrides,
+  };
+}
+
+/** `GET /insights`: one page of insights. */
+export function insightPage(items: Insight[]) {
+  return { items, total: items.length, limit: 50, offset: 0 };
 }

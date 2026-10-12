@@ -44,6 +44,10 @@ export const Payable = Schema.Struct({
 });
 export type Payable = Wire<typeof Payable>;
 
+/** `POST /payables/allocate`: the bills a payment was spread over. */
+export const PayableList = Schema.Array(Payable);
+export type PayableList = Wire<typeof PayableList>;
+
 /** `GET /payables`. */
 export const PayableListPage = Schema.Struct({
   data: Schema.Array(Payable),
@@ -99,3 +103,23 @@ export type PaymentCandidate = Wire<typeof PaymentCandidate>;
 
 export const PaymentCandidateList = Schema.Array(PaymentCandidate);
 export type PaymentCandidateList = Wire<typeof PaymentCandidateList>;
+
+/** `GET /payables/allocation-suggestion/:transactionId`: how a payment would split over open bills. */
+export const AllocationSuggestion = Schema.Struct({
+  transactionId: Schema.String,
+  available: Schema.Number,
+  currency: Schema.String,
+  exact: Schema.Boolean,
+  unallocated: Schema.Number,
+  allocations: Schema.Array(
+    Schema.Struct({
+      payableId: Schema.String,
+      vendor: Schema.String,
+      dueDate: Schema.NullOr(Schema.String),
+      outstanding: Schema.Number,
+      amount: Schema.Number,
+      partial: Schema.Boolean,
+    }),
+  ),
+});
+export type AllocationSuggestion = Wire<typeof AllocationSuggestion>;

@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   DefaultValuePipe,
   Delete,
@@ -15,26 +14,32 @@ import type { Response } from 'express';
 import * as fs from 'fs';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import {
+  CreateReportScheduleBody,
+  CustomReportBody,
+  CustomTablesReportBody,
+  CustomTablesReportDrillDownBody,
+  CustomTablesSummaryBody,
+  ExportReportBody,
+  GenerateReportBody,
+  UpdateReportScheduleActiveBody,
+  WorkspaceExportBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CashFlowMapService } from './cash-flow-map.service';
 import { cashFlowMapToCsv } from './cash-flow-map.util';
 import { CashFlowMapQueryDto } from './dto/cash-flow-map-query.dto';
-import { type CustomReportDto, ReportFormat } from './dto/custom-report.dto';
-import {
-  CustomTablesReportDrillDownDto,
-  CustomTablesReportDto,
-} from './dto/custom-tables-report.dto';
-import { CustomTablesSummaryDto } from './dto/custom-tables-summary.dto';
-import { ExportFormat, type ExportReportDto } from './dto/export-report.dto';
-import { GenerateReportDto } from './dto/generate-report.dto';
-import { CreateReportScheduleDto, UpdateReportScheduleActiveDto } from './dto/report-schedule.dto';
+import { ReportFormat } from './dto/custom-report.dto';
+import { ExportFormat } from './dto/export-report.dto';
 import { SpendFlowQueryDto } from './dto/spend-flow-query.dto';
 import { SpendOverTimeQueryDto } from './dto/spend-over-time-query.dto';
 import { TopCategoriesQueryDto } from './dto/top-categories-query.dto';
-import { type WorkspaceExportDto, WorkspaceExportFormat } from './dto/workspace-export.dto';
+import { WorkspaceExportFormat } from './dto/workspace-export.dto';
 import type { CustomReport } from './interfaces/custom-report.interface';
 import type { DailyReport } from './interfaces/daily-report.interface';
 import type { MonthlyReport } from './interfaces/monthly-report.interface';
@@ -138,7 +143,7 @@ export class ReportsController {
   async getCustomTablesSummary(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CustomTablesSummaryDto,
+    @SchemaBody(CustomTablesSummaryBody) dto: CustomTablesSummaryBody,
   ) {
     return this.reportsService.getCustomTablesSummary(workspaceId, dto);
   }
@@ -148,7 +153,7 @@ export class ReportsController {
   async getCustomTablesReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CustomTablesReportDto,
+    @SchemaBody(CustomTablesReportBody) dto: CustomTablesReportBody,
   ) {
     return this.reportsService.getCustomTablesReport(workspaceId, dto);
   }
@@ -158,7 +163,7 @@ export class ReportsController {
   async getCustomTablesReportDrillDown(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CustomTablesReportDrillDownDto,
+    @SchemaBody(CustomTablesReportDrillDownBody) dto: CustomTablesReportDrillDownBody,
   ) {
     return this.reportsService.getCustomTablesReportDrillDown(workspaceId, dto);
   }
@@ -207,7 +212,7 @@ export class ReportsController {
   async getCustomReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CustomReportDto,
+    @SchemaBody(CustomReportBody) dto: CustomReportBody,
   ) {
     return this.reportsService.generateCustomReport(workspaceId, dto);
   }
@@ -217,7 +222,7 @@ export class ReportsController {
   async exportReport(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: ExportReportDto,
+    @SchemaBody(ExportReportBody) dto: ExportReportBody,
     @Res() res: Response,
   ) {
     // Generate report based on date range
@@ -225,7 +230,7 @@ export class ReportsController {
 
     if (dto.dateFrom && dto.dateTo) {
       // Custom report
-      const customDto: CustomReportDto = {
+      const customDto: CustomReportBody = {
         dateFrom: dto.dateFrom,
         dateTo: dto.dateTo,
         format: dto.format === ExportFormat.EXCEL ? ReportFormat.EXCEL : ReportFormat.CSV,
@@ -266,7 +271,7 @@ export class ReportsController {
   async previewReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: GenerateReportDto,
+    @SchemaBody(GenerateReportBody) dto: GenerateReportBody,
   ) {
     return this.reportsService.previewTemplate(workspaceId, dto);
   }
@@ -276,7 +281,7 @@ export class ReportsController {
   async generateReport(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: GenerateReportDto,
+    @SchemaBody(GenerateReportBody) dto: GenerateReportBody,
     @Res() res: Response,
   ) {
     const { filePath, fileName, contentType } = await this.reportsService.generateFromTemplate(
@@ -294,12 +299,12 @@ export class ReportsController {
   @WorkspaceAuth(Permission.REPORT_EXPORT)
   async exportWorkspaceTransactions(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: WorkspaceExportDto,
+    @SchemaBody(WorkspaceExportBody) dto: WorkspaceExportBody,
     @Res() res: Response,
   ) {
     const { filePath, fileName, mimeType } = await this.reportsService.exportWorkspaceTransactions(
       workspaceId,
-      dto.format || WorkspaceExportFormat.EXCEL,
+      toEnum(WorkspaceExportFormat, dto.format) || WorkspaceExportFormat.EXCEL,
     );
 
     res.setHeader('Content-Type', mimeType);
@@ -345,7 +350,7 @@ export class ReportsController {
   async createSchedule(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateReportScheduleDto,
+    @SchemaBody(CreateReportScheduleBody) dto: CreateReportScheduleBody,
   ) {
     return this.reportSchedules.create(workspaceId, user.id, dto);
   }
@@ -356,7 +361,7 @@ export class ReportsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @Param('scheduleId') scheduleId: string,
-    @Body() dto: UpdateReportScheduleActiveDto,
+    @SchemaBody(UpdateReportScheduleActiveBody) dto: UpdateReportScheduleActiveBody,
   ) {
     return this.reportSchedules.setActive(workspaceId, scheduleId, dto.isActive);
   }

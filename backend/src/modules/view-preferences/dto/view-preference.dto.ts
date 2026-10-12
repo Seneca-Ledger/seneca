@@ -1,4 +1,4 @@
-import { IsIn, IsObject } from 'class-validator';
+import { IsIn } from 'class-validator';
 
 /**
  * The pages that remember themselves. A closed list, so a typo in a client
@@ -9,10 +9,4 @@ export const VIEW_SCOPES = ['transactions', 'review', 'reports', 'dashboard'] as
 export class ViewScopeParam {
   @IsIn(VIEW_SCOPES)
   scope: (typeof VIEW_SCOPES)[number];
-}
-
-export class ViewPreferenceDto {
-  /** Opaque to the server: the page owns its own shape. */
-  @IsObject()
-  state: Record<string, unknown>;
 }

@@ -1,9 +1,10 @@
 /** Shapes of the /ledger API. Amounts are decimal strings, exact as the backend stores them. */
+import type { JournalEntrySource } from '@/app/lib/contracts';
 
 export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense';
 export type Side = 'debit' | 'credit';
 export type EntryStatus = 'draft' | 'posted' | 'reversed';
-export type EntrySource = 'transaction' | 'manual' | 'opening_balance' | 'fx_revaluation';
+export type EntrySource = JournalEntrySource;
 
 export interface LedgerAccount {
   id: string;
