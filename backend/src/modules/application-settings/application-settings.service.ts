@@ -7,8 +7,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 import AdmZip = require('adm-zip');
 
+import { Effect, Schema } from 'effect';
+import { HttpClientResponse } from 'effect/http';
 import nodemailer from 'nodemailer';
 import type { Repository } from 'typeorm';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { getWith } from '../../common/effect/http-json';
 import { ANTHROPIC_API_VERSION, isAnthropicBaseUrl } from '../../common/utils/ai-provider.util';
 import {
   assertPublicEgressHost,
@@ -31,6 +35,12 @@ import {
   WorkspaceServiceSettingsKey,
 } from '../../entities';
 import { TransactionCategorizer } from '../classification/helpers/transaction-categorizer';
+
+/** Telegram's `getMe`: `ok` false with a description for a bad token. */
+const TelegramGetMeResponse = Schema.Struct({
+  ok: Schema.Boolean,
+  description: Schema.optional(Schema.String),
+});
 
 export type AiRuntimeSettings = {
   enabled: boolean;
@@ -99,6 +109,7 @@ export class ApplicationSettingsService {
     private readonly settingsRepository: Repository<WorkspaceServiceSettings>,
     @InjectRepository(UserAiSettings)
     private readonly userAiSettingsRepository: Repository<UserAiSettings>,
+    private readonly effects: EffectRuntime,
   ) {}
 
   async getAiStatus(user: User, requestWorkspaceId?: string) {
@@ -945,23 +956,25 @@ export class ApplicationSettingsService {
     if (!/^\d+:[\w-]+$/.test(settings.botToken)) {
       throw new BadRequestException('Telegram bot token is invalid');
     }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), settings.timeoutMs);
-    try {
-      const response = await fetch(`https://api.telegram.org/bot${settings.botToken}/getMe`, {
-        signal: controller.signal,
-      });
-      const payload = (await response.json()) as { ok?: boolean; description?: string };
-      if (!(response.ok && payload.ok)) {
-        throw new BadRequestException(payload.description || 'Telegram bot token is invalid');
-      }
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
+    const outcome = await this.effects.run(
+      getWith(
+        `https://api.telegram.org/bot${settings.botToken}/getMe`,
+        { timeout: settings.timeoutMs },
+        response =>
+          HttpClientResponse.schemaBodyJson(TelegramGetMeResponse)(response).pipe(
+            Effect.map(payload =>
+              response.status >= 200 && response.status < 300 && payload.ok
+                ? ({ ok: true } as const)
+                : ({ ok: false, description: payload.description } as const),
+            ),
+          ),
+      ).pipe(Effect.catch(() => Effect.succeed({ ok: false, unreachable: true } as const))),
+    );
+    if ('unreachable' in outcome) {
       throw new BadRequestException('Unable to connect to Telegram');
-    } finally {
-      clearTimeout(timeout);
+    }
+    if (!outcome.ok) {
+      throw new BadRequestException(outcome.description || 'Telegram bot token is invalid');
     }
   }
 

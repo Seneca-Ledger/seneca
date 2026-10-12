@@ -11,6 +11,10 @@ Effect (`effect` 4.x) is adopted incrementally. NestJS, TypeORM, React Query and
 
 ## When to use it
 - **New external I/O** (provider APIs, bank sync, AI calls): write the call as an Effect with a timeout, a retry policy for transient failures and a Schema-decoded response. Example: `backend/src/modules/exchange-rates/exchange-rates.http.ts`.
+- Outbound HTTP goes through `common/effect/http-json.ts`: `getJson` (decode, retry 429/5xx/network) or `getWith` (the caller reads status, headers, text or bytes). Both run the whole exchange, body included, inside one timeout.
+- Retry only where the provider's quota allows it. Openverse (200 searches a day), Nominatim (1 request a second), CoinGecko's free tier and the icon sources are asked once; a failure falls back (cache, last known value, "unavailable").
+- Kept on plain `fetch` on purpose: `webhook-processor` (pinned-DNS agent, retries are durable rows), `model-proxy` (streams, manual redirects), `fetchPublicUrl` (the SSRF guard for user-supplied URLs), and calls that need an `AbortSignal` API through `attemptWithRetry` (Telegram, SMTP). Gmail, Google Drive and Dropbox are going away and stay as they are.
+- `EffectRuntime` turns off trace propagation: the HTTP client would otherwise send `traceparent`/`b3` headers to every third party.
 - **Request/response shapes the frontend reads**: define them in `packages/contracts/src`, never twice.
 - **Plain TypeORM CRUD** stays `async/await`. Don't wrap a repository call in an Effect just to have one.
 
@@ -33,7 +37,7 @@ Effect (`effect` 4.x) is adopted incrementally. NestJS, TypeORM, React Query and
 - Inside an Effect, fail only with tagged errors (`Data.TaggedError`, effect's own). A plain `Error` subclass in the error channel makes TypeScript drop structurally compatible members such as `TimeoutError` from the union, so a handler silently misses them. Translate to Nest exceptions at the boundary with an exhaustive `switch` on `_tag` (see `toListingException` in `bank-sync/simplefin.provider.ts`).
 - Nest services stay the composition root. Pass what an Effect needs as arguments or `Effect.provideService`; do not register Nest providers as Layers.
 - Log at the Nest boundary with the class `Logger`, and never log a URL that carries an API key.
-- Tests run under Jest: call the service, or `effects.run(...)`, and assert on the result. Mock HTTP with `global.fetch` returning a real `Response`; `EffectRuntime` reads `globalThis.fetch` per request.
+- Tests run under Jest: call the service, or `effects.run(...)`, and assert on the result. Mock HTTP with `global.fetch` returning a real `Response`; `EffectRuntime` reads `globalThis.fetch` per request. A body can be read once, so build a fresh `Response` per call (`mockImplementation(async () => new Response(...))`). The client passes a `URL`, so match with `String(input)`. Simulate a timeout with a fetch that settles only when `init.signal` aborts; a rejected fetch is a network failure, not a timeout.
 
 ## Frontend
 - Type responses by contract with `apiQueryDecoded({ ..., contract: 'Name' })` / `checkContract('Name', payload, url)` from `app/lib/query-fn-schema.ts`. Outside production they also check the payload and throw `ContractMismatchError` on drift; production compiles the check out, so effect (~67 kB gzip in the webpack build) never ships.
