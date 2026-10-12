@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import { VendorIconsService } from '@/modules/vendor-icons/vendor-icons.service';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 
 const makeCache = () => {
   const store = new Map<string, unknown>();
@@ -12,13 +13,9 @@ const makeCache = () => {
   };
 };
 
+// A real Response: the HTTP client reads headers and body the standard way.
 const imageResponse = (body: Buffer, contentType = 'image/png', status = 200) =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    headers: { get: (name: string) => (name === 'content-type' ? contentType : null) },
-    arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
-  }) as unknown as Response;
+  new Response(new Uint8Array(body), { status, headers: { 'content-type': contentType } });
 
 describe('VendorIconsService', () => {
   const originalFetch = global.fetch;
@@ -28,7 +25,7 @@ describe('VendorIconsService', () => {
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     cache = makeCache();
-    service = new VendorIconsService(cache as unknown as Cache);
+    service = new VendorIconsService(cache as unknown as Cache, new EffectRuntime());
   });
 
   afterEach(() => {
