@@ -17,6 +17,16 @@ export const Payee = Schema.Struct({
   defaultCategory: Schema.NullOr(
     Schema.Struct({ id: Schema.String, name: Schema.String, source: Schema.String }),
   ),
+  /** Seat and VAT number: what decides reverse charge on purchases from this payee. */
+  countryCode: Schema.NullOr(Schema.String),
+  vatId: Schema.NullOr(Schema.String),
+  /** What VIES said about `vatId`; null when not asked or it could not answer. */
+  vatIdStatus: Schema.NullOr(Schema.Literals(['valid', 'invalid'])),
+  /** The name the number is registered to, when VIES gave one. */
+  vatIdName: Schema.NullOr(Schema.String),
+  vatIdCheckedAt: Schema.NullOr(Schema.String),
+  /** Goods or services, for the line of the VAT return a reverse charge goes on. */
+  supplyType: Schema.NullOr(Schema.Literals(['goods', 'services'])),
   transactionCount: Schema.Number,
   lastSeen: Schema.NullOr(Schema.String),
 });

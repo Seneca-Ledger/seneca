@@ -7,7 +7,12 @@ import toast from 'react-hot-toast';
 import { Pencil, Search as SearchIcon } from '@/app/components/icons';
 import { offerAction } from '@/app/components/payees/offer-action-toast';
 import type { Payee, PayeeMode } from '@/app/components/payees/types';
-import { useMergePayees, usePayeesList, useUpdatePayee } from '@/app/components/payees/usePayees';
+import {
+  useMergePayees,
+  usePayeesList,
+  useRecheckPayeeVat,
+  useUpdatePayee,
+} from '@/app/components/payees/usePayees';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { AppPagination } from '@/app/components/ui/pagination';
@@ -38,6 +43,59 @@ function takenBy(error: unknown): string | null {
   return /"payeeId":"([0-9a-f-]{36})"/.exec(body)?.[1] ?? null;
 }
 
+/** What VIES last said about the payee's VAT number, with a way to ask again. */
+function VatIdStatusLine({
+  payee,
+  busy,
+  onRecheck,
+}: {
+  payee: Payee;
+  busy: boolean;
+  onRecheck: () => void;
+}) {
+  const t = useIntlayer('payees');
+  if (!(payee.vatId && payee.vatIdCheckedAt)) {
+    return null;
+  }
+  const text =
+    payee.vatIdStatus === 'valid'
+      ? payee.vatIdName
+        ? fill(t.vatValidNamed.value, { name: payee.vatIdName })
+        : t.vatValid.value
+      : payee.vatIdStatus === 'invalid'
+        ? t.vatInvalid.value
+        : t.vatUnchecked.value;
+  const color =
+    payee.vatIdStatus === 'valid'
+      ? 'success.main'
+      : payee.vatIdStatus === 'invalid'
+        ? 'error.main'
+        : 'text.secondary';
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+      <Typography
+        variant="caption"
+        noWrap
+        data-testid="payee-vat-status"
+        sx={{ color }}
+        title={payee.vatIdName ?? undefined}
+      >
+        {text}
+      </Typography>
+      {payee.vatIdStatus !== 'valid' ? (
+        <Button
+          size="small"
+          disabled={busy}
+          onClick={onRecheck}
+          sx={{ minWidth: 0, py: 0, fontSize: 12 }}
+        >
+          {t.vatRecheck.value}
+        </Button>
+      ) : null}
+    </Box>
+  );
+}
+
 /**
  * YNAB's "Manage Payees": every payee with what it files as, how it is
  * categorised (learn, always one category, never), renaming, and merging the
@@ -53,6 +111,12 @@ export default function WorkspacePayeesView() {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [mergeTarget, setMergeTarget] = useState('');
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
+  const [vatEditing, setVatEditing] = useState<{
+    id: string;
+    countryCode: string;
+    vatId: string;
+    supplyType: '' | 'goods' | 'services';
+  } | null>(null);
 
   const { data, isPending } = usePayeesList(deferredSearch, PAGE_SIZE, page);
   const payees = data?.data ?? [];
@@ -65,7 +129,8 @@ export default function WorkspacePayeesView() {
   });
   const updatePayee = useUpdatePayee();
   const mergePayees = useMergePayees();
-  const busy = updatePayee.isPending || mergePayees.isPending;
+  const recheckVat = useRecheckPayeeVat();
+  const busy = updatePayee.isPending || mergePayees.isPending || recheckVat.isPending;
 
   const categoryOptions = useMemo(
     () =>
@@ -83,12 +148,20 @@ export default function WorkspacePayeesView() {
 
   const save = (
     id: string,
-    body: { name?: string; mode?: PayeeMode; categoryId?: string | null },
+    body: {
+      name?: string;
+      mode?: PayeeMode;
+      categoryId?: string | null;
+      countryCode?: string | null;
+      vatId?: string | null;
+      supplyType?: 'goods' | 'services' | null;
+    },
+    announce: (updated: Payee) => void = () => toast.success(t.saved.value),
   ) =>
     updatePayee
       .mutateAsync({ id, ...body })
-      .then(() => {
-        toast.success(t.saved.value);
+      .then(updated => {
+        announce(updated);
         return true;
       })
       .catch((error: unknown) => {
@@ -105,6 +178,19 @@ export default function WorkspacePayeesView() {
         }
         return false;
       });
+
+  /** Says what VIES made of the number just saved or checked. */
+  const announceVatCheck = (updated: Payee) => {
+    if (!(updated.vatId && updated.vatIdCheckedAt)) {
+      toast.success(t.saved.value);
+    } else if (updated.vatIdStatus === 'valid') {
+      toast.success(t.vatSavedValid.value);
+    } else if (updated.vatIdStatus === 'invalid') {
+      toast.error(t.vatSavedInvalid.value);
+    } else {
+      toast(t.vatSavedUnchecked.value);
+    }
+  };
 
   const merge = (targetId: string, sourceIds: string[]) => {
     void mergePayees
@@ -209,9 +295,110 @@ export default function WorkspacePayeesView() {
           )}
           <Typography variant="caption" color="text.secondary" noWrap component="div">
             {filesAs} · {fill(t.transactionsCount.value, { count: payee.transactionCount })}
+            {payee.countryCode || payee.vatId
+              ? ` · ${[payee.countryCode, payee.vatId].filter(Boolean).join(' ')}`
+              : ''}
           </Typography>
+          <VatIdStatusLine
+            payee={payee}
+            busy={busy}
+            onRecheck={() =>
+              void recheckVat
+                .mutateAsync(payee.id)
+                .then(announceVatCheck)
+                .catch((error: unknown) => toast.error(getApiErrorMessage(error, t.failed.value)))
+            }
+          />
+          {vatEditing?.id === payee.id && (
+            <Box
+              component="form"
+              data-testid="payee-vat-form"
+              sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mt: 1 }}
+              onSubmit={event => {
+                event.preventDefault();
+                const countryCode = vatEditing.countryCode.trim().toUpperCase();
+                if (countryCode && !/^[A-Z]{2}$/.test(countryCode)) {
+                  toast.error(t.countryCodeInvalid.value);
+                  return;
+                }
+                void save(
+                  payee.id,
+                  {
+                    countryCode: countryCode || null,
+                    vatId: vatEditing.vatId.trim() || null,
+                    supplyType: vatEditing.supplyType || null,
+                  },
+                  announceVatCheck,
+                ).then(ok => ok && setVatEditing(null));
+              }}
+            >
+              <TextField
+                size="small"
+                autoFocus
+                label={t.countryCode.value}
+                value={vatEditing.countryCode}
+                onChange={event =>
+                  setVatEditing({ ...vatEditing, countryCode: event.target.value })
+                }
+                inputProps={{ maxLength: 2, style: { textTransform: 'uppercase' } }}
+                sx={{ width: 110 }}
+              />
+              <TextField
+                size="small"
+                label={t.vatId.value}
+                value={vatEditing.vatId}
+                onChange={event => setVatEditing({ ...vatEditing, vatId: event.target.value })}
+                inputProps={{ maxLength: 32 }}
+                sx={{ width: 200 }}
+              />
+              <Select
+                size="small"
+                value={vatEditing.supplyType}
+                displayEmpty
+                aria-label={t.supplyTypeLabel.value}
+                onChange={value =>
+                  setVatEditing({
+                    ...vatEditing,
+                    supplyType: value as '' | 'goods' | 'services',
+                  })
+                }
+                options={[
+                  { value: '', label: t.supplyTypeUnset.value },
+                  { value: 'goods', label: t.supplyGoods.value },
+                  { value: 'services', label: t.supplyServices.value },
+                ]}
+                sx={{ minWidth: 170 }}
+              />
+              <Button type="submit" size="small" variant="contained" disabled={busy}>
+                {t.save.value}
+              </Button>
+              <Button size="small" onClick={() => setVatEditing(null)}>
+                {t.cancel.value}
+              </Button>
+              <Typography variant="caption" color="text.secondary" sx={{ flexBasis: '100%' }}>
+                {t.vatHint.value}
+              </Typography>
+            </Box>
+          )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Button
+            size="small"
+            onClick={() =>
+              setVatEditing(
+                vatEditing?.id === payee.id
+                  ? null
+                  : {
+                      id: payee.id,
+                      countryCode: payee.countryCode ?? '',
+                      vatId: payee.vatId ?? '',
+                      supplyType: payee.supplyType ?? '',
+                    },
+              )
+            }
+          >
+            {t.vatDetails.value}
+          </Button>
           <Select
             size="small"
             value={payee.mode}

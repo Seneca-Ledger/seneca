@@ -1,0 +1,990 @@
+{
+  "bank": {
+    "skr03": {
+      "account": "1200",
+      "name": "Bank",
+      "function": "F",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "1800",
+      "name": "Bank",
+      "function": "F",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "cash": {
+    "skr03": {
+      "account": "1000",
+      "name": "Kasse",
+      "function": "F",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "1600",
+      "name": "Kasse",
+      "function": "F",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "revenue_19": {
+    "skr03": {
+      "account": "8400",
+      "name": "Erlöse 19 % USt",
+      "function": "AM",
+      "automatic": "AM 19%"
+    },
+    "skr04": {
+      "account": "4400",
+      "name": "Erlöse 19 % USt",
+      "function": "AM",
+      "automatic": "AM 19%"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "AM range 8400-8409 / 4400-4409"
+  },
+  "revenue_7": {
+    "skr03": {
+      "account": "8300",
+      "name": "Erlöse 7 % USt",
+      "function": "AM",
+      "automatic": "AM 7%"
+    },
+    "skr04": {
+      "account": "4300",
+      "name": "Erlöse 7 % USt",
+      "function": "AM",
+      "automatic": "AM 7%"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "AM range 8300-8309 / 4300-4309"
+  },
+  "revenue_tax_free": {
+    "skr03": {
+      "account": "8100",
+      "name": "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG",
+      "function": "AM",
+      "automatic": "AM 0% (steuerfrei)"
+    },
+    "skr04": {
+      "account": "4100",
+      "name": "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG",
+      "function": "AM",
+      "automatic": "AM 0% (steuerfrei)"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Rate not printed in PDF; 'steuerfrei' is from the account name. Other tax-free variants: 8110/4110 Sonstige steuerfreie Umsätze Inland"
+  },
+  "revenue_small_business_19": {
+    "skr03": {
+      "account": "8192",
+      "name": "Steuerfreie Erlöse Kleinunternehmer nach § 19 Abs. 1 UStG",
+      "function": "AM",
+      "automatic": "AM 0% (steuerfrei)"
+    },
+    "skr04": {
+      "account": "4184",
+      "name": "Steuerfreie Erlöse Kleinunternehmer nach § 19 Abs. 1 UStG",
+      "function": "AM",
+      "automatic": "AM 0% (steuerfrei)"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Rate not printed in PDF; 'steuerfrei' is from the account name"
+  },
+  "revenue_eu_reverse_charge_services": {
+    "skr03": {
+      "account": "8336",
+      "name": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen, für die der Leistungsempfänger die Umsatzsteuer schuldet",
+      "function": "AM",
+      "automatic": "AM 0% (no German USt)"
+    },
+    "skr04": {
+      "account": "4336",
+      "name": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen, für die der Leistungsempfänger die Umsatzsteuer schuldet",
+      "function": "AM",
+      "automatic": "AM 0% (no German USt)"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "AM function per PDF; the PDF prints no rate for it"
+  },
+  "revenue_domestic_13b": {
+    "skr03": {
+      "account": "8337",
+      "name": "Erlöse aus Leistungen, für die der Leistungsempfänger die Umsatzsteuer nach § 13b UStG schuldet",
+      "function": "AM",
+      "automatic": "AM 0% (no German USt)"
+    },
+    "skr04": {
+      "account": "4337",
+      "name": "Erlöse aus Leistungen, für die der Leistungsempfänger die Umsatzsteuer nach § 13b UStG schuldet",
+      "function": "AM",
+      "automatic": "AM 0% (no German USt)"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Domestic §13b supplier side; the PDF prints no rate for it"
+  },
+  "goods_purchase_19": {
+    "skr03": {
+      "account": "3400",
+      "name": "Wareneingang 19 % Vorsteuer",
+      "function": "AV",
+      "automatic": "AV 19%"
+    },
+    "skr04": {
+      "account": "5400",
+      "name": "Wareneingang 19 % Vorsteuer",
+      "function": "AV",
+      "automatic": "AV 19%"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "AV range 3400-3409 / 5400-5409"
+  },
+  "goods_purchase_7": {
+    "skr03": {
+      "account": "3300",
+      "name": "Wareneingang 7 % Vorsteuer",
+      "function": "AV",
+      "automatic": "AV 7%"
+    },
+    "skr04": {
+      "account": "5300",
+      "name": "Wareneingang 7 % Vorsteuer",
+      "function": "AV",
+      "automatic": "AV 7%"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "AV range 3300-3309 / 5300-5309"
+  },
+  "external_services": {
+    "skr03": {
+      "account": "3100",
+      "name": "Fremdleistungen",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "5900",
+      "name": "Fremdleistungen",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "No automatic function; needs BU key for VAT"
+  },
+  "external_services_19": {
+    "skr03": {
+      "account": "3106",
+      "name": "Fremdleistungen 19 % Vorsteuer",
+      "function": "AV",
+      "automatic": "AV 19%"
+    },
+    "skr04": {
+      "account": "5906",
+      "name": "Fremdleistungen 19 % Vorsteuer",
+      "function": "AV",
+      "automatic": "AV 19%"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "external_services_7": {
+    "skr03": {
+      "account": "3108",
+      "name": "Fremdleistungen 7 % Vorsteuer",
+      "function": "AV",
+      "automatic": "AV 7%"
+    },
+    "skr04": {
+      "account": "5908",
+      "name": "Fremdleistungen 7 % Vorsteuer",
+      "function": "AV",
+      "automatic": "AV 7%"
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "external_services_no_vat": {
+    "skr03": {
+      "account": "3109",
+      "name": "Fremdleistungen ohne Vorsteuer",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "5909",
+      "name": "Fremdleistungen ohne Vorsteuer",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "wages_salaries": {
+    "skr03": {
+      "account": "4100",
+      "name": "Löhne und Gehälter",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6000",
+      "name": "Löhne und Gehälter",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Split accounts: Löhne 4110/6010, Gehälter 4120/6020"
+  },
+  "premises_costs": {
+    "skr03": {
+      "account": "4200",
+      "name": "Raumkosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6305",
+      "name": "Raumkosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "rent": {
+    "skr03": {
+      "account": "4210",
+      "name": "Miete (unbewegliche Wirtschaftsgüter)",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6310",
+      "name": "Miete (unbewegliche Wirtschaftsgüter)",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "telephone": {
+    "skr03": {
+      "account": "4920",
+      "name": "Telefon",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6805",
+      "name": "Telefon",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "internet": {
+    "skr03": {
+      "account": "4925",
+      "name": "Internetkosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6810",
+      "name": "Internetkosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "travel_owner": {
+    "skr03": {
+      "account": "4670",
+      "name": "Reisekosten Unternehmer",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6670",
+      "name": "Reisekosten Unternehmer",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Footnote 18: must NOT be used by EÜR filers (use the specific 4673/4674/4676 resp. 6673/6674/6680)"
+  },
+  "travel_owner_transport": {
+    "skr03": {
+      "account": "4673",
+      "name": "Reisekosten Unternehmer Fahrtkosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6673",
+      "name": "Reisekosten Unternehmer Fahrtkosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "travel_owner_meals_allowance": {
+    "skr03": {
+      "account": "4674",
+      "name": "Reisekosten Unternehmer Verpflegungsmehraufwand",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6674",
+      "name": "Reisekosten Unternehmer Verpflegungsmehraufwand",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "travel_owner_accommodation": {
+    "skr03": {
+      "account": "4676",
+      "name": "Reisekosten Unternehmer Übernachtungsaufwand und Reisenebenkosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6680",
+      "name": "Reisekosten Unternehmer Übernachtungsaufwand und Reisenebenkosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "entertainment": {
+    "skr03": {
+      "account": "4650",
+      "name": "Bewirtungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6640",
+      "name": "Bewirtungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "entertainment_nondeductible": {
+    "skr03": {
+      "account": "4654",
+      "name": "Nicht abzugsfähige Bewirtungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6644",
+      "name": "Nicht abzugsfähige Bewirtungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "gifts_deductible": {
+    "skr03": {
+      "account": "4630",
+      "name": "Geschenke abzugsfähig ohne § 37b EStG",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6610",
+      "name": "Geschenke abzugsfähig ohne § 37b EStG",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "With § 37b EStG: 4631 / 6611"
+  },
+  "gifts_nondeductible": {
+    "skr03": {
+      "account": "4635",
+      "name": "Geschenke nicht abzugsfähig ohne § 37b EStG",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6620",
+      "name": "Geschenke nicht abzugsfähig ohne § 37b EStG",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "With § 37b EStG: 4636 / 6621"
+  },
+  "advertising": {
+    "skr03": {
+      "account": "4600",
+      "name": "Werbekosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6600",
+      "name": "Werbekosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "office_supplies": {
+    "skr03": {
+      "account": "4930",
+      "name": "Bürobedarf",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6815",
+      "name": "Bürobedarf",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "postage": {
+    "skr03": {
+      "account": "4910",
+      "name": "Porto",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6800",
+      "name": "Porto",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "literature": {
+    "skr03": {
+      "account": "4940",
+      "name": "Zeitschriften, Bücher, digitale Medien (Fachliteratur)",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6820",
+      "name": "Zeitschriften, Bücher, digitale Medien (Fachliteratur)",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "training": {
+    "skr03": {
+      "account": "4945",
+      "name": "Fortbildungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6821",
+      "name": "Fortbildungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "insurance": {
+    "skr03": {
+      "account": "4360",
+      "name": "Versicherungen",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6400",
+      "name": "Versicherungen",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "contributions": {
+    "skr03": {
+      "account": "4380",
+      "name": "Beiträge",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6420",
+      "name": "Beiträge",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "legal_consulting": {
+    "skr03": {
+      "account": "4950",
+      "name": "Rechts- und Beratungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6825",
+      "name": "Rechts- und Beratungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "bookkeeping": {
+    "skr03": {
+      "account": "4955",
+      "name": "Buchführungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6830",
+      "name": "Buchführungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "closing_audit": {
+    "skr03": {
+      "account": "4957",
+      "name": "Abschluss- und Prüfungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6827",
+      "name": "Abschluss- und Prüfungskosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "vehicle_running_costs": {
+    "skr03": {
+      "account": "4530",
+      "name": "Laufende Fahrzeug-Betriebskosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6530",
+      "name": "Laufende Fahrzeug-Betriebskosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "2026 edition says 'Fahrzeug', not 'Kfz'"
+  },
+  "vehicle_costs_general": {
+    "skr03": {
+      "account": "4500",
+      "name": "Fahrzeugkosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6500",
+      "name": "Fahrzeugkosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Footnote 18: must NOT be used by EÜR filers"
+  },
+  "vehicle_other": {
+    "skr03": {
+      "account": "4580",
+      "name": "Sonstige Fahrzeugkosten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6570",
+      "name": "Sonstige Fahrzeugkosten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "bank_fees": {
+    "skr03": {
+      "account": "4970",
+      "name": "Nebenkosten des Geldverkehrs",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6855",
+      "name": "Nebenkosten des Geldverkehrs",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "it_hardware_software_maintenance": {
+    "skr03": {
+      "account": "4806",
+      "name": "Wartungskosten für Hard- und Software",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6495",
+      "name": "Wartungskosten für Hard- und Software",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "No 'laufende EDV-Kosten' account exists in the standard chart"
+  },
+  "software_licenses_rental": {
+    "skr03": {
+      "account": "4964",
+      "name": "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6837",
+      "name": "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "G K flag (trade-tax add-back relevant)"
+  },
+  "other_operating_expenses": {
+    "skr03": {
+      "account": "4900",
+      "name": "Sonstige betriebliche Aufwendungen",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6300",
+      "name": "Sonstige betriebliche Aufwendungen",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "vat_prepayments": {
+    "skr03": {
+      "account": "1780",
+      "name": "Umsatzsteuer-Vorauszahlungen",
+      "function": "F",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "3820",
+      "name": "Umsatzsteuer-Vorauszahlungen",
+      "function": "F",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "vat_payable_prior_year": {
+    "skr03": {
+      "account": "1790",
+      "name": "Umsatzsteuerverbindlichkeiten Vorjahr",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "3841",
+      "name": "Umsatzsteuerverbindlichkeiten Vorjahr",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "vat_receivable_prior_year": {
+    "skr03": {
+      "account": "1546",
+      "name": "Umsatzsteuerforderungen Vorjahr",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "1422",
+      "name": "Umsatzsteuerforderungen Vorjahr",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "input_vat_19": {
+    "skr03": {
+      "account": "1576",
+      "name": "Abziehbare Vorsteuer 19 %",
+      "function": "S",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "1406",
+      "name": "Abziehbare Vorsteuer 19 %",
+      "function": "S",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Sammelkonto, not automatic"
+  },
+  "input_vat_7": {
+    "skr03": {
+      "account": "1571",
+      "name": "Abziehbare Vorsteuer 7 %",
+      "function": "S",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "1401",
+      "name": "Abziehbare Vorsteuer 7 %",
+      "function": "S",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Sammelkonto, not automatic"
+  },
+  "output_vat_19": {
+    "skr03": {
+      "account": "1776",
+      "name": "Umsatzsteuer 19 %",
+      "function": "S",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "3806",
+      "name": "Umsatzsteuer 19 %",
+      "function": "S",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Sammelkonto, not automatic"
+  },
+  "output_vat_7": {
+    "skr03": {
+      "account": "1771",
+      "name": "Umsatzsteuer 7 %",
+      "function": "S",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "3801",
+      "name": "Umsatzsteuer 7 %",
+      "function": "S",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Sammelkonto, not automatic"
+  },
+  "private_withdrawals": {
+    "skr03": {
+      "account": "1800",
+      "name": "Privatentnahmen allgemein",
+      "function": "F",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "2100",
+      "name": "Privatentnahmen allgemein",
+      "function": "F",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Sole-trader-only variant: 1801 / 2101 'Privatentnahmen allgemein (nur Einzelunternehmen)' (footnote 22)"
+  },
+  "private_deposits": {
+    "skr03": {
+      "account": "1890",
+      "name": "Privateinlagen",
+      "function": "F",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "2180",
+      "name": "Privateinlagen",
+      "function": "F",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Sole-trader-only variant: 1891 / 2181 (footnote 22)"
+  },
+  "private_taxes": {
+    "skr03": {
+      "account": "1810",
+      "name": "Privatsteuern",
+      "function": "F",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "2150",
+      "name": "Privatsteuern",
+      "function": "F",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "No dedicated 'Einkommensteuer' account; owner income tax goes to Privatsteuern. Sole-trader variant: 1811 / 2151"
+  },
+  "interest_income": {
+    "skr03": {
+      "account": "2650",
+      "name": "Sonstige Zinsen und ähnliche Erträge",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "7100",
+      "name": "Sonstige Zinsen und ähnliche Erträge",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "interest_expense": {
+    "skr03": {
+      "account": "2100",
+      "name": "Zinsen und ähnliche Aufwendungen",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "7300",
+      "name": "Zinsen und ähnliche Aufwendungen",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Note: SKR03 2100 is interest expense, SKR04 2100 is Privatentnahmen"
+  },
+  "depreciation_tangible": {
+    "skr03": {
+      "account": "4830",
+      "name": "Abschreibungen auf Sachanlagen (ohne AfA auf Fahrzeuge und Gebäude)",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6220",
+      "name": "Abschreibungen auf Sachanlagen (ohne AfA auf Fahrzeuge und Gebäude)",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "gwg_immediate_writeoff": {
+    "skr03": {
+      "account": "4855",
+      "name": "Sofortabschreibung geringwertiger Wirtschaftsgüter",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6260",
+      "name": "Sofortabschreibungen geringwertiger Wirtschaftsgüter",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Wording differs: singular in SKR03, plural in SKR04"
+  },
+  "gwg_asset": {
+    "skr03": {
+      "account": "0480",
+      "name": "Geringwertige Wirtschaftsgüter",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "0670",
+      "name": "Geringwertige Wirtschaftsgüter",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "gwg_pool_asset": {
+    "skr03": {
+      "account": "0485",
+      "name": "Wirtschaftsgüter (Sammelposten)",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "0675",
+      "name": "Wirtschaftsgüter (Sammelposten)",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "gwg_pool_depreciation": {
+    "skr03": {
+      "account": "4862",
+      "name": "Abschreibungen auf den Sammelposten Wirtschaftsgüter",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "6264",
+      "name": "Abschreibungen auf den Sammelposten Wirtschaftsgüter",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "cash_in_transit": {
+    "skr03": {
+      "account": "1360",
+      "name": "Geldtransit",
+      "function": "F",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "1460",
+      "name": "Geldtransit",
+      "function": "F",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf"
+  },
+  "clearing_eur": {
+    "skr03": {
+      "account": "1371",
+      "name": "Verrechnungskonto Gewinnermittlung § 4 Abs. 3 EStG, nicht ergebniswirksam",
+      "function": "F",
+      "automatic": null
+    },
+    "skr04": {
+      "account": "1486",
+      "name": "Verrechnungskonto für Gewinnermittlung § 4 Abs. 3 EStG, nicht ergebniswirksam",
+      "function": "F",
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "EÜR-only account; wording differs between charts"
+  },
+  "transitory_items": {
+    "skr03": {
+      "account": "1590",
+      "name": "Durchlaufende Posten",
+      "function": null,
+      "automatic": null
+    },
+    "skr04": {
+      "account": "1370",
+      "name": "Durchlaufende Posten",
+      "function": null,
+      "automatic": null
+    },
+    "source": "https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf ; https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf",
+    "note": "Plain account; no S (Sammelkonto) function"
+  }
+}

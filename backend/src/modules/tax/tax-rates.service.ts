@@ -177,6 +177,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       rate: createDto.rate,
       isDefault: shouldBeDefault,
       isEnabled: createDto.isEnabled ?? true,
+      isReverseCharge: createDto.isReverseCharge ?? false,
       validFrom,
       validTo,
     });
@@ -227,6 +228,10 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       taxRate.isEnabled = updateDto.isEnabled;
     }
 
+    if (updateDto.isReverseCharge != null) {
+      taxRate.isReverseCharge = updateDto.isReverseCharge;
+    }
+
     if (updateDto.isDefault != null) {
       if (updateDto.isDefault) {
         await this.clearOverlappingDefaults(workspaceId, taxRate.validFrom, taxRate.validTo, id);
@@ -241,6 +246,113 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       saved.id,
       AuditAction.UPDATE,
       before,
+      this.snapshotTaxRate(saved),
+    );
+    return saved;
+  }
+
+  /**
+   * Starts a new version of a rate on `from`, as the law changing it does:
+   * the version in force then ends the day before, and a copy at the new
+   * percentage runs from `from` to where the old one would have ended. Rules
+   * and the default find rates by code and date, so they follow on their own.
+   */
+  async startNewVersion(
+    workspaceId: string,
+    id: string,
+    newRate: number,
+    from: string,
+    userId?: string,
+  ): Promise<TaxRate> {
+    const current = await this.findOne(id, workspaceId);
+    const currentFrom = String(current.validFrom).slice(0, 10);
+    const currentTo = current.validTo ? String(current.validTo).slice(0, 10) : null;
+    if (!(currentFrom < from && (currentTo === null || currentTo >= from))) {
+      throw new BadRequestException('The rate is not in force on that date');
+    }
+    const before = this.snapshotTaxRate(current);
+    const dayBefore = new Date(`${from}T00:00:00Z`);
+    dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+
+    const oldPercent = `${Number(current.rate)}%`;
+    const name = current.name.includes(oldPercent)
+      ? current.name.replace(oldPercent, `${newRate}%`)
+      : `${current.name} ${newRate}%`;
+
+    const { ended, started } = await this.repository.manager.transaction(async manager => {
+      const repository = manager.getRepository(TaxRate);
+      const ended = await repository.save({
+        ...current,
+        validTo: toDateOnly(dayBefore),
+      });
+      const started = await repository.save(
+        repository.create({
+          workspaceId,
+          jurisdictionId: current.jurisdictionId,
+          code: current.code,
+          kind: current.kind,
+          name,
+          rate: newRate,
+          isDefault: current.isDefault,
+          isEnabled: current.isEnabled,
+          isInclusive: current.isInclusive,
+          isReverseCharge: current.isReverseCharge,
+          validFrom: from,
+          validTo: currentTo,
+        }),
+      );
+      return { ended, started };
+    });
+
+    await this.recordAudit(
+      workspaceId,
+      userId,
+      ended.id,
+      AuditAction.UPDATE,
+      before,
+      this.snapshotTaxRate(ended),
+    );
+    await this.recordAudit(
+      workspaceId,
+      userId,
+      started.id,
+      AuditAction.CREATE,
+      null,
+      this.snapshotTaxRate(started),
+    );
+    return started;
+  }
+
+  /** Adds a statutory rate of the workspace's country that it lacks, from `from` on. */
+  async addStatutoryRate(
+    workspaceId: string,
+    fields: Pick<TaxRate, 'jurisdictionId' | 'code' | 'name' | 'kind'> & {
+      rate: number;
+      validFrom: string;
+    },
+    userId?: string,
+  ): Promise<TaxRate> {
+    const saved = await this.repository.save(
+      this.repository.create({
+        workspaceId,
+        jurisdictionId: fields.jurisdictionId,
+        code: fields.code,
+        kind: fields.kind,
+        name: fields.name,
+        rate: fields.rate,
+        isDefault: false,
+        isEnabled: true,
+        isReverseCharge: false,
+        validFrom: fields.validFrom,
+        validTo: null,
+      }),
+    );
+    await this.recordAudit(
+      workspaceId,
+      userId,
+      saved.id,
+      AuditAction.CREATE,
+      null,
       this.snapshotTaxRate(saved),
     );
     return saved;

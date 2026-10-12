@@ -67,6 +67,7 @@ export * from './payee-alias.entity';
 export * from './push-subscription.entity';
 export * from './receipt.entity';
 export * from './receipt-processing-job.entity';
+export * from './reference-data.entity';
 export * from './report-history.entity';
 export * from './report-schedule.entity';
 export * from './shared-link.entity';

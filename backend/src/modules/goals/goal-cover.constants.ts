@@ -29,14 +29,10 @@ export const GOAL_COVER_PRESETS = [
 export type GoalCoverPreset = (typeof GOAL_COVER_PRESETS)[number];
 
 /**
- * Openverse: the one image search that answers without an API key, so a
- * self-hosted Lumio can search photos out of the box. Anonymous callers get
- * 20 searches a minute and 200 a day per IP, and a separate 1000 thumbnails a
- * day. A deployment that outgrows that registers a free client with Openverse.
- * The bundled presets above are what keeps the picker useful when the day's
- * allowance is gone.
+ * Re-exported for the goal-cover code. The bundled presets above are what
+ * keeps the picker useful when the day's Openverse allowance is gone.
  */
-export const OPENVERSE_API = 'https://api.openverse.org/v1/images/';
+export { OPENVERSE_API } from '../../common/utils/openverse.util';
 
 /**
  * Results per search page — a 3-column grid, six rows deep.
@@ -61,15 +57,7 @@ export const COVER_DOWNLOAD_TIMEOUT_MS = 10000;
  */
 export const COVER_MAX_BYTES = 2 * 1024 * 1024;
 
-/**
- * Rasters only, and never SVG: this file is served back from our own origin,
- * where an SVG's embedded script would run as first-party code.
- */
-export const COVER_CONTENT_TYPES: Record<string, string> = {
-  'image/jpeg': '.jpg',
-  'image/png': '.png',
-  'image/webp': '.webp',
-};
+export { OPENVERSE_CONTENT_TYPES as COVER_CONTENT_TYPES } from '../../common/utils/openverse.util';
 
 /** Where stored covers live, under the uploads directory. */
 export const COVER_DIRECTORY = 'goal-covers';

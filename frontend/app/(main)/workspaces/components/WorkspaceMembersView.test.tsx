@@ -86,8 +86,75 @@ describe('WorkspaceMembersView', () => {
 
     expect(container.textContent).toContain('Sort: Name');
     expect(container.textContent).toContain('Role: All roles');
-    expect(container.textContent).toContain('Invitations expire in 7 days.');
+    expect(container.textContent).not.toContain('Invitations expire in 7 days.');
     expect(container.textContent).toContain('No active invitations.');
+  });
+
+  it('hides search, sort and role filter while the owner is alone', async () => {
+    apiGet.mockResolvedValue({
+      data: {
+        workspace: {
+          id: 'ws-1',
+          name: 'Workspace',
+          ownerId: 'owner-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+        members: [
+          {
+            id: 'owner-1',
+            memberId: 'member-owner-1',
+            email: 'owner@example.com',
+            name: 'Owner',
+            role: 'owner',
+            permissions: null,
+            joinedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        invitations: [],
+      },
+    });
+    const { default: WorkspaceMembersView } = await import('./WorkspaceMembersView');
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspaceMembersView />);
+    });
+
+    await act(async () => {
+      await flushPromises();
+    });
+
+    expect(container.textContent).toContain('owner@example.com');
+    expect(container.textContent).not.toContain('Sort: Name');
+    expect(container.textContent).not.toContain('Role: All roles');
+    expect(container.querySelector('input[placeholder="Search by email"]')).toBeNull();
+  });
+
+  it('says what the chosen role can do in the invite form', async () => {
+    const { default: WorkspaceMembersView } = await import('./WorkspaceMembersView');
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspaceMembersView />);
+    });
+
+    await act(async () => {
+      await flushPromises();
+    });
+
+    const inviteButton = Array.from(container.querySelectorAll('button')).find(
+      button => button.textContent === 'Invite member',
+    );
+    await act(async () => {
+      inviteButton?.click();
+    });
+
+    const form = container.querySelector('form');
+    expect(form?.textContent).toContain(
+      'Can work with workspace data based on assigned permissions.',
+    );
   });
 
   it('counts only the toggles a member actually carries', async () => {

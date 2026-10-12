@@ -29,6 +29,13 @@ export function resolveStaticAssetMounts(
       prefix: '/uploads/goal-covers',
       ensure: true,
     },
+    // Workspace backgrounds found through the photo search. Same trade as the
+    // goal covers: public stock photos behind an unguessable uuid name.
+    {
+      root: path.join(uploadsDir, 'workspace-backgrounds'),
+      prefix: '/uploads/workspace-backgrounds',
+      ensure: true,
+    },
     // Photos of metal lots. Same trade as the covers above — the file is
     // served without a session, and a fresh uuid for a name is what keeps the
     // link unguessable. It only ever appears in an authenticated response.

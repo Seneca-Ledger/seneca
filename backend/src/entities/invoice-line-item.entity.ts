@@ -36,6 +36,17 @@ export class InvoiceLineItem {
   @Column({ name: 'unit_price', type: 'decimal', precision: 15, scale: 2 })
   unitPrice: number;
 
+  /** Unit of measure, UN/ECE Recommendation 20: C62 one, HUR hour, DAY day, MON month… */
+  @Column({ name: 'unit_code', type: 'varchar', length: 3, default: 'C62' })
+  unitCode: string;
+
+  /**
+   * Discount (negative) or surcharge (positive) on quantity × unit price, in
+   * percent. NULL is neither.
+   */
+  @Column({ name: 'adjustment_percent', type: 'decimal', precision: 7, scale: 2, nullable: true })
+  adjustmentPercent: number | null;
+
   @ManyToOne(() => TaxRate, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'tax_rate_id' })
   taxRate: TaxRate | null;

@@ -33,6 +33,9 @@ interface Workspace {
   icon: string | null;
   color: string | null;
   backgroundImage: string | null;
+  /** Credit line for a background found through the photo search. */
+  backgroundAttribution?: string | null;
+  backgroundSourceUrl?: string | null;
   currency: string;
   isFavorite: boolean;
   settings: WorkspaceSettings | null;
@@ -60,6 +63,8 @@ interface WorkspaceActions {
     workspaceId: string;
     backgroundImage: string;
   }) => Promise<void>;
+  /** Copies a searched photo into the workspace and makes it the background. */
+  setWorkspaceBackgroundPhoto: (params: { workspaceId: string; photoId: string }) => Promise<void>;
 }
 
 type WorkspaceContextType = WorkspaceData & WorkspaceActions;
@@ -162,16 +167,40 @@ async function apiUpdateBackground(
     await api.patch(`/workspaces/${workspaceId}`, {
       backgroundImage,
     } satisfies ContractInput<'UpdateWorkspaceBody'>);
-    setters.setWorkspaces(prev =>
-      prev.map(w => (w.id === workspaceId ? { ...w, backgroundImage } : w)),
-    );
-    setters.setCurrentWorkspace(prev =>
-      prev?.id === workspaceId ? { ...prev, backgroundImage } : prev,
+    // A bundled background carries no credit; the server clears it too.
+    applyBackground(
+      workspaceId,
+      { backgroundImage, backgroundAttribution: null, backgroundSourceUrl: null },
+      setters,
     );
   } catch (err) {
     console.error('Failed to update background:', err);
     throw err;
   }
+}
+
+type BackgroundFields = Pick<
+  Workspace,
+  'backgroundImage' | 'backgroundAttribution' | 'backgroundSourceUrl'
+>;
+
+function applyBackground(
+  workspaceId: string,
+  fields: BackgroundFields,
+  setters: Pick<WorkspaceSetters, 'setWorkspaces' | 'setCurrentWorkspace'>,
+): void {
+  setters.setWorkspaces(prev => prev.map(w => (w.id === workspaceId ? { ...w, ...fields } : w)));
+  setters.setCurrentWorkspace(prev => (prev?.id === workspaceId ? { ...prev, ...fields } : prev));
+}
+
+async function apiSetBackgroundPhoto(
+  { workspaceId, photoId }: { workspaceId: string; photoId: string },
+  setters: Pick<WorkspaceSetters, 'setWorkspaces' | 'setCurrentWorkspace'>,
+): Promise<void> {
+  const response = await api.put<BackgroundFields>(`/workspaces/${workspaceId}/background`, {
+    photoId,
+  } satisfies ContractInput<'SetWorkspaceBackgroundBody'>);
+  applyBackground(workspaceId, response.data, setters);
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
@@ -217,6 +246,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     [setters],
   );
 
+  const setWorkspaceBackgroundPhoto = useCallback(
+    async (params: { workspaceId: string; photoId: string }) =>
+      apiSetBackgroundPhoto(params, setters),
+    [setters],
+  );
+
   useEffect(() => {
     if (hasSessionCookie()) {
       void refreshWorkspaces();
@@ -240,8 +275,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       refreshWorkspaces,
       toggleFavorite,
       updateWorkspaceBackground,
+      setWorkspaceBackgroundPhoto,
     }),
-    [switchWorkspace, clearWorkspace, refreshWorkspaces, toggleFavorite, updateWorkspaceBackground],
+    [
+      switchWorkspace,
+      clearWorkspace,
+      refreshWorkspaces,
+      toggleFavorite,
+      updateWorkspaceBackground,
+      setWorkspaceBackgroundPhoto,
+    ],
   );
 
   return (

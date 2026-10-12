@@ -12,7 +12,7 @@ import { Permission } from '../enums/permissions.enum';
  * 1. Global-only permissions are never granted by workspace membership — owning
  *    a workspace does not make you an instance admin.
  * 2. Read permissions belong to every member of the workspace, viewers included.
- * 3. Viewers never write. Their `permissions` column is irrelevant: the UI has
+ * 3. Viewers and accountants never write; an accountant may export. Their `permissions` column is irrelevant: the UI has
  *    never sent toggles for the viewer role, so a missing column used to mean
  *    "not explicitly forbidden", which let a read-only invitee edit and delete.
  * 4. Owners and admins get everything else that is workspace-scoped.
@@ -57,6 +57,12 @@ export const WORKSPACE_READ_PERMISSIONS: ReadonlySet<Permission> = new Set([
 export const MEMBER_PERMISSIONS: ReadonlySet<Permission> = new Set([Permission.REPORT_EXPORT]);
 
 /**
+ * Rule 3b: an accountant reads like a viewer and takes the files away — the
+ * tax pack, the DATEV batch, the returns — which is what they are invited for.
+ */
+export const ACCOUNTANT_PERMISSIONS: ReadonlySet<Permission> = new Set([Permission.REPORT_EXPORT]);
+
+/**
  * Rule 5b: the toggle that gates each write for a plain member.
  *
  * The toggles are named after surfaces, and the mapping follows those names.
@@ -96,6 +102,9 @@ export function workspaceRoleAllows(
   if (role === WorkspaceRole.VIEWER) {
     return false;
   }
+  if (role === WorkspaceRole.ACCOUNTANT) {
+    return ACCOUNTANT_PERMISSIONS.has(permission);
+  }
   if (role === WorkspaceRole.OWNER || role === WorkspaceRole.ADMIN) {
     return true;
   }
@@ -119,7 +128,7 @@ export function workspaceMemberCanEdit(
   if (role === WorkspaceRole.OWNER || role === WorkspaceRole.ADMIN) {
     return true;
   }
-  if (role === WorkspaceRole.VIEWER) {
+  if (role === WorkspaceRole.VIEWER || role === WorkspaceRole.ACCOUNTANT) {
     return false;
   }
   return memberPermissions?.[gate] === true;

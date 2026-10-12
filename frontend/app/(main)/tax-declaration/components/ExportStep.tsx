@@ -10,7 +10,7 @@ interface ExportStepProps {
   draft: IncomeTaxDraft;
   downloading: boolean;
   busy: boolean;
-  onDownload: (format: 'pdf' | 'xlsx') => void;
+  onDownload: (format: 'pdf' | 'xlsx' | 'csv') => void;
   onFinalize: () => void;
   onReopen: () => void;
 }
@@ -55,6 +55,14 @@ export function ExportStep({
           sx={{ textTransform: 'none', fontWeight: 600 }}
         >
           {t.downloadXlsx}
+        </Button>
+        <Button
+          variant="outlined"
+          disabled={downloading}
+          onClick={() => onDownload('csv')}
+          sx={{ textTransform: 'none', fontWeight: 600 }}
+        >
+          {t.downloadCsv}
         </Button>
       </Stack>
 

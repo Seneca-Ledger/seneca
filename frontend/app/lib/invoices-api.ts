@@ -36,6 +36,12 @@ export interface CreateClientInput {
   locale?: string;
   remindersEnabled?: boolean;
   paymentTermsDays?: number;
+  street?: string;
+  postalCode?: string;
+  city?: string;
+  countryCode?: string;
+  buyerReference?: string;
+  supplyType?: 'goods' | 'services' | null;
 }
 
 export type UpdateClientInput = Partial<CreateClientInput>;
@@ -46,6 +52,8 @@ export interface InvoiceLineItemInput {
   unitPrice: number;
   taxRateId?: string;
   categoryId?: string;
+  unitCode?: string;
+  adjustmentPercent?: number;
 }
 
 export interface CreateInvoiceInput {
@@ -58,6 +66,8 @@ export interface CreateInvoiceInput {
   lineItems: InvoiceLineItemInput[];
   recurrenceInterval?: InvoiceRecurrenceInterval;
   recurrenceEndDate?: string;
+  buyerReference?: string;
+  deliveryDate?: string;
 }
 
 export type UpdateInvoiceInput = Partial<CreateInvoiceInput>;
@@ -187,6 +197,25 @@ export const invoicesApi = {
     // Revoked late: the new tab needs the url to still resolve when it loads.
     window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
   },
+  /** What the invoice, its client or the business profile still lack for an XRechnung. */
+  async checkXRechnung(id: string): Promise<{ missing: string[] }> {
+    return (await apiClient.get<{ missing: string[] }>(`/invoices/${id}/xrechnung/check`)).data;
+  },
+
+  async downloadXRechnung(id: string, fileName: string): Promise<void> {
+    const response = await apiClient.get<Blob>(`/invoices/${id}/xrechnung`, {
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/xml' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   async downloadPdf(id: string, fileName: string): Promise<void> {
     const response = await apiClient.get<Blob>(`/invoices/${id}/pdf`, { responseType: 'blob' });
     const url = window.URL.createObjectURL(new Blob([response.data]));

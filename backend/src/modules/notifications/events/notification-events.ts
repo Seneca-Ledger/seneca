@@ -116,3 +116,28 @@ export interface TaxThresholdReachedEvent {
   periodStart: string;
   periodEnd: string;
 }
+
+/**
+ * A tax return is due soon (or is overdue) and has not been filed — or, for
+ * income tax, finalized — in the app. Emitted once per return and reminder
+ * point by the daily deadline sweep.
+ */
+export interface OfficialVatRatesChangedEvent {
+  workspaceId: string;
+  country: string;
+  /** Differences from the official rates not announced before. */
+  count: number;
+}
+
+export interface TaxDeadlineUpcomingEvent {
+  workspaceId: string;
+  kind: 'vat_return' | 'income_tax';
+  /** VAT: the period; income tax: the tax year. */
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  /** Days from today to the due date; negative once overdue. */
+  daysLeft: number;
+  /** "USt-Voranmeldung", "Einkommensteuererklärung", … */
+  returnName: string;
+}

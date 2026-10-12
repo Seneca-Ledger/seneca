@@ -6,6 +6,7 @@
  */
 
 export const OVERVIEW_SECTION_IDS = [
+  'getting-started',
   'kpis',
   'crypto',
   'top-categories',
@@ -28,6 +29,7 @@ export type DropZone = 'above' | 'below' | 'left' | 'right';
 const MAX_PER_ROW = 2;
 
 export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
+  ['getting-started'],
   ['kpis'],
   ['crypto'],
   ['top-categories', 'recent-transactions'],
@@ -43,7 +45,8 @@ const KNOWN = new Set<string>(OVERVIEW_SECTION_IDS);
 /**
  * A saved layout made safe to draw: sections that no longer exist and repeats
  * are dropped, overfull rows are cut, and sections added since the layout was
- * saved are appended, each on its own row, so nothing silently disappears.
+ * saved are appended, each on its own row, so nothing silently disappears
+ * (the setup checklist goes first instead).
  */
 export function normalizeRows(saved: { rows?: unknown } | null | undefined): OverviewRows {
   if (!Array.isArray(saved?.rows)) {
@@ -67,8 +70,11 @@ export function normalizeRows(saved: { rows?: unknown } | null | undefined): Ove
       overflow.push(...ids.slice(MAX_PER_ROW));
     }
   }
-  const missing = OVERVIEW_SECTION_IDS.filter(id => !seen.has(id));
-  return [...rows, ...[...overflow, ...missing].map(id => [id])];
+  // The setup checklist is for newcomers, so it opens a layout saved before it
+  // existed instead of hiding at the bottom; it vanishes once its job is done.
+  const missing = OVERVIEW_SECTION_IDS.filter(id => !seen.has(id) && id !== 'getting-started');
+  const head = seen.has('getting-started') ? [] : [['getting-started']];
+  return [...head, ...rows, ...[...overflow, ...missing].map(id => [id])];
 }
 
 function rowOf(rows: OverviewRows, id: string): number {

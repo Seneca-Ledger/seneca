@@ -1199,3 +1199,207 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ── Getting started checklist ── */
+.lumio-getting-started {
+  &__ring {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+
+    svg {
+      transform: rotate(-90deg);
+    }
+
+    span {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: $lumio-font-weight-medium;
+      color: $lumio-color-ink-700;
+
+      @include dark {
+        color: $lumio-color-ink-700-dk;
+      }
+    }
+  }
+
+  &__ring-track,
+  &__ring-fill {
+    fill: none;
+    stroke-width: 4;
+  }
+
+  &__ring-track {
+    stroke: $lumio-color-ink-100;
+
+    @include dark {
+      stroke: $lumio-color-ink-100-dk;
+    }
+  }
+
+  &__ring-fill {
+    stroke: var(--primary);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 300ms ease;
+
+    @include dark {
+      stroke: $lumio-color-primary-dk;
+    }
+  }
+
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    margin-bottom: 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: $lumio-color-ink-500;
+
+    @include dark {
+      color: $lumio-color-ink-500-dk;
+    }
+  }
+
+  &__toggle-icon {
+    transition: transform 150ms;
+
+    &--open {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__step {
+    display: grid;
+    grid-template-columns: 18px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px;
+    border-radius: $lumio-radius-sm;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 120ms;
+
+    &:hover {
+      background: $lumio-color-ink-50;
+
+      @include dark {
+        background: $lumio-color-ink-50-dk;
+      }
+    }
+  }
+
+  &__check {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid $lumio-color-ink-300;
+    border-radius: 4px;
+
+    @include dark {
+      border-color: $lumio-color-ink-300-dk;
+    }
+  }
+
+  &__step--done &__check {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+
+    @include dark {
+      border-color: $lumio-color-primary-dk;
+      background: $lumio-color-primary-dk;
+    }
+  }
+
+  &__step-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__step-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    font-weight: $lumio-font-weight-medium;
+    color: $lumio-color-ink-900;
+
+    @include dark {
+      color: $lumio-color-ink-900-dk;
+    }
+  }
+
+  &__step--done &__step-title {
+    color: $lumio-color-ink-500;
+    text-decoration: line-through;
+
+    @include dark {
+      color: $lumio-color-ink-500-dk;
+    }
+  }
+
+  &__step-sub {
+    font-size: 12px;
+    margin-top: 2px;
+    color: $lumio-color-ink-500;
+
+    @include dark {
+      color: $lumio-color-ink-500-dk;
+    }
+  }
+
+  &__next {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: $lumio-font-weight-semibold;
+    background: $lumio-color-warning-soft;
+    color: $lumio-color-warning;
+
+    @include dark {
+      background: $lumio-color-warning-soft-dk;
+      color: $lumio-color-warning-dk;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+
+  &__dismiss {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 4px 0;
+    font-size: 12.5px;
+    font-weight: $lumio-font-weight-medium;
+    color: $lumio-color-ink-500;
+
+    @include dark {
+      color: $lumio-color-ink-500-dk;
+    }
+
+    &:hover {
+      color: $lumio-color-ink-900;
+
+      @include dark {
+        color: $lumio-color-ink-900-dk;
+      }
+    }
+  }
+}

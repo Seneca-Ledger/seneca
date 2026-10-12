@@ -15,6 +15,8 @@ export const CreateCategoryBody = Schema.Struct({
   stoicClass: optionalNullable(Schema.Literals(['necessity', 'work', 'virtue', 'leisure'])),
   /** Null returns the category to the name-based guess. */
   helpsOthers: optionalNullable(Schema.Boolean),
+  /** Spending here matters for the tax return: shown in the tax-year report and the tax pack. */
+  taxRelevant: optionalNullable(Schema.Boolean),
 });
 export type CreateCategoryBody = Wire<typeof CreateCategoryBody>;
 

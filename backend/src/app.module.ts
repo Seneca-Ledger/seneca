@@ -85,6 +85,7 @@ import { CryptoModule } from './modules/crypto/crypto.module';
 import { CustomTablesModule } from './modules/custom-tables/custom-tables.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DataEntryModule } from './modules/data-entry/data-entry.module';
+import { DatevModule } from './modules/datev/datev.module';
 import { DropboxModule } from './modules/dropbox/dropbox.module';
 import { EntityImportsModule } from './modules/entity-imports/entity-imports.module';
 import { ExchangeRatesModule } from './modules/exchange-rates/exchange-rates.module';
@@ -117,6 +118,8 @@ import { StatementsModule } from './modules/statements/statements.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { TaxModule } from './modules/tax/tax.module';
+import { TaxPackModule } from './modules/tax-pack/tax-pack.module';
+import { TaxRemindersModule } from './modules/tax-reminders/tax-reminders.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { UsersModule } from './modules/users/users.module';
@@ -255,6 +258,9 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     TelegramModule,
     TaxModule,
     IncomeTaxModule,
+    TaxPackModule,
+    TaxRemindersModule,
+    DatevModule,
     LedgerModule,
     DataEntryModule,
     CustomTablesModule,

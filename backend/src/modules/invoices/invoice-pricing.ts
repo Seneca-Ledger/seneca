@@ -9,6 +9,7 @@ export interface LineTaxRate {
   rate: number;
   name: string;
   isReverseCharge: boolean;
+  kind: TaxRate['kind'];
 }
 
 export type PricedLine = TaxBreakdown & { categoryId: string | null };
@@ -20,6 +21,29 @@ export interface PricableLine {
   unitPrice: number | string;
   taxRateId: string | null;
   categoryId: string | null;
+  /** Discount (negative) or surcharge (positive) on quantity × unit price, in percent. */
+  adjustmentPercent?: number | string | null;
+}
+
+/** Quantity × unit price, before any line discount or surcharge, rounded to cents. */
+export function lineBaseAmount(item: PricableLine): number {
+  return round2(Number(item.quantity) * Number(item.unitPrice));
+}
+
+/**
+ * The line amount after its discount or surcharge, rounded to cents. EN 16931
+ * has the line net = quantity × price − allowances + charges (BR-LIN-04), each
+ * allowance or charge rounded on its own, so the adjustment is rounded and
+ * then applied — the same figure the e-invoice states.
+ */
+export function lineAmount(item: PricableLine): number {
+  return round2(lineBaseAmount(item) + lineAdjustmentAmount(item));
+}
+
+/** The signed adjustment in money: negative for a discount, rounded to cents. */
+export function lineAdjustmentAmount(item: PricableLine): number {
+  const percent = Number(item.adjustmentPercent ?? 0);
+  return percent ? round2((lineBaseAmount(item) * percent) / 100) : 0;
 }
 
 function round2(value: number): number {
@@ -40,7 +64,12 @@ export async function taxRatesByLineItems(
   return new Map(
     taxRates.map(rate => [
       rate.id,
-      { rate: Number(rate.rate), name: rate.name, isReverseCharge: rate.isReverseCharge },
+      {
+        rate: Number(rate.rate),
+        name: rate.name,
+        isReverseCharge: rate.isReverseCharge,
+        kind: rate.kind,
+      },
     ]),
   );
 }
@@ -60,7 +89,7 @@ export async function priceLines(
 ): Promise<PricedLine[]> {
   const rateById = await taxRatesByLineItems(manager, lineItems);
   return lineItems.map(item => {
-    const amountMinor = toMinor(round2(Number(item.quantity) * Number(item.unitPrice)));
+    const amountMinor = toMinor(lineAmount(item));
     const rate = item.taxRateId ? rateById.get(item.taxRateId) : undefined;
     const breakdown = computeTax({
       amountMinor,
@@ -89,6 +118,7 @@ export async function documentLines(
       description: item.description,
       quantity: Number(item.quantity),
       unitPrice: Number(item.unitPrice),
+      adjustmentPercent: Number(item.adjustmentPercent ?? 0) || null,
       taxRatePercent: rate ? rate.rate : null,
       taxRateName: rate?.name ?? null,
       isReverseCharge: rate?.isReverseCharge ?? false,

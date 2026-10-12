@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Budget } from '../../entities/budget.entity';
+import { CategorizationRule } from '../../entities/categorization-rule.entity';
+import { Category } from '../../entities/category.entity';
+import { Goal } from '../../entities/goal.entity';
 import { Payable } from '../../entities/payable.entity';
 import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
@@ -10,6 +14,8 @@ import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
+import { SetupProgressController } from './setup-progress.controller';
+import { SetupProgressService } from './setup-progress.service';
 
 @Module({
   imports: [
@@ -21,11 +27,15 @@ import { DashboardService } from './dashboard.service';
       WorkspaceMember,
       Workspace,
       Subscription,
+      Category,
+      CategorizationRule,
+      Budget,
+      Goal,
     ]),
     ExchangeRatesModule,
   ],
-  controllers: [DashboardController],
-  providers: [DashboardService],
+  controllers: [DashboardController, SetupProgressController],
+  providers: [DashboardService, SetupProgressService],
   exports: [DashboardService],
 })
 export class DashboardModule {}
