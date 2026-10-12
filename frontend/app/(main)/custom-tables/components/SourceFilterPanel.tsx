@@ -5,7 +5,7 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { MultiSelect } from '@/app/components/ui/multi-select';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import type { SourcePreview } from '../hooks/useSourcePreview';
 import type { TableCategory } from '../hooks/useTablesList';
@@ -57,14 +57,6 @@ interface SourceFilterPanelProps {
 const SAMPLE_ROWS = 4;
 const STATEMENTS_LIMIT = 50;
 const NUMERIC_TYPES = new Set(['number', 'currency']);
-
-const readItems = <T,>(payload: unknown): T[] => {
-  if (Array.isArray(payload)) {
-    return payload as T[];
-  }
-  const items = (payload as { items?: unknown } | null)?.items;
-  return Array.isArray(items) ? (items as T[]) : [];
-};
 
 const statementLabel = (statement: StatementOption): string => {
   const period = [statement.statementDateFrom, statement.statementDateTo]
@@ -166,13 +158,12 @@ export function SourceFilterPanel(props: SourceFilterPanelProps) {
   const statementsQuery = useQuery({
     queryKey: [...queryKeys.customTables(workspaceId), 'source-statements'],
     queryFn: async ({ signal }) =>
-      readItems<StatementOption>(
-        await apiQuery<unknown>({
-          url: '/statements',
-          params: { page: 1, limit: STATEMENTS_LIMIT },
-          signal,
-        }),
-      ),
+      apiQueryDecoded({
+        url: '/statements',
+        params: { page: 1, limit: STATEMENTS_LIMIT },
+        signal,
+        contract: 'StatementList',
+      }),
     enabled: wantsStatements && Boolean(workspaceId),
   });
   const has = (field: SourceDef['filterFields'][number]) => source.filterFields.includes(field);

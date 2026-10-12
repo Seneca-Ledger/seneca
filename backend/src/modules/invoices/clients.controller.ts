@@ -1,13 +1,13 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
+import { CreateClientBody, UpdateClientBody } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { ClientsService } from './clients.service';
-import { CreateClientDto } from './dto/create-client.dto';
-import { UpdateClientDto } from './dto/update-client.dto';
 
 @Controller('clients')
 export class ClientsController {
@@ -16,7 +16,10 @@ export class ClientsController {
   @Post()
   @WorkspaceAuth(Permission.CLIENT_CREATE)
   @Audit({ entityType: EntityType.CLIENT, includeDiff: true, isUndoable: true })
-  async create(@Body() dto: CreateClientDto, @WorkspaceId() workspaceId: string) {
+  async create(
+    @SchemaBody(CreateClientBody) dto: CreateClientBody,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.clientsService.create(workspaceId, dto);
   }
 
@@ -37,7 +40,7 @@ export class ClientsController {
   @Audit({ entityType: EntityType.CLIENT, includeDiff: true, isUndoable: true })
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateClientDto,
+    @SchemaBody(UpdateClientBody) dto: UpdateClientBody,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.clientsService.update(id, workspaceId, dto);

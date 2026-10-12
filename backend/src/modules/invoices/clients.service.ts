@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder, Repository } from 'typeorm';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
+import type { CreateClientBody } from '../../contracts';
 import { Client } from '../../entities/client.entity';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import type { CreateClientDto } from './dto/create-client.dto';
 
 @Injectable()
 export class ClientsService extends WorkspaceCrudBaseService<Client> {
@@ -20,7 +20,7 @@ export class ClientsService extends WorkspaceCrudBaseService<Client> {
     return { name: 'ASC' };
   }
 
-  async create(workspaceId: string, dto: CreateClientDto): Promise<Client> {
+  async create(workspaceId: string, dto: CreateClientBody): Promise<Client> {
     const client = this.repository.create({
       workspaceId,
       name: dto.name.trim(),

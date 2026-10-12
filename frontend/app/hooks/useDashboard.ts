@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import type {
   DashboardCashFlowRange,
@@ -75,7 +75,8 @@ export function useDashboardTrends({
   const query = useQuery({
     queryKey: queryKeys.dashboardTrends({ workspaceId, days, month: month ?? null }),
     queryFn: ({ signal }) =>
-      apiQuery<DashboardTrends>({
+      apiQueryDecoded({
+        contract: 'DashboardTrendsResponse',
         url: '/dashboard/trends',
         params: month ? { month } : { days },
         signal,
@@ -108,7 +109,8 @@ export function useDashboardHealthHistory(year: number): HealthHistoryState {
   const query = useQuery({
     queryKey: queryKeys.dashboardHealthHistory({ workspaceId, year }),
     queryFn: ({ signal }) =>
-      apiQuery<DashboardHealthHistory>({
+      apiQueryDecoded({
+        contract: 'DashboardHealthHistoryResponse',
         url: '/dashboard/health-history',
         params: { year },
         signal,
@@ -136,7 +138,8 @@ export function useDashboardCashFlow(range: DashboardCashFlowRange, month?: stri
   const query = useQuery({
     queryKey: queryKeys.dashboardCashFlow({ workspaceId, range, month: month ?? null }),
     queryFn: ({ signal }) =>
-      apiQuery<DashboardMonthlyCashFlow>({
+      apiQueryDecoded({
+        contract: 'DashboardMonthlyCashFlowResponse',
         url: '/dashboard/cash-flow',
         params: month ? { range, month } : { range },
         signal,
@@ -177,7 +180,7 @@ export function useDashboard(
     queryFn: ({ signal }) => {
       const params: Record<string, string> = { range };
       if (targetDate) params.date = targetDate;
-      return apiQuery<DashboardData>({ url: '/dashboard', params, signal });
+      return apiQueryDecoded({ url: '/dashboard', params, signal, contract: 'DashboardResponse' });
     },
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,

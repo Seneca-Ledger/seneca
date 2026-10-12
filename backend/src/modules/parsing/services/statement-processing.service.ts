@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Data } from 'effect';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -8,6 +9,7 @@ import type { Repository } from 'typeorm';
 // DataSource is imported as a value, not a type: Nest resolves this constructor
 // parameter from the emitted design:paramtypes metadata, which `import type` erases.
 import { DataSource } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { toMinor } from '../../../common/utils/money.util';
 import { extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
@@ -52,6 +54,22 @@ function parsePositiveInt(value: string | undefined, fallback: number) {
   }
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/**
+ * A statement no retry can parse: the row or its file is gone, or no parser
+ * accepts the file. The queue gives up on it instead of trying again.
+ */
+export class StatementRejected extends Data.TaggedError('StatementRejected')<{
+  readonly message: string;
+}> {}
+
+export interface ProcessStatementOptions {
+  /**
+   * False while the queue still has attempts left: the failure is recorded on
+   * the statement, but the user hears about it only once, when it is final.
+   */
+  readonly finalAttempt?: boolean;
 }
 
 @Injectable()
@@ -194,7 +212,7 @@ export class StatementProcessingService {
     }
 
     if (!fileData) {
-      throw new Error(`File not found: ${statement.filePath}`);
+      throw new StatementRejected({ message: `File not found: ${statement.filePath}` });
     }
 
     const ext = this.getFileExtension(statement);
@@ -264,7 +282,7 @@ export class StatementProcessingService {
   }
 
   private validateStatement(
-    metadata: ParsedStatement['metadata'],
+    metadata: { balanceStart?: number | null; balanceEnd?: number | null },
     transactions: ParsedTransaction[],
     dropInfo?: { rawCount: number; droppedCount: number },
   ): {
@@ -425,14 +443,17 @@ export class StatementProcessingService {
     this.metricsService.aiParsingCallsTotal.inc({ kind, result });
   }
 
-  async processStatement(statementId: string): Promise<Statement> {
+  async processStatement(
+    statementId: string,
+    options: ProcessStatementOptions = {},
+  ): Promise<Statement> {
     const existing = StatementProcessingService.inFlight.get(statementId);
     if (existing) {
       return existing;
     }
 
     const runPromise = StatementProcessingService.parsingSemaphore.use(() =>
-      this.processStatementInternal(statementId),
+      this.processStatementInternal(statementId, options),
     );
     StatementProcessingService.inFlight.set(statementId, runPromise);
 
@@ -542,7 +563,10 @@ export class StatementProcessingService {
     return statement;
   }
 
-  private async processStatementInternal(statementId: string): Promise<Statement> {
+  private async processStatementInternal(
+    statementId: string,
+    options: ProcessStatementOptions,
+  ): Promise<Statement> {
     const startTime = Date.now();
     const parsingDetails: Statement['parsingDetails'] = {
       logEntries: [],
@@ -565,7 +589,7 @@ export class StatementProcessingService {
     });
 
     if (!statement) {
-      throw new Error(`Statement ${statementId} not found`);
+      throw new StatementRejected({ message: `Statement ${statementId} not found` });
     }
 
     const workspaceCurrency = statement.workspace?.currency || null;
@@ -674,7 +698,7 @@ export class StatementProcessingService {
         addLog('error', errorMsg);
         parsingDetails.errors = parsingDetails.errors || [];
         parsingDetails.errors.push(errorMsg);
-        throw new Error(errorMsg);
+        throw new StatementRejected({ message: errorMsg });
       }
 
       const parserVersion =
@@ -704,7 +728,9 @@ export class StatementProcessingService {
       // StaleStatementReaper would reset+re-enqueue it while this run is
       // still writing to it.
       statement.parsingDetails = parsingDetails;
-      await this.statementRepository.update(statement.id, { parsingDetails });
+      await this.statementRepository.update(statement.id, {
+        parsingDetails,
+      } as QueryDeepPartialEntity<Statement>);
 
       // Extract enhanced metadata from raw text
       addLog('info', 'Extracting statement headers and metadata...');
@@ -888,7 +914,9 @@ export class StatementProcessingService {
       // Heartbeat: createTransactions() above does real DB inserts and can
       // run long on a large statement; see the earlier heartbeat comment.
       statement.parsingDetails = parsingDetails;
-      await this.statementRepository.update(statement.id, { parsingDetails });
+      await this.statementRepository.update(statement.id, {
+        parsingDetails,
+      } as QueryDeepPartialEntity<Statement>);
 
       const validationResult = this.validateStatement(
         enrichedMetadata,
@@ -985,7 +1013,8 @@ export class StatementProcessingService {
       statement.parsingDetails = parsingDetails;
       await this.statementRepository.save(statement);
 
-      if (this.eventEmitter && statement.workspaceId) {
+      const final = options.finalAttempt !== false || error instanceof StatementRejected;
+      if (final && this.eventEmitter && statement.workspaceId) {
         this.eventEmitter.emit('parsing.error', {
           workspaceId: statement.workspaceId,
           userId: statement.userId,
@@ -1368,8 +1397,8 @@ export class StatementProcessingService {
     accountNumber: string;
     dateFrom: Date;
     dateTo: Date;
-    balanceStart: number | null | undefined;
-    balanceEnd: number | null | undefined;
+    balanceStart: number | null;
+    balanceEnd: number | null;
     currency: string;
   } {
     const transactionDates = transactions.map(t => t.transactionDate).filter((d): d is Date => !!d);

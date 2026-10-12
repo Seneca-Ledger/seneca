@@ -632,7 +632,8 @@ export class OpenProtocolIntegrationsService {
           labels: ['imap'],
           snippet: parsed.text?.slice(0, 500),
         },
-        parsedData,
+        // Saving turns the omitted column into null, as before.
+        parsedData: parsedData ?? undefined,
         attachmentPaths,
         taxAmount: parsedData?.tax || null,
         isDuplicate: false,
@@ -1235,18 +1236,25 @@ export class OpenProtocolIntegrationsService {
     provider: IntegrationProvider,
     uploaded: number,
   ): Promise<void> {
-    await this.auditService
-      .createEvent({
+    try {
+      const { integration } = await this.findProtocolIntegration(workspaceId, provider);
+      // Storage configured from the environment has no integration row to log against.
+      if (!integration) {
+        return;
+      }
+      await this.auditService.createEvent({
         workspaceId,
         actorType: ActorType.INTEGRATION,
         actorId: user.id,
         actorLabel: `${provider} Sync`,
         entityType: EntityType.INTEGRATION,
-        entityId: null,
+        entityId: integration.id,
         action: AuditAction.EXPORT,
         meta: { provider, uploaded },
-      })
-      .catch(error => this.logger.warn(`Audit event failed: ${this.getErrorMessage(error)}`));
+      });
+    } catch (error) {
+      this.logger.warn(`Audit event failed: ${this.getErrorMessage(error)}`);
+    }
   }
 
   private async auditReceiptImport(

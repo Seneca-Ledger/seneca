@@ -7,18 +7,8 @@ import { TokenIcon } from '@/app/(main)/crypto/components/TokenIcon';
 import { ChevronRight } from '@/app/components/icons';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-
-interface CryptoSummary {
-  currency: string;
-  portfolioValue: number;
-  /** Booked value of transfers in and out during the requested month. */
-  income: number;
-  expense: number;
-  walletCount: number;
-  holdings: Array<{ asset: string; amount: string; value: number }>;
-}
 
 type CryptoPortfolioCardProps = {
   formatAmount: (value: number) => string;
@@ -45,7 +35,12 @@ export function CryptoPortfolioCard({
   const { data: summary } = useQuery({
     queryKey: queryKeys.cryptoMonthSummary(workspaceId, month),
     queryFn: ({ signal }) =>
-      apiQuery<CryptoSummary>({ url: '/crypto/summary', params: { month }, signal }),
+      apiQueryDecoded({
+        url: '/crypto/summary',
+        params: { month },
+        signal,
+        contract: 'CryptoSummary',
+      }),
     enabled: Boolean(workspaceId),
     // Another month keeps the card in place until its figures arrive.
     placeholderData: (previous, previousQuery) =>

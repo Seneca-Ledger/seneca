@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { isAbortError } from '../utils/pasteUtils';
 import type { CustomTableGridRow } from '../utils/types';
 
@@ -95,22 +96,6 @@ export function useTableGrid({
     }
   };
 
-  const extractRows = (response: {
-    data?: { items?: unknown[]; data?: { items?: unknown[] } };
-  }): unknown[] => {
-    const items = response.data?.items || response.data?.data?.items || [];
-    return Array.isArray(items) ? items : [];
-  };
-
-  const extractTotal = (response: { data?: unknown }): number | null => {
-    const root = (response.data ?? {}) as {
-      meta?: { total?: unknown };
-      data?: { meta?: { total?: unknown } };
-    };
-    const candidate = root.meta?.total ?? root.data?.meta?.total;
-    return typeof candidate === 'number' ? candidate : null;
-  };
-
   const dedupeRows = <T>(merged: T[]): T[] => {
     const seen = new Set<string>();
     const result: T[] = [];
@@ -185,12 +170,17 @@ export function useTableGrid({
               : undefined,
           },
         });
+        const page = await checkContract(
+          'CustomTableRowPage',
+          response.data,
+          '/custom-tables/:id/rows',
+        );
         if (isStaleRequest(controller, requestId)) {
           return;
         }
-        const next = extractRows(response);
+        const next = page.items;
         applyFetchedRows(next, shouldReset);
-        setTotal(extractTotal(response));
+        setTotal(page.meta.total);
         setHasMore(next.length >= 50);
       })()
         .catch(async error => {

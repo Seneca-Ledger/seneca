@@ -2,6 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import { FOLDER_NAME_MAX, type FolderOption, type StorageFile } from '../storageHelpers';
 
@@ -128,8 +129,7 @@ export function useStorageFolders(
 
   const loadFolders = async (): Promise<void> => {
     await (async () => {
-      const response = await api.get('/storage/folders');
-      setFolders(response.data || []);
+      setFolders(await apiQueryDecoded({ url: '/storage/folders', contract: 'StorageFolderList' }));
     })().catch(async error => {
       console.error('Failed to load folders:', error);
       toast.error(messages.loadFoldersFailed);
@@ -148,8 +148,11 @@ export function useStorageFolders(
     }
 
     await (async () => {
-      const response = await api.post('/storage/folders', { name });
-      setFolders(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
+      const response = await api.post('/storage/folders', {
+        name,
+      } satisfies ContractInput<'CreateFolderBody'>);
+      const folder = await checkContract('StorageFolder', response.data, '/storage/folders');
+      setFolders(prev => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
       setNewFolderName('');
       toast.success(messages.folderCreated);
     })().catch(async error => {
@@ -176,11 +179,14 @@ export function useStorageFolders(
     }
 
     await (async () => {
-      const response = await api.patch(`/storage/folders/${folderId}`, { name });
+      const response = await api.patch(`/storage/folders/${folderId}`, {
+        name,
+      } satisfies ContractInput<'UpdateFolderBody'>);
+      const updated = await checkContract('StorageFolder', response.data, '/storage/folders/:id');
       setFolders(prev =>
-        prev.map(folder => (folder.id === folderId ? { ...folder, ...response.data } : folder)),
+        prev.map(folder => (folder.id === folderId ? { ...folder, ...updated } : folder)),
       );
-      const newName = response.data?.name || name;
+      const newName = updated.name || name;
       setFiles(prev =>
         prev.map(file => {
           if (file.folderId !== folderId) {
@@ -188,7 +194,7 @@ export function useStorageFolders(
           }
           const folder = file.folder
             ? { ...file.folder, name: newName }
-            : { id: folderId, name: newName };
+            : { id: folderId, name: newName, userId: null, tagId: null };
           return { ...file, folder };
         }),
       );
@@ -208,9 +214,12 @@ export function useStorageFolders(
 
   const handleUpdateFolderTag = async (folderId: string, tagId: string | null): Promise<void> => {
     await (async () => {
-      const response = await api.patch(`/storage/folders/${folderId}`, { tagId });
+      const response = await api.patch(`/storage/folders/${folderId}`, {
+        tagId,
+      } satisfies ContractInput<'UpdateFolderBody'>);
+      const updated = await checkContract('StorageFolder', response.data, '/storage/folders/:id');
       setFolders(prev =>
-        prev.map(folder => (folder.id === folderId ? { ...folder, ...response.data } : folder)),
+        prev.map(folder => (folder.id === folderId ? { ...folder, ...updated } : folder)),
       );
       setFolderTagPickerId(null);
     })().catch(async error => {
@@ -329,7 +338,9 @@ export function useStorageFolders(
 
   const handleMoveToFolder = async (fileId: string, folderId: string | null): Promise<void> => {
     await (async () => {
-      await api.patch(`/storage/files/${fileId}/folder`, { folderId });
+      await api.patch(`/storage/files/${fileId}/folder`, {
+        folderId,
+      } satisfies ContractInput<'MoveFileBody'>);
       setFiles(prev =>
         prev.map(file =>
           file.id === fileId

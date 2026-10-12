@@ -88,7 +88,9 @@ export class StatementNormalizationService {
       };
     } catch (error) {
       this.logger.error('Normalization failed', error);
-      errors.push(`Normalization failed: ${error.message}`);
+      errors.push(
+        `Normalization failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
 
       return {
         normalizedTransactions: [],
@@ -120,7 +122,9 @@ export class StatementNormalizationService {
         normalized.push(normalizedTx);
       } catch (error) {
         errors.push(
-          `Failed to normalize transaction ${transaction.documentNumber}: ${error.message}`,
+          `Failed to normalize transaction ${transaction.documentNumber}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
         // Add original transaction as fallback
         normalized.push(transaction);
@@ -142,10 +146,10 @@ export class StatementNormalizationService {
       // Create a unique key based on date, amount, counterparty, and purpose
       const key = this.createTransactionKey(transaction);
 
-      if (uniqueTransactions.has(key)) {
+      const existing = uniqueTransactions.get(key);
+      if (existing) {
         duplicatesRemoved++;
         // Keep the transaction with more complete data
-        const existing = uniqueTransactions.get(key);
         const replacement = this.selectBetterTransaction(existing, transaction);
         uniqueTransactions.set(key, replacement);
       } else {

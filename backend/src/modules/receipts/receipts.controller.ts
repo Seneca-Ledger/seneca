@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
@@ -20,21 +19,29 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
 import { validateFile } from '../../common/utils/file-validator.util';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { multerConfig } from '../../config/multer.config';
+import {
+  ApproveReceiptBody,
+  BulkApproveBody,
+  PlaceSuggestionsBody,
+  UpdateReceiptBody,
+  UpdateReceiptLocationBody,
+  UpdateReceiptStageBody,
+  UploadReceiptBody,
+} from '../../contracts';
 import type { User } from '../../entities';
+import { ReceiptStatus } from '../../entities/receipt.entity';
+import { StatementStage } from '../../entities/statement.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ApproveReceiptDto } from './dto/approve-receipt.dto';
-import { BulkApproveDto } from './dto/bulk-approve.dto';
-import { PlaceSuggestionsDto } from './dto/place-suggestions.dto';
 import { ReceiptQueryDto } from './dto/receipt-query.dto';
-import { UpdateReceiptDto } from './dto/update-receipt.dto';
-import { UpdateReceiptLocationDto } from './dto/update-receipt-location.dto';
-import { UpdateReceiptStageDto, UpdateReceiptStageResultDto } from './dto/update-receipt-stage.dto';
-import { UploadReceiptDto } from './dto/upload-receipt.dto';
+import { UpdateReceiptStageResultDto } from './dto/update-receipt-stage.dto';
 import { ReceiptsService } from './receipts.service';
 import { ReceiptLocationService } from './services/receipt-location.service';
 import { ReceiptMatchService } from './services/receipt-match.service';
@@ -70,7 +77,7 @@ export class ReceiptsController {
   @UseInterceptors(FilesInterceptor('files', 5, multerConfig))
   async upload(
     @UploadedFiles() files: MulterFile[],
-    @Body() dto: UploadReceiptDto,
+    @SchemaBody(UploadReceiptBody) dto: UploadReceiptBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -89,8 +96,8 @@ export class ReceiptsController {
           userId: user.id,
           workspaceId,
           files: [file],
-          language: dto.language,
-          captureLocation: toCaptureLocation(dto),
+          language: dto.language ?? undefined,
+          captureLocation: toCaptureLocation(withoutNulls(dto)),
         }),
       ),
     );
@@ -104,7 +111,7 @@ export class ReceiptsController {
   @UseInterceptors(FileInterceptor('file', multerConfig))
   async scan(
     @UploadedFile() file: MulterFile,
-    @Body() dto: UploadReceiptDto,
+    @SchemaBody(UploadReceiptBody) dto: UploadReceiptBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -119,8 +126,8 @@ export class ReceiptsController {
       userId: user.id,
       workspaceId,
       file,
-      language: dto.language,
-      captureLocation: toCaptureLocation(dto),
+      language: dto.language ?? undefined,
+      captureLocation: toCaptureLocation(withoutNulls(dto)),
     });
   }
 
@@ -135,11 +142,14 @@ export class ReceiptsController {
     description: '{ needed: false } when the store is already known, else the candidates',
   })
   @ApiResponse({ status: 400, description: 'No receipt for this statement in the workspace' })
-  async placeSuggestions(@WorkspaceId() workspaceId: string, @Body() dto: PlaceSuggestionsDto) {
+  async placeSuggestions(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(PlaceSuggestionsBody) dto: PlaceSuggestionsBody,
+  ) {
     const suggestions = await this.placeSuggestionService.suggest(
       dto.statementId,
       workspaceId,
-      dto,
+      withoutNulls(dto),
     );
     if (!suggestions) {
       throw new BadRequestException('Receipt not found');
@@ -174,10 +184,15 @@ export class ReceiptsController {
   async setLocation(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpdateReceiptLocationDto,
+    @SchemaBody(UpdateReceiptLocationBody) dto: UpdateReceiptLocationBody,
     @CurrentUser() user: User,
   ) {
-    const receipt = await this.locationService.setManual(id, workspaceId, dto, user.id);
+    const receipt = await this.locationService.setManual(
+      id,
+      workspaceId,
+      withoutNulls(dto),
+      user.id,
+    );
     if (!receipt) {
       throw new BadRequestException('Receipt not found');
     }
@@ -208,10 +223,15 @@ export class ReceiptsController {
   async update(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpdateReceiptDto,
+    @SchemaBody(UpdateReceiptBody) dto: UpdateReceiptBody,
     @CurrentUser() user: User,
   ) {
-    const receipt = await this.receiptsService.update(id, workspaceId, dto, user.id);
+    const receipt = await this.receiptsService.update(
+      id,
+      workspaceId,
+      { ...withoutNulls(dto), status: toEnum(ReceiptStatus, dto.status) ?? undefined },
+      user.id,
+    );
     if (!receipt) {
       throw new BadRequestException('Receipt not found');
     }
@@ -224,11 +244,16 @@ export class ReceiptsController {
   @ApiOperation({ summary: 'Move one or more receipts between Submit and Approve' })
   @ApiResponse({ status: 200, type: UpdateReceiptStageResultDto })
   async updateStage(
-    @Body() dto: UpdateReceiptStageDto,
+    @SchemaBody(UpdateReceiptStageBody) dto: UpdateReceiptStageBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ): Promise<UpdateReceiptStageResultDto> {
-    return this.receiptStageService.updateStage(dto.receiptIds, dto.stage, user.id, workspaceId);
+    return this.receiptStageService.updateStage(
+      dto.receiptIds,
+      toEnum(StatementStage, dto.stage),
+      user.id,
+      workspaceId,
+    );
   }
 
   @Post(':id/approve')
@@ -237,7 +262,7 @@ export class ReceiptsController {
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Body() dto: ApproveReceiptDto,
+    @SchemaBody(ApproveReceiptBody) dto: ApproveReceiptBody,
   ) {
     const result = await this.receiptsService.approve(id, workspaceId, user.id, {
       attachTo: dto?.transactionId,
@@ -290,11 +315,16 @@ export class ReceiptsController {
   @Post('bulk-approve')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async bulkApprove(
-    @Body() dto: BulkApproveDto,
+    @SchemaBody(BulkApproveBody) dto: BulkApproveBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
-    return this.receiptsService.bulkApprove(dto.receiptIds, workspaceId, user.id, dto.categoryId);
+    return this.receiptsService.bulkApprove(
+      dto.receiptIds,
+      workspaceId,
+      user.id,
+      dto.categoryId ?? undefined,
+    );
   }
 
   @Delete(':id')

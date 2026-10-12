@@ -56,7 +56,6 @@ export class AiHapoalimExtractor extends BaseAiHelper {
         ],
         {
           timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 20000,
-          timeoutMessage: 'AI Hapoalim extraction timed out',
           retries: 2,
           baseDelayMs: 500,
           maxDelayMs: 5000,
@@ -93,7 +92,6 @@ export class AiHapoalimExtractor extends BaseAiHelper {
         ],
         {
           timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 30000,
-          timeoutMessage: 'AI Hapoalim image extraction timed out',
           retries: 1,
           baseDelayMs: 1000,
           maxDelayMs: 5000,

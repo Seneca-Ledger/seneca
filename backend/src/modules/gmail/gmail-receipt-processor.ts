@@ -261,9 +261,10 @@ export class GmailReceiptProcessor {
         metadata: {
           attachments,
           labels: message.labelIds || [],
-          snippet: message.snippet,
+          snippet: message.snippet ?? undefined,
         },
-        parsedData,
+        // Saving turns the omitted column into null, as before.
+        parsedData: parsedData ?? undefined,
         attachmentPaths,
         taxAmount: parsedData?.tax || null,
         isDuplicate: false,

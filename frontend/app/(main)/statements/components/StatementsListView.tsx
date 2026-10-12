@@ -16,6 +16,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
 import type { DeviceLocation } from '@/app/lib/device-location';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import type {
   CreateTaxRatePayload,
@@ -281,13 +282,16 @@ export default function StatementsListView(): React.JSX.Element {
   };
 
   const handleCreateTaxRate = async (payload: CreateTaxRatePayload): Promise<TaxRateOption> => {
-    const response = await apiClient.post('/tax-rates', payload);
-    const created = response.data as TaxRateOption & { rate: number | string };
+    const response = await apiClient.post(
+      '/tax-rates',
+      payload satisfies ContractInput<'CreateTaxRateBody'>,
+    );
+    const created = await checkContract('TaxRateItem', response.data, '/tax-rates');
     await v.loadManualExpenseOptions();
     return {
       ...created,
-      rate: Number(created.rate ?? payload.rate),
-      isEnabled: created.isEnabled !== false,
+      rate: Number(created.rate),
+      isEnabled: created.isEnabled,
     };
   };
 
@@ -299,7 +303,7 @@ export default function StatementsListView(): React.JSX.Element {
     id: string;
     source?: string;
     fileName: string;
-    parsingDetails?: { importPreview?: { attachments?: number } };
+    parsingDetails?: { importPreview?: { attachments?: number } } | null;
   }): void => {
     const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
     if (isReceipt) {

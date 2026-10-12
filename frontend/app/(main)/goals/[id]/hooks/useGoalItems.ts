@@ -7,6 +7,7 @@ import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { fetchGoalItems, type GoalItemPayload, type GoalItemsResponse } from '@/app/lib/goals-api';
 import { unwrapEnvelope } from '@/app/lib/query-fn';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export interface GoalItemsState {
@@ -45,7 +46,7 @@ export function useGoalItems(goalId: string): GoalItemsState {
           : write.kind === 'update'
             ? await apiClient.patch(`${base}/${write.itemId}`, write.payload)
             : await apiClient.delete(`${base}/${write.itemId}`);
-      return unwrapEnvelope<GoalItemsResponse>(response.data);
+      return checkContract('GoalItemsResponse', unwrapEnvelope(response.data), base);
     },
     onSuccess: (data: GoalItemsResponse) => {
       queryClient.setQueryData(queryKey, data);

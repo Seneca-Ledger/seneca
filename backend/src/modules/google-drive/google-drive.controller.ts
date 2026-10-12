@@ -33,9 +33,9 @@ export class GoogleDriveController {
   @Public()
   @Get('callback')
   async callback(
-    @Query('code') code: string | undefined,
-    @Query('state') state: string | undefined,
-    @Query('error') error: string | undefined,
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Query('error') error: string,
     @Res() res: Response,
   ) {
     const redirect = await this.googleDriveService.handleOAuthCallback({

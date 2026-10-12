@@ -5,13 +5,12 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type { WebhookReceiptUploadBody, WebhookStatementUploadBody } from '../../contracts';
 import { User } from '../../entities/user.entity';
 import type { WebhookEndpoint } from '../../entities/webhook-endpoint.entity';
 import { WorkspaceMember, WorkspaceRole } from '../../entities/workspace-member.entity';
 import { ReceiptsService } from '../receipts/receipts.service';
 import { StatementsService } from '../statements/statements.service';
-import type { WebhookReceiptUploadDto } from './dto/webhook-receipt-upload.dto';
-import type { WebhookStatementUploadDto } from './dto/webhook-statement-upload.dto';
 
 const MAX_BASE64_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -73,7 +72,7 @@ export class WebhookInboundService {
   async uploadStatement(
     endpoint: WebhookEndpoint,
     file: Express.Multer.File | null,
-    dto: WebhookStatementUploadDto,
+    dto: WebhookStatementUploadBody,
   ) {
     const user = await this.resolveWorkspaceOwner(endpoint.workspaceId);
     const resolvedFile =
@@ -106,7 +105,7 @@ export class WebhookInboundService {
   async uploadReceipt(
     endpoint: WebhookEndpoint,
     file: Express.Multer.File | null,
-    dto: WebhookReceiptUploadDto,
+    dto: WebhookReceiptUploadBody,
   ) {
     const user = await this.resolveWorkspaceOwner(endpoint.workspaceId);
     const resolvedFile =
@@ -121,7 +120,7 @@ export class WebhookInboundService {
         userId: user.id,
         workspaceId: endpoint.workspaceId,
         files: [resolvedFile],
-        language: dto.language,
+        language: dto.language ?? undefined,
       });
     } finally {
       if (isTemp) {

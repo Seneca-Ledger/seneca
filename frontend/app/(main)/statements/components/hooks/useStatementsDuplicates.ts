@@ -30,7 +30,7 @@ interface StatementForDuplicates {
     detectedBy?: string;
     parserUsed?: string;
     importPreview?: { source?: string; merchant?: string };
-  };
+  } | null;
 }
 
 interface UseStatementsDuplicatesParams {
