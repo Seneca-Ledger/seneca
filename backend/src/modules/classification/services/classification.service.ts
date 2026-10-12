@@ -210,7 +210,7 @@ export class ClassificationService {
         entityId: transaction.id,
         action: AuditAction.APPLY_RULE,
         meta: {
-          ruleId: matchedRule.id ?? null,
+          ruleId: matchedRule.id,
           ruleName: matchedRule.name,
           confidence: 1,
         },
@@ -687,7 +687,7 @@ export class ClassificationService {
     if (!category) {
       category = this.categoryRepository.create({
         userId,
-        workspaceId,
+        workspaceId: workspaceId ?? undefined,
         name: categoryName,
         type,
         isSystem: false,

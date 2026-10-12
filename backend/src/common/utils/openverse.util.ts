@@ -1,9 +1,14 @@
 import {
   BadGatewayException,
+  type HttpException,
   type Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { Data, Effect, Schema } from 'effect';
+import { HttpClientResponse } from 'effect/http';
+import type { AppServices, EffectRuntime } from '../effect/effect-runtime';
+import { contentTypeOf, getWith } from '../effect/http-json';
 
 /**
  * Openverse: the one image search that answers without an API key, so a
@@ -49,6 +54,7 @@ export interface OpenverseRequestOptions {
   label: string;
   /** What the person is told on a 429 — where to go while the allowance resets. */
   allowanceMessage: string;
+  effects: EffectRuntime;
 }
 
 export interface OpenverseDownloadOptions extends OpenverseRequestOptions {
@@ -79,43 +85,97 @@ export function asHttpsUrl(value: unknown, max: number): string | null {
   }
 }
 
-function failureKind(error: unknown): string {
-  return error instanceof Error && error.name === 'TimeoutError' ? 'timeout' : 'network';
+/** Openverse answers JSON objects; every field is read leniently by the callers. */
+const OpenverseJsonBody = Schema.Record(Schema.String, Schema.Unknown);
+export type OpenverseJson = Record<string, unknown>;
+
+/** Why an Openverse request gave nothing usable, before it becomes a response. */
+class OpenverseRequestError extends Data.TaggedError('OpenverseRequestError')<{
+  readonly reason: 'unavailable' | 'quota' | 'unreadable' | 'missing' | 'format' | 'size';
+}> {}
+
+function toException(
+  error: OpenverseRequestError,
+  action: 'search' | 'download',
+  options: OpenverseRequestOptions,
+): HttpException {
+  switch (error.reason) {
+    case 'quota':
+      return new ServiceUnavailableException(options.allowanceMessage);
+    case 'unavailable':
+      return new BadGatewayException(
+        action === 'search'
+          ? 'Image search is unavailable right now'
+          : 'Could not fetch that picture',
+      );
+    case 'unreadable':
+      return new BadGatewayException('Image search returned something unreadable');
+    case 'missing':
+      return new NotFoundException('That picture is no longer available');
+    case 'format':
+      return new BadGatewayException('That picture is in a format Lumio does not store');
+    case 'size':
+      return new BadGatewayException('That picture is too large to store');
+  }
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: upstream JSON, narrowed by the callers
-export type OpenverseJson = Record<string, any>;
+function networkFailure(logger: Logger, prefix: string, reason: 'network' | 'timeout') {
+  return Effect.suspend(() => {
+    logger.warn(`${prefix}: ${reason}`);
+    return Effect.fail(new OpenverseRequestError({ reason: 'unavailable' }));
+  });
+}
 
-export async function requestOpenverseJson(
+/** Runs a request; an OpenverseRequestError becomes the response the picker shows. */
+async function run<A>(
+  action: 'search' | 'download',
+  options: OpenverseRequestOptions,
+  effect: Effect.Effect<A, OpenverseRequestError, AppServices>,
+): Promise<A> {
+  try {
+    return await options.effects.run(effect);
+  } catch (error) {
+    throw error instanceof OpenverseRequestError ? toException(error, action, options) : error;
+  }
+}
+
+/** Never retried: the anonymous allowance is 200 searches a day. */
+export function requestOpenverseJson(
   url: string,
   options: OpenverseRequestOptions,
 ): Promise<OpenverseJson> {
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      headers: { Accept: 'application/json', 'User-Agent': options.userAgent },
-      signal: AbortSignal.timeout(options.timeoutMs),
-    });
-  } catch (error) {
-    options.logger.warn(`Openverse request failed: ${failureKind(error)}`);
-    throw new BadGatewayException('Image search is unavailable right now');
-  }
-
-  // Worth its own message: the allowance resets, and the person should be
-  // told to wait rather than that the search is broken.
-  if (response.status === 429) {
-    throw new ServiceUnavailableException(options.allowanceMessage);
-  }
-  if (!response.ok) {
-    options.logger.warn(`Openverse request failed: http_${response.status}`);
-    throw new BadGatewayException('Image search is unavailable right now');
-  }
-
-  try {
-    return (await response.json()) as OpenverseJson;
-  } catch {
-    throw new BadGatewayException('Image search returned something unreadable');
-  }
+  const { logger } = options;
+  return run(
+    'search',
+    options,
+    getWith(
+      url,
+      {
+        timeout: options.timeoutMs,
+        headers: { Accept: 'application/json', 'User-Agent': options.userAgent },
+      },
+      response =>
+        Effect.gen(function* () {
+          // Worth its own message: the allowance resets, and the person should
+          // be told to wait rather than that the search is broken.
+          if (response.status === 429) {
+            return yield* new OpenverseRequestError({ reason: 'quota' });
+          }
+          if (response.status < 200 || response.status >= 300) {
+            logger.warn(`Openverse request failed: http_${response.status}`);
+            return yield* new OpenverseRequestError({ reason: 'unavailable' });
+          }
+          return yield* HttpClientResponse.schemaBodyJson(OpenverseJsonBody)(response).pipe(
+            Effect.mapError(() => new OpenverseRequestError({ reason: 'unreadable' })),
+          );
+        }),
+    ).pipe(
+      Effect.catchTags({
+        HttpClientError: () => networkFailure(logger, 'Openverse request failed', 'network'),
+        TimeoutError: () => networkFailure(logger, 'Openverse request failed', 'timeout'),
+      }),
+    ),
+  );
 }
 
 /**
@@ -123,43 +183,46 @@ export async function requestOpenverseJson(
  * fixed host — callers validate it as a uuid first — so there is no SSRF
  * surface and no need for the egress guard.
  */
-export async function downloadOpenverseThumbnail(
+export function downloadOpenverseThumbnail(
   photoId: string,
   options: OpenverseDownloadOptions,
 ): Promise<OpenverseImage> {
-  let response: Response;
-  try {
-    response = await fetch(`${OPENVERSE_API}${photoId}/thumb/`, {
-      headers: { 'User-Agent': options.userAgent },
-      signal: AbortSignal.timeout(options.timeoutMs),
-    });
-  } catch (error) {
-    options.logger.warn(`${options.label} download failed: ${failureKind(error)}`);
-    throw new BadGatewayException('Could not fetch that picture');
-  }
-
-  if (response.status === 404) {
-    throw new NotFoundException('That picture is no longer available');
-  }
-  if (response.status === 429) {
-    throw new ServiceUnavailableException(options.allowanceMessage);
-  }
-  if (!response.ok) {
-    options.logger.warn(`${options.label} download failed: http_${response.status}`);
-    throw new BadGatewayException('Could not fetch that picture');
-  }
-
-  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim();
-  if (!OPENVERSE_CONTENT_TYPES[contentType]) {
-    options.logger.warn(`${options.label} rejected: content_type_${contentType || 'none'}`);
-    throw new BadGatewayException('That picture is in a format Lumio does not store');
-  }
-
-  const body = Buffer.from(await response.arrayBuffer());
-  if (body.byteLength === 0 || body.byteLength > options.maxBytes) {
-    options.logger.warn(`${options.label} rejected: size_${body.byteLength}`);
-    throw new BadGatewayException('That picture is too large to store');
-  }
-
-  return { body, contentType };
+  const { logger, label } = options;
+  return run(
+    'download',
+    options,
+    getWith(
+      `${OPENVERSE_API}${photoId}/thumb/`,
+      { timeout: options.timeoutMs, headers: { 'User-Agent': options.userAgent } },
+      response =>
+        Effect.gen(function* () {
+          if (response.status === 404) {
+            return yield* new OpenverseRequestError({ reason: 'missing' });
+          }
+          if (response.status === 429) {
+            return yield* new OpenverseRequestError({ reason: 'quota' });
+          }
+          if (response.status < 200 || response.status >= 300) {
+            logger.warn(`${label} download failed: http_${response.status}`);
+            return yield* new OpenverseRequestError({ reason: 'unavailable' });
+          }
+          const contentType = contentTypeOf(response);
+          if (!OPENVERSE_CONTENT_TYPES[contentType]) {
+            logger.warn(`${label} rejected: content_type_${contentType || 'none'}`);
+            return yield* new OpenverseRequestError({ reason: 'format' });
+          }
+          const body = Buffer.from(yield* response.arrayBuffer);
+          if (body.byteLength === 0 || body.byteLength > options.maxBytes) {
+            logger.warn(`${label} rejected: size_${body.byteLength}`);
+            return yield* new OpenverseRequestError({ reason: 'size' });
+          }
+          return { body, contentType };
+        }),
+    ).pipe(
+      Effect.catchTags({
+        HttpClientError: () => networkFailure(logger, `${label} download failed`, 'network'),
+        TimeoutError: () => networkFailure(logger, `${label} download failed`, 'timeout'),
+      }),
+    ),
+  );
 }

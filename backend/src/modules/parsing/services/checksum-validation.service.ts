@@ -341,9 +341,11 @@ export class ChecksumValidationService {
       return undefined;
     }
 
-    return this.calculateExpectedBalanceFromTotals(
-      this.calculateTransactionTotals(transactions),
-      metadata.balanceStart,
+    return (
+      this.calculateExpectedBalanceFromTotals(
+        this.calculateTransactionTotals(transactions),
+        metadata.balanceStart,
+      ) ?? undefined
     );
   }
 

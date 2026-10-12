@@ -261,7 +261,7 @@ export const DraggableFileRow = React.memo(
             component="span"
             style={{ fontSize: 14, fontFamily: 'monospace', color: c.ink700 }}
           >
-            {file.metadata?.accountNumber ? `••••${file.metadata.accountNumber.slice(-4)}` : '—'}
+            {file.accountNumber ? `••••${file.accountNumber.slice(-4)}` : '—'}
           </Typography>
         </td>
 

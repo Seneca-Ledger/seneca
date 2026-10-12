@@ -13,6 +13,8 @@ import path from 'node:path';
 const ALLOWED = new Set([
   // Registration, the dev admin bootstrap and the login response.
   'modules/auth/auth.service.ts',
+  // GET /auth/me reports the registration workspace, as the login response does.
+  'modules/auth/current-user.view.ts',
   // ensureUserWorkspace and clearing it when the member is removed.
   'modules/workspaces/workspaces.service.ts',
   // Onboarding edits the registration workspace.

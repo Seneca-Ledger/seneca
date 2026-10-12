@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { normalizeSelectOptions } from '../utils/selectOptions';
 import type {
   ColumnType,
@@ -183,9 +184,15 @@ export function useColumnEditor({
     const body = buildBody(draft, defaultCurrency);
     await (async () => {
       if (dialog.mode === 'add') {
-        await apiClient.post(`/custom-tables/${tableId}/columns`, body);
+        await apiClient.post(
+          `/custom-tables/${tableId}/columns`,
+          body satisfies ContractInput<'CreateCustomTableColumnBody'>,
+        );
       } else {
-        await apiClient.patch(`/custom-tables/${tableId}/columns/${dialog.column.id}`, body);
+        await apiClient.patch(
+          `/custom-tables/${tableId}/columns/${dialog.column.id}`,
+          body satisfies ContractInput<'UpdateCustomTableColumnBody'>,
+        );
       }
       toast.success(messages.saved);
       setDialog({ mode: 'closed' });

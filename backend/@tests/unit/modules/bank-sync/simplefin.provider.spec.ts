@@ -1,4 +1,5 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException } from '@nestjs/common';
+import { EffectRuntime } from '../../../../src/common/effect/effect-runtime';
 import { BankSyncAuthError } from '../../../../src/modules/bank-sync/bank-sync-provider.interface';
 import {
   decodeSetupToken,
@@ -9,6 +10,11 @@ import {
 const claimUrl = 'https://beta-bridge.simplefin.org/simplefin/claim/demo';
 const setupToken = Buffer.from(claimUrl).toString('base64');
 const accessUrl = 'https://demo:demo@beta-bridge.simplefin.org/simplefin';
+
+const effects = new EffectRuntime();
+afterAll(() => effects.onModuleDestroy());
+const providerWith = (fetchUrl: (url: string, init?: RequestInit) => Promise<Response>) =>
+  new SimpleFinProvider(fetchUrl, effects);
 
 const jsonResponse = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -31,13 +37,13 @@ describe('SimpleFinProvider', () => {
 
   it('claims a token with one POST and keeps the access URL it gets back', async () => {
     const fetchUrl = jest.fn(async () => new Response(accessUrl, { status: 200 }));
-    const provider = new SimpleFinProvider(fetchUrl);
+    const provider = providerWith(fetchUrl);
     await expect(provider.claim(setupToken)).resolves.toBe(accessUrl);
     expect(fetchUrl).toHaveBeenCalledWith(claimUrl, expect.objectContaining({ method: 'POST' }));
   });
 
   it('explains a used token', async () => {
-    const provider = new SimpleFinProvider(async () => new Response('', { status: 403 }));
+    const provider = providerWith(async () => new Response('', { status: 403 }));
     await expect(provider.claim(setupToken)).rejects.toThrow(/used already/);
   });
 
@@ -70,7 +76,7 @@ describe('SimpleFinProvider', () => {
         ],
       }),
     );
-    const provider = new SimpleFinProvider(fetchUrl);
+    const provider = providerWith(fetchUrl);
     const since = new Date('2026-09-01T00:00:00Z');
     const accounts = await provider.fetchAccounts(accessUrl, { since });
 
@@ -79,7 +85,7 @@ describe('SimpleFinProvider', () => {
     expect(target.origin + target.pathname).toBe('https://beta-bridge.simplefin.org/simplefin/accounts');
     expect(target.searchParams.get('start-date')).toBe(String(since.getTime() / 1000));
     expect(target.searchParams.get('pending')).toBe('1');
-    expect((init.headers as Record<string, string>).authorization).toBe(
+    expect(new Headers(init.headers).get('authorization')).toBe(
       `Basic ${Buffer.from('demo:demo').toString('base64')}`,
     );
 
@@ -107,18 +113,86 @@ describe('SimpleFinProvider', () => {
 
   it('asks for balances only when told to', async () => {
     const fetchUrl = jest.fn(async () => jsonResponse(200, { accounts: [] }));
-    await new SimpleFinProvider(fetchUrl).fetchAccounts(accessUrl, { balancesOnly: true });
+    await providerWith(fetchUrl).fetchAccounts(accessUrl, { balancesOnly: true });
     const target = new URL((fetchUrl.mock.calls[0] as unknown as [string])[0]);
     expect(target.searchParams.get('balances-only')).toBe('1');
     expect(target.searchParams.get('pending')).toBeNull();
   });
 
+  it('retries a listing that failed on the way, through the injected fetch', async () => {
+    const fetchUrl = jest
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(jsonResponse(200, { accounts: [{ id: 'ACT-1' }] }));
+
+    const accounts = await providerWith(fetchUrl).fetchAccounts(accessUrl);
+
+    expect(accounts.map(account => account.id)).toEqual(['ACT-1']);
+    expect(fetchUrl).toHaveBeenCalledTimes(3);
+  });
+
+  it('never retries the one-time claim', async () => {
+    const fetchUrl = jest.fn(async () => new Response('', { status: 503 }));
+    await expect(providerWith(fetchUrl).claim(setupToken)).rejects.toThrow(/HTTP 503/);
+    expect(fetchUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a malformed account or row instead of failing the whole sync', async () => {
+    const accounts = await providerWith(async () =>
+      jsonResponse(200, {
+        accounts: [
+          { id: 'ACT-1', balance: { odd: true } },
+          {
+            id: 'ACT-2',
+            transactions: [
+              { id: 'TRN-1', posted: 1758888000, amount: '-1', pending: 'yes' },
+              { id: 'TRN-2', posted: 1758888000, amount: '-2', description: null },
+            ],
+          },
+        ],
+      }),
+    ).fetchAccounts(accessUrl);
+
+    expect(accounts.map(account => account.id)).toEqual(['ACT-2']);
+    expect(accounts[0].transactions.map(row => row.id)).toEqual(['TRN-2']);
+  });
+
+  it('answers 502 when SimpleFIN cannot be reached or sends something unreadable', async () => {
+    await expect(
+      providerWith(async () => {
+        throw new TypeError('fetch failed');
+      }).fetchAccounts(accessUrl),
+    ).rejects.toThrow(BadGatewayException);
+    await expect(
+      providerWith(async () => new Response('<html>', { status: 200 })).fetchAccounts(accessUrl),
+    ).rejects.toThrow(/unreadable/);
+  });
+
+  it('gives up on a listing that does not finish within a minute', async () => {
+    const hanging = jest.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) =>
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason)),
+        ),
+    );
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    try {
+      const pending = providerWith(hanging).fetchAccounts(accessUrl);
+      const outcome = expect(pending).rejects.toThrow(/did not answer in time/);
+      await jest.advanceTimersByTimeAsync(60_000);
+      await outcome;
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('reports a rejected credential as an auth error and provider errors by their text', async () => {
     await expect(
-      new SimpleFinProvider(async () => new Response('', { status: 401 })).fetchAccounts(accessUrl),
+      providerWith(async () => new Response('', { status: 401 })).fetchAccounts(accessUrl),
     ).rejects.toBeInstanceOf(BankSyncAuthError);
     await expect(
-      new SimpleFinProvider(async () =>
+      providerWith(async () =>
         jsonResponse(200, { errors: ['Connection to Demo Bank needs attention'], accounts: [] }),
       ).fetchAccounts(accessUrl),
     ).rejects.toThrow(/needs attention/);

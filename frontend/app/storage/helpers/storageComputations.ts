@@ -73,7 +73,7 @@ export function buildFilteredFiles({
     const matchesSearch =
       file.fileName.toLowerCase().includes(q) ||
       (file.bankName || '').toLowerCase().includes(q) ||
-      (file.metadata?.accountNumber || '').toLowerCase().includes(q) ||
+      (file.accountNumber || '').toLowerCase().includes(q) ||
       (file.category?.name || '').toLowerCase().includes(q) ||
       (file.tags || [])
         .map(t => t.name.toLowerCase())

@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Controller, Get, Post, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { ConnectTelegramBody, SendTelegramReportBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ConnectTelegramDto } from './dto/connect-telegram.dto';
-import { SendTelegramReportDto } from './dto/send-report.dto';
 import { TelegramService } from './telegram.service';
 
 @Controller('telegram')
@@ -17,7 +17,7 @@ export class TelegramController {
   async connect(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: ConnectTelegramDto,
+    @SchemaBody(ConnectTelegramBody) dto: ConnectTelegramBody,
   ) {
     const updated = await this.telegramService.connectAccount(user, workspaceId, dto);
     return {
@@ -44,7 +44,7 @@ export class TelegramController {
   async sendReport(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: SendTelegramReportDto,
+    @SchemaBody(SendTelegramReportBody) dto: SendTelegramReportBody,
   ) {
     return this.telegramService.sendReport(user, dto, workspaceId);
   }

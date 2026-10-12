@@ -7,7 +7,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, IsNull, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
+import type { CreateLedgerAccountBody, UpdateLedgerAccountBody } from '../../contracts';
 import {
   Category,
   CategoryType,
@@ -17,9 +19,7 @@ import {
   NormalBalance,
   normalBalanceFor,
 } from '../../entities';
-import type { CreateLedgerAccountDto } from './dto/create-ledger-account.dto';
 import { LedgerAccountResponseDto } from './dto/ledger-account-response.dto';
-import type { UpdateLedgerAccountDto } from './dto/update-ledger-account.dto';
 import {
   categoryAccountCode,
   DEFAULT_LEDGER_ACCOUNTS,
@@ -193,11 +193,11 @@ export class LedgerAccountsService {
 
   async create(
     workspaceId: string,
-    dto: CreateLedgerAccountDto,
+    dto: CreateLedgerAccountBody,
   ): Promise<LedgerAccountResponseDto> {
     await this.ensureChart(workspaceId);
     if (dto.parentId) {
-      await this.findHeader(workspaceId, dto.parentId, dto.accountType);
+      await this.findHeader(workspaceId, dto.parentId, toEnum(LedgerAccountType, dto.accountType));
     }
 
     const account = this.accountRepository.create({
@@ -205,8 +205,8 @@ export class LedgerAccountsService {
       parentId: dto.parentId ?? null,
       code: dto.code.toUpperCase(),
       name: dto.name.trim(),
-      accountType: dto.accountType,
-      normalBalance: normalBalanceFor(dto.accountType),
+      accountType: toEnum(LedgerAccountType, dto.accountType),
+      normalBalance: normalBalanceFor(toEnum(LedgerAccountType, dto.accountType)),
       currency: dto.currency?.toUpperCase() ?? null,
       isPostable: dto.isPostable ?? true,
       isSystem: false,
@@ -219,7 +219,7 @@ export class LedgerAccountsService {
   async update(
     workspaceId: string,
     id: string,
-    dto: UpdateLedgerAccountDto,
+    dto: UpdateLedgerAccountBody,
   ): Promise<LedgerAccountResponseDto> {
     const account = await this.findOne(workspaceId, id);
 
@@ -235,13 +235,13 @@ export class LedgerAccountsService {
       }
       account.parentId = dto.parentId;
     }
-    if (dto.code !== undefined) {
+    if (dto.code != null) {
       account.code = dto.code.toUpperCase();
     }
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       account.name = dto.name.trim();
     }
-    if (dto.position !== undefined) {
+    if (dto.position != null) {
       account.position = dto.position;
     }
 

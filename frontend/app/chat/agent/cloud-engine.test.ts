@@ -18,7 +18,7 @@ describe('cloud engine', () => {
       model: 'claude-opus-5',
       source: 'personal',
     });
-    expect(apiClient.get).toHaveBeenCalledWith('/ai-analysis/completions/status');
+    expect(apiClient.get).toHaveBeenCalledWith('/ai-analysis/completions/status', expect.anything());
   });
 
   it('completes via the backend proxy', async () => {

@@ -2,7 +2,7 @@
 
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
 interface Props {
   amount: number;
@@ -34,12 +34,13 @@ export function ConvertedAmountRow({
 
   useEffect(() => {
     let active = true;
-    apiClient
-      .get<Quote>('/exchange-rates', {
-        params: { from: currency, to: workspaceCurrency, date: date.slice(0, 10) },
-      })
-      .then(response => {
-        if (active) setQuote(response.data);
+    apiQueryDecoded({
+      url: '/exchange-rates',
+      params: { from: currency, to: workspaceCurrency, date: date.slice(0, 10) },
+      contract: 'ExchangeRateQuote',
+    })
+      .then(next => {
+        if (active) setQuote(next);
       })
       .catch(() => {
         if (active) setQuote(null);

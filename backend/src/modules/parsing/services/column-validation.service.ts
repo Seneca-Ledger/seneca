@@ -448,7 +448,7 @@ export class ColumnValidationService {
       });
 
       // Keep the larger value as it's more likely correct
-      if (transaction.debit > transaction.credit) {
+      if ((transaction.debit ?? 0) > (transaction.credit ?? 0)) {
         corrections.credit = undefined;
       } else {
         corrections.debit = undefined;

@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import apiClient, { statementsApi } from '@/app/lib/api';
+import { statementsApi } from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
 export type BankStat = {
   bank: string;
@@ -17,12 +18,8 @@ export function useSync() {
 
   useEffect(() => {
     setStatsLoading(true);
-    apiClient
-      .get<{ data: Array<{ bankName: string | null; count: number }> }>('/statements', {
-        params: { limit: 1000 },
-      })
-      .then(res => {
-        const items = res.data?.data ?? [];
+    apiQueryDecoded({ url: '/statements', params: { limit: 1000 }, contract: 'StatementList' })
+      .then(items => {
         const byBank = new Map<string, number>();
         for (const item of items) {
           const key = item.bankName ?? 'other';

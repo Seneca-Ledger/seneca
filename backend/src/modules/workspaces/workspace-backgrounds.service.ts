@@ -6,6 +6,7 @@ import { ForbiddenException, Inject, Injectable, Logger, NotFoundException } fro
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { appError } from '../../common/errors/app-error';
 import { fetchPublicUrl } from '../../common/utils/egress-url.util';
 import {
@@ -82,6 +83,7 @@ export class WorkspaceBackgroundsService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly auditService: AuditService,
+    private readonly effects: EffectRuntime,
   ) {}
 
   async search(query: string, page = 1): Promise<BackgroundSearchPage> {
@@ -255,7 +257,7 @@ export class WorkspaceBackgroundsService {
     // sharp is a CommonJS function export. Without esModuleInterop the dynamic
     // import hands back the function itself, with it a namespace whose
     // `default` is the function — take whichever arrived.
-    type SharpFactory = typeof import('sharp')['default'];
+    type SharpFactory = typeof import('sharp');
     const imported = (await import('sharp')) as unknown as SharpFactory | { default: SharpFactory };
     const sharp = typeof imported === 'function' ? imported : imported.default;
     return sharp(input, { limitInputPixels: 120_000_000 })
@@ -273,6 +275,7 @@ export class WorkspaceBackgroundsService {
       label: 'Workspace background',
       allowanceMessage:
         'The image search allowance is used up for now — the bundled backgrounds still work',
+      effects: this.effects,
     };
   }
 

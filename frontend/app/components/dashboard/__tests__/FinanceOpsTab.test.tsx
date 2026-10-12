@@ -67,6 +67,7 @@ const data: DashboardData = {
     totalOverdue: 0,
     unapprovedCash: 0,
     currency: 'KZT',
+    missingRates: [],
   },
   actions: [
     { type: 'payments_overdue', count: 2, label: 'Overdue payments', href: '/statements/pay' },

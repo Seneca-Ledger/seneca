@@ -1,13 +1,14 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Controller, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { SaveAiInsightBody } from '../../contracts';
 import { InsightCategory, InsightSeverity, InsightType } from '../../entities';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { InsightsService } from '../insights/insights.service';
-import { SaveAiInsightDto } from './dto/ai-insight.dto';
 
 @Controller('ai-analysis/insights')
 @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
@@ -25,7 +26,7 @@ export class AiInsightsController {
   save(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveAiInsightDto,
+    @SchemaBody(SaveAiInsightBody) body: SaveAiInsightBody,
   ) {
     return this.insightsService.saveExternal(user.id, workspaceId, {
       type: InsightType.AI_SUMMARY,

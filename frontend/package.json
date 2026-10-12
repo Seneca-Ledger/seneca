@@ -50,6 +50,7 @@
     "driver.js": "^1.4.0",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
+    "effect": "4.0.3",
     "framer-motion": "^12.34.3",
     "intlayer": "^7.5.11",
     "leaflet": "^1.9.4",
@@ -73,6 +74,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
+    "@effect/language-service": "0.87.4",
     "@eslint/js": "^9.39.4",
     "@next/bundle-analyzer": "^16.2.4",
     "@testing-library/jest-dom": "^6.6.3",
@@ -96,5 +98,8 @@
     "typescript": "^5",
     "typescript-eslint": "^8.58.0",
     "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=22.18"
   }
 }

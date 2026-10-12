@@ -29,6 +29,11 @@ import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/
 import { toMinor } from '../../common/utils/money.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type {
+  ConvertDroppedSampleBody,
+  CreateManualExpenseBody,
+  UpdateStatementBody,
+} from '../../contracts';
 import { Category, Wallet, WorkspaceMember, WorkspaceRole } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { CategoryType } from '../../entities/category.entity';
@@ -49,10 +54,7 @@ import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue'
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import type { ConvertDroppedSampleDto } from './dto/convert-dropped-sample.dto';
-import type { CreateManualExpenseDto } from './dto/create-manual-expense.dto';
 import type { FilterStatementsDto } from './dto/filter-statements.dto';
-import type { UpdateStatementDto } from './dto/update-statement.dto';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { buildStatementSearchClause } from './statement-search.util';
 
@@ -336,7 +338,7 @@ export class StatementsService {
   async createManualExpense(params: {
     user: User;
     workspaceId: string;
-    payload: CreateManualExpenseDto;
+    payload: CreateManualExpenseBody;
     files: Express.Multer.File[];
   }): Promise<Statement> {
     const { user, workspaceId, payload, files } = params;
@@ -616,7 +618,7 @@ export class StatementsService {
     id: string,
     userId: string,
     workspaceId: string,
-    payload: ConvertDroppedSampleDto,
+    payload: ConvertDroppedSampleBody,
   ): Promise<{ statement: Statement; transaction: Transaction }> {
     const statement = await this.findOne(id, workspaceId);
     await this.ensureCanModify(statement, userId, workspaceId);
@@ -1210,7 +1212,7 @@ export class StatementsService {
     id: string,
     userId: string,
     workspaceId: string,
-    updateDto: UpdateStatementDto,
+    updateDto: UpdateStatementBody,
   ): Promise<Statement> {
     const statement = await this.findOne(id, workspaceId);
     await this.ensureCanModify(statement, userId, workspaceId);

@@ -4,9 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import api from '../../lib/api';
-import { apiQuery } from '../../lib/query-fn';
 import { queryKeys } from '../../lib/query-keys';
 import type { StorageFile } from '../storageHelpers';
 
@@ -71,10 +71,11 @@ export function useStorageFiles(
   const filesQuery = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
-      apiQuery<StorageFile[]>({
+      apiQueryDecoded({
         url: '/storage/files',
         params: listMode === 'trash' ? { deleted: 'only' } : undefined,
         signal,
+        contract: 'StorageFileList',
       }),
   });
 
@@ -147,7 +148,7 @@ export function useStorageFiles(
     await (async () => {
       const response = await api.patch(`/storage/files/${fileId}/category`, {
         categoryId: categoryId || null,
-      });
+      } satisfies ContractInput<'UpdateFileCategoryBody'>);
       setFiles(prev =>
         prev.map(file =>
           file.id === fileId
@@ -232,7 +233,9 @@ export function useStorageFiles(
     const toastId = toast.loading(messages.trashRestoreLoading);
 
     await (async () => {
-      await api.post('/storage/files/trash/bulk/restore', { statementIds: ids });
+      await api.post('/storage/files/trash/bulk/restore', {
+        statementIds: ids,
+      } satisfies ContractInput<'BulkFileActionBody'>);
       setFiles(prev => prev.filter(file => !ids.includes(file.id)));
       toast.success(messages.trashRestoreSuccess, { id: toastId });
     })().catch(async error => {
@@ -248,7 +251,9 @@ export function useStorageFiles(
     const toastId = toast.loading(messages.trashDeleteLoading);
 
     await (async () => {
-      await api.post('/storage/files/bulk/trash/delete', { statementIds: ids });
+      await api.post('/storage/files/bulk/trash/delete', {
+        statementIds: ids,
+      } satisfies ContractInput<'BulkFileActionBody'>);
       setFiles(prev => prev.filter(file => !ids.includes(file.id)));
       toast.success(messages.trashDeleteSuccess, { id: toastId });
     })().catch(async error => {

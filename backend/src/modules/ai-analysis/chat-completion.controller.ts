@@ -1,12 +1,13 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { CreateChatCompletionBody } from '../../contracts';
 import type { User } from '../../entities';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ChatCompletionService } from './chat-completion.service';
-import { CreateChatCompletionDto } from './dto/chat-completion.dto';
 
 @Controller('ai-analysis/completions')
 @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
@@ -24,7 +25,7 @@ export class ChatCompletionController {
   complete(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Body() body: CreateChatCompletionDto,
+    @SchemaBody(CreateChatCompletionBody) body: CreateChatCompletionBody,
   ) {
     return this.chatCompletionService.complete(workspaceId, user.id, body.messages);
   }
