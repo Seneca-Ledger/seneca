@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { findDocumentDate } from '../../../common/utils/document-date.util';
 import { payeeKeyOf } from '../../../common/utils/payee-key.util';
+import { parsePdf } from '../../../common/utils/pdf-text.util';
 import {
   createReceiptAmountHelpers,
   DEFAULT_RECEIPT_SYMBOL_TO_CURRENCY,
@@ -134,9 +135,7 @@ export class UniversalExtractorService {
 
   async extractFromPdf(pdfBuffer: Buffer, context: ExtractorContext = {}): Promise<ParsedDocument> {
     try {
-      const pdfParseModule = await import('pdf-parse');
-      const pdfParse = pdfParseModule.default ?? pdfParseModule;
-      const data = await (pdfParse as (buf: Buffer) => Promise<{ text: string }>)(pdfBuffer);
+      const data = await parsePdf(pdfBuffer);
       const text = (data.text || '').replace(/\0/g, '').trim();
 
       if (text.length > 50) {

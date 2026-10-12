@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Payable } from '@/app/lib/payables-api';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { MarkPaidDialog } from './MarkPaidDialog';
+import { categoryItem, walletItem } from '@/app/test/fixtures/contracts';
 
 const apiMocks = vi.hoisted(() => ({
   paymentCandidates: vi.fn(),
@@ -76,12 +77,12 @@ describe('MarkPaidDialog', () => {
     apiMocks.apiQuery.mockImplementation(async ({ url }: { url: string }) =>
       url === '/wallets'
         ? [
-            { id: 'wallet-usd', name: 'Dollars', currency: 'USD' },
-            { id: 'wallet-eur', name: 'Till', currency: 'EUR' },
+            walletItem({ id: 'wallet-usd', name: 'Dollars', currency: 'USD' }),
+            walletItem({ id: 'wallet-eur', name: 'Till', currency: 'EUR' }),
           ]
         : [
-            { id: 'cat-in', name: 'Sales', type: 'income' },
-            { id: 'cat-out', name: 'Services', type: 'expense' },
+            categoryItem({ id: 'cat-in', name: 'Sales', type: 'income' }),
+            categoryItem({ id: 'cat-out', name: 'Services' }),
           ],
     );
   });

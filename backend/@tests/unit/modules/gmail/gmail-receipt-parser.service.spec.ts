@@ -1,8 +1,4 @@
-jest.mock('pdf-parse', () => {
-  const mock = jest.fn();
-  (mock as any).__esModule = true;
-  return mock;
-});
+jest.mock('pdf-parse', () => jest.fn());
 
 const { GmailReceiptParserService, normalizeDateHeader } =
   require('../../../../src/modules/gmail/services/gmail-receipt-parser.service') as typeof import('../../../../src/modules/gmail/services/gmail-receipt-parser.service');

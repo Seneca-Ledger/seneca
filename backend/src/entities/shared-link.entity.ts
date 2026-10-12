@@ -62,7 +62,7 @@ export class SharedLink {
   expiresAt: Date | null;
 
   // Password protection (optional, hashed)
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   password: string | null;
 
   // Link status

@@ -1,25 +1,12 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  Put,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { MergePayeesBody, SetTransactionPayeeBody, UpdatePayeeBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import {
-  MergePayeesDto,
-  PayeesQueryDto,
-  SetTransactionPayeeDto,
-  UpdatePayeeDto,
-} from './dto/payees.dto';
+import { PayeesQueryDto } from './dto/payees.dto';
 import { PayeesService } from './payees.service';
 
 @Controller()
@@ -36,7 +23,7 @@ export class PayeesController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() body: UpdatePayeeDto,
+    @SchemaBody(UpdatePayeeBody) body: UpdatePayeeBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -48,7 +35,7 @@ export class PayeesController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async merge(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() body: MergePayeesDto,
+    @SchemaBody(MergePayeesBody) body: MergePayeesBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -71,7 +58,7 @@ export class PayeesController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async setTransactionPayee(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() body: SetTransactionPayeeDto,
+    @SchemaBody(SetTransactionPayeeBody) body: SetTransactionPayeeBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

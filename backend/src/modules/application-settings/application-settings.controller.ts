@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -13,19 +12,20 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import {
+  SaveAiSettingsBody,
+  SaveAppSettingsBody,
+  SaveLocalCategorizationBody,
+  SaveSmtpSettingsBody,
+  SaveTelegramSettingsBody,
+  TestLocalCategorizationBody,
+} from '../../contracts';
 import { User, WorkspaceServiceSettingsKey } from '../../entities';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApplicationSettingsService } from './application-settings.service';
-import {
-  SaveAiSettingsDto,
-  SaveAppSettingsDto,
-  SaveLocalCategorizationDto,
-  SaveSmtpSettingsDto,
-  SaveTelegramSettingsDto,
-  TestLocalCategorizationDto,
-} from './dto/application-settings.dto';
 
 type UploadedModelArchive = {
   originalname?: string;
@@ -47,7 +47,7 @@ export class ApplicationSettingsController {
   saveAi(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveAiSettingsDto,
+    @SchemaBody(SaveAiSettingsBody) body: SaveAiSettingsBody,
   ) {
     return this.applicationSettingsService.saveAiSettings(user, body, workspaceId);
   }
@@ -78,7 +78,7 @@ export class ApplicationSettingsController {
   savePersonalAi(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveAiSettingsDto,
+    @SchemaBody(SaveAiSettingsBody) body: SaveAiSettingsBody,
   ) {
     return this.applicationSettingsService.savePersonalAiSettings(user, body, workspaceId);
   }
@@ -100,7 +100,7 @@ export class ApplicationSettingsController {
   saveLocalCategorization(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveLocalCategorizationDto,
+    @SchemaBody(SaveLocalCategorizationBody) body: SaveLocalCategorizationBody,
   ) {
     return this.applicationSettingsService.saveLocalCategorizationSettings(user, body, workspaceId);
   }
@@ -110,7 +110,7 @@ export class ApplicationSettingsController {
   testLocalCategorization(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: TestLocalCategorizationDto,
+    @SchemaBody(TestLocalCategorizationBody) body: TestLocalCategorizationBody,
   ) {
     return this.applicationSettingsService.testLocalCategorization(user, body, workspaceId);
   }
@@ -142,7 +142,7 @@ export class ApplicationSettingsController {
   saveSmtp(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveSmtpSettingsDto,
+    @SchemaBody(SaveSmtpSettingsBody) body: SaveSmtpSettingsBody,
   ) {
     return this.applicationSettingsService.saveSmtpSettings(user, body, workspaceId);
   }
@@ -168,7 +168,7 @@ export class ApplicationSettingsController {
   saveTelegram(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveTelegramSettingsDto,
+    @SchemaBody(SaveTelegramSettingsBody) body: SaveTelegramSettingsBody,
   ) {
     return this.applicationSettingsService.saveTelegramSettings(user, body, workspaceId);
   }
@@ -194,7 +194,7 @@ export class ApplicationSettingsController {
   saveApp(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: SaveAppSettingsDto,
+    @SchemaBody(SaveAppSettingsBody) body: SaveAppSettingsBody,
   ) {
     return this.applicationSettingsService.saveAppSettings(user, body, workspaceId);
   }

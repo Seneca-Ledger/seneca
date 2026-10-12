@@ -8,7 +8,6 @@ import { Pencil, Search as SearchIcon } from '@/app/components/icons';
 import { offerAction } from '@/app/components/payees/offer-action-toast';
 import type { Payee, PayeeMode } from '@/app/components/payees/types';
 import { useMergePayees, usePayeesList, useUpdatePayee } from '@/app/components/payees/usePayees';
-import type { Category } from '@/app/components/transactions/types';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { AppPagination } from '@/app/components/ui/pagination';
@@ -16,7 +15,7 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
@@ -59,7 +58,8 @@ export default function WorkspacePayeesView() {
   const payees = data?.data ?? [];
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Category[]>({ url: '/categories', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     staleTime: CATEGORIES_STALE_TIME,
     enabled: Boolean(workspaceId),
   });

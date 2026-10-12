@@ -2,7 +2,27 @@ import { createHash } from 'node:crypto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
+import { Effect, Schema } from 'effect';
+import { HttpClientResponse } from 'effect/http';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { contentTypeOf, getWith } from '../../common/effect/http-json';
 import { COINGECKO_IDS } from './crypto.constants';
+
+/** CoinGecko `/coins/markets`: only the logo is read. */
+const MarketsResponse = Schema.Array(Schema.Struct({ image: Schema.optional(Schema.String) }));
+
+/** CoinGecko `/search`: coins whose name or ticker matched, fuzzily. */
+const SearchResponse = Schema.Struct({
+  coins: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        symbol: Schema.optional(Schema.String),
+        large: Schema.optional(Schema.String),
+        thumb: Schema.optional(Schema.String),
+      }),
+    ),
+  ),
+});
 
 export type CryptoIconResult =
   | { status: 'ok'; body: Buffer; contentType: string }
@@ -48,6 +68,7 @@ export class CryptoIconsService {
   constructor(
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
+    private readonly effects: EffectRuntime,
   ) {}
 
   async fetchIcon(rawAsset: string): Promise<CryptoIconResult> {
@@ -113,8 +134,9 @@ export class CryptoIconsService {
   }
 
   private async imageUrlById(id: string): Promise<string | null | 'unavailable'> {
-    const data = await this.getJson<{ image?: string }[]>(
+    const data = await this.getJson(
       `${COINGECKO_API}/coins/markets?vs_currency=usd&ids=${encodeURIComponent(id)}`,
+      MarketsResponse,
     );
     if (data === 'unavailable') {
       return 'unavailable';
@@ -123,9 +145,10 @@ export class CryptoIconsService {
   }
 
   private async imageUrlBySearch(ticker: string): Promise<string | null | 'unavailable'> {
-    const data = await this.getJson<{
-      coins?: { symbol?: string; large?: string; thumb?: string }[];
-    }>(`${COINGECKO_API}/search?query=${encodeURIComponent(ticker)}`);
+    const data = await this.getJson(
+      `${COINGECKO_API}/search?query=${encodeURIComponent(ticker)}`,
+      SearchResponse,
+    );
     if (data === 'unavailable') {
       return 'unavailable';
     }
@@ -149,61 +172,64 @@ export class CryptoIconsService {
       return { status: 'missing' };
     }
 
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-      if (response.status === 404) {
-        return { status: 'missing' };
-      }
-      if (!response.ok) {
-        this.logger.warn(`Crypto icon request failed: http_${response.status}`);
-        return { status: 'unavailable' };
-      }
-
-      const contentType = (response.headers.get('content-type') || '').split(';')[0].trim();
-      if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
-        this.logger.warn(`Crypto icon rejected: content_type_${contentType || 'none'}`);
-        return { status: 'unavailable' };
-      }
-
-      const body = Buffer.from(await response.arrayBuffer());
-      if (body.byteLength === 0 || body.byteLength > MAX_BYTES) {
-        this.logger.warn(`Crypto icon rejected: size_${body.byteLength}`);
-        return { status: 'unavailable' };
-      }
-
-      return { status: 'ok', body, contentType };
-    } catch (error) {
-      return { status: this.networkFailure(error) };
-    }
+    const logger = this.logger;
+    return this.effects.run<CryptoIconResult, never>(
+      getWith(url, { timeout: TIMEOUT_MS }, response =>
+        Effect.gen(function* () {
+          if (response.status === 404) {
+            return { status: 'missing' } as const;
+          }
+          if (response.status < 200 || response.status >= 300) {
+            logger.warn(`Crypto icon request failed: http_${response.status}`);
+            return { status: 'unavailable' } as const;
+          }
+          const contentType = contentTypeOf(response);
+          if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+            logger.warn(`Crypto icon rejected: content_type_${contentType || 'none'}`);
+            return { status: 'unavailable' } as const;
+          }
+          const body = Buffer.from(yield* response.arrayBuffer);
+          if (body.byteLength === 0 || body.byteLength > MAX_BYTES) {
+            logger.warn(`Crypto icon rejected: size_${body.byteLength}`);
+            return { status: 'unavailable' } as const;
+          }
+          return { status: 'ok', body, contentType } as const;
+        }),
+      ).pipe(Effect.catch(error => Effect.sync(() => ({ status: this.networkFailure(error) })))),
+    );
   }
 
-  private async getJson<T>(url: string): Promise<T | null | 'unavailable'> {
-    try {
-      const response = await fetch(url, {
-        headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-      if (response.status === 404) {
-        return null;
-      }
-      if (!response.ok) {
-        // 429 included: the free tier is small, and the caller must not cache a
-        // rate limit as "this coin has no logo".
-        this.logger.warn(`CoinGecko icon lookup failed: http_${response.status}`);
-        return 'unavailable';
-      }
-      return (await response.json()) as T;
-    } catch (error) {
-      this.networkFailure(error);
-      return 'unavailable';
-    }
+  private getJson<A>(
+    url: string,
+    schema: Schema.Codec<A, unknown>,
+  ): Promise<A | null | 'unavailable'> {
+    const logger = this.logger;
+    return this.effects.run<A | null | 'unavailable', never>(
+      getWith(url, { timeout: TIMEOUT_MS, headers: { accept: 'application/json' } }, response =>
+        Effect.gen(function* () {
+          if (response.status === 404) {
+            return null;
+          }
+          if (response.status < 200 || response.status >= 300) {
+            // 429 included: the free tier is small, and the caller must not cache a
+            // rate limit as "this coin has no logo".
+            logger.warn(`CoinGecko icon lookup failed: http_${response.status}`);
+            return 'unavailable' as const;
+          }
+          return yield* HttpClientResponse.schemaBodyJson(schema)(response);
+        }),
+      ).pipe(Effect.catch(error => Effect.sync(() => this.networkFailure(error)))),
+    );
   }
 
-  private networkFailure(error: unknown): 'unavailable' {
-    const name = error instanceof Error ? error.name : '';
+  private networkFailure(error: { readonly _tag: string }): 'unavailable' {
     this.logger.warn(
       `Crypto icon request failed: ${
-        name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'network'
+        error._tag === 'TimeoutError'
+          ? 'timeout'
+          : error._tag === 'SchemaError'
+            ? 'unexpected_body'
+            : 'network'
       }`,
     );
     return 'unavailable';

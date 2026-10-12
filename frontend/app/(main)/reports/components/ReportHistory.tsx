@@ -15,6 +15,8 @@ import { Download } from '@/app/components/icons';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ReportHistoryList } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -104,19 +106,8 @@ function ReportHistorySkeleton(): React.JSX.Element {
   );
 }
 
-export interface ReportHistoryItem {
-  id: string;
-  templateId: string;
-  templateName: string;
-  dateFrom: string;
-  dateTo: string;
-  format: string;
-  generatedBy: string;
-  generatedAt: string;
-  downloadUrl: string;
-  fileName?: string;
-  fileSize: number;
-}
+/** A generated report file, as `GET /reports/history` lists it. */
+export type ReportHistoryItem = ReportHistoryList[number];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) {
@@ -189,9 +180,8 @@ export function ReportHistory(): React.JSX.Element {
   };
 
   useEffect(() => {
-    apiClient
-      .get('/reports/history')
-      .then(res => setHistory(res.data?.data || res.data || []))
+    apiQueryDecoded({ url: '/reports/history', contract: 'ReportHistoryList' })
+      .then(setHistory)
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

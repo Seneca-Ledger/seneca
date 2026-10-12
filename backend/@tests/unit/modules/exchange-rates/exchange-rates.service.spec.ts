@@ -1,4 +1,14 @@
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 import { ExchangeRatesService } from '@/modules/exchange-rates/exchange-rates.service';
+
+const effects = new EffectRuntime();
+afterAll(() => effects.onModuleDestroy());
+
+const jsonResponse = (body: unknown) =>
+  new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+const statusResponse = (status: number) => new Response(null, { status });
+/** The URLs fetched so far, in order. */
+const requestedUrls = () => (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url));
 
 function createRepoMock() {
   return {
@@ -68,10 +78,10 @@ describe('ExchangeRatesService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 }) as any;
+    global.fetch = jest.fn(async () => statusResponse(404)) as any;
     repo = createRepoMock();
     cache = createCacheMock();
-    service = new ExchangeRatesService(repo, cache, createConfigMock());
+    service = new ExchangeRatesService(repo, cache, createConfigMock(), effects);
   });
 
   // ─── getRate ───────────────────────────────────────────────
@@ -147,16 +157,16 @@ describe('ExchangeRatesService', () => {
 
     it('fetches the current rate from the public API when no API key is configured', async () => {
       repo.findOne.mockResolvedValue(null);
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ date: '2026-04-29', usd: { kzt: 512.34 } }),
-      }) as any;
+      global.fetch = jest.fn(async () =>
+        jsonResponse({ date: '2026-04-29', usd: { kzt: 512.34 } }),
+      ) as any;
 
       const rate = await service.getRate('USD', 'KZT');
 
       expect(rate).toBe(512.34);
-      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('@fawazahmed0/currency-api@latest'));
-      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/currencies/usd.json'));
+      expect(requestedUrls()).toEqual([
+        expect.stringMatching(/@fawazahmed0\/currency-api@latest\/.*\/currencies\/usd\.json$/),
+      ]);
       expect(repo.createQueryBuilder).toHaveBeenCalled();
       expect(cache.set).toHaveBeenCalledWith(
         expect.stringContaining('exchange_rate:USD:KZT'),
@@ -165,23 +175,56 @@ describe('ExchangeRatesService', () => {
       );
     });
 
-    it('uses the public API fallback URL when the CDN request fails', async () => {
+    it('retries a failing CDN twice, then uses the public API fallback URL', async () => {
       repo.findOne.mockResolvedValue(null);
       global.fetch = jest
         .fn()
-        .mockResolvedValueOnce({ ok: false, status: 503 })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ date: '2026-04-29', usd: { kzt: 511.22 } }),
-        }) as any;
+        .mockResolvedValueOnce(statusResponse(503))
+        .mockResolvedValueOnce(statusResponse(503))
+        .mockResolvedValueOnce(statusResponse(503))
+        .mockResolvedValueOnce(jsonResponse({ date: '2026-04-29', usd: { kzt: 511.22 } })) as any;
 
       const rate = await service.getRate('USD', 'KZT');
 
       expect(rate).toBe(511.22);
-      expect(global.fetch).toHaveBeenNthCalledWith(
-        2,
+      expect(requestedUrls()).toEqual([
+        expect.stringContaining('cdn.jsdelivr.net'),
+        expect.stringContaining('cdn.jsdelivr.net'),
+        expect.stringContaining('cdn.jsdelivr.net'),
         expect.stringContaining('latest.currency-api.pages.dev'),
-      );
+      ]);
+    });
+
+    it('does not retry a 404, which will not change', async () => {
+      repo.findOne.mockResolvedValue(null);
+
+      await service.getRate('USD', 'KZT');
+
+      expect(requestedUrls()).toEqual([
+        expect.stringContaining('cdn.jsdelivr.net'),
+        expect.stringContaining('latest.currency-api.pages.dev'),
+      ]);
+    });
+
+    it('gives up on a provider that does not answer within five seconds', async () => {
+      repo.findOne.mockResolvedValue(null);
+      global.fetch = jest.fn(
+        (_url: unknown, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) =>
+            init?.signal?.addEventListener('abort', () => reject(init.signal?.reason)),
+          ),
+      ) as any;
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+
+      try {
+        const pending = service.getRate('USD', 'KZT');
+        await jest.advanceTimersByTimeAsync(5_000);
+        await jest.advanceTimersByTimeAsync(5_000);
+        await expect(pending).resolves.toBe(1);
+      } finally {
+        jest.useRealTimers();
+      }
+      expect(requestedUrls()).toHaveLength(2);
     });
 
     it('uses specific date when provided', async () => {
@@ -301,7 +344,7 @@ describe('ExchangeRatesService', () => {
     });
 
     it('never stores the paid API latest rates under a past date', async () => {
-      const serviceWithKey = new ExchangeRatesService(repo, cache, createConfigMock('test-api-key'));
+      const serviceWithKey = new ExchangeRatesService(repo, cache, createConfigMock('test-api-key'), effects);
       repo.findOne.mockResolvedValue(null);
 
       await serviceWithKey.getRateQuote('EUR', 'KZT', '2025-03-10');
@@ -313,7 +356,7 @@ describe('ExchangeRatesService', () => {
     });
 
     it('still asks the paid API for today', async () => {
-      const serviceWithKey = new ExchangeRatesService(repo, cache, createConfigMock('test-api-key'));
+      const serviceWithKey = new ExchangeRatesService(repo, cache, createConfigMock('test-api-key'), effects);
       repo.findOne.mockResolvedValue(null);
 
       await serviceWithKey.getRateQuote('USD', 'KZT');
@@ -398,13 +441,13 @@ describe('ExchangeRatesService', () => {
         repo,
         cache,
         createConfigMock('test-api-key'),
+        effects,
       );
 
       const mockRates = { USD: 1, EUR: 0.85, ILS: 3.67 };
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ result: 'success', conversion_rates: mockRates }),
-      }) as any;
+      global.fetch = jest.fn(async () =>
+        jsonResponse({ result: 'success', conversion_rates: mockRates }),
+      ) as any;
 
       await serviceWithKey.fetchAndCacheRates('USD');
 
@@ -417,12 +460,10 @@ describe('ExchangeRatesService', () => {
         repo,
         cache,
         createConfigMock('test-api-key'),
+        effects,
       );
 
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-      }) as any;
+      global.fetch = jest.fn(async () => statusResponse(500)) as any;
 
       // Should not throw
       await expect(serviceWithKey.fetchAndCacheRates('USD')).resolves.toBeUndefined();
@@ -433,12 +474,10 @@ describe('ExchangeRatesService', () => {
         repo,
         cache,
         createConfigMock('test-api-key'),
+        effects,
       );
 
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ result: 'error' }),
-      }) as any;
+      global.fetch = jest.fn(async () => jsonResponse({ result: 'error' })) as any;
 
       await serviceWithKey.fetchAndCacheRates('USD');
       expect(repo.createQueryBuilder).not.toHaveBeenCalled();
@@ -449,6 +488,7 @@ describe('ExchangeRatesService', () => {
         repo,
         cache,
         createConfigMock('test-api-key'),
+        effects,
       );
 
       global.fetch = jest.fn().mockRejectedValue(new Error('Network error')) as any;
@@ -467,7 +507,14 @@ describe('ExchangeRatesService', () => {
       repo.findOne.mockResolvedValue(null);
       repo.delete = jest.fn();
       cache.del = jest.fn();
-      scoped = new ExchangeRatesService(repo, cache, createConfigMock(), undefined, workspaceRates);
+      scoped = new ExchangeRatesService(
+        repo,
+        cache,
+        createConfigMock(),
+        effects,
+        undefined,
+        workspaceRates,
+      );
     });
 
     it('stores the rate for its workspace and leaves the shared provider cache alone', async () => {

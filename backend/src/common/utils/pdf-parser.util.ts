@@ -268,7 +268,9 @@ async function runPdfPlumber(filePath: string): Promise<PdfPlumberResult> {
 function normalizeResult(raw: Partial<PdfPlumberResult>): PdfPlumberResult {
   return {
     text: typeof raw?.text === 'string' ? raw.text : '',
-    rows: Array.isArray(raw?.rows) ? raw.rows.map(normalizeRow).filter(Boolean) : [],
+    rows: Array.isArray(raw?.rows)
+      ? raw.rows.map(normalizeRow).filter((row): row is PdfTextRow => row !== null)
+      : [],
     tables: Array.isArray(raw?.tables)
       ? (raw.tables.map(normalizeTable).filter(Boolean) as PdfPlumberTable[])
       : [],

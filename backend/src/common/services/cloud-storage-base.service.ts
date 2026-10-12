@@ -43,11 +43,11 @@ type SyncQueryBuilderLike<T> = {
 };
 
 type RepositoryLike<T> = OAuthRepositoryLike<T> & {
-  findOne: (args: unknown) => Promise<T | null>;
-  find?: (args: unknown) => Promise<T[]>;
-  save: (entity: T) => Promise<T>;
-  create?: (data: Partial<T>) => T;
-  delete: (criteria: unknown) => Promise<unknown>;
+  findOne(args: unknown): Promise<T | null>;
+  find?(args: unknown): Promise<T[]>;
+  save(entity: T): Promise<T>;
+  create(data: Partial<T>): T;
+  delete(criteria: unknown): Promise<unknown>;
 };
 
 type CloudImportResult = {

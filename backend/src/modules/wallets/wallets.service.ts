@@ -3,11 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
+import type { CreateWalletBody, UpdateWalletBody } from '../../contracts';
 import { Wallet } from '../../entities/wallet.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import type { CreateWalletDto } from './dto/create-wallet.dto';
-import type { UpdateWalletDto } from './dto/update-wallet.dto';
 
 @Injectable()
 export class WalletsService extends WorkspaceCrudBaseService<Wallet> {
@@ -21,7 +20,7 @@ export class WalletsService extends WorkspaceCrudBaseService<Wallet> {
     super(repository, 'Wallet');
   }
 
-  async create(workspaceId: string, userId: string, createDto: CreateWalletDto): Promise<Wallet> {
+  async create(workspaceId: string, userId: string, createDto: CreateWalletBody): Promise<Wallet> {
     await assertOwnerMemberInWorkspace(
       this.workspaceMemberRepository,
       workspaceId,
@@ -41,7 +40,7 @@ export class WalletsService extends WorkspaceCrudBaseService<Wallet> {
     return this.repository.save(wallet);
   }
 
-  override async update(id: string, workspaceId: string, dto: UpdateWalletDto): Promise<Wallet> {
+  override async update(id: string, workspaceId: string, dto: UpdateWalletBody): Promise<Wallet> {
     await assertOwnerMemberInWorkspace(
       this.workspaceMemberRepository,
       workspaceId,

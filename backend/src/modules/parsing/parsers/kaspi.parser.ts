@@ -75,8 +75,8 @@ export class KaspiParser extends BaseParser {
         currency: detectedCurrency,
         dateFrom: dateRange.from || new Date(),
         dateTo: dateRange.to || new Date(),
-        balanceStart: balances.start,
-        balanceEnd: balances.end,
+        balanceStart: balances.start ?? undefined,
+        balanceEnd: balances.end ?? undefined,
       },
       transactions,
     };

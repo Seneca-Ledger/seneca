@@ -1,0 +1,95 @@
+import * as Schema from 'effect/Schema';
+import * as Struct from 'effect/Struct';
+import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
+
+export const TransactionType = Schema.Literals(['income', 'expense']);
+export type TransactionType = Wire<typeof TransactionType>;
+
+const Named = Schema.Struct({ id: Schema.String, name: Schema.String });
+
+/**
+ * One row of `GET /transactions` (inside the `{ data }` envelope). Money and
+ * rates are decimal strings: read them with `Number(...)`. Private rows arrive
+ * with placeholder counterparty text, never null.
+ */
+export const TransactionListItem = Schema.Struct({
+  id: Schema.String,
+  transactionDate: DateOnly,
+  transactionType: TransactionType,
+  isVerified: Schema.Boolean,
+  documentNumber: Schema.NullOr(Schema.String),
+  counterpartyName: Schema.String,
+  counterpartyBin: Schema.NullOr(Schema.String),
+  counterpartyAccount: Schema.NullOr(Schema.String),
+  counterpartyBank: Schema.NullOr(Schema.String),
+  paymentPurpose: Schema.String,
+  debit: Schema.NullOr(DecimalString),
+  credit: Schema.NullOr(DecimalString),
+  currency: Schema.String,
+  exchangeRate: Schema.NullOr(DecimalString),
+  amountForeign: Schema.NullOr(DecimalString),
+  categoryId: Schema.NullOr(Schema.String),
+  branchId: Schema.NullOr(Schema.String),
+  walletId: Schema.NullOr(Schema.String),
+  article: Schema.NullOr(Schema.String),
+  comments: Schema.NullOr(Schema.String),
+  category: Schema.NullOr(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      isEnabled: Schema.Boolean,
+      isSystem: Schema.Boolean,
+      source: Schema.Literals(['system', 'user', 'parsing']),
+    }),
+  ),
+  branch: Schema.NullOr(Named),
+  wallet: Schema.NullOr(Named),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type TransactionListItem = Wire<typeof TransactionListItem>;
+
+export const TransactionList = Schema.Array(TransactionListItem);
+export type TransactionList = Wire<typeof TransactionList>;
+
+/**
+ * `GET /transactions/:id/transfer-candidates` and `/reimbursement-candidates`:
+ * rows that could be the other side, without their category, branch or wallet.
+ */
+export const TransactionCandidates = Schema.Struct({
+  data: Schema.Array(
+    TransactionListItem.mapFields(Struct.omit(['category', 'branch', 'wallet'])).mapFields(
+      Struct.assign({ amount: Schema.NullOr(DecimalString) }),
+    ),
+  ),
+});
+export type TransactionCandidates = Wire<typeof TransactionCandidates>;
+
+const DuplicateRow = Schema.Struct({
+  id: Schema.String,
+  date: DateOnly,
+  amount: Schema.NullOr(DecimalString),
+  counterparty: Schema.String,
+  purpose: Schema.String,
+  statementId: Schema.NullOr(Schema.String),
+});
+
+/** `GET /transactions/duplicates/detect`: groups of rows that look like one payment. */
+export const DuplicateGroups = Schema.Struct({
+  totalGroups: Schema.Number,
+  groups: Schema.Array(
+    Schema.Struct({
+      master: DuplicateRow,
+      duplicates: Schema.Array(
+        Schema.Struct({
+          ...DuplicateRow.fields,
+          similarity: Schema.Number,
+          matchType: Schema.Literals(['exact', 'fuzzy', 'semantic', 'hybrid']),
+          matchedFields: Schema.Array(Schema.String),
+        }),
+      ),
+      confidence: Schema.Number,
+    }),
+  ),
+});
+export type DuplicateGroups = Wire<typeof DuplicateGroups>;

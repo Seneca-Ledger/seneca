@@ -2,11 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useDefaultReviewer } from './useReviewer';
-
-type ReviewInboxCounts = { total: number };
 
 /**
  * How many items wait in Review. Shares the `review-inbox` key prefix, so a
@@ -18,10 +16,12 @@ export function useReviewInboxTotal(enabled = true): number {
   const { data } = useQuery({
     queryKey: queryKeys.reviewInboxCounts(workspaceId, reviewer),
     queryFn: ({ signal }) =>
-      apiQuery<ReviewInboxCounts>({
+      apiQueryDecoded({
         url: '/review-inbox/counts',
         params: { reviewer },
         signal,
+        contract: 'ReviewInboxCounts',
+        drift: 'report',
       }),
     enabled: enabled && Boolean(workspaceId),
   });

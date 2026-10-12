@@ -2,7 +2,7 @@
 
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 const isoDate = (date: Date): string =>
@@ -55,7 +55,7 @@ export function useSpendFlow(
   return useQuery({
     queryKey: queryKeys.spendFlow({ workspaceId, params }),
     queryFn: ({ signal }) =>
-      apiQuery<SpendFlowData>({ url: '/reports/spend-flow', params, signal }),
+      apiQueryDecoded({ url: '/reports/spend-flow', params, signal, contract: 'SpendFlow' }),
     enabled: Boolean(workspaceId),
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[2] === workspaceId ? previous : undefined,

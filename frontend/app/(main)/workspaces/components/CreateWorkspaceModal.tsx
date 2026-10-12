@@ -20,18 +20,12 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
 import { useIntlayer } from '@/app/i18n';
 import { api } from '@/app/lib/api';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { AVAILABLE_BACKGROUNDS } from '../constants';
 import { BackgroundSelector } from './BackgroundSelector';
 import { CurrencySelector } from './CurrencySelector';
 import { ServiceIntegrationSuggestions } from './ServiceIntegrationSuggestions';
 
-type WorkspaceCreatePayload = {
-  name: string;
-  description?: string;
-  backgroundImage: string | null;
-  currency: string | null;
-  profile: WorkspaceProfile;
-};
 type ApiErrorLike = { response?: { data?: { message?: string } } };
 
 const getApiMessage = ({ error, fallback }: { error: unknown; fallback: string }): string => {
@@ -416,17 +410,19 @@ function useWorkspaceCreation({
     }
     setLoading(true);
     try {
-      const payload: WorkspaceCreatePayload = {
+      // Nothing picked is "no value": the API takes absent fields, not nulls.
+      const payload: ContractInput<'CreateWorkspaceBody'> = {
         name: name.trim(),
         description: description.trim() || undefined,
-        backgroundImage: selectedBackground,
-        currency: selectedCurrency,
+        backgroundImage: selectedBackground ?? undefined,
+        currency: selectedCurrency ?? undefined,
         profile,
       };
       const response = await api.post('/workspaces', payload);
-      setCreatedWorkspaceId(response.data.id);
+      const created = await checkContract('WorkspaceSummary', response.data, '/workspaces');
+      setCreatedWorkspaceId(created.id);
       toast.success('Workspace created successfully');
-      return response.data.id as string;
+      return created.id;
     } catch (error: unknown) {
       toast.error(getApiMessage({ error, fallback: 'Failed to create workspace' }));
       throw error;

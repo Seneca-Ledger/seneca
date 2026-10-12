@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { currentUser, workspaceSummary } from '@/app/test/fixtures/contracts';
 import { EMPTY_BUSINESS_DETAILS, type OnboardingData } from '../useOnboardingWizard';
 import { type OnboardingApi, submitOnboarding } from './onboarding-submit';
 
@@ -11,9 +12,11 @@ function fakeApi(failOn?: string) {
     async (url: string, body?: unknown, config?: { headers?: Record<string, string> }) => {
       calls.push({ method, url, body, headers: config?.headers });
       if (failOn && url === failOn) throw new Error(`${url} failed`);
-      if (method === 'post' && url === '/workspaces') return { data: { id: 'ws-new' } };
+      if (method === 'post' && url === '/workspaces') {
+        return { data: workspaceSummary({ id: 'ws-new' }) };
+      }
       if (url === '/users/me/onboarding' || url === '/users/me/preferences') {
-        return { data: { user: { id: 'u-1' } } };
+        return { data: { user: currentUser({ id: 'u-1' }) } };
       }
       return { data: {} };
     };
@@ -68,7 +71,7 @@ describe('submitOnboarding', () => {
       workspaceCurrency: 'EUR',
       workspaceBackgroundImage: 'lightscape-LtnPejWDSAY-unsplash.jpg',
     });
-    expect(result).toEqual({ workspaceId: 'ws-1', user: { id: 'u-1' } });
+    expect(result).toEqual({ workspaceId: 'ws-1', user: expect.objectContaining({ id: 'u-1' }) });
   });
 
   it('sends the workspace-scoped writes to the workspace being set up', async () => {
@@ -149,6 +152,9 @@ describe('submitOnboarding', () => {
     expect(calls[2].headers).toEqual({ 'X-Workspace-Id': 'ws-new' });
     // Only the language: the date format and week start were not asked in this flow.
     expect(calls[5].body).toEqual({ locale: 'de' });
-    expect(result).toEqual({ workspaceId: 'ws-new', user: { id: 'u-1' } });
+    expect(result).toEqual({
+      workspaceId: 'ws-new',
+      user: expect.objectContaining({ id: 'u-1' }),
+    });
   });
 });

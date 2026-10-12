@@ -61,7 +61,12 @@ export class SubscriptionCharge {
   @Column({ name: 'expected_date', type: 'date', nullable: true })
   expectedDate: Date | null;
 
-  @Column({ type: 'enum', enum: SubscriptionChargeMatchStatus })
+  @Column({
+    name: 'match_status',
+    type: 'enum',
+    enum: SubscriptionChargeMatchStatus,
+    enumName: 'subscription_charges_match_status_enum',
+  })
   matchStatus: SubscriptionChargeMatchStatus;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

@@ -5,8 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { resolveAvatarContentType } from '../../common/utils/avatar-filename.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type { UpdateBusinessProfileBody } from '../../contracts';
 import { WorkspaceBusinessProfile } from '../../entities/workspace-business-profile.entity';
-import type { UpdateBusinessProfileDto } from './dto/update-business-profile.dto';
 
 export const LOGO_DIRECTORY = 'workspace-logos';
 
@@ -32,7 +32,7 @@ export class BusinessProfileService {
 
   async update(
     workspaceId: string,
-    dto: UpdateBusinessProfileDto,
+    dto: UpdateBusinessProfileBody,
   ): Promise<WorkspaceBusinessProfile> {
     const profile = await this.get(workspaceId);
     const writable = profile as unknown as Record<string, string | null>;

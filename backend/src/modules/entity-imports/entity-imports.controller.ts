@@ -1,11 +1,11 @@
-import { Body, Controller, Delete, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { RunEntityImportBody, SuggestImportBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { RunEntityImportDto } from './dto/run-entity-import.dto';
-import { SuggestImportDto } from './dto/suggest-import.dto';
 import { EntityImportService } from './entity-import.service';
 import { ImportSuggestService } from './import-suggest.service';
 
@@ -19,7 +19,10 @@ export class EntityImportsController {
   ) {}
 
   @Post('suggest')
-  suggestTarget(@WorkspaceId() workspaceId: string, @Body() dto: SuggestImportDto) {
+  suggestTarget(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SuggestImportBody) dto: SuggestImportBody,
+  ) {
     return this.suggest.suggest(workspaceId, dto);
   }
 
@@ -27,7 +30,7 @@ export class EntityImportsController {
   run(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: RunEntityImportDto,
+    @SchemaBody(RunEntityImportBody) dto: RunEntityImportBody,
   ) {
     return this.entityImport.run(user.id, workspaceId, dto);
   }

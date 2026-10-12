@@ -62,7 +62,7 @@ export interface HeaderPattern {
   patterns: RegExp[];
   languages: string[];
   priority: number;
-  extractor: (match: RegExpMatchArray) => PatternExtractionResult;
+  extractor: (match: RegExpExecArray) => PatternExtractionResult;
 }
 
 export interface InstitutionProfile {
@@ -313,9 +313,10 @@ export class MetadataExtractionService {
     metadata.headerInfo = this.extractHeaderInfo(metadata, locale);
 
     // Determine extraction method based on confidence
-    if (metadata.confidence > 0.8) {
+    const confidence = metadata.confidence ?? 0;
+    if (confidence > 0.8) {
       metadata.extractionMethod = 'regex';
-    } else if (metadata.confidence > 0.5) {
+    } else if (confidence > 0.5) {
       metadata.extractionMethod = 'heuristic';
     } else {
       metadata.extractionMethod = 'ml'; // Would use ML in production
@@ -401,7 +402,7 @@ export class MetadataExtractionService {
         }
         break;
       case 'institution':
-        if (result && 'name' in result) {
+        if (result && 'name' in result && !('number' in result)) {
           metadata.institution = { ...metadata.institution, ...result };
         }
         break;
