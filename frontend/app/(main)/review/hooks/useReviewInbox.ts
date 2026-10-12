@@ -4,9 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import type { PayeeChoice } from '@/app/components/payees/types';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
-import { useSetTransactionPayee } from '@/app/components/payees/usePayees';
 import { type Reviewer, useDefaultReviewer } from '@/app/components/review/useReviewer';
 import { useHouseholdMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
 import type { Category } from '@/app/components/transactions/types';
@@ -61,8 +59,6 @@ export interface UseReviewInboxResult {
   resolveDuplicate: (id: string, decision: 'keep' | 'confirm') => Promise<void>;
   approveReceipt: (id: string) => Promise<void>;
   decideSubscription: (id: string, decision: 'confirm' | 'dismiss') => Promise<void>;
-  /** Moves a row to another payee; the next import of its descriptor follows. */
-  changePayee: (id: string, choice: PayeeChoice, name: string) => Promise<void>;
 }
 
 function fill(template: string, params: Record<string, string | number>): string {
@@ -75,7 +71,6 @@ export function useReviewInbox(): UseReviewInboxResult {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useIntlayer('reviewInbox');
-  const tPayees = useIntlayer('payees');
   const { locale } = useLocale();
 
   const kindParam = searchParams.get('kind');
@@ -164,7 +159,6 @@ export function useReviewInbox(): UseReviewInboxResult {
     [items.length],
   );
 
-  const rememberedText = tPayees.remembered.value;
   const categories = categoriesQuery.data;
   const offerPayeeQueue = useOfferPayeeQueue();
 
@@ -265,25 +259,6 @@ export function useReviewInbox(): UseReviewInboxResult {
     [simpleMutation],
   );
 
-  const setPayeeMutation = useSetTransactionPayee();
-  const changePayee = useCallback(
-    async (id: string, choice: PayeeChoice, name: string) => {
-      const raw = items.find(item => item.id === id);
-      await setPayeeMutation
-        .mutateAsync({ transactionId: id, choice })
-        .then(() =>
-          toast.success(
-            fill(rememberedText, {
-              raw: raw && 'counterpartyName' in raw ? raw.counterpartyName : '',
-              payee: name,
-            }),
-          ),
-        )
-        .catch((error: unknown) => toast.error(getApiErrorMessage(error, failedText)));
-    },
-    [items, setPayeeMutation, rememberedText, failedText],
-  );
-
   const toggle = useCallback(
     (id: string) => setSelected(previous => toggleSelection(previous, id)),
     [],
@@ -317,11 +292,10 @@ export function useReviewInbox(): UseReviewInboxResult {
     cursor,
     setCursor,
     move,
-    busy: approveMutation.isPending || simpleMutation.isPending || setPayeeMutation.isPending,
+    busy: approveMutation.isPending || simpleMutation.isPending,
     approve,
     resolveDuplicate,
     approveReceipt,
     decideSubscription,
-    changePayee,
   };
 }

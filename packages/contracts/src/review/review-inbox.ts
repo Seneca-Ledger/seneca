@@ -10,6 +10,19 @@ export const ReviewInboxKind = Schema.Literals([
 ]);
 export type ReviewInboxKind = Wire<typeof ReviewInboxKind>;
 
+/**
+ * The file a row came from, for the list's thumbnail: the receipt when there
+ * is one (a scan, or one attached to the row), else the statement.
+ */
+export const ReviewInboxDocument = Schema.Struct({
+  source: Schema.Literals(['receipt', 'statement']),
+  id: Schema.String,
+  fileName: Schema.NullOr(Schema.String),
+  /** The statement's file type; a receipt is always previewable. */
+  fileType: Schema.NullOr(Schema.String),
+});
+export type ReviewInboxDocument = Wire<typeof ReviewInboxDocument>;
+
 /** A bank row whose category is missing or was guessed. */
 export const ReviewTransactionItem = Schema.Struct({
   kind: Schema.Literal('transaction'),
@@ -29,6 +42,8 @@ export const ReviewTransactionItem = Schema.Struct({
   statementId: Schema.NullOr(Schema.String),
   /** The receipt behind the row (a scan, or one attached to it); the page to open. */
   receiptId: Schema.NullOr(Schema.String),
+  /** Null when there is no file, or the row is someone else's private one. */
+  document: Schema.NullOr(ReviewInboxDocument),
 });
 export type ReviewTransactionItem = Wire<typeof ReviewTransactionItem>;
 
@@ -55,6 +70,7 @@ export const ReviewDuplicateItem = Schema.Struct({
   duplicateOfId: Schema.NullOr(Schema.String),
   confidence: Schema.NullOr(Schema.Number),
   matchType: Schema.NullOr(Schema.String),
+  document: Schema.NullOr(ReviewInboxDocument),
 });
 export type ReviewDuplicateItem = Wire<typeof ReviewDuplicateItem>;
 

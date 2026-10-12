@@ -1,12 +1,13 @@
 import { addDays, format, isValid, parseISO } from 'date-fns';
 import { getPresetRange } from '@/app/(main)/statements/components/filters/statement-filter-internals';
 import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
-import type { ReviewInboxItem, ReviewInboxKind } from '@/app/lib/contracts';
+import type { ReviewInboxDocument, ReviewInboxItem, ReviewInboxKind } from '@/app/lib/contracts';
 
 /** The queue's rows, one union narrowed by `kind`. */
 export type {
   ReviewDuplicateItem,
   ReviewInboxCounts,
+  ReviewInboxDocument,
   ReviewInboxItem,
   ReviewInboxKind,
   ReviewInboxPage,
@@ -24,6 +25,26 @@ export const REVIEW_INBOX_KINDS: ReviewInboxKind[] = [
 
 export function isReviewInboxKind(value: string | null | undefined): value is ReviewInboxKind {
   return REVIEW_INBOX_KINDS.includes(value as ReviewInboxKind);
+}
+
+/** The file behind a row, shown as its thumbnail and opened by a click on the row. */
+export function documentOf(item: ReviewInboxItem): ReviewInboxDocument | null {
+  switch (item.kind) {
+    case 'transaction':
+    case 'duplicate':
+      return item.document ?? null;
+    case 'receipt':
+      return { source: 'receipt', id: item.id, fileName: null, fileType: null };
+    case 'subscription':
+      return null;
+  }
+}
+
+/** Where a row's document opens, the way Documents opens it. */
+export function documentHref(document: ReviewInboxDocument): string {
+  return document.source === 'receipt'
+    ? `/storage/receipts/${document.id}?from=review`
+    : `/statements/${document.id}/edit`;
 }
 
 /** The name a row is grouped and bulk-handled by. */

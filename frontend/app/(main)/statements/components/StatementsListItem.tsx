@@ -4,9 +4,10 @@ import MuiTooltip from '@mui/material/Tooltip';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { formatMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
 import { BankLogoAvatar } from '@/app/components/BankLogoAvatar';
+import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
+import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
 import { DocumentTypeIcon } from '@/app/components/DocumentTypeIcon';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import {
@@ -19,7 +20,6 @@ import {
   Receipt,
 } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
-import { PDFThumbnail } from '@/app/components/PDFThumbnail';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
@@ -387,20 +387,6 @@ export function StatementsListItem({
   const { resolvedTheme } = useTheme();
   const listText = useIntlayer('statementsListUi');
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
-  const PREVIEW_WIDTH = 430;
-  const PREVIEW_HEIGHT = 620;
-  const PREVIEW_IMAGE_WIDTH = (PREVIEW_WIDTH - 16) * 2;
-  const thumbnailButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [previewVisible, setPreviewVisible] = useState(false);
-  const [previewPosition, setPreviewPosition] = useState<{ top: number; left: number } | null>(
-    null,
-  );
-
-  const closePreview = useCallback(() => {
-    setPreviewVisible(false);
-    setPreviewPosition(null);
-  }, []);
-
   const [categoryLit, setCategoryLit] = useState(false);
   const categoryTimerRef = useRef<number | undefined>(undefined);
 
@@ -423,69 +409,6 @@ export function StatementsListItem({
   const isGmailReceipt = statement.source === 'gmail';
   const isLocalReceipt = statement.source === 'scan';
   const previewSource = isGmailReceipt ? 'gmail' : isLocalReceipt ? 'receipt' : 'statement';
-  const normalizedPreviewType = (isReceipt ? 'pdf' : statement.fileType || statement.fileName || '')
-    .trim()
-    .toLowerCase();
-  const hasHoverPreview =
-    normalizedPreviewType === 'pdf' ||
-    normalizedPreviewType.includes('pdf') ||
-    normalizedPreviewType.endsWith('/pdf') ||
-    normalizedPreviewType === 'application/pdf';
-
-  const updatePreviewPosition = useCallback(() => {
-    const trigger = thumbnailButtonRef.current;
-    if (!trigger?.isConnected || typeof window === 'undefined') {
-      closePreview();
-      return;
-    }
-
-    const triggerRect = trigger.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const gap = 12;
-
-    const maxTop = Math.max(16, viewportHeight - PREVIEW_HEIGHT - 16);
-    const centeredTop = triggerRect.top + triggerRect.height / 2 - PREVIEW_HEIGHT / 2;
-    const top = Math.min(Math.max(16, centeredTop), maxTop);
-
-    const rightSideLeft = triggerRect.right + gap;
-    const fitsOnRight = rightSideLeft + PREVIEW_WIDTH <= viewportWidth - 12;
-    const left = fitsOnRight ? rightSideLeft : Math.max(12, triggerRect.left - PREVIEW_WIDTH - gap);
-
-    setPreviewPosition({ top, left });
-  }, [closePreview]);
-
-  useEffect(() => {
-    if (!previewVisible) return;
-
-    updatePreviewPosition();
-
-    const handleDismiss = () => {
-      closePreview();
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closePreview();
-      }
-    };
-
-    window.addEventListener('scroll', handleDismiss, true);
-    window.addEventListener('wheel', handleDismiss, { capture: true, passive: true });
-    window.addEventListener('touchmove', handleDismiss, { capture: true, passive: true });
-    window.addEventListener('resize', handleDismiss);
-    window.addEventListener('blur', handleDismiss);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('scroll', handleDismiss, true);
-      window.removeEventListener('wheel', handleDismiss, true);
-      window.removeEventListener('touchmove', handleDismiss, true);
-      window.removeEventListener('resize', handleDismiss);
-      window.removeEventListener('blur', handleDismiss);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [closePreview, previewVisible, updatePreviewPosition]);
-
   const hasError = !!statement.errorMessage || statement.status === 'error';
   const isPendingStatement = statement.status === 'uploaded' || statement.status === 'processing';
   const compactAmountLabel = amountLabel.replace(/\s+/g, '');
@@ -563,7 +486,6 @@ export function StatementsListItem({
       .join(', ') || null;
   const descriptionLabel = firstNonEmpty(
     statement.parsingDetails?.importPreview?.description,
-    statement.parsedData?.lineItems?.[0]?.description,
     statement.transactionSummary?.description,
     statement.subject,
   );
@@ -629,7 +551,14 @@ export function StatementsListItem({
   };
 
   const renderCategoryCell = (): React.JSX.Element => {
-    if (!categoryLabel) return renderPlainCell('category', null);
+    if (!hasChosenCategory(categoryLabel)) {
+      // A receipt or a one-row statement is one purchase, so no category means
+      // one is still to be picked. A multi-row statement's category is only the
+      // majority of its rows', which carry their own (shown when opened).
+      const awaitsCategory =
+        (isReceipt || transactionCount <= 1) && !isProcessing && !isPendingStatement && !hasError;
+      return awaitsCategory ? <NoCategoryBadge /> : renderPlainCell('category', null);
+    }
     return (
       <Link
         href={categoryHref(categoryLabel, statement)}
@@ -663,83 +592,14 @@ export function StatementsListItem({
   };
 
   const renderReceiptCell = (): React.JSX.Element => (
-    <div style={{ position: 'relative', pointerEvents: 'auto' }}>
-      <button
-        type="button"
-        ref={thumbnailButtonRef}
-        data-testid={`statement-thumbnail-trigger-${statement.id}`}
-        style={{
-          width: 32,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'opacity 0.15s',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
-        }}
-        onClick={event => {
-          event.stopPropagation();
-          onIconClick();
-        }}
-        onMouseEnter={() => setPreviewVisible(true)}
-        onMouseLeave={closePreview}
-        aria-label={statement.fileName}
-      >
-        <span
-          style={{
-            color: c.ink400,
-            opacity: 0.6,
-            transition: 'opacity 0.15s',
-            display: 'contents',
-          }}
-        >
-          <DocumentTypeIcon
-            fileType={isReceipt ? 'pdf' : statement.fileType}
-            fileName={statement.fileName}
-            fileId={statement.id}
-            source={previewSource}
-            size={28}
-            muted
-          />
-        </span>
-      </button>
-
-      {hasHoverPreview && previewVisible && previewPosition
-        ? createPortal(
-            <div
-              data-testid="statement-hover-preview"
-              style={{
-                pointerEvents: 'none',
-                position: 'fixed',
-                zIndex: 140,
-                borderRadius: tokens.radius.lg,
-                border: `1px solid ${c.ink150}`,
-                background: 'var(--card-bg)',
-                padding: 8,
-                boxShadow: tokens.shadow.lg,
-                top: previewPosition.top,
-                left: previewPosition.left,
-                width: PREVIEW_WIDTH,
-                maxWidth: 'min(430px, calc(100vw - 24px))',
-              }}
-            >
-              <PDFThumbnail
-                fileId={statement.id}
-                fileName={statement.fileName}
-                source={previewSource}
-                width={PREVIEW_WIDTH - 16}
-                thumbnailWidth={PREVIEW_IMAGE_WIDTH}
-                height={PREVIEW_HEIGHT}
-                preservePageAspect
-                errorMessage="Unable to load document"
-              />
-            </div>,
-            document.body,
-          )
-        : null}
-    </div>
+    <DocumentThumbnailPreview
+      fileId={statement.id}
+      fileName={statement.fileName}
+      fileType={isReceipt ? 'pdf' : statement.fileType || statement.fileName || ''}
+      source={previewSource}
+      onOpen={onIconClick}
+      testId={`statement-thumbnail-trigger-${statement.id}`}
+    />
   );
 
   const renderMerchantCell = (): React.JSX.Element => (

@@ -6,10 +6,11 @@ import {
   type OwnerFilter,
   parseReviewerFilter,
 } from '../../common/utils/transaction-owner.util';
-import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
+import { canReadPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import type {
   ReviewInboxByStatement,
   ReviewInboxCounts,
+  ReviewInboxDocument,
   ReviewInboxItem,
   ReviewInboxPage,
 } from '../../contracts';
@@ -63,6 +64,7 @@ export class ReviewInboxService {
     const query = this.transactionRepository
       .createQueryBuilder('t')
       .leftJoin('t.statement', 's')
+      .addSelect(['s.id', 's.fileName', 's.fileType'])
       .leftJoinAndSelect('t.category', 'category')
       .leftJoinAndSelect('t.payee', 'payee')
       .where('t.workspaceId = :workspaceId', { workspaceId })
@@ -76,6 +78,7 @@ export class ReviewInboxService {
     const query = this.transactionRepository
       .createQueryBuilder('t')
       .leftJoin('t.statement', 's')
+      .addSelect(['s.id', 's.fileName', 's.fileType'])
       .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.isDuplicate = true')
       .andWhere('t.isVerified = false')
@@ -234,26 +237,30 @@ export class ReviewInboxService {
         .getManyAndCount();
       total = count;
       const receiptIds = await this.receiptIdsFor(workspaceId, rows);
-      items = redactPrivateRows(rows, selfMemberId).map(row => ({
-        kind: 'transaction',
-        id: row.id,
-        date: toDateString(row.transactionDate),
-        counterpartyName: row.counterpartyName,
-        paymentPurpose: row.paymentPurpose,
-        payee: row.payee ? { id: row.payee.id, name: row.payee.name } : null,
-        amount: absAmount(row),
-        currency: row.currency,
-        transactionType: row.transactionType,
-        categoryId: row.categoryId,
-        categoryName: row.category?.name ?? null,
-        categorySource: row.categorySource,
-        categoryReason: row.categoryReason,
-        statementId: row.statementId,
-        receiptId:
+      items = redactPrivateRows(rows, selfMemberId).map(row => {
+        const receiptId =
           receiptIds.byTransaction.get(row.id) ??
           (row.statementId ? receiptIds.byStatement.get(row.statementId) : undefined) ??
-          null,
-      }));
+          null;
+        return {
+          kind: 'transaction',
+          id: row.id,
+          date: toDateString(row.transactionDate),
+          counterpartyName: row.counterpartyName,
+          paymentPurpose: row.paymentPurpose,
+          payee: row.payee ? { id: row.payee.id, name: row.payee.name } : null,
+          amount: absAmount(row),
+          currency: row.currency,
+          transactionType: row.transactionType,
+          categoryId: row.categoryId,
+          categoryName: row.category?.name ?? null,
+          categorySource: row.categorySource,
+          categoryReason: row.categoryReason,
+          statementId: row.statementId,
+          receiptId,
+          document: documentOf(row, receiptId, selfMemberId),
+        };
+      });
     } else if (kind === ReviewInboxKind.DUPLICATE) {
       const [rows, count] = await this.applyDateRange(
         this.duplicatesQuery(workspaceId, reviewer),
@@ -275,6 +282,7 @@ export class ReviewInboxService {
         duplicateOfId: row.duplicateOfId,
         confidence: row.duplicateConfidence === null ? null : Number(row.duplicateConfidence),
         matchType: row.duplicateMatchType,
+        document: documentOf(row, null, selfMemberId),
       }));
     } else if (kind === ReviewInboxKind.RECEIPT) {
       const query = this.pendingReceiptsQuery(workspaceId);
@@ -420,6 +428,31 @@ export class ReviewInboxService {
     await this.transactionRepository.update({ id, workspaceId }, { isVerified: true });
     return { id, isDuplicate: true };
   }
+}
+
+function documentOf(
+  row: Transaction,
+  receiptId: string | null,
+  viewerMemberId: string | null,
+): ReviewInboxDocument | null {
+  // The file shows what the row was as plainly as its redacted descriptor.
+  if (!canReadPrivate(row, viewerMemberId)) return null;
+  const statement = row.statement;
+  if (receiptId) {
+    return {
+      source: 'receipt',
+      id: receiptId,
+      fileName: statement?.fileName ?? null,
+      fileType: statement?.fileType ?? null,
+    };
+  }
+  if (!statement) return null;
+  return {
+    source: 'statement',
+    id: statement.id,
+    fileName: statement.fileName,
+    fileType: statement.fileType,
+  };
 }
 
 function absAmount(row: Transaction): number {

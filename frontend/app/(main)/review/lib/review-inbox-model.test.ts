@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   cursorAfterRemoval,
   dateFilterToRange,
+  documentHref,
+  documentOf,
   groupByPayee,
   moveCursor,
   type ReviewTransactionItem,
@@ -29,9 +31,37 @@ const tx = (
   categoryReason: null,
   statementId: null,
   receiptId: null,
+  document: null,
 });
 
 describe('review inbox model', () => {
+  it('opens a row at its receipt, else its statement, the way Documents does', () => {
+    const scan = {
+      ...tx('a', 'Lidl'),
+      document: { source: 'receipt' as const, id: 'r1', fileName: 'scan.jpg', fileType: 'image' },
+    };
+    const bank = {
+      ...tx('b', 'Bank'),
+      document: { source: 'statement' as const, id: 's1', fileName: 'bank.pdf', fileType: 'pdf' },
+    };
+    expect(documentOf(scan)).toEqual(scan.document);
+    expect(documentOf(bank)).toEqual(bank.document);
+    expect(documentHref(scan.document)).toBe('/storage/receipts/r1?from=review');
+    expect(documentHref(bank.document)).toBe('/statements/s1/edit');
+    expect(documentOf(tx('c', 'Cash'))).toBeNull();
+    expect(
+      documentOf({
+        kind: 'receipt',
+        id: 'r2',
+        date: null,
+        vendor: null,
+        amount: null,
+        currency: null,
+        issues: [],
+      }),
+    ).toEqual({ source: 'receipt', id: 'r2', fileName: null, fileType: null });
+  });
+
   it('groups by payee, biggest group first, case-insensitively', () => {
     const groups = groupByPayee([tx('a', '7-Eleven'), tx('b', 'Lidl'), tx('c', '7-eleven')]);
     expect(groups.map(g => [g.payee, g.items.map(i => i.id)])).toEqual([
