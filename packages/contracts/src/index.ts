@@ -78,6 +78,7 @@ export * from './storage/storage';
 export * from './subscriptions/subscriptions';
 export * from './tax/income-tax';
 export * from './tax/tax';
+export * from './tax/tax-engine';
 export * from './transactions/transaction-list';
 export * from './users/users';
 export * from './wealth/balance-sheet';

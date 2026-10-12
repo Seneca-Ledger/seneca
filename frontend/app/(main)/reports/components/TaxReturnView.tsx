@@ -22,8 +22,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import { TaxThresholdCard } from './TaxThresholdCard';
@@ -34,8 +33,6 @@ import {
   type PeriodPreset,
   periodFor,
   saveBlob,
-  type TaxDeadline,
-  type VatFiling,
 } from './tax-return.helpers';
 import { UstvaCard } from './UstvaCard';
 
@@ -96,23 +93,26 @@ export function TaxReturnView(): React.ReactElement {
   const [period, setPeriod] = useState(() => periodFor('thisQuarter'));
   const filing = useQuery({
     queryKey: queryKeys.taxVatFiling(workspaceId),
-    queryFn: ({ signal }) => apiQuery<VatFiling>({ url: '/tax/settings/vat-filing', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/tax/settings/vat-filing', signal, contract: 'VatFilingSettings' }),
     enabled: Boolean(workspaceId),
   });
   const deadlines = useQuery({
     queryKey: queryKeys.taxDeadlines(workspaceId),
-    queryFn: ({ signal }) => apiQuery<TaxDeadline[]>({ url: '/tax/deadlines', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/tax/deadlines', signal, contract: 'TaxDeadlineList' }),
     enabled: Boolean(workspaceId),
   });
   const presets = filing.data?.frequency === 'monthly' ? MONTH_PRESETS : QUARTER_PRESETS;
   // A return filed outside Lumio: stop the reminders, lock nothing.
   const filedElsewhere = useMutation({
-    mutationFn: (periodEnd: string) =>
-      apiClient.put('/tax/deadlines/filed-elsewhere', {
+    mutationFn: async (periodEnd: string) => {
+      await apiClient.put('/tax/deadlines/filed-elsewhere', {
         kind: 'vat_return',
         periodEnd,
         filed: true,
-      }),
+      } satisfies ContractInput<'FiledElsewhereBody'>);
+    },
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.taxDeadlines(workspaceId) }),
   });
@@ -153,7 +153,12 @@ export function TaxReturnView(): React.ReactElement {
   const totals = returnQuery.data?.totals ?? null;
 
   const actMutation = useMutation({
-    mutationFn: (action: 'file' | 'reopen') => apiClient.post(`/tax/returns/${action}`, period),
+    mutationFn: async (action: 'file' | 'reopen') => {
+      await apiClient.post(
+        `/tax/returns/${action}`,
+        period satisfies ContractInput<'TaxReturnPeriodBody'>,
+      );
+    },
     onSuccess: () => setError(null),
     // The server says why a filing was refused (rows without an exchange rate,
     // say); that beats a generic line.

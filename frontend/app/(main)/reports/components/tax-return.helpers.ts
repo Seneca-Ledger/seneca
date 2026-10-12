@@ -1,47 +1,17 @@
-export interface TaxReturnTotals {
-  outputTax: number;
-  inputTax: number;
-  netPayable: number;
-  currency: string;
-  lines: TaxReturnLine[];
-  /** Rows left out for want of an exchange rate; the period cannot be filed while any remain. */
-  missingRates?: Array<{ transactionId: string; date: string; currency: string }>;
-}
+import type {
+  TaxDeadline,
+  TaxReturnLine,
+  TaxReturnPreview,
+  TaxReturnRecord,
+  TaxThresholdStatus,
+  VatFilingSettings,
+} from '@/app/lib/contracts';
 
-export interface TaxReturnLine {
-  transactionId: string;
-  date: string;
-  counterparty: string;
-  direction: 'output' | 'input' | 'reverse_charge';
-  currency: string;
-  taxAmount: number;
-  netAmount: number;
-  exchangeRate: number;
-  taxAmountConverted: number;
-}
-
-export interface TaxReturnRecord {
-  id: string;
-  status: 'draft' | 'filed';
-  periodStart: string;
-  periodEnd: string;
-  outputTax: string | number;
-  inputTax: string | number;
-  netPayable: string | number;
-  currency: string;
-  filedAt: string | null;
-}
-
-export interface ThresholdStatus {
-  threshold: number | null;
-  turnover: number;
-  currency: string;
-  percentUsed: number;
-  periodStart: string;
-  periodEnd: string;
-  /** Currencies of sales left out for want of an exchange rate. */
-  missingRateCurrencies?: string[];
-}
+export type { TaxDeadline, TaxReturnLine, TaxReturnRecord };
+/** `GET /tax/returns/preview`: the period computed live. */
+export type TaxReturnTotals = TaxReturnPreview;
+export type ThresholdStatus = NonNullable<TaxThresholdStatus>;
+export type VatFiling = VatFilingSettings;
 
 const pad = (value: number) => `${value}`.padStart(2, '0');
 
@@ -133,28 +103,4 @@ export function exportFileName(
   format: 'pdf' | 'xlsx' | 'csv',
 ): string {
   return `tax-return-${periodStart}_${periodEnd}.${format}`;
-}
-
-export interface TaxDeadline {
-  kind: 'vat_return' | 'income_tax';
-  periodStart: string;
-  periodEnd: string;
-  dueDate: string;
-  daysLeft: number;
-  done: boolean;
-  filedElsewhere: boolean;
-  returnName: string;
-  /** statute: worked out from the rule in the law; published: announced for the year. */
-  basis?: 'statute' | 'published';
-  /** When that rule or announcement was last read. */
-  checkedAt?: string;
-}
-
-export interface VatFiling {
-  frequency: 'monthly' | 'quarterly' | 'annual' | null;
-  isDefault: boolean;
-  extension: boolean;
-  extensionName: string | null;
-  deadlinesKnown: boolean;
-  knownFrequencies: Array<'monthly' | 'quarterly' | 'annual'>;
 }

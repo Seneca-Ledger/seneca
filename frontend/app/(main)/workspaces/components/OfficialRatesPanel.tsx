@@ -9,29 +9,17 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import {
+  apiQueryDecoded,
+  type ContractInput,
+  type ContractType,
+  checkContract,
+} from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
-type DifferenceKind = 'standard_changed' | 'reduced_missing' | 'reduced_unlisted';
-
-export interface RateDifference {
-  key: string;
-  kind: DifferenceKind;
-  official: number | null;
-  ours: number | null;
-  from: string | null;
-  categories: string[];
-  canApply: boolean;
-}
-
-export interface OfficialRatesCheck {
-  supported: boolean;
-  country: string | null;
-  fetchedAt: string | null;
-  sourceUrl: string;
-  differences: RateDifference[];
-  dismissed: RateDifference[];
-}
+export type OfficialRatesCheck = ContractType<'OfficialRatesCheck'>;
+export type RateDifference = OfficialRatesCheck['differences'][number];
+type DifferenceKind = RateDifference['kind'];
 
 function fill(template: string, params: Record<string, string | number>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(params[key] ?? ''));
@@ -58,7 +46,11 @@ export function OfficialRatesPanel(): React.ReactElement | null {
   const check = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
-      apiQuery<OfficialRatesCheck>({ url: '/tax/settings/official-rates', signal }),
+      apiQueryDecoded({
+        url: '/tax/settings/official-rates',
+        signal,
+        contract: 'OfficialRatesCheck',
+      }),
     enabled: Boolean(workspaceId),
   });
 
@@ -67,8 +59,14 @@ export function OfficialRatesPanel(): React.ReactElement | null {
   const refresh = useMutation({
     mutationFn: () =>
       apiClient
-        .post<OfficialRatesCheck>('/tax/settings/official-rates/refresh', {})
-        .then(response => response.data),
+        .post('/tax/settings/official-rates/refresh', {})
+        .then(response =>
+          checkContract(
+            'OfficialRatesCheck',
+            response.data,
+            '/tax/settings/official-rates/refresh',
+          ),
+        ),
     onSuccess: settle,
     onError: error => toast.error(getApiErrorMessage(error, t.failed.value)),
   });
@@ -76,8 +74,12 @@ export function OfficialRatesPanel(): React.ReactElement | null {
   const apply = useMutation({
     mutationFn: (key: string) =>
       apiClient
-        .post<OfficialRatesCheck>('/tax/settings/official-rates/apply', { key })
-        .then(response => response.data),
+        .post('/tax/settings/official-rates/apply', {
+          key,
+        } satisfies ContractInput<'ApplyOfficialRateBody'>)
+        .then(response =>
+          checkContract('OfficialRatesCheck', response.data, '/tax/settings/official-rates/apply'),
+        ),
     onSuccess: result => {
       settle(result);
       toast.success(t.applied.value);
@@ -90,10 +92,16 @@ export function OfficialRatesPanel(): React.ReactElement | null {
   });
 
   const dismiss = useMutation({
-    mutationFn: (body: { key: string; dismissed: boolean }) =>
+    mutationFn: (body: ContractInput<'DismissOfficialRateBody'>) =>
       apiClient
-        .put<OfficialRatesCheck>('/tax/settings/official-rates/dismissed', body)
-        .then(response => response.data),
+        .put('/tax/settings/official-rates/dismissed', body)
+        .then(response =>
+          checkContract(
+            'OfficialRatesCheck',
+            response.data,
+            '/tax/settings/official-rates/dismissed',
+          ),
+        ),
     onSuccess: settle,
     onError: error => toast.error(getApiErrorMessage(error, t.failed.value)),
   });

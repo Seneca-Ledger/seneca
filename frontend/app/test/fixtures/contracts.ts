@@ -10,6 +10,7 @@ import type {
   Payable,
   ReceiptRecord,
   SubscriptionItem,
+  TaxJurisdictionItem,
   WalletItem,
   WorkspaceDetail,
   WorkspaceMember,
@@ -36,6 +37,7 @@ export function categoryItem(
     icon: null,
     stoicClass: null,
     helpsOthers: null,
+    taxRelevant: false,
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
     parent: null,
@@ -309,4 +311,23 @@ export function authUser(overrides: Partial<AuthUser> = {}): AuthUser {
 /** `GET /insights`: one page of insights. */
 export function insightPage(items: Insight[]) {
   return { items, total: items.length, limit: 50, offset: 0 };
+}
+
+/** A jurisdiction as `GET /tax/settings` and `GET /tax/jurisdictions` send it: Germany by default. */
+export function taxJurisdictionItem(
+  overrides: Partial<TaxJurisdictionItem> = {},
+): TaxJurisdictionItem {
+  return {
+    id: 'jurisdiction-de',
+    code: 'DE',
+    name: 'Germany',
+    taxName: 'USt',
+    currency: 'EUR',
+    scheme: 'vat',
+    isEu: true,
+    filingPeriod: 'quarterly',
+    registrationThreshold: '25000.00',
+    thresholdPeriod: 'calendar_year',
+    ...overrides,
+  };
 }

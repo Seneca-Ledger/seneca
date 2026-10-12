@@ -1,15 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsIn,
-  IsInt,
-  IsISO8601,
-  IsObject,
-  IsOptional,
-  Matches,
-  Max,
-  Min,
-  ValidateIf,
-} from 'class-validator';
+import { IsInt, IsISO8601, Max, Min } from 'class-validator';
 
 export class DatevPeriodDto {
   @IsISO8601({ strict: true })

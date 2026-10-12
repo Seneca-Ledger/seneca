@@ -19,42 +19,17 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { VatFilingSettings, WorkspaceTaxSettings } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { OfficialRatesPanel } from './OfficialRatesPanel';
 import { SettingsSection } from './SettingsSection';
 
-export type VatStatus = 'registered' | 'small_business' | 'not_registered';
-
-interface TaxSettings {
-  jurisdiction: { code: string; name: string } | null;
-  vatStatus: VatStatus;
-}
-
-interface ReserveSettings {
-  percent: number | null;
-  paymentsCategoryId: string | null;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  type: 'income' | 'expense';
-  parentId?: string | null;
-}
+export type VatStatus = WorkspaceTaxSettings['vatStatus'];
 
 const STATUSES: VatStatus[] = ['registered', 'small_business', 'not_registered'];
 
-type Frequency = 'monthly' | 'quarterly' | 'annual';
-
-interface VatFiling {
-  frequency: Frequency | null;
-  isDefault: boolean;
-  extension: boolean;
-  extensionName: string | null;
-  deadlinesKnown: boolean;
-  knownFrequencies: Frequency[];
-}
+type Frequency = NonNullable<VatFilingSettings['frequency']>;
 
 function fill(template: string, params: Record<string, string | number>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(params[key] ?? ''));
@@ -72,22 +47,26 @@ export function TaxStatusSection(): React.ReactElement {
 
   const settings = useQuery({
     queryKey: queryKeys.taxSettings(workspaceId),
-    queryFn: ({ signal }) => apiQuery<TaxSettings>({ url: '/tax/settings', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/tax/settings', signal, contract: 'WorkspaceTaxSettings' }),
     enabled: Boolean(workspaceId),
   });
   const reserve = useQuery({
     queryKey: queryKeys.taxReserveSettings(workspaceId),
-    queryFn: ({ signal }) => apiQuery<ReserveSettings>({ url: '/tax/settings/reserve', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/tax/settings/reserve', signal, contract: 'TaxReserveSettings' }),
     enabled: Boolean(workspaceId),
   });
   const filing = useQuery({
     queryKey: queryKeys.taxVatFiling(workspaceId),
-    queryFn: ({ signal }) => apiQuery<VatFiling>({ url: '/tax/settings/vat-filing', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/tax/settings/vat-filing', signal, contract: 'VatFilingSettings' }),
     enabled: Boolean(workspaceId),
   });
   const categories = useQuery({
     queryKey: queryKeys.categories(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Category[]>({ url: '/categories', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     enabled: Boolean(workspaceId),
   });
 
@@ -110,8 +89,10 @@ export function TaxStatusSection(): React.ReactElement {
   const setStatus = useMutation({
     mutationFn: (status: VatStatus) =>
       apiClient
-        .put<{ vatStatus: VatStatus; reassessed: number }>('/tax/settings/vat-status', { status })
-        .then(response => response.data),
+        .put('/tax/settings/vat-status', { status } satisfies ContractInput<'SetVatStatusBody'>)
+        .then(response =>
+          checkContract('VatStatusChange', response.data, '/tax/settings/vat-status'),
+        ),
     onSuccess: result => {
       toast.success(fill(t.statusSaved.value, { count: result.reassessed }));
       invalidate();
@@ -122,8 +103,10 @@ export function TaxStatusSection(): React.ReactElement {
   const reassess = useMutation({
     mutationFn: () =>
       apiClient
-        .post<{ reassessed: number }>('/tax/settings/reassess', {})
-        .then(response => response.data),
+        .post('/tax/settings/reassess', {} satisfies ContractInput<'ReassessTaxBody'>)
+        .then(response =>
+          checkContract('TaxReassessment', response.data, '/tax/settings/reassess'),
+        ),
     onSuccess: result => {
       toast.success(fill(t.reassessed.value, { count: result.reassessed }));
       invalidate();
@@ -132,8 +115,12 @@ export function TaxStatusSection(): React.ReactElement {
   });
 
   const saveFiling = useMutation({
-    mutationFn: (body: { frequency: Frequency | null; extension: boolean }) =>
-      apiClient.put<VatFiling>('/tax/settings/vat-filing', body).then(response => response.data),
+    mutationFn: (body: ContractInput<'SetVatFilingBody'>) =>
+      apiClient
+        .put('/tax/settings/vat-filing', body)
+        .then(response =>
+          checkContract('VatFilingSettings', response.data, '/tax/settings/vat-filing'),
+        ),
     onSuccess: () => {
       toast.success(t.filingSaved.value);
       invalidate();
@@ -142,8 +129,12 @@ export function TaxStatusSection(): React.ReactElement {
   });
 
   const saveReserve = useMutation({
-    mutationFn: (body: ReserveSettings) =>
-      apiClient.put<ReserveSettings>('/tax/settings/reserve', body).then(response => response.data),
+    mutationFn: (body: ContractInput<'SetTaxReserveBody'>) =>
+      apiClient
+        .put('/tax/settings/reserve', body)
+        .then(response =>
+          checkContract('TaxReserveSettings', response.data, '/tax/settings/reserve'),
+        ),
     onSuccess: () => {
       toast.success(t.reserveSaved.value);
       invalidate();

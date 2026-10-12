@@ -20,6 +20,7 @@ vi.mock('./tax-return.helpers', async importOriginal => ({
 }));
 
 import { TaxYearView } from './TaxYearView';
+import { categoryItem } from '@/app/test/fixtures/contracts';
 
 const YEAR = new Date().getFullYear();
 
@@ -69,6 +70,7 @@ function mockApi({ reserve = null as unknown, report = REPORT as unknown } = {})
         data: reserve ?? {
           currency: 'EUR',
           year: YEAR,
+          asOf: `${YEAR}-06-30`,
           vat: null,
           incomeTax: null,
           payments: { categoryId: null, amount: 0, count: 0 },
@@ -79,9 +81,9 @@ function mockApi({ reserve = null as unknown, report = REPORT as unknown } = {})
     if (url === '/categories')
       return Promise.resolve({
         data: [
-          { id: 'cat-med', name: 'Medical', type: 'expense', parentId: null, taxRelevant: true },
-          { id: 'cat-food', name: 'Groceries', type: 'expense', parentId: null },
-          { id: 'cat-sub', name: 'Dentist', type: 'expense', parentId: 'cat-med' },
+          categoryItem({ id: 'cat-med', name: 'Medical', taxRelevant: true }),
+          categoryItem({ id: 'cat-food', name: 'Groceries' }),
+          categoryItem({ id: 'cat-sub', name: 'Dentist', parentId: 'cat-med' }),
         ],
       });
     if (url.startsWith('/tax/pack')) return Promise.resolve({ data: new Blob(['zip']) });
@@ -106,6 +108,7 @@ describe('TaxYearView', () => {
       reserve: {
         currency: 'EUR',
         year: YEAR,
+        asOf: `${YEAR}-06-30`,
         vat: { net: 950, outputTax: 1900, inputTax: 950 },
         incomeTax: { percent: 30, earnings: 10000, amount: 3000 },
         payments: { categoryId: 'cat-tax', amount: 1000, count: 2 },

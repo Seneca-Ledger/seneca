@@ -187,6 +187,18 @@ import {
   WorkspaceOverview,
   WorkspaceSummary,
   WorkspaceTaxSettings,
+  DatevMapping,
+  DatevPreview,
+  DatevSettings,
+  OfficialRatesCheck,
+  TaxDeadlineList,
+  TaxReassessment,
+  TaxReserve,
+  TaxReserveSettings,
+  TaxYearReport,
+  UstvaResult,
+  VatFilingSettings,
+  VatStatusChange,
 } from '../../src/contracts';
 import {
   deleteUserByEmail,
@@ -1000,6 +1012,85 @@ describe('API contracts (e2e)', () => {
       matches(TaxThresholdStatus, threshold.body);
       await send('put', '/tax/settings/vat-status', { status: 'registered' }).expect(200);
       matches(TaxRuleList, (await get('/tax/rules')).body);
+    });
+
+    it('GET and PUT the VAT filing, the reserve, the deadlines, the year report, UStVA and DATEV', async () => {
+      const year = new Date().getFullYear();
+      matches(VatFilingSettings, (await get('/tax/settings/vat-filing')).body);
+      const filing = await send('put', '/tax/settings/vat-filing', {
+        frequency: 'monthly',
+        extension: true,
+      }).expect(200);
+      matches(VatFilingSettings, filing.body);
+      expect(filing.body).toEqual(expect.objectContaining({ frequency: 'monthly', extension: true }));
+      await send('put', '/tax/settings/vat-filing', { frequency: null, extension: false }).expect(
+        200,
+      );
+
+      const categories = await get('/categories?type=expense');
+      const reserve = await send('put', '/tax/settings/reserve', {
+        percent: 25,
+        paymentsCategoryId: categories.body[0].id,
+      }).expect(200);
+      matches(TaxReserveSettings, reserve.body);
+      matches(TaxReserveSettings, (await get('/tax/settings/reserve')).body);
+      const amount = await get('/tax/settings/reserve/amount');
+      matches(TaxReserve, amount.body);
+      expect(amount.body.incomeTax).not.toBeNull();
+
+      const deadlines = await get('/tax/deadlines');
+      matches(TaxDeadlineList, deadlines.body);
+      const vatReturn = deadlines.body.find((row: { kind: string }) => row.kind === 'vat_return');
+      expect(vatReturn).toBeDefined();
+      const filed = await send('put', '/tax/deadlines/filed-elsewhere', {
+        kind: 'vat_return',
+        periodEnd: vatReturn.periodEnd,
+        filed: true,
+      }).expect(200);
+      matches(TaxDeadlineList, filed.body);
+      await send('put', '/tax/deadlines/filed-elsewhere', {
+        kind: 'vat_return',
+        periodEnd: vatReturn.periodEnd,
+        filed: false,
+      }).expect(200);
+
+      // Marked tax-relevant, a category's rows are in the year report.
+      await send('put', `/categories/${categories.body[0].id}`, { taxRelevant: true }).expect(200);
+      matches(TaxYearReport, (await get(`/tax/year-report?year=${year}`)).body);
+
+      matches(TaxReassessment, (await send('post', '/tax/settings/reassess', {}).expect(201)).body);
+      const status = await send('put', '/tax/settings/vat-status', { status: 'registered' }).expect(
+        200,
+      );
+      matches(VatStatusChange, status.body);
+      const ustva = await get(`/tax/returns/ustva?periodStart=${year}-01-01&periodEnd=${year}-03-31`);
+      matches(UstvaResult, ustva.body);
+      expect(ustva.body.unsupported).not.toBe('not_germany');
+      matches(OfficialRatesCheck, (await get('/tax/settings/official-rates')).body);
+
+      matches(DatevSettings, (await get('/tax/datev/settings')).body);
+      const datev = await send('put', '/tax/datev/settings', {
+        chart: '03',
+        consultantNumber: 1001,
+        clientNumber: 1,
+        bankAccount: '1200',
+      }).expect(200);
+      matches(DatevSettings, datev.body);
+      // A row of its own: earlier tests pair the shared expense, which DATEV leaves out.
+      await request(app.getHttpServer())
+        .post('/statements/manual-expense')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .field('amount', '19.00')
+        .field('currency', 'EUR')
+        .field('merchant', 'DATEV Supplies')
+        .field('categoryId', categories.body[0].id)
+        .field('date', new Date().toISOString().slice(0, 10))
+        .expect(201);
+      const mapping = await get(`/tax/datev/mapping?year=${year}`);
+      matches(DatevMapping, mapping.body);
+      expect(mapping.body.categories.length).toBeGreaterThan(0);
+      matches(DatevPreview, (await get(`/tax/datev/preview?from=${year}-01-01&to=${year}-12-31`)).body);
     });
 
     it('GET /tax/returns/preview and /tax/returns/period', async () => {

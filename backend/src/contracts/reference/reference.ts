@@ -23,6 +23,8 @@ const categoryFields = {
   icon: Schema.NullOr(Schema.String),
   stoicClass: Schema.NullOr(Schema.String),
   helpsOthers: Schema.NullOr(Schema.Boolean),
+  /** Spending here matters for the tax return: the tax-year report and the tax pack. */
+  taxRelevant: Schema.Boolean,
   createdAt: Timestamp,
   updatedAt: Timestamp,
 };

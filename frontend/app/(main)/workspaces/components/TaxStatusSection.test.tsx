@@ -17,6 +17,7 @@ vi.mock('@/app/i18n', () => ({
   useLocale: () => ({ locale: 'en' }),
 }));
 
+import { categoryItem, taxJurisdictionItem } from '@/app/test/fixtures/contracts';
 import { TaxStatusSection } from './TaxStatusSection';
 
 function mockApi(
@@ -30,7 +31,7 @@ function mockApi(
     Promise.resolve({
       data:
         url === '/tax/settings'
-          ? { jurisdiction: { code: 'DE', name: 'Germany' }, vatStatus }
+          ? { jurisdiction: taxJurisdictionItem(), vatStatus }
           : url === '/tax/settings/vat-filing'
             ? {
                 frequency: 'quarterly',
@@ -43,10 +44,10 @@ function mockApi(
             : url === '/tax/settings/reserve'
             ? reserve
             : [
-                { id: 'cat-tax', name: 'Taxes', type: 'expense', parentId: null },
-                { id: 'cat-fees', name: 'Fees', type: 'expense', parentId: null },
-                { id: 'cat-sub', name: 'VAT', type: 'expense', parentId: 'cat-tax' },
-                { id: 'cat-sales', name: 'Sales', type: 'income', parentId: null },
+                categoryItem({ id: 'cat-tax', name: 'Taxes' }),
+                categoryItem({ id: 'cat-fees', name: 'Fees' }),
+                categoryItem({ id: 'cat-sub', name: 'VAT', parentId: 'cat-tax' }),
+                categoryItem({ id: 'cat-sales', name: 'Sales', type: 'income' }),
               ],
     }),
   );
