@@ -31,9 +31,15 @@ import { isValid } from 'date-fns';
 import React, { useState } from 'react';
 import { Pencil, Trash2, UserPlus } from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { resolvePickerFormat } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions, useUserFormat } from '@/app/lib/user-format-store';
 import api from '../lib/api';
+
+type FilePermissionType = ContractInput<'GrantPermissionBody'>['permissionType'];
+const PERMISSION_TYPES: readonly FilePermissionType[] = ['owner', 'editor', 'viewer', 'downloader'];
+const isPermissionType = (value: string): value is FilePermissionType =>
+  PERMISSION_TYPES.some(type => type === value);
 
 interface Permission {
   id: string;
@@ -192,8 +198,8 @@ function PermTable({
 }
 
 interface PermFormProps {
-  permissionType: string;
-  setPermissionType: (v: string) => void;
+  permissionType: FilePermissionType;
+  setPermissionType: (v: FilePermissionType) => void;
   canReshare: boolean;
   setCanReshare: (v: boolean) => void;
   expiresAt: string;
@@ -221,7 +227,9 @@ function PermFormFields({
         <Select
           value={permissionType}
           label={t.dialogs.accessLevel.value}
-          onChange={e => setPermissionType(e.target.value)}
+          onChange={e => {
+            if (isPermissionType(e.target.value)) setPermissionType(e.target.value);
+          }}
         >
           <MenuItem value="viewer">{t.permission.viewer}</MenuItem>
           <MenuItem value="downloader">{t.permission.viewDownloadLong}</MenuItem>
@@ -259,7 +267,7 @@ export default function PermissionsPanel({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null);
   const [userEmail, setUserEmail] = useState('');
-  const [permissionType, setPermissionType] = useState('viewer');
+  const [permissionType, setPermissionType] = useState<FilePermissionType>('viewer');
   const [canReshare, setCanReshare] = useState(false);
   const [expiresAt, setExpiresAt] = useState('');
   const [granting, setGranting] = useState(false);
@@ -270,11 +278,11 @@ export default function PermissionsPanel({
       setGranting(true);
       setError(null);
       await api.post(`/storage/files/${fileId}/permissions`, {
-        userId: userEmail,
+        userId: userEmail.trim(),
         permissionType,
         canReshare,
         expiresAt: expiresAt || undefined,
-      });
+      } satisfies ContractInput<'GrantPermissionBody'>);
       setUserEmail('');
       setPermissionType('viewer');
       setCanReshare(false);
@@ -302,7 +310,7 @@ export default function PermissionsPanel({
         permissionType,
         canReshare,
         expiresAt: expiresAt || null,
-      });
+      } satisfies ContractInput<'UpdatePermissionBody'>);
       setEditDialogOpen(false);
       setSelectedPermission(null);
       onPermissionsUpdate();
@@ -330,7 +338,7 @@ export default function PermissionsPanel({
 
   const handleEditClick = (permission: Permission): void => {
     setSelectedPermission(permission);
-    setPermissionType(permission.permissionType);
+    if (isPermissionType(permission.permissionType)) setPermissionType(permission.permissionType);
     setCanReshare(permission.canReshare);
     setExpiresAt(permission.expiresAt || '');
     setEditDialogOpen(true);

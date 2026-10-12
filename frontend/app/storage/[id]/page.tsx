@@ -21,77 +21,14 @@ import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import PermissionsPanel from '../../components/PermissionsPanel';
 import ShareDialog from '../../components/ShareDialog';
-import TransactionsView, {
-  type Transaction as StatementTransaction,
-} from '../../components/TransactionsView';
+import TransactionsView from '../../components/TransactionsView';
 import api from '../../lib/api';
+import type { StorageFileDetails } from '../../lib/contracts';
+import { checkContract } from '../../lib/query-fn-schema';
 
-type FileAvailabilityStatus = 'both' | 'disk' | 'db' | 'missing';
-
-type FileAvailability = {
-  onDisk: boolean;
-  inDb: boolean;
-  status: FileAvailabilityStatus;
-};
-
-interface StatementCategory {
-  id: string;
-  name: string;
-  color?: string;
-}
-
-interface StatementDetails {
-  id: string;
-  fileName: string;
-  bankName: string;
-  status: string;
-  fileSize: number;
-  createdAt: string;
-  metadata?: {
-    accountNumber?: string;
-  };
-  category?: StatementCategory | null;
-  categoryId?: string | null;
-}
-
-interface FileDetails {
-  statement: StatementDetails;
-  transactions: StatementTransaction[];
-  sharedLinks: SharedLink[];
-  permissions: FilePermission[];
-  isOwner: boolean;
-  userPermission?: string;
-  fileAvailability?: FileAvailability;
-}
-
-interface SharedLink {
-  id: string;
-  token: string;
-  permission: string;
-  expiresAt: string | null;
-  allowAnonymous: boolean;
-  description: string | null;
-  status: string;
-  accessCount: number;
-  createdAt: string;
-}
-
-interface FilePermission {
-  id: string;
-  user: {
-    id: string;
-    email: string;
-  };
-  grantedBy: {
-    id: string;
-    email: string;
-  };
-  permissionType: string;
-  canReshare: boolean;
-  expiresAt: string | null;
-  isActive: boolean;
-  createdAt: string;
-}
+type FileDetails = StorageFileDetails;
+type FileAvailability = FileDetails['fileAvailability'];
+type FileAvailabilityStatus = FileAvailability['status'];
 
 const getBankDisplayName = (bankName: string): string => {
   const resolved = resolveBankLogo(bankName);
@@ -211,8 +148,9 @@ export default function FileDetailsPage() {
     return await (async () => {
       setLoading(true);
       const response = await api.get(`/storage/files/${fileId}`);
-      setDetails(response.data);
-      return response.data;
+      const loaded = await checkContract('StorageFileDetails', response.data, '/storage/files/:id');
+      setDetails(loaded);
+      return loaded;
     })()
       .catch(async error => {
         console.error('Failed to load file details:', error);
@@ -656,7 +594,7 @@ export default function FileDetailsPage() {
             { label: t.cards.uploadedAt, value: formatDate(statement.createdAt) },
             {
               label: t.cards.account,
-              value: statement.metadata?.accountNumber || t.cards.dash.value,
+              value: statement.accountNumber || t.cards.dash.value,
             },
             // eslint-disable-next-line max-params
           ].map((card, idx) => (

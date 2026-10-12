@@ -1,31 +1,18 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { SubscriptionItem } from '../hooks/useSubscriptionsPage';
+import { normalizeSubscription } from '../hooks/useSubscriptionsPage';
+import { subscriptionRow } from '@/app/test/fixtures/contracts';
 import { monthlySetAsideOf, SubscriptionCard } from './SubscriptionCard';
 
 const base: SubscriptionItem = {
-  id: 'sub-1',
-  vendorName: 'Adobe',
-  vendorRaw: null,
-  vendorDomain: null,
+  ...normalizeSubscription(
+    subscriptionRow({ id: 'sub-1', vendorName: 'Adobe' }),
+  ),
   amount: 240,
-  currency: 'USD',
   frequency: 'annual',
-  status: 'active',
-  ownerId: null,
-  owner: null,
-  reviewAt: null,
-  reviewStatus: 'current',
-  riskStatus: 'none',
-  cancellationReason: null,
-  realizedAnnualSavings: 0,
-  confidence: null,
   nextChargeDate: '2027-03-01',
   lastChargeDate: '2026-03-01',
-  categoryId: null,
-  category: null,
-  detectionMeta: null,
-  createdAt: '2026-01-01',
 };
 
 const renderCard = (overrides: Partial<SubscriptionItem> = {}, props: Record<string, unknown> = {}) => {

@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useLocale } from '@/app/i18n';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export interface DailyQuote {
@@ -31,7 +31,12 @@ export function useDailyQuote({ enabled = true }: { enabled?: boolean } = {}): {
     queryKey: queryKeys.dailyQuote(workspaceId, date, locale),
     // The reader's own day: the server's clock may already be on another one.
     queryFn: ({ signal }) =>
-      apiQuery<DailyQuote>({ url: '/insights/daily-quote', params: { date, locale }, signal }),
+      apiQueryDecoded({
+        url: '/insights/daily-quote',
+        params: { date, locale },
+        signal,
+        contract: 'DailyQuote',
+      }),
     enabled: enabled && Boolean(workspaceId),
     staleTime: Number.POSITIVE_INFINITY,
   });

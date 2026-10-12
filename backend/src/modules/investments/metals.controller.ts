@@ -3,7 +3,6 @@ import { existsSync, mkdirSync } from 'node:fs';
 import * as path from 'node:path';
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
@@ -19,13 +18,12 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { MetalSettingsBody, SellMetalLotBody, UpsertMetalLotBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { MetalSettingsDto } from './dto/metal-settings.dto';
-import { SellMetalLotDto } from './dto/sell-metal-lot.dto';
-import { UpsertMetalLotDto } from './dto/upsert-metal-lot.dto';
 import { MetalsService, PHOTO_DIRECTORY } from './metals.service';
 
 /**
@@ -59,7 +57,7 @@ export class MetalsController {
   async addLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpsertMetalLotDto,
+    @SchemaBody(UpsertMetalLotBody) dto: UpsertMetalLotBody,
   ) {
     return this.metalsService.addLot(user.id, workspaceId, dto);
   }
@@ -70,7 +68,7 @@ export class MetalsController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('id') id: string,
-    @Body() dto: UpsertMetalLotDto,
+    @SchemaBody(UpsertMetalLotBody) dto: UpsertMetalLotBody,
   ) {
     return this.metalsService.updateLot(user.id, workspaceId, id, dto);
   }
@@ -100,7 +98,7 @@ export class MetalsController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('id') id: string,
-    @Body() dto: SellMetalLotDto,
+    @SchemaBody(SellMetalLotBody) dto: SellMetalLotBody,
   ) {
     return this.metalsService.sellLot(user.id, workspaceId, id, dto);
   }
@@ -111,7 +109,7 @@ export class MetalsController {
   async saveSettings(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: MetalSettingsDto,
+    @SchemaBody(MetalSettingsBody) dto: MetalSettingsBody,
   ) {
     const dealerDiscount = await this.metalsService.saveSettings(user.id, workspaceId, dto);
     return { dealerDiscount };

@@ -23,6 +23,7 @@ vi.mock('@/app/i18n', () => ({
 
 import { createTestQueryClient, renderHookWithQuery } from '../test/query-wrapper';
 import { type InsightSeverity, useInsights, useRefreshInsights } from './useInsights';
+import { insightPage } from '@/app/test/fixtures/contracts';
 
 function insight(id: string, severity: InsightSeverity) {
   return {
@@ -48,7 +49,7 @@ describe('useInsights', () => {
 
   it('keeps only the requested severities, so alerts and advice stay apart', async () => {
     apiMocks.get.mockResolvedValue({
-      data: { items: [insight('a', 'warn'), insight('b', 'info'), insight('c', 'critical')] },
+      data: insightPage([insight('a', 'warn'), insight('b', 'info'), insight('c', 'critical')]),
     });
 
     const { result } = renderHookWithQuery(() => useInsights({ severities: ['warn', 'critical'] }));
@@ -58,7 +59,7 @@ describe('useInsights', () => {
   });
 
   it('asks for the feed in the interface language, not the profile one', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([]) });
 
     const { result } = renderHookWithQuery(() => useInsights({ severities: ['info'] }));
 
@@ -71,7 +72,7 @@ describe('useInsights', () => {
 
   it('serves both consumers of the shared feed from a single request', async () => {
     apiMocks.get.mockResolvedValue({
-      data: { items: [insight('a', 'warn'), insight('b', 'info')] },
+      data: insightPage([insight('a', 'warn'), insight('b', 'info')]),
     });
     const client = createTestQueryClient();
 
@@ -90,7 +91,7 @@ describe('useInsights', () => {
   });
 
   it('does not recompute insights when only reading them', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([]) });
 
     const { result } = renderHookWithQuery(() => useInsights({ severities: ['warn'] }));
 
@@ -99,7 +100,7 @@ describe('useInsights', () => {
   });
 
   it('recomputes on demand and then re-reads the feed', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([]) });
     const client = createTestQueryClient();
 
     const feed = renderHookWithQuery(() => useInsights({ severities: ['info'] }), { client });
@@ -118,7 +119,7 @@ describe('useInsights', () => {
   });
 
   it('removes a dismissed insight from view before the server answers', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [insight('a', 'warn')] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([insight('a', 'warn')]) });
     // POST висит: только так наблюдаемо промежуточное оптимистичное состояние.
     let settleDismiss!: () => void;
     apiMocks.post.mockImplementation(
@@ -139,7 +140,7 @@ describe('useInsights', () => {
   });
 
   it('brings a dismissed insight back when the server rejects the dismissal', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [insight('a', 'warn')] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([insight('a', 'warn')]) });
     apiMocks.post.mockRejectedValue(new Error('nope'));
 
     const { result } = renderHookWithQuery(() => useInsights({ severities: ['warn'] }));

@@ -1,17 +1,15 @@
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
+import { rejectedFields } from '../../../../helpers/schema-body';
+import { UpdateTransactionBody } from '@/contracts';
 import { TransactionType } from '@/entities/transaction.entity';
-import { UpdateTransactionDto } from '@/modules/transactions/dto/update-transaction.dto';
 
-describe('UpdateTransactionDto', () => {
+describe('UpdateTransactionBody', () => {
   it('passes validation when all fields are absent (full optional)', async () => {
-    const dto = plainToInstance(UpdateTransactionDto, {});
-    const errors = await validate(dto);
+    const errors = rejectedFields(UpdateTransactionBody, {});
     expect(errors).toHaveLength(0);
   });
 
   it('passes validation with all valid fields', async () => {
-    const dto = plainToInstance(UpdateTransactionDto, {
+    const errors = rejectedFields(UpdateTransactionBody, {
       transactionDate: '2026-01-15',
       documentNumber: 'DOC-001',
       counterpartyName: 'Acme Corp',
@@ -34,108 +32,92 @@ describe('UpdateTransactionDto', () => {
       comments: 'Approved by finance',
       isVerified: true,
     });
-
-    const errors = await validate(dto);
     expect(errors).toHaveLength(0);
   });
 
   describe('transactionDate', () => {
     it('passes validation for ISO date string', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { transactionDate: '2026-01-15' });
-      const errors = await validate(dto);
-      expect(errors.filter(e => e.property === 'transactionDate')).toHaveLength(0);
+      const errors = rejectedFields(UpdateTransactionBody, { transactionDate: '2026-01-15' });
+      expect(errors.filter(field => field === 'transactionDate')).toHaveLength(0);
     });
 
     it('fails validation for non-date string', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { transactionDate: 'not-a-date' });
-      const errors = await validate(dto);
-      expect(errors.some(e => e.property === 'transactionDate')).toBe(true);
+      const errors = rejectedFields(UpdateTransactionBody, { transactionDate: 'not-a-date' });
+      expect(errors.some(field => field === 'transactionDate')).toBe(true);
     });
   });
 
   describe('financial amount fields', () => {
     it('passes validation with numeric debit', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { debit: 500.75 });
-      const errors = await validate(dto);
-      expect(errors.filter(e => e.property === 'debit')).toHaveLength(0);
+      const errors = rejectedFields(UpdateTransactionBody, { debit: 500.75 });
+      expect(errors.filter(field => field === 'debit')).toHaveLength(0);
     });
 
     it('fails validation when debit is a string that is not a number', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { debit: 'five hundred' });
-      const errors = await validate(dto);
-      expect(errors.some(e => e.property === 'debit')).toBe(true);
+      const errors = rejectedFields(UpdateTransactionBody, { debit: 'five hundred' });
+      expect(errors.some(field => field === 'debit')).toBe(true);
     });
 
     it('passes validation with zero debit', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { debit: 0 });
-      const errors = await validate(dto);
-      expect(errors.filter(e => e.property === 'debit')).toHaveLength(0);
+      const errors = rejectedFields(UpdateTransactionBody, { debit: 0 });
+      expect(errors.filter(field => field === 'debit')).toHaveLength(0);
     });
   });
 
   describe('UUID fields (injection prevention)', () => {
     it('passes validation with valid UUID categoryId', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, {
+      const errors = rejectedFields(UpdateTransactionBody, {
         categoryId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       });
-      const errors = await validate(dto);
-      expect(errors.filter(e => e.property === 'categoryId')).toHaveLength(0);
+      expect(errors.filter(field => field === 'categoryId')).toHaveLength(0);
     });
 
     it('fails validation for non-UUID categoryId', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { categoryId: 'not-a-uuid' });
-      const errors = await validate(dto);
-      expect(errors.some(e => e.property === 'categoryId')).toBe(true);
+      const errors = rejectedFields(UpdateTransactionBody, { categoryId: 'not-a-uuid' });
+      expect(errors.some(field => field === 'categoryId')).toBe(true);
     });
 
     it('fails validation for SQL injection attempt in categoryId', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, {
+      const errors = rejectedFields(UpdateTransactionBody, {
         categoryId: "'; DROP TABLE transactions; --",
       });
-      const errors = await validate(dto);
-      expect(errors.some(e => e.property === 'categoryId')).toBe(true);
+      expect(errors.some(field => field === 'categoryId')).toBe(true);
     });
 
     it('fails validation for non-UUID branchId', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { branchId: '12345' });
-      const errors = await validate(dto);
-      expect(errors.some(e => e.property === 'branchId')).toBe(true);
+      const errors = rejectedFields(UpdateTransactionBody, { branchId: '12345' });
+      expect(errors.some(field => field === 'branchId')).toBe(true);
     });
 
     it('fails validation for non-UUID walletId', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { walletId: '../../../etc/passwd' });
-      const errors = await validate(dto);
-      expect(errors.some(e => e.property === 'walletId')).toBe(true);
+      const errors = rejectedFields(UpdateTransactionBody, { walletId: '../../../etc/passwd' });
+      expect(errors.some(field => field === 'walletId')).toBe(true);
     });
   });
 
   describe('transactionType enum', () => {
     it('passes validation with valid TransactionType enum value', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, {
+      const errors = rejectedFields(UpdateTransactionBody, {
         transactionType: TransactionType.EXPENSE,
       });
-      const errors = await validate(dto);
-      expect(errors.filter(e => e.property === 'transactionType')).toHaveLength(0);
+      expect(errors.filter(field => field === 'transactionType')).toHaveLength(0);
     });
 
     it('fails validation with arbitrary string for transactionType', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { transactionType: 'malicious_type' });
-      const errors = await validate(dto);
-      expect(errors.some(e => e.property === 'transactionType')).toBe(true);
+      const errors = rejectedFields(UpdateTransactionBody, { transactionType: 'malicious_type' });
+      expect(errors.some(field => field === 'transactionType')).toBe(true);
     });
   });
 
   describe('isVerified boolean field', () => {
     it('passes validation with boolean true', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { isVerified: true });
-      const errors = await validate(dto);
-      expect(errors.filter(e => e.property === 'isVerified')).toHaveLength(0);
+      const errors = rejectedFields(UpdateTransactionBody, { isVerified: true });
+      expect(errors.filter(field => field === 'isVerified')).toHaveLength(0);
     });
 
     it('fails validation with string "true" (not boolean)', async () => {
-      const dto = plainToInstance(UpdateTransactionDto, { isVerified: 'true' });
-      const errors = await validate(dto);
-      expect(errors.some(e => e.property === 'isVerified')).toBe(true);
+      const errors = rejectedFields(UpdateTransactionBody, { isVerified: 'true' });
+      expect(errors.some(field => field === 'isVerified')).toBe(true);
     });
   });
 });

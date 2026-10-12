@@ -25,6 +25,8 @@ import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import type { WorkspaceOverview } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -34,43 +36,6 @@ import {
 } from './workspace-members.utils';
 
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
-
-type WorkspaceOverview = {
-  workspace: { id: string; name: string; ownerId?: string | null; createdAt?: string };
-  members: Array<{
-    id: string;
-    email?: string;
-    name?: string;
-    avatarUrl?: string | null;
-    timeZone?: string | null;
-    role: WorkspaceRole;
-    permissions?: {
-      canEditStatements?: boolean;
-      canEditCustomTables?: boolean;
-      canEditCategories?: boolean;
-      canEditDataEntry?: boolean;
-      canShareFiles?: boolean;
-    } | null;
-    joinedAt?: string;
-  }>;
-  invitations: Array<{
-    id: string;
-    email: string;
-    role: WorkspaceRole;
-    permissions?: {
-      canEditStatements?: boolean;
-      canEditCustomTables?: boolean;
-      canEditCategories?: boolean;
-      canEditDataEntry?: boolean;
-      canShareFiles?: boolean;
-    } | null;
-    status: string;
-    token: string;
-    expiresAt?: string;
-    createdAt?: string;
-    link?: string;
-  }>;
-};
 
 type InvitePermissions = {
   canEditStatements: boolean;
@@ -125,7 +90,7 @@ const getApiMessage = (err: unknown, fallback: string) => {
   return response?.data?.message ?? fallback;
 };
 
-const formatDate = (value: string | undefined, fallback: string) => {
+const formatDate = (value: string | null | undefined, fallback: string) => {
   if (!value) {
     return fallback;
   }
@@ -278,8 +243,7 @@ export default function WorkspaceMembersView() {
     await (async () => {
       setLoading(true);
       setFetchError(null);
-      const response = await apiClient.get<WorkspaceOverview>('/workspaces/me');
-      setOverview(response.data);
+      setOverview(await apiQueryDecoded({ url: '/workspaces/me', contract: 'WorkspaceOverview' }));
     })()
       .catch(async err => {
         setFetchError(getApiMessage(err, t.errors.loadFailed.value));
@@ -347,7 +311,7 @@ export default function WorkspaceMembersView() {
         email: inviteEmail,
         role: inviteRole,
         permissions: inviteRole === 'member' ? invitePermissions : undefined,
-      });
+      } satisfies ContractInput<'InviteMemberBody'>);
 
       setInviteEmail('');
       toast.success(t.toasts.inviteSent.value);
@@ -382,7 +346,7 @@ export default function WorkspaceMembersView() {
     await (async () => {
       await apiClient.patch(`/workspaces/${overview.workspace.id}/members/${member.id}/role`, {
         role: nextRole,
-      });
+      } satisfies ContractInput<'UpdateMemberRoleBody'>);
       toast.success(t.toasts.roleUpdated.value);
       await loadOverview();
     })()
@@ -414,7 +378,7 @@ export default function WorkspaceMembersView() {
     await (async () => {
       await apiClient.patch(
         `/workspaces/${overview.workspace.id}/members/${member.id}/permissions`,
-        { permissions: next },
+        { permissions: next } satisfies ContractInput<'UpdateMemberPermissionsBody'>,
       );
       toast.success(t.toasts.permissionsUpdated.value);
       // Patch the one row instead of reloading: the menu stays open for the
@@ -469,8 +433,8 @@ export default function WorkspaceMembersView() {
       await apiClient.post(`/workspaces/${overview.workspace.id}/invitations`, {
         email: invite.email,
         role: invite.role,
-        permissions: invite.role === 'member' ? invite.permissions : undefined,
-      });
+        permissions: invite.role === 'member' ? (invite.permissions ?? undefined) : undefined,
+      } satisfies ContractInput<'InviteMemberBody'>);
       toast.success(t.toasts.inviteResent.value);
       await loadOverview();
     })()

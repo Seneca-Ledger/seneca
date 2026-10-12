@@ -37,11 +37,11 @@ export class GmailWatchSubscription {
   @Column({ type: 'timestamp' })
   expiration: Date;
 
-  @Column({ name: 'history_id', nullable: true })
+  @Column({ type: 'varchar', name: 'history_id', nullable: true })
   historyId: string | null;
 
   @Index('IDX_gmail_watch_subscription_email')
-  @Column({ name: 'email_address', nullable: true })
+  @Column({ type: 'varchar', name: 'email_address', nullable: true })
   emailAddress: string | null;
 
   @Column({

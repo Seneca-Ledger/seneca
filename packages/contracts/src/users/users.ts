@@ -1,0 +1,41 @@
+import * as Schema from 'effect/Schema';
+import { UserRole } from '../auth/current-user';
+import { Timestamp, type Wire } from '../common/wire';
+import { UserPermission } from '../requests/users';
+
+/** One row of `GET /users`: the workspace's people, for the admin page. */
+export const AdminUser = Schema.Struct({
+  id: Schema.String,
+  email: Schema.String,
+  name: Schema.String,
+  role: UserRole,
+  isActive: Schema.Boolean,
+  /** Custom grants; null = the role's defaults. */
+  permissions: Schema.NullOr(Schema.Array(UserPermission)),
+  createdAt: Timestamp,
+  lastLogin: Schema.NullOr(Timestamp),
+});
+export type AdminUser = Wire<typeof AdminUser>;
+
+export const AdminUserList = Schema.Array(AdminUser);
+export type AdminUserList = Wire<typeof AdminUserList>;
+
+/** `GET /users/:id/permissions`. */
+export const UserPermissions = Schema.Struct({
+  userId: Schema.String,
+  role: UserRole,
+  customPermissions: Schema.Array(UserPermission),
+  /** What the user can do in the end: role defaults plus custom grants. */
+  allPermissions: Schema.Array(UserPermission),
+});
+export type UserPermissions = Wire<typeof UserPermissions>;
+
+/** `GET /users/me/disclaimer`. */
+export const DisclaimerStatus = Schema.Struct({
+  /** The version the app asks for now. */
+  version: Schema.String,
+  acceptedAt: Schema.NullOr(Timestamp),
+  acceptedVersion: Schema.NullOr(Schema.String),
+  accepted: Schema.Boolean,
+});
+export type DisclaimerStatus = Wire<typeof DisclaimerStatus>;

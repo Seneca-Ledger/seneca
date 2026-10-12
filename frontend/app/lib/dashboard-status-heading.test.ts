@@ -13,6 +13,7 @@ const createDashboardData = (overrides?: Partial<DashboardData>): DashboardData 
     unapprovedCash: 0,
     currency: 'KZT',
     ...overrides?.snapshot,
+    missingRates: [],
   },
   actions: overrides?.actions ?? [],
   cashFlow: overrides?.cashFlow ?? [],
@@ -58,6 +59,7 @@ describe('resolveDashboardStatusHeading', () => {
           totalOverdue: 0,
           unapprovedCash: 0,
           currency: 'KZT',
+          missingRates: [],
         },
       }),
       error: null,
@@ -80,6 +82,7 @@ describe('resolveDashboardStatusHeading', () => {
           totalOverdue: 2,
           unapprovedCash: 0,
           currency: 'KZT',
+          missingRates: [],
         },
         dataHealth: {
           uncategorizedTransactions: 4,

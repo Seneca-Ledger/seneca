@@ -16,10 +16,13 @@ vi.mock('@/app/components/transactions/hooks/useWorkspaceMembers', () => ({
 const entry = (overrides: Record<string, unknown> = {}) => ({
   id: 'e-1',
   actorName: 'Partner',
+  actorType: 'user',
   action: 'update',
   entityType: 'transaction',
   entityId: 'tx-1',
   description: 'Changed: category',
+  descriptionKey: null,
+  descriptionParams: null,
   createdAt: '2026-10-05T10:00:00.000Z',
   ...overrides,
 });

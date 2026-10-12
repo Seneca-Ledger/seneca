@@ -7,18 +7,8 @@ import type React from 'react';
 import { CardLink, DashboardCard } from '@/app/components/dashboard/ui';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
-import { apiQuery } from '@/app/lib/query-fn';
 import { queryKeys } from '@/app/lib/query-keys';
-
-interface BudgetSummary {
-  id: string;
-  name: string;
-  category?: { name: string };
-  limitAmount: number;
-  spentAmount: number;
-  percentUsed: number;
-  currency: string;
-}
+import { type BudgetItem as BudgetSummary, fetchBudgets } from '../../budgets/hooks/useBudgetsPage';
 
 const VISIBLE_BUDGETS = 5;
 
@@ -50,7 +40,7 @@ function useBudgets(): { budgets: BudgetSummary[]; loaded: boolean } {
   const workspaceId = useWorkspaceId();
   const { data, isPending } = useQuery({
     queryKey: queryKeys.budgets(workspaceId),
-    queryFn: ({ signal }) => apiQuery<BudgetSummary[]>({ url: '/budgets', signal }),
+    queryFn: ({ signal }) => fetchBudgets(signal),
     enabled: Boolean(workspaceId),
     select: mostUsed,
   });

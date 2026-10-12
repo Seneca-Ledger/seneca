@@ -68,12 +68,13 @@ export interface Transaction {
   hasErrors?: boolean;
 }
 
+/** A category as the UI uses it: a row of `GET /categories` (contract CategoryItem) or less. */
 export interface Category {
   id: string;
   name: string;
   type: 'income' | 'expense';
-  color?: string;
-  icon?: string;
+  color?: string | null;
+  icon?: string | null;
   isEnabled?: boolean;
   source?: StatementCategorySource;
   isSystem?: boolean;

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { AgeingReport, AgeingRow } from '../../contracts';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
 import { PayableStatus } from '../../entities/payable.entity';
 
@@ -16,19 +17,7 @@ export interface AgeingBuckets {
   count: number;
 }
 
-export interface AgeingRow extends AgeingBuckets {
-  clientId: string;
-  clientName: string;
-  currency: string;
-  /** The oldest unpaid invoice's age in days; negative when nothing is due yet. */
-  oldestDays: number;
-}
-
-export interface AgeingReport {
-  rows: AgeingRow[];
-  /** One line per currency, because an amount is not comparable across them. */
-  totals: Array<AgeingBuckets & { currency: string }>;
-}
+export type { AgeingReport, AgeingRow };
 
 const EMPTY: AgeingBuckets = {
   current: 0,

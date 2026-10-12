@@ -10,6 +10,7 @@ import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import AuthLayout from '../AuthLayout';
 
@@ -46,7 +47,10 @@ function ResetPasswordContent(): React.JSX.Element {
     setError(null);
 
     await apiClient
-      .post('/auth/reset-password', { token, newPassword: password })
+      .post('/auth/reset-password', {
+        token,
+        newPassword: password,
+      } satisfies ContractInput<'ResetPasswordBody'>)
       .then(() => {
         setDone(true);
       })

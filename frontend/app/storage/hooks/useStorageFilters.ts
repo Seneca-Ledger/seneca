@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import api from '../../lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import type { CategoryOption } from '../storageHelpers';
 import {
   DEFAULT_FILTERS,
@@ -66,8 +66,7 @@ export function useStorageFilters(
   const loadCategories = async () => {
     await (async () => {
       setCategoriesLoading(true);
-      const response = await api.get('/categories');
-      setCategories(response.data || []);
+      setCategories(await apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }));
     })()
       .catch(async error => {
         console.error('Failed to load categories:', error);

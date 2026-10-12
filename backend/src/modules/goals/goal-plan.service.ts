@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql } from '../../common/utils/counted-transactions.util';
+import type { GoalPlanResponse, GoalPlanStatus } from '../../contracts';
 import { Goal, GoalContribution } from '../../entities';
 import { Budget } from '../../entities/budget.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
@@ -34,41 +35,7 @@ const HISTORY_MONTHS = 3;
 /** Below this share of free cash flow the plan is called tight rather than safe. */
 const TIGHT_RATIO = 0.8;
 
-export type GoalPlanStatus = 'reached' | 'no_deadline' | 'on_track' | 'tight' | 'not_feasible';
-
-export interface GoalPlanResponse {
-  goalId: string;
-  /** Workspace currency. Every amount below is converted into it. */
-  currency: string;
-  target: {
-    /** What the user declared the goal costs. */
-    declared: number;
-    /** What its cost lines add up to. Zero when nothing has been itemised. */
-    estimated: number;
-    /** Declared minus estimated: negative means the estimate has outgrown the goal. */
-    unallocated: number;
-  };
-  saved: number;
-  remaining: number;
-  targetDate: string | null;
-  /** Months left including the current one. Zero when the date has passed. */
-  monthsLeft: number | null;
-  /** What must be set aside each of those months. Null without a target date. */
-  requiredPerMonth: number | null;
-  /** What is actually being set aside, averaged over the observed history. */
-  pace: { perMonth: number; monthsObserved: number };
-  /**
-   * When the goal arrives at the current pace. `month` is null when nothing is
-   * being contributed — there is no date, and inventing a far one would be
-   * worse than saying so.
-   */
-  forecast: { month: string | null; monthsLate: number | null };
-  /** Room in the monthly budget: what comes in, what is already committed. */
-  capacity: { income: number; committed: number; free: number };
-  /** Required minus free. Positive is the shortfall to close. */
-  gap: number | null;
-  status: GoalPlanStatus;
-}
+export type { GoalPlanResponse, GoalPlanStatus };
 
 /**
  * Whether a goal is reachable, and on what terms.

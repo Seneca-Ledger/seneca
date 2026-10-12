@@ -3,15 +3,25 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
+import { toEnum } from '../../common/effect/to-enum';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import type {
+  BalanceAccountNode,
+  BalanceSheetResponse,
+  CreateBalanceAccountBody,
+  UpdateAccountClassificationBody,
+  UpdateBalanceSnapshotBody,
+} from '../../contracts';
 import {
   ActorType,
   AuditAction,
   BalanceAccount,
   BalanceAccountType,
   BalanceSnapshot,
+  CapitalRole,
   EntityType,
+  RiskLevel,
   Statement,
   StatementStatus,
   Transaction,
@@ -29,45 +39,10 @@ import {
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { loadPdfMake } from '../reports/report-document.util';
 import { DEFAULT_BALANCE_ACCOUNTS } from './balance-default-accounts';
-import type { CreateBalanceAccountDto } from './dto/create-balance-account.dto';
 import { BalanceExportFormat, type ExportBalanceDto } from './dto/export-balance.dto';
-import type { UpdateAccountClassificationDto } from './dto/update-account-classification.dto';
-import type { UpdateBalanceSnapshotDto } from './dto/update-balance-snapshot.dto';
 
 /** The one line whose risk is fixed rather than chosen. */
 export const CASH_ACCOUNT_CODE = 'ASSET_CASH';
-
-type BalanceAccountNode = {
-  id: string;
-  code: string;
-  name: string;
-  nameEn: string | null;
-  nameKk: string | null;
-  accountType: BalanceAccountType;
-  isEditable: boolean;
-  isAutoComputed: boolean;
-  isExpandable: boolean;
-  amount: number;
-  children: BalanceAccountNode[];
-  position: number;
-};
-
-type BalanceSheetResponse = {
-  date: string;
-  currency: string;
-  assets: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  liabilities: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  difference: number;
-  isBalanced: boolean;
-  /** Currencies left out of the totals because no rate to `currency` was found. */
-  missingRates: string[];
-};
 
 const LIVE_STATEMENT_STATUSES = [
   StatementStatus.PARSED,
@@ -444,7 +419,7 @@ export class BalanceService {
     userId: string,
     workspaceId: string,
     accountId: string,
-    dto: UpdateAccountClassificationDto,
+    dto: UpdateAccountClassificationBody,
   ) {
     const account = await this.balanceAccountRepository.findOne({
       where: { id: accountId, workspaceId },
@@ -461,10 +436,10 @@ export class BalanceService {
     const before = { capitalRole: account.capitalRole, riskLevel: account.riskLevel };
 
     if (dto.capitalRole !== undefined) {
-      account.capitalRole = dto.capitalRole;
+      account.capitalRole = toEnum(CapitalRole, dto.capitalRole);
     }
     if (dto.riskLevel !== undefined) {
-      account.riskLevel = dto.riskLevel;
+      account.riskLevel = toEnum(RiskLevel, dto.riskLevel);
     }
 
     await this.balanceAccountRepository.save(account);
@@ -504,7 +479,7 @@ export class BalanceService {
    * `LIABILITY_BORROWED` is seeded as expandable today, which is what scopes
    * this to debts without hardcoding a debt-specific concept.
    */
-  async createCustomAccount(userId: string, workspaceId: string, dto: CreateBalanceAccountDto) {
+  async createCustomAccount(userId: string, workspaceId: string, dto: CreateBalanceAccountBody) {
     const parent = await this.balanceAccountRepository.findOne({
       where: { id: dto.parentId, workspaceId },
     });
@@ -800,8 +775,8 @@ export class BalanceService {
     };
   }
 
-  async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotDto) {
-    const snapshotDate = this.resolveDate(dto.date);
+  async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotBody) {
+    const snapshotDate = this.resolveDate(dto.date ?? undefined);
     const account = await this.balanceAccountRepository.findOne({
       where: {
         id: dto.accountId,

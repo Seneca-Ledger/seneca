@@ -6,6 +6,14 @@
     "frontend/intlayer.config.ts"
   ],
   "ignoreIssues": {
+    "backend/src/contracts/**": [
+      "exports",
+      "types"
+    ],
+    "frontend/app/lib/contracts/**": [
+      "exports",
+      "types"
+    ],
     "backend/src/modules/import/errors/import-errors.ts": [
       "exports"
     ],

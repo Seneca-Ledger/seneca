@@ -16,6 +16,7 @@ import { Copy, Lock, Trash2 } from '@/app/components/icons';
 import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
+import type { ApiKeyScope } from '@/app/lib/contracts';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import { useApiKeys } from './useApiKeys';
@@ -108,7 +109,7 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
   const [keyName, setKeyName] = useState('');
   // Read-only is the safe default; a wider key is a deliberate choice.
   const [scopeMode, setScopeMode] = useState<'read' | 'write' | 'custom'>('read');
-  const [customScopes, setCustomScopes] = useState<string[]>([]);
+  const [customScopes, setCustomScopes] = useState<ApiKeyScope[]>([]);
   const selectedScopes = scopeMode === 'custom' ? customScopes : (scopes?.presets[scopeMode] ?? []);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
 

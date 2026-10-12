@@ -2,6 +2,7 @@
 
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { currentUser } from '@/app/test/fixtures/contracts';
 import { AuthProvider } from '../contexts/AuthContext';
 
 // Hoisted: the static AuthProvider import evaluates the api mock factory before
@@ -36,14 +37,11 @@ describe('useAuth', () => {
   it('syncs the saved user locale into the i18n cookie after auth bootstrap', async () => {
     document.cookie = 'csrf_token=csrf-token';
     get.mockResolvedValue({
-      data: {
-        id: 'user-1',
-        email: 'user@example.com',
-        name: 'User',
+      data: currentUser({
         role: 'admin',
         locale: 'en',
         onboardingCompletedAt: '2026-01-01T00:00:00.000Z',
-      },
+      }),
     });
 
     const { useAuth } = await import('./useAuth');
@@ -60,14 +58,11 @@ describe('useAuth', () => {
     document.cookie = 'INTLAYER_LOCALE=kk; path=/';
 
     get.mockResolvedValue({
-      data: {
-        id: 'user-1',
-        email: 'user@example.com',
-        name: 'User',
+      data: currentUser({
         role: 'admin',
         locale: 'ru',
         onboardingCompletedAt: '2026-01-01T00:00:00.000Z',
-      },
+      }),
     });
 
     const { useAuth } = await import('./useAuth');

@@ -437,7 +437,7 @@ export class InsightsService {
 
   private async upsertCandidate(
     userId: string,
-    workspaceId: string | null,
+    workspaceId: string,
     candidate: InsightCandidate,
     locale?: string,
     phrased?: PhrasedText,

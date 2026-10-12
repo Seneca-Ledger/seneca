@@ -1,0 +1,236 @@
+import * as Schema from 'effect/Schema';
+import type { Wire } from '../common/wire';
+
+/** YYYY-MM. */
+const Month = Schema.String;
+/** YYYY-MM-DD. */
+const Day = Schema.String;
+
+export const DashboardRange = Schema.Literals(['7d', '30d', '90d', 'month']);
+export type DashboardRange = Wire<typeof DashboardRange>;
+
+export const DashboardFinancialSnapshot = Schema.Struct({
+  totalBalance: Schema.Number,
+  income30d: Schema.Number,
+  expense30d: Schema.Number,
+  netFlow30d: Schema.Number,
+  totalPayable: Schema.Number,
+  totalOverdue: Schema.Number,
+  unapprovedCash: Schema.Number,
+  currency: Schema.String,
+  /** Currencies in the period's rows with no rate to `currency`: their amounts count at face value. */
+  missingRates: Schema.Array(Schema.String),
+});
+export type DashboardFinancialSnapshot = Wire<typeof DashboardFinancialSnapshot>;
+
+export const DashboardActionItem = Schema.Struct({
+  type: Schema.Literals([
+    'statements_pending_submit',
+    'statements_pending_review',
+    'payments_overdue',
+    'transactions_uncategorized',
+    'receipts_pending_review',
+  ]),
+  count: Schema.Number,
+  label: Schema.String,
+  href: Schema.String,
+});
+export type DashboardActionItem = Wire<typeof DashboardActionItem>;
+
+const DailyFlow = Schema.Struct({ date: Day, income: Schema.Number, expense: Schema.Number });
+
+export const DashboardCashFlowPoint = DailyFlow;
+export type DashboardCashFlowPoint = Wire<typeof DashboardCashFlowPoint>;
+
+export const DashboardTopMerchant = Schema.Struct({
+  name: Schema.String,
+  amount: Schema.Number,
+  count: Schema.Number,
+});
+export type DashboardTopMerchant = Wire<typeof DashboardTopMerchant>;
+
+export const DashboardTopCategory = Schema.Struct({
+  id: Schema.NullOr(Schema.String),
+  /** `null` means uncategorized — the client supplies the localized label. */
+  name: Schema.NullOr(Schema.String),
+  /** True only for the synthetic rollup of everything past the top categories. */
+  isOther: Schema.optional(Schema.Boolean),
+  /** Always a concrete color — falls back to a neutral swatch when unset. */
+  color: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+  amount: Schema.Number,
+  /** Share of total spend for the period, 0-100. Always sums to 100 across the array. */
+  percent: Schema.Number,
+  count: Schema.Number,
+});
+export type DashboardTopCategory = Wire<typeof DashboardTopCategory>;
+
+export const DashboardRecentTransaction = Schema.Struct({
+  id: Schema.String,
+  description: Schema.String,
+  /** Signed: positive for income, negative for expense. */
+  amount: Schema.Number,
+  currency: Schema.String,
+  date: Day,
+  /** e.g. "Kaspi •••• 4821" — bank name plus masked account number. */
+  account: Schema.String,
+  categoryId: Schema.NullOr(Schema.String),
+  /** `null` means uncategorized — the client supplies the localized label. */
+  categoryName: Schema.NullOr(Schema.String),
+  /** Always a concrete color — falls back to a neutral swatch when unset. */
+  categoryColor: Schema.String,
+  categoryIcon: Schema.NullOr(Schema.String),
+});
+export type DashboardRecentTransaction = Wire<typeof DashboardRecentTransaction>;
+
+export const DashboardDataHealth = Schema.Struct({
+  uncategorizedTransactions: Schema.Number,
+  statementsWithErrors: Schema.Number,
+  statementsPendingReview: Schema.Number,
+  statementsPendingSubmit: Schema.Number,
+  receiptsPendingReview: Schema.Number,
+  unapprovedCash: Schema.Number,
+  lastUploadDate: Schema.NullOr(Schema.String),
+  parsingWarnings: Schema.Number,
+});
+export type DashboardDataHealth = Wire<typeof DashboardDataHealth>;
+
+/** `GET /dashboard`. */
+export const DashboardResponse = Schema.Struct({
+  snapshot: DashboardFinancialSnapshot,
+  actions: Schema.Array(DashboardActionItem),
+  cashFlow: Schema.Array(DashboardCashFlowPoint),
+  topMerchants: Schema.Array(DashboardTopMerchant),
+  topCategories: Schema.Array(DashboardTopCategory),
+  recentTransactions: Schema.Array(DashboardRecentTransaction),
+  role: Schema.Literals(['owner', 'admin', 'member', 'viewer']),
+  range: DashboardRange,
+  dataHealth: DashboardDataHealth,
+  effectiveEndDate: Schema.optional(Schema.String),
+  effectiveSince: Schema.optional(Schema.String),
+});
+export type DashboardResponse = Wire<typeof DashboardResponse>;
+
+export const DashboardCashFlowRange = Schema.Literals(['12m', 'this_year', '5y', 'all']);
+export type DashboardCashFlowRange = Wire<typeof DashboardCashFlowRange>;
+
+export const DashboardMonthlyCashFlowPoint = Schema.Struct({
+  month: Month,
+  income: Schema.Number,
+  expense: Schema.Number,
+  net: Schema.Number,
+});
+export type DashboardMonthlyCashFlowPoint = Wire<typeof DashboardMonthlyCashFlowPoint>;
+
+/** `GET /dashboard/cash-flow`: whole calendar months, empty months zero-filled. */
+export const DashboardMonthlyCashFlowResponse = Schema.Struct({
+  range: DashboardCashFlowRange,
+  currency: Schema.String,
+  /** Window bounds (YYYY-MM-DD); `null` for `all` when there are no transactions. */
+  since: Schema.NullOr(Day),
+  endDate: Schema.NullOr(Day),
+  totals: Schema.Struct({ income: Schema.Number, expense: Schema.Number, net: Schema.Number }),
+  points: Schema.Array(DashboardMonthlyCashFlowPoint),
+});
+export type DashboardMonthlyCashFlowResponse = Wire<typeof DashboardMonthlyCashFlowResponse>;
+
+/**
+ * One month of Data Health / Finance Ops history. Items are counted in the month they are dated
+ * by (statements by upload, transactions by transaction date, receipts by receipt date, payables
+ * by due date); nothing is stored, so fixing old data changes old months.
+ */
+export const DashboardHealthMonth = Schema.Struct({
+  month: Month,
+  transactions: Schema.Number,
+  /** Uncategorized transactions plus uncategorized receipts. */
+  uncategorized: Schema.Number,
+  statementsUploaded: Schema.Number,
+  statementErrors: Schema.Number,
+  statementsPendingReview: Schema.Number,
+  statementsPendingSubmit: Schema.Number,
+  parsingWarnings: Schema.Number,
+  receiptsPendingReview: Schema.Number,
+  overduePayments: Schema.Number,
+});
+export type DashboardHealthMonth = Wire<typeof DashboardHealthMonth>;
+
+/** `GET /dashboard/health-history`. */
+export const DashboardHealthHistoryResponse = Schema.Struct({
+  year: Schema.Number,
+  /** January up to the current month for the current year, all 12 for past years, `[]` for future years. */
+  months: Schema.Array(DashboardHealthMonth),
+});
+export type DashboardHealthHistoryResponse = Wire<typeof DashboardHealthHistoryResponse>;
+
+const NamedTotal = Schema.Struct({
+  name: Schema.String,
+  amount: Schema.Number,
+  count: Schema.Number,
+});
+
+/** `GET /dashboard/trends`. */
+export const DashboardTrendsResponse = Schema.Struct({
+  /** Combined daily income/expense from all sources. */
+  dailyTrend: Schema.Array(DailyFlow),
+  /** Forecast from historical patterns (WMA + day-of-week seasonality). */
+  forecast: Schema.Array(DailyFlow),
+  /** Top expense categories. */
+  categories: Schema.Array(NamedTotal),
+  /** Top income counterparties. */
+  counterparties: Schema.Array(NamedTotal),
+  sources: Schema.Struct({
+    statements: Schema.Struct({
+      income: Schema.Number,
+      expense: Schema.Number,
+      rows: Schema.Number,
+    }),
+  }),
+  effectiveEndDate: Schema.optional(Schema.String),
+  effectiveSince: Schema.optional(Schema.String),
+});
+export type DashboardTrendsResponse = Wire<typeof DashboardTrendsResponse>;
+
+/** Where a projected outflow comes from. */
+export const CommitmentSource = Schema.Literals(['payable', 'subscription']);
+export type CommitmentSource = Wire<typeof CommitmentSource>;
+
+/** A single known future outflow, already converted to the workspace currency. */
+export const DashboardCommitmentItem = Schema.Struct({
+  /** The day the money is expected to leave. Overdue payables are pulled to today. */
+  date: Day,
+  label: Schema.String,
+  amount: Schema.Number,
+  source: CommitmentSource,
+  sourceId: Schema.String,
+  /** True for payables whose due date has already passed and are still unpaid. */
+  isOverdue: Schema.Boolean,
+});
+export type DashboardCommitmentItem = Wire<typeof DashboardCommitmentItem>;
+
+/** One day of the projected runway. */
+export const DashboardCommitmentDay = Schema.Struct({
+  date: Day,
+  outflow: Schema.Number,
+  /** Opening balance minus every outflow up to and including this day. */
+  balance: Schema.Number,
+});
+export type DashboardCommitmentDay = Wire<typeof DashboardCommitmentDay>;
+
+/** `GET /dashboard/commitments`. */
+export const DashboardCommitmentsResponse = Schema.Struct({
+  currency: Schema.String,
+  horizonDays: Schema.Number,
+  /** All-time transaction balance at the start of the projection. */
+  openingBalance: Schema.Number,
+  /** Sum of every dated commitment inside the horizon. */
+  totalCommitted: Schema.Number,
+  /** Payables with no due date: real obligations, but not placeable on the curve. */
+  unscheduledCommitted: Schema.Number,
+  days: Schema.Array(DashboardCommitmentDay),
+  items: Schema.Array(DashboardCommitmentItem),
+  lowestBalance: Schema.Number,
+  lowestBalanceDate: Day,
+  /** First day the projected balance goes negative, or null if it never does. */
+  shortfallDate: Schema.NullOr(Day),
+});
+export type DashboardCommitmentsResponse = Wire<typeof DashboardCommitmentsResponse>;

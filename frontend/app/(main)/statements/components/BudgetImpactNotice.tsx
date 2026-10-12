@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
 export interface BudgetImpact {
   budgets: Array<{
@@ -55,12 +55,13 @@ export function BudgetImpactNotice({ categoryId, amount, currency, date }: Props
     const controller = new AbortController();
     // Debounced: the amount is typed digit by digit.
     const timer = setTimeout(() => {
-      apiClient
-        .get<BudgetImpact>('/budgets/impact', {
-          params: { categoryId, amount: parsedAmount, currency, date: date || undefined },
-          signal: controller.signal,
-        })
-        .then(response => setImpact(response.data))
+      apiQueryDecoded({
+        url: '/budgets/impact',
+        params: { categoryId, amount: parsedAmount, currency, date: date || undefined },
+        signal: controller.signal,
+        contract: 'BudgetImpact',
+      })
+        .then(setImpact)
         .catch(() => setImpact(null));
     }, 400);
     return () => {

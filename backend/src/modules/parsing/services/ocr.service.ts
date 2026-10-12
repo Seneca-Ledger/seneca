@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { parsePdf } from '../../../common/utils/pdf-text.util';
 
 export interface OcrResult {
   text: string;
@@ -224,12 +225,7 @@ export class OcrService {
   }
 
   async extractTextFromScannedPdf(pdfBuffer: Buffer, options: OcrOptions = {}): Promise<OcrResult> {
-    const pdfParseModule = await import('pdf-parse');
-    // pdf-parse is CommonJS and this build has no esModuleInterop, so the
-    // dynamic import resolves to the exported function itself, not a namespace
-    // with a `default`.
-    const pdfParse = pdfParseModule.default ?? pdfParseModule;
-    const data = await (pdfParse as (buf: Buffer) => Promise<{ text: string }>)(pdfBuffer);
+    const data = await parsePdf(pdfBuffer);
     const existingText = (data.text || '').trim();
 
     if (existingText.length > 100) {

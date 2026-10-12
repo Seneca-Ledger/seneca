@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface InvestmentAccountOption {
   id: string;
@@ -23,9 +24,8 @@ export function useContributionLink(onDone: () => void | Promise<void>) {
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
-    await apiClient
-      .get<InvestmentAccountOption[]>('/investments')
-      .then(response => setAccounts(response.data ?? []))
+    await apiQueryDecoded({ url: '/investments', contract: 'InvestmentAccountList' })
+      .then(setAccounts)
       .catch(() => toast.error(t.transfer.toasts.failed.value));
     setLoading(false);
   }, [t.transfer.toasts.failed.value]);
@@ -36,7 +36,10 @@ export function useContributionLink(onDone: () => void | Promise<void>) {
     async (transactionId: string, accountId: string) => {
       setSaving(true);
       await apiClient
-        .post('/investments/contributions', { transactionId, accountId })
+        .post('/investments/contributions', {
+          transactionId,
+          accountId,
+        } satisfies ContractInput<'LinkContributionBody'>)
         .then(async () => {
           setAccounts(null);
           toast.success(t.transfer.toasts.linked.value);

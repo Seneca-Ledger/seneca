@@ -6,15 +6,15 @@ import toast from 'react-hot-toast';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import DetailsDrawer from '@/app/components/transactions/DetailsDrawer';
 import {
+  fromStatementTransaction,
   mapApiRecordToTransaction,
-  type TransactionApiRecord,
 } from '@/app/components/transactions/helpers/transactionMapper';
 import { useBulkUpdateCategory } from '@/app/components/transactions/hooks/useBulkUpdateCategory';
-import type { Category, Transaction } from '@/app/components/transactions/types';
+import type { Transaction } from '@/app/components/transactions/types';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 const EMPTY_CELL = '—';
@@ -43,16 +43,20 @@ export function StatementTransactionsPanel({
   const rowsQuery = useQuery({
     queryKey: queryKeys.transactions({ workspaceId, params: { statementId } }),
     queryFn: async ({ signal }) => {
-      const payload = await apiQuery<{ transactions?: TransactionApiRecord[] }>({
+      const details = await apiQueryDecoded({
         url: `/storage/files/${statementId}`,
         signal,
+        contract: 'StorageFileDetails',
       });
-      return (payload?.transactions ?? []).map(mapApiRecordToTransaction);
+      return details.transactions.map(tx =>
+        mapApiRecordToTransaction(fromStatementTransaction(tx)),
+      );
     },
   });
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Category[]>({ url: '/categories', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     staleTime: 5 * 60_000,
   });
   const categories = categoriesQuery.data ?? [];

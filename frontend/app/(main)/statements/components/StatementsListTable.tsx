@@ -45,7 +45,7 @@ interface StatementForTable {
   sender?: string;
   exported?: boolean | null;
   paid?: boolean | null;
-  processedAt?: string;
+  processedAt?: string | null;
   receivedAt?: string;
   createdAt: string;
   parsedData?: {
@@ -84,7 +84,7 @@ interface StatementForTable {
       merchant?: string;
       categoryId?: string;
     };
-  };
+  } | null;
 }
 
 interface TableLabels {

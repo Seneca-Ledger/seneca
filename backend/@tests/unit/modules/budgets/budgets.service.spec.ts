@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { BudgetPeriodType, BudgetRolloverMode } from '@/entities/budget.entity';
 import { BudgetsService } from '@/modules/budgets/budgets.service';
+import { IsNull } from 'typeorm';
 import { workspaceCurrencyStub } from '../../../helpers/workspace-currency-stub';
 
 const createRepoMock = () => ({
@@ -168,6 +169,28 @@ describe('BudgetsService', () => {
     expect(budgetRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ goalId: null }),
     );
+  });
+
+  it('looks for a duplicate only among unattached budgets when no goal is given', async () => {
+    // A bare null in a find `where` is dropped, so a goal's budget on the same
+    // category used to block the household one with a 409.
+    budgetRepository.findOne.mockResolvedValue(null);
+
+    await service.create('workspace-1', 'user-1', {
+      name: 'Rent',
+      categoryId: 'category-1',
+      limitAmount: 10000,
+      periodType: BudgetPeriodType.MONTHLY,
+    });
+
+    expect(budgetRepository.findOne).toHaveBeenCalledWith({
+      where: {
+        workspaceId: 'workspace-1',
+        categoryId: 'category-1',
+        periodType: BudgetPeriodType.MONTHLY,
+        goalId: IsNull(),
+      },
+    });
   });
 
   it('refuses a goal that belongs to another workspace', async () => {
