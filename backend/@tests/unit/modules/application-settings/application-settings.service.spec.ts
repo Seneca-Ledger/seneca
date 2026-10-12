@@ -34,6 +34,7 @@ import {
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 
 describe('ApplicationSettingsService', () => {
   const originalEnv = process.env;
@@ -61,7 +62,11 @@ describe('ApplicationSettingsService', () => {
   };
 
   const createService = () =>
-    new ApplicationSettingsService(repository as never, personalRepository as never);
+    new ApplicationSettingsService(
+      repository as never,
+      personalRepository as never,
+      new EffectRuntime(),
+    );
 
   beforeEach(() => {
     process.env = { ...originalEnv };
@@ -174,6 +179,51 @@ describe('ApplicationSettingsService', () => {
         }),
       }),
     );
+  });
+
+  describe('Telegram connection check', () => {
+    const botToken = '123456:abc-DEF_ghi';
+    const telegramAnswer = (status: number, body: unknown) =>
+      (global.fetch as jest.Mock).mockImplementation(
+        async () =>
+          new Response(JSON.stringify(body), {
+            status,
+            headers: { 'content-type': 'application/json' },
+          }),
+      );
+
+    it('saves the bot token once getMe accepts it', async () => {
+      telegramAnswer(200, { ok: true, result: { id: 1 } });
+
+      await createService().saveTelegramSettings(user, { botToken, timeoutMs: 1000 });
+
+      const [input] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(String(input)).toBe(`https://api.telegram.org/bot${botToken}/getMe`);
+      expect(saved[WorkspaceServiceSettingsKey.TELEGRAM]).toBeDefined();
+    });
+
+    it("answers Telegram's own reason when it rejects the token", async () => {
+      telegramAnswer(401, { ok: false, description: 'Unauthorized' });
+
+      await expect(
+        createService().saveTelegramSettings(user, { botToken, timeoutMs: 1000 }),
+      ).rejects.toThrow('Unauthorized');
+    });
+
+    it('reports an unreachable Telegram instead of an invalid token', async () => {
+      (global.fetch as jest.Mock).mockRejectedValue(new Error('connect ECONNREFUSED'));
+
+      await expect(
+        createService().saveTelegramSettings(user, { botToken, timeoutMs: 1000 }),
+      ).rejects.toThrow('Unable to connect to Telegram');
+    });
+
+    it('never sends a token that could reshape the request path', async () => {
+      await expect(
+        createService().saveTelegramSettings(user, { botToken: '1:a/../x', timeoutMs: 1000 }),
+      ).rejects.toThrow('Telegram bot token is invalid');
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
   });
 
   it('preserves an existing SMTP password when the password field is blank', async () => {
