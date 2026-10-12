@@ -8,7 +8,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import type { Metal, MetalWeightUnit as WeightUnit } from '@/app/lib/contracts';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 /** The four metals with an ISO 4217 code, so the rate tables already quote them. */
@@ -136,8 +136,13 @@ export function useMetals() {
   const refreshPrices = useCallback(
     () =>
       mutation.mutateAsync(async () => {
-        const response = await apiClient.post<{ updated: number }>('/metals/refresh-prices');
-        toast.success(pricesUpdated.replaceAll('{{count}}', String(response.data?.updated ?? 0)));
+        const response = await apiClient.post('/metals/refresh-prices');
+        const { updated } = await checkContract(
+          'PriceRefreshResult',
+          response.data,
+          '/metals/refresh-prices',
+        );
+        toast.success(pricesUpdated.replaceAll('{{count}}', String(updated)));
       }),
     [mutation.mutateAsync, pricesUpdated],
   );

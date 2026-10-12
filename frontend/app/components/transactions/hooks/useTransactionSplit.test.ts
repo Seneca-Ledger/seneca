@@ -1,4 +1,6 @@
 import apiClient from '@/app/lib/api';
+import type { UncheckedResponse } from '@/app/lib/api';
+import { apiResponse } from '@/app/test/api-response';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import toast from 'react-hot-toast';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +25,7 @@ describe('useTransactionSplit', () => {
   });
 
   it('posts the parts to the split endpoint and refetches', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({ data: { data: [] } });
+    vi.mocked(apiClient.post).mockResolvedValue(apiResponse({ data: [] }));
     const onDone = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() => useTransactionSplit(onDone));
 
@@ -65,7 +67,7 @@ describe('useTransactionSplit', () => {
   });
 
   it('posts to the unsplit endpoint and refetches', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({ data: {} });
+    vi.mocked(apiClient.post).mockResolvedValue(apiResponse({}));
     const onDone = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() => useTransactionSplit(onDone));
 
@@ -92,7 +94,7 @@ describe('useTransactionSplit', () => {
   });
 
   it('toggles saving while the request is in flight', async () => {
-    let resolvePost: (value: unknown) => void = () => undefined;
+    let resolvePost: (value: UncheckedResponse) => void = () => undefined;
     vi.mocked(apiClient.post).mockReturnValue(
       new Promise(resolve => {
         resolvePost = resolve;
@@ -112,7 +114,7 @@ describe('useTransactionSplit', () => {
     });
 
     await act(async () => {
-      resolvePost({ data: {} });
+      resolvePost(apiResponse({}));
       await pending;
     });
 

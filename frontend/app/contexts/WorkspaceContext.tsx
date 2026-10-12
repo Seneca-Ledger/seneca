@@ -13,7 +13,7 @@ import {
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { hasSessionCookie } from '@/app/lib/csrf';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { reportContractDrift } from '@/app/lib/query-fn-schema';
+import { checkContract, reportContractDrift } from '@/app/lib/query-fn-schema';
 import { api } from '../lib/api';
 
 type WorkspaceSettings = Record<string, unknown>;
@@ -148,7 +148,11 @@ async function apiToggleFavorite(
 ): Promise<void> {
   try {
     const response = await api.patch(`/workspaces/${workspaceId}/favorite`);
-    const isFavorite: boolean = response.data.isFavorite;
+    const { isFavorite } = await checkContract(
+      'WorkspaceFavorite',
+      response.data,
+      '/workspaces/:id/favorite',
+    );
     setters.setWorkspaces(prev => prev.map(w => (w.id === workspaceId ? { ...w, isFavorite } : w)));
     setters.setCurrentWorkspace(prev =>
       prev?.id === workspaceId ? { ...prev, isFavorite } : prev,
@@ -197,10 +201,14 @@ async function apiSetBackgroundPhoto(
   { workspaceId, photoId }: { workspaceId: string; photoId: string },
   setters: Pick<WorkspaceSetters, 'setWorkspaces' | 'setCurrentWorkspace'>,
 ): Promise<void> {
-  const response = await api.put<BackgroundFields>(`/workspaces/${workspaceId}/background`, {
+  const response = await api.put(`/workspaces/${workspaceId}/background`, {
     photoId,
   } satisfies ContractInput<'SetWorkspaceBackgroundBody'>);
-  applyBackground(workspaceId, response.data, setters);
+  applyBackground(
+    workspaceId,
+    await checkContract('WorkspaceBackground', response.data, '/workspaces/:id/background'),
+    setters,
+  );
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types

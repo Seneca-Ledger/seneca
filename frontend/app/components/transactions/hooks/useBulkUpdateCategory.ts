@@ -25,10 +25,11 @@ export function useBulkUpdateCategory(): UseMutationResult<
   const workspaceId = useWorkspaceId();
 
   return useMutation({
-    mutationFn: ({ txIds, categoryId }: BulkUpdateCategoryVariables) =>
-      api.post('/transactions/bulk-update', {
+    mutationFn: async ({ txIds, categoryId }: BulkUpdateCategoryVariables) => {
+      await api.post('/transactions/bulk-update', {
         items: txIds.map(id => ({ id, updates: { categoryId } })),
-      } satisfies ContractInput<'BulkUpdateRequestBody'>),
+      } satisfies ContractInput<'BulkUpdateRequestBody'>);
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['transactions'] });
       await queryClient.invalidateQueries({ queryKey: queryKeys.categories(workspaceId) });

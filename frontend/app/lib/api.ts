@@ -1,5 +1,6 @@
-import axios, { type AxiosResponse } from 'axios';
+import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import type {
+  PlaceSuggestions as ContractPlaceSuggestions,
   ReceiptLocationSource as ContractReceiptLocationSource,
   ReceiptPlace as ContractReceiptPlace,
   ReceiptRecord as ContractReceiptRecord,
@@ -10,6 +11,7 @@ import type {
   ReceiptRecordUpdate,
   ReceiptSplitResult,
   ReceiptTransactionMatches,
+  ReceiptUploadResult,
 } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { CSRF_HEADER, clearCsrfCookie, getCsrfHeaders, getCsrfToken } from './csrf';
@@ -50,7 +52,7 @@ export const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api/v1' : '/api/v1');
 
-const apiClient = axios.create({
+const rawClient = axios.create({
   baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
@@ -58,10 +60,30 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
+/** An answer whose shape no contract has vouched for yet. */
+export type UncheckedResponse = AxiosResponse<unknown>;
+
+/**
+ * The API client as the app sees it. Every answer is `unknown` until a
+ * contract says what it is (`checkContract`, `apiQueryDecoded`): a type
+ * argument on `get<T>()` would only assert a shape nobody checked, so the
+ * methods take none.
+ */
+export interface ApiClient {
+  get(url: string, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  delete(url: string, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  post(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  put(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  patch(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  defaults: AxiosInstance['defaults'];
+}
+
+const apiClient: ApiClient = rawClient;
+
 // Request interceptor for workspace context and CSRF.
 // Authentication itself rides on httpOnly cookies (withCredentials above), so
 // no token is read here — there is nothing in JS reach for an XSS to steal.
-apiClient.interceptors.request.use(
+rawClient.interceptors.request.use(
   config => {
     const csrfToken = getCsrfToken();
     if (csrfToken) {
@@ -147,7 +169,7 @@ async function refreshAccessToken(originalRequest: Record<string, unknown>): Pro
   if (csrfToken) {
     (originalRequest.headers as Record<string, string>)[CSRF_HEADER] = csrfToken;
   }
-  return apiClient(originalRequest);
+  return rawClient(originalRequest);
 }
 
 const AUTH_RETRY_EXCLUDED_PATHS = new Set(['/auth/login', '/auth/register', '/auth/refresh']);
@@ -186,7 +208,7 @@ function isUnauthorizedRetryable(
 }
 
 // Response interceptor for handling errors
-apiClient.interceptors.response.use(
+rawClient.interceptors.response.use(
   response => response,
   async (error: unknown) => {
     const err = error as Record<string, unknown>;
@@ -277,31 +299,9 @@ export type ReceiptLocationSource = ContractReceiptLocationSource;
 /** An OpenStreetMap place the user picked for a receipt. */
 export type ReceiptPlace = ContractReceiptPlace;
 
-export interface PlaceCandidate {
-  name: string;
-  category: string;
-  type: string;
-  address: string | null;
-  locality: string | null;
-  lat: number;
-  lng: number;
-  osmType: 'node' | 'way' | 'relation';
-  osmId: string;
-  distanceM: number;
-  matchesVendor: boolean;
-}
+export type PlaceSuggestions = ContractPlaceSuggestions;
 
-export type PlaceSuggestions =
-  | { needed: false }
-  | {
-      needed: true;
-      receiptId: string;
-      vendor: string | null;
-      amount: number | null;
-      currency: string | null;
-      date: string | null;
-      candidates: PlaceCandidate[];
-    };
+export type PlaceCandidate = Extract<PlaceSuggestions, { needed: true }>['candidates'][number];
 
 export type ReceiptTransactionMatch = ContractReceiptTransactionMatch;
 
@@ -338,9 +338,9 @@ export const receiptsApi = {
   updateReceipt: async (
     id: string,
     data: ContractInput<'UpdateReceiptBody'>,
-  ): Promise<ReceiptRecord> => {
+  ): Promise<ReceiptRecordUpdate> => {
     const response = await apiClient.patch(`/receipts/${id}`, data);
-    return response.data as ReceiptRecord;
+    return checkContract('ReceiptRecordUpdate', response.data, '/receipts/:id');
   },
 
   updateReceiptLocation: async (
@@ -365,7 +365,7 @@ export const receiptsApi = {
       '/receipts/place-suggestions',
       fix satisfies ContractInput<'PlaceSuggestionsBody'>,
     );
-    return (response.data?.data ?? response.data) as PlaceSuggestions;
+    return checkContract('PlaceSuggestions', response.data, '/receipts/place-suggestions');
   },
 
   resetReceiptLocation: async (id: string): Promise<ReceiptRecordUpdate> => {
@@ -412,14 +412,14 @@ export const receiptsApi = {
     return checkContract('ReceiptSplitResult', response.data, '/receipts/:id/split');
   },
 
-  uploadReceipts: async (formData: FormData): Promise<{ receipts: ReceiptRecord[] }> => {
+  uploadReceipts: async (formData: FormData): Promise<ReceiptUploadResult> => {
     const response = await apiClient.post('/receipts/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data as { receipts: ReceiptRecord[] };
+    return checkContract('ReceiptUploadResult', response.data, '/receipts/upload');
   },
 
-  scanReceipt: async (file: File, language?: string): Promise<ReceiptRecord> => {
+  scanReceipt: async (file: File, language?: string): Promise<ReceiptRecordUpdate> => {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -430,7 +430,7 @@ export const receiptsApi = {
     const response = await apiClient.post('/receipts/scan', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data as ReceiptRecord;
+    return checkContract('ReceiptRecordUpdate', response.data, '/receipts/scan');
   },
 };
 

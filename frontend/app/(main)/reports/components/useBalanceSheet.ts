@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { blobOf } from '@/app/lib/blob-of';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { unwrapEnvelope } from '@/app/lib/query-fn';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type { EditableChangeArgs } from './BalanceAccountRow';
 import {
   type BalanceExportFormat,
@@ -96,7 +98,11 @@ function useLoadSheet(opts: {
         const response = await apiClient.get('/reports/balance/sheet', {
           params: { ...(date ? { date } : {}), locale },
         });
-        const payload: BalanceSheetResponse = response.data?.data || response.data;
+        const payload = await checkContract(
+          'BalanceSheetResponse',
+          unwrapEnvelope(response.data),
+          '/reports/balance/sheet',
+        );
         setters.setSheet(payload);
         setters.setEditableValues({
           ...buildEditableValues(payload.assets.sections),
@@ -201,7 +207,7 @@ function useDownloadExport(
         });
         const headers = response.headers as Record<string, string>;
         const fileName = resolveExportFileName(sheet, format, headers['content-disposition']);
-        const blob = new Blob([response.data], {
+        const blob = new Blob([blobOf(response)], {
           type: headers['content-type'] || 'application/octet-stream',
         });
         triggerDownload(blob, fileName);

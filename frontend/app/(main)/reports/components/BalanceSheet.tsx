@@ -28,6 +28,7 @@ import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import apiClient from '../../../lib/api';
+import { blobOf } from '../../../lib/blob-of';
 
 type BalanceExportFormat = 'excel' | 'pdf';
 
@@ -270,7 +271,7 @@ function BalanceSheet(): React.JSX.Element {
         const fileName =
           parseContentDispositionFileName(response.headers['content-disposition']) || fallbackName;
 
-        const blob = new Blob([response.data], {
+        const blob = new Blob([blobOf(response)], {
           type:
             (response.headers['content-type'] as string | undefined) || 'application/octet-stream',
         });

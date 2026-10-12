@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
+import { blobOf } from '@/app/lib/blob-of';
 import {
   areAllVisibleSelected,
   toggleSelectAllVisible,
@@ -277,7 +278,7 @@ export function useStatementSelection({
       const response = await apiClient.get(getExportEndpoint(statement), {
         responseType: 'blob',
       });
-      const blob = response.data as Blob;
+      const blob = blobOf(response);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

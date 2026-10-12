@@ -14,8 +14,8 @@ import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { blobOf } from '@/app/lib/blob-of';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import BalanceSheet from './components/BalanceSheet';
 import { CashFlowTab } from './components/cash-flow/CashFlowTab';
@@ -43,10 +43,7 @@ export default function ReportsPage(): React.JSX.Element {
   const taxSettings = useQuery({
     queryKey: queryKeys.taxSettings(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<{ vatStatus: 'registered' | 'small_business' | 'not_registered' }>({
-        url: '/tax/settings',
-        signal,
-      }),
+      apiQueryDecoded({ url: '/tax/settings', signal, contract: 'WorkspaceTaxSettings' }),
     enabled: Boolean(workspaceId),
   });
   const chargesVat = taxSettings.data?.vatStatus === 'registered';
@@ -150,7 +147,7 @@ export default function ReportsPage(): React.JSX.Element {
         responseType: 'blob',
       },
     );
-    const blob = new Blob([response.data]);
+    const blob = new Blob([blobOf(response)]);
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

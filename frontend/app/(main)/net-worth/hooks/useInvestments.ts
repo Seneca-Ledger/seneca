@@ -7,7 +7,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export type { InvestmentAccount, InvestmentHolding } from '@/app/lib/contracts';
@@ -110,8 +110,13 @@ export function useInvestments() {
   const refreshPrices = useCallback(
     () =>
       mutation.mutateAsync(async () => {
-        const response = await apiClient.post<{ updated: number }>('/investments/refresh-prices');
-        toast.success(pricesUpdated.replaceAll('{{count}}', String(response.data?.updated ?? 0)));
+        const response = await apiClient.post('/investments/refresh-prices');
+        const { updated } = await checkContract(
+          'PriceRefreshResult',
+          response.data,
+          '/investments/refresh-prices',
+        );
+        toast.success(pricesUpdated.replaceAll('{{count}}', String(updated)));
       }),
     [mutation.mutateAsync, pricesUpdated],
   );

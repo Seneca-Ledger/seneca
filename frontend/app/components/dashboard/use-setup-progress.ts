@@ -2,16 +2,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { SetupProgress } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
-/** Which first steps this workspace has taken, from `GET /dashboard/setup-progress`. */
-export interface SetupProgress {
-  hasUpload: boolean;
-  hasCustomCategories: boolean;
-  hasBudget: boolean;
-  hasGoal: boolean;
-}
+export type { SetupProgress };
 
 /**
  * Always refetched on mount: someone who just created a goal and came back to
@@ -21,7 +16,8 @@ export function useSetupProgress(): SetupProgress | undefined {
   const workspaceId = useWorkspaceId();
   const { data } = useQuery({
     queryKey: queryKeys.dashboardSetupProgress(workspaceId),
-    queryFn: ({ signal }) => apiQuery<SetupProgress>({ url: '/dashboard/setup-progress', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/dashboard/setup-progress', signal, contract: 'SetupProgress' }),
     staleTime: 0,
     enabled: Boolean(workspaceId),
   });

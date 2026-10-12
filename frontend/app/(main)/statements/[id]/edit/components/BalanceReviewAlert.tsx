@@ -153,7 +153,7 @@ export function BalanceReviewAlert({
       <AlertTitle sx={{ fontWeight: 600 }}>{labels.title}</AlertTitle>
       <Typography variant="body2">{labels.description}</Typography>
       <BalanceFigures
-        check={parsingDetails?.validation?.balanceCheck}
+        check={parsingDetails?.validation?.balanceCheck ?? undefined}
         labels={labels}
         formatNumber={formatNumber}
       />

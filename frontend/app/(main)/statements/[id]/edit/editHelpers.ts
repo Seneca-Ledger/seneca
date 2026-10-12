@@ -1,8 +1,10 @@
 // Pure helper functions and types for the Statement Edit page
 
-import type { TransactionListItem } from '@/app/lib/contracts';
+import type {
+  StatementParsingDetails as ContractStatementParsingDetails,
+  TransactionListItem,
+} from '@/app/lib/contracts';
 import { formatStoredDate } from '@/app/lib/user-format-store';
-import type { ParsingDroppedSample } from './ParsingWarningsPanel';
 
 export interface CategoryOption {
   id: string;
@@ -91,54 +93,8 @@ export function toEditableTransaction(row: TransactionListItem): Transaction {
   };
 }
 
-export interface StatementParsingDetails {
-  detectedBank?: string;
-  detectedFormat?: string;
-  detectedBy?: string;
-  detectedEvidence?: string[];
-  otherBankMentions?: string[];
-  parserUsed?: string;
-  totalLinesProcessed?: number;
-  transactionsFound?: number;
-  transactionsCreated?: number;
-  errors?: string[];
-  warnings?: string[];
-  metadataExtracted?: {
-    accountNumber?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    balanceStart?: number;
-    balanceEnd?: number;
-    rawHeader?: string;
-    normalizedHeader?: string;
-    headerDisplay?: {
-      title?: string;
-      subtitle?: string;
-      periodDisplay?: string;
-      accountDisplay?: string;
-      institutionDisplay?: string;
-      currencyDisplay?: string;
-    };
-  };
-  processingTime?: number;
-  logEntries?: Array<{ timestamp: string; level: string; message: string }>;
-  droppedSamples?: Array<string | ParsingDroppedSample>;
-  /** Balance reconciliation result. `passed: false` puts the statement in `needs_review`. */
-  validation?: {
-    passed: boolean;
-    warnings?: string[];
-    balanceCheck?: {
-      expectedEnd?: number;
-      actualEnd?: number;
-      difference?: number;
-      tolerance?: number;
-    };
-  };
-  balanceConfirmation?: {
-    confirmedBy: string;
-    confirmedAt: string;
-  };
-}
+/** The parser's notes, as `GET /statements/:id` sends them. */
+export type StatementParsingDetails = ContractStatementParsingDetails;
 
 export interface Statement {
   id: string;
@@ -263,10 +219,10 @@ type BuildHintsParams = {
   prefix?: string;
   locale: string;
   meta?: {
-    dateFrom?: string;
-    dateTo?: string;
-    balanceStart?: number;
-    balanceEnd?: number;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    balanceStart?: number | null;
+    balanceEnd?: number | null;
   };
   fmt: (n?: number | null) => string;
   labels: Record<string, { value?: string } | undefined>;
@@ -275,7 +231,7 @@ type BuildHintsParams = {
 export function buildHints({ prefix, locale, meta, fmt, labels }: BuildHintsParams): MetadataHints {
   const filePrefix = prefix ?? labelValue(labels.fromFilePrefix, 'From file: ');
   const { dateFrom, dateTo, balanceStart, balanceEnd } = meta ?? {};
-  const dateHint = (value?: string): string =>
+  const dateHint = (value?: string | null): string =>
     value ? `${filePrefix}${new Date(value).toLocaleDateString(resolveLocale(locale))}` : '';
   return {
     startDate: dateHint(dateFrom),
@@ -295,13 +251,13 @@ export function ignoreEventArg<T>(handler: (value: T) => void): (event: unknown,
   return (_event, value) => handler(value);
 }
 
-export const countArray = (items?: unknown[] | null): number => items?.length ?? 0;
+export const countArray = (items?: readonly unknown[] | null): number => items?.length ?? 0;
 
 export const getParsingStats = (pd: {
-  errors?: string[];
-  warnings?: string[];
-  otherBankMentions?: string[];
-}): { errCount: number; warnCount: number; mentions: string[] } => ({
+  errors?: readonly string[] | null;
+  warnings?: readonly string[] | null;
+  otherBankMentions?: readonly string[] | null;
+}): { errCount: number; warnCount: number; mentions: readonly string[] } => ({
   errCount: countArray(pd.errors),
   warnCount: countArray(pd.warnings),
   mentions: pd.otherBankMentions ?? [],

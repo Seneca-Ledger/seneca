@@ -7,6 +7,7 @@ import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustrati
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
 import {
   getStatementDisplayMerchant,
@@ -77,14 +78,7 @@ interface StatementForTable {
     email?: string | null;
     avatarUrl?: string | null;
   } | null;
-  parsingDetails?: {
-    importPreview?: {
-      attachments?: number;
-      description?: string;
-      merchant?: string;
-      categoryId?: string;
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 interface TableLabels {

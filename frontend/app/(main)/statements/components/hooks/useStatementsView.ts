@@ -337,7 +337,7 @@ export function useStatementsView({
     refetchStatements,
     refetchGmailReceipts,
     refreshActiveStatements,
-  } = useStatementsListData<Statement>({
+  } = useStatementsListData({
     appliedFilters: filterState.appliedFilters,
     categoryId: routeCategoryId,
     receiptStatus: routeReceiptStatus,

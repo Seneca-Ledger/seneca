@@ -34,3 +34,10 @@ export const BusinessProfileResponse = Schema.Struct({
   missingRequired: Schema.Array(Schema.Literals(['legalName', 'addressLines'])),
 });
 export type BusinessProfileResponse = Wire<typeof BusinessProfileResponse>;
+
+/** `POST /business-profile/logo`: the stored file and where it is served. */
+export const BusinessProfileLogo = Schema.Struct({
+  logoFile: Schema.String,
+  logoUrl: Schema.String,
+});
+export type BusinessProfileLogo = Wire<typeof BusinessProfileLogo>;

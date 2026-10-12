@@ -279,7 +279,8 @@ export default function GoogleDriveIntegrationPage(): React.JSX.Element {
 
     return await (async () => {
       const tokenResp = await apiClient.get('/integrations/google-drive/picker-token');
-      const accessToken = tokenResp.data?.accessToken as string | undefined;
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const accessToken = (tokenResp.data as { accessToken?: string } | null)?.accessToken;
       if (!accessToken) {
         toast.error(t.errors.pickerUnavailable.value);
         return;

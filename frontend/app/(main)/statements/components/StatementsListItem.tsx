@@ -23,6 +23,7 @@ import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -82,21 +83,7 @@ export type StatementListItem = {
     avatarUrl?: string | null;
   } | null;
   errorMessage?: string | null;
-  parsingDetails?: {
-    detectedBy?: string;
-    importPreview?: {
-      source?: string;
-      description?: string;
-      merchant?: string;
-      categoryId?: string;
-    };
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: {
-        currencyDisplay?: string;
-      };
-    };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 type DuplicateRole = 'primary' | 'suspected';

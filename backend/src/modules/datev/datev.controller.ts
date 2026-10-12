@@ -1,13 +1,15 @@
-import { Body, Controller, Get, Put, Query, Res } from '@nestjs/common';
+import { Controller, Get, Put, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import { SaveDatevSettingsBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { DatevService } from './datev.service';
-import { DatevMappingQueryDto, DatevPeriodDto, SaveDatevSettingsDto } from './dto/datev.dto';
+import { DatevMappingQueryDto, DatevPeriodDto } from './dto/datev.dto';
 
 /**
  * The DATEV export for a German or Austrian tax adviser. Its settings and the
@@ -28,7 +30,7 @@ export class DatevController {
   @WorkspaceAuth(Permission.REPORT_EXPORT)
   async saveSettings(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: SaveDatevSettingsDto,
+    @SchemaBody(SaveDatevSettingsBody) dto: SaveDatevSettingsBody,
     @CurrentUser() user: User,
   ) {
     return this.datevService.saveSettings(workspaceId, dto, user.id);

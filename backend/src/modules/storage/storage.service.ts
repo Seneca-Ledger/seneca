@@ -374,10 +374,8 @@ export class StorageService {
 
     const saved = await this.statementRepository.save(statement);
 
-    return {
-      ...saved,
-      category,
-    };
+    // Only what changed: the whole row would hand out the server path and the file hash.
+    return { id: saved.id, categoryId: saved.categoryId, category };
   }
 
   async updateFileTags(statementId: string, userId: string, tagIds: string[]) {

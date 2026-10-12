@@ -57,6 +57,15 @@ export const LocalCategorizationStatus = Schema.Struct({
 });
 export type LocalCategorizationStatus = Wire<typeof LocalCategorizationStatus>;
 
+/** `POST /settings/local-categorization/test`: what the local model makes of one merchant. */
+export const LocalCategorizationTestResult = Schema.Struct({
+  ready: Schema.Boolean,
+  merchantName: Schema.String,
+  category: Schema.NullOr(Schema.String),
+  modelLoadError: Schema.NullOr(Schema.String),
+});
+export type LocalCategorizationTestResult = Wire<typeof LocalCategorizationTestResult>;
+
 /** `GET /settings/notifications/telegram`: never the token itself. */
 export const TelegramBotStatus = Schema.Struct({
   connected: Schema.Boolean,
@@ -136,3 +145,20 @@ export const BankSyncStatus = Schema.Struct({
   ),
 });
 export type BankSyncStatus = Wire<typeof BankSyncStatus>;
+
+/** `POST /integrations/simplefin/sync`: rows and statements made, per account. */
+export const BankSyncResult = Schema.Struct({
+  ok: Schema.Boolean,
+  imported: Schema.Number,
+  statements: Schema.Number,
+  accounts: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      imported: Schema.Number,
+      statementId: Schema.NullOr(Schema.String),
+      /** Why this account could not be read; the others still are. */
+      error: Schema.optional(Schema.String),
+    }),
+  ),
+});
+export type BankSyncResult = Wire<typeof BankSyncResult>;

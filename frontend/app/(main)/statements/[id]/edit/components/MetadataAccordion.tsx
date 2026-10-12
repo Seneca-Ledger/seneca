@@ -21,12 +21,6 @@ type MetaForm = {
   statementDateFrom: string;
   statementDateTo: string;
 };
-type ParsedMetadata = {
-  dateFrom?: string;
-  dateTo?: string;
-  balanceStart?: number;
-  balanceEnd?: number;
-};
 type ChangeParams = { field: string; value: string };
 
 type MetadataFieldsProps = {
@@ -156,7 +150,7 @@ export function MetadataAccordion({
   onConvert,
   onResolve,
 }: MetadataAccordionProps): React.ReactElement {
-  const parsedMeta = parsingDetails?.metadataExtracted as ParsedMetadata | undefined;
+  const parsedMeta = parsingDetails?.metadataExtracted ?? undefined;
   const hints = buildHints({
     prefix: labels.fromFilePrefix?.value,
     locale,

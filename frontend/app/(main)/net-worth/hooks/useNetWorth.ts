@@ -88,11 +88,12 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
   });
 
   const classifyMutation = useMutation({
-    mutationFn: (variables: { accountId: string; patch: ClassificationPatch }) =>
-      apiClient.patch(
+    mutationFn: async (variables: { accountId: string; patch: ClassificationPatch }) => {
+      await apiClient.patch(
         `/reports/balance/accounts/${variables.accountId}/classification`,
         variables.patch satisfies ContractInput<'UpdateAccountClassificationBody'>,
-      ),
+      );
+    },
     // Выбор в селекте применяется сразу, иначе он «откатывается» на время
     // запроса; проценты и сводки пересчитывает сервер — их ждём.
     onMutate: (variables: { accountId: string; patch: ClassificationPatch }) => {

@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 import type {
   AgeingReport,
   Client,
@@ -6,9 +7,11 @@ import type {
   InvoiceDelivery,
   InvoiceListPage,
   InvoiceRecurrenceInterval,
+  InvoiceReminderResult,
   InvoiceSettings,
   InvoiceStatus,
   LateFeeQuote,
+  XRechnungCheck,
 } from '@/app/lib/contracts';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { checkContract } from '@/app/lib/query-fn-schema';
@@ -100,22 +103,21 @@ export const clientsApi = {
     return checkContract('Client', unwrapData(response), '/clients/:id');
   },
   async create(payload: CreateClientInput): Promise<Client> {
-    const response = await apiClient.post<Client>(
+    const response = await apiClient.post(
       '/clients',
       payload satisfies ContractInput<'CreateClientBody'>,
     );
     return checkContract('Client', unwrapData(response), '/clients');
   },
   async update(id: string, payload: UpdateClientInput): Promise<Client> {
-    const response = await apiClient.put<Client>(
+    const response = await apiClient.put(
       `/clients/${id}`,
       payload satisfies ContractInput<'UpdateClientBody'>,
     );
     return checkContract('Client', unwrapData(response), '/clients/:id');
   },
-  async delete(id: string): Promise<{ message: string }> {
-    const response = await apiClient.delete<{ message: string }>(`/clients/${id}`);
-    return unwrapData(response);
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/clients/${id}`);
   },
 };
 
@@ -131,8 +133,12 @@ export const invoicesApi = {
   // A write answers with the bare row: no client, nothing paid or credited yet
   // filled in. The invoice is read back whole, so the page never shows half of it.
   async create(payload: CreateInvoiceInput): Promise<Invoice> {
-    const response = await apiClient.post<{ id: string }>('/invoices', payload);
-    return invoicesApi.getOne(unwrapData(response).id);
+    const response = await apiClient.post(
+      '/invoices',
+      payload satisfies ContractInput<'CreateInvoiceBody'>,
+    );
+    const { id } = await checkContract('InvoiceCreated', unwrapData(response), '/invoices');
+    return invoicesApi.getOne(id);
   },
   async update(id: string, payload: UpdateInvoiceInput): Promise<Invoice> {
     await apiClient.put(`/invoices/${id}`, payload satisfies ContractInput<'UpdateInvoiceBody'>);
@@ -147,15 +153,12 @@ export const invoicesApi = {
     return invoicesApi.getOne(id);
   },
   /** Emails the client a reminder about a sent or overdue invoice. */
-  async remind(id: string): Promise<{ sent: boolean; to: string; reminderCount: number }> {
-    const response = await apiClient.post<{ sent: boolean; to: string; reminderCount: number }>(
-      `/invoices/${id}/remind`,
-    );
-    return unwrapData(response);
+  async remind(id: string): Promise<InvoiceReminderResult> {
+    const response = await apiClient.post(`/invoices/${id}/remind`);
+    return checkContract('InvoiceReminderResult', unwrapData(response), '/invoices/:id/remind');
   },
-  async delete(id: string): Promise<{ message: string }> {
-    const response = await apiClient.delete<{ message: string }>(`/invoices/${id}`);
-    return unwrapData(response);
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/invoices/${id}`);
   },
   async ageing(): Promise<AgeingReport> {
     const response = await apiClient.get('/invoices/ageing');
@@ -170,18 +173,18 @@ export const invoicesApi = {
     return checkContract('InvoiceSettings', unwrapData(response), '/invoices/settings');
   },
   async updateSettings(payload: InvoiceSettingsInput): Promise<InvoiceSettings> {
-    const response = await apiClient.put<InvoiceSettings>(
+    const response = await apiClient.put(
       '/invoices/settings',
       payload satisfies ContractInput<'UpdateInvoiceSettingsBody'>,
     );
     return checkContract('InvoiceSettings', unwrapData(response), '/invoices/settings');
   },
   async sendEmail(id: string, payload: SendInvoiceEmailInput = {}): Promise<InvoiceDelivery> {
-    const response = await apiClient.post<InvoiceDelivery>(
+    const response = await apiClient.post(
       `/invoices/${id}/deliveries`,
       payload satisfies ContractInput<'SendInvoiceEmailBody'>,
     );
-    return unwrapData(response);
+    return checkContract('InvoiceDelivery', unwrapData(response), '/invoices/:id/deliveries');
   },
   async deliveries(id: string): Promise<InvoiceDelivery[]> {
     const response = await apiClient.get(`/invoices/${id}/deliveries`);
@@ -189,24 +192,29 @@ export const invoicesApi = {
   },
   /** Opens the draft as the client would see it; nothing is stored, no number taken. */
   async openPreview(id: string): Promise<void> {
-    const response = await apiClient.get<Blob>(`/invoices/${id}/preview`, {
+    const response = await apiClient.get(`/invoices/${id}/preview`, {
       responseType: 'blob',
     });
-    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    const url = window.URL.createObjectURL(
+      new Blob([blobOf(response)], { type: 'application/pdf' }),
+    );
     window.open(url, '_blank', 'noopener');
     // Revoked late: the new tab needs the url to still resolve when it loads.
     window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
   },
   /** What the invoice, its client or the business profile still lack for an XRechnung. */
-  async checkXRechnung(id: string): Promise<{ missing: string[] }> {
-    return (await apiClient.get<{ missing: string[] }>(`/invoices/${id}/xrechnung/check`)).data;
+  async checkXRechnung(id: string): Promise<XRechnungCheck> {
+    const response = await apiClient.get(`/invoices/${id}/xrechnung/check`);
+    return checkContract('XRechnungCheck', response.data, '/invoices/:id/xrechnung/check');
   },
 
   async downloadXRechnung(id: string, fileName: string): Promise<void> {
-    const response = await apiClient.get<Blob>(`/invoices/${id}/xrechnung`, {
+    const response = await apiClient.get(`/invoices/${id}/xrechnung`, {
       responseType: 'blob',
     });
-    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/xml' }));
+    const url = window.URL.createObjectURL(
+      new Blob([blobOf(response)], { type: 'application/xml' }),
+    );
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', fileName);
@@ -217,8 +225,8 @@ export const invoicesApi = {
   },
 
   async downloadPdf(id: string, fileName: string): Promise<void> {
-    const response = await apiClient.get<Blob>(`/invoices/${id}/pdf`, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const response = await apiClient.get(`/invoices/${id}/pdf`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', fileName);

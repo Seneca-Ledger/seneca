@@ -17,7 +17,8 @@ const googleDriveProvider: StorageWidgetProvider = {
   isPickerAvailable: () => Boolean(apiKey),
   openPicker: async mimeTypes => {
     const tokenResp = await apiClient.get('/integrations/google-drive/picker-token');
-    const accessToken = tokenResp.data?.accessToken;
+    // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+    const accessToken = (tokenResp.data as { accessToken?: string } | null)?.accessToken;
     if (!accessToken) {
       throw new Error('Google Drive picker token unavailable');
     }

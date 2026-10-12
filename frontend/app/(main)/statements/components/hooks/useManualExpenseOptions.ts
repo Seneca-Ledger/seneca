@@ -31,9 +31,7 @@ async function fetchManualExpenseOptions(): Promise<{
     '/categories',
   );
 
-  const rawTaxRates = (taxRatesResponse.data?.data ?? taxRatesResponse.data ?? []) as Array<
-    TaxRateOption & { rate: number | string }
-  >;
+  const rawTaxRates = await checkContract('TaxRateList', taxRatesResponse.data, '/tax-rates');
 
   return {
     categories: filterEnabledCategories(rawCategories),

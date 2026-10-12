@@ -20,6 +20,7 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { PayeeRecord } from '@/app/lib/contracts';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
@@ -156,7 +157,7 @@ export default function WorkspacePayeesView() {
       vatId?: string | null;
       supplyType?: 'goods' | 'services' | null;
     },
-    announce: (updated: Payee) => void = () => toast.success(t.saved.value),
+    announce: (updated: PayeeRecord) => void = () => toast.success(t.saved.value),
   ) =>
     updatePayee
       .mutateAsync({ id, ...body })
@@ -180,7 +181,7 @@ export default function WorkspacePayeesView() {
       });
 
   /** Says what VIES made of the number just saved or checked. */
-  const announceVatCheck = (updated: Payee) => {
+  const announceVatCheck = (updated: PayeeRecord) => {
     if (!(updated.vatId && updated.vatIdCheckedAt)) {
       toast.success(t.saved.value);
     } else if (updated.vatIdStatus === 'valid') {

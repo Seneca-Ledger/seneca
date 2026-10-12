@@ -77,7 +77,7 @@ export async function apiQueryDecoded<K extends ContractName>(
   options: ApiQueryOptions & { contract: K; drift?: 'throw' | 'report' },
 ): Promise<ContractType<K>> {
   const { contract, drift = 'throw', ...query } = options;
-  const payload = await apiQuery<unknown>(query);
+  const payload = await apiQuery(query);
   return drift === 'report'
     ? reportContractDrift(contract, payload, query.url)
     : checkContract(contract, payload, query.url);

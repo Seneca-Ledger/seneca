@@ -15,6 +15,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { DeviceLocation } from '@/app/lib/device-location';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
@@ -303,7 +304,7 @@ export default function StatementsListView(): React.JSX.Element {
     id: string;
     source?: string;
     fileName: string;
-    parsingDetails?: { importPreview?: { attachments?: number } } | null;
+    parsingDetails?: StatementParsingDetails | null;
   }): void => {
     const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
     if (isReceipt) {

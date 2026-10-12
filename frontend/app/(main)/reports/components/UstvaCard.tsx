@@ -9,43 +9,16 @@ import { useUpdatePayee } from '@/app/components/payees/usePayees';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { UstvaResult } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import type { TaxReturnLine } from './tax-return.helpers';
 
-interface UstvaField {
-  kz: string;
-  line: number;
-  label: string;
-  kind: 'base' | 'tax';
-  amount: number;
-  transactionIds: string[];
-}
+export type { UstvaResult };
 
-interface UstvaOpenItem {
-  reason: 'zero_rated' | 'supply_type_unknown';
-  direction: 'income' | 'expense';
-  lines: number[];
-  net: number;
-  tax: number;
-  payeeId: string | null;
-  payeeName: string | null;
-  transactionIds: string[];
-}
-
-export interface UstvaResult {
-  unsupported: 'not_germany' | 'not_registered' | 'form_year_unknown' | 'period_spans_years' | null;
-  form: {
-    year: number;
-    sourceUrl: string;
-    checkedAt: string;
-    fields: UstvaField[];
-    kz83: number;
-    open: UstvaOpenItem[];
-  } | null;
-  missingRates: Array<{ transactionId: string }>;
-  sondervorauszahlungDue: boolean;
-}
+type UstvaForm = NonNullable<UstvaResult['form']>;
+type UstvaField = UstvaForm['fields'][number];
+type UstvaOpenItem = UstvaForm['open'][number];
 
 /** As ELSTER takes it: whole euros for a base, euros with a decimal comma for tax. */
 export function elsterAmount(amount: number, kind: 'base' | 'tax'): string {
@@ -78,9 +51,10 @@ export function UstvaCard({
   const ustva = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
-      apiQuery<UstvaResult>({
+      apiQueryDecoded({
         url: `/tax/returns/ustva?periodStart=${period.periodStart}&periodEnd=${period.periodEnd}`,
         signal,
+        contract: 'UstvaResult',
       }),
     enabled: Boolean(workspaceId),
   });

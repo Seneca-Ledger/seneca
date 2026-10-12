@@ -93,7 +93,9 @@ function useCategoryData(
         apiClient.get('/categories/usage/counts'),
       ]);
       setCategories(await checkContract('CategoryList', categoriesRes.data, '/categories'));
-      setUsageCounts(usageRes.data);
+      setUsageCounts(
+        await checkContract('CategoryUsageCounts', usageRes.data, '/categories/usage/counts'),
+      );
     })()
       .catch(async err => {
         console.error('Failed to load categories:', err);
@@ -168,7 +170,11 @@ function useCategoryForm(
       const response = await apiClient.post('/data-entry/custom-fields/icon', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const url = response.data?.url || response.data;
+      const { url } = await checkContract(
+        'UploadedIcon',
+        response.data,
+        '/data-entry/custom-fields/icon',
+      );
       if (url) {
         setFormData(prev => ({ ...prev, icon: url, withoutIcon: false }));
         toast.success(toastMessages.iconUploaded);

@@ -119,8 +119,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [workspaceId, user, queryClient, queryKey]);
 
   const markAsReadMutation = useMutation({
-    mutationFn: (ids: string[]) =>
-      apiClient.post('/notifications/mark-read', { ids } satisfies ContractInput<'MarkReadBody'>),
+    mutationFn: async (ids: string[]) => {
+      await apiClient.post('/notifications/mark-read', {
+        ids,
+      } satisfies ContractInput<'MarkReadBody'>);
+    },
     onMutate: async (ids: string[]) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<NotificationsSnapshot>(queryKey);
@@ -143,7 +146,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   });
 
   const markAllAsReadMutation = useMutation({
-    mutationFn: () => apiClient.post('/notifications/mark-all-read', null, { params }),
+    mutationFn: async () => {
+      await apiClient.post('/notifications/mark-all-read', null, { params });
+    },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<NotificationsSnapshot>(queryKey);

@@ -236,7 +236,9 @@ export function useBudgetsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/budgets/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/budgets/${id}`);
+    },
     onSuccess: () => toast.success(text.toastDeleted.value),
     onError: () => toast.error(text.toastDeleteFailed.value),
     onSettled: invalidate,

@@ -109,7 +109,7 @@ export function useProfileForm(
         notifyUserFormatChanged();
       }
 
-      setProfileMessage(response.data?.message || messages.successFallback);
+      setProfileMessage(messages.successFallback);
     })()
       .catch(async (error: unknown) => {
         setProfileError(getApiErrorMessage(error, messages.errorFallback));

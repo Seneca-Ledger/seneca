@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Download, FileSpreadsheet, FileText, FileType2 } from '@/app/components/icons';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 type ExportFormat = 'excel' | 'pdf' | 'csv' | 'docx';
@@ -85,7 +86,7 @@ async function runExport(format: ExportFormat, t: ExportDropdownProps['t']): Pro
       { responseType: 'blob' },
     );
     const fileName = resolveDownloadFileName(format, response.headers?.['content-disposition']);
-    triggerDownload(new Blob([response.data]), fileName);
+    triggerDownload(new Blob([blobOf(response)]), fileName);
     toast.success(resolveText(t?.success, 'File downloaded successfully'), { id: toastId });
   } catch (error) {
     console.error('Failed to export workspace transactions', error);

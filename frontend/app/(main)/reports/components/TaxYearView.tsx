@@ -26,61 +26,16 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { blobOf } from '@/app/lib/blob-of';
+import type { CategoryItem } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import { DatevExportCard } from './DatevExportCard';
 import { TaxThresholdCard } from './TaxThresholdCard';
 import { formatMoney, saveBlob } from './tax-return.helpers';
 
-interface TaxYearRow {
-  id: string;
-  date: string;
-  counterparty: string;
-  categoryId: string | null;
-  categoryName: string | null;
-  type: 'income' | 'expense';
-  amount: number;
-  currency: string;
-  converted: number | null;
-  documentCount: number;
-  markedOnRow: boolean;
-}
-
-interface TaxYearReport {
-  year: number;
-  currency: string;
-  categories: Array<{
-    categoryId: string | null;
-    name: string;
-    type: 'income' | 'expense';
-    count: number;
-    total: number;
-    documentCount: number;
-  }>;
-  rows: TaxYearRow[];
-  total: { income: number; expense: number };
-  missingRateCurrencies: string[];
-}
-
-interface TaxReserve {
-  currency: string;
-  year: number;
-  vat: { net: number; outputTax: number; inputTax: number } | null;
-  incomeTax: { percent: number; earnings: number; amount: number } | null;
-  payments: { categoryId: string | null; amount: number; count: number };
-  total: number;
-  missingRateCurrencies: string[];
-}
-
-interface Category {
-  id: string;
-  name: string;
-  type: 'income' | 'expense';
-  parentId?: string | null;
-  isEnabled?: boolean;
-  taxRelevant?: boolean;
-}
+type Category = CategoryItem;
 
 const YEARS_BACK = 6;
 /** The documents count gives way first on a phone, so the totals stay in view. */
@@ -128,19 +83,21 @@ export function TaxYearView(): React.ReactElement {
   const report = useQuery({
     queryKey: queryKeys.taxYearReport({ workspaceId, year }),
     queryFn: ({ signal }) =>
-      apiQuery<TaxYearReport>({ url: `/tax/year-report?year=${year}`, signal }),
+      apiQueryDecoded({ url: `/tax/year-report?year=${year}`, signal, contract: 'TaxYearReport' }),
     enabled: Boolean(workspaceId),
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
   });
   const reserve = useQuery({
     queryKey: queryKeys.taxReserve(workspaceId),
-    queryFn: ({ signal }) => apiQuery<TaxReserve>({ url: '/tax/settings/reserve/amount', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/tax/settings/reserve/amount', signal, contract: 'TaxReserve' }),
     enabled: Boolean(workspaceId),
   });
   const categories = useQuery({
     queryKey: queryKeys.categories(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Category[]>({ url: '/categories', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     enabled: Boolean(workspaceId),
   });
 
@@ -150,15 +107,21 @@ export function TaxYearView(): React.ReactElement {
   };
 
   const toggleCategory = useMutation({
-    mutationFn: (category: Category) =>
-      apiClient.put(`/categories/${category.id}`, { taxRelevant: !category.taxRelevant }),
+    mutationFn: async (category: Category) => {
+      await apiClient.put(`/categories/${category.id}`, {
+        taxRelevant: !category.taxRelevant,
+      } satisfies ContractInput<'UpdateCategoryBody'>);
+    },
     onSuccess: refresh,
     onError: error => toast.error(getApiErrorMessage(error, t.saveError.value)),
   });
 
   const markRow = useMutation({
-    mutationFn: ({ id, taxRelevant }: { id: string; taxRelevant: boolean | null }) =>
-      apiClient.put(`/transactions/${id}`, { taxRelevant }),
+    mutationFn: async ({ id, taxRelevant }: { id: string; taxRelevant: boolean | null }) => {
+      await apiClient.put(`/transactions/${id}`, {
+        taxRelevant,
+      } satisfies ContractInput<'UpdateTransactionBody'>);
+    },
     onSuccess: refresh,
     onError: error => toast.error(getApiErrorMessage(error, t.saveError.value)),
   });
@@ -170,7 +133,7 @@ export function TaxYearView(): React.ReactElement {
         responseType: 'blob',
       })
       .then(response =>
-        saveBlob(response.data as Blob, `tax-pack_${year}${scope === 'all' ? '_all' : ''}.zip`),
+        saveBlob(blobOf(response), `tax-pack_${year}${scope === 'all' ? '_all' : ''}.zip`),
       )
       .catch(error => toast.error(getApiErrorMessage(error, t.downloadError.value)))
       .finally(() => setDownloading(null));

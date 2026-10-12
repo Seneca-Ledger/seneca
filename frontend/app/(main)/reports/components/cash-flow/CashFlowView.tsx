@@ -21,6 +21,7 @@ import { EmptyState } from '@/app/components/ui/EmptyState';
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 import { formatMoney } from '@/app/lib/format-money';
 import { PERIOD_PRESETS, presetRangeValues } from '../report-period-presets';
 import { CashFlowTreemap } from './CashFlowTreemap';
@@ -101,8 +102,8 @@ export function CashFlowView(): React.JSX.Element {
   const exportCsv = async () => {
     setExporting(true);
     try {
-      const response = await apiClient.get<string>(exportUrl, { responseType: 'blob' });
-      const url = URL.createObjectURL(response.data as unknown as Blob);
+      const response = await apiClient.get(exportUrl, { responseType: 'blob' });
+      const url = URL.createObjectURL(blobOf(response));
       const link = document.createElement('a');
       link.href = url;
       link.download = `cash-flow-${filters.from}-${filters.to}.csv`;

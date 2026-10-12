@@ -30,6 +30,7 @@ function result(overrides: Partial<UstvaResult> = {}): UstvaResult {
   return {
     unsupported: null,
     form: {
+      form: 'USt 1 A',
       year: 2026,
       sourceUrl: 'https://example.test/form',
       checkedAt: '2026-10-11',

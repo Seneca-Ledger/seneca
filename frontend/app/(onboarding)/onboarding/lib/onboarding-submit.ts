@@ -3,7 +3,7 @@ import type { OnboardingData } from '../useOnboardingWizard';
 import type { OnboardingMode } from './onboarding-flow';
 
 type RequestConfig = { headers?: Record<string, string> };
-type ApiResponse = Promise<{ data?: { id?: string; user?: unknown } }>;
+type ApiResponse = Promise<{ data: unknown }>;
 
 /** The slice of the api client this needs; a plain object in tests. */
 export interface OnboardingApi {

@@ -16,7 +16,7 @@ import {
   type PasteTotals,
   parseClipboardRows,
 } from '../utils/pasteUtils';
-import { getResponseItems } from '../utils/tableHelpers';
+import { toGridRow } from '../utils/tableHelpers';
 import type { CustomTablePageColumn } from '../utils/tableTypes';
 import {
   pickDefaultSheet,
@@ -70,21 +70,6 @@ function orderNewColumns(columns: NewColumn[]): NewColumn[] {
     visit(col, new Set());
   }
   return [...plain, ...ordered];
-}
-
-function extractBatchInsertResult(
-  response: { data?: Record<string, unknown> },
-  fallbackCount: number,
-): { normalizedRows: CustomTableGridRow[]; createdCount: number } {
-  const payload = (response.data || {}) as Record<string, unknown>;
-  const dataPayload = (payload.data || {}) as Record<string, unknown>;
-  const createdRows = payload.rows || dataPayload.rows || payload.items || dataPayload.items || [];
-  const normalizedRows = getResponseItems(createdRows);
-  const createdCount = (payload.created ??
-    dataPayload.created ??
-    normalizedRows.length ??
-    fallbackCount) as number;
-  return { normalizedRows, createdCount };
 }
 
 function isTabularText(text: string): boolean {
@@ -598,7 +583,12 @@ export function usePasteImport({
         const response = await apiClient.post(`/custom-tables/${tableId}/rows/batch`, {
           rows: chunk,
         } satisfies ContractInput<'BatchCreateCustomTableRowsBody'>);
-        created.push(...extractBatchInsertResult(response, chunk.length).normalizedRows);
+        const batch = await checkContract(
+          'CustomTableRowBatch',
+          response.data,
+          '/custom-tables/:id/rows/batch',
+        );
+        created.push(...batch.rows.map(toGridRow));
         setPasteProgress({ done: Math.min(index + CHUNK_SIZE, total), total });
       }
       if (pasteApplyTotals) {

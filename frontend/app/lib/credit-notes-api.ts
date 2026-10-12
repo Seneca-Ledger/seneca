@@ -1,4 +1,6 @@
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
+import type { XRechnungCheck } from '@/app/lib/contracts';
 import type { Client } from '@/app/lib/invoices-api';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
@@ -47,12 +49,8 @@ export interface CreateCreditNoteInput {
 const unwrapData = <T>(response: { data: T }) => response.data;
 
 export const creditNotesApi = {
-  async create(payload: CreateCreditNoteInput): Promise<CreditNote> {
-    const response = await apiClient.post<CreditNote>(
-      '/credit-notes',
-      payload satisfies ContractInput<'CreateCreditNoteBody'>,
-    );
-    return unwrapData(response);
+  async create(payload: CreateCreditNoteInput): Promise<void> {
+    await apiClient.post('/credit-notes', payload satisfies ContractInput<'CreateCreditNoteBody'>);
   },
 
   async forInvoice(invoiceId: string): Promise<CreditNote[]> {
@@ -61,16 +59,15 @@ export const creditNotesApi = {
   },
 
   /** Voids it: the money goes back on the invoices and the entry is reversed. */
-  async void(id: string): Promise<CreditNote> {
-    const response = await apiClient.delete<CreditNote>(`/credit-notes/${id}`);
-    return unwrapData(response);
+  async void(id: string): Promise<void> {
+    await apiClient.delete(`/credit-notes/${id}`);
   },
 
   async downloadPdf(id: string, fileName: string): Promise<void> {
-    const response = await apiClient.get<Blob>(`/credit-notes/${id}/pdf`, {
+    const response = await apiClient.get(`/credit-notes/${id}/pdf`, {
       responseType: 'blob',
     });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', fileName);
@@ -81,16 +78,19 @@ export const creditNotesApi = {
   },
 
   /** What the credit note, its client or the business profile still lack for an XRechnung. */
-  async checkXRechnung(id: string): Promise<{ missing: string[] }> {
-    return (await apiClient.get<{ missing: string[] }>(`/credit-notes/${id}/xrechnung/check`)).data;
+  async checkXRechnung(id: string): Promise<XRechnungCheck> {
+    const response = await apiClient.get(`/credit-notes/${id}/xrechnung/check`);
+    return checkContract('XRechnungCheck', response.data, '/credit-notes/:id/xrechnung/check');
   },
 
   /** The credit note as an XRechnung of type 381, naming the invoices it corrects. */
   async downloadXRechnung(id: string, fileName: string): Promise<void> {
-    const response = await apiClient.get<Blob>(`/credit-notes/${id}/xrechnung`, {
+    const response = await apiClient.get(`/credit-notes/${id}/xrechnung`, {
       responseType: 'blob',
     });
-    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/xml' }));
+    const url = window.URL.createObjectURL(
+      new Blob([blobOf(response)], { type: 'application/xml' }),
+    );
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', fileName);

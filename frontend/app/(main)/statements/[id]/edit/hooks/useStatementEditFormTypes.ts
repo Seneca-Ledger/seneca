@@ -72,8 +72,5 @@ export interface UseStatementEditFormReturn {
   handleBulkDelete: (confirmMessage: string) => Promise<void>;
   handleOpenBulkCategory: () => void;
   handleApplyBulkCategory: () => Promise<void>;
-  handleStatementCategorySelect: (
-    categoryId: string,
-    flattenedStatementCategories: { id: string; name: string }[],
-  ) => Promise<void>;
+  handleStatementCategorySelect: (categoryId: string) => Promise<void>;
 }

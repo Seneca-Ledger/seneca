@@ -39,7 +39,8 @@ export function BaseStorageWidget({ provider, locale }: BaseStorageWidgetProps) 
     await (async () => {
       setLoading(true);
       const res = await apiClient.get(`/integrations/${provider.apiPath}/status`);
-      setStatus(res.data);
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      setStatus(res.data as StorageStatus);
     })()
       .catch(async () => {
         toast.error(
@@ -61,7 +62,8 @@ export function BaseStorageWidget({ provider, locale }: BaseStorageWidgetProps) 
   const handleConnect = async (): Promise<void> => {
     return await (async () => {
       const res = await apiClient.get(`/integrations/${provider.apiPath}/connect`);
-      const url = res.data?.url;
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const url = (res.data as { url?: string } | null)?.url;
       if (!url) {
         toast.error(
           pt?.errors?.connectFailed?.value || `Failed to connect to ${provider.providerName}`,
@@ -130,7 +132,9 @@ export function BaseStorageWidget({ provider, locale }: BaseStorageWidgetProps) 
       const importResp = await apiClient.post(`/integrations/${provider.apiPath}/import`, {
         fileIds: docs.map(d => d.id),
       });
-      processResults(Array.isArray(importResp.data?.results) ? importResp.data.results : [], docs);
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const imported = importResp.data as { results?: ImportResult[] } | null;
+      processResults(Array.isArray(imported?.results) ? imported.results : [], docs);
       void loadStatus();
     })()
       .catch(async () => {

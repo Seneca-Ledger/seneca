@@ -14,6 +14,8 @@ import { Alert } from '@/app/components/ui/alert';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
+import type { BackupImportPreview } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
@@ -60,11 +62,7 @@ export function BackupSection() {
   const [password, setPassword] = useState('');
   const [importPassword, setImportPassword] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<{
-    importId: string;
-    workspaceName: string;
-    fileCount: number;
-  } | null>(null);
+  const [preview, setPreview] = useState<BackupImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +112,7 @@ export function BackupSection() {
     await (async () => {
       // The writable settings only: id, passwordConfigured and the last run are
       // the server's, and the API rejects fields it does not take.
-      const response = await apiClient.put<BackupConfig>('/backups/config', {
+      const response = await apiClient.put('/backups/config', {
         destinationKind: config.destinationKind,
         destinationPath: config.destinationPath,
         dailyTime: config.dailyTime,
@@ -162,7 +160,7 @@ export function BackupSection() {
       const response = await apiClient.get(`/backups/runs/${run.id}/download`, {
         responseType: 'blob',
       });
-      const url = URL.createObjectURL(response.data as Blob);
+      const url = URL.createObjectURL(blobOf(response));
       const link = document.createElement('a');
       link.href = url;
       link.download = `lumio-${run.id}.lumio-backup`;
@@ -185,21 +183,24 @@ export function BackupSection() {
       const body = new FormData();
       body.append('file', importFile);
       body.append('password', importPassword);
-      const response = await apiClient.post<{
-        importId: string;
-        workspaceName: string;
-        fileCount: number;
-      }>(
+      const response = await apiClient.post(
         restore ? `/backups/imports/${preview?.importId}/restore` : '/backups/import/preview',
         body,
       );
       if (restore) {
-        setMessage(t.messages.restored.value.replace('{name}', response.data.workspaceName));
+        const restored = await checkContract(
+          'BackupRestoreResult',
+          response.data,
+          '/backups/imports/:id/restore',
+        );
+        setMessage(t.messages.restored.value.replace('{name}', restored.workspaceName));
         setPreview(null);
         setImportFile(null);
         setImportPassword('');
       } else {
-        setPreview(response.data);
+        setPreview(
+          await checkContract('BackupImportPreview', response.data, '/backups/import/preview'),
+        );
       }
     })()
       .catch(async () => {
@@ -470,14 +471,14 @@ export function BackupSection() {
                 >
                   {importing
                     ? t.restoring.value
-                    : t.restoreAs.value.replace('{name}', preview.workspaceName)}
+                    : t.restoreAs.value.replace('{name}', preview.workspaceName ?? '—')}
                 </Button>
               ) : null}
             </Box>
             {preview ? (
               <Typography variant="body2" color="text.secondary">
                 {t.verified.value
-                  .replace('{name}', preview.workspaceName)
+                  .replace('{name}', preview.workspaceName ?? '—')
                   .replace('{count}', String(preview.fileCount))}
               </Typography>
             ) : null}

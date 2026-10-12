@@ -10,7 +10,7 @@ import type {
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 
 function buildLineItems(receipt: ReceiptRecord | null): EditableReceiptLineItem[] {
@@ -187,18 +187,6 @@ function usePreviewLoader(receipt: ReceiptRecord | null, setters: PreviewSetters
   }, [receipt]);
 }
 
-function extractApiData(
-  receiptRes: { data: unknown },
-  categoriesRes: { data: unknown },
-): { receipt: ReceiptRecord; categories: ReceiptCategoryOption[] } {
-  const rd = receiptRes.data as Record<string, unknown>;
-  const cd = categoriesRes.data as Record<string, unknown>;
-  return {
-    receipt: (rd.data || rd) as ReceiptRecord,
-    categories: (cd.data || cd || []) as ReceiptCategoryOption[],
-  };
-}
-
 function useLoadData(
   receiptId: string,
   setters: {
@@ -219,11 +207,10 @@ function useLoadData(
     setters.setError(null);
 
     await (async () => {
-      const [rr, cr] = await Promise.all([
-        apiClient.get(`/receipts/${receiptId}`),
-        apiClient.get('/categories'),
+      const [receipt, categories] = await Promise.all([
+        receiptsApi.getReceipt(receiptId),
+        apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }),
       ]);
-      const { receipt, categories } = extractApiData(rr, cr);
       setters.setReceipt(receipt);
       setters.setFormValue(buildInitialForm(receipt));
       setters.setCategories(categories);

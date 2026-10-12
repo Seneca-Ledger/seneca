@@ -24,6 +24,7 @@ import { EmptyState } from '@/app/components/ui/EmptyState';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import {
   formatStoredDateWithOptions,
@@ -249,12 +250,12 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
             variant="outlined"
             onClick={() => {
               void apiClient
-                .get<Blob>('/subscriptions/business-report', {
+                .get('/subscriptions/business-report', {
                   params: { format: 'csv' },
                   responseType: 'blob',
                 })
                 .then(response => {
-                  const url = URL.createObjectURL(response.data);
+                  const url = URL.createObjectURL(blobOf(response));
                   const link = document.createElement('a');
                   link.href = url;
                   link.download = 'business-subscriptions.csv';

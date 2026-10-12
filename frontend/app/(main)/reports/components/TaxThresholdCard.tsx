@@ -5,10 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
-import { apiQuery } from '@/app/lib/query-fn';
+import apiClient from '@/app/lib/api';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
-import { formatMoney, type ThresholdStatus } from './tax-return.helpers';
+import { formatMoney } from './tax-return.helpers';
 
 /**
  * Turnover against the VAT registration threshold. The server answers only
@@ -21,7 +22,12 @@ export function TaxThresholdCard(): React.ReactElement | null {
   const query = useQuery({
     queryKey: queryKeys.taxThreshold(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<ThresholdStatus | null>({ url: '/tax/settings/threshold', signal }),
+      apiClient
+        .get('/tax/settings/threshold', { signal })
+        // No status (not a business, or registered already): null, sent as an empty body.
+        .then(response =>
+          checkContract('TaxThresholdStatus', response.data || null, '/tax/settings/threshold'),
+        ),
     enabled: Boolean(workspaceId),
   });
   const status = query.data;

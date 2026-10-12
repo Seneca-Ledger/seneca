@@ -80,11 +80,12 @@ export function useStoicBalance(): {
   });
 
   const classify = useMutation({
-    mutationFn: ({ categoryId, ...changes }: CategoryJudgment) =>
-      apiClient.put(
+    mutationFn: async ({ categoryId, ...changes }: CategoryJudgment) => {
+      await apiClient.put(
         `/categories/${categoryId}`,
         changes satisfies ContractInput<'UpdateCategoryBody'>,
-      ),
+      );
+    },
     onError: error => toast.error(getApiErrorMessage(error, 'Failed to save')),
     onSettled: () =>
       Promise.all([

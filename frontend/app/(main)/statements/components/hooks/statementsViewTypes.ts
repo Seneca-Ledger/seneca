@@ -3,6 +3,7 @@ import type { ReadonlyURLSearchParams } from 'next/navigation';
 import type { RefObject } from 'react';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { usePullToRefresh } from '@/app/hooks/usePullToRefresh';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { StatementExpenseMode } from '@/app/lib/statement-expense-drawer';
 import type { useManualExpenseOptions } from './useManualExpenseOptions';
 import type { useStatementPreview } from './useStatementPreview';
@@ -50,19 +51,7 @@ export interface StatementsStatement {
     avatarUrl?: string | null;
   } | null;
   errorMessage?: string | null;
-  parsingDetails?: {
-    logEntries?: Array<{ timestamp: string; level: string; message: string }>;
-    detectedBy?: string;
-    parserUsed?: string;
-    importPreview?: {
-      source?: string;
-      merchant?: string;
-      attachments?: number;
-      description?: string;
-      categoryId?: string;
-    };
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
   gmailMessageId?: string;
   receivedAt?: string;
   parsedData?: {

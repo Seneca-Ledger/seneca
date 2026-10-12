@@ -1,20 +1,10 @@
-import { Body, Controller, Get, Put } from '@nestjs/common';
-import { IsBoolean, IsIn, IsISO8601 } from 'class-validator';
+import { Controller, Get, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { FiledElsewhereBody } from '../../contracts';
 import { TaxDeadlinesService } from './tax-deadlines.service';
-
-class FiledElsewhereDto {
-  @IsIn(['vat_return', 'income_tax'])
-  kind: 'vat_return' | 'income_tax';
-
-  @IsISO8601({ strict: true })
-  periodEnd: string;
-
-  @IsBoolean()
-  filed: boolean;
-}
 
 @Controller('tax')
 export class TaxDeadlinesController {
@@ -30,7 +20,10 @@ export class TaxDeadlinesController {
   /** "I filed this one outside Lumio": stops its reminders. */
   @Put('deadlines/filed-elsewhere')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  async setFiledElsewhere(@WorkspaceId() workspaceId: string, @Body() dto: FiledElsewhereDto) {
+  async setFiledElsewhere(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(FiledElsewhereBody) dto: FiledElsewhereBody,
+  ) {
     await this.deadlinesService.setFiledElsewhere(workspaceId, dto.kind, dto.periodEnd, dto.filed);
     return this.deadlinesService.getUpcoming(workspaceId);
   }

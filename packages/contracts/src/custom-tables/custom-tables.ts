@@ -226,3 +226,11 @@ export const ConvertedToStatement = Schema.Struct({
   warnings: Schema.Array(Schema.String),
 });
 export type ConvertedToStatement = Wire<typeof ConvertedToStatement>;
+
+/** `POST /custom-tables/:id/rows/batch`: the rows as created. */
+export const CustomTableRowBatch = Schema.Struct({
+  ok: Schema.Boolean,
+  created: Schema.Number,
+  rows: Schema.Array(CustomTableRowItem),
+});
+export type CustomTableRowBatch = Wire<typeof CustomTableRowBatch>;

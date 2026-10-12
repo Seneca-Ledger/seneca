@@ -265,3 +265,50 @@ export const PublicInvoiceView = Schema.Struct({
   ),
 });
 export type PublicInvoiceView = Wire<typeof PublicInvoiceView>;
+
+/** `POST /invoices`: the row as stored; the page reads it back whole by its id. */
+export const InvoiceCreated = Schema.Struct({ id: Schema.String });
+export type InvoiceCreated = Wire<typeof InvoiceCreated>;
+
+/** `POST /invoices/:id/remind`. */
+export const InvoiceReminderResult = Schema.Struct({
+  sent: Schema.Boolean,
+  to: Schema.String,
+  reminderCount: Schema.Number,
+});
+export type InvoiceReminderResult = Wire<typeof InvoiceReminderResult>;
+
+/**
+ * `GET /invoices/:id/xrechnung/check` and `GET /credit-notes/:id/xrechnung/check`:
+ * what the document, its client or the business profile still lack.
+ */
+export const XRechnungCheck = Schema.Struct({
+  missing: Schema.Array(
+    Schema.Literals([
+      'number',
+      'buyer_reference',
+      'seller_name',
+      'seller_street',
+      'seller_postal_code',
+      'seller_city',
+      'seller_country',
+      'seller_vat_or_tax_number',
+      'seller_vat_id',
+      'seller_contact',
+      'seller_phone',
+      'seller_email',
+      'seller_iban',
+      'buyer_name',
+      'buyer_street',
+      'buyer_postal_code',
+      'buyer_city',
+      'buyer_country',
+      'buyer_email',
+      'buyer_vat_id',
+      'delivery_date',
+      'lines',
+      'line_tax_rate',
+    ]),
+  ),
+});
+export type XRechnungCheck = Wire<typeof XRechnungCheck>;
