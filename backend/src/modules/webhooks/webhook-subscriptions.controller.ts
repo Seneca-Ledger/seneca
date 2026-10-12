@@ -1,13 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { CreateWebhookSubscriptionBody, UpdateWebhookSubscriptionBody } from '../../contracts';
 import { User } from '../../entities/user.entity';
 import { WebhookEvent } from '../../entities/webhook-subscription.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateWebhookSubscriptionDto } from './dto/create-webhook-subscription.dto';
-import { UpdateWebhookSubscriptionDto } from './dto/update-webhook-subscription.dto';
 import { WebhookDeliveryService } from './services/webhook-delivery.service';
 import { WebhookDispatcherService } from './services/webhook-dispatcher.service';
 import { WebhookSubscriptionsService } from './services/webhook-subscriptions.service';
@@ -25,7 +25,7 @@ export class WebhookSubscriptionsController {
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
   async create(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateWebhookSubscriptionDto,
+    @SchemaBody(CreateWebhookSubscriptionBody) dto: CreateWebhookSubscriptionBody,
     @CurrentUser() user: User,
   ) {
     return this.service.create(workspaceId, dto, user.id); // secret returned only on creation
@@ -50,7 +50,7 @@ export class WebhookSubscriptionsController {
   async update(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpdateWebhookSubscriptionDto,
+    @SchemaBody(UpdateWebhookSubscriptionBody) dto: UpdateWebhookSubscriptionBody,
     @CurrentUser() user: User,
   ) {
     const { secret, ...rest } = await this.service.update(id, workspaceId, dto, user.id);

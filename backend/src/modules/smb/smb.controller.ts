@@ -1,10 +1,11 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { ConfirmReconciliationBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ConfirmReconciliationDto } from './dto/confirm-reconciliation.dto';
 import { SmbService } from './smb.service';
 
 @Controller('reconciliation')
@@ -37,7 +38,7 @@ export class ReconciliationController {
   async confirm(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Body() dto: ConfirmReconciliationDto,
+    @SchemaBody(ConfirmReconciliationBody) dto: ConfirmReconciliationBody,
   ) {
     return this.smbService.confirm(workspaceId, user.id, dto.payableId, dto.transactionId);
   }

@@ -141,7 +141,7 @@ export type StatementLike = {
       merchant?: string;
       categoryId?: string;
     };
-  };
+  } | null;
 };
 
 export type DuplicateGroupTone = 'sky' | 'blue' | 'indigo' | 'slate' | 'zinc' | 'stone';
@@ -157,7 +157,7 @@ type ReceiptDerivedStatementCandidate = {
     importPreview?: {
       source?: string;
     };
-  };
+  } | null;
 };
 
 type StatementViewCandidate = {
@@ -207,7 +207,7 @@ type StatementCurrencyLike = {
   currency?: string | null;
   parsingDetails?: {
     metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  };
+  } | null;
 };
 
 // eslint-disable-next-line complexity
@@ -776,7 +776,7 @@ interface StatementForCurrencyOptions {
   currency?: string | null;
   parsingDetails?: {
     metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  };
+  } | null;
 }
 
 export const buildCurrencyOptions = (stagedStatements: StatementForCurrencyOptions[]): string[] => {

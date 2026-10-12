@@ -22,7 +22,9 @@ export class EffectSchemaPipe<S extends Schema.Top> implements PipeTransform<unk
   }
 
   transform(value: unknown): S['Type'] {
-    const exit = this.decode(value);
+    // A request without a body reaches the pipe as undefined (Express 5); the
+    // DTOs read that as an empty object, so an all-optional body still passes.
+    const exit = this.decode(value === undefined ? {} : value);
     if (Exit.isSuccess(exit)) {
       return exit.value;
     }

@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   HttpCode,
@@ -14,8 +13,18 @@ import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
+import type { CurrentUser as CurrentUserView } from '../../contracts';
+import {
+  ForgotPasswordBody,
+  LoginBody,
+  RegisterBody,
+  ResetPasswordBody,
+  TwoFactorCodeBody,
+  TwoFactorPasswordBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { AuthService, type SessionContext } from './auth.service';
 import {
@@ -24,13 +33,10 @@ import {
   setAuthCookies,
   setCsrfCookie,
 } from './auth-cookies';
+import { toCurrentUser } from './current-user.view';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import type { AuthResponseDto, TwoFactorChallengeDto } from './dto/auth-response.dto';
-import { LoginDto } from './dto/login.dto';
-import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
-import { RegisterDto } from './dto/register.dto';
-import { TwoFactorCodeDto, TwoFactorPasswordDto } from './dto/two-factor.dto';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { PasswordResetService } from './password-reset.service';
 import type { TwoFactorSetupDto, TwoFactorStatusDto } from './two-factor.service';
@@ -75,7 +81,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
-    @Body() registerDto: RegisterDto,
+    @SchemaBody(RegisterBody) registerDto: RegisterBody,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ user: AuthResponseDto['user'] }> {
@@ -90,7 +96,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
-    @Body() loginDto: LoginDto,
+    @SchemaBody(LoginBody) loginDto: LoginBody,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ user: AuthResponseDto['user'] } | TwoFactorChallengeDto> {
@@ -116,7 +122,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async setupTwoFactor(
     @CurrentUser() user: User,
-    @Body() dto: TwoFactorPasswordDto,
+    @SchemaBody(TwoFactorPasswordBody) dto: TwoFactorPasswordBody,
   ): Promise<TwoFactorSetupDto> {
     return this.twoFactorService.setup(user.id, dto.password);
   }
@@ -127,7 +133,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async enableTwoFactor(
     @CurrentUser() user: User,
-    @Body() dto: TwoFactorCodeDto,
+    @SchemaBody(TwoFactorCodeBody) dto: TwoFactorCodeBody,
   ): Promise<{ recoveryCodes: string[] }> {
     return this.twoFactorService.enable(user.id, dto.code);
   }
@@ -137,7 +143,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async disableTwoFactor(
     @CurrentUser() user: User,
-    @Body() dto: TwoFactorPasswordDto,
+    @SchemaBody(TwoFactorPasswordBody) dto: TwoFactorPasswordBody,
   ): Promise<{ message: string }> {
     await this.twoFactorService.disable(user.id, dto.password);
     return { message: 'Two-factor authentication disabled' };
@@ -148,7 +154,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async regenerateRecoveryCodes(
     @CurrentUser() user: User,
-    @Body() dto: TwoFactorPasswordDto,
+    @SchemaBody(TwoFactorPasswordBody) dto: TwoFactorPasswordBody,
   ): Promise<{ recoveryCodes: string[] }> {
     return this.twoFactorService.regenerateRecoveryCodes(user.id, dto.password);
   }
@@ -163,7 +169,9 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
+  async forgotPassword(
+    @SchemaBody(ForgotPasswordBody) dto: ForgotPasswordBody,
+  ): Promise<{ message: string }> {
     await this.passwordResetService.requestReset(dto.email);
     return { message: 'If that address has an account, a reset link is on its way.' };
   }
@@ -174,7 +182,7 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(
-    @Body() dto: ResetPasswordDto,
+    @SchemaBody(ResetPasswordBody) dto: ResetPasswordBody,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
     await this.passwordResetService.resetPassword(dto.token, dto.newPassword);
@@ -258,7 +266,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getProfile(@CurrentUser() user: User): Promise<User> {
-    return user;
+  async getProfile(@CurrentUser() user: User): Promise<CurrentUserView> {
+    return toCurrentUser(user);
   }
 }

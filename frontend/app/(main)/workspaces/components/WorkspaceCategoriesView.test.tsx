@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { categoryItem } from '@/app/test/fixtures/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -106,22 +107,22 @@ describe('WorkspaceCategoriesView', () => {
       if (url === '/categories') {
         return Promise.resolve({
           data: [
-            {
+            categoryItem({
               id: 'cat-parsing',
               name: 'Kaspi Delivery',
               type: 'expense',
               isSystem: false,
               isEnabled: true,
               source: 'parsing',
-            },
-            {
+            }),
+            categoryItem({
               id: 'cat-system',
               name: 'Taxes',
               type: 'expense',
               isSystem: true,
               isEnabled: true,
               source: 'system',
-            },
+            }),
           ],
         });
       }
@@ -155,22 +156,22 @@ describe('WorkspaceCategoriesView', () => {
       if (url === '/categories') {
         return Promise.resolve({
           data: [
-            {
+            categoryItem({
               id: 'cat-system',
               name: 'Аренда',
               type: 'expense',
               isSystem: true,
               isEnabled: true,
               source: 'system',
-            },
-            {
+            }),
+            categoryItem({
               id: 'cat-parsing',
               name: 'Зарплаты сотрудникам',
               type: 'expense',
               isSystem: false,
               isEnabled: true,
               source: 'parsing',
-            },
+            }),
           ],
         });
       }

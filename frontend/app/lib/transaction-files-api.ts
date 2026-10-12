@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 export interface TransactionTag {
   id: string;
@@ -15,32 +16,32 @@ export interface TransactionAttachment {
   createdAt: string;
 }
 
-const unwrap = <T>(response: { data: unknown }): T => {
-  const payload = response.data as { data?: T } | T;
-  return (payload as { data?: T })?.data ?? (payload as T);
-};
-
 export const transactionFilesApi = {
   /** The workspace-wide tag vocabulary, shared with statements and files. */
   async listWorkspaceTags(): Promise<TransactionTag[]> {
-    const response = await apiClient.get('/storage/tags');
-    return unwrap<TransactionTag[]>(response) ?? [];
+    return apiQueryDecoded({ url: '/storage/tags', contract: 'StorageTagList' });
   },
 
   async getTags(transactionId: string): Promise<TransactionTag[]> {
-    const response = await apiClient.get(`/transactions/${transactionId}/tags`);
-    return unwrap<TransactionTag[]>(response) ?? [];
+    return apiQueryDecoded({
+      url: `/transactions/${transactionId}/tags`,
+      contract: 'StorageTagList',
+    });
   },
 
   /** Sends the complete desired tag set — the server replaces, it does not merge. */
   async setTags(transactionId: string, tagIds: string[]): Promise<TransactionTag[]> {
-    const response = await apiClient.put(`/transactions/${transactionId}/tags`, { tagIds });
-    return unwrap<TransactionTag[]>(response) ?? [];
+    const response = await apiClient.put(`/transactions/${transactionId}/tags`, {
+      tagIds,
+    } satisfies ContractInput<'SetTransactionTagsBody'>);
+    return checkContract('StorageTagList', response.data, '/transactions/:id/tags');
   },
 
   async listAttachments(transactionId: string): Promise<TransactionAttachment[]> {
-    const response = await apiClient.get(`/transactions/${transactionId}/attachments`);
-    return unwrap<TransactionAttachment[]>(response) ?? [];
+    return apiQueryDecoded({
+      url: `/transactions/${transactionId}/attachments`,
+      contract: 'TransactionAttachmentList',
+    });
   },
 
   async uploadAttachment(transactionId: string, file: File): Promise<TransactionAttachment> {
@@ -49,7 +50,7 @@ export const transactionFilesApi = {
     const response = await apiClient.post(`/transactions/${transactionId}/attachments`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return unwrap<TransactionAttachment>(response);
+    return checkContract('TransactionAttachment', response.data, '/transactions/:id/attachments');
   },
 
   async downloadAttachment(attachmentId: string): Promise<Blob> {

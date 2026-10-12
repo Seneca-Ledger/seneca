@@ -1,60 +1,84 @@
-// Subpath imports only: `import { Schema } from 'effect'` pulls the whole
-// barrel. Even so, the decoder is ~67 kB gzip in the webpack build, so it stays
-// out of modules every page loads and ships only with routes that decode.
-import * as Exit from 'effect/Exit';
-import * as Schema from 'effect/Schema';
-import * as SchemaIssue from 'effect/SchemaIssue';
+import type * as Schema from 'effect/Schema';
+import type * as Contracts from './contracts';
+import type { Wire, WireInput } from './contracts';
 import { type ApiQueryOptions, apiQuery } from './query-fn';
 
-/** The API answered with something its contract in packages/contracts does not describe. */
-export class ContractMismatchError extends Error {
-  constructor(
-    readonly url: string,
-    readonly issues: string[],
-  ) {
-    super(`Response from ${url} does not match its contract:\n${issues.join('\n')}`);
-    this.name = 'ContractMismatchError';
-  }
-}
+type ContractSchemas = typeof Contracts;
+/** The contracts in packages/contracts that are schemas (not their types). */
+export type ContractName = {
+  [K in keyof ContractSchemas]: ContractSchemas[K] extends Schema.Top ? K : never;
+}[keyof ContractSchemas];
+export type ContractType<K extends ContractName> = Wire<ContractSchemas[K]>;
+/** What a client sends for request-body contract K: its encoded side. */
+export type ContractInput<K extends ContractName> = WireInput<ContractSchemas[K]>;
 
-const toIssues = SchemaIssue.makeFormatterStandardSchemaV1();
+export { ContractMismatchError } from './contract-error';
 
 /**
- * Checks an API payload against its contract. Extra fields pass through
- * untouched, so the backend can add one before the frontend knows it. A mismatch throws in
- * development and tests, where it can be fixed; in production the payload is
- * logged and passed through as before, so drift degrades instead of breaking
- * the page.
+ * Types an API payload by its contract, and in development, tests and e2e also
+ * checks it, throwing ContractMismatchError on drift. Production skips the
+ * check: the branch, the dynamic import and with them effect (~67 kB gzip) are
+ * compiled out, and the payload passes through as before. Contracts describe
+ * the wire format without transformations, so the payload is the value.
  */
-export function decodeResponse<A>(
-  schema: Schema.Codec<A, unknown>,
+export async function checkContract<K extends ContractName>(
+  name: K,
   payload: unknown,
   url: string,
-): A {
-  const exit = Schema.decodeUnknownExit(schema, { errors: 'all' })(payload);
-  if (Exit.isSuccess(exit)) {
-    // Contracts describe the wire format without transformations, so the
-    // payload itself is the decoded value, and keeps the fields decoding drops.
-    return payload as A;
-  }
-  const failure = exit.cause.reasons.find(reason => reason._tag === 'Fail')?.error;
-  const issues = Schema.isSchemaError(failure)
-    ? toIssues(failure.issue).issues.map(
-        issue => `${issue.path?.join('.') ?? ''}: ${issue.message}`,
-      )
-    : [String(failure)];
-  const error = new ContractMismatchError(url, issues);
+): Promise<ContractType<K>> {
   if (process.env.NODE_ENV !== 'production') {
-    throw error;
+    const { assertMatchesContract } = await import('./contract-check');
+    assertMatchesContract(name, payload, url);
   }
-  console.error(error);
-  return payload as A;
+  return payload as ContractType<K>;
 }
 
-/** `apiQuery` whose result is checked against a contract schema. */
-export async function apiQueryDecoded<A>(
-  options: ApiQueryOptions & { schema: Schema.Codec<A, unknown> },
-): Promise<A> {
-  const { schema, ...query } = options;
-  return decodeResponse(schema, await apiQuery<unknown>(query), query.url);
+/**
+ * A request body the code cannot type statically (built from loose records):
+ * outside production it is checked against its contract before it is sent, so
+ * a field the API would reject fails in development and tests, not as a 400.
+ */
+export async function checkBody<K extends ContractName>(
+  name: K,
+  body: unknown,
+  url: string,
+): Promise<ContractInput<K>> {
+  if (process.env.NODE_ENV !== 'production') {
+    const { assertMatchesContract } = await import('./contract-check');
+    assertMatchesContract(name, body, url, 'error');
+  }
+  return body as ContractInput<K>;
+}
+
+/**
+ * checkContract for requests whose failure handling would mislead on drift —
+ * the session load signs the user out, the workspace load blanks the app.
+ * Outside production a mismatch is logged instead of thrown.
+ */
+export async function reportContractDrift<K extends ContractName>(
+  name: K,
+  payload: unknown,
+  url: string,
+): Promise<ContractType<K>> {
+  try {
+    return await checkContract(name, payload, url);
+  } catch (error) {
+    console.error(error);
+    return payload as ContractType<K>;
+  }
+}
+
+/**
+ * `apiQuery` whose result is typed, and outside production checked, by a
+ * contract. `drift: 'report'` logs a mismatch instead of throwing — for
+ * background feeds, where a thrown error would only leave an empty list.
+ */
+export async function apiQueryDecoded<K extends ContractName>(
+  options: ApiQueryOptions & { contract: K; drift?: 'throw' | 'report' },
+): Promise<ContractType<K>> {
+  const { contract, drift = 'throw', ...query } = options;
+  const payload = await apiQuery<unknown>(query);
+  return drift === 'report'
+    ? reportContractDrift(contract, payload, query.url)
+    : checkContract(contract, payload, query.url);
 }

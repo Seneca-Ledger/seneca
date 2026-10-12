@@ -1,11 +1,13 @@
 /// <reference types="jest" />
 
+import { UnrecoverableError } from 'bullmq';
 import { StatementStatus } from '@/entities/statement.entity';
 import {
   MAX_PARSING_ATTEMPTS,
   StaleStatementReaper,
   StatementParsingProcessor,
 } from '@/modules/parsing/queue/statement-parsing.processor';
+import { StatementRejected } from '@/modules/parsing/services/statement-processing.service';
 
 describe('StatementParsingProcessor', () => {
   const statementRepository = {
@@ -17,6 +19,10 @@ describe('StatementParsingProcessor', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
+  /** A job on its (attemptsMade + 1)th try out of the 3 the queue allows. */
+  const job = (attemptsMade: number) =>
+    ({ data: { statementId: 'stmt-1' }, attemptsMade, opts: { attempts: 3 } }) as never;
+
   const processor = () =>
     new StatementParsingProcessor(
       statementRepository as never,
@@ -24,21 +30,42 @@ describe('StatementParsingProcessor', () => {
     );
 
   it('counts the attempt before parsing so a crash still leaves a trace', async () => {
-    await processor().process({ data: { statementId: 'stmt-1' }, attemptsMade: 0 } as never);
+    await processor().process(job(0));
 
     expect(statementRepository.increment).toHaveBeenCalledWith(
       { id: 'stmt-1' },
       'parsingAttempts',
       1,
     );
-    expect(statementProcessingService.processStatement).toHaveBeenCalledWith('stmt-1');
+    expect(statementProcessingService.processStatement).toHaveBeenCalledWith('stmt-1', {
+      finalAttempt: false,
+    });
+  });
+
+  it('marks the last of the queue attempts as final', async () => {
+    await processor().process(job(2));
+
+    expect(statementProcessingService.processStatement).toHaveBeenCalledWith('stmt-1', {
+      finalAttempt: true,
+    });
+  });
+
+  it('stops retrying a statement no attempt can parse', async () => {
+    statementProcessingService.processStatement.mockRejectedValueOnce(
+      new StatementRejected({ message: 'No parser found for bank other' }) as never,
+    );
+
+    const failure = processor().process(job(0));
+
+    await expect(failure).rejects.toBeInstanceOf(UnrecoverableError);
+    await expect(failure).rejects.toThrow('No parser found for bank other');
   });
 
   it('propagates failures so the queue retries with backoff', async () => {
     statementProcessingService.processStatement.mockRejectedValueOnce(new Error('parser blew up'));
 
     await expect(
-      processor().process({ data: { statementId: 'stmt-1' }, attemptsMade: 1 } as never),
+      processor().process(job(1)),
     ).rejects.toThrow('parser blew up');
   });
 });

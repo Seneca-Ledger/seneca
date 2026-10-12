@@ -46,7 +46,7 @@ import {
   mapChainTransfers,
   mapWalletBalances,
 } from './crypto-transfer.mapper';
-import { isTransient, MAX_ATTEMPTS, retryWaitMs, sleep } from './retry.util';
+import { fetchJsonWithRetry } from './retry.util';
 import { SolanaRpcClient } from './solana-rpc.client';
 import { mapSolanaBalances, mapSolanaTransfers } from './solana-transfer.mapper';
 import { TronGridClient } from './tron-grid.client';
@@ -594,28 +594,12 @@ export class CryptoSyncService {
       throw new Error(`No block explorer for chain ${chainId}`);
     }
     const query = new URLSearchParams(params).toString();
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-      const response = await fetch(`${baseUrl}?${query}`).catch(() => null);
-
-      if (response?.ok) {
-        return (await response.json()) as ExplorerResponse;
-      }
-
-      const wait = isTransient(response) ? retryWaitMs(response, attempt) : null;
-      if (wait === null || attempt === MAX_ATTEMPTS - 1) {
-        throw new Error(
-          response
-            ? `Block explorer returned HTTP ${response.status}`
-            : 'Block explorer is unreachable',
-        );
-      }
-
-      this.logger.warn(`Block explorer returned ${response?.status}, retrying in ${wait}ms`);
-      await sleep(wait);
-    }
-
-    throw new Error('Block explorer is unreachable');
+    return fetchJsonWithRetry<ExplorerResponse>(
+      `${baseUrl}?${query}`,
+      {},
+      'Block explorer',
+      message => this.logger.warn(message),
+    );
   }
 }
 

@@ -5,39 +5,39 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type {
+  SubscriptionChargeCalendar as ChargeCalendarContract,
+  SubscriptionItem as SubscriptionRow,
+  SubscriptionSummary as SummaryContract,
+} from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { guessVendorDomain } from '../components/vendor-domain.utils';
 
-export interface SubscriptionItem {
-  id: string;
-  vendorName: string;
-  vendorRaw: string | null;
-  vendorDomain: string | null;
+export type SubscriptionChargeCalendar = ChargeCalendarContract;
+export type SubscriptionSummary = SummaryContract;
+
+/**
+ * A subscription as the page uses it. The API sends the money columns as
+ * decimal strings; they are turned into numbers once, when the list loads.
+ */
+export type SubscriptionItem = Omit<
+  SubscriptionRow,
+  'amount' | 'realizedAnnualSavings' | 'confidence'
+> & {
   amount: number;
-  currency: string;
-  frequency: 'weekly' | 'monthly' | 'quarterly' | 'annual';
-  status: 'detected' | 'active' | 'paused' | 'cancelled';
-  ownerId: string | null;
-  owner: { id: string; name: string | null; email: string | null } | null;
-  reviewAt: string | null;
-  reviewStatus: 'current' | 'needs_review';
-  riskStatus: 'none' | 'price_changed' | 'date_shifted' | 'missing_charge';
-  cancellationReason: string | null;
   realizedAnnualSavings: number;
   confidence: number | null;
-  nextChargeDate: string | null;
-  lastChargeDate: string | null;
-  categoryId: string | null;
-  category: { id: string; name: string } | null;
-  detectionMeta: Record<string, unknown> | null;
-  createdAt: string;
-  usageCount?: number;
-  usageSince?: string | null;
-  lastUsedAt?: string | null;
-  sinkingGoalId?: string | null;
-  /** Computed by the API from the taps since the counter started; null until the first tap. */
-  costPerUse?: number | null;
+};
+
+export function normalizeSubscription(row: SubscriptionRow): SubscriptionItem {
+  return {
+    ...row,
+    amount: Number(row.amount),
+    realizedAnnualSavings: Number(row.realizedAnnualSavings),
+    confidence: row.confidence === null ? null : Number(row.confidence),
+  };
 }
 
 export interface SubscriptionPriceChange {
@@ -51,31 +51,6 @@ export interface SubscriptionPriceChange {
 export function priceChangeOf(subscription: SubscriptionItem): SubscriptionPriceChange | null {
   const change = subscription.detectionMeta?.priceChange as SubscriptionPriceChange | undefined;
   return change && typeof change.current === 'number' ? change : null;
-}
-
-export interface SubscriptionSummary {
-  totalMonthlyCost: number;
-  activeCount: number;
-  upcomingCount: number;
-  upcoming30DaysCount: number;
-  priceChangeCount: number;
-  priceChangeYearlyEffect?: number;
-  duplicateCount?: number;
-  overdueReviewCount: number;
-  realizedAnnualSavings: number;
-}
-
-export interface SubscriptionChargeCalendar {
-  currency: string | null;
-  months: string[];
-  monthTotals: number[];
-  rows: {
-    subscriptionId: string;
-    vendorName: string;
-    vendorDomain: string | null;
-    amounts: number[];
-    kind?: 'subscription' | 'payable' | 'invoice';
-  }[];
 }
 
 export interface SubscriptionWorkspaceMember {
@@ -110,6 +85,8 @@ const EMPTY_SUMMARY: SubscriptionSummary = {
   upcomingCount: 0,
   upcoming30DaysCount: 0,
   priceChangeCount: 0,
+  priceChangeYearlyEffect: 0,
+  duplicateCount: 0,
   overdueReviewCount: 0,
   realizedAnnualSavings: 0,
 };
@@ -142,11 +119,12 @@ export function useSubscriptionsPage() {
   const listQuery = useQuery({
     queryKey: queryKeys.subscriptions({ workspaceId, status: statusFilter }),
     queryFn: ({ signal }) =>
-      apiQuery<SubscriptionItem[]>({
+      apiQueryDecoded({
         url: '/subscriptions',
         params: statusFilter !== 'all' ? { status: statusFilter } : undefined,
         signal,
-      }),
+        contract: 'SubscriptionList',
+      }).then(rows => rows.map(normalizeSubscription)),
     // Смена фильтра статуса не должна стирать список: старые карточки живут на
     // экране до прихода новых, но только внутри того же воркспейса.
     placeholderData: (previous, previousQuery) =>
@@ -156,7 +134,7 @@ export function useSubscriptionsPage() {
   const summaryQuery = useQuery({
     queryKey: queryKeys.subscriptionsSummary(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<SubscriptionSummary>({ url: '/subscriptions/summary', signal }),
+      apiQueryDecoded({ url: '/subscriptions/summary', signal, contract: 'SubscriptionSummary' }),
   });
 
   // Deliberately not derived from `listQuery`: the calendar shows the whole
@@ -166,10 +144,11 @@ export function useSubscriptionsPage() {
   const calendarQuery = useQuery({
     queryKey: queryKeys.subscriptionsChargeCalendar({ workspaceId, months: CALENDAR_MONTHS }),
     queryFn: ({ signal }) =>
-      apiQuery<SubscriptionChargeCalendar>({
+      apiQueryDecoded({
         url: '/subscriptions/charge-calendar',
         params: { months: CALENDAR_MONTHS },
         signal,
+        contract: 'SubscriptionChargeCalendar',
       }),
   });
 
@@ -200,10 +179,12 @@ export function useSubscriptionsPage() {
 
   useEffect(() => {
     if (!currentWorkspace?.id) return;
-    void apiClient
-      .get(`/workspaces/${currentWorkspace.id}`)
-      .then(res => {
-        setWorkspaceMembers(res.data?.members ?? []);
+    void apiQueryDecoded({
+      url: `/workspaces/${currentWorkspace.id}`,
+      contract: 'WorkspaceDetail',
+    })
+      .then(workspace => {
+        setWorkspaceMembers(workspace.members);
       })
       .catch(() => setWorkspaceMembers([]));
   }, [currentWorkspace?.id]);
@@ -252,8 +233,14 @@ export function useSubscriptionsPage() {
       .mutateAsync({
         run: () =>
           editingId
-            ? apiClient.put(`/subscriptions/${editingId}`, payload)
-            : apiClient.post('/subscriptions', payload),
+            ? apiClient.put(
+                `/subscriptions/${editingId}`,
+                payload satisfies ContractInput<'UpdateSubscriptionBody'>,
+              )
+            : apiClient.post(
+                '/subscriptions',
+                payload satisfies ContractInput<'CreateSubscriptionBody'>,
+              ),
         success: editingId ? text.toastUpdated.value : text.toastCreated.value,
         failure: text.toastSaveFailed.value,
       })
@@ -306,7 +293,10 @@ export function useSubscriptionsPage() {
   const assignOwner = useCallback(
     async (id: string, ownerId: string) => {
       rowMutation.mutate({
-        run: () => apiClient.patch(`/subscriptions/${id}/owner`, { ownerId }),
+        run: () =>
+          apiClient.patch(`/subscriptions/${id}/owner`, {
+            ownerId,
+          } satisfies ContractInput<'AssignSubscriptionOwnerBody'>),
         success: text.toastOwnerAssigned.value,
         failure: text.toastOwnerAssignFailed.value,
       });
@@ -317,9 +307,10 @@ export function useSubscriptionsPage() {
   const duplicatesQuery = useQuery({
     queryKey: queryKeys.subscriptionsDuplicates(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<Array<{ key: string; items: Array<{ id: string }> }>>({
+      apiQueryDecoded({
         url: '/subscriptions/duplicates',
         signal,
+        contract: 'SubscriptionDuplicateGroups',
       }),
     enabled: Boolean(workspaceId),
   });
@@ -357,7 +348,11 @@ export function useSubscriptionsPage() {
       values: { note?: string; reviewAt?: string; realizedAnnualSavings?: number } = {},
     ) => {
       rowMutation.mutate({
-        run: () => apiClient.post(`/subscriptions/${id}/decisions`, { decision, ...values }),
+        run: () =>
+          apiClient.post(`/subscriptions/${id}/decisions`, {
+            decision,
+            ...values,
+          } satisfies ContractInput<'RecordSubscriptionDecisionBody'>),
         success: text.toastDecisionSaved.value,
         failure: text.toastDecisionFailed.value,
       });

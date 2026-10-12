@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { offerAction } from './offer-action-toast';
 import type { PayeeRef } from './types';
 import { fetchPendingReview } from './usePayees';
@@ -43,7 +44,7 @@ export function useOfferPayeeQueue() {
           void apiClient
             .post('/transactions/bulk-update', {
               items: rest.map(id => ({ id, updates: { categoryId } })),
-            })
+            } satisfies ContractInput<'BulkUpdateRequestBody'>)
             .then(async () => {
               toast.success(fill(appliedText, { count: rest.length }));
               await Promise.all([

@@ -5,6 +5,8 @@ import type {
   SubscriptionItem,
   SubscriptionSummary,
 } from '../hooks/useSubscriptionsPage';
+import { normalizeSubscription } from '../hooks/useSubscriptionsPage';
+import { subscriptionRow } from '@/app/test/fixtures/contracts';
 import { SubscriptionsContent } from './SubscriptionsContent';
 
 vi.mock('./SubscriptionFormDrawer', () => ({ SubscriptionFormDrawer: () => null }));
@@ -14,28 +16,13 @@ vi.mock('./SubscriptionChargeCalendar', () => ({
 }));
 
 const subscription: SubscriptionItem = {
-  id: 'sub-1',
-  vendorName: 'Claude',
-  vendorRaw: null,
-  vendorDomain: null,
+  ...normalizeSubscription(
+    subscriptionRow({ id: 'sub-1', vendorName: 'Claude' }),
+  ),
   amount: 100,
-  currency: 'USD',
-  frequency: 'monthly',
-  status: 'active',
-  ownerId: null,
-  owner: null,
-  reviewAt: null,
-  reviewStatus: 'current',
   riskStatus: 'price_changed',
-  cancellationReason: null,
-  realizedAnnualSavings: 0,
-  confidence: null,
   nextChargeDate: '2026-08-20',
   lastChargeDate: '2026-07-20',
-  categoryId: null,
-  category: null,
-  detectionMeta: null,
-  createdAt: '2026-01-01',
 };
 
 const summary: SubscriptionSummary = {
@@ -44,6 +31,8 @@ const summary: SubscriptionSummary = {
   upcomingCount: 1,
   upcoming30DaysCount: 1,
   priceChangeCount: 1,
+  priceChangeYearlyEffect: 0,
+  duplicateCount: 0,
   overdueReviewCount: 0,
   realizedAnnualSavings: 0,
 };
@@ -66,15 +55,17 @@ const renderContent = (
   overrides: {
     summary?: Partial<SubscriptionSummary>;
     chargeCalendar?: SubscriptionChargeCalendar;
+    subscriptions?: SubscriptionItem[];
+    workspaceMembers?: Array<{ id: string; name?: string | null; email?: string | null }>;
   } = {},
 ) =>
   render(
     <SubscriptionsContent
-      subscriptions={[subscription]}
+      subscriptions={overrides.subscriptions ?? [subscription]}
       summary={{ ...summary, ...overrides.summary }}
       chargeCalendar={overrides.chargeCalendar ?? emptyCalendar}
       workspaceCurrency="USD"
-      workspaceMembers={[]}
+      workspaceMembers={overrides.workspaceMembers ?? []}
       isPending={false}
       isFetching={false}
       error={null}
@@ -112,6 +103,15 @@ describe('SubscriptionsContent', () => {
 
     expect(screen.getByText('Price changes')).toBeInTheDocument();
     expect(screen.getAllByText('Claude')).not.toHaveLength(0);
+  });
+
+  it('names the owner from the member list, since a row carries only the user id', () => {
+    renderContent({
+      subscriptions: [{ ...subscription, ownerId: 'user-2' }],
+      workspaceMembers: [{ id: 'user-2', name: 'Ana', email: 'ana@example.com' }],
+    });
+
+    expect(screen.getByRole('cell', { name: 'Ana' })).toBeInTheDocument();
   });
 
   it('labels the vendor icon so the row is readable without the logo', () => {

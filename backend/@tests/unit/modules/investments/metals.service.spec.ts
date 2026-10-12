@@ -227,7 +227,7 @@ describe('MetalsService', () => {
     expect(gold.cost).toBe(33500);
     expect(gold.value).toBe(summary.value);
     expect(summary.gain).toBe(Math.round((summary.value - 33500) * 100) / 100);
-    expect(gold.pricedAt).toEqual(new Date('2026-10-01T00:00:00.000Z'));
+    expect(gold.pricedAt).toBe('2026-10-01T00:00:00.000Z');
   });
 
   it('leaves a hand-priced lot alone when refreshing prices', async () => {

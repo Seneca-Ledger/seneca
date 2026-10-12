@@ -6,10 +6,11 @@ import type { Cache } from 'cache-manager';
 import { Effect, type Schema } from 'effect';
 import { LessThanOrEqual, Repository } from 'typeorm';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { describeHttpFailure, getJson } from '../../common/effect/http-json';
 import { ExchangeRate } from '../../entities/exchange-rate.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { WorkspaceExchangeRate } from '../../entities/workspace-exchange-rate.entity';
-import { getJson, LatestRatesResponse, PublicRatesResponse } from './exchange-rates.http';
+import { LatestRatesResponse, PublicRatesResponse } from './exchange-rates.http';
 
 /**
  * A rate and the day it was quoted for. `stale` marks a rate borrowed from an
@@ -644,13 +645,11 @@ export class ExchangeRatesService {
   private fetchJson<A>(url: string, schema: Schema.Codec<A, unknown>): Promise<A | null> {
     const host = new URL(url).host;
     return this.effects.run(
-      getJson(url, schema).pipe(
+      getJson(url, schema, { timeout: '5 seconds' }).pipe(
         Effect.catch(error =>
           Effect.sync(() => {
-            // Never the error message: it quotes the URL, key included.
-            const status = error._tag === 'HttpClientError' ? error.response?.status : undefined;
             this.logger.warn(
-              `Exchange rate request to ${host} failed: ${error._tag}${status ? ` ${status}` : ''}`,
+              `Exchange rate request to ${host} failed: ${describeHttpFailure(error)}`,
             );
             return null;
           }),

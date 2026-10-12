@@ -2,8 +2,8 @@ import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import type { PushSubscriptionBody } from '../../contracts';
 import { PushSubscription } from '../../entities/push-subscription.entity';
-import type { PushSubscriptionDto } from './dto/push-subscription.dto';
 
 export interface PushPayload {
   title: string;
@@ -39,7 +39,7 @@ export class PushService {
     return this.configService.get<string>('WEB_PUSH_VAPID_PUBLIC_KEY') || null;
   }
 
-  async subscribe(userId: string, dto: PushSubscriptionDto): Promise<PushSubscription> {
+  async subscribe(userId: string, dto: PushSubscriptionBody): Promise<PushSubscription> {
     if (!this.isEnabled()) {
       throw new ConflictException('Web push is not configured on this server');
     }
@@ -53,7 +53,7 @@ export class PushService {
     row.userId = userId;
     row.p256dh = dto.keys.p256dh;
     row.auth = dto.keys.auth;
-    if (dto.userAgent !== undefined) {
+    if (dto.userAgent != null) {
       row.userAgent = dto.userAgent.slice(0, 255);
     }
     row.lastUsedAt = new Date();

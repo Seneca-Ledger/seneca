@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { payableRow } from '@/app/test/fixtures/contracts';
 
 const apiClientMock = vi.hoisted(() => ({
   get: vi.fn(),
@@ -22,7 +23,7 @@ describe('payablesApi', () => {
   it('lists payables with query params', async () => {
     const response = {
       data: {
-        data: [{ id: 'payable-1', vendor: 'ACME' }],
+        data: [payableRow({ id: 'payable-1', vendor: 'ACME' })],
         total: 1,
         page: 2,
         limit: 25,

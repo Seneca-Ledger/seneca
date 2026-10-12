@@ -47,6 +47,7 @@ function goal(overrides: Partial<MonthGoal> = {}): MonthGoal {
     remaining: 300,
     percent: 87.5,
     isReached: false,
+    createdAt: '2026-01-10T09:00:00.000Z',
     cover: null,
     contributedInMonth: 450,
     ...overrides,

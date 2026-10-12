@@ -9,6 +9,17 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { countedSql } from '../../common/utils/counted-transactions.util';
+import type {
+  ConnectCryptoWalletBody,
+  CryptoGains,
+  CryptoHistory,
+  CryptoNetworkList,
+  CryptoSummary,
+  CryptoTransaction as CryptoTransactionView,
+  CryptoWallet as CryptoWalletView,
+  ManualHoldingBody,
+  SupportedChainId,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import {
   CryptoWallet,
@@ -22,7 +33,6 @@ import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import {
   CHAIN_NAMES,
   CHAINS,
-  type ChainFamily,
   chainIdForAddress,
   familyForAddress,
   normalizeAddress,
@@ -34,68 +44,8 @@ import { CryptoHoldingsService } from './crypto-holdings.service';
 import { CryptoPriceService } from './crypto-price.service';
 import type { WalletSyncResult } from './crypto-sync.service';
 import { CryptoSyncService } from './crypto-sync.service';
-import type { ConnectCryptoWalletDto } from './dto/connect-crypto-wallet.dto';
-import type { ManualHoldingDto } from './dto/manual-holding.dto';
 
-export interface CryptoWalletView {
-  id: string;
-  address: string | null;
-  /** `onchain` is an address we read, `manual` is a line the user keeps. */
-  kind: CryptoWalletKind;
-  /**
-   * The lines the user typed, for a manual wallet. An on-chain wallet's balances
-   * are not repeated here: the holdings table already shows them, priced.
-   */
-  balances: CryptoWalletBalance[];
-  chainId: number;
-  chainName: string;
-  label: string | null;
-  lastSyncedAt: string | null;
-  lastSyncError: string | null;
-  transactionCount: number;
-}
-
-export interface CryptoSummary {
-  currency: string;
-  /** Current value of every holding, in the workspace currency. */
-  portfolioValue: number;
-  /** Booked value of incoming transfers over the window. */
-  income: number;
-  /** Booked value of outgoing transfers, including gas, over the window. */
-  expense: number;
-  walletCount: number;
-  holdings: CryptoHolding[];
-  /** Assets held that no price source knows, so the page can admit the gap. */
-  unpriced: { asset: string; amount: string }[];
-  /** What the portfolio cost, and what it has gained since — null when nothing is known. */
-  cost: number | null;
-  unrealized: number | null;
-  /** Profit already taken, over the whole recorded history. */
-  realized: number;
-  /**
-   * Percent change of the portfolio against yesterday's daily prices, holding
-   * today's amounts fixed — the price move only. Null when yesterday's price is
-   * missing for any holding, so a partial figure is never shown as the whole.
-   */
-  portfolioChangeSinceYesterday: number | null;
-}
-
-export interface CryptoTransactionView {
-  id: string;
-  date: string;
-  walletId: string;
-  walletLabel: string | null;
-  walletAddress: string | null;
-  walletChainName: string | null;
-  direction: 'in' | 'out';
-  asset: string | null;
-  cryptoAmount: string | null;
-  /** Booked value in `currency`. */
-  amount: number;
-  currency: string;
-  counterparty: string | null;
-  txHash: string | null;
-}
+export type { CryptoSummary, CryptoTransactionView, CryptoWalletView };
 
 function daysAgo(days: number): Date {
   const since = new Date();
@@ -169,7 +119,7 @@ export class CryptoService {
   async connect(
     workspaceId: string,
     userId: string,
-    dto: ConnectCryptoWalletDto,
+    dto: ConnectCryptoWalletBody,
   ): Promise<CryptoWalletView[]> {
     const family = familyForAddress(dto.address);
     const defaultChainId = chainIdForAddress(dto.address);
@@ -235,18 +185,18 @@ export class CryptoService {
   async upsertManualHolding(
     workspaceId: string,
     userId: string,
-    dto: ManualHoldingDto,
+    dto: ManualHoldingBody,
   ): Promise<CryptoWalletView> {
     const asset = dto.asset.trim().toUpperCase();
     if (Number(dto.amount) <= 0) {
       throw new BadRequestException('An amount is a positive number');
     }
 
-    const wallet = await this.getOrCreateManualWallet(workspaceId, userId, dto.label);
+    const wallet = await this.getOrCreateManualWallet(workspaceId, userId, dto.label ?? undefined);
     const balance: CryptoWalletBalance = {
       asset,
       amount: dto.amount,
-      ...(dto.costPerUnit === undefined ? {} : { costPerUnit: dto.costPerUnit }),
+      ...(dto.costPerUnit == null ? {} : { costPerUnit: dto.costPerUnit }),
     };
     const balances = [...(wallet.balances ?? []).filter(item => item.asset !== asset), balance];
     await this.walletRepo.update(wallet.id, {
@@ -331,7 +281,7 @@ export class CryptoService {
    * Realized gains over a period, sale by sale. A year is the usual question, so
    * the controller takes one and turns it into the range.
    */
-  getGains(workspaceId: string, range: { from?: string; to?: string }) {
+  getGains(workspaceId: string, range: { from?: string; to?: string }): Promise<CryptoGains> {
     return this.holdingsService.realizedGains(workspaceId, range);
   }
 
@@ -341,17 +291,15 @@ export class CryptoService {
   }
 
   /** The portfolio's value day by day, as the balance sheet recorded it. */
-  getHistory(
-    workspaceId: string,
-    days: number,
-  ): Promise<{ currency: string; series: { date: string; value: number }[] }> {
+  getHistory(workspaceId: string, days: number): Promise<CryptoHistory> {
     return this.balanceService.getHistory(workspaceId, days);
   }
 
   /** The networks a wallet can be connected on, for the connect form. */
-  getNetworks(): { chainId: number; name: string; family: ChainFamily; nativeAsset: string }[] {
+  getNetworks(): CryptoNetworkList {
     return SUPPORTED_CHAIN_IDS.map(chainId => ({
-      chainId,
+      // The contract spells these ids out; supported-chain-ids.spec holds them equal.
+      chainId: chainId as SupportedChainId,
       name: CHAINS[chainId].name,
       family: CHAINS[chainId].family,
       nativeAsset: CHAINS[chainId].nativeAsset,
