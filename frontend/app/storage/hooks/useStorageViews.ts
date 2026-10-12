@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import {
   DEFAULT_FILTERS,
@@ -57,8 +58,7 @@ export function useStorageViews(
   const loadViews = async () => {
     await (async () => {
       setViewsLoading(true);
-      const response = await api.get('/storage/views');
-      setViews(response.data || []);
+      setViews(await apiQueryDecoded({ url: '/storage/views', contract: 'StorageViewList' }));
     })()
       .catch(async error => {
         console.error('Failed to load views:', error);
@@ -101,10 +101,11 @@ export function useStorageViews(
           filters: filterOpen ? stagedFilters : filters,
           sort,
         },
-      });
-      setViews(prev => [response.data, ...prev]);
+      } satisfies ContractInput<'StorageViewBody'>);
+      const view = await checkContract('StorageViewItem', response.data, '/storage/views');
+      setViews(prev => [view, ...prev]);
       setViewName('');
-      setActiveViewId(response.data?.id ?? null);
+      setActiveViewId(view.id ?? null);
       toast.success(messages.viewSaved);
     })()
       .catch(async error => {

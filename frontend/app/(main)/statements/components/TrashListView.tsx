@@ -13,6 +13,7 @@ import { AppPagination } from '@/app/components/ui/pagination';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import {
   areAllVisibleSelected,
@@ -244,17 +245,13 @@ export default function TrashListView() {
   const loadTrashFiles = async () => {
     await (async () => {
       setLoading(true);
-      const response = await apiClient.get('/storage/files', {
-        params: { deleted: 'only' },
-      });
-      const payload = response.data;
-      const nextFiles = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.data)
-          ? payload.data
-          : [];
-
-      setFiles(nextFiles);
+      setFiles(
+        await apiQueryDecoded({
+          url: '/storage/files',
+          params: { deleted: 'only' },
+          contract: 'StorageFileList',
+        }),
+      );
     })()
       .catch(async error => {
         console.error('Failed to load trash files:', error);
@@ -361,7 +358,7 @@ export default function TrashListView() {
     await (async () => {
       await apiClient.post('/storage/files/trash/bulk/restore', {
         statementIds: selectedIds,
-      });
+      } satisfies ContractInput<'BulkFileActionBody'>);
       removeFilesFromState(selectedIds);
       await queryClient.invalidateQueries({ queryKey: ['statements'] });
       toast.success(labels.restoreSuccess, { id: toastId });
@@ -394,7 +391,7 @@ export default function TrashListView() {
       } else {
         await apiClient.post('/storage/files/bulk/trash/delete', {
           statementIds: ids,
-        });
+        } satisfies ContractInput<'BulkFileActionBody'>);
       }
 
       removeFilesFromState(ids);
@@ -424,7 +421,7 @@ export default function TrashListView() {
     await (async () => {
       await apiClient.post('/storage/files/bulk/trash/delete', {
         statementIds: ids,
-      });
+      } satisfies ContractInput<'BulkFileActionBody'>);
       removeFilesFromState(ids);
       setEmptyConfirmOpen(false);
       toast.success(labels.deleteSuccess, { id: toastId });

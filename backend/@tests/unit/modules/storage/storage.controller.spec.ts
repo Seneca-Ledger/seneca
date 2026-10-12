@@ -42,7 +42,7 @@ describe('StorageController', () => {
       workspaceId,
     );
     expect(storageService.deleteTag).toHaveBeenCalledWith('tag-1', workspaceId);
-    expect(storageService.createView).toHaveBeenCalledWith({ name: 'View' }, workspaceId);
+    expect(storageService.createView).toHaveBeenCalledWith({ name: 'View' }, 'u1', workspaceId);
     expect(storageService.listViews).toHaveBeenCalledWith(workspaceId);
     expect(storageService.deleteView).toHaveBeenCalledWith('view-1', workspaceId);
   });

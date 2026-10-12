@@ -1,12 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
+import { CreateWalletBody, UpdateWalletBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateWalletDto } from './dto/create-wallet.dto';
-import { UpdateWalletDto } from './dto/update-wallet.dto';
 import { WalletsService } from './wallets.service';
 
 @Controller('wallets')
@@ -16,7 +16,7 @@ export class WalletsController {
   @Post()
   @WorkspaceAuth(Permission.WALLET_CREATE)
   async create(
-    @Body() createDto: CreateWalletDto,
+    @SchemaBody(CreateWalletBody) createDto: CreateWalletBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -43,7 +43,7 @@ export class WalletsController {
   @WorkspaceAuth(Permission.WALLET_EDIT)
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateWalletDto,
+    @SchemaBody(UpdateWalletBody) updateDto: UpdateWalletBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {

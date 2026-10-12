@@ -102,7 +102,7 @@ export class FixCustomTableCellStylesRowId1734900000002 implements MigrationInte
       'idx_custom_table_cell_styles_row_id',
     ]);
     for (const idx of table.indices) {
-      if (idxNamesToDrop.has(idx.name)) {
+      if (idx.name && idxNamesToDrop.has(idx.name)) {
         await queryRunner.dropIndex('custom_table_cell_styles', idx);
       }
     }
@@ -168,11 +168,13 @@ export class FixCustomTableCellStylesRowId1734900000002 implements MigrationInte
       return;
     }
 
-    const idxToDrop = table.indices.filter(i =>
-      [
-        'IDX_custom_table_cell_styles_row_id',
-        'IDX_custom_table_cell_styles_row_id_column_key_unique',
-      ].includes(i.name),
+    const idxToDrop = table.indices.filter(
+      i =>
+        i.name !== undefined &&
+        [
+          'IDX_custom_table_cell_styles_row_id',
+          'IDX_custom_table_cell_styles_row_id_column_key_unique',
+        ].includes(i.name),
     );
     for (const idx of idxToDrop) {
       await queryRunner.dropIndex('custom_table_cell_styles', idx);

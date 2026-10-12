@@ -16,7 +16,7 @@ import {
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { getMetadataArgsStorage, type Repository } from 'typeorm';
+import { getMetadataArgsStorage, IsNull, type Repository } from 'typeorm';
 import { passwordHashRounds } from '@/common/utils/password-hash.util';
 
 jest.mock('bcrypt', () => ({
@@ -334,7 +334,7 @@ describe('UsersService', () => {
       expect(repository.find).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            deletedAt: null,
+            deletedAt: IsNull(),
           }),
         }),
       );

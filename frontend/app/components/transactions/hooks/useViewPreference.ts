@@ -6,6 +6,7 @@ import { useCallback, useRef } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import api from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 /** The pages that remember themselves; the server keeps the same closed list. */
 export type ViewScope = 'transactions' | 'review' | 'reports' | 'dashboard';
@@ -51,9 +52,13 @@ export function useViewPreference<T extends Record<string, unknown>>(
     (next: T) => {
       pending.current = next;
       queryClient.setQueryData(queryKey, { state: next });
-      void api.put(`/view-preferences/${scope}`, { state: next }).catch(() => {
-        // A preference that failed to stick is not worth a toast.
-      });
+      void api
+        .put(`/view-preferences/${scope}`, {
+          state: next,
+        } satisfies ContractInput<'ViewPreferenceBody'>)
+        .catch(() => {
+          // A preference that failed to stick is not worth a toast.
+        });
     },
     // biome-ignore lint/correctness/useExhaustiveDependencies: queryKey is derived from the two below
     [queryClient, scope, workspaceId],

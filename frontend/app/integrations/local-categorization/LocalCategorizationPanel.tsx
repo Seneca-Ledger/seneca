@@ -7,6 +7,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 
 type LocalCategorizationStatus = {
@@ -66,13 +67,15 @@ export function LocalCategorizationPanel(): React.JSX.Element {
   useEffect(() => {
     let mounted = true;
 
-    apiClient
-      .get<LocalCategorizationStatus>('/settings/local-categorization')
-      .then(response => {
+    apiQueryDecoded({
+      url: '/settings/local-categorization',
+      contract: 'LocalCategorizationStatus',
+    })
+      .then(status => {
         if (!mounted) {
           return;
         }
-        applyStatus(response.data);
+        applyStatus(status);
       })
       .catch(() => {
         if (mounted) {
@@ -96,7 +99,7 @@ export function LocalCategorizationPanel(): React.JSX.Element {
           enabled,
           modelId,
           threshold,
-        },
+        } satisfies ContractInput<'SaveLocalCategorizationBody'>,
       );
       applyStatus(response.data);
       setMessage('saved');
@@ -145,7 +148,7 @@ export function LocalCategorizationPanel(): React.JSX.Element {
         {
           merchantName,
           categories: splitCategories(categories),
-        },
+        } satisfies ContractInput<'TestLocalCategorizationBody'>,
       );
       setTestResult(response.data);
     })()

@@ -109,6 +109,18 @@ const findButton = (container: HTMLElement, text: string): HTMLButtonElement | u
     button.textContent?.includes(text),
   ) as HTMLButtonElement | undefined;
 
+/** Object-shaped answers for the sections that check them against their contracts. */
+const SETTINGS_RESPONSES: Record<string, unknown> = {
+  '/backups/config': null,
+  '/telegram/reports': { data: [], total: 0, page: 1, limit: 20 },
+  '/settings/notifications/telegram': {
+    connected: false,
+    status: 'disconnected',
+    source: 'disabled',
+    settings: { timeoutMs: 10000, botTokenConfigured: false },
+  },
+};
+
 describe('ProfileSettingsPage', () => {
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -121,9 +133,9 @@ describe('ProfileSettingsPage', () => {
     routerReplace.mockReset();
     setUser.mockReset();
     // Every tab fetches something on mount; an empty list keeps the sections rendering.
-    apiGet.mockImplementation(async (url: string) =>
-      url === '/backups/config' ? { data: null } : { data: [] },
-    );
+    apiGet.mockImplementation(async (url: string) => ({
+      data: SETTINGS_RESPONSES[url] ?? [],
+    }));
     vi.restoreAllMocks();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
@@ -210,7 +222,7 @@ describe('ProfileSettingsPage', () => {
 
     const container = await renderPage();
 
-    expect(apiGet).toHaveBeenCalledWith('/auth/sessions');
+    expect(apiGet).toHaveBeenCalledWith('/auth/sessions', expect.anything());
     const logoutAllButton = findButton(container, 'sessionsCard.logoutAllButton');
     expect(logoutAllButton).toBeTruthy();
 
@@ -292,6 +304,6 @@ describe('ProfileSettingsPage', () => {
 
     expect(container.textContent).toContain('connect.title');
     expect(apiGet).toHaveBeenCalledWith('/telegram/reports');
-    expect(apiGet).toHaveBeenCalledWith('/notifications/preferences');
+    expect(apiGet).toHaveBeenCalledWith('/notifications/preferences', expect.anything());
   });
 });

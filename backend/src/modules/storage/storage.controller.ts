@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -16,28 +15,31 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
 import { pipeFileStreamResponse } from '../../common/utils/stream-response.util';
+import {
+  BulkFileActionBody,
+  CreateFileVersionBody,
+  CreateFolderBody,
+  CreateSharedLinkBody,
+  CreateTagBody,
+  GrantPermissionBody,
+  MoveFileBody,
+  StorageViewBody,
+  UpdateFileCategoryBody,
+  UpdateFileTagsBody,
+  UpdateFolderBody,
+  UpdatePermissionBody,
+  UpdateSharedLinkBody,
+  UpdateTagBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
-import { BulkFileActionDto } from './dto/bulk-file-action.dto';
-import { CreateFileVersionDto } from './dto/create-file-version.dto';
-import { CreateFolderDto } from './dto/create-folder.dto';
-import { CreateSharedLinkDto } from './dto/create-shared-link.dto';
-import { CreateTagDto } from './dto/create-tag.dto';
-import { GrantPermissionDto } from './dto/grant-permission.dto';
-import { MoveFileDto } from './dto/move-file.dto';
-import { StorageViewDto } from './dto/storage-view.dto';
-import { UpdateFileCategoryDto } from './dto/update-file-category.dto';
-import { UpdateFileTagsDto } from './dto/update-file-tags.dto';
-import { UpdateFolderDto } from './dto/update-folder.dto';
-import { UpdatePermissionDto } from './dto/update-permission.dto';
-import { UpdateSharedLinkDto } from './dto/update-shared-link.dto';
-import { UpdateTagDto } from './dto/update-tag.dto';
 import { StorageService } from './storage.service';
 
 /**
@@ -104,7 +106,7 @@ export class StorageController {
   async updateFileCategory(
     @Param('id') statementId: string,
     @CurrentUser() user: User,
-    @Body() dto: UpdateFileCategoryDto,
+    @SchemaBody(UpdateFileCategoryBody) dto: UpdateFileCategoryBody,
   ) {
     return await this.storageService.updateFileCategory(
       statementId,
@@ -121,7 +123,7 @@ export class StorageController {
   async updateFileTags(
     @Param('id') statementId: string,
     @CurrentUser() user: User,
-    @Body() dto: UpdateFileTagsDto,
+    @SchemaBody(UpdateFileTagsBody) dto: UpdateFileTagsBody,
   ) {
     return await this.storageService.updateFileTags(statementId, user.id, dto.tagIds || []);
   }
@@ -134,9 +136,9 @@ export class StorageController {
   async moveFile(
     @Param('id') statementId: string,
     @CurrentUser() user: User,
-    @Body() dto: MoveFileDto,
+    @SchemaBody(MoveFileBody) dto: MoveFileBody,
   ) {
-    return await this.storageService.moveFileToFolder(statementId, user.id, dto.folderId);
+    return await this.storageService.moveFileToFolder(statementId, user.id, dto.folderId ?? null);
   }
 
   /**
@@ -173,7 +175,7 @@ export class StorageController {
   @Post('tags')
   @UseGuards(WorkspaceContextGuard)
   async createTag(
-    @Body() dto: CreateTagDto,
+    @SchemaBody(CreateTagBody) dto: CreateTagBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -198,7 +200,7 @@ export class StorageController {
   @UseGuards(WorkspaceContextGuard)
   async updateTag(
     @Param('id') tagId: string,
-    @Body() dto: UpdateTagDto,
+    @SchemaBody(UpdateTagBody) dto: UpdateTagBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -227,7 +229,7 @@ export class StorageController {
   @Post('folders')
   @UseGuards(WorkspaceContextGuard)
   async createFolder(
-    @Body() dto: CreateFolderDto,
+    @SchemaBody(CreateFolderBody) dto: CreateFolderBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -252,7 +254,7 @@ export class StorageController {
   @UseGuards(WorkspaceContextGuard)
   async updateFolder(
     @Param('id') folderId: string,
-    @Body() dto: UpdateFolderDto,
+    @SchemaBody(UpdateFolderBody) dto: UpdateFolderBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -267,7 +269,7 @@ export class StorageController {
   @UseGuards(WorkspaceContextGuard)
   async deleteFolder(
     @Param('id') folderId: string,
-    @Query('deleteFiles') deleteFiles: string | undefined,
+    @Query('deleteFiles') deleteFiles: string,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -287,7 +289,7 @@ export class StorageController {
   async createFileVersion(
     @Param('id') statementId: string,
     @CurrentUser() user: User,
-    @Body() _dto: CreateFileVersionDto,
+    @SchemaBody(CreateFileVersionBody) _dto: CreateFileVersionBody,
   ) {
     return await this.storageService.createFileVersion(statementId, user.id);
   }
@@ -308,11 +310,11 @@ export class StorageController {
   @Post('views')
   @UseGuards(WorkspaceContextGuard)
   async createView(
-    @Body() dto: StorageViewDto,
-    @CurrentUser() _user: User,
+    @SchemaBody(StorageViewBody) dto: StorageViewBody,
+    @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return await this.storageService.createView(dto, workspaceId);
+    return await this.storageService.createView(dto, user.id, workspaceId);
   }
 
   /**
@@ -393,7 +395,7 @@ export class StorageController {
   async createSharedLink(
     @Param('id') statementId: string,
     @CurrentUser() user: User,
-    @Body() dto: CreateSharedLinkDto,
+    @SchemaBody(CreateSharedLinkBody) dto: CreateSharedLinkBody,
   ) {
     const link = await this.storageService.createSharedLink(statementId, user.id, dto);
 
@@ -425,7 +427,7 @@ export class StorageController {
   async updateSharedLink(
     @Param('id') linkId: string,
     @CurrentUser() user: User,
-    @Body() dto: UpdateSharedLinkDto,
+    @SchemaBody(UpdateSharedLinkBody) dto: UpdateSharedLinkBody,
   ) {
     return await this.storageService.updateSharedLink(linkId, user.id, dto);
   }
@@ -470,7 +472,10 @@ export class StorageController {
    * POST /api/v1/storage/files/bulk/delete
    */
   @Post('files/bulk/delete')
-  async bulkDelete(@Body() dto: BulkFileActionDto, @CurrentUser() user: User) {
+  async bulkDelete(
+    @SchemaBody(BulkFileActionBody) dto: BulkFileActionBody,
+    @CurrentUser() user: User,
+  ) {
     return await this.storageService.bulkDelete(dto.statementIds, user.id);
   }
 
@@ -479,7 +484,10 @@ export class StorageController {
    * POST /api/v1/storage/files/trash/bulk/restore
    */
   @Post('files/trash/bulk/restore')
-  async bulkRestore(@Body() dto: BulkFileActionDto, @CurrentUser() user: User) {
+  async bulkRestore(
+    @SchemaBody(BulkFileActionBody) dto: BulkFileActionBody,
+    @CurrentUser() user: User,
+  ) {
     return await this.storageService.bulkRestoreFromTrash(dto.statementIds, user.id);
   }
 
@@ -488,7 +496,10 @@ export class StorageController {
    * POST /api/v1/storage/files/bulk/trash/delete
    */
   @Post('files/bulk/trash/delete')
-  async bulkDeleteFromTrash(@Body() dto: BulkFileActionDto, @CurrentUser() user: User) {
+  async bulkDeleteFromTrash(
+    @SchemaBody(BulkFileActionBody) dto: BulkFileActionBody,
+    @CurrentUser() user: User,
+  ) {
     return await this.storageService.bulkDeleteFromTrash(dto.statementIds, user.id);
   }
 
@@ -497,7 +508,10 @@ export class StorageController {
    * POST /api/v1/storage/files/bulk/download
    */
   @Post('files/bulk/download')
-  async bulkDownload(@Body() dto: BulkFileActionDto, @CurrentUser() user: User) {
+  async bulkDownload(
+    @SchemaBody(BulkFileActionBody) dto: BulkFileActionBody,
+    @CurrentUser() user: User,
+  ) {
     return await this.storageService.bulkDownload(dto.statementIds, user.id);
   }
 
@@ -563,7 +577,7 @@ export class StorageController {
   async grantPermission(
     @Param('id') statementId: string,
     @CurrentUser() user: User,
-    @Body() dto: GrantPermissionDto,
+    @SchemaBody(GrantPermissionBody) dto: GrantPermissionBody,
   ) {
     return await this.storageService.grantPermission(statementId, user.id, dto);
   }
@@ -585,7 +599,7 @@ export class StorageController {
   async updatePermission(
     @Param('id') permissionId: string,
     @CurrentUser() user: User,
-    @Body() dto: UpdatePermissionDto,
+    @SchemaBody(UpdatePermissionBody) dto: UpdatePermissionBody,
   ) {
     return await this.storageService.updatePermission(permissionId, user.id, dto);
   }

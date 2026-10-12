@@ -1,5 +1,5 @@
 # --- Base: runtime OS deps shared by every stage ---
-FROM node:20-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
 
 # Pinned explicitly (not just relying on the base image's default) so a date
 # built from local Date parts (new Date(year, month, day), used throughout
@@ -24,9 +24,9 @@ FROM base AS deps
 
 COPY package*.json ./
 
-# The marker lets scripts/dev-entrypoint.sh detect a lockfile change and refresh
-# the node_modules volume without rebuilding the image.
-RUN npm ci && md5sum package-lock.json > node_modules/.lockfile-hash
+# The marker lets scripts/dev-entrypoint.sh detect a lockfile or Node change and
+# refresh the node_modules volume without rebuilding the image.
+RUN npm ci && echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
 
 # --- Dev stage (used by docker-compose.dev.yml) ---
 # Source is bind-mounted at runtime, so nothing is copied or compiled here.

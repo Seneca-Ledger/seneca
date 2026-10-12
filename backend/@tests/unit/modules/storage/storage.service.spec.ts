@@ -18,12 +18,12 @@ import {
 } from '@/entities';
 import { MetricsService } from '@/modules/observability/metrics.service';
 import { StatementsService } from '@/modules/statements/statements.service';
-import type { CreateSharedLinkDto } from '@/modules/storage/dto/create-shared-link.dto';
 import { StorageService } from '@/modules/storage/storage.service';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import type { CreateSharedLinkBody } from '../../../../src/contracts';
 
 describe('StorageService', () => {
   let testingModule: TestingModule;
@@ -289,7 +289,7 @@ describe('StorageService', () => {
   });
 
   describe('createSharedLink', () => {
-    const createDto: CreateSharedLinkDto = {
+    const createDto: CreateSharedLinkBody = {
       permission: SharePermissionLevel.VIEW,
       expiresAt: new Date(Date.now() + 86400000).toISOString(),
     };
@@ -404,6 +404,21 @@ describe('StorageService', () => {
       expect(filePermissionRepository.save).toHaveBeenCalled();
     });
 
+    it('shares with a member found by the email they sign in with', async () => {
+      const findMember = jest.spyOn(workspaceMemberRepository, 'findOne');
+      jest.spyOn(filePermissionRepository, 'create').mockImplementation(value => value as FilePermission);
+      const saveSpy = jest
+        .spyOn(filePermissionRepository, 'save')
+        .mockImplementation(async value => value as FilePermission);
+
+      await service.grantPermission('1', '1', { ...grantDto, userId: ' Member@Example.com ' });
+
+      expect(findMember).toHaveBeenCalledWith({
+        where: { workspaceId: mockStatement.workspaceId, user: { email: 'member@example.com' } },
+      });
+      expect(saveSpy).toHaveBeenCalledWith(expect.objectContaining({ userId: '2' }));
+    });
+
     it('should verify resource ownership', async () => {
       (service as any).checkFileAccess.mockRejectedValue(new NotFoundException('File not found'));
 
@@ -482,13 +497,14 @@ describe('StorageService', () => {
       } as StorageView);
 
       await service.createTag({ name: 'A' } as any, 'ws-1');
-      await service.createView({ name: 'View', filters: {} } as any, 'ws-1');
+      await service.createView({ name: 'View', filters: {} } as any, 'user-1', 'ws-1');
 
       expect(tagRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ workspaceId: 'ws-1' }),
       );
+      // user_id is NOT NULL: a view without its author never saved.
       expect(viewRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ workspaceId: 'ws-1' }),
+        expect.objectContaining({ userId: 'user-1', workspaceId: 'ws-1' }),
       );
     });
   });

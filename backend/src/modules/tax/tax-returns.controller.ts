@@ -1,12 +1,13 @@
-import { BadRequestException, Body, Controller, Get, Post, Query, Res } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import { TaxReturnPeriodBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { TaxReturnPeriodDto } from './dto/tax-return-period.dto';
 import { TaxReturnsService } from './tax-returns.service';
 
 @Controller('tax/returns')
@@ -47,7 +48,7 @@ export class TaxReturnsController {
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   async file(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: TaxReturnPeriodDto,
+    @SchemaBody(TaxReturnPeriodBody) dto: TaxReturnPeriodBody,
     @CurrentUser() user: User,
   ) {
     return this.taxReturnsService.file(workspaceId, dto.periodStart, dto.periodEnd, user.id);
@@ -57,7 +58,7 @@ export class TaxReturnsController {
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   async reopen(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: TaxReturnPeriodDto,
+    @SchemaBody(TaxReturnPeriodBody) dto: TaxReturnPeriodBody,
     @CurrentUser() user: User,
   ) {
     return this.taxReturnsService.reopen(workspaceId, dto.periodStart, dto.periodEnd, user.id);

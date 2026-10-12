@@ -1,10 +1,11 @@
-import { Body, Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { EnableLedgerBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { EnableLedgerDto } from './dto/enable-ledger.dto';
 import type { LedgerIntegrity, LedgerSettings } from './ledger-sync.service';
 import { LedgerSyncService } from './ledger-sync.service';
 
@@ -25,7 +26,7 @@ export class LedgerSettingsController {
   async enable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: EnableLedgerDto,
+    @SchemaBody(EnableLedgerBody) dto: EnableLedgerBody,
   ): Promise<LedgerSettings> {
     return this.syncService.enable(workspaceId, user.id, dto.baseCurrency);
   }

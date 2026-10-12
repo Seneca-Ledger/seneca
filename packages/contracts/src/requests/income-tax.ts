@@ -1,0 +1,23 @@
+import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+export const UpdateIncomeTaxProfileBody = Schema.Struct({
+  taxYear: Schema.Int.check(Schema.isGreaterThanOrEqualTo(2000), Schema.isLessThanOrEqualTo(2100)),
+  taxpayerType: Schema.Literals(['self_employed', 'employee', 'company']),
+  details: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
+});
+export type UpdateIncomeTaxProfileBody = Wire<typeof UpdateIncomeTaxProfileBody>;
+
+export const IncomeTaxMappingEntryInput = Schema.Struct({
+  categoryId: Schema.String.check(Schema.isUUID()),
+  /** NULL withdraws the mapping. */
+  lineKey: Schema.NullOr(Schema.String.check(Schema.isMaxLength(64))),
+});
+export type IncomeTaxMappingEntryInput = Wire<typeof IncomeTaxMappingEntryInput>;
+
+export const SaveIncomeTaxMappingsBody = Schema.Struct({
+  taxYear: Schema.Int.check(Schema.isGreaterThanOrEqualTo(2000), Schema.isLessThanOrEqualTo(2100)),
+  entries: Schema.Array(IncomeTaxMappingEntryInput).check(Schema.isMaxLength(500)),
+});
+export type SaveIncomeTaxMappingsBody = Wire<typeof SaveIncomeTaxMappingsBody>;

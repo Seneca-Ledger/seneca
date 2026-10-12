@@ -57,12 +57,12 @@ export class Subscription {
   @Column({ name: 'vendor_name', length: 255 })
   vendorName: string;
 
-  @Column({ name: 'vendor_raw', length: 255, nullable: true })
+  @Column({ type: 'varchar', name: 'vendor_raw', length: 255, nullable: true })
   vendorRaw: string | null;
 
   // The vendor's website host, used to fetch a brand icon. Null falls back to
   // initials; detected subscriptions start null until somebody reviews them.
-  @Column({ name: 'vendor_domain', length: 253, nullable: true })
+  @Column({ type: 'varchar', name: 'vendor_domain', length: 253, nullable: true })
   vendorDomain: string | null;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })

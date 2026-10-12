@@ -45,7 +45,6 @@ export class AiImportMapperHelper extends BaseAiHelper {
     const timeoutMs = Number.parseInt(process.env.AI_TIMEOUT_MS || '20000', 10);
     const content = await this.generateJsonContent([{ role: 'user', parts: [{ text: prompt }] }], {
       timeoutMs,
-      timeoutMessage: 'AI import mapping timed out',
       retries: 1,
       baseDelayMs: 500,
       maxDelayMs: 2000,

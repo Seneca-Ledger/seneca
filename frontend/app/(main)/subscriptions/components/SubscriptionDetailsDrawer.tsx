@@ -16,7 +16,8 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
+import type { SubscriptionDetail } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { SubscriptionItem, SubscriptionWorkspaceMember } from '../hooks/useSubscriptionsPage';
 import { RISK_LABELS, STATUS_LABELS } from './SubscriptionCard';
@@ -46,22 +47,8 @@ const DECISION_LABELS: Record<
 const formatDate = (value: string | null): string =>
   value ? formatStoredDate(value, 'ru-RU') : '—';
 
-type SubscriptionDetails = {
-  charges: Array<{
-    id: string;
-    amount: number;
-    currency: string;
-    chargeDate: string;
-    matchStatus: string;
-  }>;
-  decisions: Array<{
-    id: string;
-    decision: string;
-    note: string | null;
-    savingsAmount: number | null;
-    createdAt: string;
-  }>;
-};
+/** `GET /subscriptions/:id`: charges and decisions behind the card. */
+type SubscriptionDetails = SubscriptionDetail;
 
 export function SubscriptionDetailsDrawer({
   subscription,
@@ -79,11 +66,11 @@ export function SubscriptionDetailsDrawer({
 
   useEffect(() => {
     if (!subscription) return;
-    void apiClient
-      .get(`/subscriptions/${subscription.id}`)
-      .then(response => {
-        setDetails(response.data?.data ?? response.data ?? null);
-      })
+    void apiQueryDecoded({
+      url: `/subscriptions/${subscription.id}`,
+      contract: 'SubscriptionDetail',
+    })
+      .then(setDetails)
       .catch(() => setDetails(null));
   }, [subscription]);
 

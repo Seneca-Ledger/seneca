@@ -3,6 +3,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, type Repository } from 'typeorm';
+import { withoutNulls } from '../../common/effect/without-nulls';
+import type { UpdateNotificationPreferencesBody } from '../../contracts';
 import {
   Notification,
   NotificationCategory,
@@ -17,7 +19,6 @@ import {
 } from '../../entities/notification-preference.entity';
 import { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
-import type { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { type NotificationMessageKey, renderNotification } from './notification-translations';
 
@@ -168,7 +169,7 @@ export class NotificationsService {
 
     const notification = this.notificationRepository.create({
       recipientId: payload.recipientId,
-      workspaceId: payload.workspaceId ?? null,
+      workspaceId: payload.workspaceId ?? undefined,
       type: payload.type,
       category: payload.category,
       severity: payload.severity ?? NotificationSeverity.INFO,
@@ -378,14 +379,17 @@ export class NotificationsService {
 
   async updatePreferences(
     userId: string,
-    dto: UpdateNotificationPreferencesDto,
+    dto: UpdateNotificationPreferencesBody,
   ): Promise<NotificationPreference> {
     const preferences = await this.getPreferences(userId);
     const { channels, ...rest } = dto;
     Object.assign(preferences, rest);
 
     if (channels) {
-      preferences.channels = this.normalizeChannels(preferences, channels);
+      preferences.channels = this.normalizeChannels(
+        preferences,
+        Object.fromEntries(Object.entries(channels).map(([key, set]) => [key, withoutNulls(set)])),
+      );
     }
 
     return this.preferenceRepository.save(preferences);

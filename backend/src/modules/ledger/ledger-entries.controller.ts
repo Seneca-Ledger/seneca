@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -13,18 +12,19 @@ import {
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { deletedResponse } from '../../common/utils/responses.util';
+import {
+  CreateJournalEntryBody,
+  ReverseJournalEntryBody,
+  UpdateJournalEntryBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import {
-  CreateJournalEntryDto,
-  ReverseJournalEntryDto,
-  UpdateJournalEntryDto,
-} from './dto/journal-entry-input.dto';
 import type {
   JournalEntryResponseDto,
   PaginatedJournalEntriesDto,
@@ -68,7 +68,7 @@ export class LedgerEntriesController {
   async create(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateJournalEntryDto,
+    @SchemaBody(CreateJournalEntryBody) dto: CreateJournalEntryBody,
     @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<JournalEntryResponseDto> {
     // Namespaced: the key table is shared by every endpoint that takes one.
@@ -92,7 +92,7 @@ export class LedgerEntriesController {
   async update(
     @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateJournalEntryDto,
+    @SchemaBody(UpdateJournalEntryBody) dto: UpdateJournalEntryBody,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.updateDraft(workspaceId, id, dto);
   }
@@ -125,7 +125,7 @@ export class LedgerEntriesController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ReverseJournalEntryDto,
+    @SchemaBody(ReverseJournalEntryBody) dto: ReverseJournalEntryBody,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.reverse(workspaceId, id, user.id, dto);
   }

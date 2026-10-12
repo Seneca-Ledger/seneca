@@ -67,7 +67,10 @@ export class TransactionAttachmentsService {
       fileSize: file.size,
     });
 
-    return this.attachmentRepository.save(attachment);
+    const saved = await this.attachmentRepository.save(attachment);
+    // bigint: a read answers it as a string, so the upload answers the same.
+    saved.fileSize = String(saved.fileSize) as unknown as number;
+    return saved;
   }
 
   async getForDownload(attachmentId: string, workspaceId: string): Promise<AttachmentDownload> {

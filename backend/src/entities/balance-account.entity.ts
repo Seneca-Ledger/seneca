@@ -101,10 +101,10 @@ export class BalanceAccount {
   @Column({ length: 255 })
   name: string;
 
-  @Column({ name: 'name_en', length: 255, nullable: true })
+  @Column({ type: 'varchar', name: 'name_en', length: 255, nullable: true })
   nameEn: string | null;
 
-  @Column({ name: 'name_kk', length: 255, nullable: true })
+  @Column({ type: 'varchar', name: 'name_kk', length: 255, nullable: true })
   nameKk: string | null;
 
   @Column({

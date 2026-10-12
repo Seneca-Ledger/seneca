@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -15,15 +14,18 @@ import {
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import {
+  AssignSubscriptionOwnerBody,
+  CreateSubscriptionBody,
+  RecordSubscriptionDecisionBody,
+  UpdateSubscriptionBody,
+} from '../../contracts';
 import { SubscriptionStatus } from '../../entities/subscription.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { AssignSubscriptionOwnerDto } from './dto/assign-subscription-owner.dto';
 import { ChargeCalendarQueryDto } from './dto/charge-calendar-query.dto';
-import { CreateSubscriptionDto } from './dto/create-subscription.dto';
-import { RecordSubscriptionDecisionDto } from './dto/record-subscription-decision.dto';
-import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { SubscriptionsService } from './subscriptions.service';
 
 @Controller('subscriptions')
@@ -62,7 +64,7 @@ export class SubscriptionsController {
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
   async businessReport(
     @WorkspaceId() workspaceId: string,
-    @Query('format') format: string | undefined,
+    @Query('format') format: string,
     @Res({ passthrough: true }) res: Response,
   ) {
     const report = await this.subscriptionsService.getBusinessReport(workspaceId);
@@ -138,7 +140,7 @@ export class SubscriptionsController {
   @Post()
   @WorkspaceAuth(Permission.SUBSCRIPTION_CREATE)
   async create(
-    @Body() dto: CreateSubscriptionDto,
+    @SchemaBody(CreateSubscriptionBody) dto: CreateSubscriptionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -149,7 +151,7 @@ export class SubscriptionsController {
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async update(
     @Param('id') id: string,
-    @Body() dto: UpdateSubscriptionDto,
+    @SchemaBody(UpdateSubscriptionBody) dto: UpdateSubscriptionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -160,7 +162,7 @@ export class SubscriptionsController {
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async assignOwner(
     @Param('id') id: string,
-    @Body() dto: AssignSubscriptionOwnerDto,
+    @SchemaBody(AssignSubscriptionOwnerBody) dto: AssignSubscriptionOwnerBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -171,7 +173,7 @@ export class SubscriptionsController {
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async recordDecision(
     @Param('id') id: string,
-    @Body() dto: RecordSubscriptionDecisionDto,
+    @SchemaBody(RecordSubscriptionDecisionBody) dto: RecordSubscriptionDecisionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

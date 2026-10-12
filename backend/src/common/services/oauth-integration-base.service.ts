@@ -12,11 +12,13 @@ import {
 import { decryptText, encryptText } from '../utils/encryption.util';
 import { secretsMatch } from '../utils/secret-compare.util';
 
+// Method syntax on purpose: method parameters are checked bivariantly, so a
+// TypeORM Repository (whose methods take narrower option types) fits.
 export type OAuthRepositoryLike<T> = {
-  findOne: (args: unknown) => Promise<T | null>;
-  create?: (data: Partial<T>) => T;
-  save: (entity: T) => Promise<T>;
-  delete: (criteria: unknown) => Promise<unknown>;
+  findOne(args: unknown): Promise<T | null>;
+  create(data: Partial<T>): T;
+  save(entity: T): Promise<T>;
+  delete(criteria: unknown): Promise<unknown>;
 };
 
 export type OAuthIntegrationSettingsRelationName = Exclude<keyof Integration, number | symbol>;

@@ -9,7 +9,7 @@ import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
-import { useWebhookEndpoints, useWebhookSubscriptions } from './useWebhooks';
+import { useWebhookEndpoints, useWebhookSubscriptions, type WebhookEventName } from './useWebhooks';
 
 const EVENTS = [
   { value: 'transaction.created', labelKey: 'transactionCreated' },
@@ -89,7 +89,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
   const [subName, setSubName] = useState('');
   const [subUrl, setSubUrl] = useState('');
   const [subSecret, setSubSecret] = useState('');
-  const [subEvents, setSubEvents] = useState<string[]>([]);
+  const [subEvents, setSubEvents] = useState<WebhookEventName[]>([]);
 
   const handleCreateEndpoint = async () => {
     if (!endpointName.trim()) return;
@@ -118,7 +118,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
     void navigator.clipboard.writeText(token).then(() => toast.success(t.toasts.tokenCopied.value));
   };
 
-  const toggleEvent = (value: string) => {
+  const toggleEvent = (value: WebhookEventName) => {
     setSubEvents(prev => (prev.includes(value) ? prev.filter(e => e !== value) : [...prev, value]));
   };
 
