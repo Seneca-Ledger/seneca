@@ -1,14 +1,207 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "aebcf9a435b9bbeb75adf64e2378ae527a1869e1"
+      "main": "979529222928a3ff3427ccdeae0400304c512302"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-12T13:20:57.827Z",
+    "lastGeneratedAt": "2026-10-12T14:53:59.263Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-12-9795292",
+      "version": "main-9795292",
+      "branch": "main",
+      "date": "2026-10-12T14:53:59.263Z",
+      "title": "Release update - October 12, 2026",
+      "summary": "This release includes 2 features, 1 improvement, and 2 fixes.",
+      "markdown": "## Features\n- **navigation**: Reorder the sidebar by everyday use\n- **review**: Review rows look like Documents rows, with a document preview and a no-category mark\n\n## Improvements\n- **transactions**: Cut the transaction drawer down to actions, notes and history\n\n## Fixes\n- **shortcuts**: Palette keeps focus and clicks, shortcuts close open drawers\n- **custom-tables**: Deleting draft rows, single focus border on the table name",
+      "commits": [
+        {
+          "sha": "3a444b1ce3aaf9c252f8c7d910a30225b6f91342",
+          "shortSha": "3a444b1c",
+          "subject": "feat(navigation): reorder the sidebar by everyday use",
+          "author": "Symon Baikov",
+          "date": "2026-10-11T16:30:00+03:00",
+          "files": [
+            "frontend/app/components/navigation/helpers/navigation-config.test.ts",
+            "frontend/app/components/navigation/helpers/navigation-config.ts",
+            "frontend/app/components/welcome-tutorial/welcome-tutorial-routes.ts",
+            "frontend/app/components/welcome-tutorial/welcome-tutorial-steps.test.ts"
+          ]
+        },
+        {
+          "sha": "69cf4772d4f189c1f29bde0c138ce3edcd18ccf4",
+          "shortSha": "69cf4772",
+          "subject": "fix(shortcuts): palette keeps focus and clicks, shortcuts close open drawers",
+          "author": "Symon Baikov",
+          "date": "2026-10-11T16:30:00+03:00",
+          "files": [
+            "frontend/app/components/command-palette/CommandPalette.test.tsx",
+            "frontend/app/components/command-palette/CommandPalette.tsx",
+            "frontend/app/components/command-palette/PaletteList.tsx",
+            "frontend/app/components/command-palette/PaletteRowView.tsx",
+            "frontend/app/components/command-palette/use-palette-keyboard.ts",
+            "frontend/app/components/keyboard-shortcuts-provider.test.tsx",
+            "frontend/app/components/keyboard-shortcuts-provider.tsx",
+            "frontend/app/components/ui/drawer-shell.tsx"
+          ]
+        },
+        {
+          "sha": "f861d93cbc04cc2b03c478ff6dcf611e8c3d6c62",
+          "shortSha": "f861d93c",
+          "subject": "fix(custom-tables): deleting draft rows, single focus border on the table name",
+          "author": "Symon Baikov",
+          "date": "2026-10-11T16:30:00+03:00",
+          "files": [
+            "frontend/app/(main)/custom-tables/[id]/hooks/useCustomTablePage.ts",
+            "frontend/app/styles/components/_custom-tables.scss"
+          ]
+        },
+        {
+          "sha": "6e02cb2ac9b75e03a4ace118f4ca99a1445654d2",
+          "shortSha": "6e02cb2a",
+          "subject": "refactor(transactions): cut the transaction drawer down to actions, notes and history",
+          "author": "Symon Baikov",
+          "date": "2026-10-11T16:30:00+03:00",
+          "files": [
+            "frontend/app/components/transactions/ConvertedAmountRow.tsx",
+            "frontend/app/components/transactions/DetailsDrawer.tsx",
+            "frontend/app/components/transactions/TransactionDetailsTab.tsx",
+            "frontend/app/components/transactions/TransactionFilesTab.test.tsx",
+            "frontend/app/components/transactions/TransactionFilesTab.tsx",
+            "frontend/app/components/transactions/detailsDrawer.content.ts",
+            "frontend/app/components/transactions/transactionOwner.content.ts",
+            "frontend/app/lib/transaction-files-api.ts",
+            "frontend/app/styles/components/_transaction-table.scss"
+          ]
+        },
+        {
+          "sha": "7a8059167bd9ab9e1363cd73eeabca8f34667489",
+          "shortSha": "7a805916",
+          "subject": "feat(review): Review rows look like Documents rows, with a document preview and a no-category mark",
+          "author": "Symon Baikov",
+          "date": "2026-10-11T16:30:00+03:00",
+          "files": [
+            "backend/@tests/e2e/review-inbox-reviewer.e2e-spec.ts",
+            "backend/@tests/e2e/review-inbox.e2e-spec.ts",
+            "backend/src/modules/review-inbox/review-inbox.service.ts",
+            "frontend/app/(main)/review/components/ReviewInboxView.tsx",
+            "frontend/app/(main)/review/hooks/useReviewInbox.ts",
+            "frontend/app/(main)/review/lib/review-inbox-model.test.ts",
+            "frontend/app/(main)/review/lib/review-inbox-model.ts",
+            "frontend/app/(main)/review/page.content.ts",
+            "frontend/app/(main)/statements/components/StatementTransactionsPanel.tsx",
+            "frontend/app/(main)/statements/components/StatementsListItem.test.tsx",
+            "frontend/app/(main)/statements/components/StatementsListItem.tsx",
+            "frontend/app/components/DocumentThumbnailPreview.tsx",
+            "frontend/app/components/categories/NoCategoryBadge.tsx",
+            "frontend/app/components/categories/noCategory.content.ts"
+          ]
+        },
+        {
+          "sha": "e9228e3ece5ee044ed82162ba3de63a463028319",
+          "shortSha": "e9228e3e",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-12T13:20:58Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "b066bcdc94023c8e2602d5b07d300f275f7a0b01",
+          "shortSha": "b066bcdc",
+          "subject": "Merge remote-tracking branch 'origin/main' into feat/sidebar-nav-order",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T16:34:46+03:00",
+          "files": []
+        },
+        {
+          "sha": "9a2828cfbccf50a0473c9bc38e8b3614797f02af",
+          "shortSha": "9a2828cf",
+          "subject": "Merge remote-tracking branch 'origin/main' into fix/command-palette-drawers",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T16:35:25+03:00",
+          "files": []
+        },
+        {
+          "sha": "cc866740c9eb38a997520039d8df2d191a68d1ec",
+          "shortSha": "cc866740",
+          "subject": "Merge remote-tracking branch 'origin/main' into fix/custom-tables-draft-delete",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T16:35:25+03:00",
+          "files": [
+            "frontend/app/(main)/custom-tables/[id]/hooks/useCustomTablePage.ts"
+          ]
+        },
+        {
+          "sha": "ec3b9a0e256a6833625323238783396654b905bc",
+          "shortSha": "ec3b9a0e",
+          "subject": "Merge remote-tracking branch 'origin/main' into fix/transaction-drawer-minimal",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T16:37:37+03:00",
+          "files": []
+        },
+        {
+          "sha": "b017ce2841685c9d6ce9daaf3c59d3b526e7cf99",
+          "shortSha": "b017ce28",
+          "subject": "Merge remote-tracking branch 'origin/main' into feat/review-rows-documents-layout",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T16:38:52+03:00",
+          "files": [
+            "backend/src/contracts/review/review-inbox.ts",
+            "backend/src/modules/review-inbox/review-inbox.service.ts",
+            "frontend/app/(main)/review/hooks/useReviewInbox.ts",
+            "frontend/app/(main)/review/lib/review-inbox-model.ts",
+            "frontend/app/(main)/statements/components/StatementTransactionsPanel.tsx",
+            "frontend/app/lib/contracts/review/review-inbox.ts",
+            "packages/contracts/src/review/review-inbox.ts"
+          ]
+        },
+        {
+          "sha": "003f8a0616c71c46ec397a5d609f01437ee85f6d",
+          "shortSha": "003f8a06",
+          "subject": "Merge pull request #278 from symonbaikov/feat/sidebar-nav-order",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T17:47:59+03:00",
+          "files": []
+        },
+        {
+          "sha": "35959b5bc42d52041b90a8514d79d391f1b6de93",
+          "shortSha": "35959b5b",
+          "subject": "Merge pull request #279 from symonbaikov/fix/command-palette-drawers",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T17:48:15+03:00",
+          "files": []
+        },
+        {
+          "sha": "f772e93e06cc2cf7dffd98e25712aed50173d9b6",
+          "shortSha": "f772e93e",
+          "subject": "Merge pull request #280 from symonbaikov/fix/custom-tables-draft-delete",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T17:48:31+03:00",
+          "files": []
+        },
+        {
+          "sha": "c4d271c09e551123f262253bada3dfc44537cb89",
+          "shortSha": "c4d271c0",
+          "subject": "Merge pull request #281 from symonbaikov/fix/transaction-drawer-minimal",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T17:48:45+03:00",
+          "files": []
+        },
+        {
+          "sha": "979529222928a3ff3427ccdeae0400304c512302",
+          "shortSha": "97952922",
+          "subject": "Merge pull request #277 from symonbaikov/feat/review-rows-documents-layout",
+          "author": "Symon Baikov",
+          "date": "2026-10-12T17:49:00+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-12-aebcf9a",
       "version": "main-aebcf9a",
