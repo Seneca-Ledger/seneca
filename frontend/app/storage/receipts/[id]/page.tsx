@@ -10,6 +10,7 @@ import { useTheme } from 'next-themes';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { ArrowLeft } from '@/app/components/icons';
+import { EInvoicePanel } from '@/app/components/receipts/EInvoicePanel';
 import { ReceiptLocationSection } from '@/app/components/receipts/location/ReceiptLocationSection';
 import { ReceiptParsedDataForm } from '@/app/components/receipts/ReceiptParsedDataForm';
 import { ReceiptTransactionMatch } from '@/app/components/receipts/ReceiptTransactionMatch';
@@ -850,6 +851,7 @@ export default function ReceiptDocumentPage() {
 
         <ReceiptTransactionMatch
           receipt={receipt}
+          categories={categories}
           saving={saving}
           onApprove={handleApprove}
           onChanged={loadData}
@@ -940,6 +942,14 @@ export default function ReceiptDocumentPage() {
               categories={categories}
               onChange={handleFormChange}
             />
+
+            {receipt.parsedData?.einvoice ? (
+              <EInvoicePanel
+                einvoice={receipt.parsedData.einvoice}
+                issues={receipt.parsedData.validationIssues ?? []}
+                currency={receipt.parsedData.currency ?? FALLBACK_CURRENCY}
+              />
+            ) : null}
 
             {/* In the form's column, so correcting a place never scrolls the document away. */}
             <ReceiptLocationSection flat receipt={receipt} onReceiptChange={setReceipt} />

@@ -6,7 +6,7 @@ export type WorkspaceMemberListItem = {
   joinedAt?: string;
 };
 
-export type MemberRoleFilter = 'all' | 'owner' | 'admin' | 'member' | 'viewer';
+export type MemberRoleFilter = 'all' | 'owner' | 'admin' | 'member' | 'viewer' | 'accountant';
 export type MemberSortBy = 'name' | 'role' | 'joinedAt';
 
 type FilterAndSortOptions = {
@@ -20,6 +20,7 @@ const ROLE_SORT_ORDER: Record<string, number> = {
   admin: 1,
   member: 2,
   viewer: 3,
+  accountant: 4,
 };
 
 const getDisplayName = (member: WorkspaceMemberListItem) =>

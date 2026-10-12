@@ -71,7 +71,7 @@ export function suggestionEntries(categories: CategoryMapping[]): MappingEntry[]
 export function exportFileName(
   countryCode: string,
   taxYear: number,
-  format: 'pdf' | 'xlsx',
+  format: 'pdf' | 'xlsx' | 'csv',
 ): string {
   return `income-tax-${countryCode.toLowerCase()}-${taxYear}.${format}`;
 }

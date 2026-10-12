@@ -100,3 +100,21 @@ export const BulkApproveBody = Schema.Struct({
   categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type BulkApproveBody = Wire<typeof BulkApproveBody>;
+
+/** `POST /receipts/:id/split`: the preview as the user corrected it. */
+export const ApplyReceiptSplitBody = Schema.Struct({
+  /**
+   * The receipt's lines with the category the user settled on: the same lines,
+   * only the categories may differ. Without it the suggestion is applied as is.
+   */
+  items: optionalNullable(
+    Schema.Array(
+      Schema.Struct({
+        description: Schema.String,
+        amount: Schema.Finite,
+        categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+      }),
+    ),
+  ),
+});
+export type ApplyReceiptSplitBody = Wire<typeof ApplyReceiptSplitBody>;

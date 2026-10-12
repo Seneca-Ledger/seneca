@@ -3,7 +3,7 @@
 import * as Schema from 'effect/Schema';
 import { Timestamp, type Wire } from '../common/wire';
 
-export const WorkspaceRole = Schema.Literals(['owner', 'admin', 'member', 'viewer']);
+export const WorkspaceRole = Schema.Literals(['owner', 'admin', 'member', 'viewer', 'accountant']);
 export type WorkspaceRole = Wire<typeof WorkspaceRole>;
 
 export const WorkspaceMemberPermissions = Schema.Struct({

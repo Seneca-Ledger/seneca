@@ -79,4 +79,24 @@ export const creditNotesApi = {
     link.remove();
     window.URL.revokeObjectURL(url);
   },
+
+  /** What the credit note, its client or the business profile still lack for an XRechnung. */
+  async checkXRechnung(id: string): Promise<{ missing: string[] }> {
+    return (await apiClient.get<{ missing: string[] }>(`/credit-notes/${id}/xrechnung/check`)).data;
+  },
+
+  /** The credit note as an XRechnung of type 381, naming the invoices it corrects. */
+  async downloadXRechnung(id: string, fileName: string): Promise<void> {
+    const response = await apiClient.get<Blob>(`/credit-notes/${id}/xrechnung`, {
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/xml' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

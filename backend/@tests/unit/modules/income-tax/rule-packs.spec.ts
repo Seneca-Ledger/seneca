@@ -43,7 +43,44 @@ describe('German tariff § 32a EStG 2026', () => {
   });
 
   it('has no tariff for a year that was not verified', () => {
-    expect(germanIncomeTax(50_000, 2025)).toBeNull();
+    expect(germanIncomeTax(50_000, 2024)).toBeNull();
+  });
+});
+
+describe('German tariff § 32a EStG 2025', () => {
+  // Spot values from exact decimal arithmetic on the BGBl. 2024 I Nr. 449 formula.
+  it.each([
+    [12_096, 0],
+    [20_000, 1_639],
+    [50_000, 10_691],
+    [100_000, 31_088],
+    [300_000, 115_753],
+  ])('taxes %i EUR as %i EUR', (income, tax) => {
+    expect(germanIncomeTax(income, 2025)).toBe(tax);
+  });
+
+  it('differs from 2026 because the Grundfreibetrag moved', () => {
+    expect(germanIncomeTax(20_000, 2026)).toBe(1_570);
+    expect(germanIncomeTax(12_348, 2025)).toBeGreaterThan(0);
+  });
+});
+
+describe('Anlage EÜR 2025 line numbers', () => {
+  it('carries the BMF form numbers for the VAT, gift, entertainment and catch-all lines', () => {
+    const byKey = Object.fromEntries(deEuerPack.lines.map(line => [line.key, [line.lineNo, line.fieldNo]]));
+    expect(byKey).toMatchObject({
+      vat_received: ['17', '140'],
+      vat_refunded: ['18', '141'],
+      input_vat_paid: ['57', '185'],
+      vat_paid_to_office: ['58', '186'],
+      other_expenses: ['60', '183'],
+      gifts: ['62', '164 / 174'],
+      entertainment: ['63', '165 / 175'],
+    });
+    // Only the line that is not on the form has no number.
+    expect(deEuerPack.lines.filter(line => line.lineNo === null).map(line => line.key)).toEqual([
+      'not_business',
+    ]);
   });
 });
 
@@ -126,7 +163,10 @@ describe('Anlage EÜR', () => {
   it('estimates tax only for a year with a verified tariff', () => {
     const items = { revenue_vatable: [item(30_000_00)] };
 
-    expect(deEuerPack.compute(input({ taxYear: 2025, items })).taxEstimate).toBeNull();
+    expect(deEuerPack.compute(input({ taxYear: 2024, items })).taxEstimate).toBeNull();
+    expect(deEuerPack.compute(input({ taxYear: 2025, items })).taxEstimate?.amountMinor).toBe(
+      (germanIncomeTax(30_000, 2025) as number) * 100,
+    );
 
     const estimate = deEuerPack.compute(input({ taxYear: 2026, items })).taxEstimate;
     expect(estimate?.amountMinor).toBe((germanIncomeTax(30_000, 2026) as number) * 100);

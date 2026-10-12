@@ -20,10 +20,10 @@ async function main() {
 
   const output = process.argv[3] ? path.resolve(process.argv[3]) : `${filePath}.tables.json`;
 
-  const { rows, structured } = await extractTablesFromPdf(filePath);
+  const { rowSets, structured } = await extractTablesFromPdf(filePath);
   const payload = {
     file: filePath,
-    rows,
+    rowSets,
     structured,
   };
 

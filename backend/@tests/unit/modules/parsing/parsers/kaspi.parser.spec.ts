@@ -180,7 +180,7 @@ describe('KaspiParser', () => {
       ].join('\n');
 
       (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 
@@ -221,7 +221,7 @@ describe('KaspiParser', () => {
       ].join('\n');
 
       (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 
@@ -247,7 +247,7 @@ describe('KaspiParser', () => {
       ].join('\n');
 
       (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 

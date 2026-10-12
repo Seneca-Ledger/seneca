@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 
 import archiver = require('archiver');
 
@@ -424,7 +425,9 @@ export class StatementsService {
     // explicit type check rather than truthiness keeps that guarantee from
     // ever being taken on faith for this parameter.
     const normalizedFiles = Array.isArray(files) ? files : [];
-    normalizedFiles.forEach(validateFile);
+    for (const file of normalizedFiles) {
+      validateFile(file);
+    }
 
     let fileName: string;
     let filePath: string;
@@ -1321,6 +1324,12 @@ export class StatementsService {
   async moveToTrash(id: string, userId: string, workspaceId: string): Promise<Statement> {
     const statement = await this.findOne(id, workspaceId);
     await this.ensureCanModify(statement, userId, workspaceId);
+    // A trashed statement's rows drop out of every total, including the
+    // filed return they were reported on.
+    await assertNoTaxLockedTransactions(this.transactionRepository, {
+      statementId: statement.id,
+      workspaceId,
+    });
 
     // Mark as deleted (soft delete)
     const beforeState = { ...statement };
@@ -1364,6 +1373,10 @@ export class StatementsService {
     if (!statement) {
       throw new NotFoundException('Statement not found');
     }
+    await assertNoTaxLockedTransactions(this.transactionRepository, {
+      statementId: statement.id,
+      workspaceId,
+    });
 
     await this.ensureCanModify(statement, userId, workspaceId);
 
@@ -1432,6 +1445,10 @@ export class StatementsService {
 
     if (mode === 'replace') {
       // Full delete mode - clear all transactions
+      await assertNoTaxLockedTransactions(this.transactionRepository, {
+        statementId: statement.id,
+        workspaceId,
+      });
       await this.transactionRepository.delete({ statementId: statement.id });
     } else {
       // Merge mode - keep user-modified transactions, soft-delete others
@@ -1445,7 +1462,8 @@ export class StatementsService {
 
       for (const tx of existingTransactions) {
         const timeDiff = tx.updatedAt.getTime() - tx.createdAt.getTime();
-        if (timeDiff > 1000) {
+        // A row on a filed tax return stays whatever its timestamps say.
+        if (timeDiff > 1000 || tx.taxLocked) {
           // Modified more than 1 second after creation
           userModified.push(tx.id);
         } else {

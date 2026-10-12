@@ -3,6 +3,7 @@
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
+import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -10,9 +11,12 @@ import { BarChart3, CalendarDays, DollarSign, List, PieChart, Scale } from '@/ap
 import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { apiQuery } from '@/app/lib/query-fn';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
 import BalanceSheet from './components/BalanceSheet';
 import { CashFlowTab } from './components/cash-flow/CashFlowTab';
 import { CashFlowView } from './components/cash-flow/CashFlowView';
@@ -21,10 +25,11 @@ import { ReportHistory } from './components/ReportHistory';
 import { ReportSchedules } from './components/ReportSchedules';
 import { type ReportTemplate, ReportTemplateCard } from './components/ReportTemplateCard';
 import { TaxReturnView } from './components/TaxReturnView';
+import { TaxYearView } from './components/TaxYearView';
 
-type ReportsTab = 'templates' | 'history' | 'schedules' | 'tax' | 'cash-flow';
+type ReportsTab = 'templates' | 'history' | 'schedules' | 'tax' | 'tax-year' | 'cash-flow';
 
-const LINKED_TABS: ReportsTab[] = ['tax', 'cash-flow'];
+const LINKED_TABS: ReportsTab[] = ['tax', 'tax-year', 'cash-flow'];
 
 const readLinkedTab = (value: string | null): ReportsTab | null =>
   LINKED_TABS.find(tab => tab === value) ?? null;
@@ -32,6 +37,19 @@ const readLinkedTab = (value: string | null): ReportsTab | null =>
 // eslint-disable-next-line max-lines-per-function
 export default function ReportsPage(): React.JSX.Element {
   const t = useIntlayer('reportsPage');
+  const taxYearText = useIntlayer('taxYearView');
+  const workspaceId = useWorkspaceId();
+  // The VAT return only means something to a workspace that charges VAT.
+  const taxSettings = useQuery({
+    queryKey: queryKeys.taxSettings(workspaceId),
+    queryFn: ({ signal }) =>
+      apiQuery<{ vatStatus: 'registered' | 'small_business' | 'not_registered' }>({
+        url: '/tax/settings',
+        signal,
+      }),
+    enabled: Boolean(workspaceId),
+  });
+  const chargesVat = taxSettings.data?.vatStatus === 'registered';
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
@@ -203,13 +221,17 @@ export default function ReportsPage(): React.JSX.Element {
             label={text('tabHistory', 'History')}
             data-tour-id="reports-history-tab"
           />
-          <Tab value="tax" label={text('tabTax', 'Tax return')} />
+          <Tab value="tax-year" label={taxYearText.tabLabel.value} />
+          {chargesVat || tab === 'tax' ? (
+            <Tab value="tax" label={text('tabTax', 'Tax return')} />
+          ) : null}
         </Tabs>
       </Box>
 
       <Box sx={{ px: { xs: 2, sm: 4 }, py: 3 }}>
         <UnconfirmedNotice style={{ marginBottom: 16 }} />
         {tab === 'tax' && <TaxReturnView />}
+        {tab === 'tax-year' && <TaxYearView />}
         {tab === 'cash-flow' && (
           <>
             <CashFlowView />

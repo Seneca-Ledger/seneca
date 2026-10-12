@@ -8,6 +8,7 @@ import { DashboardModule } from '../dashboard/dashboard.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { GoalsModule } from '../goals/goals.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { TaxModule } from '../tax/tax.module';
 import { ForecastController } from './forecast.controller';
 import { ForecastService } from './forecast.service';
 
@@ -18,6 +19,7 @@ import { ForecastService } from './forecast.service';
     ExchangeRatesModule,
     GoalsModule,
     SubscriptionsModule,
+    TaxModule,
   ],
   controllers: [ForecastController],
   providers: [ForecastService],

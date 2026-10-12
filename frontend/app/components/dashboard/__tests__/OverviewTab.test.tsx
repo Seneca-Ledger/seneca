@@ -215,3 +215,39 @@ describe('OverviewTab', () => {
     expect(screen.getByText('90%').className).toContain('lumio-dashboard__stat-value--warning');
   });
 });
+
+describe('OverviewTab getting started checklist', () => {
+  const progress = { hasUpload: false, hasCustomCategories: false, hasBudget: false, hasGoal: false };
+
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiGet.mockImplementation((url: string) => {
+      if (url === '/dashboard/setup-progress') {
+        return Promise.resolve({ data: progress });
+      }
+      if (url === '/view-preferences/onboarding') {
+        return Promise.resolve({ data: { state: null } });
+      }
+      return Promise.resolve({ data: { data: url === '/budgets' ? [] : null } });
+    });
+  });
+
+  it('sits above the empty state of a workspace that never uploaded anything', async () => {
+    renderTab({ ...baseData, dataHealth: { ...baseData.dataHealth, lastUploadDate: null } });
+
+    expect(await screen.findByText('exploreOnMyOwn')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /parse statement/i })).toBeInTheDocument();
+  });
+
+  it('is not shown to a viewer', async () => {
+    renderTab({
+      ...baseData,
+      role: 'viewer',
+      dataHealth: { ...baseData.dataHealth, lastUploadDate: null },
+    });
+
+    await waitFor(() => expect(apiGet).toHaveBeenCalled());
+    expect(apiGet).not.toHaveBeenCalledWith('/dashboard/setup-progress', expect.anything());
+    expect(screen.queryByText('exploreOnMyOwn')).not.toBeInTheDocument();
+  });
+});

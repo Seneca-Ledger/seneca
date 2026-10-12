@@ -47,6 +47,36 @@ const ReceiptMetadata = Schema.Struct({
   place: Schema.optional(ReceiptPlace),
 });
 
+/** What a receipt keeps of a structured e-invoice's XML (XRechnung, ZUGFeRD / Factur-X). */
+export const EInvoiceSummary = Schema.Struct({
+  syntax: Schema.Literals(['ubl', 'cii']),
+  profile: Schema.NullOr(Schema.String),
+  /** False for ZUGFeRD MINIMUM / BASIC-WL: not an e-invoice in Germany. */
+  meetsEn16931: Schema.Boolean,
+  typeCode: Schema.NullOr(Schema.String),
+  number: Schema.NullOr(Schema.String),
+  dueDate: Schema.NullOr(Schema.String),
+  deliveryDate: Schema.NullOr(Schema.String),
+  iban: Schema.NullOr(Schema.String),
+  seller: Schema.Struct({
+    name: Schema.NullOr(Schema.String),
+    vatId: Schema.NullOr(Schema.String),
+    taxNumber: Schema.NullOr(Schema.String),
+    countryCode: Schema.NullOr(Schema.String),
+  }),
+  reverseCharge: Schema.Boolean,
+  vat: Schema.Array(
+    Schema.Struct({
+      category: Schema.String,
+      rate: Schema.NullOr(Schema.Number),
+      base: Schema.Number,
+      tax: Schema.Number,
+      exemptionReason: Schema.NullOr(Schema.String),
+    }),
+  ),
+});
+export type EInvoiceSummary = Wire<typeof EInvoiceSummary>;
+
 /** jsonb from the extraction: every key may be missing. */
 const ReceiptParsedData = Schema.Struct({
   amount: Schema.optional(Schema.Number),
@@ -70,6 +100,8 @@ const ReceiptParsedData = Schema.Struct({
   transactionType: Schema.optional(Schema.Literals(['unknown', 'income', 'expense', 'transfer'])),
   confidence: Schema.optional(Schema.Number),
   validationIssues: Schema.optional(Schema.Array(Schema.String)),
+  /** Set when the file is a structured e-invoice, read from its XML. */
+  einvoice: Schema.optional(EInvoiceSummary),
 });
 
 /** `GET /receipts/:id`, and a row of `GET /receipts`. */
@@ -106,6 +138,8 @@ export const ReceiptRecord = Schema.Struct({
   locationUpdatedAt: Schema.NullOr(Timestamp),
   /** The category `parsedData.categoryId` names, looked up for display. */
   category: Schema.NullOr(Schema.Struct({ id: Schema.String, name: Schema.String })),
+  /** The transaction it documents is split by its items (single-receipt reads only). */
+  transactionSplit: Schema.optional(Schema.Boolean),
   createdAt: Timestamp,
 });
 export type ReceiptRecord = Wire<typeof ReceiptRecord>;
@@ -114,7 +148,9 @@ export type ReceiptRecord = Wire<typeof ReceiptRecord>;
  * A receipt as its updates answer (`PATCH /receipts/:id/location`, `DELETE` of
  * it): the stored row, without the category looked up for display.
  */
-export const ReceiptRecordUpdate = ReceiptRecord.mapFields(Struct.omit(['category']));
+export const ReceiptRecordUpdate = ReceiptRecord.mapFields(
+  Struct.omit(['category', 'transactionSplit']),
+);
 export type ReceiptRecordUpdate = Wire<typeof ReceiptRecordUpdate>;
 
 /** `GET /receipts`. */
@@ -157,6 +193,18 @@ export const ReceiptSplitSuggestion = Schema.Struct({
     }),
   ),
   splittable: Schema.Boolean,
+  /** The line items with the category the suggestion assigned to each. */
+  items: Schema.Array(
+    Schema.Struct({
+      description: Schema.String,
+      amount: Schema.Number,
+      categoryId: Schema.NullOr(Schema.String),
+    }),
+  ),
+  /** The transaction is split already: undo that first, nothing is suggested. */
+  alreadySplit: Schema.Boolean,
+  /** Where items without a category go: the receipt's, else the transaction's category. */
+  fallbackCategoryId: Schema.NullOr(Schema.String),
 });
 export type ReceiptSplitSuggestion = Wire<typeof ReceiptSplitSuggestion>;
 

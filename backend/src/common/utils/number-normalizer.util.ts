@@ -133,7 +133,10 @@ export function normalizeDate(dateStr: string): Date | null {
   }
 
   const trimmed = dateStr.trim();
-  const dateTimeMatch = trimmed.match(/(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2}):(\d{2}))?/);
+  // Banks print "0:20:11" (one-digit hour) and "09:22" (no seconds) as well.
+  const dateTimeMatch = trimmed.match(
+    /(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/,
+  );
   if (dateTimeMatch) {
     const [, dd, mm, yyyy, hh = '00', min = '00', ss = '00'] = dateTimeMatch;
     return new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min), Number(ss));
@@ -178,6 +181,12 @@ export function normalizeDate(dateStr: string): Date | null {
     const [, dd, mm, yy] = shortYearMatch;
     const year = Number(yy) <= 49 ? 2000 + Number(yy) : 1900 + Number(yy);
     return new Date(year, Number(mm) - 1, Number(dd));
+  }
+
+  // A bare number is never a date here: V8 reads "2" as February 2001 and
+  // "2026" as January 1st, which turns column numbers and years into rows.
+  if (/^\d+$/.test(trimmed)) {
+    return null;
   }
 
   // Try direct parsing; reject nonsense years (e.g. "45424" parsed as a year)

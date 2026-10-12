@@ -55,14 +55,24 @@ describe('normalizeRows', () => {
     const saved = [['net-worth', 'gone'], ['kpis', 'net-worth'], []];
     const rows = normalizeRows({ rows: saved });
 
-    expect(rows.slice(0, 2)).toEqual([['net-worth'], ['kpis']]);
+    expect(rows.slice(0, 3)).toEqual([['getting-started'], ['net-worth'], ['kpis']]);
     expect(rows.flat().sort()).toEqual(DEFAULT_OVERVIEW_ROWS.flat().sort());
+  });
+
+  it('opens an older saved layout with the setup checklist, and leaves a placed one alone', () => {
+    expect(normalizeRows({ rows: [['activity'], ['kpis']] }).slice(0, 2)).toEqual([
+      ['getting-started'],
+      ['activity'],
+    ]);
+    expect(
+      normalizeRows({ rows: [['kpis'], ['getting-started']] }).slice(0, 2),
+    ).toEqual([['kpis'], ['getting-started']]);
   });
 
   it('never keeps more than two sections in a row', () => {
     const rows = normalizeRows({ rows: [['kpis', 'crypto', 'goals']] });
 
-    expect(rows[0]).toEqual(['kpis', 'crypto']);
+    expect(rows[1]).toEqual(['kpis', 'crypto']);
     expect(rows.flat()).toContain('goals');
   });
 });

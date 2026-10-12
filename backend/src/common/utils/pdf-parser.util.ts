@@ -32,6 +32,7 @@ export interface PdfTableRow {
 
 interface PdfPlumberTable {
   page: number;
+  strategy: string;
   data: string[][];
   structured: PdfTableRow[];
 }
@@ -46,7 +47,7 @@ type RawPdfTextItem = Partial<Record<'text' | 'x' | 'y' | 'width' | 'height' | '
 type RawPdfTextRow = Partial<Record<'page' | 'y' | 'text' | 'items', unknown>>;
 type RawPdfStructuredCell = Partial<Record<'text' | 'x', unknown>>;
 type RawPdfStructuredRow = Partial<Record<'page' | 'y' | 'columns' | 'cells', unknown>>;
-type RawPdfTable = Partial<Record<'page' | 'data' | 'structured', unknown>>;
+type RawPdfTable = Partial<Record<'page' | 'strategy' | 'data' | 'structured', unknown>>;
 
 // ponytail: bounded via simple insertion-order eviction (Map preserves
 // insertion order; re-inserting on read turns this into an LRU) rather than
@@ -103,15 +104,25 @@ export async function extractTextAndLayoutFromPdf(
 
 /**
  * Extract table-like rows from PDF using pdfplumber.
- * Returns both simple rows (array of cell values) and structured rows with coordinates.
+ *
+ * pdfplumber finds tables two ways — from ruling lines and from text
+ * alignment — and the two disagree on where columns split. `rowSets` keeps one
+ * set of rows per way (pages concatenated in order), so a caller reads each as
+ * its own table instead of a mix of both. Structured rows carry coordinates.
  */
 export async function extractTablesFromPdf(
   filePath: string,
-): Promise<{ rows: string[][]; structured: PdfTableRow[] }> {
+): Promise<{ rowSets: string[][][]; structured: PdfTableRow[] }> {
   const parsed = await runPdfPlumber(filePath);
-  const rows = (parsed.tables || []).flatMap(table => table.data || []);
-  const structured = (parsed.tables || []).flatMap(table => table.structured || []);
-  return { rows, structured };
+  const tables = parsed.tables || [];
+  const strategies = Array.from(new Set(tables.map(table => table.strategy)));
+  const rowSets = strategies
+    .map(strategy =>
+      tables.filter(table => table.strategy === strategy).flatMap(table => table.data || []),
+    )
+    .filter(rows => rows.length > 0);
+  const structured = tables.flatMap(table => table.structured || []);
+  return { rowSets, structured };
 }
 
 function ensureFileExists(filePath: string) {
@@ -324,6 +335,7 @@ function normalizeTable(table: RawPdfTable | null | undefined): PdfPlumberTable 
 
   return {
     page: Number(table.page) || 1,
+    strategy: typeof table.strategy === 'string' ? table.strategy : '',
     data,
     structured,
   };

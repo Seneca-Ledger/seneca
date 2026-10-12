@@ -2,7 +2,10 @@ import { normalizeDate, normalizeNumber } from '../../../common/utils/number-nor
 import { extractTablesFromPdf, extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
 import { AiTransactionExtractor } from '../helpers/ai-transaction-extractor.helper';
-import { mapPdfTableRowsToTransactions, mergeTransactions } from '../helpers/pdf-table.helper';
+import {
+  mapPdfTableRowsToTransactions,
+  pickReconciledTransactions,
+} from '../helpers/pdf-table.helper';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { BaseParser } from './base.parser';
 
@@ -36,7 +39,7 @@ export class KaspiParser extends BaseParser {
     this.logger.debug('Starting to parse file:', filePath);
 
     const text = cachedText ?? (await extractTextFromPdf(filePath));
-    const { rows: tableRows } = await extractTablesFromPdf(filePath);
+    const { rowSets } = await extractTablesFromPdf(filePath);
     this.logger.debug(`PDF text length: ${text.length}`);
 
     // Extract metadata
@@ -50,23 +53,19 @@ export class KaspiParser extends BaseParser {
 
     const detectedCurrency = this.detectCurrency(text) || 'KZT';
 
-    const tableTransactions = mapPdfTableRowsToTransactions(tableRows, {
-      defaultCurrency: detectedCurrency,
-      stopWords: ['итого', 'оборот', 'остаток'],
-    });
-    const kaspiTableTransactions = this.extractKaspiTableTransactions(tableRows, detectedCurrency);
-    const combinedTableTx = kaspiTableTransactions.length
-      ? mergeTransactions(kaspiTableTransactions, tableTransactions)
-      : tableTransactions;
-    if (tableTransactions.length) {
-      this.logger.debug(`pdf2table extracted ${tableTransactions.length} transactions`);
-    }
-
-    // Parse transactions from the structured text
-    const parsedFromText = await this.parseTransactionsFromText(text);
-    const transactions = combinedTableTx.length
-      ? mergeTransactions(combinedTableTx, parsedFromText)
-      : parsedFromText;
+    // In order of trust: the Kaspi column layout, the generic table reader,
+    // then the text fallback. One of them is picked, never a union of them.
+    const attempts = [
+      ...rowSets.map(rows => this.extractKaspiTableTransactions(rows, detectedCurrency)),
+      ...rowSets.map(rows =>
+        mapPdfTableRowsToTransactions(rows, {
+          defaultCurrency: detectedCurrency,
+          stopWords: ['итого', 'оборот', 'остаток'],
+        }),
+      ),
+      await this.parseTransactionsFromText(text),
+    ];
+    const transactions = pickReconciledTransactions(attempts, balances.start, balances.end);
     this.logger.debug(`Parsed ${transactions.length} transactions`);
 
     return {
@@ -316,9 +315,12 @@ export class KaspiParser extends BaseParser {
         continue;
       }
 
-      const counterpartyName =
+      const nameCell =
         (idxName >= 0 ? row[idxName] : '') ||
         (idxPurpose >= 0 ? row[idxPurpose] : 'Неизвестный контрагент');
+      // Kaspi prints the BIN inside the name cell: `ТОО "X" БИН/ИИН 123456789012`.
+      const nameWithBin = nameCell.match(/^(.+?)\s*БИН\/ИИН\s*(\d+)/);
+      const counterpartyName = nameWithBin ? nameWithBin[1].trim() : nameCell;
 
       const transaction: ParsedTransaction = {
         transactionDate,
@@ -326,7 +328,7 @@ export class KaspiParser extends BaseParser {
         counterpartyName: counterpartyName || 'Неизвестный контрагент',
         counterpartyAccount: idxAccount >= 0 ? row[idxAccount] : undefined,
         counterpartyBank: idxBank >= 0 ? row[idxBank] : undefined,
-        counterpartyBin: idxBin >= 0 ? row[idxBin] : undefined,
+        counterpartyBin: nameWithBin?.[2] ?? (idxBin >= 0 ? row[idxBin] : undefined),
         debit,
         credit,
         paymentPurpose: idxPurpose >= 0 ? row[idxPurpose] : 'Не указано',

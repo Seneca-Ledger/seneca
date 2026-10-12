@@ -9,7 +9,7 @@ import { apiQuery } from '@/app/lib/query-fn';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 /** The pages that remember themselves; the server keeps the same closed list. */
-export type ViewScope = 'transactions' | 'review' | 'reports' | 'dashboard';
+export type ViewScope = 'transactions' | 'review' | 'reports' | 'dashboard' | 'onboarding';
 
 /** Long: this is read once on mount and written by the page itself. */
 const PREFERENCE_STALE_TIME = 30 * 60 * 1000;

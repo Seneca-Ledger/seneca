@@ -11,6 +11,7 @@ import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
+import { formatMoney } from '@/app/lib/format-money';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import {
   buildCurrencySearchIndex,
@@ -173,6 +174,21 @@ export function ReceiptParsedDataForm({
     setCurrencySearch('');
     setCurrencyDrawerOpen(false);
   };
+
+  // Collapsed: most receipts are read for their total, and the items only matter
+  // when a purchase is split across categories.
+  const [itemsOpen, setItemsOpen] = useState(false);
+  const addLineItem = () =>
+    onChange({
+      ...value,
+      lineItems: [...value.lineItems, { id: `line-${Date.now()}`, description: '', amount: 0 }],
+    });
+  // How far the items are from the amount, like the remainder in an itemization.
+  const itemsDifference =
+    value.lineItems.length > 0 && value.amount !== '' && Number(value.amount) > 0
+      ? Number(value.amount) -
+        value.lineItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+      : null;
 
   const controlStyle = compact ? COMPACT_CONTROL_STYLE : undefined;
   const selectSx = compact ? COMPACT_CONTROL_STYLE : FORM_CONTROL_SX;
@@ -365,31 +381,43 @@ export function ReceiptParsedDataForm({
               mb: compact ? 0.75 : 1.5,
             }}
           >
-            <Typography style={{ fontSize: 14, fontWeight: 600, color: c.ink900 }}>
-              {t.lineItems}
-            </Typography>
-            <MuiButton
-              variant="text"
-              size="small"
-              onClick={() =>
-                onChange({
-                  ...value,
-                  lineItems: [
-                    ...value.lineItems,
-                    {
-                      id: `line-${Date.now()}`,
-                      description: '',
-                      amount: 0,
-                    },
-                  ],
-                })
-              }
-            >
-              {t.addItem}
-            </MuiButton>
+            {value.lineItems.length > 0 ? (
+              <MuiButton
+                variant="text"
+                size="small"
+                aria-expanded={itemsOpen}
+                onClick={() => setItemsOpen(open => !open)}
+                endIcon={
+                  <ChevronDown
+                    size={16}
+                    style={{ transform: itemsOpen ? 'rotate(180deg)' : undefined }}
+                  />
+                }
+                sx={{ px: 0, minWidth: 0, fontSize: 14, fontWeight: 600, color: c.ink900 }}
+              >
+                {`${t.lineItems.value} (${value.lineItems.length})`}
+              </MuiButton>
+            ) : (
+              <MuiButton
+                variant="text"
+                size="small"
+                onClick={() => {
+                  setItemsOpen(true);
+                  addLineItem();
+                }}
+                sx={{ px: 0, minWidth: 0 }}
+              >
+                {t.itemize}
+              </MuiButton>
+            )}
+            {itemsOpen && value.lineItems.length > 0 ? (
+              <MuiButton variant="text" size="small" onClick={addLineItem}>
+                {t.addItem}
+              </MuiButton>
+            ) : null}
           </Box>
 
-          {compact && value.lineItems.length > 0 ? (
+          {itemsOpen && compact && value.lineItems.length > 0 ? (
             <Box
               aria-hidden
               sx={{
@@ -409,76 +437,95 @@ export function ReceiptParsedDataForm({
               <span />
             </Box>
           ) : null}
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: compact ? 0.25 : 1.5,
-            }}
-          >
-            {/* eslint-disable-next-line max-lines-per-function, max-params */}
-            {value.lineItems.map((lineItem, index) => (
-              <Box
-                key={lineItem.id}
-                sx={{
-                  display: 'grid',
-                  gap: compact ? 1 : 1.5,
-                  gridTemplateColumns: compact
-                    ? 'minmax(0,1fr) 110px 32px'
-                    : { xs: '1fr', sm: 'minmax(0,1fr) 140px 48px' },
-                  alignItems: 'center',
-                }}
-              >
-                <LineInput
-                  aria-label={index === 0 ? t.lineItemDescriptionLabel.value : undefined}
-                  value={lineItem.description}
-                  onChange={event =>
-                    onChange({
-                      ...value,
-                      lineItems: value.lineItems.map(currentItem =>
-                        currentItem.id === lineItem.id
-                          ? { ...currentItem, description: event.target.value }
-                          : currentItem,
-                      ),
-                    })
-                  }
-                />
-                <LineInput
-                  aria-label={index === 0 ? t.lineItemAmountLabel.value : undefined}
-                  {...(compact ? { align: 'right' as const } : {})}
-                  type="number"
-                  value={lineItem.amount}
-                  onChange={event =>
-                    onChange({
-                      ...value,
-                      lineItems: value.lineItems.map(currentItem =>
-                        currentItem.id === lineItem.id
-                          ? { ...currentItem, amount: Number(event.target.value) }
-                          : currentItem,
-                      ),
-                    })
-                  }
-                />
-                <IconButton
-                  aria-label={t.removeLineItem.value.replace(
-                    '{name}',
-                    lineItem.description || String(index + 1),
-                  )}
-                  size="small"
-                  onClick={() =>
-                    onChange({
-                      ...value,
-                      lineItems: value.lineItems.filter(
-                        currentItem => currentItem.id !== lineItem.id,
-                      ),
-                    })
-                  }
+          {itemsOpen ? (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: compact ? 0.25 : 1.5,
+              }}
+            >
+              {/* eslint-disable-next-line max-lines-per-function, max-params */}
+              {value.lineItems.map((lineItem, index) => (
+                <Box
+                  key={lineItem.id}
+                  sx={{
+                    display: 'grid',
+                    gap: compact ? 1 : 1.5,
+                    gridTemplateColumns: compact
+                      ? 'minmax(0,1fr) 110px 32px'
+                      : { xs: '1fr', sm: 'minmax(0,1fr) 140px 48px' },
+                    alignItems: 'center',
+                  }}
                 >
-                  <Trash2 size={16} />
-                </IconButton>
-              </Box>
-            ))}
-          </Box>
+                  <LineInput
+                    aria-label={index === 0 ? t.lineItemDescriptionLabel.value : undefined}
+                    value={lineItem.description}
+                    onChange={event =>
+                      onChange({
+                        ...value,
+                        lineItems: value.lineItems.map(currentItem =>
+                          currentItem.id === lineItem.id
+                            ? { ...currentItem, description: event.target.value }
+                            : currentItem,
+                        ),
+                      })
+                    }
+                  />
+                  <LineInput
+                    aria-label={index === 0 ? t.lineItemAmountLabel.value : undefined}
+                    {...(compact ? { align: 'right' as const } : {})}
+                    type="number"
+                    value={lineItem.amount}
+                    onChange={event =>
+                      onChange({
+                        ...value,
+                        lineItems: value.lineItems.map(currentItem =>
+                          currentItem.id === lineItem.id
+                            ? { ...currentItem, amount: Number(event.target.value) }
+                            : currentItem,
+                        ),
+                      })
+                    }
+                  />
+                  <IconButton
+                    aria-label={t.removeLineItem.value.replace(
+                      '{name}',
+                      lineItem.description || String(index + 1),
+                    )}
+                    size="small"
+                    onClick={() =>
+                      onChange({
+                        ...value,
+                        lineItems: value.lineItems.filter(
+                          currentItem => currentItem.id !== lineItem.id,
+                        ),
+                      })
+                    }
+                  >
+                    <Trash2 size={16} />
+                  </IconButton>
+                </Box>
+              ))}
+            </Box>
+          ) : null}
+          {itemsOpen && itemsDifference !== null ? (
+            <Typography
+              role="status"
+              style={{
+                marginTop: 8,
+                fontSize: 13,
+                color: Math.abs(itemsDifference) < 0.005 ? c.ink500 : c.warning,
+              }}
+            >
+              {Math.abs(itemsDifference) < 0.005
+                ? t.itemsMatchTotal
+                : t.itemsDifference.value.replace(
+                    '{amount}',
+                    formatMoney(Math.abs(itemsDifference), value.currency, locale),
+                  )}
+            </Typography>
+          ) : null}
         </Box>
       </Box>
 

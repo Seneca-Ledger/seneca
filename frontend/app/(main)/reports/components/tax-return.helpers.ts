@@ -4,6 +4,8 @@ export interface TaxReturnTotals {
   netPayable: number;
   currency: string;
   lines: TaxReturnLine[];
+  /** Rows left out for want of an exchange rate; the period cannot be filed while any remain. */
+  missingRates?: Array<{ transactionId: string; date: string; currency: string }>;
 }
 
 export interface TaxReturnLine {
@@ -37,6 +39,8 @@ export interface ThresholdStatus {
   percentUsed: number;
   periodStart: string;
   periodEnd: string;
+  /** Currencies of sales left out for want of an exchange rate. */
+  missingRateCurrencies?: string[];
 }
 
 const pad = (value: number) => `${value}`.padStart(2, '0');
@@ -46,7 +50,7 @@ export function toDateInput(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-export type PeriodPreset = 'thisQuarter' | 'lastQuarter' | 'thisYear';
+export type PeriodPreset = 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'thisYear';
 
 /**
  * Quarters are built from month arithmetic rather than day counts, so the
@@ -63,6 +67,12 @@ export function periodFor(
 
   if (preset === 'thisYear') {
     return { periodStart: `${year}-01-01`, periodEnd: `${year}-12-31` };
+  }
+
+  if (preset === 'thisMonth' || preset === 'lastMonth') {
+    const start = new Date(year, now.getMonth() + (preset === 'lastMonth' ? -1 : 0), 1);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    return { periodStart: toDateInput(start), periodEnd: toDateInput(end) };
   }
 
   const quarter = Math.floor(now.getMonth() / 3);
@@ -120,7 +130,31 @@ export function saveBlob(blob: Blob, fileName: string): void {
 export function exportFileName(
   periodStart: string,
   periodEnd: string,
-  format: 'pdf' | 'xlsx',
+  format: 'pdf' | 'xlsx' | 'csv',
 ): string {
   return `tax-return-${periodStart}_${periodEnd}.${format}`;
+}
+
+export interface TaxDeadline {
+  kind: 'vat_return' | 'income_tax';
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  daysLeft: number;
+  done: boolean;
+  filedElsewhere: boolean;
+  returnName: string;
+  /** statute: worked out from the rule in the law; published: announced for the year. */
+  basis?: 'statute' | 'published';
+  /** When that rule or announcement was last read. */
+  checkedAt?: string;
+}
+
+export interface VatFiling {
+  frequency: 'monthly' | 'quarterly' | 'annual' | null;
+  isDefault: boolean;
+  extension: boolean;
+  extensionName: string | null;
+  deadlinesKnown: boolean;
+  knownFrequencies: Array<'monthly' | 'quarterly' | 'annual'>;
 }

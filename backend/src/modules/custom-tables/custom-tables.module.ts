@@ -22,6 +22,7 @@ import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditModule } from '../audit/audit.module';
 import { BudgetsModule } from '../budgets/budgets.module';
 import { ClassificationModule } from '../classification/classification.module';
+import { TaxModule } from '../tax/tax.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { CustomTableCommentsController } from './custom-table-comments.controller';
 import { CustomTableCommentsService } from './custom-table-comments.service';
@@ -67,6 +68,7 @@ import { CUSTOM_TABLE_RECALC_QUEUE } from './queue/custom-table-recalc.queue';
     ClassificationModule,
     BullModule.registerQueue({ name: CUSTOM_TABLE_RECALC_QUEUE }),
     WorkspaceCurrencyModule,
+    TaxModule,
   ],
   controllers: [
     CustomTablesController,

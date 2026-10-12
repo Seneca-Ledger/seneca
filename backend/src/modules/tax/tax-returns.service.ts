@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, IsNull, Not, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { countedWhere } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
@@ -16,6 +17,7 @@ import { JurisdictionAdoptionService } from './jurisdiction-adoption.service';
 import { JurisdictionsService, toDateOnly } from './jurisdictions.service';
 import {
   buildFileName,
+  buildTaxReturnCsv,
   buildTaxReturnPdf,
   buildTaxReturnXlsx,
   type TaxReturnDocumentInput,
@@ -27,6 +29,11 @@ export interface ReturnTotals {
   netPayable: number;
   currency: string;
   lines: TaxReturnSnapshotLine[];
+  /**
+   * Rows left out because no exchange rate exists for their day. A return
+   * with any of these is incomplete and cannot be filed.
+   */
+  missingRates: Array<{ transactionId: string; date: string; currency: string }>;
 }
 
 /**
@@ -117,7 +124,7 @@ export class TaxReturnsService {
         workspaceId,
         transferPairId: IsNull(),
         transactionDate: Between(new Date(periodStart), new Date(periodEnd)),
-        taxAmount: Not(null as never),
+        taxAmount: Not(IsNull()),
       }),
       order: { transactionDate: 'ASC' },
     });
@@ -126,6 +133,7 @@ export class TaxReturnsService {
     let outputMinor = 0;
     let inputMinor = 0;
     const lines: TaxReturnSnapshotLine[] = [];
+    const missingRates: ReturnTotals['missingRates'] = [];
 
     for (const transaction of transactions) {
       // Under reverse charge nothing was charged, so the figure the return
@@ -141,15 +149,25 @@ export class TaxReturnsService {
       }
 
       const from = (transaction.currency || currency).toUpperCase();
+      // Never `getRate`: it answers 1 when it has no rate, which would put a
+      // dollar figure into a tenge return as if it were tenge.
       const rate =
         from === currency
           ? 1
-          : await this.exchangeRatesService.getRate(
+          : await this.exchangeRatesService.getRateOrNull(
               from,
               currency,
               new Date(transaction.transactionDate),
               workspaceId,
             );
+      if (rate === null) {
+        missingRates.push({
+          transactionId: transaction.id,
+          date: toDateOnly(transaction.transactionDate),
+          currency: from,
+        });
+        continue;
+      }
 
       // Rounded once, on the converted figure, so the line and the total agree.
       const convertedMinor = roundHalfAwayFromZero(toMinor(taxAmount) * rate);
@@ -183,6 +201,7 @@ export class TaxReturnsService {
       netPayable: fromMinor(outputMinor - inputMinor),
       currency,
       lines,
+      missingRates,
     };
   }
 
@@ -260,6 +279,16 @@ export class TaxReturnsService {
     }
 
     const totals = await this.computeTotals(workspaceId, periodStart, periodEnd);
+    if (totals.missingRates.length > 0) {
+      const currencies = [...new Set(totals.missingRates.map(row => row.currency))].join(', ');
+      throw new BadRequestException({
+        ...appError('TAX_RETURN_MISSING_RATES', {
+          count: totals.missingRates.length,
+          currencies,
+        }),
+        missingRates: totals.missingRates,
+      });
+    }
     const jurisdiction = await this.adoptionService.getCurrentJurisdiction(workspaceId);
 
     const filed = await this.returnRepository.manager.transaction(async manager => {
@@ -390,9 +419,17 @@ export class TaxReturnsService {
     workspaceId: string,
     periodStart: string,
     periodEnd: string,
-    format: 'pdf' | 'xlsx',
+    format: 'pdf' | 'xlsx' | 'csv',
   ): Promise<{ buffer: Buffer; fileName: string; contentType: string }> {
     const input = await this.buildDocumentInput(workspaceId, periodStart, periodEnd);
+
+    if (format === 'csv') {
+      return {
+        buffer: buildTaxReturnCsv(input),
+        fileName: buildFileName(input, 'csv'),
+        contentType: 'text/csv; charset=utf-8',
+      };
+    }
 
     if (format === 'pdf') {
       return {

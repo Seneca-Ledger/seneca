@@ -12,6 +12,7 @@ import { useIntlayer } from '@/app/i18n';
 import { Spinner } from '../ui/spinner';
 import { CryptoPortfolioCard } from './CryptoPortfolioCard';
 import { computeNet, computeSavingsRate } from './dashboard-stats.util';
+import { GettingStartedCard } from './GettingStartedCard';
 import { GoalsProgressCard } from './GoalsProgressCard';
 import { NetWorthCard } from './NetWorthCard';
 import { OverviewLayout } from './OverviewLayout';
@@ -133,6 +134,9 @@ export function OverviewTab({
   const monthLabel = useMonthLabel(displayMonth);
   const viewAllHref = useMemo(() => monthRangeHref(displayMonth), [displayMonth]);
 
+  // Viewers can't create budgets or goals, so the checklist isn't theirs.
+  const gettingStarted = data.role === 'viewer' ? null : <GettingStartedCard />;
+
   // A workspace that never imported anything gets the onboarding CTA; a month
   // without transactions still shows zeroed KPIs and empty cards. The activity
   // feed stays either way: someone who just joined a household should see that
@@ -140,6 +144,7 @@ export function OverviewTab({
   if (!data.dataHealth?.lastUploadDate) {
     return (
       <div className="lumio-dashboard__tab">
+        {gettingStarted}
         <OverviewEmptyState />
         <WorkspaceActivityCard />
       </div>
@@ -149,6 +154,7 @@ export function OverviewTab({
   return (
     <OverviewLayout
       sections={{
+        'getting-started': gettingStarted,
         kpis: (
           <KpiRow
             data={data}

@@ -242,6 +242,12 @@ export const ERR = {
   CREDIT_NOTE_MIXED_CURRENCIES: 'One credit note covers invoices in one currency',
   CREDIT_NOTE_ZERO_TOTAL: 'A credit note must credit more than zero',
   CREDIT_NOTE_ALREADY_VOID: 'This credit note is already void',
+
+  // ── tax ─────────────────────────────────────────────────────────────────
+  TAX_LOCKED:
+    'Transactions on a filed tax return: {{count}}. Reopen the return before deleting or changing them.',
+  TAX_RETURN_MISSING_RATES:
+    'Transactions without an exchange rate for their date: {{count}} ({{currencies}}). Add the rates before filing.',
 } as const;
 
 export type ErrorCode = keyof typeof ERR;

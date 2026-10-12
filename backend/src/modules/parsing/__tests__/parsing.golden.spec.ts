@@ -53,10 +53,23 @@ function loadExpected(filePath: string): ParsedStatement {
 const sum = (list: ParsedStatement['transactions'], key: 'debit' | 'credit') =>
   list.reduce((acc, t) => acc + (Number(t[key]) || 0), 0);
 
-const toDateOnly = (value: Date | null | undefined) =>
-  value instanceof Date && !Number.isNaN(value.getTime())
-    ? value.toISOString().split('T')[0]
-    : null;
+/**
+ * Local wall-clock time, the way the statement prints it and the way fixtures
+ * store it ("2025-11-25T23:59:59", no zone). Comparing UTC strings instead
+ * would shift midnight dates by a day depending on the machine's TZ.
+ */
+const toLocalDateTime = (value: Date | null | undefined) => {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return null;
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}` +
+    `T${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`
+  );
+};
+
+const toDateOnly = (value: Date | null | undefined) => toLocalDateTime(value)?.split('T')[0] ?? null;
 
 /**
  * `loadExpected` falls back to "now" when a fixture omits a date, so only a date
@@ -64,7 +77,7 @@ const toDateOnly = (value: Date | null | undefined) =>
  */
 const hasRealDate = (value: Date | null | undefined) => {
   const dateOnly = toDateOnly(value);
-  return dateOnly !== null && dateOnly !== new Date().toISOString().split('T')[0];
+  return dateOnly !== null && dateOnly !== toDateOnly(new Date());
 };
 
 /**
@@ -76,7 +89,7 @@ function projectTransaction(transaction: ParsedStatement['transactions'][number]
     Number.isFinite(Number(value)) ? Number(Number(value).toFixed(2)) : null;
 
   return {
-    date: toDateOnly(transaction.transactionDate),
+    date: toLocalDateTime(transaction.transactionDate),
     debit: round(transaction.debit),
     credit: round(transaction.credit),
     counterpartyName: (transaction.counterpartyName || '').replace(/\s+/g, ' ').trim(),

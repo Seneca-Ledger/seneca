@@ -222,6 +222,17 @@ export const JURISDICTION_SEED: SeedJurisdiction[] = [
         validTo: null,
       },
       {
+        // Foodstuffs in Annex 3 to § 10 UStG 1994, from 1 July 2026, as Austria
+        // reports it to the European Commission (TEDB, read 2026-10-11).
+        code: 'AT_REDUCED_4_9',
+        name: 'USt 4.9%',
+        rate: 4.9,
+        kind: TaxRateKind.REDUCED,
+        isDefault: false,
+        validFrom: '2026-07-01',
+        validTo: null,
+      },
+      {
         code: 'AT_ZERO',
         name: 'USt 0%',
         rate: 0,

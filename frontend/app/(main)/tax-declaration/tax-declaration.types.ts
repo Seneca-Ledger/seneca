@@ -70,6 +70,12 @@ export interface FilingInfo {
   sourceUrl: string;
   /** Optional: drafts finalized before retention was recorded do not carry it. */
   retention?: RetentionInfo | null;
+  /**
+   * published: the dates the authority announced for the year; statute: worked
+   * out from the rule in the law as read on `checkedAt`. Absent on older drafts.
+   */
+  basis?: 'published' | 'statute';
+  checkedAt?: string;
 }
 
 export type FxRule = 'transaction_date' | 'nbp_previous_business_day' | 'bdi_reference_rate';

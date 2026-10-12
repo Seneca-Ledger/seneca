@@ -16,6 +16,7 @@ import type { CaptureLocation } from '../../common/utils/capture-location.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
 import { payeeKeyOf } from '../../common/utils/payee-key.util';
+import { taxLockedConflict } from '../../common/utils/tax-lock.util';
 import {
   Category,
   Receipt,
@@ -34,6 +35,7 @@ import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interf
 import { hasDecidedCategory } from '../classification/engine/category-decision';
 import { ReceiptApprovedEvent } from '../notifications/events/notification-events';
 import { resolvePayeeId } from '../payees/payee-resolution';
+import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { TransactionAttachmentsService } from '../transactions/services/transaction-attachments.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptQueryDto } from './dto/receipt-query.dto';
@@ -104,6 +106,8 @@ export class ReceiptsService {
     private readonly workspaceCurrency: WorkspaceCurrencyService,
     @Optional()
     private readonly attachmentsService?: TransactionAttachmentsService,
+    @Optional()
+    private readonly taxAssignmentService?: TaxAssignmentService,
   ) {}
 
   async createFromUpload(params: UploadParams): Promise<Receipt> {
@@ -182,13 +186,23 @@ export class ReceiptsService {
     return { data: await this.withCategories(data, workspaceId), total, page, limit };
   }
 
-  async findOne(id: string, workspaceId: string): Promise<ReceiptWithCategory | null> {
+  async findOne(
+    id: string,
+    workspaceId: string,
+  ): Promise<(ReceiptWithCategory & { transactionSplit: boolean }) | null> {
     const receipt = await this.receiptRepository.findOne({ where: { id, workspaceId } });
     if (!receipt) {
       return null;
     }
     const [withCategory] = await this.withCategories([receipt], workspaceId);
-    return withCategory;
+    // Whether the row it documents is split by its items, so the page offers undo.
+    const transaction = receipt.transactionId
+      ? await this.transactionRepository.findOne({
+          where: { id: receipt.transactionId, workspaceId },
+          select: { id: true, splitGroupId: true },
+        })
+      : null;
+    return Object.assign(withCategory, { transactionSplit: Boolean(transaction?.splitGroupId) });
   }
 
   private withCategories(receipts: Receipt[], workspaceId: string): Promise<ReceiptWithCategory[]> {
@@ -291,14 +305,17 @@ export class ReceiptsService {
     // filed under the fallback category picked at conversion time. Statements
     // parsed from a bank file carry unrelated transactions and are left alone.
     if (statement.parsingDetails?.detectedBy === 'receipt-scan') {
+      // Rows on a filed tax return keep the category they were filed under.
       await this.transactionRepository.update(
-        { statementId: statement.id, workspaceId },
+        { statementId: statement.id, workspaceId, taxLocked: false },
         {
           categoryId: category.id,
           categorySource: receipt.parsedData?.categorySource ?? null,
           categoryReason: receipt.parsedData?.categoryReason ?? null,
         },
       );
+      // update() skips the tax subscriber; the new category may carry another rate.
+      await this.taxAssignmentService?.reassess(workspaceId, { statementId: statement.id });
     }
   }
 
@@ -392,6 +409,11 @@ export class ReceiptsService {
         }
         // The bank row is the real payment; the transaction the scan booked
         // would count it twice. Flagged, not deleted, like any duplicate.
+        // Flagging the scan row as a duplicate would take it out of a return it
+        // was filed on, and a filed row's category is fixed.
+        if (scanTransaction?.taxLocked && scanTransaction.id !== target.id) {
+          throw taxLockedConflict(1);
+        }
         if (scanTransaction && scanTransaction.id !== target.id) {
           await transactions.update(
             { id: scanTransaction.id, workspaceId },
@@ -403,7 +425,7 @@ export class ReceiptsService {
         // import filled in, but never over one a person or their rule chose.
         await transactions.update(
           { id: target.id, workspaceId },
-          receipt.parsedData?.categoryId && !hasDecidedCategory(target)
+          receipt.parsedData?.categoryId && !hasDecidedCategory(target) && !target.taxLocked
             ? {
                 isVerified: true,
                 categoryId: receipt.parsedData.categoryId,
@@ -427,6 +449,9 @@ export class ReceiptsService {
 
       // A scan booked its transaction at upload; approving confirms it with the
       // receipt as it stands now instead of booking the expense again.
+      if (scanTransaction?.taxLocked) {
+        throw taxLockedConflict(1);
+      }
       if (scanTransaction) {
         const fields = buildTransaction(receipt);
         await transactions.update(

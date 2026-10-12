@@ -1,4 +1,5 @@
 import {
+  ACCOUNTANT_PERMISSIONS,
   GLOBAL_ONLY_PERMISSIONS,
   MEMBER_PERMISSION_GATES,
   MEMBER_PERMISSIONS,
@@ -104,6 +105,18 @@ describe('workspaceRoleAllows', () => {
     }
   });
 
+  it('lets an accountant export, and write nothing, even with all toggles switched on', () => {
+    for (const permission of WRITE_PERMISSIONS) {
+      expect(workspaceRoleAllows(permission, WorkspaceRole.ACCOUNTANT, ALL_TOGGLES)).toBe(
+        ACCOUNTANT_PERMISSIONS.has(permission),
+      );
+    }
+    expect(workspaceRoleAllows(Permission.REPORT_EXPORT, WorkspaceRole.ACCOUNTANT, null)).toBe(true);
+    expect(workspaceRoleAllows(Permission.TRANSACTION_EDIT, WorkspaceRole.ACCOUNTANT, ALL_TOGGLES)).toBe(
+      false,
+    );
+  });
+
   it('denies a viewer every write, even with all toggles switched on', () => {
     for (const permission of WRITE_PERMISSIONS) {
       expect(workspaceRoleAllows(permission, WorkspaceRole.VIEWER, ALL_TOGGLES)).toBe(false);
@@ -174,6 +187,12 @@ describe('workspaceRoleAllows', () => {
 describe('workspaceMemberCanEdit', () => {
   it.each([WorkspaceRole.OWNER, WorkspaceRole.ADMIN])('lets %s edit without a column', role => {
     expect(workspaceMemberCanEdit(role, 'canEditDataEntry', null)).toBe(true);
+  });
+
+  it('never lets an accountant edit', () => {
+    expect(workspaceMemberCanEdit(WorkspaceRole.ACCOUNTANT, 'canEditDataEntry', ALL_TOGGLES)).toBe(
+      false,
+    );
   });
 
   it('never lets a viewer edit', () => {

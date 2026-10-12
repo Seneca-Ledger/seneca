@@ -7,7 +7,10 @@ import {
 } from '../../../common/utils/pdf-parser.util';
 import { type BankName, FileType } from '../../../entities/statement.entity';
 import { AiTransactionExtractor } from '../helpers/ai-transaction-extractor.helper';
-import { mapPdfTableRowsToTransactions, mergeTransactions } from '../helpers/pdf-table.helper';
+import {
+  mapPdfTableRowsToTransactions,
+  pickReconciledTransactions,
+} from '../helpers/pdf-table.helper';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { BaseParser } from './base.parser';
 
@@ -117,7 +120,7 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
 
     const { text, rows } = await extractTextAndLayoutFromPdf(filePath);
     const normalizedText = cachedText ?? text;
-    const { rows: tableRows } = await extractTablesFromPdf(filePath);
+    const { rowSets } = await extractTablesFromPdf(filePath);
     const extractTime = Date.now() - extractStartTime;
     this.logger.debug(
       `PDF text extracted in ${extractTime}ms, length: ${normalizedText.length} characters, rows: ${rows.length}`,
@@ -144,11 +147,12 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
 
     const transactionStartTime = Date.now();
     this.logger.debug('Extracting transactions from pdf2table rows...');
-    const tableTransactions = mapPdfTableRowsToTransactions(tableRows, {
-      defaultCurrency: detectedCurrency,
-      stopWords: ['итого', 'оборот', 'остаток'],
-    });
-    this.logger.debug(`pdf2table extracted ${tableTransactions.length} transactions`);
+    const tableAttempts = rowSets.map(tableRows =>
+      mapPdfTableRowsToTransactions(tableRows, {
+        defaultCurrency: detectedCurrency,
+        stopWords: ['итого', 'оборот', 'остаток'],
+      }),
+    );
 
     this.logger.debug('Extracting transactions from structured text...');
     const { transactions: structuredTransactions, groupsDetected } = this.extractTransactions(
@@ -156,7 +160,8 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
       rows,
     );
 
-    let transactions = mergeTransactions(tableTransactions, structuredTransactions);
+    const attempts = [...tableAttempts, structuredTransactions];
+    let transactions = pickReconciledTransactions(attempts, balanceStart, balanceEnd);
     const detectedGroups = Math.max(groupsDetected, transactions.length);
 
     if (
@@ -168,10 +173,11 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
       );
       const aiTransactions = await this.aiExtractor.extractTransactions(normalizedText);
       if (aiTransactions.length) {
-        transactions =
-          transactions.length > 0
-            ? mergeTransactions(transactions, aiTransactions)
-            : aiTransactions;
+        transactions = pickReconciledTransactions(
+          [transactions, aiTransactions],
+          balanceStart,
+          balanceEnd,
+        );
         this.logger.debug(`AI extraction succeeded with ${transactions.length} transactions`);
       } else {
         this.logger.debug('AI extraction did not return transactions');
@@ -193,6 +199,22 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
       },
       transactions,
     };
+  }
+
+  /** The statement's own account follows "Счет №"; the first IBAN in the text may be a counterparty's. */
+  protected extractAccountNumber(text: string): string | null {
+    const match = text.match(/Сч[её]т\s*№\s*(KZ[0-9A-Z]{18})/i);
+    return match ? match[1].toUpperCase() : super.extractAccountNumber(text);
+  }
+
+  /** Bereke prints the period as "за период с 27.11.2025 по 27.11.2025". */
+  protected extractDateRange(text: string): { from: Date | null; to: Date | null } {
+    const match = text.match(
+      /за\s+период\s+с\s*(\d{2}\.\d{2}\.\d{4})\s*по\s*(\d{2}\.\d{2}\.\d{4})/i,
+    );
+    return match
+      ? { from: this.normalizeDate(match[1]), to: this.normalizeDate(match[2]) }
+      : super.extractDateRange(text);
   }
 
   protected inferDateRangeFromTransactions(transactions: ParsedTransaction[]): {

@@ -8,6 +8,7 @@ Returns:
   "tables": [
     {
       "page": 1,
+      "strategy": "lines" | "text",  # how pdfplumber found the table
       "data": [["col1", "col2"], ...],
       "structured": [ { "page": 1, "y": 120.5, "columns": [...], "cells": [{ "text": "...", "x": 10.2 }, ...] } ]
     }
@@ -140,7 +141,12 @@ def extract_tables(page: "pdfplumber.page.Page", page_number: int) -> List[Dict[
 
             bbox = list(getattr(table, "bbox", [0, 0, page.width, page.height]))
             structured = build_structured_rows(normalized, bbox, page_number)
-            tables_out.append({"page": page_number, "data": normalized, "structured": structured})
+            tables_out.append({
+                "page": page_number,
+                "strategy": settings["vertical_strategy"],
+                "data": normalized,
+                "structured": structured,
+            })
 
     return tables_out
 

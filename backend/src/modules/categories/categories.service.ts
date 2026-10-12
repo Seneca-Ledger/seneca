@@ -14,6 +14,7 @@ import type { FindOptionsWhere, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
+import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import type { CreateCategoryBody, UpdateCategoryBody } from '../../contracts';
 import { Statement, Transaction, User, WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
@@ -83,6 +84,7 @@ export class CategoriesService {
       isSystem: category.isSystem,
       source: category.source,
       isEnabled: category.isEnabled,
+      taxRelevant: category.taxRelevant,
       color: category.color,
       icon: category.icon,
       createdAt: category.createdAt,
@@ -289,6 +291,7 @@ export class CategoriesService {
           key !== 'isEnabled' &&
           key !== 'stoicClass' &&
           key !== 'helpsOthers' &&
+          key !== 'taxRelevant' &&
           value !== undefined,
       );
 
@@ -362,6 +365,11 @@ export class CategoriesService {
     if (category.isSystem) {
       throw new ForbiddenException('Cannot delete system category');
     }
+    // Deleting the category would clear it on rows a filed return was built from.
+    await assertNoTaxLockedTransactions(this.transactionRepository, {
+      categoryId: category.id,
+      workspaceId,
+    });
 
     await this.categoryRepository.remove(category);
     await this.invalidateCache(workspaceId);
