@@ -52,7 +52,7 @@ export class PasswordResetService {
 
     // Supersede any outstanding request: a user who clicks "forgot password"
     // twice should not leave an extra live token behind.
-    await this.tokenRepository.delete({ userId: user.id, usedAt: null });
+    await this.tokenRepository.delete({ userId: user.id, usedAt: IsNull() });
 
     const token = randomBytes(32).toString('hex');
     await this.tokenRepository.save(

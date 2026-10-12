@@ -38,10 +38,10 @@ export class Wallet {
   @Column()
   name: string;
 
-  @Column({ name: 'account_number', nullable: true })
+  @Column({ type: 'varchar', name: 'account_number', nullable: true })
   accountNumber: string | null;
 
-  @Column({ name: 'bank_name', nullable: true })
+  @Column({ type: 'varchar', name: 'bank_name', nullable: true })
   bankName: string | null;
 
   @Column()

@@ -77,7 +77,7 @@ export class ReceiptProcessingJob {
   @Column({ name: 'locked_at', type: 'timestamp', nullable: true })
   lockedAt: Date | null;
 
-  @Column({ name: 'locked_by', nullable: true })
+  @Column({ type: 'varchar', name: 'locked_by', nullable: true })
   lockedBy: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

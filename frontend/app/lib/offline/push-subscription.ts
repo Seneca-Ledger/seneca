@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface PushStatus {
   supported: boolean;
@@ -32,10 +33,10 @@ export async function readPushStatus(): Promise<PushStatus> {
   if (!isPushSupported()) {
     return { supported: false, enabled: false, permission: 'unsupported', subscribed: false };
   }
-  const server = await apiClient
-    .get<{ enabled: boolean; publicKey: string | null }>('/push/public-key')
-    .then(response => response.data)
-    .catch(() => ({ enabled: false, publicKey: null }));
+  const server = await apiQueryDecoded({
+    url: '/push/public-key',
+    contract: 'PushPublicKey',
+  }).catch(() => ({ enabled: false, publicKey: null }));
   const registration = await navigator.serviceWorker.getRegistration();
   const subscription = await registration?.pushManager.getSubscription();
   return {
@@ -49,9 +50,10 @@ export async function readPushStatus(): Promise<PushStatus> {
 /** Asks for permission, subscribes this device and tells the server. */
 export async function subscribeThisDevice(): Promise<boolean> {
   if (!isPushSupported()) return false;
-  const { enabled, publicKey } = await apiClient
-    .get<{ enabled: boolean; publicKey: string | null }>('/push/public-key')
-    .then(response => response.data);
+  const { enabled, publicKey } = await apiQueryDecoded({
+    url: '/push/public-key',
+    contract: 'PushPublicKey',
+  });
   if (!(enabled && publicKey)) return false;
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return false;
@@ -62,12 +64,14 @@ export async function subscribeThisDevice(): Promise<boolean> {
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     }));
-  const json = subscription.toJSON();
+  const { endpoint, keys } = subscription.toJSON();
+  // A browser that hands back no endpoint or keys has given us nothing to push to.
+  if (!(endpoint && keys?.p256dh && keys.auth)) return false;
   await apiClient.post('/push/subscriptions', {
-    endpoint: json.endpoint,
-    keys: json.keys,
+    endpoint,
+    keys: { p256dh: keys.p256dh, auth: keys.auth },
     userAgent: navigator.userAgent,
-  });
+  } satisfies ContractInput<'PushSubscriptionBody'>);
   return true;
 }
 

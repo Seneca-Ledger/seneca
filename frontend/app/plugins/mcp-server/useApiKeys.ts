@@ -7,33 +7,11 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { ApiKeyItem, ApiKeyScope, CreatedApiKey } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
-export interface ApiKeyItem {
-  id: string;
-  name: string;
-  prefix: string;
-  lastUsedAt: string | null;
-  expiresAt: string | null;
-  createdAt: string;
-  /** null = a key made before scopes existed: the owner's full reach. */
-  scopes: string[] | null;
-}
-
-export interface ApiKeyScopes {
-  all: string[];
-  groups: Record<string, string[]>;
-  presets: { read: string[]; write: string[] };
-}
-
-export interface CreatedApiKey {
-  id: string;
-  key: string;
-  prefix: string;
-  name: string;
-  createdAt: string;
-}
+export type { ApiKeyItem, ApiKeyScopes, CreatedApiKey } from '@/app/lib/contracts';
 
 export function useApiKeys() {
   const workspaceId = useWorkspaceId();
@@ -48,16 +26,19 @@ export function useApiKeys() {
   const query = useQuery({
     queryKey: queryKeys.apiKeys(workspaceId),
     // Ошибка не показывается отдельно — индикатор статуса и так станет красным.
-    queryFn: ({ signal }) => apiQuery<ApiKeyItem[]>({ url: '/api-keys', signal }),
+    queryFn: ({ signal }) => apiQueryDecoded({ url: '/api-keys', signal, contract: 'ApiKeyList' }),
     enabled: canManageKeys,
   });
 
   const keys = query.data ?? [];
 
   const createMutation = useMutation({
-    mutationFn: (input: { name: string; scopes: string[] }) => apiClient.post('/api-keys', input),
-    onSuccess: response => {
-      setNewKey(response.data as CreatedApiKey);
+    mutationFn: (input: ContractInput<'CreateApiKeyBody'>) =>
+      apiClient
+        .post('/api-keys', input)
+        .then(response => checkContract('CreatedApiKey', response.data, '/api-keys')),
+    onSuccess: created => {
+      setNewKey(created);
       toast.success(t.toasts.keyCreated.value);
     },
     onError: () => toast.error(t.toasts.createFailed.value),
@@ -77,13 +58,14 @@ export function useApiKeys() {
 
   const scopesQuery = useQuery({
     queryKey: [...queryKeys.apiKeys(workspaceId), 'scopes'],
-    queryFn: ({ signal }) => apiQuery<ApiKeyScopes>({ url: '/api-keys/scopes', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/api-keys/scopes', signal, contract: 'ApiKeyScopes' }),
     enabled: canManageKeys,
     staleTime: Number.POSITIVE_INFINITY,
   });
 
   const create = useCallback(
-    async (name: string, scopes: string[]) => {
+    async (name: string, scopes: ApiKeyScope[]) => {
       createMutation.mutate({ name, scopes });
     },
     [createMutation.mutate],

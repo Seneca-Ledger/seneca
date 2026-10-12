@@ -1,14 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
+import { CreateCategoryBody, UpdateCategoryBody } from '../../contracts';
 import type { CategoryType } from '../../entities/category.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CategoriesService } from './categories.service';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Controller('categories')
 export class CategoriesController {
@@ -17,7 +17,7 @@ export class CategoriesController {
   @Post()
   @WorkspaceAuth(Permission.CATEGORY_CREATE)
   async create(
-    @Body() createDto: CreateCategoryDto,
+    @SchemaBody(CreateCategoryBody) createDto: CreateCategoryBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -60,7 +60,7 @@ export class CategoriesController {
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateCategoryDto,
+    @SchemaBody(UpdateCategoryBody) updateDto: UpdateCategoryBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

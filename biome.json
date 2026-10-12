@@ -27,7 +27,9 @@
       "!**/*.spec.{ts,tsx}",
       "!**/*.test.{ts,tsx}",
       "!**/@tests/**",
-      "!**/backend/scripts/**"
+      "!**/backend/scripts/**",
+      "!**/backend/src/contracts/**",
+      "!**/frontend/app/lib/contracts/**"
     ]
   },
 
@@ -155,7 +157,15 @@
           "style": {
             "noUselessElse": "error",
             "useBlockStatements": "warn",
-            "useTemplate": "error"
+            "useTemplate": "error",
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "effect": "Import a subpath (effect/Schema, effect/Exit): the barrel pulls all of effect into the chunk."
+                }
+              }
+            }
           }
         }
       }

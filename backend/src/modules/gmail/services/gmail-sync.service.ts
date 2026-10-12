@@ -170,6 +170,11 @@ export class GmailSyncService {
     result.messagesFound = messages.length;
 
     for (const message of messages) {
+      // Without an id there is nothing to look up or fetch later.
+      if (!message.id) {
+        result.skipped += 1;
+        continue;
+      }
       try {
         // Per workspace: the same mailbox may be connected in several workspaces.
         const existingReceipt = await this.receiptRepository.findOne({

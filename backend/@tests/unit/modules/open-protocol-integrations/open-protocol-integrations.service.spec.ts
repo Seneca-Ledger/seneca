@@ -34,6 +34,49 @@ describe('OpenProtocolIntegrationsService', () => {
     process.env = originalEnv;
   });
 
+  describe('sync audit', () => {
+    const auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    const serviceWithAudit = () =>
+      new OpenProtocolIntegrationsService(
+        integrationRepository as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        auditService as never,
+      );
+    const auditSync = (service: OpenProtocolIntegrationsService) =>
+      (service as any).auditProtocolSync(
+        { id: 'user-1' },
+        'workspace-1',
+        IntegrationProvider.WEBDAV,
+        3,
+      );
+
+    beforeEach(() => auditService.createEvent.mockClear());
+
+    it('records the sync against the integration row', async () => {
+      // audit_events.entity_id is NOT NULL: an event without it never got written.
+      integrationRepository.findOne.mockResolvedValue({ id: 'integration-1' });
+
+      await auditSync(serviceWithAudit());
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ entityId: 'integration-1', meta: { provider: 'webdav', uploaded: 3 } }),
+      );
+    });
+
+    it('records nothing for storage configured only from the environment', async () => {
+      await auditSync(serviceWithAudit());
+
+      expect(auditService.createEvent).not.toHaveBeenCalled();
+    });
+  });
+
   it('reports S3-compatible storage as connected when endpoint and bucket are configured', async () => {
     process.env.S3_ENDPOINT = 'http://localhost:9000';
     process.env.S3_BUCKET = 'lumio';

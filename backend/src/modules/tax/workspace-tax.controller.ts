@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { SetJurisdictionBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { SetJurisdictionDto } from './dto/set-jurisdiction.dto';
 import {
   DismissOfficialRateDto,
   OfficialRateDifferenceDto,
@@ -186,9 +187,14 @@ export class WorkspaceTaxController {
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   async setJurisdiction(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: SetJurisdictionDto,
+    @SchemaBody(SetJurisdictionBody) dto: SetJurisdictionBody,
     @CurrentUser() user: User,
   ) {
-    return this.adoptionService.adopt(workspaceId, dto.code, dto.effectiveFrom, user.id);
+    return this.adoptionService.adopt(
+      workspaceId,
+      dto.code,
+      dto.effectiveFrom ?? undefined,
+      user.id,
+    );
   }
 }

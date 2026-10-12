@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -13,19 +12,24 @@ import {
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
+import type { InvoiceSettings, LateFeeQuote } from '../../contracts';
+import {
+  CreateInvoiceBody,
+  SendInvoiceEmailBody,
+  UpdateInvoiceBody,
+  UpdateInvoiceSettingsBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreditNotesService } from './credit-notes.service';
-import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { FilterInvoicesDto } from './dto/filter-invoices.dto';
-import { SendInvoiceEmailDto } from './dto/send-invoice-email.dto';
-import { UpdateInvoiceDto } from './dto/update-invoice.dto';
-import { UpdateInvoiceSettingsDto } from './dto/update-invoice-settings.dto';
 import { InvoiceAgeingService } from './invoice-ageing.service';
 import { InvoiceDeliveryService } from './invoice-delivery.service';
 import { InvoiceSettingsService } from './invoice-settings.service';
@@ -46,7 +50,10 @@ export class InvoicesController {
   @Post()
   @WorkspaceAuth(Permission.INVOICE_CREATE)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: true })
-  async create(@Body() dto: CreateInvoiceDto, @WorkspaceId() workspaceId: string) {
+  async create(
+    @SchemaBody(CreateInvoiceBody) dto: CreateInvoiceBody,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.invoicesService.create(workspaceId, dto);
   }
 
@@ -58,7 +65,7 @@ export class InvoicesController {
 
   @Get('settings')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
-  async getSettings(@WorkspaceId() workspaceId: string) {
+  async getSettings(@WorkspaceId() workspaceId: string): Promise<InvoiceSettings> {
     const [numbering, settings] = await Promise.all([
       this.invoicesService.getNumberingSettings(workspaceId),
       this.invoiceSettingsService.get(workspaceId),
@@ -68,12 +75,15 @@ export class InvoicesController {
 
   @Put('settings')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
-  async updateSettings(@Body() dto: UpdateInvoiceSettingsDto, @WorkspaceId() workspaceId: string) {
+  async updateSettings(
+    @SchemaBody(UpdateInvoiceSettingsBody) dto: UpdateInvoiceSettingsBody,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const numbering =
-      dto.prefix === undefined
+      dto.prefix == null
         ? await this.invoicesService.getNumberingSettings(workspaceId)
         : await this.invoicesService.updateNumberPrefix(workspaceId, dto.prefix);
-    const settings = await this.invoiceSettingsService.update(workspaceId, dto);
+    const settings = await this.invoiceSettingsService.update(workspaceId, withoutNulls(dto));
     return { ...numbering, ...settings };
   }
 
@@ -89,7 +99,7 @@ export class InvoicesController {
   async lateFee(
     @Param('clientId', new ParseUUIDPipe()) clientId: string,
     @WorkspaceId() workspaceId: string,
-  ) {
+  ): Promise<LateFeeQuote> {
     const [{ lateFeePercent }, overdue] = await Promise.all([
       this.invoiceSettingsService.get(workspaceId),
       this.invoiceAgeingService.overdueByCurrency(workspaceId, clientId),
@@ -178,7 +188,7 @@ export class InvoicesController {
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: true })
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateInvoiceDto,
+    @SchemaBody(UpdateInvoiceBody) dto: UpdateInvoiceBody,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.invoicesService.update(id, workspaceId, dto);
@@ -200,11 +210,11 @@ export class InvoicesController {
   @Audit({ entityType: EntityType.INVOICE, includeDiff: false, isUndoable: false })
   async emailInvoice(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: SendInvoiceEmailDto,
+    @SchemaBody(SendInvoiceEmailBody) dto: SendInvoiceEmailBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.invoiceDeliveryService.sendEmail(id, workspaceId, user, dto);
+    return this.invoiceDeliveryService.sendEmail(id, workspaceId, user, withoutNulls(dto));
   }
 
   @Get(':id/deliveries')

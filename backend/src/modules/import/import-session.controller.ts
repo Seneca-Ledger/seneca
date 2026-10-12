@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   forwardRef,
   Get,
@@ -13,11 +12,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { CommitImportBody } from '../../contracts';
 import { Statement, StatementStatus } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
-import { CommitImportDto } from './dto/commit-import.dto';
 import { ImportSessionService } from './services/import-session.service';
 
 @Controller()
@@ -67,7 +67,7 @@ export class ImportSessionController {
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async commitImport(
     @Param('id') id: string,
-    @Body() body: CommitImportDto,
+    @SchemaBody(CommitImportBody) body: CommitImportBody,
     @WorkspaceId() workspaceId: string,
   ) {
     const statement = await this.statementRepository.findOne({

@@ -13,12 +13,14 @@ import * as redisStore from 'cache-manager-redis-store';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommonModule } from './common/common.module';
+import { EffectRuntimeModule } from './common/effect/effect-runtime';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { CsrfGuard } from './common/guards/csrf.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AuditActorInterceptor } from './common/interceptors/audit-actor.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { getDatabaseConfig } from './config/database.config';
+import { validateEnv } from './config/env.schema';
 import {
   ApiKey,
   AuditEvent,
@@ -132,7 +134,9 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '../.env')],
+      validate: validateEnv,
     }),
+    EffectRuntimeModule,
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     // Counters live in Redis when it is configured. The default in-memory

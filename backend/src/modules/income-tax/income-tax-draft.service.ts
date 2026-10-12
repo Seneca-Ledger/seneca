@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository, type SelectQueryBuilder } from 'typeorm';
+import { In, type QueryDeepPartialEntity, type Repository, type SelectQueryBuilder } from 'typeorm';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
 import {
@@ -201,10 +201,16 @@ export class IncomeTaxDraftService {
     userId?: string,
   ) {
     const before = await this.getProfile(workspaceId, taxYear);
-    await this.profileRepository.upsert({ workspaceId, taxYear, taxpayerType, details }, [
-      'workspaceId',
-      'taxYear',
-    ]);
+    await this.profileRepository.upsert(
+      {
+        workspaceId,
+        taxYear,
+        taxpayerType,
+        // jsonb: TypeORM's deep-partial type cannot express `unknown` values.
+        details: details as QueryDeepPartialEntity<IncomeTaxProfile>['details'],
+      },
+      ['workspaceId', 'taxYear'],
+    );
     await this.recordDeclarationChange(
       workspaceId,
       userId,

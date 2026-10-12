@@ -5,17 +5,10 @@ import { saveBlob } from '@/app/(main)/reports/components/tax-return.helpers';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { exportFileName } from '../tax-declaration.helpers';
-import type {
-  IncomeTaxDraft,
-  IncomeTaxProfile,
-  MappingEntry,
-  MappingsResponse,
-  TaxDisclaimerStatus,
-  TaxpayerType,
-} from '../tax-declaration.types';
+import type { MappingEntry, TaxpayerType } from '../tax-declaration.types';
 
 /** 403 is worth its own message: the user can do nothing about it but ask an owner. */
 export type ActionError = 'forbidden' | 'failed' | null;
@@ -36,7 +29,7 @@ export function useTaxDeclaration(taxYear: number) {
   const disclaimer = useQuery({
     queryKey: queryKeys.incomeTaxDisclaimer(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<TaxDisclaimerStatus>({ url: '/income-tax/disclaimer', signal }),
+      apiQueryDecoded({ url: '/income-tax/disclaimer', signal, contract: 'IncomeTaxDisclaimer' }),
   });
 
   const acceptDisclaimer = useMutation({
@@ -50,7 +43,12 @@ export function useTaxDeclaration(taxYear: number) {
   const profile = useQuery({
     queryKey: queryKeys.incomeTaxProfile({ workspaceId, taxYear }),
     queryFn: ({ signal }) =>
-      apiQuery<IncomeTaxProfile>({ url: '/income-tax/profile', params: { taxYear }, signal }),
+      apiQueryDecoded({
+        url: '/income-tax/profile',
+        params: { taxYear },
+        signal,
+        contract: 'IncomeTaxProfile',
+      }),
     enabled: accepted,
   });
 
@@ -60,26 +58,41 @@ export function useTaxDeclaration(taxYear: number) {
   const mappings = useQuery({
     queryKey: queryKeys.incomeTaxMappings({ workspaceId, taxYear }),
     queryFn: ({ signal }) =>
-      apiQuery<MappingsResponse>({ url: '/income-tax/mappings', params: { taxYear }, signal }),
+      apiQueryDecoded({
+        url: '/income-tax/mappings',
+        params: { taxYear },
+        signal,
+        contract: 'IncomeTaxMappings',
+      }),
     enabled: accepted && hasCountry,
   });
 
   const draft = useQuery({
     queryKey: queryKeys.incomeTaxDraft({ workspaceId, taxYear }),
     queryFn: ({ signal }) =>
-      apiQuery<IncomeTaxDraft>({ url: `/income-tax/returns/${taxYear}`, signal }),
+      apiQueryDecoded({
+        url: `/income-tax/returns/${taxYear}`,
+        signal,
+        contract: 'IncomeTaxDraft',
+      }),
     enabled: accepted && hasCountry,
   });
 
   const saveProfile = useMutation({
     mutationFn: (body: { taxpayerType: TaxpayerType; details: Record<string, unknown> }) =>
-      apiClient.put('/income-tax/profile', { taxYear, ...body }),
+      apiClient.put('/income-tax/profile', {
+        taxYear,
+        ...body,
+      } satisfies ContractInput<'UpdateIncomeTaxProfileBody'>),
     onSuccess: invalidateAll,
   });
 
   const saveMappings = useMutation({
     mutationFn: (entries: MappingEntry[]) =>
-      apiClient.put('/income-tax/mappings', { taxYear, entries }),
+      apiClient.put('/income-tax/mappings', {
+        taxYear,
+        entries,
+      } satisfies ContractInput<'SaveIncomeTaxMappingsBody'>),
     onSuccess: invalidateAll,
   });
 

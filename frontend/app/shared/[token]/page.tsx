@@ -13,29 +13,19 @@ import {
   Typography,
 } from '@mui/material';
 import { useParams } from 'next/navigation';
-import React, { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { Download as DownloadIcon, Lock as LockIcon } from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { SharedFileAccess } from '@/app/lib/contracts';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import TransactionsView from '../../components/TransactionsView';
 import api from '../../lib/api';
 
-interface SharedStatement {
-  fileName: string;
-  bankName: string;
-  fileSize: number;
-  metadata?: {
-    accountNumber?: string;
-  } | null;
-}
-
-interface SharedFileAccess {
-  statement: SharedStatement;
-  transactions: React.ComponentProps<typeof TransactionsView>['transactions'];
-  permission: string;
-  canDownload: boolean;
-}
+/** The link's password goes in a header, never the URL: query strings end up in logs. */
+const sharePasswordHeaders = (password?: string): Record<string, string> =>
+  password ? { 'x-share-password': password } : {};
 
 /**
  * Public page for accessing shared files
@@ -71,10 +61,11 @@ export default function SharedFilePage() {
       setLoading(true);
       setError(null);
 
-      const params = pwd ? { password: pwd } : {};
-      const response = await api.get(`/storage/shared/${token}`, { params });
+      const response = await api.get(`/storage/shared/${token}`, {
+        headers: sharePasswordHeaders(pwd),
+      });
 
-      setAccess(response.data);
+      setAccess(await checkContract('SharedFileAccess', response.data, '/storage/shared/:token'));
       setNeedsPassword(false);
     })()
       .catch(async err => {
@@ -110,9 +101,8 @@ export default function SharedFilePage() {
     if (!access) return;
 
     await (async () => {
-      const params = password ? { password } : {};
       const response = await api.get(`/storage/shared/${token}/download`, {
-        params,
+        headers: sharePasswordHeaders(password),
         responseType: 'blob',
       });
 
@@ -275,9 +265,7 @@ export default function SharedFilePage() {
             <Typography variant="body2" color="text.secondary">
               {t.cards.account}
             </Typography>
-            <Typography variant="h6">
-              {statement.metadata?.accountNumber || t.cards.dash.value}
-            </Typography>
+            <Typography variant="h6">{statement.accountNumber || t.cards.dash.value}</Typography>
           </CardContent>
         </Card>
       </Box>

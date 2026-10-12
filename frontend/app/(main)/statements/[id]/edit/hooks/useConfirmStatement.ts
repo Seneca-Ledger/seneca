@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getQueryClient } from '@/app/lib/query-client';
+import { checkContract } from '@/app/lib/query-fn-schema';
 
 type ConfirmLabels = { done: string; uncategorized: string; failed: string };
 
@@ -21,10 +22,12 @@ export function useConfirmStatement(
   const confirmAll = async (): Promise<void> => {
     setConfirming(true);
     try {
-      const response = await apiClient.post<{ approved: number; uncategorized: number }>(
-        `/review-inbox/statements/${statementId}/approve`,
+      const response = await apiClient.post(`/review-inbox/statements/${statementId}/approve`);
+      const { approved, uncategorized } = await checkContract(
+        'StatementApproved',
+        response.data,
+        '/review-inbox/statements/:id/approve',
       );
-      const { approved, uncategorized } = response.data;
       toast.success(labels.done.replace('{count}', String(approved)));
       if (uncategorized > 0) {
         toast.error(labels.uncategorized.replace('{count}', String(uncategorized)));

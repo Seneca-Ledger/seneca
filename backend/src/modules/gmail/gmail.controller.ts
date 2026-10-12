@@ -158,11 +158,16 @@ export class GmailController {
       this.logger.warn(`No attachment metadata to re-download for receipt ${receipt.id}`);
       return null;
     }
+    const gmailMessageId = receipt.gmailMessageId;
+    if (!gmailMessageId) {
+      this.logger.warn(`No Gmail message to re-download from for receipt ${receipt.id}`);
+      return null;
+    }
 
     try {
       const newPath = await this.gmailService.downloadAttachment(
         receipt.workspaceId,
-        receipt.gmailMessageId,
+        gmailMessageId,
         attachmentMeta.id,
         attachmentMeta.filename,
       );
@@ -650,14 +655,16 @@ export class GmailController {
           results.errors.push({ receiptId, error: 'Missing required data' });
           continue;
         }
+        const fallbackDate = receipt.parsedData.date;
+        const fallbackAmount = receipt.parsedData.amount;
 
         const approved = await this.receiptsService.approveOnce(receiptId, workspaceId, locked => ({
           statementId: null,
           workspaceId,
-          transactionDate: new Date(locked.parsedData?.date ?? receipt.parsedData.date),
+          transactionDate: new Date(locked.parsedData?.date ?? fallbackDate),
           counterpartyName: locked.parsedData?.vendor || locked.subject || 'Unknown',
           paymentPurpose: locked.parsedData?.vendor || locked.subject || '',
-          amount: locked.parsedData?.amount ?? receipt.parsedData.amount,
+          amount: locked.parsedData?.amount ?? fallbackAmount,
           currency: locked.parsedData?.currency || workspaceDefaultCurrency,
           categoryId: dto.categoryId || locked.parsedData?.categoryId || null,
           transactionType: TransactionType.EXPENSE,
@@ -725,7 +732,7 @@ export class GmailController {
   async getReceiptThumbnail(
     @WorkspaceId() workspaceId: string,
     @Param('id') id: string,
-    @Query('width') width: string | undefined,
+    @Query('width') width: string,
     @Res() res: Response,
   ) {
     const receipt = await this.receiptRepository.findOne({
@@ -876,9 +883,13 @@ export class GmailController {
     if (!receipt) {
       throw new BadRequestException('Receipt not found');
     }
+    const gmailMessageId = receipt.gmailMessageId;
+    if (!gmailMessageId) {
+      throw new BadRequestException('Receipt did not come from Gmail');
+    }
 
     // Get Gmail message
-    const message = await this.gmailService.getMessage(receipt.workspaceId, receipt.gmailMessageId);
+    const message = await this.gmailService.getMessage(receipt.workspaceId, gmailMessageId);
 
     // Extract email body
     const emailBody = this.findMessageBody(message.payload || undefined);
@@ -892,7 +903,7 @@ export class GmailController {
         try {
           const data = await this.gmailService.getAttachmentData(
             receipt.workspaceId,
-            receipt.gmailMessageId,
+            gmailMessageId,
             attachment.id,
           );
 

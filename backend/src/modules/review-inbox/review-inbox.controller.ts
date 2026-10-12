@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   HttpCode,
@@ -11,15 +10,14 @@ import {
 } from '@nestjs/common';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { parseReviewerFilter } from '../../common/utils/transaction-owner.util';
+import { ApproveTransactionsBody, ResolveDuplicateBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import {
-  ApproveTransactionsDto,
-  ResolveDuplicateDto,
-  ReviewInboxQueryDto,
-} from './dto/review-inbox.dto';
+import { DuplicateDecision, ReviewInboxQueryDto } from './dto/review-inbox.dto';
 import { ReviewInboxService } from './review-inbox.service';
 
 @Controller('review-inbox')
@@ -42,7 +40,7 @@ export class ReviewInboxController {
   async counts(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('reviewer') reviewer: string | undefined,
+    @Query('reviewer') reviewer: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.reviewInboxService.counts(workspaceId, parseReviewerFilter(reviewer, selfMemberId));
@@ -71,7 +69,7 @@ export class ReviewInboxController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async approveTransactions(
-    @Body() body: ApproveTransactionsDto,
+    @SchemaBody(ApproveTransactionsBody) body: ApproveTransactionsBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -79,7 +77,7 @@ export class ReviewInboxController {
       workspaceId,
       user.id,
       body.ids,
-      body.categoryId,
+      body.categoryId ?? undefined,
     );
   }
 
@@ -88,10 +86,14 @@ export class ReviewInboxController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async resolveDuplicate(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: ResolveDuplicateDto,
+    @SchemaBody(ResolveDuplicateBody) body: ResolveDuplicateBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.reviewInboxService.resolveDuplicate(workspaceId, id, body.decision);
+    return this.reviewInboxService.resolveDuplicate(
+      workspaceId,
+      id,
+      toEnum(DuplicateDecision, body.decision),
+    );
   }
 }

@@ -7,9 +7,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { fromMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import type { CreateInvoiceBody, InvoiceLineItemInput, UpdateInvoiceBody } from '../../contracts';
 import { Client } from '../../entities/client.entity';
 import { CreditNoteStatus } from '../../entities/credit-note.entity';
 import { Invoice, InvoiceRecurrenceInterval, InvoiceStatus } from '../../entities/invoice.entity';
@@ -26,10 +28,7 @@ import type { WorkspaceBusinessProfile } from '../../entities/workspace-business
 import { BusinessProfileService } from '../business-profile/business-profile.service';
 import { LedgerPostingError, LedgerPostingService } from '../ledger/ledger-posting.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { FilterInvoicesDto } from './dto/filter-invoices.dto';
-import type { InvoiceLineItemDto } from './dto/invoice-line-item.dto';
-import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { buildInvoicePdf } from './invoice-document';
 import { documentLines, priceLines, totalsOf } from './invoice-pricing';
 import { advanceIssueDate, shiftDueDate } from './invoice-recurrence.util';
@@ -88,7 +87,7 @@ interface DraftInput {
   currency: string;
   notes: string | null;
   pricesIncludeTax: boolean;
-  lineItems: InvoiceLineItemDto[];
+  lineItems: InvoiceLineItemInput[];
   recurrenceInterval: InvoiceRecurrenceInterval | null;
   recurrenceEndDate: string | null;
   sourceRecurringInvoiceId: string | null;
@@ -110,7 +109,7 @@ export class InvoicesService {
     private readonly xrechnung: InvoiceXRechnungService,
   ) {}
 
-  async create(workspaceId: string, dto: CreateInvoiceDto): Promise<Invoice> {
+  async create(workspaceId: string, dto: CreateInvoiceBody): Promise<Invoice> {
     const client = await this.clientInWorkspace(workspaceId, dto.clientId);
     return this.buildDraft(workspaceId, dto.clientId, {
       issueDate: dto.issueDate,
@@ -124,7 +123,7 @@ export class InvoicesService {
       notes: dto.notes ?? null,
       pricesIncludeTax: dto.pricesIncludeTax ?? false,
       lineItems: dto.lineItems,
-      recurrenceInterval: dto.recurrenceInterval ?? null,
+      recurrenceInterval: toEnum(InvoiceRecurrenceInterval, dto.recurrenceInterval) ?? null,
       recurrenceEndDate: dto.recurrenceEndDate ?? null,
       sourceRecurringInvoiceId: null,
       buyerReference: dto.buyerReference?.trim() || null,
@@ -251,7 +250,7 @@ export class InvoicesService {
     };
   }
 
-  async update(id: string, workspaceId: string, dto: UpdateInvoiceDto): Promise<Invoice> {
+  async update(id: string, workspaceId: string, dto: UpdateInvoiceBody): Promise<Invoice> {
     return this.invoiceRepository.manager.transaction(async manager => {
       const invoices = manager.getRepository(Invoice);
       const invoice = await invoices.findOne({ where: { id, workspaceId } });
@@ -520,7 +519,7 @@ export class InvoicesService {
   private async replaceLineItems(
     manager: EntityManager,
     invoiceId: string,
-    items: InvoiceLineItemDto[],
+    items: InvoiceLineItemInput[],
   ): Promise<void> {
     const repo = manager.getRepository(InvoiceLineItem);
     await repo.delete({ invoiceId });
@@ -627,31 +626,31 @@ export class InvoicesService {
     return payable?.status === PayableStatus.PAID;
   }
 
-  private applyDraftFields(invoice: Invoice, dto: UpdateInvoiceDto): void {
+  private applyDraftFields(invoice: Invoice, dto: UpdateInvoiceBody): void {
     if (dto.clientId) {
       invoice.clientId = dto.clientId;
     }
-    if (dto.issueDate !== undefined) {
+    if (dto.issueDate != null) {
       invoice.issueDate = dto.issueDate;
     }
-    if (dto.dueDate !== undefined) {
+    if (dto.dueDate != null) {
       invoice.dueDate = dto.dueDate;
     }
-    if (dto.currency !== undefined) {
+    if (dto.currency != null) {
       invoice.currency = dto.currency;
     }
     if (dto.notes !== undefined) {
       invoice.notes = dto.notes ?? null;
     }
-    if (dto.pricesIncludeTax !== undefined) {
+    if (dto.pricesIncludeTax != null) {
       invoice.pricesIncludeTax = dto.pricesIncludeTax;
     }
     if (dto.recurrenceInterval !== undefined) {
-      invoice.isRecurring = !!dto.recurrenceInterval;
-      invoice.recurrenceInterval = dto.recurrenceInterval ?? null;
-      invoice.nextIssueDate = dto.recurrenceInterval
-        ? advanceIssueDate(invoice.issueDate, dto.recurrenceInterval)
-        : null;
+      // null stops the recurrence.
+      const interval = toEnum(InvoiceRecurrenceInterval, dto.recurrenceInterval);
+      invoice.isRecurring = !!interval;
+      invoice.recurrenceInterval = interval;
+      invoice.nextIssueDate = interval ? advanceIssueDate(invoice.issueDate, interval) : null;
     }
     if (dto.recurrenceEndDate !== undefined) {
       invoice.recurrenceEndDate = dto.recurrenceEndDate ?? null;

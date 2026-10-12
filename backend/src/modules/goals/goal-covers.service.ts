@@ -6,6 +6,7 @@ import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { assertFound } from '../../common/utils/assert-found.util';
 import {
   asHttpsUrl,
@@ -16,10 +17,10 @@ import {
   requestOpenverseJson,
 } from '../../common/utils/openverse.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type { SetGoalCoverBody } from '../../contracts';
 import { Goal } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { AuditService } from '../audit/audit.service';
-import type { SetGoalCoverDto } from './dto/set-goal-cover.dto';
 import {
   COVER_CONTENT_TYPES,
   COVER_DIRECTORY,
@@ -83,6 +84,7 @@ export class GoalCoversService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly auditService: AuditService,
+    private readonly effects: EffectRuntime,
   ) {}
 
   async search(query: string, page = 1): Promise<CoverSearchPage> {
@@ -141,7 +143,7 @@ export class GoalCoversService {
     goalId: string,
     workspaceId: string,
     userId: string,
-    dto: SetGoalCoverDto,
+    dto: SetGoalCoverBody,
   ): Promise<Goal> {
     const hasPreset = Boolean(dto.preset);
     const hasPhoto = Boolean(dto.photoId);
@@ -261,6 +263,7 @@ export class GoalCoversService {
       label: 'Goal cover',
       allowanceMessage:
         'The image search allowance is used up for now — the bundled covers still work',
+      effects: this.effects,
     };
   }
 

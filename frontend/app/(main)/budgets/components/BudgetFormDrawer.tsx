@@ -16,7 +16,7 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronLeft } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import type { BudgetFormData, BudgetItem } from '../hooks/useBudgetsPage';
 
 type CategoryOption = { id: string; name: string; type: string };
@@ -44,11 +44,9 @@ function useExpenseCategories(open: boolean): CategoryOption[] {
       return;
     }
 
-    apiClient
-      .get('/categories')
-      .then(res => {
-        const data = res.data?.data ?? res.data ?? [];
-        setCategories(data.filter((category: CategoryOption) => category.type === 'expense'));
+    apiQueryDecoded({ url: '/categories', contract: 'CategoryList' })
+      .then(categories => {
+        setCategories(categories.filter(category => category.type === 'expense'));
       })
       .catch(() => {
         setCategories([]);
@@ -68,11 +66,8 @@ function useGoals(open: boolean): GoalOption[] | null {
       return;
     }
 
-    apiClient
-      .get('/goals')
-      .then(res => {
-        setGoals(res.data?.data ?? res.data ?? []);
-      })
+    apiQueryDecoded({ url: '/goals', contract: 'GoalList' })
+      .then(setGoals)
       // A member without goal.view keeps the picker empty and unexplained —
       // the budget is still saveable without a goal.
       .catch(() => {});

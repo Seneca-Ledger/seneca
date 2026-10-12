@@ -5,6 +5,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 
 type BankSyncAccount = {
@@ -70,18 +71,16 @@ export function BankSyncPanel({
 
   useEffect(() => {
     let mounted = true;
-    apiClient
-      .get<BankSyncStatus>(`${BASE}/status`)
-      .then(response => {
-        if (mounted) applyStatus(response.data);
+    apiQueryDecoded({ url: `${BASE}/status`, contract: 'BankSyncStatus' })
+      .then(status => {
+        if (mounted) applyStatus(status);
       })
       .catch(() => {
         if (mounted) setMessage({ tone: 'error', text: t.loadFailed.value });
       });
-    apiClient
-      .get<WalletOption[]>('/wallets')
-      .then(response => {
-        if (mounted && Array.isArray(response.data)) setWallets(response.data);
+    apiQueryDecoded({ url: '/wallets', contract: 'WalletList' })
+      .then(wallets => {
+        if (mounted) setWallets(wallets);
       })
       .catch(() => undefined);
     return () => {
@@ -146,8 +145,7 @@ export function BankSyncPanel({
       'sync',
       async () => {
         const response = await apiClient.post<BankSyncResult>(`${BASE}/sync`);
-        const refreshed = await apiClient.get<BankSyncStatus>(`${BASE}/status`);
-        applyStatus(refreshed.data);
+        applyStatus(await apiQueryDecoded({ url: `${BASE}/status`, contract: 'BankSyncStatus' }));
         const failed = response.data.accounts.find(account => account.error);
         if (failed) return { tone: 'error', text: `${t.syncFailed.value}: ${failed.error}` };
         if (response.data.imported === 0) return { tone: 'ok', text: t.nothingNew.value };

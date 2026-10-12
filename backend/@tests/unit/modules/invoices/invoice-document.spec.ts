@@ -1,4 +1,4 @@
-import pdfParse from 'pdf-parse';
+import { parsePdf } from '@/common/utils/pdf-text.util';
 import type { Client } from '@/entities/client.entity';
 import type { Invoice } from '@/entities/invoice.entity';
 import type { WorkspaceBusinessProfile } from '@/entities/workspace-business-profile.entity';
@@ -72,7 +72,7 @@ async function textOf(input: Partial<InvoiceDocumentInput> = {}): Promise<string
   // pdf-parse takes the bytes directly, so the document never has to be
   // written to disk. Whitespace is normalised because pdfmake breaks a column
   // into separate text runs.
-  const parsed = await pdfParse(pdf);
+  const parsed = await parsePdf(pdf);
   return String(parsed.text).replace(/\s+/g, ' ');
 }
 

@@ -1,13 +1,13 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
+import { CreateLedgerAccountBody, UpdateLedgerAccountBody } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
-import { CreateLedgerAccountDto } from './dto/create-ledger-account.dto';
 import type { LedgerAccountResponseDto } from './dto/ledger-account-response.dto';
-import { UpdateLedgerAccountDto } from './dto/update-ledger-account.dto';
 import { LedgerAccountsService } from './ledger-accounts.service';
 
 /** Chart of accounts. */
@@ -27,7 +27,7 @@ export class LedgerController {
   @Audit({ entityType: EntityType.LEDGER_ACCOUNT, includeDiff: true })
   async create(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateLedgerAccountDto,
+    @SchemaBody(CreateLedgerAccountBody) dto: CreateLedgerAccountBody,
   ): Promise<LedgerAccountResponseDto> {
     return this.accountsService.create(workspaceId, dto);
   }
@@ -38,7 +38,7 @@ export class LedgerController {
   async update(
     @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateLedgerAccountDto,
+    @SchemaBody(UpdateLedgerAccountBody) dto: UpdateLedgerAccountBody,
   ): Promise<LedgerAccountResponseDto> {
     return this.accountsService.update(workspaceId, id, dto);
   }

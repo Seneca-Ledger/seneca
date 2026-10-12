@@ -20,7 +20,7 @@ export class Tag {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   color: string | null;
 
   @Column({ name: 'user_id', type: 'uuid', nullable: true })

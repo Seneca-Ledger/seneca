@@ -1,0 +1,95 @@
+import * as Schema from 'effect/Schema';
+import * as Struct from 'effect/Struct';
+import { Email, optionalNullable } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+export const CreateWorkspaceBody = Schema.Struct({
+  name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(255)),
+  description: optionalNullable(Schema.String.check(Schema.isMaxLength(500))),
+  icon: optionalNullable(Schema.String.check(Schema.isMaxLength(50))),
+  color: optionalNullable(Schema.String.check(Schema.isMaxLength(7))),
+  backgroundImage: optionalNullable(Schema.String.check(Schema.isMaxLength(255))),
+  currency: optionalNullable(Schema.String.check(Schema.isMaxLength(10))),
+  /** Home hides the business pages from the navigation; business is the default. */
+  profile: optionalNullable(Schema.Literals(['home', 'business'])),
+});
+export type CreateWorkspaceBody = Wire<typeof CreateWorkspaceBody>;
+
+export const WorkspaceProcessingInput = Schema.Struct({
+  /** 0 categorises almost everything, 1 only exact matches. */
+  categorizationThreshold: optionalNullable(
+    Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+  ),
+  duplicateResolution: optionalNullable(
+    Schema.Literals(['skip', 'force_import', 'mark_duplicate']),
+  ),
+  aiCategorization: optionalNullable(Schema.Boolean),
+  aiMerchantNormalization: optionalNullable(Schema.Boolean),
+  merchantLearning: optionalNullable(Schema.Boolean),
+});
+export type WorkspaceProcessingInput = Wire<typeof WorkspaceProcessingInput>;
+
+export const UpdateWorkspaceBody = CreateWorkspaceBody.mapFields(
+  Struct.map(optionalNullable),
+).mapFields(
+  Struct.assign({
+    isFavorite: optionalNullable(Schema.Boolean),
+    /** How this workspace categorises and de-duplicates incoming data. */
+    processing: optionalNullable(WorkspaceProcessingInput),
+  }),
+);
+export type UpdateWorkspaceBody = Wire<typeof UpdateWorkspaceBody>;
+
+export const WorkspaceMemberPermissionsInput = Schema.Struct({
+  canEditStatements: optionalNullable(Schema.Boolean),
+  canEditCustomTables: optionalNullable(Schema.Boolean),
+  canEditCategories: optionalNullable(Schema.Boolean),
+  canEditDataEntry: optionalNullable(Schema.Boolean),
+  canShareFiles: optionalNullable(Schema.Boolean),
+});
+export type WorkspaceMemberPermissionsInput = Wire<typeof WorkspaceMemberPermissionsInput>;
+
+export const InviteMemberBody = Schema.Struct({
+  email: Email,
+  role: optionalNullable(Schema.Literals(['owner', 'admin', 'member', 'viewer', 'accountant'])),
+  permissions: optionalNullable(WorkspaceMemberPermissionsInput),
+});
+export type InviteMemberBody = Wire<typeof InviteMemberBody>;
+
+export const UpdateMemberRoleBody = Schema.Struct({
+  role: Schema.Literals(['owner', 'admin', 'member', 'viewer', 'accountant']),
+});
+export type UpdateMemberRoleBody = Wire<typeof UpdateMemberRoleBody>;
+
+export const MemberPermissionsInput = Schema.Struct({
+  canEditStatements: optionalNullable(Schema.Boolean),
+  canEditCustomTables: optionalNullable(Schema.Boolean),
+  canEditCategories: optionalNullable(Schema.Boolean),
+  canEditDataEntry: optionalNullable(Schema.Boolean),
+  canShareFiles: optionalNullable(Schema.Boolean),
+});
+export type MemberPermissionsInput = Wire<typeof MemberPermissionsInput>;
+
+/**
+ * Replaces a member's toggles wholesale: a key left out is a right not granted,
+ * because a missing toggle means "no" everywhere in the authz table.
+ */
+export const UpdateMemberPermissionsBody = Schema.Struct({
+  permissions: MemberPermissionsInput,
+});
+export type UpdateMemberPermissionsBody = Wire<typeof UpdateMemberPermissionsBody>;
+
+export const AcceptInvitationBody = Schema.Struct({
+  token: Schema.String,
+});
+export type AcceptInvitationBody = Wire<typeof AcceptInvitationBody>;
+
+/** `PUT /workspaces/:id/background`: a searched photo to copy in as the background. */
+export const SetWorkspaceBackgroundBody = Schema.Struct({
+  /**
+   * An Openverse image id, as returned by the search. A uuid, which is also
+   * what makes it safe to put in the upstream path: it cannot carry a host.
+   */
+  photoId: Schema.String.check(Schema.isUUID()),
+});
+export type SetWorkspaceBackgroundBody = Wire<typeof SetWorkspaceBackgroundBody>;

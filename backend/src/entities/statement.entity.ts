@@ -128,7 +128,7 @@ export class Statement {
   })
   bankName: BankName;
 
-  @Column({ name: 'account_number', nullable: true })
+  @Column({ type: 'varchar', name: 'account_number', nullable: true })
   accountNumber: string | null;
 
   @Column({ name: 'statement_date_from', type: 'date', nullable: true })
@@ -210,7 +210,7 @@ export class Statement {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @Column({ name: 'processed_at', nullable: true })
+  @Column({ type: 'timestamp', name: 'processed_at', nullable: true })
   processedAt: Date | null;
 
   @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })

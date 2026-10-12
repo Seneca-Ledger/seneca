@@ -6,7 +6,7 @@ import {
   type JurisdictionRate,
   todayLocal,
 } from '@/app/(main)/workspaces/components/tax-jurisdiction.helpers';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 
@@ -14,7 +14,8 @@ import { resolveLocaleTag } from '@/app/lib/user-format';
 export function useJurisdictions() {
   return useQuery({
     queryKey: queryKeys.taxJurisdictions(),
-    queryFn: ({ signal }) => apiQuery<Jurisdiction[]>({ url: '/tax/jurisdictions', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/tax/jurisdictions', signal, contract: 'TaxJurisdictionList' }),
     staleTime: Number.POSITIVE_INFINITY,
   });
 }
@@ -34,10 +35,11 @@ export function useStandardRate(code: string | null) {
   return useQuery({
     queryKey: queryKeys.taxJurisdictionRates({ code, date: on }),
     queryFn: ({ signal }) =>
-      apiQuery<JurisdictionRate[]>({
+      apiQueryDecoded({
         url: `/tax/jurisdictions/${code}/rates`,
         params: { date: on },
         signal,
+        contract: 'JurisdictionRateList',
       }),
     enabled: Boolean(code),
     staleTime: Number.POSITIVE_INFINITY,

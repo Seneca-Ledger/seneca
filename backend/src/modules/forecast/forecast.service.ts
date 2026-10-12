@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util';
+import type { ForecastResponse } from '../../contracts';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
 import { Payable, PayableDirection, PayableStatus } from '../../entities/payable.entity';
 import { StatementStatus } from '../../entities/statement.entity';
@@ -20,33 +21,12 @@ import {
   computeForecast,
   detectRecurringIncome,
   type ForecastEvent,
-  type ForecastResult,
   formatDateOnly,
   projectIncome,
-  type RecurringIncome,
   sameParty,
 } from './forecast.engine';
 
-export interface ForecastResponse extends ForecastResult {
-  currency: string;
-  /** 'home' | 'business': the business profile reads the runway, the home one safe-to-spend. */
-  profile: 'home' | 'business';
-  /** What the everyday average was built from. */
-  everydayMonthly: number;
-  /** Income per month beyond the detected paydays, from the same history. */
-  irregularIncomeMonthly: number;
-  monthlyIncome: number;
-  monthlyExpense: number;
-  monthsObserved: number;
-  recurringIncome: Array<RecurringIncome & { sourceId: string }>;
-  /** Payables without a due date: owed, but not placeable on the curve. */
-  unscheduledCommitted: number;
-  /**
-   * Money held for tax by the workspace's own rule (VAT collected, a share of
-   * earnings, minus tax already paid). Already taken out of safe-to-spend.
-   */
-  taxReserve: number;
-}
+export type { ForecastResponse };
 
 const HISTORY_MONTHS = 3;
 const INCOME_LOOKBACK_MONTHS = 12;

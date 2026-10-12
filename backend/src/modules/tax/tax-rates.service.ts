@@ -3,11 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder } from 'typeorm';
 import { IsNull, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
+import type { CreateTaxRateBody, UpdateTaxRateBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { TaxRate } from '../../entities/tax-rate.entity';
 import { AuditService } from '../audit/audit.service';
-import type { CreateTaxRateDto } from './dto/create-tax-rate.dto';
-import type { UpdateTaxRateDto } from './dto/update-tax-rate.dto';
 import { toDateOnly } from './jurisdictions.service';
 
 /** Stands in for "no end date" when comparing periods in SQL. */
@@ -146,7 +145,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
 
   async create(
     workspaceId: string,
-    createDto: CreateTaxRateDto,
+    createDto: CreateTaxRateBody,
     userId?: string,
   ): Promise<TaxRate> {
     const name = createDto.name.trim();
@@ -198,13 +197,13 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
   async update(
     id: string,
     workspaceId: string,
-    updateDto: UpdateTaxRateDto,
+    updateDto: UpdateTaxRateBody,
     userId?: string,
   ): Promise<TaxRate> {
     const taxRate = await this.findOne(id, workspaceId);
     const before = this.snapshotTaxRate(taxRate);
 
-    if (updateDto.name !== undefined) {
+    if (updateDto.name != null) {
       const normalizedName = updateDto.name.trim();
       if (!normalizedName) {
         throw new BadRequestException('Tax rate name is required');
@@ -221,19 +220,19 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       taxRate.name = normalizedName;
     }
 
-    if (updateDto.rate !== undefined) {
+    if (updateDto.rate != null) {
       taxRate.rate = updateDto.rate;
     }
 
-    if (updateDto.isEnabled !== undefined) {
+    if (updateDto.isEnabled != null) {
       taxRate.isEnabled = updateDto.isEnabled;
     }
 
-    if (updateDto.isReverseCharge !== undefined) {
+    if (updateDto.isReverseCharge != null) {
       taxRate.isReverseCharge = updateDto.isReverseCharge;
     }
 
-    if (updateDto.isDefault !== undefined) {
+    if (updateDto.isDefault != null) {
       if (updateDto.isDefault) {
         await this.clearOverlappingDefaults(workspaceId, taxRate.validFrom, taxRate.validTo, id);
       }

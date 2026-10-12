@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder, Repository } from 'typeorm';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
+import type { CreateClientBody, UpdateClientBody } from '../../contracts';
 import { Client } from '../../entities/client.entity';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import type { CreateClientDto } from './dto/create-client.dto';
 
 @Injectable()
 export class ClientsService extends WorkspaceCrudBaseService<Client> {
@@ -17,8 +17,8 @@ export class ClientsService extends WorkspaceCrudBaseService<Client> {
   }
 
   /** Same clean-up as on create: an emptied field is cleared, a country is upper-cased. */
-  async update(id: string, workspaceId: string, dto: Partial<CreateClientDto>): Promise<Client> {
-    const normalized: Partial<CreateClientDto> & Record<string, unknown> = { ...dto };
+  async update(id: string, workspaceId: string, dto: UpdateClientBody): Promise<Client> {
+    const normalized: UpdateClientBody & Record<string, unknown> = { ...dto };
     for (const field of ['street', 'postalCode', 'city', 'buyerReference'] as const) {
       if (dto[field] !== undefined) {
         normalized[field] = (dto[field]?.trim() || null) as never;
@@ -34,7 +34,7 @@ export class ClientsService extends WorkspaceCrudBaseService<Client> {
     return { name: 'ASC' };
   }
 
-  async create(workspaceId: string, dto: CreateClientDto): Promise<Client> {
+  async create(workspaceId: string, dto: CreateClientBody): Promise<Client> {
     const client = this.repository.create({
       workspaceId,
       name: dto.name.trim(),

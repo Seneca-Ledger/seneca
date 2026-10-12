@@ -16,6 +16,7 @@ import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
 import { DataSource, type Repository } from 'typeorm';
 
+import { EffectRuntime } from '../../src/common/effect/effect-runtime';
 import * as entityIndex from '../../src/entities';
 import {
   BankName,
@@ -458,6 +459,7 @@ describe('ledger posting engine (real Postgres)', () => {
       dataSource.getRepository(ExchangeRate),
       { get: jest.fn().mockResolvedValue(undefined), set: jest.fn() } as never,
       { get: jest.fn().mockReturnValue(undefined) } as never,
+      new EffectRuntime(),
     );
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({ ok: false } as Response);
     exchangeStub.getRateQuote.mockImplementation((from, to, date, options) =>

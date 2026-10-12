@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 import { fetchPublicUrl } from '@/common/utils/egress-url.util';
 import { type Workspace, WorkspaceRole } from '@/entities';
 import { WorkspaceBackgroundsService } from '@/modules/workspaces/workspace-backgrounds.service';
@@ -36,22 +37,17 @@ const USER_ID = 'user-1';
 const PHOTO_ID = '11111111-2222-3333-4444-555555555555';
 const ORIGINAL_URL = 'https://cdn.example.test/full/fjord.jpg';
 
+// Real responses: the Effect HTTP client reads them as fetch would. A body can
+// be read once, so every call builds a new one.
 function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
+  return new Response(JSON.stringify(body), {
     status,
-    headers: new Headers({ 'content-type': 'application/json' }),
-    json: async () => body,
-  } as unknown as Response;
+    headers: { 'content-type': 'application/json' },
+  });
 }
 
 function imageResponse(bytes: Buffer, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: new Headers({ 'content-type': 'image/jpeg' }),
-    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length),
-  } as unknown as Response;
+  return new Response(new Uint8Array(bytes), { status, headers: { 'content-type': 'image/jpeg' } });
 }
 
 const DETAIL = {
@@ -87,6 +83,7 @@ function createService(role: WorkspaceRole | null = WorkspaceRole.OWNER) {
       workspaceMemberRepository,
       cacheManager,
       auditService,
+      new EffectRuntime(),
     ),
     workspaceRepository,
     cacheManager,
@@ -109,11 +106,11 @@ describe('WorkspaceBackgroundsService', () => {
   describe('search', () => {
     it('asks for wide, large photographs so results read as wallpaper', async () => {
       const { service } = createService();
-      fetchSpy.mockResolvedValue(jsonResponse({ results: [], page_count: 1 }));
+      fetchSpy.mockImplementation(async () => jsonResponse({ results: [], page_count: 1 }));
 
       await service.search('  Mountain Lake ');
 
-      const url = new URL(fetchSpy.mock.calls[0][0] as string);
+      const url = new URL(String(fetchSpy.mock.calls[0][0]));
       expect(url.origin).toBe('https://api.openverse.org');
       expect(url.searchParams.get('q')).toBe('mountain lake');
       expect(url.searchParams.get('category')).toBe('photograph');
@@ -134,7 +131,7 @@ describe('WorkspaceBackgroundsService', () => {
 
     it('drops results with no credit line', async () => {
       const { service, cacheManager } = createService();
-      fetchSpy.mockResolvedValue(
+      fetchSpy.mockImplementation(async () =>
         jsonResponse({
           page_count: 2,
           results: [{ id: PHOTO_ID, attribution: 'credit' }, { id: 'no-credit' }],
@@ -207,7 +204,9 @@ describe('WorkspaceBackgroundsService', () => {
 
       await service.setPhoto(WORKSPACE_ID, USER_ID, PHOTO_ID);
 
-      expect(fetchSpy.mock.calls[1][0]).toBe(`https://api.openverse.org/v1/images/${PHOTO_ID}/thumb/`);
+      expect(String(fetchSpy.mock.calls[1][0])).toBe(
+        `https://api.openverse.org/v1/images/${PHOTO_ID}/thumb/`,
+      );
       expect(mockedFs.writeFile).toHaveBeenCalledWith(
         expect.any(String),
         Buffer.from('encoded:thumb'),
