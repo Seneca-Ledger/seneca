@@ -14,6 +14,7 @@ import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/qu
 import { downloadTableExport } from '../../exportTable';
 import type { ConvertResult } from '../components/SendToStatementsDialog';
 import { showUndoToast } from '../components/UndoToast';
+import { isDraftRowId } from '../helpers/draftRowHelpers';
 import { buildDetailLabels } from '../labels';
 import type { AggregateFn, CustomTableColumn } from '../utils/types';
 import { useColumnEditor } from './useColumnEditor';
@@ -262,7 +263,10 @@ export function useCustomTablePage(tableId: string) {
     }
     await (async () => {
       await Promise.all(
-        selectedIds.map(id => apiClient.delete(`/custom-tables/${tableId}/rows/${id}`)),
+        // Drafts were never saved, so the server has nothing to delete.
+        selectedIds
+          .filter(id => !isDraftRowId(id))
+          .map(id => apiClient.delete(`/custom-tables/${tableId}/rows/${id}`)),
       );
       grid.setRows(prev => prev.filter(row => !selectedIds.includes(row.id)));
       setRowSelection({});
