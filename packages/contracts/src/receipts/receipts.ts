@@ -114,7 +114,9 @@ export type ReceiptRecord = Wire<typeof ReceiptRecord>;
  * A receipt as its updates answer (`PATCH /receipts/:id/location`, `DELETE` of
  * it): the stored row, without the category looked up for display.
  */
-export const ReceiptRecordUpdate = ReceiptRecord.mapFields(Struct.omit(['category', 'transactionSplit']));
+export const ReceiptRecordUpdate = ReceiptRecord.mapFields(
+  Struct.omit(['category', 'transactionSplit']),
+);
 export type ReceiptRecordUpdate = Wire<typeof ReceiptRecordUpdate>;
 
 /** `GET /receipts`. */
