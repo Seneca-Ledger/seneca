@@ -1,0 +1,17 @@
+import * as Schema from 'effect/Schema';
+import type { Wire } from '../common/wire';
+
+/** `GET /search` and `GET /search/recent`, for the command palette. */
+export const SearchResponse = Schema.Struct({
+  query: Schema.String,
+  results: Schema.Array(
+    Schema.Struct({
+      kind: Schema.Literals(['category', 'transaction', 'statement', 'payable', 'receivable']),
+      id: Schema.String,
+      title: Schema.String,
+      subtitle: Schema.NullOr(Schema.String),
+      href: Schema.String,
+    }),
+  ),
+});
+export type SearchResponse = Wire<typeof SearchResponse>;

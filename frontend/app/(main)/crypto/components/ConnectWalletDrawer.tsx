@@ -18,6 +18,7 @@ import {
   useBrowserWallets,
   WalletUnavailableError,
 } from '@/app/lib/browser-wallets';
+import type { SupportedChainId } from '@/app/lib/contracts';
 import { addressFamily, type CryptoNetwork } from '../hooks/useCrypto';
 
 type ConnectWalletDrawerLabels = {
@@ -52,7 +53,7 @@ type ConnectWalletDrawerProps = {
   labels: ConnectWalletDrawerLabels;
   networks: CryptoNetwork[];
   onClose: () => void;
-  onSubmit: (address: string, label: string, chainIds?: number[]) => Promise<boolean>;
+  onSubmit: (address: string, label: string, chainIds?: SupportedChainId[]) => Promise<boolean>;
 };
 
 export function ConnectWalletDrawer({

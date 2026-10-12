@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import * as fs from 'fs';
-import * as pdfParse from 'pdf-parse';
 import { stripHtmlForAi } from '../../../common/utils/ai-response.util';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
+import { parsePdf } from '../../../common/utils/pdf-text.util';
 import {
   createReceiptAmountHelpers,
   DEFAULT_RECEIPT_SYMBOL_TO_CURRENCY,
@@ -193,7 +193,7 @@ export class GmailReceiptParserService {
     context: ReceiptParseContext,
   ): Promise<ParsedReceiptResult | null> {
     try {
-      const data = await pdfParse(buffer);
+      const data = await parsePdf(buffer);
       const text = data.text;
 
       if (this.universalExtractor) {

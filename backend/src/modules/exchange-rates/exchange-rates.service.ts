@@ -3,10 +3,14 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
+import { Effect, type Schema } from 'effect';
 import { LessThanOrEqual, Repository } from 'typeorm';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { describeHttpFailure, getJson } from '../../common/effect/http-json';
 import { ExchangeRate } from '../../entities/exchange-rate.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { WorkspaceExchangeRate } from '../../entities/workspace-exchange-rate.entity';
+import { LatestRatesResponse, PublicRatesResponse } from './exchange-rates.http';
 
 /**
  * A rate and the day it was quoted for. `stale` marks a rate borrowed from an
@@ -46,6 +50,7 @@ export class ExchangeRatesService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly configService: ConfigService,
+    private readonly effects: EffectRuntime,
     @Optional()
     @InjectRepository(Transaction)
     private readonly transactionRepository?: Repository<Transaction>,
@@ -535,17 +540,11 @@ export class ExchangeRatesService {
     }
 
     try {
-      const url = `${this.apiBaseUrl}/${this.apiKey}/latest/${baseCurrency.toUpperCase()}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        this.logger.warn(`Exchange rate API returned ${response.status}`);
+      const base = baseCurrency.toUpperCase();
+      const data = await this.fetchJson(this.latestRatesUrl(base), LatestRatesResponse);
+      if (!data) {
         return;
       }
-
-      const data = (await response.json()) as {
-        result: string;
-        conversion_rates: Record<string, number>;
-      };
 
       if (data.result !== 'success') {
         this.logger.warn('Exchange rate API response was not successful');
@@ -553,7 +552,6 @@ export class ExchangeRatesService {
       }
 
       const today = this.toDateOnly(new Date());
-      const base = baseCurrency.toUpperCase();
 
       for (const [target, rate] of Object.entries(data.conversion_rates)) {
         await this.saveRate(base, target, rate, today, 'exchangerate-api');
@@ -576,18 +574,8 @@ export class ExchangeRatesService {
     }
 
     try {
-      const url = `${this.apiBaseUrl}/${this.apiKey}/latest/${from}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        return null;
-      }
-
-      const data = (await response.json()) as {
-        result: string;
-        conversion_rates: Record<string, number>;
-      };
-
-      if (data.result !== 'success' || !data.conversion_rates[to]) {
+      const data = await this.fetchJson(this.latestRatesUrl(from), LatestRatesResponse);
+      if (data?.result !== 'success' || !data.conversion_rates[to]) {
         return null;
       }
 
@@ -629,12 +617,11 @@ export class ExchangeRatesService {
 
   private async fetchPublicCurrencyRate(url: string, to: string): Promise<number | null> {
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
+      const data = await this.fetchJson(url, PublicRatesResponse);
+      if (!data) {
         return null;
       }
       const targetKey = to.toLowerCase();
-      const data = (await response.json()) as Record<string, unknown>;
       const baseKey = this.extractBaseCurrencyFromPublicCurrencyUrl(url);
       const rates = baseKey ? data[baseKey] : undefined;
       const rate =
@@ -645,6 +632,30 @@ export class ExchangeRatesService {
     } catch {
       return null;
     }
+  }
+
+  private latestRatesUrl(base: string): string {
+    return `${this.apiBaseUrl}/${this.apiKey}/latest/${base}`;
+  }
+
+  /**
+   * A provider's decoded answer, or null when there is none worth using. The
+   * reason is logged without the URL, which carries the API key.
+   */
+  private fetchJson<A>(url: string, schema: Schema.Codec<A, unknown>): Promise<A | null> {
+    const host = new URL(url).host;
+    return this.effects.run(
+      getJson(url, schema, { timeout: '5 seconds' }).pipe(
+        Effect.catch(error =>
+          Effect.sync(() => {
+            this.logger.warn(
+              `Exchange rate request to ${host} failed: ${describeHttpFailure(error)}`,
+            );
+            return null;
+          }),
+        ),
+      ),
+    );
   }
 
   private extractBaseCurrencyFromPublicCurrencyUrl(url: string): string | null {

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
 import { MAX_AVATAR_SIZE_BYTES } from '@/app/lib/constants';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 export type UseAvatarUploadMessages = {
@@ -60,7 +61,12 @@ export function useAvatarUpload(
       const response = await apiClient.post('/users/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const nextUser = response.data?.user || user;
+      const { user: updatedUser } = await checkContract(
+        'UserUpdateResponse',
+        response.data,
+        '/users/me/avatar',
+      );
+      const nextUser = updatedUser || user;
       if (nextUser) {
         setUser(nextUser);
         localStorage.setItem('user', JSON.stringify(nextUser));

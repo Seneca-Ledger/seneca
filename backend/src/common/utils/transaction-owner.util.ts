@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Repository, SelectQueryBuilder } from 'typeorm';
+import type { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import type { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { appError } from '../errors/app-error';
 
@@ -51,7 +51,7 @@ export function parseOwnerFilter(
 }
 
 /** Narrows a transaction query to one owner. `all` leaves the query alone. */
-export function applyOwnerFilter<T>(
+export function applyOwnerFilter<T extends ObjectLiteral>(
   query: SelectQueryBuilder<T>,
   alias: string,
   filter: OwnerFilter,

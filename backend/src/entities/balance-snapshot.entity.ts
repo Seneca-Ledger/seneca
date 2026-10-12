@@ -45,7 +45,7 @@ export class BalanceSnapshot {
   @JoinColumn({ name: 'created_by' })
   createdByUser: User | null;
 
-  @Column({ name: 'created_by', nullable: true })
+  @Column({ type: 'varchar', name: 'created_by', nullable: true })
   createdBy: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

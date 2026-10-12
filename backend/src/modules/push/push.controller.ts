@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PushSubscriptionBody, PushUnsubscribeBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { PushSubscriptionDto, PushUnsubscribeDto } from './dto/push-subscription.dto';
 import { PushService } from './push.service';
 
 @Controller('push')
@@ -29,14 +30,20 @@ export class PushController {
   }
 
   @Post('subscriptions')
-  async subscribe(@CurrentUser() user: User, @Body() dto: PushSubscriptionDto) {
+  async subscribe(
+    @CurrentUser() user: User,
+    @SchemaBody(PushSubscriptionBody) dto: PushSubscriptionBody,
+  ) {
     const row = await this.pushService.subscribe(user.id, dto);
     return { id: row.id, endpoint: row.endpoint };
   }
 
   @Delete('subscriptions')
   @HttpCode(204)
-  async unsubscribe(@CurrentUser() user: User, @Body() dto: PushUnsubscribeDto) {
+  async unsubscribe(
+    @CurrentUser() user: User,
+    @SchemaBody(PushUnsubscribeBody) dto: PushUnsubscribeBody,
+  ) {
     await this.pushService.unsubscribe(user.id, dto.endpoint);
   }
 }

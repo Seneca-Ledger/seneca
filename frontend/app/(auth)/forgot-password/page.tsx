@@ -9,6 +9,7 @@ import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import AuthLayout from '../AuthLayout';
 
@@ -25,7 +26,7 @@ export default function ForgotPasswordPage(): React.JSX.Element {
     setError(null);
 
     await apiClient
-      .post('/auth/forgot-password', { email })
+      .post('/auth/forgot-password', { email } satisfies ContractInput<'ForgotPasswordBody'>)
       .then(() => {
         // The backend answers the same way for known and unknown addresses, so
         // this screen must not distinguish them either.

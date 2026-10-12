@@ -1,6 +1,9 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cache } from 'cache-manager';
+import { Effect, Schema } from 'effect';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { describeHttpFailure, getJson } from '../../common/effect/http-json';
 
 /** Banca d'Italia quotes every currency as units of that currency for one euro. */
 export interface BdiRates {
@@ -53,10 +56,19 @@ export function referenceRateFor(rates: BdiRates, date: string): BdiQuote | null
   return average ? { perEuro: average, rateDate: month } : null;
 }
 
-type BdiRow = { referenceDate: string; avgRate: string };
+const BdiResponse = Schema.Struct({
+  rates: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        referenceDate: Schema.String,
+        avgRate: Schema.Union([Schema.String, Schema.Number]),
+      }),
+    ),
+  ),
+});
 
 /** "N.A." marks days (or months) the currency had no rate. */
-function parseRate(value: string): number | null {
+function parseRate(value: string | number): number | null {
   const rate = Number(value);
   return Number.isFinite(rate) && rate > 0 ? rate : null;
 }
@@ -70,7 +82,10 @@ function parseRate(value: string): number | null {
 export class BdiRatesService {
   private readonly logger = new Logger(BdiRatesService.name);
 
-  constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache) {}
+  constructor(
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly effects: EffectRuntime,
+  ) {}
 
   /**
    * Daily rates from the previous December (so early January finds an earlier
@@ -103,31 +118,46 @@ export class BdiRatesService {
     const lastMonth = to.startsWith(String(taxYear)) ? Number(to.slice(5, 7)) : 0;
     const pair = `baseCurrencyIsoCode=${code}&currencyIsoCode=EUR&lang=en`;
 
-    const rates: BdiRates = { daily: [], monthly: {} };
-    try {
-      for (const row of await this.fetchRows(
-        `${BDI_API}/dailyTimeSeries?startDate=${from}&endDate=${to}&${pair}`,
-      )) {
-        const perEuro = parseRate(row.avgRate);
-        if (perEuro !== null) {
-          rates.daily.push({ date: row.referenceDate, perEuro });
-        }
-      }
-      if (lastMonth > 0) {
-        for (const row of await this.fetchRows(
-          `${BDI_API}/monthlyTimeSeries?startMonth=1&startYear=${taxYear}&endMonth=${lastMonth}&endYear=${taxYear}&${pair}`,
-        )) {
-          const perEuro = parseRate(row.avgRate);
-          if (perEuro !== null) {
-            rates.monthly[row.referenceDate] = perEuro;
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Banca d'Italia rates for ${code} ${taxYear} unavailable: ${(error as Error).message}`,
+    const rows = (url: string) =>
+      getJson(url, BdiResponse, { timeout: REQUEST_TIMEOUT_MS }).pipe(
+        Effect.map(body => body.rates ?? []),
       );
+    const fetched = await this.effects.run(
+      Effect.all([
+        rows(`${BDI_API}/dailyTimeSeries?startDate=${from}&endDate=${to}&${pair}`),
+        lastMonth > 0
+          ? rows(
+              `${BDI_API}/monthlyTimeSeries?startMonth=1&startYear=${taxYear}&endMonth=${lastMonth}&endYear=${taxYear}&${pair}`,
+            )
+          : Effect.succeed([]),
+      ]).pipe(
+        Effect.catch(error =>
+          Effect.sync(() => {
+            this.logger.warn(
+              `Banca d'Italia rates for ${code} ${taxYear} unavailable: ${describeHttpFailure(error)}`,
+            );
+            return null;
+          }),
+        ),
+      ),
+    );
+    if (!fetched) {
       return null;
+    }
+
+    const [dailyRows, monthlyRows] = fetched;
+    const rates: BdiRates = { daily: [], monthly: {} };
+    for (const row of dailyRows) {
+      const perEuro = parseRate(row.avgRate);
+      if (perEuro !== null) {
+        rates.daily.push({ date: row.referenceDate, perEuro });
+      }
+    }
+    for (const row of monthlyRows) {
+      const perEuro = parseRate(row.avgRate);
+      if (perEuro !== null) {
+        rates.monthly[row.referenceDate] = perEuro;
+      }
     }
 
     if (rates.daily.length === 0 && Object.keys(rates.monthly).length === 0) {
@@ -138,17 +168,5 @@ export class BdiRatesService {
     // A finished year never changes; the current one gains a rate every business day.
     await this.cacheManager.set(cacheKey, rates, yearEnd < today ? 0 : 4 * 3600);
     return rates;
-  }
-
-  private async fetchRows(url: string): Promise<BdiRow[]> {
-    const response = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const body = (await response.json()) as { rates?: BdiRow[] };
-    return body.rates ?? [];
   }
 }

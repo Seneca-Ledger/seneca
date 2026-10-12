@@ -12,6 +12,7 @@ import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
@@ -153,7 +154,7 @@ export default function WorkspaceOverviewView() {
         name: name.trim(),
         description: description.trim() || undefined,
         currency: currency || undefined,
-      });
+      } satisfies ContractInput<'UpdateWorkspaceBody'>);
       await refreshWorkspaces();
       toast.success(t.toasts.updated.value);
     })()

@@ -47,6 +47,7 @@ const data: ForecastData = {
   monthlyExpense: 1700,
   monthsObserved: 3,
   unscheduledCommitted: 0,
+  recurringIncome: [],
 };
 
 const setState = (overrides: Partial<ForecastData> = {}, extra: Record<string, unknown> = {}) => {

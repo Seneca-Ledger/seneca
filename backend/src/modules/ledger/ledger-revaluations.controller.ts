@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { RevalueLedgerBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { RevalueLedgerDto } from './dto/revalue-ledger.dto';
 import type { Revaluation, RevaluationResult } from './ledger-revaluation.service';
 import { LedgerRevaluationService } from './ledger-revaluation.service';
 
@@ -25,7 +26,7 @@ export class LedgerRevaluationsController {
   async revalue(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: RevalueLedgerDto,
+    @SchemaBody(RevalueLedgerBody) dto: RevalueLedgerBody,
   ): Promise<RevaluationResult> {
     return this.revaluationService.revalue(workspaceId, user.id, dto.date);
   }

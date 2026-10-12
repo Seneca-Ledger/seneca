@@ -18,7 +18,7 @@ const params = {
 
 describe('useTableGrid', () => {
   beforeEach(() => {
-    get.mockReset().mockResolvedValue({ data: { items: [] } });
+    get.mockReset().mockResolvedValue({ data: { items: [], meta: { total: 0 } } });
   });
 
   // Раньше loadRows зависел от заново создаваемых на каждый рендер помощников,

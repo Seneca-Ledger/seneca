@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '@/app/hooks/useAuth';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { WorkspaceDetail } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 /** How long the member list is good for: people join a household rarely. */
@@ -18,16 +19,7 @@ export interface WorkspaceMemberOption {
   isSelf: boolean;
 }
 
-interface WorkspaceMemberRecord {
-  id: string;
-  memberId?: string;
-  name?: string;
-  email?: string;
-}
-
-interface WorkspaceOverview {
-  members: WorkspaceMemberRecord[];
-}
+type WorkspaceMemberRecord = WorkspaceDetail['members'][number];
 
 /**
  * The members of the workspace, or nothing at all when there is only one.
@@ -39,9 +31,13 @@ interface WorkspaceOverview {
 export function useHouseholdMembers(): Array<WorkspaceMemberRecord & { memberId: string }> {
   const workspaceId = useWorkspaceId();
 
+  // The open workspace, not `/workspaces/me` (the user's home one): the key is
+  // shared with the @mention list, which reads `/workspaces/:id` too.
   const { data } = useQuery({
     queryKey: queryKeys.workspaceMembers(workspaceId),
-    queryFn: ({ signal }) => apiQuery<WorkspaceOverview>({ url: '/workspaces/me', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: `/workspaces/${workspaceId}`, signal, contract: 'WorkspaceDetail' }),
+    enabled: Boolean(workspaceId),
     staleTime: MEMBERS_STALE_TIME,
   });
 

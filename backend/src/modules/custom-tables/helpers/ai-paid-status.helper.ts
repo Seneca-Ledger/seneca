@@ -95,7 +95,6 @@ ${JSON.stringify({ items: sanitized })}`,
         ],
         {
           timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 20000,
-          timeoutMessage: 'AI request timed out',
           retries: 1,
           baseDelayMs: 500,
           maxDelayMs: 2000,

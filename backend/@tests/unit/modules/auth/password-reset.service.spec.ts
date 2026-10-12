@@ -76,7 +76,7 @@ describe('PasswordResetService', () => {
 
       await service.requestReset('user@example.com');
 
-      expect(tokenRepository.delete).toHaveBeenCalledWith({ userId: 'user-1', usedAt: null });
+      expect(tokenRepository.delete).toHaveBeenCalledWith({ userId: 'user-1', usedAt: IsNull() });
     });
 
     it('does nothing and still resolves for an unknown address', async () => {

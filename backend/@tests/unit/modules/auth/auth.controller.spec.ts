@@ -83,10 +83,16 @@ describe('AuthController', () => {
     await expect(controller.logoutSession({ id: 'u1' } as any, 's1')).resolves.toEqual({
       message: 'ok-session',
     });
-    await expect(controller.getProfile({ id: 'u1', email: 'a@b.com' } as any)).resolves.toEqual({
+    // The profile is the user's view, never the row: no credentials ride along.
+    const profile = await controller.getProfile({
       id: 'u1',
       email: 'a@b.com',
-    });
+      passwordHash: 'hash',
+      tokenVersion: 3,
+    } as any);
+    expect(profile).toMatchObject({ id: 'u1', email: 'a@b.com' });
+    expect(profile).not.toHaveProperty('passwordHash');
+    expect(profile).not.toHaveProperty('tokenVersion');
 
     expect(authService.logout).toHaveBeenCalledWith('u1', 's1');
     expect(authService.getSessions).toHaveBeenCalledWith('u1', 's1');

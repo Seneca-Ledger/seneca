@@ -3,10 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import nodemailer from 'nodemailer';
 import { LessThanOrEqual, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import type { CreateReportScheduleBody, GenerateReportBody } from '../../contracts';
 import { ReportSchedule, ReportScheduleCadence } from '../../entities/report-schedule.entity';
 import { User } from '../../entities/user.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
-import type { CreateReportScheduleDto } from './dto/report-schedule.dto';
 import { ReportsService } from './reports.service';
 
 /** Inclusive [from, to] ISO dates for the last completed period. */
@@ -101,7 +102,7 @@ export class ReportSchedulesService {
   async create(
     workspaceId: string,
     userId: string,
-    dto: CreateReportScheduleDto,
+    dto: CreateReportScheduleBody,
   ): Promise<ReportSchedule> {
     if (dto.recipients.length === 0) {
       throw new BadRequestException('At least one recipient is required');
@@ -114,14 +115,14 @@ export class ReportSchedulesService {
         userId,
         templateId: dto.templateId,
         format: dto.format,
-        cadence: dto.cadence,
+        cadence: toEnum(ReportScheduleCadence, dto.cadence),
         recipients: dto.recipients,
         walletIds: dto.walletIds ?? [],
         categoryIds: dto.categoryIds ?? [],
         groupBy: dto.groupBy ?? null,
         locale: dto.locale ?? null,
         isActive: true,
-        nextRunAt: this.computeNextRunAt(dto.cadence, now),
+        nextRunAt: this.computeNextRunAt(toEnum(ReportScheduleCadence, dto.cadence), now),
       }),
     );
   }
@@ -195,11 +196,12 @@ export class ReportSchedulesService {
         templateId: schedule.templateId,
         dateFrom: period.dateFrom,
         dateTo: period.dateTo,
-        format: schedule.format,
+        // Stored from a CreateReportScheduleBody, checked against the same literals.
+        format: schedule.format as GenerateReportBody['format'],
         walletIds: schedule.walletIds,
         categoryIds: schedule.categoryIds,
         groupBy: schedule.groupBy as 'day' | 'week' | 'month' | undefined,
-        locale: schedule.locale ?? undefined,
+        locale: (schedule.locale ?? undefined) as GenerateReportBody['locale'],
       },
     );
 

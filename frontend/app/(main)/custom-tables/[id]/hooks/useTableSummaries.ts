@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface SummaryItem {
   id: string;
@@ -45,9 +46,11 @@ export function useTableSummaries({
     }
     setLoading(true);
     await (async () => {
-      const response = await apiClient.get(`/custom-tables/${tableId}/summaries`);
-      const payload = (response.data?.data ?? response.data) as { items?: SummaryItem[] };
-      setItems(payload?.items ?? []);
+      const { items } = await apiQueryDecoded({
+        url: `/custom-tables/${tableId}/summaries`,
+        contract: 'CustomTableSummaries',
+      });
+      setItems(items);
     })()
       .catch(async error => {
         console.error('Failed to load summaries:', error);
@@ -69,7 +72,7 @@ export function useTableSummaries({
       return (async () => {
         await apiClient.patch(`/custom-tables/${tableId}/view-settings/summaries`, {
           summaries: next,
-        });
+        } satisfies ContractInput<'UpdateCustomTableSummariesBody'>);
         await load();
         return true;
       })()

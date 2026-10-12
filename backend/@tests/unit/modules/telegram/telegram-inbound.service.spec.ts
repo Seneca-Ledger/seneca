@@ -242,4 +242,45 @@ describe('TelegramService inbound', () => {
     expect(statementsService.remove).not.toHaveBeenCalled();
     expect(calls.filter(call => call.url.endsWith('/answerCallbackQuery'))).toHaveLength(1);
   });
+
+  describe('file transfer', () => {
+    const fileService = () => {
+      const { service } = createService();
+      // createService stubs the download for the inbound tests; use the real one.
+      (service as any).downloadTelegramFile.mockRestore();
+      return service as any;
+    };
+
+    afterEach(() => jest.useRealTimers());
+
+    it('asks Telegram for the file path again after a temporary error', async () => {
+      const statuses = [502, 200];
+      global.fetch = jest.fn(async () => {
+        const status = statuses.shift() ?? 200;
+        return new Response(JSON.stringify(status === 200 ? { ok: true, result: { file_path: 'photos/a.jpg' } } : {}), {
+          status,
+        });
+      }) as any;
+
+      await expect(fileService().getTelegramFilePath('file-1')).resolves.toBe('photos/a.jpg');
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('gives up on a download that stalls instead of holding the update forever', async () => {
+      jest.useFakeTimers();
+      global.fetch = jest.fn(async (url: unknown, init: RequestInit) => {
+        if (String(url).endsWith('/getFile')) {
+          return new Response(JSON.stringify({ ok: true, result: { file_path: 'photos/a.jpg' } }));
+        }
+        return new Promise<Response>((_resolve, reject) =>
+          init.signal?.addEventListener('abort', () => reject(init.signal?.reason)),
+        );
+      }) as any;
+
+      const download = fileService().downloadTelegramFile('file-1', 'a.jpg', 'image/jpeg');
+      const outcome = expect(download).rejects.toThrow('Telegram file download timed out');
+      await jest.advanceTimersByTimeAsync(60_000);
+      await outcome;
+    });
+  });
 });

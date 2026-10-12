@@ -9,7 +9,9 @@
     "**/coverage/**",
     "**/*.content.ts",
     "**/*.spec.*",
-    "**/*.test.*"
+    "**/*.test.*",
+    "**/backend/src/contracts/**",
+    "**/frontend/app/lib/contracts/**"
   ],
   "absolute": true,
   "gitignore": true,

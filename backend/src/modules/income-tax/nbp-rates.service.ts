@@ -1,6 +1,9 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cache } from 'cache-manager';
+import { Effect, Schema } from 'effect';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { describeHttpFailure, getJson, hasStatus } from '../../common/effect/http-json';
 
 export interface NbpRate {
   /** YYYY-MM-DD, the business day the rate was published for. */
@@ -14,6 +17,12 @@ const NBP_API = 'https://api.nbp.pl/api/exchangerates/rates/a';
 const MAX_WINDOW_DAYS = 93;
 const DAY_MS = 86_400_000;
 const REQUEST_TIMEOUT_MS = 10_000;
+
+const NbpRatesResponse = Schema.Struct({
+  rates: Schema.optional(
+    Schema.Array(Schema.Struct({ effectiveDate: Schema.String, mid: Schema.Number })),
+  ),
+});
 
 function addDays(date: string, days: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
@@ -68,7 +77,10 @@ export function previousBusinessDayRate(rates: NbpRate[], date: string): NbpRate
 export class NbpRatesService {
   private readonly logger = new Logger(NbpRatesService.name);
 
-  constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache) {}
+  constructor(
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly effects: EffectRuntime,
+  ) {}
 
   /**
    * Every table A rate for a currency over the tax year, starting in the
@@ -99,38 +111,32 @@ export class NbpRatesService {
       return null;
     }
 
-    const rates: NbpRate[] = [];
-    try {
-      for (const [start, end] of splitIntoWindows(from, to)) {
-        const response = await fetch(
-          `${NBP_API}/${code.toLowerCase()}/${start}/${end}/?format=json`,
-          {
-            headers: { Accept: 'application/json' },
-            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-          },
-        );
+    // One window at a time: NBP is a public API, and a year is at most five calls.
+    const windows = Effect.forEach(splitIntoWindows(from, to), ([start, end]) =>
+      getJson(`${NBP_API}/${code.toLowerCase()}/${start}/${end}/?format=json`, NbpRatesResponse, {
+        timeout: REQUEST_TIMEOUT_MS,
+      }).pipe(
         // 404 means no quotes in the window — a holiday stretch, or a currency
         // table A does not carry. Either way there is nothing to add.
-        if (response.status === 404) {
-          continue;
-        }
-        if (!response.ok) {
-          this.logger.warn(`NBP rates for ${code} ${start}..${end} returned ${response.status}`);
-          return null;
-        }
-        const body = (await response.json()) as {
-          rates?: Array<{ effectiveDate: string; mid: number }>;
-        };
-        for (const rate of body.rates ?? []) {
-          rates.push({ effectiveDate: rate.effectiveDate, mid: Number(rate.mid) });
-        }
-      }
-    } catch (error) {
-      this.logger.warn(`NBP rates for ${code} ${taxYear} unavailable: ${(error as Error).message}`);
-      return null;
-    }
-
-    if (rates.length === 0) {
+        Effect.catchIf(hasStatus(404), () => Effect.succeed({ rates: [] })),
+      ),
+    );
+    const bodies = await this.effects.run(
+      windows.pipe(
+        Effect.catch(error =>
+          Effect.sync(() => {
+            this.logger.warn(
+              `NBP rates for ${code} ${taxYear} unavailable: ${describeHttpFailure(error)}`,
+            );
+            return null;
+          }),
+        ),
+      ),
+    );
+    const rates: NbpRate[] = (bodies ?? []).flatMap(body =>
+      (body.rates ?? []).map(rate => ({ effectiveDate: rate.effectiveDate, mid: rate.mid })),
+    );
+    if (!bodies || rates.length === 0) {
       return null;
     }
     rates.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));

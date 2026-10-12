@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -14,16 +13,19 @@ import {
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import {
+  CreateBalanceAccountBody,
+  UpdateAccountClassificationBody,
+  UpdateBalanceSnapshotBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BalanceService } from './balance.service';
 import { BalanceQueryDto } from './dto/balance-query.dto';
-import { CreateBalanceAccountDto } from './dto/create-balance-account.dto';
 import { ExportBalanceDto } from './dto/export-balance.dto';
-import { UpdateAccountClassificationDto } from './dto/update-account-classification.dto';
-import { UpdateBalanceSnapshotDto } from './dto/update-balance-snapshot.dto';
 
 @Controller('reports/balance')
 export class BalanceController {
@@ -62,7 +64,7 @@ export class BalanceController {
   async updateSnapshot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpdateBalanceSnapshotDto,
+    @SchemaBody(UpdateBalanceSnapshotBody) dto: UpdateBalanceSnapshotBody,
   ) {
     return this.balanceService.updateSnapshot(user.id, workspaceId, dto);
   }
@@ -72,7 +74,7 @@ export class BalanceController {
   async createAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateBalanceAccountDto,
+    @SchemaBody(CreateBalanceAccountBody) dto: CreateBalanceAccountBody,
   ) {
     return this.balanceService.createCustomAccount(user.id, workspaceId, dto);
   }
@@ -94,7 +96,7 @@ export class BalanceController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('id') id: string,
-    @Body() dto: UpdateAccountClassificationDto,
+    @SchemaBody(UpdateAccountClassificationBody) dto: UpdateAccountClassificationBody,
   ) {
     return this.balanceService.updateAccountClassification(user.id, workspaceId, id, dto);
   }

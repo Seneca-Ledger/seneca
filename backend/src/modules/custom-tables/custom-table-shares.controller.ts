@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -14,16 +13,18 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import { CreateCustomTableShareBody, CreateExportScheduleBody } from '../../contracts';
+import { ExportScheduleFormat } from '../../entities/custom-table-export-schedule.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { CustomTableExportSchedulesService } from './custom-table-export-schedules.service';
 import { CustomTableSharesService } from './custom-table-shares.service';
-import { CreateCustomTableShareDto } from './dto/create-custom-table-share.dto';
-import { CreateExportScheduleDto } from './dto/create-export-schedule.dto';
 
 /** Управление ссылками — обычный приватный API под JWT. */
 @Controller('custom-tables')
@@ -40,10 +41,10 @@ export class CustomTableSharesController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: CreateCustomTableShareDto,
+    @SchemaBody(CreateCustomTableShareBody) dto: CreateCustomTableShareBody,
   ) {
     const { share, token } = await this.sharesService.createShare(user.id, workspaceId, tableId, {
-      expiresInDays: dto.expiresInDays,
+      expiresInDays: dto.expiresInDays ?? undefined,
     });
     return {
       id: share.id,
@@ -80,9 +81,13 @@ export class CustomTableSharesController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: CreateExportScheduleDto,
+    @SchemaBody(CreateExportScheduleBody) dto: CreateExportScheduleBody,
   ) {
-    return this.exportSchedulesService.createSchedule(user.id, workspaceId, tableId, dto);
+    return this.exportSchedulesService.createSchedule(user.id, workspaceId, tableId, {
+      ...dto,
+      intervalHours: dto.intervalHours ?? undefined,
+      format: toEnum(ExportScheduleFormat, dto.format) ?? undefined,
+    });
   }
 
   @Get(':id/export-schedules')
