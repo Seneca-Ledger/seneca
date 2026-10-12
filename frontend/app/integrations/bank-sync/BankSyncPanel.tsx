@@ -5,7 +5,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 
 type BankSyncAccount = {
@@ -111,10 +111,10 @@ export function BankSyncPanel({
     run(
       'connect',
       async () => {
-        const response = await apiClient.post<BankSyncStatus>(`${BASE}/connect`, {
+        const response = await apiClient.post(`${BASE}/connect`, {
           setupToken: token.trim(),
-        });
-        applyStatus(response.data);
+        } satisfies ContractInput<'ConnectBankSyncBody'>);
+        applyStatus(await checkContract('BankSyncStatus', response.data, `${BASE}/connect`));
         setToken('');
         onConnectionChange?.();
         return { tone: 'ok', text: t.connected.value };
@@ -126,7 +126,7 @@ export function BankSyncPanel({
     run(
       'save',
       async () => {
-        const response = await apiClient.post<BankSyncStatus>(`${BASE}/settings`, {
+        const response = await apiClient.post(`${BASE}/settings`, {
           autoSync,
           accounts: accounts.map(account => ({
             id: account.id,
@@ -134,7 +134,7 @@ export function BankSyncPanel({
             walletId: account.walletId,
           })),
         });
-        applyStatus(response.data);
+        applyStatus(await checkContract('BankSyncStatus', response.data, `${BASE}/settings`));
         return { tone: 'ok', text: t.saved.value };
       },
       t.saveFailed.value,
@@ -144,16 +144,17 @@ export function BankSyncPanel({
     run(
       'sync',
       async () => {
-        const response = await apiClient.post<BankSyncResult>(`${BASE}/sync`);
+        const response = await apiClient.post(`${BASE}/sync`);
+        const result = await checkContract('BankSyncResult', response.data, `${BASE}/sync`);
         applyStatus(await apiQueryDecoded({ url: `${BASE}/status`, contract: 'BankSyncStatus' }));
-        const failed = response.data.accounts.find(account => account.error);
+        const failed = result.accounts.find(account => account.error);
         if (failed) return { tone: 'error', text: `${t.syncFailed.value}: ${failed.error}` };
-        if (response.data.imported === 0) return { tone: 'ok', text: t.nothingNew.value };
+        if (result.imported === 0) return { tone: 'ok', text: t.nothingNew.value };
         return {
           tone: 'ok',
           text: t.synced.value
-            .replace('{rows}', String(response.data.imported))
-            .replace('{statements}', String(response.data.statements)),
+            .replace('{rows}', String(result.imported))
+            .replace('{statements}', String(result.statements)),
         };
       },
       t.syncFailed.value,
@@ -163,8 +164,10 @@ export function BankSyncPanel({
     run(
       'refresh',
       async () => {
-        const response = await apiClient.post<BankSyncStatus>(`${BASE}/accounts/refresh`);
-        applyStatus(response.data);
+        const response = await apiClient.post(`${BASE}/accounts/refresh`);
+        applyStatus(
+          await checkContract('BankSyncStatus', response.data, `${BASE}/accounts/refresh`),
+        );
         return { tone: 'ok', text: t.accountsRefreshed.value };
       },
       t.saveFailed.value,

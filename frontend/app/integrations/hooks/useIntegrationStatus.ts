@@ -44,7 +44,9 @@ export function useIntegrationStatus({
 
   const statusQuery = useQuery({
     queryKey,
-    queryFn: ({ signal }) => apiQuery<IntegrationStatus>({ url: `${base}/status`, signal }),
+    // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+    queryFn: async ({ signal }) =>
+      (await apiQuery({ url: `${base}/status`, signal })) as IntegrationStatus,
     enabled: Boolean(user),
   });
 
@@ -84,7 +86,8 @@ export function useIntegrationStatus({
     return await (async () => {
       toast.success(messages.toasts.connecting);
       const response = await apiClient.get(`${base}/connect`);
-      const url = response.data?.url as string | undefined;
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const url = (response.data as { url?: string } | null)?.url;
       if (!url) {
         toast.error(messages.errors.connectFailed);
         return;
@@ -96,14 +99,18 @@ export function useIntegrationStatus({
   }, [base, messages]);
 
   const disconnectMutation = useMutation({
-    mutationFn: () => apiClient.post(`${base}/disconnect`),
+    mutationFn: async () => {
+      await apiClient.post(`${base}/disconnect`);
+    },
     onSuccess: () => toast.success(messages.toasts.disconnected),
     onError: () => toast.error(messages.errors.disconnectFailed),
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   const syncMutation = useMutation({
-    mutationFn: () => apiClient.post(`${base}/sync`),
+    mutationFn: async () => {
+      await apiClient.post(`${base}/sync`);
+    },
     onSuccess: () => toast.success(messages.toasts.syncStarted),
     onError: () => toast.error(messages.errors.syncFailed),
     onSettled: () => queryClient.invalidateQueries({ queryKey }),

@@ -2,6 +2,9 @@ jest.mock('franc', () => ({
   franc: () => 'und',
 }));
 
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Schema } from 'effect';
@@ -199,6 +202,36 @@ import {
   UstvaResult,
   VatFilingSettings,
   VatStatusChange,
+  AuditEventList,
+  AuditEventPage,
+  AuditRollbackResult,
+  BackupImportPreview,
+  BackupRestoreResult,
+  BranchList,
+  BusinessProfileLogo,
+  CategoryUsageCounts,
+  CustomTableRowBatch,
+  CustomTablesReport,
+  CustomTablesReportDrillDown,
+  DuplicatesMarked,
+  FileCategoryUpdate,
+  IntegrationConnection,
+  InvitationAccepted,
+  InvoiceCreated,
+  MessageResult,
+  PayeeRecord,
+  PlaceSuggestions,
+  ReceiptUploadResult,
+  RevaluationResult,
+  SetupProgress,
+  StatementListPage,
+  TransactionListPage,
+  TransactionPayeeResult,
+  UploadedIcon,
+  ViewPreferenceState,
+  WelcomeTutorialSeen,
+  WorkspaceFavorite,
+  XRechnungCheck,
 } from '../../src/contracts';
 import {
   deleteUserByEmail,
@@ -229,8 +262,10 @@ describe('API contracts (e2e)', () => {
       onExcessProperty: 'ignore',
     })(body);
 
-  beforeAll(async () => {
-    const moduleFixture: TestingModule = await e2eTestingModule({
+    beforeAll(async () => {
+      // Read once when the backups module starts: where a local backup run writes.
+      process.env.BACKUP_LOCAL_ROOT ??= mkdtempSync(join(tmpdir(), 'lumio-contracts-backups-'));
+      const moduleFixture: TestingModule = await e2eTestingModule({
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
@@ -1654,11 +1689,279 @@ describe('API contracts (e2e)', () => {
             dueDate: '2026-10-31',
             lineItems: [{ description: 'Consulting', quantity: 1, unitPrice: 100 }],
           }).expect(succeeded);
-      expect(invoice.body.id).toEqual(expect.any(String));
+      matches(InvoiceCreated, invoice.body);
+      matches(XRechnungCheck, (await get(`/invoices/${invoice.body.id}/xrechnung/check`)).body);
       matches(
         TransactionSearchResult,
         (await call('post', '/ai-analysis/search', { query: 'coffee' }).expect(succeeded)).body,
       );
+    });
+  });
+
+  describe('answers the strict api client reads', () => {
+    // Actions answer 200 or 201 by their own convention: any success will do.
+    const succeeded = (res: request.Response) => {
+      if (res.status >= 300) {
+        throw new Error(`${res.status} ${JSON.stringify(res.body)}`);
+      }
+    };
+    const call = (method: 'post' | 'patch' | 'put', url: string, body?: object) => {
+      const req = request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId);
+      return body ? req.send(body) : req;
+    };
+    // A 1x1 transparent PNG.
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      'base64',
+    );
+
+    it('GET /statements and /transactions as pages, with the parser notes typed', async () => {
+      const statements = await get('/statements?page=1&limit=50');
+      matches(StatementListPage, statements.body);
+      expect(statements.body.data.length).toBeGreaterThan(0);
+      const manual = statements.body.data.find(
+        (row: { parsingDetails: { importPreview?: { source?: string } } | null }) =>
+          row.parsingDetails?.importPreview?.source === 'manual-expense',
+      );
+      expect(manual).toBeDefined();
+      const transactions = await get('/transactions?page=1&limit=50');
+      matches(TransactionListPage, transactions.body);
+      expect(transactions.body.data[0]).toHaveProperty('statementId');
+    });
+
+    it('the setup progress, view preferences and the welcome tutorial', async () => {
+      matches(SetupProgress, (await get('/dashboard/setup-progress')).body);
+      matches(ViewPreferenceState, (await get('/view-preferences/transactions')).body);
+      await call('put', '/view-preferences/transactions', { state: { owner: 'me' } }).expect(
+        succeeded,
+      );
+      const saved = await get('/view-preferences/transactions');
+      matches(ViewPreferenceState, saved.body);
+      expect(saved.body.state).toEqual({ owner: 'me' });
+      const seen = await call('post', '/users/me/welcome-tutorial').expect(succeeded);
+      matches(WelcomeTutorialSeen, seen.body);
+      expect(seen.body.welcomeTutorialSeenAt).toEqual(expect.any(String));
+    });
+
+    it('branches, category usage, an uploaded icon and a file category', async () => {
+      matches(BranchList, (await get('/branches')).body);
+      matches(CategoryUsageCounts, (await get('/categories/usage/counts')).body);
+      const icon = await request(app.getHttpServer())
+        .post('/data-entry/custom-fields/icon')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .attach('icon', png, { filename: 'icon.png', contentType: 'image/png' })
+        .expect(succeeded);
+      matches(UploadedIcon, icon.body);
+      const statementId = (await get('/storage/files')).body[0].id;
+      const categories = await get('/categories?type=expense');
+      const moved = await call('patch', `/storage/files/${statementId}/category`, {
+        categoryId: categories.body[0].id,
+      }).expect(succeeded);
+      matches(FileCategoryUpdate, moved.body);
+      expect(moved.body.category.id).toBe(categories.body[0].id);
+      expect(moved.body).not.toHaveProperty('filePath');
+    });
+
+    it('the business logo, a workspace favourite and the custom-tables report', async () => {
+      const logo = await request(app.getHttpServer())
+        .post('/business-profile/logo')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .attach('logo', png, { filename: 'logo.png', contentType: 'image/png' })
+        .expect(succeeded);
+      matches(BusinessProfileLogo, logo.body);
+      matches(
+        WorkspaceFavorite,
+        (await call('patch', `/workspaces/${owner.workspaceId}/favorite`).expect(succeeded)).body,
+      );
+      const report = await call('post', '/reports/custom-tables/report', { days: 365 }).expect(
+        succeeded,
+      );
+      matches(CustomTablesReport, report.body);
+      matches(
+        CustomTablesReportDrillDown,
+        (
+          await call('post', '/reports/custom-tables/report/drill-down', {
+            counterparty: 'Contract Coffee',
+            days: 365,
+          }).expect(succeeded)
+        ).body,
+      );
+    });
+
+        it('rows added in a batch, an integration status and the ledger revaluation', async () => {
+      const tables = await get('/custom-tables');
+      const tableId = tables.body.items[0].id;
+      const batch = await call('post', `/custom-tables/${tableId}/rows/batch`, {
+        rows: [{ data: {} }, { data: {} }],
+      }).expect(succeeded);
+      matches(CustomTableRowBatch, batch.body);
+      expect(batch.body.rows).toHaveLength(2);
+            matches(IntegrationConnection, (await get('/integrations/imap/status')).body);
+            // The rows booked above reach the ledger in the background; a revaluation waits for them.
+            for (let attempt = 0; attempt < 60; attempt++) {
+              if ((await get('/ledger/integrity')).body.upToDate) break;
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            const today = new Date().toISOString().slice(0, 10);
+      matches(
+        RevaluationResult,
+                (await call('post', '/ledger/revaluations', { date: today }).expect(succeeded)).body,
+              );
+            }, 60_000);
+
+    it('a payee renamed, set on a transaction, and the duplicates marked', async () => {
+            const rows = (await get('/transactions')).body.data;
+            const transactionId = rows[0].id;
+            const set = await call('put', `/transactions/${transactionId}/payee`, {
+        name: 'Contract Payee',
+      }).expect(succeeded);
+      matches(TransactionPayeeResult, set.body);
+      const renamed = await call('patch', `/payees/${set.body.payee.id}`, {
+        name: 'Contract Payee Renamed',
+      }).expect(succeeded);
+      matches(PayeeRecord, renamed.body);
+      const marked = await call('post', '/transactions/duplicates/mark', {
+                groups: [{ masterId: transactionId, duplicateIds: [rows[1].id] }],
+      }).expect(succeeded);
+      matches(DuplicatesMarked, marked.body);
+    });
+
+    it('a receipt edited, its place settled, and an upload', async () => {
+            const [receipt] = await dataSource.query(
+              'SELECT id FROM receipts WHERE workspace_id = $1 LIMIT 1',
+              [owner.workspaceId],
+            );
+            const statementId = (await get('/storage/files')).body[0].id;
+      const edited = await call('patch', `/receipts/${receipt.id}`, {
+        parsedData: { vendor: 'Contract Market' },
+      }).expect(succeeded);
+      matches(ReceiptRecordUpdate, edited.body);
+      // A place the user picked is settled: no lookup, and nothing to ask.
+            await dataSource.query(
+                      "UPDATE receipts SET statement_id = $2, location_source = 'manual', location_lat = 52.52, location_lng = 13.4 WHERE id = $1",
+              [receipt.id, statementId],
+            );
+            const suggestions = await call('post', '/receipts/place-suggestions', {
+              statementId,
+        latitude: 52.52,
+        longitude: 13.4,
+        accuracy: 20,
+      }).expect(succeeded);
+      matches(PlaceSuggestions, suggestions.body);
+      expect(suggestions.body).toEqual({ needed: false });
+      const upload = await request(app.getHttpServer())
+        .post('/receipts/upload')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .attach('files', png, { filename: 'receipt.png', contentType: 'image/png' })
+        .expect(succeeded);
+      matches(ReceiptUploadResult, upload.body);
+    }, 60_000);
+
+    it('the audit trail of an edited category, and its rollback', async () => {
+      const created = await call('post', '/categories', {
+        name: 'Audited',
+        type: 'expense',
+      }).expect(succeeded);
+      await call('put', `/categories/${created.body.id}`, { name: 'Audited again' });
+      const page = await get('/audit-events?limit=20');
+      matches(AuditEventPage, page.body);
+      const history = await get(`/audit-events/entity/category/${created.body.id}`);
+      matches(AuditEventList, history.body);
+      expect(history.body.length).toBeGreaterThan(0);
+      const rollback = await call('post', `/audit-events/${history.body[0].id}/rollback`).expect(
+        succeeded,
+      );
+      matches(AuditRollbackResult, rollback.body);
+    });
+
+    it('a backup downloaded, previewed and restored', async () => {
+      const run = await call('post', '/backups/runs').expect(succeeded);
+      const archive = await request(app.getHttpServer())
+        .get(`/backups/runs/${run.body.id}/download`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .buffer(true)
+        .parse((res, done) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => done(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+      const upload = (url: string) =>
+        request(app.getHttpServer())
+          .post(url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .field('password', 'contract-backup-pass')
+          .attach('file', archive.body as Buffer, { filename: 'backup.lumio' });
+      const preview = await upload('/backups/import/preview').expect(succeeded);
+      matches(BackupImportPreview, preview.body);
+      const restored = await upload(`/backups/imports/${preview.body.importId}/restore`).expect(
+        succeeded,
+      );
+            matches(BackupRestoreResult, restored.body);
+            // Rows with no workspace column of their own come back with their parents.
+            const counts = async (workspaceId: string) => {
+              const [row] = await dataSource.query(
+                `SELECT
+                   (SELECT count(*) FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id
+                     WHERE e.workspace_id = $1 AND e.status <> 'draft')::int AS "bookedLines",
+                   (SELECT count(*) FROM invoice_line_items l JOIN invoices i ON i.id = l.invoice_id
+                     WHERE i.workspace_id = $1)::int AS "invoiceLines",
+                   (SELECT count(*) FROM transaction_tags l JOIN transactions t ON t.id = l.transaction_id
+                     WHERE t.workspace_id = $1)::int AS "transactionTags"`,
+                [workspaceId],
+              );
+              return row;
+            };
+            const source = await counts(owner.workspaceId);
+            expect(source.bookedLines).toBeGreaterThan(0);
+            expect(source.invoiceLines).toBeGreaterThan(0);
+            expect(await counts(restored.body.workspaceId)).toEqual(source);
+          }, 120_000);
+
+    it('an invitation accepted, and the email and password changes', async () => {
+      const inviteeEmail = `contracts-joiner-${Date.now()}@example.com`;
+      const invitee = await registerAccount(app, inviteeEmail, 'Joiner');
+      const invite = await call('post', `/workspaces/${owner.workspaceId}/invitations`, {
+        email: inviteeEmail,
+        role: 'member',
+      }).expect(succeeded);
+      const accepted = await request(app.getHttpServer())
+        .post(`/workspaces/invitations/${invite.body.invitation.token}/accept`)
+        .set('Authorization', `Bearer ${invitee.token}`)
+        .expect(succeeded);
+      matches(InvitationAccepted, accepted.body);
+      const as = (url: string, body: object) =>
+        request(app.getHttpServer())
+          .patch(url)
+          .set('Authorization', `Bearer ${invitee.token}`)
+          .send(body);
+      matches(
+        MessageResult,
+        (
+          await as('/users/me/email', {
+            email: `contracts-moved-${Date.now()}@example.com`,
+            currentPassword: 'Test123!@#',
+          }).expect(succeeded)
+        ).body,
+      );
+      matches(
+        MessageResult,
+        (
+          await as('/users/me/password', {
+            currentPassword: 'Test123!@#',
+            newPassword: 'Test456!@#x',
+          }).expect(succeeded)
+        ).body,
+      );
+      await deleteUserByEmail(dataSource, inviteeEmail);
     });
   });
 });

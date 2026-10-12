@@ -1,6 +1,12 @@
 import { getIntlayer } from 'react-intlayer';
 import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
-import type { AuditAction, AuditEvent, EntityType, Severity } from '@/lib/api/audit';
+import {
+  type AuditAction,
+  type AuditEvent,
+  type EntityType,
+  isEntityType,
+  type Severity,
+} from '@/lib/api/audit';
 
 type ActionTone = 'info' | 'warn' | 'critical' | 'primary' | 'success';
 
@@ -259,7 +265,9 @@ export const formatAuditEvent = (
   const entityName = readValue(dictionary.entities?.[event.entityType]);
   const objectLabel = entityName
     ? entityName.charAt(0).toLocaleUpperCase() + entityName.slice(1)
-    : (ENTITY_LABELS[event.entityType] ?? event.entityType);
+    : isEntityType(event.entityType)
+      ? ENTITY_LABELS[event.entityType]
+      : event.entityType;
   const description = extractDescription(event, actionLabel, objectLabel, dictionary);
   const actionTone =
     event.severity === 'warn' || event.severity === 'critical'

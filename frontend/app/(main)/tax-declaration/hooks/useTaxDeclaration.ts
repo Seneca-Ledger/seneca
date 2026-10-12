@@ -5,6 +5,7 @@ import { saveBlob } from '@/app/(main)/reports/components/tax-return.helpers';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
+import { blobOf } from '@/app/lib/blob-of';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { exportFileName } from '../tax-declaration.helpers';
@@ -33,7 +34,9 @@ export function useTaxDeclaration(taxYear: number) {
   });
 
   const acceptDisclaimer = useMutation({
-    mutationFn: () => apiClient.post('/income-tax/disclaimer'),
+    mutationFn: async () => {
+      await apiClient.post('/income-tax/disclaimer');
+    },
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.incomeTaxDisclaimer(workspaceId) }),
   });
@@ -79,30 +82,36 @@ export function useTaxDeclaration(taxYear: number) {
   });
 
   const saveProfile = useMutation({
-    mutationFn: (body: { taxpayerType: TaxpayerType; details: Record<string, unknown> }) =>
-      apiClient.put('/income-tax/profile', {
+    mutationFn: async (body: { taxpayerType: TaxpayerType; details: Record<string, unknown> }) => {
+      await apiClient.put('/income-tax/profile', {
         taxYear,
         ...body,
-      } satisfies ContractInput<'UpdateIncomeTaxProfileBody'>),
+      } satisfies ContractInput<'UpdateIncomeTaxProfileBody'>);
+    },
     onSuccess: invalidateAll,
   });
 
   const saveMappings = useMutation({
-    mutationFn: (entries: MappingEntry[]) =>
-      apiClient.put('/income-tax/mappings', {
+    mutationFn: async (entries: MappingEntry[]) => {
+      await apiClient.put('/income-tax/mappings', {
         taxYear,
         entries,
-      } satisfies ContractInput<'SaveIncomeTaxMappingsBody'>),
+      } satisfies ContractInput<'SaveIncomeTaxMappingsBody'>);
+    },
     onSuccess: invalidateAll,
   });
 
   const finalize = useMutation({
-    mutationFn: () => apiClient.post(`/income-tax/returns/${taxYear}/finalize`),
+    mutationFn: async () => {
+      await apiClient.post(`/income-tax/returns/${taxYear}/finalize`);
+    },
     onSuccess: invalidateAll,
   });
 
   const reopen = useMutation({
-    mutationFn: () => apiClient.post(`/income-tax/returns/${taxYear}/reopen`),
+    mutationFn: async () => {
+      await apiClient.post(`/income-tax/returns/${taxYear}/reopen`);
+    },
     onSuccess: invalidateAll,
   });
 
@@ -113,7 +122,7 @@ export function useTaxDeclaration(taxYear: number) {
         responseType: 'blob',
       });
       saveBlob(
-        response.data as Blob,
+        blobOf(response),
         exportFileName(profile.data?.country?.code ?? 'xx', taxYear, format),
       );
     },

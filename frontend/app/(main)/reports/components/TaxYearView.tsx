@@ -26,6 +26,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { blobOf } from '@/app/lib/blob-of';
 import type { CategoryItem } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
@@ -132,7 +133,7 @@ export function TaxYearView(): React.ReactElement {
         responseType: 'blob',
       })
       .then(response =>
-        saveBlob(response.data as Blob, `tax-pack_${year}${scope === 'all' ? '_all' : ''}.zip`),
+        saveBlob(blobOf(response), `tax-pack_${year}${scope === 'all' ? '_all' : ''}.zip`),
       )
       .catch(error => toast.error(getApiErrorMessage(error, t.downloadError.value)))
       .finally(() => setDownloading(null));

@@ -25,6 +25,7 @@ export function useGmailIntegration(): GmailIntegrationState {
         if (!mounted) {
           return;
         }
+        // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
         setGmailStatus((resp.data as GmailStatus) || null);
       })()
         .catch(async () => {

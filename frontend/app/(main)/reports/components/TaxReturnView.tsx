@@ -22,6 +22,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { blobOf } from '@/app/lib/blob-of';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
@@ -186,7 +187,7 @@ export function TaxReturnView(): React.ReactElement {
         `/tax/returns/export?periodStart=${period.periodStart}&periodEnd=${period.periodEnd}&format=${format}`,
         { responseType: 'blob' },
       );
-      saveBlob(response.data as Blob, exportFileName(period.periodStart, period.periodEnd, format));
+      saveBlob(blobOf(response), exportFileName(period.periodStart, period.periodEnd, format));
     })()
       .catch(async () => {
         setError(t.exportFailed.value.replace('{format}', format.toUpperCase()));

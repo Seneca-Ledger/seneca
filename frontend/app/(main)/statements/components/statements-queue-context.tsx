@@ -9,6 +9,7 @@ import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { payablesApi } from '@/app/lib/payables-api';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import {
   type OpenExpenseDrawerEventDetail,
   resolveExpenseDrawerMode,
@@ -111,8 +112,12 @@ function useCloudProviders(user: unknown): ConnectedCloudProviders {
         if (result.status !== 'fulfilled') {
           return false;
         }
-        const data = result.value?.data as { connected?: boolean; active?: boolean } | undefined;
-        return Boolean(data?.connected ?? data?.active);
+        const data = result.value?.data;
+        if (typeof data !== 'object' || data === null) {
+          return false;
+        }
+        const flag = 'connected' in data ? data.connected : 'active' in data ? data.active : false;
+        return flag === true;
       };
 
       if (isMounted) {
@@ -197,9 +202,12 @@ function useUploadActions(gmailConnected: boolean): UploadActions {
 
     apiClient
       .post('/integrations/imap/sync')
-      .then(response => {
-        const scanned = Number(response.data?.scanned ?? 0);
-        const imported = Number(response.data?.imported ?? 0);
+      .then(response =>
+        checkContract('ProtocolSyncResult', response.data, '/integrations/imap/sync'),
+      )
+      .then(result => {
+        const scanned = result.scanned ?? 0;
+        const imported = result.imported ?? 0;
 
         if (imported > 0) {
           toast.success(

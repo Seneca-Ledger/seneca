@@ -22,6 +22,7 @@ import { checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import TransactionsView from '../../components/TransactionsView';
 import api from '../../lib/api';
+import { blobOf } from '../../lib/blob-of';
 
 /** The link's password goes in a header, never the URL: query strings end up in logs. */
 const sharePasswordHeaders = (password?: string): Record<string, string> =>
@@ -106,7 +107,7 @@ export default function SharedFilePage() {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', access.statement.fileName);

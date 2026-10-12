@@ -20,8 +20,12 @@ async function readConnected(statusPath: string): Promise<boolean> {
   return apiClient
     .get(statusPath)
     .then(response => {
-      const data = response.data ?? {};
-      return Boolean(data?.connected) || String(data?.status).toLowerCase() === 'connected';
+      const data = response.data;
+      if (typeof data !== 'object' || data === null) return false;
+      return (
+        ('connected' in data && data.connected === true) ||
+        ('status' in data && String(data.status).toLowerCase() === 'connected')
+      );
     })
     .catch(() => false);
 }

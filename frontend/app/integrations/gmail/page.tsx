@@ -328,9 +328,15 @@ export default function GmailIntegrationPage(): React.JSX.Element {
     await (async () => {
       setGmailSyncing(true);
       const response = await apiClient.post('/integrations/gmail/sync');
-      const messagesFound = Number(response.data?.messagesFound ?? 0);
-      const jobsCreated = Number(response.data?.jobsCreated ?? 0);
-      const skipped = Number(response.data?.skipped ?? 0);
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const synced = response.data as {
+        messagesFound?: number;
+        jobsCreated?: number;
+        skipped?: number;
+      } | null;
+      const messagesFound = Number(synced?.messagesFound ?? 0);
+      const jobsCreated = Number(synced?.jobsCreated ?? 0);
+      const skipped = Number(synced?.skipped ?? 0);
       if (jobsCreated > 0) {
         toast.success(`${t.toasts.syncStarted.value} (${jobsCreated})`);
       } else if (messagesFound === 0) {

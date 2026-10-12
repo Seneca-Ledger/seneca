@@ -241,7 +241,8 @@ describe('WorkspacePayeesView', () => {
     it('marks an invalid number and checks it again on request', async () => {
       listWith({ vatIdStatus: 'invalid', vatIdName: null, vatIdCheckedAt: '2026-10-11' });
       api.post.mockResolvedValue({
-        data: { ...LIDL, vatIdStatus: 'valid', vatIdCheckedAt: '2026-10-12' },
+        // The write answers the stored payee (PayeeRecord), with its category id.
+        data: { ...LIDL, categoryId: null, vatIdStatus: 'valid', vatIdCheckedAt: '2026-10-12' },
       });
       renderWithQuery(<WorkspacePayeesView />);
       const rows = await screen.findAllByTestId('payee-row');
@@ -255,7 +256,14 @@ describe('WorkspacePayeesView', () => {
 
     it('says what VIES made of a number just saved', async () => {
       api.patch.mockResolvedValue({
-        data: { ...REWE, countryCode: 'PL', vatId: 'PL555', vatIdStatus: 'invalid', vatIdCheckedAt: '2026-10-11' },
+        data: {
+          ...REWE,
+          categoryId: null,
+          countryCode: 'PL',
+          vatId: 'PL555',
+          vatIdStatus: 'invalid',
+          vatIdCheckedAt: '2026-10-11',
+        },
       });
       renderWithQuery(<WorkspacePayeesView />);
       const [rewe] = await screen.findAllByTestId('payee-row');

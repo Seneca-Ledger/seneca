@@ -11,6 +11,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { blobOf } from '@/app/lib/blob-of';
 import type { DatevSettings } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
@@ -150,7 +151,7 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
       .get(`/tax/datev/export?from=${period.from}&to=${period.to}`, { responseType: 'blob' })
       .then(response =>
         saveBlob(
-          response.data as Blob,
+          blobOf(response),
           `EXTF_Buchungsstapel_${period.from.replace(/-/g, '')}_${period.to.replace(/-/g, '')}.csv`,
         ),
       )

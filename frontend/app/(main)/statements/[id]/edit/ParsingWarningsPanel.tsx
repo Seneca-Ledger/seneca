@@ -4,6 +4,7 @@ import { Alert, AlertTitle, Dialog, DialogTitle, Typography } from '@mui/materia
 import { useMemo } from 'react';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { useIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { DroppedSampleForm } from './DroppedSampleForm';
 import {
   extractTxKey,
@@ -22,29 +23,13 @@ import { WarningsList } from './WarningsList';
 // Core types
 // ---------------------------------------------------------------------------
 
-export interface ParsingDroppedSampleTransaction {
-  transactionDate?: string;
-  counterpartyName?: string;
-  paymentPurpose?: string;
-  debit?: number;
-  credit?: number;
-  currency?: string;
-  documentNumber?: string;
-  counterpartyBin?: string;
-  counterpartyAccount?: string;
-  counterpartyBank?: string;
-  article?: string;
-  comments?: string;
-  branchId?: string;
-  walletId?: string;
-  categoryId?: string;
-  [key: string]: unknown;
-}
+/** A parsed row the import left out, as the parser kept it. */
+export type ParsingDroppedSample = Exclude<
+  NonNullable<StatementParsingDetails['droppedSamples']>[number],
+  string
+>;
 
-export interface ParsingDroppedSample {
-  reason: string;
-  transaction?: ParsingDroppedSampleTransaction;
-}
+export type ParsingDroppedSampleTransaction = NonNullable<ParsingDroppedSample['transaction']>;
 
 export type ConvertDroppedSamplePayload = {
   sample: ParsingDroppedSample;

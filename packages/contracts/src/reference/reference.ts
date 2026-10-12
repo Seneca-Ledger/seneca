@@ -42,6 +42,22 @@ export type CategoryItem = Wire<typeof CategoryItem>;
 export const CategoryList = Schema.Array(CategoryItem);
 export type CategoryList = Wire<typeof CategoryList>;
 
+/** One row of `GET /branches`. */
+export const BranchItem = Schema.Struct({
+  id: Schema.String,
+  workspaceId: Schema.String,
+  name: Schema.String,
+  code: Schema.NullOr(Schema.String),
+  address: Schema.NullOr(Schema.String),
+  isActive: Schema.Boolean,
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type BranchItem = Wire<typeof BranchItem>;
+
+export const BranchList = Schema.Array(BranchItem);
+export type BranchList = Wire<typeof BranchList>;
+
 /** One row of `GET /wallets`. */
 export const WalletItem = Schema.Struct({
   id: Schema.String,
@@ -69,3 +85,18 @@ export const CategoryUsageCount = Schema.Struct({
   total: Schema.Number,
 });
 export type CategoryUsageCount = Wire<typeof CategoryUsageCount>;
+
+/** `GET /categories/usage/counts`: the usage of every category, by id. */
+export const CategoryUsageCounts = Schema.Record(Schema.String, CategoryUsageCount);
+export type CategoryUsageCounts = Wire<typeof CategoryUsageCounts>;
+
+/** `POST /data-entry/custom-fields/icon`: where the uploaded icon is served. */
+export const UploadedIcon = Schema.Struct({ url: Schema.String });
+export type UploadedIcon = Wire<typeof UploadedIcon>;
+
+/** `PATCH /storage/files/:id/category`: the statement's category once changed. */
+export const FileCategoryUpdate = Schema.Struct({
+  categoryId: Schema.NullOr(Schema.String),
+  category: Schema.NullOr(CategoryRef),
+});
+export type FileCategoryUpdate = Wire<typeof FileCategoryUpdate>;

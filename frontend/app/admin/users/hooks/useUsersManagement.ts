@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '../../../lib/api';
+import { checkContract } from '../../../lib/query-fn-schema';
 
 export interface User {
   id: string;
@@ -42,8 +43,8 @@ export function useUsersManagement(errorMessages: {
     setError(null);
 
     await (async () => {
-      const response = await apiClient.get<{ data: User[] }>('/users');
-      setUsers(response.data.data || []);
+      const response = await apiClient.get('/users');
+      setUsers([...(await checkContract('AdminUserList', response.data, '/users'))]);
     })()
       .catch(async (err: unknown) => {
         const e = err as ErrorResponse;
@@ -61,7 +62,12 @@ export function useUsersManagement(errorMessages: {
   const handleEditPermissions = async (user: User): Promise<void> => {
     await (async () => {
       const response = await apiClient.get(`/users/${user.id}/permissions`);
-      setSelectedPermissions(response.data.customPermissions || []);
+      const { customPermissions } = await checkContract(
+        'UserPermissions',
+        response.data,
+        '/users/:id/permissions',
+      );
+      setSelectedPermissions([...customPermissions]);
       setEditingUser(user);
       setPermissionsDialogOpen(true);
     })().catch(async (err: unknown) => {

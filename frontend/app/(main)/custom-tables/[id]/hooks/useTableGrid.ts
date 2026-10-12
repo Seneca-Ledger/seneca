@@ -5,21 +5,10 @@ import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { checkContract } from '@/app/lib/query-fn-schema';
 import { isAbortError } from '../utils/pasteUtils';
+import { toGridRow } from '../utils/tableHelpers';
 import type { CustomTableGridRow } from '../utils/types';
 
-const getRowIdentity = (row: unknown): string => {
-  if (!row || typeof row !== 'object') {
-    return '';
-  }
-  const record = row as Record<string, unknown>;
-  if (typeof record.id === 'string') {
-    return record.id;
-  }
-  if (typeof record.rowNumber === 'number') {
-    return String(record.rowNumber);
-  }
-  return '';
-};
+const getRowIdentity = (row: CustomTableGridRow): string => row.id || String(row.rowNumber);
 
 export interface TableSortState {
   col: string;
@@ -96,9 +85,9 @@ export function useTableGrid({
     }
   };
 
-  const dedupeRows = <T>(merged: T[]): T[] => {
+  const dedupeRows = (merged: CustomTableGridRow[]): CustomTableGridRow[] => {
     const seen = new Set<string>();
-    const result: T[] = [];
+    const result: CustomTableGridRow[] = [];
     for (const row of merged) {
       const id = getRowIdentity(row);
       if (!id || seen.has(id)) {
@@ -110,11 +99,11 @@ export function useTableGrid({
     return result;
   };
 
-  const applyFetchedRows = (fetched: unknown[], reset: boolean): void => {
+  const applyFetchedRows = (fetched: CustomTableGridRow[], reset: boolean): void => {
     if (reset) {
-      setRows(() => dedupeRows(fetched as CustomTableGridRow[]));
+      setRows(() => dedupeRows(fetched));
     } else {
-      setRows(prev => dedupeRows([...prev, ...(fetched as CustomTableGridRow[])]));
+      setRows(prev => dedupeRows([...prev, ...fetched]));
     }
   };
 
@@ -178,7 +167,7 @@ export function useTableGrid({
         if (isStaleRequest(controller, requestId)) {
           return;
         }
-        const next = page.items;
+        const next = page.items.map(toGridRow);
         applyFetchedRows(next, shouldReset);
         setTotal(page.meta.total);
         setHasMore(next.length >= 50);

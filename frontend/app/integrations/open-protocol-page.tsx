@@ -7,23 +7,12 @@ import { useEffect, useState } from 'react';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { IntegrationConnection, ProtocolFileList } from '@/app/lib/contracts';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 
-type ProtocolStatus = {
-  connected: boolean;
-  status: 'connected' | 'disconnected' | 'needs_reauth';
-  source?: 'personal' | 'workspace' | 'env' | 'disabled';
-  settings?: Record<string, string | number | boolean | null | undefined>;
-};
-
-type ProtocolFile = {
-  id: string;
-  name: string;
-  path: string;
-  size: number;
-  mimeType: string;
-  modifiedAt: string | null;
-};
+type ProtocolStatus = IntegrationConnection;
+type ProtocolFile = ProtocolFileList['files'][number];
 
 export type ProtocolIntegrationPageProps = {
   title: string;
@@ -92,12 +81,13 @@ export function ProtocolIntegrationPage({
     let mounted = true;
 
     apiClient
-      .get<ProtocolStatus>(statusPath)
-      .then(response => {
+      .get(statusPath)
+      .then(response => checkContract('IntegrationConnection', response.data, statusPath))
+      .then(next => {
         if (mounted) {
-          setStatus(response.data);
-          setForm(buildInitialForm(fields, response.data.settings || {}));
-          void onConnectionStatusChange?.(Boolean(response.data.connected));
+          setStatus(next);
+          setForm(buildInitialForm(fields, next.settings ?? {}));
+          void onConnectionStatusChange?.(next.connected);
         }
       })
       .catch(() => {
@@ -122,11 +112,12 @@ export function ProtocolIntegrationPage({
     await (async () => {
       const response =
         settingsMethod === 'put'
-          ? await apiClient.put<ProtocolStatus>(settingsPath, form)
-          : await apiClient.post<ProtocolStatus>(settingsPath, form);
-      setStatus(response.data);
-      setForm(buildInitialForm(fields, response.data.settings || {}));
-      void onConnectionStatusChange?.(Boolean(response.data.connected));
+          ? await apiClient.put(settingsPath, form)
+          : await apiClient.post(settingsPath, form);
+      const next = await checkContract('IntegrationConnection', response.data, settingsPath);
+      setStatus(next);
+      setForm(buildInitialForm(fields, next.settings ?? {}));
+      void onConnectionStatusChange?.(next.connected);
       setActionMessage(t.messages.connected.value);
     })()
       .catch(async () => {
@@ -143,9 +134,10 @@ export function ProtocolIntegrationPage({
 
     await (async () => {
       await apiClient.delete(disconnectPath);
-      const response = await apiClient.get<ProtocolStatus>(statusPath);
-      setStatus(response.data);
-      void onConnectionStatusChange?.(Boolean(response.data.connected));
+      const response = await apiClient.get(statusPath);
+      const next = await checkContract('IntegrationConnection', response.data, statusPath);
+      setStatus(next);
+      void onConnectionStatusChange?.(next.connected);
       setActionMessage(t.messages.disconnected.value);
     })()
       .catch(async () => {
@@ -162,8 +154,8 @@ export function ProtocolIntegrationPage({
     setActionMessage(null);
 
     await (async () => {
-      const response = await apiClient.get<{ files: ProtocolFile[] }>(filesPath);
-      setFiles(response.data.files || []);
+      const response = await apiClient.get(filesPath);
+      setFiles((await checkContract('ProtocolFileList', response.data, filesPath)).files);
     })()
       .catch(async () => {
         setActionMessage(t.messages.loadFilesFailed.value);
@@ -192,8 +184,9 @@ export function ProtocolIntegrationPage({
 
     await (async () => {
       const body = Object.fromEntries(browseAction.dependsOn.map(key => [key, form[key]]));
-      const response = await apiClient.post<string[]>(browseAction.endpoint, body);
-      setBrowseOptions(prev => ({ ...prev, [field.name]: response.data }));
+      const response = await apiClient.post(browseAction.endpoint, body);
+      const options = await checkContract('BrowseOptionList', response.data, browseAction.endpoint);
+      setBrowseOptions(prev => ({ ...prev, [field.name]: [...options] }));
     })()
       .catch(async () => {
         setActionMessage(t.messages.browseFailed.value);
@@ -208,8 +201,9 @@ export function ProtocolIntegrationPage({
     setActionMessage(null);
 
     await (async () => {
-      const response = await apiClient.post<{ uploaded?: number; imported?: number }>(syncPath);
-      const count = response.data.uploaded ?? response.data.imported ?? 0;
+      const response = await apiClient.post(syncPath);
+      const result = await checkContract('ProtocolSyncResult', response.data, syncPath);
+      const count = result.uploaded ?? result.imported ?? 0;
       setActionMessage(t.messages.syncComplete.value.replace('{count}', String(count)));
     })().catch(async () => {
       setActionMessage(t.messages.syncFailed.value);
@@ -487,7 +481,7 @@ export function ProtocolIntegrationPage({
 
 function buildInitialForm(
   fields: ConfigField[],
-  settings: Record<string, string | number | boolean | null | undefined>,
+  settings: Readonly<Record<string, unknown>>,
 ): Record<string, string | number | boolean> {
   const next: Record<string, string | number | boolean> = {};
   for (const field of fields) {
@@ -497,7 +491,8 @@ function buildInitialForm(
     } else if (field.type === 'password') {
       next[field.name] = '';
     } else {
-      next[field.name] = value ?? '';
+      // Only a scalar fills a field; a list or object belongs to another view.
+      next[field.name] = typeof value === 'string' || typeof value === 'number' ? value : '';
     }
   }
   return next;

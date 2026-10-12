@@ -43,7 +43,12 @@ Effect (`effect` 4.x) is adopted incrementally. NestJS, TypeORM, React Query and
 - Type responses by contract with `apiQueryDecoded({ ..., contract: 'Name' })` / `checkContract('Name', payload, url)` from `app/lib/query-fn-schema.ts`. Outside production they also check the payload and throw `ContractMismatchError` on drift; production compiles the check out, so effect (~67 kB gzip in the webpack build) never ships.
 - `apiQueryDecoded` unwraps a top-level `data` key (`unwrapEnvelope`). For a page that has one (`{ data, total }`), use `apiClient.get` and `checkContract` on the raw body.
 - Request bodies: `payload satisfies ContractInput<'Name'>`. `satisfies` does not catch extra fields on a variable or a spread, so a body built from loose records goes through `checkBody('Name', body, url)` instead.
-- Mutation answers the page keeps go through `checkContract` too, not `response.data as X`.
+- The api client is strict: `apiClient.get/post/…` take no type arguments and answer `UncheckedResponse` (`data: unknown`), and `apiQuery` answers `unknown`. The compiler is the scanner: an answer the page reads has to go through `checkContract`/`apiQueryDecoded`, or it does not compile.
+- Mutation answers the page keeps go through `checkContract` too, never `response.data as X`. A mutation whose answer nothing reads is `async () => { await apiClient.post(...); }`, so it returns `void`.
+- A download (`responseType: 'blob'`) reads its body with `blobOf(response)` from `app/lib/api.ts`, which checks it is a `Blob`.
+- Free-form JSON the backend stores (`parsingDetails`, view preferences) is typed key by key: a contract with `Schema.StructWithRest` for the keys the app reads, or a `read` function that narrows `Record<string, unknown>` with `typeof` checks. Never a caller-chosen generic over the answer.
+- Gmail, Google Drive and Dropbox are being removed and get no contracts. Their few reads are explicit casts with the comment `// Unchecked on purpose: …`; do not copy that elsewhere.
+- In tests, mock an api call with `apiResponse(data)` from `app/test/api-response.ts`, which builds a typed `UncheckedResponse`.
 - Test fixtures are in the wire format, since outside production every response is checked. Build them with the helpers in `app/test/fixtures/contracts.ts` and override only what the test is about.
 - Import contracts as types only (`import type`). Only `app/lib/contract-check.ts` imports the schemas as values; `contract-imports.test.ts` enforces it.
 - Import Effect by subpath (`effect/Schema`, `effect/Exit`); Biome rejects the `effect` barrel.

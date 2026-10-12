@@ -201,12 +201,10 @@ export function useStatementEditForm({
         index,
         warning,
         loadData,
-        setStatement: s.setStatement,
-        setTransactions: s.setTransactions,
         setSuccess: s.setSuccess,
       });
     },
-    [statementId, loadData, s.setStatement, s.setTransactions, s.setSuccess],
+    [statementId, loadData, s.setSuccess],
   );
 
   const handleDelete = async (transactionId: string): Promise<void> => {
@@ -264,14 +262,10 @@ export function useStatementEditForm({
     });
   };
 
-  const handleStatementCategorySelect = async (
-    categoryId: string,
-    flattenedStatementCategories: { id: string; name: string }[],
-  ): Promise<void> => {
+  const handleStatementCategorySelect = async (categoryId: string): Promise<void> => {
     await updateStatementCategoryAction({
       statement: s.statement,
       categoryId,
-      flatCategories: flattenedStatementCategories,
       messages: {
         categoryUpdated: messages.categoryUpdated,
         categoryUpdateFailed: messages.categoryUpdateFailed,

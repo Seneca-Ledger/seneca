@@ -68,11 +68,12 @@ export function useReconciliation() {
   const confirmed = t.confirmed.value;
   const failed = t.confirmFailed.value;
   const confirmMutation = useMutation({
-    mutationFn: (input: { payableId: string; transactionId: string }) =>
-      apiClient.post(
+    mutationFn: async (input: { payableId: string; transactionId: string }) => {
+      await apiClient.post(
         '/reconciliation/confirm',
         input satisfies ContractInput<'ConfirmReconciliationBody'>,
-      ),
+      );
+    },
     onSuccess: () => toast.success(confirmed),
     onError: () => toast.error(failed),
     onSettled: () =>

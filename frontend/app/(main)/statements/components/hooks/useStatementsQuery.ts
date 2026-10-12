@@ -2,6 +2,7 @@
 
 import { keepPreviousData, type UseQueryResult, useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import type { StatementListItem } from '@/app/lib/contracts';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { hasProcessingStatements } from '@/app/lib/statement-status';
@@ -11,12 +12,8 @@ import {
   isReceiptDerivedStatement,
 } from '../StatementsListView.utils';
 
-/** Minimal shape required by the data-loading hook. */
-export interface StatementRecord {
-  id: string;
-  fileName: string;
-  status: string;
-}
+/** A row of `GET /statements`, with the file kind the list shows. */
+export type StatementRecord = StatementListItem & { fileType: 'pdf' | 'file' };
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -45,12 +42,12 @@ export interface UseStatementsQueryParams {
   enabled: boolean;
 }
 
-export function useStatementsQuery<T extends StatementRecord = StatementRecord>({
+export function useStatementsQuery({
   appliedFilters,
   categoryId,
   search,
   enabled,
-}: UseStatementsQueryParams): UseQueryResult<T[], Error> {
+}: UseStatementsQueryParams): UseQueryResult<StatementRecord[], Error> {
   const workspaceId = useWorkspaceId();
   const params = buildStatementRequestParams({ appliedFilters, categoryId, search });
 
@@ -66,10 +63,12 @@ export function useStatementsQuery<T extends StatementRecord = StatementRecord>(
         signal,
         contract: 'StatementList',
       });
-      return rows.map(stmt => ({
-        ...stmt,
-        fileType: stmt.fileName?.toLowerCase().includes('pdf') ? 'pdf' : 'file',
-      })) as unknown as T[];
+      return rows.map(
+        (stmt): StatementRecord => ({
+          ...stmt,
+          fileType: stmt.fileName.toLowerCase().includes('pdf') ? 'pdf' : 'file',
+        }),
+      );
     },
     enabled,
     refetchInterval: query => statementsRefetchInterval(query.state.data),

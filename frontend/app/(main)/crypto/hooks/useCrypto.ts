@@ -15,8 +15,9 @@ import type {
   CryptoWallet,
   SupportedChainId,
 } from '@/app/lib/contracts';
+import { unwrapEnvelope } from '@/app/lib/query-fn';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export type {
@@ -184,22 +185,31 @@ export function useCrypto(): UseCryptoState {
   }, [queryClient]);
 
   const connectMutation = useMutation({
-    mutationFn: (variables: { address: string; label?: string; chainIds?: SupportedChainId[] }) =>
-      apiClient.post('/crypto/wallets', {
+    mutationFn: async (variables: {
+      address: string;
+      label?: string;
+      chainIds?: SupportedChainId[];
+    }) => {
+      await apiClient.post('/crypto/wallets', {
         address: variables.address,
         chainIds: variables.chainIds,
         label: variables.label?.trim() ? variables.label.trim() : undefined,
-      } satisfies ContractInput<'ConnectCryptoWalletBody'>),
+      } satisfies ContractInput<'ConnectCryptoWalletBody'>);
+    },
     onSuccess: invalidateCrypto,
   });
 
   const syncMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/crypto/wallets/${id}/sync`),
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/crypto/wallets/${id}/sync`);
+    },
     onSuccess: invalidateCrypto,
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/crypto/wallets/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/crypto/wallets/${id}`);
+    },
     onSuccess: invalidateCrypto,
   });
 
@@ -208,19 +218,25 @@ export function useCrypto(): UseCryptoState {
       const form = new FormData();
       form.append('file', file);
       const response = await apiClient.post('/crypto/import', form);
-      return (response.data?.data ?? response.data) as ExchangeImportResult;
+      return checkContract('ExchangeImportResult', unwrapEnvelope(response.data), '/crypto/import');
     },
     onSuccess: invalidateCrypto,
   });
 
   const saveHoldingMutation = useMutation({
-    mutationFn: (holding: ManualHoldingInput) =>
-      apiClient.post('/crypto/holdings', holding satisfies ContractInput<'ManualHoldingBody'>),
+    mutationFn: async (holding: ManualHoldingInput) => {
+      await apiClient.post(
+        '/crypto/holdings',
+        holding satisfies ContractInput<'ManualHoldingBody'>,
+      );
+    },
     onSuccess: invalidateCrypto,
   });
 
   const removeHoldingMutation = useMutation({
-    mutationFn: (asset: string) => apiClient.delete(`/crypto/holdings/${asset}`),
+    mutationFn: async (asset: string) => {
+      await apiClient.delete(`/crypto/holdings/${asset}`);
+    },
     onSuccess: invalidateCrypto,
   });
 

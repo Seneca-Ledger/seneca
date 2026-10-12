@@ -136,9 +136,7 @@ export function useExpenseActions({
           '/categories',
         );
         setManualExpenseCategories(filterEnabledCategories(rawCategories));
-        const rawTaxRates = (taxRatesRes.data?.data || taxRatesRes.data || []) as Array<
-          TaxRateOption & { rate: number | string }
-        >;
+        const rawTaxRates = await checkContract('TaxRateList', taxRatesRes.data, '/tax-rates');
         setManualExpenseTaxRates(
           rawTaxRates.map(r => ({
             ...r,

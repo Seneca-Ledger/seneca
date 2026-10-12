@@ -23,6 +23,7 @@ import PermissionsPanel from '../../components/PermissionsPanel';
 import ShareDialog from '../../components/ShareDialog';
 import TransactionsView from '../../components/TransactionsView';
 import api from '../../lib/api';
+import { blobOf } from '../../lib/blob-of';
 import type { StorageFileDetails } from '../../lib/contracts';
 import { checkContract } from '../../lib/query-fn-schema';
 
@@ -185,7 +186,7 @@ export default function FileDetailsPage() {
         responseType: 'blob',
       });
 
-      const url = URL.createObjectURL(response.data);
+      const url = URL.createObjectURL(blobOf(response));
       previewUrlRef.current = url;
       setPreviewUrl(url);
     })()
@@ -239,7 +240,7 @@ export default function FileDetailsPage() {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', details.statement.fileName);

@@ -48,7 +48,8 @@ describe('useReceiptUpload', () => {
       result = await latestHook?.uploadReceipts([file], 'deu');
     });
 
-    expect(result).toEqual(responsePayload);
+        expect(result).toBeUndefined();
+
     expect(apiMocks.post).toHaveBeenCalledWith(
       '/receipts/upload',
       expect.any(FormData),

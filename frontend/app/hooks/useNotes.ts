@@ -68,25 +68,29 @@ export function useNotes({ entityType, entityId }: NoteTarget): UseNotesState {
   };
 
   const addMutation = useMutation({
-    mutationFn: (input: { body: string; mentionedUserIds: string[] }) =>
-      apiClient.post('/notes', {
+    mutationFn: async (input: { body: string; mentionedUserIds: string[] }) => {
+      await apiClient.post('/notes', {
         entityType,
         entityId,
         ...input,
-      } satisfies ContractInput<'CreateNoteBody'>),
+      } satisfies ContractInput<'CreateNoteBody'>);
+    },
     onSuccess: invalidate,
   });
 
   const resolveMutation = useMutation({
-    mutationFn: (input: { id: string; resolved: boolean }) =>
-      apiClient.patch(`/notes/${input.id}`, {
+    mutationFn: async (input: { id: string; resolved: boolean }) => {
+      await apiClient.patch(`/notes/${input.id}`, {
         resolved: input.resolved,
-      } satisfies ContractInput<'SetNoteResolvedBody'>),
+      } satisfies ContractInput<'SetNoteResolvedBody'>);
+    },
     onSuccess: invalidate,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/notes/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/notes/${id}`);
+    },
     onSuccess: invalidate,
   });
 

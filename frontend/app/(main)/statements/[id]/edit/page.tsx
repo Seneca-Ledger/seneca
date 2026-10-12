@@ -929,9 +929,7 @@ export default function EditStatementPage(): React.JSX.Element {
         categories={enabledStatementCategories}
         selectedCategoryId={statement?.categoryId || ''}
         selecting={statementCategorySaving}
-        onSelect={categoryId =>
-          handleStatementCategorySelect(categoryId, flattenedStatementCategories)
-        }
+        onSelect={categoryId => handleStatementCategorySelect(categoryId)}
         labels={{
           title: labels.categoryDrawerTitle?.value || 'Category',
           searchPlaceholder: labels.categorySearchPlaceholder?.value || 'Search',

@@ -16,6 +16,14 @@ type GettingStartedState = {
   gettingStartedCompletedAt?: string;
 };
 
+const stringOrUndefined = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined;
+
+const readGettingStarted = (saved: Readonly<Record<string, unknown>>): GettingStartedState => ({
+  gettingStartedDismissedAt: stringOrUndefined(saved.gettingStartedDismissedAt),
+  gettingStartedCompletedAt: stringOrUndefined(saved.gettingStartedCompletedAt),
+});
+
 type StepId = 'upload' | 'categories' | 'budget' | 'goal';
 
 const STEPS: ReadonlyArray<{
@@ -104,7 +112,7 @@ function StepRow({ step, isNext }: StepRowProps): React.JSX.Element {
 export function GettingStartedCard(): React.JSX.Element | null {
   const t = useIntlayer('gettingStartedCard');
   const { user } = useAuth();
-  const { state, save } = useViewPreference<GettingStartedState>('onboarding');
+  const { state, save } = useViewPreference('onboarding', readGettingStarted);
   const progress = useSetupProgress();
   const [showCompleted, setShowCompleted] = useState(false);
 

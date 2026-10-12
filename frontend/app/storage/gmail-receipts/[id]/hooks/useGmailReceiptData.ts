@@ -6,6 +6,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { isLowConfidenceDocument, normalizeReceiptLineItems } from '@/app/lib/financial-document';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import type { AuditEvent } from '@/lib/api/audit';
 import { fetchEntityHistory } from '@/lib/api/audit';
 
@@ -168,7 +169,7 @@ export function useGmailReceiptData({
 
       setReceipt(nextReceipt);
       setPotentialDuplicates(receiptResponse.data.potentialDuplicates || []);
-      setCategories(categoriesResponse.data || []);
+      setCategories(await checkContract('CategoryList', categoriesResponse.data, '/categories'));
       setEditedData({
         amount: parsedAmount || undefined,
         currency: nextReceipt.parsedData?.currency || FALLBACK_CURRENCY,

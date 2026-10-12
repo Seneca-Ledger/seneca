@@ -2,6 +2,7 @@
 
 import { resolveBankLogo } from '@bank-logos';
 import { getCachedIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import type { StatementCategoryNode } from '@/app/lib/statement-categories';
@@ -129,19 +130,7 @@ export type StatementLike = {
   statementDateTo?: string | null;
   receivedAt?: string;
   createdAt?: string;
-  parsingDetails?: {
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: { currencyDisplay?: string };
-    };
-    importPreview?: {
-      source?: string;
-      attachments?: number;
-      description?: string;
-      merchant?: string;
-      categoryId?: string;
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 export type DuplicateGroupTone = 'sky' | 'blue' | 'indigo' | 'slate' | 'zinc' | 'stone';
@@ -152,12 +141,7 @@ export type StatementCategoryWithEnabled = StatementCategoryNode & {
 };
 
 type ReceiptDerivedStatementCandidate = {
-  parsingDetails?: {
-    detectedBy?: string;
-    importPreview?: {
-      source?: string;
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 type StatementViewCandidate = {
@@ -205,9 +189,7 @@ export const isStoreReceiptStatement = (
 type StatementCurrencyLike = {
   parsedData?: { currency?: string };
   currency?: string | null;
-  parsingDetails?: {
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 // eslint-disable-next-line complexity
@@ -774,9 +756,7 @@ export const buildFromOptions = (
 interface StatementForCurrencyOptions {
   parsedData?: { currency?: string };
   currency?: string | null;
-  parsingDetails?: {
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 export const buildCurrencyOptions = (stagedStatements: StatementForCurrencyOptions[]): string[] => {

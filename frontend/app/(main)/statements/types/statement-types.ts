@@ -3,8 +3,11 @@
  * (TopMerchantsView, TopSpendersView, TopCategoriesView).
  */
 
+import type { StatementParsingDetails } from '@/app/lib/contracts';
+
 export type StatementMeta = {
   id: string;
+  fileName: string;
   status?: string;
   createdAt?: string | null;
   statementDateFrom?: string | null;
@@ -16,14 +19,7 @@ export type StatementMeta = {
   paid?: boolean | null;
   workspaceId?: string;
   workspaceName?: string;
-  parsingDetails?: {
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: {
-        currencyDisplay?: string;
-      };
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
   user?: {
     id: string;
     name?: string | null;

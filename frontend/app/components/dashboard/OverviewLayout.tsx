@@ -193,9 +193,14 @@ interface OverviewLayoutProps {
  * below it gets a row of its own. The arrangement is remembered per person and
  * workspace. Phones get no grips: there everything is one column anyway.
  */
+/** The saved rows as stored; `normalizeRows` decides what of them is still usable. */
+const readOverviewRows = (saved: Readonly<Record<string, unknown>>): { overviewRows: unknown } => ({
+  overviewRows: saved.overviewRows,
+});
+
 export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Element {
   const t = useIntlayer('overviewTab');
-  const { state, save } = useViewPreference<{ overviewRows: OverviewRows }>('dashboard');
+  const { state, save } = useViewPreference('dashboard', readOverviewRows);
   const rows = useMemo(() => normalizeRows(state ? { rows: state.overviewRows } : null), [state]);
   const [empty, setEmpty] = useState<ReadonlySet<string>>(() => new Set());
   const [drop, setDrop] = useState<Drop | null>(null);

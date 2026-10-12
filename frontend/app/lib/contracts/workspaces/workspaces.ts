@@ -105,5 +105,38 @@ export const InvitationPreview = Schema.Struct({
 export type InvitationPreview = Wire<typeof InvitationPreview>;
 
 /** `POST /workspaces/invitations/:token/accept`. */
-export const InvitationAccepted = Schema.Struct({ workspaceId: Schema.String });
+export const InvitationAccepted = Schema.Struct({
+  message: Schema.String,
+  workspaceId: Schema.String,
+});
 export type InvitationAccepted = Wire<typeof InvitationAccepted>;
+
+/** `GET /workspaces/backgrounds/search`: one page of Openverse photos for a background. */
+export const BackgroundSearchPage = Schema.Struct({
+  results: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      title: Schema.String,
+      creator: Schema.NullOr(Schema.String),
+      license: Schema.String,
+      /** The credit line Openverse composes; shown verbatim. */
+      attribution: Schema.String,
+      sourceUrl: Schema.NullOr(Schema.String),
+    }),
+  ),
+  page: Schema.Number,
+  hasMore: Schema.Boolean,
+});
+export type BackgroundSearchPage = Wire<typeof BackgroundSearchPage>;
+
+/** `PATCH /workspaces/:id/favorite`. */
+export const WorkspaceFavorite = Schema.Struct({ isFavorite: Schema.Boolean });
+export type WorkspaceFavorite = Wire<typeof WorkspaceFavorite>;
+
+/** `PUT /workspaces/:id/background`: the stored picture and its credit. */
+export const WorkspaceBackground = Schema.Struct({
+  backgroundImage: Schema.NullOr(Schema.String),
+  backgroundAttribution: Schema.NullOr(Schema.String),
+  backgroundSourceUrl: Schema.NullOr(Schema.String),
+});
+export type WorkspaceBackground = Wire<typeof WorkspaceBackground>;

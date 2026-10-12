@@ -4,9 +4,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import api from '../../lib/api';
+import { blobOf } from '../../lib/blob-of';
 import { queryKeys } from '../../lib/query-keys';
 import type { StorageFile } from '../storageHelpers';
 
@@ -130,7 +131,7 @@ export function useStorageFiles(
       const response = await api.get(`/storage/files/${fileId}/download`, {
         responseType: 'blob',
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', fileName);
@@ -149,14 +150,15 @@ export function useStorageFiles(
       const response = await api.patch(`/storage/files/${fileId}/category`, {
         categoryId: categoryId || null,
       } satisfies ContractInput<'UpdateFileCategoryBody'>);
+      const updated = await checkContract(
+        'FileCategoryUpdate',
+        response.data,
+        '/storage/files/:id/category',
+      );
       setFiles(prev =>
         prev.map(file =>
           file.id === fileId
-            ? {
-                ...file,
-                categoryId: response.data?.categoryId ?? null,
-                category: response.data?.category ?? null,
-              }
+            ? { ...file, categoryId: updated.categoryId, category: updated.category }
             : file,
         ),
       );

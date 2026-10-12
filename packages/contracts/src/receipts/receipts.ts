@@ -143,13 +143,17 @@ export const ReceiptRecord = Schema.Struct({
 export type ReceiptRecord = Wire<typeof ReceiptRecord>;
 
 /**
- * A receipt as its updates answer (`PATCH /receipts/:id/location`, `DELETE` of
- * it): the stored row, without the category looked up for display.
+ * A receipt as its writes answer (`PATCH /receipts/:id`, its location, a scan,
+ * an upload): the stored row, without the category looked up for display.
  */
 export const ReceiptRecordUpdate = ReceiptRecord.mapFields(
   Struct.omit(['category', 'transactionSplit']),
 );
 export type ReceiptRecordUpdate = Wire<typeof ReceiptRecordUpdate>;
+
+/** `POST /receipts/upload`. */
+export const ReceiptUploadResult = Schema.Struct({ receipts: Schema.Array(ReceiptRecordUpdate) });
+export type ReceiptUploadResult = Wire<typeof ReceiptUploadResult>;
 
 /** `GET /receipts`. */
 export const ReceiptListPage = Schema.Struct({

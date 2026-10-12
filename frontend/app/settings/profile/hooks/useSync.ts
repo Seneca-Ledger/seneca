@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { statementsApi } from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
 export type BankStat = {
@@ -44,7 +45,7 @@ export function useSync() {
 
     await (async () => {
       const res = await statementsApi.exportZip();
-      const blob = new Blob([res.data as BlobPart], { type: 'application/zip' });
+      const blob = new Blob([blobOf(res)], { type: 'application/zip' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

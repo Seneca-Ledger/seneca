@@ -237,6 +237,8 @@ describe('EditStatementPage locale', () => {
             // as strings, `date` columns as YYYY-MM-DD, absent values as null.
             {
               id: 'tx-1',
+              statementId: null,
+              cryptoWalletId: null,
               transactionDate: '2026-03-17',
               transactionType: 'expense',
               isVerified: false,

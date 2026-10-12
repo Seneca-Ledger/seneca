@@ -23,7 +23,11 @@ describe('cloud engine', () => {
 
   it('completes via the backend proxy', async () => {
     (apiClient.post as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: { content: '{"reply":"ок","action":null}' },
+            data: {
+              content: '{"reply":"ок","action":null}',
+              model: 'claude-opus-5',
+              usage: { promptTokens: null, completionTokens: null },
+            },
     });
 
     const engine = createCloudAgentEngine();
@@ -35,7 +39,11 @@ describe('cloud engine', () => {
 
   it('reports usage once per completion', async () => {
     (apiClient.post as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: { content: 'ok', usage: { promptTokens: 120, completionTokens: 30 } },
+            data: {
+              content: 'ok',
+              model: 'claude-opus-5',
+              usage: { promptTokens: 120, completionTokens: 30 },
+            },
     });
     const onUsage = vi.fn();
 
@@ -45,7 +53,9 @@ describe('cloud engine', () => {
   });
 
   it('stays quiet when the provider reports no usage', async () => {
-    (apiClient.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { content: 'ok' } });
+        (apiClient.post as ReturnType<typeof vi.fn>).mockResolvedValue({
+          data: { content: 'ok', model: 'claude-opus-5', usage: { promptTokens: null, completionTokens: null } },
+        });
     const onUsage = vi.fn();
 
     await createCloudAgentEngine(onUsage).complete([{ role: 'user', content: 'Привет' }]);

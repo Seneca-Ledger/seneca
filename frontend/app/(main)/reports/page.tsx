@@ -14,6 +14,7 @@ import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import BalanceSheet from './components/BalanceSheet';
@@ -146,7 +147,7 @@ export default function ReportsPage(): React.JSX.Element {
         responseType: 'blob',
       },
     );
-    const blob = new Blob([response.data]);
+    const blob = new Blob([blobOf(response)]);
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

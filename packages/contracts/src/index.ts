@@ -1,3 +1,4 @@
+export * from './actions/answers';
 export * from './ai-analysis/ai-analysis';
 export * from './api-keys/api-keys';
 export * from './audit/activity';
@@ -14,6 +15,7 @@ export * from './forecast/forecast';
 export * from './goals/goal-items';
 export * from './goals/goals';
 export * from './imports/imports';
+export * from './integrations/connections';
 export * from './invoices/invoices';
 export * from './ledger/ledger';
 export * from './notes/notes';

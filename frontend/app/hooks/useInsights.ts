@@ -65,7 +65,9 @@ export function useInsights({ severities }: UseInsightsOptions): UseInsightsStat
   });
 
   const dismissMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/insights/${id}/dismiss`),
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/insights/${id}/dismiss`);
+    },
     onMutate: async (id: string) => {
       const queryKey = queryKeys.insights(workspaceId, locale);
       await queryClient.cancelQueries({ queryKey });
@@ -116,8 +118,9 @@ export function useRefreshInsights(): UseMutationResult<unknown, Error, string> 
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (locale: string) =>
-      apiClient.post('/insights/refresh', null, { params: { locale } }),
+    mutationFn: async (locale: string) => {
+      await apiClient.post('/insights/refresh', null, { params: { locale } });
+    },
     // Пересчёт переписывает сами строки, а не их перевод, поэтому устаревает
     // кэш на всех языках сразу — инвалидация идёт по префиксу без локали.
     onSuccess: () =>

@@ -67,17 +67,20 @@ export function useWebhookEndpoints() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/webhook-endpoints/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/webhook-endpoints/${id}`);
+    },
     onSuccess: () => toast.success(t.toasts.endpointDeleted.value),
     onError: () => toast.error(t.toasts.endpointDeleteFailed.value),
     onSettled: invalidate,
   });
 
   const toggleMutation = useMutation({
-    mutationFn: (variables: { id: string; isActive: boolean }) =>
-      apiClient.patch(`/webhook-endpoints/${variables.id}`, {
+    mutationFn: async (variables: { id: string; isActive: boolean }) => {
+      await apiClient.patch(`/webhook-endpoints/${variables.id}`, {
         isActive: !variables.isActive,
-      } satisfies ContractInput<'UpdateWebhookEndpointBody'>),
+      } satisfies ContractInput<'UpdateWebhookEndpointBody'>);
+    },
     onError: () => toast.error(t.toasts.endpointUpdateFailed.value),
     onSettled: invalidate,
   });
@@ -141,18 +144,26 @@ export function useWebhookSubscriptions() {
   }, [queryClient, workspaceId]);
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; url: string; secret: string; events: WebhookEventName[] }) =>
-      apiClient.post(
+    mutationFn: async (data: {
+      name: string;
+      url: string;
+      secret: string;
+      events: WebhookEventName[];
+    }) => {
+      await apiClient.post(
         '/webhook-subscriptions',
         data satisfies ContractInput<'CreateWebhookSubscriptionBody'>,
-      ),
+      );
+    },
     onSuccess: () => toast.success(t.toasts.subscriptionCreated.value),
     onError: () => toast.error(t.toasts.subscriptionCreateFailed.value),
     onSettled: invalidate,
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/webhook-subscriptions/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/webhook-subscriptions/${id}`);
+    },
     onSuccess: () => toast.success(t.toasts.subscriptionDeleted.value),
     onError: () => toast.error(t.toasts.subscriptionDeleteFailed.value),
     onSettled: invalidate,

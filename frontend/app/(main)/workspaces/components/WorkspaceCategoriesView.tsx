@@ -30,9 +30,8 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { CATEGORY_ICON_CHOICES, categoryIconFor } from '@/app/lib/category-icon-choices';
-import { apiQuery } from '@/app/lib/query-fn';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
@@ -261,7 +260,7 @@ export default function WorkspaceCategoriesView() {
   const usageQuery = useQuery({
     queryKey: queryKeys.categoryUsage(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<Record<string, CategoryUsageCount>>({ url: '/categories/usage/counts', signal }),
+      apiQueryDecoded({ url: '/categories/usage/counts', signal, contract: 'CategoryUsageCounts' }),
     enabled: Boolean(user),
   });
 
@@ -472,7 +471,11 @@ export default function WorkspaceCategoriesView() {
       const response = await apiClient.post('/data-entry/custom-fields/icon', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const url = response.data?.url || response.data;
+      const { url } = await checkContract(
+        'UploadedIcon',
+        response.data,
+        '/data-entry/custom-fields/icon',
+      );
       if (url) {
         setFormData(prev => ({ ...prev, icon: url, withoutIcon: false }));
         toast.success(t.toasts.iconUploaded.value);

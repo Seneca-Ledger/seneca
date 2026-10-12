@@ -51,15 +51,7 @@ export type StatementFilterItem = {
   currency?: string | null;
   exported?: boolean | null;
   paid?: boolean | null;
-  parsingDetails?: {
-    logEntries?: Array<{ timestamp: string; level: string; message: string }>;
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: {
-        currencyDisplay?: string;
-      };
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
   user?: StatementFilterUser | null;
   errorMessage?: string | null;
   totalTransactions?: number | null;
@@ -70,6 +62,7 @@ export type StatementFilterItem = {
   } | null;
 };
 
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import {
   applyAmountRangeFilter,
   applyApprovedFilter,

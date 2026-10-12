@@ -14,6 +14,9 @@ const Named = Schema.Struct({ id: Schema.String, name: Schema.String });
  */
 export const TransactionListItem = Schema.Struct({
   id: Schema.String,
+  statementId: Schema.NullOr(Schema.String),
+  /** Set when the row came from a synced crypto wallet instead of a statement. */
+  cryptoWalletId: Schema.NullOr(Schema.String),
   transactionDate: DateOnly,
   transactionType: TransactionType,
   isVerified: Schema.Boolean,
@@ -51,6 +54,15 @@ export type TransactionListItem = Wire<typeof TransactionListItem>;
 
 export const TransactionList = Schema.Array(TransactionListItem);
 export type TransactionList = Wire<typeof TransactionList>;
+
+/** `GET /transactions` as a page, envelope and all. */
+export const TransactionListPage = Schema.Struct({
+  data: TransactionList,
+  total: Schema.Number,
+  page: Schema.Number,
+  limit: Schema.Number,
+});
+export type TransactionListPage = Wire<typeof TransactionListPage>;
 
 /**
  * `GET /transactions/:id/transfer-candidates` and `/reimbursement-candidates`:

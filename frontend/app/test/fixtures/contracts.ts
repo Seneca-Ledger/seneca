@@ -11,6 +11,7 @@ import type {
   ReceiptRecord,
   SubscriptionItem,
   TaxJurisdictionItem,
+  TransactionListItem,
   WalletItem,
   WorkspaceDetail,
   WorkspaceMember,
@@ -328,6 +329,41 @@ export function taxJurisdictionItem(
     filingPeriod: 'quarterly',
     registrationThreshold: '25000.00',
     thresholdPeriod: 'calendar_year',
+    ...overrides,
+  };
+}
+
+/** A row of `GET /transactions`: an unverified expense of 10.00 USD. */
+export function transactionItem(
+  overrides: Partial<TransactionListItem> & Pick<TransactionListItem, 'id'>,
+): TransactionListItem {
+  return {
+    statementId: null,
+    cryptoWalletId: null,
+    transactionDate: '2026-01-01',
+    transactionType: 'expense',
+    isVerified: false,
+    documentNumber: null,
+    counterpartyName: 'Merchant',
+    counterpartyBin: null,
+    counterpartyAccount: null,
+    counterpartyBank: null,
+    paymentPurpose: 'Purchase',
+    debit: '10.00',
+    credit: null,
+    currency: 'USD',
+    exchangeRate: null,
+    amountForeign: null,
+    categoryId: null,
+    branchId: null,
+    walletId: null,
+    article: null,
+    comments: null,
+    category: null,
+    branch: null,
+    wallet: null,
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
     ...overrides,
   };
 }

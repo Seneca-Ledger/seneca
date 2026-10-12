@@ -6,7 +6,7 @@ import { ChevronDown, ChevronRight, Layers } from '@/app/components/icons';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { useIntlayer } from '@/app/i18n';
-import type { AuditEvent } from '@/lib/api/audit';
+import { type AuditEvent, isEntityType } from '@/lib/api/audit';
 import { ACTION_ICON_MAP } from '../utils/actionIconMap';
 import { buildGroupedData } from '../utils/audit-table-utils';
 import { getAvatarColor, getInitials } from '../utils/avatarUtils';
@@ -35,7 +35,9 @@ function AuditTimelineItem({
   const t = useIntlayer('auditUi');
   const formatted = formatAuditEvent(event);
   const Icon = ACTION_ICON_MAP[event.action];
-  const entityLabel = t.entityLabels[event.entityType]?.value ?? event.entityType;
+  const entityLabel = isEntityType(event.entityType)
+    ? (t.entityLabels[event.entityType]?.value ?? event.entityType)
+    : event.entityType;
   const initials = getInitials(event.actorLabel);
   const avatarColor =
     event.actorType === 'system' ? 'var(--muted-foreground)' : getAvatarColor(event.actorLabel);

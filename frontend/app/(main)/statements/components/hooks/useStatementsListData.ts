@@ -32,8 +32,8 @@ interface UseStatementsListDataParams {
   refreshFailedLabel: string;
 }
 
-export interface UseStatementsListDataResult<T extends StatementRecord = StatementRecord> {
-  statements: T[];
+export interface UseStatementsListDataResult {
+  statements: StatementRecord[];
   gmailReceipts: GmailReceipt[];
   isPending: boolean;
   isFetching: boolean;
@@ -45,7 +45,7 @@ export interface UseStatementsListDataResult<T extends StatementRecord = Stateme
   refreshActiveStatements: () => Promise<void>;
 }
 
-export function useStatementsListData<T extends StatementRecord = StatementRecord>({
+export function useStatementsListData({
   appliedFilters,
   categoryId,
   receiptStatus,
@@ -56,8 +56,8 @@ export function useStatementsListData<T extends StatementRecord = StatementRecor
   router,
   loadListErrorLabel,
   refreshFailedLabel,
-}: UseStatementsListDataParams): UseStatementsListDataResult<T> {
-  const statementsQuery = useStatementsQuery<T>({
+}: UseStatementsListDataParams): UseStatementsListDataResult {
+  const statementsQuery = useStatementsQuery({
     appliedFilters,
     categoryId,
     search,
@@ -76,7 +76,7 @@ export function useStatementsListData<T extends StatementRecord = StatementRecor
     pageSize,
   });
 
-  const statements: T[] = statementsQuery.data ?? NO_STATEMENTS;
+  const statements: StatementRecord[] = statementsQuery.data ?? NO_STATEMENTS;
 
   useAutoOpenParsedStatement({ statements, enabled: Boolean(user), router });
 

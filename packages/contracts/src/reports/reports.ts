@@ -160,3 +160,68 @@ export const ReportPreview = Schema.Struct({
   truncated: Schema.Boolean,
 });
 export type ReportPreview = Wire<typeof ReportPreview>;
+
+const ReportTrend = Schema.Literals(['up', 'down', 'flat']);
+
+/** `POST /reports/custom-tables/report`: money in the custom tables, by counterparty. */
+export const CustomTablesReport = Schema.Struct({
+  totals: Schema.Struct({
+    total: Schema.Number,
+    manualTotal: Schema.Number,
+    operations: Schema.Number,
+  }),
+  comparison: Schema.Struct({
+    totalDelta: Schema.Number,
+    totalPercentage: Schema.Number,
+    totalTrend: ReportTrend,
+    manualDelta: Schema.Number,
+    manualPercentage: Schema.Number,
+    manualTrend: ReportTrend,
+    operationsDelta: Schema.Number,
+    operationsPercentage: Schema.Number,
+    operationsTrend: ReportTrend,
+  }),
+  timeseries: Schema.Array(Schema.Struct({ date: Schema.String, amount: Schema.Number })),
+  sourceSplit: Schema.Struct({ manual: Schema.Number }),
+  aggregatedRows: Schema.Array(
+    Schema.Struct({
+      counterparty: Schema.String,
+      source: Schema.Literal('manual'),
+      tableId: Schema.String,
+      tableName: Schema.String,
+      count: Schema.Number,
+      total: Schema.Number,
+      average: Schema.Number,
+      lastDate: Schema.NullOr(Schema.String),
+      currency: Schema.NullOr(Schema.String),
+    }),
+  ),
+  tables: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      source: Schema.Literal('manual'),
+      total: Schema.Number,
+      rows: Schema.Number,
+    }),
+  ),
+});
+export type CustomTablesReport = Wire<typeof CustomTablesReport>;
+
+/** `POST /reports/custom-tables/report/drill-down`: one counterparty's rows. */
+export const CustomTablesReportDrillDown = Schema.Struct({
+  counterparty: Schema.String,
+  items: Schema.Array(
+    Schema.Struct({
+      rowId: Schema.String,
+      tableId: Schema.String,
+      tableName: Schema.String,
+      source: Schema.Literal('manual'),
+      date: Schema.NullOr(Schema.String),
+      amount: Schema.Number,
+      category: Schema.NullOr(Schema.String),
+      currency: Schema.NullOr(Schema.String),
+    }),
+  ),
+});
+export type CustomTablesReportDrillDown = Wire<typeof CustomTablesReportDrillDown>;

@@ -15,6 +15,7 @@ import { Download } from '@/app/components/icons';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 import type { ReportHistoryList } from '@/app/lib/contracts';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
@@ -168,7 +169,7 @@ export function ReportHistory(): React.JSX.Element {
     const response = await apiClient.get(`/reports/history/${item.id}/download`, {
       responseType: 'blob',
     });
-    const blob = new Blob([response.data]);
+    const blob = new Blob([blobOf(response)]);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

@@ -1,6 +1,7 @@
 'use client';
 
 import { isGmailStatement } from '@/app/(main)/statements/components/StatementsListView.utils';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { isManualExpenseStatement } from '@/app/lib/statement-status';
 import { useStatementPreview } from '../../hooks/useStatementPreview';
 
@@ -10,9 +11,7 @@ interface StatementForPreview {
   fileName: string;
   subject?: string;
   sender?: string;
-  parsingDetails?: {
-    importPreview?: { source?: string; attachments?: number };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 function resolveAllowAttach(statement: StatementForPreview): boolean {
