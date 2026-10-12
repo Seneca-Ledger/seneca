@@ -49,7 +49,6 @@ ${redactedPreview}`,
         ],
         {
           timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 20000,
-          timeoutMessage: 'AI request timed out',
           retries: 2,
           baseDelayMs: 500,
           maxDelayMs: 5000,

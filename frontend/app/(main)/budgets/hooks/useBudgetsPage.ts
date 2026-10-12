@@ -9,14 +9,15 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export interface BudgetItem {
   id: string;
   name: string;
   categoryId: string;
-  category?: { id: string; name: string; color?: string; icon?: string | null };
+  category?: { id: string; name: string; color?: string | null; icon?: string | null };
   limitAmount: number;
   /** Budget limit in the workspace currency (API may return it as a decimal string). */
   limitAmountWorkspace?: number;
@@ -88,8 +89,15 @@ export function toNonNegativeNumber(value: string | number | null | undefined): 
   return parsed < 0 ? 0 : parsed;
 }
 
-/** Normalizes budget API decimal fields into usable numbers before form editing and summaries. */
-export function normalizeBudgetItem(budget: BudgetItem): BudgetItem {
+/** A budget as `GET /budgets` sends it: `limitAmount` is a decimal string. */
+type BudgetRow = Omit<BudgetItem, 'limitAmount'> & { limitAmount: number | string };
+
+/**
+ * Normalizes budget API decimal fields into usable numbers before form editing
+ * and summaries. Without it the edit form kept `limitAmount` as "100.00", and
+ * saving a budget without retyping the amount was rejected with a 400.
+ */
+export function normalizeBudgetItem(budget: BudgetRow): BudgetItem {
   return {
     ...budget,
     limitAmount: toNonNegativeNumber(budget.limitAmount),
@@ -104,6 +112,15 @@ export function normalizeBudgetItem(budget: BudgetItem): BudgetItem {
     spentAmount: toNonNegativeNumber(budget.spentAmount),
     percentUsed: toNonNegativeNumber(budget.percentUsed),
   };
+}
+
+/**
+ * `GET /budgets` as the app holds it. Every reader of `queryKeys.budgets` must
+ * use this, so the cache never mixes raw rows with normalized ones.
+ */
+export async function fetchBudgets(signal?: AbortSignal): Promise<BudgetItem[]> {
+  const rows = await apiQueryDecoded({ url: '/budgets', signal, contract: 'BudgetList' });
+  return rows.map(normalizeBudgetItem);
 }
 
 /**
@@ -150,7 +167,7 @@ export function useBudgetsPage() {
 
   const query = useQuery({
     queryKey: queryKeys.budgets(workspaceId),
-    queryFn: ({ signal }) => apiQuery<BudgetItem[]>({ url: '/budgets', signal }),
+    queryFn: ({ signal }) => fetchBudgets(signal),
   });
 
   const invalidate = useCallback((): Promise<void> => {
@@ -207,8 +224,12 @@ export function useBudgetsPage() {
   }, [workspaceCurrency]);
 
   const saveMutation = useMutation({
-    mutationFn: (variables: { id: string | null; body: Record<string, unknown> }) =>
-      variables.id
+    mutationFn: (
+      variables:
+        | { id: string; body: ContractInput<'UpdateBudgetBody'> }
+        | { id: null; body: ContractInput<'CreateBudgetBody'> },
+    ): Promise<unknown> =>
+      variables.id !== null
         ? apiClient.put(`/budgets/${variables.id}`, variables.body)
         : apiClient.post('/budgets', variables.body),
     onSettled: invalidate,
@@ -223,32 +244,38 @@ export function useBudgetsPage() {
 
   const handleSave = useCallback(async () => {
     const editingId = editingBudget?.id ?? null;
-    const body = editingId
+    const variables = editingId
       ? {
-          name: formData.name,
-          limitAmount: formData.limitAmount,
-          currency: formData.currency,
-          rolloverMode: formData.rolloverMode,
-          // Explicit null detaches; the API leaves the link alone only when the
-          // field is absent, which the form can never mean.
-          goalId: formData.goalId || null,
-          startsOn: formData.startsOn || null,
-          endsOn: formData.endsOn || null,
+          id: editingId,
+          body: {
+            name: formData.name,
+            limitAmount: formData.limitAmount,
+            currency: formData.currency,
+            rolloverMode: formData.rolloverMode,
+            // Explicit null detaches; the API leaves the link alone only when the
+            // field is absent, which the form can never mean.
+            goalId: formData.goalId || null,
+            startsOn: formData.startsOn || null,
+            endsOn: formData.endsOn || null,
+          },
         }
       : {
-          name: formData.name,
-          categoryId: formData.categoryId,
-          limitAmount: formData.limitAmount,
-          periodType: formData.periodType,
-          rolloverMode: formData.rolloverMode,
-          currency: formData.currency,
-          goalId: formData.goalId || null,
-          startsOn: formData.startsOn || null,
-          endsOn: formData.endsOn || null,
+          id: null,
+          body: {
+            name: formData.name,
+            categoryId: formData.categoryId,
+            limitAmount: formData.limitAmount,
+            periodType: formData.periodType,
+            rolloverMode: formData.rolloverMode,
+            currency: formData.currency,
+            goalId: formData.goalId || null,
+            startsOn: formData.startsOn || null,
+            endsOn: formData.endsOn || null,
+          },
         };
 
     await saveMutation
-      .mutateAsync({ id: editingId, body })
+      .mutateAsync(variables)
       .then(() => {
         toast.success(editingId ? text.toastUpdated.value : text.toastCreated.value);
         closeDialog();

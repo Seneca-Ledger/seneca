@@ -25,7 +25,7 @@ type WorkspaceListItem = {
   icon: string | null;
   backgroundImage: string | null;
   isFavorite: boolean;
-  createdAt: Date;
+  createdAt: string;
   memberRole?: string;
 };
 

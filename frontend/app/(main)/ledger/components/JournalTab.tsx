@@ -66,6 +66,8 @@ export function JournalTab({
     manual: t.sourceManual,
     opening_balance: t.sourceOpening,
     fx_revaluation: t.sourceFx,
+    invoice: t.sourceInvoice,
+    credit_note: t.sourceCreditNote,
   };
 
   const renderDrawer = (): React.ReactNode => {

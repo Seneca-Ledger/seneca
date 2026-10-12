@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { Repository } from 'typeorm';
+import { type ObjectLiteral, Repository } from 'typeorm';
 import {
   BankName,
   FileType,
@@ -365,7 +365,7 @@ describe('StatementProcessingService - Headers Integration', () => {
 });
 
 // Helper function to create mocks
-function createMockRepository<T>(): Partial<Repository<T>> {
+function createMockRepository<T extends ObjectLiteral>(): Partial<Repository<T>> {
   return {
     findOne: jest.fn(),
     find: jest.fn(),

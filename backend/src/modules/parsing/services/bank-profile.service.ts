@@ -386,6 +386,12 @@ export class BankProfileService {
         ],
       },
 
+      ...createSharedProfileSections({
+        expectedColumns: 8,
+        useMLClassification: true,
+        fallbackMode: 'regex',
+      }),
+
       validation: {
         requiredFields: ['transactionDate', 'counterpartyName', 'paymentPurpose'],
         optionalFields: ['documentNumber', 'counterpartyBin', 'currency'],
@@ -399,12 +405,6 @@ export class BankProfileService {
           },
         ],
       },
-
-      ...createSharedProfileSections({
-        expectedColumns: 8,
-        useMLClassification: true,
-        fallbackMode: 'regex',
-      }),
     });
   }
 
@@ -438,6 +438,12 @@ export class BankProfileService {
         ],
       },
 
+      ...createSharedProfileSections({
+        expectedColumns: 6,
+        useMLClassification: true,
+        fallbackMode: 'heuristic',
+      }),
+
       validation: {
         requiredFields: ['transactionDate', 'counterpartyName', 'paymentPurpose'],
         businessRules: [
@@ -450,12 +456,6 @@ export class BankProfileService {
           },
         ],
       },
-
-      ...createSharedProfileSections({
-        expectedColumns: 6,
-        useMLClassification: true,
-        fallbackMode: 'heuristic',
-      }),
     });
   }
 
@@ -665,15 +665,10 @@ export class BankProfileService {
     format: 'json' | 'yaml' = 'json',
   ): { success: boolean; profile?: BankProfile; error?: string } {
     try {
-      let profile: BankProfile;
-
-      if (format === 'json') {
-        profile = this.normalizeLoadedProfile(JSON.parse(content), 'imported-profile');
-      }
-
-      if (format === 'yaml') {
-        profile = this.normalizeLoadedProfile(yaml.load(content), 'imported-profile');
-      }
+      const profile =
+        format === 'yaml'
+          ? this.normalizeLoadedProfile(yaml.load(content), 'imported-profile')
+          : this.normalizeLoadedProfile(JSON.parse(content), 'imported-profile');
 
       const validation = this.validateProfile(profile);
       if (!validation.isValid) {

@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type { ChatMessage } from './build-prompt';
 
 export interface ChatSummary {
@@ -19,21 +20,19 @@ export interface ChatTranscript extends ChatSummary {
 }
 
 export async function listChats(): Promise<ChatSummary[]> {
-  const response = await apiClient.get<ChatSummary[]>('/ai-analysis/chats');
-  return response.data;
+  return apiQueryDecoded({ url: '/ai-analysis/chats', contract: 'AiChatList' });
 }
 
 export async function createChat(modelId: string, firstQuestion: string): Promise<ChatSummary> {
-  const response = await apiClient.post<ChatSummary>('/ai-analysis/chats', {
+  const response = await apiClient.post('/ai-analysis/chats', {
     modelId,
     firstQuestion,
-  });
-  return response.data;
+  } satisfies ContractInput<'CreateAiChatBody'>);
+  return checkContract('ChatSummary', response.data, '/ai-analysis/chats');
 }
 
 export async function getChat(id: string): Promise<ChatTranscript> {
-  const response = await apiClient.get<ChatTranscript>(`/ai-analysis/chats/${id}`);
-  return response.data;
+  return apiQueryDecoded({ url: `/ai-analysis/chats/${id}`, contract: 'AiChatTranscript' });
 }
 
 export async function appendMessage(
@@ -46,7 +45,7 @@ export async function appendMessage(
     role,
     content,
     ...(actionPayload ? { actionPayload } : {}),
-  });
+  } satisfies ContractInput<'AppendAiChatMessageBody'>);
 }
 
 export async function deleteChat(id: string): Promise<void> {

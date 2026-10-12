@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -12,12 +11,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { AppendAiChatMessageBody, CreateAiChatBody, RenameAiChatBody } from '../../contracts';
+import { AiChatRole } from '../../entities/ai-chat-message.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AiChatService } from './ai-chat.service';
-import { AppendAiChatMessageDto, CreateAiChatDto, RenameAiChatDto } from './dto/ai-chat.dto';
 
 @Controller('ai-analysis/chats')
 @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
@@ -33,7 +35,7 @@ export class AiChatController {
   create(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: CreateAiChatDto,
+    @SchemaBody(CreateAiChatBody) body: CreateAiChatBody,
   ) {
     return this.aiChatService.create(workspaceId, user.id, body.modelId, body.firstQuestion);
   }
@@ -47,14 +49,14 @@ export class AiChatController {
   appendMessage(
     @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: AppendAiChatMessageDto,
+    @SchemaBody(AppendAiChatMessageBody) body: AppendAiChatMessageBody,
   ) {
     return this.aiChatService.appendMessage(
       workspaceId,
       id,
-      body.role,
+      toEnum(AiChatRole, body.role),
       body.content,
-      body.actionPayload,
+      body.actionPayload ?? undefined,
     );
   }
 
@@ -62,7 +64,7 @@ export class AiChatController {
   rename(
     @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: RenameAiChatDto,
+    @SchemaBody(RenameAiChatBody) body: RenameAiChatBody,
   ) {
     return this.aiChatService.rename(workspaceId, id, body.title);
   }

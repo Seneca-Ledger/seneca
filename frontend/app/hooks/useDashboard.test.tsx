@@ -37,6 +37,7 @@ function createDashboardPayload(balance: number) {
       totalOverdue: 0,
       unapprovedCash: 0,
       currency: 'KZT',
+      missingRates: [],
     },
     actions: [],
     cashFlow: [],
@@ -61,6 +62,7 @@ function createDashboardPayload(balance: number) {
 function createTrendsPayload(rows: number) {
   return {
     dailyTrend: [],
+    forecast: [],
     categories: [],
     counterparties: [],
     sources: { statements: { income: 0, expense: 0, rows } },

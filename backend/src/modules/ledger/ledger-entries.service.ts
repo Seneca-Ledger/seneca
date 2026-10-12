@@ -10,6 +10,12 @@ import { type EntityManager, In, type Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { fromMinor, toMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import type {
+  CreateJournalEntryBody,
+  JournalLineInput,
+  ReverseJournalEntryBody,
+  UpdateJournalEntryBody,
+} from '../../contracts';
 import {
   ActorType,
   AuditAction,
@@ -23,12 +29,6 @@ import {
   LedgerAccount,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
-import type {
-  CreateJournalEntryDto,
-  JournalLineInputDto,
-  ReverseJournalEntryDto,
-  UpdateJournalEntryDto,
-} from './dto/journal-entry-input.dto';
 import type {
   JournalEntryResponseDto,
   JournalEntrySummaryDto,
@@ -210,7 +210,7 @@ export class LedgerEntriesService {
   async createDraft(
     workspaceId: string,
     userId: string,
-    dto: CreateJournalEntryDto,
+    dto: CreateJournalEntryBody,
   ): Promise<JournalEntryResponseDto> {
     const entry = await http(async () => {
       const baseCurrency = await this.postingService.baseCurrencyOf(workspaceId);
@@ -233,7 +233,7 @@ export class LedgerEntriesService {
   async updateDraft(
     workspaceId: string,
     id: string,
-    dto: UpdateJournalEntryDto,
+    dto: UpdateJournalEntryBody,
   ): Promise<JournalEntryResponseDto> {
     await http(() =>
       this.entryRepository.manager.transaction(async manager => {
@@ -314,7 +314,7 @@ export class LedgerEntriesService {
     workspaceId: string,
     id: string,
     userId: string,
-    dto: ReverseJournalEntryDto,
+    dto: ReverseJournalEntryBody,
   ): Promise<JournalEntryResponseDto> {
     const existing = await this.existingReversal(workspaceId, id);
     if (existing) {
@@ -369,10 +369,7 @@ export class LedgerEntriesService {
   }
 
   /** A stored draft's lines, back in the shape a client sends. */
-  private async storedInputs(
-    manager: EntityManager,
-    entryId: string,
-  ): Promise<JournalLineInputDto[]> {
+  private async storedInputs(manager: EntityManager, entryId: string): Promise<JournalLineInput[]> {
     const rows = await manager
       .getRepository(JournalLine)
       .find({ where: { entryId }, order: { lineNo: 'ASC' } });
@@ -398,7 +395,7 @@ export class LedgerEntriesService {
     workspaceId: string,
     baseCurrency: string,
     entryDate: string,
-    inputs: JournalLineInputDto[],
+    inputs: JournalLineInput[],
   ): Promise<BaseLine[]> {
     const accountIds = [...new Set(inputs.map(input => input.accountId))];
     const accounts = accountIds.length
@@ -441,7 +438,7 @@ export class LedgerEntriesService {
 
   /** One validated line. Throws a coded error naming what is wrong with it. */
   private toLeg(
-    input: JournalLineInputDto,
+    input: JournalLineInput,
     index: number,
     baseCurrency: string,
     known: {

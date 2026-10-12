@@ -82,7 +82,6 @@ export class AiCategoryClassifier extends BaseAiHelper {
         ],
         {
           timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 20000,
-          timeoutMessage: 'AI category classification request timed out',
           retries: 1,
           baseDelayMs: 500,
           maxDelayMs: 2000,

@@ -130,7 +130,6 @@ export class AiDocumentExtractor extends BaseAiHelper {
       const timeoutMs = Number.parseInt(process.env.AI_TIMEOUT_MS || '20000', 10);
       const content = await this.generateJsonContent(contents, {
         timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 20000,
-        timeoutMessage: 'AI document extraction timed out',
         retries: 1,
         baseDelayMs: 500,
         maxDelayMs: 5000,

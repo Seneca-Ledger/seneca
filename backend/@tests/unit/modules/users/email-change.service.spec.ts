@@ -1,6 +1,7 @@
 import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { EmailChangeService } from '@/modules/users/services/email-change.service';
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { IsNull } from 'typeorm';
 
 describe('EmailChangeService', () => {
   let userRepository: { findOne: jest.Mock; save: jest.Mock };
@@ -72,7 +73,7 @@ describe('EmailChangeService', () => {
     it('normalizes the address and supersedes any pending request', async () => {
       await service.requestEmailChange(currentUser, '  NEW@Example.COM ');
 
-      expect(tokenRepository.delete).toHaveBeenCalledWith({ userId: 'user-1', usedAt: null });
+      expect(tokenRepository.delete).toHaveBeenCalledWith({ userId: 'user-1', usedAt: IsNull() });
       expect(tokenRepository.save.mock.calls[0][0].newEmail).toBe('new@example.com');
     });
 

@@ -43,7 +43,7 @@ async function createAdmin() {
 
       console.log('✅ Admin user created successfully');
     } else {
-      const updatePayload: Partial<User> = {
+      const updatePayload: Partial<Pick<User, 'passwordHash' | 'role' | 'isActive' | 'name'>> = {
         passwordHash,
         role: UserRole.ADMIN,
         isActive: true,

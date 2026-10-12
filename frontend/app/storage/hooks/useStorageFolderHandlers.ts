@@ -1,6 +1,7 @@
 'use client';
 
 import toast from 'react-hot-toast';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import { FOLDER_NAME_MAX, type FolderOption, type StorageFile } from '../storageHelpers';
 
@@ -77,7 +78,7 @@ function applyFilesFolderRename(
     }
     const folder = file.folder
       ? { ...file.folder, name: newName }
-      : { id: folderId, name: newName };
+      : { id: folderId, name: newName, userId: null, tagId: null };
     return { ...file, folder };
   });
 }
@@ -98,8 +99,7 @@ export async function loadFoldersHandler(
   setFolders: React.Dispatch<React.SetStateAction<FolderOption[]>>,
 ): Promise<void> {
   try {
-    const response = await api.get('/storage/folders');
-    setFolders(response.data || []);
+    setFolders(await apiQueryDecoded({ url: '/storage/folders', contract: 'StorageFolderList' }));
   } catch (error) {
     console.error('Failed to load folders:', error);
     toast.error(messages.loadFoldersFailed);
@@ -112,8 +112,11 @@ export async function createFolderHandler(deps: HandlerDeps): Promise<void> {
     return;
   }
   try {
-    const response = await api.post('/storage/folders', { name });
-    deps.setFolders(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
+    const response = await api.post('/storage/folders', {
+      name,
+    } satisfies ContractInput<'CreateFolderBody'>);
+    const folder = await checkContract('StorageFolder', response.data, '/storage/folders');
+    deps.setFolders(prev => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
     deps.setNewFolderName('');
     toast.success(deps.messages.folderCreated);
   } catch (error) {
@@ -128,9 +131,12 @@ export async function renameFolderHandler(deps: HandlerDeps, folderId: string): 
     return;
   }
   try {
-    const response = await api.patch(`/storage/folders/${folderId}`, { name });
-    deps.setFolders(prev => applyFolderRename(prev, folderId, response.data));
-    deps.setFiles(prev => applyFilesFolderRename(prev, folderId, response.data?.name || name));
+    const response = await api.patch(`/storage/folders/${folderId}`, {
+      name,
+    } satisfies ContractInput<'UpdateFolderBody'>);
+    const folder = await checkContract('StorageFolder', response.data, '/storage/folders/:id');
+    deps.setFolders(prev => applyFolderRename(prev, folderId, folder));
+    deps.setFiles(prev => applyFilesFolderRename(prev, folderId, folder.name || name));
     deps.setEditingFolderId(null);
     deps.setEditingFolderName('');
     toast.success(deps.messages.folderRenamed);
@@ -146,8 +152,11 @@ export async function updateFolderTagHandler(
   tagId: string | null,
 ): Promise<void> {
   try {
-    const response = await api.patch(`/storage/folders/${folderId}`, { tagId });
-    deps.setFolders(prev => applyFolderRename(prev, folderId, response.data));
+    const response = await api.patch(`/storage/folders/${folderId}`, {
+      tagId,
+    } satisfies ContractInput<'UpdateFolderBody'>);
+    const folder = await checkContract('StorageFolder', response.data, '/storage/folders/:id');
+    deps.setFolders(prev => applyFolderRename(prev, folderId, folder));
     deps.setFolderTagPickerId(null);
   } catch (error) {
     console.error('Failed to update folder tag:', error);
@@ -191,7 +200,9 @@ export async function moveToFolderHandler(
   folderId: string | null,
 ): Promise<void> {
   try {
-    await api.patch(`/storage/files/${fileId}/folder`, { folderId });
+    await api.patch(`/storage/files/${fileId}/folder`, {
+      folderId,
+    } satisfies ContractInput<'MoveFileBody'>);
     deps.setFiles(prev =>
       prev.map(file => {
         if (file.id !== fileId) {
