@@ -1,18 +1,22 @@
 import * as Schema from 'effect/Schema';
 import { Timestamp, type Wire } from '../common/wire';
 
-/** `GET /notes`: the notes on one record, oldest first. */
-export const NoteList = Schema.Struct({
-  items: Schema.Array(
-    Schema.Struct({
-      id: Schema.String,
-      body: Schema.String,
-      mentionedUserIds: Schema.Array(Schema.String),
-      resolvedAt: Schema.NullOr(Timestamp),
-      createdAt: Timestamp,
-      /** null once the author has left the workspace. */
-      author: Schema.NullOr(Schema.Struct({ id: Schema.String, name: Schema.String })),
-    }),
-  ),
+/** A note, as listed and as `POST /notes` and `PATCH /notes/:id` answer. */
+export const NoteItem = Schema.Struct({
+  id: Schema.String,
+  body: Schema.String,
+  mentionedUserIds: Schema.Array(Schema.String),
+  resolvedAt: Schema.NullOr(Timestamp),
+  createdAt: Timestamp,
+  /** null once the author has left the workspace. */
+  author: Schema.NullOr(Schema.Struct({ id: Schema.String, name: Schema.String })),
 });
+export type NoteItem = Wire<typeof NoteItem>;
+
+/** `GET /notes`: the notes on one record, oldest first. */
+export const NoteList = Schema.Struct({ items: Schema.Array(NoteItem) });
 export type NoteList = Wire<typeof NoteList>;
+
+/** `POST /notes/counts`: notes per record id, for the badges in lists. */
+export const NoteCounts = Schema.Struct({ counts: Schema.Record(Schema.String, Schema.Number) });
+export type NoteCounts = Wire<typeof NoteCounts>;

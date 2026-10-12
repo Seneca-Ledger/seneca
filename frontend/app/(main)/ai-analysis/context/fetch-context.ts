@@ -1,5 +1,5 @@
 import apiClient from '@/app/lib/api';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type { ContextInput } from './build-context';
 
 /**
@@ -61,9 +61,9 @@ export interface SearchResult {
  * pharmacy" — that needs the individual rows.
  */
 export async function searchTransactions(query: string, limit = 8): Promise<SearchResult> {
-  const response = await apiClient.post<SearchResult>('/ai-analysis/search', {
+  const response = await apiClient.post('/ai-analysis/search', {
     query,
     limit,
   } satisfies ContractInput<'SearchTransactionsBody'>);
-  return response.data;
+  return checkContract('TransactionSearchResult', response.data, '/ai-analysis/search');
 }

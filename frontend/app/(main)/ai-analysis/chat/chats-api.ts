@@ -1,5 +1,5 @@
 import apiClient from '@/app/lib/api';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type { ChatMessage } from './build-prompt';
 
 export interface ChatSummary {
@@ -24,11 +24,11 @@ export async function listChats(): Promise<ChatSummary[]> {
 }
 
 export async function createChat(modelId: string, firstQuestion: string): Promise<ChatSummary> {
-  const response = await apiClient.post<ChatSummary>('/ai-analysis/chats', {
+  const response = await apiClient.post('/ai-analysis/chats', {
     modelId,
     firstQuestion,
   } satisfies ContractInput<'CreateAiChatBody'>);
-  return response.data;
+  return checkContract('ChatSummary', response.data, '/ai-analysis/chats');
 }
 
 export async function getChat(id: string): Promise<ChatTranscript> {

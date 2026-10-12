@@ -80,3 +80,14 @@ export const DailyQuote = Schema.Struct({
   ),
 });
 export type DailyQuote = Wire<typeof DailyQuote>;
+
+/** `POST /review-inbox/transactions/approve`. */
+export const ReviewApproved = Schema.Struct({ approved: Schema.Number });
+export type ReviewApproved = Wire<typeof ReviewApproved>;
+
+/** `POST /review-inbox/statements/:id/approve`: rows left without a category stay in review. */
+export const StatementApproved = Schema.Struct({
+  approved: Schema.Number,
+  uncategorized: Schema.Number,
+});
+export type StatementApproved = Wire<typeof StatementApproved>;

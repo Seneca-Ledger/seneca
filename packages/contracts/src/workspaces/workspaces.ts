@@ -101,3 +101,7 @@ export const InvitationPreview = Schema.Struct({
   expiresAt: Schema.NullOr(Timestamp),
 });
 export type InvitationPreview = Wire<typeof InvitationPreview>;
+
+/** `POST /workspaces/invitations/:token/accept`. */
+export const InvitationAccepted = Schema.Struct({ workspaceId: Schema.String });
+export type InvitationAccepted = Wire<typeof InvitationAccepted>;

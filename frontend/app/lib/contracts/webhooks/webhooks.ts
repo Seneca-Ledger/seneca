@@ -31,3 +31,15 @@ export const WebhookSubscriptionList = Schema.Array(
   }),
 );
 export type WebhookSubscriptionList = Wire<typeof WebhookSubscriptionList>;
+
+/** `POST /webhook-endpoints`: the only answer that carries the whole token. */
+export const CreatedWebhookEndpoint = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  token: Schema.String,
+  isActive: Schema.Boolean,
+  defaultWalletId: Schema.NullOr(Schema.String),
+  defaultBranchId: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+});
+export type CreatedWebhookEndpoint = Wire<typeof CreatedWebhookEndpoint>;

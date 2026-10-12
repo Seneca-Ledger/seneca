@@ -25,3 +25,15 @@ export type UserSession = Wire<typeof UserSession>;
 
 export const UserSessionList = Schema.Array(UserSession);
 export type UserSessionList = Wire<typeof UserSessionList>;
+
+/** `POST /auth/2fa/setup`: shown once, while the user scans it. */
+export const TwoFactorSetup = Schema.Struct({
+  secret: Schema.String,
+  otpauthUrl: Schema.String,
+  qrDataUrl: Schema.String,
+});
+export type TwoFactorSetup = Wire<typeof TwoFactorSetup>;
+
+/** `POST /auth/2fa/enable` and `/auth/2fa/recovery-codes`: shown once. */
+export const RecoveryCodes = Schema.Struct({ recoveryCodes: Schema.Array(Schema.String) });
+export type RecoveryCodes = Wire<typeof RecoveryCodes>;

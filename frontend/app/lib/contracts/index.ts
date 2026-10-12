@@ -15,6 +15,7 @@ export * from './feed/feed';
 export * from './forecast/forecast';
 export * from './goals/goal-items';
 export * from './goals/goals';
+export * from './imports/imports';
 export * from './invoices/invoices';
 export * from './ledger/ledger';
 export * from './notes/notes';

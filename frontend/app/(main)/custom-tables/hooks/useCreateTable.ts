@@ -91,12 +91,14 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
             titles: columnTitles,
           }) satisfies ContractInput<'CreateCustomTableFromSourceBody'>,
         );
-        const created = (response.data?.data ?? response.data) as { tableId?: string } | null;
+        const created = await checkContract(
+          'CreatedFromSource',
+          response.data,
+          '/custom-tables/from-source',
+        );
         toast.success(messages.createdFromSource);
         close();
-        if (created?.tableId) {
-          router.push(`/custom-tables/${created.tableId}`);
-        }
+        router.push(`/custom-tables/${created.tableId}`);
         return;
       }
       const response = await apiClient.post('/custom-tables', {

@@ -164,3 +164,19 @@ export const MapStyles = Schema.Struct({
   defaultStyleId: Schema.NullOr(Schema.String),
 });
 export type MapStyles = Wire<typeof MapStyles>;
+
+/** `POST /receipts/:id/approve`: the receipt, the row it became or joined, and which. */
+export const ReceiptApproval = Schema.Struct({
+  receipt: ReceiptRecordUpdate,
+  transaction: Schema.Struct({ id: Schema.String }),
+  /** True when the receipt was attached to an existing bank row. */
+  attached: Schema.Boolean,
+});
+export type ReceiptApproval = Wire<typeof ReceiptApproval>;
+
+/** `POST /receipts/:id/split`: the split applied, and the rows it made. */
+export const ReceiptSplitResult = Schema.Struct({
+  suggestion: ReceiptSplitSuggestion,
+  transactions: Schema.Array(Schema.Struct({ id: Schema.String })),
+});
+export type ReceiptSplitResult = Wire<typeof ReceiptSplitResult>;

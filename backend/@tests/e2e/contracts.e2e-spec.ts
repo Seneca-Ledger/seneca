@@ -5,6 +5,7 @@ jest.mock('franc', () => ({
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Schema } from 'effect';
+import { generateSync } from 'otplib';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
@@ -35,9 +36,12 @@ import {
   CategoryList,
   CategoryUsageCount,
   ChatCompletionStatus,
+  ChatSummary,
   Client,
   ClientList,
   CreatedCustomTable,
+  CreatedFromSource,
+  CreatedWebhookEndpoint,
   CreditNoteList,
   CryptoGains,
   CryptoHistory,
@@ -63,13 +67,17 @@ import {
   DashboardTrendsResponse,
   DisclaimerStatus,
   DuplicateGroups,
+  EntityImportResult,
   ExchangeRateCoverage,
   ExchangeRateQuote,
   ForecastResponse,
+  FormulaPreview,
+  GoalDetail,
   GoalFlowResponse,
   GoalList,
   GoalPlanResponse,
   GoalWithProgress,
+  ImportSuggestion,
   IncomeTaxDisclaimer,
   IncomeTaxDraft,
   IncomeTaxMappings,
@@ -96,6 +104,8 @@ import {
   MetalsSummary,
   MonthGoalList,
   NetWorthResponse,
+  NoteCounts,
+  NoteItem,
   NoteList,
   NotificationList,
   NotificationPreferences,
@@ -109,15 +119,20 @@ import {
   PaymentCandidateList,
   PublicInvoiceView,
   PushPublicKey,
+  ReceiptApproval,
   ReceiptListPage,
   ReceiptRecord,
   ReceiptRecordUpdate,
   ReceiptSplitSuggestion,
   ReceiptTransactionMatches,
   ReconciliationResponse,
+  RecoveryCodes,
+  RefreshedFromSource,
   RegisterResponse,
   ReportHistoryList,
+  ReportPreview,
   ReportScheduleList,
+  ReviewApproved,
   ReviewInboxByStatement,
   ReviewInboxCounts,
   ReviewInboxPage,
@@ -125,7 +140,9 @@ import {
   SharedFileAccess,
   SharedTableRows,
   SharedTableView,
+  SourcePreview,
   SpendFlow,
+  StatementApproved,
   StatementDetail,
   StoicBalance,
   StorageFileDetails,
@@ -153,7 +170,9 @@ import {
   TransactionAttachmentList,
   TransactionCandidates,
   TransactionList,
+  TransactionSearchResult,
   TrialBalance,
+  TwoFactorSetup,
   TwoFactorStatus,
   UnreadCount,
   UserPermissions,
@@ -1382,6 +1401,167 @@ describe('API contracts (e2e)', () => {
         .expect(200);
       matches(LoginResponse, login.body);
       expect(login.body.user.lastWorkspaceId).toBe(other.body.id);
+    });
+  });
+
+  describe('action responses the app reads', () => {
+    // Actions answer 200 or 201 by their own convention: any success will do.
+    const succeeded = (res: request.Response) => {
+      if (res.status >= 300) {
+        throw new Error(`${res.status} ${JSON.stringify(res.body)}`);
+      }
+    };
+    const call = (method: 'post' | 'patch', url: string, body?: object) => {
+      const req = request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId);
+      return body ? req.send(body) : req;
+    };
+
+    it('two-factor setup, enable and new recovery codes', async () => {
+      const second = `contracts-2fa-${Date.now()}@example.com`;
+      const account = await registerAccount(app, second, 'Second factor');
+      const as = (url: string, body: object) =>
+        request(app.getHttpServer())
+          .post(url)
+          .set('Authorization', `Bearer ${account.token}`)
+          .set('x-workspace-id', account.workspaceId)
+          .send(body);
+      const setup = await as('/auth/2fa/setup', { password: 'Test123!@#' }).expect(succeeded);
+      matches(TwoFactorSetup, setup.body);
+      const enabled = await as('/auth/2fa/enable', {
+        code: generateSync({ secret: setup.body.secret }),
+      }).expect(succeeded);
+      matches(RecoveryCodes, enabled.body);
+      matches(
+        RecoveryCodes,
+        (await as('/auth/2fa/recovery-codes', { password: 'Test123!@#' }).expect(succeeded)).body,
+      );
+      await deleteUserByEmail(dataSource, second);
+    });
+
+    it('report and table previews, tables from a source', async () => {
+      matches(
+        ReportPreview,
+        (
+          await call('post', '/reports/preview', {
+            templateId: 'pnl',
+            dateFrom: '2026-01-01',
+            dateTo: '2026-12-31',
+            format: 'pdf',
+          }).expect(succeeded)
+        ).body,
+      );
+      matches(
+        SourcePreview,
+        (await call('post', '/custom-tables/source-preview', { kind: 'transactions' }).expect(succeeded)).body,
+      );
+      const created = await call('post', '/custom-tables/from-source', {
+        kind: 'transactions',
+        name: 'From source',
+      }).expect(succeeded);
+      matches(CreatedFromSource, created.body);
+      matches(
+        RefreshedFromSource,
+        (await call('post', `/custom-tables/${created.body.tableId}/refresh-from-source`).expect(succeeded)).body,
+      );
+      matches(
+        FormulaPreview,
+        (
+          await call('post', `/custom-tables/${created.body.tableId}/formula-preview`, {
+            expression: '1 + 2',
+          }).expect(succeeded)
+        ).body,
+      );
+    });
+
+    it('review approvals, notes, goal contributions and income-tax finalize and reopen', async () => {
+      const rows = await get('/transactions');
+      matches(
+        ReviewApproved,
+        (await call('post', '/review-inbox/transactions/approve', { ids: [rows.body.data[0].id] }).expect(succeeded))
+          .body,
+      );
+      const statementId = (await get('/storage/files')).body[0].id;
+      matches(
+        StatementApproved,
+        (await call('post', `/review-inbox/statements/${statementId}/approve`).expect(succeeded)).body,
+      );
+      const note = await call('post', '/notes', {
+        entityType: 'transaction',
+        entityId: rows.body.data[0].id,
+        body: 'Checked',
+      }).expect(succeeded);
+      matches(NoteItem, note.body);
+      matches(NoteItem, (await call('patch', `/notes/${note.body.id}`, { resolved: true }).expect(succeeded)).body);
+      matches(
+        NoteCounts,
+        (
+          await call('post', '/notes/counts', {
+            entityType: 'transaction',
+            entityIds: [rows.body.data[0].id],
+          }).expect(succeeded)
+        ).body,
+      );
+      const goal = await call('post', '/goals', { name: 'Contribution goal', targetAmount: 100 }).expect(succeeded);
+      matches(
+        GoalDetail,
+        (await call('post', `/goals/${goal.body.id}/contributions`, { amount: 25 }).expect(succeeded)).body,
+      );
+      await call('post', '/income-tax/disclaimer').expect(succeeded);
+      matches(IncomeTaxDraft, (await call('post', '/income-tax/returns/2025/finalize').expect(succeeded)).body);
+      matches(IncomeTaxDraft, (await call('post', '/income-tax/returns/2025/reopen').expect(succeeded)).body);
+    });
+
+    it('imports, a webhook endpoint, a chat, an invoice and semantic search', async () => {
+      matches(
+        ImportSuggestion,
+        (
+          await call('post', '/entity-imports/suggest', {
+            headers: ['Vendor', 'Amount', 'Due'],
+            samples: [['Office rent', '1200', '2026-11-01']],
+          }).expect(succeeded)
+        ).body,
+      );
+      matches(
+        EntityImportResult,
+        (
+          await call('post', '/entity-imports', {
+            target: 'payables',
+            mapping: { vendor: 0, amount: 1, dueDate: 2 },
+            rows: [['Office rent', '1200', '2026-11-01']],
+            dryRun: true,
+          }).expect(succeeded)
+        ).body,
+      );
+      matches(
+        CreatedWebhookEndpoint,
+        (await call('post', '/webhook-endpoints', { name: 'Action endpoint' }).expect(succeeded)).body,
+      );
+      matches(
+        ChatSummary,
+        (
+          await call('post', '/ai-analysis/chats', {
+            modelId: 'local-model',
+            firstQuestion: 'Anything new?',
+          }).expect(succeeded)
+        ).body,
+      );
+      const clients = await get('/clients');
+      // A write answers with the bare row; the page reads the invoice back whole.
+      const invoice = await call('post', '/invoices', {
+            clientId: clients.body[0].id,
+            currency: 'USD',
+            issueDate: '2026-10-01',
+            dueDate: '2026-10-31',
+            lineItems: [{ description: 'Consulting', quantity: 1, unitPrice: 100 }],
+          }).expect(succeeded);
+      expect(invoice.body.id).toEqual(expect.any(String));
+      matches(
+        TransactionSearchResult,
+        (await call('post', '/ai-analysis/search', { query: 'coffee' }).expect(succeeded)).body,
+      );
     });
   });
 });

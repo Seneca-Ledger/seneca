@@ -120,7 +120,11 @@ export default function AcceptInvitePage() {
       const response = await apiClient.post(`/workspaces/invitations/${token}/accept`);
 
       const message = response.data?.message || t.messages.acceptedFallback.value;
-      const workspaceId = response.data?.workspaceId || null;
+      const { workspaceId } = await checkContract(
+        'InvitationAccepted',
+        response.data,
+        '/workspaces/invitations/:token/accept',
+      );
 
       setAcceptSuccess(message);
 

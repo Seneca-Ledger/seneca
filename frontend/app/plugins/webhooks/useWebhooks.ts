@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 /** The events a webhook subscription can listen to. */
@@ -52,12 +52,14 @@ export function useWebhookEndpoints() {
   }, [queryClient, workspaceId]);
 
   const createMutation = useMutation({
-    mutationFn: (name: string) =>
-      apiClient.post('/webhook-endpoints', {
+    mutationFn: async (name: string) => {
+      const response = await apiClient.post('/webhook-endpoints', {
         name,
-      } satisfies ContractInput<'CreateWebhookEndpointBody'>),
-    onSuccess: response => {
-      setNewToken((response.data as WebhookEndpointFull).token);
+      } satisfies ContractInput<'CreateWebhookEndpointBody'>);
+      return checkContract('CreatedWebhookEndpoint', response.data, '/webhook-endpoints');
+    },
+    onSuccess: endpoint => {
+      setNewToken(endpoint.token);
       toast.success(t.toasts.endpointCreated.value);
     },
     onError: () => toast.error(t.toasts.endpointCreateFailed.value),

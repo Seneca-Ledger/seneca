@@ -16,11 +16,6 @@ export interface TransactionAttachment {
   createdAt: string;
 }
 
-const unwrap = <T>(response: { data: unknown }): T => {
-  const payload = response.data as { data?: T } | T;
-  return (payload as { data?: T })?.data ?? (payload as T);
-};
-
 export const transactionFilesApi = {
   /** The workspace-wide tag vocabulary, shared with statements and files. */
   async listWorkspaceTags(): Promise<TransactionTag[]> {
@@ -55,7 +50,7 @@ export const transactionFilesApi = {
     const response = await apiClient.post(`/transactions/${transactionId}/attachments`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return unwrap<TransactionAttachment>(response);
+    return checkContract('TransactionAttachment', response.data, '/transactions/:id/attachments');
   },
 
   async downloadAttachment(attachmentId: string): Promise<Blob> {

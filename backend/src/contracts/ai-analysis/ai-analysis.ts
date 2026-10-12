@@ -3,12 +3,15 @@
 import * as Schema from 'effect/Schema';
 import { Timestamp, type Wire } from '../common/wire';
 
-const ChatSummary = Schema.Struct({
+/** `POST /ai-analysis/chats`, and a row of the chat list. */
+export const ChatSummary = Schema.Struct({
   id: Schema.String,
   title: Schema.String,
   modelId: Schema.String,
   updatedAt: Timestamp,
 });
+
+export type ChatSummary = Wire<typeof ChatSummary>;
 
 /** `GET /ai-analysis/chats`: the caller's saved chats, newest first. */
 export const AiChatList = Schema.Array(ChatSummary);
@@ -37,3 +40,22 @@ export const ChatCompletionStatus = Schema.Struct({
   source: Schema.Literals(['personal', 'workspace', 'env', 'disabled']),
 });
 export type ChatCompletionStatus = Wire<typeof ChatCompletionStatus>;
+
+/** `POST /ai-analysis/search`: transactions closest in meaning to the question. */
+export const TransactionSearchResult = Schema.Struct({
+  hits: Schema.Array(
+    Schema.Struct({
+      transactionId: Schema.String,
+      counterpartyName: Schema.String,
+      paymentPurpose: Schema.String,
+      transactionDate: Schema.String,
+      amount: Schema.NullOr(Schema.Number),
+      currency: Schema.String,
+      score: Schema.Number,
+    }),
+  ),
+  truncated: Schema.Boolean,
+  /** Rows not embedded yet, so not searched. */
+  pendingEmbeddings: Schema.Number,
+});
+export type TransactionSearchResult = Wire<typeof TransactionSearchResult>;

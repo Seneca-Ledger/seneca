@@ -6,6 +6,7 @@ import type {
   CryptoHolding,
   CryptoSummary,
   CurrentUser,
+  Insight,
   Payable,
   ReceiptRecord,
   SubscriptionItem,
@@ -303,4 +304,9 @@ export function authUser(overrides: Partial<AuthUser> = {}): AuthUser {
     onboardingCompletedAt: null,
     ...overrides,
   };
+}
+
+/** `GET /insights`: one page of insights. */
+export function insightPage(items: Insight[]) {
+  return { items, total: items.length, limit: 50, offset: 0 };
 }

@@ -4,8 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { unwrapEnvelope } from '@/app/lib/query-fn';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { normalizeSourceFilters, type SourceFilters, type SourceKind } from '../sources';
 
@@ -45,7 +44,7 @@ export function useSourcePreview(params: {
         } satisfies ContractInput<'PreviewCustomTableSourceBody'>,
         { signal },
       );
-      return unwrapEnvelope<SourcePreview>(response.data);
+      return checkContract('SourcePreview', response.data, '/custom-tables/source-preview');
     },
     enabled: Boolean(params.kind && workspaceId),
     placeholderData: keepPreviousData,

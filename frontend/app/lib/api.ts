@@ -5,8 +5,10 @@ import type {
   ReceiptRecord as ContractReceiptRecord,
   ReceiptSplitSuggestion as ContractReceiptSplitSuggestion,
   ReceiptTransactionMatch as ContractReceiptTransactionMatch,
+  ReceiptApproval,
   ReceiptListPage,
   ReceiptRecordUpdate,
+  ReceiptSplitResult,
   ReceiptTransactionMatches,
 } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
@@ -371,16 +373,12 @@ export const receiptsApi = {
   approveReceipt: async (
     id: string,
     options: { transactionId?: string | null } = {},
-  ): Promise<{ receipt: ReceiptRecord; transaction: { id: string }; attached: boolean }> => {
+  ): Promise<ReceiptApproval> => {
     const response = await apiClient.post(
       `/receipts/${id}/approve`,
       options satisfies ContractInput<'ApproveReceiptBody'>,
     );
-    return response.data as {
-      receipt: ReceiptRecord;
-      transaction: { id: string };
-      attached: boolean;
-    };
+    return checkContract('ReceiptApproval', response.data, '/receipts/:id/approve');
   },
 
   transactionMatches: async (
@@ -401,9 +399,9 @@ export const receiptsApi = {
     });
   },
 
-  splitByLineItems: async (id: string): Promise<{ suggestion: ReceiptSplitSuggestion }> => {
+  splitByLineItems: async (id: string): Promise<ReceiptSplitResult> => {
     const response = await apiClient.post(`/receipts/${id}/split`);
-    return response.data as { suggestion: ReceiptSplitSuggestion };
+    return checkContract('ReceiptSplitResult', response.data, '/receipts/:id/split');
   },
 
   uploadReceipts: async (formData: FormData): Promise<{ receipts: ReceiptRecord[] }> => {

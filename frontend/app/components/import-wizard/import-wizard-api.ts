@@ -1,5 +1,5 @@
 import { api } from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 export type ImportTarget =
   | 'transactions'
@@ -119,14 +119,6 @@ export interface ImportRunPayload {
   options?: { currency?: string; categorize?: boolean };
 }
 
-/** Some routes answer with the `{ success, data }` envelope, some with the bare object. */
-const unwrap = <T>(body: unknown): T => {
-  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
-    return (body as { data: T }).data;
-  }
-  return body as T;
-};
-
 export const suggestImport = async (
   headers: string[],
   samples: string[][],
@@ -135,7 +127,7 @@ export const suggestImport = async (
     headers,
     samples,
   } satisfies ContractInput<'SuggestImportBody'>);
-  return unwrap<ImportSuggestion>(response.data);
+  return checkContract('ImportSuggestion', response.data, '/entity-imports/suggest');
 };
 
 export const runEntityImport = async (payload: ImportRunPayload): Promise<ImportRunResult> => {
@@ -143,7 +135,7 @@ export const runEntityImport = async (payload: ImportRunPayload): Promise<Import
     '/entity-imports',
     payload satisfies ContractInput<'RunEntityImportBody'>,
   );
-  return unwrap<ImportRunResult>(response.data);
+  return checkContract('EntityImportResult', response.data, '/entity-imports');
 };
 
 export const undoEntityImport = async (batchId: string): Promise<void> => {
@@ -175,5 +167,6 @@ export const createTableFromImport = async (payload: {
     '/custom-tables/from-source',
     payload satisfies ContractInput<'CreateCustomTableFromSourceBody'>,
   );
-  return unwrap<{ tableId?: string }>(response.data)?.tableId ?? null;
+  return (await checkContract('CreatedFromSource', response.data, '/custom-tables/from-source'))
+    .tableId;
 };

@@ -2,9 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/app/lib/api';
-import { unwrapEnvelope } from '@/app/lib/query-fn';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useWorkspaceId } from './useWorkspaceId';
 
@@ -118,7 +116,7 @@ export function useNoteCounts(
         entityType,
         entityIds: stableIds,
       } satisfies ContractInput<'ListNoteCountsBody'>);
-      return unwrapEnvelope<{ counts?: Record<string, number> }>(response.data);
+      return checkContract('NoteCounts', response.data, '/notes/counts');
     },
     enabled: stableIds.length > 0,
   });

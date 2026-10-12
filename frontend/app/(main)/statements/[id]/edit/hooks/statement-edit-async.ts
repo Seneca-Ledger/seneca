@@ -118,12 +118,6 @@ export async function loadStatementData(
   }
 }
 
-function getExportTableId(response: {
-  data?: { tableId?: string; id?: string };
-}): string | undefined {
-  return response?.data?.tableId ?? response?.data?.id;
-}
-
 function buildExportName(prefix: string, fileName: string): string {
   const raw = `${prefix}${fileName}`;
   return raw.length > 120 ? raw.slice(0, 120) : raw;
@@ -172,7 +166,11 @@ export async function exportToCustomTable({
       description,
       columnTitles,
     } satisfies ContractInput<'CreateCustomTableFromSourceBody'>);
-    const tableId = getExportTableId(response);
+    const { tableId } = await checkContract(
+      'CreatedFromSource',
+      response.data,
+      '/custom-tables/from-source',
+    );
     if (tableId) {
       toast.success(messages.exportSuccess, { id: toastId });
       router.push(`/custom-tables/${tableId}`);

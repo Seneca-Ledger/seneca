@@ -140,3 +140,23 @@ export const SpendFlow = Schema.Struct({
   links: Schema.Array(FlowLink),
 });
 export type SpendFlow = Wire<typeof SpendFlow>;
+
+const ReportCell = Schema.Union([Schema.String, Schema.Number]);
+
+/** `POST /reports/preview`: the first rows of a report, as it would print. */
+export const ReportPreview = Schema.Struct({
+  title: Schema.String,
+  subtitle: Schema.String,
+  sections: Schema.Array(
+    Schema.Struct({
+      title: Schema.optional(Schema.String),
+      columns: Schema.Array(Schema.String),
+      rows: Schema.Array(Schema.Array(ReportCell)),
+      total: Schema.optional(Schema.Array(ReportCell)),
+    }),
+  ),
+  footer: Schema.optional(Schema.Array(Schema.Array(ReportCell))),
+  /** More rows exist than the preview shows. */
+  truncated: Schema.Boolean,
+});
+export type ReportPreview = Wire<typeof ReportPreview>;

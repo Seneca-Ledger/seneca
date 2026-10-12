@@ -176,3 +176,53 @@ export const AvailableCustomTables = Schema.Array(
   }),
 );
 export type AvailableCustomTables = Wire<typeof AvailableCustomTables>;
+
+const CellValue = Schema.NullOr(Schema.Union([Schema.String, Schema.Number, Schema.Boolean]));
+
+/** `POST /custom-tables/source-preview`: how many rows a source gives, and a sample. */
+export const SourcePreview = Schema.Struct({
+  count: Schema.Number,
+  columns: Schema.Array(
+    Schema.Struct({ field: Schema.String, title: Schema.String, type: CustomTableColumnType }),
+  ),
+  rows: Schema.Array(Schema.Record(Schema.String, CellValue)),
+});
+export type SourcePreview = Wire<typeof SourcePreview>;
+
+/** `POST /custom-tables/:id/formula-preview`: whether a formula parses, and its value on a row. */
+export const FormulaPreview = Schema.Struct({
+  valid: Schema.Boolean,
+  error: Schema.NullOr(Schema.String),
+  expression: Schema.String,
+  resultType: Schema.NullOr(Schema.Literals(['number', 'boolean', 'text', 'date'])),
+  sample: CellValue,
+});
+export type FormulaPreview = Wire<typeof FormulaPreview>;
+
+/** `POST /custom-tables/from-source`. */
+export const CreatedFromSource = Schema.Struct({
+  tableId: Schema.String,
+  columnsCreated: Schema.Number,
+  rowsCreated: Schema.Number,
+});
+export type CreatedFromSource = Wire<typeof CreatedFromSource>;
+
+/** `POST /custom-tables/:id/refresh-from-source`. */
+export const RefreshedFromSource = Schema.Struct({
+  tableId: Schema.String,
+  inserted: Schema.Number,
+  updated: Schema.Number,
+  unchanged: Schema.Number,
+  total: Schema.Number,
+  syncedAt: Schema.String,
+});
+export type RefreshedFromSource = Wire<typeof RefreshedFromSource>;
+
+/** `POST /custom-tables/:id/convert-to-statement`. */
+export const ConvertedToStatement = Schema.Struct({
+  statementId: Schema.String,
+  importedRows: Schema.Number,
+  skippedRows: Schema.Number,
+  warnings: Schema.Array(Schema.String),
+});
+export type ConvertedToStatement = Wire<typeof ConvertedToStatement>;
