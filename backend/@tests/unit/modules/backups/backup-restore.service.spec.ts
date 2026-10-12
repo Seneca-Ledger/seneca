@@ -12,7 +12,7 @@ describe('BackupRestoreService', () => {
       delete: jest.fn(),
     };
     const memberRepository = { create: jest.fn().mockImplementation(value => value), save: jest.fn().mockResolvedValue(undefined) };
-    const manager = { getRepository: jest.fn().mockReturnValue({ insert: categoryInsert }) };
+    const manager = { getRepository: jest.fn().mockReturnValue({ insert: categoryInsert }), query: jest.fn().mockResolvedValue([]) };
     const dataSource = {
       entityMetadatas: [
         {
@@ -65,7 +65,7 @@ describe('BackupRestoreService', () => {
       delete: jest.fn(),
     };
     const memberRepository = { create: jest.fn().mockImplementation(value => value), save: jest.fn().mockResolvedValue(undefined) };
-    const manager = { getRepository: jest.fn().mockReturnValue({ insert: statementInsert }) };
+    const manager = { getRepository: jest.fn().mockReturnValue({ insert: statementInsert }), query: jest.fn().mockResolvedValue([]) };
     const archive = {
       open: jest.fn().mockResolvedValue({
         manifest: { workspace: { id: 'old-workspace', name: 'Finance' }, collections: { workspace: 1, statements: 1 }, files: [] },
@@ -108,7 +108,7 @@ describe('BackupRestoreService', () => {
       delete: jest.fn(),
     };
     const memberRepository = { create: jest.fn().mockImplementation(value => value), save: jest.fn().mockResolvedValue(undefined) };
-    const manager = { getRepository: jest.fn().mockReturnValue({ insert: categoryInsert }) };
+    const manager = { getRepository: jest.fn().mockReturnValue({ insert: categoryInsert }), query: jest.fn().mockResolvedValue([]) };
     const archive = {
       open: jest.fn().mockResolvedValue({
         manifest: { workspace: { id: 'old-workspace', name: 'Finance' }, collections: {}, files: [] },
@@ -137,5 +137,55 @@ describe('BackupRestoreService', () => {
     ).resolves.toEqual({ id: 'new-workspace', name: 'Finance' });
     expect(manager.getRepository).toHaveBeenCalledTimes(1);
     expect(categoryInsert).toHaveBeenCalledWith([expect.objectContaining({ name: 'Travel' })]);
+  });
+
+  it('inserts a table after the tables its foreign keys point at, even keys only migrations declare', async () => {
+    const inserted: string[] = [];
+    const workspaceRepository = {
+      create: jest.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
+      save: jest.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
+      delete: jest.fn(),
+    };
+    const memberRepository = { create: jest.fn().mockImplementation(value => value), save: jest.fn().mockResolvedValue(undefined) };
+    const manager = {
+      getRepository: jest.fn().mockImplementation((target: string) => ({
+        insert: jest.fn().mockImplementation(async () => {
+          inserted.push(target);
+        }),
+      })),
+      // categories.ledger_account_id -> ledger_accounts, and categories.parent_id -> categories.
+      query: jest.fn().mockResolvedValue([
+        { source: 'categories', target: 'ledger_accounts' },
+        { source: 'categories', target: 'categories' },
+      ]),
+    };
+    const archive = {
+      open: jest.fn().mockResolvedValue({
+        manifest: { workspace: { id: 'old-workspace', name: 'Finance' }, collections: {}, files: [] },
+        collections: {
+          workspace: [{ id: 'old-workspace', name: 'Finance' }],
+          categories: [{ id: 'old-category', workspaceId: 'old-workspace', ledgerAccountId: 'old-account', name: 'Travel' }],
+          ledger_accounts: [{ id: 'old-account', workspaceId: 'old-workspace', name: 'Travel expenses' }],
+        },
+        files: new Map(),
+      }),
+    };
+    const columns = (...names: string[]) => names.map(propertyName => ({ propertyName }));
+    const service = new BackupRestoreService(
+      {
+        entityMetadatas: [
+          { tableName: 'categories', target: 'Category', columns: columns('id', 'workspaceId', 'ledgerAccountId', 'name') },
+          { tableName: 'ledger_accounts', target: 'LedgerAccount', columns: columns('id', 'workspaceId', 'name') },
+        ],
+        transaction: jest.fn().mockImplementation(callback => callback(manager)),
+      } as never,
+      workspaceRepository as never,
+      memberRepository as never,
+      archive as never,
+    );
+
+    await service.restore(Buffer.from('archive'), 'backup password', { id: 'user-1', workspaceId: 'workspace-1' } as never);
+
+    expect(inserted).toEqual(['LedgerAccount', 'Category']);
   });
 });

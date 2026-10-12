@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import type { DataSource, EntityMetadata, Repository } from 'typeorm';
+import type { DataSource, EntityManager, EntityMetadata, Repository } from 'typeorm';
 import { appDefaultCurrency } from '../../common/utils/currency.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import { WorkspaceRole } from '../../entities';
@@ -39,15 +39,55 @@ const RESTORE_ORDER = [
  */
 const REMOVED_COLLECTIONS = new Set(['custom_table_import_jobs']);
 
+/**
+ * Collections that backups made before they were excluded still carry, and
+ * that cannot come back: people and per-member rows rather than workspace
+ * data (the restore makes its own owner membership, and every member's row
+ * would land on the restorer), and share links whose required token the
+ * backup stripped.
+ */
+const UNRESTORABLE_COLLECTIONS = new Set([
+  'custom_table_shares',
+  // Derived and regenerated; its dedup key is unique per user, so a copy of
+  // the same user's live insights would collide.
+  'insights',
+  'users',
+  'user_ai_settings',
+  'workspace_invitations',
+  'workspace_members',
+]);
+
+/**
+ * Public links of the source workspace, unique across all workspaces. The
+ * restored copy starts without one; sending the document again makes a new link.
+ */
+const PUBLIC_TOKEN_PROPERTIES = new Set(['shareToken']);
+
 const USER_REFERENCE_PROPERTIES = new Set([
   'userId',
   'ownerId',
+  'ownerUserId',
   'createdById',
   'createdBy',
   'updatedByUserId',
   'connectedByUserId',
   'invitedById',
+  'actorId',
+  'confirmedBy',
+  'finalizedBy',
+  'postedBy',
+  'recipientId',
+  'sentById',
+  'uploadedById',
 ]);
+
+/** A journal entry as first inserted: a draft has no number and no booking time. */
+const asDraftEntry = (entry: Record<string, unknown>): Record<string, unknown> => ({
+  ...entry,
+  status: 'draft',
+  entryNo: null,
+  postedAt: null,
+});
 
 @Injectable()
 export class BackupRestoreService {
@@ -62,7 +102,7 @@ export class BackupRestoreService {
   async preview(archive: Buffer, password: string) {
     const opened = await this.archiveService.open(archive, password);
     return {
-      workspaceName: this.sourceWorkspace(opened).name,
+      workspaceName: this.sourceWorkspaceName(opened),
       createdAt: opened.manifest.createdAt,
       collections: opened.manifest.collections,
       fileCount: opened.manifest.files.length,
@@ -79,7 +119,8 @@ export class BackupRestoreService {
     const sourceWorkspace = this.sourceWorkspace(opened);
     const workspace = await this.workspaceRepository.save(
       this.workspaceRepository.create({
-        name: workspaceName?.trim() || `Restored ${sourceWorkspace.name}`,
+        name:
+          workspaceName?.trim() || `Restored ${this.sourceWorkspaceName(opened) ?? 'workspace'}`,
         description: this.stringOrNull(sourceWorkspace.description),
         icon: this.stringOrNull(sourceWorkspace.icon),
         color: this.stringOrNull(sourceWorkspace.color),
@@ -115,11 +156,14 @@ export class BackupRestoreService {
         stagedFiles,
       );
       await this.dataSource.transaction(async manager => {
-        for (const { metadata, values } of prepared) {
+        for (const { metadata, values } of await this.inForeignKeyOrder(manager, prepared)) {
           if (values.length > 0) {
-            await manager.getRepository(metadata.target).insert(values);
+            await manager
+              .getRepository(metadata.target)
+              .insert(metadata.tableName === 'journal_entries' ? values.map(asDraftEntry) : values);
           }
         }
+        await this.bookJournalEntries(manager, prepared);
       });
       await Promise.all(
         stagedFiles.map(async file => {
@@ -137,6 +181,75 @@ export class BackupRestoreService {
       await this.workspaceRepository.delete(workspace.id).catch(() => undefined);
       throw error;
     }
+  }
+
+  /**
+   * The prepared tables in an order that inserts every row after the rows it
+   * points at. Read from the database, not the entities: some foreign keys
+   * exist only in migrations (categories.ledger_account_id). Ties keep
+   * RESTORE_ORDER; a table's references to itself are checked at the end of
+   * its one insert.
+   */
+  private async inForeignKeyOrder<T extends { metadata: EntityMetadata }>(
+    manager: EntityManager,
+    prepared: T[],
+  ): Promise<T[]> {
+    const tables = prepared.map(item => item.metadata.tableName);
+    const references: Array<{ source: string; target: string }> = await manager.query(
+      `SELECT DISTINCT src.relname AS source, tgt.relname AS target
+           FROM pg_constraint fk
+           JOIN pg_class src ON src.oid = fk.conrelid
+           JOIN pg_class tgt ON tgt.oid = fk.confrelid
+           JOIN pg_namespace ns ON ns.oid = src.relnamespace
+          WHERE fk.contype = 'f' AND ns.nspname = current_schema() AND src.relname = ANY($1::text[])`,
+      [tables],
+    );
+    const waitsOn = new Map(tables.map(table => [table, new Set<string>()]));
+    for (const { source, target } of references) {
+      if (source !== target && waitsOn.has(target)) waitsOn.get(source)?.add(target);
+    }
+    const remaining = [...prepared];
+    const ordered: T[] = [];
+    while (remaining.length > 0) {
+      const pending = new Set(remaining.map(item => item.metadata.tableName));
+      const ready = remaining.findIndex(item =>
+        [...(waitsOn.get(item.metadata.tableName) ?? [])].every(target => !pending.has(target)),
+      );
+      // A cycle between tables: keep the old order and let the database name the key.
+      ordered.push(...remaining.splice(ready === -1 ? 0 : ready, 1));
+    }
+    return ordered;
+  }
+
+  /**
+   * Books the journal entries inserted as drafts, now that their lines are in.
+   * The ledger's triggers allow no other way: lines cannot be added to a
+   * booked entry, and only a posted entry can become reversed.
+   */
+  private async bookJournalEntries(
+    manager: EntityManager,
+    prepared: Array<{ metadata: EntityMetadata; values: Record<string, unknown>[] }>,
+  ): Promise<void> {
+    const entries = prepared.find(item => item.metadata.tableName === 'journal_entries');
+    if (!entries) return;
+    const repository = manager.getRepository(entries.metadata.target);
+    for (const entry of entries.values) {
+      if (entry.status !== 'posted' && entry.status !== 'reversed') continue;
+      await repository.update(String(entry.id), {
+        status: 'posted',
+        entryNo: entry.entryNo,
+        postedAt: entry.postedAt,
+      });
+      if (entry.status === 'reversed') {
+        await repository.update(String(entry.id), { status: 'reversed' });
+      }
+    }
+  }
+
+  /** The archived workspace's name, when it has one that reads as a name. */
+  private sourceWorkspaceName(opened: OpenedBackup): string | null {
+    const name = this.sourceWorkspace(opened).name;
+    return typeof name === 'string' && name.trim() ? name : null;
   }
 
   private sourceWorkspace(opened: OpenedBackup): Record<string, unknown> {
@@ -166,7 +279,12 @@ export class BackupRestoreService {
     collections: Record<string, unknown[]>,
   ): Array<[string, Record<string, unknown>[]]> {
     const entries = Object.entries(collections)
-      .filter(([tableName]) => tableName !== 'workspace' && !REMOVED_COLLECTIONS.has(tableName))
+      .filter(
+        ([tableName]) =>
+          tableName !== 'workspace' &&
+          !REMOVED_COLLECTIONS.has(tableName) &&
+          !UNRESTORABLE_COLLECTIONS.has(tableName),
+      )
       .map(
         ([tableName, rows]) =>
           [tableName, rows as Record<string, unknown>[]] as [string, Record<string, unknown>[]],
@@ -193,6 +311,8 @@ export class BackupRestoreService {
         record[property] = workspaceId;
       } else if (property === 'id') {
         record[property] = idMap.get(String(source[property])) || randomUUID();
+      } else if (PUBLIC_TOKEN_PROPERTIES.has(property)) {
+        record[property] = null;
       } else if (USER_REFERENCE_PROPERTIES.has(property)) {
         record[property] = source[property] === null ? null : userId;
       } else if (property.endsWith('Id') && typeof source[property] === 'string') {
