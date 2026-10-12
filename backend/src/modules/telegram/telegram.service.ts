@@ -86,6 +86,10 @@ interface TelegramReplyMarkup {
 const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic']);
 /** Callback data is limited to 64 bytes by Telegram; `kind:action:id` fits a uuid. */
 const CALLBACK_PATTERN = /^(rcpt|stmt):del:([0-9a-f-]{36})$/;
+// Bot API calls besides sendMessage, which has its own configurable timeout.
+const API_TIMEOUT_MS = 10_000;
+// Bots may download files of up to 20 MB.
+const FILE_DOWNLOAD_TIMEOUT_MS = 60_000;
 
 interface TelegramSendMessageResponse {
   ok: boolean;
@@ -821,11 +825,22 @@ export class TelegramService {
       return;
     }
     try {
-      await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ callback_query_id: callbackQueryId, ...(text ? { text } : {}) }),
-      });
+      await attemptWithRetry(
+        signal =>
+          fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ callback_query_id: callbackQueryId, ...(text ? { text } : {}) }),
+            signal,
+          }),
+        {
+          timeoutMs: API_TIMEOUT_MS,
+          timeoutMessage: 'Telegram request timed out',
+          retries: 0,
+          baseDelayMs: 0,
+          maxDelayMs: 0,
+        },
+      );
     } catch (error) {
       this.logger.warn(
         `answerCallbackQuery failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -1099,13 +1114,23 @@ export class TelegramService {
     const filePath = await this.getTelegramFilePath(fileId);
     const downloadUrl = `${this.fileApiBase}/${filePath}`;
 
-    const response = await fetch(downloadUrl);
-    if (!response.ok) {
-      throw new BadRequestException('Failed to download the file from Telegram');
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // The body is read inside the attempt so a stalled transfer times out too.
+    const buffer = await attemptWithRetry(
+      async signal => {
+        const response = await fetch(downloadUrl, { signal });
+        if (!response.ok) {
+          throw new BadRequestException('Failed to download the file from Telegram');
+        }
+        return Buffer.from(await response.arrayBuffer());
+      },
+      {
+        timeoutMs: FILE_DOWNLOAD_TIMEOUT_MS,
+        timeoutMessage: 'Telegram file download timed out',
+        retries: 0,
+        baseDelayMs: 0,
+        maxDelayMs: 0,
+      },
+    );
 
     const uploadsBaseDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
     const uploadsDir = path.join(uploadsBaseDir, 'telegram');
@@ -1137,13 +1162,29 @@ export class TelegramService {
       throw new BadRequestException('Telegram bot is not configured');
     }
 
-    const response = await fetch(`${this.apiBase}/getFile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ file_id: fileId }),
-    });
-
-    const payload = (await response.json()) as TelegramGetFileResponse;
+    const apiBase = this.apiBase;
+    const payload = await attemptWithRetry(
+      async signal => {
+        const response = await fetch(`${apiBase}/getFile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_id: fileId }),
+          signal,
+        });
+        if (response.status >= 500) {
+          throw new TelegramApiError('Telegram API temporary error', response.status);
+        }
+        return (await response.json()) as TelegramGetFileResponse;
+      },
+      {
+        timeoutMs: API_TIMEOUT_MS,
+        timeoutMessage: 'Telegram request timed out',
+        retries: 2,
+        baseDelayMs: 500,
+        maxDelayMs: 5000,
+        retryable: error => error instanceof TelegramApiError,
+      },
+    );
 
     if (!payload.ok) {
       const description = payload?.description || 'Unknown error';
