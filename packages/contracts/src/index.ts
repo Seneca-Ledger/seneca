@@ -37,6 +37,7 @@ export * from './requests/classification';
 export * from './requests/crypto';
 export * from './requests/custom-tables';
 export * from './requests/data-entry';
+export * from './requests/datev';
 export * from './requests/entity-imports';
 export * from './requests/exchange-rates';
 export * from './requests/goals';

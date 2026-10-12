@@ -1,19 +1,22 @@
-import { Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
-import { SetJurisdictionBody } from '../../contracts';
-import type { User } from '../../entities/user.entity';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
-  DismissOfficialRateDto,
-  OfficialRateDifferenceDto,
-  ReassessTaxDto,
-  SetTaxReserveDto,
-  SetVatFilingDto,
-  SetVatStatusDto,
-} from './dto/tax-settings.dto';
+  ApplyOfficialRateBody,
+  DismissOfficialRateBody,
+  ReassessTaxBody,
+  SetJurisdictionBody,
+  SetTaxReserveBody,
+  SetVatFilingBody,
+  SetVatStatusBody,
+} from '../../contracts';
+import { TaxFilingPeriod } from '../../entities/tax-jurisdiction.entity';
+import type { User } from '../../entities/user.entity';
+import { VatStatus } from '../../entities/workspace.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JurisdictionAdoptionService } from './jurisdiction-adoption.service';
 import { OfficialVatRatesService } from './official-vat-rates.service';
 import { TaxAssignmentService } from './tax-assignment.service';
@@ -56,10 +59,10 @@ export class WorkspaceTaxController {
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   async setVatStatus(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: SetVatStatusDto,
+    @SchemaBody(SetVatStatusBody) dto: SetVatStatusBody,
     @CurrentUser() user: User,
   ) {
-    return this.settingsService.setVatStatus(workspaceId, dto.status, user.id);
+    return this.settingsService.setVatStatus(workspaceId, toEnum(VatStatus, dto.status), user.id);
   }
 
   /**
@@ -68,9 +71,14 @@ export class WorkspaceTaxController {
    */
   @Post('reassess')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  async reassess(@WorkspaceId() workspaceId: string, @Body() dto: ReassessTaxDto) {
+  async reassess(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(ReassessTaxBody) dto: ReassessTaxBody,
+  ) {
     return {
-      reassessed: await this.taxAssignmentService.reassess(workspaceId, { from: dto.from }),
+      reassessed: await this.taxAssignmentService.reassess(workspaceId, {
+        from: dto.from ?? undefined,
+      }),
     };
   }
 
@@ -85,10 +93,14 @@ export class WorkspaceTaxController {
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   async setVatFiling(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: SetVatFilingDto,
+    @SchemaBody(SetVatFilingBody) dto: SetVatFilingBody,
     @CurrentUser() user: User,
   ) {
-    return this.settingsService.setVatFiling(workspaceId, dto, user.id);
+    return this.settingsService.setVatFiling(
+      workspaceId,
+      { frequency: toEnum(TaxFilingPeriod, dto.frequency), extension: dto.extension },
+      user.id,
+    );
   }
 
   @Get('reserve')
@@ -101,7 +113,7 @@ export class WorkspaceTaxController {
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   async setReserveSettings(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: SetTaxReserveDto,
+    @SchemaBody(SetTaxReserveBody) dto: SetTaxReserveBody,
     @CurrentUser() user: User,
   ) {
     return this.settingsService.setReserveSettings(workspaceId, dto, user.id);
@@ -162,7 +174,7 @@ export class WorkspaceTaxController {
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   async applyOfficialRate(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: OfficialRateDifferenceDto,
+    @SchemaBody(ApplyOfficialRateBody) dto: ApplyOfficialRateBody,
     @CurrentUser() user: User,
   ) {
     return this.officialRatesService.apply(workspaceId, dto.key, user.id);
@@ -172,7 +184,7 @@ export class WorkspaceTaxController {
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   async dismissOfficialRate(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: DismissOfficialRateDto,
+    @SchemaBody(DismissOfficialRateBody) dto: DismissOfficialRateBody,
   ) {
     await this.officialRatesService.dismiss(workspaceId, dto.key, dto.dismissed);
     return this.officialRatesService.check(workspaceId);
