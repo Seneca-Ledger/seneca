@@ -262,10 +262,10 @@ describe('API contracts (e2e)', () => {
       onExcessProperty: 'ignore',
     })(body);
 
-    beforeAll(async () => {
-      // Read once when the backups module starts: where a local backup run writes.
-      process.env.BACKUP_LOCAL_ROOT ??= mkdtempSync(join(tmpdir(), 'lumio-contracts-backups-'));
-      const moduleFixture: TestingModule = await e2eTestingModule({
+  beforeAll(async () => {
+    // Read once when the backups module starts: where a local backup run writes.
+    process.env.BACKUP_LOCAL_ROOT ??= mkdtempSync(join(tmpdir(), 'lumio-contracts-backups-'));
+    const moduleFixture: TestingModule = await e2eTestingModule({
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
@@ -1793,7 +1793,7 @@ describe('API contracts (e2e)', () => {
       );
     });
 
-        it('rows added in a batch, an integration status and the ledger revaluation', async () => {
+    it('rows added in a batch, an integration status and the ledger revaluation', async () => {
       const tables = await get('/custom-tables');
       const tableId = tables.body.items[0].id;
       const batch = await call('post', `/custom-tables/${tableId}/rows/batch`, {
@@ -1801,23 +1801,23 @@ describe('API contracts (e2e)', () => {
       }).expect(succeeded);
       matches(CustomTableRowBatch, batch.body);
       expect(batch.body.rows).toHaveLength(2);
-            matches(IntegrationConnection, (await get('/integrations/imap/status')).body);
-            // The rows booked above reach the ledger in the background; a revaluation waits for them.
-            for (let attempt = 0; attempt < 60; attempt++) {
-              if ((await get('/ledger/integrity')).body.upToDate) break;
-              await new Promise(resolve => setTimeout(resolve, 500));
-            }
-            const today = new Date().toISOString().slice(0, 10);
+      matches(IntegrationConnection, (await get('/integrations/imap/status')).body);
+      // The rows booked above reach the ledger in the background; a revaluation waits for them.
+      for (let attempt = 0; attempt < 60; attempt++) {
+        if ((await get('/ledger/integrity')).body.upToDate) break;
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      const today = new Date().toISOString().slice(0, 10);
       matches(
         RevaluationResult,
-                (await call('post', '/ledger/revaluations', { date: today }).expect(succeeded)).body,
-              );
-            }, 60_000);
+        (await call('post', '/ledger/revaluations', { date: today }).expect(succeeded)).body,
+      );
+    }, 60_000);
 
     it('a payee renamed, set on a transaction, and the duplicates marked', async () => {
-            const rows = (await get('/transactions')).body.data;
-            const transactionId = rows[0].id;
-            const set = await call('put', `/transactions/${transactionId}/payee`, {
+      const rows = (await get('/transactions')).body.data;
+      const transactionId = rows[0].id;
+      const set = await call('put', `/transactions/${transactionId}/payee`, {
         name: 'Contract Payee',
       }).expect(succeeded);
       matches(TransactionPayeeResult, set.body);
@@ -1826,28 +1826,28 @@ describe('API contracts (e2e)', () => {
       }).expect(succeeded);
       matches(PayeeRecord, renamed.body);
       const marked = await call('post', '/transactions/duplicates/mark', {
-                groups: [{ masterId: transactionId, duplicateIds: [rows[1].id] }],
+        groups: [{ masterId: transactionId, duplicateIds: [rows[1].id] }],
       }).expect(succeeded);
       matches(DuplicatesMarked, marked.body);
     });
 
     it('a receipt edited, its place settled, and an upload', async () => {
-            const [receipt] = await dataSource.query(
-              'SELECT id FROM receipts WHERE workspace_id = $1 LIMIT 1',
-              [owner.workspaceId],
-            );
-            const statementId = (await get('/storage/files')).body[0].id;
+      const [receipt] = await dataSource.query(
+        'SELECT id FROM receipts WHERE workspace_id = $1 LIMIT 1',
+        [owner.workspaceId],
+      );
+      const statementId = (await get('/storage/files')).body[0].id;
       const edited = await call('patch', `/receipts/${receipt.id}`, {
         parsedData: { vendor: 'Contract Market' },
       }).expect(succeeded);
       matches(ReceiptRecordUpdate, edited.body);
       // A place the user picked is settled: no lookup, and nothing to ask.
-            await dataSource.query(
-                      "UPDATE receipts SET statement_id = $2, location_source = 'manual', location_lat = 52.52, location_lng = 13.4 WHERE id = $1",
-              [receipt.id, statementId],
-            );
-            const suggestions = await call('post', '/receipts/place-suggestions', {
-              statementId,
+      await dataSource.query(
+        "UPDATE receipts SET statement_id = $2, location_source = 'manual', location_lat = 52.52, location_lng = 13.4 WHERE id = $1",
+        [receipt.id, statementId],
+      );
+      const suggestions = await call('post', '/receipts/place-suggestions', {
+        statementId,
         latitude: 52.52,
         longitude: 13.4,
         accuracy: 20,
@@ -1905,26 +1905,26 @@ describe('API contracts (e2e)', () => {
       const restored = await upload(`/backups/imports/${preview.body.importId}/restore`).expect(
         succeeded,
       );
-            matches(BackupRestoreResult, restored.body);
-            // Rows with no workspace column of their own come back with their parents.
-            const counts = async (workspaceId: string) => {
-              const [row] = await dataSource.query(
-                `SELECT
+      matches(BackupRestoreResult, restored.body);
+      // Rows with no workspace column of their own come back with their parents.
+      const counts = async (workspaceId: string) => {
+        const [row] = await dataSource.query(
+          `SELECT
                    (SELECT count(*) FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id
                      WHERE e.workspace_id = $1 AND e.status <> 'draft')::int AS "bookedLines",
                    (SELECT count(*) FROM invoice_line_items l JOIN invoices i ON i.id = l.invoice_id
                      WHERE i.workspace_id = $1)::int AS "invoiceLines",
                    (SELECT count(*) FROM transaction_tags l JOIN transactions t ON t.id = l.transaction_id
                      WHERE t.workspace_id = $1)::int AS "transactionTags"`,
-                [workspaceId],
-              );
-              return row;
-            };
-            const source = await counts(owner.workspaceId);
-            expect(source.bookedLines).toBeGreaterThan(0);
-            expect(source.invoiceLines).toBeGreaterThan(0);
-            expect(await counts(restored.body.workspaceId)).toEqual(source);
-          }, 120_000);
+          [workspaceId],
+        );
+        return row;
+      };
+      const source = await counts(owner.workspaceId);
+      expect(source.bookedLines).toBeGreaterThan(0);
+      expect(source.invoiceLines).toBeGreaterThan(0);
+      expect(await counts(restored.body.workspaceId)).toEqual(source);
+    }, 120_000);
 
     it('an invitation accepted, and the email and password changes', async () => {
       const inviteeEmail = `contracts-joiner-${Date.now()}@example.com`;
