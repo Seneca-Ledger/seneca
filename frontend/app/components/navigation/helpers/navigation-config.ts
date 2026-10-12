@@ -102,17 +102,16 @@ export function buildNavItems(nav: {
       permission: 'transaction.view',
     },
     {
-      label: nav.tables as ReactNode,
-      path: '/custom-tables',
-      icon: React.createElement(Table, { size: 18 }),
-      permission: 'statement.view',
-      businessOnly: true,
+      label: nav.budgets as ReactNode,
+      path: '/budgets',
+      icon: React.createElement(PiggyBank, { size: 18 }),
+      permission: 'budget.view',
     },
     {
-      label: nav.workspaces as ReactNode,
-      path: '/workspaces',
-      icon: React.createElement(Building2, { size: 18 }),
-      permission: 'workspaces.view',
+      label: nav.subscriptions as ReactNode,
+      path: '/subscriptions',
+      icon: React.createElement(CreditCard, { size: 18 }),
+      permission: 'subscription.view',
     },
     {
       label: nav.reports as ReactNode,
@@ -121,21 +120,10 @@ export function buildNavItems(nav: {
       permission: 'statement.view',
     },
     {
-      label: nav.ledger as ReactNode,
-      path: '/ledger',
-      icon: React.createElement(Scale, { size: 18 }),
-      permission: 'ledger.view',
-      // Behind experimental mode until the ledger has been used on real books for a while.
-      experimental: true,
-      businessOnly: true,
-    },
-    {
-      label: nav.taxDeclaration as ReactNode,
-      path: '/tax-declaration',
-      icon: React.createElement(Landmark, { size: 18 }),
-      // Matches the draft endpoints' read guard (Permission.REPORT_VIEW).
-      permission: 'report.view',
-      businessOnly: true,
+      label: nav.goals as ReactNode,
+      path: '/goals',
+      icon: React.createElement(Flag, { size: 18 }),
+      permission: 'goal.view',
     },
     {
       label: nav.netWorth as ReactNode,
@@ -153,36 +141,34 @@ export function buildNavItems(nav: {
       permission: 'report.view',
     },
     {
-      label: nav.budgets as ReactNode,
-      path: '/budgets',
-      icon: React.createElement(PiggyBank, { size: 18 }),
-      permission: 'budget.view',
-    },
-    {
       label: nav.advice as ReactNode,
       path: '/advice',
       icon: React.createElement(Lightbulb, { size: 18 }),
       permission: 'statement.view',
     },
     {
-      label: nav.goals as ReactNode,
-      path: '/goals',
-      icon: React.createElement(Flag, { size: 18 }),
-      permission: 'goal.view',
+      label: nav.invoices as ReactNode,
+      path: '/invoices',
+      icon: React.createElement(ReceiptText, { size: 18 }),
+      permission: 'invoice.view',
+      businessOnly: true,
     },
     {
-      label: nav.roi as ReactNode,
-      path: '/roi',
-      icon: React.createElement(Calculator, { size: 18 }),
-      // A standalone calculator that reads nothing of the workspace's data,
-      // so being a member is enough to open it.
-      permission: 'statement.view',
+      label: nav.taxDeclaration as ReactNode,
+      path: '/tax-declaration',
+      icon: React.createElement(Landmark, { size: 18 }),
+      // Matches the draft endpoints' read guard (Permission.REPORT_VIEW).
+      permission: 'report.view',
+      businessOnly: true,
     },
     {
-      label: nav.subscriptions as ReactNode,
-      path: '/subscriptions',
-      icon: React.createElement(CreditCard, { size: 18 }),
-      permission: 'subscription.view',
+      label: nav.ledger as ReactNode,
+      path: '/ledger',
+      icon: React.createElement(Scale, { size: 18 }),
+      permission: 'ledger.view',
+      // Behind experimental mode until the ledger has been used on real books for a while.
+      experimental: true,
+      businessOnly: true,
     },
     {
       label: nav.crypto as ReactNode,
@@ -193,11 +179,25 @@ export function buildNavItems(nav: {
       permission: 'wallet.view',
     },
     {
-      label: nav.invoices as ReactNode,
-      path: '/invoices',
-      icon: React.createElement(ReceiptText, { size: 18 }),
-      permission: 'invoice.view',
+      label: nav.roi as ReactNode,
+      path: '/roi',
+      icon: React.createElement(Calculator, { size: 18 }),
+      // A standalone calculator that reads nothing of the workspace's data,
+      // so being a member is enough to open it.
+      permission: 'statement.view',
+    },
+    {
+      label: nav.tables as ReactNode,
+      path: '/custom-tables',
+      icon: React.createElement(Table, { size: 18 }),
+      permission: 'statement.view',
       businessOnly: true,
+    },
+    {
+      label: nav.workspaces as ReactNode,
+      path: '/workspaces',
+      icon: React.createElement(Building2, { size: 18 }),
+      permission: 'workspaces.view',
     },
   ];
 }
