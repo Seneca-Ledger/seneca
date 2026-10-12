@@ -1,20 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import { Type } from 'class-transformer';
-import {
-  ArrayMaxSize,
-  IsArray,
-  IsIn,
-  IsInt,
-  IsObject,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Max,
-  MaxLength,
-  Min,
-  ValidateIf,
-  ValidateNested,
-} from 'class-validator';
 import type { TaxpayerType } from '../rule-packs/types';
 
 const MIN_TAX_YEAR = 2000;
@@ -28,42 +12,4 @@ export function parseTaxYear(value: string | number | undefined): number {
     throw new BadRequestException(`taxYear must be a year between ${MIN_TAX_YEAR} and ${maxYear}`);
   }
   return year;
-}
-
-export class UpdateIncomeTaxProfileDto {
-  @IsInt()
-  @Min(MIN_TAX_YEAR)
-  @Max(2100)
-  taxYear: number;
-
-  @IsIn(TAXPAYER_TYPES)
-  taxpayerType: TaxpayerType;
-
-  @IsOptional()
-  @IsObject()
-  details?: Record<string, unknown>;
-}
-
-export class IncomeTaxMappingEntryDto {
-  @IsUUID()
-  categoryId: string;
-
-  /** NULL withdraws the mapping. */
-  @ValidateIf((entry: IncomeTaxMappingEntryDto) => entry.lineKey !== null)
-  @IsString()
-  @MaxLength(64)
-  lineKey: string | null;
-}
-
-export class SaveIncomeTaxMappingsDto {
-  @IsInt()
-  @Min(MIN_TAX_YEAR)
-  @Max(2100)
-  taxYear: number;
-
-  @IsArray()
-  @ArrayMaxSize(500)
-  @ValidateNested({ each: true })
-  @Type(() => IncomeTaxMappingEntryDto)
-  entries: IncomeTaxMappingEntryDto[];
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { isAbortError } from '../utils/pasteUtils';
 
 export const AGGREGATE_FNS = ['sum', 'avg', 'min', 'max', 'count'] as const;
@@ -25,13 +26,6 @@ interface UseTableAggregatesParams {
 export interface UseTableAggregatesReturn {
   values: AggregateValues;
   loading: boolean;
-}
-
-function parseAggregateItems(responseData: unknown): Array<{ col: string; value: unknown }> {
-  const root = (responseData ?? {}) as Record<string, unknown>;
-  const nested = (root.data ?? {}) as Record<string, unknown>;
-  const items = root.items ?? nested.items ?? [];
-  return Array.isArray(items) ? (items as Array<{ col: string; value: unknown }>) : [];
 }
 
 export function useTableAggregates({
@@ -66,12 +60,17 @@ export function useTableAggregates({
         signal: controller.signal,
         params: { aggs: aggsKey, filters: combinedFiltersParam },
       });
+      const page = await checkContract(
+        'CustomTableAggregates',
+        response.data,
+        '/custom-tables/:id/aggregates',
+      );
       if (controller.signal.aborted) {
         return;
       }
       const next: AggregateValues = {};
-      for (const item of parseAggregateItems(response.data)) {
-        next[item.col] = (item.value ?? null) as number | string | null;
+      for (const item of page.items) {
+        next[item.col] = item.value;
       }
       setValues(next);
     })()

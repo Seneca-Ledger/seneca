@@ -24,6 +24,7 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
 type ReportStatus = 'pending' | 'sent' | 'failed';
@@ -103,8 +104,10 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
   const loadReports = async (): Promise<void> => {
     await (async () => {
       setLoadingReports(true);
+      // Not apiQueryDecoded: it would unwrap `data` and check the rows against the page.
       const response = await apiClient.get('/telegram/reports');
-      setReports(response.data.data || response.data || []);
+      const page = await checkContract('TelegramReportPage', response.data, '/telegram/reports');
+      setReports(page.data);
     })()
       .catch(async err => {
         console.error('Failed to load telegram reports', err);
@@ -116,10 +119,12 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
 
   const loadBotSettings = async (): Promise<void> => {
     await (async () => {
-      const response = await apiClient.get('/settings/notifications/telegram');
-      const settings = response.data?.settings || {};
-      setBotConfigured(Boolean(settings.botTokenConfigured || response.data?.connected));
-      setBotTimeoutMs(String(settings.timeoutMs || 10000));
+      const bot = await apiQueryDecoded({
+        url: '/settings/notifications/telegram',
+        contract: 'TelegramBotStatus',
+      });
+      setBotConfigured(bot.settings.botTokenConfigured || bot.connected);
+      setBotTimeoutMs(String(bot.settings.timeoutMs || 10000));
     })().catch(async err => {
       console.error('Failed to load telegram bot settings', err);
     });
@@ -138,7 +143,7 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
       await apiClient.put('/settings/notifications/telegram', {
         botToken,
         timeoutMs: Number(botTimeoutMs) || 10000,
-      });
+      } satisfies ContractInput<'SaveTelegramSettingsBody'>);
       setBotToken('');
       setBotConfigured(true);
       setStatusMessage(t.bot.saved.value);
@@ -162,7 +167,10 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
       setLoading(true);
       setStatusMessage(null);
       setError(null);
-      await apiClient.post('/telegram/connect', { chatId, telegramId: telegramId || undefined });
+      await apiClient.post('/telegram/connect', {
+        chatId,
+        telegramId: telegramId || undefined,
+      } satisfies ContractInput<'ConnectTelegramBody'>);
       setStatusMessage(t.messages.connected.value);
     })()
       .catch(async err => {
@@ -184,7 +192,7 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
       await apiClient.post('/telegram/send-report', {
         reportType: type,
         chatId: chatId || undefined,
-      });
+      } satisfies ContractInput<'SendTelegramReportBody'>);
       setStatusMessage(t.messages.sent.value);
       await loadReports();
     })()

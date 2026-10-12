@@ -12,7 +12,9 @@ vi.mock('@/app/i18n', () => ({ useIntlayer: () => ({}) }));
 
 describe('UnconfirmedNotice', () => {
   it('says how much waits in Review and links there', async () => {
-    apiGet.mockResolvedValue({ data: { total: 7 } });
+    apiGet.mockResolvedValue({
+      data: { transaction: 4, receipt: 3, duplicate: 0, subscription: 0, total: 7 },
+    });
 
     renderWithQuery(<UnconfirmedNotice />);
 
@@ -23,7 +25,9 @@ describe('UnconfirmedNotice', () => {
   });
 
   it('stays hidden when nothing waits', async () => {
-    apiGet.mockResolvedValue({ data: { total: 0 } });
+    apiGet.mockResolvedValue({
+      data: { transaction: 0, receipt: 0, duplicate: 0, subscription: 0, total: 0 },
+    });
 
     renderWithQuery(<UnconfirmedNotice />);
 

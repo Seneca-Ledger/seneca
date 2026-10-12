@@ -24,7 +24,7 @@ export interface StatementsStatement {
   exported?: boolean | null;
   paid?: boolean | null;
   createdAt: string;
-  processedAt?: string;
+  processedAt?: string | null;
   statementDateFrom?: string | null;
   statementDateTo?: string | null;
   bankName: string;
@@ -62,7 +62,7 @@ export interface StatementsStatement {
       categoryId?: string;
     };
     metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  };
+  } | null;
   gmailMessageId?: string;
   receivedAt?: string;
   parsedData?: {

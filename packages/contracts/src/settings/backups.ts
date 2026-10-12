@@ -1,0 +1,41 @@
+import * as Schema from 'effect/Schema';
+import { DecimalString, Timestamp, type Wire } from '../common/wire';
+
+export const BackupDestinationKind = Schema.Literals(['nextcloud', 'local']);
+export type BackupDestinationKind = Wire<typeof BackupDestinationKind>;
+
+/** `GET /backups/config`: null until the workspace sets backups up. Never the password. */
+export const BackupConfiguration = Schema.NullOr(
+  Schema.Struct({
+    id: Schema.String,
+    destinationKind: BackupDestinationKind,
+    destinationPath: Schema.String,
+    /** HH:mm in `timeZone`. */
+    dailyTime: Schema.String,
+    timeZone: Schema.String,
+    retentionCount: Schema.Number,
+    enabled: Schema.Boolean,
+    lastSuccessfulAt: Schema.NullOr(Timestamp),
+    passwordConfigured: Schema.Boolean,
+  }),
+);
+export type BackupConfiguration = Wire<typeof BackupConfiguration>;
+
+/** One row of `GET /backups/runs`, newest first. */
+export const BackupRun = Schema.Struct({
+  id: Schema.String,
+  trigger: Schema.Literals(['manual', 'scheduled']),
+  status: Schema.Literals(['running', 'succeeded', 'failed']),
+  destinationFile: Schema.NullOr(Schema.String),
+  payloadSha256: Schema.NullOr(Schema.String),
+  /** bigint column: a decimal string. */
+  sizeBytes: Schema.NullOr(DecimalString),
+  errorMessage: Schema.NullOr(Schema.String),
+  startedAt: Timestamp,
+  finishedAt: Schema.NullOr(Timestamp),
+  createdAt: Timestamp,
+});
+export type BackupRun = Wire<typeof BackupRun>;
+
+export const BackupRunList = Schema.Array(BackupRun);
+export type BackupRunList = Wire<typeof BackupRunList>;

@@ -69,3 +69,8 @@ vi.mock('next/image', () => ({
     return React.createElement('img', { alt, ...rest });
   },
 }));
+
+// checkContract loads the contract schemas with a dynamic import. Loading the
+// module once here keeps that import within the single flush most page tests
+// wait for after a render.
+await import('@/app/lib/contract-check');

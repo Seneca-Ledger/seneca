@@ -1,12 +1,13 @@
-import { Body, Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { ConnectBankSyncBody, UpdateBankSyncSettingsBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BankSyncService } from './bank-sync.service';
-import { ConnectBankSyncDto, UpdateBankSyncSettingsDto } from './dto/bank-sync.dto';
 
 @Controller('integrations/simplefin')
 export class BankSyncController {
@@ -23,14 +24,17 @@ export class BankSyncController {
   connect(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() body: ConnectBankSyncDto,
+    @SchemaBody(ConnectBankSyncBody) body: ConnectBankSyncBody,
   ) {
     return this.bankSyncService.connect(user, workspaceId, body.setupToken);
   }
 
   @Post('settings')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  updateSettings(@WorkspaceId() workspaceId: string, @Body() body: UpdateBankSyncSettingsDto) {
+  updateSettings(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(UpdateBankSyncSettingsBody) body: UpdateBankSyncSettingsBody,
+  ) {
     return this.bankSyncService.updateSettings(workspaceId, body);
   }
 

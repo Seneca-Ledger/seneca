@@ -19,6 +19,8 @@ import {
   type SelectQueryBuilder,
 } from 'typeorm';
 import * as xlsx from 'xlsx';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
 import { appDefaultCurrency, currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
@@ -26,6 +28,28 @@ import { normalizeFilename } from '../../common/utils/filename.util';
 import { generateTransactionFingerprint } from '../../common/utils/fingerprint.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type {
+  BatchCreateCustomTableRowsBody,
+  ClassifyPaidStatusBody,
+  ColumnStylePartInput,
+  CreateCustomTableBody,
+  CreateCustomTableColumnBody,
+  CreateCustomTableFromDataEntryBody,
+  CreateCustomTableFromDataEntryCustomTabBody,
+  CreateCustomTableFromSourceBody,
+  CreateCustomTableRowBody,
+  PreviewCustomTableSourceBody,
+  PreviewFormulaBody,
+  ReorderCustomTableColumnsBody,
+  SourceFiltersInput,
+  UpdateCustomTableBody,
+  UpdateCustomTableColumnBody,
+  UpdateCustomTableColumnStyleBody,
+  UpdateCustomTableRowBody,
+  UpdateCustomTableSummariesBody,
+  UpdateCustomTableViewSettingsColumnBody,
+  UpdateCustomTableViewsBody,
+} from '../../contracts';
 import {
   ActorType,
   AuditAction,
@@ -56,17 +80,7 @@ import { AuditService } from '../audit/audit.service';
 import { ClassificationService } from '../classification/services/classification.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { CustomTableSourcesService } from './custom-table-sources.service';
-import type { BatchCreateCustomTableRowsDto } from './dto/batch-create-custom-table-rows.dto';
-import type { ClassifyPaidStatusDto } from './dto/classify-paid-status.dto';
-import type { CreateCustomTableDto } from './dto/create-custom-table.dto';
-import type { CreateCustomTableColumnDto } from './dto/create-custom-table-column.dto';
-import {
-  type CreateCustomTableFromDataEntryDto,
-  DataEntryToCustomTableScope,
-} from './dto/create-custom-table-from-data-entry.dto';
-import type { CreateCustomTableFromDataEntryCustomTabDto } from './dto/create-custom-table-from-data-entry-custom-tab.dto';
-import type { CreateCustomTableFromSourceDto } from './dto/create-custom-table-from-source.dto';
-import type { CreateCustomTableRowDto } from './dto/create-custom-table-row.dto';
+import { DataEntryToCustomTableScope } from './dto/create-custom-table-from-data-entry.dto';
 import {
   CUSTOM_TABLE_AGGREGATE_FNS,
   type CustomTableAggregateDto,
@@ -75,20 +89,6 @@ import {
   type CustomTableRowFilterDto,
   type CustomTableRowSortDto,
 } from './dto/list-custom-table-rows.dto';
-import type { PreviewCustomTableSourceDto } from './dto/preview-custom-table-source.dto';
-import type { PreviewFormulaDto } from './dto/preview-formula.dto';
-import type { ReorderCustomTableColumnsDto } from './dto/reorder-custom-table-columns.dto';
-import type { SourceFiltersDto } from './dto/source-filters.dto';
-import type { UpdateCustomTableDto } from './dto/update-custom-table.dto';
-import type { UpdateCustomTableColumnDto } from './dto/update-custom-table-column.dto';
-import type {
-  ColumnStylePartDto,
-  UpdateCustomTableColumnStyleDto,
-} from './dto/update-custom-table-column-style.dto';
-import type { UpdateCustomTableRowDto } from './dto/update-custom-table-row.dto';
-import type { UpdateCustomTableSummariesDto } from './dto/update-custom-table-summaries.dto';
-import type { UpdateCustomTableViewSettingsColumnDto } from './dto/update-custom-table-view-settings.dto';
-import type { UpdateCustomTableViewsDto } from './dto/update-custom-table-views.dto';
 import { FormulaRecalcService, formulaColumnsOf } from './formula-recalc.service';
 import { AiColumnFiller } from './helpers/ai-column.helper';
 import { AiPaidStatusClassifier, type PaidStatusInput } from './helpers/ai-paid-status.helper';
@@ -808,7 +808,7 @@ export class CustomTablesService {
   async createTable(
     userId: string,
     workspaceId: string,
-    dto: CreateCustomTableDto,
+    dto: CreateCustomTableBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const categoryId =
@@ -892,12 +892,12 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: UpdateCustomTableDto,
+    dto: UpdateCustomTableBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const table = await this.requireTable(workspaceId, tableId);
     const before = { ...table };
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       table.name = dto.name;
     }
     if (dto.description !== undefined) {
@@ -927,10 +927,11 @@ export class CustomTablesService {
   async createFromDataEntry(
     userId: string,
     workspaceId: string,
-    dto: CreateCustomTableFromDataEntryDto,
+    dto: CreateCustomTableFromDataEntryBody,
   ): Promise<{ tableId: string; columnsCreated: number; rowsCreated: number }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
-    const selectedType = dto.scope === DataEntryToCustomTableScope.TYPE ? dto.type : undefined;
+    const selectedType =
+      dto.scope === DataEntryToCustomTableScope.TYPE ? toEnum(DataEntryType, dto.type) : undefined;
 
     let entries: DataEntry[];
     try {
@@ -1191,7 +1192,7 @@ export class CustomTablesService {
   async createFromDataEntryCustomTab(
     userId: string,
     workspaceId: string,
-    dto: CreateCustomTableFromDataEntryCustomTabDto,
+    dto: CreateCustomTableFromDataEntryCustomTabBody,
   ): Promise<{ tableId: string; columnsCreated: number; rowsCreated: number }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     let customTab: DataEntryCustomField | null = null;
@@ -1571,7 +1572,7 @@ export class CustomTablesService {
   }
 
   /** Empty filter values are dropped so the stored binding equals what the preview used. */
-  private normalizeSourceFilters(filters: SourceFiltersDto | undefined): JsonObject {
+  private normalizeSourceFilters(filters: SourceFiltersInput | undefined): JsonObject {
     const normalized: JsonObject = {};
     for (const [key, value] of Object.entries(filters ?? {})) {
       if (value === undefined || value === null || value === '') {
@@ -1592,7 +1593,7 @@ export class CustomTablesService {
   async previewSource(
     userId: string,
     workspaceId: string,
-    dto: PreviewCustomTableSourceDto,
+    dto: PreviewCustomTableSourceBody,
   ): Promise<{
     count: number;
     columns: Array<{ field: string; title: string; type: CustomTableColumnType }>;
@@ -1603,7 +1604,9 @@ export class CustomTablesService {
     const rows = await this.fetchSourceRows(
       adapter,
       workspaceId,
-      this.normalizeSourceFilters(dto.filters) as SourceFilters,
+      this.normalizeSourceFilters(
+        dto.filters ? withoutNulls(dto.filters) : undefined,
+      ) as SourceFilters,
     );
     return {
       count: rows.length,
@@ -1619,11 +1622,13 @@ export class CustomTablesService {
   async createFromSource(
     userId: string,
     workspaceId: string,
-    dto: CreateCustomTableFromSourceDto,
+    dto: CreateCustomTableFromSourceBody,
   ): Promise<{ tableId: string; columnsCreated: number; rowsCreated: number }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const adapter = this.requireSources().get(dto.kind);
-    const filters = this.normalizeSourceFilters(dto.filters);
+    const filters = this.normalizeSourceFilters(
+      dto.filters ? withoutNulls(dto.filters) : undefined,
+    );
     const sourceRows = await this.fetchSourceRows(adapter, workspaceId, filters as SourceFilters);
     if (!sourceRows.length) {
       throw new BadRequestException(appError('SOURCE_EMPTY'));
@@ -2378,7 +2383,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: PreviewFormulaDto,
+    dto: PreviewFormulaBody,
   ): Promise<{
     valid: boolean;
     error: string | null;
@@ -2446,22 +2451,23 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: CreateCustomTableColumnDto,
+    dto: CreateCustomTableColumnBody,
   ): Promise<CustomTableColumn> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
 
-    this.validateNumberConfig(dto.type, dto.config);
-    this.validateSelectConfig(dto.type, dto.config);
-    await this.validateFormulaConfig(tableId, dto.type, dto.config, null, dto.title);
-    await this.validateRelationConfig(workspaceId, dto.type, dto.config);
+    const type = toEnum(CustomTableColumnType, dto.type);
+    this.validateNumberConfig(type ?? undefined, dto.config);
+    this.validateSelectConfig(type ?? undefined, dto.config);
+    await this.validateFormulaConfig(tableId, type ?? undefined, dto.config, null, dto.title);
+    await this.validateRelationConfig(workspaceId, type ?? undefined, dto.config);
 
     const position = dto.position ?? (await this.getNextColumnPosition(tableId));
     const column = this.customTableColumnRepository.create({
       tableId,
       key: this.generateColumnKey(),
       title: dto.title,
-      type: dto.type ?? CustomTableColumnType.TEXT,
+      type: type ?? CustomTableColumnType.TEXT,
       isRequired: dto.isRequired ?? false,
       isUnique: dto.isUnique ?? false,
       position,
@@ -2514,7 +2520,7 @@ export class CustomTablesService {
     workspaceId: string,
     tableId: string,
     columnId: string,
-    dto: UpdateCustomTableColumnDto,
+    dto: UpdateCustomTableColumnBody,
   ): Promise<CustomTableColumn> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -2534,19 +2540,19 @@ export class CustomTablesService {
     }
 
     const before = { ...column };
-    if (dto.title !== undefined) {
+    if (dto.title != null) {
       column.title = dto.title;
     }
-    if (dto.type !== undefined) {
-      column.type = dto.type;
+    if (dto.type != null) {
+      column.type = toEnum(CustomTableColumnType, dto.type);
     }
-    if (dto.isRequired !== undefined) {
+    if (dto.isRequired != null) {
       column.isRequired = dto.isRequired;
     }
-    if (dto.isUnique !== undefined) {
+    if (dto.isUnique != null) {
       column.isUnique = dto.isUnique;
     }
-    if (dto.position !== undefined) {
+    if (dto.position != null) {
       column.position = dto.position;
     }
     if (dto.config !== undefined) {
@@ -2593,7 +2599,7 @@ export class CustomTablesService {
     workspaceId: string,
     tableId: string,
     columnId: string,
-    dto: UpdateCustomTableColumnStyleDto,
+    dto: UpdateCustomTableColumnStyleBody,
   ): Promise<{ columnKey: string; style: JsonObject }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -2658,7 +2664,7 @@ export class CustomTablesService {
 
   private mergeColumnStyle(
     before: JsonObject | null,
-    dto: UpdateCustomTableColumnStyleDto,
+    dto: UpdateCustomTableColumnStyleBody,
   ): JsonObject {
     const next: JsonObject = { ...(before ?? {}) };
     for (const part of ['header', 'cell'] as const) {
@@ -2677,7 +2683,7 @@ export class CustomTablesService {
   }
 
   /** Оставляем только заполненные поля; пустая часть превращается в null. */
-  private normalizeColumnStylePart(part: ColumnStylePartDto): JsonObject | null {
+  private normalizeColumnStylePart(part: ColumnStylePartInput): JsonObject | null {
     const result: JsonObject = {};
     if (part.backgroundColor) {
       result.backgroundColor = part.backgroundColor;
@@ -2699,7 +2705,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: ReorderCustomTableColumnsDto,
+    dto: ReorderCustomTableColumnsBody,
   ): Promise<void> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -2871,7 +2877,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: UpdateCustomTableSummariesDto,
+    dto: UpdateCustomTableSummariesBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const table = await this.requireTable(workspaceId, tableId);
@@ -4102,7 +4108,7 @@ export class CustomTablesService {
   async classifyPaidStatus(
     workspaceId: string,
     tableId: string,
-    dto: ClassifyPaidStatusDto,
+    dto: ClassifyPaidStatusBody,
   ): Promise<{ items: Array<{ rowId: string; paid: boolean | null }> }> {
     await this.requireTable(workspaceId, tableId);
     const rowIds = Array.isArray(dto.rowIds) ? dto.rowIds.filter(Boolean) : [];
@@ -4245,7 +4251,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: CreateCustomTableRowDto,
+    dto: CreateCustomTableRowBody,
   ): Promise<CustomTableRow> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -4290,7 +4296,7 @@ export class CustomTablesService {
     workspaceId: string,
     tableId: string,
     rowId: string,
-    dto: UpdateCustomTableRowDto,
+    dto: UpdateCustomTableRowBody,
   ): Promise<CustomTableRow> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -4423,7 +4429,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: BatchCreateCustomTableRowsDto,
+    dto: BatchCreateCustomTableRowsBody,
   ): Promise<{ created: number; rows: CustomTableRow[] }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -4474,7 +4480,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: UpdateCustomTableViewSettingsColumnDto,
+    dto: UpdateCustomTableViewSettingsColumnBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const table = await this.requireTable(workspaceId, tableId);
@@ -4499,7 +4505,7 @@ export class CustomTablesService {
       columns[columnKey] && typeof columns[columnKey] === 'object' ? columns[columnKey] : {};
     const next = { ...existing };
 
-    if (dto.width !== undefined) {
+    if (dto.width != null) {
       next.width = dto.width;
     }
 
@@ -4583,7 +4589,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: UpdateCustomTableViewsDto,
+    dto: UpdateCustomTableViewsBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const table = await this.requireTable(workspaceId, tableId);
@@ -4596,9 +4602,9 @@ export class CustomTablesService {
       }
       ids.add(view.id);
 
-      // class-validator проверяет, что aggregates — объект, но не его значения.
+      // Схема пропускает любую строку: неизвестная функция получает свой код ошибки.
       for (const [col, fn] of Object.entries(view.aggregates ?? {})) {
-        if (!CUSTOM_TABLE_AGGREGATE_FNS.includes(fn)) {
+        if (!(CUSTOM_TABLE_AGGREGATE_FNS as readonly string[]).includes(fn)) {
           throw new BadRequestException(
             appError('AGG_TOTAL_FUNCTION_UNKNOWN', { column: String(col), fn: String(fn) }),
           );

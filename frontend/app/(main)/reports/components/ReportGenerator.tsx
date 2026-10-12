@@ -11,6 +11,7 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { Download, X } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import { ReportPreview, type ReportPreviewData } from './ReportPreview';
 import { type ReportScope, ReportScopeFilters } from './ReportScopeFilters';
@@ -123,8 +124,11 @@ export function ReportGenerator({
     setPreviewError(null);
 
     await (async () => {
-      const response = await apiClient.post('/reports/preview', buildParams());
-      setPreview(response.data as ReportPreviewData);
+      const response = await apiClient.post(
+        '/reports/preview',
+        buildParams() satisfies ContractInput<'GenerateReportBody'>,
+      );
+      setPreview(await checkContract('ReportPreview', response.data, '/reports/preview'));
     })()
       .catch(async () => {
         setPreview(null);

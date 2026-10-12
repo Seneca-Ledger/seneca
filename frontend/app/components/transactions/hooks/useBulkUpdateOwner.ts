@@ -2,6 +2,7 @@
 
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface BulkUpdateOwnerVariables {
   txIds: string[];
@@ -31,7 +32,7 @@ export function useBulkUpdateOwner(): UseMutationResult<unknown, Error, BulkUpda
       };
       return api.post('/transactions/bulk-update', {
         items: txIds.map(id => ({ id, updates })),
-      });
+      } satisfies ContractInput<'BulkUpdateRequestBody'>);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['transactions'] });

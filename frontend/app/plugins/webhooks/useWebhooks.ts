@@ -6,8 +6,11 @@ import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+
+/** The events a webhook subscription can listen to. */
+export type WebhookEventName = ContractInput<'CreateWebhookSubscriptionBody'>['events'][number];
 
 export interface WebhookEndpoint {
   id: string;
@@ -40,7 +43,8 @@ export function useWebhookEndpoints() {
 
   const query = useQuery({
     queryKey: queryKeys.webhookEndpoints(workspaceId),
-    queryFn: ({ signal }) => apiQuery<WebhookEndpoint[]>({ url: '/webhook-endpoints', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/webhook-endpoints', signal, contract: 'WebhookEndpointList' }),
   });
 
   const invalidate = useCallback((): Promise<void> => {
@@ -48,9 +52,14 @@ export function useWebhookEndpoints() {
   }, [queryClient, workspaceId]);
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => apiClient.post('/webhook-endpoints', { name }),
-    onSuccess: response => {
-      setNewToken((response.data as WebhookEndpointFull).token);
+    mutationFn: async (name: string) => {
+      const response = await apiClient.post('/webhook-endpoints', {
+        name,
+      } satisfies ContractInput<'CreateWebhookEndpointBody'>);
+      return checkContract('CreatedWebhookEndpoint', response.data, '/webhook-endpoints');
+    },
+    onSuccess: endpoint => {
+      setNewToken(endpoint.token);
       toast.success(t.toasts.endpointCreated.value);
     },
     onError: () => toast.error(t.toasts.endpointCreateFailed.value),
@@ -66,7 +75,9 @@ export function useWebhookEndpoints() {
 
   const toggleMutation = useMutation({
     mutationFn: (variables: { id: string; isActive: boolean }) =>
-      apiClient.patch(`/webhook-endpoints/${variables.id}`, { isActive: !variables.isActive }),
+      apiClient.patch(`/webhook-endpoints/${variables.id}`, {
+        isActive: !variables.isActive,
+      } satisfies ContractInput<'UpdateWebhookEndpointBody'>),
     onError: () => toast.error(t.toasts.endpointUpdateFailed.value),
     onSettled: invalidate,
   });
@@ -116,7 +127,11 @@ export function useWebhookSubscriptions() {
   const query = useQuery({
     queryKey: queryKeys.webhookSubscriptions(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<WebhookSubscription[]>({ url: '/webhook-subscriptions', signal }),
+      apiQueryDecoded({
+        url: '/webhook-subscriptions',
+        signal,
+        contract: 'WebhookSubscriptionList',
+      }),
   });
 
   const invalidate = useCallback((): Promise<void> => {
@@ -126,8 +141,11 @@ export function useWebhookSubscriptions() {
   }, [queryClient, workspaceId]);
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; url: string; secret: string; events: string[] }) =>
-      apiClient.post('/webhook-subscriptions', data),
+    mutationFn: (data: { name: string; url: string; secret: string; events: WebhookEventName[] }) =>
+      apiClient.post(
+        '/webhook-subscriptions',
+        data satisfies ContractInput<'CreateWebhookSubscriptionBody'>,
+      ),
     onSuccess: () => toast.success(t.toasts.subscriptionCreated.value),
     onError: () => toast.error(t.toasts.subscriptionCreateFailed.value),
     onSettled: invalidate,
@@ -145,7 +163,7 @@ export function useWebhookSubscriptions() {
   }, [invalidate]);
 
   const create = useCallback(
-    async (data: { name: string; url: string; secret: string; events: string[] }) => {
+    async (data: { name: string; url: string; secret: string; events: WebhookEventName[] }) => {
       createMutation.mutate(data);
     },
     [createMutation.mutate],

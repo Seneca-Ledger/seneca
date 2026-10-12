@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { AVAILABLE_BACKGROUNDS } from '@/app/(main)/workspaces/constants';
 import type { User } from '@/app/contexts/AuthContext';
-import apiClient from '@/app/lib/api';
 import type { AppLocale } from '@/app/lib/locale';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { resolveOnboardingBootstrapLocale } from '../lib/locale-bootstrap';
 import type { OnboardingData } from '../useOnboardingWizard';
 
@@ -119,11 +119,9 @@ export function useOnboardingBootstrap({
       return;
     }
 
-    apiClient
-      .get('/workspaces')
-      .then(response =>
-        finish(answersFromWorkspace(pickWorkspace(response.data, user.workspaceId))),
-      )
+    // Drift is reported, not thrown: onboarding must not stall on a contract.
+    apiQueryDecoded({ url: '/workspaces', contract: 'WorkspaceList', drift: 'report' })
+      .then(workspaces => finish(answersFromWorkspace(pickWorkspace(workspaces, user.workspaceId))))
       .catch(() => {
         if (!cancelled) {
           setWorkspaceLoadFailed(true);

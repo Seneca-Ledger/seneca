@@ -2,10 +2,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
+import { Schema } from 'effect';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { StatementList } from '../../src/contracts';
 import { Category, CategoryType, Note, Transaction, TransactionType } from '../../src/entities';
+import { StatementParsingProcessor } from '../../src/modules/parsing/queue/statement-parsing.processor';
 import { accessTokenOf, deleteUserByEmail, e2eTestingModule } from './helpers/e2e-app';
 
 describe('StatementsController (e2e)', () => {
@@ -49,6 +52,10 @@ describe('StatementsController (e2e)', () => {
   });
 
   afterAll(async () => {
+    // Uploads are parsed in the background, and a parse still running would
+    // insert categories for the user this cleanup deletes. Closing the worker
+    // waits for its active jobs.
+    await app?.get(StatementParsingProcessor).worker.close();
     // Cleanup test data
     if (dataSource) {
       await dataSource.query(
@@ -140,6 +147,8 @@ describe('StatementsController (e2e)', () => {
         .expect(res => {
           expect(Array.isArray(res.body.data)).toBe(true);
           expect(res.body.data.length).toBeGreaterThan(0);
+          // The frontend checks this list against the same contract in dev.
+          Schema.decodeUnknownSync(StatementList)(res.body.data);
         });
     });
 
@@ -173,6 +182,8 @@ describe('StatementsController (e2e)', () => {
         .set('x-workspace-id', workspaceId)
         .expect(200);
       expect(ids(completed)).toContain(manual.body.id);
+      // A manual expense has a category and totals, so it exercises more of the contract.
+      Schema.decodeUnknownSync(StatementList)(completed.body.data);
       for (const statement of completed.body.data) {
         expect(statement.status).toBe('completed');
       }

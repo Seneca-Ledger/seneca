@@ -7,22 +7,12 @@ import { DashboardCard } from '@/app/components/dashboard/ui/DashboardCard';
 import { useHouseholdMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
 /** Short: the point is "recently", and the full audit is a page of its own. */
 const ACTIVITY_LIMIT = 8;
 const ACTIVITY_STALE_TIME = 60 * 1000;
-
-interface ActivityEntry {
-  id: string;
-  actorName: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  description: string | null;
-  createdAt: string;
-}
 
 /**
  * Who in the household moved what, lately.
@@ -39,10 +29,11 @@ export function WorkspaceActivityCard(): React.JSX.Element | null {
   const { data } = useQuery({
     queryKey: ['workspace-activity', workspaceId, ACTIVITY_LIMIT],
     queryFn: ({ signal }) =>
-      apiQuery<{ items: ActivityEntry[] }>({
+      apiQueryDecoded({
         url: '/audit-events/activity',
         params: { limit: ACTIVITY_LIMIT },
         signal,
+        contract: 'WorkspaceActivity',
       }),
     staleTime: ACTIVITY_STALE_TIME,
     enabled: Boolean(workspaceId) && members.length > 0,

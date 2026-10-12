@@ -8,7 +8,10 @@ import * as path from 'path';
 import { BankName, FileType, type Statement, StatementStatus } from '@/entities/statement.entity';
 import type { Transaction } from '@/entities/transaction.entity';
 import type { ParsedStatement } from '@/modules/parsing/interfaces/parsed-statement.interface';
-import { StatementProcessingService } from '@/modules/parsing/services/statement-processing.service';
+import {
+  StatementProcessingService,
+  StatementRejected,
+} from '@/modules/parsing/services/statement-processing.service';
 
 describe('StatementProcessingService', () => {
   const tempFilePath = path.join(os.tmpdir(), 'sample.pdf');
@@ -322,6 +325,47 @@ describe('StatementProcessingService', () => {
     expect(savedTransactions).toHaveLength(0);
     expect(statement.status).toBe(StatementStatus.ERROR);
     expect(statement.errorMessage).toBe('deadlock detected');
+  });
+
+  describe('failure notifications', () => {
+    let emit: jest.Mock;
+    beforeEach(() => {
+      emit = jest.fn();
+      (service as any).eventEmitter = { emit };
+    });
+    const parsingErrors = () => emit.mock.calls.filter(([name]) => name === 'parsing.error');
+
+    it('records a failure the queue will retry without telling the user yet', async () => {
+      dataSource.transaction.mockRejectedValueOnce(new Error('deadlock detected'));
+
+      await expect(
+        service.processStatement(statement.id, { finalAttempt: false }),
+      ).rejects.toThrow('deadlock detected');
+
+      expect(statement.status).toBe(StatementStatus.ERROR);
+      expect(parsingErrors()).toHaveLength(0);
+    });
+
+    it('tells the user once the last attempt fails', async () => {
+      dataSource.transaction.mockRejectedValueOnce(new Error('deadlock detected'));
+
+      await expect(
+        service.processStatement(statement.id, { finalAttempt: true }),
+      ).rejects.toThrow('deadlock detected');
+
+      expect(parsingErrors()).toHaveLength(1);
+    });
+
+    it('rejects a file no parser accepts, and tells the user on the first attempt', async () => {
+      parserFactory.getParser.mockResolvedValueOnce(null as never);
+
+      const failure = service.processStatement(statement.id, { finalAttempt: false });
+
+      await expect(failure).rejects.toBeInstanceOf(StatementRejected);
+      await expect(failure).rejects.toThrow('No parser found');
+      expect(statement.status).toBe(StatementStatus.ERROR);
+      expect(parsingErrors()).toHaveLength(1);
+    });
   });
 
   it('imports without a fingerprint rather than failing when generation throws', async () => {

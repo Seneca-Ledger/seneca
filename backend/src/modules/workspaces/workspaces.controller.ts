@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -13,17 +12,23 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { deletedResponse } from '../../common/utils/responses.util';
+import {
+  AcceptInvitationBody,
+  CreateWorkspaceBody,
+  InviteMemberBody,
+  UpdateMemberPermissionsBody,
+  UpdateMemberRoleBody,
+  UpdateWorkspaceBody,
+} from '../../contracts';
 import type { User } from '../../entities';
+import { WorkspaceRole } from '../../entities/workspace-member.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
-import { AcceptInvitationDto } from './dto/accept-invitation.dto';
-import { CreateWorkspaceDto } from './dto/create-workspace.dto';
-import { InviteMemberDto } from './dto/invite-member.dto';
-import { UpdateMemberPermissionsDto } from './dto/update-member-permissions.dto';
-import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { WorkspacesService } from './workspaces.service';
 
 @Controller('workspaces')
@@ -83,7 +88,10 @@ export class WorkspacesController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  async createWorkspace(@CurrentUser() user: User, @Body() dto: CreateWorkspaceDto) {
+  async createWorkspace(
+    @CurrentUser() user: User,
+    @SchemaBody(CreateWorkspaceBody) dto: CreateWorkspaceBody,
+  ) {
     return this.workspacesService.createWorkspace(user.id, dto);
   }
 
@@ -92,7 +100,7 @@ export class WorkspacesController {
   async updateWorkspace(
     @CurrentUser() user: User,
     @Param('id') id: string,
-    @Body() dto: UpdateWorkspaceDto,
+    @SchemaBody(UpdateWorkspaceBody) dto: UpdateWorkspaceBody,
   ) {
     return this.workspacesService.updateWorkspace(id, user.id, dto);
   }
@@ -129,7 +137,7 @@ export class WorkspacesController {
   async inviteMemberToWorkspace(
     @CurrentUser() user: User,
     @Param('id') workspaceId: string,
-    @Body() dto: InviteMemberDto,
+    @SchemaBody(InviteMemberBody) dto: InviteMemberBody,
     @Req() req: Request,
   ) {
     return this.workspacesService.inviteMember(
@@ -156,9 +164,14 @@ export class WorkspacesController {
     @CurrentUser() user: User,
     @Param('id') workspaceId: string,
     @Param('userId') userId: string,
-    @Body() dto: UpdateMemberRoleDto,
+    @SchemaBody(UpdateMemberRoleBody) dto: UpdateMemberRoleBody,
   ) {
-    return this.workspacesService.updateMemberRole(workspaceId, user.id, userId, dto.role);
+    return this.workspacesService.updateMemberRole(
+      workspaceId,
+      user.id,
+      userId,
+      toEnum(WorkspaceRole, dto.role),
+    );
   }
 
   @Patch(':id/members/:userId/permissions')
@@ -167,13 +180,13 @@ export class WorkspacesController {
     @CurrentUser() user: User,
     @Param('id') workspaceId: string,
     @Param('userId') userId: string,
-    @Body() dto: UpdateMemberPermissionsDto,
+    @SchemaBody(UpdateMemberPermissionsBody) dto: UpdateMemberPermissionsBody,
   ) {
     return this.workspacesService.updateMemberPermissions(
       workspaceId,
       user.id,
       userId,
-      dto.permissions,
+      withoutNulls(dto.permissions),
     );
   }
 
@@ -189,7 +202,11 @@ export class WorkspacesController {
 
   @Post('invitations')
   @UseGuards(JwtAuthGuard)
-  async inviteMember(@CurrentUser() user: User, @Body() dto: InviteMemberDto, @Req() req: Request) {
+  async inviteMember(
+    @CurrentUser() user: User,
+    @SchemaBody(InviteMemberBody) dto: InviteMemberBody,
+    @Req() req: Request,
+  ) {
     return this.workspacesService.inviteMemberLegacy(user, dto, this.getRequestAppOrigin(req));
   }
 
@@ -217,7 +234,10 @@ export class WorkspacesController {
   @Post('invitations/accept')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async acceptInvitationLegacy(@CurrentUser() user: User, @Body() dto: AcceptInvitationDto) {
+  async acceptInvitationLegacy(
+    @CurrentUser() user: User,
+    @SchemaBody(AcceptInvitationBody) dto: AcceptInvitationBody,
+  ) {
     return this.workspacesService.acceptInvitation(user, dto.token);
   }
 }
