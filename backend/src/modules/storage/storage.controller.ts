@@ -11,6 +11,7 @@ import {
   Query,
   Res,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
@@ -18,6 +19,7 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
 import { pipeFileStreamResponse } from '../../common/utils/stream-response.util';
@@ -50,6 +52,7 @@ export const SHARED_LINK_PASSWORD_HEADER = 'x-share-password';
 
 @Controller('storage')
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(HideInternalColumnsInterceptor)
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}
 
@@ -530,7 +533,10 @@ export class StorageController {
     @Param('token') token: string,
     @Headers(SHARED_LINK_PASSWORD_HEADER) password?: string,
   ) {
-    return await this.storageService.accessSharedLink(token, password);
+    const access = await this.storageService.accessSharedLink(token, password);
+    const { fileName, bankName, fileSize, accountNumber } = access.statement;
+    // A public answer: only what the shared page shows of the file.
+    return { ...access, statement: { fileName, bankName, fileSize, accountNumber } };
   }
 
   /**

@@ -1732,6 +1732,51 @@ describe('API contracts (e2e)', () => {
       expect(transactions.body.data[0]).toHaveProperty('statementId');
     });
 
+    it("never hands out server paths or other members' account rows", async () => {
+      const internal = ['filePath', 'fileHash'];
+      const account = ['tokenVersion', 'googleId', 'telegramChatId', 'lastLogin', 'isActive'];
+      const statements = await get('/statements?page=1&limit=50');
+      for (const row of statements.body.data) {
+        for (const key of internal) expect(row).not.toHaveProperty(key);
+        for (const key of account) expect(row.user ?? {}).not.toHaveProperty(key);
+      }
+      const statementId = statements.body.data[0].id;
+      const one = await get(`/statements/${statementId}`);
+      for (const key of internal) expect(one.body).not.toHaveProperty(key);
+      const files = await get('/storage/files');
+      for (const row of files.body) {
+        for (const key of internal) expect(row).not.toHaveProperty(key);
+      }
+      const details = await get(`/storage/files/${files.body[0].id}`);
+      for (const key of internal) expect(details.body.statement).not.toHaveProperty(key);
+      for (const permission of details.body.permissions) {
+        for (const key of account) expect(permission.user).not.toHaveProperty(key);
+      }
+      const audit = await get('/audit-events?limit=50');
+      expect(audit.body.data.some((event: { actor: unknown }) => event.actor)).toBe(true);
+      for (const event of audit.body.data) {
+        for (const key of account) expect(event.actor ?? {}).not.toHaveProperty(key);
+      }
+      const history = await get('/reports/history');
+      for (const row of history.body) {
+        for (const key of internal) expect(row).not.toHaveProperty(key);
+      }
+      // The link the storage block above made, with its password.
+      const [link] = await dataSource.query(
+        "SELECT token FROM shared_links WHERE status = 'active' LIMIT 1",
+      );
+      const shared = await request(app.getHttpServer())
+        .get(`/storage/shared/${link.token}`)
+        .set('x-share-password', 'contract-share')
+        .expect(200);
+      expect(Object.keys(shared.body.statement).sort()).toEqual([
+        'accountNumber',
+        'bankName',
+        'fileName',
+        'fileSize',
+      ]);
+    });
+
     it('the setup progress, view preferences and the welcome tutorial', async () => {
       matches(SetupProgress, (await get('/dashboard/setup-progress')).body);
       matches(ViewPreferenceState, (await get('/view-preferences/transactions')).body);

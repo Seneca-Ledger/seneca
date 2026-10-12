@@ -9,6 +9,7 @@ import {
   Post,
   Query,
   Res,
+  UseInterceptors,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import * as fs from 'fs';
@@ -17,6 +18,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { SchemaBody } from '../../common/effect/schema-body';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
+import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
   CreateReportScheduleBody,
@@ -317,6 +319,7 @@ export class ReportsController {
 
   @Get('history')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @UseInterceptors(HideInternalColumnsInterceptor)
   async getHistory(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.reportsService.getReportHistory(workspaceId);
   }

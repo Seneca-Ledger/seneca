@@ -1,13 +1,24 @@
-import { Controller, ForbiddenException, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseInterceptors,
+} from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { Permission } from '../../common/enums/permissions.enum';
+import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { type User, UserRole } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuditService } from './audit.service';
 
 @Controller('audit-events')
+// Events join their actor's account row; members see the person only.
+@UseInterceptors(HideInternalColumnsInterceptor)
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
