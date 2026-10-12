@@ -15,7 +15,7 @@ declare module 'pdf-parse' {
     metadata: unknown;
   }
 
-  function pdfParse(dataBuffer: Buffer, options?: PdfParseOptions): Promise<PdfParseResult>;
+  function pdfParse(dataBuffer: Uint8Array, options?: PdfParseOptions): Promise<PdfParseResult>;
 
   export = pdfParse;
 }

@@ -1,16 +1,16 @@
 type PdfParse = typeof import('pdf-parse');
 
 /**
- * pdf-parse on a Buffer it can read. Its bundled pdf.js (1.10) reads the whole
- * ArrayBuffer behind the Buffer and ignores the Buffer's offset. Node 24 hands
- * out small Buffers (under 32 KB) as slices of a shared 64 KB pool, so pdf.js
- * read the pool from its start and failed with "bad XRef entry" whenever the
- * PDF did not happen to sit at offset 0. A copy owns its memory.
+ * pdf-parse on bytes its bundled pdf.js (1.10) reads correctly. On Node 24
+ * that pdf.js mishandles a Node Buffer: depending on where the Buffer sits in
+ * memory, a valid PDF fails with "bad XRef entry" (1 in 6 generated invoices
+ * in a loop; never on Node 20). A plain Uint8Array copy of the same bytes is
+ * read correctly every time.
  */
-export async function parsePdf(data: Buffer): ReturnType<PdfParse> {
+export async function parsePdf(data: Uint8Array): ReturnType<PdfParse> {
   const pdfParseModule = await import('pdf-parse');
   // pdf-parse is CommonJS: with esModuleInterop the function is `default`;
   // the fallback covers a loader that hands back the export itself.
   const pdfParse = (pdfParseModule.default ?? pdfParseModule) as PdfParse;
-  return pdfParse(Buffer.from(new Uint8Array(data).buffer));
+  return pdfParse(new Uint8Array(data));
 }
