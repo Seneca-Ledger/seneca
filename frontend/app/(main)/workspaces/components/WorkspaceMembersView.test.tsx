@@ -93,8 +93,23 @@ describe('WorkspaceMembersView', () => {
   it('hides search, sort and role filter while the owner is alone', async () => {
     apiGet.mockResolvedValue({
       data: {
-        workspace: { id: 'ws-1', name: 'Workspace', ownerId: 'owner-1' },
-        members: [{ id: 'owner-1', email: 'owner@example.com', name: 'Owner', role: 'owner' }],
+        workspace: {
+          id: 'ws-1',
+          name: 'Workspace',
+          ownerId: 'owner-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+        members: [
+          {
+            id: 'owner-1',
+            memberId: 'member-owner-1',
+            email: 'owner@example.com',
+            name: 'Owner',
+            role: 'owner',
+            permissions: null,
+            joinedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
         invitations: [],
       },
     });
