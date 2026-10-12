@@ -33,6 +33,7 @@ import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import type {
   ConvertDroppedSampleBody,
   CreateManualExpenseBody,
+  StatementsQuery,
   UpdateStatementBody,
 } from '../../contracts';
 import { Category, Wallet, WorkspaceMember, WorkspaceRole } from '../../entities';
@@ -55,7 +56,6 @@ import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue'
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import type { FilterStatementsDto } from './dto/filter-statements.dto';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { buildStatementSearchClause } from './statement-search.util';
 
@@ -886,7 +886,7 @@ export class StatementsService {
 
   async findAll(
     workspaceId: string,
-    filters: FilterStatementsDto = {},
+    filters: StatementsQuery = {},
   ): Promise<{
     data: Statement[];
     total: number;

@@ -1,14 +1,14 @@
-import { Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
+import { BudgetImpactQuery, CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BudgetsService } from './budgets.service';
-import { BudgetImpactQueryDto } from './dto/budget-impact-query.dto';
 import { StoicLedgerService } from './stoic/stoic-ledger.service';
 
 @Controller('budgets')
@@ -44,7 +44,10 @@ export class BudgetsController {
   /** What booking an expense would do to budgets and the default account; advice, not a gate. */
   @Get('impact')
   @WorkspaceAuth(Permission.BUDGET_VIEW)
-  async impact(@Query() query: BudgetImpactQueryDto, @WorkspaceId() workspaceId: string) {
+  async impact(
+    @SchemaQuery(BudgetImpactQuery) query: BudgetImpactQuery,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.budgetsService.getImpact(workspaceId, query);
   }
 

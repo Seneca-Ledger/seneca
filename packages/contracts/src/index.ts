@@ -55,6 +55,7 @@ export * from './requests/parsing';
 export * from './requests/payables';
 export * from './requests/payees';
 export * from './requests/push';
+export * from './requests/queries';
 export * from './requests/receipts';
 export * from './requests/reports';
 export * from './requests/review-inbox';

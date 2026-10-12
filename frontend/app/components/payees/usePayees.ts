@@ -12,7 +12,11 @@ import type { PayeeChoice, PayeeMode } from './types';
 /** One page of the workspace's payees, newest-seen first, filtered by name. */
 export function usePayeesList(search: string, limit: number, page = 1) {
   const workspaceId = useWorkspaceId();
-  const params = { search: search.trim() || undefined, limit, page };
+  const params = {
+    search: search.trim() || undefined,
+    limit,
+    page,
+  } satisfies ContractInput<'PayeesQuery'>;
   return useQuery({
     queryKey: queryKeys.payees({ workspaceId, params }),
     // Not apiQuery: it would unwrap `data` and drop the total the pager needs.

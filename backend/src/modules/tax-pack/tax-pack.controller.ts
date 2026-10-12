@@ -1,10 +1,11 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Controller, Get, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { TaxPackQueryDto, TaxYearReportQueryDto } from './dto/tax-pack.dto';
+import { TaxPackQuery, TaxYearReportQuery } from '../../contracts';
 import { TaxPackService } from './tax-pack.service';
 
 @Controller('tax')
@@ -17,7 +18,7 @@ export class TaxPackController {
   async yearReport(
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() memberId: string | null,
-    @Query() query: TaxYearReportQueryDto,
+    @SchemaQuery(TaxYearReportQuery) query: TaxYearReportQuery,
   ) {
     return this.taxPackService.yearReport(workspaceId, query.year, memberId ?? null);
   }
@@ -32,7 +33,7 @@ export class TaxPackController {
   async pack(
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() memberId: string | null,
-    @Query() query: TaxPackQueryDto,
+    @SchemaQuery(TaxPackQuery) query: TaxPackQuery,
     @Res() res: Response,
   ): Promise<void> {
     const scope = query.scope ?? 'relevant';

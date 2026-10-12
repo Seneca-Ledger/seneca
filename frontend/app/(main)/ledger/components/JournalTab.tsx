@@ -35,6 +35,22 @@ interface JournalTabProps {
 /** `null` = drawer closed, `'new'` = a new entry, otherwise the id of the entry shown. */
 type Open = null | 'new' | string;
 
+const ENTRY_STATUSES: readonly EntryStatus[] = ['draft', 'posted', 'reversed'];
+const ENTRY_SOURCES: readonly EntrySource[] = [
+  'transaction',
+  'manual',
+  'opening_balance',
+  'fx_revaluation',
+  'invoice',
+  'credit_note',
+];
+
+/** A select's value as a filter; anything else (the "all" item) is no filter. */
+const asEntryStatus = (value: string): EntryStatus | '' =>
+  ENTRY_STATUSES.find(status => status === value) ?? '';
+const asEntrySource = (value: string): EntrySource | '' =>
+  ENTRY_SOURCES.find(source => source === value) ?? '';
+
 export function JournalTab({
   baseCurrency,
   accounts,
@@ -42,8 +58,8 @@ export function JournalTab({
   canPost,
 }: JournalTabProps): React.ReactElement {
   const t = useIntlayer('ledgerPage');
-  const [status, setStatus] = useState('');
-  const [source, setSource] = useState('');
+  const [status, setStatus] = useState<EntryStatus | ''>('');
+  const [source, setSource] = useState<EntrySource | ''>('');
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<Open>(null);
 
@@ -139,7 +155,7 @@ export function JournalTab({
           label={t.filterStatus.value}
           value={status}
           onChange={event => {
-            setStatus(event.target.value);
+            setStatus(asEntryStatus(event.target.value));
             setPage(1);
           }}
           sx={{ minWidth: 160 }}
@@ -157,7 +173,7 @@ export function JournalTab({
           label={t.filterSource.value}
           value={source}
           onChange={event => {
-            setSource(event.target.value);
+            setSource(asEntrySource(event.target.value));
             setPage(1);
           }}
           sx={{ minWidth: 180 }}

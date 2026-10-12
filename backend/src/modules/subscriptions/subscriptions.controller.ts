@@ -15,9 +15,11 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   AssignSubscriptionOwnerBody,
+  ChargeCalendarQuery,
   CreateSubscriptionBody,
   RecordSubscriptionDecisionBody,
   UpdateSubscriptionBody,
@@ -25,7 +27,6 @@ import {
 import { SubscriptionStatus } from '../../entities/subscription.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ChargeCalendarQueryDto } from './dto/charge-calendar-query.dto';
 import { SubscriptionsService } from './subscriptions.service';
 
 @Controller('subscriptions')
@@ -48,7 +49,7 @@ export class SubscriptionsController {
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
   async getChargeCalendar(
     @WorkspaceId() workspaceId: string,
-    @Query() query: ChargeCalendarQueryDto,
+    @SchemaQuery(ChargeCalendarQuery) query: ChargeCalendarQuery,
   ) {
     return this.subscriptionsService.getChargeCalendar(workspaceId, query.months);
   }

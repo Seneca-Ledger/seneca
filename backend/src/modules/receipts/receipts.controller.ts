@@ -8,7 +8,6 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   Res,
   UploadedFile,
   UploadedFiles,
@@ -20,6 +19,7 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -32,6 +32,7 @@ import {
   ApproveReceiptBody,
   BulkApproveBody,
   PlaceSuggestionsBody,
+  ReceiptsQuery,
   UpdateReceiptBody,
   UpdateReceiptLocationBody,
   UpdateReceiptStageBody,
@@ -41,7 +42,6 @@ import type { User } from '../../entities';
 import { ReceiptStatus } from '../../entities/receipt.entity';
 import { StatementStage } from '../../entities/statement.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ReceiptQueryDto } from './dto/receipt-query.dto';
 import { UpdateReceiptStageResultDto } from './dto/update-receipt-stage.dto';
 import { ReceiptsService } from './receipts.service';
 import { ReceiptLocationService } from './services/receipt-location.service';
@@ -163,7 +163,10 @@ export class ReceiptsController {
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
-  async findAll(@WorkspaceId() workspaceId: string, @Query() query: ReceiptQueryDto) {
+  async findAll(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(ReceiptsQuery) query: ReceiptsQuery,
+  ) {
     return this.receiptsService.findAll(workspaceId, query);
   }
 

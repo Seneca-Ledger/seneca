@@ -16,11 +16,13 @@ import * as fs from 'fs';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  CashFlowMapQuery,
   CreateReportScheduleBody,
   CustomReportBody,
   CustomTablesReportBody,
@@ -28,6 +30,9 @@ import {
   CustomTablesSummaryBody,
   ExportReportBody,
   GenerateReportBody,
+  SpendFlowQuery,
+  SpendOverTimeQuery,
+  TopCategoriesQuery,
   UpdateReportScheduleActiveBody,
   WorkspaceExportBody,
 } from '../../contracts';
@@ -35,12 +40,8 @@ import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CashFlowMapService } from './cash-flow-map.service';
 import { cashFlowMapToCsv } from './cash-flow-map.util';
-import { CashFlowMapQueryDto } from './dto/cash-flow-map-query.dto';
 import { ReportFormat } from './dto/custom-report.dto';
 import { ExportFormat } from './dto/export-report.dto';
-import { SpendFlowQueryDto } from './dto/spend-flow-query.dto';
-import { SpendOverTimeQueryDto } from './dto/spend-over-time-query.dto';
-import { TopCategoriesQueryDto } from './dto/top-categories-query.dto';
 import { WorkspaceExportFormat } from './dto/workspace-export.dto';
 import type { CustomReport } from './interfaces/custom-report.interface';
 import type { DailyReport } from './interfaces/daily-report.interface';
@@ -87,7 +88,7 @@ export class ReportsController {
   async getCashFlowMap(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: CashFlowMapQueryDto,
+    @SchemaQuery(CashFlowMapQuery) query: CashFlowMapQuery,
     @Res({ passthrough: true }) res: Response,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
@@ -113,7 +114,7 @@ export class ReportsController {
   async getTopCategories(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: TopCategoriesQueryDto,
+    @SchemaQuery(TopCategoriesQuery) query: TopCategoriesQuery,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.reportsService.getTopCategoriesReport(workspaceId, query, selfMemberId);
@@ -123,7 +124,7 @@ export class ReportsController {
   @WorkspaceAuth(Permission.REPORT_VIEW)
   async getSpendFlow(
     @WorkspaceId() workspaceId: string,
-    @Query() query: SpendFlowQueryDto,
+    @SchemaQuery(SpendFlowQuery) query: SpendFlowQuery,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.spendFlowService.getSpendFlow(workspaceId, query, selfMemberId);
@@ -134,7 +135,7 @@ export class ReportsController {
   async getSpendOverTimeReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: SpendOverTimeQueryDto,
+    @SchemaQuery(SpendOverTimeQuery) query: SpendOverTimeQuery,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.reportsService.getSpendOverTimeReport(workspaceId, query, selfMemberId);

@@ -13,6 +13,7 @@ import type {
   MergePayeesBody,
   PayeePendingReview,
   PayeesPage,
+  PayeesQuery,
   SetTransactionPayeeBody,
   UpdatePayeeBody,
 } from '../../contracts';
@@ -25,7 +26,6 @@ import { hasDecidedCategory } from '../classification/engine/category-decision';
 import { ClassificationService } from '../classification/services/classification.service';
 import { ViesService } from '../reference-data/vies.service';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
-import type { PayeesQueryDto } from './dto/payees.dto';
 
 type CategoryRef = { id: string; name: string };
 
@@ -84,7 +84,7 @@ export class PayeesService {
 
   private readonly logger = new Logger(PayeesService.name);
 
-  async list(workspaceId: string, query: PayeesQueryDto): Promise<PayeesPage> {
+  async list(workspaceId: string, query: PayeesQuery): Promise<PayeesPage> {
     const page = query.page ?? 1;
     const limit = query.limit ?? DEFAULT_LIMIT;
     const search = query.search?.trim() ?? '';

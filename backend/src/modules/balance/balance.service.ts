@@ -10,6 +10,7 @@ import type {
   BalanceAccountNode,
   BalanceSheetResponse,
   CreateBalanceAccountBody,
+  ExportBalanceQuery,
   UpdateAccountClassificationBody,
   UpdateBalanceSnapshotBody,
 } from '../../contracts';
@@ -39,7 +40,7 @@ import {
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { loadPdfMake } from '../reports/report-document.util';
 import { DEFAULT_BALANCE_ACCOUNTS } from './balance-default-accounts';
-import { BalanceExportFormat, type ExportBalanceDto } from './dto/export-balance.dto';
+import { BalanceExportFormat } from './dto/export-balance.dto';
 
 /** The one line whose risk is fixed rather than chosen. */
 export const CASH_ACCOUNT_CODE = 'ASSET_CASH';
@@ -970,7 +971,7 @@ export class BalanceService {
 
   async exportBalanceSheet(
     workspaceId: string,
-    dto: ExportBalanceDto,
+    dto: ExportBalanceQuery,
     locale?: string,
   ): Promise<{
     fileName: string;

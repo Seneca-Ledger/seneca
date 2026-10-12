@@ -1,8 +1,11 @@
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
-import { CreatePayableBody, FilterPayablesBody, MarkPayablePaidBody, UpdatePayableBody } from '@/contracts';
-import { FilterPayablesDto } from '@/modules/payables/dto/filter-payables.dto';
-import { rejectedFields } from '../../../helpers/schema-body';
+import {
+  CreatePayableBody,
+  FilterPayablesBody,
+  MarkPayablePaidBody,
+  PayablesQuery,
+  UpdatePayableBody,
+} from '@/contracts';
+import { decodeQuery, rejectedFields } from '../../../helpers/schema-body';
 
 describe('Payables request validation', () => {
   it('rejects invalid due dates and non-uuid linked ids for create/update/export/mark-paid', () => {
@@ -30,12 +33,10 @@ describe('Payables request validation', () => {
     ]);
   });
 
-  it('rejects invalid dates in the list query too', async () => {
-    const filters = plainToInstance(FilterPayablesDto, {
-      dueDateFrom: 'bad-date',
-      dueDateTo: 'bad-date',
-    });
-    expect(await validate(filters)).not.toHaveLength(0);
+  it('rejects invalid dates in the list query too', () => {
+    expect(
+      decodeQuery(PayablesQuery, { dueDateFrom: 'bad-date', dueDateTo: 'bad-date' }).errors,
+    ).not.toHaveLength(0);
   });
 
   it('allows clearing nullable update fields while keeping other inherited validation rules', () => {

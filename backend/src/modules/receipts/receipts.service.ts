@@ -17,6 +17,7 @@ import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
 import { payeeKeyOf } from '../../common/utils/payee-key.util';
 import { taxLockedConflict } from '../../common/utils/tax-lock.util';
+import type { ReceiptsQuery } from '../../contracts';
 import {
   Category,
   Receipt,
@@ -38,7 +39,6 @@ import { resolvePayeeId } from '../payees/payee-resolution';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { TransactionAttachmentsService } from '../transactions/services/transaction-attachments.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import { ReceiptQueryDto } from './dto/receipt-query.dto';
 import {
   attachReceiptCategories,
   type ReceiptWithCategory,
@@ -165,7 +165,7 @@ export class ReceiptsService {
     return result;
   }
 
-  async findAll(workspaceId: string, query: ReceiptQueryDto) {
+  async findAll(workspaceId: string, query: ReceiptsQuery) {
     const { page, limit, skip } = normalizePagination(query);
     const where: Record<string, unknown> = { workspaceId };
 

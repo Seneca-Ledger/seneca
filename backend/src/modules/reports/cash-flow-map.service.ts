@@ -7,6 +7,7 @@ import {
   type OwnerFilter,
   parseOwnerFilter,
 } from '../../common/utils/transaction-owner.util';
+import type { CashFlowMapQuery } from '../../contracts';
 import { Category } from '../../entities/category.entity';
 import { StatementStatus } from '../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
@@ -20,7 +21,6 @@ import {
   type CategoryNode,
   previousPeriod,
 } from './cash-flow-map.util';
-import type { CashFlowMapQueryDto } from './dto/cash-flow-map-query.dto';
 
 export interface CashFlowMapResponse extends CashFlowMap {
   currency: string;
@@ -68,7 +68,7 @@ export class CashFlowMapService {
 
   async getMap(
     workspaceId: string,
-    query: CashFlowMapQueryDto,
+    query: CashFlowMapQuery,
     locale?: string,
     selfMemberId: string | null = null,
   ): Promise<CashFlowMapResponse> {

@@ -27,6 +27,8 @@ import type {
   CustomTablesSummaryBody,
   ExportReportBody,
   GenerateReportBody,
+  SpendOverTimeQuery,
+  TopCategoriesQuery,
 } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Branch } from '../../entities/branch.entity';
@@ -53,8 +55,6 @@ import {
   CustomTableReportSortKey,
 } from './dto/custom-tables-report.dto';
 import { ExportFormat } from './dto/export-report.dto';
-import type { SpendOverTimeQueryDto } from './dto/spend-over-time-query.dto';
-import type { TopCategoriesQueryDto } from './dto/top-categories-query.dto';
 import { WorkspaceExportFormat } from './dto/workspace-export.dto';
 import type { CustomReport, CustomReportGroup } from './interfaces/custom-report.interface';
 import type { DailyReport } from './interfaces/daily-report.interface';
@@ -2261,7 +2261,7 @@ export class ReportsService {
 
   async getTopCategoriesReport(
     workspaceId: string,
-    query: TopCategoriesQueryDto,
+    query: TopCategoriesQuery,
     selfMemberId: string | null = null,
   ): Promise<TopCategoriesReport> {
     const safeLimit = Number.isFinite(query.limit)
@@ -2513,7 +2513,7 @@ export class ReportsService {
 
   async getSpendOverTimeReport(
     workspaceId: string,
-    query: SpendOverTimeQueryDto,
+    query: SpendOverTimeQuery,
     selfMemberId: string | null = null,
   ): Promise<{
     groupBy: string;

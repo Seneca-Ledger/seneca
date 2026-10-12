@@ -11,7 +11,7 @@ import { In, IsNull, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql } from '../../common/utils/counted-transactions.util';
-import type { CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
+import type { BudgetImpactQuery, CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Budget, BudgetPeriodType, BudgetRolloverMode } from '../../entities/budget.entity';
 import { Category } from '../../entities/category.entity';
@@ -35,7 +35,6 @@ import {
   parseDateOnly,
 } from './budget-period.util';
 import { percentOf, resolveAvailable } from './budget-rollover.util';
-import type { BudgetImpactQueryDto } from './dto/budget-impact-query.dto';
 
 export interface BudgetWithSpending extends Budget {
   spentAmount: number;
@@ -476,7 +475,7 @@ export class BudgetsService {
    * available amount, and whether it takes the default account below zero.
    * Advice, not a gate: the entry is still allowed.
    */
-  async getImpact(workspaceId: string, dto: BudgetImpactQueryDto): Promise<BudgetImpact> {
+  async getImpact(workspaceId: string, dto: BudgetImpactQuery): Promise<BudgetImpact> {
     const now = dto.date ? parseDateOnly(dto.date) : new Date();
     const currency = (dto.currency || '').toUpperCase();
     const chain = await this.categoryChainFor(workspaceId, dto.categoryId);

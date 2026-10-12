@@ -17,6 +17,7 @@ import {
   getVisibleFilterScreens,
   resetHiddenStatementFilters,
   type StatementFilterScreen,
+  type StatementsQueryParams,
   serializeStatementFiltersToQuery,
 } from './filters/server-statement-filters';
 import type { StatementFilters } from './filters/statement-filters';
@@ -369,7 +370,7 @@ export const buildStatementRequestParams = ({
   appliedFilters: StatementFilters;
   categoryId?: string | null;
   search?: string;
-}): Record<string, unknown> => {
+}): StatementsQueryParams => {
   const serverSafeFilters: StatementFilters = {
     ...appliedFilters,
     type:

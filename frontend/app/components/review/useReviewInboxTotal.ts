@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useDefaultReviewer } from './useReviewer';
 
@@ -18,7 +18,7 @@ export function useReviewInboxTotal(enabled = true): number {
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         url: '/review-inbox/counts',
-        params: { reviewer },
+        params: { reviewer } satisfies ContractInput<'ReviewInboxQuery'>,
         signal,
         contract: 'ReviewInboxCounts',
         drift: 'report',

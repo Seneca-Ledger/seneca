@@ -1,19 +1,11 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Put,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import * as fs from 'fs';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
@@ -23,13 +15,14 @@ import {
   CreatePayableBody,
   FilterPayablesBody,
   MarkPayablePaidBody,
+  PayablesQuery,
   UpdatePayableBody,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
+import { PayableDirection } from '../../entities/payable.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { FilterPayablesDto } from './dto/filter-payables.dto';
 import { PayablesService } from './payables.service';
 
 @Controller('payables')
@@ -49,14 +42,20 @@ export class PayablesController {
 
   @Get()
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
-  async findAll(@WorkspaceId() workspaceId: string, @Query() query: FilterPayablesDto) {
+  async findAll(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(PayablesQuery) query: PayablesQuery,
+  ) {
     return this.payablesService.findAll(workspaceId, query);
   }
 
   @Get('summary')
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
-  async getSummary(@WorkspaceId() workspaceId: string, @Query() query: FilterPayablesDto) {
-    return this.payablesService.getSummary(workspaceId, query.direction);
+  async getSummary(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(PayablesQuery) query: PayablesQuery,
+  ) {
+    return this.payablesService.getSummary(workspaceId, toEnum(PayableDirection, query.direction));
   }
 
   @Get(':id')

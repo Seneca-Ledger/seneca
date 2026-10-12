@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { PERIOD_PRESETS, presetRangeValues } from '../report-period-presets';
 
@@ -61,12 +61,14 @@ export function useCashFlowMap() {
   });
 
   const params = useMemo(() => {
-    const query: Record<string, string | boolean> = { dateFrom: filters.from, dateTo: filters.to };
-    if (filters.compare) query.compare = true;
-    if (filters.includeTransfers) query.includeTransfers = true;
-    if (filters.categories.length > 0) query.categories = filters.categories.join(',');
-    if (filters.owner) query.owner = filters.owner;
-    return query;
+    return {
+      dateFrom: filters.from,
+      dateTo: filters.to,
+      ...(filters.compare ? { compare: true } : {}),
+      ...(filters.includeTransfers ? { includeTransfers: true } : {}),
+      ...(filters.categories.length > 0 ? { categories: filters.categories.join(',') } : {}),
+      ...(filters.owner ? { owner: filters.owner } : {}),
+    } satisfies ContractInput<'CashFlowMapQuery'>;
   }, [filters]);
 
   const query = useQuery({

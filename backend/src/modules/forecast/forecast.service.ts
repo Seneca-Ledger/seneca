@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util';
-import type { ForecastResponse } from '../../contracts';
+import type { ForecastQuery, ForecastResponse } from '../../contracts';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
 import { Payable, PayableDirection, PayableStatus } from '../../entities/payable.entity';
 import { StatementStatus } from '../../entities/statement.entity';
@@ -14,7 +14,6 @@ import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { GoalsService } from '../goals/goals.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { TaxReserveService } from '../tax/tax-reserve.service';
-import type { ForecastQueryDto } from './dto/forecast-query.dto';
 import {
   type AveragedParty,
   addDays,
@@ -63,7 +62,7 @@ export class ForecastService {
     private readonly taxReserveService?: TaxReserveService,
   ) {}
 
-  async getForecast(workspaceId: string, query: ForecastQueryDto): Promise<ForecastResponse> {
+  async getForecast(workspaceId: string, query: ForecastQuery): Promise<ForecastResponse> {
     const horizonDays = query.days ?? 90;
     const today = new Date();
     today.setHours(0, 0, 0, 0);

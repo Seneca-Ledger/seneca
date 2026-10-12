@@ -8,16 +8,17 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Query,
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
   CreateJournalEntryBody,
+  JournalEntriesQuery,
   ReverseJournalEntryBody,
   UpdateJournalEntryBody,
 } from '../../contracts';
@@ -29,7 +30,6 @@ import type {
   JournalEntryResponseDto,
   PaginatedJournalEntriesDto,
 } from './dto/journal-entry-response.dto';
-import { ListJournalEntriesDto } from './dto/list-journal-entries.dto';
 import { LedgerEntriesService } from './ledger-entries.service';
 
 /**
@@ -47,7 +47,7 @@ export class LedgerEntriesController {
   @WorkspaceAuth(Permission.LEDGER_VIEW)
   async list(
     @WorkspaceId() workspaceId: string,
-    @Query() query: ListJournalEntriesDto,
+    @SchemaQuery(JournalEntriesQuery) query: JournalEntriesQuery,
   ): Promise<PaginatedJournalEntriesDto> {
     return this.entriesService.list(workspaceId, query);
   }
