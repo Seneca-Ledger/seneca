@@ -1,5 +1,4 @@
 import * as Schema from 'effect/Schema';
-import type { Wire } from '../common/wire';
 import {
   BooleanInput,
   DateOnlyInput,
@@ -8,6 +7,7 @@ import {
   PageInput,
   StringListInput,
 } from '../common/requests';
+import type { Wire } from '../common/wire';
 import { InvoiceStatus } from '../invoices/invoices';
 import { JournalEntrySource } from '../ledger/ledger';
 import { PayableDirection, PayableSource, PayableStatus } from '../payables/payables';
