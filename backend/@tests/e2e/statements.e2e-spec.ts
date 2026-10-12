@@ -8,6 +8,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { StatementList } from '../../src/contracts';
 import { Category, CategoryType, Note, Transaction, TransactionType } from '../../src/entities';
+import { StatementParsingProcessor } from '../../src/modules/parsing/queue/statement-parsing.processor';
 import { accessTokenOf, deleteUserByEmail, e2eTestingModule } from './helpers/e2e-app';
 
 describe('StatementsController (e2e)', () => {
@@ -51,6 +52,10 @@ describe('StatementsController (e2e)', () => {
   });
 
   afterAll(async () => {
+    // Uploads are parsed in the background, and a parse still running would
+    // insert categories for the user this cleanup deletes. Closing the worker
+    // waits for its active jobs.
+    await app?.get(StatementParsingProcessor).worker.close();
     // Cleanup test data
     if (dataSource) {
       await dataSource.query(
