@@ -5,8 +5,7 @@ import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import type { GoalCover } from '@/app/lib/contracts';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 /** How the goal's picture should be drawn. */
@@ -126,11 +125,12 @@ export function useGoals(): UseGoalsState {
   const createGoal = useCallback(
     (form: GoalFormData) =>
       submit(async () => {
-        const response = await apiClient.post<Goal>(
+        const response = await apiClient.post(
           '/goals',
           toPayload(form) satisfies ContractInput<'CreateGoalBody'>,
         );
-        await applyCover(response.data.id, form.cover);
+        const goal = await checkContract('GoalWithProgress', response.data, '/goals');
+        await applyCover(goal.id, form.cover);
       }),
     [submit],
   );

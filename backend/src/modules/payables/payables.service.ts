@@ -122,7 +122,7 @@ export class PayablesService {
       dueSoonNotifiedAt: null,
     });
 
-    return this.payableRepository.save(payable);
+    return this.asStored(await this.payableRepository.save(payable));
   }
 
   async findAll(workspaceId: string, filters: FilterPayablesBody) {
@@ -170,7 +170,7 @@ export class PayablesService {
       dto.statementId === undefined ? undefined : (dto.statementId ?? null),
     );
     Object.assign(payable, this.normalizeUpdateDto(dto, payable));
-    return this.payableRepository.save(payable);
+    return this.asStored(await this.payableRepository.save(payable));
   }
 
   /**
@@ -685,7 +685,24 @@ export class PayablesService {
           ? PayableStatus.PARTIALLY_PAID
           : this.unpaidStatusOf(payable);
     }
-    return payables.save(payable);
+    return this.asStored(await payables.save(payable));
+  }
+
+  /**
+   * The payable as a read returns it. `save` leaves the values just assigned
+   * in the money and date columns, where every read has what Postgres sends:
+   * one endpoint must not answer `50` and the next `"50.00"`.
+   */
+  private asStored(payable: Payable): Payable {
+    const decimal = (value: number | string | null | undefined) =>
+      Number(value ?? 0).toFixed(2) as unknown as number;
+    payable.amount = decimal(payable.amount);
+    payable.paidAmount = decimal(payable.paidAmount);
+    // A `date` column reads back as YYYY-MM-DD, not as the Date just assigned.
+    if (payable.dueDate instanceof Date) {
+      payable.dueDate = this.toDateString(payable.dueDate) as unknown as Date;
+    }
+    return payable;
   }
 
   /** What an unpaid bill reads as: overdue if its day has passed, else to pay. */
@@ -1071,7 +1088,7 @@ export class PayablesService {
     const nextStatus = toEnum(PayableStatus, dto.status) ?? current.status;
     const willBePaid = nextStatus === PayableStatus.PAID;
 
-    return {
+    const patch: Partial<Payable> = {
       ...withoutNulls(dto),
       direction: toEnum(PayableDirection, dto.direction) ?? undefined,
       status: toEnum(PayableStatus, dto.status) ?? undefined,
@@ -1083,6 +1100,11 @@ export class PayablesService {
       statementId: dto.statementId === undefined ? undefined : dto.statementId,
       paidAt: willBePaid ? current.paidAt || new Date() : null,
     };
+    // Left out, not set to undefined: `Object.assign` would blank the field on
+    // the entity, and the saved payable answered without its direction or status.
+    return Object.fromEntries(
+      Object.entries(patch).filter(([, value]) => value !== undefined),
+    ) as Partial<Payable>;
   }
 
   private async assertLinkedEntitiesInWorkspace(

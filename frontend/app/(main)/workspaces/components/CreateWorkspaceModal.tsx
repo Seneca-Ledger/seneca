@@ -20,7 +20,7 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
 import { useIntlayer } from '@/app/i18n';
 import { api } from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { AVAILABLE_BACKGROUNDS } from '../constants';
 import { BackgroundSelector } from './BackgroundSelector';
 import { CurrencySelector } from './CurrencySelector';
@@ -419,9 +419,10 @@ function useWorkspaceCreation({
         profile,
       };
       const response = await api.post('/workspaces', payload);
-      setCreatedWorkspaceId(response.data.id);
+      const created = await checkContract('WorkspaceSummary', response.data, '/workspaces');
+      setCreatedWorkspaceId(created.id);
       toast.success('Workspace created successfully');
-      return response.data.id as string;
+      return created.id;
     } catch (error: unknown) {
       toast.error(getApiMessage({ error, fallback: 'Failed to create workspace' }));
       throw error;

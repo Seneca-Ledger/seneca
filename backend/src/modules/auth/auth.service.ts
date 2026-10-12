@@ -243,6 +243,7 @@ export class AuthService {
         'name',
         'role',
         'workspaceId',
+        'lastWorkspaceId',
         'locale',
         'timeZone',
         'themePreference',
@@ -594,6 +595,9 @@ export class AuthService {
         name: user.name,
         role: user.role,
         workspaceId: user.workspaceId || null,
+        // The workspace open at the last switch: the client reopens it after
+        // login when the user still belongs to it, and the home one otherwise.
+        lastWorkspaceId: user.lastWorkspaceId ?? null,
         locale: user.locale,
         timeZone: user.timeZone ?? null,
         themePreference: user.themePreference,

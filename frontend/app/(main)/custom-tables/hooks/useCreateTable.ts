@@ -7,7 +7,7 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import {
   buildSourcePayload,
   EMPTY_SOURCE_FILTERS,
@@ -104,8 +104,8 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
         description: form.description.trim() || undefined,
         categoryId: form.categoryId || undefined,
       } satisfies ContractInput<'CreateCustomTableBody'>);
-      const created = (response.data?.data ?? response.data) as { id?: string } | null;
-      if (created?.id && template) {
+      const created = await checkContract('CreatedCustomTable', response.data, '/custom-tables');
+      if (created.id && template) {
         const toastId = toast.loading(messages.applying);
         const { failed } = await applyTemplate({
           tableId: created.id,

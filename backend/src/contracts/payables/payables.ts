@@ -46,6 +46,10 @@ export const Payable = Schema.Struct({
 });
 export type Payable = Wire<typeof Payable>;
 
+/** `POST /payables/allocate`: the bills a payment was spread over. */
+export const PayableList = Schema.Array(Payable);
+export type PayableList = Wire<typeof PayableList>;
+
 /** `GET /payables`. */
 export const PayableListPage = Schema.Struct({
   data: Schema.Array(Payable),

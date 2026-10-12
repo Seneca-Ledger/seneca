@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import { FOLDER_NAME_MAX, type FolderOption, type StorageFile } from '../storageHelpers';
 
@@ -151,7 +151,8 @@ export function useStorageFolders(
       const response = await api.post('/storage/folders', {
         name,
       } satisfies ContractInput<'CreateFolderBody'>);
-      setFolders(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
+      const folder = await checkContract('StorageFolder', response.data, '/storage/folders');
+      setFolders(prev => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
       setNewFolderName('');
       toast.success(messages.folderCreated);
     })().catch(async error => {
@@ -181,10 +182,11 @@ export function useStorageFolders(
       const response = await api.patch(`/storage/folders/${folderId}`, {
         name,
       } satisfies ContractInput<'UpdateFolderBody'>);
+      const updated = await checkContract('StorageFolder', response.data, '/storage/folders/:id');
       setFolders(prev =>
-        prev.map(folder => (folder.id === folderId ? { ...folder, ...response.data } : folder)),
+        prev.map(folder => (folder.id === folderId ? { ...folder, ...updated } : folder)),
       );
-      const newName = response.data?.name || name;
+      const newName = updated.name || name;
       setFiles(prev =>
         prev.map(file => {
           if (file.folderId !== folderId) {
@@ -215,8 +217,9 @@ export function useStorageFolders(
       const response = await api.patch(`/storage/folders/${folderId}`, {
         tagId,
       } satisfies ContractInput<'UpdateFolderBody'>);
+      const updated = await checkContract('StorageFolder', response.data, '/storage/folders/:id');
       setFolders(prev =>
-        prev.map(folder => (folder.id === folderId ? { ...folder, ...response.data } : folder)),
+        prev.map(folder => (folder.id === folderId ? { ...folder, ...updated } : folder)),
       );
       setFolderTagPickerId(null);
     })().catch(async error => {

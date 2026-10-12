@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import type { CustomTableColumnItem } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { findHeaderRow } from '../utils/importRows';
 import {
   buildPastePreview,
@@ -489,29 +490,25 @@ export function usePasteImport({
     }
     // One by one: the server numbers positions by creation order, and the
     // table should read in the same order as the file.
-    const created: Array<{ data?: { data?: Record<string, unknown> } & Record<string, unknown> }> =
-      [];
+    const created: CustomTableColumnItem[] = [];
     const ordered = orderNewColumns(newColumns);
     for (const col of ordered) {
+      const response = await apiClient.post(`/custom-tables/${tableId}/columns`, {
+        title: (col.newTitle ?? '').trim(),
+        type: col.newType ?? 'text',
+        ...(col.newConfig ? { config: col.newConfig } : {}),
+      } satisfies ContractInput<'CreateCustomTableColumnBody'>);
       created.push(
-        await apiClient.post(`/custom-tables/${tableId}/columns`, {
-          title: (col.newTitle ?? '').trim(),
-          type: col.newType ?? 'text',
-          ...(col.newConfig ? { config: col.newConfig } : {}),
-        } satisfies ContractInput<'CreateCustomTableColumnBody'>),
+        await checkContract('CustomTableColumnItem', response.data, '/custom-tables/:id/columns'),
       );
     }
     for (let i = 0; i < created.length; i++) {
-      const payload = (created[i].data?.data || created[i].data) as
-        | { key?: string; id?: string }
-        | undefined;
+      const column = created[i];
       const placeholderKey = ordered[i]?.columnKey || '';
-      if (payload?.key && placeholderKey) {
-        keyMap.set(placeholderKey, payload.key);
+      if (placeholderKey) {
+        keyMap.set(placeholderKey, column.key);
       }
-      if (payload?.id) {
-        columnIds.push(payload.id);
-      }
+      columnIds.push(column.id);
     }
     await loadTable();
     return { keyMap, columnIds };

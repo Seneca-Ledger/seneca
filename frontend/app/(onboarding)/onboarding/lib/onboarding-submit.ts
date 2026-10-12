@@ -1,4 +1,4 @@
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type { OnboardingData } from '../useOnboardingWizard';
 import type { OnboardingMode } from './onboarding-flow';
 
@@ -35,10 +35,11 @@ async function prepareWorkspace(
       backgroundImage: data.workspaceBackgroundImage ?? undefined,
       profile: data.profile ?? undefined,
     } satisfies ContractInput<'CreateWorkspaceBody'>);
-    const workspaceId = created.data?.id;
-    if (!workspaceId) {
-      throw new Error('Workspace was not created');
-    }
+    const { id: workspaceId } = await checkContract(
+      'WorkspaceSummary',
+      created.data,
+      '/workspaces',
+    );
     await api.post(`/workspaces/${workspaceId}/switch`);
     return workspaceId;
   }
@@ -133,7 +134,12 @@ export async function submitOnboarding(
     const preferences = await api.patch('/users/me/preferences', {
       locale: data.locale,
     } satisfies ContractInput<'UpdateMyPreferencesBody'>);
-    return { workspaceId, user: preferences.data?.user };
+    const { user: updatedUser } = await checkContract(
+      'UserUpdateResponse',
+      preferences.data,
+      '/users/me/preferences',
+    );
+    return { workspaceId, user: updatedUser };
   }
 
   await api.patch('/users/me/preferences', {
@@ -148,6 +154,11 @@ export async function submitOnboarding(
     workspaceCurrency: data.workspaceCurrency.trim().toUpperCase() || undefined,
     workspaceBackgroundImage: data.workspaceBackgroundImage ?? undefined,
   } satisfies ContractInput<'CompleteOnboardingBody'>);
+  const { user: completedUser } = await checkContract(
+    'UserUpdateResponse',
+    completed.data,
+    '/users/me/onboarding',
+  );
 
-  return { workspaceId, user: completed.data?.user };
+  return { workspaceId, user: completedUser };
 }

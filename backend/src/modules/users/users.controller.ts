@@ -51,6 +51,7 @@ import {
   UpdateUserBody,
 } from '../../contracts';
 import { type User, UserRole } from '../../entities/user.entity';
+import { toCurrentUser } from '../auth/current-user.view';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { CURRENT_DISCLAIMER_VERSION } from './disclaimer.constant';
@@ -75,11 +76,6 @@ export class UsersController {
     private readonly accountDataService: AccountDataService,
   ) {}
 
-  private toSafeUser(user: User): Omit<User, 'passwordHash'> {
-    const { passwordHash, ...safeUser } = user;
-    return safeUser;
-  }
-
   @Get()
   @WorkspaceAuth(Permission.USER_VIEW_ALL)
   async findAll(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
@@ -102,7 +98,7 @@ export class UsersController {
     @SchemaBody(CompleteOnboardingBody) dto: CompleteOnboardingBody,
   ) {
     const updatedUser = await this.usersService.completeOnboarding(currentUser.id, dto);
-    const safeUser = this.toSafeUser(updatedUser);
+    const safeUser = toCurrentUser(updatedUser);
     return { user: safeUser, message: 'Onboarding completed successfully' };
   }
 
@@ -129,7 +125,7 @@ export class UsersController {
   async acceptDisclaimer(@CurrentUser() currentUser: User) {
     const updatedUser = await this.usersService.acceptDisclaimer(currentUser.id);
     return {
-      user: this.toSafeUser(updatedUser),
+      user: toCurrentUser(updatedUser),
       version: CURRENT_DISCLAIMER_VERSION,
     };
   }
@@ -348,7 +344,7 @@ export class UsersController {
     @SchemaBody(UpdateMyPreferencesBody) dto: UpdateMyPreferencesBody,
   ) {
     const updatedUser = await this.usersService.updateMyPreferences(currentUser.id, dto);
-    const safeUser = this.toSafeUser(updatedUser);
+    const safeUser = toCurrentUser(updatedUser);
     return { user: safeUser, message: 'Profile updated successfully' };
   }
 
@@ -407,7 +403,7 @@ export class UsersController {
 
     const url = `/api/v1/users/avatars/${encodeURIComponent(file.filename)}`;
     const updatedUser = await this.usersService.updateMyAvatar(currentUser.id, url);
-    const safeUser = this.toSafeUser(updatedUser);
+    const safeUser = toCurrentUser(updatedUser);
     return { user: safeUser, avatarUrl: url };
   }
 }

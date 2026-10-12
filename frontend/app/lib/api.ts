@@ -6,6 +6,7 @@ import type {
   ReceiptSplitSuggestion as ContractReceiptSplitSuggestion,
   ReceiptTransactionMatch as ContractReceiptTransactionMatch,
   ReceiptListPage,
+  ReceiptRecordUpdate,
   ReceiptTransactionMatches,
 } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
@@ -340,12 +341,12 @@ export const receiptsApi = {
   updateReceiptLocation: async (
     id: string,
     point: { latitude: number; longitude: number; place?: ReceiptPlace },
-  ): Promise<ReceiptRecord> => {
+  ): Promise<ReceiptRecordUpdate> => {
     const response = await apiClient.patch(
       `/receipts/${id}/location`,
       point satisfies ContractInput<'UpdateReceiptLocationBody'>,
     );
-    return (response.data?.data ?? response.data) as ReceiptRecord;
+    return checkContract('ReceiptRecordUpdate', response.data, '/receipts/:id/location');
   },
 
   /** Shops near a fix taken after a scan that had none; the body keeps the position out of URLs. */
@@ -362,9 +363,9 @@ export const receiptsApi = {
     return (response.data?.data ?? response.data) as PlaceSuggestions;
   },
 
-  resetReceiptLocation: async (id: string): Promise<ReceiptRecord> => {
+  resetReceiptLocation: async (id: string): Promise<ReceiptRecordUpdate> => {
     const response = await apiClient.delete(`/receipts/${id}/location`);
-    return (response.data?.data ?? response.data) as ReceiptRecord;
+    return checkContract('ReceiptRecordUpdate', response.data, '/receipts/:id/location');
   },
 
   approveReceipt: async (

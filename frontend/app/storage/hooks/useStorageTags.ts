@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import type { FolderOption, StorageFile, TagOption } from '../storageHelpers';
 
@@ -94,7 +94,8 @@ export function useStorageTags(
         '/storage/tags',
         payload satisfies ContractInput<'CreateTagBody'>,
       );
-      setTags(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
+      const tag = await checkContract('StorageTag', response.data, '/storage/tags');
+      setTags(prev => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
       setNewTagName('');
       toast.success(messages.tagCreated);
     })().catch(async error => {
@@ -123,22 +124,20 @@ export function useStorageTags(
         name,
         color: editingTagColor,
       } satisfies ContractInput<'UpdateTagBody'>);
-      setTags(prev => prev.map(tag => (tag.id === tagId ? { ...tag, ...response.data } : tag)));
+      const updated = await checkContract('StorageTag', response.data, '/storage/tags/:id');
+      setTags(prev => prev.map(tag => (tag.id === tagId ? { ...tag, ...updated } : tag)));
       setFolders(prev =>
         prev.map(folder =>
           folder.tagId === tagId || folder.tag?.id === tagId
             ? {
                 ...folder,
-                tag: response.data?.id
-                  ? { ...folder.tag, ...response.data }
-                  : { ...folder.tag, name, color: editingTagColor },
+                tag: { ...folder.tag, ...updated },
               }
             : folder,
         ),
       );
-      const updatedName = (response.data?.name as string | undefined) || name;
-      const updatedColor =
-        (response.data?.color as string | null | undefined) ?? editingTagColor ?? null;
+      const updatedName = (updated.name as string | undefined) || name;
+      const updatedColor = (updated.color as string | null | undefined) ?? editingTagColor ?? null;
       setFiles(prev =>
         prev.map(file => ({
           ...file,

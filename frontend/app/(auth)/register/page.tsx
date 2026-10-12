@@ -93,7 +93,7 @@ function RegisterPageContent(): React.JSX.Element {
         invitationToken: inviteToken || undefined,
       } satisfies ContractInput<'RegisterBody'>);
 
-      const { user } = response.data;
+      const { user } = await checkContract('RegisterResponse', response.data, '/auth/register');
 
       localStorage.setItem('user', JSON.stringify(user));
       syncLocaleFromUser(user);

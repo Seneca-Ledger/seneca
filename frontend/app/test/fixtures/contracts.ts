@@ -1,15 +1,18 @@
 import type {
+  AuthUser,
   BudgetItem,
   CategoryItem,
   CategoryRef,
   CryptoHolding,
   CryptoSummary,
+  CurrentUser,
   Payable,
   ReceiptRecord,
   SubscriptionItem,
   WalletItem,
   WorkspaceDetail,
   WorkspaceMember,
+  WorkspaceSummary,
 } from '@/app/lib/contracts';
 
 // Wire-format fixtures: outside production every API response is checked
@@ -245,6 +248,59 @@ export function receiptRecord(
     locationUpdatedAt: null,
     category: null,
     createdAt: TIMESTAMP,
+    ...overrides,
+  };
+}
+
+/** `POST /workspaces`, and a row of `GET /workspaces`. */
+export function workspaceSummary(overrides: Partial<WorkspaceSummary> = {}): WorkspaceSummary {
+  const { members: _members, ...summary } = workspaceDetail();
+  return { ...summary, ...overrides };
+}
+
+/** `GET /auth/me`, and the `user` of the profile updates. */
+export function currentUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
+  return {
+    id: 'user-1',
+    email: 'user@example.com',
+    name: 'User',
+    role: 'user',
+    workspaceId: 'workspace-1',
+    permissions: null,
+    telegramId: null,
+    telegramChatId: null,
+    locale: 'en',
+    timeZone: null,
+    dateFormat: 'auto',
+    firstDayOfWeek: null,
+    uiDensity: 'comfortable',
+    reduceMotion: false,
+    showDailyQuote: true,
+    themePreference: 'auto',
+    mapStylePreference: null,
+    lastLogin: null,
+    avatarUrl: null,
+    onboardingCompletedAt: null,
+    welcomeTutorialSeenAt: null,
+    ...overrides,
+  };
+}
+
+/** The `user` of `POST /auth/login` and `POST /auth/register`. */
+export function authUser(overrides: Partial<AuthUser> = {}): AuthUser {
+  return {
+    id: 'user-1',
+    email: 'user@example.com',
+    name: 'User',
+    role: 'user',
+    workspaceId: null,
+    lastWorkspaceId: null,
+    locale: 'en',
+    timeZone: null,
+    themePreference: 'auto',
+    mapStylePreference: null,
+    avatarUrl: null,
+    onboardingCompletedAt: null,
     ...overrides,
   };
 }

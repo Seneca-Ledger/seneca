@@ -1,5 +1,5 @@
 import apiClient from '@/app/lib/api';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 export interface TransactionTag {
   id: string;
@@ -39,7 +39,7 @@ export const transactionFilesApi = {
     const response = await apiClient.put(`/transactions/${transactionId}/tags`, {
       tagIds,
     } satisfies ContractInput<'SetTransactionTagsBody'>);
-    return unwrap<TransactionTag[]>(response) ?? [];
+    return checkContract('StorageTagList', response.data, '/transactions/:id/tags');
   },
 
   async listAttachments(transactionId: string): Promise<TransactionAttachment[]> {

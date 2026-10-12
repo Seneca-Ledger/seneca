@@ -1,6 +1,6 @@
 import apiClient from '@/app/lib/api';
 import type { BusinessProfileResponse } from '@/app/lib/contracts';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 /**
  * The issuer's side of every document the workspace sends. Until the profile
@@ -16,11 +16,11 @@ export const businessProfileApi = {
   },
 
   async update(input: BusinessProfileInput): Promise<BusinessProfile> {
-    const { data } = await apiClient.put<BusinessProfile>(
+    const { data } = await apiClient.put(
       '/business-profile',
       input satisfies ContractInput<'UpdateBusinessProfileBody'>,
     );
-    return data;
+    return checkContract('BusinessProfileResponse', data, '/business-profile');
   },
 
   async uploadLogo(file: File): Promise<{ logoFile: string; logoUrl: string }> {

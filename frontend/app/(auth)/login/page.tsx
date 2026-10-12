@@ -14,7 +14,7 @@ import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import { syncLocaleFromUser } from '@/app/lib/locale';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
 import { tokens } from '@/lib/theme-tokens';
 import { AuthHero } from '../AuthHero';
@@ -69,15 +69,16 @@ function LoginPageContent(): React.JSX.Element {
         ...(twoFactorCode ? { twoFactorCode: twoFactorCode.trim() } : {}),
       } satisfies ContractInput<'LoginBody'>);
 
+      const result = await checkContract('LoginResponse', response.data, '/auth/login');
       // Password was right, but the account also needs a second factor.
-      if (response.data?.twoFactorRequired) {
+      if ('twoFactorRequired' in result) {
         setTwoFactorRequired(true);
         return;
       }
 
       // Токены пришли httpOnly-куками и в теле ответа их больше нет —
       // хранить тут нечего, кроме профиля для первого рендера.
-      const { user } = response.data;
+      const { user } = result;
 
       localStorage.setItem('user', JSON.stringify(user));
       syncLocaleFromUser(user);

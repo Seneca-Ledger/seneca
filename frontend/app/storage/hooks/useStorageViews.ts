@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import {
   DEFAULT_FILTERS,
@@ -102,9 +102,10 @@ export function useStorageViews(
           sort,
         },
       } satisfies ContractInput<'StorageViewBody'>);
-      setViews(prev => [response.data, ...prev]);
+      const view = await checkContract('StorageViewItem', response.data, '/storage/views');
+      setViews(prev => [view, ...prev]);
       setViewName('');
-      setActiveViewId(response.data?.id ?? null);
+      setActiveViewId(view.id ?? null);
       toast.success(messages.viewSaved);
     })()
       .catch(async error => {

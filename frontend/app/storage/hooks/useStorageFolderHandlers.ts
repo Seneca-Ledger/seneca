@@ -1,7 +1,7 @@
 'use client';
 
 import toast from 'react-hot-toast';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import api from '../../lib/api';
 import { FOLDER_NAME_MAX, type FolderOption, type StorageFile } from '../storageHelpers';
 
@@ -115,7 +115,8 @@ export async function createFolderHandler(deps: HandlerDeps): Promise<void> {
     const response = await api.post('/storage/folders', {
       name,
     } satisfies ContractInput<'CreateFolderBody'>);
-    deps.setFolders(prev => [...prev, response.data].sort((a, b) => a.name.localeCompare(b.name)));
+    const folder = await checkContract('StorageFolder', response.data, '/storage/folders');
+    deps.setFolders(prev => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
     deps.setNewFolderName('');
     toast.success(deps.messages.folderCreated);
   } catch (error) {
@@ -133,8 +134,9 @@ export async function renameFolderHandler(deps: HandlerDeps, folderId: string): 
     const response = await api.patch(`/storage/folders/${folderId}`, {
       name,
     } satisfies ContractInput<'UpdateFolderBody'>);
-    deps.setFolders(prev => applyFolderRename(prev, folderId, response.data));
-    deps.setFiles(prev => applyFilesFolderRename(prev, folderId, response.data?.name || name));
+    const folder = await checkContract('StorageFolder', response.data, '/storage/folders/:id');
+    deps.setFolders(prev => applyFolderRename(prev, folderId, folder));
+    deps.setFiles(prev => applyFilesFolderRename(prev, folderId, folder.name || name));
     deps.setEditingFolderId(null);
     deps.setEditingFolderName('');
     toast.success(deps.messages.folderRenamed);
@@ -153,7 +155,8 @@ export async function updateFolderTagHandler(
     const response = await api.patch(`/storage/folders/${folderId}`, {
       tagId,
     } satisfies ContractInput<'UpdateFolderBody'>);
-    deps.setFolders(prev => applyFolderRename(prev, folderId, response.data));
+    const folder = await checkContract('StorageFolder', response.data, '/storage/folders/:id');
+    deps.setFolders(prev => applyFolderRename(prev, folderId, folder));
     deps.setFolderTagPickerId(null);
   } catch (error) {
     console.error('Failed to update folder tag:', error);

@@ -1,4 +1,5 @@
 import * as Schema from 'effect/Schema';
+import * as Struct from 'effect/Struct';
 import { Timestamp, type Wire } from '../common/wire';
 
 export const CustomTableColumnType = Schema.Literals([
@@ -57,6 +58,10 @@ export const CustomTableItem = Schema.Struct({
   updatedAt: Timestamp,
 });
 export type CustomTableItem = Wire<typeof CustomTableItem>;
+
+/** `POST /custom-tables`: the new table, its category not loaded. */
+export const CreatedCustomTable = CustomTableItem.mapFields(Struct.omit(['category']));
+export type CreatedCustomTable = Wire<typeof CreatedCustomTable>;
 
 /** `GET /custom-tables`. */
 export const CustomTableList = Schema.Struct({ items: Schema.Array(CustomTableItem) });

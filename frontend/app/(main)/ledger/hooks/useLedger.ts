@@ -6,7 +6,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type { AccountType, JournalEntry, RevaluationResult, Side } from '../ledger.types';
+import type { AccountType, RevaluationResult, Side } from '../ledger.types';
 
 /** While the worker books the backlog, poll so the page fills in by itself. */
 const CATCH_UP_POLL_MS = 3000;
@@ -174,30 +174,38 @@ export function useLedgerMutations() {
   const saveDraft = useMutation({
     mutationFn: async (variables: { id: string | null; input: EntryInput }) => {
       const response = variables.id
-        ? await apiClient.patch<JournalEntry>(
+        ? await apiClient.patch(
             `/ledger/entries/${variables.id}`,
             variables.input satisfies ContractInput<'UpdateJournalEntryBody'>,
           )
-        : await apiClient.post<JournalEntry>(
+        : await apiClient.post(
             '/ledger/entries',
             variables.input satisfies ContractInput<'CreateJournalEntryBody'>,
           );
-      return response.data;
+      return checkContract('JournalEntryDetail', response.data, '/ledger/entries');
     },
     onSuccess: invalidate,
   });
   const postEntry = useMutation({
     mutationFn: async (id: string) =>
-      (await apiClient.post<JournalEntry>(`/ledger/entries/${id}/post`)).data,
+      checkContract(
+        'JournalEntryDetail',
+        (await apiClient.post(`/ledger/entries/${id}/post`)).data,
+        '/ledger/entries/:id/post',
+      ),
     onSuccess: invalidate,
   });
   const reverseEntry = useMutation({
     mutationFn: async (variables: { id: string; date?: string }) =>
-      (
-        await apiClient.post<JournalEntry>(`/ledger/entries/${variables.id}/reverse`, {
-          ...(variables.date ? { date: variables.date } : {}),
-        } satisfies ContractInput<'ReverseJournalEntryBody'>)
-      ).data,
+      checkContract(
+        'JournalEntryDetail',
+        (
+          await apiClient.post(`/ledger/entries/${variables.id}/reverse`, {
+            ...(variables.date ? { date: variables.date } : {}),
+          } satisfies ContractInput<'ReverseJournalEntryBody'>)
+        ).data,
+        '/ledger/entries/:id/reverse',
+      ),
     onSuccess: invalidate,
   });
   const deleteDraft = useMutation({

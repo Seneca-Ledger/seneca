@@ -37,6 +37,7 @@ import {
   ChatCompletionStatus,
   Client,
   ClientList,
+  CreatedCustomTable,
   CreditNoteList,
   CryptoGains,
   CryptoHistory,
@@ -46,9 +47,12 @@ import {
   CryptoWalletList,
   CurrentUser,
   CustomTableAggregates,
+  CustomTableColumnItem,
   CustomTableDetail,
   CustomTableGroups,
+  CustomTableItem,
   CustomTableList,
+  CustomTableRowItem,
   CustomTableRowPage,
   CustomTableSummaries,
   DailyQuote,
@@ -65,6 +69,7 @@ import {
   GoalFlowResponse,
   GoalList,
   GoalPlanResponse,
+  GoalWithProgress,
   IncomeTaxDisclaimer,
   IncomeTaxDraft,
   IncomeTaxMappings,
@@ -80,10 +85,12 @@ import {
   JournalEntryPage,
   JurisdictionRateList,
   LateFeeQuote,
+  LedgerAccount,
   LedgerAccountList,
   LedgerIntegrity,
   LedgerSettings,
   LocalCategorizationStatus,
+  LoginResponse,
   MapStyles,
   MetalReceiptList,
   MetalsSummary,
@@ -93,6 +100,7 @@ import {
   NotificationList,
   NotificationPreferences,
   Payable,
+  PayableList,
   PayableListPage,
   PayablePaymentList,
   PayablesSummary,
@@ -103,9 +111,11 @@ import {
   PushPublicKey,
   ReceiptListPage,
   ReceiptRecord,
+  ReceiptRecordUpdate,
   ReceiptSplitSuggestion,
   ReceiptTransactionMatches,
   ReconciliationResponse,
+  RegisterResponse,
   ReportHistoryList,
   ReportScheduleList,
   ReviewInboxByStatement,
@@ -120,8 +130,11 @@ import {
   StoicBalance,
   StorageFileDetails,
   StorageFileList,
+  StorageFolder,
   StorageFolderList,
+  StorageTag,
   StorageTagList,
+  StorageViewItem,
   StorageViewList,
   SubscriptionChargeCalendar,
   SubscriptionDetail,
@@ -129,6 +142,7 @@ import {
   SubscriptionList,
   SubscriptionSummary,
   TaxJurisdictionList,
+  TaxRateItem,
   TaxRateList,
   TaxReturnPreview,
   TaxReturnRecord,
@@ -144,6 +158,7 @@ import {
   UnreadCount,
   UserPermissions,
   UserSessionList,
+  UserUpdateResponse,
   WalletList,
   WebhookEndpointList,
   WebhookSubscriptionList,
@@ -151,6 +166,7 @@ import {
   WorkspaceDetail,
   WorkspaceList,
   WorkspaceOverview,
+  WorkspaceSummary,
   WorkspaceTaxSettings,
 } from '../../src/contracts';
 import {
@@ -1202,6 +1218,170 @@ describe('API contracts (e2e)', () => {
 
     it('GET the bank feed status', async () => {
       matches(BankSyncStatus, (await get('/integrations/simplefin/status')).body);
+    });
+  });
+
+  describe('mutation responses the app reads', () => {
+    const call = (method: 'post' | 'put' | 'patch' | 'delete', url: string, body?: object) => {
+      const req = request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId);
+      return body ? req.send(body) : req;
+    };
+
+    it('settings, storage and tags', async () => {
+      const transactionId = (await get('/transactions')).body.data[0].id;
+      matches(
+        BusinessProfileResponse,
+        (await call('put', '/business-profile', { phone: '+49 30 1234' }).expect(200)).body,
+      );
+      matches(
+        BackupConfiguration,
+        (await call('put', '/backups/config', { destinationKind: 'local', retentionCount: 5 }).expect(200))
+          .body,
+      );
+      const tag = await call('post', '/storage/tags', { name: 'Mutation tag' }).expect(201);
+      matches(StorageTag, tag.body);
+      matches(
+        StorageTag,
+        (await call('patch', `/storage/tags/${tag.body.id}`, { color: '#ff0000' }).expect(200)).body,
+      );
+      const folder = await call('post', '/storage/folders', { name: 'Mutation folder' }).expect(201);
+      matches(StorageFolder, folder.body);
+      matches(
+        StorageFolder,
+        (await call('patch', `/storage/folders/${folder.body.id}`, { name: 'Renamed' }).expect(200)).body,
+      );
+      matches(StorageViewItem, (await call('post', '/storage/views', { name: 'Mutation view' }).expect(201)).body);
+      matches(
+        StorageTagList,
+        (await call('put', `/transactions/${transactionId}/tags`, { tagIds: [tag.body.id] }).expect(200)).body,
+      );
+    });
+
+    it('clients, invoice settings and payables, money as decimal strings', async () => {
+      const client = await call('post', '/clients', { name: 'Mutation Client', currency: 'USD' }).expect(201);
+      matches(Client, client.body);
+      matches(Client, (await call('put', `/clients/${client.body.id}`, { taxId: 'DE123' }).expect(200)).body);
+      matches(InvoiceSettings, (await call('put', '/invoices/settings', { paymentTermsDays: 21 }).expect(200)).body);
+      const payable = await call('post', '/payables', {
+        vendor: 'Mutation Vendor',
+        amount: 50,
+        currency: 'USD',
+        dueDate: '2026-12-01',
+      }).expect(201);
+      matches(Payable, payable.body);
+      expect(payable.body.amount).toBe('50.00');
+      const paid = await call('post', `/payables/${payable.body.id}/payments`, {
+        amount: 10,
+        paidOn: '2026-10-01',
+      }).expect(201);
+      matches(Payable, paid.body);
+      expect(paid.body.paidAmount).toBe('10.00');
+      matches(Payable, (await call('put', `/payables/${payable.body.id}`, { comment: 'Edited' }).expect(200)).body);
+      const payments = await get(`/payables/${payable.body.id}/payments`);
+      matches(
+        Payable,
+        (await call('delete', `/payables/${payable.body.id}/payments/${payments.body[0].id}`).expect(200))
+          .body,
+      );
+      const bill = await call('post', '/payables', {
+        vendor: 'Allocation Vendor',
+        amount: 30,
+        currency: 'USD',
+        dueDate: '2026-12-01',
+      }).expect(201);
+      const transactionId = (await get('/transactions')).body.data[0].id;
+      const allocated = await call('post', '/payables/allocate', {
+        transactionId,
+        allocations: [{ payableId: bill.body.id, amount: 30 }],
+      }).expect(201);
+      matches(PayableList, allocated.body);
+      matches(Payable, (await call('put', `/payables/${payable.body.id}/mark-paid`, {}).expect(200)).body);
+      matches(Payable, (await call('put', `/payables/${payable.body.id}/archive`, {}).expect(200)).body);
+    });
+
+    it('ledger accounts and the life of an entry', async () => {
+      const account = await call('post', '/ledger/accounts', {
+        code: 'MUTATION-1',
+        name: 'Mutation asset',
+        accountType: 'asset',
+      }).expect(201);
+      matches(LedgerAccount, account.body);
+      const accounts = await get('/ledger/accounts');
+      const other = accounts.body.find(
+        (candidate: { isPostable: boolean; id: string }) =>
+          candidate.isPostable && candidate.id !== account.body.id,
+      );
+      const entry = await call('post', '/ledger/entries', {
+        entryDate: '2026-10-01',
+        memo: 'Mutation',
+        lines: [
+          { accountId: account.body.id, side: 'debit', amount: '10.00' },
+          { accountId: other.id, side: 'credit', amount: '10.00' },
+        ],
+      }).expect(201);
+      matches(JournalEntryDetail, entry.body);
+      const id = entry.body.id;
+      matches(JournalEntryDetail, (await call('patch', `/ledger/entries/${id}`, { memo: 'Edited' }).expect(200)).body);
+      matches(JournalEntryDetail, (await call('post', `/ledger/entries/${id}/post`, {}).expect(200)).body);
+      matches(JournalEntryDetail, (await call('post', `/ledger/entries/${id}/reverse`, {}).expect(200)).body);
+    });
+
+    it('tax rates, custom tables, goals, workspaces, the profile and receipt locations', async () => {
+      matches(TaxRateItem, (await call('post', '/tax-rates', { name: 'Mutation 5%', rate: 5 }).expect(201)).body);
+      const table = await call('post', '/custom-tables', { name: 'Mutation table' }).expect(201);
+      matches(CreatedCustomTable, table.body);
+      const column = await call('post', `/custom-tables/${table.body.id}/columns`, {
+        title: 'Amount',
+        type: 'number',
+      }).expect(201);
+      matches(CustomTableColumnItem, column.body);
+      const row = await call('post', `/custom-tables/${table.body.id}/rows`, {
+        data: { [column.body.key]: 1 },
+      }).expect(201);
+      matches(CustomTableRowItem, row.body);
+      matches(
+        CustomTableRowItem,
+        (
+          await call('patch', `/custom-tables/${table.body.id}/rows/${row.body.id}`, {
+            data: { [column.body.key]: 2 },
+          }).expect(200)
+        ).body,
+      );
+      matches(GoalWithProgress, (await call('post', '/goals', { name: 'Mutation goal', targetAmount: 100 }).expect(201)).body);
+      matches(WorkspaceSummary, (await call('post', '/workspaces', { name: 'Mutation workspace' }).expect(201)).body);
+      const profile = await call('patch', '/users/me/preferences', { name: 'Contracts Owner' }).expect(200);
+      matches(UserUpdateResponse, profile.body);
+      for (const field of ['passwordHash', 'tokenVersion', 'googleId', 'isActive']) {
+        expect(profile.body.user).not.toHaveProperty(field);
+      }
+      const receiptId = (await get('/receipts')).body.data[0].id;
+      matches(
+        ReceiptRecordUpdate,
+        (await call('patch', `/receipts/${receiptId}/location`, { latitude: 52.52, longitude: 13.4 }).expect(200))
+          .body,
+      );
+      matches(ReceiptRecordUpdate, (await call('delete', `/receipts/${receiptId}/location`).expect(200)).body);
+    });
+    it('registration and login, which reopens the last workspace', async () => {
+      const newcomer = `contracts-newcomer-${Date.now()}@example.com`;
+      const registered = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: newcomer, password: 'Test123!@#', name: 'Newcomer' })
+        .expect(201);
+      matches(RegisterResponse, registered.body);
+      await deleteUserByEmail(dataSource, newcomer);
+
+      const other = await call('post', '/workspaces', { name: 'Last opened' }).expect(201);
+      await call('post', `/workspaces/${other.body.id}/switch`).expect(200);
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password: 'Test123!@#' })
+        .expect(200);
+      matches(LoginResponse, login.body);
+      expect(login.body.user.lastWorkspaceId).toBe(other.body.id);
     });
   });
 });

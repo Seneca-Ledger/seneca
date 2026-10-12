@@ -1,4 +1,5 @@
 import * as Schema from 'effect/Schema';
+import * as Struct from 'effect/Struct';
 import { DecimalString, Timestamp, type Wire } from '../common/wire';
 
 export const ReceiptTransactionMatch = Schema.Struct({
@@ -106,6 +107,13 @@ export const ReceiptRecord = Schema.Struct({
   createdAt: Timestamp,
 });
 export type ReceiptRecord = Wire<typeof ReceiptRecord>;
+
+/**
+ * A receipt as its updates answer (`PATCH /receipts/:id/location`, `DELETE` of
+ * it): the stored row, without the category looked up for display.
+ */
+export const ReceiptRecordUpdate = ReceiptRecord.mapFields(Struct.omit(['category']));
+export type ReceiptRecordUpdate = Wire<typeof ReceiptRecordUpdate>;
 
 /** `GET /receipts`. */
 export const ReceiptListPage = Schema.Struct({

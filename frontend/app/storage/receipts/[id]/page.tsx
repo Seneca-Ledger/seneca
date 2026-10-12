@@ -25,7 +25,7 @@ import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/li
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { tokens } from '@/lib/theme-tokens';
@@ -518,8 +518,12 @@ export default function ReceiptDocumentPage() {
         ),
       } satisfies ContractInput<'CreateCustomTableBody'>);
 
-      const createdTable = createTableResponse.data?.data || createTableResponse.data;
-      const tableId = createdTable?.id;
+      const createdTable = await checkContract(
+        'CreatedCustomTable',
+        createTableResponse.data,
+        '/custom-tables',
+      );
+      const tableId = createdTable.id;
 
       if (!tableId) {
         toast.error('Failed to export to table');
@@ -528,18 +532,22 @@ export default function ReceiptDocumentPage() {
       }
 
       const createdColumns = await Promise.all(
-        exportData.columns.map(column =>
-          apiClient.post(`/custom-tables/${tableId}/columns`, {
+        exportData.columns.map(async column => {
+          const response = await apiClient.post(`/custom-tables/${tableId}/columns`, {
             title: column.title,
             type: column.type,
-          } satisfies ContractInput<'CreateCustomTableColumnBody'>),
-        ),
+          } satisfies ContractInput<'CreateCustomTableColumnBody'>);
+          return checkContract(
+            'CustomTableColumnItem',
+            response.data,
+            '/custom-tables/:id/columns',
+          );
+        }),
       );
 
       const columnKeyByField = exportData.columns.reduce<Record<string, string>>(
         (acc, column, index) => {
-          const payload = createdColumns[index]?.data?.data || createdColumns[index]?.data;
-          const key = payload?.key;
+          const key = createdColumns[index]?.key;
           if (key) {
             acc[column.field] = key;
           }

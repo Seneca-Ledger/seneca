@@ -169,7 +169,7 @@ export const payablesApi = {
       '/payables',
       payload satisfies ContractInput<'CreatePayableBody'>,
     );
-    return unwrapData(response);
+    return checkContract('Payable', unwrapData(response), '/payables');
   },
 
   async update(id: string, payload: UpdatePayableInput): Promise<Payable> {
@@ -177,7 +177,7 @@ export const payablesApi = {
       `/payables/${id}`,
       payload satisfies ContractInput<'UpdatePayableBody'>,
     );
-    return unwrapData(response);
+    return checkContract('Payable', unwrapData(response), '/payables/:id');
   },
 
   async paymentCandidates(id: string): Promise<PaymentCandidate[]> {
@@ -199,12 +199,12 @@ export const payablesApi = {
       `/payables/${id}/payments`,
       payload satisfies ContractInput<'AddPayablePaymentBody'>,
     );
-    return unwrapData(response);
+    return checkContract('Payable', unwrapData(response), '/payables/:id/payments');
   },
 
   async removePayment(id: string, paymentId: string): Promise<Payable> {
     const response = await apiClient.delete<Payable>(`/payables/${id}/payments/${paymentId}`);
-    return unwrapData(response);
+    return checkContract('Payable', unwrapData(response), '/payables/:id/payments/:paymentId');
   },
 
   async allocate(payload: AllocateTransactionInput): Promise<Payable[]> {
@@ -212,7 +212,7 @@ export const payablesApi = {
       '/payables/allocate',
       payload satisfies ContractInput<'AllocateTransactionBody'>,
     );
-    return unwrapData(response);
+    return checkContract('PayableList', unwrapData(response), '/payables/allocate');
   },
 
   async allocationSuggestion(transactionId: string): Promise<AllocationSuggestion> {
@@ -227,12 +227,12 @@ export const payablesApi = {
       `/payables/${id}/mark-paid`,
       payload satisfies ContractInput<'MarkPayablePaidBody'>,
     );
-    return unwrapData(response);
+    return checkContract('Payable', unwrapData(response), '/payables/:id/mark-paid');
   },
 
   async archive(id: string): Promise<Payable> {
     const response = await apiClient.put<Payable>(`/payables/${id}/archive`);
-    return unwrapData(response);
+    return checkContract('Payable', unwrapData(response), '/payables/:id/archive');
   },
 
   async delete(id: string): Promise<{ message: string }> {

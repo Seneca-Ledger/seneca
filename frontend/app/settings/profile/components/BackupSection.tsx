@@ -123,7 +123,10 @@ export function BackupSection() {
         enabled: config.enabled,
         password: password || undefined,
       } satisfies ContractInput<'UpdateBackupConfigurationBody'>);
-      setConfig(response.data);
+      const saved = await checkContract('BackupConfiguration', response.data, '/backups/config');
+      if (saved) {
+        setConfig(saved);
+      }
       setPassword('');
       setMessage(t.messages.saved.value);
     })()

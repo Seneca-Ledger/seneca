@@ -94,14 +94,14 @@ export const clientsApi = {
       '/clients',
       payload satisfies ContractInput<'CreateClientBody'>,
     );
-    return unwrapData(response);
+    return checkContract('Client', unwrapData(response), '/clients');
   },
   async update(id: string, payload: UpdateClientInput): Promise<Client> {
     const response = await apiClient.put<Client>(
       `/clients/${id}`,
       payload satisfies ContractInput<'UpdateClientBody'>,
     );
-    return unwrapData(response);
+    return checkContract('Client', unwrapData(response), '/clients/:id');
   },
   async delete(id: string): Promise<{ message: string }> {
     const response = await apiClient.delete<{ message: string }>(`/clients/${id}`);
@@ -164,7 +164,7 @@ export const invoicesApi = {
       '/invoices/settings',
       payload satisfies ContractInput<'UpdateInvoiceSettingsBody'>,
     );
-    return unwrapData(response);
+    return checkContract('InvoiceSettings', unwrapData(response), '/invoices/settings');
   },
   async sendEmail(id: string, payload: SendInvoiceEmailInput = {}): Promise<InvoiceDelivery> {
     const response = await apiClient.post<InvoiceDelivery>(
