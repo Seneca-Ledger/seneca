@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type QueryDeepPartialEntity, type Repository, type SelectQueryBuilder } from 'typeorm';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
@@ -15,10 +15,13 @@ import { IncomeTaxProfile } from '../../entities/income-tax-profile.entity';
 import { StatementStatus } from '../../entities/statement.entity';
 import type { TaxJurisdiction } from '../../entities/tax-jurisdiction.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
+import { VatStatus } from '../../entities/workspace.entity';
 import { AuditService } from '../audit/audit.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { PublicHolidaysService } from '../reference-data/public-holidays.service';
 import { JurisdictionAdoptionService } from '../tax/jurisdiction-adoption.service';
 import { toDateOnly } from '../tax/jurisdictions.service';
+import { WorkspaceTaxSettingsService } from '../tax/workspace-tax-settings.service';
 import { type BdiRates, BdiRatesService, referenceRateFor } from './bdi-rates.service';
 import { filingInfoFor } from './filing-info';
 import type { DraftContribution, DraftSignals, IncomeTaxDraft } from './income-tax.types';
@@ -116,7 +119,24 @@ export class IncomeTaxDraftService {
     private readonly nbpRatesService: NbpRatesService,
     private readonly bdiRatesService: BdiRatesService,
     private readonly auditService: AuditService,
+    @Optional()
+    private readonly taxSettingsService?: WorkspaceTaxSettingsService,
+    @Optional()
+    private readonly publicHolidaysService?: PublicHolidaysService,
   ) {}
+
+  /** The filing calendar, with deadlines moved off the country's public holidays. */
+  private async filingInfo(
+    countryCode: string,
+    taxYear: number,
+    profile: { taxpayerType: TaxpayerType; details: Record<string, unknown> },
+  ) {
+    const holidays = await this.publicHolidaysService?.holidaysFor(countryCode, [
+      taxYear + 1,
+      taxYear + 2,
+    ]);
+    return filingInfoFor(countryCode, taxYear, profile.taxpayerType, profile.details, holidays);
+  }
 
   /**
    * Profile and mapping edits change how a year is declared but live on their
@@ -169,9 +189,7 @@ export class IncomeTaxDraftService {
       pack: jurisdiction
         ? packMeta(resolvePack(jurisdiction.code, taxYear, profile.taxpayerType, profile.details))
         : null,
-      filingInfo: jurisdiction
-        ? filingInfoFor(jurisdiction.code, taxYear, profile.taxpayerType, profile.details)
-        : null,
+      filingInfo: jurisdiction ? await this.filingInfo(jurisdiction.code, taxYear, profile) : null,
     };
   }
 
@@ -344,6 +362,16 @@ export class IncomeTaxDraftService {
   async compute(workspaceId: string, taxYear: number): Promise<IncomeTaxDraft> {
     const { jurisdiction, profile, pack } = await this.getContext(workspaceId, taxYear);
     const currency = jurisdiction.currency.toUpperCase();
+    const vatStatus = this.taxSettingsService
+      ? await this.taxSettingsService.getVatStatus(workspaceId)
+      : null;
+    const vatRegistered = vatStatus === VatStatus.REGISTERED;
+    // The workspace's VAT status answers the small-business question unless
+    // the profile answered it for this year.
+    const details =
+      profile.details.smallBusiness === undefined && vatStatus === VatStatus.SMALL_BUSINESS
+        ? { ...profile.details, smallBusiness: true }
+        : profile.details;
 
     const [transactions, mappings] = await Promise.all([
       this.yearTransactions(workspaceId, taxYear)
@@ -419,32 +447,56 @@ export class IncomeTaxDraftService {
         continue;
       }
 
-      const rate = quote.rate;
-      const sign = directionSign(line.section, transaction.transactionType);
-      const convertedMinor = sign * roundHalfAwayFromZero(toMinor(amount) * rate);
+      const addItem = (target: FormLine, value: number) => {
+        const sign = directionSign(target.section, transaction.transactionType);
+        const convertedMinor = sign * roundHalfAwayFromZero(toMinor(value) * quote.rate);
+        if (!items[target.key]) {
+          items[target.key] = [];
+          contributions[target.key] = [];
+        }
+        items[target.key].push({
+          counterparty: transaction.counterpartyName ?? '',
+          amountMinor: convertedMinor,
+        });
+        contributions[target.key].push({
+          transactionId: transaction.id,
+          date,
+          counterparty: transaction.counterpartyName,
+          categoryName: transaction.category?.name ?? null,
+          currency: from,
+          amount: sign * value,
+          exchangeRate: quote.rate,
+          rateDate: quote.rateDate,
+          amountConverted: fromMinor(convertedMinor),
+        });
+      };
 
-      if (!items[line.key]) {
-        items[line.key] = [];
-        contributions[line.key] = [];
+      // A VAT-registered business's revenue and costs are declared net: the
+      // VAT it collected or paid is not its income or cost but the tax
+      // office's, and goes to the pack's VAT lines where the form has them.
+      // Reverse-charged rows carry no tax that changed hands.
+      const splitsVat =
+        vatRegistered &&
+        transaction.taxAmount !== null &&
+        transaction.taxNetAmount !== null &&
+        !transaction.taxReverseCharge;
+      if (splitsVat) {
+        addItem(line, Math.abs(Number(transaction.taxNetAmount)));
+        const vat = Math.abs(Number(transaction.taxAmount));
+        const vatLineKey =
+          transaction.transactionType === TransactionType.INCOME
+            ? pack.vatLines?.output
+            : pack.vatLines?.input;
+        const vatLine = vatLineKey ? lineByKey.get(vatLineKey) : undefined;
+        if (vatLine && vat > 0) {
+          addItem(vatLine, vat);
+        }
+      } else {
+        addItem(line, amount);
       }
-      items[line.key].push({
-        counterparty: transaction.counterpartyName ?? '',
-        amountMinor: convertedMinor,
-      });
-      contributions[line.key].push({
-        transactionId: transaction.id,
-        date,
-        counterparty: transaction.counterpartyName,
-        categoryName: transaction.category?.name ?? null,
-        currency: from,
-        amount: sign * amount,
-        exchangeRate: rate,
-        rateDate: quote.rateDate,
-        amountConverted: fromMinor(convertedMinor),
-      });
     }
 
-    const result = pack.compute({ taxYear, items, details: profile.details });
+    const result = pack.compute({ taxYear, items, details });
 
     const warnings = [...result.warnings];
     if (pack.formEditionYear !== null && taxYear > pack.formEditionYear) {
@@ -496,7 +548,7 @@ export class IncomeTaxDraftService {
       completeness,
       disclaimerVersion: CURRENT_TAX_DISCLAIMER_VERSION,
       fxRule,
-      filingInfo: filingInfoFor(jurisdiction.code, taxYear, profile.taxpayerType, profile.details),
+      filingInfo: await this.filingInfo(jurisdiction.code, taxYear, profile),
       contributions,
     };
   }

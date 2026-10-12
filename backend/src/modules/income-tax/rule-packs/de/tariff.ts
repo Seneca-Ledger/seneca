@@ -21,6 +21,18 @@ interface TariffYear {
 }
 
 const TARIFF: Record<number, TariffYear> = {
+  // BGBl. 2024 I Nr. 449 (Steuerfortentwicklungsgesetz), Art. 1 Nr. 2, "ab dem
+  // Veranlagungszeitraum 2025"; matches BMF Lohnsteuer2025 UPTAB25 (GFB 12 096).
+  2025: {
+    zone1End: 12_096,
+    zone2End: 17_443,
+    zone3End: 68_480,
+    zone4End: 277_825,
+    zone2: { a: 932.3, b: 1_400 },
+    zone3: { a: 176.64, b: 2_397, c: 1_015.13 },
+    zone4: { rate: 0.42, minus: 10_911.92 },
+    zone5: { rate: 0.45, minus: 19_246.67 },
+  },
   2026: {
     zone1End: 12_348,
     zone2End: 17_799,

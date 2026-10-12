@@ -4,6 +4,8 @@ import * as fs from 'fs/promises';
 import { Repository } from 'typeorm';
 import { readExifGps } from '../../../common/utils/exif-gps.util';
 import { Receipt, ReceiptJobStatus, ReceiptProcessingJob, ReceiptStatus } from '../../../entities';
+import { readEInvoice } from '../../e-invoices/einvoice-reader';
+import { parsedDocumentOf, summarizeEInvoice } from '../../e-invoices/einvoice-summary';
 import { UniversalExtractorService } from '../../parsing/services/universal-extractor.service';
 import { ReceiptCategoryService } from './receipt-category.service';
 import { ReceiptDuplicateService } from './receipt-duplicate.service';
@@ -72,15 +74,20 @@ export class ReceiptProcessorService {
       job.progress = 35;
       await this.jobRepository.save(job);
 
-      const parsed = isPdf
-        ? await this.extractor.extractFromPdf(fileBuffer, {
-            fileNameHint: receipt.subject,
-            ocrLanguages,
-          })
-        : await this.extractor.extractFromImage(fileBuffer, mimeType, {
-            fileNameHint: receipt.subject,
-            ocrLanguages,
-          });
+      // A structured e-invoice is read from its XML: the XML is the invoice,
+      // and its figures need no OCR or guessing.
+      const einvoice = await readEInvoice(fileBuffer, mimeType, filePath);
+      const parsed = einvoice
+        ? parsedDocumentOf(einvoice.invoice)
+        : isPdf
+          ? await this.extractor.extractFromPdf(fileBuffer, {
+              fileNameHint: receipt.subject,
+              ocrLanguages,
+            })
+          : await this.extractor.extractFromImage(fileBuffer, mimeType, {
+              fileNameHint: receipt.subject,
+              ocrLanguages,
+            });
 
       job.progress = 70;
       await this.jobRepository.save(job);
@@ -98,13 +105,14 @@ export class ReceiptProcessorService {
         transactionType: parsed.transactionType,
         confidence: parsed.confidence,
         validationIssues: parsed.validationIssues,
+        ...(einvoice ? { einvoice: summarizeEInvoice(einvoice.invoice) } : {}),
       };
       receipt.taxAmount = parsed.tax ?? null;
       receipt.language = this.normalizeStoredLanguage(receipt.language ?? job.payload.historyId);
       receipt.extractionMethod = parsed.extractionMethod;
       receipt.confidence = parsed.confidence;
 
-      if (!isPdf) {
+      if (!(isPdf || einvoice)) {
         await this.captureExifLocation(receipt, fileBuffer);
       }
       await this.locationService.applyAutoLocation(receipt);

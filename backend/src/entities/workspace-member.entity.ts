@@ -16,6 +16,11 @@ export enum WorkspaceRole {
   ADMIN = 'admin',
   MEMBER = 'member',
   VIEWER = 'viewer',
+  /**
+   * The tax adviser or bookkeeper: reads everything a viewer reads and may take
+   * exports away (tax pack, DATEV, returns), but changes nothing.
+   */
+  ACCOUNTANT = 'accountant',
 }
 
 export type WorkspaceMemberPermissions = {

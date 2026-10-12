@@ -303,4 +303,62 @@ describe('TaxRatesService', () => {
       expect(repo.save).not.toHaveBeenCalled();
     });
   });
+  // ─── startNewVersion ───────────────────────────────────────
+
+  describe('startNewVersion', () => {
+    const current = {
+      id: 'rate-19',
+      workspaceId: 'ws-1',
+      jurisdictionId: 'de',
+      code: 'DE_STANDARD',
+      kind: 'standard',
+      name: 'MwSt 19%',
+      rate: '19.00',
+      isDefault: true,
+      isEnabled: true,
+      isInclusive: true,
+      isReverseCharge: false,
+      validFrom: '1900-01-01',
+      validTo: null,
+    };
+    let saved: Array<Record<string, unknown>>;
+
+    beforeEach(() => {
+      saved = [];
+      repo.findOne.mockResolvedValue({ ...current });
+      const txRepo = {
+        save: jest.fn(async (row: Record<string, unknown>) => {
+          saved.push(row);
+          return { id: `saved-${saved.length}`, ...row };
+        }),
+        create: jest.fn((row: unknown) => row),
+      };
+      (repo as unknown as { manager: unknown }).manager = {
+        transaction: async (work: (manager: unknown) => unknown) =>
+          work({ getRepository: () => txRepo }),
+      };
+    });
+
+    it('ends the version in force the day before and starts a copy at the new rate', async () => {
+      await service.startNewVersion('ws-1', 'rate-19', 20, '2027-01-01', 'user-1');
+      expect(saved[0]).toMatchObject({ id: 'rate-19', validTo: '2026-12-31' });
+      expect(saved[1]).toMatchObject({
+        code: 'DE_STANDARD',
+        name: 'MwSt 20%',
+        rate: 20,
+        isDefault: true,
+        validFrom: '2027-01-01',
+        validTo: null,
+      });
+      expect(auditService.createEvent).toHaveBeenCalledTimes(2);
+    });
+
+    it('refuses a date the rate is not in force on', async () => {
+      repo.findOne.mockResolvedValue({ ...current, validTo: '2026-06-30' });
+      await expect(
+        service.startNewVersion('ws-1', 'rate-19', 20, '2027-01-01'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(saved).toEqual([]);
+    });
+  });
 });

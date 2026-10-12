@@ -8,6 +8,11 @@ export const CreateTaxRateBody = Schema.Struct({
   rate: NumericInput.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
   isDefault: optionalNullable(Schema.Boolean),
   isEnabled: optionalNullable(Schema.Boolean),
+  /**
+   * The buyer, not the seller, accounts for the tax: an intra-EU B2B supply.
+   * The rate still sets the notional figure the return reports on both sides.
+   */
+  isReverseCharge: optionalNullable(Schema.Boolean),
 });
 export type CreateTaxRateBody = Wire<typeof CreateTaxRateBody>;
 
@@ -18,6 +23,11 @@ export const UpdateTaxRateBody = Schema.Struct({
   ),
   isDefault: optionalNullable(Schema.Boolean),
   isEnabled: optionalNullable(Schema.Boolean),
+  /**
+   * The buyer, not the seller, accounts for the tax: an intra-EU B2B supply.
+   * The rate still sets the notional figure the return reports on both sides.
+   */
+  isReverseCharge: optionalNullable(Schema.Boolean),
 });
 export type UpdateTaxRateBody = Wire<typeof UpdateTaxRateBody>;
 

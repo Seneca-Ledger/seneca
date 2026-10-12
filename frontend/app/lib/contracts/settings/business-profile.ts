@@ -21,6 +21,14 @@ export const BusinessProfileResponse = Schema.Struct({
   bankCode: ProfileField,
   paymentInstructions: ProfileField,
   invoiceFooter: ProfileField,
+  /** The address in parts, for e-invoices (XRechnung). */
+  street: ProfileField,
+  postalCode: ProfileField,
+  city: ProfileField,
+  /** Steuernummer, apart from the VAT id in `taxId`. */
+  taxNumber: ProfileField,
+  /** Who the buyer can ask about an invoice. */
+  contactName: ProfileField,
   logoFile: ProfileField,
   /** Fields an invoice cannot be sent without that are still empty. */
   missingRequired: Schema.Array(Schema.Literals(['legalName', 'addressLines'])),

@@ -107,7 +107,7 @@ export function useTaxDeclaration(taxYear: number) {
   });
 
   const download = useMutation({
-    mutationFn: async (format: 'pdf' | 'xlsx') => {
+    mutationFn: async (format: 'pdf' | 'xlsx' | 'csv') => {
       const response = await apiClient.get(`/income-tax/returns/${taxYear}/export`, {
         params: { format },
         responseType: 'blob',

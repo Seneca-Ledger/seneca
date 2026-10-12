@@ -51,13 +51,13 @@ export type WorkspaceMemberPermissionsInput = Wire<typeof WorkspaceMemberPermiss
 
 export const InviteMemberBody = Schema.Struct({
   email: Email,
-  role: optionalNullable(Schema.Literals(['owner', 'admin', 'member', 'viewer'])),
+  role: optionalNullable(Schema.Literals(['owner', 'admin', 'member', 'viewer', 'accountant'])),
   permissions: optionalNullable(WorkspaceMemberPermissionsInput),
 });
 export type InviteMemberBody = Wire<typeof InviteMemberBody>;
 
 export const UpdateMemberRoleBody = Schema.Struct({
-  role: Schema.Literals(['owner', 'admin', 'member', 'viewer']),
+  role: Schema.Literals(['owner', 'admin', 'member', 'viewer', 'accountant']),
 });
 export type UpdateMemberRoleBody = Wire<typeof UpdateMemberRoleBody>;
 

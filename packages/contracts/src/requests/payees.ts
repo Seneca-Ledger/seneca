@@ -7,6 +7,12 @@ export const UpdatePayeeBody = Schema.Struct({
   mode: optionalNullable(Schema.Literals(['auto', 'always', 'never'])),
   /** The pinned category; required with `mode: always`, null clears it. */
   categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** ISO-3166-1 alpha-2 of the payee's seat; null clears it. */
+  countryCode: optionalNullable(Schema.String.check(Schema.isPattern(/^[A-Za-z]{2}$/))),
+  /** The payee's VAT number; null or blank clears it. */
+  vatId: optionalNullable(Schema.String.check(Schema.isMaxLength(32))),
+  /** What the payee supplies: decides the VAT return line of a cross-border reverse charge. */
+  supplyType: optionalNullable(Schema.Literals(['goods', 'services'])),
 });
 export type UpdatePayeeBody = Wire<typeof UpdatePayeeBody>;
 

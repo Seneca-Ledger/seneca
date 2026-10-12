@@ -1,4 +1,5 @@
 import * as xlsx from 'xlsx';
+import { toCsv } from '../../common/utils/csv.util';
 import type { TaxReturnSnapshotLine } from '../../entities/tax-return.entity';
 
 /**
@@ -123,6 +124,16 @@ export function buildTaxReturnXlsx(input: TaxReturnDocumentInput): Buffer {
   xlsx.utils.book_append_sheet(workbook, lines, 'Lines');
 
   return xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+}
+
+/** The lines as CSV, for a spreadsheet or an accountant's import: one row per line, the totals after. */
+export function buildTaxReturnCsv(input: TaxReturnDocumentInput): Buffer {
+  const rows = lineRows(input);
+  const header = rows.length > 0 ? Object.keys(rows[0]) : [];
+  return Buffer.from(
+    toCsv([header, ...rows.map(row => header.map(key => row[key])), [], ...summaryRows(input)]),
+    'utf8',
+  );
 }
 
 export async function buildTaxReturnPdf(input: TaxReturnDocumentInput): Promise<Buffer> {

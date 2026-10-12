@@ -103,7 +103,7 @@ export const DashboardResponse = Schema.Struct({
   topMerchants: Schema.Array(DashboardTopMerchant),
   topCategories: Schema.Array(DashboardTopCategory),
   recentTransactions: Schema.Array(DashboardRecentTransaction),
-  role: Schema.Literals(['owner', 'admin', 'member', 'viewer']),
+  role: Schema.Literals(['owner', 'admin', 'member', 'viewer', 'accountant']),
   range: DashboardRange,
   dataHealth: DashboardDataHealth,
   effectiveEndDate: Schema.optional(Schema.String),

@@ -992,7 +992,13 @@ describe('API contracts (e2e)', () => {
       expect(rates.body.length).toBeGreaterThan(0);
       matches(TaxRateList, (await get('/tax/settings/rates')).body);
       matches(WorkspaceTaxSettings, (await get('/tax/settings')).body);
-      matches(TaxThresholdStatus, (await get('/tax/settings/threshold')).body);
+      // A VAT-registered business is past the threshold: null, an empty body.
+      expect((await get('/tax/settings/threshold')).text).toBe('');
+      await send('put', '/tax/settings/vat-status', { status: 'not_registered' }).expect(200);
+      const threshold = await get('/tax/settings/threshold');
+      expect(threshold.body).toEqual(expect.objectContaining({ currency: 'EUR' }));
+      matches(TaxThresholdStatus, threshold.body);
+      await send('put', '/tax/settings/vat-status', { status: 'registered' }).expect(200);
       matches(TaxRuleList, (await get('/tax/rules')).body);
     });
 

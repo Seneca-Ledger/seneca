@@ -9,10 +9,14 @@ import { TaxReturnPeriodBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { TaxReturnsService } from './tax-returns.service';
+import { UstvaService } from './ustva/ustva.service';
 
 @Controller('tax/returns')
 export class TaxReturnsController {
-  constructor(private readonly taxReturnsService: TaxReturnsService) {}
+  constructor(
+    private readonly taxReturnsService: TaxReturnsService,
+    private readonly ustvaService: UstvaService,
+  ) {}
 
   @Get()
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
@@ -40,6 +44,20 @@ export class TaxReturnsController {
     @Query('periodEnd') periodEnd: string,
   ) {
     return this.taxReturnsService.computeTotals(workspaceId, periodStart, periodEnd);
+  }
+
+  /**
+   * The period on the lines of Germany's Umsatzsteuer-Voranmeldung (USt 1 A),
+   * Kennzahl by Kennzahl, for entering in Mein ELSTER.
+   */
+  @Get('ustva')
+  @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  async ustva(
+    @WorkspaceId() workspaceId: string,
+    @Query('periodStart') periodStart: string,
+    @Query('periodEnd') periodEnd: string,
+  ) {
+    return this.ustvaService.build(workspaceId, periodStart, periodEnd);
   }
 
   // Filing locks transactions and records a submission, so it sits behind
@@ -78,8 +96,8 @@ export class TaxReturnsController {
     @Query('format') format: string,
     @Res() res: Response,
   ): Promise<void> {
-    if (format !== 'pdf' && format !== 'xlsx') {
-      throw new BadRequestException("Format must be 'pdf' or 'xlsx'");
+    if (format !== 'pdf' && format !== 'xlsx' && format !== 'csv') {
+      throw new BadRequestException("Format must be 'pdf', 'xlsx' or 'csv'");
     }
 
     const { buffer, fileName, contentType } = await this.taxReturnsService.export(

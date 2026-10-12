@@ -29,6 +29,7 @@ import { InvoiceSettingsSection } from './InvoiceSettingsSection';
 import { SettingsSection } from './SettingsSection';
 import { TaxJurisdictionSection } from './TaxJurisdictionSection';
 import { TaxRulesSection } from './TaxRulesSection';
+import { TaxStatusSection } from './TaxStatusSection';
 
 const resolveBackgroundSrc = (backgroundImage: string | null) => {
   if (!backgroundImage) {
@@ -495,6 +496,8 @@ export default function WorkspaceOverviewView() {
             reportError: t.tax.reportError.value,
           }}
         />
+
+        <TaxStatusSection />
 
         <TaxRulesSection />
 

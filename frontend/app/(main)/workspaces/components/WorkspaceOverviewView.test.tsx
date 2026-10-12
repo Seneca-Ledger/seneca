@@ -56,6 +56,9 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
   }),
 }));
 
+// Reads the VAT status and the reserve through React Query; TaxStatusSection.test.tsx covers it.
+vi.mock('./TaxStatusSection', () => ({ TaxStatusSection: () => null }));
+
 vi.mock('react-hot-toast', () => ({
   default: {
     success: vi.fn(),
