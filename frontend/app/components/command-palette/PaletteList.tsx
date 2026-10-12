@@ -55,6 +55,9 @@ export function PaletteList({
     <Box
       id="command-palette-list"
       role="listbox"
+      // Focus stays in the field: a press on a row or heading would otherwise move
+      // it to the dialog, and every key after that would miss the palette.
+      onMouseDown={event => event.preventDefault()}
       sx={{ maxHeight: '55vh', overflowY: 'auto', pb: 1 }}
     >
       {sections.map(section => (

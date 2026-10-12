@@ -78,6 +78,37 @@ function useHideOverlaysBelow(
   }, [isOpen, ownRoot]);
 }
 
+/** The close handlers of the drawers on screen, so a shortcut can clear them before it navigates. */
+const openDrawerClosers = new Set<() => void>();
+
+/**
+ * Closes every open drawer the way Escape would (one that ignores Escape stays).
+ * Called before a shortcut or palette jump: a drawer outside the page, or on the
+ * page being navigated to, would otherwise stay on top of where the user went.
+ */
+export function closeAllDrawers(): void {
+  for (const close of [...openDrawerClosers]) {
+    close();
+  }
+}
+
+function useRegisterOpenDrawer(isOpen: boolean, closeOnEscape: boolean, onClose: () => void): void {
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+  React.useEffect(() => {
+    if (!(isOpen && closeOnEscape)) {
+      return;
+    }
+    const close = (): void => onCloseRef.current();
+    openDrawerClosers.add(close);
+    return () => {
+      openDrawerClosers.delete(close);
+    };
+  }, [isOpen, closeOnEscape]);
+}
+
 const widthMap: Record<DrawerWidth, number | string> = {
   sm: 320,
   md: 448,
@@ -125,6 +156,7 @@ export function DrawerShell({
   const drawerWidth = widthMap[width];
   const rootRef = React.useRef<HTMLDivElement>(null);
   useHideOverlaysBelow(isOpen, rootRef);
+  useRegisterOpenDrawer(isOpen, closeOnEscape, onClose);
 
   return (
     <Drawer
