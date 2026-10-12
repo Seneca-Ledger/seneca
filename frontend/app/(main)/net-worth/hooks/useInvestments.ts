@@ -6,8 +6,11 @@ import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+
+export type { InvestmentAccount, InvestmentHolding } from '@/app/lib/contracts';
 
 /** Coins are not here: they live on the crypto page, as wallets. */
 export type InvestmentAssetClass =
@@ -29,30 +32,6 @@ export const ASSET_CLASSES: InvestmentAssetClass[] = [
   'other',
 ];
 
-export interface InvestmentHolding {
-  id: string;
-  symbol: string | null;
-  name: string;
-  assetClass: InvestmentAssetClass;
-  quantity: number;
-  price: number;
-  priceCurrency: string;
-  priceSource: 'manual' | 'auto';
-  pricedAt: string | null;
-  value: number;
-}
-
-export interface InvestmentAccount {
-  id: string;
-  name: string;
-  kind: 'investment' | 'retirement';
-  currency: string;
-  value: number;
-  contributed: number;
-  gain: number;
-  holdings: InvestmentHolding[];
-}
-
 export interface HoldingInput {
   symbol?: string | null;
   name?: string;
@@ -69,7 +48,8 @@ export function useInvestments() {
 
   const query = useQuery({
     queryKey: queryKeys.investments(workspaceId),
-    queryFn: ({ signal }) => apiQuery<InvestmentAccount[]>({ url: '/investments', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/investments', signal, contract: 'InvestmentAccountList' }),
     enabled: Boolean(workspaceId),
   });
 
@@ -90,7 +70,12 @@ export function useInvestments() {
 
   const createAccount = useCallback(
     (name: string, kind: 'investment' | 'retirement') =>
-      mutation.mutateAsync(() => apiClient.post('/investments/accounts', { name, kind })),
+      mutation.mutateAsync(() =>
+        apiClient.post('/investments/accounts', {
+          name,
+          kind,
+        } satisfies ContractInput<'CreateInvestmentAccountBody'>),
+      ),
     [mutation.mutateAsync],
   );
   const deleteAccount = useCallback(
@@ -100,13 +85,21 @@ export function useInvestments() {
   const addHolding = useCallback(
     (accountId: string, input: HoldingInput) =>
       mutation.mutateAsync(() =>
-        apiClient.post(`/investments/accounts/${accountId}/holdings`, input),
+        apiClient.post(
+          `/investments/accounts/${accountId}/holdings`,
+          input satisfies ContractInput<'UpsertHoldingBody'>,
+        ),
       ),
     [mutation.mutateAsync],
   );
   const updateHolding = useCallback(
     (id: string, input: HoldingInput) =>
-      mutation.mutateAsync(() => apiClient.patch(`/investments/holdings/${id}`, input)),
+      mutation.mutateAsync(() =>
+        apiClient.patch(
+          `/investments/holdings/${id}`,
+          input satisfies ContractInput<'UpsertHoldingBody'>,
+        ),
+      ),
     [mutation.mutateAsync],
   );
   const deleteHolding = useCallback(

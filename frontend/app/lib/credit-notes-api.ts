@@ -1,5 +1,6 @@
 import apiClient from '@/app/lib/api';
 import type { Client } from '@/app/lib/invoices-api';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 export type CreditNoteStatus = 'issued' | 'void';
 
@@ -47,13 +48,16 @@ const unwrapData = <T>(response: { data: T }) => response.data;
 
 export const creditNotesApi = {
   async create(payload: CreateCreditNoteInput): Promise<CreditNote> {
-    const response = await apiClient.post<CreditNote>('/credit-notes', payload);
+    const response = await apiClient.post<CreditNote>(
+      '/credit-notes',
+      payload satisfies ContractInput<'CreateCreditNoteBody'>,
+    );
     return unwrapData(response);
   },
 
   async forInvoice(invoiceId: string): Promise<CreditNote[]> {
-    const response = await apiClient.get<CreditNote[]>(`/invoices/${invoiceId}/credit-notes`);
-    return unwrapData(response);
+    const response = await apiClient.get(`/invoices/${invoiceId}/credit-notes`);
+    return checkContract('CreditNoteList', unwrapData(response), '/invoices/:id/credit-notes');
   },
 
   /** Voids it: the money goes back on the invoices and the entry is reversed. */

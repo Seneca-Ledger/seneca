@@ -4,6 +4,7 @@ import { Alert, Box, Container, Paper, Typography } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import api from '../../../lib/api';
 import { getApiErrorMessage } from '../../../lib/api-error';
 
@@ -60,16 +61,21 @@ export default function SharedTablePage() {
           api.get(`/public/custom-tables/${token}`),
           api.get(`/public/custom-tables/${token}/rows`, { params: { limit: 200 } }),
         ]);
+        const view = await checkContract(
+          'SharedTableView',
+          tableResponse.data,
+          '/public/custom-tables/:token',
+        );
+        const page = await checkContract(
+          'SharedTableRows',
+          rowsResponse.data,
+          '/public/custom-tables/:token/rows',
+        );
         if (cancelled) {
           return;
         }
-        const tableRoot = (tableResponse.data ?? {}) as Record<string, unknown>;
-        setView((tableRoot.data ?? tableRoot) as SharedTable);
-
-        const rowsRoot = (rowsResponse.data ?? {}) as Record<string, unknown>;
-        const nested = (rowsRoot.data ?? {}) as Record<string, unknown>;
-        const items = rowsRoot.items ?? nested.items ?? [];
-        setRows(Array.isArray(items) ? (items as SharedRow[]) : []);
+        setView(view);
+        setRows(page.items);
       })()
         .catch(async err => {
           if (!cancelled) {

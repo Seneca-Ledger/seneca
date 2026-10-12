@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface SplitPartInput {
   amount: number;
@@ -41,7 +42,9 @@ export function useTransactionSplit(onDone: () => void | Promise<void>): UseTran
     async (transactionId: string, parts: SplitPartInput[]) => {
       setSaving(true);
       await apiClient
-        .post(`/transactions/${transactionId}/split`, { parts })
+        .post(`/transactions/${transactionId}/split`, {
+          parts,
+        } satisfies ContractInput<'SplitTransactionBody'>)
         .then(async () => {
           toast.success(successText);
           await onDone();

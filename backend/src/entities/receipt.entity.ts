@@ -79,10 +79,10 @@ export class Receipt {
   })
   source: ReceiptSource;
 
-  @Column({ name: 'gmail_message_id', nullable: true })
+  @Column({ type: 'varchar', name: 'gmail_message_id', nullable: true })
   gmailMessageId: string | null;
 
-  @Column({ name: 'gmail_thread_id', nullable: true })
+  @Column({ type: 'varchar', name: 'gmail_thread_id', nullable: true })
   gmailThreadId: string | null;
 
   @Column()

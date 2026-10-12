@@ -3,6 +3,9 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Cache } from 'cache-manager';
+import { Effect } from 'effect';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { getWith } from '../../common/effect/http-json';
 import { isValidCoordinatePair } from '../../common/utils/capture-location.util';
 
 export type GeoPoint = { lat: number; lng: number };
@@ -67,6 +70,7 @@ export class GeocodingService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     configService: ConfigService,
+    private readonly effects: EffectRuntime,
   ) {
     this.baseUrl = this.resolveBaseUrl(configService.get<string>('GEOCODER_URL'));
     const timeout = Number(configService.get<string>('GEOCODER_TIMEOUT_MS'));
@@ -204,30 +208,37 @@ export class GeocodingService {
     return isValidCoordinatePair(lat, lng) ? { lat, lng } : null;
   }
 
-  private async search(params: Record<string, string>): Promise<unknown[] | 'error'> {
+  private search(params: Record<string, string>): Promise<unknown[] | 'error'> {
     const query = new URLSearchParams({ ...params, format: 'jsonv2' });
-
-    try {
-      // Plain fetch rather than fetchPublicUrl: the host comes from operator
-      // config, never from a user, and a self-hosted geocoder sits on a private
-      // Docker address that the SSRF guard would reject.
-      const response = await fetch(`${this.baseUrl}/search?${query.toString()}`, {
-        headers: { Accept: 'application/json', 'User-Agent': 'Lumio' },
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-      if (!response.ok) {
-        this.logger.warn(`Geocoding request failed: http_${response.status}`);
-        return 'error';
-      }
-
-      const body = (await response.json()) as unknown;
-      return Array.isArray(body) ? body : [];
-    } catch (error) {
-      const name = error instanceof Error ? error.name : '';
-      const reason = name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'network';
-      this.logger.warn(`Geocoding request failed: ${reason}`);
-      return 'error';
-    }
+    const logger = this.logger;
+    // Not through the egress guard: the host comes from operator config, never
+    // from a user, and a self-hosted geocoder sits on a private Docker address
+    // the guard would reject. Never retried: public Nominatim allows one request
+    // a second.
+    return this.effects.run<unknown[] | 'error', never>(
+      getWith(
+        `${this.baseUrl}/search?${query.toString()}`,
+        { timeout: this.timeoutMs, headers: { Accept: 'application/json', 'User-Agent': 'Lumio' } },
+        response =>
+          Effect.gen(function* () {
+            if (response.status < 200 || response.status >= 300) {
+              logger.warn(`Geocoding request failed: http_${response.status}`);
+              return 'error' as const;
+            }
+            // Rows are read leniently below; only an array of them counts.
+            const body = yield* response.json;
+            return Array.isArray(body) ? body : [];
+          }),
+      ).pipe(
+        Effect.catch(error =>
+          Effect.sync(() => {
+            const reason = error._tag === 'TimeoutError' ? 'timeout' : 'network';
+            logger.warn(`Geocoding request failed: ${reason}`);
+            return 'error' as const;
+          }),
+        ),
+      ),
+    );
   }
 
   private async readCache<T = CachedGeocode>(key: string): Promise<T | null> {

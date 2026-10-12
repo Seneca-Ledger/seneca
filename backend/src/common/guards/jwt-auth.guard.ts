@@ -46,12 +46,14 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     rawKey: string,
     request: AuthenticatedRequest,
   ): Promise<boolean> {
-    if (!this.apiKeysService) {
+    let apiKeysService = this.apiKeysService;
+    if (!apiKeysService) {
       const { ApiKeysService } = await import('../../modules/api-keys/api-keys.service');
-      this.apiKeysService = this.moduleRef.get(ApiKeysService, { strict: false });
+      apiKeysService = this.moduleRef.get<ApiKeysService>(ApiKeysService, { strict: false });
+      this.apiKeysService = apiKeysService;
     }
 
-    const apiKey = await this.apiKeysService.validate(rawKey);
+    const apiKey = await apiKeysService.validate(rawKey);
 
     if (!apiKey) {
       throw new UnauthorizedException('Invalid or revoked API key');

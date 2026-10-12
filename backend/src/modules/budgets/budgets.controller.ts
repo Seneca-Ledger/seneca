@@ -1,14 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
+import { CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BudgetsService } from './budgets.service';
 import { BudgetImpactQueryDto } from './dto/budget-impact-query.dto';
-import { CreateBudgetDto } from './dto/create-budget.dto';
-import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { StoicLedgerService } from './stoic/stoic-ledger.service';
 
 @Controller('budgets')
@@ -21,7 +21,7 @@ export class BudgetsController {
   @Post()
   @WorkspaceAuth(Permission.BUDGET_CREATE)
   async create(
-    @Body() createDto: CreateBudgetDto,
+    @SchemaBody(CreateBudgetBody) createDto: CreateBudgetBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -58,7 +58,7 @@ export class BudgetsController {
   @WorkspaceAuth(Permission.BUDGET_EDIT)
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateBudgetDto,
+    @SchemaBody(UpdateBudgetBody) updateDto: UpdateBudgetBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

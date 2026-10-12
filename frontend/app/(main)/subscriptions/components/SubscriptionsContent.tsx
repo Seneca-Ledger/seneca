@@ -153,6 +153,11 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
   const [category, setCategory] = useState('');
   const [riskStatus, setRiskStatus] = useState('');
   const [selected, setSelected] = useState<SubscriptionItem | null>(null);
+  // Rows carry only the owner's user id; the name comes from the member list.
+  const ownerLabel = (userId: string | null): string | null => {
+    const member = userId ? props.workspaceMembers.find(m => m.id === userId) : undefined;
+    return member ? member.name || member.email || null : null;
+  };
   const [view, setView] = useState<'list' | 'matrix'>('list');
   const visibleSubscriptions = useMemo(
     () =>
@@ -532,7 +537,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                     </td>
                     <td>{formatAmount(subscription.amount, subscription.currency)}</td>
                     <td>{formatDate(subscription.nextChargeDate)}</td>
-                    <td>{subscription.owner?.name || subscription.owner?.email || t.unassigned}</td>
+                    <td>{ownerLabel(subscription.ownerId) ?? t.unassigned}</td>
                     <td>
                       {subscription.riskStatus === 'none'
                         ? '—'

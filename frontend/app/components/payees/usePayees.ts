@@ -4,9 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type { Payee, PayeeChoice, PayeeMode, PayeesPage, TransactionPayeeResult } from './types';
+import type { Payee, PayeeChoice, PayeeMode, TransactionPayeeResult } from './types';
 
 /** One page of the workspace's payees, newest-seen first, filtered by name. */
 export function usePayeesList(search: string, limit: number, page = 1) {
@@ -16,7 +17,9 @@ export function usePayeesList(search: string, limit: number, page = 1) {
     queryKey: queryKeys.payees({ workspaceId, params }),
     // Not apiQuery: it would unwrap `data` and drop the total the pager needs.
     queryFn: ({ signal }) =>
-      apiClient.get<PayeesPage>('/payees', { params, signal }).then(response => response.data),
+      apiClient
+        .get('/payees', { params, signal })
+        .then(response => checkContract('PayeesPage', response.data, '/payees')),
     enabled: Boolean(workspaceId),
     // Keeps the list on screen while the search changes, but never shows one
     // workspace's payees under another's name.
@@ -56,7 +59,10 @@ export function useUpdatePayee() {
       countryCode?: string | null;
       vatId?: string | null;
       supplyType?: 'goods' | 'services' | null;
-    }) => apiClient.patch<Payee>(`/payees/${id}`, body).then(response => response.data),
+    }) =>
+      apiClient
+        .patch<Payee>(`/payees/${id}`, body satisfies ContractInput<'UpdatePayeeBody'>)
+        .then(response => response.data),
     onSuccess: invalidate,
   });
 }
@@ -76,7 +82,9 @@ export function useMergePayees() {
   return useMutation({
     mutationFn: ({ targetId, sourceIds }: { targetId: string; sourceIds: string[] }) =>
       apiClient
-        .post<{ merged: number }>(`/payees/${targetId}/merge`, { sourceIds })
+        .post<{ merged: number }>(`/payees/${targetId}/merge`, {
+          sourceIds,
+        } satisfies ContractInput<'MergePayeesBody'>)
         .then(response => response.data),
     onSuccess: invalidate,
   });
@@ -87,7 +95,10 @@ export function useSetTransactionPayee() {
   return useMutation({
     mutationFn: ({ transactionId, choice }: { transactionId: string; choice: PayeeChoice }) =>
       apiClient
-        .put<TransactionPayeeResult>(`/transactions/${transactionId}/payee`, choice)
+        .put<TransactionPayeeResult>(
+          `/transactions/${transactionId}/payee`,
+          choice satisfies ContractInput<'SetTransactionPayeeBody'>,
+        )
         .then(response => response.data),
     onSuccess: invalidate,
   });
@@ -98,8 +109,9 @@ export function fetchPendingReview(
   payeeId: string,
   excludeTransactionId?: string,
 ): Promise<{ transactionIds: string[] }> {
-  return apiQuery<{ transactionIds: string[] }>({
+  return apiQueryDecoded({
     url: `/payees/${payeeId}/pending-review`,
     params: excludeTransactionId ? { excludeTransactionId } : undefined,
+    contract: 'PayeePendingReview',
   });
 }

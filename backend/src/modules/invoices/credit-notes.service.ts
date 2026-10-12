@@ -10,6 +10,7 @@ import { type EntityManager, In, Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { fromMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import type { CreateCreditNoteBody } from '../../contracts';
 import { Client } from '../../entities/client.entity';
 import { CreditNote, CreditNoteStatus } from '../../entities/credit-note.entity';
 import { CreditNoteApplication } from '../../entities/credit-note-application.entity';
@@ -22,7 +23,6 @@ import { Payable } from '../../entities/payable.entity';
 import { BusinessProfileService } from '../business-profile/business-profile.service';
 import { LedgerPostingError, LedgerPostingService } from '../ledger/ledger-posting.service';
 import { PayablesService } from '../payables/payables.service';
-import { CreateCreditNoteDto } from './dto/create-credit-note.dto';
 import { FilterInvoicesDto } from './dto/filter-invoices.dto';
 import { buildCreditNotePdf } from './invoice-document';
 import { documentLines, priceLines, totalsOf } from './invoice-pricing';
@@ -104,7 +104,11 @@ export class CreditNotesService {
     });
   }
 
-  async create(workspaceId: string, userId: string, dto: CreateCreditNoteDto): Promise<CreditNote> {
+  async create(
+    workspaceId: string,
+    userId: string,
+    dto: CreateCreditNoteBody,
+  ): Promise<CreditNote> {
     const issueDate = dto.issueDate ?? new Date().toISOString().slice(0, 10);
 
     return this.creditNoteRepository.manager.transaction(async manager => {
@@ -266,7 +270,7 @@ export class CreditNotesService {
   private async resolveApplications(
     manager: EntityManager,
     workspaceId: string,
-    dto: CreateCreditNoteDto,
+    dto: CreateCreditNoteBody,
   ): Promise<ResolvedApplication[]> {
     const invoices = manager.getRepository(Invoice);
     const resolved: ResolvedApplication[] = [];

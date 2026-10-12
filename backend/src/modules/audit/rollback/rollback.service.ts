@@ -136,7 +136,8 @@ export class RollbackService {
       const data: CustomTableRow['data'] = { ...(row.data || {}) };
       data[columnKey] = asSnapshotRecord(snapshot.before)?.value ?? null;
       await this.customTableRowRepository.update(event.entityId, {
-        data,
+        // jsonb: TypeORM's deep-partial type cannot express `unknown` values.
+        data: data as QueryDeepPartialEntity<CustomTableRow>['data'],
       });
       return { success: true, message: 'Cell update rolled back' };
     } catch (error) {

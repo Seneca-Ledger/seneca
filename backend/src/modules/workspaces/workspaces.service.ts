@@ -14,14 +14,17 @@ import { render } from '@react-email/render';
 import nodemailer from 'nodemailer';
 import * as React from 'react';
 import type { Repository } from 'typeorm';
+import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
-import { retry, TimeoutError, withTimeout } from '../../common/utils/async.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { mergeProcessingSettings } from '../../common/utils/workspace-processing.util';
 import {
   mergeWorkspaceProfile,
   readWorkspaceProfile,
 } from '../../common/utils/workspace-profile.util';
+import type { CreateWorkspaceBody, InviteMemberBody, UpdateWorkspaceBody } from '../../contracts';
 import {
   invitationRoleKey,
   renderInvitation,
@@ -50,9 +53,6 @@ import type {
 } from '../notifications/events/notification-events';
 import { TaxRatesService } from '../tax/tax-rates.service';
 import { WorkspaceTaxSettingsService } from '../tax/workspace-tax-settings.service';
-import type { CreateWorkspaceDto } from './dto/create-workspace.dto';
-import type { InviteMemberDto } from './dto/invite-member.dto';
-import type { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import type { WorkspaceResponseDto, WorkspaceStatsDto } from './dto/workspace-response.dto';
 
 const INVITATION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
@@ -532,7 +532,7 @@ export class WorkspacesService {
   async inviteMember(
     workspaceId: string,
     currentUser: User,
-    dto: InviteMemberDto,
+    dto: InviteMemberBody,
     requestAppOrigin?: string,
   ) {
     await this.requireAdminMembership(workspaceId, currentUser.id);
@@ -546,7 +546,7 @@ export class WorkspacesService {
     }
 
     const email = dto.email.trim().toLowerCase();
-    const role = dto.role || WorkspaceRole.MEMBER;
+    const role = toEnum(WorkspaceRole, dto.role) || WorkspaceRole.MEMBER;
     const permissions: WorkspaceMemberPermissions | null =
       role === WorkspaceRole.MEMBER
         ? ((dto.permissions as WorkspaceMemberPermissions | undefined) ?? null)
@@ -642,7 +642,7 @@ export class WorkspacesService {
     return { invitation: savedInvitation, invitationLink };
   }
 
-  async inviteMemberLegacy(currentUser: User, dto: InviteMemberDto, requestAppOrigin?: string) {
+  async inviteMemberLegacy(currentUser: User, dto: InviteMemberBody, requestAppOrigin?: string) {
     const workspace = await this.ensureUserWorkspace(currentUser);
     return this.inviteMember(workspace.id, currentUser, dto, requestAppOrigin);
   }
@@ -917,7 +917,7 @@ export class WorkspacesService {
     };
   }
 
-  async createWorkspace(userId: string, dto: CreateWorkspaceDto): Promise<WorkspaceResponseDto> {
+  async createWorkspace(userId: string, dto: CreateWorkspaceBody): Promise<WorkspaceResponseDto> {
     const workspace = this.workspaceRepository.create({
       name: dto.name,
       description: dto.description || null,
@@ -984,7 +984,7 @@ export class WorkspacesService {
   async updateWorkspace(
     workspaceId: string,
     userId: string,
-    dto: UpdateWorkspaceDto,
+    dto: UpdateWorkspaceBody,
   ): Promise<WorkspaceResponseDto> {
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
@@ -1026,12 +1026,12 @@ export class WorkspacesService {
       }),
       ...(dto.isFavorite !== undefined && { isFavorite: dto.isFavorite }),
       // Merged, not replaced: `settings` is a shared blob.
-      ...(dto.processing !== undefined && {
-        settings: mergeProcessingSettings(workspace.settings, dto.processing),
+      ...(dto.processing != null && {
+        settings: mergeProcessingSettings(workspace.settings, withoutNulls(dto.processing)),
       }),
     });
     const becameHome = dto.profile === 'home' && readWorkspaceProfile(workspace) !== 'home';
-    if (dto.profile !== undefined) {
+    if (dto.profile != null) {
       workspace.settings = mergeWorkspaceProfile(workspace.settings, dto.profile);
     }
 
@@ -1233,33 +1233,30 @@ export class WorkspacesService {
       const timeoutMs =
         smtp?.timeoutMs || Number.parseInt(process.env.SMTP_TIMEOUT_MS || '10000', 10);
 
-      await retry(
+      await attemptWithRetry(
         () =>
-          withTimeout(
-            transporter.sendMail({
-              from: smtpFrom,
-              to: params.email,
-              subject: renderInvitation(locale, 'subject', { workspace: params.workspaceName }),
-              html,
-              text: workspaceInvitationEmailText({
-                workspaceName: params.workspaceName,
-                invitationLink: params.invitationLink,
-                invitedBy: params.invitedBy,
-                roleLabel: params.role
-                  ? renderInvitation(locale, invitationRoleKey(params.role))
-                  : null,
-                locale,
-              }),
-              replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
+          transporter.sendMail({
+            from: smtpFrom,
+            to: params.email,
+            subject: renderInvitation(locale, 'subject', { workspace: params.workspaceName }),
+            html,
+            text: workspaceInvitationEmailText({
+              workspaceName: params.workspaceName,
+              invitationLink: params.invitationLink,
+              invitedBy: params.invitedBy,
+              roleLabel: params.role
+                ? renderInvitation(locale, invitationRoleKey(params.role))
+                : null,
+              locale,
             }),
-            Number.isFinite(timeoutMs) ? timeoutMs : 10000,
-            'SMTP request timed out',
-          ),
+            replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
+          }),
         {
+          timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 10000,
+          timeoutMessage: 'SMTP request timed out',
           retries: 1,
           baseDelayMs: 300,
           maxDelayMs: 2000,
-          isRetryable: err => err instanceof TimeoutError,
         },
       );
     } catch (error) {

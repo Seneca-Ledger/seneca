@@ -101,7 +101,7 @@ export class Category {
   @Column({ nullable: true })
   color: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   icon: string | null;
 
   /**

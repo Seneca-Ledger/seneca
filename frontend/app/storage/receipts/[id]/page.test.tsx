@@ -30,17 +30,34 @@ const routerMocks = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
 }));
 
-vi.mock('@/app/lib/api', () => ({
-  default: {
-    get: apiMocks.mockApiGet,
-    patch: apiMocks.mockApiPatch,
-    post: apiMocks.mockApiPost,
-  },
-  receiptsApi: {
-    approveReceipt: apiMocks.mockApiPost,
-  },
-  apiBaseUrl: 'http://localhost:3000',
-}));
+vi.mock('@/app/lib/api', async () => {
+  const { categoryItem, receiptRecord } = await import('@/app/test/fixtures/contracts');
+  // The fixtures below name only what each test is about; this fills in the rest
+  // of the wire shape the page checks its responses against.
+  const asWire = (url: string, data: unknown): unknown => {
+    if (url === '/categories' && Array.isArray(data)) {
+      return data.map(category => categoryItem(category));
+    }
+    if (/^\/receipts\/[^/]+$/.test(url) && data && typeof data === 'object') {
+      return receiptRecord(data as Parameters<typeof receiptRecord>[0]);
+    }
+    return data;
+  };
+  return {
+    default: {
+      get: async (url: string, config?: unknown) => {
+        const response = await apiMocks.mockApiGet(url, config);
+        return response && { ...response, data: asWire(url, response.data) };
+      },
+      patch: apiMocks.mockApiPatch,
+      post: apiMocks.mockApiPost,
+    },
+    receiptsApi: {
+      approveReceipt: apiMocks.mockApiPost,
+    },
+    apiBaseUrl: 'http://localhost:3000',
+  };
+});
 
 vi.mock('@/app/lib/workspace-headers', () => ({
   getWorkspaceHeaders: () => ({ 'X-CSRF-Token': 'test-csrf' }),

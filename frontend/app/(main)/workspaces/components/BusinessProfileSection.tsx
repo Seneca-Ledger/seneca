@@ -87,7 +87,7 @@ export function BusinessProfileSection(): React.ReactElement {
 
   const apply = useCallback((profile: BusinessProfile) => {
     setDraft(toDraft(profile));
-    setLogoFile(profile.logoFile);
+    setLogoFile(profile.logoFile ?? null);
     setMissing(profile.missingRequired ?? []);
   }, []);
 

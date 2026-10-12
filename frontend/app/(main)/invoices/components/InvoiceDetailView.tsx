@@ -18,7 +18,6 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import {
   type CreateCreditNoteInput,
@@ -40,6 +39,7 @@ import {
   type SendInvoiceEmailInput,
 } from '@/app/lib/invoices-api';
 import { type Payable, payablesApi } from '@/app/lib/payables-api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { CreditNoteDialog } from './CreditNoteDialog';
 import { InvoiceEmailDrawer } from './InvoiceEmailDrawer';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
@@ -155,15 +155,12 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
   const isEditable = isNew || invoice?.status === 'draft';
 
   const loadOptions = useCallback(async () => {
-    const [clientList, taxRateResponse] = await Promise.all([
+    const [clientList, rawTaxRates] = await Promise.all([
       clientsApi.list(),
-      apiClient.get('/tax-rates'),
+      apiQueryDecoded({ url: '/tax-rates', contract: 'TaxRateList' }),
     ]);
     setClients(clientList);
-    const rawTaxRates = (taxRateResponse.data?.data ?? taxRateResponse.data ?? []) as Array<
-      TaxRateOption & { rate: number | string }
-    >;
-    setTaxRates(rawTaxRates.map(rate => ({ ...rate, rate: Number(rate.rate ?? 0) })));
+    setTaxRates(rawTaxRates.map(rate => ({ ...rate, rate: Number(rate.rate) })));
   }, []);
 
   const loadInvoice = useCallback(async () => {

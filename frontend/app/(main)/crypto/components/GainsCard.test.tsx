@@ -23,6 +23,7 @@ const labels = {
 
 const gains: CryptoGains = {
   currency: 'EUR',
+  incompleteCount: 0,
   disposals: [
     {
       id: 'ETH-2026-03-01-1',
@@ -68,7 +69,7 @@ describe('GainsCard', () => {
   it('says there is nothing rather than showing an empty table', () => {
     render(
       <GainsCard
-        gains={{ currency: 'EUR', disposals: [], proceeds: 0, cost: 0, gain: 0 }}
+        gains={{ currency: 'EUR', disposals: [], proceeds: 0, cost: 0, gain: 0, incompleteCount: 0 }}
         year={2027}
         years={[2026, 2027]}
         labels={labels}
@@ -126,6 +127,7 @@ describe('GainsCard', () => {
       <GainsCard
         gains={{
           currency: 'EUR',
+          incompleteCount: 1,
           proceeds: 2500,
           cost: 0,
           gain: 0,

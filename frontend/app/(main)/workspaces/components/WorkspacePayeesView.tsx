@@ -21,7 +21,7 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
@@ -123,7 +123,8 @@ export default function WorkspacePayeesView() {
   const payees = data?.data ?? [];
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Category[]>({ url: '/categories', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     staleTime: CATEGORIES_STALE_TIME,
     enabled: Boolean(workspaceId),
   });

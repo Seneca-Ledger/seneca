@@ -66,7 +66,7 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 
 ## Project Context (Lumio)
 
-Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, api-standards, clean-architecture, frontend-perf, observability, best-practices). Read those before changes in those domains.
+Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, api-standards, clean-architecture, frontend-perf, observability, best-practices, effect). Read those before changes in those domains.
 
 ## Quick Commands
 
@@ -99,3 +99,4 @@ npm run migration:generate -- src/migrations/<Name>
 - TypeORM SQL logging is off unless `DB_QUERY_LOGGING=true`.
 - Always run migrations via the npm scripts, not raw `typeorm` — `migration:run` acquires a lock to prevent concurrent runs in deployment.
 - Tenant isolation: every backend query must filter by `workspaceId`. See `.claude/rules/security.md`.
+- API schemas live in `packages/contracts/src`; `backend/src/contracts` and `frontend/app/lib/contracts` are generated copies. Edit the source, then `npm run contracts:sync` (pre-commit and CI run `contracts:check`). See `.claude/rules/effect.md`.

@@ -159,7 +159,7 @@ export class User {
   @Column({ name: 'token_version', type: 'int', default: 0 })
   tokenVersion: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   company: string | null;
 
   @Column({
@@ -179,16 +179,16 @@ export class User {
   @Column({ name: 'last_workspace_id', type: 'uuid', nullable: true })
   lastWorkspaceId: string | null;
 
-  @Column({ name: 'google_id', nullable: true })
+  @Column({ type: 'varchar', name: 'google_id', nullable: true })
   googleId: string | null;
 
-  @Column({ name: 'avatar_url', nullable: true })
+  @Column({ type: 'varchar', name: 'avatar_url', nullable: true })
   avatarUrl: string | null;
 
-  @Column({ name: 'telegram_id', nullable: true })
+  @Column({ type: 'varchar', name: 'telegram_id', nullable: true })
   telegramId: string | null;
 
-  @Column({ name: 'telegram_chat_id', nullable: true })
+  @Column({ type: 'varchar', name: 'telegram_chat_id', nullable: true })
   telegramChatId: string | null;
 
   /**
@@ -209,7 +209,7 @@ export class User {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt: Date | null;
 
-  @Column({ name: 'last_login', nullable: true })
+  @Column({ type: 'timestamp', name: 'last_login', nullable: true })
   lastLogin: Date | null;
 
   @Column({ name: 'is_active', default: true })

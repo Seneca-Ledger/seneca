@@ -11,9 +11,9 @@ import * as path from 'node:path';
 import { HttpException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import pdfParse from 'pdf-parse';
 import { Client as PgClient } from 'pg';
 import { DataSource, type Repository } from 'typeorm';
+import { parsePdf } from '../../src/common/utils/pdf-text.util';
 
 import * as entityIndex from '../../src/entities';
 import {
@@ -426,7 +426,7 @@ describe('credit notes (real Postgres)', () => {
     });
 
     const { fileName, data } = await creditNotes.getPdf(note.id, workspaceId);
-    const text = (await pdfParse(data)).text;
+    const text = (await parsePdf(data)).text;
 
     expect(fileName).toBe(`${note.creditNoteNumber}.pdf`);
     expect(text).toContain('Credit note');

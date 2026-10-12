@@ -16,6 +16,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQuery } from '@/app/lib/query-fn';
 import { queryKeys } from '@/app/lib/query-keys';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import BalanceSheet from './components/BalanceSheet';
 import { CashFlowTab } from './components/cash-flow/CashFlowTab';
 import { CashFlowView } from './components/cash-flow/CashFlowView';
@@ -142,9 +143,13 @@ export default function ReportsPage(): React.JSX.Element {
   };
 
   const handleGenerate = async (params: ReportGenerateParams): Promise<void> => {
-    const response = await apiClient.post('/reports/generate', params, {
-      responseType: 'blob',
-    });
+    const response = await apiClient.post(
+      '/reports/generate',
+      params satisfies ContractInput<'GenerateReportBody'>,
+      {
+        responseType: 'blob',
+      },
+    );
     const blob = new Blob([response.data]);
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');

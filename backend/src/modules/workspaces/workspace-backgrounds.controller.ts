@@ -1,22 +1,13 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Put,
-  Query,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { SetWorkspaceBackgroundBody } from '../../contracts';
 import type { User } from '../../entities';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SearchBackgroundsDto } from './dto/search-backgrounds.dto';
-import { SetBackgroundPhotoDto } from './dto/set-background-photo.dto';
 import { WorkspaceBackgroundsService } from './workspace-backgrounds.service';
 
 /**
@@ -61,7 +52,7 @@ export class WorkspaceBackgroundsController {
   setPhoto(
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: SetBackgroundPhotoDto,
+    @SchemaBody(SetWorkspaceBackgroundBody) dto: SetWorkspaceBackgroundBody,
   ) {
     return this.backgroundsService.setPhoto(id, user.id, dto.photoId);
   }

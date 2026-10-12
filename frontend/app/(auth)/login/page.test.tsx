@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { authUser } from '@/app/test/fixtures/contracts';
 
 const apiPost = vi.hoisted(() => vi.fn());
 
@@ -87,14 +88,11 @@ describe('LoginPage locale persistence', () => {
   it('keeps the explicitly selected English locale after a successful login', async () => {
     apiPost.mockResolvedValue({
       data: {
-        user: {
-          id: 'user-1',
-          email: 'user@example.com',
-          name: 'User',
+        user: authUser({
           locale: 'ru',
           onboardingCompletedAt: '2026-01-01T00:00:00.000Z',
           lastWorkspaceId: 'workspace-1',
-        },
+        }),
       },
     });
 
@@ -151,15 +149,13 @@ describe('LoginPage locale persistence', () => {
   it('redirects users with a workspace to the dashboard after login even without lastWorkspaceId', async () => {
     apiPost.mockResolvedValue({
       data: {
-        user: {
+        user: authUser({
           id: 'user-2',
           email: 'admin@example.com',
           name: 'Admin',
-          locale: 'en',
           onboardingCompletedAt: '2026-01-01T00:00:00.000Z',
           workspaceId: 'workspace-primary',
-          lastWorkspaceId: null,
-        },
+        }),
       },
     });
 

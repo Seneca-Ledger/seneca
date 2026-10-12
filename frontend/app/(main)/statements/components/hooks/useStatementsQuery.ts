@@ -2,7 +2,7 @@
 
 import { keepPreviousData, type UseQueryResult, useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { hasProcessingStatements } from '@/app/lib/statement-status';
 import type { StatementFilters } from '../filters/statement-filters';
@@ -60,12 +60,12 @@ export function useStatementsQuery<T extends StatementRecord = StatementRecord>(
     // применяться к уже производному массиву, иначе каждый опрос отдаёт новые
     // референсы и перерисовывает весь список.
     queryFn: async ({ signal }) => {
-      const payload = await apiQuery<StatementRecord[] | null>({
+      const rows = await apiQueryDecoded({
         url: '/statements',
         params,
         signal,
+        contract: 'StatementList',
       });
-      const rows = Array.isArray(payload) ? payload : [];
       return rows.map(stmt => ({
         ...stmt,
         fileType: stmt.fileName?.toLowerCase().includes('pdf') ? 'pdf' : 'file',

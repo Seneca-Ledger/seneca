@@ -1,26 +1,14 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Put,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, Post, Put, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import { SaveIncomeTaxMappingsBody, UpdateIncomeTaxProfileBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import {
-  parseTaxYear,
-  SaveIncomeTaxMappingsDto,
-  UpdateIncomeTaxProfileDto,
-} from './dto/income-tax.dto';
+import { parseTaxYear } from './dto/income-tax.dto';
 import { IncomeTaxDisclaimerService } from './income-tax-disclaimer.service';
 import { IncomeTaxDraftService } from './income-tax-draft.service';
 import { IncomeTaxReturnsService } from './income-tax-returns.service';
@@ -64,7 +52,7 @@ export class IncomeTaxController {
   async saveProfile(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Body() dto: UpdateIncomeTaxProfileDto,
+    @SchemaBody(UpdateIncomeTaxProfileBody) dto: UpdateIncomeTaxProfileBody,
   ) {
     return this.draftService.saveProfile(
       workspaceId,
@@ -86,7 +74,7 @@ export class IncomeTaxController {
   async saveMappings(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Body() dto: SaveIncomeTaxMappingsDto,
+    @SchemaBody(SaveIncomeTaxMappingsBody) dto: SaveIncomeTaxMappingsBody,
   ) {
     return this.draftService.saveMappings(
       workspaceId,
