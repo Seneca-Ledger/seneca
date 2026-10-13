@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { Plus } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -174,28 +175,34 @@ export function InvoicesListView(): React.JSX.Element {
                 </Button>
               )}
             />
-            <Button onClick={() => router.push('/invoices/new')}>{t.newInvoice}</Button>
+            <Button onClick={() => router.push('/invoices/new')}>
+              <Plus size={18} aria-hidden />
+              {t.newInvoice}
+            </Button>
           </div>
         </div>
 
-        <Select
-          size="small"
-          value={status}
-          onChange={next => {
-            setStatus(next as InvoiceStatus | 'all');
-            setPage(1);
-          }}
-          options={[
-            { value: 'all', label: t.columns.status.value },
-            { value: 'draft', label: statusLabels.draft },
-            { value: 'sent', label: statusLabels.sent },
-            { value: 'partially_paid', label: statusLabels.partially_paid },
-            { value: 'paid', label: statusLabels.paid },
-            { value: 'overdue', label: statusLabels.overdue },
-            { value: 'void', label: statusLabels.void },
-          ]}
-          sx={{ maxWidth: 220 }}
-        />
+        {/* Nothing to filter until there is an invoice; an active filter stays so it can be reset. */}
+        {total > 0 || status !== 'all' ? (
+          <Select
+            size="small"
+            value={status}
+            onChange={next => {
+              setStatus(next as InvoiceStatus | 'all');
+              setPage(1);
+            }}
+            options={[
+              { value: 'all', label: t.columns.status.value },
+              { value: 'draft', label: statusLabels.draft },
+              { value: 'sent', label: statusLabels.sent },
+              { value: 'partially_paid', label: statusLabels.partially_paid },
+              { value: 'paid', label: statusLabels.paid },
+              { value: 'overdue', label: statusLabels.overdue },
+              { value: 'void', label: statusLabels.void },
+            ]}
+            sx={{ maxWidth: 220 }}
+          />
+        ) : null}
       </div>
 
       <InvoiceAgeingPanel />

@@ -1469,6 +1469,223 @@
   }
 }
 
+/* ── New / draft invoice wizard ───────────────────────────── */
+// One question per step in a narrow column, the onboarding's rhythm inside the app.
+.lumio-invoice-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 640px;
+  margin: 0 auto;
+
+  &__progress {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__progress-label {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__segments {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__segment {
+    flex: 1;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--border-color);
+    transition: background-color 240ms ease;
+
+    &--done {
+      background: var(--primary);
+    }
+  }
+
+  &__step {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  &__heading {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    h2 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--foreground);
+
+      &:focus {
+        outline: none;
+      }
+    }
+
+    p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--muted-foreground);
+    }
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__hint,
+  &__note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  &__note {
+    font-size: 14px;
+  }
+
+  &__muted {
+    color: var(--muted-foreground);
+  }
+
+  &__line {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+  }
+
+  &__line-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 32px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  &__line-amount {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+    font-size: 14px;
+  }
+
+  &__row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__totals {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    margin-left: auto;
+    min-width: 220px;
+    font-size: 14px;
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    dd {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__total {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  &__review-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+  }
+
+  &__review-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    h3 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted-foreground);
+    }
+  }
+
+  &__review-lines {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+  }
+
+  &__review-extras {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+
+    div {
+      display: flex;
+      gap: 8px;
+    }
+
+    dt {
+      color: var(--muted-foreground);
+
+      &::after {
+        content: ':';
+      }
+    }
+
+    dd {
+      margin: 0;
+    }
+  }
+
+  &__review-notes {
+    white-space: pre-wrap;
+  }
+}
+
 .lumio-invoice-lines {
   &__table {
     width: 100%;
