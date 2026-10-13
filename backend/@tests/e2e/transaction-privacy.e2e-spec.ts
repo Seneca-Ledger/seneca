@@ -192,6 +192,30 @@ describe('Private transactions (e2e)', () => {
       expect(theirs?.privateCategoryId).toBeNull();
     });
 
+    it('hides the merchant on every other way to the row, not only the list', async () => {
+      const [{ statement_id: statementId }] = await dataSource.query(
+        'SELECT statement_id FROM transactions WHERE id = $1',
+        [ids.gift],
+      );
+      const viaFile = await as(partner, request(server()).get(`/storage/files/${statementId}`)).expect(
+        200,
+      );
+      const viaStatement = await as(partner, request(server()).get(`/statements/${statementId}`)).expect(
+        200,
+      );
+      for (const rows of [viaFile.body.transactions, viaStatement.body.transactions]) {
+        const row = rows.find((tx: ListedTransaction) => tx.id === ids.gift);
+        expect(row.counterpartyName).toBe('—');
+        expect(row.paymentPurpose).toBe('—');
+        expect(Number(row.amount)).toBe(70);
+      }
+      // Still the owner's to read in full.
+      const own = await as(owner, request(server()).get(`/storage/files/${statementId}`)).expect(200);
+      expect(own.body.transactions.find((tx: ListedTransaction) => tx.id === ids.gift).counterpartyName).toBe(
+        'Jewellery shop',
+      );
+    });
+
     it('keeps the row, its date and its amount in the partner’s list', async () => {
       const theirs = (await listFor(partner)).find(tx => tx.id === ids.gift);
       expect(theirs).toBeDefined();

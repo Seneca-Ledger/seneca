@@ -19,10 +19,11 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -36,10 +37,13 @@ import {
   validateFiles,
 } from '../../common/utils/file-validator.util';
 import { pipeFileStreamResponse } from '../../common/utils/stream-response.util';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { multerConfig } from '../../config/multer.config';
 import {
   ConvertDroppedSampleBody,
   CreateManualExpenseBody,
+  StatementDetail,
+  StatementListPage,
   StatementsQuery,
   UpdateStatementBody,
   UpdateStatementStageBody,
@@ -309,6 +313,7 @@ export class StatementsController {
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(StatementListPage)
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -486,12 +491,17 @@ export class StatementsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(StatementDetail)
   async findOne(
     @Param('id') id: string,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.statementsService.findOne(id, workspaceId);
+    const statement = await this.statementsService.findOne(id, workspaceId);
+    // A private row reads as a placeholder to all but its owner, here as in the list.
+    redactPrivateRows(statement.transactions ?? [], selfMemberId);
+    return statement;
   }
 
   @Patch(':id')

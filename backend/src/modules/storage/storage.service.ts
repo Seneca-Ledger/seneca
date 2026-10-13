@@ -17,6 +17,7 @@ import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import type {
   CreateFolderBody,
   CreateSharedLinkBody,
@@ -104,7 +105,7 @@ export class StorageService {
   private findMembership(workspaceId: string, userId: string) {
     return this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['role', 'permissions'],
+      select: ['id', 'role', 'permissions'],
     });
   }
 
@@ -317,7 +318,10 @@ export class StorageService {
 
     const isOwner = statement.userId === userId;
     const userPermission = await this.getUserPermissionForStatement(userId, statementId);
-    const isWorkspacePeer = Boolean(await this.findMembership(statement.workspaceId, userId));
+    const membership = await this.findMembership(statement.workspaceId, userId);
+    const isWorkspacePeer = Boolean(membership);
+    // A private row reads as a placeholder to all but its owner, here as in the list.
+    redactPrivateRows(transactions, membership?.id ?? null);
 
     const fileAvailability = await this.fileStorageService.getFileAvailability(statement);
 
@@ -1174,6 +1178,8 @@ export class StorageService {
         order: { transactionDate: 'DESC' },
         relations: ['category', 'branch', 'wallet'],
       });
+      // Whoever holds the link is nobody's member: every private row stays hidden.
+      redactPrivateRows(transactions, null);
     }
 
     return {
