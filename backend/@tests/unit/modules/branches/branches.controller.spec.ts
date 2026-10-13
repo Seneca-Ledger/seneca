@@ -24,7 +24,7 @@ describe('BranchesController', () => {
       message: 'Branch deleted successfully',
     });
 
-    expect(branchesService.create).toHaveBeenCalledWith(workspaceId, { name: 'A' });
+    expect(branchesService.create).toHaveBeenCalledWith(workspaceId, 'u1', { name: 'A' });
     expect(branchesService.findAll).toHaveBeenCalledWith(workspaceId);
     expect(branchesService.findOne).toHaveBeenCalledWith('b1', workspaceId);
     expect(branchesService.update).toHaveBeenCalledWith('b1', workspaceId, { name: 'X' });

@@ -2,12 +2,13 @@ import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { TaxRuleDirection } from '@/entities/tax-rule.entity';
 import { TaxRulesService } from '@/modules/tax/tax-rules.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('TaxRulesService audit', () => {
   let service: TaxRulesService;
   let ruleRepo: ReturnType<typeof createRepoMock>;
   let rateRepo: ReturnType<typeof createRepoMock>;
+  let categoryRepo: ReturnType<typeof createRepoMock>;
   let auditService: { createEvent: jest.Mock };
 
   const rule = {
@@ -23,11 +24,34 @@ describe('TaxRulesService audit', () => {
   beforeEach(() => {
     ruleRepo = createRepoMock();
     rateRepo = createRepoMock();
+    categoryRepo = createRepoMock();
+    categoryRepo.findOne.mockResolvedValue({ id: 'cat-1', workspaceId: 'ws-1' });
     ruleRepo.create.mockImplementation((input: unknown) => input);
     ruleRepo.save.mockImplementation(async (input: object) => ({ id: 'rule-9', ...input }));
     rateRepo.findOne.mockResolvedValue({ id: 'rate-1', code: 'KZ_STANDARD' });
     auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
-    service = new TaxRulesService(ruleRepo as never, rateRepo as never, auditService as never);
+    service = new TaxRulesService(
+      ruleRepo as never,
+      rateRepo as never,
+      auditService as never,
+      categoryRepo as never,
+    );
+  });
+
+  it('refuses a category of another workspace, on create and on update', async () => {
+    ruleRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ ...rule });
+    categoryRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.create('ws-1', { taxRateCode: 'KZ_STANDARD', categoryId: 'their-cat' }, 'user-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.update('rule-1', 'ws-1', { categoryId: 'their-cat' }, 'user-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(categoryRepo.findOne).toHaveBeenCalledWith({
+      where: { id: 'their-cat', workspaceId: 'ws-1' },
+    });
+    expect(ruleRepo.save).not.toHaveBeenCalled();
   });
 
   it('records a CREATE', async () => {

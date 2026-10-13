@@ -162,6 +162,34 @@ describe('NotificationsService', () => {
     expect(prefs.id).toBe('pref-1');
   });
 
+  it('leaves a setting as it is on null, but turns quiet hours off with it', async () => {
+    preferenceRepository.findOne.mockResolvedValue({
+      id: 'pref-1',
+      userId: 'user-1',
+      categoryChanges: true,
+      digestMode: 'daily',
+      quietHoursStart: 22,
+      quietHoursEnd: 7,
+      channels: { categoryChanges: { inApp: true, email: false, telegram: false, push: false } },
+    } as unknown as NotificationPreference);
+
+    await service.updatePreferences('user-1', {
+      categoryChanges: null,
+      digestMode: null,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+    });
+
+    expect(preferenceRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categoryChanges: true,
+        digestMode: 'daily',
+        quietHoursStart: null,
+        quietHoursEnd: null,
+      }),
+    );
+  });
+
   it('creates notifications for workspace members except actor', async () => {
     workspaceMemberRepository.find.mockResolvedValue([
       { userId: 'user-1' },

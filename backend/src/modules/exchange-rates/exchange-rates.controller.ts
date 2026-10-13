@@ -1,14 +1,16 @@
-import { Controller, Get, Post, Query } from '@nestjs/common';
+import { Controller, Get, Post } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   BulkConvertBody,
   ExchangeRateCoverage,
+  ExchangeRateQuery,
   ExchangeRateQuote,
   ManualRateBody,
 } from '../../contracts';
@@ -32,9 +34,7 @@ export class ExchangeRatesController {
   @SchemaResponse(ExchangeRateQuote)
   async getRate(
     @WorkspaceId() workspaceId: string,
-    @Query('from') from: string,
-    @Query('to') to: string,
-    @Query('date') date?: string,
+    @SchemaQuery(ExchangeRateQuery) { from, to, date }: ExchangeRateQuery,
   ) {
     const rateDate = date ? new Date(date) : undefined;
     const quote = await this.exchangeRatesService.getRateQuote(from, to, rateDate, { workspaceId });

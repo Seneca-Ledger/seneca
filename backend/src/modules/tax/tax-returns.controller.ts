@@ -3,11 +3,13 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
   TaxReturnPeriodBody,
+  TaxReturnPeriodQuery,
   TaxReturnPreview,
   TaxReturnRecord,
   UstvaResult,
@@ -48,8 +50,7 @@ export class TaxReturnsController {
   @SchemaResponse(TaxReturnPreview)
   async preview(
     @WorkspaceId() workspaceId: string,
-    @Query('periodStart') periodStart: string,
-    @Query('periodEnd') periodEnd: string,
+    @SchemaQuery(TaxReturnPeriodQuery) { periodStart, periodEnd }: TaxReturnPeriodQuery,
   ) {
     return this.taxReturnsService.computeTotals(workspaceId, periodStart, periodEnd);
   }

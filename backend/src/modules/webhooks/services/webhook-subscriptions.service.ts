@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { toEnum } from '../../../common/effect/to-enum';
-import { withoutNulls } from '../../../common/effect/without-nulls';
+import { withoutNulls, withoutNullsOnRequired } from '../../../common/effect/without-nulls';
 import { assertPublicEgressUrl } from '../../../common/utils/egress-url.util';
 import type {
   CreateWebhookSubscriptionBody,
@@ -65,7 +65,7 @@ export class WebhookSubscriptionsService {
       await assertPublicEgressUrl(dto.url);
     }
     const before = this.snapshot(sub);
-    Object.assign(sub, dto);
+    Object.assign(sub, withoutNullsOnRequired(this.repo.metadata, dto));
     const saved = await this.repo.save(sub);
     // Where the data goes (URL, events) or how it is signed matters more than a rename.
     const redirected = Boolean(dto.url || dto.events || dto.secret);

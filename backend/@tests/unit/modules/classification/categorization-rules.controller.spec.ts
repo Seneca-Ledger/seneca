@@ -23,7 +23,7 @@ describe('CategorizationRulesController', () => {
   };
 
   const mockTransactionRepository = {
-    findByIds: jest.fn(),
+    findBy: jest.fn(),
   };
 
   const mockClassificationService = {
@@ -323,7 +323,7 @@ describe('CategorizationRulesController', () => {
         },
       ];
 
-      mockTransactionRepository.findByIds.mockResolvedValue(transactions);
+      mockTransactionRepository.findBy.mockResolvedValue(transactions);
 
       // Mock the private matchesRule method
       (classificationService as any).matchesRule = jest.fn((transaction, conditions) => {
@@ -337,6 +337,11 @@ describe('CategorizationRulesController', () => {
       expect(result.matches).toHaveLength(2);
       expect(result.matches[0].id).toBe('tx1');
       expect(result.matches[1].id).toBe('tx3');
+      // Only the caller's workspace: an id of another one is simply not found.
+      expect(mockTransactionRepository.findBy).toHaveBeenCalledWith({
+        id: expect.anything(),
+        workspaceId: mockWorkspaceId,
+      });
     });
 
     it('should handle no matches', async () => {
@@ -361,7 +366,7 @@ describe('CategorizationRulesController', () => {
         },
       ];
 
-      mockTransactionRepository.findByIds.mockResolvedValue(transactions);
+      mockTransactionRepository.findBy.mockResolvedValue(transactions);
       (classificationService as any).matchesRule = jest.fn(() => false);
 
       const result = await controller.testRule(dto, mockUser as any, mockWorkspaceId);

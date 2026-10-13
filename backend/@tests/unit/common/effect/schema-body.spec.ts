@@ -11,7 +11,7 @@ import { Effect, Schema } from 'effect';
 import request from 'supertest';
 import { DomainError } from '@/common/effect/domain-error';
 import { EffectRuntime, EffectRuntimeModule } from '@/common/effect/effect-runtime';
-import { SchemaBody } from '@/common/effect/schema-body';
+import { SCHEMA_BODY_METADATA, SchemaBody } from '@/common/effect/schema-body';
 import { appError } from '@/common/errors/app-error';
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
 
@@ -78,6 +78,15 @@ describe('Effect bridge', () => {
   afterAll(() => app.close());
 
   describe('SchemaBody', () => {
+    it('leaves the schema on the handler for tools that build requests', () => {
+      expect(Reflect.getMetadata(SCHEMA_BODY_METADATA, ProbeController.prototype, 'echo')).toBe(
+        Body,
+      );
+      expect(
+        Reflect.getMetadata(SCHEMA_BODY_METADATA, ProbeController.prototype, 'domainError'),
+      ).toBeUndefined();
+    });
+
     it('passes a valid body through decoded', async () => {
       const res = await request(app.getHttpServer())
         .post('/probe/body')
@@ -100,6 +109,31 @@ describe('Effect bridge', () => {
         expect.stringMatching(/^name: .*between 1 and 5/),
         expect.stringMatching(/^amount: /),
       ]);
+    });
+
+    it('rejects text Postgres cannot store: a NUL or a lone surrogate, in a value or a key', async () => {
+      for (const raw of [
+        '{"name":"a\\u0000"}',
+        '{"name":"\\ud800"}',
+        '{"name":"ok","\\udfff":1}',
+      ]) {
+        const res = await request(app.getHttpServer())
+          .post('/probe/body')
+          .set('Content-Type', 'application/json')
+          .send(raw)
+          .expect(400);
+        expect(res.body.error.details.message).toEqual([
+          expect.stringContaining('without NUL characters or broken Unicode'),
+        ]);
+      }
+    });
+
+    it('passes characters outside the BMP, which come as surrogate pairs', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/probe/body')
+        .send({ name: '🍕' })
+        .expect(201);
+      expect(res.body).toEqual({ name: '🍕' });
     });
 
     it('rejects a missing body when it has required fields', async () => {

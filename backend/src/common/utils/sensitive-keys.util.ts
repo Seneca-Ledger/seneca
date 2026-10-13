@@ -1,3 +1,4 @@
+import { Stream } from 'node:stream';
 import { StreamableFile } from '@nestjs/common';
 
 /**
@@ -29,6 +30,8 @@ export const ACCOUNT_KEYS: ReadonlySet<string> = new Set([
 const isPassThrough = (value: object): boolean =>
   value instanceof Date ||
   value instanceof StreamableFile ||
+  // The Express response a `@Res()` handler returns, or a stream: not data, and full of cycles.
+  value instanceof Stream ||
   Buffer.isBuffer(value) ||
   ArrayBuffer.isView(value) ||
   // Something that serializes itself (a money or date library) knows its own shape.

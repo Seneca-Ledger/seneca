@@ -2,6 +2,7 @@ jest.mock('franc', () => ({
   franc: () => 'und',
 }));
 
+import { ConflictException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -497,6 +498,17 @@ describe('StatementProcessingService', () => {
 
     await expect(service.commitImport(statement.id, statement.workspaceId)).resolves.toBe(
       statement,
+    );
+    expect(importSessionService.processImport).not.toHaveBeenCalled();
+  });
+
+  it('answers 409 when there is nothing previewed to commit', async () => {
+    statement.status = StatementStatus.PARSED;
+    statement.parsingDetails = null;
+    transactionRepository.count.mockResolvedValueOnce(0);
+
+    await expect(service.commitImport(statement.id, statement.workspaceId)).rejects.toBeInstanceOf(
+      ConflictException,
     );
     expect(importSessionService.processImport).not.toHaveBeenCalled();
   });

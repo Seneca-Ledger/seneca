@@ -392,7 +392,17 @@ export class StorageService {
       throw new NotFoundException('File not found');
     }
 
-    const tags = await this.tagRepository.findByIds(tagIds || []);
+    // Ids from the request: only the file's own workspace's tags exist for it.
+    const uniqueTagIds = [...new Set(tagIds)];
+    const tags = uniqueTagIds.length
+      ? await this.tagRepository.findBy({
+          id: In(uniqueTagIds),
+          workspaceId: statement.workspaceId ?? IsNull(),
+        })
+      : [];
+    if (tags.length !== uniqueTagIds.length) {
+      throw new NotFoundException('Tag not found');
+    }
     statement.tags = tags;
     const saved = await this.statementRepository.save(statement);
     return { ...saved, tags };

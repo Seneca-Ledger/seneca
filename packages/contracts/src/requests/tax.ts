@@ -39,7 +39,13 @@ export type UpdateTaxRateBody = Wire<typeof UpdateTaxRateBody>;
 export const TaxReturnPeriodBody = Schema.Struct({
   periodStart: IsoDateString,
   periodEnd: IsoDateString,
-});
+}).check(
+  Schema.makeFilter(period =>
+    Date.parse(period.periodEnd) >= Date.parse(period.periodStart)
+      ? undefined
+      : 'periodEnd must not be before periodStart',
+  ),
+);
 export type TaxReturnPeriodBody = Wire<typeof TaxReturnPeriodBody>;
 
 export const CreateTaxRuleBody = Schema.Struct({

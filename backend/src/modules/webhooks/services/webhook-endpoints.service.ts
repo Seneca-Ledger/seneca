@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { withoutNullsOnRequired } from '../../../common/effect/without-nulls';
 import type { CreateWebhookEndpointBody, UpdateWebhookEndpointBody } from '../../../contracts';
 import { AuditAction, EntityType, Severity } from '../../../entities/audit-event.entity';
 import { WebhookEndpoint } from '../../../entities/webhook-endpoint.entity';
@@ -52,7 +53,7 @@ export class WebhookEndpointsService {
   ): Promise<WebhookEndpoint> {
     const endpoint = await this.findOne(id, workspaceId);
     const before = this.snapshot(endpoint);
-    Object.assign(endpoint, dto);
+    Object.assign(endpoint, withoutNullsOnRequired(this.repo.metadata, dto));
     const saved = await this.repo.save(endpoint);
     await this.recordEvent(workspaceId, actorId, saved.id, AuditAction.UPDATE, Severity.INFO, {
       before,

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder } from 'typeorm';
 import { Repository } from 'typeorm';
@@ -6,6 +6,7 @@ import { toEnum } from '../../common/effect/to-enum';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
 import type { CreateTaxRuleBody, UpdateTaxRuleBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
+import { Category } from '../../entities/category.entity';
 import { TaxRate } from '../../entities/tax-rate.entity';
 import { TaxRule, TaxRuleDirection } from '../../entities/tax-rule.entity';
 import { AuditService } from '../audit/audit.service';
@@ -20,8 +21,22 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     @InjectRepository(TaxRate)
     private readonly taxRateRepository: Repository<TaxRate>,
     private readonly auditService: AuditService,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
   ) {
     super(repository, 'Tax rule');
+  }
+
+  /** The id came from the request: another workspace's category is "not found". */
+  private async assertCategoryInWorkspace(
+    workspaceId: string,
+    categoryId: string | null,
+  ): Promise<void> {
+    if (!categoryId) return;
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId, workspaceId },
+    });
+    if (!category) throw new NotFoundException('Category not found');
   }
 
   private snapshotTaxRule(rule: TaxRule) {
@@ -89,6 +104,7 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
 
     const direction = toEnum(TaxRuleDirection, dto.direction) ?? TaxRuleDirection.BOTH;
     const categoryId = dto.categoryId ?? null;
+    await this.assertCategoryInWorkspace(workspaceId, categoryId);
 
     const duplicate = await this.repository.findOne({
       where: { workspaceId, categoryId, direction } as any,
@@ -151,6 +167,9 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     const nextDirection = toEnum(TaxRuleDirection, dto.direction) ?? rule.direction;
 
     if (nextCategoryId !== rule.categoryId || nextDirection !== rule.direction) {
+      if (nextCategoryId !== rule.categoryId) {
+        await this.assertCategoryInWorkspace(workspaceId, nextCategoryId);
+      }
       const clash = await this.repository.findOne({
         where: { workspaceId, categoryId: nextCategoryId, direction: nextDirection } as any,
       });

@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Get,
   Param,
+  ParseEnumPipe,
   Post,
   Query,
   UseInterceptors,
@@ -88,7 +89,7 @@ export class AuditController {
   @WorkspaceAuth(Permission.AUDIT_VIEW)
   @SchemaResponse(AuditEventList)
   async getByEntity(
-    @Param('entityType') entityType: EntityType,
+    @Param('entityType', new ParseEnumPipe(EntityType)) entityType: EntityType,
     @Param('entityId') entityId: string,
     @WorkspaceId() workspaceId: string,
   ) {

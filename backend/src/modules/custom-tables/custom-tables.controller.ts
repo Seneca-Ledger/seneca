@@ -337,6 +337,8 @@ export class CustomTablesController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  // The saved table carries its owner's user row: the contract keeps it out.
+  @SchemaResponse(CreatedCustomTable)
   async updateTable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

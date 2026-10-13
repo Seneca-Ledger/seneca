@@ -94,6 +94,7 @@ export class BudgetsService {
     }
 
     assertWindowOrdered(dto.startsOn, dto.endsOn);
+    await this.assertCategoryInWorkspace(dto.categoryId, workspaceId);
     await this.assertGoalInWorkspace(dto.goalId, workspaceId);
 
     const { start } = computePeriodRange(periodType, new Date());
@@ -316,6 +317,14 @@ export class BudgetsService {
    * Soft-deleted goals are excluded by TypeORM's default scope, so an archived
    * goal cannot be attached either.
    */
+  /** The id came from the request: another workspace's category is "not found". */
+  private async assertCategoryInWorkspace(categoryId: string, workspaceId: string): Promise<void> {
+    const category = await this.categoryRepository?.findOne({
+      where: { id: categoryId, workspaceId },
+    });
+    assertFound(category, 'Category');
+  }
+
   private async assertGoalInWorkspace(
     goalId: string | null | undefined,
     workspaceId: string,

@@ -1,3 +1,6 @@
+import { IncomingMessage, ServerResponse } from 'node:http';
+import { Socket } from 'node:net';
+import { Readable } from 'node:stream';
 import { StreamableFile } from '@nestjs/common';
 import {
   ACCOUNT_KEYS,
@@ -38,5 +41,12 @@ describe('withoutKeys', () => {
     expect(withoutKeys(file, SERVER_ONLY_KEYS)).toBe(file);
     expect(withoutKeys(money, SERVER_ONLY_KEYS)).toBe(money);
     expect(withoutKeys('text', SERVER_ONLY_KEYS)).toBe('text');
+  });
+
+  it('passes the response a @Res() handler returns through, cycles and all', () => {
+    const response = new ServerResponse(new IncomingMessage(new Socket()));
+    expect(withoutKeys(response, SERVER_ONLY_KEYS)).toBe(response);
+    const stream = Readable.from(['x']);
+    expect(withoutKeys({ stream }, SERVER_ONLY_KEYS)).toEqual({ stream });
   });
 });
