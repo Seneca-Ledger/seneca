@@ -48,6 +48,7 @@ import { AuditService } from '../audit/audit.service';
 import { BalanceService } from '../balance/balance.service';
 import { BalanceExportFormat } from '../balance/dto/export-balance.dto';
 import { UNCATEGORIZED_CATEGORY_NAME } from '../categories/uncategorized-category';
+import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { ReportGroupBy } from './dto/custom-report.dto';
 import {
@@ -69,6 +70,7 @@ import {
   writeReportFile,
 } from './report-document.util';
 import { renderReportLabels } from './report-export.translations';
+import { fillLabel, renderTemplateLabels } from './report-template.translations';
 
 export interface StatementsSummaryResponse {
   totals: {
@@ -149,9 +151,17 @@ interface CustomReportExportRow {
 
 /** A transaction flattened for template aggregation, already in workspace currency. */
 interface TemplateReportRow {
+  id: string;
   date: string;
+  /** The category id, or '' for an uncategorized row. */
+  categoryKey: string;
   categoryName: string;
+  /** The parent category's name; a top-level category is its own group. */
+  groupName: string;
   counterparty: string;
+  accountName: string;
+  comment: string;
+  tags: string[];
   isIncome: boolean;
   /** Converted to the workspace currency. */
   amount: number;
@@ -159,6 +169,15 @@ interface TemplateReportRow {
   originalAmount: number;
   originalCurrency: string;
 }
+
+interface CategoryTotal {
+  groupName: string;
+  categoryName: string;
+  total: number;
+  count: number;
+}
+
+type TemplateLabels = ReturnType<typeof renderTemplateLabels>;
 
 export interface CustomTablesReportRow {
   counterparty: string;
@@ -2791,6 +2810,28 @@ export class ReportsService {
     'monthly-summary': 'Monthly Summary',
   };
 
+  /** The formats each template can be written in; the Balance Sheet has no CSV renderer. */
+  private static readonly TEMPLATE_FORMATS: Record<string, readonly ReportFileFormat[]> = {
+    'balance-sheet': ['pdf', 'excel'],
+  };
+
+  /**
+   * Rejects a template or format the generator cannot produce. Schedules call
+   * this when they are created, so a bad pair fails at once rather than on
+   * its first run days later.
+   */
+  static assertTemplateFormat(templateId: string, format: string): void {
+    if (!ReportsService.TEMPLATE_NAMES[templateId]) {
+      throw new BadRequestException(`Unknown template: ${templateId}`);
+    }
+    const formats = ReportsService.TEMPLATE_FORMATS[templateId] ?? ['pdf', 'excel', 'csv'];
+    if (!formats.includes(format as ReportFileFormat)) {
+      throw new BadRequestException(
+        `${ReportsService.TEMPLATE_NAMES[templateId]} supports only ${formats.join(' and ')}`,
+      );
+    }
+  }
+
   /**
    * Generated reports live under uploads/ rather than the OS temp dir, because
    * report history rows keep pointing at them long after the download stream ends.
@@ -2806,10 +2847,8 @@ export class ReportsService {
     userId: string,
     dto: GenerateReportBody,
   ): Promise<ReportFile> {
+    ReportsService.assertTemplateFormat(dto.templateId, dto.format);
     const templateName = ReportsService.TEMPLATE_NAMES[dto.templateId];
-    if (!templateName) {
-      throw new BadRequestException(`Unknown template: ${dto.templateId}`);
-    }
 
     const baseName = `${dto.templateId}-${dto.dateFrom}-${dto.dateTo}`;
     const file =
@@ -2876,14 +2915,13 @@ export class ReportsService {
     dto: GenerateReportBody,
     baseName: string,
   ): Promise<ReportFile> {
-    if (dto.format !== 'excel' && dto.format !== 'pdf') {
-      throw new BadRequestException('Balance Sheet supports only excel and pdf');
-    }
-
+    // The chart of accounts is named in ru, en and kk only; any other reader
+    // gets English rather than Russian account names under English headers.
+    const locale = dto.locale === 'ru' || dto.locale === 'kk' ? dto.locale : 'en';
     const payload = await this.balanceService.exportBalanceSheet(
       workspaceId,
       { date: dto.dateTo, format: dto.format as BalanceExportFormat },
-      dto.locale ?? undefined,
+      locale,
     );
 
     const fileName = `${baseName}.${dto.format === 'pdf' ? 'pdf' : 'xlsx'}`;
@@ -2897,22 +2935,39 @@ export class ReportsService {
     workspaceId: string,
     dto: GenerateReportBody,
   ): Promise<ReportDocument> {
-    const { currency, rows } = await this.loadReportRows(workspaceId, dto);
+    const { currency, rows, missingRates } = await this.loadReportRows(workspaceId, dto);
+    const labels = renderTemplateLabels(dto.locale);
     const subtitle = `${dto.dateFrom} — ${dto.dateTo} · ${currency}`;
+    // Said once, at the top: totals below are short by whatever could not be
+    // converted, and the reader can see which currencies those were.
+    const notes = missingRates.length
+      ? [fillLabel(labels.missingRateNote, { currencies: missingRates.join(', '), currency })]
+      : undefined;
 
+    const document = this.buildTemplateBody(dto, labels, subtitle, currency, rows);
+    return notes ? { ...document, notes } : document;
+  }
+
+  private buildTemplateBody(
+    dto: GenerateReportBody,
+    text: TemplateLabels,
+    subtitle: string,
+    currency: string,
+    rows: TemplateReportRow[],
+  ): ReportDocument {
     if (dto.templateId === 'pnl') {
-      return this.buildPnLDocument(subtitle, rows);
+      return this.buildPnLDocument(text, subtitle, rows);
     }
     if (dto.templateId === 'cash-flow') {
-      return this.buildCashFlowDocument(subtitle, rows, dto.groupBy || 'day');
+      return this.buildCashFlowDocument(text, subtitle, rows, dto.groupBy || 'day');
     }
     if (dto.templateId === 'transaction-register') {
-      return this.buildTransactionRegisterDocument(subtitle, currency, rows);
+      return this.buildTransactionRegisterDocument(text, subtitle, currency, rows);
     }
     if (dto.templateId === 'monthly-summary') {
-      return this.buildMonthlySummaryDocument(subtitle, rows);
+      return this.buildMonthlySummaryDocument(text, subtitle, rows);
     }
-    return this.buildExpenseByCategoryDocument(subtitle, rows);
+    return this.buildExpenseByCategoryDocument(text, subtitle, rows);
   }
 
   private normalizeCurrency(currency: string | null | undefined): string {
@@ -2925,30 +2980,6 @@ export class ReportsService {
       select: ['currency'],
     });
     return this.normalizeCurrency(workspace?.currency);
-  }
-
-  /**
-   * One rate lookup per distinct source currency rather than one per transaction.
-   * getRate never throws: it degrades to a stale rate, then to 1:1, and logs.
-   */
-  private async buildRateMap(
-    transactions: Transaction[],
-    targetCurrency: string,
-    workspaceId: string,
-  ): Promise<Map<string, number>> {
-    const sources = new Set(transactions.map(t => this.normalizeCurrency(t.currency)));
-    const rates = new Map<string, number>();
-
-    for (const source of sources) {
-      rates.set(
-        source,
-        source === targetCurrency
-          ? 1
-          : await this.exchangeRatesService.getRate(source, targetCurrency, undefined, workspaceId),
-      );
-    }
-
-    return rates;
   }
 
   /**
@@ -2970,7 +3001,7 @@ export class ReportsService {
   private async loadReportRows(
     workspaceId: string,
     dto: GenerateReportBody,
-  ): Promise<{ currency: string; rows: TemplateReportRow[] }> {
+  ): Promise<{ currency: string; rows: TemplateReportRow[]; missingRates: string[] }> {
     const dateFrom = new Date(dto.dateFrom);
     const dateTo = new Date(dto.dateTo);
     dateTo.setUTCHours(23, 59, 59, 999);
@@ -2987,79 +3018,104 @@ export class ReportsService {
     const [transactions, currency] = await Promise.all([
       this.transactionRepository.find({
         where,
-        relations: ['category'],
+        relations: ['category', 'category.parent', 'wallet', 'tags'],
       }),
       this.getWorkspaceCurrency(workspaceId),
     ]);
 
-    const rates = await this.buildRateMap(transactions, currency, workspaceId);
-
-    const rows = transactions.map(transaction => {
-      const originalCurrency = this.normalizeCurrency(transaction.currency);
-      const originalAmount = Math.abs(Number(transaction.amount || 0));
-
+    // Each amount converts at its own day's rate, and a currency without one is
+    // left out rather than counted 1:1 — a silent 1:1 would turn 1,000 USD into
+    // 1,000 KZT in a document someone sends to their accountant.
+    const rows: TemplateReportRow[] = transactions.map(transaction => {
+      const categoryName = transaction.category?.name || UNCATEGORIZED_CATEGORY_NAME;
       return {
+        id: transaction.id,
         date: this.toDateKey(transaction.transactionDate),
-        categoryName: transaction.category?.name || 'Uncategorized',
+        categoryKey: transaction.categoryId ?? '',
+        categoryName,
+        // A top-level category is its own group, so its rows sort beside its children's.
+        groupName: transaction.category?.parent?.name || categoryName,
         counterparty: transaction.counterpartyName || '',
+        accountName: transaction.wallet?.name ?? '',
+        comment: transaction.comments ?? '',
+        tags: (transaction.tags ?? []).map(tag => tag.name),
         isIncome: transaction.transactionType === TransactionType.INCOME,
-        amount: originalAmount * (rates.get(originalCurrency) ?? 1),
-        originalAmount,
-        originalCurrency,
+        amount: 0,
+        originalAmount: Math.abs(Number(transaction.amount || 0)),
+        originalCurrency: normalizeCurrencyCode(transaction.currency),
       };
     });
 
-    return { currency, rows };
-  }
-
-  private sumByKey(
-    rows: TemplateReportRow[],
-    keyOf: (row: TemplateReportRow) => string,
-  ): Map<string, { total: number; count: number }> {
-    const totals = new Map<string, { total: number; count: number }>();
-
+    const converter = await CurrencyConverter.load(
+      this.exchangeRatesService,
+      currency,
+      rows.map(row => ({ currency: row.originalCurrency, date: row.date })),
+      workspaceId,
+    );
     for (const row of rows) {
-      const key = keyOf(row);
-      const entry = totals.get(key) ?? { total: 0, count: 0 };
-      entry.total += row.amount;
-      entry.count += 1;
-      totals.set(key, entry);
+      row.amount = converter.convert(row.originalAmount, row.originalCurrency, row.date);
     }
 
-    return totals;
+    return { currency, rows, missingRates: converter.missing };
   }
 
-  private buildPnLDocument(subtitle: string, rows: TemplateReportRow[]): ReportDocument {
-    const income = this.sumByKey(
-      rows.filter(row => row.isIncome),
-      row => row.categoryName,
-    );
-    const expense = this.sumByKey(
-      rows.filter(row => !row.isIncome),
-      row => row.categoryName,
-    );
+  /**
+   * Totals per category, keyed by id: two categories may share a name under
+   * different parents, and summing by name would fold them into one line.
+   */
+  private sumByCategory(rows: TemplateReportRow[]): CategoryTotal[] {
+    const totals = new Map<string, CategoryTotal>();
+
+    for (const row of rows) {
+      const entry = totals.get(row.categoryKey) ?? {
+        groupName: row.groupName,
+        categoryName: row.categoryName,
+        total: 0,
+        count: 0,
+      };
+      entry.total += row.amount;
+      entry.count += 1;
+      totals.set(row.categoryKey, entry);
+    }
+
+    return Array.from(totals.values());
+  }
+
+  /** Grouped as a reader scans them: by group, then the largest first within it. */
+  private byGroupThenAmount(entries: CategoryTotal[]): CategoryTotal[] {
+    return [...entries].sort((a, b) => a.groupName.localeCompare(b.groupName) || b.total - a.total);
+  }
+
+  private buildPnLDocument(
+    text: TemplateLabels,
+    subtitle: string,
+    rows: TemplateReportRow[],
+  ): ReportDocument {
+    const income = this.byGroupThenAmount(this.sumByCategory(rows.filter(row => row.isIncome)));
+    const expense = this.byGroupThenAmount(this.sumByCategory(rows.filter(row => !row.isIncome)));
 
     const totalRevenue = this.sumTotals(income);
     const totalExpenses = this.sumTotals(expense);
+    const columns = [text.group, text.category, text.amount];
 
     return {
-      title: 'Profit & Loss (P&L)',
+      title: text.titlePnl,
       subtitle,
       sections: [
         {
-          title: 'Revenue',
-          columns: ['Category', 'Amount'],
+          title: text.revenue,
+          columns,
           rows: this.toAmountRows(income),
-          total: ['TOTAL REVENUE', this.round2(totalRevenue)],
+          total: [text.totalRevenue, '', this.round2(totalRevenue)],
         },
         {
-          title: 'Expenses',
-          columns: ['Category', 'Amount'],
+          title: text.expenses,
+          columns,
           rows: this.toAmountRows(expense),
-          total: ['TOTAL EXPENSES', this.round2(totalExpenses)],
+          total: [text.totalExpenses, '', this.round2(totalExpenses)],
         },
       ],
-      footer: [['NET INCOME', this.round2(totalRevenue - totalExpenses)]],
+      footer: [[text.netIncome, this.round2(totalRevenue - totalExpenses)]],
     };
   }
 
@@ -3082,6 +3138,7 @@ export class ReportsService {
   }
 
   private buildCashFlowDocument(
+    text: TemplateLabels,
     subtitle: string,
     rows: TemplateReportRow[],
     groupBy: 'day' | 'week' | 'month',
@@ -3104,15 +3161,15 @@ export class ReportsService {
     const totalExpense = sorted.reduce((sum, [, bucket]) => sum + bucket.expense, 0);
 
     return {
-      title: 'Cash Flow Statement',
+      title: text.titleCashFlow,
       subtitle,
       sections: [
         {
           columns: [
-            groupBy === 'day' ? 'Date' : groupBy === 'week' ? 'Week of' : 'Month',
-            'Income',
-            'Expense',
-            'Net',
+            groupBy === 'day' ? text.date : groupBy === 'week' ? text.weekOf : text.month,
+            text.income,
+            text.expense,
+            text.net,
           ],
           rows: sorted.map(([date, bucket]) => [
             date,
@@ -3121,7 +3178,7 @@ export class ReportsService {
             this.round2(bucket.income - bucket.expense),
           ]),
           total: [
-            'TOTAL',
+            text.total,
             this.round2(totalIncome),
             this.round2(totalExpense),
             this.round2(totalIncome - totalExpense),
@@ -3132,33 +3189,44 @@ export class ReportsService {
   }
 
   private buildExpenseByCategoryDocument(
+    text: TemplateLabels,
     subtitle: string,
     rows: TemplateReportRow[],
   ): ReportDocument {
-    const byCategory = this.sumByKey(
-      rows.filter(row => !row.isIncome),
-      row => row.categoryName,
+    const byCategory = this.byGroupThenAmount(
+      this.sumByCategory(rows.filter(row => !row.isIncome)),
     );
     const totalExpenses = this.sumTotals(byCategory);
-    const totalCount = Array.from(byCategory.values()).reduce((sum, e) => sum + e.count, 0);
+    const totalCount = byCategory.reduce((sum, entry) => sum + entry.count, 0);
 
-    const categoryRows = Array.from(byCategory.entries())
-      .sort(([, a], [, b]) => b.total - a.total)
-      .map(([categoryName, entry]) => [
-        categoryName,
-        this.round2(entry.total),
-        entry.count,
-        totalExpenses > 0 ? this.round2((entry.total / totalExpenses) * 100) : 0,
-      ]);
+    const categoryRows = byCategory.map(entry => [
+      entry.groupName,
+      entry.categoryName,
+      this.round2(entry.total),
+      entry.count,
+      totalExpenses > 0 ? this.round2((entry.total / totalExpenses) * 100) : 0,
+    ]);
 
     return {
-      title: 'Expense by Category',
+      title: text.titleExpenseByCategory,
       subtitle,
       sections: [
         {
-          columns: ['Category', 'Total Amount', 'Transaction Count', '% of Total'],
+          columns: [
+            text.group,
+            text.category,
+            text.totalAmount,
+            text.transactionCount,
+            text.percentOfTotal,
+          ],
           rows: categoryRows,
-          total: ['TOTAL', this.round2(totalExpenses), totalCount, categoryRows.length ? 100 : 0],
+          total: [
+            text.total,
+            '',
+            this.round2(totalExpenses),
+            totalCount,
+            categoryRows.length ? 100 : 0,
+          ],
         },
       ],
     };
@@ -3166,9 +3234,11 @@ export class ReportsService {
 
   /**
    * The one detail-level template: every transaction in the period, with both the
-   * converted and the original amount so a foreign-currency line stays auditable.
+   * converted and the original amount so a foreign-currency line stays auditable,
+   * and the id so a line can be traced back to the app.
    */
   private buildTransactionRegisterDocument(
+    text: TemplateLabels,
     subtitle: string,
     currency: string,
     rows: TemplateReportRow[],
@@ -3177,72 +3247,103 @@ export class ReportsService {
     const net = sorted.reduce((sum, row) => sum + (row.isIncome ? row.amount : -row.amount), 0);
 
     return {
-      title: 'Transaction Register',
+      title: text.titleTransactionRegister,
       subtitle,
       sections: [
         {
-          columns: ['Date', 'Counterparty', 'Category', 'Type', `Amount (${currency})`, 'Original'],
+          columns: [
+            text.date,
+            text.counterparty,
+            text.group,
+            text.category,
+            text.type,
+            fillLabel(text.amountInCurrency, { currency }),
+            text.original,
+            text.account,
+            text.comment,
+            text.tags,
+            text.transactionId,
+          ],
           rows: sorted.map(row => [
             row.date,
             row.counterparty,
+            row.groupName,
             row.categoryName,
-            row.isIncome ? 'Income' : 'Expense',
+            row.isIncome ? text.income : text.expense,
             this.round2(row.isIncome ? row.amount : -row.amount),
             `${this.round2(row.originalAmount)} ${row.originalCurrency}`,
+            row.accountName,
+            row.comment,
+            row.tags.join(', '),
+            row.id,
           ]),
-          total: ['TOTAL', '', '', `${sorted.length} rows`, this.round2(net), ''],
+          total: [
+            text.total,
+            '',
+            '',
+            '',
+            fillLabel(text.rowCount, { count: sorted.length }),
+            this.round2(net),
+            '',
+            '',
+            '',
+            '',
+            '',
+          ],
         },
       ],
     };
   }
 
   /** P&L condensed to one screen: the headline numbers plus where the money went. */
-  private buildMonthlySummaryDocument(subtitle: string, rows: TemplateReportRow[]): ReportDocument {
+  private buildMonthlySummaryDocument(
+    text: TemplateLabels,
+    subtitle: string,
+    rows: TemplateReportRow[],
+  ): ReportDocument {
     const income = rows.filter(row => row.isIncome);
     const expense = rows.filter(row => !row.isIncome);
     const totalIncome = income.reduce((sum, row) => sum + row.amount, 0);
     const totalExpense = expense.reduce((sum, row) => sum + row.amount, 0);
 
-    const topCategories = this.toAmountRows(this.sumByKey(expense, row => row.categoryName)).slice(
-      0,
-      10,
-    );
+    const topCategories = this.sumByCategory(expense)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+      .map(entry => [entry.categoryName, this.round2(entry.total)]);
 
     return {
-      title: 'Monthly Summary',
+      title: text.titleMonthlySummary,
       subtitle,
       sections: [
         {
-          title: 'Totals',
-          columns: ['Metric', 'Value'],
+          title: text.totals,
+          columns: [text.metric, text.value],
           rows: [
-            ['Income', this.round2(totalIncome)],
-            ['Expenses', this.round2(totalExpense)],
-            ['Transactions', rows.length],
+            [text.income, this.round2(totalIncome)],
+            [text.expenses, this.round2(totalExpense)],
+            [text.transactions, rows.length],
             [
-              'Savings rate, %',
+              text.savingsRate,
               totalIncome > 0 ? this.round2(((totalIncome - totalExpense) / totalIncome) * 100) : 0,
             ],
           ],
         },
         {
-          title: 'Top expense categories',
-          columns: ['Category', 'Amount'],
+          title: text.topExpenseCategories,
+          columns: [text.category, text.amount],
           rows: topCategories,
         },
       ],
-      footer: [['NET', this.round2(totalIncome - totalExpense)]],
+      footer: [[text.netTotal, this.round2(totalIncome - totalExpense)]],
     };
   }
 
-  private sumTotals(entries: Map<string, { total: number; count: number }>): number {
-    return Array.from(entries.values()).reduce((sum, entry) => sum + entry.total, 0);
+  private sumTotals(entries: CategoryTotal[]): number {
+    return entries.reduce((sum, entry) => sum + entry.total, 0);
   }
 
-  private toAmountRows(entries: Map<string, { total: number; count: number }>): ReportCell[][] {
-    return Array.from(entries.entries())
-      .sort(([, a], [, b]) => b.total - a.total)
-      .map(([name, entry]) => [name, this.round2(entry.total)]);
+  private toAmountRows(entries: CategoryTotal[]): ReportCell[][] {
+    return entries.map(entry => [entry.groupName, entry.categoryName, this.round2(entry.total)]);
   }
 
   private round2(value: number): number {

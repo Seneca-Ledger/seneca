@@ -25,6 +25,12 @@ export interface ReportDocument {
   /** e.g. "2024-01-01 — 2024-12-31 · EUR" */
   subtitle: string;
   sections: ReportSection[];
+  /**
+   * Caveats printed under the subtitle, before any table — e.g. amounts left
+   * out because their currency had no rate. A reader must meet these before
+   * the figures, not after them.
+   */
+  notes?: string[];
   /** Emphasised lines below all sections (e.g. NET INCOME). */
   footer?: ReportCell[][];
 }
@@ -88,7 +94,11 @@ function escapeCsvValue(value: ReportCell): string {
  * spreadsheet apps evaluate the unquoted value.
  */
 function toGridRows(doc: ReportDocument): ReportCell[][] {
-  const rows: ReportCell[][] = [[doc.title], [doc.subtitle], []];
+  const rows: ReportCell[][] = [[doc.title], [doc.subtitle]];
+  for (const note of doc.notes ?? []) {
+    rows.push([note]);
+  }
+  rows.push([]);
 
   for (const section of doc.sections) {
     if (section.title) {
@@ -168,12 +178,14 @@ async function writePdf(doc: ReportDocument, filePath: string): Promise<void> {
     content: [
       { text: doc.title, style: 'title' },
       { text: doc.subtitle, style: 'subtitle' },
+      ...(doc.notes ?? []).map(note => ({ text: note, style: 'note' })),
       ...doc.sections.flatMap(toPdfSection),
       ...(doc.footer ?? []).map(line => ({ text: line.join('   '), style: 'footerLine' })),
     ],
     styles: {
       title: { bold: true, fontSize: 16 },
       subtitle: { fontSize: 9, color: '#6b7280', margin: [0, 2, 0, 16] },
+      note: { fontSize: 9, color: '#b45309', margin: [0, 0, 0, 10] },
       sectionTitle: { bold: true, fontSize: 11, margin: [0, 6, 0, 6] },
       th: { bold: true, fontSize: 9, color: '#374151' },
       footerLine: { bold: true, fontSize: 11, margin: [0, 4, 0, 0] },

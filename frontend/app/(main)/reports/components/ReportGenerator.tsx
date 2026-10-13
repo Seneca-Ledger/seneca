@@ -9,7 +9,7 @@ import type React from 'react';
 import { useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { Download, X } from '@/app/components/icons';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
@@ -27,6 +27,8 @@ export interface ReportGenerateParams {
   groupBy?: CashFlowGroupBy;
   walletIds?: string[];
   categoryIds?: string[];
+  /** Language of the produced document; the reader's, not the server's. */
+  locale?: ContractInput<'GenerateReportBody'>['locale'];
 }
 
 type CashFlowGroupBy = 'day' | 'week' | 'month';
@@ -75,6 +77,7 @@ export function ReportGenerator({
   onGenerate,
 }: ReportGeneratorProps): React.JSX.Element {
   const t = useIntlayer('reportsPage');
+  const { locale } = useLocale();
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
@@ -114,6 +117,8 @@ export function ReportGenerator({
     dateFrom,
     dateTo,
     format,
+    // The app's locales and the server's REPORT_LOCALES are the same list.
+    locale: locale as ReportGenerateParams['locale'],
     ...(showGroupBy ? { groupBy } : {}),
     ...(scope.walletIds.length ? { walletIds: scope.walletIds } : {}),
     ...(scope.categoryIds.length ? { categoryIds: scope.categoryIds } : {}),

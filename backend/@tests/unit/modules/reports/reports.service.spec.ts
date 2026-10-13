@@ -279,7 +279,7 @@ describe('generateFromTemplate', () => {
     mockWorkspaceRepository = {
       findOne: jest.fn(async () => ({ currency: 'EUR' })),
     };
-    mockExchangeRates = { getRate: jest.fn(async () => 2) };
+    mockExchangeRates = { getRateOrNull: jest.fn(async () => 2) };
     mockBalanceService = {
       exportBalanceSheet: jest.fn(async () => ({
         fileName: 'balance-sheet-2024-01-31.xlsx',
@@ -363,8 +363,20 @@ describe('generateFromTemplate', () => {
 
   it('should generate P&L as excel', async () => {
     mockTransactionRepository.find.mockResolvedValue([
-      { amount: 5000, transactionType: 'income', currency: 'EUR', category: { name: 'Sales' } },
-      { amount: 2000, transactionType: 'expense', currency: 'EUR', category: { name: 'Rent' } },
+      {
+        amount: 5000,
+        transactionType: 'income',
+        currency: 'EUR',
+        categoryId: 'c-sales',
+        category: { name: 'Sales' },
+      },
+      {
+        amount: 2000,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-rent',
+        category: { name: 'Rent' },
+      },
     ]);
 
     const result = await generate({
@@ -417,8 +429,22 @@ describe('generateFromTemplate', () => {
 
   it('converts foreign-currency amounts into the workspace currency', async () => {
     mockTransactionRepository.find.mockResolvedValue([
-      { amount: 100, transactionType: 'income', currency: 'EUR', category: { name: 'Sales' } },
-      { amount: 100, transactionType: 'income', currency: 'USD', category: { name: 'Sales' } },
+      {
+        amount: 100,
+        transactionType: 'income',
+        currency: 'EUR',
+        transactionDate: '2024-03-04',
+        categoryId: 'c-sales',
+        category: { name: 'Sales' },
+      },
+      {
+        amount: 100,
+        transactionType: 'income',
+        currency: 'USD',
+        transactionDate: '2024-03-05',
+        categoryId: 'c-sales',
+        category: { name: 'Sales' },
+      },
     ]);
 
     const result = await generate({
@@ -428,9 +454,15 @@ describe('generateFromTemplate', () => {
       format: 'csv',
     });
 
-    // EUR is the workspace currency (rate 1), USD is converted at the mocked rate of 2.
-    expect(mockExchangeRates.getRate).toHaveBeenCalledWith('USD', 'EUR', undefined, 'ws1');
-    expect(mockExchangeRates.getRate).not.toHaveBeenCalledWith('EUR', 'EUR');
+    // EUR is the workspace currency (rate 1), USD is converted at the mocked rate of 2,
+    // looked up for the transaction's own day.
+    expect(mockExchangeRates.getRateOrNull).toHaveBeenCalledWith('USD', 'EUR', '2024-03-05', 'ws1');
+    expect(mockExchangeRates.getRateOrNull).not.toHaveBeenCalledWith(
+      'EUR',
+      'EUR',
+      expect.anything(),
+      expect.anything(),
+    );
     expect(fs.readFileSync(track(result.filePath), 'utf-8')).toContain('NET INCOME,300');
   });
 
@@ -588,6 +620,7 @@ describe('generateFromTemplate', () => {
         transactionType: 'expense',
         currency: 'EUR',
         transactionDate: new Date('2024-01-15'),
+        categoryId: 'c-marketing',
         category: { name: 'Marketing' },
       },
       {
@@ -595,6 +628,7 @@ describe('generateFromTemplate', () => {
         transactionType: 'expense',
         currency: 'EUR',
         transactionDate: new Date('2024-01-20'),
+        categoryId: 'c-rent',
         category: { name: 'Rent' },
       },
     ]);
@@ -613,19 +647,26 @@ describe('generateFromTemplate', () => {
   it('lists every transaction with both amounts in the register', async () => {
     mockTransactionRepository.find.mockResolvedValue([
       {
+        id: 't-acme',
         amount: 100,
         transactionType: 'expense',
         currency: 'USD',
         counterpartyName: 'Acme',
         transactionDate: new Date('2024-01-20T00:00:00.000Z'),
-        category: { name: 'Software' },
+        categoryId: 'c-software',
+        category: { name: 'Software', parent: { name: 'Business' } },
+        wallet: { name: 'Main card' },
+        comments: 'Annual plan',
+        tags: [{ name: 'tools' }, { name: 'tax' }],
       },
       {
+        id: 't-client',
         amount: 40,
         transactionType: 'income',
         currency: 'EUR',
         counterpartyName: 'Client',
         transactionDate: new Date('2024-01-10T00:00:00.000Z'),
+        categoryId: 'c-sales',
         category: { name: 'Sales' },
       },
     ]);
@@ -642,16 +683,37 @@ describe('generateFromTemplate', () => {
     const dataLines = lines.filter(line => /^\d{4}-\d{2}-\d{2},/.test(line));
 
     // Sorted by date, expenses signed negative, USD converted at the mocked rate of 2.
-    expect(dataLines[0]).toBe('2024-01-10,Client,Sales,Income,40,40 EUR');
-    expect(dataLines[1]).toBe('2024-01-20,Acme,Software,Expense,-200,100 USD');
-    expect(lines.some(line => line.startsWith('TOTAL,,,2 rows,-160,'))).toBe(true);
+    // A top-level category is its own group; tags are joined into one cell.
+    expect(dataLines[0]).toBe('2024-01-10,Client,Sales,Sales,Income,40,40 EUR,,,,t-client');
+    expect(dataLines[1]).toBe(
+      '2024-01-20,Acme,Business,Software,Expense,-200,100 USD,Main card,Annual plan,"tools, tax",t-acme',
+    );
+    expect(lines.some(line => line.startsWith('TOTAL,,,,2 rows,-160,'))).toBe(true);
   });
 
   it('summarises totals and top categories in the monthly summary', async () => {
     mockTransactionRepository.find.mockResolvedValue([
-      { amount: 1000, transactionType: 'income', currency: 'EUR', category: { name: 'Sales' } },
-      { amount: 300, transactionType: 'expense', currency: 'EUR', category: { name: 'Rent' } },
-      { amount: 100, transactionType: 'expense', currency: 'EUR', category: { name: 'Food' } },
+      {
+        amount: 1000,
+        transactionType: 'income',
+        currency: 'EUR',
+        categoryId: 'c-sales',
+        category: { name: 'Sales' },
+      },
+      {
+        amount: 300,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-rent',
+        category: { name: 'Rent' },
+      },
+      {
+        amount: 100,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-food',
+        category: { name: 'Food' },
+      },
     ]);
 
     const result = await generate({
@@ -669,6 +731,95 @@ describe('generateFromTemplate', () => {
     // Top categories are ordered by size, largest first.
     expect(csv.indexOf('Rent,300')).toBeLessThan(csv.indexOf('Food,100'));
     expect(csv).toContain('NET,600');
+  });
+
+  it('leaves out an amount whose currency has no rate and says so above the figures', async () => {
+    mockExchangeRates.getRateOrNull.mockImplementation(async (from: string) =>
+      from === 'USD' ? 2 : null,
+    );
+    mockTransactionRepository.find.mockResolvedValue([
+      { amount: 100, transactionType: 'income', currency: 'USD', categoryId: 'c-sales' },
+      { amount: 1000, transactionType: 'income', currency: 'XYZ', categoryId: 'c-sales' },
+    ]);
+
+    const preview = await service.previewTemplate('ws1', {
+      templateId: 'pnl',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-12-31',
+      format: 'csv',
+    } as any);
+
+    // Never 1:1: the XYZ thousand is not in the total, and the note names the currency.
+    expect(preview.footer).toEqual([['NET INCOME', 200]]);
+    expect(preview.notes).toEqual([
+      'No exchange rate for XYZ: those amounts are not included in the EUR totals.',
+    ]);
+  });
+
+  it('prints the document in the requested language', async () => {
+    mockTransactionRepository.find.mockResolvedValue([
+      { amount: 10, transactionType: 'income', currency: 'EUR', categoryId: 'c-sales' },
+    ]);
+
+    const result = await generate({
+      templateId: 'pnl',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'csv',
+      locale: 'de',
+    });
+
+    const csv = fs.readFileSync(track(result.filePath), 'utf-8');
+    expect(csv).toContain('Gewinn- und Verlustrechnung');
+    expect(csv).not.toContain('NET INCOME');
+  });
+
+  it('keeps two categories with the same name under different parents apart', async () => {
+    mockTransactionRepository.find.mockResolvedValue([
+      {
+        amount: 30,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-home-other',
+        category: { name: 'Other', parent: { name: 'Home' } },
+      },
+      {
+        amount: 20,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-work-other',
+        category: { name: 'Other', parent: { name: 'Work' } },
+      },
+    ]);
+
+    const preview = await service.previewTemplate('ws1', {
+      templateId: 'expense-by-category',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'csv',
+    } as any);
+
+    expect(preview.sections[0].rows.map(row => row.slice(0, 3))).toEqual([
+      ['Home', 'Other', 30],
+      ['Work', 'Other', 20],
+    ]);
+  });
+
+  it('gives the balance sheet English account names for a language it has none in', async () => {
+    const result = await generate({
+      templateId: 'balance-sheet',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'pdf',
+      locale: 'de',
+    });
+    track(result.filePath);
+
+    expect(mockBalanceService.exportBalanceSheet).toHaveBeenCalledWith(
+      'ws1',
+      { date: '2024-01-31', format: 'pdf' },
+      'en',
+    );
   });
 
   it('delegates Balance Sheet to BalanceService and stores the buffer', async () => {
@@ -701,8 +852,8 @@ describe('generateFromTemplate', () => {
 
   it('previews the document without writing a file', async () => {
     mockTransactionRepository.find.mockResolvedValue([
-      { amount: 10, transactionType: 'income', currency: 'EUR', category: { name: 'Sales' } },
-      { amount: 4, transactionType: 'expense', currency: 'EUR', category: { name: 'Rent' } },
+      { amount: 10, transactionType: 'income', currency: 'EUR', categoryId: 'c-sales' },
+      { amount: 4, transactionType: 'expense', currency: 'EUR', categoryId: 'c-rent' },
     ]);
 
     const preview = await service.previewTemplate('ws1', {
@@ -724,6 +875,7 @@ describe('generateFromTemplate', () => {
         amount: index + 1,
         transactionType: 'expense',
         currency: 'EUR',
+        categoryId: `c-${index}`,
         category: { name: `Category ${index}` },
       })),
     );
@@ -742,7 +894,7 @@ describe('generateFromTemplate', () => {
     expect(preview.sections[0].rows).toHaveLength(5);
     expect(preview.truncated).toBe(true);
     // Totals stay computed over the full set, not the visible slice.
-    expect(preview.sections[0].total?.[1]).toBe(325);
+    expect(preview.sections[0].total?.[2]).toBe(325);
   });
 
   it('refuses to preview the balance sheet', async () => {

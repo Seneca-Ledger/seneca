@@ -264,7 +264,13 @@ export default function ReportsPage(): React.JSX.Element {
           </>
         )}
         {tab === 'schedules' && (
-          <ReportSchedules templates={templates.map(tmpl => ({ id: tmpl.id, name: tmpl.name }))} />
+          <ReportSchedules
+            templates={templates.map(tmpl => ({
+              id: tmpl.id,
+              name: tmpl.name,
+              formats: tmpl.formats,
+            }))}
+          />
         )}
         {tab === 'history' && <ReportHistory />}
       </Box>
