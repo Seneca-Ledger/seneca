@@ -1,5 +1,6 @@
 'use client';
 
+import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined';
 import Link from 'next/link';
 import type React from 'react';
 import { fillTemplate } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
@@ -7,7 +8,7 @@ import { ChevronRight } from '@/app/components/icons';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer } from '@/app/i18n';
 import { actionIcoClass, actionIcon, buildMappedActions } from './action-items';
-import { DashboardCard } from './ui';
+import { CardEmpty, DashboardCard } from './ui';
 
 const MAX_ACTIONS = 5;
 
@@ -21,7 +22,7 @@ export function QuickActionsCard({ data }: QuickActionsCardProps): React.JSX.Ele
   return (
     <DashboardCard title={t.title}>
       {actions.length === 0 ? (
-        <div className="lumio-dashboard__card-empty">{t.noActionsNeeded}</div>
+        <CardEmpty icon={TaskAltOutlined}>{t.noActionsNeeded}</CardEmpty>
       ) : (
         <div className="lumio-dashboard__action-list">
           {actions.slice(0, MAX_ACTIONS).map(action => {

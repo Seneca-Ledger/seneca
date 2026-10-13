@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import '../test-setup';
+import { SectionSpanProvider } from '../section-span';
 import { TopCategoriesCard } from '../TopCategoriesCard';
 
 // Mirrors react-intlayer's renderIntlayerNode: a Proxy over a rendered
@@ -21,6 +22,8 @@ vi.mock('@/app/i18n', () => ({
     noCategoryData: value('No category data'),
     uncategorized: value('Uncategorized'),
     other: value('Other'),
+    operations: value('Operations'),
+    averageOperation: value('Average spend'),
   }),
   useLocale: () => ({ locale: 'en' }),
 }));
@@ -31,6 +34,15 @@ vi.mock('next-themes', () => ({
 
 vi.mock('next/dynamic', () => ({
   default: () => () => <div data-testid="mock-echarts" />,
+}));
+
+// The slices the card hands the donut, so their links can be checked.
+const donutSlices = vi.hoisted(() => ({ current: [] as Array<{ name: string; href?: string }> }));
+vi.mock('@/app/components/charts/lazy-charts', () => ({
+  LazyCategoryDonut: ({ slices }: { slices: Array<{ name: string; href?: string }> }) => {
+    donutSlices.current = slices;
+    return <div data-testid="mock-echarts" />;
+  },
 }));
 
 describe('TopCategoriesCard', () => {
@@ -107,5 +119,45 @@ describe('TopCategoriesCard', () => {
 
     expect(screen.getByText('Groceries')).toBeInTheDocument();
     expect(screen.queryByText('Uncategorized')).not.toBeInTheDocument();
+  });
+
+  it('opens each named category in the report on the card month', () => {
+    render(
+      <TopCategoriesCard
+        month="2026-10"
+        categories={[
+          { id: 'c1', name: 'Telegram', color: '#0ea5e9', icon: null, amount: 4, percent: 50, count: 1 },
+          { id: null, name: null, color: '#898781', icon: null, amount: 4, percent: 50, count: 1 },
+        ]}
+        formatAmount={v => `$${v}`}
+      />,
+    );
+
+    expect(screen.getByText('Telegram').closest('a')?.getAttribute('href')).toBe(
+      '/reports?tab=cash-flow&month=2026-10&focus=category%3Atelegram',
+    );
+    // Uncategorized has no row of its own in the report.
+    expect(screen.getByText('Uncategorized').closest('a')).toBeNull();
+    // The donut's slices open the same places.
+    expect(donutSlices.current.map(slice => slice.href)).toEqual([
+      '/reports?tab=cash-flow&month=2026-10&focus=category%3Atelegram',
+      undefined,
+    ]);
+  });
+
+  it('says how each total came about only with the row to itself', () => {
+    const card = (
+      <TopCategoriesCard
+        categories={[
+          { id: 'c1', name: 'Telegram', color: '#0ea5e9', icon: null, amount: 12, percent: 100, count: 3 },
+        ]}
+        formatAmount={v => `$${v}`}
+      />
+    );
+    const { rerender } = render(<SectionSpanProvider value={6}>{card}</SectionSpanProvider>);
+    expect(screen.queryByText(/Operations/)).not.toBeInTheDocument();
+
+    rerender(<SectionSpanProvider value={12}>{card}</SectionSpanProvider>);
+    expect(screen.getByText('Operations: 3 · Average spend: $4')).toBeInTheDocument();
   });
 });

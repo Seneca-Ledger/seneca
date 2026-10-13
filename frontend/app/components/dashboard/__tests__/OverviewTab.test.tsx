@@ -140,6 +140,15 @@ describe('OverviewTab', () => {
     expect(screen.getByText('-50%').className).toContain('lumio-dashboard__stat-value--negative');
   });
 
+  it('shows a 0% savings rate when there is no income', () => {
+    renderTab({
+      ...baseData,
+      snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
+    });
+
+    expect(screen.getByText('0%').className).toBe('lumio-dashboard__stat-value');
+  });
+
   it('no longer hosts cash flow, quick actions or the upload zone', () => {
     renderTab(baseData);
 

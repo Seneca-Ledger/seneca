@@ -72,7 +72,8 @@ export const HREFS = {
   uncategorized: '/statements/submit?categoryId=uncategorized',
   statementErrors: '/statements?status=error',
   pendingReview: '/review',
-  receipts: '/statements/submit?status=needs_review',
+  // The receipts Review still asks about; the counts come from the same queue.
+  receipts: '/review?kind=receipt',
   parsingWarnings: '/statements?filter=has_errors',
 } as const;
 

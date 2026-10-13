@@ -22,10 +22,9 @@ import { tokens } from '@/lib/theme-tokens';
 const COMPACT_WIDTH = 640;
 
 /**
- * Two blinks of the band a deep link points at, each one the hover state the
- * reader would have produced themselves (`emphasis.focus: 'adjacency'` dims the
- * rest), then back to normal. Offsets from the chart being ready, in ms: the
- * first pause lets the grow-in animation finish, so the blink is not lost in it.
+ * Two blinks of the band a deep link points at, its node and the link into it,
+ * then back to normal. Offsets from the chart being ready, in ms: the first
+ * pause lets the grow-in animation finish, so the blink is not lost in it.
  */
 const FLASH_SEQUENCE: Array<[delay: number, action: 'highlight' | 'downplay']> = [
   [700, 'highlight'],
@@ -33,8 +32,19 @@ const FLASH_SEQUENCE: Array<[delay: number, action: 'highlight' | 'downplay']> =
   [1650, 'highlight'],
   [2250, 'downplay'],
 ];
+/** When the blinks are over and hovering dims the rest again. */
+const FLASH_END_MS = 2300;
 
-type EChartsLike = { dispatchAction: (payload: { type: string; [key: string]: unknown }) => void };
+/** The node's own tooltip names the band for the whole blink. */
+const FLASH_TOOLTIP: Array<[delay: number, action: 'showTip' | 'hideTip']> = [
+  [700, 'showTip'],
+  [3200, 'hideTip'],
+];
+
+type EChartsLike = {
+  dispatchAction: (payload: { type: string; [key: string]: unknown }) => void;
+  setOption: (option: Record<string, unknown>) => void;
+};
 
 type Props = {
   groupBy: SpendFlowGroupBy;
@@ -123,10 +133,20 @@ export function SpendFlowChart({
     });
   }, [data, resolvedTheme, chartLabels, compact, type]);
 
-  const flashNodeId = useMemo(
-    () => (data ? findSpendFlowNodeId(visibleSpendFlow(data, compact), flashNodeName) : null),
-    [data, compact, flashNodeName],
-  );
+  const flashNode = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+    const visible = visibleSpendFlow(data, compact);
+    const id = findSpendFlowNodeId(visible, flashNodeName);
+    // The series draws the visible nodes and links in this order.
+    return id
+      ? {
+          index: visible.nodes.findIndex(node => node.id === id),
+          edgeIndex: visible.links.findIndex(link => link.source === 'total' && link.target === id),
+        }
+      : null;
+  }, [data, compact, flashNodeName]);
   const flashTimersRef = useRef<number[]>([]);
   useEffect(
     () => () => {
@@ -141,17 +161,50 @@ export function SpendFlowChart({
   // the chart is remounted (keyed by flow and month) whenever its data changes.
   const handleChartReady = useCallback(
     (instance: EChartsLike) => {
-      if (!flashNodeId) {
+      if (!flashNode) {
         return;
       }
-      flashTimersRef.current = FLASH_SEQUENCE.map(([delay, action]) =>
+      // The hover look (`focus: 'adjacency'`) dims every other band, so blinking
+      // a thin one made the largest band flicker instead, and that read as the
+      // pick. While blinking, only the target's node and link light up.
+      instance.setOption({ series: [{ emphasis: { focus: 'none' } }] });
+      const blink = (type: 'highlight' | 'downplay'): void => {
+        instance.dispatchAction({
+          type,
+          seriesIndex: 0,
+          dataType: 'node',
+          dataIndex: flashNode.index,
+        });
+        if (flashNode.edgeIndex >= 0) {
+          instance.dispatchAction({
+            type,
+            seriesIndex: 0,
+            dataType: 'edge',
+            dataIndex: flashNode.edgeIndex,
+          });
+        }
+      };
+      flashTimersRef.current = [
+        ...FLASH_SEQUENCE.map(([delay, action]) => window.setTimeout(() => blink(action), delay)),
         window.setTimeout(
-          () => instance.dispatchAction({ type: action, seriesIndex: 0, name: flashNodeId }),
-          delay,
+          () => instance.setOption({ series: [{ emphasis: { focus: 'adjacency' } }] }),
+          FLASH_END_MS,
         ),
-      );
+        ...FLASH_TOOLTIP.map(([delay, action]) =>
+          window.setTimeout(
+            () =>
+              instance.dispatchAction({
+                type: action,
+                seriesIndex: 0,
+                dataIndex: flashNode.index,
+                dataType: 'node',
+              }),
+            delay,
+          ),
+        ),
+      ];
     },
-    [flashNodeId],
+    [flashNode],
   );
 
   const renderBody = (): React.JSX.Element => {

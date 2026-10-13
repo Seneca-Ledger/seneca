@@ -1,5 +1,6 @@
 'use client';
 
+import BarChartOutlined from '@mui/icons-material/BarChartOutlined';
 import Skeleton from '@mui/material/Skeleton';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
@@ -20,7 +21,7 @@ import {
   useDashboardCashFlow,
 } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { Chip, ChipGroup, DashboardCard } from './ui';
+import { CardEmpty, Chip, ChipGroup, DashboardCard } from './ui';
 
 const RANGE_LABEL_KEY = {
   all: 'rangeAll',
@@ -158,7 +159,11 @@ function CashFlowChartBody({
     return <div className="lumio-chart__empty lumio-dashboard__amount--negative">{error}</div>;
   }
   if (!data?.points.length) {
-    return <div className="lumio-chart__empty">{emptyLabel}</div>;
+    return (
+      <CardEmpty icon={BarChartOutlined} fill>
+        {emptyLabel}
+      </CardEmpty>
+    );
   }
   return <LazyCashFlowBars points={data.points} {...chart} />;
 }

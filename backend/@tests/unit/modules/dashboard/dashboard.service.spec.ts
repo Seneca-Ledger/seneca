@@ -1,6 +1,6 @@
 import { Between, In, IsNull } from 'typeorm';
 import { PayableStatus } from '../../../../src/entities/payable.entity';
-import { ReceiptStatus } from '../../../../src/entities/receipt.entity';
+import { ReceiptSource, ReceiptStatus } from '../../../../src/entities/receipt.entity';
 import { BankName, StatementStatus } from '../../../../src/entities/statement.entity';
 import { TransactionType } from '../../../../src/entities/transaction.entity';
 import { WorkspaceRole } from '../../../../src/entities/workspace-member.entity';
@@ -901,6 +901,9 @@ describe('DashboardService', () => {
         categoryIcon: null,
         bankName: BankName.KASPI,
         accountNumber: 'KZ1234567890124821',
+        statementId: 'st-bank',
+        statementStatus: StatementStatus.COMPLETED,
+        parsingDetails: null,
       },
       {
         id: 'tx-expense',
@@ -916,10 +919,16 @@ describe('DashboardService', () => {
         categoryIcon: null,
         bankName: BankName.OTHER,
         accountNumber: null,
+        statementId: 'st-scan',
+        statementStatus: StatementStatus.COMPLETED,
+        parsingDetails: { detectedBy: 'receipt-scan' },
       },
     ];
     const qb = createQueryBuilderMock(rows);
     transactionRepo.createQueryBuilder.mockReturnValue(qb);
+    receiptRepo.find.mockResolvedValueOnce([
+      { id: 'rc-1', statementId: 'st-scan', source: ReceiptSource.SCAN },
+    ]);
 
     const result = await (service as any).getRecentTransactions(
       'ws-1',
@@ -927,7 +936,7 @@ describe('DashboardService', () => {
       new Date('2026-02-28'),
     );
 
-    expect(qb.limit).toHaveBeenCalledWith(6);
+    expect(qb.limit).toHaveBeenCalledWith(12);
     expect(result).toEqual([
       {
         id: 'tx-income',
@@ -940,6 +949,8 @@ describe('DashboardService', () => {
         categoryName: 'Salary',
         categoryColor: '#10b981',
         categoryIcon: null,
+        // A row opens its document, as in the Documents list.
+        href: '/statements/st-bank/edit',
       },
       {
         id: 'tx-expense',
@@ -952,6 +963,8 @@ describe('DashboardService', () => {
         categoryName: null,
         categoryColor: '#898781',
         categoryIcon: null,
+        // A scan opens its receipt.
+        href: '/storage/receipts/rc-1',
       },
     ]);
   });
@@ -983,7 +996,9 @@ describe('DashboardService', () => {
         createQueryBuilderMock([{ date: '2026-02-10', income: '100', expense: '40' }]),
       )
       .mockReturnValueOnce(
-        createQueryBuilderMock([{ name: 'Utilities', amount: '40', count: '1' }]),
+        createQueryBuilderMock([
+          { name: 'Utilities', color: '#eab308', icon: 'mdi:flash', amount: '40', count: '1' },
+        ]),
       )
       .mockReturnValueOnce(
         createQueryBuilderMock([{ name: 'Client A', amount: '100', count: '1' }]),
@@ -998,7 +1013,9 @@ describe('DashboardService', () => {
     expect(result).toEqual({
       dailyTrend: expect.arrayContaining([{ date: '2026-02-10', income: 100, expense: 40 }]),
       forecast: [],
-      categories: [{ name: 'Utilities', amount: 40, count: 1 }],
+      categories: [
+        { name: 'Utilities', color: '#eab308', icon: 'mdi:flash', amount: 40, count: 1 },
+      ],
       counterparties: [{ name: 'Client A', amount: 100, count: 1 }],
       sources: {
         statements: {
@@ -1036,16 +1053,23 @@ describe('DashboardService', () => {
     expect(sourceQb.andWhere).toHaveBeenCalledWith('t.isDuplicate = false');
   });
 
-  it('getDataHealth counts pending review and parsing warnings from actual statement conditions', async () => {
+  it('getDataHealth counts what Review still asks about, by the queue’s own rules', async () => {
     const warningsQb = createQueryBuilderMock(4);
     const uncategorizedReceiptQb = createQueryBuilderMock(4);
+    const pendingReceiptQb = createQueryBuilderMock(1);
+    const unconfirmedQb = createQueryBuilderMock(3);
+    const duplicatesQb = createQueryBuilderMock(1);
+    const cashQb = createQueryBuilderMock([{ currency: 'KZT', amount: '-19.63' }]);
 
     transactionRepo.createQueryBuilder
       .mockReturnValueOnce(createQueryBuilderMock(2))
-      .mockReturnValueOnce(createQueryBuilderMock({ unapprovedCash: '0' }));
-    receiptRepo.createQueryBuilder.mockReturnValue(uncategorizedReceiptQb);
-    statementRepo.count.mockResolvedValueOnce(1).mockResolvedValueOnce(3).mockResolvedValueOnce(2);
-    receiptRepo.count.mockResolvedValueOnce(5);
+      .mockReturnValueOnce(unconfirmedQb)
+      .mockReturnValueOnce(duplicatesQb)
+      .mockReturnValueOnce(cashQb);
+    receiptRepo.createQueryBuilder
+      .mockReturnValueOnce(uncategorizedReceiptQb)
+      .mockReturnValueOnce(pendingReceiptQb);
+    statementRepo.count.mockResolvedValueOnce(1).mockResolvedValueOnce(2);
     statementRepo.findOne.mockResolvedValue({ createdAt: new Date('2026-03-17T00:00:00Z') });
     statementRepo.createQueryBuilder.mockReturnValue(warningsQb);
 
@@ -1054,29 +1078,24 @@ describe('DashboardService', () => {
     expect(result).toMatchObject({
       uncategorizedTransactions: 6,
       statementsWithErrors: 1,
-      statementsPendingReview: 3,
+      // Unconfirmed rows plus possible duplicates: what Review lists.
+      statementsPendingReview: 4,
       statementsPendingSubmit: 2,
-      receiptsPendingReview: 5,
+      receiptsPendingReview: 1,
       parsingWarnings: 4,
+      // Money in rows nobody confirmed yet, not in statements of a given status.
+      unapprovedCash: -19.63,
     });
+    expect(unconfirmedQb.andWhere).toHaveBeenCalledWith('t.isVerified = false');
+    expect(unconfirmedQb.andWhere).toHaveBeenCalledWith('t.isDuplicate = false');
+    expect(duplicatesQb.andWhere).toHaveBeenCalledWith('t.isDuplicate = true');
+    expect(cashQb.andWhere).toHaveBeenCalledWith('t.isVerified = false');
+    expect(pendingReceiptQb.andWhere).toHaveBeenCalledWith('receipt.transactionId IS NULL');
     expect(statementRepo.count).toHaveBeenNthCalledWith(2, {
-      where: {
-        workspaceId: 'ws-1',
-        status: In([StatementStatus.PARSED, StatementStatus.VALIDATED]),
-        deletedAt: IsNull(),
-      },
-    });
-    expect(statementRepo.count).toHaveBeenNthCalledWith(3, {
       where: {
         workspaceId: 'ws-1',
         status: StatementStatus.UPLOADED,
         deletedAt: IsNull(),
-      },
-    });
-    expect(receiptRepo.count).toHaveBeenCalledWith({
-      where: {
-        workspaceId: 'ws-1',
-        status: In([ReceiptStatus.NEW, ReceiptStatus.NEEDS_REVIEW]),
       },
     });
     expect(uncategorizedReceiptQb.andWhere).toHaveBeenCalledWith(
@@ -1307,22 +1326,29 @@ describe('DashboardService', () => {
 
     const primeDataHealth = () => {
       const uncategorizedTxQb = createQueryBuilderMock(3);
-      const unapprovedQb = createQueryBuilderMock({ unapprovedCash: '10' });
+      const unconfirmedQb = createQueryBuilderMock(0);
+      const duplicatesQb = createQueryBuilderMock(0);
+      const cashQb = createQueryBuilderMock([{ currency: 'KZT', amount: '10' }]);
       const receiptQb = createQueryBuilderMock(1);
+      const pendingReceiptQb = createQueryBuilderMock(0);
       const warningsQb = createQueryBuilderMock(2);
       transactionRepo.createQueryBuilder
         .mockReturnValueOnce(uncategorizedTxQb)
-        .mockReturnValueOnce(unapprovedQb);
-      receiptRepo.createQueryBuilder.mockReturnValue(receiptQb);
+        .mockReturnValueOnce(unconfirmedQb)
+        .mockReturnValueOnce(duplicatesQb)
+        .mockReturnValueOnce(cashQb);
+      receiptRepo.createQueryBuilder
+        .mockReturnValueOnce(receiptQb)
+        .mockReturnValueOnce(pendingReceiptQb);
       statementRepo.createQueryBuilder.mockReturnValue(warningsQb);
       statementRepo.count.mockResolvedValue(0);
-      receiptRepo.count.mockResolvedValue(0);
       statementRepo.findOne.mockResolvedValue({ createdAt: new Date('2026-08-02T10:00:00Z') });
-      return { uncategorizedTxQb, unapprovedQb, receiptQb, warningsQb };
+      return { uncategorizedTxQb, unconfirmedQb, cashQb, receiptQb, pendingReceiptQb, warningsQb };
     };
 
     it('getDataHealth counts only items dated inside the picked month', async () => {
-      const { uncategorizedTxQb, unapprovedQb, receiptQb, warningsQb } = primeDataHealth();
+      const { uncategorizedTxQb, unconfirmedQb, cashQb, receiptQb, pendingReceiptQb, warningsQb } =
+        primeDataHealth();
       const inJuly = [
         'BETWEEN :windowSince AND :windowEnd',
         { windowSince: july.since, windowEnd: july.endDate },
@@ -1333,18 +1359,24 @@ describe('DashboardService', () => {
       expect(statementRepo.count).toHaveBeenCalledWith({
         where: expect.objectContaining({ createdAt: Between(july.since, july.endDate) }),
       });
-      expect(receiptRepo.count).toHaveBeenCalledWith({
-        where: expect.objectContaining({ receivedAt: Between(july.since, july.endDate) }),
-      });
       expect(uncategorizedTxQb.andWhere).toHaveBeenCalledWith(`t.transactionDate ${inJuly[0]}`, inJuly[1]);
-      expect(unapprovedQb.andWhere).toHaveBeenCalledWith(`t.transactionDate ${inJuly[0]}`, inJuly[1]);
+      expect(unconfirmedQb.andWhere).toHaveBeenCalledWith(`t.transactionDate ${inJuly[0]}`, inJuly[1]);
+      expect(cashQb.andWhere).toHaveBeenCalledWith(`t.transactionDate ${inJuly[0]}`, inJuly[1]);
       expect(receiptQb.andWhere).toHaveBeenCalledWith(`r.receivedAt ${inJuly[0]}`, inJuly[1]);
+      expect(pendingReceiptQb.andWhere).toHaveBeenCalledWith(
+        `receipt.receivedAt ${inJuly[0]}`,
+        inJuly[1],
+      );
       expect(warningsQb.andWhere).toHaveBeenCalledWith(`s.createdAt ${inJuly[0]}`, inJuly[1]);
       // The "never uploaded" empty state must not depend on the picked month.
       expect(statementRepo.findOne).toHaveBeenCalledWith(
         expect.objectContaining({ where: { workspaceId: 'ws-1', deletedAt: IsNull() } }),
       );
-      expect(result).toMatchObject({ uncategorizedTransactions: 4, parsingWarnings: 2 });
+      expect(result).toMatchObject({
+        uncategorizedTransactions: 4,
+        parsingWarnings: 2,
+        unapprovedCash: 10,
+      });
     });
 
     it('getDataHealth without a window keeps live all-time totals', async () => {
@@ -1385,7 +1417,7 @@ describe('DashboardService', () => {
   describe('getTrends for a picked month', () => {
     const trendRows = {
       dailyRows: [{ date: '2026-02-10', income: '100', expense: '40' }],
-      categoryRows: [{ name: 'Utilities', amount: '40', count: '1' }],
+      categoryRows: [{ name: 'Utilities', color: null, icon: null, amount: '40', count: '1' }],
       counterpartyRows: [],
       sourceRows: { income: '100', expense: '40', rows: '2' },
     };
@@ -1451,9 +1483,13 @@ describe('DashboardService', () => {
     });
 
     it('zero-fills January to the current month and folds every queue into its month', async () => {
-      transactionRepo.createQueryBuilder.mockReturnValueOnce(
-        createQueryBuilderMock([{ month: '2026-02', total: '10', uncategorized: '3' }]),
-      );
+      transactionRepo.createQueryBuilder
+        .mockReturnValueOnce(
+          createQueryBuilderMock([{ month: '2026-02', total: '10', uncategorized: '3' }]),
+        )
+        // What waits in Review: unconfirmed rows, then possible duplicates.
+        .mockReturnValueOnce(createQueryBuilderMock([{ month: '2026-01', count: '2' }]))
+        .mockReturnValueOnce(createQueryBuilderMock([{ month: '2026-03', count: '1' }]));
       receiptRepo.createQueryBuilder
         .mockReturnValueOnce(createQueryBuilderMock([{ month: '2026-02', count: '1' }]))
         .mockReturnValueOnce(createQueryBuilderMock([{ month: '2026-03', count: '2' }]));
@@ -1506,7 +1542,13 @@ describe('DashboardService', () => {
             statementsUploaded: 6,
             statementsPendingSubmit: 1,
           },
-          { ...zero, month: '2026-03', receiptsPendingReview: 2, overduePayments: 4 },
+          {
+            ...zero,
+            month: '2026-03',
+            statementsPendingReview: 1,
+            receiptsPendingReview: 2,
+            overduePayments: 4,
+          },
         ],
       });
     });

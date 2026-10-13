@@ -1,14 +1,15 @@
 'use client';
 
+import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined';
 import Link from 'next/link';
 import type React from 'react';
 import { useMemo } from 'react';
 import { BudgetSummaryWidget } from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
 import { CashRunwayWidget } from '@/app/(main)/dashboard/components/CashRunwayWidget';
+import { parseDateOnly, resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
 import { FileUp } from '@/app/components/icons';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import type { DashboardData } from '@/app/hooks/useDashboard';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { Spinner } from '../ui/spinner';
 import { CryptoPortfolioCard } from './CryptoPortfolioCard';
 import { computeNet, computeSavingsRate } from './dashboard-stats.util';
@@ -16,6 +17,7 @@ import { GettingStartedCard } from './GettingStartedCard';
 import { GoalsProgressCard } from './GoalsProgressCard';
 import { NetWorthCard } from './NetWorthCard';
 import { OverviewLayout } from './OverviewLayout';
+import type { KpiSectionId } from './overview-layout';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
 import { SpendCalendarCard } from './SpendCalendarCard';
 import { TopCategoriesCard } from './TopCategoriesCard';
@@ -48,6 +50,26 @@ function sparkSeries(data: DashboardData): {
   };
 }
 
+/** The month so far: days after today carry nothing yet and would thin every average. */
+function elapsedDays(data: DashboardData): DashboardData['cashFlow'] {
+  const today = new Date().toISOString().slice(0, 10);
+  return data.cashFlow.filter(point => point.date <= today);
+}
+
+function biggestDay(
+  days: DashboardData['cashFlow'],
+  pick: (point: DashboardData['cashFlow'][number]) => number,
+): { date: string; amount: number } | null {
+  let best: { date: string; amount: number } | null = null;
+  for (const point of days) {
+    const amount = pick(point);
+    if (amount > 0 && (!best || amount > best.amount)) {
+      best = { date: point.date, amount };
+    }
+  }
+  return best;
+}
+
 function monthKey(displayMonth: Date): string {
   return `${displayMonth.getFullYear()}-${String(displayMonth.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -64,7 +86,12 @@ function OverviewEmptyState(): React.JSX.Element {
   const t = useIntlayer('overviewTab');
   return (
     <div className="lumio-dashboard__empty">
-      <EmptyStateIllustration name="dashboard" size="lg" />
+      <span
+        className="lumio-dashboard__card-empty-icon lumio-dashboard__card-empty-icon--lg"
+        aria-hidden="true"
+      >
+        <UploadFileOutlined sx={{ fontSize: 48 }} />
+      </span>
       <h2 className="lumio-dashboard__empty-title">{t.emptyTitle}</h2>
       <p className="lumio-dashboard__empty-desc">{t.emptyDescription}</p>
       <Link href="/statements?openExpenseDrawer=scan" className="lumio-dashboard__empty-cta">
@@ -75,53 +102,102 @@ function OverviewEmptyState(): React.JSX.Element {
   );
 }
 
-interface KpiRowProps {
+interface KpiTilesProps {
   data: DashboardData;
   formatAmount: (value: number) => string;
   monthLabel: string;
   isLoading?: boolean;
+  /** Formats a `YYYY-MM-DD` day as a short date in the reader's language. */
+  formatDay: (day: string) => string;
+  labels: {
+    income: string;
+    spent: string;
+    net: string;
+    netCaption: string;
+    savingsRate: string;
+    savingsRateCaption: string;
+    avgPerDay: string;
+    biggestDay: string;
+  };
 }
 
-function KpiRow({ data, formatAmount, monthLabel, isLoading }: KpiRowProps): React.JSX.Element {
-  const t = useIntlayer('overviewTab');
+/** The four KPI tiles, each a section of its own that moves on its own. */
+function kpiTiles({
+  data,
+  formatAmount,
+  monthLabel,
+  isLoading,
+  formatDay,
+  labels,
+}: KpiTilesProps): Record<KpiSectionId, React.ReactNode> {
   const { income30d: income, expense30d: expense } = data.snapshot;
   const net = computeNet(income, expense);
   const savingsRate = computeSavingsRate(income, expense);
   const spark = sparkSeries(data);
   const spinner = isLoading ? <Spinner size={12} /> : null;
   const netTone = net >= 0 ? 'positive' : 'negative';
-  return (
-    <div className="lumio-dashboard__stat-grid">
+
+  // What a tile with room adds: the whole month's line and how the total came about.
+  const days = elapsedDays(data);
+  const month = days.length >= 2 ? days : null;
+  const perDay = (total: number) => formatAmount(days.length > 0 ? total / days.length : 0);
+  const dayLine = (best: { date: string; amount: number } | null) =>
+    best ? `${formatAmount(best.amount)} · ${formatDay(best.date)}` : '—';
+  const split = [
+    { label: labels.income, value: formatAmount(income) },
+    { label: labels.spent, value: formatAmount(expense) },
+  ];
+  return {
+    'kpi-income': (
       <KpiCard
-        label={t.income.value}
+        label={labels.income}
         value={spinner || formatAmount(income)}
         tone="positive"
         caption={monthLabel}
         spark={spark.income && { points: spark.income }}
+        wideSpark={month ? { points: month.map(p => p.income) } : undefined}
+        details={[
+          { label: labels.avgPerDay, value: perDay(income) },
+          { label: labels.biggestDay, value: dayLine(biggestDay(days, p => p.income)) },
+        ]}
       />
+    ),
+    'kpi-spent': (
       <KpiCard
-        label={t.spentLabel.value}
+        label={labels.spent}
         value={spinner || formatAmount(expense)}
         tone="negative"
         caption={monthLabel}
         spark={spark.expense && { points: spark.expense }}
+        wideSpark={month ? { points: month.map(p => p.expense) } : undefined}
+        details={[
+          { label: labels.avgPerDay, value: perDay(expense) },
+          { label: labels.biggestDay, value: dayLine(biggestDay(days, p => p.expense)) },
+        ]}
       />
+    ),
+    'kpi-net': (
       <KpiCard
-        label={t.netLabel.value}
+        label={labels.net}
         value={spinner || signed(net, formatAmount)}
         tone={netTone}
-        caption={t.netCaption.value}
+        caption={labels.netCaption}
         spark={spark.net && { points: spark.net }}
+        wideSpark={month ? { points: month.map(p => p.income - p.expense) } : undefined}
+        details={split}
       />
+    ),
+    'kpi-savings': (
       <KpiCard
-        label={t.savingsRateLabel.value}
-        value={spinner || (savingsRate === null ? '—' : `${Math.round(savingsRate)}%`)}
+        label={labels.savingsRate}
+        value={spinner || `${Math.round(savingsRate ?? 0)}%`}
         tone={savingsRate === null ? 'neutral' : savingsRate >= 0 ? 'positive' : 'negative'}
-        caption={t.savingsRateCaption.value}
+        caption={labels.savingsRateCaption}
         attentionId="kpi:savings-rate"
+        details={split}
       />
-    </div>
-  );
+    ),
+  };
 }
 
 export function OverviewTab({
@@ -131,7 +207,16 @@ export function OverviewTab({
   displayMonth,
 }: OverviewTabProps): React.JSX.Element {
   const t = useIntlayer('overviewTab');
+  const wideText = useIntlayer('dashboardWideView');
+  const { locale } = useLocale();
   const monthLabel = useMonthLabel(displayMonth);
+  const formatDay = useMemo(() => {
+    const format = new Intl.DateTimeFormat(resolveLocale(locale), {
+      day: 'numeric',
+      month: 'short',
+    });
+    return (day: string) => format.format(parseDateOnly(day));
+  }, [locale]);
   const viewAllHref = useMemo(() => monthRangeHref(displayMonth), [displayMonth]);
 
   // Viewers can't create budgets or goals, so the checklist isn't theirs.
@@ -155,14 +240,23 @@ export function OverviewTab({
     <OverviewLayout
       sections={{
         'getting-started': gettingStarted,
-        kpis: (
-          <KpiRow
-            data={data}
-            formatAmount={formatAmount}
-            monthLabel={monthLabel}
-            isLoading={isLoading}
-          />
-        ),
+        ...kpiTiles({
+          data,
+          formatAmount,
+          monthLabel,
+          isLoading,
+          labels: {
+            income: t.income.value,
+            spent: t.spentLabel.value,
+            net: t.netLabel.value,
+            netCaption: t.netCaption.value,
+            savingsRate: t.savingsRateLabel.value,
+            savingsRateCaption: t.savingsRateCaption.value,
+            avgPerDay: wideText.avgPerDay.value,
+            biggestDay: wideText.biggestDay.value,
+          },
+          formatDay,
+        }),
         crypto: (
           <CryptoPortfolioCard
             formatAmount={formatAmount}
@@ -176,7 +270,11 @@ export function OverviewTab({
             subtitle={monthLabel}
             action={<CardLink href="/reports?tab=cash-flow">{t.viewAll}</CardLink>}
           >
-            <TopCategoriesCard categories={data.topCategories ?? []} formatAmount={formatAmount} />
+            <TopCategoriesCard
+              categories={data.topCategories ?? []}
+              formatAmount={formatAmount}
+              month={monthKey(displayMonth)}
+            />
           </DashboardCard>
         ),
         'recent-transactions': (

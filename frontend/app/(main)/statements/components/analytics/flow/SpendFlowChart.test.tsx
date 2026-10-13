@@ -9,9 +9,10 @@ vi.mock('@/app/components/ui/EmptyStateIllustration', () => ({ EmptyStateIllustr
 // The stub stands in for the echarts instance: the card only ever reaches it
 // through `onChartReady`.
 const dispatchAction = vi.fn();
+const setOption = vi.fn();
 vi.mock('@/app/components/ui/lazy-echarts', () => ({
   LazyECharts: ({ onChartReady }: { onChartReady?: (instance: unknown) => void }) => {
-    onChartReady?.({ dispatchAction });
+    onChartReady?.({ dispatchAction, setOption });
     return <div data-testid="sankey" />;
   },
 }));
@@ -68,23 +69,34 @@ describe('SpendFlowChart', () => {
     vi.useRealTimers();
   });
 
-  it('blinks the band a deep link names twice, then leaves it alone', () => {
+  it('blinks only the band a deep link names, never dimming the others', () => {
     vi.useFakeTimers();
     useSpendFlow.mockReturnValue({ data: flow, isError: false });
     dispatchAction.mockReset();
+    setOption.mockReset();
 
     render(<SpendFlowChart {...props} flashNodeName="a" />);
+    // Dimming the rest made the largest band flicker, which read as the pick.
+    expect(setOption).toHaveBeenLastCalledWith({ series: [{ emphasis: { focus: 'none' } }] });
     act(() => {
       vi.advanceTimersByTime(5000);
     });
 
-    expect(dispatchAction.mock.calls.map(([payload]) => payload.type)).toEqual([
-      'highlight',
-      'downplay',
-      'highlight',
-      'downplay',
+    const calls = dispatchAction.mock.calls.map(([payload]) => payload);
+    expect(calls.map(payload => `${payload.type}:${payload.dataType}:${payload.dataIndex}`)).toEqual([
+      'highlight:node:1',
+      'highlight:edge:0',
+      'showTip:node:1',
+      'downplay:node:1',
+      'downplay:edge:0',
+      'highlight:node:1',
+      'highlight:edge:0',
+      'downplay:node:1',
+      'downplay:edge:0',
+      'hideTip:node:1',
     ]);
-    expect(dispatchAction.mock.calls[0][0]).toMatchObject({ seriesIndex: 0, name: 'cat:a' });
+    // Hovering dims the rest again once the blinks are over.
+    expect(setOption).toHaveBeenLastCalledWith({ series: [{ emphasis: { focus: 'adjacency' } }] });
   });
 
   it('does not blink for a category this month has no band for', () => {

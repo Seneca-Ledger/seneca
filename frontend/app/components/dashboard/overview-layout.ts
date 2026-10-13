@@ -1,13 +1,17 @@
 /**
- * The Overview tab as rows of sections. A row holds one section, which spans
- * the full width, or two, which split it in half — so moving a section next to
- * another is what makes both of them narrower, and moving it out is what lets
- * the one left behind grow back.
+ * The Overview tab as rows of sections. A row has room for four units: a card
+ * takes two, a KPI tile one. So a row holds one card (full width), two cards
+ * (halves), a card and up to two tiles, or up to four tiles — and whatever a
+ * row holds fills it, which is what makes a moved section narrower or wider.
  */
+
+export const KPI_SECTION_IDS = ['kpi-income', 'kpi-spent', 'kpi-net', 'kpi-savings'] as const;
+
+export type KpiSectionId = (typeof KPI_SECTION_IDS)[number];
 
 export const OVERVIEW_SECTION_IDS = [
   'getting-started',
-  'kpis',
+  ...KPI_SECTION_IDS,
   'crypto',
   'top-categories',
   'recent-transactions',
@@ -26,11 +30,18 @@ export type OverviewRows = string[][];
 /** Where a dragged section lands relative to the one under the pointer. */
 export type DropZone = 'above' | 'below' | 'left' | 'right';
 
-const MAX_PER_ROW = 2;
+/** The grid behind a row; every width below is a span of it. */
+export const GRID_COLUMNS = 12;
+const ROW_UNITS = 4;
+const TILE_UNITS = 1;
+const CARD_UNITS = 2;
+
+/** Before the tiles moved one by one they were a single section; saved layouts may still say so. */
+const LEGACY_KPI_ROW = 'kpis';
 
 export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
   ['getting-started'],
-  ['kpis'],
+  [...KPI_SECTION_IDS],
   ['crypto'],
   ['top-categories', 'recent-transactions'],
   ['spend-calendar'],
@@ -41,12 +52,51 @@ export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
 ];
 
 const KNOWN = new Set<string>(OVERVIEW_SECTION_IDS);
+const TILES = new Set<string>(KPI_SECTION_IDS);
+
+export const isTile = (id: string): boolean => TILES.has(id);
+
+const unitsOf = (id: string): number => (isTile(id) ? TILE_UNITS : CARD_UNITS);
+
+const unitsIn = (ids: string[]): number => ids.reduce((sum, id) => sum + unitsOf(id), 0);
+
+/**
+ * How many of the grid's columns each section of a row spans, counting only
+ * the sections that show something: a card alone takes the row, two cards
+ * split it, and tiles share what the cards leave.
+ */
+export function rowSpans(shown: string[]): Map<string, number> {
+  const cards = shown.filter(id => !isTile(id));
+  const tiles = shown.filter(isTile);
+  const cardSpan = cards.length === 1 && tiles.length === 0 ? GRID_COLUMNS : GRID_COLUMNS / 2;
+  const left = GRID_COLUMNS - cards.length * cardSpan;
+  const tileSpan = tiles.length > 0 ? left / tiles.length : 0;
+  return new Map<string, number>([
+    ...cards.map(id => [id, cardSpan] as const),
+    ...tiles.map(id => [id, tileSpan] as const),
+  ]);
+}
+
+/** Fits ids into rows by room left, in order; for whatever no longer fits where it was saved. */
+function pack(ids: string[]): OverviewRows {
+  const rows: OverviewRows = [];
+  for (const id of ids) {
+    const last = rows[rows.length - 1];
+    if (last && unitsIn(last) + unitsOf(id) <= ROW_UNITS) {
+      last.push(id);
+    } else {
+      rows.push([id]);
+    }
+  }
+  return rows;
+}
 
 /**
  * A saved layout made safe to draw: sections that no longer exist and repeats
- * are dropped, overfull rows are cut, and sections added since the layout was
- * saved are appended, each on its own row, so nothing silently disappears
- * (the setup checklist goes first instead).
+ * are dropped, the old single KPI row becomes the four tiles in its place,
+ * overfull rows are cut, and sections added since the layout was saved are
+ * appended, so nothing silently disappears (the setup checklist goes first
+ * instead).
  */
 export function normalizeRows(saved: { rows?: unknown } | null | undefined): OverviewRows {
   if (!Array.isArray(saved?.rows)) {
@@ -59,32 +109,52 @@ export function normalizeRows(saved: { rows?: unknown } | null | undefined): Ove
     if (!Array.isArray(row)) {
       continue;
     }
-    const ids = row.filter(
-      (id): id is string => typeof id === 'string' && KNOWN.has(id) && !seen.has(id),
-    );
-    for (const id of ids) {
-      seen.add(id);
+    const entries = row.filter((id): id is string => typeof id === 'string');
+    // The old KPI row had all four tiles; they keep its place as a row of their own.
+    if (entries.includes(LEGACY_KPI_ROW)) {
+      const tiles = KPI_SECTION_IDS.filter(id => !seen.has(id));
+      for (const id of tiles) {
+        seen.add(id);
+      }
+      if (tiles.length > 0) {
+        rows.push([...tiles]);
+      }
     }
-    if (ids.length > 0) {
-      rows.push(ids.slice(0, MAX_PER_ROW));
-      overflow.push(...ids.slice(MAX_PER_ROW));
+    const kept: string[] = [];
+    for (const id of entries) {
+      if (!KNOWN.has(id) || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      if (unitsIn(kept) + unitsOf(id) <= ROW_UNITS) {
+        kept.push(id);
+      } else {
+        overflow.push(id);
+      }
+    }
+    if (kept.length > 0) {
+      rows.push(kept);
     }
   }
   // The setup checklist is for newcomers, so it opens a layout saved before it
   // existed instead of hiding at the bottom; it vanishes once its job is done.
   const missing = OVERVIEW_SECTION_IDS.filter(id => !seen.has(id) && id !== 'getting-started');
   const head = seen.has('getting-started') ? [] : [['getting-started']];
-  return [...head, ...rows, ...[...overflow, ...missing].map(id => [id])];
+  return [...head, ...rows, ...pack([...overflow, ...missing])];
 }
 
 function rowOf(rows: OverviewRows, id: string): number {
   return rows.findIndex(row => row.includes(id));
 }
 
-/** Whether `active` may join `target`'s row: only a lone section or its own partner has room. */
+/** Whether `active` may join `target`'s row: only if the row, without it, has room left for it. */
 export function canSitBeside(rows: OverviewRows, active: string, target: string): boolean {
   const row = rows[rowOf(rows, target)];
-  return Boolean(row) && (row.length < MAX_PER_ROW || row.includes(active));
+  if (!row) {
+    return false;
+  }
+  const others = row.filter(id => id !== active);
+  return unitsIn(others) + unitsOf(active) <= ROW_UNITS;
 }
 
 export function moveSection(
@@ -110,7 +180,8 @@ export function moveSection(
       if (index !== targetRow) {
         return row;
       }
-      return zone === 'left' ? [active, ...row] : [...row, active];
+      const at = row.indexOf(target) + (zone === 'right' ? 1 : 0);
+      return [...row.slice(0, at), active, ...row.slice(at)];
     });
   }
 

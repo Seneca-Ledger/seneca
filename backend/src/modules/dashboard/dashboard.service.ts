@@ -41,6 +41,12 @@ import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import {
+  pendingReceiptsQuery,
+  reviewDuplicatesQuery,
+  unconfirmedRowsQuery,
+} from '../review-inbox/review-queue.queries';
+import { documentHref, findScanReceipts } from '../search/document-href';
+import {
   type CashFlowRange,
   type DashboardWindow,
   daysInMonth,
@@ -57,25 +63,32 @@ const TOP_CATEGORIES_LIMIT = 8;
 const OTHER_CATEGORY_COLOR = '#898781';
 /** Internal grouping key for transactions with no category — never sent to the client. */
 const UNCATEGORIZED_KEY = '__uncategorized__';
-/** Which history counter a statement in each queue status feeds. */
+/**
+ * Which history counter a statement in each status feeds. What waits for review
+ * is counted from the Review queue itself (its rows), not from statement statuses.
+ */
 const STATEMENT_STATUS_METRIC: Partial<
-  Record<string, 'statementErrors' | 'statementsPendingReview' | 'statementsPendingSubmit'>
+  Record<string, 'statementErrors' | 'statementsPendingSubmit'>
 > = {
   [StatementStatus.ERROR]: 'statementErrors',
-  [StatementStatus.PARSED]: 'statementsPendingReview',
-  [StatementStatus.VALIDATED]: 'statementsPendingReview',
   [StatementStatus.UPLOADED]: 'statementsPendingSubmit',
 };
 
 interface TrendRows {
   dailyRows: Array<{ date: string; income: string; expense: string }>;
-  categoryRows: Array<{ name: string; amount: string; count: string }>;
+  categoryRows: Array<{
+    name: string;
+    color: string | null;
+    icon: string | null;
+    amount: string;
+    count: string;
+  }>;
   counterpartyRows: Array<{ name: string; amount: string; count: string }>;
   sourceRows: { income: string; expense: string; rows: string } | undefined;
 }
 
-/** How many rows the dashboard's recent-transactions card shows. */
-const RECENT_TRANSACTIONS_LIMIT = 6;
+/** Rows for the recent-transactions card with the row to itself; a half-width card shows six. */
+const RECENT_TRANSACTIONS_LIMIT = 12;
 /** Upper bound on the commitments projection so a client can't request a decade of days. */
 const MAX_COMMITMENT_HORIZON_DAYS = 365;
 /** Bank names are proper nouns and aren't translated per locale. */
@@ -756,6 +769,9 @@ export class DashboardService {
       .addSelect('c.icon', 'categoryIcon')
       .addSelect('s.bankName', 'bankName')
       .addSelect('s.accountNumber', 'accountNumber')
+      .addSelect('s.id', 'statementId')
+      .addSelect('s.status', 'statementStatus')
+      .addSelect('s.parsingDetails', 'parsingDetails')
       .orderBy('t.transactionDate', 'DESC')
       .addOrderBy('t.createdAt', 'DESC')
       .limit(RECENT_TRANSACTIONS_LIMIT)
@@ -773,10 +789,21 @@ export class DashboardService {
         categoryIcon: string | null;
         bankName: BankName;
         accountNumber: string | null;
+        statementId: string;
+        statementStatus: Statement['status'];
+        parsingDetails: Statement['parsingDetails'];
       }>();
 
+    // A transaction has no page of its own: a click opens its document.
+    const documents = rows.map(row => ({
+      id: row.statementId,
+      status: row.statementStatus,
+      parsingDetails: row.parsingDetails,
+    }));
+    const scanReceipts = await findScanReceipts(this.receiptRepo, workspaceId, documents);
+
     return Promise.all(
-      rows.map(async row => {
+      rows.map(async (row, index) => {
         const magnitude = row.transactionType === TransactionType.INCOME ? row.credit : row.debit;
         const converted = await this.convertDashboardAmount(
           magnitude,
@@ -801,6 +828,7 @@ export class DashboardService {
           categoryName: row.categoryName,
           categoryColor: row.categoryColor || OTHER_CATEGORY_COLOR,
           categoryIcon: row.categoryIcon,
+          href: documentHref(documents[index], scanReceipts),
         };
       }),
     );
@@ -835,7 +863,7 @@ export class DashboardService {
       receiptsPendingReview,
       parsingWarnings,
       latestStatement,
-      unapprovedCashResult,
+      unapprovedCash,
     ] = await Promise.all([
       this.getUncategorizedCount(workspaceId, window),
       // statements with errors
@@ -847,15 +875,9 @@ export class DashboardService {
           createdAt: this.between(window),
         },
       }),
-      // statements pending review: parsed or validated
-      this.statementRepo.count({
-        where: {
-          workspaceId,
-          status: In([StatementStatus.PARSED, StatementStatus.VALIDATED]),
-          deletedAt: IsNull(),
-          createdAt: this.between(window),
-        },
-      }),
+      // What Review still asks about: unconfirmed rows and possible duplicates,
+      // by the queue's own rules, so the number is the one Review shows.
+      this.getReviewRowsCount(workspaceId, window),
       // statements pending submit: uploaded but not submitted yet
       this.statementRepo.count({
         where: {
@@ -865,14 +887,12 @@ export class DashboardService {
           createdAt: this.between(window),
         },
       }),
-      // receipts pending review
-      this.receiptRepo.count({
-        where: {
-          workspaceId,
-          status: In([ReceiptStatus.NEW, ReceiptStatus.NEEDS_REVIEW]),
-          receivedAt: this.between(window),
-        },
-      }),
+      // receipts Review lists, by its own rule
+      this.withinWindow(
+        pendingReceiptsQuery(this.receiptRepo, workspaceId),
+        'receipt.receivedAt',
+        window,
+      ).getCount(),
       // parsing warnings: actual warnings captured in parsing details
       this.withinWindow(
         this.createParsingWarningsQuery(workspaceId),
@@ -885,29 +905,8 @@ export class DashboardService {
         order: { createdAt: 'DESC' },
         select: ['createdAt'],
       }),
-      // unapproved cash
-      this.withinWindow(
-        this.transactionRepo
-          .createQueryBuilder('t')
-          .innerJoin('t.statement', 's')
-          .select(
-            'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE -t.debit END), 0)',
-            'unapprovedCash',
-          )
-          .where('s.workspaceId = :workspaceId', { workspaceId })
-          .andWhere('s.status IN (:...unapprovedStatuses)', {
-            unapprovedStatuses: [
-              StatementStatus.UPLOADED,
-              StatementStatus.PARSED,
-              StatementStatus.VALIDATED,
-            ],
-          })
-          .andWhere('s.deletedAt IS NULL'),
-        't.transactionDate',
-        window,
-      )
-        .setParameter('income', TransactionType.INCOME)
-        .getRawOne<{ unapprovedCash: string }>(),
+      // money in rows nobody has confirmed yet
+      this.getUnconfirmedCash(workspaceId, window),
     ]);
 
     return {
@@ -916,10 +915,61 @@ export class DashboardService {
       statementsPendingReview,
       statementsPendingSubmit,
       receiptsPendingReview,
-      unapprovedCash: Number.parseFloat(unapprovedCashResult?.unapprovedCash ?? '') || 0,
+      unapprovedCash,
       lastUploadDate: latestStatement?.createdAt?.toISOString() ?? null,
       parsingWarnings,
     };
+  }
+
+  /** Rows waiting in Review (unconfirmed plus possible duplicates), dated within `window`. */
+  private async getReviewRowsCount(
+    workspaceId: string,
+    window: DashboardWindow | null,
+  ): Promise<number> {
+    const [rows, duplicates] = await Promise.all(
+      [unconfirmedRowsQuery, reviewDuplicatesQuery].map(query =>
+        this.withinWindow(
+          query(this.transactionRepo, workspaceId),
+          't.transactionDate',
+          window,
+        ).getCount(),
+      ),
+    );
+    return rows + duplicates;
+  }
+
+  /**
+   * Income minus spending in the rows Review still asks about, in the workspace
+   * currency: the money the numbers elsewhere leave out until someone confirms it.
+   */
+  private async getUnconfirmedCash(
+    workspaceId: string,
+    window: DashboardWindow | null,
+  ): Promise<number> {
+    const rows = await this.withinWindow(
+      unconfirmedRowsQuery(this.transactionRepo, workspaceId),
+      't.transactionDate',
+      window,
+    )
+      .select('t.currency', 'currency')
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE -t.debit END), 0)',
+        'amount',
+      )
+      .setParameter('income', TransactionType.INCOME)
+      .groupBy('t.currency')
+      .getRawMany<{ currency: string; amount: string }>();
+    const targetCurrency = await this.getWorkspaceCurrency(workspaceId);
+    let total = 0;
+    for (const row of rows) {
+      total += await this.convertDashboardAmount(
+        row.amount,
+        row.currency,
+        targetCurrency,
+        workspaceId,
+      );
+    }
+    return total;
   }
 
   private async getUncategorizedCount(
@@ -1030,19 +1080,16 @@ export class DashboardService {
       warningRows,
       pendingReceiptRows,
       overdueRows,
+      reviewRows,
+      reviewDuplicateRows,
     ] = await Promise.all([
       this.getTransactionHistoryRows(workspaceId, window),
       this.countByMonth(this.createUncategorizedReceiptQuery(workspaceId), 'r.receivedAt', window),
       this.getStatementStatusHistoryRows(workspaceId, window),
       this.countByMonth(this.createParsingWarningsQuery(workspaceId), 's.createdAt', window),
       this.countByMonth(
-        this.receiptRepo
-          .createQueryBuilder('r')
-          .where('r.workspaceId = :workspaceId', { workspaceId })
-          .andWhere('r.status IN (:...pendingStatuses)', {
-            pendingStatuses: [ReceiptStatus.NEW, ReceiptStatus.NEEDS_REVIEW],
-          }),
-        'r.receivedAt',
+        pendingReceiptsQuery(this.receiptRepo, workspaceId),
+        'receipt.receivedAt',
         window,
       ),
       this.countByMonth(
@@ -1052,6 +1099,16 @@ export class DashboardService {
           .andWhere('p.status = :overdue', { overdue: PayableStatus.OVERDUE })
           .andWhere('p.deletedAt IS NULL'),
         'p.dueDate',
+        window,
+      ),
+      this.countByMonth(
+        unconfirmedRowsQuery(this.transactionRepo, workspaceId),
+        't.transactionDate',
+        window,
+      ),
+      this.countByMonth(
+        reviewDuplicatesQuery(this.transactionRepo, workspaceId),
+        't.transactionDate',
         window,
       ),
     ]);
@@ -1088,6 +1145,9 @@ export class DashboardService {
     }
     for (const row of overdueRows) {
       add(row.month, 'overduePayments', row.count);
+    }
+    for (const row of [...reviewRows, ...reviewDuplicateRows]) {
+      add(row.month, 'statementsPendingReview', row.count);
     }
 
     return { year, months: Array.from(months.values()) };
@@ -1245,6 +1305,8 @@ export class DashboardService {
       forecast,
       categories: trendData.categoryRows.map(row => ({
         name: row.name,
+        color: row.color ?? null,
+        icon: row.icon ?? null,
         amount: Number.parseFloat(row.amount) || 0,
         count: Number.parseInt(row.count, 10) || 0,
       })),
@@ -1561,13 +1623,22 @@ export class DashboardService {
       this.createTrendBaseQuery(workspaceId, since, endDate)
         .leftJoin('t.category', 'c')
         .select("COALESCE(c.name, 'Uncategorized')", 'name')
+        // Grouped by name: same-named categories share one row, and one of their looks.
+        .addSelect('MAX(c.color)', 'color')
+        .addSelect('MAX(c.icon)', 'icon')
         .addSelect('COALESCE(SUM(t.debit), 0)', 'amount')
         .addSelect('COUNT(t.id)', 'count')
         .andWhere('t.transactionType = :expense', { expense: TransactionType.EXPENSE })
         .groupBy('c.name')
         .orderBy('amount', 'DESC')
         .limit(10)
-        .getRawMany<{ name: string; amount: string; count: string }>(),
+        .getRawMany<{
+          name: string;
+          color: string | null;
+          icon: string | null;
+          amount: string;
+          count: string;
+        }>(),
       this.createTrendBaseQuery(workspaceId, since, endDate)
         .select('t.counterpartyName', 'name')
         .addSelect('COALESCE(SUM(t.credit), 0)', 'amount')

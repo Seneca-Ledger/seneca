@@ -1,14 +1,16 @@
 'use client';
 
+import AccountBalanceOutlined from '@mui/icons-material/AccountBalanceOutlined';
 import type React from 'react';
+import { ASSET_CLASS_KEYS } from '@/app/(main)/net-worth/components/InvestmentsCard';
 import { NetWorthChart } from '@/app/(main)/net-worth/components/NetWorthChart';
 import { type NetWorthRange, useNetWorth } from '@/app/(main)/net-worth/hooks/useNetWorth';
 import { formatSignedAmount } from '@/app/components/charts/chart-format';
-import { EmptyState } from '@/app/components/ui/EmptyState';
 import { COMPACT_SELECT_SX, Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { CardLink, DashboardCard } from './ui';
+import { useIsWideSection } from './section-span';
+import { CardEmpty, CardLink, DashboardCard } from './ui';
 
 /**
  * The periods the dropdown offers, shortest first. A fixed span is labelled
@@ -33,6 +35,7 @@ export function NetWorthCard(): React.JSX.Element | null {
   const netWorthText = useIntlayer('netWorthPage');
   const { locale } = useLocale();
   const { data, isFetching, range, setRange } = useNetWorth('30d');
+  const wide = useIsWideSection();
 
   // Until the first answer is in there is nothing honest to draw; a failed
   // request says nothing either. A period switch keeps the previous figures.
@@ -86,10 +89,56 @@ export function NetWorthCard(): React.JSX.Element | null {
           </span>{' '}
           {netWorthText.overPeriod}
         </div>
-        {hasData ? (
+        {hasData && wide ? (
+          // With the row to itself: what the total is made of, beside the line.
+          <div className="lumio-dashboard__chart-aside">
+            <div className="lumio-dashboard__chart-aside-main">
+              <NetWorthChart points={data.series} positive={isPositive} formatValue={money} />
+            </div>
+            <div className="lumio-dashboard__chart-aside-side">
+              <dl className="lumio-dashboard__stat-details">
+                <div>
+                  <dt>{netWorthText.assets}</dt>
+                  <dd>{money(data.assetsTotal)}</dd>
+                </div>
+                <div>
+                  <dt>{netWorthText.liabilities}</dt>
+                  <dd>{money(data.liabilitiesTotal)}</dd>
+                </div>
+              </dl>
+              {data.allTimeHigh && (
+                <p className="lumio-dashboard__card-sub">
+                  {String(netWorthText.allTimeHigh.value)
+                    .replace('{{value}}', money(data.allTimeHigh.value))
+                    .replace('{{date}}', data.allTimeHigh.date)}
+                </p>
+              )}
+              {data.byAssetClass.length > 0 && (
+                <>
+                  <div className="lumio-dashboard__card-sub">{netWorthText.assetClasses}</div>
+                  <dl className="lumio-dashboard__stat-details">
+                    {data.byAssetClass.map(item => {
+                      const key =
+                        ASSET_CLASS_KEYS[(item.key ?? 'other') as keyof typeof ASSET_CLASS_KEYS] ??
+                        ASSET_CLASS_KEYS.other;
+                      return (
+                        <div key={item.key ?? 'other'}>
+                          <dt>{netWorthText[key as 'classOther'].value}</dt>
+                          <dd>
+                            {money(item.amount)} · {Math.round(item.percent)}%
+                          </dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
+                </>
+              )}
+            </div>
+          </div>
+        ) : hasData ? (
           <NetWorthChart points={data.series} positive={isPositive} formatValue={money} />
         ) : (
-          <EmptyState illustration="net-worth" size="sm" compact description={netWorthText.empty} />
+          <CardEmpty icon={AccountBalanceOutlined}>{netWorthText.empty}</CardEmpty>
         )}
       </div>
     </DashboardCard>

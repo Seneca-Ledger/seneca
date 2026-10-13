@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MonthGoal } from '@/app/(main)/goals/hooks/useMonthGoals';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { GoalsProgressCard } from './GoalsProgressCard';
+import { SectionSpanProvider } from './section-span';
 
 const apiGet = vi.hoisted(() => vi.fn());
 
@@ -100,5 +101,19 @@ describe('GoalsProgressCard', () => {
     );
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('puts goals side by side with the row to itself, in one column at half width', async () => {
+    apiGet.mockResolvedValue({ data: [goal()] });
+    const card = <GoalsProgressCard month="2026-09" monthLabel="September 2026" />;
+
+    const half = renderWithQuery(<SectionSpanProvider value={6}>{card}</SectionSpanProvider>);
+    await screen.findByText('Studio camera');
+    expect(getComputedStyle(screen.getByTestId('goals-list')).display).toBe('flex');
+    half.unmount();
+
+    renderWithQuery(<SectionSpanProvider value={12}>{card}</SectionSpanProvider>);
+    await screen.findByText('Studio camera');
+    expect(getComputedStyle(screen.getByTestId('goals-list')).display).toBe('grid');
   });
 });

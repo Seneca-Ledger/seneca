@@ -1,15 +1,19 @@
 'use client';
 
+import AccountBalanceWalletOutlined from '@mui/icons-material/AccountBalanceWalletOutlined';
 import LinearProgress from '@mui/material/LinearProgress';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type React from 'react';
-import { CardLink, DashboardCard } from '@/app/components/dashboard/ui';
+import { useIsWideSection } from '@/app/components/dashboard/section-span';
+import { CardEmpty, CardLink, DashboardCard } from '@/app/components/dashboard/ui';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { formatMoney } from '@/app/lib/format-money';
 import { queryKeys } from '@/app/lib/query-keys';
 import { type BudgetItem as BudgetSummary, fetchBudgets } from '../../budgets/hooks/useBudgetsPage';
 
+/** A half-width card shows the most used few; with the row to itself, every budget. */
 const VISIBLE_BUDGETS = 5;
 
 function getColor(percent: number): 'success' | 'warning' | 'error' {
@@ -29,7 +33,7 @@ const PERCENT_CLASS: Record<ReturnType<typeof getColor>, string> = {
 };
 
 function mostUsed(budgets: BudgetSummary[]): BudgetSummary[] {
-  return [...budgets].sort((a, b) => b.percentUsed - a.percentUsed).slice(0, VISIBLE_BUDGETS);
+  return [...budgets].sort((a, b) => b.percentUsed - a.percentUsed);
 }
 
 /**
@@ -50,13 +54,39 @@ function useBudgets(): { budgets: BudgetSummary[]; loaded: boolean } {
 
 export function BudgetSummaryWidget(): React.JSX.Element | null {
   const t = useIntlayer('budgetSummaryWidget');
+  const wideText = useIntlayer('dashboardWideView');
+  const { locale } = useLocale();
   const { budgets, loaded } = useBudgets();
+  const wide = useIsWideSection();
 
   if (!loaded) {
     return null;
   }
 
   const hasBudgets = budgets.length > 0;
+  const shown = wide ? budgets : budgets.slice(0, VISIBLE_BUDGETS);
+  /** With room: what was spent against what the period allows, and what is left or over. */
+  const amounts = (b: BudgetSummary): React.ReactNode => {
+    const money = (value: number) => formatMoney(value, b.currency, locale);
+    const allowed = Number(b.availableAmount ?? b.limitAmount);
+    const spent = Number(b.spentAmount);
+    const rest = allowed - spent;
+    return (
+      <div className="lumio-dashboard__budget-amounts">
+        <span>
+          {String(wideText.spentOfLimit.value)
+            .replace('{{spent}}', money(spent))
+            .replace('{{limit}}', money(allowed))}
+        </span>
+        <span className={rest < 0 ? 'lumio-dashboard__amount--negative' : undefined}>
+          {String(rest < 0 ? wideText.over.value : wideText.left.value).replace(
+            '{{amount}}',
+            money(Math.abs(rest)),
+          )}
+        </span>
+      </div>
+    );
+  };
   return (
     <DashboardCard
       title={t.title}
@@ -67,8 +97,8 @@ export function BudgetSummaryWidget(): React.JSX.Element | null {
       }
     >
       {hasBudgets ? (
-        <div className="lumio-dashboard__list">
-          {budgets.map(b => {
+        <div className={clsx('lumio-dashboard__list', wide && 'lumio-dashboard__list--columns')}>
+          {shown.map(b => {
             const color = getColor(b.percentUsed);
             return (
               <div key={b.id} className="lumio-dashboard__budget-row">
@@ -84,12 +114,13 @@ export function BudgetSummaryWidget(): React.JSX.Element | null {
                   color={color}
                   sx={{ height: 6, borderRadius: 3 }}
                 />
+                {wide && amounts(b)}
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="lumio-dashboard__card-empty">{t.emptyDescription}</div>
+        <CardEmpty icon={AccountBalanceWalletOutlined}>{t.emptyDescription}</CardEmpty>
       )}
     </DashboardCard>
   );
