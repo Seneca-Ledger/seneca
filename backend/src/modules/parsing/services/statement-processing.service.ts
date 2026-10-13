@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Data } from 'effect';
@@ -470,7 +470,7 @@ export class StatementProcessingService {
     });
 
     if (!statement) {
-      throw new Error(`Statement ${statementId} not found`);
+      throw new NotFoundException(`Statement ${statementId} not found`);
     }
 
     const importPreview = this.getImportPreview(statement);
@@ -486,12 +486,13 @@ export class StatementProcessingService {
       if (transactionCount > 0) {
         return statement;
       }
-      throw new Error(`Import preview session missing for statement ${statementId}`);
+      // Nothing was previewed, so there is nothing to commit: the caller's state, not a fault.
+      throw new ConflictException(`Import preview session missing for statement ${statementId}`);
     }
 
     const transactions = this.hydratePreviewTransactions(importPreview.transactions);
     if (transactions.length === 0) {
-      throw new Error(`No preview transactions available for statement ${statementId}`);
+      throw new ConflictException(`No preview transactions available for statement ${statementId}`);
     }
 
     const commitResult = await this.importSessionService.processImport(

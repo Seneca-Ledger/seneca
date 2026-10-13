@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, type FindOptionsWhere, In, Repository } from 'typeorm';
 import { taxLockedConflict } from '../../../common/utils/tax-lock.util';
@@ -168,7 +168,7 @@ export class CrossStatementDeduplicationService {
    */
   async mergeDuplicates(transactionIds: string[], workspaceId: string): Promise<Transaction> {
     if (transactionIds.length < 2) {
-      throw new Error('At least 2 transactions required for merge');
+      throw new BadRequestException('At least 2 transactions required for merge');
     }
 
     const transactions = await this.transactionRepository.findBy({
@@ -177,7 +177,7 @@ export class CrossStatementDeduplicationService {
     });
 
     if (transactions.length !== transactionIds.length) {
-      throw new Error('One or more transactions not found');
+      throw new NotFoundException('One or more transactions not found');
     }
 
     const master = transactions.find(row => row.id === transactionIds[0]) ?? transactions[0];
@@ -207,7 +207,7 @@ export class CrossStatementDeduplicationService {
   async unmarkDuplicate(transactionId: string, workspaceId: string): Promise<Transaction> {
     const existing = await this.transactionRepository.findOneBy({ id: transactionId, workspaceId });
     if (!existing) {
-      throw new Error('Transaction not found');
+      throw new NotFoundException('Transaction not found');
     }
 
     await this.transactionRepository.update(transactionId, {
@@ -219,7 +219,7 @@ export class CrossStatementDeduplicationService {
 
     const transaction = await this.transactionRepository.findOneBy({ id: transactionId });
     if (!transaction) {
-      throw new Error('Transaction not found');
+      throw new NotFoundException('Transaction not found');
     }
 
     return transaction;

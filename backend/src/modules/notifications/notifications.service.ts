@@ -385,8 +385,11 @@ export class NotificationsService {
     dto: UpdateNotificationPreferencesBody,
   ): Promise<NotificationPreference> {
     const preferences = await this.getPreferences(userId);
-    const { channels, ...rest } = dto;
-    Object.assign(preferences, rest);
+    const { channels, quietHoursStart, quietHoursEnd, ...rest } = dto;
+    // null switches quiet hours off; for every other setting it leaves it as it was.
+    Object.assign(preferences, withoutNulls(rest));
+    if (quietHoursStart !== undefined) preferences.quietHoursStart = quietHoursStart;
+    if (quietHoursEnd !== undefined) preferences.quietHoursEnd = quietHoursEnd;
 
     if (channels) {
       preferences.channels = this.normalizeChannels(

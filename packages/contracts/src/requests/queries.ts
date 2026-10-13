@@ -13,6 +13,7 @@ import { JournalEntrySource } from '../ledger/ledger';
 import { PayableDirection, PayableSource, PayableStatus } from '../payables/payables';
 import { ReviewInboxKind } from '../review/review-inbox';
 import { NoteTargetInput } from './notes';
+import { TaxReturnPeriodBody } from './tax';
 
 /**
  * Query strings, decoded by `@SchemaQuery`. They reproduce what the
@@ -128,6 +129,10 @@ export type SearchBackgroundsQuery = Wire<typeof SearchBackgroundsQuery>;
 /** `GET /tax/datev/export` and its preview: a closed period. */
 export const DatevPeriodQuery = Schema.Struct({ from: IsoDateString, to: IsoDateString });
 export type DatevPeriodQuery = Wire<typeof DatevPeriodQuery>;
+
+/** `GET /tax/returns/preview`: the period a return would cover, as filing takes it. */
+export const TaxReturnPeriodQuery = TaxReturnPeriodBody;
+export type TaxReturnPeriodQuery = Wire<typeof TaxReturnPeriodQuery>;
 
 /** `GET /tax/datev/mapping`. */
 export const DatevMappingQuery = Schema.Struct({ year: Year });
@@ -364,3 +369,11 @@ export const ViewScopeParams = Schema.Struct({
   scope: Schema.Literals(['transactions', 'review', 'reports', 'dashboard', 'onboarding']),
 });
 export type ViewScopeParams = Wire<typeof ViewScopeParams>;
+
+/** `GET /exchange-rates`: a pair, on a day or today. */
+export const ExchangeRateQuery = Schema.Struct({
+  from: Schema.String.check(Schema.isBetweenLength(3, 10)),
+  to: Schema.String.check(Schema.isBetweenLength(3, 10)),
+  date: Schema.optional(IsoDateString),
+});
+export type ExchangeRateQuery = Wire<typeof ExchangeRateQuery>;

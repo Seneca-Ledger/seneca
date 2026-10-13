@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Exit, Schema } from 'effect';
 import type { Request } from 'express';
-import { describeSchemaFailure } from './schema-issues';
+import { describeSchemaFailure, describeUnstorableText } from './schema-issues';
 
 /**
  * Decodes a query string or the route parameters with an Effect Schema.
@@ -31,11 +31,16 @@ export class EffectSchemaQueryPipe<S extends Schema.Top>
       typeof value === 'object' && value !== null
         ? Object.fromEntries(Object.entries(value).filter(([, item]) => item !== ''))
         : {};
+    const unstorable = describeUnstorableText(present);
     const exit = this.decode(present);
-    if (Exit.isSuccess(exit)) {
+    if (!unstorable && Exit.isSuccess(exit)) {
       return exit.value;
     }
-    const messages = describeSchemaFailure(exit.cause);
+    const messages = unstorable
+      ? [unstorable]
+      : Exit.isFailure(exit)
+        ? describeSchemaFailure(exit.cause)
+        : [];
     throw new BadRequestException({
       message: messages.length > 0 ? messages : [`Invalid ${this.what}`],
       error: 'Bad Request',

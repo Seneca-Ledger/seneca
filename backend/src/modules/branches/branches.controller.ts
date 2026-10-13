@@ -18,10 +18,10 @@ export class BranchesController {
   @WorkspaceAuth(Permission.BRANCH_CREATE)
   async create(
     @SchemaBody(CreateBranchBody) createDto: CreateBranchBody,
-    @CurrentUser() _user: User,
+    @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.branchesService.create(workspaceId, createDto);
+    return this.branchesService.create(workspaceId, user.id, createDto);
   }
 
   @Get()

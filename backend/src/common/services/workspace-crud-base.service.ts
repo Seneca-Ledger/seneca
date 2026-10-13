@@ -1,4 +1,5 @@
 import type { FindOptionsOrder, ObjectLiteral, Repository } from 'typeorm';
+import { withoutNullsOnRequired } from '../effect/without-nulls';
 import { assertFound } from '../utils/assert-found.util';
 
 /**
@@ -41,7 +42,7 @@ export abstract class WorkspaceCrudBaseService<T extends ObjectLiteral> {
     dto: Partial<Record<keyof T, unknown>>,
   ): Promise<T> {
     const entity = await this.findOne(id, workspaceId);
-    Object.assign(entity, dto);
+    Object.assign(entity, withoutNullsOnRequired(this.repository.metadata, dto));
     return this.repository.save(entity);
   }
 
