@@ -1069,6 +1069,16 @@
     }
   }
 
+  &__footer {
+    flex: none;
+    padding-top: 12px;
+    border-top: 1px solid $color-border;
+
+    @include dark {
+      border-top-color: $lumio-color-border-dk;
+    }
+  }
+
   &__list {
     flex: 1;
     overflow-y: auto;

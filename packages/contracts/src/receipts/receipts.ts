@@ -135,7 +135,14 @@ export const ReceiptRecord = Schema.Struct({
   locationAccuracyM: Schema.NullOr(Schema.Number),
   locationUpdatedAt: Schema.NullOr(Timestamp),
   /** The category `parsedData.categoryId` names, looked up for display. */
-  category: Schema.NullOr(Schema.Struct({ id: Schema.String, name: Schema.String })),
+  category: Schema.NullOr(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      color: Schema.NullOr(Schema.String),
+      icon: Schema.NullOr(Schema.String),
+    }),
+  ),
   /** The transaction it documents is split by its items (single-receipt reads only). */
   transactionSplit: Schema.optional(Schema.Boolean),
   createdAt: Timestamp,

@@ -23,6 +23,7 @@ import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
+import { categoryReportHref } from '@/app/lib/category-report-href';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { tokens } from '@/lib/theme-tokens';
@@ -284,21 +285,13 @@ const formatBoolean = (value: boolean | null, yes: string, no: string): string =
  */
 const CATEGORY_LINK_DELAY_MS = 450;
 
-/**
- * The category chip opens the Top categories leaderboard on the statement's own
- * month with that category's row ringed — the same `?month=&focus=category:<name>`
- * contract advice links use (app/components/insights/insight-href.ts, read by
- * app/hooks/useAttentionFocus.ts). The leaderboard has no category ids, so rows
- * are keyed by the lowercased name.
- */
+/** The category chip opens the Top categories leaderboard on the statement's own month. */
 const categoryHref = (categoryLabel: string, statement: StatementListItem): string => {
-  const params = new URLSearchParams();
   const sortDate = resolveStatementSortDate(statement);
-  if (sortDate > 0) {
-    params.set('month', formatMonthParam(new Date(sortDate)));
-  }
-  params.set('focus', `category:${categoryLabel.trim().toLowerCase()}`);
-  return `/reports?tab=cash-flow&${params.toString()}`;
+  return categoryReportHref(
+    categoryLabel,
+    sortDate > 0 ? formatMonthParam(new Date(sortDate)) : null,
+  );
 };
 
 function StatusBadge({

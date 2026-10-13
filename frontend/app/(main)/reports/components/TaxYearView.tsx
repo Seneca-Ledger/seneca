@@ -20,6 +20,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { Fragment, useState } from 'react';
 import toast from 'react-hot-toast';
+import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import { ChevronDown, ChevronRight, Download } from '@/app/components/icons';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
@@ -246,6 +247,18 @@ export function TaxYearView(): React.ReactElement {
             <Chip
               key={category.id}
               label={category.name}
+              // The category's own icon, so the list can be scanned by eye. The span takes
+              // the spacing Chip passes through className, which the badge does not accept.
+              icon={
+                <Box component="span" sx={{ display: 'inline-flex' }}>
+                  <CategoryIconBadge
+                    name={category.name}
+                    color={category.color}
+                    icon={category.icon}
+                    size={20}
+                  />
+                </Box>
+              }
               size="small"
               clickable
               disabled={toggleCategory.isPending}
@@ -286,6 +299,7 @@ export function TaxYearView(): React.ReactElement {
                   const rows = data.rows.filter(
                     row => row.categoryId === category.categoryId && row.type === category.type,
                   );
+                  const visual = categories.data?.find(entry => entry.id === category.categoryId);
                   return (
                     <Fragment key={key}>
                       <TableRow hover>
@@ -302,7 +316,18 @@ export function TaxYearView(): React.ReactElement {
                             }
                             aria-expanded={expanded}
                             startIcon={
-                              expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+                              <Box
+                                component="span"
+                                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}
+                              >
+                                {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                <CategoryIconBadge
+                                  name={category.name}
+                                  color={visual?.color}
+                                  icon={visual?.icon}
+                                  size={22}
+                                />
+                              </Box>
                             }
                             sx={{ textTransform: 'none', color: 'text.primary', fontWeight: 600 }}
                           >

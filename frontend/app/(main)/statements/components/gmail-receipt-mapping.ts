@@ -19,7 +19,7 @@ export interface GmailReceipt {
     lineItems?: Array<{ description: string; amount?: number }>;
   };
   /** Resolved by the API from `parsedData.categoryId`; absent when none is picked. */
-  category?: { id: string; name: string } | null;
+  category?: { id: string; name: string; color: string | null; icon: string | null } | null;
   gmailMessageId?: string;
 }
 
@@ -59,7 +59,7 @@ export interface GmailMappedStatement {
   gmailMessageId?: string;
   receivedAt: string;
   parsedData?: GmailMappedParsedData;
-  category?: { id: string; name: string } | null;
+  category?: { id: string; name: string; color: string | null; icon: string | null } | null;
 }
 
 const VENDOR_BANK_PATTERNS: { pattern: RegExp; bankName: string }[] = [
