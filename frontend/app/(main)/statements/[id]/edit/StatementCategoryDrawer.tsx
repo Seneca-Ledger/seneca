@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, Search } from '@/app/components/icons';
 import { DrawerShell, type DrawerWidth } from '@/app/components/ui/drawer-shell';
 import { useLocale } from '@/app/i18n';
@@ -27,6 +27,8 @@ type StatementCategoryDrawerProps = {
   width?: DrawerWidth;
   className?: string;
   showAllOption?: boolean;
+  /** Pinned under the list, e.g. a "Create category" action. */
+  footer?: ReactNode;
 };
 
 export default function StatementCategoryDrawer({
@@ -40,6 +42,7 @@ export default function StatementCategoryDrawer({
   width = 'sm',
   className = 'bg-card border-l-0',
   showAllOption = true,
+  footer,
 }: StatementCategoryDrawerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const { locale } = useLocale();
@@ -126,6 +129,7 @@ export default function StatementCategoryDrawer({
             )}
           </div>
         </div>
+        {footer ? <div className="lumio-cat-drawer__footer">{footer}</div> : null}
       </div>
     </DrawerShell>
   );
