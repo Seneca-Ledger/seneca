@@ -12,7 +12,7 @@ import {
 import { alpha } from '@mui/material/styles';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Copy, Lock, Trash2 } from '@/app/components/icons';
+import { Copy, Lock, Plus, Trash2 } from '@/app/components/icons';
 import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
@@ -243,6 +243,7 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
                     cursor: 'pointer',
                   }}
                 >
+                  <Plus size={14} aria-hidden />
                   {t.createKey}
                 </button>
               )}

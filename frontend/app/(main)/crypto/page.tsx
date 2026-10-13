@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import type React from 'react';
 import { useState } from 'react';
-import { RefreshCcw } from '@/app/components/icons';
+import { Plus, RefreshCcw } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -99,6 +99,7 @@ export default function CryptoPage(): React.JSX.Element {
           onImport={importExchangeCsv}
         />
         <Button variant="contained" onClick={() => setDrawerOpen(true)}>
+          <Plus size={18} aria-hidden />
           {t.connect}
         </Button>
       </Box>

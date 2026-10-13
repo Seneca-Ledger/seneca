@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { Plus } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
@@ -261,6 +262,7 @@ export function TaxRulesSection(): React.ReactElement {
                 disabled={busy || !draft.taxRateCode}
                 sx={{ borderRadius: tokens.radius.md, textTransform: 'none', fontWeight: 600 }}
               >
+                <Plus size={18} aria-hidden />
                 {t.addRule}
               </Button>
             </Stack>

@@ -4,7 +4,7 @@ import { Box, Checkbox, FormControlLabel, TextField, Typography } from '@mui/mat
 import { alpha } from '@mui/material/styles';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Copy, Trash2 } from '@/app/components/icons';
+import { Copy, Plus, Trash2 } from '@/app/components/icons';
 import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
@@ -36,6 +36,8 @@ const tabBtnStyle = (active: boolean) => ({
   cursor: 'pointer',
   transition: 'background 0.15s, color 0.15s',
 });
+
+const ICON_BTN_LAYOUT = { display: 'inline-flex', alignItems: 'center', gap: 4 };
 
 const actionBtnStyle = (variant: 'danger' | 'default' | 'primary') => ({
   padding: '5px 12px',
@@ -303,9 +305,10 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <button
                     type="button"
-                    style={actionBtnStyle('primary')}
+                    style={{ ...actionBtnStyle('primary'), ...ICON_BTN_LAYOUT }}
                     onClick={() => void handleCreateEndpoint()}
                   >
+                    <Plus size={14} aria-hidden />
                     {t.create}
                   </button>
                   <button
@@ -484,7 +487,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <button
                     type="button"
-                    style={actionBtnStyle('primary')}
+                    style={{ ...actionBtnStyle('primary'), ...ICON_BTN_LAYOUT }}
                     onClick={() => void handleCreateSubscription()}
                     disabled={
                       !(subName.trim() && subUrl.trim()) ||
@@ -492,6 +495,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                       subEvents.length === 0
                     }
                   >
+                    <Plus size={14} aria-hidden />
                     {t.create}
                   </button>
                   <button

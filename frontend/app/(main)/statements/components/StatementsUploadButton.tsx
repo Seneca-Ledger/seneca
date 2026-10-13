@@ -1,5 +1,6 @@
 'use client';
 
+import { Plus } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { useIntlayer } from '@/app/i18n';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
@@ -15,6 +16,7 @@ export function StatementsUploadButton(): React.JSX.Element {
 
   return (
     <Button data-tour-id="statements-upload-trigger" onClick={onScan}>
+      <Plus size={18} aria-hidden />
       {resolveLabel(getNestedValue(t, ['uploadStatement']), 'Upload statement')}
     </Button>
   );

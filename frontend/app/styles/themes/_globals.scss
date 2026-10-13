@@ -326,3 +326,11 @@ html:not(.dark) .MuiListItem-root:hover,
 html:not(.dark) .MuiTableRow-root:hover {
   background-color: $color-muted !important;
 }
+
+// "+ New …": a leading icon in a filled button sits a little into the padding,
+// 6px off the label. Kept out of the MUI theme: emotion warns on :first-child
+// (SSR-unsafe), and :first-of-type would also catch a trailing icon.
+.MuiButton-contained > svg:first-child {
+  margin-left: -4px;
+  margin-right: 6px;
+}

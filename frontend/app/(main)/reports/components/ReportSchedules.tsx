@@ -11,7 +11,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { Trash2 } from '@/app/components/icons';
+import { Plus, Trash2 } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
@@ -224,6 +224,7 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button variant="contained" onClick={handleCreate} disabled={saving}>
+            <Plus size={18} aria-hidden />
             {text('scheduleCreate', 'Create schedule')}
           </Button>
           {error && (

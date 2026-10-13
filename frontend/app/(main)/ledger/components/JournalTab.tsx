@@ -16,6 +16,7 @@ import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import type React from 'react';
 import { useState } from 'react';
+import { Plus } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { useIntlayer } from '@/app/i18n';
@@ -189,6 +190,7 @@ export function JournalTab({
         {canPost ? <RevaluationButton /> : null}
         {canPost ? (
           <Button variant="contained" onClick={() => setOpen('new')}>
+            <Plus size={18} aria-hidden />
             {t.newEntry}
           </Button>
         ) : null}

@@ -6,6 +6,7 @@ import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import NextLink from 'next/link';
 import { useEffect } from 'react';
+import { Plus } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { usePermissions } from '@/app/hooks/usePermissions';
@@ -119,6 +120,7 @@ export function BudgetsContent({
             )}
           />
           <Button variant="contained" onClick={() => openCreate()}>
+            <Plus size={18} aria-hidden />
             {t.newBudget}
           </Button>
         </Box>

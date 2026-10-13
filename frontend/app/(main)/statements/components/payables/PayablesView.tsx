@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
+import { Plus } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
@@ -706,7 +707,10 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
                 <Button variant="outline" onClick={() => router.push('/statements/reconcile')}>
                   {tx(['payables', 'reconcile'], 'Reconcile with the bank')}
                 </Button>
-                <Button onClick={openCreateDrawer}>{labels.add}</Button>
+                <Button onClick={openCreateDrawer}>
+                  <Plus size={18} aria-hidden />
+                  {labels.add}
+                </Button>
               </div>
             </div>
           </div>
