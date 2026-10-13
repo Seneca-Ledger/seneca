@@ -692,8 +692,8 @@ describe('generateFromTemplate', () => {
     const dataLines = lines.filter(line => /^\d{4}-\d{2}-\d{2},/.test(line));
 
     // Sorted by date, expenses signed negative, USD converted at the mocked rate of 2.
-    // A top-level category is its own group; tags are joined into one cell.
-    expect(dataLines[0]).toBe('2024-01-10,Client,Sales,Sales,Income,40,40 EUR,,,,t-client');
+    // A top-level category has no group; tags are joined into one cell.
+    expect(dataLines[0]).toBe('2024-01-10,Client,,Sales,Income,40,40 EUR,,,,t-client');
     expect(dataLines[1]).toBe(
       '2024-01-20,Acme,Business,Software,Expense,-200,100 USD,Main card,Annual plan,"tools, tax",t-acme',
     );
@@ -814,6 +814,28 @@ describe('generateFromTemplate', () => {
     ]);
   });
 
+  it('orders categories by their group\'s total, then largest first within the group', async () => {
+    mockTransactionRepository.find.mockResolvedValue([
+      { amount: 500, transactionType: 'expense', currency: 'EUR', categoryId: 'c-rent', category: { name: 'Rent' } },
+      { amount: 250, transactionType: 'expense', currency: 'EUR', categoryId: 'c-cafe', category: { name: 'Cafe', parent: { name: 'Food' } } },
+      { amount: 300, transactionType: 'expense', currency: 'EUR', categoryId: 'c-groc', category: { name: 'Groceries', parent: { name: 'Food' } } },
+    ]);
+
+    const preview = await service.previewTemplate('ws1', {
+      templateId: 'expense-by-category',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'csv',
+    } as any);
+
+    // Food (550) outweighs Rent (500), so its two categories come first, together.
+    expect(preview.sections[0].rows.map(row => row.slice(0, 2))).toEqual([
+      ['Food', 'Groceries'],
+      ['Food', 'Cafe'],
+      ['', 'Rent'],
+    ]);
+  });
+
   it('gives the balance sheet English account names for a language it has none in', async () => {
     const result = await generate({
       templateId: 'balance-sheet',
@@ -855,7 +877,7 @@ describe('generateFromTemplate', () => {
         'Group', 'Category', '2024-01', '2024-02', '2024-03', 'Total', 'Average / month',
       ]);
       expect(expenses.rows).toEqual([
-        ['Food', 'Food', 40, 0, 60, 100, 33.33],
+        ['', 'Food', 40, 0, 60, 100, 33.33],
         // USD at the mocked rate of 2.
         ['Home', 'Rent', 0, 0, 50, 50, 16.67],
       ]);

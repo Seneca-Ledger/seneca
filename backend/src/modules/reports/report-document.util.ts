@@ -31,7 +31,7 @@ export interface ReportDocument {
    * the figures, not after them.
    */
   notes?: string[];
-  /** PDF page orientation; a table with a column per month needs landscape. */
+  /** PDF page orientation; by default landscape when a table is too wide for portrait. */
   orientation?: 'portrait' | 'landscape';
   /** Emphasised lines below all sections (e.g. NET INCOME). */
   footer?: ReportCell[][];
@@ -211,7 +211,17 @@ function toPdfSection(section: ReportSection): unknown[] {
     );
   }
 
-  const widths = section.columns.map((_column, index) => (index === 0 ? '*' : 'auto'));
+  // The longest text column takes the spare width and wraps; the rest fit
+  // their content. A fixed first column would hand the room to an empty one.
+  const textLength = (index: number): number =>
+    numericColumn[index]
+      ? -1
+      : Math.max(...section.rows.map(row => String(row[index] ?? '').length), 0);
+  const flexible = section.columns.reduce(
+    (best, _column, index) => (textLength(index) > textLength(best) ? index : best),
+    0,
+  );
+  const widths = section.columns.map((_column, index) => (index === flexible ? '*' : 'auto'));
   const wide = section.columns.length > WIDE_TABLE_COLUMNS;
 
   return [
@@ -230,7 +240,12 @@ async function writePdf(doc: ReportDocument, filePath: string): Promise<void> {
 
   const docDefinition = {
     pageSize: 'A4',
-    pageOrientation: doc.orientation ?? 'portrait',
+    // A table too wide for a portrait page turns the page rather than cut columns off.
+    pageOrientation:
+      doc.orientation ??
+      (doc.sections.some(section => section.columns.length > WIDE_TABLE_COLUMNS)
+        ? 'landscape'
+        : 'portrait'),
     pageMargins: [24, 28, 24, 28],
     content: [
       { text: doc.title, style: 'title' },

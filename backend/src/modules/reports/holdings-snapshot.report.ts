@@ -152,8 +152,8 @@ export class HoldingsSnapshotReport {
     const document: ReportDocument = {
       title: text.titleInvestmentHoldings,
       subtitle: fillLabel(text.subtitleAsOf, { date: today, currency }),
-      orientation: 'landscape',
       ...(notes.length ? { notes } : {}),
+      // A kind of asset the workspace does not hold would print as an empty table.
       sections: [
         {
           title: text.securities,
@@ -208,7 +208,7 @@ export class HoldingsSnapshotReport {
           rows: cryptoRows,
           total: [text.total, '', '', round2(cryptoTotal), '', '', '', ''],
         },
-      ],
+      ].filter(section => section.rows.length > 0),
       footer: [[text.totalPortfolio, round2(securitiesTotal + metalsTotal + cryptoTotal)]],
     };
 

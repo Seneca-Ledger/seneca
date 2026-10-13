@@ -127,7 +127,7 @@ describe('BudgetVsActualReport', () => {
 
     // 100 a month over three months; 250 spent; 50 left; 83% used.
     expect(document.sections[0].rows[0]).toEqual([
-      'Food',
+      '',
       'Food',
       'Budget',
       'Monthly',

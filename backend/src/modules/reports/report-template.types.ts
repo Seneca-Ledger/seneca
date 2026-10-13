@@ -10,7 +10,7 @@ export interface TemplateReportRow {
   /** The category id, or '' for an uncategorized row. */
   categoryKey: string;
   categoryName: string;
-  /** The parent category's name; a top-level category is its own group. */
+  /** The parent category's name; empty for a top-level category. */
   groupName: string;
   counterparty: string;
   accountName: string;

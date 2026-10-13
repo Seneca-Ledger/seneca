@@ -91,7 +91,6 @@ describe('HoldingsSnapshotReport', () => {
     expect(metals.rows[0].slice(5, 8)).toEqual([4000, 1500, 2500]);
     expect(crypto.rows[0].slice(2, 7)).toEqual([120000, 60000, 80000, 40000, 20000]);
     expect(document.footer).toEqual([['TOTAL PORTFOLIO', 1100 + 4000 + 60000]]);
-    expect(document.orientation).toBe('landscape');
     expect(document.notes).toBeUndefined();
     expect(missingRates).toEqual([]);
   });
@@ -125,10 +124,10 @@ describe('HoldingsSnapshotReport', () => {
     ]);
   });
 
-  it('produces an empty document with zero totals for a workspace that holds nothing', async () => {
+  it('leaves out the kinds of asset the workspace does not hold', async () => {
     const { document } = await build();
 
-    expect(document.sections.map(section => section.rows.length)).toEqual([0, 0, 0, 0]);
+    expect(document.sections).toEqual([]);
     expect(document.footer).toEqual([['TOTAL PORTFOLIO', 0]]);
   });
 });

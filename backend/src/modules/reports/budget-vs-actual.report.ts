@@ -168,7 +168,7 @@ export class BudgetVsActualReport {
     const categoryName = budget.category?.name ?? '';
     const clipped = window.from !== period.from || window.to !== period.to;
     return [
-      budget.category?.parent?.name || categoryName,
+      budget.category?.parent?.name ?? '',
       categoryName,
       budget.goal ? `${budget.name} · ${budget.goal.name}` : budget.name,
       clipped

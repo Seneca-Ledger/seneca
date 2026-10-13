@@ -152,6 +152,34 @@ interface CustomReportExportRow {
   wallet: string;
 }
 
+/**
+ * Where a category sorts: under its group, or — for a top-level category,
+ * whose group cell is empty — under its own name, so it sits beside its children.
+ */
+function groupSortKey(entry: { groupName: string; categoryName: string }): string {
+  return entry.groupName || entry.categoryName;
+}
+
+/**
+ * Largest group first and largest category first within it: a flat category
+ * tree reads as before, largest first, and a nested one keeps groups together.
+ */
+function byGroupThenAmount<T extends { groupName: string; categoryName: string; total: number }>(
+  entries: T[],
+): T[] {
+  const groupTotal = new Map<string, number>();
+  for (const entry of entries) {
+    const key = groupSortKey(entry);
+    groupTotal.set(key, (groupTotal.get(key) ?? 0) + entry.total);
+  }
+  return [...entries].sort(
+    (a, b) =>
+      (groupTotal.get(groupSortKey(b)) ?? 0) - (groupTotal.get(groupSortKey(a)) ?? 0) ||
+      groupSortKey(a).localeCompare(groupSortKey(b)) ||
+      b.total - a.total,
+  );
+}
+
 interface CategoryTotal {
   groupName: string;
   categoryName: string;
@@ -3107,8 +3135,7 @@ export class ReportsService {
         date: this.toDateKey(transaction.transactionDate),
         categoryKey: transaction.categoryId ?? '',
         categoryName,
-        // A top-level category is its own group, so its rows sort beside its children's.
-        groupName: transaction.category?.parent?.name || categoryName,
+        groupName: transaction.category?.parent?.name ?? '',
         counterparty: transaction.counterpartyName || '',
         accountName: transaction.wallet?.name ?? '',
         comment: transaction.comments ?? '',
@@ -3155,18 +3182,13 @@ export class ReportsService {
     return Array.from(totals.values());
   }
 
-  /** Grouped as a reader scans them: by group, then the largest first within it. */
-  private byGroupThenAmount(entries: CategoryTotal[]): CategoryTotal[] {
-    return [...entries].sort((a, b) => a.groupName.localeCompare(b.groupName) || b.total - a.total);
-  }
-
   private buildPnLDocument(
     text: TemplateLabels,
     subtitle: string,
     rows: TemplateReportRow[],
   ): ReportDocument {
-    const income = this.byGroupThenAmount(this.sumByCategory(rows.filter(row => row.isIncome)));
-    const expense = this.byGroupThenAmount(this.sumByCategory(rows.filter(row => !row.isIncome)));
+    const income = byGroupThenAmount(this.sumByCategory(rows.filter(row => row.isIncome)));
+    const expense = byGroupThenAmount(this.sumByCategory(rows.filter(row => !row.isIncome)));
 
     const totalRevenue = this.sumTotals(income);
     const totalExpenses = this.sumTotals(expense);
@@ -3267,9 +3289,7 @@ export class ReportsService {
     subtitle: string,
     rows: TemplateReportRow[],
   ): ReportDocument {
-    const byCategory = this.byGroupThenAmount(
-      this.sumByCategory(rows.filter(row => !row.isIncome)),
-    );
+    const byCategory = byGroupThenAmount(this.sumByCategory(rows.filter(row => !row.isIncome)));
     const totalExpenses = this.sumTotals(byCategory);
     const totalCount = byCategory.reduce((sum, entry) => sum + entry.count, 0);
 
@@ -3450,9 +3470,7 @@ export class ReportsService {
         net[index] += sign * row.amount;
       }
 
-      const entries = Array.from(byCategory.values()).sort(
-        (a, b) => a.groupName.localeCompare(b.groupName) || b.total - a.total,
-      );
+      const entries = byGroupThenAmount(Array.from(byCategory.values()));
       const sectionTotal = perMonthTotal.reduce((sum, value) => sum + value, 0);
       return {
         title,
