@@ -4,10 +4,12 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
   BalanceQuery,
+  BalanceSheetResponse,
   CreateBalanceAccountBody,
   ExportBalanceQuery,
   UpdateAccountClassificationBody,
@@ -23,6 +25,7 @@ export class BalanceController {
 
   @Get('sheet')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(BalanceSheetResponse)
   async getSheet(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

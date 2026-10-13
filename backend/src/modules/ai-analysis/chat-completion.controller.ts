@@ -2,9 +2,10 @@ import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
-import { CreateChatCompletionBody } from '../../contracts';
+import { ChatCompletionStatus, CreateChatCompletionBody } from '../../contracts';
 import type { User } from '../../entities';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ChatCompletionService } from './chat-completion.service';
@@ -16,6 +17,7 @@ export class ChatCompletionController {
 
   /** Whether chat mode can use a cloud model for this member. */
   @Get('status')
+  @SchemaResponse(ChatCompletionStatus)
   status(@WorkspaceId() workspaceId: string, @CurrentUser() user: User) {
     return this.chatCompletionService.isConfigured(workspaceId, user.id);
   }

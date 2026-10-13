@@ -63,6 +63,10 @@ export type MonthGoal = Wire<typeof MonthGoal>;
 export const MonthGoalList = Schema.Array(MonthGoal);
 export type MonthGoalList = Wire<typeof MonthGoalList>;
 
+/** `GET /goals`: the whole list, or with `?month=` the goals moved forward that month. */
+export const GoalListAnswer = Schema.Union([GoalList, MonthGoalList]);
+export type GoalListAnswer = Wire<typeof GoalListAnswer>;
+
 export const GoalFlowNodeKind = Schema.Literals([
   'goal',
   'budget',

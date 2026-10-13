@@ -3,9 +3,10 @@ import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { TaxPackQuery, TaxYearReportQuery } from '../../contracts';
+import { TaxPackQuery, TaxYearReport, TaxYearReportQuery } from '../../contracts';
 import { TaxPackService } from './tax-pack.service';
 
 @Controller('tax')
@@ -15,6 +16,7 @@ export class TaxPackController {
   /** The year's tax-relevant rows, by category, with how many documents back them. */
   @Get('year-report')
   @WorkspaceAuth(Permission.REPORT_VIEW, Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TaxYearReport)
   async yearReport(
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() memberId: string | null,

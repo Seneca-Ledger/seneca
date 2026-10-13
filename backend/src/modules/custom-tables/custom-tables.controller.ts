@@ -17,6 +17,7 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -31,10 +32,24 @@ import {
   CreateCustomTableFromDataEntryCustomTabBody,
   CreateCustomTableFromSourceBody,
   CreateCustomTableRowBody,
+  CreatedCustomTable,
+  CreatedFromSource,
+  CustomTableAggregates,
+  CustomTableColumnItem,
+  CustomTableDetail,
+  CustomTableGroups,
+  CustomTableList,
+  CustomTableRowBatch,
+  CustomTableRowItem,
+  CustomTableRowPage,
+  CustomTableSummaries,
   FillAiColumnBody,
+  FormulaPreview,
   PreviewCustomTableSourceBody,
   PreviewFormulaBody,
+  RefreshedFromSource,
   ReorderCustomTableColumnsBody,
+  SourcePreview,
   UpdateCustomTableBody,
   UpdateCustomTableColumnBody,
   UpdateCustomTableColumnStyleBody,
@@ -133,6 +148,7 @@ export class CustomTablesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CreatedCustomTable)
   async createTable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -145,6 +161,7 @@ export class CustomTablesController {
 
   @Get()
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableList)
   async listTables(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     const cacheKey = await this.customTablesCache.listKey(workspaceId);
     return this.customTablesCache.getOrSet(cacheKey, async () => {
@@ -197,6 +214,7 @@ export class CustomTablesController {
 
   @Post('source-preview')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(SourcePreview)
   async previewSource(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -207,6 +225,7 @@ export class CustomTablesController {
 
   @Post('from-source')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CreatedFromSource)
   async createFromSource(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -219,6 +238,7 @@ export class CustomTablesController {
 
   @Post(':id/refresh-from-source')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RefreshedFromSource)
   async refreshFromSource(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -233,6 +253,7 @@ export class CustomTablesController {
 
   @Post(':id/formula-preview')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(FormulaPreview)
   async previewFormula(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -244,6 +265,7 @@ export class CustomTablesController {
 
   @Get(':id/summaries')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableSummaries)
   async getSummaries(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -282,6 +304,7 @@ export class CustomTablesController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async getTable(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -322,6 +345,7 @@ export class CustomTablesController {
 
   @Post(':id/columns')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableColumnItem)
   async addColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -449,6 +473,7 @@ export class CustomTablesController {
 
   @Get(':id/groups')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableGroups)
   async groupRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -483,6 +508,7 @@ export class CustomTablesController {
 
   @Get(':id/aggregates')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableAggregates)
   async aggregateRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -544,6 +570,7 @@ export class CustomTablesController {
 
   @Get(':id/rows')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRowPage)
   async listRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -606,6 +633,7 @@ export class CustomTablesController {
 
   @Post(':id/rows')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRowItem)
   async createRow(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -619,6 +647,7 @@ export class CustomTablesController {
 
   @Patch(':id/rows/:rowId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRowItem)
   async updateRow(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -646,6 +675,7 @@ export class CustomTablesController {
 
   @Post(':id/rows/batch')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRowBatch)
   async batchCreateRows(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

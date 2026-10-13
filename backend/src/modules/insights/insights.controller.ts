@@ -9,8 +9,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { DailyQuote, InsightList } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { InsightsService } from './insights.service';
@@ -25,6 +27,7 @@ export class InsightsController {
   ) {}
 
   @Get()
+  @SchemaResponse(InsightList)
   async list(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -54,6 +57,7 @@ export class InsightsController {
    * clock may already be on another day.
    */
   @Get('daily-quote')
+  @SchemaResponse(DailyQuote)
   async dailyQuote(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

@@ -3,8 +3,14 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { CreateWebhookEndpointBody, UpdateWebhookEndpointBody } from '../../contracts';
+import {
+  CreatedWebhookEndpoint,
+  CreateWebhookEndpointBody,
+  UpdateWebhookEndpointBody,
+  WebhookEndpointList,
+} from '../../contracts';
 import { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { WebhookEndpointsService } from './services/webhook-endpoints.service';
@@ -17,6 +23,7 @@ export class WebhookEndpointsController {
   @Post()
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
   @ApiOperation({ summary: 'Create inbound webhook endpoint' })
+  @SchemaResponse(CreatedWebhookEndpoint)
   async create(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(CreateWebhookEndpointBody) dto: CreateWebhookEndpointBody,
@@ -27,6 +34,7 @@ export class WebhookEndpointsController {
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(WebhookEndpointList)
   async findAll(@WorkspaceId() workspaceId: string) {
     const endpoints = await this.service.findAll(workspaceId);
     return endpoints.map(({ token, ...rest }) => ({

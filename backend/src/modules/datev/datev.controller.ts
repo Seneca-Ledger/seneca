@@ -4,9 +4,17 @@ import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspac
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { DatevMappingQuery, DatevPeriodQuery, SaveDatevSettingsBody } from '../../contracts';
+import {
+  DatevMapping,
+  DatevMappingQuery,
+  DatevPeriodQuery,
+  DatevPreview,
+  DatevSettings,
+  SaveDatevSettingsBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { DatevService } from './datev.service';
@@ -22,12 +30,14 @@ export class DatevController {
 
   @Get('settings')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(DatevSettings)
   async getSettings(@WorkspaceId() workspaceId: string) {
     return this.datevService.getSettings(workspaceId);
   }
 
   @Put('settings')
   @WorkspaceAuth(Permission.REPORT_EXPORT)
+  @SchemaResponse(DatevSettings)
   async saveSettings(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(SaveDatevSettingsBody) dto: SaveDatevSettingsBody,
@@ -38,6 +48,7 @@ export class DatevController {
 
   @Get('mapping')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(DatevMapping)
   async mapping(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(DatevMappingQuery) query: DatevMappingQuery,
@@ -48,6 +59,7 @@ export class DatevController {
   /** What the file for a period would hold, and what it would leave out and why. */
   @Get('preview')
   @WorkspaceAuth(Permission.REPORT_EXPORT, Permission.TRANSACTION_VIEW)
+  @SchemaResponse(DatevPreview)
   async preview(
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() memberId: string | null,

@@ -1753,9 +1753,10 @@ describe('API contracts (e2e)', () => {
         for (const key of account) expect(permission.user).not.toHaveProperty(key);
       }
       const audit = await get('/audit-events?limit=50');
-      expect(audit.body.data.some((event: { actor: unknown }) => event.actor)).toBe(true);
+      expect(audit.body.data.length).toBeGreaterThan(0);
+      // The trail names its actor by id and label; the account row stays home.
       for (const event of audit.body.data) {
-        for (const key of account) expect(event.actor ?? {}).not.toHaveProperty(key);
+        expect(event).not.toHaveProperty('actor');
       }
       const history = await get('/reports/history');
       for (const row of history.body) {

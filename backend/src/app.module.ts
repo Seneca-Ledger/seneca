@@ -19,6 +19,8 @@ import { CsrfGuard } from './common/guards/csrf.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AuditActorInterceptor } from './common/interceptors/audit-actor.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { StripKeysInterceptor } from './common/interceptors/strip-keys.interceptor';
+import { SERVER_ONLY_KEYS } from './common/utils/sensitive-keys.util';
 import { getDatabaseConfig } from './config/database.config';
 import { validateEnv } from './config/env.schema';
 import {
@@ -296,6 +298,11 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
+    },
+    // Outermost, so it sees every answer last: nothing leaves with a file path or a credential.
+    {
+      provide: APP_INTERCEPTOR,
+      useValue: new StripKeysInterceptor(SERVER_ONLY_KEYS),
     },
     {
       provide: APP_INTERCEPTOR,

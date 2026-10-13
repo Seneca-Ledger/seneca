@@ -1,5 +1,7 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { JurisdictionRateList, TaxJurisdictionList } from '../../contracts';
 import { JurisdictionsService } from './jurisdictions.service';
 
 /**
@@ -13,6 +15,7 @@ export class JurisdictionsController {
   constructor(private readonly jurisdictionsService: JurisdictionsService) {}
 
   @Get()
+  @SchemaResponse(TaxJurisdictionList)
   async findAll() {
     return this.jurisdictionsService.findAll();
   }
@@ -27,6 +30,7 @@ export class JurisdictionsController {
    * you get every version, which is what the settings timeline wants.
    */
   @Get(':code/rates')
+  @SchemaResponse(JurisdictionRateList)
   async findRates(@Param('code') code: string, @Query('date') date?: string) {
     const jurisdiction = await this.jurisdictionsService.findByCode(code);
 

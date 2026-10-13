@@ -2,8 +2,9 @@ import { Controller, Get, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { RevalueLedgerBody } from '../../contracts';
+import { RevaluationResult as RevaluationResultContract, RevalueLedgerBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { Revaluation, RevaluationResult } from './ledger-revaluation.service';
@@ -23,6 +24,7 @@ export class LedgerRevaluationsController {
   /** Idempotent per day: repeating it books nothing unless the balances moved. */
   @Post()
   @WorkspaceAuth(Permission.LEDGER_POST)
+  @SchemaResponse(RevaluationResultContract)
   async revalue(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

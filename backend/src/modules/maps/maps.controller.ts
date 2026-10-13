@@ -9,6 +9,8 @@ import {
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { SchemaResponse } from '../../common/effect/schema-response';
+import { MapStyles } from '../../contracts';
 import { MapsService } from './maps.service';
 
 // No workspace scope: tiles carry no tenant data. The global JwtAuthGuard still
@@ -32,6 +34,7 @@ export class MapsController {
       },
     },
   })
+  @SchemaResponse(MapStyles)
   getStyles() {
     return this.mapsService.getStyles();
   }

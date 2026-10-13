@@ -7,9 +7,7 @@ import {
 } from '@nestjs/common';
 import { map, type Observable } from 'rxjs';
 import { User } from '../../entities/user.entity';
-
-/** Columns that name where a file sits on the server, or fingerprint it. */
-const INTERNAL_COLUMNS = new Set(['filePath', 'fileHash']);
+import { SERVER_ONLY_KEYS } from '../utils/sensitive-keys.util';
 
 /** A person as other members of the workspace may see them. */
 export interface PersonView {
@@ -46,7 +44,7 @@ export function hideInternalColumns(value: unknown): unknown {
   }
   return Object.fromEntries(
     Object.entries(value)
-      .filter(([key]) => !INTERNAL_COLUMNS.has(key))
+      .filter(([key]) => !SERVER_ONLY_KEYS.has(key))
       .map(([key, nested]) => [key, hideInternalColumns(nested)]),
   );
 }

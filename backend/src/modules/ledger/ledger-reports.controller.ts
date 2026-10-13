@@ -2,8 +2,15 @@ import { BadRequestException, Controller, Get, Param, ParseUUIDPipe } from '@nes
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { AccountLedgerQuery, LedgerDateQuery, LedgerPeriodQuery } from '../../contracts';
+import {
+  AccountLedger as AccountLedgerContract,
+  AccountLedgerQuery,
+  LedgerDateQuery,
+  LedgerPeriodQuery,
+  TrialBalance as TrialBalanceContract,
+} from '../../contracts';
 import {
   type AccountLedger,
   type BalanceSheet,
@@ -28,6 +35,7 @@ export class LedgerReportsController {
 
   @Get('trial-balance')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(TrialBalanceContract)
   async trialBalance(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(LedgerPeriodQuery) query: LedgerPeriodQuery,
@@ -58,6 +66,7 @@ export class LedgerReportsController {
   /** The account card: every line in the period with a running balance. */
   @Get('accounts/:id')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(AccountLedgerContract)
   async accountLedger(
     @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,

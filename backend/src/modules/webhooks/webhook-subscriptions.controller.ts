@@ -3,8 +3,13 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { CreateWebhookSubscriptionBody, UpdateWebhookSubscriptionBody } from '../../contracts';
+import {
+  CreateWebhookSubscriptionBody,
+  UpdateWebhookSubscriptionBody,
+  WebhookSubscriptionList,
+} from '../../contracts';
 import { User } from '../../entities/user.entity';
 import { WebhookEvent } from '../../entities/webhook-subscription.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -33,6 +38,7 @@ export class WebhookSubscriptionsController {
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(WebhookSubscriptionList)
   async findAll(@WorkspaceId() workspaceId: string) {
     const subs = await this.service.findAll(workspaceId);
     return subs.map(({ secret, ...rest }) => rest); // never return secret

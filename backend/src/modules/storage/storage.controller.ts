@@ -17,6 +17,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
@@ -29,9 +30,19 @@ import {
   CreateFolderBody,
   CreateSharedLinkBody,
   CreateTagBody,
+  FileCategoryUpdate,
   GrantPermissionBody,
   MoveFileBody,
+  SharedFileAccess,
+  StorageFileDetails,
+  StorageFileList,
+  StorageFolder,
+  StorageFolderList,
+  StorageTag,
+  StorageTagList,
   StorageViewBody,
+  StorageViewItem,
+  StorageViewList,
   UpdateFileCategoryBody,
   UpdateFileTagsBody,
   UpdateFolderBody,
@@ -62,6 +73,7 @@ export class StorageController {
    */
   @Get('files')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(StorageFileList)
   async getStorageFiles(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -97,6 +109,7 @@ export class StorageController {
    * GET /api/v1/storage/files/:id
    */
   @Get('files/:id')
+  @SchemaResponse(StorageFileDetails)
   async getFileDetails(@Param('id') statementId: string, @CurrentUser() user: User) {
     return await this.storageService.getFileDetails(statementId, user.id);
   }
@@ -106,6 +119,7 @@ export class StorageController {
    * PATCH /api/v1/storage/files/:id/category
    */
   @Patch('files/:id/category')
+  @SchemaResponse(FileCategoryUpdate)
   async updateFileCategory(
     @Param('id') statementId: string,
     @CurrentUser() user: User,
@@ -177,6 +191,7 @@ export class StorageController {
    */
   @Post('tags')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(StorageTag)
   async createTag(
     @SchemaBody(CreateTagBody) dto: CreateTagBody,
     @CurrentUser() _user: User,
@@ -191,6 +206,7 @@ export class StorageController {
    */
   @Get('tags')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(StorageTagList)
   async listTags(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return await this.storageService.listTags(workspaceId);
   }
@@ -201,6 +217,7 @@ export class StorageController {
    */
   @Patch('tags/:id')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(StorageTag)
   async updateTag(
     @Param('id') tagId: string,
     @SchemaBody(UpdateTagBody) dto: UpdateTagBody,
@@ -231,6 +248,7 @@ export class StorageController {
    */
   @Post('folders')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(StorageFolder)
   async createFolder(
     @SchemaBody(CreateFolderBody) dto: CreateFolderBody,
     @CurrentUser() user: User,
@@ -245,6 +263,7 @@ export class StorageController {
    */
   @Get('folders')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(StorageFolderList)
   async listFolders(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return await this.storageService.listFolders(user.id, workspaceId);
   }
@@ -255,6 +274,7 @@ export class StorageController {
    */
   @Patch('folders/:id')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(StorageFolder)
   async updateFolder(
     @Param('id') folderId: string,
     @SchemaBody(UpdateFolderBody) dto: UpdateFolderBody,
@@ -312,6 +332,7 @@ export class StorageController {
    */
   @Post('views')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(StorageViewItem)
   async createView(
     @SchemaBody(StorageViewBody) dto: StorageViewBody,
     @CurrentUser() user: User,
@@ -326,6 +347,7 @@ export class StorageController {
    */
   @Get('views')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(StorageViewList)
   async listViews(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return await this.storageService.listViews(workspaceId);
   }
@@ -529,6 +551,7 @@ export class StorageController {
   @Public()
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get('shared/:token')
+  @SchemaResponse(SharedFileAccess)
   async accessSharedLink(
     @Param('token') token: string,
     @Headers(SHARED_LINK_PASSWORD_HEADER) password?: string,

@@ -2,10 +2,12 @@ import { Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import {
   ImportFilesBody,
+  IntegrationConnection,
   ListImapFoldersBody,
   SaveImapSettingsBody,
   SaveS3SettingsBody,
@@ -135,6 +137,7 @@ export class OpenProtocolIntegrationsController {
 
   @Get('imap/status')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(IntegrationConnection)
   imapStatus(@WorkspaceId() workspaceId: string) {
     return this.openProtocolIntegrationsService.imapStatus(workspaceId);
   }

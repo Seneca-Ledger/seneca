@@ -118,6 +118,10 @@ export const CashFlowMap = Schema.Struct({
 });
 export type CashFlowMap = Wire<typeof CashFlowMap>;
 
+/** `GET /reports/cash-flow-map`: the map, or with `?format=csv` its table as CSV text. */
+export const CashFlowMapAnswer = Schema.Union([CashFlowMap, Schema.String]);
+export type CashFlowMapAnswer = Wire<typeof CashFlowMapAnswer>;
+
 /** `GET /reports/spend-flow`: money from the total through categories to merchants. */
 export const SpendFlow = Schema.Struct({
   currency: Schema.String,

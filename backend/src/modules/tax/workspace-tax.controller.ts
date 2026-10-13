@@ -2,16 +2,26 @@ import { Controller, Get, Post, Put, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   ApplyOfficialRateBody,
   DismissOfficialRateBody,
+  OfficialRatesCheck,
   ReassessTaxBody,
   SetJurisdictionBody,
   SetTaxReserveBody,
   SetVatFilingBody,
   SetVatStatusBody,
+  TaxRateList,
+  TaxReassessment,
+  TaxReserve,
+  TaxReserveSettings,
+  TaxThresholdStatus,
+  VatFilingSettings,
+  VatStatusChange,
+  WorkspaceTaxSettings,
 } from '../../contracts';
 import { TaxFilingPeriod } from '../../entities/tax-jurisdiction.entity';
 import type { User } from '../../entities/user.entity';
@@ -43,6 +53,7 @@ export class WorkspaceTaxController {
 
   @Get()
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(WorkspaceTaxSettings)
   async getSettings(@WorkspaceId() workspaceId: string) {
     const [jurisdiction, vatStatus] = await Promise.all([
       this.adoptionService.getCurrentJurisdiction(workspaceId),
@@ -57,6 +68,7 @@ export class WorkspaceTaxController {
    */
   @Put('vat-status')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(VatStatusChange)
   async setVatStatus(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(SetVatStatusBody) dto: SetVatStatusBody,
@@ -71,6 +83,7 @@ export class WorkspaceTaxController {
    */
   @Post('reassess')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(TaxReassessment)
   async reassess(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(ReassessTaxBody) dto: ReassessTaxBody,
@@ -85,12 +98,14 @@ export class WorkspaceTaxController {
   /** How often the workspace files VAT returns: drives the period presets and the reminders. */
   @Get('vat-filing')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(VatFilingSettings)
   async getVatFiling(@WorkspaceId() workspaceId: string) {
     return this.settingsService.getVatFiling(workspaceId);
   }
 
   @Put('vat-filing')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(VatFilingSettings)
   async setVatFiling(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(SetVatFilingBody) dto: SetVatFilingBody,
@@ -105,12 +120,14 @@ export class WorkspaceTaxController {
 
   @Get('reserve')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(TaxReserveSettings)
   async getReserveSettings(@WorkspaceId() workspaceId: string) {
     return this.settingsService.getReserveSettings(workspaceId);
   }
 
   @Put('reserve')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(TaxReserveSettings)
   async setReserveSettings(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(SetTaxReserveBody) dto: SetTaxReserveBody,
@@ -122,6 +139,7 @@ export class WorkspaceTaxController {
   /** How much of the money held is really owed as tax, by the workspace's own rule. */
   @Get('reserve/amount')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(TaxReserve)
   async getReserve(@WorkspaceId() workspaceId: string) {
     return this.taxReserveService.getReserve(workspaceId);
   }
@@ -133,6 +151,7 @@ export class WorkspaceTaxController {
    */
   @Get('rates')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(TaxRateList)
   async getRatesInForce(@WorkspaceId() workspaceId: string, @Query('date') date?: string) {
     return this.taxRatesService.findEnabledForDate(workspaceId, date ?? new Date());
   }
@@ -144,6 +163,7 @@ export class WorkspaceTaxController {
    */
   @Get('threshold')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(TaxThresholdStatus)
   async getThreshold(@WorkspaceId() workspaceId: string) {
     return this.taxThresholdService.getStatus(workspaceId);
   }
@@ -154,6 +174,7 @@ export class WorkspaceTaxController {
    */
   @Get('official-rates')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(OfficialRatesCheck)
   async getOfficialRates(@WorkspaceId() workspaceId: string) {
     return this.officialRatesService.check(workspaceId);
   }

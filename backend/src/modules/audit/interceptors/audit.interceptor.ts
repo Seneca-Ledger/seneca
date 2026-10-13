@@ -23,6 +23,18 @@ interface AuditMetadata extends AuditOptions {
   entityType: EntityType;
 }
 
+/**
+ * One side of a before/after diff is a record of fields. An answer that is not
+ * one (the tags a transaction now has) goes under `value`, so the audit trail
+ * and its readers deal with one shape.
+ */
+function asDiffSide(value: unknown): Record<string, unknown> | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'object' && !Array.isArray(value))
+    return Object.fromEntries(Object.entries(value));
+  return { value };
+}
+
 @Injectable()
 export class AuditInterceptor implements NestInterceptor<unknown, unknown> {
   private readonly logger = new Logger(AuditInterceptor.name);
@@ -73,8 +85,8 @@ export class AuditInterceptor implements NestInterceptor<unknown, unknown> {
 
           const diff: AuditEventDiff | null = metadata.includeDiff
             ? {
-                before: bodySnapshot ?? null,
-                after: response ?? null,
+                before: asDiffSide(bodySnapshot),
+                after: asDiffSide(response),
               }
             : null;
 
