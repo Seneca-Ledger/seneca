@@ -1,14 +1,151 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "080c970ecf51c64c004eee78f8098bbb61b9d799"
+      "main": "51d2335e3551d8f71582b539a33d8100988ecf44"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-13T17:32:43.700Z",
+    "lastGeneratedAt": "2026-10-13T17:37:34.557Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-13-51d2335",
+      "version": "main-51d2335",
+      "branch": "main",
+      "date": "2026-10-13T17:37:34.557Z",
+      "title": "Release update - October 13, 2026",
+      "summary": "This release includes 1 feature and 2 fixes.",
+      "markdown": "## Features\n- **telegram**: The webhook body is decoded by a schema\n\n## Fixes\n- **security**: Ids from a request are looked up in the caller's workspace\n- **api**: Input a handler cannot use answers 4xx, not 500",
+      "commits": [
+        {
+          "sha": "84ecc6069f21ac2e615a5134dcf71a9a9b61b33d",
+          "shortSha": "84ecc606",
+          "subject": "feat(telegram): the webhook body is decoded by a schema",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T10:52:07+03:00",
+          "files": [
+            "backend/@tests/e2e/telegram-webhook.e2e-spec.ts",
+            "backend/@tests/unit/modules/telegram/telegram-update.schema.spec.ts",
+            "backend/src/modules/telegram/telegram-update.schema.ts",
+            "backend/src/modules/telegram/telegram-webhook.controller.ts",
+            "backend/src/modules/telegram/telegram.service.ts"
+          ]
+        },
+        {
+          "sha": "58770642e42d85d893858927ce026bcbde3bdd77",
+          "shortSha": "58770642",
+          "subject": "fix(security): ids from a request are looked up in the caller's workspace",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T11:59:23+03:00",
+          "files": [
+            "backend/@tests/e2e/cross-workspace-references.e2e-spec.ts",
+            "backend/@tests/e2e/helpers/seed-workspace.ts",
+            "backend/@tests/unit/modules/budgets/budgets.service.spec.ts",
+            "backend/@tests/unit/modules/categories/categories.service.spec.ts",
+            "backend/@tests/unit/modules/classification/categorization-rules.controller.spec.ts",
+            "backend/@tests/unit/modules/invoices/invoices.service.spec.ts",
+            "backend/@tests/unit/modules/subscriptions/subscriptions.service.spec.ts",
+            "backend/@tests/unit/modules/tax/tax-rules.service.spec.ts",
+            "backend/src/modules/budgets/budgets.service.ts",
+            "backend/src/modules/categories/categories.service.ts",
+            "backend/src/modules/classification/categorization-rules.controller.ts",
+            "backend/src/modules/invoices/invoices.service.ts",
+            "backend/src/modules/storage/storage.service.ts",
+            "backend/src/modules/subscriptions/subscriptions.module.ts",
+            "backend/src/modules/subscriptions/subscriptions.service.ts",
+            "backend/src/modules/tax/tax-rules.service.ts"
+          ]
+        },
+        {
+          "sha": "a843dafb3372f0d147dac65b075040467cb942c1",
+          "shortSha": "a843dafb",
+          "subject": "fix(api): input a handler cannot use answers 4xx, not 500",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T11:59:39+03:00",
+          "files": [
+            "backend/@tests/unit/common/effect/schema-body.spec.ts",
+            "backend/@tests/unit/common/effect/without-nulls.spec.ts",
+            "backend/@tests/unit/common/filters/http-exception.filter.spec.ts",
+            "backend/@tests/unit/common/utils/sensitive-keys.util.spec.ts",
+            "backend/@tests/unit/modules/branches/branches.controller.spec.ts",
+            "backend/@tests/unit/modules/branches/branches.service.spec.ts",
+            "backend/@tests/unit/modules/exchange-rates/exchange-rates.controller.spec.ts",
+            "backend/@tests/unit/modules/notifications/notifications.service.spec.ts",
+            "backend/@tests/unit/test/statement-processing.service.spec.ts",
+            "backend/src/common/effect/schema-body.ts",
+            "backend/src/common/effect/schema-issues.ts",
+            "backend/src/common/effect/schema-query.ts",
+            "backend/src/common/effect/without-nulls.ts",
+            "backend/src/common/filters/http-exception.filter.ts",
+            "backend/src/common/services/workspace-crud-base.service.ts",
+            "backend/src/common/utils/egress-url.util.ts",
+            "backend/src/common/utils/sensitive-keys.util.ts",
+            "backend/src/contracts/common/requests.ts",
+            "backend/src/contracts/requests/queries.ts",
+            "backend/src/contracts/requests/tax.ts",
+            "backend/src/modules/ai-analysis/text-embedding.service.ts",
+            "backend/src/modules/ai-analysis/transaction-search.service.ts",
+            "backend/src/modules/audit/audit.controller.ts",
+            "backend/src/modules/branches/branches.controller.ts",
+            "backend/src/modules/branches/branches.service.ts",
+            "backend/src/modules/classification/classification.controller.ts",
+            "backend/src/modules/custom-tables/custom-tables.controller.ts",
+            "backend/src/modules/exchange-rates/exchange-rates.controller.ts",
+            "backend/src/modules/import/services/import-session.service.ts",
+            "backend/src/modules/notifications/notifications.service.ts",
+            "backend/src/modules/parsing/services/statement-processing.service.ts",
+            "backend/src/modules/tax/tax-returns.controller.ts",
+            "backend/src/modules/transactions/services/cross-statement-deduplication.service.ts",
+            "backend/src/modules/webhooks/services/webhook-endpoints.service.ts",
+            "backend/src/modules/webhooks/services/webhook-subscriptions.service.ts",
+            "frontend/app/lib/contracts/common/requests.ts",
+            "frontend/app/lib/contracts/requests/queries.ts",
+            "frontend/app/lib/contracts/requests/tax.ts",
+            "packages/contracts/src/common/requests.ts",
+            "packages/contracts/src/requests/queries.ts",
+            "packages/contracts/src/requests/tax.ts"
+          ]
+        },
+        {
+          "sha": "1249b4ae3750fdc8c88059889f3816527cbf1c5b",
+          "shortSha": "1249b4ae",
+          "subject": "test(e2e): a permanent workspace isolation sweep",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T11:59:40+03:00",
+          "files": [
+            ".claude/rules/effect.md",
+            ".claude/rules/security.md",
+            "backend/@tests/e2e/helpers/leak-guard.ts",
+            "backend/@tests/e2e/workspace-isolation-sweep.e2e-spec.ts",
+            "docs/plans/2026-10-13-isolation-sweep-and-telegram-schema.md"
+          ]
+        },
+        {
+          "sha": "945a1003df949fd0c21d4f43b3286491e508619f",
+          "shortSha": "945a1003",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-13T17:32:44Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "51d2335e3551d8f71582b539a33d8100988ecf44",
+          "shortSha": "51d2335e",
+          "subject": "Merge pull request #292 from symonbaikov/feat/isolation-sweep",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T20:37:12+03:00",
+          "files": [
+            "backend/src/contracts/requests/queries.ts",
+            "backend/src/modules/custom-tables/custom-tables.controller.ts",
+            "frontend/app/lib/contracts/requests/queries.ts",
+            "packages/contracts/src/requests/queries.ts"
+          ]
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-13-080c970",
       "version": "main-080c970",
