@@ -18,7 +18,7 @@ import {
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 
-import { Pencil, Trash2 } from '@/app/components/icons';
+import { Pencil, Plus, Trash2 } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { VendorIcon } from '@/app/components/VendorIcon';
@@ -267,6 +267,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
             {t.businessReport}
           </Button>
           <Button variant="contained" onClick={props.openCreate}>
+            <Plus size={18} aria-hidden />
             {t.addSubscription}
           </Button>
         </Box>

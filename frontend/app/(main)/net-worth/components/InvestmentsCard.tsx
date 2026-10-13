@@ -8,7 +8,7 @@ import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { Trash2 } from '@/app/components/icons';
+import { Plus, Trash2 } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
@@ -320,6 +320,7 @@ export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
             setNewName('');
           }}
         >
+          <Plus size={18} aria-hidden />
           {t.addAccount}
         </Button>
       </Box>

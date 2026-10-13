@@ -5,6 +5,7 @@ import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { Plus } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
@@ -122,6 +123,7 @@ export default function GoalsPage() {
         }}
       >
         <Button variant="contained" onClick={openCreate}>
+          <Plus size={18} aria-hidden />
           {t.newGoal}
         </Button>
       </Box>
