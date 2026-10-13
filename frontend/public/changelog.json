@@ -1,14 +1,183 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "18743ab622c4b9d13a9fb11fee80553a25b0e4ea"
+      "main": "080c970ecf51c64c004eee78f8098bbb61b9d799"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-13T17:09:21.723Z",
+    "lastGeneratedAt": "2026-10-13T17:32:43.700Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-13-080c970",
+      "version": "main-080c970",
+      "branch": "main",
+      "date": "2026-10-13T17:32:43.700Z",
+      "title": "Release update - October 13, 2026",
+      "summary": "This release includes 1 feature, 1 improvement, and 1 fix.",
+      "markdown": "## Features\n- **security**: Answers leave only what their contract declares\n\n## Improvements\n- **contracts**: Format the transaction candidates contract\n\n## Fixes\n- **privacy**: Private transactions stay hidden in file details, the statement and shared links",
+      "commits": [
+        {
+          "sha": "102bdc228ebc0972d5b3d86f25562297a0863250",
+          "shortSha": "102bdc22",
+          "subject": "feat(security): answers leave only what their contract declares",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T09:57:04+03:00",
+          "files": [
+            ".claude/rules/effect.md",
+            "backend/@tests/e2e/contracts.e2e-spec.ts",
+            "backend/@tests/e2e/helpers/e2e-app.ts",
+            "backend/@tests/e2e/helpers/leak-guard.ts",
+            "backend/@tests/unit/common/effect/schema-response.spec.ts",
+            "backend/@tests/unit/common/utils/sensitive-keys.util.spec.ts",
+            "backend/src/app.module.ts",
+            "backend/src/common/effect/schema-response.ts",
+            "backend/src/common/interceptors/hide-internal-columns.interceptor.ts",
+            "backend/src/common/interceptors/strip-keys.interceptor.ts",
+            "backend/src/common/utils/sensitive-keys.util.ts",
+            "backend/src/contracts/goals/goals.ts",
+            "backend/src/contracts/reports/reports.ts",
+            "backend/src/contracts/statements/statement-list.ts",
+            "backend/src/contracts/transactions/transaction-list.ts",
+            "backend/src/modules/ai-analysis/ai-chat.controller.ts",
+            "backend/src/modules/ai-analysis/chat-completion.controller.ts",
+            "backend/src/modules/ai-analysis/transaction-search.controller.ts",
+            "backend/src/modules/application-settings/application-settings.controller.ts",
+            "backend/src/modules/audit/audit.controller.ts",
+            "backend/src/modules/audit/audit.service.ts",
+            "backend/src/modules/audit/interceptors/audit.interceptor.ts",
+            "backend/src/modules/auth/auth.controller.ts",
+            "backend/src/modules/backups/backups.controller.ts",
+            "backend/src/modules/balance/balance.controller.ts",
+            "backend/src/modules/bank-sync/bank-sync.controller.ts",
+            "backend/src/modules/branches/branches.controller.ts",
+            "backend/src/modules/budgets/budgets.controller.ts",
+            "backend/src/modules/business-profile/business-profile.controller.ts",
+            "backend/src/modules/categories/categories.controller.ts",
+            "backend/src/modules/crypto/crypto.controller.ts",
+            "backend/src/modules/custom-tables/custom-table-shares.controller.ts",
+            "backend/src/modules/custom-tables/custom-tables.controller.ts",
+            "backend/src/modules/dashboard/dashboard.controller.ts",
+            "backend/src/modules/dashboard/setup-progress.controller.ts",
+            "backend/src/modules/data-entry/data-entry.controller.ts",
+            "backend/src/modules/datev/datev.controller.ts",
+            "backend/src/modules/entity-imports/entity-imports.controller.ts",
+            "backend/src/modules/exchange-rates/exchange-rates.controller.ts",
+            "backend/src/modules/forecast/forecast.controller.ts",
+            "backend/src/modules/goals/goals.controller.ts",
+            "backend/src/modules/income-tax/income-tax.controller.ts",
+            "backend/src/modules/insights/insights.controller.ts",
+            "backend/src/modules/investments/investments.controller.ts",
+            "backend/src/modules/investments/metals.controller.ts",
+            "backend/src/modules/invoices/clients.controller.ts",
+            "backend/src/modules/invoices/invoices.controller.ts",
+            "backend/src/modules/invoices/public-invoices.controller.ts",
+            "backend/src/modules/ledger/ledger-entries.controller.ts",
+            "backend/src/modules/ledger/ledger-reports.controller.ts",
+            "backend/src/modules/ledger/ledger-revaluations.controller.ts",
+            "backend/src/modules/ledger/ledger-settings.controller.ts",
+            "backend/src/modules/ledger/ledger.controller.ts",
+            "backend/src/modules/maps/maps.controller.ts",
+            "backend/src/modules/net-worth/net-worth.controller.ts",
+            "backend/src/modules/notes/notes.controller.ts",
+            "backend/src/modules/notifications/notifications.controller.ts",
+            "backend/src/modules/open-protocol-integrations/open-protocol-integrations.controller.ts",
+            "backend/src/modules/payables/payables.controller.ts",
+            "backend/src/modules/payees/payees.controller.ts",
+            "backend/src/modules/push/push.controller.ts",
+            "backend/src/modules/receipts/receipts.controller.ts",
+            "backend/src/modules/reports/reports.controller.ts",
+            "backend/src/modules/review-inbox/review-inbox.controller.ts",
+            "backend/src/modules/search/search.controller.ts",
+            "backend/src/modules/smb/smb.controller.ts",
+            "backend/src/modules/storage/storage.controller.ts",
+            "backend/src/modules/subscriptions/subscriptions.controller.ts",
+            "backend/src/modules/tax-pack/tax-pack.controller.ts",
+            "backend/src/modules/tax-reminders/tax-deadlines.controller.ts",
+            "backend/src/modules/tax/jurisdictions.controller.ts",
+            "backend/src/modules/tax/tax-rates.controller.ts",
+            "backend/src/modules/tax/tax-returns.controller.ts",
+            "backend/src/modules/tax/tax-rules.controller.ts",
+            "backend/src/modules/tax/workspace-tax.controller.ts",
+            "backend/src/modules/telegram/telegram.controller.ts",
+            "backend/src/modules/transactions/transactions.controller.ts",
+            "backend/src/modules/users/users.controller.ts",
+            "backend/src/modules/view-preferences/view-preferences.controller.ts",
+            "backend/src/modules/wallets/wallets.controller.ts",
+            "backend/src/modules/webhooks/webhook-endpoints.controller.ts",
+            "backend/src/modules/webhooks/webhook-subscriptions.controller.ts",
+            "backend/src/modules/workspaces/workspaces.controller.ts",
+            "frontend/app/(main)/statements/[id]/edit/page.test.tsx",
+            "frontend/app/(main)/statements/hooks/useAnalyticsData.test.ts",
+            "frontend/app/components/transactions/hooks/useTransferLink.test.ts",
+            "frontend/app/lib/contracts/goals/goals.ts",
+            "frontend/app/lib/contracts/reports/reports.ts",
+            "frontend/app/lib/contracts/statements/statement-list.ts",
+            "frontend/app/lib/contracts/transactions/transaction-list.ts",
+            "frontend/app/test/fixtures/contracts.ts",
+            "packages/contracts/src/goals/goals.ts",
+            "packages/contracts/src/reports/reports.ts",
+            "packages/contracts/src/statements/statement-list.ts",
+            "packages/contracts/src/transactions/transaction-list.ts"
+          ]
+        },
+        {
+          "sha": "9881ef2df6a1ff2b10e423fa7cac2fc84f7ef1dc",
+          "shortSha": "9881ef2d",
+          "subject": "fix(privacy): private transactions stay hidden in file details, the statement and shared links",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T09:57:04+03:00",
+          "files": [
+            "backend/@tests/e2e/transaction-privacy.e2e-spec.ts",
+            "backend/src/modules/statements/statements.controller.ts",
+            "backend/src/modules/storage/storage.service.ts"
+          ]
+        },
+        {
+          "sha": "d10e0e205faa57ac0da168d5508b7f7d09471230",
+          "shortSha": "d10e0e20",
+          "subject": "docs(security): plan for a workspace isolation sweep and a Telegram webhook schema",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T10:07:21+03:00",
+          "files": [
+            "docs/plans/2026-10-13-isolation-sweep-and-telegram-schema.md"
+          ]
+        },
+        {
+          "sha": "63751df8a3e00c4f8f9c4214f2d2ea515b844dbd",
+          "shortSha": "63751df8",
+          "subject": "style(contracts): format the transaction candidates contract",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T10:10:56+03:00",
+          "files": [
+            "frontend/app/lib/contracts/transactions/transaction-list.ts",
+            "packages/contracts/src/transactions/transaction-list.ts"
+          ]
+        },
+        {
+          "sha": "b3e9ccd29eedbc776ed5e6add418ffb8d97cc944",
+          "shortSha": "b3e9ccd2",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-13T17:09:22Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "080c970ecf51c64c004eee78f8098bbb61b9d799",
+          "shortSha": "080c970e",
+          "subject": "Merge pull request #291 from symonbaikov/feat/response-contracts",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T20:32:16+03:00",
+          "files": [
+            "backend/src/modules/custom-tables/custom-tables.controller.ts",
+            "frontend/app/(main)/statements/[id]/edit/page.test.tsx"
+          ]
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-13-18743ab",
       "version": "main-18743ab",
