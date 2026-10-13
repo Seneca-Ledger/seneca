@@ -36,7 +36,8 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
     };
   }, []);
 
-  if (!report) {
+  // Nothing owed is nothing to act on: the list below already says so.
+  if (!report || report.rows.length === 0) {
     return null;
   }
 
@@ -54,78 +55,72 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
         {t.detail.ageingTitle}
       </div>
 
-      {report.rows.length === 0 ? (
-        <p style={{ padding: '8px 16px 16px', fontSize: 14, color: 'var(--text-secondary)' }}>
-          {t.detail.ageingEmpty}
-        </p>
-      ) : (
-        <div className="lumio-payable-list__table-wrap">
-          <table className="lumio-payable-list__table">
-            <thead className="lumio-payable-list__thead">
-              <tr>
-                <th className="lumio-payable-list__th">{t.columns.client.value}</th>
-                {buckets.map(bucket => (
-                  <th
-                    key={bucket.key}
-                    className="lumio-payable-list__th lumio-payable-list__th--right"
-                  >
-                    {bucket.label}
-                  </th>
-                ))}
-                <th className="lumio-payable-list__th lumio-payable-list__th--right">
-                  {t.columns.total.value}
+      <div className="lumio-payable-list__table-wrap">
+        <table className="lumio-payable-list__table">
+          <thead className="lumio-payable-list__thead">
+            <tr>
+              <th className="lumio-payable-list__th">{t.columns.client.value}</th>
+              {buckets.map(bucket => (
+                <th
+                  key={bucket.key}
+                  className="lumio-payable-list__th lumio-payable-list__th--right"
+                >
+                  {bucket.label}
                 </th>
-              </tr>
-            </thead>
-            <tbody className="lumio-payable-list__tbody">
-              {report.rows.map(row => (
-                <tr key={`${row.clientId}-${row.currency}`}>
-                  <td className="lumio-payable-list__td">
-                    {row.clientName}
-                    <span style={{ color: 'var(--text-secondary)' }}> · {row.currency}</span>
-                  </td>
-                  {buckets.map(bucket => (
-                    <td
-                      key={bucket.key}
-                      className="lumio-payable-list__td"
-                      style={{ textAlign: 'right' }}
-                    >
-                      {row[bucket.key] === 0
-                        ? '—'
-                        : formatMoney(row[bucket.key], row.currency, locale)}
-                    </td>
-                  ))}
+              ))}
+              <th className="lumio-payable-list__th lumio-payable-list__th--right">
+                {t.columns.total.value}
+              </th>
+            </tr>
+          </thead>
+          <tbody className="lumio-payable-list__tbody">
+            {report.rows.map(row => (
+              <tr key={`${row.clientId}-${row.currency}`}>
+                <td className="lumio-payable-list__td">
+                  {row.clientName}
+                  <span style={{ color: 'var(--text-secondary)' }}> · {row.currency}</span>
+                </td>
+                {buckets.map(bucket => (
                   <td
+                    key={bucket.key}
                     className="lumio-payable-list__td"
-                    style={{ textAlign: 'right', fontWeight: 600 }}
+                    style={{ textAlign: 'right' }}
                   >
-                    {formatMoney(row.total, row.currency, locale)}
+                    {row[bucket.key] === 0
+                      ? '—'
+                      : formatMoney(row[bucket.key], row.currency, locale)}
                   </td>
-                </tr>
-              ))}
-              {report.totals.map(total => (
-                <tr key={`total-${total.currency}`} style={{ fontWeight: 600 }}>
-                  <td className="lumio-payable-list__td">{total.currency}</td>
-                  {buckets.map(bucket => (
-                    <td
-                      key={bucket.key}
-                      className="lumio-payable-list__td"
-                      style={{ textAlign: 'right' }}
-                    >
-                      {total[bucket.key] === 0
-                        ? '—'
-                        : formatMoney(total[bucket.key], total.currency, locale)}
-                    </td>
-                  ))}
-                  <td className="lumio-payable-list__td" style={{ textAlign: 'right' }}>
-                    {formatMoney(total.total, total.currency, locale)}
+                ))}
+                <td
+                  className="lumio-payable-list__td"
+                  style={{ textAlign: 'right', fontWeight: 600 }}
+                >
+                  {formatMoney(row.total, row.currency, locale)}
+                </td>
+              </tr>
+            ))}
+            {report.totals.map(total => (
+              <tr key={`total-${total.currency}`} style={{ fontWeight: 600 }}>
+                <td className="lumio-payable-list__td">{total.currency}</td>
+                {buckets.map(bucket => (
+                  <td
+                    key={bucket.key}
+                    className="lumio-payable-list__td"
+                    style={{ textAlign: 'right' }}
+                  >
+                    {total[bucket.key] === 0
+                      ? '—'
+                      : formatMoney(total[bucket.key], total.currency, locale)}
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                ))}
+                <td className="lumio-payable-list__td" style={{ textAlign: 'right' }}>
+                  {formatMoney(total.total, total.currency, locale)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

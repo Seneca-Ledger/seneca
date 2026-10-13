@@ -2,21 +2,19 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   MarkPaidDialog,
   type MarkPaidResult,
 } from '@/app/(main)/statements/components/payables/MarkPaidDialog';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
-import { ChevronLeft, Trash2 } from '@/app/components/icons';
-import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
+import { ChevronLeft } from '@/app/components/icons';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
-import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import {
@@ -27,80 +25,19 @@ import {
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
 import {
-  type Client,
-  type CreateInvoiceInput,
-  clientsApi,
   type Invoice,
   type InvoiceDelivery,
-  type InvoiceLineItemInput,
-  type InvoiceRecurrenceInterval,
   type InvoiceStatus,
   invoicesApi,
   type SendInvoiceEmailInput,
 } from '@/app/lib/invoices-api';
 import { type Payable, payablesApi } from '@/app/lib/payables-api';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { CreditNoteDialog } from './CreditNoteDialog';
 import { InvoiceEmailDrawer } from './InvoiceEmailDrawer';
+import { InvoiceWizard } from './invoice-wizard/InvoiceWizard';
+import { lineAmount, useInvoiceForm } from './invoice-wizard/useInvoiceForm';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
 import { LineAdjustmentInput, UnitSelect, XRechnungMissingAlert } from './XRechnungFields';
-
-interface TaxRateOption {
-  id: string;
-  name: string;
-  rate: number;
-}
-
-const emptyLine = (): InvoiceLineItemInput => ({
-  description: '',
-  quantity: 1,
-  unitPrice: 0,
-  unitCode: 'C62',
-});
-
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
-
-const addDays = (iso: string, days: number): string => {
-  const date = new Date(`${iso}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-};
-
-const round2 = (value: number) => Math.round(value * 100) / 100;
-
-/** Quantity × unit price after the line's discount or surcharge, as the backend prices it. */
-function lineAmount(item: InvoiceLineItemInput): number {
-  const base = round2(Number(item.quantity || 0) * Number(item.unitPrice || 0));
-  const percent = Number(item.adjustmentPercent || 0);
-  return round2(base + (percent ? round2((base * percent) / 100) : 0));
-}
-
-/**
- * The same split the backend does, so the drawer and the saved invoice agree:
- * a tax-inclusive price has its tax extracted, an exclusive one has it added.
- */
-function computeTotals(
-  lineItems: InvoiceLineItemInput[],
-  taxRates: TaxRateOption[],
-  pricesIncludeTax: boolean,
-) {
-  const rateById = new Map(taxRates.map(rate => [rate.id, rate.rate]));
-  let subtotal = 0;
-  let taxTotal = 0;
-  for (const item of lineItems) {
-    const amount = lineAmount(item);
-    const pct = item.taxRateId ? (rateById.get(item.taxRateId) ?? 0) : 0;
-    const tax = pricesIncludeTax ? (amount * pct) / (100 + pct) : (amount * pct) / 100;
-    subtotal += pricesIncludeTax ? amount - tax : amount;
-    taxTotal += tax;
-  }
-  const round = (value: number) => Math.round(value * 100) / 100;
-  return {
-    subtotal: round(subtotal),
-    taxTotal: round(taxTotal),
-    total: round(subtotal + taxTotal),
-  };
-}
 
 interface InvoiceDetailViewProps {
   invoiceId: string;
@@ -117,32 +54,26 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
 
   const [loading, setLoading] = useState(!isNew);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [taxRates, setTaxRates] = useState<TaxRateOption[]>([]);
-  const [clientId, setClientId] = useState('');
-  const [issueDate, setIssueDate] = useState(todayIso());
-  const [dueDate, setDueDate] = useState(addDays(todayIso(), 14));
-  const [currency, setCurrency] = useState(FALLBACK_CURRENCY);
+  const form = useInvoiceForm(isNew);
   const {
-    currencyDrawerOpen,
-    setCurrencyDrawerOpen,
-    currencySearch,
-    setCurrencySearch,
-    selectedCurrencyItem,
-    selectedMatchesSearch,
-    currencyQuery,
-    recentCurrencyItems,
-    allCurrencyItems,
-    pushRecentCurrency,
-  } = useCurrencyPickerState(currency);
-  const [notes, setNotes] = useState('');
-  const [buyerReference, setBuyerReference] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState('');
+    clients,
+    taxRates,
+    clientId,
+    issueDate,
+    dueDate,
+    currency,
+    setCurrency,
+    notes,
+    buyerReference,
+    deliveryDate,
+    pricesIncludeTax,
+    lineItems,
+    recurrenceInterval,
+    totals,
+    fillFrom,
+  } = form;
   const [xrechnungMissing, setXrechnungMissing] = useState<string[] | null>(null);
   const einvoice = useIntlayer('einvoiceFields');
-  const [pricesIncludeTax, setPricesIncludeTax] = useState(false);
-  const [lineItems, setLineItems] = useState<InvoiceLineItemInput[]>([emptyLine()]);
-  const [recurrenceInterval, setRecurrenceInterval] = useState<InvoiceRecurrenceInterval | ''>('');
   const [saving, setSaving] = useState(false);
   const [acting, setActing] = useState(false);
   const [payingPayable, setPayingPayable] = useState<Payable | null>(null);
@@ -154,15 +85,6 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
 
   const isEditable = isNew || invoice?.status === 'draft';
 
-  const loadOptions = useCallback(async () => {
-    const [clientList, rawTaxRates] = await Promise.all([
-      clientsApi.list(),
-      apiQueryDecoded({ url: '/tax-rates', contract: 'TaxRateList' }),
-    ]);
-    setClients(clientList);
-    setTaxRates(rawTaxRates.map(rate => ({ ...rate, rate: Number(rate.rate) })));
-  }, []);
-
   const loadInvoice = useCallback(async () => {
     if (isNew) {
       setCurrency(currentWorkspace?.currency?.toUpperCase() || FALLBACK_CURRENCY);
@@ -173,26 +95,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
       .getOne(invoiceId)
       .then(data => {
         setInvoice(data);
-        setClientId(data.clientId);
-        setIssueDate(data.issueDate.slice(0, 10));
-        setDueDate(data.dueDate.slice(0, 10));
-        setCurrency(data.currency);
-        setNotes(data.notes || '');
-        setBuyerReference(data.buyerReference || '');
-        setDeliveryDate(data.deliveryDate ? data.deliveryDate.slice(0, 10) : '');
-        setRecurrenceInterval(data.recurrenceInterval || '');
-        setPricesIncludeTax(Boolean(data.pricesIncludeTax));
-        setLineItems(
-          (data.lineItems || []).map(item => ({
-            description: item.description,
-            quantity: Number(item.quantity),
-            unitPrice: Number(item.unitPrice),
-            taxRateId: item.taxRateId || undefined,
-            categoryId: item.categoryId || undefined,
-            unitCode: item.unitCode || 'C62',
-            adjustmentPercent: Number(item.adjustmentPercent || 0) || undefined,
-          })),
-        );
+        fillFrom(data);
       })
       .catch(error => {
         toast.error(getApiErrorMessage(error, t.detail.notFound.value));
@@ -207,12 +110,11 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
       .forInvoice(invoiceId)
       .then(setCreditNotes)
       .catch(() => setCreditNotes([]));
-  }, [invoiceId, isNew, currentWorkspace, t.detail.notFound.value]);
+  }, [invoiceId, isNew, currentWorkspace, t.detail.notFound.value, fillFrom, setCurrency]);
 
   useEffect(() => {
-    void loadOptions();
     void loadInvoice();
-  }, [loadOptions, loadInvoice]);
+  }, [loadInvoice]);
 
   // Read one key at a time: indexing an intlayer dictionary with a variable
   // types as `any` and silently loses a missing status.
@@ -225,58 +127,14 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
     void: String(t.statusLabels.void.value),
   };
 
-  const totals = useMemo(
-    () => computeTotals(lineItems, taxRates, pricesIncludeTax),
-    [lineItems, taxRates, pricesIncludeTax],
-  );
-
-  const updateLine = (index: number, patch: Partial<InvoiceLineItemInput>): void => {
-    setLineItems(current => current.map((line, i) => (i === index ? { ...line, ...patch } : line)));
-  };
-
-  const removeLine = (index: number): void => {
-    setLineItems(current => current.filter((_, i) => i !== index));
-  };
-
-  const handleSelectCurrency = (code: string): void => {
-    setCurrency(code);
-    pushRecentCurrency(code);
-  };
-
-  const canSave =
-    clientId.length > 0 &&
-    lineItems.length > 0 &&
-    lineItems.every(line => line.description.trim().length > 0 && line.unitPrice >= 0);
-
-  const buildPayload = (): CreateInvoiceInput => ({
-    clientId,
-    issueDate,
-    dueDate,
-    currency,
-    notes: notes || undefined,
-    pricesIncludeTax,
-    buyerReference: buyerReference.trim(),
-    ...(deliveryDate ? { deliveryDate } : {}),
-    lineItems: lineItems.map(line => ({
-      description: line.description.trim(),
-      quantity: Number(line.quantity),
-      unitPrice: Number(line.unitPrice),
-      taxRateId: line.taxRateId || undefined,
-      categoryId: line.categoryId || undefined,
-      unitCode: line.unitCode || 'C62',
-      ...(line.adjustmentPercent ? { adjustmentPercent: line.adjustmentPercent } : {}),
-    })),
-    recurrenceInterval: recurrenceInterval || undefined,
-  });
-
   const handleSave = async (): Promise<void> => {
-    if (!canSave) {
+    if (!form.canSave) {
       return;
     }
     setSaving(true);
     await (isNew
-      ? invoicesApi.create(buildPayload())
-      : invoicesApi.update(invoiceId, buildPayload())
+      ? invoicesApi.create(form.buildPayload())
+      : invoicesApi.update(invoiceId, form.buildPayload())
     )
       .then(saved => {
         toast.success(isNew ? t.toasts.createSuccess.value : t.toasts.updateSuccess.value);
@@ -287,52 +145,6 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
         toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value));
       })
       .finally(() => setSaving(false));
-  };
-
-  /**
-   * Picking a client on a new invoice also sets the due date from its payment
-   * terms: "net 30" is a property of the relationship, not something to retype.
-   */
-  const handlePickClient = (next: string): void => {
-    setClientId(next);
-    const picked = clients.find(client => client.id === next);
-    if (isNew && picked?.paymentTermsDays != null) {
-      setDueDate(addDays(issueDate, picked.paymentTermsDays));
-    }
-  };
-
-  /**
-   * Appends a late-fee line, computed from what this client is actually
-   * overdue on — not from the invoice being written. The user adds it; nothing
-   * is charged behind their back.
-   */
-  const handleAddLateFee = async (): Promise<void> => {
-    if (!clientId) {
-      return;
-    }
-    await invoicesApi
-      .lateFeeQuote(clientId)
-      .then(quote => {
-        const match = quote.amounts.find(entry => entry.currency === currency);
-        if (!match || match.fee <= 0) {
-          toast.error(t.detail.lateFeeNone.value);
-          return;
-        }
-        setLineItems(previous => [
-          ...previous,
-          {
-            description: String(t.detail.lateFeeLine.value).replace(
-              '{percent}',
-              String(quote.percent),
-            ),
-            quantity: 1,
-            unitPrice: match.fee,
-          },
-        ]);
-      })
-      .catch(error => {
-        toast.error(getApiErrorMessage(error, t.toasts.genericFailed.value));
-      });
   };
 
   const handleEmail = async (payload: SendInvoiceEmailInput): Promise<void> => {
@@ -570,421 +382,375 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: 16, maxWidth: 900 }}>
-        {xrechnungMissing ? (
-          <XRechnungMissingAlert
-            missing={xrechnungMissing}
-            onClose={() => setXrechnungMissing(null)}
-          />
-        ) : null}
-        <div className="lumio-payable-drawer__field-group">
-          <label className="lumio-payable-drawer__field-label" htmlFor="invoice-client">
-            {t.detail.client.value}
-          </label>
-          <Select
-            fullWidth
-            id="invoice-client"
-            value={clientId}
-            disabled={!isEditable}
-            onChange={handlePickClient}
-            options={
-              clients.length > 0
-                ? clients.map(client => ({ value: client.id, label: client.name }))
-                : // An empty list opened as a blank strip; say why instead.
-                  [{ value: '', label: t.clients.empty.value, disabled: true }]
-            }
-          />
-        </div>
-
-        <div className="lumio-payable-drawer__2col">
-          <CustomDatePicker
-            label={t.columns.issueDate.value}
-            value={issueDate}
-            onChange={isEditable ? setIssueDate : () => undefined}
-          />
-          <CustomDatePicker
-            label={t.columns.dueDate.value}
-            value={dueDate}
-            onChange={isEditable ? setDueDate : () => undefined}
-          />
-        </div>
-
-        <div className="lumio-payable-drawer__2col">
-          <CustomDatePicker
-            label={einvoice.deliveryDate.value}
-            value={deliveryDate}
-            onChange={isEditable ? setDeliveryDate : () => undefined}
-          />
-          <div className="lumio-payable-drawer__field-group">
-            <label className="lumio-payable-drawer__field-label" htmlFor="invoice-buyer-reference">
-              {einvoice.buyerReference}
-            </label>
-            <Input
-              id="invoice-buyer-reference"
-              value={buyerReference}
-              disabled={!isEditable}
-              placeholder={einvoice.buyerReferencePlaceholder.value}
-              onChange={event => setBuyerReference(event.target.value)}
+      {isEditable ? (
+        <InvoiceWizard
+          form={form}
+          startAtReview={!isNew}
+          saving={saving}
+          onSave={() => void handleSave()}
+        />
+      ) : (
+        <div style={{ display: 'grid', gap: 16, maxWidth: 900 }}>
+          {xrechnungMissing ? (
+            <XRechnungMissingAlert
+              missing={xrechnungMissing}
+              onClose={() => setXrechnungMissing(null)}
             />
-          </div>
-        </div>
-
-        <div className="lumio-payable-drawer__2col">
+          ) : null}
           <div className="lumio-payable-drawer__field-group">
-            <label className="lumio-payable-drawer__field-label" htmlFor="invoice-currency">
-              {t.detail.currency.value}
-            </label>
-            <button
-              id="invoice-currency"
-              type="button"
-              className="lumio-payable-drawer__currency-trigger"
-              onClick={() => isEditable && setCurrencyDrawerOpen(true)}
-              disabled={!isEditable}
-              aria-label={t.detail.currency.value}
-            >
-              {currency}
-            </button>
-          </div>
-          <div className="lumio-payable-drawer__field-group">
-            <label className="lumio-payable-drawer__field-label" htmlFor="invoice-recurrence">
-              {t.detail.recurring.value}
+            <label className="lumio-payable-drawer__field-label" htmlFor="invoice-client">
+              {t.detail.client.value}
             </label>
             <Select
               fullWidth
-              id="invoice-recurrence"
-              sx={FORM_CONTROL_SX}
-              value={recurrenceInterval || 'none'}
-              disabled={!isEditable}
-              onChange={next =>
-                setRecurrenceInterval(next === 'none' ? '' : (next as InvoiceRecurrenceInterval))
+              id="invoice-client"
+              value={clientId}
+              disabled
+              onChange={() => undefined}
+              options={
+                clients.length > 0
+                  ? clients.map(client => ({ value: client.id, label: client.name }))
+                  : // An empty list opened as a blank strip; say why instead.
+                    [{ value: '', label: t.clients.empty.value, disabled: true }]
               }
-              options={[
-                { value: 'none', label: t.actions.cancel.value },
-                { value: 'weekly', label: t.detail.recurrenceInterval.weekly.value },
-                { value: 'monthly', label: t.detail.recurrenceInterval.monthly.value },
-                { value: 'quarterly', label: t.detail.recurrenceInterval.quarterly.value },
-                { value: 'yearly', label: t.detail.recurrenceInterval.yearly.value },
-              ]}
             />
           </div>
-        </div>
 
-        <label
-          className="lumio-payable-drawer__field-group"
-          style={{ flexDirection: 'row', gap: 8 }}
-        >
-          <input
-            type="checkbox"
-            checked={pricesIncludeTax}
-            disabled={!isEditable}
-            onChange={event => setPricesIncludeTax(event.target.checked)}
-          />
-          <span className="lumio-payable-drawer__field-label">
-            {t.detail.pricesIncludeTax.value}
-          </span>
-        </label>
-
-        <div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="lumio-invoice-lines__table">
-              <colgroup>
-                <col style={{ width: '24%' }} />
-                <col style={{ width: '18%' }} />
-                <col style={{ width: '18%' }} />
-                <col style={{ width: '20%' }} />
-                <col style={{ width: '14%' }} />
-                {isEditable && <col style={{ width: '6%' }} />}
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="lumio-invoice-lines__th">{t.detail.description.value}</th>
-                  <th className="lumio-invoice-lines__th">{t.detail.quantity.value}</th>
-                  <th className="lumio-invoice-lines__th">{t.detail.unitPrice.value}</th>
-                  <th className="lumio-invoice-lines__th">{t.detail.taxRate.value}</th>
-                  <th className="lumio-invoice-lines__th lumio-invoice-lines__th--right">
-                    {t.detail.amount.value}
-                  </th>
-                  {isEditable && <th className="lumio-invoice-lines__th" />}
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((line, index) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: rows have no stable id before saving
-                  <tr key={index} className="lumio-invoice-lines__row">
-                    <td className="lumio-invoice-lines__td" data-label={t.detail.description.value}>
-                      <Input
-                        value={line.description}
-                        disabled={!isEditable}
-                        onChange={event => updateLine(index, { description: event.target.value })}
-                      />
-                    </td>
-                    <td className="lumio-invoice-lines__td" data-label={t.detail.quantity.value}>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={String(line.quantity)}
-                        disabled={!isEditable}
-                        onChange={event =>
-                          updateLine(index, { quantity: Number(event.target.value) })
-                        }
-                      />
-                      <UnitSelect
-                        value={line.unitCode || 'C62'}
-                        disabled={!isEditable}
-                        onChange={unitCode => updateLine(index, { unitCode })}
-                      />
-                    </td>
-                    <td className="lumio-invoice-lines__td" data-label={t.detail.unitPrice.value}>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={String(line.unitPrice)}
-                        disabled={!isEditable}
-                        onChange={event =>
-                          updateLine(index, { unitPrice: Number(event.target.value) })
-                        }
-                      />
-                      <LineAdjustmentInput
-                        value={line.adjustmentPercent}
-                        disabled={!isEditable}
-                        onChange={adjustmentPercent => updateLine(index, { adjustmentPercent })}
-                      />
-                    </td>
-                    <td className="lumio-invoice-lines__td" data-label={t.detail.taxRate.value}>
-                      <Select
-                        fullWidth
-                        value={line.taxRateId || 'none'}
-                        disabled={!isEditable}
-                        onChange={next =>
-                          updateLine(index, { taxRateId: next === 'none' ? undefined : next })
-                        }
-                        options={[
-                          { value: 'none', label: t.detail.noTax.value },
-                          ...taxRates.map(rate => ({
-                            value: rate.id,
-                            label: `${rate.name} (${rate.rate}%)`,
-                          })),
-                        ]}
-                        // Anchoring to the selected item (MUI's default) can place the
-                        // menu off-screen inside this table's horizontally scrollable,
-                        // narrow column; open it as a plain dropdown below the field.
-                        MenuProps={{
-                          anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                          transformOrigin: { vertical: 'top', horizontal: 'left' },
-                        }}
-                      />
-                    </td>
-                    <td
-                      className="lumio-invoice-lines__td lumio-invoice-lines__td--right"
-                      data-label={t.detail.amount.value}
-                    >
-                      {formatMoney(lineAmount(line), currency, locale)}
-                    </td>
-                    {isEditable && (
-                      <td className="lumio-invoice-lines__td lumio-invoice-lines__td--actions">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={t.actions.delete.value}
-                          onClick={() => removeLine(index)}
-                          disabled={lineItems.length <= 1}
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="lumio-payable-drawer__2col">
+            <CustomDatePicker
+              label={t.columns.issueDate.value}
+              value={issueDate}
+              onChange={() => undefined}
+            />
+            <CustomDatePicker
+              label={t.columns.dueDate.value}
+              value={dueDate}
+              onChange={() => undefined}
+            />
           </div>
-          {isEditable && (
-            <Button
-              variant="outline"
-              style={{ marginTop: 8 }}
-              onClick={() => setLineItems(current => [...current, emptyLine()])}
-            >
-              {t.actions.addLine.value}
-            </Button>
-          )}
-        </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ display: 'grid', gap: 4, minWidth: 220 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-              <span>{t.detail.subtotal.value}</span>
-              <span>{formatMoney(totals.subtotal, currency, locale)}</span>
+          <div className="lumio-payable-drawer__2col">
+            <CustomDatePicker
+              label={einvoice.deliveryDate.value}
+              value={deliveryDate}
+              onChange={() => undefined}
+            />
+            <div className="lumio-payable-drawer__field-group">
+              <label
+                className="lumio-payable-drawer__field-label"
+                htmlFor="invoice-buyer-reference"
+              >
+                {einvoice.buyerReference}
+              </label>
+              <Input
+                id="invoice-buyer-reference"
+                value={buyerReference}
+                disabled
+                placeholder={einvoice.buyerReferencePlaceholder.value}
+                readOnly
+              />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-              <span>{t.detail.tax.value}</span>
-              <span>{formatMoney(totals.taxTotal, currency, locale)}</span>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: 16,
-                fontWeight: 700,
-              }}
-            >
-              <span>{t.columns.total.value}</span>
-              <span>{formatMoney(totals.total, currency, locale)}</span>
-            </div>
-            {/* Payments against the invoice: what the client still owes is the
-                number they care about, and it is not the total. */}
-            {Number(invoice?.amountPaid ?? 0) > 0 && (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                  <span>{t.detail.amountPaid.value}</span>
-                  <span>{formatMoney(Number(invoice?.amountPaid), currency, locale)}</span>
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: 14,
-                    fontWeight: 600,
-                  }}
-                >
-                  <span>{t.detail.amountDue.value}</span>
-                  <span>{formatMoney(Number(invoice?.amountDue), currency, locale)}</span>
-                </div>
-              </>
-            )}
           </div>
-        </div>
 
-        <div>
-          <label className="lumio-payable-drawer__field-label" htmlFor="invoice-notes">
-            {t.detail.notes.value}
-          </label>
-          <textarea
-            id="invoice-notes"
-            className="lumio-payable-drawer__textarea"
-            value={notes}
-            disabled={!isEditable}
-            onChange={event => setNotes(event.target.value)}
-          />
-        </div>
+          <div className="lumio-payable-drawer__2col">
+            <div className="lumio-payable-drawer__field-group">
+              <label className="lumio-payable-drawer__field-label" htmlFor="invoice-currency">
+                {t.detail.currency.value}
+              </label>
+              <button
+                id="invoice-currency"
+                type="button"
+                className="lumio-payable-drawer__currency-trigger"
+                disabled
+                aria-label={t.detail.currency.value}
+              >
+                {currency}
+              </button>
+            </div>
+            <div className="lumio-payable-drawer__field-group">
+              <label className="lumio-payable-drawer__field-label" htmlFor="invoice-recurrence">
+                {t.detail.recurring.value}
+              </label>
+              <Select
+                fullWidth
+                id="invoice-recurrence"
+                sx={FORM_CONTROL_SX}
+                value={recurrenceInterval || 'none'}
+                disabled
+                onChange={() => undefined}
+                options={[
+                  { value: 'none', label: t.actions.cancel.value },
+                  { value: 'weekly', label: t.detail.recurrenceInterval.weekly.value },
+                  { value: 'monthly', label: t.detail.recurrenceInterval.monthly.value },
+                  { value: 'quarterly', label: t.detail.recurrenceInterval.quarterly.value },
+                  { value: 'yearly', label: t.detail.recurrenceInterval.yearly.value },
+                ]}
+              />
+            </div>
+          </div>
 
-        {invoice && invoice.status !== 'draft' && (
-          <div className="lumio-payable-drawer__field-group">
+          <label
+            className="lumio-payable-drawer__field-group"
+            style={{ flexDirection: 'row', gap: 8 }}
+          >
+            <input type="checkbox" checked={pricesIncludeTax} disabled readOnly />
             <span className="lumio-payable-drawer__field-label">
-              {t.detail.deliveryHistory.value}
+              {t.detail.pricesIncludeTax.value}
             </span>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-              {invoice.viewedAt
-                ? `${String(settingsLabels.viewed.value)} · ${formatInvoiceDate(invoice.viewedAt, locale)}`
-                : settingsLabels.notViewed.value}
-            </p>
-            {deliveries.length === 0 ? (
+          </label>
+
+          <div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="lumio-invoice-lines__table">
+                <colgroup>
+                  <col style={{ width: '24%' }} />
+                  <col style={{ width: '18%' }} />
+                  <col style={{ width: '18%' }} />
+                  <col style={{ width: '20%' }} />
+                  <col style={{ width: '14%' }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th className="lumio-invoice-lines__th">{t.detail.description.value}</th>
+                    <th className="lumio-invoice-lines__th">{t.detail.quantity.value}</th>
+                    <th className="lumio-invoice-lines__th">{t.detail.unitPrice.value}</th>
+                    <th className="lumio-invoice-lines__th">{t.detail.taxRate.value}</th>
+                    <th className="lumio-invoice-lines__th lumio-invoice-lines__th--right">
+                      {t.detail.amount.value}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineItems.map((line, index) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: rows have no stable id before saving
+                    <tr key={index} className="lumio-invoice-lines__row">
+                      <td
+                        className="lumio-invoice-lines__td"
+                        data-label={t.detail.description.value}
+                      >
+                        <Input value={line.description} disabled readOnly />
+                      </td>
+                      <td className="lumio-invoice-lines__td" data-label={t.detail.quantity.value}>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={String(line.quantity)}
+                          disabled
+                          readOnly
+                        />
+                        <UnitSelect
+                          value={line.unitCode || 'C62'}
+                          disabled
+                          onChange={() => undefined}
+                        />
+                      </td>
+                      <td className="lumio-invoice-lines__td" data-label={t.detail.unitPrice.value}>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={String(line.unitPrice)}
+                          disabled
+                          readOnly
+                        />
+                        <LineAdjustmentInput
+                          value={line.adjustmentPercent}
+                          disabled
+                          onChange={() => undefined}
+                        />
+                      </td>
+                      <td className="lumio-invoice-lines__td" data-label={t.detail.taxRate.value}>
+                        <Select
+                          fullWidth
+                          value={line.taxRateId || 'none'}
+                          disabled
+                          onChange={() => undefined}
+                          options={[
+                            { value: 'none', label: t.detail.noTax.value },
+                            ...taxRates.map(rate => ({
+                              value: rate.id,
+                              label: `${rate.name} (${rate.rate}%)`,
+                            })),
+                          ]}
+                          // Anchoring to the selected item (MUI's default) can place the
+                          // menu off-screen inside this table's horizontally scrollable,
+                          // narrow column; open it as a plain dropdown below the field.
+                          MenuProps={{
+                            anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                            transformOrigin: { vertical: 'top', horizontal: 'left' },
+                          }}
+                        />
+                      </td>
+                      <td
+                        className="lumio-invoice-lines__td lumio-invoice-lines__td--right"
+                        data-label={t.detail.amount.value}
+                      >
+                        {formatMoney(lineAmount(line), currency, locale)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'grid', gap: 4, minWidth: 220 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                <span>{t.detail.subtotal.value}</span>
+                <span>{formatMoney(totals.subtotal, currency, locale)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                <span>{t.detail.tax.value}</span>
+                <span>{formatMoney(totals.taxTotal, currency, locale)}</span>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: 16,
+                  fontWeight: 700,
+                }}
+              >
+                <span>{t.columns.total.value}</span>
+                <span>{formatMoney(totals.total, currency, locale)}</span>
+              </div>
+              {/* Payments against the invoice: what the client still owes is the
+                    number they care about, and it is not the total. */}
+              {Number(invoice?.amountPaid ?? 0) > 0 && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                    <span>{t.detail.amountPaid.value}</span>
+                    <span>{formatMoney(Number(invoice?.amountPaid), currency, locale)}</span>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 14,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>{t.detail.amountDue.value}</span>
+                    <span>{formatMoney(Number(invoice?.amountDue), currency, locale)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="lumio-payable-drawer__field-label" htmlFor="invoice-notes">
+              {t.detail.notes.value}
+            </label>
+            <textarea
+              id="invoice-notes"
+              className="lumio-payable-drawer__textarea"
+              value={notes}
+              disabled
+              readOnly
+            />
+          </div>
+
+          {invoice && invoice.status !== 'draft' && (
+            <div className="lumio-payable-drawer__field-group">
+              <span className="lumio-payable-drawer__field-label">
+                {t.detail.deliveryHistory.value}
+              </span>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                {t.detail.deliveryNone.value}
+                {invoice.viewedAt
+                  ? `${String(settingsLabels.viewed.value)} · ${formatInvoiceDate(invoice.viewedAt, locale)}`
+                  : settingsLabels.notViewed.value}
               </p>
-            ) : (
+              {deliveries.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  {t.detail.deliveryNone.value}
+                </p>
+              ) : (
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+                  {deliveries.map(delivery => (
+                    <li key={delivery.id} style={{ fontSize: 13 }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {formatInvoiceDate(delivery.createdAt, locale)}
+                      </span>{' '}
+                      {delivery.recipient} —{' '}
+                      <span
+                        style={{
+                          color:
+                            delivery.status === 'sent' ? 'var(--foreground)' : 'var(--destructive)',
+                        }}
+                      >
+                        {delivery.status === 'sent'
+                          ? t.detail.deliverySent.value
+                          : delivery.status === 'skipped'
+                            ? t.detail.deliverySkipped.value
+                            : delivery.error || t.detail.deliveryFailed.value}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {creditNotes.length > 0 && (
+            <div className="lumio-payable-drawer__field-group">
+              <span className="lumio-payable-drawer__field-label">
+                {t.detail.creditNotesTitle.value}
+              </span>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
-                {deliveries.map(delivery => (
-                  <li key={delivery.id} style={{ fontSize: 13 }}>
+                {creditNotes.map(note => (
+                  <li
+                    key={note.id}
+                    style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
+                  >
                     <span style={{ color: 'var(--text-secondary)' }}>
-                      {formatInvoiceDate(delivery.createdAt, locale)}
-                    </span>{' '}
-                    {delivery.recipient} —{' '}
-                    <span
-                      style={{
-                        color:
-                          delivery.status === 'sent' ? 'var(--foreground)' : 'var(--destructive)',
-                      }}
-                    >
-                      {delivery.status === 'sent'
-                        ? t.detail.deliverySent.value
-                        : delivery.status === 'skipped'
-                          ? t.detail.deliverySkipped.value
-                          : delivery.error || t.detail.deliveryFailed.value}
+                      {formatInvoiceDate(note.issueDate, locale)}
                     </span>
+                    <span style={{ fontWeight: 600 }}>{note.creditNoteNumber}</span>
+                    <span>
+                      {formatMoney(
+                        Number(
+                          note.applications?.find(
+                            application => application.invoiceId === invoice?.id,
+                          )?.amount ?? note.total,
+                        ),
+                        note.currency,
+                        locale,
+                      )}
+                    </span>
+                    {note.status === 'void' && <span>{t.statusLabels.void.value}</span>}
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        void creditNotesApi.downloadPdf(
+                          note.id,
+                          `${note.creditNoteNumber ?? 'credit-note'}.pdf`,
+                        )
+                      }
+                    >
+                      {t.actions.downloadPdf.value}
+                    </Button>
+                    <Button variant="outline" onClick={() => void handleXRechnung(note)}>
+                      {einvoice.downloadXRechnung.value}
+                    </Button>
+                    {note.status === 'issued' && (
+                      <Button
+                        variant="outline"
+                        disabled={acting}
+                        onClick={() => void voidCreditNote(note.id)}
+                      >
+                        {t.actions.void.value}
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
-        )}
-
-        {creditNotes.length > 0 && (
-          <div className="lumio-payable-drawer__field-group">
-            <span className="lumio-payable-drawer__field-label">
-              {t.detail.creditNotesTitle.value}
-            </span>
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
-              {creditNotes.map(note => (
-                <li
-                  key={note.id}
-                  style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
-                >
-                  <span style={{ color: 'var(--text-secondary)' }}>
-                    {formatInvoiceDate(note.issueDate, locale)}
-                  </span>
-                  <span style={{ fontWeight: 600 }}>{note.creditNoteNumber}</span>
-                  <span>
-                    {formatMoney(
-                      Number(
-                        note.applications?.find(
-                          application => application.invoiceId === invoice?.id,
-                        )?.amount ?? note.total,
-                      ),
-                      note.currency,
-                      locale,
-                    )}
-                  </span>
-                  {note.status === 'void' && <span>{t.statusLabels.void.value}</span>}
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      void creditNotesApi.downloadPdf(
-                        note.id,
-                        `${note.creditNoteNumber ?? 'credit-note'}.pdf`,
-                      )
-                    }
-                  >
-                    {t.actions.downloadPdf.value}
-                  </Button>
-                  <Button variant="outline" onClick={() => void handleXRechnung(note)}>
-                    {einvoice.downloadXRechnung.value}
-                  </Button>
-                  {note.status === 'issued' && (
-                    <Button
-                      variant="outline"
-                      disabled={acting}
-                      onClick={() => void voidCreditNote(note.id)}
-                    >
-                      {t.actions.void.value}
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {isEditable && lineItems.length > 0 && clientId ? (
-          <div>
-            <Button variant="outline" onClick={() => void handleAddLateFee()}>
-              {t.detail.lateFeeAdd.value}
-            </Button>
-          </div>
-        ) : null}
-
-        {isEditable && (
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <Button variant="outline" onClick={() => router.push('/invoices')}>
-              {t.actions.cancel.value}
-            </Button>
-            <Button disabled={!canSave || saving} onClick={() => void handleSave()}>
-              {saving ? t.actions.saving.value : t.actions.save.value}
-            </Button>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <CreditNoteDialog
         invoice={creditingInvoice}
@@ -1021,20 +787,6 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
           sending: t.actions.saving.value,
           cancel: t.actions.cancel.value,
         }}
-      />
-
-      <CurrencyDrawer
-        isOpen={currencyDrawerOpen}
-        onClose={() => setCurrencyDrawerOpen(false)}
-        currencySearch={currencySearch}
-        setCurrencySearch={setCurrencySearch}
-        selectedCurrencyItem={selectedCurrencyItem}
-        selectedMatchesSearch={selectedMatchesSearch}
-        currencyQuery={currencyQuery}
-        recentCurrencyItems={recentCurrencyItems}
-        allCurrencyItems={allCurrencyItems}
-        handleSelectCurrency={handleSelectCurrency}
-        zIndex={1400}
       />
     </div>
   );
