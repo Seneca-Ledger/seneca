@@ -1,5 +1,6 @@
 'use client';
 
+import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import Skeleton from '@mui/material/Skeleton';
 import type React from 'react';
 import { fillTemplate } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
@@ -14,7 +15,7 @@ import {
   useDashboardHealthHistory,
 } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { DashboardCard } from './ui';
+import { CardEmpty, DashboardCard } from './ui';
 
 export type HistoryMetricKey = Exclude<
   keyof DashboardHealthMonth,
@@ -144,7 +145,11 @@ function HistoryChart({
       month.transactions > 0 || month.statementsUploaded > 0 || metrics.some(key => month[key] > 0),
   );
   if (!hasActivity) {
-    return <div className="lumio-chart__empty">{emptyLabel}</div>;
+    return (
+      <CardEmpty icon={CalendarMonthOutlined} fill>
+        {emptyLabel}
+      </CardEmpty>
+    );
   }
   return (
     <LazyMonthlyStackedBars

@@ -20,7 +20,7 @@ vi.mock('@/app/lib/api', () => ({ default: { get: apiGet }, apiBaseUrl: '/api/v1
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/i18n', async () => {
   const { autoDictionary } = await import('./intlayer-mock');
-  return { useIntlayer: () => autoDictionary() };
+  return { useIntlayer: () => autoDictionary(), useLocale: () => ({ locale: 'en' }) };
 });
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (

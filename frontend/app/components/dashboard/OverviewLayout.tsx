@@ -27,11 +27,14 @@ import {
   DEFAULT_OVERVIEW_ROWS,
   type DropZone,
   isDefaultLayout,
+  isTile,
   moveSection,
   normalizeRows,
   type OverviewRows,
   type OverviewSectionId,
+  rowSpans,
 } from './overview-layout';
+import { SectionSpanProvider } from './section-span';
 
 interface Drop {
   target: string;
@@ -74,8 +77,8 @@ function zoneFor(rows: OverviewRows, active: string, target: string, rect: DOMRe
 
 interface OverviewSectionProps {
   id: string;
-  /** Spans both columns: alone in its row, or its partner has nothing to show. */
-  wide: boolean;
+  /** Columns of the twelve it spans, given what else in its row has something to show. */
+  span: number;
   drop: DropZone | null;
   handleLabel: string;
   onEmptyChange: (id: string, empty: boolean) => void;
@@ -84,7 +87,7 @@ interface OverviewSectionProps {
 
 function OverviewSection({
   id,
-  wide,
+  span,
   drop,
   handleLabel,
   onEmptyChange,
@@ -122,9 +125,10 @@ function OverviewSection({
     <div
       ref={setRef}
       data-overview-section={id}
+      style={{ '--overview-span': span } as React.CSSProperties}
       className={clsx(
         'lumio-overview__section',
-        wide && 'lumio-overview__section--wide',
+        isTile(id) && 'lumio-overview__section--tile',
         drag.isDragging && 'lumio-overview__section--dragging',
         drop && `lumio-overview__section--drop-${drop}`,
       )}
@@ -140,7 +144,7 @@ function OverviewSection({
       >
         <GripVertical size={16} />
       </button>
-      {children}
+      <SectionSpanProvider value={span}>{children}</SectionSpanProvider>
     </div>
   );
 }
@@ -301,13 +305,13 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
             {/* One flat list, not a wrapper per row: a moved card keeps its place
               in the tree, so it is not remounted and keeps its own state. */}
             {rows.flatMap(row => {
-              const shown = row.filter(id => !empty.has(id));
+              const spans = rowSpans(row.filter(id => !empty.has(id)));
               const vertical = drop && (drop.zone === 'above' || drop.zone === 'below');
               return row.map(id => (
                 <OverviewSection
                   key={id}
                   id={id}
-                  wide={shown.length < 2}
+                  span={spans.get(id) ?? 0}
                   drop={
                     drop?.target === id || (vertical && row === targetRow)
                       ? (drop?.zone ?? null)

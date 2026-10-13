@@ -152,6 +152,32 @@
     font-size: 12px;
   }
 
+  /* What a tile with room adds under its figure: label on the left, value on the right. */
+  &__stat-details {
+    display: grid;
+    gap: 4px;
+    margin: 10px 0 0;
+    font-size: 12px;
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    dt {
+      color: var(--muted-foreground);
+    }
+
+    dd {
+      margin: 0;
+      font-weight: 600;
+      color: var(--foreground);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+  }
+
   &__stat-sub {
     color: $lumio-color-ink-500;
 
@@ -440,9 +466,122 @@
   &__list {
     flex: 1;
     min-width: 0;
+
+    /* A card with the row to itself: its list in two columns. */
+    &--columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 32px;
+      align-content: start;
+
+      @container overview-section (max-width: 720px) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  }
+
+  /* Recent transactions with the row to itself: category and account as columns. */
+  &__recent-col {
+    width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted-foreground);
+
+    @container overview-section (max-width: 720px) {
+      display: none;
+    }
+  }
+
+  &__recent-amount {
+    min-width: 88px;
+    text-align: right;
+  }
+
+  /* The crypto card with the row to itself: its holdings as a small table. */
+  &__holdings {
+    flex: 1;
+    max-width: 560px;
+    margin-left: auto;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+
+    th {
+      padding: 0 0 6px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      text-align: right;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted-foreground);
+    }
+
+    td {
+      padding: 6px 0 6px 16px;
+      text-align: right;
+      color: var(--foreground);
+      border-top: 1px solid var(--border-color);
+    }
+
+    th:first-child,
+    td:first-child {
+      padding-left: 0;
+      text-align: left;
+    }
+
+    @container overview-section (max-width: 720px) {
+      display: none;
+    }
+  }
+
+  &__holdings-asset {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+
+  /* A chart with the row to itself, and what explains it beside (net worth, cash runway). */
+  &__chart-aside {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+    gap: 24px;
+    align-items: start;
+
+    @container overview-section (max-width: 720px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  &__chart-aside-main {
+    min-width: 0;
+    margin: 0;
+  }
+
+  &__chart-aside-side {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .lumio-dashboard__stat-details {
+      margin: 0;
+    }
   }
 
   /* ── Budget rows ── */
+  &__budget-amounts {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
   &__budget-row {
     padding: 10px 0;
 
@@ -1019,8 +1158,9 @@
 }
 
 /* ── Overview: sections moved by their grip ──
-   One flat two-column grid: a section alone in its row spans both columns, a
-   pair splits them. Width decisions live in OverviewLayout; this only draws. */
+   One flat twelve-column grid: each section spans the columns OverviewLayout
+   gives it (`--overview-span`) — a card alone the whole row, two cards half
+   each, KPI tiles their share. Width decisions live there; this only draws. */
 .lumio-overview {
   &__body {
     container: overview / inline-size;
@@ -1028,7 +1168,7 @@
 
   &__grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 16px;
     align-items: stretch;
 
@@ -1042,15 +1182,12 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    grid-column: span var(--overview-span, 12);
     container: overview-section / inline-size;
 
-    /* The two halves of a row share its height. */
+    /* The sections of a row share its height. */
     > :not(.lumio-overview__handle) {
       flex: 1 1 auto;
-    }
-
-    &--wide {
-      grid-column: 1 / -1;
     }
 
     /* A card with nothing to show takes no room. */
@@ -1186,17 +1323,15 @@
   }
 }
 
-/* Too narrow for halves (a tablet with the sidebar open): one column. */
+/* Too narrow for halves (a phone, a tablet with the sidebar open): cards take
+   the whole row and KPI tiles go two by two rather than a column of four. */
 @container overview (max-width: 720px) {
-  .lumio-overview__grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+  .lumio-overview__section {
+    grid-column: 1 / -1;
 
-/* Four KPI tiles in half a row would be slivers; two by two reads. */
-@container overview-section (max-width: 760px) {
-  .lumio-dashboard__stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    &--tile {
+      grid-column: span 6;
+    }
   }
 }
 

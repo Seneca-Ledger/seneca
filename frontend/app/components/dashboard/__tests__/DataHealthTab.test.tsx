@@ -139,23 +139,31 @@ describe('DataHealthTab', () => {
     });
 
     expect(screen.getByText(/receipts pending/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Review 2 receipts/i })).toBeInTheDocument();
+    // Receipts are counted by Review's own rule, so the link opens Review's receipts.
+    expect(screen.getByRole('link', { name: /Review 2 receipts/i })).toHaveAttribute(
+      'href',
+      '/review?kind=receipt',
+    );
     expect(screen.getByText('May 31, 2025')).toBeInTheDocument();
   });
 
-  it('shows unapproved cash as a warning with a review link, and the empty-upload CTA', () => {
+  it('shows unconfirmed money as a warning while Review has rows, even when it is spending', () => {
     renderTab({
       uncategorizedTransactions: 0,
       statementsWithErrors: 0,
-      statementsPendingReview: 0,
+      statementsPendingReview: 2,
       statementsPendingSubmit: 0,
       receiptsPendingReview: 0,
-      unapprovedCash: 1500,
+      // Two unconfirmed expenses: the sum is negative, and still nothing is approved.
+      unapprovedCash: -19.63,
       lastUploadDate: null,
       parsingWarnings: 0,
     });
 
-    expect(screen.getByText('$1500').className).toContain('lumio-dashboard__stat-value--warning');
+    expect(screen.getByText('−$19.63').className).toContain(
+      'lumio-dashboard__stat-value--warning',
+    );
+    expect(screen.queryByText('All cash approved')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Review & approve cash/ })).toHaveAttribute(
       'href',
       '/review',
@@ -164,6 +172,21 @@ describe('DataHealthTab', () => {
       'href',
       '/statements/submit',
     );
-    expect(screen.queryByText('Action required')).not.toBeInTheDocument();
+  });
+
+  it('says all cash is approved only when Review has nothing left', () => {
+    renderTab({
+      uncategorizedTransactions: 0,
+      statementsWithErrors: 0,
+      statementsPendingReview: 0,
+      statementsPendingSubmit: 0,
+      receiptsPendingReview: 0,
+      unapprovedCash: 0,
+      lastUploadDate: null,
+      parsingWarnings: 0,
+    });
+
+    expect(screen.getByText('All cash approved')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Review & approve cash/ })).not.toBeInTheDocument();
   });
 });

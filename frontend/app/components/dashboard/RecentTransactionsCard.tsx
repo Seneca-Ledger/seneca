@@ -1,5 +1,6 @@
 'use client';
 
+import ReceiptLongOutlined from '@mui/icons-material/ReceiptLongOutlined';
 import clsx from 'clsx';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -7,7 +8,11 @@ import { parseDateOnly, resolveLocale } from '@/app/(main)/dashboard/helpers/das
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { CategoryIconBadge } from './CategoryIconBadge';
-import { CardLink, DashboardCard, ListRow } from './ui';
+import { useIsWideSection } from './section-span';
+import { CardEmpty, CardLink, DashboardCard, ListRow } from './ui';
+
+/** What a half-width card lists; with the row to itself it lists all the API sends. */
+const NARROW_LIMIT = 6;
 
 interface RecentTransactionsCardProps {
   transactions: DashboardData['recentTransactions'];
@@ -22,6 +27,8 @@ export function RecentTransactionsCard({
 }: RecentTransactionsCardProps): React.JSX.Element {
   const t = useIntlayer('recentTransactionsCard');
   const { locale } = useLocale();
+  const wide = useIsWideSection();
+  const shown = wide ? transactions : transactions.slice(0, NARROW_LIMIT);
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(resolveLocale(locale), { day: 'numeric', month: 'short' }),
     [locale],
@@ -30,14 +37,15 @@ export function RecentTransactionsCard({
   return (
     <DashboardCard title={t.title} action={<CardLink href={viewAllHref}>{t.viewAll}</CardLink>}>
       {transactions.length === 0 ? (
-        <div className="lumio-dashboard__card-empty">{t.empty}</div>
+        <CardEmpty icon={ReceiptLongOutlined}>{t.empty}</CardEmpty>
       ) : (
         <div className="lumio-dashboard__list">
-          {transactions.map(tx => {
+          {shown.map(tx => {
             const isPositive = tx.amount >= 0;
             return (
               <ListRow
                 key={tx.id}
+                href={tx.href}
                 leading={
                   <div title={tx.categoryName ?? t.uncategorized.value}>
                     <CategoryIconBadge
@@ -49,12 +57,32 @@ export function RecentTransactionsCard({
                   </div>
                 }
                 primary={tx.description}
-                secondary={`${dateFormatter.format(parseDateOnly(tx.date))} · ${tx.account}`}
+                secondary={
+                  wide
+                    ? dateFormatter.format(parseDateOnly(tx.date))
+                    : `${dateFormatter.format(parseDateOnly(tx.date))} · ${tx.account}`
+                }
                 trailing={
-                  <span className={clsx(isPositive && 'lumio-dashboard__amount--positive')}>
-                    {isPositive ? '+' : ''}
-                    {formatAmount(tx.amount)}
-                  </span>
+                  <>
+                    {/* With room, category and account get columns of their own. */}
+                    {wide && (
+                      <>
+                        <span className="lumio-dashboard__recent-col">
+                          {tx.categoryName ?? t.uncategorized.value}
+                        </span>
+                        <span className="lumio-dashboard__recent-col">{tx.account}</span>
+                      </>
+                    )}
+                    <span
+                      className={clsx(
+                        'lumio-dashboard__recent-amount',
+                        isPositive && 'lumio-dashboard__amount--positive',
+                      )}
+                    >
+                      {isPositive ? '+' : ''}
+                      {formatAmount(tx.amount)}
+                    </span>
+                  </>
                 }
               />
             );

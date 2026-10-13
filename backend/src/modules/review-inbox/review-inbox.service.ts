@@ -15,7 +15,7 @@ import type {
   ReviewInboxPage,
   ReviewInboxQuery,
 } from '../../contracts';
-import { Receipt, ReceiptSource, ReceiptStatus } from '../../entities/receipt.entity';
+import { Receipt, ReceiptStatus } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Subscription, SubscriptionStatus } from '../../entities/subscription.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -23,6 +23,12 @@ import { isUncategorizedName } from '../categories/uncategorized-category';
 import { CrossStatementDeduplicationService } from '../transactions/services/cross-statement-deduplication.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { DuplicateDecision, ReviewInboxKind } from './dto/review-inbox.dto';
+
+import {
+  pendingReceiptsQuery,
+  reviewDuplicatesQuery,
+  unconfirmedRowsQuery,
+} from './review-queue.queries';
 
 /** No reviewer asked for: the whole workspace's backlog. */
 const ALL_OWNERS: OwnerFilter = { kind: 'all' };
@@ -58,29 +64,19 @@ export class ReviewInboxService {
    * here; transfers too. Suspected duplicates have their own list.
    */
   private transactionsQuery(workspaceId: string, reviewer: OwnerFilter = ALL_OWNERS) {
-    const query = this.transactionRepository
-      .createQueryBuilder('t')
-      .leftJoin('t.statement', 's')
+    const query = unconfirmedRowsQuery(this.transactionRepository, workspaceId)
       .addSelect(['s.id', 's.fileName', 's.fileType'])
       .leftJoinAndSelect('t.category', 'category')
-      .leftJoinAndSelect('t.payee', 'payee')
-      .where('t.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('t.isDuplicate = false')
-      .andWhere('t.isVerified = false')
-      .andWhere('(t.statementId IS NULL OR s.deletedAt IS NULL)');
+      .leftJoinAndSelect('t.payee', 'payee');
     return applyOwnerFilter(query, 't', reviewer);
   }
 
   private duplicatesQuery(workspaceId: string, reviewer: OwnerFilter = ALL_OWNERS) {
-    const query = this.transactionRepository
-      .createQueryBuilder('t')
-      .leftJoin('t.statement', 's')
-      .addSelect(['s.id', 's.fileName', 's.fileType'])
-      .where('t.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('t.isDuplicate = true')
-      .andWhere('t.isVerified = false')
-      .andWhere("(t.duplicateMatchType IS NULL OR t.duplicateMatchType != 'manual')")
-      .andWhere('(t.statementId IS NULL OR s.deletedAt IS NULL)');
+    const query = reviewDuplicatesQuery(this.transactionRepository, workspaceId).addSelect([
+      's.id',
+      's.fileName',
+      's.fileType',
+    ]);
     return applyOwnerFilter(query, 't', reviewer);
   }
 
@@ -98,39 +94,8 @@ export class ReviewInboxService {
     return result;
   }
 
-  /**
-   * Receipts not yet turned into a transaction. A flagged one is always listed;
-   * the rest once something was parsed from them (an email with no amount is
-   * not a receipt yet), or when it is a scan the user uploaded. A scan that
-   * already booked its row is asked about as that row, not a second time here.
-   */
   private pendingReceiptsQuery(workspaceId: string): SelectQueryBuilder<Receipt> {
-    return this.receiptRepository
-      .createQueryBuilder('receipt')
-      .where('receipt.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('receipt.isDuplicate = false')
-      .andWhere('receipt.transactionId IS NULL')
-      .andWhere(
-        `(receipt.statement_id IS NULL OR NOT EXISTS (
-            SELECT 1 FROM transactions scan_row
-             WHERE scan_row.statement_id = receipt.statement_id
-               AND scan_row.workspace_id = receipt.workspace_id))`,
-      )
-      .andWhere(
-        `(receipt.status = :flagged OR (receipt.status IN (:...ready) AND (
-            NULLIF(TRIM(receipt.parsed_data->>'amount'), '') IS NOT NULL
-            OR (receipt.source = :scan AND receipt.statement_id IS NOT NULL))))`,
-        {
-          flagged: ReceiptStatus.NEEDS_REVIEW,
-          ready: [
-            ReceiptStatus.NEW,
-            ReceiptStatus.PARSED,
-            ReceiptStatus.DRAFT,
-            ReceiptStatus.REVIEWED,
-          ],
-          scan: ReceiptSource.SCAN,
-        },
-      );
+    return pendingReceiptsQuery(this.receiptRepository, workspaceId);
   }
 
   /**

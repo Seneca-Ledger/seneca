@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import '../test-setup';
 import { RecentTransactionsCard } from '../RecentTransactionsCard';
+import { SectionSpanProvider } from '../section-span';
 
 // Mirrors react-intlayer's renderIntlayerNode: a Proxy over a rendered
 // Fragment whose `.value` is intercepted to return the plain string, so the
@@ -44,7 +45,9 @@ describe('RecentTransactionsCard', () => {
   });
 
   it('shows a signed amount and date/account line for each transaction', () => {
+    // Half a row: the date and account share the line under the name.
     render(
+      <SectionSpanProvider value={6}>
       <RecentTransactionsCard
         transactions={[
           {
@@ -58,6 +61,7 @@ describe('RecentTransactionsCard', () => {
             categoryName: 'Salary',
             categoryColor: '#10b981',
             categoryIcon: null,
+            href: '/statements/st-1/edit',
           },
           {
             id: 'tx-2',
@@ -70,11 +74,13 @@ describe('RecentTransactionsCard', () => {
             categoryName: null,
             categoryColor: '#898781',
             categoryIcon: null,
+            href: '/storage/receipts/rc-1',
           },
         ]}
         formatAmount={v => (v < 0 ? `-$${Math.abs(v)}` : `$${v}`)}
         viewAllHref="/statements/transactions"
-      />,
+      />
+      </SectionSpanProvider>,
     );
 
     expect(screen.getByText('Salary')).toBeInTheDocument();
@@ -82,5 +88,42 @@ describe('RecentTransactionsCard', () => {
     expect(screen.getByText('Grocery Store')).toBeInTheDocument();
     expect(screen.getByText('-$5000')).toBeInTheDocument();
     expect(screen.getByText(/Kaspi •••• 4821/)).toBeInTheDocument();
+    // Each row opens the document its transaction lives in.
+    expect(screen.getByText('Salary').closest('a')?.getAttribute('href')).toBe(
+      '/statements/st-1/edit',
+    );
+    expect(screen.getByText('Grocery Store').closest('a')?.getAttribute('href')).toBe(
+      '/storage/receipts/rc-1',
+    );
+  });
+
+  it('lists six at half width, and all with category and account columns at full width', () => {
+    const transactions = Array.from({ length: 12 }, (_, index) => ({
+      id: `tx-${index}`,
+      description: `Shop ${index}`,
+      amount: -10,
+      currency: 'USD',
+      date: '2026-03-09',
+      account: 'Kaspi •••• 4821',
+      categoryId: 'cat-1',
+      categoryName: 'Groceries',
+      categoryColor: '#10b981',
+      categoryIcon: null,
+      href: `/storage/receipts/rc-${index}`,
+    }));
+    const card = (
+      <RecentTransactionsCard
+        transactions={transactions}
+        formatAmount={v => `$${v}`}
+        viewAllHref="/statements/transactions"
+      />
+    );
+    const { rerender } = render(<SectionSpanProvider value={6}>{card}</SectionSpanProvider>);
+    expect(screen.getAllByText(/^Shop /)).toHaveLength(6);
+    expect(screen.queryByText('Groceries')).not.toBeInTheDocument();
+
+    rerender(<SectionSpanProvider value={12}>{card}</SectionSpanProvider>);
+    expect(screen.getAllByText(/^Shop /)).toHaveLength(12);
+    expect(screen.getAllByText('Groceries')).toHaveLength(12);
   });
 });

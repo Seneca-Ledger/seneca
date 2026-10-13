@@ -6,9 +6,13 @@ import type React from 'react';
 import { TokenIcon } from '@/app/(main)/crypto/components/TokenIcon';
 import { ChevronRight } from '@/app/components/icons';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useIsWideSection } from './section-span';
+
+/** Holdings the card lists with the row to itself; the rest are on the crypto page. */
+const WIDE_HOLDINGS = 8;
 
 type CryptoPortfolioCardProps = {
   formatAmount: (value: number) => string;
@@ -30,6 +34,8 @@ export function CryptoPortfolioCard({
 }: CryptoPortfolioCardProps): React.JSX.Element | null {
   const workspaceId = useWorkspaceId();
   const t = useIntlayer('cryptoPage');
+  const { locale } = useLocale();
+  const wide = useIsWideSection();
   // Cached, so the card is drawn at once when Overview is opened again. The
   // dashboard must render without crypto: a failed request just leaves it hidden.
   const { data: summary } = useQuery({
@@ -51,6 +57,10 @@ export function CryptoPortfolioCard({
     return null;
   }
 
+  const change = summary.portfolioChangeSinceYesterday;
+  const coins = new Intl.NumberFormat(locale, { maximumFractionDigits: 6 });
+  const percent = (value: number) => `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(1)}%`;
+
   return (
     <Link href="/crypto" className="lumio-dashboard__card" style={CARD_STYLE}>
       <div>
@@ -58,6 +68,20 @@ export function CryptoPortfolioCard({
         <div className="lumio-dashboard__stat-value" style={VALUE_STYLE}>
           {formatAmount(summary.portfolioValue)}
         </div>
+        {wide && change !== null && (
+          <div className="lumio-dashboard__card-sub">
+            <span
+              className={
+                change >= 0
+                  ? 'lumio-dashboard__amount--positive'
+                  : 'lumio-dashboard__amount--negative'
+              }
+            >
+              {percent(change)}
+            </span>{' '}
+            {t.sinceYesterday}
+          </div>
+        )}
         <div className="lumio-dashboard__card-sub">
           {monthLabel} ·{' '}
           <span className="lumio-dashboard__amount--positive">+{formatAmount(summary.income)}</span>{' '}
@@ -66,7 +90,7 @@ export function CryptoPortfolioCard({
             −{formatAmount(summary.expense)}
           </span>
         </div>
-        {summary.holdings.length > 0 && (
+        {!wide && summary.holdings.length > 0 && (
           <div
             className="lumio-dashboard__card-sub"
             style={{ display: 'flex', alignItems: 'center', gap: 8 }}
@@ -83,6 +107,44 @@ export function CryptoPortfolioCard({
           </div>
         )}
       </div>
+      {/* With the row to itself: what is held, and how each coin is doing. */}
+      {wide && summary.holdings.length > 0 && (
+        <table className="lumio-dashboard__holdings">
+          <thead>
+            <tr>
+              <th>{t.asset}</th>
+              <th>{t.amount}</th>
+              <th>{t.worth}</th>
+              <th>{t.unrealized}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summary.holdings.slice(0, WIDE_HOLDINGS).map(holding => (
+              <tr key={holding.asset}>
+                <td>
+                  <span className="lumio-dashboard__holdings-asset">
+                    <TokenIcon asset={holding.asset} size={16} />
+                    {holding.asset}
+                  </span>
+                </td>
+                <td>{coins.format(Number(holding.amount))}</td>
+                <td>{formatAmount(holding.value)}</td>
+                <td
+                  className={
+                    holding.unrealizedPercent === null
+                      ? undefined
+                      : holding.unrealizedPercent >= 0
+                        ? 'lumio-dashboard__amount--positive'
+                        : 'lumio-dashboard__amount--negative'
+                  }
+                >
+                  {holding.unrealizedPercent === null ? '—' : percent(holding.unrealizedPercent)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       <ChevronRight size={18} />
     </Link>
   );

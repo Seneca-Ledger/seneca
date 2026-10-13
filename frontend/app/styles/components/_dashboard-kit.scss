@@ -318,9 +318,12 @@
   &__card-empty {
     display: flex;
     flex: 1;
+    flex-direction: column;
+    gap: 10px;
     align-items: center;
     justify-content: center;
-    min-height: 120px;
+    min-height: 160px;
+    padding: 16px;
     font-size: 13px;
     color: $lumio-color-ink-500;
     text-align: center;
@@ -328,5 +331,34 @@
     @include dark {
       color: $lumio-color-ink-500-dk;
     }
+
+    /* Inside a chart's box: as tall as the chart it stands in for. */
+    &--fill {
+      height: 100%;
+      min-height: 0;
+    }
+  }
+
+  &__card-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--muted);
+    color: var(--muted-foreground);
+
+    /* The whole Overview with nothing imported yet. */
+    &--lg {
+      width: 96px;
+      height: 96px;
+    }
+  }
+
+  &__card-empty-text {
+    max-width: 320px;
+    margin: 0;
+    line-height: 1.5;
   }
 }

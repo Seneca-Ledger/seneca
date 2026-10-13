@@ -16,6 +16,7 @@ import {
 } from './data-health-model';
 import { DATA_HEALTH_HISTORY_METRICS, MonthlyHistoryCard } from './MonthlyHistoryCard';
 import { Chip, ChipGroup, DashboardCard, KpiCard, SectionHeader } from './ui';
+import { useMonthLabel } from './use-month-label';
 
 interface DataHealthTabProps {
   data: DashboardData;
@@ -67,11 +68,16 @@ function UnapprovedCashCard({
   formatAmount: (value: number) => string;
 }): React.JSX.Element {
   const t = useIntlayer('dataHealthTab');
-  const pending = health.unapprovedCash > 0;
+  // Whether anything waits is a matter of rows, not of the sum: unconfirmed
+  // spending makes it negative, and rows can cancel out to zero.
+  const pending = health.statementsPendingReview > 0;
+  const amount = health.unapprovedCash;
   return (
     <KpiCard
       label={t.unapprovedCash.value}
-      value={pending ? formatAmount(health.unapprovedCash) : t.allCashApproved}
+      value={
+        pending ? `${amount < 0 ? '−' : ''}${formatAmount(Math.abs(amount))}` : t.allCashApproved
+      }
       tone={pending ? 'warning' : 'positive'}
       caption={pending ? <Link href="/review">{t.reviewApproveCash}</Link> : undefined}
     />
@@ -111,6 +117,7 @@ export function DataHealthTab({
   onSelectMonth,
 }: DataHealthTabProps): React.JSX.Element {
   const t = useIntlayer('dataHealthTab');
+  const monthLabel = useMonthLabel(displayMonth);
   const health = data.dataHealth;
   const labels = {
     uncategorized: t.uncategorizedLabel.value,
@@ -133,7 +140,8 @@ export function DataHealthTab({
         <Chip href="/review">{fillCount(t.reviewQueue.value, health.statementsPendingReview)}</Chip>
       </ChipGroup>
       <section>
-        <SectionHeader title={t.dataQualityMetrics} />
+        {/* The tiles count the month picked above; the chart below, the whole year. */}
+        <SectionHeader title={t.dataQualityMetrics} subtitle={monthLabel} />
         <div className="lumio-dashboard__stat-grid lumio-dashboard__stat-grid--auto">
           {metrics.map(metric => (
             <KpiCard

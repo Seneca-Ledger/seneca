@@ -5,6 +5,7 @@ import type { NetWorthData } from '@/app/(main)/net-worth/hooks/useNetWorth';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { selectOption } from '@/app/test/select';
 import { NetWorthCard } from './NetWorthCard';
+import { SectionSpanProvider } from './section-span';
 
 const apiGet = vi.hoisted(() => vi.fn());
 
@@ -27,6 +28,11 @@ vi.mock('@/app/i18n', async () => {
               rangeAll: value('All time'),
               overPeriod: value('over period'),
               empty: value('Nothing to show yet'),
+              assets: value('Assets'),
+              liabilities: value('Liabilities'),
+              assetClasses: value('By asset class'),
+              classEtf: value('ETFs'),
+              allTimeHigh: value('All-time high {{value}} on {{date}}'),
             }
           : {
               viewAll: value('View all'),
@@ -143,5 +149,35 @@ describe('NetWorthCard', () => {
     const { container } = renderWithQuery(<NetWorthCard />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('shows what the total is made of only with the row to itself', async () => {
+    apiGet.mockResolvedValue({
+      data: netWorth({
+        allTimeHigh: { value: 1500, date: '2026-08-01' },
+        byAssetClass: [{ key: 'etf', amount: 600, percent: 50 }],
+      }),
+    });
+
+    const half = renderWithQuery(
+      <SectionSpanProvider value={6}>
+        <NetWorthCard />
+      </SectionSpanProvider>,
+    );
+    await screen.findByText('$1,000.00');
+    expect(screen.queryByText('Assets')).not.toBeInTheDocument();
+    half.unmount();
+
+    renderWithQuery(
+      <SectionSpanProvider value={12}>
+        <NetWorthCard />
+      </SectionSpanProvider>,
+    );
+    await screen.findByText('Assets');
+    expect(screen.getByText('$1,200.00')).toBeInTheDocument();
+    expect(screen.getByText('$200.00')).toBeInTheDocument();
+    expect(screen.getByText('All-time high $1,500.00 on 2026-08-01')).toBeInTheDocument();
+    expect(screen.getByText('ETFs')).toBeInTheDocument();
+    expect(screen.getByText('$600.00 · 50%')).toBeInTheDocument();
   });
 });

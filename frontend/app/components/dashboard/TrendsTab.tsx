@@ -1,6 +1,9 @@
 'use client';
 
+import CategoryOutlined from '@mui/icons-material/CategoryOutlined';
+import TimelineOutlined from '@mui/icons-material/TimelineOutlined';
 import Skeleton from '@mui/material/Skeleton';
+import type { SvgIconProps } from '@mui/material/SvgIcon';
 import type React from 'react';
 import { useMemo } from 'react';
 import {
@@ -14,7 +17,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { categoryColorFor } from '@/app/lib/category-defaults';
 import { CashFlowCard } from './CashFlowCard';
 import { CategoryIconBadge } from './CategoryIconBadge';
-import { DashboardCard, KpiCard, ListRow } from './ui';
+import { CardEmpty, DashboardCard, KpiCard, ListRow } from './ui';
 import { useMonthLabel } from './use-month-label';
 
 const LEGEND_LIMIT = 10;
@@ -72,13 +75,16 @@ interface SectionState {
 function CardState({
   state,
   emptyLabel,
+  emptyIcon,
   children,
 }: {
   state: SectionState;
   emptyLabel: React.ReactNode;
+  /** What the card would draw, as the empty state's icon. */
+  emptyIcon: React.ComponentType<SvgIconProps>;
   children: React.ReactNode;
 }): React.JSX.Element {
-  // Та же коробка, что у загруженного графика (min-height 260 против 120 у
+  // Та же коробка, что у загруженного графика (min-height 260 против 160 у
   // __card-empty), иначе карточка меняет высоту дважды за загрузку.
   if (state.loading) {
     return (
@@ -95,7 +101,7 @@ function CardState({
     );
   }
   if (!state.trends) {
-    return <div className="lumio-dashboard__card-empty">{emptyLabel}</div>;
+    return <CardEmpty icon={emptyIcon}>{emptyLabel}</CardEmpty>;
   }
   return <>{children}</>;
 }
@@ -113,7 +119,7 @@ function SpendTrendCard({
   const { locale } = useLocale();
   return (
     <DashboardCard title={t.spendTrendTitle} subtitle={monthLabel}>
-      <CardState state={state} emptyLabel={t.noTrendDataForPeriod}>
+      <CardState state={state} emptyLabel={t.noTrendDataForPeriod} emptyIcon={TimelineOutlined}>
         {state.trends?.dailyTrend.length ? (
           <div className="lumio-dashboard__chart">
             <LazySpendTrendBars
@@ -130,7 +136,7 @@ function SpendTrendCard({
             />
           </div>
         ) : (
-          <div className="lumio-dashboard__card-empty">{t.noTrendDataForRange}</div>
+          <CardEmpty icon={TimelineOutlined}>{t.noTrendDataForRange}</CardEmpty>
         )}
       </CardState>
     </DashboardCard>
@@ -152,13 +158,13 @@ function CategoryBreakdownCard({
         key: c.name,
         name: c.name,
         value: c.amount,
-        color: categoryColorFor(c.name),
+        color: categoryColorFor(c.name, c.color),
       })),
     [top],
   );
   return (
     <DashboardCard title={t.categoryBreakdownTitle}>
-      <CardState state={state} emptyLabel={t.noTrendDataForPeriod}>
+      <CardState state={state} emptyLabel={t.noTrendDataForPeriod} emptyIcon={CategoryOutlined}>
         {slices.length > 0 ? (
           <>
             <div className="lumio-dashboard__donut lumio-dashboard__donut--wide">
@@ -168,7 +174,9 @@ function CategoryBreakdownCard({
               {top.map(c => (
                 <ListRow
                   key={c.name}
-                  leading={<CategoryIconBadge name={c.name} size={28} />}
+                  leading={
+                    <CategoryIconBadge name={c.name} color={c.color} icon={c.icon} size={28} />
+                  }
                   primary={c.name}
                   trailing={formatAmount(c.amount)}
                 />
@@ -176,7 +184,7 @@ function CategoryBreakdownCard({
             </div>
           </>
         ) : (
-          <div className="lumio-dashboard__card-empty">{t.noCategorizedTransactions}</div>
+          <CardEmpty icon={CategoryOutlined}>{t.noCategorizedTransactions}</CardEmpty>
         )}
       </CardState>
     </DashboardCard>

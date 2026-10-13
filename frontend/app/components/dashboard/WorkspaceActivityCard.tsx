@@ -9,9 +9,14 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
+import { useIsWideSection } from './section-span';
 
-/** Short: the point is "recently", and the full audit is a page of its own. */
-const ACTIVITY_LIMIT = 8;
+/**
+ * Short: the point is "recently", and the full audit is a page of its own. A
+ * half-width card shows the first eight; with the row to itself, all it got.
+ */
+const ACTIVITY_LIMIT = 16;
+const NARROW_ACTIVITY_LIMIT = 8;
 const ACTIVITY_STALE_TIME = 60 * 1000;
 
 /**
@@ -25,6 +30,7 @@ export function WorkspaceActivityCard(): React.JSX.Element | null {
   const members = useHouseholdMembers();
   const t = useIntlayer('workspaceActivity');
   const { locale } = useLocale();
+  const wide = useIsWideSection();
 
   const { data } = useQuery({
     queryKey: ['workspace-activity', workspaceId, ACTIVITY_LIMIT],
@@ -43,7 +49,8 @@ export function WorkspaceActivityCard(): React.JSX.Element | null {
     return null;
   }
 
-  const items = data?.items ?? [];
+  const all = data?.items ?? [];
+  const items = wide ? all : all.slice(0, NARROW_ACTIVITY_LIMIT);
 
   return (
     <DashboardCard title={t.title.value}>
