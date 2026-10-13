@@ -94,9 +94,7 @@ export type TransactionListPage = Wire<typeof TransactionListPage>;
  * rows that could be the other side, without their category, branch or wallet.
  */
 export const TransactionCandidates = Schema.Struct({
-  data: Schema.Array(
-    TransactionListItem.mapFields(Struct.omit(['category', 'branch', 'wallet'])),
-  ),
+  data: Schema.Array(TransactionListItem.mapFields(Struct.omit(['category', 'branch', 'wallet']))),
 });
 export type TransactionCandidates = Wire<typeof TransactionCandidates>;
 
