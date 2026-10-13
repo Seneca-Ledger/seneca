@@ -154,7 +154,7 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
         <Typography variant="body2" sx={{ mb: 2.5, color: 'var(--muted-foreground)' }}>
           {text(
             'scheduleNewSubtitle',
-            'Delivered by email at 06:00 UTC, covering the last completed period',
+            'Delivered by email at 06:00 your time, covering the last completed period',
           )}
         </Typography>
 

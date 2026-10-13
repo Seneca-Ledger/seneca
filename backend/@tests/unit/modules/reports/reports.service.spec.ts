@@ -260,6 +260,7 @@ describe('generateFromTemplate', () => {
   let mockWorkspaceRepository: any;
   let mockExchangeRates: any;
   let mockBalanceService: any;
+  let mockHoldingsSnapshot: any;
   let service: ReportsService;
   const written: string[] = [];
 
@@ -280,6 +281,12 @@ describe('generateFromTemplate', () => {
       findOne: jest.fn(async () => ({ currency: 'EUR' })),
     };
     mockExchangeRates = { getRateOrNull: jest.fn(async () => 2) };
+    mockHoldingsSnapshot = {
+      build: jest.fn(async () => ({
+        document: { title: 'Investment Holdings', subtitle: 's', sections: [] },
+        missingRates: ['XYZ'],
+      })),
+    };
     mockBalanceService = {
       exportBalanceSheet: jest.fn(async () => ({
         fileName: 'balance-sheet-2024-01-31.xlsx',
@@ -303,6 +310,8 @@ describe('generateFromTemplate', () => {
       mockWorkspaceRepository as any,
       mockExchangeRates as any,
       mockBalanceService as any,
+      {} as any,
+      mockHoldingsSnapshot as any,
     );
   });
 
@@ -820,6 +829,79 @@ describe('generateFromTemplate', () => {
       { date: '2024-01-31', format: 'pdf' },
       'en',
     );
+  });
+
+  describe('categories by month', () => {
+    const rows = [
+      { amount: 100, transactionType: 'income', currency: 'EUR', transactionDate: '2024-01-05', categoryId: 'c-sales', category: { name: 'Sales' } },
+      { amount: 40, transactionType: 'expense', currency: 'EUR', transactionDate: '2024-01-07', categoryId: 'c-food', category: { name: 'Food' } },
+      { amount: 60, transactionType: 'expense', currency: 'EUR', transactionDate: '2024-03-02', categoryId: 'c-food', category: { name: 'Food' } },
+      { amount: 25, transactionType: 'expense', currency: 'USD', transactionDate: '2024-03-09', categoryId: 'c-rent', category: { name: 'Rent', parent: { name: 'Home' } } },
+    ];
+    const dto = {
+      templateId: 'category-by-month',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-03-31',
+      format: 'csv',
+    } as any;
+
+    it('lays out a column per month, empty months included, with totals and an average', async () => {
+      mockTransactionRepository.find.mockResolvedValue(rows);
+
+      const preview = await service.previewTemplate('ws1', dto);
+      const [income, expenses, net] = preview.sections;
+
+      expect(expenses.columns).toEqual([
+        'Group', 'Category', '2024-01', '2024-02', '2024-03', 'Total', 'Average / month',
+      ]);
+      expect(expenses.rows).toEqual([
+        ['Food', 'Food', 40, 0, 60, 100, 33.33],
+        // USD at the mocked rate of 2.
+        ['Home', 'Rent', 0, 0, 50, 50, 16.67],
+      ]);
+      expect(income.total).toEqual(['TOTAL', '', 100, 0, 0, 100, 33.33]);
+      expect(net.rows[0].slice(2)).toEqual([60, 0, -110, -50, -16.67]);
+      expect(preview.orientation).toBe('landscape');
+    });
+
+    it('agrees with the P&L for the same period', async () => {
+      mockTransactionRepository.find.mockResolvedValue(rows);
+      const matrix = await service.previewTemplate('ws1', dto);
+      const pnl = await service.previewTemplate('ws1', { ...dto, templateId: 'pnl' });
+
+      expect(matrix.footer).toEqual([['NET', pnl.footer?.[0][1]]]);
+      expect(matrix.sections[1].total?.at(-2)).toBe(pnl.sections[1].total?.at(-1));
+    });
+
+    it('refuses more than a year on a PDF page, and more than three years at all', async () => {
+      await expect(
+        service.previewTemplate('ws1', { ...dto, dateTo: '2025-01-31', format: 'pdf' }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.previewTemplate('ws1', { ...dto, dateTo: '2027-01-31', format: 'excel' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockTransactionRepository.find).not.toHaveBeenCalled();
+
+      mockTransactionRepository.find.mockResolvedValue([]);
+      await expect(
+        service.previewTemplate('ws1', { ...dto, dateTo: '2024-12-31', format: 'pdf' }),
+      ).resolves.toBeDefined();
+    });
+  });
+
+  it('takes the holdings snapshot from its own builder, with the missing-rate note on top', async () => {
+    const preview = await service.previewTemplate('ws1', {
+      templateId: 'investment-holdings',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'pdf',
+    } as any);
+
+    expect(mockHoldingsSnapshot.build).toHaveBeenCalledWith('ws1', expect.anything(), 'EUR');
+    expect(mockTransactionRepository.find).not.toHaveBeenCalled();
+    expect(preview.notes).toEqual([
+      'No exchange rate for XYZ: those amounts are not included in the EUR totals.',
+    ]);
   });
 
   it('delegates Balance Sheet to BalanceService and stores the buffer', async () => {

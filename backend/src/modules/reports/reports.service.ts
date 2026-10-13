@@ -50,6 +50,7 @@ import { BalanceExportFormat } from '../balance/dto/export-balance.dto';
 import { UNCATEGORIZED_CATEGORY_NAME } from '../categories/uncategorized-category';
 import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { BudgetVsActualReport } from './budget-vs-actual.report';
 import { ReportGroupBy } from './dto/custom-report.dto';
 import {
   CustomTableReportFlowType,
@@ -57,6 +58,7 @@ import {
 } from './dto/custom-tables-report.dto';
 import { ExportFormat } from './dto/export-report.dto';
 import { WorkspaceExportFormat } from './dto/workspace-export.dto';
+import { HoldingsSnapshotReport } from './holdings-snapshot.report';
 import type { CustomReport, CustomReportGroup } from './interfaces/custom-report.interface';
 import type { DailyReport } from './interfaces/daily-report.interface';
 import type { MonthlyReport } from './interfaces/monthly-report.interface';
@@ -71,6 +73,7 @@ import {
 } from './report-document.util';
 import { renderReportLabels } from './report-export.translations';
 import { fillLabel, renderTemplateLabels } from './report-template.translations';
+import type { TemplateLabels, TemplateReportRow } from './report-template.types';
 
 export interface StatementsSummaryResponse {
   totals: {
@@ -149,35 +152,12 @@ interface CustomReportExportRow {
   wallet: string;
 }
 
-/** A transaction flattened for template aggregation, already in workspace currency. */
-interface TemplateReportRow {
-  id: string;
-  date: string;
-  /** The category id, or '' for an uncategorized row. */
-  categoryKey: string;
-  categoryName: string;
-  /** The parent category's name; a top-level category is its own group. */
-  groupName: string;
-  counterparty: string;
-  accountName: string;
-  comment: string;
-  tags: string[];
-  isIncome: boolean;
-  /** Converted to the workspace currency. */
-  amount: number;
-  /** As recorded on the transaction, kept so the register can show both. */
-  originalAmount: number;
-  originalCurrency: string;
-}
-
 interface CategoryTotal {
   groupName: string;
   categoryName: string;
   total: number;
   count: number;
 }
-
-type TemplateLabels = ReturnType<typeof renderTemplateLabels>;
 
 export interface CustomTablesReportRow {
   counterparty: string;
@@ -438,6 +418,8 @@ export class ReportsService {
     private readonly workspaceRepository: Repository<Workspace>,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly balanceService: BalanceService,
+    private readonly budgetVsActualReport: BudgetVsActualReport,
+    private readonly holdingsSnapshotReport: HoldingsSnapshotReport,
   ) {}
 
   private async getReportsVersion(userId: string): Promise<string> {
@@ -2808,7 +2790,16 @@ export class ReportsService {
     'balance-sheet': 'Balance Sheet',
     'transaction-register': 'Transaction Register',
     'monthly-summary': 'Monthly Summary',
+    'category-by-month': 'Categories by Month',
+    'budget-vs-actual': 'Budget vs Actual',
+    'investment-holdings': 'Investment Holdings',
   };
+
+  /**
+   * A month per column: past a year a PDF page cannot hold the table legibly,
+   * and past three years a spreadsheet is the wrong place to read it too.
+   */
+  private static readonly MAX_MONTHS = { pdf: 12, other: 36 };
 
   /** The formats each template can be written in; the Balance Sheet has no CSV renderer. */
   private static readonly TEMPLATE_FORMATS: Record<string, readonly ReportFileFormat[]> = {
@@ -2935,17 +2926,92 @@ export class ReportsService {
     workspaceId: string,
     dto: GenerateReportBody,
   ): Promise<ReportDocument> {
-    const { currency, rows, missingRates } = await this.loadReportRows(workspaceId, dto);
     const labels = renderTemplateLabels(dto.locale);
+    if (dto.templateId === 'category-by-month') {
+      this.assertMonthColumns(dto);
+    }
+    if (dto.templateId === 'investment-holdings') {
+      // A snapshot of today: positions have no history, so no rows and no period.
+      const currency = await this.getWorkspaceCurrency(workspaceId);
+      const { document, missingRates } = await this.holdingsSnapshotReport.build(
+        workspaceId,
+        labels,
+        currency,
+      );
+      return this.withRateNote(document, labels, missingRates, currency);
+    }
+
+    const { currency, rows, missingRates } = await this.loadReportRows(workspaceId, dto);
     const subtitle = `${dto.dateFrom} — ${dto.dateTo} · ${currency}`;
-    // Said once, at the top: totals below are short by whatever could not be
-    // converted, and the reader can see which currencies those were.
-    const notes = missingRates.length
-      ? [fillLabel(labels.missingRateNote, { currencies: missingRates.join(', '), currency })]
-      : undefined;
+
+    if (dto.templateId === 'budget-vs-actual') {
+      const result = await this.budgetVsActualReport.build(
+        workspaceId,
+        dto,
+        labels,
+        subtitle,
+        currency,
+        rows,
+      );
+      const missing = Array.from(new Set([...missingRates, ...result.missingRates])).sort();
+      return this.withRateNote(result.document, labels, missing, currency);
+    }
 
     const document = this.buildTemplateBody(dto, labels, subtitle, currency, rows);
-    return notes ? { ...document, notes } : document;
+    return this.withRateNote(document, labels, missingRates, currency);
+  }
+
+  /**
+   * Said once, at the top and before the template's own caveats: totals below
+   * are short by whatever could not be converted, and the reader can see which
+   * currencies those were.
+   */
+  private withRateNote(
+    document: ReportDocument,
+    labels: TemplateLabels,
+    missingRates: string[],
+    currency: string,
+  ): ReportDocument {
+    if (!missingRates.length) {
+      return document;
+    }
+    const note = fillLabel(labels.missingRateNote, {
+      currencies: missingRates.join(', '),
+      currency,
+    });
+    return { ...document, notes: [note, ...(document.notes ?? [])] };
+  }
+
+  private assertMonthColumns(dto: GenerateReportBody): void {
+    const months = this.monthKeys(dto.dateFrom, dto.dateTo).length;
+    const limit =
+      dto.format === 'pdf' ? ReportsService.MAX_MONTHS.pdf : ReportsService.MAX_MONTHS.other;
+    if (months > limit) {
+      throw new BadRequestException(
+        dto.format === 'pdf'
+          ? `Categories by Month fits ${limit} months on a PDF page; choose Excel or CSV for a longer period`
+          : `Categories by Month covers at most ${limit} months`,
+      );
+    }
+  }
+
+  /** Every calendar month the period touches, as YYYY-MM, including empty ones. */
+  private monthKeys(dateFrom: string, dateTo: string): string[] {
+    const keys: string[] = [];
+    let [year, month] = dateFrom.slice(0, 7).split('-').map(Number);
+    const last = dateTo.slice(0, 7);
+    for (;;) {
+      const key = `${year}-${String(month).padStart(2, '0')}`;
+      if (key > last) {
+        return keys;
+      }
+      keys.push(key);
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
   }
 
   private buildTemplateBody(
@@ -2966,6 +3032,14 @@ export class ReportsService {
     }
     if (dto.templateId === 'monthly-summary') {
       return this.buildMonthlySummaryDocument(text, subtitle, rows);
+    }
+    if (dto.templateId === 'category-by-month') {
+      return this.buildCategoryByMonthDocument(
+        text,
+        subtitle,
+        rows,
+        this.monthKeys(dto.dateFrom, dto.dateTo),
+      );
     }
     return this.buildExpenseByCategoryDocument(text, subtitle, rows);
   }
@@ -3335,6 +3409,105 @@ export class ReportsService {
         },
       ],
       footer: [[text.netTotal, this.round2(totalIncome - totalExpense)]],
+    };
+  }
+
+  /**
+   * Income and spending per category with a column per month, as YNAB's
+   * Income v Expense lays it out: the table people build next year's budget
+   * from. Empty months stay as zero columns so every row lines up.
+   */
+  private buildCategoryByMonthDocument(
+    text: TemplateLabels,
+    subtitle: string,
+    rows: TemplateReportRow[],
+    months: string[],
+  ): ReportDocument {
+    const column = new Map(months.map((month, index) => [month, index]));
+    const net = months.map(() => 0);
+
+    const section = (title: string, sectionRows: TemplateReportRow[], sign: 1 | -1) => {
+      const byCategory = new Map<
+        string,
+        { groupName: string; categoryName: string; perMonth: number[]; total: number }
+      >();
+      const perMonthTotal = months.map(() => 0);
+      for (const row of sectionRows) {
+        const index = column.get(row.date.slice(0, 7));
+        if (index === undefined) {
+          continue;
+        }
+        const entry = byCategory.get(row.categoryKey) ?? {
+          groupName: row.groupName,
+          categoryName: row.categoryName,
+          perMonth: months.map(() => 0),
+          total: 0,
+        };
+        entry.perMonth[index] += row.amount;
+        entry.total += row.amount;
+        byCategory.set(row.categoryKey, entry);
+        perMonthTotal[index] += row.amount;
+        net[index] += sign * row.amount;
+      }
+
+      const entries = Array.from(byCategory.values()).sort(
+        (a, b) => a.groupName.localeCompare(b.groupName) || b.total - a.total,
+      );
+      const sectionTotal = perMonthTotal.reduce((sum, value) => sum + value, 0);
+      return {
+        title,
+        columns: [text.group, text.category, ...months, text.totalColumn, text.averagePerMonth],
+        rows: entries.map(entry => [
+          entry.groupName,
+          entry.categoryName,
+          ...entry.perMonth.map(value => this.round2(value)),
+          this.round2(entry.total),
+          this.round2(entry.total / months.length),
+        ]),
+        total: [
+          text.total,
+          '',
+          ...perMonthTotal.map(value => this.round2(value)),
+          this.round2(sectionTotal),
+          this.round2(sectionTotal / months.length),
+        ],
+      };
+    };
+
+    const income = section(
+      text.revenue,
+      rows.filter(row => row.isIncome),
+      1,
+    );
+    const expenses = section(
+      text.expenses,
+      rows.filter(row => !row.isIncome),
+      -1,
+    );
+    const netTotal = net.reduce((sum, value) => sum + value, 0);
+
+    return {
+      title: text.titleCategoryByMonth,
+      subtitle,
+      orientation: 'landscape',
+      sections: [
+        income,
+        expenses,
+        {
+          title: text.net,
+          columns: ['', '', ...months, text.totalColumn, text.averagePerMonth],
+          rows: [
+            [
+              text.netTotal,
+              '',
+              ...net.map(value => this.round2(value)),
+              this.round2(netTotal),
+              this.round2(netTotal / months.length),
+            ],
+          ],
+        },
+      ],
+      footer: [[text.netTotal, this.round2(netTotal)]],
     };
   }
 

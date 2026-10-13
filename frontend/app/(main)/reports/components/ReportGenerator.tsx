@@ -96,10 +96,10 @@ export function ReportGenerator({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const showGroupBy = template.id === 'cash-flow';
-  // The balance sheet is a snapshot of accounts, not a transaction query.
-  const showScopeFilters = template.id !== 'balance-sheet';
-  const canPreview = template.id !== 'balance-sheet';
+  const showGroupBy = template.groupBy === true;
+  const showScopeFilters = template.scopeFilters !== false;
+  const canPreview = template.preview !== false;
+  const showPeriod = template.period !== 'none';
 
   const applyPreset = (preset: PeriodPreset): void => {
     const [from, to] = presetRangeValues(preset);
@@ -176,6 +176,14 @@ export function ReportGenerator({
           <Typography variant="body2" sx={{ mt: 0.25, color: 'var(--muted-foreground)' }}>
             {template.description}
           </Typography>
+          {template.hint && (
+            <Typography
+              variant="caption"
+              sx={{ display: 'block', mt: 0.5, color: 'var(--muted-foreground)' }}
+            >
+              {template.hint}
+            </Typography>
+          )}
         </Box>
         <button
           type="button"
@@ -192,18 +200,23 @@ export function ReportGenerator({
         </button>
       </Box>
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }} data-tour-id="reports-presets">
-        {PERIOD_PRESETS.map(preset => (
-          <button
-            key={preset.labelKey}
-            type="button"
-            onClick={() => applyPreset(preset)}
-            style={pillStyle(false)}
-          >
-            {text(preset.labelKey, preset.fallback)}
-          </button>
-        ))}
-      </Box>
+      {showPeriod && (
+        <Box
+          sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}
+          data-tour-id="reports-presets"
+        >
+          {PERIOD_PRESETS.map(preset => (
+            <button
+              key={preset.labelKey}
+              type="button"
+              onClick={() => applyPreset(preset)}
+              style={pillStyle(false)}
+            >
+              {text(preset.labelKey, preset.fallback)}
+            </button>
+          ))}
+        </Box>
+      )}
 
       <Box
         sx={{
@@ -213,13 +226,20 @@ export function ReportGenerator({
           mb: 2.5,
         }}
       >
-        <CustomDatePicker
-          label={text('dateFrom', 'Date from')}
-          value={dateFrom}
-          onChange={setDateFrom}
-        />
-
-        <CustomDatePicker label={text('dateTo', 'Date to')} value={dateTo} onChange={setDateTo} />
+        {showPeriod && (
+          <>
+            <CustomDatePicker
+              label={text('dateFrom', 'Date from')}
+              value={dateFrom}
+              onChange={setDateFrom}
+            />
+            <CustomDatePicker
+              label={text('dateTo', 'Date to')}
+              value={dateTo}
+              onChange={setDateTo}
+            />
+          </>
+        )}
 
         {/* Format */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>

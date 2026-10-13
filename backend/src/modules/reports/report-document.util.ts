@@ -31,6 +31,8 @@ export interface ReportDocument {
    * the figures, not after them.
    */
   notes?: string[];
+  /** PDF page orientation; a table with a column per month needs landscape. */
+  orientation?: 'portrait' | 'landscape';
   /** Emphasised lines below all sections (e.g. NET INCOME). */
   footer?: ReportCell[][];
 }
@@ -119,9 +121,49 @@ function toGridRows(doc: ReportDocument): ReportCell[][] {
   return rows.map(row => row.map(neutralizeSpreadsheetFormulaCell) as ReportCell[]);
 }
 
+/** Widest cell of each column, in characters, so a sheet opens readable. */
+function columnWidths(rows: ReportCell[][]): Array<{ wch: number }> {
+  const widths: number[] = [];
+  // The title, subtitle and notes are single long cells that spill over
+  // neighbours anyway; sizing column A by them would make it absurdly wide.
+  const tableRows = rows.filter(row => row.length > 1);
+  for (const row of tableRows) {
+    row.forEach((cell, index) => {
+      widths[index] = Math.max(widths[index] ?? 8, Math.min(String(cell).length + 2, 50));
+    });
+  }
+  return widths.map(wch => ({ wch }));
+}
+
+/**
+ * Two decimals for every number in a column that holds money, i.e. any
+ * fractional value; a column of counts keeps plain integers.
+ */
+function formatMoneyColumns(sheet: xlsx.WorkSheet, rows: ReportCell[][]): void {
+  const moneyColumns = new Set<number>();
+  for (const row of rows) {
+    row.forEach((cell, index) => {
+      if (typeof cell === 'number' && !Number.isInteger(cell)) {
+        moneyColumns.add(index);
+      }
+    });
+  }
+  rows.forEach((row, rowIndex) => {
+    for (const columnIndex of moneyColumns) {
+      const cell = sheet[xlsx.utils.encode_cell({ r: rowIndex, c: columnIndex })];
+      if (cell && typeof row[columnIndex] === 'number') {
+        cell.z = '#,##0.00';
+      }
+    }
+  });
+}
+
 function writeExcel(doc: ReportDocument, filePath: string): void {
   const workbook = xlsx.utils.book_new();
-  const sheet = xlsx.utils.aoa_to_sheet(toGridRows(doc));
+  const rows = toGridRows(doc);
+  const sheet = xlsx.utils.aoa_to_sheet(rows);
+  sheet['!cols'] = columnWidths(rows);
+  formatMoneyColumns(sheet, rows);
   // Sheet names are capped at 31 chars by the format and reject []:*?/\
   const sheetName = doc.title.replace(/[[\]:*?/\\]/g, '').slice(0, 31) || 'Report';
   xlsx.utils.book_append_sheet(workbook, sheet, sheetName);
@@ -136,14 +178,26 @@ function writeCsv(doc: ReportDocument, filePath: string): void {
   fs.writeFileSync(filePath, `\uFEFF${content}`, 'utf-8');
 }
 
+/** A table wider than this prints smaller so its columns fit the page. */
+const WIDE_TABLE_COLUMNS = 8;
+
 function toPdfSection(section: ReportSection): unknown[] {
+  // Numbers line up on the right, words on the left; a header follows its
+  // column, judged by the first row.
+  const numericColumn = section.columns.map(
+    (_column, index) => typeof (section.rows[0] ?? section.total ?? [])[index] === 'number',
+  );
+  const alignment = (cell: ReportCell, index: number) =>
+    typeof cell === 'number' ? 'right' : index === 0 || !numericColumn[index] ? 'left' : 'right';
+
   const body = [
-    section.columns.map(text => ({ text, style: 'th' })),
+    section.columns.map((text, index) => ({
+      text,
+      style: 'th',
+      alignment: numericColumn[index] ? 'right' : 'left',
+    })),
     ...section.rows.map(row =>
-      row.map((cell, index) => ({
-        text: String(cell),
-        alignment: index === 0 ? 'left' : 'right',
-      })),
+      row.map((cell, index) => ({ text: String(cell), alignment: alignment(cell, index) })),
     ),
   ];
 
@@ -152,12 +206,13 @@ function toPdfSection(section: ReportSection): unknown[] {
       section.total.map((cell, index) => ({
         text: String(cell),
         bold: true,
-        alignment: index === 0 ? 'left' : 'right',
+        alignment: alignment(cell, index),
       })),
     );
   }
 
   const widths = section.columns.map((_column, index) => (index === 0 ? '*' : 'auto'));
+  const wide = section.columns.length > WIDE_TABLE_COLUMNS;
 
   return [
     ...(section.title ? [{ text: section.title, style: 'sectionTitle' }] : []),
@@ -165,6 +220,7 @@ function toPdfSection(section: ReportSection): unknown[] {
       table: { headerRows: 1, widths, body },
       layout: 'lightHorizontalLines',
       margin: [0, 0, 0, 14],
+      ...(wide ? { fontSize: 7 } : {}),
     },
   ];
 }
@@ -174,6 +230,7 @@ async function writePdf(doc: ReportDocument, filePath: string): Promise<void> {
 
   const docDefinition = {
     pageSize: 'A4',
+    pageOrientation: doc.orientation ?? 'portrait',
     pageMargins: [24, 28, 24, 28],
     content: [
       { text: doc.title, style: 'title' },
@@ -187,7 +244,7 @@ async function writePdf(doc: ReportDocument, filePath: string): Promise<void> {
       subtitle: { fontSize: 9, color: '#6b7280', margin: [0, 2, 0, 16] },
       note: { fontSize: 9, color: '#b45309', margin: [0, 0, 0, 10] },
       sectionTitle: { bold: true, fontSize: 11, margin: [0, 6, 0, 6] },
-      th: { bold: true, fontSize: 9, color: '#374151' },
+      th: { bold: true, color: '#374151' },
       footerLine: { bold: true, fontSize: 11, margin: [0, 4, 0, 0] },
     },
     defaultStyle: { font: 'Roboto', fontSize: 9 },

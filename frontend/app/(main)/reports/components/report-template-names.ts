@@ -13,4 +13,7 @@ export const TEMPLATE_NAME_KEYS: Record<string, string> = {
   'expense-by-category': 'templateExpenseByCategoryName',
   'transaction-register': 'templateTransactionRegisterName',
   'monthly-summary': 'templateMonthlySummaryName',
+  'category-by-month': 'templateCategoryByMonthName',
+  'budget-vs-actual': 'templateBudgetVsActualName',
+  'investment-holdings': 'templateInvestmentHoldingsName',
 };

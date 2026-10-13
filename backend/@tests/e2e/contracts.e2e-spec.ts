@@ -1585,6 +1585,28 @@ describe('API contracts (e2e)', () => {
           }).expect(succeeded)
         ).body,
       );
+      // The three newer templates go through other builders, so each is read
+      // through the contract too, in a language other than English.
+      for (const templateId of ['category-by-month', 'budget-vs-actual', 'investment-holdings']) {
+        matches(
+          ReportPreview,
+          (
+            await call('post', '/reports/preview', {
+              templateId,
+              dateFrom: '2026-01-01',
+              dateTo: '2026-12-31',
+              format: 'pdf',
+              locale: 'de',
+            }).expect(succeeded)
+          ).body,
+        );
+        await call('post', '/reports/generate', {
+          templateId,
+          dateFrom: '2026-01-01',
+          dateTo: '2026-12-31',
+          format: 'pdf',
+        }).expect(succeeded);
+      }
       matches(
         SourcePreview,
         (await call('post', '/custom-tables/source-preview', { kind: 'transactions' }).expect(succeeded)).body,
