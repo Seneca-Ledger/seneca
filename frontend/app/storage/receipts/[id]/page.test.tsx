@@ -555,6 +555,43 @@ describe('ReceiptDocumentPage', () => {
     expect(routerMocks.push).toHaveBeenCalledWith('/statements/submit');
   });
 
+  it('shows an approved receipt as approved instead of offering to approve it again', async () => {
+    apiMocks.mockApiGet.mockImplementation((url: string) => {
+      if (url === '/receipts/receipt-1') {
+        return Promise.resolve({
+          data: {
+            id: 'receipt-1',
+            subject: 'Magnum receipt',
+            sender: 'camera-scan',
+            source: 'scan',
+            status: 'approved',
+            transactionId: 'tx-1',
+            receivedAt: '2026-03-29T10:30:00.000Z',
+            metadata: {},
+            parsedData: { vendor: 'Magnum', amount: 15420, currency: 'KZT', date: '2026-03-29' },
+          },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    await act(async () => {
+      root.render(
+        <TestProviders>
+          <ReceiptDocumentPage />
+        </TestProviders>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const buttons = Array.from(container.querySelectorAll('button')).map(b => b.textContent);
+    expect(buttons.some(text => text?.includes('Approve receipt'))).toBe(false);
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('Approved');
+  });
+
   it('asks for the date instead of approving a receipt without one', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/receipts/receipt-1') {

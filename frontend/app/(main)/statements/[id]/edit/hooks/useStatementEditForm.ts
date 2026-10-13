@@ -25,7 +25,7 @@ export type { UseStatementEditFormReturn } from './useStatementEditFormTypes';
 export interface UseStatementEditFormOptions {
   statementId: string;
   user: { id: string } | null | undefined;
-  router: { push: (path: string) => void };
+  router: { push: (path: string) => void; replace: (path: string) => void };
   messages: {
     loadDataError: string;
     saveTransactionError: string;
@@ -73,9 +73,12 @@ export function useStatementEditForm({
         setWallets: s.setWallets,
         setMetadataForm: s.setMetadataForm,
         setError: s.setError,
+        // Replace, not push: Back must not return to the editor it just left.
+        redirect: router.replace,
       },
     );
   }, [
+    router.replace,
     statementId,
     messages.loadDataError,
     s.setLoading,

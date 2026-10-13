@@ -18,6 +18,8 @@ export type SpendOverTimeRecord = StatementFilterItem & {
   workspaceName?: string;
   merchant?: string | null;
   paymentPurpose?: string | null;
+  /** The document behind the operation, opened the way the Documents list opens it. */
+  href?: string | null;
 };
 
 export type SpendOverTimePoint = {

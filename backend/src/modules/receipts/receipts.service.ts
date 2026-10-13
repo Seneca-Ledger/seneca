@@ -175,6 +175,9 @@ export class ReceiptsService {
     if (query.status) {
       where.status = query.status;
     }
+    if (query.statementId) {
+      where.statementId = query.statementId;
+    }
 
     const [data, total] = await this.receiptRepository.findAndCount({
       where,

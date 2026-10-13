@@ -258,6 +258,17 @@ describe('ReceiptsService', () => {
     });
   });
 
+  it('finds the receipt behind a scan’s statement', async () => {
+    await service.findAll('workspace-1', { statementId: 'statement-1', limit: 1 });
+
+    expect(receiptRepository.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workspaceId: 'workspace-1', statementId: 'statement-1' },
+        take: 1,
+      }),
+    );
+  });
+
   it('resolves the picked category name for listed receipts', async () => {
     receiptRepository.findAndCount.mockResolvedValue([
       [{ id: 'receipt-1', parsedData: { categoryId: 'cat-1' } }],

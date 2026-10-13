@@ -1,4 +1,5 @@
 import { toast } from 'react-hot-toast';
+import { isReceiptDerivedStatement } from '@/app/(main)/statements/components/StatementsListView.utils';
 import apiClient, { type UncheckedResponse } from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
@@ -73,6 +74,8 @@ type LoadSetters = {
   setWallets: (v: WalletOption[]) => void;
   setMetadataForm: (v: MetaForm) => void;
   setError: (v: string) => void;
+  /** Leaves the editor for another page instead of showing it. */
+  redirect: (href: string) => void;
 };
 type LoadMessages = { loadDataError: string };
 
@@ -81,6 +84,8 @@ export async function loadStatementData(
   messages: LoadMessages,
   set: LoadSetters,
 ): Promise<void> {
+  // While leaving for the receipt the editor keeps its loader, so it never flashes empty.
+  let redirected = false;
   try {
     set.setLoading(true);
     set.setOptionsLoading(true);
@@ -92,6 +97,22 @@ export async function loadStatementData(
       apiClient.get('/branches'),
       apiClient.get('/wallets'),
     ]);
+    // A scan's statement is the receipt's internal twin, hidden in every list:
+    // its page is the receipt's. Any link that still lands here goes on there.
+    if (isReceiptDerivedStatement(statementData)) {
+      const rRes = await apiClient.get('/receipts', { params: { statementId, limit: 1 } });
+      const page = await checkContract('ReceiptListPage', rRes.data, '/receipts');
+      const receipt = page.data[0];
+      if (receipt) {
+        redirected = true;
+        set.redirect(
+          receipt.source === 'gmail'
+            ? `/storage/gmail-receipts/${receipt.id}`
+            : `/storage/receipts/${receipt.id}`,
+        );
+        return;
+      }
+    }
     set.setStatement(statementData);
     const rows = await checkContract('TransactionList', payloadOf(tRes), transactionsUrl);
     set.setTransactions(rows.map(toEditableTransaction));
@@ -102,8 +123,10 @@ export async function loadStatementData(
   } catch (err: unknown) {
     set.setError(getApiErrorMessage(err, messages.loadDataError));
   } finally {
-    set.setLoading(false);
-    set.setOptionsLoading(false);
+    if (!redirected) {
+      set.setLoading(false);
+      set.setOptionsLoading(false);
+    }
   }
 }
 
