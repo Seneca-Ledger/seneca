@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { Category } from '../../entities/category.entity';
 import { Payable, PayableDirection } from '../../entities/payable.entity';
-import { Receipt, ReceiptSource } from '../../entities/receipt.entity';
-import { Statement, StatementStatus } from '../../entities/statement.entity';
+import { Receipt } from '../../entities/receipt.entity';
+import { Statement } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
+import { documentHref, findScanReceipts } from './document-href';
 
 export type SearchResultKind = 'transaction' | 'statement' | 'payable' | 'receivable' | 'category';
 
@@ -26,39 +27,6 @@ export interface SearchResponse {
 const PER_KIND_LIMIT = 5;
 /** Shorter needles match nearly everything and make the query pointless. */
 const MIN_QUERY_LENGTH = 2;
-
-/** Statuses whose transactions are ready to inspect in the statement editor. */
-const OPENS_IN_EDITOR = new Set<string>([
-  StatementStatus.COMPLETED,
-  StatementStatus.PARSED,
-  StatementStatus.VALIDATED,
-  StatementStatus.NEEDS_REVIEW,
-]);
-
-/**
- * Where a document opens, by the same rule as a click in the Documents list:
- * a scan opens its receipt, a parsed statement its editor, anything else storage.
- */
-function documentHref(statement: Statement, scanReceipts: Map<string, Receipt>): string {
-  const receipt = scanReceipts.get(statement.id);
-  if (receipt) {
-    const base =
-      receipt.source === ReceiptSource.GMAIL ? '/storage/gmail-receipts' : '/storage/receipts';
-    return `${base}/${receipt.id}`;
-  }
-  if (OPENS_IN_EDITOR.has(statement.status)) {
-    return `/statements/${statement.id}/edit`;
-  }
-  return `/storage/${statement.id}`;
-}
-
-/** A scan uploads as a statement of its own, which the Documents list hides behind its receipt. */
-function isReceiptScanStatement(statement: Statement): boolean {
-  const details = statement.parsingDetails;
-  return (
-    details?.detectedBy === 'receipt-scan' || details?.importPreview?.source === 'receipt-scan'
-  );
-}
 
 @Injectable()
 export class SearchService {
@@ -109,7 +77,8 @@ export class SearchService {
 
     // The inner join drops rows without a statement; this only tells the compiler.
     const hits = rows.flatMap(row => (row.statement ? [{ row, statement: row.statement }] : []));
-    const receipts = await this.scanReceipts(
+    const receipts = await findScanReceipts(
+      this.receiptRepo,
       workspaceId,
       hits.map(hit => hit.statement),
     );
@@ -153,7 +122,7 @@ export class SearchService {
     workspaceId: string,
     rows: Statement[],
   ): Promise<SearchResult[]> {
-    const receipts = await this.scanReceipts(workspaceId, rows);
+    const receipts = await findScanReceipts(this.receiptRepo, workspaceId, rows);
     return rows.map(row => ({
       kind: 'statement' as const,
       id: row.id,
@@ -161,22 +130,6 @@ export class SearchService {
       subtitle: row.bankName ?? null,
       href: documentHref(row, receipts),
     }));
-  }
-
-  /** The receipts behind the scans among these statements, keyed by statement id. */
-  private async scanReceipts(
-    workspaceId: string,
-    statements: Statement[],
-  ): Promise<Map<string, Receipt>> {
-    const scanIds = statements.filter(isReceiptScanStatement).map(statement => statement.id);
-    if (scanIds.length === 0) {
-      return new Map();
-    }
-    const receipts = await this.receiptRepo.find({
-      where: { workspaceId, statementId: In(scanIds) },
-      select: { id: true, statementId: true, source: true },
-    });
-    return new Map(receipts.map(receipt => [receipt.statementId as string, receipt]));
   }
 
   private async searchPayables(workspaceId: string, needle: string): Promise<SearchResult[]> {

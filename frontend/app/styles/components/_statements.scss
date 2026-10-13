@@ -4866,6 +4866,26 @@
     display: none;
   }
 
+  // An operation opens the document behind it.
+  &__row--link {
+    cursor: pointer;
+
+    &:hover td {
+      background: var(--muted);
+    }
+  }
+
+  &__link {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--foreground);
+      text-decoration: underline;
+    }
+  }
+
   @include respond-to('md') {
     &__table {
       display: none;
@@ -4886,10 +4906,12 @@
       gap: 4px 12px;
       padding: 12px 0;
       border-bottom: 1px solid var(--border-color);
+      color: inherit;
+      text-decoration: none;
+    }
 
-      &:last-child {
-        border-bottom: 0;
-      }
+    &__list > li:last-child > &__item {
+      border-bottom: 0;
     }
 
     &__merchant {

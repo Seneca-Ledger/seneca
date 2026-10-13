@@ -1,5 +1,6 @@
 import { resolveBankLogo } from '@bank-logos';
 import type { StatementFilterItem } from '@/app/(main)/statements/components/filters/statement-filters';
+import { resolveStatementViewAction } from '@/app/(main)/statements/components/StatementsListView.utils';
 import { resolveSourceChannel } from '@/app/(main)/statements/components/shared-analytics.utils';
 import type { SpendOverTimeRecord } from '@/app/(main)/statements/components/spend-over-time.utils';
 import { resolveSpendOverTimeFlow } from '@/app/(main)/statements/components/spend-over-time.utils';
@@ -145,6 +146,9 @@ const buildTransactionSpendRecord = ({
     workspaceName: ws.workspaceName,
     merchant,
     paymentPurpose: item.paymentPurpose ?? null,
+    href: item.statementId
+      ? resolveStatementViewAction({ id: item.statementId, status: getMetaStatus(meta) ?? '' }).href
+      : null,
   };
 };
 
@@ -201,6 +205,12 @@ type GmailSpendRecordInput = {
   parsedDate: string | undefined;
 };
 
+/** A receipt's own page: Gmail ones have theirs, every other source (scan, upload…) the receipt page. */
+export const receiptHref = (receipt: Pick<GmailReceipt, 'id' | 'source'>): string =>
+  receipt.source && receipt.source !== 'gmail'
+    ? `/storage/receipts/${receipt.id}`
+    : `/storage/gmail-receipts/${receipt.id}`;
+
 const buildGmailSpendRecord = ({
   receipt,
   merchant,
@@ -243,6 +253,7 @@ const buildGmailSpendRecord = ({
     workspaceName: receipt.workspaceName,
     merchant,
     paymentPurpose: merchant,
+    href: receiptHref(receipt),
   };
 };
 

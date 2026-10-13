@@ -171,6 +171,8 @@ export const ReceiptsQuery = Schema.Struct({
   ),
   source: Schema.optional(Schema.Literals(['gmail', 'upload', 'telegram', 'scan', 'imap'])),
   categoryId: Schema.optional(Uuid),
+  /** The receipt behind a scan's statement. */
+  statementId: Schema.optional(Uuid),
   page: Schema.optional(NumericInput.check(Schema.isGreaterThanOrEqualTo(1))),
   limit: Schema.optional(between(1, 100)),
 });
