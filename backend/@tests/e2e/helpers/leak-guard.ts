@@ -18,6 +18,10 @@ const OWN_ACCOUNT_HANDLERS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ['UsersController.acceptDisclaimer', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   ['UsersController.completeOnboarding', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   ['UsersController.findAll', new Set(['lastLogin'])],
+  // A user's own profile, or anyone's to the instance admin.
+  ['UsersController.findOne', new Set(['googleId', 'lastLogin', 'telegramId', 'telegramChatId'])],
+  // The Telegram account just linked to the caller's own.
+  ['TelegramController.connect', new Set(['telegramId', 'telegramChatId'])],
 ]);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

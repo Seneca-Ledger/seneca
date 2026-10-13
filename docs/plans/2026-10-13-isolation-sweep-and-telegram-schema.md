@@ -3,6 +3,55 @@
 Research for two follow-ups to the response contracts (PR #291). Both were
 prototyped on 2026-10-13. The numbers below come from that run, not estimates.
 
+**Status: both implemented on 2026-10-13** (`feat/isolation-sweep`):
+
+- `@tests/e2e/workspace-isolation-sweep.e2e-spec.ts` with
+  `@tests/e2e/helpers/seed-workspace.ts`. Changes against the proposal below:
+  - B's seed covers 71 tables, and every text in it carries a marker, so a leak
+    shows by B's data, not only by B's ids.
+  - Bodies come from the `@SchemaBody` contract (`SCHEMA_BODY_METADATA`). The
+    first sample per route is raw. The others fill every id field with B's ids
+    and keep amounts small, so they get past validation.
+  - Paths take B's ids, and also A's own records with B's ids in the body.
+  - A new invariant: after the writes, no row of A's may point at a row of B's
+    along any foreign key, join tables included. Most of the findings below
+    were caught this way.
+  - The suite fails on a 500 only; a deliberate 502-504 is allowed, since there
+    is no network in e2e. The three no-op routes stayed as they are, so no
+    allowlist was needed.
+  - It runs in about a minute.
+- The Telegram schema: `src/modules/telegram/telegram-update.schema.ts`.
+
+Found and fixed by the sweep:
+
+- **Cross-workspace references.** Each one took another workspace's id from
+  the body without a workspace check:
+  - categorization rule test: read B's transactions;
+  - budgets, subscriptions and tax rules: took B's category;
+  - category parent;
+  - file tags: attached B's tags and returned their names;
+  - invoice lines: priced with B's tax rate.
+
+  `@tests/e2e/cross-workspace-references.e2e-spec.ts` pins each one.
+- **500s on valid-by-contract input:**
+  - `POST /branches` never set `user_id`;
+  - search backfill sorted by a column name instead of the property, so every
+    call failed;
+  - nulls in update bodies were written to NOT NULL columns;
+  - impossible dates;
+  - NUL characters and lone surrogates in text;
+  - out-of-range numbers;
+  - plain `Error`s in duplicate merge;
+  - an unresolvable SMTP host;
+  - an unknown audit entity type;
+  - missing exchange-rate and tax-return query parameters;
+  - a reversed tax-return period;
+  - a missing embedding model, now a 503.
+- **The global key-stripping interceptor (#291)** recursed into the Express
+  response that `@Res()` handlers return, and overflowed the stack.
+  `PATCH /custom-tables/:id` returned the owner's user row; it now has a
+  response contract.
+
 ## 1. Automatic workspace isolation tests
 
 ### What the existing tests cover
