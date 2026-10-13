@@ -172,7 +172,7 @@ export function FilterBar({ columns, filters, onAdd, onRemove, onClear, labels }
   return (
     <div className="lumio-ct__filters">
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         type="button"
         onClick={event => setAnchor(event.currentTarget)}

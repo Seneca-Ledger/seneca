@@ -15,7 +15,8 @@ export interface ListLabels {
     | 'newTable'
     | 'open'
     | 'delete'
-    | 'search'
+    | 'searchHint'
+    | 'apply'
     | 'sourceAll'
     | 'sourceManual'
     | 'caption'
@@ -129,7 +130,8 @@ export function buildListLabels(t: Dictionary): ListLabels {
       'newTable',
       'open',
       'delete',
-      'search',
+      'searchHint',
+      'apply',
       'sourceAll',
       'sourceManual',
       'caption',

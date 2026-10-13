@@ -112,6 +112,73 @@ describe('RollbackService', () => {
     expect(result.success).toBe(true);
   });
 
+  describe('cells that show an app record', () => {
+    const cellEvent = {
+      id: 'evt-cell',
+      entityId: 'row-1',
+      entityType: EntityType.TABLE_CELL,
+      action: AuditAction.UPDATE,
+      diff: { before: { value: 'Rent' }, after: { value: 'Travel' } },
+      meta: { cell: { column: 'c_category' } },
+    } as AuditEvent;
+
+    it('refuses to rewrite a source column of a row that came from a record', async () => {
+      (customTableRowRepository.findOne as jest.Mock).mockResolvedValue({
+        id: 'row-1',
+        tableId: 'table-1',
+        sourceKey: 'tx-1',
+        data: { c_category: 'Travel' },
+      });
+      (customTableColumnRepository.findOne as jest.Mock).mockResolvedValue({
+        key: 'c_category',
+        config: { source: { kind: 'app_field', field: 'category' } },
+      });
+
+      const result = await service.rollback(cellEvent);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/app record/);
+      expect(customTableRowRepository.update).not.toHaveBeenCalled();
+      expect(customTableColumnRepository.findOne).toHaveBeenCalledWith({
+        where: { tableId: 'table-1', key: 'c_category' },
+      });
+    });
+
+    it('still rolls back a plain column of the same row', async () => {
+      (customTableRowRepository.findOne as jest.Mock).mockResolvedValue({
+        id: 'row-1',
+        tableId: 'table-1',
+        sourceKey: 'tx-1',
+        data: { c_category: 'Travel' },
+      });
+      (customTableColumnRepository.findOne as jest.Mock).mockResolvedValue({
+        key: 'c_category',
+        config: null,
+      });
+
+      const result = await service.rollback(cellEvent);
+
+      expect(result.success).toBe(true);
+      expect(customTableRowRepository.update).toHaveBeenCalledWith('row-1', {
+        data: { c_category: 'Rent' },
+      });
+    });
+
+    it('still rolls back a hand-added row of a source table', async () => {
+      (customTableRowRepository.findOne as jest.Mock).mockResolvedValue({
+        id: 'row-1',
+        tableId: 'table-1',
+        sourceKey: null,
+        data: { c_category: 'Travel' },
+      });
+
+      const result = await service.rollback(cellEvent);
+
+      expect(result.success).toBe(true);
+      expect(customTableColumnRepository.findOne).not.toHaveBeenCalled();
+    });
+  });
+
   it('rolls back custom table delete by recreating entity', async () => {
     const event: AuditEvent = {
       id: 'evt-5',

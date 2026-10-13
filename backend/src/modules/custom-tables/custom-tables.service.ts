@@ -42,6 +42,7 @@ import type {
   PreviewCustomTableSourceBody,
   PreviewFormulaBody,
   ReorderCustomTableColumnsBody,
+  RestoredTableDefault,
   SourceFiltersInput,
   UpdateCustomTableBody,
   UpdateCustomTableColumnBody,
@@ -106,6 +107,7 @@ import {
 import { orderFormulaColumns } from './helpers/table-evaluator';
 import type { SourceAdapter, SourceFilters, SourceRow, SourceValue } from './sources/source.types';
 import { MAX_SOURCE_ROWS } from './sources/source.utils';
+import { SourceWriteBackService } from './write-back/source-write-back.service';
 
 type DataEntryFieldKey = 'date' | 'type' | 'amount' | 'currency' | 'note';
 type JsonObject = Record<string, unknown>;
@@ -190,6 +192,8 @@ export class CustomTablesService {
     @Optional() private readonly workspaceCurrency?: WorkspaceCurrencyService,
     // Optional: converted rows are assessed when the tax module is wired in.
     @Optional() private readonly taxAssignmentService?: TaxAssignmentService,
+    // Optional: cells of tables filled from app data write back through it.
+    @Optional() private readonly sourceWriteBack?: SourceWriteBackService,
   ) {}
 
   private getDriverErrorCode(error: unknown): string | undefined {
@@ -1561,6 +1565,138 @@ export class CustomTablesService {
       throw new BadRequestException(appError('SOURCE_KIND_UNKNOWN'));
     }
     return this.customTableSources;
+  }
+
+  /**
+   * "Restore to default" of a table filled from app data. First every app
+   * record change made from the table is undone (fields changed in the app since
+   * are left alone), then the table becomes a fresh copy of its source: columns
+   * and rows added by hand, styles, formulas, summaries and view settings go;
+   * the source columns get their original type, options and order back (their
+   * titles stay); rows of records that no longer exist go too.
+   *
+   * Idempotent: a second run finds nothing journaled and a table already at default.
+   */
+  async restoreDefault(
+    userId: string,
+    workspaceId: string,
+    tableId: string,
+  ): Promise<RestoredTableDefault> {
+    await this.ensureCanEditCustomTables(userId, workspaceId);
+    const table = await this.requireTable(workspaceId, tableId);
+    const binding = table.sourceBinding;
+    if (!(binding?.kind && this.sourceWriteBack)) {
+      throw new BadRequestException(appError('TABLE_NOT_LINKED_TO_SOURCE'));
+    }
+    const adapter = this.requireSources().get(binding.kind);
+
+    const report = await this.sourceWriteBack.revertTable({ userId, workspaceId, table });
+    const sourceRows = await this.fetchSourceRows(
+      adapter,
+      workspaceId,
+      binding.filters as SourceFilters,
+    );
+    const liveKeys = sourceRows.map(row => row.sourceKey);
+
+    const columns = await this.customTableRepository.manager.transaction(async manager => {
+      const columnRepo = manager.getRepository(CustomTableColumn);
+      const rowRepo = manager.getRepository(CustomTableRow);
+      const existing = await columnRepo.find({ where: { tableId } });
+      const byField = new Map<string, CustomTableColumn>();
+      const extra: CustomTableColumn[] = [];
+      for (const column of existing) {
+        const field = this.getColumnSourceConfig(column.config);
+        const known =
+          field?.kind === 'app_field' &&
+          field.field &&
+          adapter.columns.some(def => def.field === field.field) &&
+          !byField.has(field.field);
+        if (known && field?.field) {
+          byField.set(field.field, column);
+        } else {
+          extra.push(column);
+        }
+      }
+      const currency = existing
+        .map(column => (column.config as { currency?: unknown } | null)?.currency)
+        .find((value): value is string => typeof value === 'string' && value.length === 3);
+
+      if (extra.length) {
+        await columnRepo.delete(extra.map(column => column.id));
+      }
+      const kept = adapter.columns.map((def, position) => {
+        const column =
+          byField.get(def.field) ??
+          columnRepo.create({ tableId, key: this.generateColumnKey(), title: def.title });
+        column.type = def.type;
+        column.isRequired = false;
+        column.isUnique = false;
+        column.position = position;
+        column.config = {
+          ...(def.config ?? {}),
+          ...(def.money ? { precision: 2, ...(currency ? { currency } : {}) } : {}),
+          source: { kind: 'app_field', field: def.field },
+        };
+        return column;
+      });
+      const saved = await columnRepo.save(kept);
+
+      // Rows typed by hand, and rows whose record is gone (all of them when the
+      // source has no records left).
+      const rowDelete = rowRepo
+        .createQueryBuilder()
+        .delete()
+        .where('table_id = :tableId', { tableId });
+      if (liveKeys.length) {
+        rowDelete.andWhere('(source_key IS NULL OR source_key NOT IN (:...liveKeys))', {
+          liveKeys,
+        });
+      }
+      await rowDelete.execute();
+      // What the remaining rows hold beyond the record goes with them: the
+      // source values are written back in full below.
+      await rowRepo
+        .createQueryBuilder()
+        .update()
+        .set({ data: {}, styles: {}, computed: {} })
+        .where('table_id = :tableId', { tableId })
+        .execute();
+      await manager.getRepository(CustomTableColumnStyle).delete({ tableId });
+      await manager
+        .createQueryBuilder()
+        .delete()
+        .from(CustomTableCellStyle)
+        .where('row_id IN (SELECT id FROM custom_table_rows WHERE table_id = :tableId)', {
+          tableId,
+        })
+        .execute();
+      await manager.getRepository(CustomTable).update({ id: tableId }, { viewSettings: {} });
+      return saved;
+    });
+
+    const applied = await this.applySourceRows({
+      userId,
+      workspaceId,
+      table,
+      columns,
+      sourceRows,
+    });
+    await this.logEvent({
+      userId,
+      workspaceId,
+      entityType: EntityType.CUSTOM_TABLE,
+      entityId: tableId,
+      action: AuditAction.ROLLBACK,
+      meta: {
+        restoredDefault: true,
+        reverted: report.reverted,
+        skippedChanged: report.skippedChanged,
+        failed: report.failed.length,
+        rows: applied.total,
+      },
+      isUndoable: false,
+    });
+    return { tableId, ...report, rows: applied.total };
   }
 
   private async fetchSourceRows(
@@ -3577,7 +3713,7 @@ export class CustomTablesService {
       columns.forEach((col, index) => {
         const aggregate = viewColumns[col.key]?.aggregate;
         const fn = aggregate ? FN[aggregate] : undefined;
-        if (!aggregate || !fn) {
+        if (!(aggregate && fn)) {
           return;
         }
         const letter = xlsx.utils.encode_col(index);
@@ -4316,7 +4452,7 @@ export class CustomTablesService {
     dto: UpdateCustomTableRowBody,
   ): Promise<CustomTableRow> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
-    await this.requireTable(workspaceId, tableId);
+    const table = await this.requireTable(workspaceId, tableId);
     if (!this.isUuid(rowId)) {
       throw new BadRequestException(appError('ROW_ID_INVALID'));
     }
@@ -4333,16 +4469,33 @@ export class CustomTablesService {
     }
 
     const allowedKeys = await this.getAllowedColumnKeys(tableId);
-    const patch = this.sanitizeRowData(dto.data, allowedKeys);
-    await this.validateRowsAgainstColumns(tableId, [patch], {
-      excludeRowId: rowId,
-      partial: true,
-    });
+    let patch = this.sanitizeRowData(dto.data, allowedKeys);
+    const writeBack = await this.writeBackAppFields(userId, workspaceId, table, row, patch);
+    if (writeBack) {
+      // The row shows the app record: its app cells take what the app now holds,
+      // also when the app refused — then nothing else of this edit is saved.
+      patch = writeBack.error ? writeBack.values : { ...patch, ...writeBack.values };
+    }
+    if (!writeBack?.error) {
+      await this.validateRowsAgainstColumns(tableId, [patch], {
+        excludeRowId: rowId,
+        partial: true,
+      });
+    }
     const beforeData = { ...(row.data || {}) };
     const beforeStyles = row.styles ? { ...row.styles } : null;
     row.data = { ...(row.data || {}), ...patch };
-    if (dto.styles && typeof dto.styles === 'object') {
+    if (dto.styles && typeof dto.styles === 'object' && !writeBack?.error) {
       row.styles = { ...(row.styles || {}), ...dto.styles };
+    }
+
+    if (writeBack?.error) {
+      try {
+        await this.customTableRowRepository.save(row);
+      } catch (error) {
+        this.throwHelpfulSchemaError(error);
+      }
+      throw writeBack.error;
     }
 
     let saved: CustomTableRow;
@@ -4351,7 +4504,9 @@ export class CustomTablesService {
     } catch (error) {
       this.throwHelpfulSchemaError(error);
     }
-    const patchKeys = Object.keys(patch || {});
+    const patchKeys = Object.keys(patch || {}).filter(
+      key => !this.sameCellValue(beforeData?.[key] ?? null, (patch[key] ?? null) as SourceValue),
+    );
     const batchId = patchKeys.length > 1 ? randomUUID() : null;
 
     for (const key of patchKeys) {
@@ -4372,6 +4527,9 @@ export class CustomTablesService {
           cell: { column: key },
         },
         batchId,
+        // Undo of an app cell would rewrite the table and leave the record as it
+        // is; the record's own event is the one to undo.
+        ...(writeBack && key in writeBack.values ? { isUndoable: false } : {}),
       });
     }
 
@@ -4400,6 +4558,55 @@ export class CustomTablesService {
       await this.customTableColumnRepository.find({ where: { tableId } }),
     );
     return saved;
+  }
+
+  /**
+   * Sends the patch's cells that show an app record (source columns of a table
+   * filled from app data, on a row that came from a record) to that record.
+   * Returns the record's values for every source column of the row, keyed by
+   * column, and the app's refusal if there was one; null when nothing applies.
+   */
+  private async writeBackAppFields(
+    userId: string,
+    workspaceId: string,
+    table: CustomTable,
+    row: CustomTableRow,
+    patch: Record<string, unknown>,
+  ): Promise<{ values: Record<string, unknown>; error: unknown | null } | null> {
+    if (!(this.sourceWriteBack && table.sourceBinding?.kind && row.sourceKey)) {
+      return null;
+    }
+    const columns = await this.customTableColumnRepository.find({ where: { tableId: table.id } });
+    const keyByField = new Map<string, string>();
+    for (const column of columns) {
+      const source = this.getColumnSourceConfig(column.config);
+      if (source?.kind === 'app_field' && source.field) {
+        keyByField.set(source.field, column.key);
+      }
+    }
+    const changes: Record<string, unknown> = {};
+    for (const [field, key] of keyByField) {
+      if (key in patch) {
+        changes[field] = patch[key];
+      }
+    }
+    if (!Object.keys(changes).length) {
+      return null;
+    }
+    const result = await this.sourceWriteBack.apply({
+      userId,
+      workspaceId,
+      table,
+      sourceKey: row.sourceKey,
+      changes,
+    });
+    const values: Record<string, unknown> = {};
+    for (const [field, key] of keyByField) {
+      if (field in result.values) {
+        values[key] = result.values[field] ?? null;
+      }
+    }
+    return { values, error: result.error };
   }
 
   async removeRow(

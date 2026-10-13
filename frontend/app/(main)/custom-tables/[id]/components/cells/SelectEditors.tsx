@@ -6,23 +6,18 @@ import { Check } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import type { SelectOptionDef } from '../../utils/types';
 
-const hexToRgba = (hex: string, alpha: number): string => {
-  const clean = hex.replace('#', '').slice(0, 6);
-  const n = Number.parseInt(clean.length === 3 ? clean.replace(/(.)/g, '$1$1') : clean, 16);
-  if (Number.isNaN(n)) {
-    return `rgba(107, 114, 128, ${alpha})`;
-  }
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-};
-
-/** Status pill: option colour at low alpha behind text in the colour itself. */
+/** Status label: a dot in the option colour before neutral text. */
 export function OptionChip({ option }: { option: SelectOptionDef }) {
-  const style = option.color
-    ? { backgroundColor: hexToRgba(option.color, 0.16), color: option.color }
-    : undefined;
   return (
-    <span className="lumio-ct__chip" style={style} data-option-value={option.value}>
-      {option.label ?? option.value}
+    <span className="lumio-ct__chip" data-option-value={option.value}>
+      {option.color ? (
+        <span
+          className="lumio-ct__chip-dot"
+          style={{ backgroundColor: option.color }}
+          aria-hidden
+        />
+      ) : null}
+      <span className="lumio-ct__chip-text">{option.label ?? option.value}</span>
     </span>
   );
 }

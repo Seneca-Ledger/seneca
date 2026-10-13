@@ -2,7 +2,7 @@
 
 import { Skeleton } from '@mui/material';
 import { useParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import { DataGridSkeleton } from '@/app/components/data-grid';
 import { ImportSuggestionBanner } from '@/app/components/import-wizard/ImportSuggestionBanner';
@@ -13,7 +13,7 @@ import { FilterBar } from './components/FilterBar';
 import { GroupSummary } from './components/GroupSummary';
 import { ImportPreviewDialog } from './components/ImportPreviewDialog';
 import { SendToStatementsDialog } from './components/SendToStatementsDialog';
-import { SummariesBar } from './components/SummariesBar';
+import { SummariesBar, type SummaryDraft } from './components/SummariesBar';
 import { ROW_HEIGHT, TableGrid } from './components/TableGrid';
 import { TablePageHeader } from './components/TablePageHeader';
 import { TableToolbar } from './components/TableToolbar';
@@ -26,11 +26,13 @@ function LoadingSkeleton({ rows }: { rows: number }) {
   return (
     <div className="lumio-ct" aria-busy>
       <div className="lumio-ct__header">
-        <Skeleton variant="text" width={64} height={24} />
-        <Skeleton variant="text" width={240} height={36} />
-        <Skeleton variant="text" width={160} height={22} />
+        <Skeleton variant="circular" width={32} height={32} />
+        <div className="lumio-ct__title-row">
+          <Skeleton variant="text" width={240} height={36} />
+          <Skeleton variant="text" width={160} height={22} />
+        </div>
+        <Skeleton variant="rounded" width={360} height={36} />
       </div>
-      <Skeleton variant="rounded" height={36} />
       <DataGridSkeleton
         rows={rows}
         columns={SKELETON_COLUMNS}
@@ -95,53 +97,73 @@ function Dialogs({ state }: { state: CustomTablePageState }) {
         cancelText={deleteLabels.cancel}
         isDestructive
       />
+      <ConfirmModal
+        isOpen={state.restoreOpen}
+        onClose={() => state.setRestoreOpen(false)}
+        onConfirm={() => void state.runRestoreDefault()}
+        title={labels.restore.title}
+        message={labels.restore.message}
+        confirmText={labels.restore.confirm}
+        cancelText={labels.restore.cancel}
+        isDestructive
+        isLoading={state.restoring}
+        manualClose
+      />
     </>
   );
 }
 
 function TablePage({ state, skeletonRows }: { state: CustomTablePageState; skeletonRows: number }) {
   const { labels, data, columns, filters, grid, groups } = state;
+  const [summaryDraft, setSummaryDraft] = useState<SummaryDraft | null>(null);
+  const [newRowId, setNewRowId] = useState<string | null>(null);
+  const addRow = () => setNewRowId(state.mutations.createRow()?.id ?? null);
   const table = data.table;
   if (!table) {
     return null;
   }
   const groupColumn = state.groupBy ? columns.find(c => c.key === state.groupBy) : undefined;
   return (
-    <div className="lumio-ct">
+    <div className="lumio-ct lumio-ct--fill">
       <TablePageHeader
         table={table}
         total={grid.total}
         onBack={() => state.router.push('/custom-tables')}
         onRename={state.rename}
         labels={labels.header}
-      />
-      <TableToolbar
-        columns={columns}
-        columnVisibility={state.columnVisibility}
-        onColumnVisibilityChange={state.setColumnVisibility}
-        searchQuery={filters.searchQuery}
-        onSearchChange={filters.setSearchQuery}
-        groupBy={state.groupBy}
-        onGroupByChange={state.setGroupBy}
-        selectedCount={state.selectedIds.length}
-        exporting={state.exporting}
-        onAddRow={() => state.mutations.createRow()}
-        onAddColumn={state.columnEditor.openAdd}
-        onImportFile={file => void state.paste.startFileImport(file)}
-        onExport={format => void state.exportView(format)}
-        onSendToStatements={() => state.setConvert({ open: true, busy: false, result: null })}
-        onRefreshSource={table.sourceBinding ? () => void state.runRefreshSource() : undefined}
-        refreshing={state.refreshing}
-        onDeleteSelected={() => state.setPendingDelete({ kind: 'rows' })}
-        labels={labels.toolbar}
-        filters={
-          <FilterBar
+        actions={
+          <TableToolbar
             columns={columns}
-            filters={filters.filters}
-            onAdd={filters.addFilter}
-            onRemove={filters.removeFilter}
-            onClear={filters.clearFilters}
-            labels={labels.filters}
+            columnVisibility={state.columnVisibility}
+            onColumnVisibilityChange={state.setColumnVisibility}
+            searchQuery={filters.searchQuery}
+            onSearchChange={filters.setSearchQuery}
+            groupBy={state.groupBy}
+            onGroupByChange={state.setGroupBy}
+            selectedCount={state.selectedIds.length}
+            exporting={state.exporting}
+            onAddRow={addRow}
+            onAddColumn={state.columnEditor.openAdd}
+            onAddSummary={() => setSummaryDraft({ title: '', expression: '' })}
+            onImportFile={file => void state.paste.startFileImport(file)}
+            onExport={format => void state.exportView(format)}
+            onSendToStatements={() => state.setConvert({ open: true, busy: false, result: null })}
+            onRefreshSource={table.sourceBinding ? () => void state.runRefreshSource() : undefined}
+            refreshing={state.refreshing}
+            onDeleteSelected={() => state.setPendingDelete({ kind: 'rows' })}
+            onClearSelection={() => state.setRowSelection({})}
+            onRestoreDefault={table.sourceBinding ? () => state.setRestoreOpen(true) : undefined}
+            labels={labels.toolbar}
+            filters={
+              <FilterBar
+                columns={columns}
+                filters={filters.filters}
+                onAdd={filters.addFilter}
+                onRemove={filters.removeFilter}
+                onClear={filters.clearFilters}
+                labels={labels.filters}
+              />
+            }
           />
         }
       />
@@ -163,6 +185,7 @@ function TablePage({ state, skeletonRows }: { state: CustomTablePageState; skele
         skeletonRows={skeletonRows}
         hasMore={grid.hasMore}
         fallbackCurrency={state.defaultCurrency}
+        sourceKind={table.sourceBinding?.kind ?? null}
         sorting={state.sorting}
         onSortingChange={state.setSorting}
         rowSelection={state.rowSelection}
@@ -173,7 +196,8 @@ function TablePage({ state, skeletonRows }: { state: CustomTablePageState; skele
         aggregateValues={state.aggregateValues}
         onAggregateChange={state.setAggregate}
         onUpdateCell={state.mutations.updateCell}
-        onAddRow={() => state.mutations.createRow()}
+        onAddRow={addRow}
+        revealRowId={newRowId}
         onLoadMore={() => void grid.loadRows()}
         onEditColumn={state.columnEditor.openEdit}
         onDeleteColumn={column => state.setPendingDelete({ kind: 'column', column })}
@@ -186,6 +210,8 @@ function TablePage({ state, skeletonRows }: { state: CustomTablePageState; skele
         saving={state.summaries.saving}
         onUpsert={state.summaries.upsert}
         onRemove={state.summaries.remove}
+        draft={summaryDraft}
+        onDraftChange={setSummaryDraft}
         labels={labels.summaries}
       />
       <Dialogs state={state} />

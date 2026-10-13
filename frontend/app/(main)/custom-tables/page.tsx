@@ -3,9 +3,10 @@
 import { Skeleton } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { StatementsSearchPopover } from '@/app/(main)/statements/components/filters/StatementsSearchPopover';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import { DataGrid, type GridColumnDef, useDataGrid } from '@/app/components/data-grid';
-import { ExternalLink, Search, Trash2 } from '@/app/components/icons';
+import { ExternalLink, Plus, Trash2 } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { AppPagination } from '@/app/components/ui/pagination';
@@ -165,20 +166,16 @@ export default function CustomTablesPage() {
   return (
     <div className="lumio-ct">
       <div className="lumio-ct__toolbar">
-        <label className="lumio-ct__search" data-tour-id="search-bar">
-          <Search size={16} aria-hidden className="lumio-ct__search-icon" />
-          <input
-            type="search"
-            className="lumio-ct__search-input"
-            placeholder={labels.actions.search}
-            aria-label={labels.actions.search}
+        <span data-tour-id="search-bar">
+          <StatementsSearchPopover
             value={list.searchQuery}
-            onChange={event => list.setSearchQuery(event.target.value)}
+            onApply={list.setSearchQuery}
+            applyLabel={labels.actions.apply}
+            hint={labels.actions.searchHint}
           />
-        </label>
+        </span>
         <div className="lumio-ct__actions">
           <Select
-            size="small"
             data-tour-id="custom-tables-source-filter"
             inputProps={{ 'aria-label': labels.columns.source }}
             value={list.sourceFilter}
@@ -194,6 +191,7 @@ export default function CustomTablesPage() {
             data-tour-id="custom-tables-create-export"
             onClick={() => create.setOpen(true)}
           >
+            <Plus size={18} aria-hidden />
             {labels.actions.newTable}
           </Button>
         </div>
@@ -212,6 +210,7 @@ export default function CustomTablesPage() {
               description={labels.empty.description}
               action={
                 <Button size="sm" type="button" onClick={() => create.setOpen(true)}>
+                  <Plus size={18} aria-hidden />
                   {labels.actions.newTable}
                 </Button>
               }

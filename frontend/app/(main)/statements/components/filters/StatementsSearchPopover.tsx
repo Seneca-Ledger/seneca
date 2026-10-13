@@ -15,6 +15,8 @@ type Props = {
   value: string;
   onApply: (value: string) => void;
   applyLabel: string;
+  /** What the term is matched against; defaults to the Documents wording. */
+  hint?: string;
 };
 
 /**
@@ -22,7 +24,12 @@ type Props = {
  * for one term. Like the other toolbar filters, the term takes effect on Apply
  * (or Enter), not on every keystroke.
  */
-export function StatementsSearchPopover({ value, onApply, applyLabel }: Props): React.JSX.Element {
+export function StatementsSearchPopover({
+  value,
+  onApply,
+  applyLabel,
+  hint,
+}: Props): React.JSX.Element {
   const t = useIntlayer('statementFilterControls');
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -116,7 +123,7 @@ export function StatementsSearchPopover({ value, onApply, applyLabel }: Props): 
                 color: 'var(--muted-foreground)',
               }}
             >
-              {t.searchHint.value}
+              {hint ?? t.searchHint.value}
             </p>
           </div>
           <div

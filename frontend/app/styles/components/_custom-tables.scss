@@ -11,22 +11,41 @@
     padding: var(--lumio-page-top, #{$lumio-space-3}) $lumio-space-3 $lumio-space-5;
   }
 
+  // A table page: the grid runs to the bottom edge of the window.
+  &--fill {
+    padding-bottom: 0;
+  }
+
   // ---- header -------------------------------------------------------------
+  // One band above the grid: back arrow, title with its meta line, and the
+  // toolbar on the right. Narrow screens drop the toolbar to its own line.
   &__header {
     display: flex;
-    flex-direction: column;
-    gap: $lumio-space-2;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $lumio-space-2 $lumio-space-3;
   }
 
   &__back {
-    align-self: flex-start;
+    flex: none;
     margin-left: -$lumio-space-2;
   }
 
   &__title-row {
     display: flex;
+    flex: 1 1 240px;
     flex-direction: column;
     gap: $lumio-space-1;
+    min-width: 0;
+  }
+
+  &__header > &__toolbar {
+    flex: 0 1 auto;
+    margin-left: auto;
+
+    @include respond-to('md') {
+      flex-basis: 100%;
+    }
   }
 
   &__title {
@@ -44,9 +63,18 @@
     }
   }
 
+  // The pencil shows up only where the pointer or keyboard already is.
   &__title-edit {
     display: inline-flex;
     padding: 4px;
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    .lumio-ct__title:hover &,
+    &:focus-visible {
+      opacity: 1;
+    }
+
     border: 0;
     border-radius: $lumio-radius-xs;
     background: none;
@@ -89,13 +117,18 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: $lumio-space-3;
+    gap: $lumio-space-2;
     margin: 0;
     font-size: $lumio-font-size-sm;
     color: $lumio-color-ink-500;
 
     @include dark {
       color: $lumio-color-ink-500-dk;
+    }
+
+    > span + span::before {
+      content: '·';
+      margin-right: $lumio-space-2;
     }
   }
 
@@ -150,22 +183,6 @@
     gap: $lumio-space-2;
   }
 
-  &__search {
-    position: relative;
-    display: flex;
-    align-items: center;
-    flex: 1 1 240px;
-    max-width: 360px;
-  }
-
-  &__search-icon {
-    position: absolute;
-    left: 12px;
-    color: $lumio-color-ink-400;
-    pointer-events: none;
-  }
-
-  &__search-input,
   &__input,
   &__filter-input {
     width: 100%;
@@ -188,10 +205,6 @@
       outline: 2px solid var(--primary);
       outline-offset: -1px;
     }
-  }
-
-  &__search-input {
-    padding-left: 36px;
   }
 
   &__input--mono {
@@ -245,6 +258,27 @@
 
   &__toolbar > &__actions {
     margin-left: auto;
+    gap: $lumio-space-1;
+  }
+
+  // Every toolbar control matches the Search button (TOOLBAR_BUTTON_STYLE, 40px).
+  // The theme pins small buttons to 32px (app/theme.ts), so set height itself.
+  &__toolbar .MuiButton-root {
+    height: 40px;
+  }
+
+  &__toolbar .MuiIconButton-root {
+    width: 40px;
+    height: 40px;
+  }
+
+  &__toolbar .MuiButton-text,
+  &__toolbar .MuiIconButton-root {
+    color: $lumio-color-ink-600;
+
+    @include dark {
+      color: $lumio-color-ink-700-dk;
+    }
   }
 
   &__filter-chip {
@@ -398,26 +432,64 @@
   &__chip {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     max-width: 100%;
-    padding: 2px 8px;
-    border-radius: $lumio-radius-full;
-    background-color: $lumio-color-ink-100;
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-medium;
-    line-height: 1.5;
+    font-size: $lumio-font-size-sm;
+    color: $lumio-color-text-primary;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 
     @include dark {
-      background-color: $lumio-color-ink-100-dk;
+      color: $lumio-color-text-primary-dk;
     }
+  }
+
+  &__chip-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: $lumio-radius-full;
+  }
+
+  &__chip-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__row-number {
     font-size: $lumio-font-size-xs;
     font-variant-numeric: tabular-nums;
     color: $lumio-color-ink-400;
+  }
+
+  // Row number at rest; the checkbox takes its place on hover, on keyboard
+  // focus, on a selected row and on every row while anything is selected.
+  // visibility (not display) keeps the checkbox reachable with Tab.
+  &__row-select {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+
+    > * {
+      grid-area: 1 / 1;
+    }
+  }
+
+  &__row-checkbox {
+    opacity: 0;
+  }
+
+  .lumio-grid__tr:hover &__row-select,
+  .lumio-grid__th:hover &__row-select,
+  &__row-select:focus-within,
+  .lumio-grid__tr--selected &__row-select,
+  &__grid--selecting &__row-select {
+    .lumio-ct__row-number {
+      visibility: hidden;
+    }
+
+    .lumio-ct__row-checkbox {
+      opacity: 1;
+    }
   }
 
   &__col-header {
@@ -461,6 +533,17 @@
     justify-content: flex-end;
     gap: 6px;
     min-width: 0;
+  }
+
+  // "No total" stays out of sight until the footer cell is pointed at.
+  &__footer--unset {
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    .lumio-grid__tf:hover &,
+    &:focus-within {
+      opacity: 1;
+    }
   }
 
   &__footer-select {
@@ -1186,6 +1269,7 @@
     flex-direction: column;
     gap: $lumio-space-2;
     margin-top: $lumio-space-3;
+    margin-bottom: $lumio-space-6;
   }
 
   &__summary-list {
@@ -1228,6 +1312,13 @@
 
   &__summary-actions {
     display: inline-flex;
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    .lumio-ct__summary:hover &,
+    &:focus-within {
+      opacity: 1;
+    }
   }
 }
 
@@ -1268,3 +1359,10 @@
     color: $lumio-color-primary-dk;
   }
 }
+
+// A destructive entry in a toolbar menu (Restore to default). The menu is
+// portaled out of the page, so the rule stands on its own.
+.lumio-ct__menu-item--danger {
+  color: $lumio-color-danger;
+}
+

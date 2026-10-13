@@ -58,6 +58,8 @@ export interface CustomTableGridRow {
   styles?: Record<string, { importIssue?: boolean } & Record<string, unknown>>;
   /** Labels of linked rows, resolved by the server for relation columns. */
   relationLabels?: Record<string, string>;
+  /** Id of the app record the row shows, in a table filled from app data; null for rows added by hand. */
+  sourceKey?: string | null;
 }
 
 export type RowFilterOp =

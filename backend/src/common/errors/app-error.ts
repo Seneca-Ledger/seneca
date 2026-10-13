@@ -23,6 +23,13 @@ export const ERR = {
   SOURCE_TOO_MANY_ROWS: 'Too many records match the filters (limit {{limit}}); narrow them down',
   SOURCE_FILTER_INVALID: 'Invalid data source filter value',
   SOURCE_COLUMNS_NOT_FOUND: 'The table has no columns linked to its data source',
+  SOURCE_FIELD_READ_ONLY: 'This value comes from the app and cannot be edited in the table',
+  SOURCE_RECORD_NOT_FOUND: 'The app record behind this row no longer exists',
+  SOURCE_EDIT_FORBIDDEN: 'Not enough permissions to change this record in the app',
+  INVALID_CELL_VALUE: 'This value does not fit this column',
+  PAYABLE_STATUS_FROM_PAYMENTS:
+    'The status of a paid bill follows its payments; remove the payment in Payables instead',
+  CELL_LINKED_TO_APP_RECORD: 'This cell shows an app record; undo the change on the record itself',
   // ── entity imports (spreadsheet → app records) ──────────────────────────
   IMPORT_TARGET_UNKNOWN: 'Unknown import target',
   IMPORT_MAPPING_INCOMPLETE: 'Required columns are not mapped: {{fields}}',
