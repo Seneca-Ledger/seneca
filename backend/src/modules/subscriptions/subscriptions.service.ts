@@ -18,6 +18,7 @@ import type {
   UpdateSubscriptionBody,
 } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
+import { Category } from '../../entities/category.entity';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
 import {
   NotificationCategory,
@@ -111,6 +112,8 @@ export class SubscriptionsService {
     private readonly workspaceRepository: Repository<Workspace>,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly auditService: AuditService,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
     @Optional()
     private readonly goalsService?: GoalsService,
     @Optional()
@@ -126,6 +129,7 @@ export class SubscriptionsService {
     userId: string,
     dto: CreateSubscriptionBody,
   ): Promise<Subscription> {
+    await this.assertCategoryInWorkspace(dto.categoryId, workspaceId);
     const subscription = this.subscriptionRepository.create({
       workspaceId,
       createdById: userId,
@@ -150,6 +154,18 @@ export class SubscriptionsService {
       meta: { name: saved.vendorName },
     });
     return saved;
+  }
+
+  /** The id came from the request: another workspace's category is "not found". */
+  private async assertCategoryInWorkspace(
+    categoryId: string | null | undefined,
+    workspaceId: string,
+  ): Promise<void> {
+    if (!categoryId) return;
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId, workspaceId },
+    });
+    if (!category) throw new NotFoundException('Category not found');
   }
 
   async findAll(
@@ -205,7 +221,10 @@ export class SubscriptionsService {
       subscription.frequency = toEnum(SubscriptionFrequency, dto.frequency);
     if (dto.status != null) subscription.status = toEnum(SubscriptionStatus, dto.status);
     if (dto.currency != null) subscription.currency = dto.currency;
-    if (dto.categoryId !== undefined) subscription.categoryId = dto.categoryId;
+    if (dto.categoryId !== undefined) {
+      await this.assertCategoryInWorkspace(dto.categoryId, workspaceId);
+      subscription.categoryId = dto.categoryId;
+    }
     // null clears the date (new Date(null) would have stored 1970-01-01).
     if (dto.nextChargeDate !== undefined)
       subscription.nextChargeDate = dto.nextChargeDate ? new Date(dto.nextChargeDate) : null;

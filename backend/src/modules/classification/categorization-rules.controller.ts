@@ -1,6 +1,16 @@
-import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
@@ -86,7 +96,7 @@ export class CategorizationRulesController {
     });
 
     if (!rule) {
-      throw new Error('Categorization rule not found');
+      throw new NotFoundException('Categorization rule not found');
     }
 
     return rule;
@@ -153,7 +163,7 @@ export class CategorizationRulesController {
     });
 
     if (!rule) {
-      throw new Error('Categorization rule not found');
+      throw new NotFoundException('Categorization rule not found');
     }
 
     const before = this.toAuditSnapshot(rule);
@@ -215,7 +225,7 @@ export class CategorizationRulesController {
     });
 
     if (!rule) {
-      throw new Error('Categorization rule not found');
+      throw new NotFoundException('Categorization rule not found');
     }
 
     await this.categorizationRuleRepository.remove(rule);
@@ -239,9 +249,13 @@ export class CategorizationRulesController {
   async testRule(
     @SchemaBody(TestCategorizationRuleBody) dto: TestCategorizationRuleBody,
     @CurrentUser() _user: User,
-    @WorkspaceId() _workspaceId: string,
+    @WorkspaceId() workspaceId: string,
   ) {
-    const transactions = await this.transactionRepository.findByIds(dto.transactionIds);
+    // Ids from the request: another workspace's transactions are not there to test against.
+    const transactions = await this.transactionRepository.findBy({
+      id: In(dto.transactionIds),
+      workspaceId,
+    });
 
     const matches = transactions.filter(transaction =>
       this.classificationService.matchesRule(transaction, dto.conditions),

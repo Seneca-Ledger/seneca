@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Category } from '../../entities/category.entity';
 import { Invoice } from '../../entities/invoice.entity';
 import { Payable } from '../../entities/payable.entity';
 import { Subscription } from '../../entities/subscription.entity';
@@ -20,6 +21,7 @@ import { SubscriptionsService } from './subscriptions.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      Category,
       Subscription,
       SubscriptionCharge,
       SubscriptionDecision,

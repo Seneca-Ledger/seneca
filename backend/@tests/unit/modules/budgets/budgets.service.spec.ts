@@ -26,6 +26,7 @@ describe('BudgetsService', () => {
   const budgetRepository = createRepoMock();
   const transactionRepository = createRepoMock();
   const goalRepository = createRepoMock();
+  const categoryRepository = createRepoMock();
   const notificationsService = {
     createForWorkspaceMembers: jest.fn(),
   };
@@ -41,6 +42,8 @@ describe('BudgetsService', () => {
     // now reads the saved entity back to record it in the audit trail.
     budgetRepository.create.mockImplementation((data: unknown) => data);
     budgetRepository.save.mockImplementation(async (data: unknown) => data);
+    categoryRepository.findOne.mockResolvedValue({ id: 'category-1' });
+    categoryRepository.find.mockResolvedValue([]);
     jest.useFakeTimers().setSystemTime(new Date('2026-05-08T12:00:00.000Z'));
     service = new BudgetsService(
       budgetRepository as any,
@@ -49,6 +52,7 @@ describe('BudgetsService', () => {
       notificationsService as any,
       auditService as any,
       workspaceCurrencyStub() as never,
+      categoryRepository as any,
     );
   });
 
@@ -105,6 +109,24 @@ describe('BudgetsService', () => {
         periodType: BudgetPeriodType.MONTHLY,
       }),
     );
+  });
+
+  it('refuses a category of another workspace', async () => {
+    budgetRepository.findOne.mockResolvedValue(null);
+    categoryRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.create('workspace-1', 'user-1', {
+        name: 'Theirs',
+        categoryId: 'category-of-another-workspace',
+        limitAmount: 10,
+        periodType: BudgetPeriodType.MONTHLY,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(categoryRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'category-of-another-workspace', workspaceId: 'workspace-1' },
+    });
+    expect(budgetRepository.save).not.toHaveBeenCalled();
   });
 
   it('accepts fields on update via Object.assign', async () => {

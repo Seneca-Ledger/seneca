@@ -392,6 +392,27 @@ describe('CategoriesService', () => {
       );
     });
 
+    it('leaves a required field as it is on null, and clears a nullable one', async () => {
+      Object.assign(mockCategory, { taxRelevant: true, isEnabled: true, color: '#fff' });
+      jest.spyOn(categoryRepository, 'save').mockImplementation(async saved => saved as Category);
+
+      await service.update('cat-1', '1', '1', {
+        name: null,
+        taxRelevant: null,
+        isEnabled: null,
+        color: null,
+      });
+
+      expect(categoryRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Groceries',
+          taxRelevant: true,
+          isEnabled: true,
+          color: null,
+        }),
+      );
+    });
+
     it('writes no audit event when the save changes nothing', async () => {
       jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(mockCategory as Category);
       jest.spyOn(categoryRepository, 'save').mockResolvedValue(mockCategory as Category);

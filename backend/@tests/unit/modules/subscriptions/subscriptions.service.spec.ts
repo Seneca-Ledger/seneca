@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { SubscriptionFrequency, SubscriptionStatus } from '@/entities/subscription.entity';
 import { SubscriptionsService } from '@/modules/subscriptions/subscriptions.service';
@@ -40,6 +41,9 @@ describe('SubscriptionsService', () => {
   const auditService = {
     createEvent: jest.fn(),
   };
+  const categoryRepository = {
+    findOne: jest.fn(),
+  };
 
   let service: SubscriptionsService;
 
@@ -55,6 +59,7 @@ describe('SubscriptionsService', () => {
       workspaceRepository as any,
       exchangeRatesService as any,
       auditService as any,
+      categoryRepository as any,
     );
   });
 
@@ -336,6 +341,27 @@ describe('SubscriptionsService', () => {
       });
 
       expectEvent(AuditAction.CREATE, { actorId: 'user-1', meta: { name: 'Netflix' } });
+    });
+
+    it('refuses a category of another workspace, on create and on update', async () => {
+      categoryRepository.findOne.mockResolvedValue(null);
+      const theirs = { categoryId: '7d1f0a52-5b1e-4f5e-9d55-2f4f5d6c7b8a' };
+
+      await expect(
+        service.create('workspace-1', 'user-1', {
+          vendorName: 'Netflix',
+          amount: 15.99,
+          frequency: SubscriptionFrequency.MONTHLY,
+          ...theirs,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.update('subscription-1', 'workspace-1', 'user-1', theirs),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(categoryRepository.findOne).toHaveBeenCalledWith({
+        where: { id: theirs.categoryId, workspaceId: 'workspace-1' },
+      });
+      expect(subscriptionRepository.save).not.toHaveBeenCalled();
     });
 
     it('records an update without flagging untouched decimals and dates as changed', async () => {

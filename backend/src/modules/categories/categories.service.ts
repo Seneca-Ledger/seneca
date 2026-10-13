@@ -1,5 +1,6 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -52,6 +53,14 @@ const DEFAULT_SYSTEM_CATEGORIES: ReadonlyArray<{
   { name: 'Travel', type: CategoryType.EXPENSE },
   { name: 'Utilities', type: CategoryType.EXPENSE },
 ];
+
+/** Columns an update may not empty: a null sent for them leaves them as they are. */
+const REQUIRED_CATEGORY_FIELDS: ReadonlySet<string> = new Set([
+  'name',
+  'type',
+  'isEnabled',
+  'taxRelevant',
+]);
 
 @Injectable()
 export class CategoriesService {
@@ -125,6 +134,7 @@ export class CategoriesService {
     if (existing) {
       throw new ConflictException('Category with this name already exists');
     }
+    await this.assertParentInWorkspace(workspaceId, createDto.parentId);
 
     const category = this.categoryRepository.create({
       workspaceId,
@@ -186,6 +196,16 @@ export class CategoriesService {
 
     await this.cacheManager.set(cacheKey, categories, 3600000); // 1 hour
     return categories;
+  }
+
+  /** The parent comes from the request: another workspace's category is "not found". */
+  private async assertParentInWorkspace(
+    workspaceId: string,
+    parentId: string | null | undefined,
+  ): Promise<void> {
+    if (!parentId) return;
+    const parent = await this.categoryRepository.findOne({ where: { id: parentId, workspaceId } });
+    if (!parent) throw new NotFoundException('Parent category not found');
   }
 
   async findOne(id: string, workspaceId: string): Promise<Category> {
@@ -311,14 +331,29 @@ export class CategoriesService {
       }
     }
 
+    // null clears what may be empty (parent, colour, icon, the judgements); on a
+    // required column it can only mean "leave it", and saving it failed NOT NULL.
+    const changes = Object.fromEntries(
+      Object.entries(updateDto).filter(
+        ([key, value]) => !(value === null && REQUIRED_CATEGORY_FIELDS.has(key)),
+      ),
+    ) as UpdateCategoryBody;
+
+    if (changes.parentId) {
+      if (changes.parentId === id) {
+        throw new BadRequestException('A category cannot be its own parent');
+      }
+      await this.assertParentInWorkspace(workspaceId, changes.parentId);
+    }
+
     // A save that changes nothing (the editor re-submitting unchanged fields) is not an
     // event: logging it filled the audit log with identical "updated" rows.
-    const changed = Object.entries(updateDto).some(
+    const changed = Object.entries(changes).some(
       ([key, value]) =>
         value !== undefined &&
         JSON.stringify(value) !== JSON.stringify(category[key as keyof Category] ?? null),
     );
-    Object.assign(category, updateDto);
+    Object.assign(category, changes);
     const saved = await this.categoryRepository.save(category);
     await this.invalidateCache(workspaceId);
     const after = this.snapshotCategory(saved);
