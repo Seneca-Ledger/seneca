@@ -4,8 +4,14 @@ import type { Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { BulkConvertBody, ManualRateBody } from '../../contracts';
+import {
+  BulkConvertBody,
+  ExchangeRateCoverage,
+  ExchangeRateQuote,
+  ManualRateBody,
+} from '../../contracts';
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from './exchange-rates.service';
 
@@ -23,6 +29,7 @@ export class ExchangeRatesController {
    */
   @Get()
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(ExchangeRateQuote)
   async getRate(
     @WorkspaceId() workspaceId: string,
     @Query('from') from: string,
@@ -45,6 +52,7 @@ export class ExchangeRatesController {
   /** Every currency in this workspace's rows and whether a rate to the workspace currency exists. */
   @Get('coverage')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(ExchangeRateCoverage)
   async coverage(@WorkspaceId() workspaceId: string) {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },

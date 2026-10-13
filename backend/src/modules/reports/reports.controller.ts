@@ -17,19 +17,28 @@ import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspac
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  AvailableCustomTables,
+  CashFlowMapAnswer,
   CashFlowMapQuery,
   CreateReportScheduleBody,
   CustomReportBody,
+  CustomTablesReport,
   CustomTablesReportBody,
+  CustomTablesReportDrillDown,
   CustomTablesReportDrillDownBody,
   CustomTablesSummaryBody,
   ExportReportBody,
   GenerateReportBody,
+  ReportHistoryList,
+  ReportPreview,
+  ReportScheduleList,
+  SpendFlow,
   SpendFlowQuery,
   SpendOverTimeQuery,
   TopCategoriesQuery,
@@ -85,6 +94,7 @@ export class ReportsController {
   /** Income sources → categories → subcategories, a treemap and a period comparison; `format=csv` exports the table. */
   @Get('cash-flow-map')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(CashFlowMapAnswer)
   async getCashFlowMap(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -122,6 +132,7 @@ export class ReportsController {
 
   @Get('spend-flow')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(SpendFlow)
   async getSpendFlow(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(SpendFlowQuery) query: SpendFlowQuery,
@@ -153,6 +164,7 @@ export class ReportsController {
 
   @Post('custom-tables/report')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(CustomTablesReport)
   async getCustomTablesReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -163,6 +175,7 @@ export class ReportsController {
 
   @Post('custom-tables/report/drill-down')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(CustomTablesReportDrillDown)
   async getCustomTablesReportDrillDown(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -173,6 +186,7 @@ export class ReportsController {
 
   @Get('custom-tables/available')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(AvailableCustomTables)
   async getAvailableCustomTables(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.reportsService.getAvailableCustomTables(workspaceId);
   }
@@ -271,6 +285,7 @@ export class ReportsController {
 
   @Post('preview')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(ReportPreview)
   async previewReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -321,6 +336,7 @@ export class ReportsController {
   @Get('history')
   @WorkspaceAuth(Permission.REPORT_VIEW)
   @UseInterceptors(HideInternalColumnsInterceptor)
+  @SchemaResponse(ReportHistoryList)
   async getHistory(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.reportsService.getReportHistory(workspaceId);
   }
@@ -345,6 +361,7 @@ export class ReportsController {
 
   @Get('schedules')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(ReportScheduleList)
   async listSchedules(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.reportSchedules.list(workspaceId);
   }

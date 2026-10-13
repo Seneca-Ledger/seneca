@@ -2,8 +2,9 @@ import { Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { ConfirmReconciliationBody } from '../../contracts';
+import { ConfirmReconciliationBody, ReconciliationResponse } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SmbService } from './smb.service';
@@ -15,6 +16,7 @@ export class ReconciliationController {
   /** Open bills and receivables with the bank rows that look like their payment, ageing and duplicates. */
   @Get()
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
+  @SchemaResponse(ReconciliationResponse)
   async get(@WorkspaceId() workspaceId: string) {
     return this.smbService.getReconciliation(workspaceId);
   }

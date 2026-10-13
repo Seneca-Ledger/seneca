@@ -13,6 +13,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -20,10 +21,17 @@ import { deletedResponse } from '../../common/utils/responses.util';
 import {
   AcceptInvitationBody,
   CreateWorkspaceBody,
+  InvitationAccepted,
+  InvitationPreview,
   InviteMemberBody,
   UpdateMemberPermissionsBody,
   UpdateMemberRoleBody,
   UpdateWorkspaceBody,
+  WorkspaceDetail,
+  WorkspaceFavorite,
+  WorkspaceList,
+  WorkspaceOverview,
+  WorkspaceSummary,
 } from '../../contracts';
 import type { User } from '../../entities';
 import { WorkspaceRole } from '../../entities/workspace-member.entity';
@@ -65,18 +73,21 @@ export class WorkspacesController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceList)
   async getUserWorkspaces(@CurrentUser() user: User) {
     return this.workspacesService.getUserWorkspaces(user.id);
   }
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceOverview)
   async getMyWorkspace(@CurrentUser() user: User, @Req() req: Request) {
     return this.workspacesService.getWorkspaceOverview(user, this.getRequestAppOrigin(req));
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceDetail)
   async getWorkspaceById(@CurrentUser() user: User, @Param('id') id: string) {
     const workspace = await this.workspacesService.getWorkspaceById(id, user.id);
     const members = await this.workspacesService.getWorkspaceMembers(id, user.id);
@@ -88,6 +99,7 @@ export class WorkspacesController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceSummary)
   async createWorkspace(
     @CurrentUser() user: User,
     @SchemaBody(CreateWorkspaceBody) dto: CreateWorkspaceBody,
@@ -122,6 +134,7 @@ export class WorkspacesController {
 
   @Patch(':id/favorite')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceFavorite)
   async toggleFavorite(@CurrentUser() user: User, @Param('id') id: string) {
     return this.workspacesService.toggleFavorite(id, user.id);
   }
@@ -219,6 +232,7 @@ export class WorkspacesController {
   @Public()
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 per minute
   @Get('invitations/:token')
+  @SchemaResponse(InvitationPreview)
   async getInvitation(@Param('token') token: string) {
     return this.workspacesService.getInvitationInfo(token);
   }
@@ -227,6 +241,7 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 per minute
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(InvitationAccepted)
   async acceptInvitation(@CurrentUser() user: User, @Param('token') token: string) {
     return this.workspacesService.acceptInvitation(user, token);
   }

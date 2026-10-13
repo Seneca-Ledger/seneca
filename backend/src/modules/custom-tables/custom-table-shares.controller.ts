@@ -14,11 +14,17 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { CreateCustomTableShareBody, CreateExportScheduleBody } from '../../contracts';
+import {
+  CreateCustomTableShareBody,
+  CreateExportScheduleBody,
+  SharedTableRows,
+  SharedTableView,
+} from '../../contracts';
 import { ExportScheduleFormat } from '../../entities/custom-table-export-schedule.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -158,6 +164,7 @@ export class PublicCustomTableSharesController {
   // Ссылка не должна попасть в поисковую выдачу.
   @Header('X-Robots-Tag', 'noindex, nofollow')
   @Header('Cache-Control', 'no-store')
+  @SchemaResponse(SharedTableView)
   async getSharedTable(@Param('token') token: string) {
     return this.sharesService.getSharedTable(token);
   }
@@ -167,6 +174,7 @@ export class PublicCustomTableSharesController {
   @Get(':token/rows')
   @Header('X-Robots-Tag', 'noindex, nofollow')
   @Header('Cache-Control', 'no-store')
+  @SchemaResponse(SharedTableRows)
   async getSharedRows(
     @Param('token') token: string,
     @Query('cursor') cursor?: string,

@@ -4,17 +4,26 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
-import type { InvoiceSettings, LateFeeQuote } from '../../contracts';
 import {
+  AgeingReport,
   CreateInvoiceBody,
+  CreditNoteList,
+  Invoice,
+  InvoiceCreated,
+  InvoiceDeliveryList,
+  InvoiceListPage,
+  InvoiceSettings,
   InvoicesQuery,
+  LateFeeQuote,
   SendInvoiceEmailBody,
   UpdateInvoiceBody,
   UpdateInvoiceSettingsBody,
+  XRechnungCheck,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
@@ -41,6 +50,7 @@ export class InvoicesController {
   @Post()
   @WorkspaceAuth(Permission.INVOICE_CREATE)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(InvoiceCreated)
   async create(
     @SchemaBody(CreateInvoiceBody) dto: CreateInvoiceBody,
     @WorkspaceId() workspaceId: string,
@@ -50,6 +60,7 @@ export class InvoicesController {
 
   @Get()
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(InvoiceListPage)
   async findAll(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(InvoicesQuery) query: InvoicesQuery,
@@ -59,6 +70,7 @@ export class InvoicesController {
 
   @Get('settings')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(InvoiceSettings)
   async getSettings(@WorkspaceId() workspaceId: string): Promise<InvoiceSettings> {
     const [numbering, settings] = await Promise.all([
       this.invoicesService.getNumberingSettings(workspaceId),
@@ -69,6 +81,7 @@ export class InvoicesController {
 
   @Put('settings')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
+  @SchemaResponse(InvoiceSettings)
   async updateSettings(
     @SchemaBody(UpdateInvoiceSettingsBody) dto: UpdateInvoiceSettingsBody,
     @WorkspaceId() workspaceId: string,
@@ -83,6 +96,7 @@ export class InvoicesController {
 
   @Get('ageing')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(AgeingReport)
   async ageing(@WorkspaceId() workspaceId: string) {
     return this.invoiceAgeingService.report(workspaceId);
   }
@@ -90,6 +104,7 @@ export class InvoicesController {
   /** What a late fee would come to for this client, at the workspace's percent. */
   @Get('clients/:clientId/late-fee')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(LateFeeQuote)
   async lateFee(
     @Param('clientId', new ParseUUIDPipe()) clientId: string,
     @WorkspaceId() workspaceId: string,
@@ -110,6 +125,7 @@ export class InvoicesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(Invoice)
   async findOne(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
     return this.invoicesService.findOne(id, workspaceId);
   }
@@ -117,6 +133,7 @@ export class InvoicesController {
   /** The credit notes raised against this invoice. */
   @Get(':id/credit-notes')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(CreditNoteList)
   async creditNotes(
     @Param('id', new ParseUUIDPipe()) id: string,
     @WorkspaceId() workspaceId: string,
@@ -157,6 +174,7 @@ export class InvoicesController {
   /** What the invoice, its client or the business profile still lack for an XRechnung. */
   @Get(':id/xrechnung/check')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(XRechnungCheck)
   async checkXRechnung(
     @Param('id', new ParseUUIDPipe()) id: string,
     @WorkspaceId() workspaceId: string,
@@ -213,6 +231,7 @@ export class InvoicesController {
 
   @Get(':id/deliveries')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(InvoiceDeliveryList)
   async deliveries(
     @Param('id', new ParseUUIDPipe()) id: string,
     @WorkspaceId() workspaceId: string,

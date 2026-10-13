@@ -12,10 +12,18 @@ import {
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
-import { AppendAiChatMessageBody, CreateAiChatBody, RenameAiChatBody } from '../../contracts';
+import {
+  AiChatList,
+  AiChatTranscript,
+  AppendAiChatMessageBody,
+  ChatSummary,
+  CreateAiChatBody,
+  RenameAiChatBody,
+} from '../../contracts';
 import { AiChatRole } from '../../entities/ai-chat-message.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -27,11 +35,13 @@ export class AiChatController {
   constructor(private readonly aiChatService: AiChatService) {}
 
   @Get()
+  @SchemaResponse(AiChatList)
   list(@WorkspaceId() workspaceId: string) {
     return this.aiChatService.list(workspaceId);
   }
 
   @Post()
+  @SchemaResponse(ChatSummary)
   create(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -41,6 +51,7 @@ export class AiChatController {
   }
 
   @Get(':id')
+  @SchemaResponse(AiChatTranscript)
   get(@WorkspaceId() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.aiChatService.get(workspaceId, id);
   }

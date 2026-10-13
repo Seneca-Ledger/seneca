@@ -9,9 +9,17 @@ import {
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
-import { CashFlowQuery } from '../../contracts';
+import {
+  CashFlowQuery,
+  DashboardCommitmentsResponse,
+  DashboardHealthHistoryResponse,
+  DashboardMonthlyCashFlowResponse,
+  DashboardResponse,
+  DashboardTrendsResponse,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { DashboardService } from './dashboard.service';
@@ -26,6 +34,7 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get()
+  @SchemaResponse(DashboardResponse)
   async getDashboard(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -39,6 +48,7 @@ export class DashboardController {
   }
 
   @Get('cash-flow')
+  @SchemaResponse(DashboardMonthlyCashFlowResponse)
   async getCashFlow(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(CashFlowQuery) query: CashFlowQuery,
@@ -47,6 +57,7 @@ export class DashboardController {
   }
 
   @Get('trends')
+  @SchemaResponse(DashboardTrendsResponse)
   async getTrends(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -60,6 +71,7 @@ export class DashboardController {
   }
 
   @Get('health-history')
+  @SchemaResponse(DashboardHealthHistoryResponse)
   async getHealthHistory(
     @WorkspaceId() workspaceId: string,
     @Query('year', new ParseIntPipe({ optional: true })) year?: number,
@@ -72,6 +84,7 @@ export class DashboardController {
   }
 
   @Get('commitments')
+  @SchemaResponse(DashboardCommitmentsResponse)
   async getCommitments(
     @WorkspaceId() workspaceId: string,
     @Query('days', new DefaultValuePipe(60), ParseIntPipe) days: number,

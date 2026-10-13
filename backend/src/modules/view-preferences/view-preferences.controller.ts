@@ -3,8 +3,9 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { ViewPreferenceBody, ViewScopeParams } from '../../contracts';
+import { ViewPreferenceBody, ViewPreferenceState, ViewScopeParams } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ViewPreferencesService } from './view-preferences.service';
@@ -22,6 +23,7 @@ export class ViewPreferencesController {
 
   @Get(':scope')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(ViewPreferenceState)
   async read(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

@@ -25,6 +25,7 @@ import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
@@ -40,15 +41,21 @@ import { deletedResponse } from '../../common/utils/responses.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   AddPermissionBody,
+  AdminUserList,
   ChangeEmailBody,
   ChangePasswordBody,
   CompleteOnboardingBody,
   ConfirmEmailChangeBody,
   DeleteMyAccountBody,
+  DisclaimerStatus,
+  MessageResult,
   RemovePermissionBody,
   UpdateMyPreferencesBody,
   UpdatePermissionsBody,
   UpdateUserBody,
+  UserPermissions,
+  UserUpdateResponse,
+  WelcomeTutorialSeen,
 } from '../../contracts';
 import { type User, UserRole } from '../../entities/user.entity';
 import { toCurrentUser } from '../auth/current-user.view';
@@ -78,6 +85,7 @@ export class UsersController {
 
   @Get()
   @WorkspaceAuth(Permission.USER_VIEW_ALL)
+  @SchemaResponse(AdminUserList)
   async findAll(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
     return this.usersService.findAll(workspaceId, limit ? Number.parseInt(limit) : 20);
   }
@@ -131,6 +139,7 @@ export class UsersController {
   }
 
   @Get('me/disclaimer')
+  @SchemaResponse(DisclaimerStatus)
   async getDisclaimerStatus(@CurrentUser() currentUser: User) {
     const user = await this.usersService.getProfile(currentUser.id);
     return {
@@ -149,6 +158,7 @@ export class UsersController {
    * already has instead of replacing that with a partial profile.
    */
   @Post('me/welcome-tutorial')
+  @SchemaResponse(WelcomeTutorialSeen)
   async markWelcomeTutorialSeen(@CurrentUser() currentUser: User) {
     const welcomeTutorialSeenAt = await this.usersService.markWelcomeTutorialSeen(currentUser.id);
     return { welcomeTutorialSeenAt };
@@ -212,6 +222,7 @@ export class UsersController {
 
   @Get(':id/permissions')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissions)
   async getUserPermissions(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const user = await this.permissionsService.findUserInWorkspace(id, workspaceId);
     const permissions = this.permissionsService.getUserPermissions(user);
@@ -305,6 +316,7 @@ export class UsersController {
   // online guessing oracle for anyone holding a stolen session.
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('me/email')
+  @SchemaResponse(MessageResult)
   async changeEmail(
     @CurrentUser() currentUser: User,
     @SchemaBody(ChangeEmailBody) dto: ChangeEmailBody,
@@ -330,6 +342,7 @@ export class UsersController {
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('me/password')
+  @SchemaResponse(MessageResult)
   async changePassword(
     @CurrentUser() currentUser: User,
     @SchemaBody(ChangePasswordBody) dto: ChangePasswordBody,
@@ -339,6 +352,7 @@ export class UsersController {
   }
 
   @Patch('me/preferences')
+  @SchemaResponse(UserUpdateResponse)
   async updateMyPreferences(
     @CurrentUser() currentUser: User,
     @SchemaBody(UpdateMyPreferencesBody) dto: UpdateMyPreferencesBody,

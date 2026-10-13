@@ -2,8 +2,9 @@ import { Controller, Get, Post, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { ConnectTelegramBody, SendTelegramReportBody } from '../../contracts';
+import { ConnectTelegramBody, SendTelegramReportBody, TelegramReportPage } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { TelegramService } from './telegram.service';
@@ -29,6 +30,7 @@ export class TelegramController {
 
   @Get('reports')
   @WorkspaceAuth(Permission.TELEGRAM_VIEW)
+  @SchemaResponse(TelegramReportPage)
   async listReports(
     @CurrentUser() user: User,
     @Query('page') page?: string,

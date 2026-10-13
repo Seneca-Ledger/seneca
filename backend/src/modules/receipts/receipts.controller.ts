@@ -20,6 +20,7 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -31,8 +32,15 @@ import {
   ApplyReceiptSplitBody,
   ApproveReceiptBody,
   BulkApproveBody,
+  PlaceSuggestions,
   PlaceSuggestionsBody,
+  ReceiptListPage,
+  ReceiptRecord,
+  ReceiptRecordUpdate,
+  ReceiptSplitSuggestion,
   ReceiptsQuery,
+  ReceiptTransactionMatches,
+  ReceiptUploadResult,
   UpdateReceiptBody,
   UpdateReceiptLocationBody,
   UpdateReceiptStageBody,
@@ -79,6 +87,7 @@ export class ReceiptsController {
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
   @UseInterceptors(FilesInterceptor('files', 5, multerConfig))
+  @SchemaResponse(ReceiptUploadResult)
   async upload(
     @UploadedFiles() files: MulterFile[],
     @SchemaBody(UploadReceiptBody) dto: UploadReceiptBody,
@@ -146,6 +155,7 @@ export class ReceiptsController {
     description: '{ needed: false } when the store is already known, else the candidates',
   })
   @ApiResponse({ status: 400, description: 'No receipt for this statement in the workspace' })
+  @SchemaResponse(PlaceSuggestions)
   async placeSuggestions(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(PlaceSuggestionsBody) dto: PlaceSuggestionsBody,
@@ -163,6 +173,7 @@ export class ReceiptsController {
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(ReceiptListPage)
   async findAll(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(ReceiptsQuery) query: ReceiptsQuery,
@@ -172,6 +183,7 @@ export class ReceiptsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(ReceiptRecord)
   async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const receipt = await this.receiptsService.findOne(id, workspaceId);
     if (!receipt) {
@@ -188,6 +200,7 @@ export class ReceiptsController {
     description: 'Receipt with location source "manual", or "place" when a shop was picked',
   })
   @ApiResponse({ status: 400, description: 'Receipt not found or coordinates out of range' })
+  @SchemaResponse(ReceiptRecordUpdate)
   async setLocation(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
@@ -213,6 +226,7 @@ export class ReceiptsController {
   })
   @ApiResponse({ status: 200, description: 'Receipt with the automatically resolved location' })
   @ApiResponse({ status: 400, description: 'Receipt not found' })
+  @SchemaResponse(ReceiptRecordUpdate)
   async resetLocation(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
@@ -227,6 +241,7 @@ export class ReceiptsController {
 
   @Patch(':id')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(ReceiptRecordUpdate)
   async update(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
@@ -283,6 +298,7 @@ export class ReceiptsController {
   /** Bank rows this receipt may document, best first; recomputes the stored suggestion too. */
   @Get(':id/transaction-matches')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(ReceiptTransactionMatches)
   async transactionMatches(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const receipt = await this.receiptMatchService.refresh(id, workspaceId);
     if (!receipt) {
@@ -305,6 +321,7 @@ export class ReceiptsController {
 
   @Get(':id/split-suggestion')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(ReceiptSplitSuggestion)
   async splitSuggestion(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     return this.receiptSplitService.suggest(id, workspaceId);
   }

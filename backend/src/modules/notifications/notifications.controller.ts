@@ -10,9 +10,16 @@ import {
 } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
-import { MarkReadBody, UpdateNotificationPreferencesBody } from '../../contracts';
+import {
+  MarkReadBody,
+  NotificationList,
+  NotificationPreferences,
+  UnreadCount,
+  UpdateNotificationPreferencesBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
@@ -23,6 +30,7 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
+  @SchemaResponse(NotificationList)
   async list(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -38,6 +46,7 @@ export class NotificationsController {
   }
 
   @Get('unread-count')
+  @SchemaResponse(UnreadCount)
   async getUnreadCount(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const count = await this.notificationsService.getUnreadCount(user.id, workspaceId);
     return { count };
@@ -58,6 +67,7 @@ export class NotificationsController {
   }
 
   @Get('preferences')
+  @SchemaResponse(NotificationPreferences)
   async getPreferences(@CurrentUser() user: User) {
     return this.notificationsService.getPreferences(user.id);
   }

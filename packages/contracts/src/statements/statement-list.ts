@@ -1,5 +1,7 @@
 import * as Schema from 'effect/Schema';
+import * as Struct from 'effect/Struct';
 import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
+import { TransactionListItem } from '../transactions/transaction-list';
 
 export const StatementStatus = Schema.Literals([
   'uploaded',
@@ -193,6 +195,8 @@ export type StatementList = Wire<typeof StatementList>;
 /** `GET /statements` as a page, envelope and all. */
 export const StatementListPage = Schema.Struct({
   data: StatementList,
+  /** Repeats `data` for older clients. */
+  items: StatementList,
   total: Schema.Number,
   page: Schema.Number,
   limit: Schema.Number,
@@ -220,5 +224,9 @@ export const StatementDetail = Schema.Struct({
   /** Free-form parser output; read leniently by the editor. */
   parsingDetails: Schema.NullOr(StatementParsingDetails),
   createdAt: Timestamp,
+  /** Its rows as stored, without their category, branch or wallet. */
+  transactions: Schema.optional(
+    Schema.Array(TransactionListItem.mapFields(Struct.omit(['category', 'branch', 'wallet']))),
+  ),
 });
 export type StatementDetail = Wire<typeof StatementDetail>;

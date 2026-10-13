@@ -2,9 +2,10 @@ import { Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
-import { ConnectBankSyncBody, UpdateBankSyncSettingsBody } from '../../contracts';
+import { BankSyncStatus, ConnectBankSyncBody, UpdateBankSyncSettingsBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BankSyncService } from './bank-sync.service';
@@ -15,6 +16,7 @@ export class BankSyncController {
 
   @Get('status')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(BankSyncStatus)
   status(@WorkspaceId() workspaceId: string) {
     return this.bankSyncService.status(workspaceId);
   }

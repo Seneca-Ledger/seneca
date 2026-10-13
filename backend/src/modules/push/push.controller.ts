@@ -1,7 +1,8 @@
 import { Controller, Delete, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { PushSubscriptionBody, PushUnsubscribeBody } from '../../contracts';
+import { PushPublicKey, PushSubscriptionBody, PushUnsubscribeBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PushService } from './push.service';
@@ -13,6 +14,7 @@ export class PushController {
 
   /** Whether the server can push, and the key the browser subscribes with. */
   @Get('public-key')
+  @SchemaResponse(PushPublicKey)
   publicKey() {
     return { enabled: this.pushService.isEnabled(), publicKey: this.pushService.publicKey() };
   }

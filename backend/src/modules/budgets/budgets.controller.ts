@@ -3,9 +3,17 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { BudgetImpactQuery, CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
+import {
+  BudgetImpact,
+  BudgetImpactQuery,
+  BudgetList,
+  CreateBudgetBody,
+  StoicBalance,
+  UpdateBudgetBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BudgetsService } from './budgets.service';
@@ -30,6 +38,7 @@ export class BudgetsController {
 
   @Get()
   @WorkspaceAuth(Permission.BUDGET_VIEW)
+  @SchemaResponse(BudgetList)
   async findAll(@WorkspaceId() workspaceId: string) {
     return this.budgetsService.findAll(workspaceId);
   }
@@ -37,6 +46,7 @@ export class BudgetsController {
   /** Plan versus actual per Stoic class, plus how each expense category is judged. */
   @Get('stoic-balance')
   @WorkspaceAuth(Permission.BUDGET_VIEW)
+  @SchemaResponse(StoicBalance)
   async stoicBalance(@WorkspaceId() workspaceId: string) {
     return this.stoicLedgerService.monthlyBalance(workspaceId);
   }
@@ -44,6 +54,7 @@ export class BudgetsController {
   /** What booking an expense would do to budgets and the default account; advice, not a gate. */
   @Get('impact')
   @WorkspaceAuth(Permission.BUDGET_VIEW)
+  @SchemaResponse(BudgetImpact)
   async impact(
     @SchemaQuery(BudgetImpactQuery) query: BudgetImpactQuery,
     @WorkspaceId() workspaceId: string,

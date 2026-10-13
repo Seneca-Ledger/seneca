@@ -17,6 +17,7 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { deletedResponse } from '../../common/utils/responses.util';
@@ -24,7 +25,12 @@ import {
   CreateContributionBody,
   CreateGoalBody,
   CreateGoalItemBody,
+  GoalDetail,
+  GoalFlowResponse,
+  GoalListAnswer,
   GoalMonthQuery,
+  GoalPlanResponse,
+  GoalWithProgress,
   SearchCoversQuery,
   SetGoalCoverBody,
   UpdateGoalBody,
@@ -97,6 +103,7 @@ export class GoalsController {
 
   @Post()
   @WorkspaceAuth(Permission.GOAL_CREATE)
+  @SchemaResponse(GoalWithProgress)
   async create(
     @SchemaBody(CreateGoalBody) createDto: CreateGoalBody,
     @CurrentUser() user: User,
@@ -107,6 +114,7 @@ export class GoalsController {
 
   @Get()
   @WorkspaceAuth(Permission.GOAL_VIEW)
+  @SchemaResponse(GoalListAnswer)
   async findAll(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(GoalMonthQuery) query: GoalMonthQuery,
@@ -120,6 +128,7 @@ export class GoalsController {
    */
   @Get(':id/flow')
   @WorkspaceAuth(Permission.GOAL_VIEW, Permission.BUDGET_VIEW)
+  @SchemaResponse(GoalFlowResponse)
   async getFlow(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
@@ -134,6 +143,7 @@ export class GoalsController {
    */
   @Get(':id/plan')
   @WorkspaceAuth(Permission.GOAL_VIEW, Permission.BUDGET_VIEW)
+  @SchemaResponse(GoalPlanResponse)
   async getPlan(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     return this.goalPlanService.getPlan(id, workspaceId);
   }
@@ -238,6 +248,7 @@ export class GoalsController {
 
   @Post(':id/contributions')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalDetail)
   async addContribution(
     @Param('id') id: string,
     @SchemaBody(CreateContributionBody) contributionDto: CreateContributionBody,

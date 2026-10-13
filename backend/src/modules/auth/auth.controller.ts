@@ -14,16 +14,24 @@ import { randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
 import type { CurrentUser as CurrentUserView } from '../../contracts';
 import {
+  CurrentUser as CurrentUserContract,
   ForgotPasswordBody,
   LoginBody,
+  LoginResponse,
+  RecoveryCodes,
   RegisterBody,
+  RegisterResponse,
   ResetPasswordBody,
   TwoFactorCodeBody,
   TwoFactorPasswordBody,
+  TwoFactorSetup,
+  TwoFactorStatus,
+  UserSessionList,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { AuthService, type SessionContext } from './auth.service';
@@ -80,6 +88,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @SchemaResponse(RegisterResponse)
   async register(
     @SchemaBody(RegisterBody) registerDto: RegisterBody,
     @Req() req: Request,
@@ -95,6 +104,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(LoginResponse)
   async login(
     @SchemaBody(LoginBody) loginDto: LoginBody,
     @Req() req: Request,
@@ -113,6 +123,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('2fa')
+  @SchemaResponse(TwoFactorStatus)
   async getTwoFactorStatus(@CurrentUser() user: User): Promise<TwoFactorStatusDto> {
     return this.twoFactorService.getStatus(user.id);
   }
@@ -120,6 +131,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('2fa/setup')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(TwoFactorSetup)
   async setupTwoFactor(
     @CurrentUser() user: User,
     @SchemaBody(TwoFactorPasswordBody) dto: TwoFactorPasswordBody,
@@ -131,6 +143,7 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('2fa/enable')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(RecoveryCodes)
   async enableTwoFactor(
     @CurrentUser() user: User,
     @SchemaBody(TwoFactorCodeBody) dto: TwoFactorCodeBody,
@@ -152,6 +165,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('2fa/recovery-codes')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(RecoveryCodes)
   async regenerateRecoveryCodes(
     @CurrentUser() user: User,
     @SchemaBody(TwoFactorPasswordBody) dto: TwoFactorPasswordBody,
@@ -239,6 +253,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('sessions')
+  @SchemaResponse(UserSessionList)
   async getSessions(@CurrentUser() user: User, @Req() req: AuthenticatedRequest) {
     const currentSessionId = req?.user?.currentSessionId || null;
     return this.authService.getSessions(user.id, currentSessionId);
@@ -266,6 +281,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
+  @SchemaResponse(CurrentUserContract)
   async getProfile(@CurrentUser() user: User): Promise<CurrentUserView> {
     return toCurrentUser(user);
   }

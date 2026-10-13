@@ -13,12 +13,15 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
   CreateJournalEntryBody,
   JournalEntriesQuery,
+  JournalEntryDetail,
+  JournalEntryPage,
   ReverseJournalEntryBody,
   UpdateJournalEntryBody,
 } from '../../contracts';
@@ -45,6 +48,7 @@ export class LedgerEntriesController {
 
   @Get()
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(JournalEntryPage)
   async list(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(JournalEntriesQuery) query: JournalEntriesQuery,
@@ -54,6 +58,7 @@ export class LedgerEntriesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(JournalEntryDetail)
   async findOne(
     @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -65,6 +70,7 @@ export class LedgerEntriesController {
   @Post()
   @WorkspaceAuth(Permission.LEDGER_POST)
   @Audit({ entityType: EntityType.JOURNAL_ENTRY, includeDiff: true })
+  @SchemaResponse(JournalEntryDetail)
   async create(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -89,6 +95,7 @@ export class LedgerEntriesController {
   @Patch(':id')
   @WorkspaceAuth(Permission.LEDGER_POST)
   @Audit({ entityType: EntityType.JOURNAL_ENTRY, includeDiff: true, includeBody: true })
+  @SchemaResponse(JournalEntryDetail)
   async update(
     @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -109,6 +116,7 @@ export class LedgerEntriesController {
   @Post(':id/post')
   @HttpCode(200)
   @WorkspaceAuth(Permission.LEDGER_POST)
+  @SchemaResponse(JournalEntryDetail)
   async post(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -121,6 +129,7 @@ export class LedgerEntriesController {
   @Post(':id/reverse')
   @HttpCode(200)
   @WorkspaceAuth(Permission.LEDGER_POST)
+  @SchemaResponse(JournalEntryDetail)
   async reverse(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

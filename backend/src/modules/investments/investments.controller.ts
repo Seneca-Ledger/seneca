@@ -2,9 +2,11 @@ import { Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/c
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   CreateInvestmentAccountBody,
+  InvestmentAccountList,
   LinkContributionBody,
   UpsertHoldingBody,
 } from '../../contracts';
@@ -18,6 +20,7 @@ export class InvestmentsController {
 
   @Get()
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(InvestmentAccountList)
   async list(@WorkspaceId() workspaceId: string) {
     return this.investmentsService.listAccounts(workspaceId);
   }

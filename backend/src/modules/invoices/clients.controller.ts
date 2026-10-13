@@ -2,9 +2,10 @@ import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put } from '@nestj
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { CreateClientBody, UpdateClientBody } from '../../contracts';
+import { Client, ClientList, CreateClientBody, UpdateClientBody } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { ClientsService } from './clients.service';
@@ -16,6 +17,7 @@ export class ClientsController {
   @Post()
   @WorkspaceAuth(Permission.CLIENT_CREATE)
   @Audit({ entityType: EntityType.CLIENT, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Client)
   async create(
     @SchemaBody(CreateClientBody) dto: CreateClientBody,
     @WorkspaceId() workspaceId: string,
@@ -25,12 +27,14 @@ export class ClientsController {
 
   @Get()
   @WorkspaceAuth(Permission.CLIENT_VIEW)
+  @SchemaResponse(ClientList)
   async findAll(@WorkspaceId() workspaceId: string) {
     return this.clientsService.findAll(workspaceId);
   }
 
   @Get(':id')
   @WorkspaceAuth(Permission.CLIENT_VIEW)
+  @SchemaResponse(Client)
   async findOne(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
     return this.clientsService.findOne(id, workspaceId);
   }
@@ -38,6 +42,7 @@ export class ClientsController {
   @Put(':id')
   @WorkspaceAuth(Permission.CLIENT_EDIT)
   @Audit({ entityType: EntityType.CLIENT, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Client)
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @SchemaBody(UpdateClientBody) dto: UpdateClientBody,
