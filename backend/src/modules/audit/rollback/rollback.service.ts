@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { DeepPartial, Repository } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
+import { ERR } from '../../../common/errors/app-error';
 import {
   AuditAction,
   AuditEvent,
@@ -133,6 +134,11 @@ export class RollbackService {
       if (!row) {
         return { success: false, message: 'Row not found for rollback' };
       }
+      if (await this.isAppRecordCell(row, columnKey)) {
+        // The cell mirrors an app record: rewriting it here would leave the
+        // record as it is and the two disagreeing. The record's own event undoes it.
+        return { success: false, message: ERR.CELL_LINKED_TO_APP_RECORD };
+      }
       const data: CustomTableRow['data'] = { ...(row.data || {}) };
       data[columnKey] = asSnapshotRecord(snapshot.before)?.value ?? null;
       await this.customTableRowRepository.update(event.entityId, {
@@ -145,6 +151,18 @@ export class RollbackService {
       this.logger.error(`Rollback failed: ${message}`);
       return { success: false, message };
     }
+  }
+
+  /** A source column of a table filled from app data, on a row that came from a record. */
+  private async isAppRecordCell(row: CustomTableRow, columnKey: string): Promise<boolean> {
+    if (!row.sourceKey) {
+      return false;
+    }
+    const column = await this.customTableColumnRepository.findOne({
+      where: { tableId: row.tableId, key: columnKey },
+    });
+    const source = (column?.config as { source?: { kind?: unknown } } | null | undefined)?.source;
+    return source?.kind === 'app_field';
   }
 
   private async applyRollback<T extends { id: string }>(

@@ -231,6 +231,24 @@ export class CustomTablesController {
     return result;
   }
 
+  /**
+   * "Restore to default": undoes the app record changes made from this table,
+   * then rebuilds it as a fresh copy of its source. Idempotent.
+   */
+  @Post(':id/restore-default')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  async restoreDefault(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const result = await this.customTablesService.restoreDefault(user.id, workspaceId, id);
+    await this.customTablesCache.bumpTable(workspaceId, id);
+    await this.customTablesCache.bumpRows(workspaceId, id);
+    await this.customTablesCache.bumpList(workspaceId);
+    return result;
+  }
+
   @Post(':id/formula-preview')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
   async previewFormula(

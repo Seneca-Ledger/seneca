@@ -10,6 +10,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
+import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { downloadTableExport } from '../../exportTable';
 import type { ConvertResult } from '../components/SendToStatementsDialog';
@@ -250,6 +251,51 @@ export function useCustomTablePage(tableId: string) {
       .finally(async () => setRefreshing(false));
   }, [tableId, data, grid, onRowsChanged, labels.toasts]);
 
+  // "Restore to default": undo the table's app changes and rebuild it from the source.
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const runRestoreDefault = useCallback(async () => {
+    setRestoring(true);
+    await (async () => {
+      const response = await apiClient.post(`/custom-tables/${tableId}/restore-default`);
+      const result = await checkContract(
+        'RestoredTableDefault',
+        response.data,
+        '/custom-tables/:id/restore-default',
+      );
+      toast.success(labels.toasts.restored.replace('{{reverted}}', String(result.reverted)));
+      if (result.skippedChanged) {
+        toast(labels.toasts.restoredSkipped.replace('{{count}}', String(result.skippedChanged)));
+      }
+      if (result.failed.length) {
+        toast.error(
+          labels.toasts.restoredFailed.replace('{{count}}', String(result.failed.length)),
+        );
+      }
+      // The view settings the server just cleared, and the ones kept only here.
+      // The restore changed app records back: drop cached document lists too.
+      invalidateDocumentLists();
+      setAggregates({});
+      setGroupBy(null);
+      setSorting([]);
+      setColumnVisibility({});
+      setRowSelection({});
+      filters.clearFilters();
+      filters.setSearchQuery('');
+      await data.loadTable();
+      await grid.loadRows({ reset: true });
+      onRowsChanged();
+    })()
+      .catch(async error => {
+        console.error('Failed to restore table to default:', error);
+        toast.error(getApiErrorMessage(error, labels.toasts.restoreFailed));
+      })
+      .finally(async () => {
+        setRestoring(false);
+        setRestoreOpen(false);
+      });
+  }, [tableId, data, grid, filters, onRowsChanged, labels.toasts]);
+
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
   const confirmDelete = useCallback(async () => {
@@ -352,6 +398,10 @@ export function useCustomTablePage(tableId: string) {
     runConvert,
     refreshing,
     runRefreshSource,
+    restoreOpen,
+    setRestoreOpen,
+    restoring,
+    runRestoreDefault,
     summaries,
     pendingDelete,
     setPendingDelete,

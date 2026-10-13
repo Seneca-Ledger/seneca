@@ -89,9 +89,15 @@ export interface DetailLabels {
     | 'renameFailed'
     | 'exportFailed'
     | 'refreshed'
-    | 'refreshFailed',
+    | 'refreshFailed'
+    | 'cellSaveFailed'
+    | 'restored'
+    | 'restoredSkipped'
+    | 'restoredFailed'
+    | 'restoreFailed',
     string
   >;
+  restore: Record<'title' | 'message' | 'confirm' | 'cancel', string>;
   notFound: { title: string; back: string };
 }
 
@@ -102,6 +108,7 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
     no: t.grid.no.value,
     clear: t.grid.clear.value,
     edit: t.grid.edit.value,
+    readOnlySource: t.grid.readOnlySource.value,
   };
   return {
     header: {
@@ -119,22 +126,30 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
       ]),
       syncedAt: t.header.syncedAt.value,
     },
-    toolbar: record(t.toolbar, [
-      'search',
-      'addRow',
-      'addColumn',
-      'columns',
-      'showAllColumns',
-      'groupBy',
-      'groupNone',
-      'importFile',
-      'export',
-      'exportXlsx',
-      'exportCsv',
-      'sendToStatements',
-      'refreshSource',
-      'deleteSelected',
-    ]),
+    toolbar: {
+      ...record(t.toolbar, [
+        'addRow',
+        'addColumn',
+        'columns',
+        'showAllColumns',
+        'groupBy',
+        'groupNone',
+        'importFile',
+        'export',
+        'exportXlsx',
+        'exportCsv',
+        'sendToStatements',
+        'refreshSource',
+        'deleteSelected',
+        'view',
+        'more',
+        'clearSelection',
+        'searchHint',
+      ]),
+      apply: t.filters.apply.value,
+      addSummary: t.summaries.add.value,
+      restoreDefault: t.toolbar.restoreDefault.value,
+    },
     filters: {
       ...record(t.filters, [
         'filter',
@@ -256,7 +271,6 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'add',
         'edit',
         'remove',
-        'empty',
         'name',
         'namePlaceholder',
         'save',
@@ -301,7 +315,13 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
       'exportFailed',
       'refreshed',
       'refreshFailed',
+      'cellSaveFailed',
+      'restored',
+      'restoredSkipped',
+      'restoredFailed',
+      'restoreFailed',
     ]),
+    restore: record(t.restore, ['title', 'message', 'confirm', 'cancel']),
     notFound: record(t.notFound, ['title', 'back']),
   };
 }

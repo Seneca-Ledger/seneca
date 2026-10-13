@@ -13,11 +13,16 @@ import type {
   CustomTableColumn,
   CustomTableGridRow,
 } from '../../utils/types';
+import { CategoryCellEditor } from './CategoryCellEditor';
+import { CurrencyCodeEditor } from './CurrencyCodeEditor';
 import {
   EMPTY_CELL,
   formatCellText,
+  isCategoryColumn,
+  isCurrencyCodeColumn,
   isEditableColumn,
   isNumericColumn,
+  isReadOnlySourceCell,
   selectedOptions,
 } from './formatCell';
 import { MultiSelectEditor, OptionChip, SelectEditor } from './SelectEditors';
@@ -33,6 +38,8 @@ export interface CellLabels {
   no: string;
   clear: string;
   edit: string;
+  /** Hint on cells that show a value the app keeps itself. */
+  readOnlySource: string;
 }
 
 export interface EditableCellProps {
@@ -42,6 +49,8 @@ export interface EditableCellProps {
   missingRequired: boolean;
   onUpdate: UpdateCellFn;
   labels: CellLabels;
+  /** The source of a table filled from app data: its cells write back to the records. */
+  sourceKind?: string | null;
 }
 
 type EditorProps = EditableCellProps & { done: () => void };
@@ -203,11 +212,13 @@ const cellClassName = (
 /**
  * One cell component for every column type. Read-only types (formula,
  * relation, ai) never enter edit mode: their values come from the server.
+ * Neither do cells of app record fields the app keeps itself.
  */
 export function EditableCell(props: EditableCellProps) {
-  const { column, row, missingRequired, onUpdate, labels } = props;
+  const { column, row, missingRequired, onUpdate, labels, sourceKind } = props;
   const [editing, setEditing] = useState(false);
-  const editable = isEditableColumn(column);
+  const lockedBySource = isReadOnlySourceCell(column, row, sourceKind);
+  const editable = isEditableColumn(column) && !lockedBySource;
   const issue = Boolean(row.styles?.[column.key]?.importIssue);
   const className = cellClassName(column, missingRequired, editable, issue);
 
@@ -217,6 +228,7 @@ export function EditableCell(props: EditableCellProps) {
         <Checkbox
           aria-label={column.title}
           checked={row.data?.[column.key] === true}
+          disabled={lockedBySource}
           onCheckedChange={next => void saveQuietly(onUpdate(row.id, column.key, next))}
         />
       </div>
@@ -228,6 +240,33 @@ export function EditableCell(props: EditableCellProps) {
     if (column.type === 'select' || column.type === 'multi_select') {
       return <OptionsEditor {...props} done={done} />;
     }
+    if (isCategoryColumn(column)) {
+      return (
+        <div className={className}>
+          <CellDisplay {...props} />
+          <CategoryCellEditor
+            value={row.data?.[column.key] ?? null}
+            clearLabel={labels.clear}
+            onChange={name => void saveQuietly(onUpdate(row.id, column.key, name))}
+            onClose={done}
+          />
+        </div>
+      );
+    }
+    if (isCurrencyCodeColumn(column)) {
+      // The cell keeps its value on show while the drawer is open beside the grid.
+      return (
+        <div className={className}>
+          <CellDisplay {...props} />
+          <CurrencyCodeEditor
+            value={row.data?.[column.key] ?? null}
+            clearLabel={labels.clear}
+            onChange={code => void saveQuietly(onUpdate(row.id, column.key, code))}
+            onClose={done}
+          />
+        </div>
+      );
+    }
     return column.type === 'date' ? (
       <DateEditor {...props} done={done} />
     ) : (
@@ -237,7 +276,7 @@ export function EditableCell(props: EditableCellProps) {
 
   if (!editable) {
     return (
-      <div className={className}>
+      <div className={className} title={lockedBySource ? labels.readOnlySource : undefined}>
         <CellDisplay {...props} />
       </div>
     );
