@@ -894,65 +894,8 @@ npm test               # Run all tests with Vitest
 
 ## Architecture
 
-### System Overview
+<img width="594" height="1125" alt="architecture" src="https://github.com/user-attachments/assets/8fdad21b-a3ee-4557-b186-22cf013dac04" />
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Browser / Client                        │
-└────────────┬────────────────────────────────────┬───────────────┘
-             │                                    │
-             │ HTTP/WebSocket                     │ HTTP
-             │                                    │
-┌────────────▼────────────┐         ┌────────────▼───────────────┐
-│   Next.js Frontend      │         │   External Integrations     │
-│   (Port 3000)           │         │  - SMTP / IMAP              │
-│                         │         │  - S3-compatible storage    │
-│  - App Router           │         │  - WebDAV storage           │
-│  - React 19             │         │  - Workbook files           │
-│  - MUI + Emotion        │         │  - Telegram Bot             │
-│  - Real-time updates    │         │  - OpenAI-compatible AI     │
-│                         │         │  - tileserver-gl, Nominatim │
-└────────────┬────────────┘         └─────────────────────────────┘
-             │
-             │ REST API (/api/v1)
-             │ WebSocket (Socket.IO)
-             │
-┌────────────▼─────────────────────────────────────────────────────┐
-│              NestJS Backend (Port 3001)                          │
-│                                                                  │
-│  ┌─────────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │  Auth & RBAC    │  │   Parsing    │  │  Classification  │  │
-│  │  - JWT + CSRF   │  │  - Kaspi     │  │  - Rules         │  │
-│  │  - Sessions/2FA │  │  - Bereke    │  │  - Payee memory  │  │
-│  │  - Permissions  │  │  - CSV/XLSX  │  │  - Optional AI   │  │
-│  └─────────────────┘  │  - Generic   │  └──────────────────┘  │
-│                       │  - OCR       │                          │
-│  ┌─────────────────┐  └──────────────┘  ┌──────────────────┐  │
-│  │  Transactions   │                    │   Workspaces     │  │
-│  │  - CRUD         │  ┌──────────────┐  │  - Multi-tenant  │  │
-│  │  - Dedup        │  │  Reports &   │  │  - Invitations   │  │
-│  │  - Search       │  │  Dashboard   │  │  - RBAC          │  │
-│  └─────────────────┘  │  - Cash flow │  └──────────────────┘  │
-│                       │  - Export    │                          │
-│  ┌─────────────────┐  └──────────────┘  ┌──────────────────┐  │
-│  │  Audit Log      │                    │   Storage &      │  │
-│  │  - Events       │  ┌──────────────┐  │   Files          │  │
-│  │  - Rollback     │  │ Integrations │  │  - Versions      │  │
-│  └─────────────────┘  │ - S3/WebDAV  │  │  - Shared links  │  │
-│                       │ - IMAP       │  └──────────────────┘  │
-│                       │ - Telegram   │                          │
-│                       └──────────────┘                          │
-└──────────┬────────────────────────────┬─────────────────────────┘
-           │                            │
-           │                            │
-┌──────────▼────────────┐   ┌──────────▼────────────┐
-│   PostgreSQL 14       │   │     Redis 7           │
-│                       │   │                       │
-│ - 108 TypeORM entities│   │  - Cache              │
-│  - 223 migrations     │   │  - Rate limiting      │
-│  - Full-text search   │   │  - BullMQ queues      │
-└───────────────────────┘   └───────────────────────┘
-```
 
 ### API Design
 
