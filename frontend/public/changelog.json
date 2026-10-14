@@ -1,14 +1,76 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "c0dd51a1b230f7f26f1003fc965501f311f74c7f"
+      "main": "50d570a9d911cae6404ca933b2c88cd393aca21a"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-14T12:31:26.912Z",
+    "lastGeneratedAt": "2026-10-14T17:52:01.966Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-14-50d570a",
+      "version": "main-50d570a",
+      "branch": "main",
+      "date": "2026-10-14T17:52:01.966Z",
+      "title": "Release update - October 14, 2026",
+      "summary": "This release includes routine maintenance updates.",
+      "markdown": "## Other\n- Routine maintenance updates.",
+      "commits": [
+        {
+          "sha": "1ee462e575f7df6102d0525808417858acca21d5",
+          "shortSha": "1ee462e5",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-14T12:31:27Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "50e192dc98af23976c86c82ac8983771738a7fba",
+          "shortSha": "50e192dc",
+          "subject": "docs(readme): refresh against the codebase and ask for bank statements",
+          "author": "Symon Baikov",
+          "date": "2026-10-14T19:33:18+03:00",
+          "files": [
+            "README.md"
+          ]
+        },
+        {
+          "sha": "8ba78dda3f93823636ea1d5f37edbf3bff98802e",
+          "shortSha": "8ba78dda",
+          "subject": "docs(readme): add country flags to Supported Banks",
+          "author": "Symon Baikov",
+          "date": "2026-10-14T19:39:29+03:00",
+          "files": [
+            "README.md"
+          ]
+        },
+        {
+          "sha": "d7690bb126d62264a842ff7a370462b69c4fbe2a",
+          "shortSha": "d7690bb1",
+          "subject": "docs: describe Lumio for private individuals too, fix Node and IMAP claims",
+          "author": "Symon Baikov",
+          "date": "2026-10-14T19:56:39+03:00",
+          "files": [
+            "CONTRIBUTING.md",
+            "README.md"
+          ]
+        },
+        {
+          "sha": "50d570a9d911cae6404ca933b2c88cd393aca21a",
+          "shortSha": "50d570a9",
+          "subject": "Remove architecture overview from README",
+          "author": "Symon Baikov",
+          "date": "2026-10-14T20:51:34+03:00",
+          "files": [
+            "README.md"
+          ]
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-14-c0dd51a",
       "version": "main-c0dd51a",
