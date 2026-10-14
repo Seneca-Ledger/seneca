@@ -52,6 +52,8 @@ import { ClassificationService } from '../../src/modules/classification/services
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { NotificationsService } from '../../src/modules/notifications/notifications.service';
+import { BudgetVsActualReport } from '../../src/modules/reports/budget-vs-actual.report';
+import { HoldingsSnapshotReport } from '../../src/modules/reports/holdings-snapshot.report';
 import { ReportsService } from '../../src/modules/reports/reports.service';
 import { TransactionsService } from '../../src/modules/transactions/transactions.service';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
@@ -220,6 +222,9 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
         { provide: AuditService, useValue: auditStub },
         { provide: CACHE_MANAGER, useValue: cacheStub },
         { provide: ExchangeRatesService, useValue: exchangeStub },
+        // The P&L totals compared here never reach these two templates.
+        { provide: BudgetVsActualReport, useValue: {} },
+        { provide: HoldingsSnapshotReport, useValue: {} },
         { provide: ClassificationService, useValue: {} },
         { provide: NotificationsService, useValue: { create: jest.fn() } },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },

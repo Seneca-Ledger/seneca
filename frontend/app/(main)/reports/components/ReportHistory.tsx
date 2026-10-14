@@ -20,6 +20,7 @@ import type { ReportHistoryList } from '@/app/lib/contracts';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
+import { TEMPLATE_NAME_KEYS } from './report-template-names';
 
 const HISTORY_SKELETON_KEYS = ['hist-0', 'hist-1', 'hist-2', 'hist-3', 'hist-4'];
 
@@ -133,6 +134,9 @@ export function ReportHistory(): React.JSX.Element {
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
+  /** The stored name is English; show the template in the reader's language. */
+  const templateName = (item: ReportHistoryItem): string =>
+    text(TEMPLATE_NAME_KEYS[item.templateId] ?? '', item.templateName);
   const [history, setHistory] = useState<ReportHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -247,7 +251,7 @@ export function ReportHistory(): React.JSX.Element {
                   fontWeight={500}
                   sx={{ color: 'var(--foreground)', mb: 0.25 }}
                 >
-                  {item.templateName}
+                  {templateName(item)}
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
                   {item.dateFrom} – {item.dateTo}
@@ -275,7 +279,7 @@ export function ReportHistory(): React.JSX.Element {
               <IconButton
                 size="small"
                 onClick={() => void handleDownload(item)}
-                aria-label={`Re-download ${item.templateName}`}
+                aria-label={`Re-download ${templateName(item)}`}
                 sx={{ color: 'var(--primary)', flexShrink: 0 }}
               >
                 <Download size={16} />
@@ -334,7 +338,7 @@ export function ReportHistory(): React.JSX.Element {
                       fontWeight={500}
                       sx={{ color: 'var(--foreground)' }}
                     >
-                      {item.templateName}
+                      {templateName(item)}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -373,8 +377,8 @@ export function ReportHistory(): React.JSX.Element {
                     <IconButton
                       size="small"
                       onClick={() => void handleDownload(item)}
-                      aria-label={`Re-download ${item.templateName}`}
-                      title={`Re-download ${item.templateName}`}
+                      aria-label={`Re-download ${templateName(item)}`}
+                      title={`Re-download ${templateName(item)}`}
                       sx={{ color: 'var(--primary)' }}
                     >
                       <Download size={16} />

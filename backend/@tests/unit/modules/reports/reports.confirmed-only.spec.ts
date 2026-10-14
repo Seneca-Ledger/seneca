@@ -70,7 +70,7 @@ function buildService() {
     { createEvent: jest.fn() } as unknown as AuditService,
     emptyRepo() as any,
     { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-    { getRate: jest.fn(async () => 1) } as any,
+    { getRate: jest.fn(async () => 1), getRateOrNull: jest.fn(async () => 1) } as any,
     { exportBalanceSheet: jest.fn() } as any,
   );
   const conditionsPerQuery = () => {
@@ -117,7 +117,6 @@ describe('ReportsService counts only what a report should', () => {
 
   it('template reports load confirmed rows only', async () => {
     const { service, transactionRepository } = buildService();
-    jest.spyOn(service as any, 'buildRateMap').mockResolvedValue(new Map());
 
     await (service as any).loadReportRows('ws-1', {
       templateId: 'pnl',

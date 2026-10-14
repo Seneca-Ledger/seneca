@@ -8,6 +8,7 @@ import type { CreateReportScheduleBody, GenerateReportBody } from '../../contrac
 import { ReportSchedule, ReportScheduleCadence } from '../../entities/report-schedule.entity';
 import { User } from '../../entities/user.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
+import { renderTemplateLabels, templateTitle } from './report-template.translations';
 import { ReportsService } from './reports.service';
 
 /** Inclusive [from, to] ISO dates for the last completed period. */
@@ -19,6 +20,69 @@ export interface SchedulePeriod {
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
+
+/** How far ahead of UTC `timeZone` is at that instant, in milliseconds. */
+function zoneOffset(at: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(at);
+  const value = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find(part => part.type === type)?.value ?? '0');
+  const asUtc = Date.UTC(
+    value('year'),
+    value('month') - 1,
+    value('day'),
+    value('hour'),
+    value('minute'),
+    value('second'),
+  );
+  return asUtc - at.getTime();
+}
+
+/**
+ * The instant at which a wall clock in `timeZone` reads the given date and hour.
+ *
+ * The offset depends on the instant we are looking for, so the first guess is
+ * corrected once and then checked again — enough to land on the right side of a
+ * daylight-saving change.
+ */
+function zonedTime(year: number, month: number, day: number, hour: number, timeZone: string): Date {
+  const wallClock = Date.UTC(year, month, day, hour);
+  // Each pass measures the offset again at the instant found so far, but always
+  // corrects the same wall-clock target — subtracting twice would walk away.
+  let utc = wallClock - zoneOffset(new Date(wallClock), timeZone);
+  utc = wallClock - zoneOffset(new Date(utc), timeZone);
+  return new Date(utc);
+}
+
+/** The calendar parts a wall clock in `timeZone` shows at that instant. */
+function zonedParts(at: Date, timeZone: string): { year: number; month: number; day: number } {
+  const iso = new Date(at.getTime() + zoneOffset(at, timeZone));
+  return { year: iso.getUTCFullYear(), month: iso.getUTCMonth(), day: iso.getUTCDate() };
+}
+
+/** A schedule falls back to UTC only when its owner never set a time zone. */
+function resolveTimeZone(timeZone: string | null | undefined): string {
+  if (!timeZone) {
+    return 'UTC';
+  }
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone });
+    return timeZone;
+  } catch {
+    return 'UTC';
+  }
+}
+
+/** Reports go out at 06:00 on the owner's clock, not on the server's. */
+const SEND_HOUR = 6;
 
 @Injectable()
 export class ReportSchedulesService {
@@ -38,8 +102,9 @@ export class ReportSchedulesService {
    * Running on the 1st therefore reports the whole previous month, never a
    * partial current one.
    */
-  resolvePeriod(cadence: ReportScheduleCadence, now: Date): SchedulePeriod {
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  resolvePeriod(cadence: ReportScheduleCadence, now: Date, timeZone = 'UTC'): SchedulePeriod {
+    const local = zonedParts(now, resolveTimeZone(timeZone));
+    const today = new Date(Date.UTC(local.year, local.month, local.day));
 
     if (cadence === ReportScheduleCadence.DAILY) {
       const yesterday = new Date(today);
@@ -63,33 +128,33 @@ export class ReportSchedulesService {
     return { dateFrom: toIsoDate(start), dateTo: toIsoDate(end) };
   }
 
-  /** Next 06:00 UTC boundary after `from` for the given cadence. */
-  computeNextRunAt(cadence: ReportScheduleCadence, from: Date): Date {
-    const next = new Date(
-      Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate(), 6, 0, 0, 0),
-    );
+  /**
+   * The next 06:00 on the owner's clock for the given cadence.
+   *
+   * Stored as an instant, so a report lands at breakfast wherever the reader
+   * is rather than at whatever hour 06:00 UTC happens to be there — and keeps
+   * landing at breakfast across a daylight-saving change.
+   */
+  computeNextRunAt(cadence: ReportScheduleCadence, from: Date, timeZone = 'UTC'): Date {
+    const zone = resolveTimeZone(timeZone);
+    const local = zonedParts(from, zone);
+    const at = (dayOffset: number): Date =>
+      zonedTime(local.year, local.month, local.day + dayOffset, SEND_HOUR, zone);
 
     if (cadence === ReportScheduleCadence.DAILY) {
-      if (next <= from) {
-        next.setUTCDate(next.getUTCDate() + 1);
-      }
-      return next;
+      const today = at(0);
+      return today > from ? today : at(1);
     }
 
     if (cadence === ReportScheduleCadence.WEEKLY) {
-      // Next Monday; if today is Monday but 06:00 has passed, jump a full week.
-      const daysUntilMonday = (8 - next.getUTCDay()) % 7;
-      next.setUTCDate(next.getUTCDate() + daysUntilMonday);
-      if (next <= from) {
-        next.setUTCDate(next.getUTCDate() + 7);
-      }
-      return next;
+      // Monday on the owner's calendar, not on the server's.
+      const weekday = new Date(Date.UTC(local.year, local.month, local.day)).getUTCDay();
+      const daysUntilMonday = (8 - weekday) % 7;
+      const monday = at(daysUntilMonday);
+      return monday > from ? monday : at(daysUntilMonday + 7);
     }
 
-    const firstOfNextMonth = new Date(
-      Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1, 6, 0, 0, 0),
-    );
-    return firstOfNextMonth;
+    return zonedTime(local.year, local.month + 1, 1, SEND_HOUR, zone);
   }
 
   async list(workspaceId: string): Promise<ReportSchedule[]> {
@@ -107,8 +172,10 @@ export class ReportSchedulesService {
     if (dto.recipients.length === 0) {
       throw new BadRequestException('At least one recipient is required');
     }
+    ReportsService.assertTemplateFormat(dto.templateId, dto.format);
 
     const now = new Date();
+    const timeZone = await this.timeZoneOf(userId);
     return this.scheduleRepository.save(
       this.scheduleRepository.create({
         workspaceId,
@@ -122,7 +189,7 @@ export class ReportSchedulesService {
         groupBy: dto.groupBy ?? null,
         locale: dto.locale ?? null,
         isActive: true,
-        nextRunAt: this.computeNextRunAt(toEnum(ReportScheduleCadence, dto.cadence), now),
+        nextRunAt: this.computeNextRunAt(toEnum(ReportScheduleCadence, dto.cadence), now, timeZone),
       }),
     );
   }
@@ -142,7 +209,11 @@ export class ReportSchedulesService {
     schedule.isActive = isActive;
     if (isActive) {
       // Resuming a long-paused schedule must not fire for every missed period.
-      schedule.nextRunAt = this.computeNextRunAt(schedule.cadence, new Date());
+      schedule.nextRunAt = this.computeNextRunAt(
+        schedule.cadence,
+        new Date(),
+        await this.timeZoneOf(schedule.userId),
+      );
     }
     return this.scheduleRepository.save(schedule);
   }
@@ -166,8 +237,9 @@ export class ReportSchedulesService {
 
     let failed = 0;
     for (const schedule of due) {
+      const timeZone = await this.timeZoneOf(schedule.userId);
       try {
-        await this.runSchedule(schedule, now);
+        await this.runSchedule(schedule, now, timeZone);
         schedule.lastError = null;
       } catch (error) {
         failed += 1;
@@ -179,15 +251,15 @@ export class ReportSchedulesService {
       }
 
       schedule.lastRunAt = now;
-      schedule.nextRunAt = this.computeNextRunAt(schedule.cadence, now);
+      schedule.nextRunAt = this.computeNextRunAt(schedule.cadence, now, timeZone);
       await this.scheduleRepository.save(schedule);
     }
 
     return { ran: due.length, failed };
   }
 
-  private async runSchedule(schedule: ReportSchedule, now: Date): Promise<void> {
-    const period = this.resolvePeriod(schedule.cadence, now);
+  private async runSchedule(schedule: ReportSchedule, now: Date, timeZone: string): Promise<void> {
+    const period = this.resolvePeriod(schedule.cadence, now, timeZone);
 
     const file = await this.reportsService.generateFromTemplate(
       schedule.workspaceId,
@@ -206,6 +278,15 @@ export class ReportSchedulesService {
     );
 
     await this.sendReportEmail(schedule, file.filePath, file.fileName, period);
+  }
+
+  /** The owner's time zone, or UTC when they never picked one. */
+  private async timeZoneOf(userId: string): Promise<string> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'timeZone'],
+    });
+    return resolveTimeZone(user?.timeZone);
   }
 
   private async sendReportEmail(
@@ -231,14 +312,18 @@ export class ReportSchedulesService {
       socketTimeout: smtp.timeoutMs,
     });
 
-    const subject = `${schedule.templateId}: ${period.dateFrom} — ${period.dateTo}`;
+    const locale = schedule.locale ?? user?.locale ?? undefined;
+    const name = templateTitle(schedule.templateId, locale) ?? schedule.templateId;
+    const subject = `${name}: ${period.dateFrom} — ${period.dateTo}`;
 
     await transporter.sendMail({
       from: smtp.from,
       to: schedule.recipients.join(', '),
       replyTo: smtp.replyTo || undefined,
       subject,
-      text: `Scheduled report for ${period.dateFrom} — ${period.dateTo} is attached.`,
+      text: `${name}\n${period.dateFrom} — ${period.dateTo}\n\n${
+        renderTemplateLabels(locale).scheduledMailBody
+      }`,
       // Читаем файл, а не отдаём поток: у потока ошибка чтения приходит
       // событием 'error', и без слушателя она роняет процесс целиком вместо
       // того, чтобы пометить расписание упавшим. Отчёты небольшие, чтения в

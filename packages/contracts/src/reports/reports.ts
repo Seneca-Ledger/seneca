@@ -159,6 +159,8 @@ export const ReportPreview = Schema.Struct({
       total: Schema.optional(Schema.Array(ReportCell)),
     }),
   ),
+  /** Caveats about the figures, e.g. amounts left out for want of an exchange rate. */
+  notes: Schema.optional(Schema.Array(Schema.String)),
   footer: Schema.optional(Schema.Array(Schema.Array(ReportCell))),
   /** More rows exist than the preview shows. */
   truncated: Schema.Boolean,
