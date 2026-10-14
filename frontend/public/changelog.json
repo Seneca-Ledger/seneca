@@ -1,14 +1,127 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "51d2335e3551d8f71582b539a33d8100988ecf44"
+      "main": "c0dd51a1b230f7f26f1003fc965501f311f74c7f"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-13T17:37:34.557Z",
+    "lastGeneratedAt": "2026-10-14T12:31:26.912Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-14-c0dd51a",
+      "version": "main-c0dd51a",
+      "branch": "main",
+      "date": "2026-10-14T12:31:26.912Z",
+      "title": "Release update - October 14, 2026",
+      "summary": "This release includes 1 feature and 2 fixes.",
+      "markdown": "## Features\n- **reports**: Categories by month, budget vs actual and investment holdings templates\n\n## Fixes\n- **reports**: Honest rates, the reader's language and full rows in report templates\n- **reports**: Documents read as printed, checked against real data",
+      "commits": [
+        {
+          "sha": "ec766eb5acf0a390de1c0e427674d7def9f0010c",
+          "shortSha": "ec766eb5",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-13T17:37:34Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "d73a75ca315ec2d05403302aff9b64abcbbc015f",
+          "shortSha": "d73a75ca",
+          "subject": "fix(reports): honest rates, the reader's language and full rows in report templates",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T20:51:58+03:00",
+          "files": [
+            "backend/@tests/unit/modules/reports/report-schedules.service.spec.ts",
+            "backend/@tests/unit/modules/reports/reports.confirmed-only.spec.ts",
+            "backend/@tests/unit/modules/reports/reports.service.spec.ts",
+            "backend/src/contracts/reports/reports.ts",
+            "backend/src/contracts/requests/reports.ts",
+            "backend/src/modules/reports/report-document.util.ts",
+            "backend/src/modules/reports/report-schedules.service.ts",
+            "backend/src/modules/reports/report-template.translations.ts",
+            "backend/src/modules/reports/reports.service.ts",
+            "frontend/app/(main)/reports/components/ReportGenerator.tsx",
+            "frontend/app/(main)/reports/components/ReportHistory.tsx",
+            "frontend/app/(main)/reports/components/ReportPreview.tsx",
+            "frontend/app/(main)/reports/components/ReportSchedules.tsx",
+            "frontend/app/(main)/reports/components/report-template-names.ts",
+            "frontend/app/(main)/reports/page.tsx",
+            "frontend/app/lib/contracts/reports/reports.ts",
+            "frontend/app/lib/contracts/requests/reports.ts",
+            "packages/contracts/src/reports/reports.ts",
+            "packages/contracts/src/requests/reports.ts"
+          ]
+        },
+        {
+          "sha": "51c1fd0a17f594a93bfd3693c6a7b86f5e34aa1b",
+          "shortSha": "51c1fd0a",
+          "subject": "feat(reports): categories by month, budget vs actual and investment holdings templates",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T21:14:58+03:00",
+          "files": [
+            "backend/@tests/e2e/contracts.e2e-spec.ts",
+            "backend/@tests/unit/modules/reports/budget-vs-actual.report.spec.ts",
+            "backend/@tests/unit/modules/reports/holdings-snapshot.report.spec.ts",
+            "backend/@tests/unit/modules/reports/reports.service.spec.ts",
+            "backend/src/modules/reports/budget-variance.util.ts",
+            "backend/src/modules/reports/budget-vs-actual.report.ts",
+            "backend/src/modules/reports/holdings-snapshot.report.ts",
+            "backend/src/modules/reports/report-document.util.ts",
+            "backend/src/modules/reports/report-template.translations.ts",
+            "backend/src/modules/reports/report-template.types.ts",
+            "backend/src/modules/reports/reports.module.ts",
+            "backend/src/modules/reports/reports.service.ts",
+            "frontend/app/(main)/reports/components/ReportGenerator.test.tsx",
+            "frontend/app/(main)/reports/components/ReportGenerator.tsx",
+            "frontend/app/(main)/reports/components/ReportSchedules.test.tsx",
+            "frontend/app/(main)/reports/components/ReportSchedules.tsx",
+            "frontend/app/(main)/reports/components/ReportTemplateCard.tsx",
+            "frontend/app/(main)/reports/components/report-template-names.ts",
+            "frontend/app/(main)/reports/page.content.ts",
+            "frontend/app/(main)/reports/page.tsx"
+          ]
+        },
+        {
+          "sha": "8758ce6254f419052d550911b1f647e8a55e09a8",
+          "shortSha": "8758ce62",
+          "subject": "fix(reports): documents read as printed, checked against real data",
+          "author": "Symon Baikov",
+          "date": "2026-10-13T21:20:22+03:00",
+          "files": [
+            "backend/@tests/unit/modules/reports/budget-vs-actual.report.spec.ts",
+            "backend/@tests/unit/modules/reports/holdings-snapshot.report.spec.ts",
+            "backend/@tests/unit/modules/reports/reports.service.spec.ts",
+            "backend/src/modules/reports/budget-vs-actual.report.ts",
+            "backend/src/modules/reports/holdings-snapshot.report.ts",
+            "backend/src/modules/reports/report-document.util.ts",
+            "backend/src/modules/reports/report-template.types.ts",
+            "backend/src/modules/reports/reports.service.ts"
+          ]
+        },
+        {
+          "sha": "ba98344fbe820aee199dfe1ed6cdf536b7e69caa",
+          "shortSha": "ba98344f",
+          "subject": "test(reports): give the split invariant's module the two new template builders",
+          "author": "Symon Baikov",
+          "date": "2026-10-14T15:02:59+03:00",
+          "files": [
+            "backend/@tests/integration/transaction-split-invariant.spec.ts"
+          ]
+        },
+        {
+          "sha": "c0dd51a1b230f7f26f1003fc965501f311f74c7f",
+          "shortSha": "c0dd51a1",
+          "subject": "Merge pull request #299 from symonbaikov/feat/report-templates",
+          "author": "Symon Baikov",
+          "date": "2026-10-14T15:30:59+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-13-51d2335",
       "version": "main-51d2335",
