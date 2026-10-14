@@ -199,20 +199,26 @@ Setting expectations upfront:
 
 | Bank | Format | Parser |
 |---|---|---|
-| Kaspi Bank | PDF | `KaspiParser` — native table extraction |
-| Bereke Bank (new format) | PDF | `BerekeNewParser` — native |
-| Bereke Bank (legacy format) | PDF | `BerekeOldParser` — native |
-| Bank Hapoalim / Isracard | PDF | `HapoalimParser` — native (Hebrew) |
-| Revolut, Wise, N26, Monzo, Starling, Chase, Bank of America, Capital One, American Express, Wells Fargo, PayPal, ING (NL), Rabobank, Sparkasse / DKB, Commerzbank, Nordea, Santander UK, Barclays, HSBC, Lloyds, T-Bank | CSV | `CsvParser` — column presets per bank |
-| Any bank | CSV | `CsvParser` — generic delimiter detection |
-| Any bank | XLSX / XLS | `ExcelParser` — generic |
-| Any bank | DOCX | `DocxParser` — generic table extraction |
-| Any bank | OFX / QFX | `OfxParser` |
-| Any bank | QIF | `QifParser` |
-| Any bank | MT940 | `Mt940Parser` — SWIFT statement |
-| Any bank | CAMT.053 (XML) | `Camt053Parser` — ISO 20022 statement |
-| Any bank | PDF | `GenericPdfParser` — AI-assisted via OpenAI-compatible endpoint |
-| Any bank | Image (PNG / JPG) | OCR pipeline via Tesseract.js |
+| 🇰🇿 Kaspi Bank | PDF | `KaspiParser` — native table extraction |
+| 🇰🇿 Bereke Bank (new format) | PDF | `BerekeNewParser` — native |
+| 🇰🇿 Bereke Bank (legacy format) | PDF | `BerekeOldParser` — native |
+| 🇮🇱 Bank Hapoalim / Isracard | PDF | `HapoalimParser` — native (Hebrew) |
+| 🌍 Revolut, Wise, PayPal | CSV | `CsvParser` — column presets per bank |
+| 🇬🇧 Monzo, Starling, Santander UK, Barclays, HSBC, Lloyds | CSV | `CsvParser` — column presets per bank |
+| 🇺🇸 Chase, Bank of America, Capital One, American Express, Wells Fargo | CSV | `CsvParser` — column presets per bank |
+| 🇩🇪 N26, Sparkasse / DKB, Commerzbank | CSV | `CsvParser` — column presets per bank |
+| 🇳🇱 ING, Rabobank | CSV | `CsvParser` — column presets per bank |
+| 🇸🇪 🇩🇰 🇳🇴 🇫🇮 Nordea | CSV | `CsvParser` — column presets per bank |
+| T-Bank (Tinkoff) | CSV | `CsvParser` — column presets per bank |
+| 🌍 Any bank | CSV | `CsvParser` — generic delimiter detection |
+| 🌍 Any bank | XLSX / XLS | `ExcelParser` — generic |
+| 🌍 Any bank | DOCX | `DocxParser` — generic table extraction |
+| 🌍 Any bank | OFX / QFX | `OfxParser` |
+| 🌍 Any bank | QIF | `QifParser` |
+| 🌍 Any bank | MT940 | `Mt940Parser` — SWIFT statement |
+| 🌍 Any bank | CAMT.053 (XML) | `Camt053Parser` — ISO 20022 statement |
+| 🌍 Any bank | PDF | `GenericPdfParser` — AI-assisted via OpenAI-compatible endpoint |
+| 🌍 Any bank | Image (PNG / JPG) | OCR pipeline via Tesseract.js |
 
 Your bank is missing or parses badly? See [Wanted: real bank statements](#-wanted-real-bank-statements-for-parser-development).
 
