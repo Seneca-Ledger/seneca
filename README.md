@@ -58,10 +58,11 @@
 > **TL;DR**
 >
 > - Upload bank statements (PDF / CSV / XLSX / OFX / QIF / MT940 / CAMT.053 / image) → auto-parse → deduplicate → categorize → review
-> - Multi-tenant workspaces with RBAC, audit log, and one-click rollback
+> - Private by default: your data stays on your machine or server, no bank login required, AI is off unless you point it at a model (a local one works)
+> - Workspaces for yourself, your household or your team — roles, private transactions, audit log and one-click rollback
 > - Full stack running locally in one command: `npm run setup:dev`
 >
-> Built for finance teams, accountants, and developers who need to process and analyze bank statement data without proprietary SaaS lock-in.
+> Built for people who want to understand their money without handing their bank data to someone else's cloud — and for freelancers, small businesses, accountants and developers who need the same control. Self-hosted, open source, no proprietary SaaS lock-in.
 
 ---
 
@@ -94,13 +95,13 @@ Lumio's parsers are only as good as the statements they were tested on. **I'm lo
 
 ## Why Lumio exists
 
-Lumio turns unstructured financial documents (PDFs, CSVs, email receipts) into clean, queryable data. Open-source, self-hosted, and built for teams that need control over their financial data pipeline.
+Lumio turns unstructured financial documents (PDFs, CSVs, email receipts) into clean, queryable data. Most personal finance apps ask for your bank login or upload your statements to their servers; Lumio runs on your own machine or server, so your financial history stays with you. Open source and self-hosted — for a single person keeping private books as much as for a team that needs control over its financial data pipeline.
 
 ---
 
 ## Features
 
-Lumio is a full-stack financial operations platform built for teams that need to import, categorize, analyze, and collaborate on bank statement data.
+Lumio is a full-stack platform for importing, categorizing and analyzing bank statement data — on your own for personal finances, or together with a partner, an accountant or a team.
 
 ### Core capabilities
 
@@ -143,7 +144,7 @@ Lumio is a full-stack financial operations platform built for teams that need to
 
 ### Integrations
 
-- **IMAP Receipts** — mailbox polling pulls email receipts, parses merchant/amount/tax/line-item data, links receipts to transactions.
+- **IMAP Receipts** — syncs chosen mailbox folders on demand, parses merchant/amount/tax/line-item data, links receipts to transactions.
 - **S3-compatible Storage** — import and sync statement files with MinIO or another S3-compatible bucket.
 - **WebDAV Storage** — import and sync statement files with Nextcloud or another WebDAV-compatible server.
 - **Workbook Import** — export and import custom table data via XLSX, CSV, and ODS files.
@@ -433,11 +434,11 @@ Choose the startup mode that matches your machine:
 
 | Mode | Command | Requirements | Best for |
 |---|---|---|---|
-| Interactive | `npm run setup:dev` | Node.js 20+; Docker optional depending on selected mode | First run; lets you choose a mode |
+| Interactive | `npm run setup:dev` | Node.js 22.18+; Docker optional depending on selected mode | First run; lets you choose a mode |
 | Docker full-stack | `npm run setup:dev:docker` | Docker Desktop or Docker Engine with Compose | Fastest fresh-clone path |
-| Local app + Docker infra | `npm run setup:dev:local` | Node.js 20+, npm, Docker Compose | Running backend/frontend on your host |
-| Native no-Docker | `npm run setup:dev:native` | Node.js 20+, npm, local PostgreSQL, local Redis, `psql`, `redis-cli` | Contributors who do not want Docker |
-| Env only | `npm run setup:env` | Node.js 20+ | Preparing `.env` files without starting services |
+| Local app + Docker infra | `npm run setup:dev:local` | Node.js 22.18+, npm, Docker Compose | Running backend/frontend on your host |
+| Native no-Docker | `npm run setup:dev:native` | Node.js 22.18+, npm, local PostgreSQL, local Redis, `psql`, `redis-cli` | Contributors who do not want Docker |
+| Env only | `npm run setup:env` | Node.js 22.18+ | Preparing `.env` files without starting services |
 
 ### One-command development startup
 
@@ -451,7 +452,7 @@ npm run setup:dev
 
 ### Fast bootstrap checklist (new contributor flow)
 
-1. Install Node.js 20+ and Docker (with Compose) before you start.
+1. Install Node.js 22.18+ and Docker (with Compose) before you start.
 2. Ensure ports are free: `3000` (frontend), `3001` (backend).
 3. Prepare environment files once:
 
