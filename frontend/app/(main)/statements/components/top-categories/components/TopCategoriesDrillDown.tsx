@@ -2,6 +2,7 @@
 
 import Modal from '@mui/material/Modal';
 import { AnalyticsSourceBadge } from '@/app/(main)/statements/components/analytics/AnalyticsSourceBadge';
+import { useAnalyticsMoney } from '@/app/(main)/statements/components/analytics/useAnalyticsMoney';
 import type {
   TopCategoryAggregateRow,
   TopCategoryRecord,
@@ -9,7 +10,6 @@ import type {
 } from '@/app/(main)/statements/components/top-categories.utils';
 import { X } from '@/app/components/icons';
 import { closeOnBackdropClick } from '@/app/components/ui/backdrop-click';
-import { formatMoney } from '@/app/lib/analytics-common';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -106,6 +106,7 @@ function DrillDownTable({
   sourceLabels,
   labels,
 }: TableProps): React.JSX.Element {
+  const money = useAnalyticsMoney();
   return (
     <table style={{ minWidth: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
       <thead>
@@ -152,7 +153,7 @@ function DrillDownTable({
                 color: 'var(--foreground)',
               }}
             >
-              {formatMoney(record.amount, record.currencyValue || currency)}
+              {money(record.amount, record.currencyValue || currency)}
             </td>
           </tr>
         ))}

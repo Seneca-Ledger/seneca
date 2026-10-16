@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   IconButton,
@@ -21,10 +22,10 @@ import type React from 'react';
 import { Fragment, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
-import { ChevronDown, ChevronRight, Download } from '@/app/components/icons';
+import { ChevronDown, ChevronRight } from '@/app/components/icons';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { blobOf } from '@/app/lib/blob-of';
@@ -34,7 +35,7 @@ import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import { DatevExportCard } from './DatevExportCard';
 import { TaxThresholdCard } from './TaxThresholdCard';
-import { formatMoney, saveBlob } from './tax-return.helpers';
+import { saveBlob } from './tax-return.helpers';
 
 type Category = CategoryItem;
 
@@ -46,20 +47,42 @@ function fill(template: string, params: Record<string, string | number>): string
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(params[key] ?? ''));
 }
 
-function Figure({
-  label,
-  value,
-  emphasis = false,
-}: {
-  label: string;
-  value: string;
-  emphasis?: boolean;
-}) {
+/**
+ * One money format for the whole page: "$0", "−$20.04" — the symbol first, a
+ * typographic minus, cents only when there are any.
+ */
+export function taxMoney(value: number, currency: string, locale: string): string {
+  const whole = Math.round(value * 100) % 100 === 0;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency || 'USD',
+      minimumFractionDigits: whole ? 0 : 2,
+      maximumFractionDigits: whole ? 0 : 2,
+    })
+      .format(value === 0 ? 0 : value)
+      .replace('-', '−');
+  } catch {
+    return `${value.toFixed(whole ? 0 : 2)} ${currency}`;
+  }
+}
+
+const SECTION_TITLE_SX = { fontSize: 15, fontWeight: 500, color: 'text.primary' } as const;
+const HINT_SX = { fontSize: 14, color: 'var(--text-muted)', maxWidth: 680 } as const;
+
+function Figure({ label, value }: { label: string; value: string }) {
   return (
-    <Box sx={{ flex: { xs: '1 1 140px', md: '0 0 auto' }, minWidth: { md: 150 } }}>
-      <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{label}</Typography>
+    <Box sx={{ flex: { xs: '1 1 140px', md: '0 0 auto' }, minWidth: { md: 170 } }}>
+      <Typography sx={{ fontSize: 14, color: 'var(--text-muted)' }}>{label}</Typography>
       <Typography
-        sx={{ fontSize: emphasis ? 22 : 17, fontWeight: 600, color: 'text.primary', mt: 0.25 }}
+        sx={{
+          mt: 0.5,
+          fontSize: 28,
+          fontWeight: 500,
+          lineHeight: 1.2,
+          fontVariantNumeric: 'tabular-nums',
+          color: 'text.primary',
+        }}
       >
         {value}
       </Typography>
@@ -74,6 +97,8 @@ function Figure({
  */
 export function TaxYearView(): React.ReactElement {
   const t = useIntlayer('taxYearView');
+  const { locale } = useLocale();
+  const money = (value: number, code: string) => taxMoney(value, code, locale);
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   const thisYear = new Date().getFullYear();
@@ -140,9 +165,10 @@ export function TaxYearView(): React.ReactElement {
       .finally(() => setDownloading(null));
   };
 
-  const rootCategories = (categories.data ?? []).filter(
-    category => !category.parentId && category.isEnabled !== false,
-  );
+  const rootCategories = (categories.data ?? [])
+    .filter(category => !category.parentId && category.isEnabled !== false)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const selectedCount = rootCategories.filter(category => category.taxRelevant).length;
   const data = report.data;
   const currency = data?.currency ?? reserve.data?.currency ?? '';
   const reserveData = reserve.data;
@@ -150,7 +176,8 @@ export function TaxYearView(): React.ReactElement {
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" sx={{ flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
+      {/* The year, and what the page is for on its own line under it. */}
+      <Stack spacing={1}>
         <Select
           size="small"
           value={String(year)}
@@ -160,11 +187,9 @@ export function TaxYearView(): React.ReactElement {
             const value = thisYear - index;
             return { value: String(value), label: String(value) };
           })}
-          sx={{ minWidth: 120 }}
+          sx={{ minWidth: 120, alignSelf: 'flex-start' }}
         />
-        <Typography sx={{ fontSize: 13, color: 'text.secondary', maxWidth: 640 }}>
-          {t.intro.value}
-        </Typography>
+        <Typography sx={HINT_SX}>{t.intro.value}</Typography>
       </Stack>
 
       <TaxThresholdCard />
@@ -179,7 +204,7 @@ export function TaxYearView(): React.ReactElement {
           p: { xs: 2, sm: 3 },
         }}
       >
-        <Typography sx={{ fontSize: 14, fontWeight: 600, color: 'text.primary', mb: 1.5 }}>
+        <Typography sx={{ ...SECTION_TITLE_SX, mb: 2 }}>
           {fill(t.reserveTitle.value, { year: thisYear })}
         </Typography>
         {reserve.isPending ? (
@@ -188,28 +213,29 @@ export function TaxYearView(): React.ReactElement {
           <Stack direction="row" sx={{ flexWrap: 'wrap', columnGap: 3, rowGap: 2 }}>
             <Figure
               label={t.reserveTotal.value}
-              value={formatMoney(reserveData.total, reserveData.currency)}
-              emphasis
+              value={money(reserveData.total, reserveData.currency)}
             />
             {reserveData.vat ? (
+              // Paid more VAT than collected: that is money back, said in words, not a bare minus.
               <Figure
-                label={t.reserveVat.value}
-                value={formatMoney(reserveData.vat.net, reserveData.currency)}
+                label={reserveData.vat.net < 0 ? t.reserveVatReclaim.value : t.reserveVat.value}
+                value={money(Math.abs(reserveData.vat.net), reserveData.currency)}
               />
             ) : null}
             {reserveData.incomeTax ? (
               <Figure
                 label={fill(t.reserveIncomeTax.value, { percent: reserveData.incomeTax.percent })}
-                value={formatMoney(reserveData.incomeTax.amount, reserveData.currency)}
+                value={money(reserveData.incomeTax.amount, reserveData.currency)}
               />
             ) : null}
+            {/* Subtracted from the total, so a minus — but never on a zero. */}
             <Figure
               label={fill(t.reservePaid.value, { count: reserveData.payments.count })}
-              value={`− ${formatMoney(reserveData.payments.amount, reserveData.currency)}`}
+              value={money(-reserveData.payments.amount, reserveData.currency)}
             />
           </Stack>
         ) : (
-          <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+          <Typography sx={HINT_SX}>
             {t.reserveNotSet.value}{' '}
             <Link href="/workspaces" style={{ color: 'var(--primary)' }}>
               {t.reserveSetUp.value}
@@ -217,9 +243,7 @@ export function TaxYearView(): React.ReactElement {
           </Typography>
         )}
         {reserveData && reserveConfigured ? (
-          <Typography sx={{ mt: 1.5, fontSize: 12, color: 'text.secondary', maxWidth: 640 }}>
-            {t.reserveExplain.value}
-          </Typography>
+          <Typography sx={{ ...HINT_SX, mt: 2 }}>{t.reserveExplain.value}</Typography>
         ) : null}
         {reserveData && reserveData.missingRateCurrencies.length > 0 ? (
           <Alert severity="warning" sx={{ mt: 1.5 }}>
@@ -230,45 +254,84 @@ export function TaxYearView(): React.ReactElement {
         ) : null}
       </Box>
 
-      {/* Which categories matter */}
+      {/* Which categories matter: a plain yes/no list, grouped, with a count by the title. */}
       <Box>
-        <Typography sx={{ fontSize: 14, fontWeight: 600, color: 'text.primary' }}>
-          {t.categoriesTitle.value}
-        </Typography>
-        <Typography sx={{ mt: 0.5, mb: 1.5, fontSize: 13, color: 'text.secondary', maxWidth: 640 }}>
-          {t.categoriesHint.value}
-        </Typography>
-        <Box
-          role="group"
-          aria-label={t.categoriesTitle.value}
-          sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}
-        >
-          {rootCategories.map(category => (
-            <Chip
-              key={category.id}
-              label={category.name}
-              // The category's own icon, so the list can be scanned by eye. The span takes
-              // the spacing Chip passes through className, which the badge does not accept.
-              icon={
-                <Box component="span" sx={{ display: 'inline-flex' }}>
-                  <CategoryIconBadge
-                    name={category.name}
-                    color={category.color}
-                    icon={category.icon}
-                    size={20}
-                  />
-                </Box>
-              }
-              size="small"
-              clickable
-              disabled={toggleCategory.isPending}
-              color={category.taxRelevant ? 'primary' : 'default'}
-              variant={category.taxRelevant ? 'filled' : 'outlined'}
-              aria-pressed={Boolean(category.taxRelevant)}
-              onClick={() => toggleCategory.mutate(category)}
-            />
-          ))}
-        </Box>
+        <Stack direction="row" sx={{ alignItems: 'baseline', gap: 1.5, flexWrap: 'wrap' }}>
+          <Typography sx={SECTION_TITLE_SX}>{t.categoriesTitle.value}</Typography>
+          <Typography sx={{ fontSize: 14, color: 'var(--text-muted)' }}>
+            {fill(t.selectedCount.value, { count: selectedCount })}
+          </Typography>
+        </Stack>
+        <Typography sx={{ ...HINT_SX, mt: 0.5, mb: 2 }}>{t.categoriesHint.value}</Typography>
+        {(['expense', 'income'] as const).map(type => {
+          const group = rootCategories.filter(category => category.type === type);
+          if (group.length === 0) {
+            return null;
+          }
+          const groupLabel = type === 'expense' ? t.groupExpenses.value : t.income.value;
+          return (
+            <Box key={type} role="group" aria-label={groupLabel} sx={{ mb: 2.5 }}>
+              <Typography
+                sx={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', mb: 0.5 }}
+              >
+                {groupLabel}
+              </Typography>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, minmax(0, 1fr))',
+                    md: 'repeat(3, minmax(0, 1fr))',
+                  },
+                  columnGap: 3,
+                  maxWidth: 900,
+                }}
+              >
+                {group.map(category => (
+                  <Box
+                    key={category.id}
+                    component="label"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      py: 0.5,
+                      fontSize: 14,
+                      color: 'text.primary',
+                      cursor: toggleCategory.isPending ? 'default' : 'pointer',
+                    }}
+                  >
+                    <Checkbox
+                      size="small"
+                      checked={Boolean(category.taxRelevant)}
+                      disabled={toggleCategory.isPending}
+                      onChange={() => toggleCategory.mutate(category)}
+                      // A thin outlined box: the app's blank one is a #f5f5f5 fill that
+                      // vanishes on the warm page, and a darker fill reads as a heavy block.
+                      icon={
+                        <Box
+                          component="span"
+                          sx={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: '4px',
+                            border: '1.5px solid',
+                            borderColor: theme =>
+                              theme.palette.mode === 'dark' ? '#5f5a53' : '#cfc9be',
+                            bgcolor: 'var(--card)',
+                          }}
+                        />
+                      }
+                      sx={{ p: 0.5 }}
+                    />
+                    {category.name}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          );
+        })}
       </Box>
 
       {/* The year's tax-relevant spending and income */}
@@ -342,7 +405,7 @@ export function TaxYearView(): React.ReactElement {
                           {category.documentCount}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600 }}>
-                          {formatMoney(category.total, currency)}
+                          {money(category.total, currency)}
                         </TableCell>
                       </TableRow>
                       {expanded
@@ -376,8 +439,8 @@ export function TaxYearView(): React.ReactElement {
                               </TableCell>
                               <TableCell align="right">
                                 {row.converted === null
-                                  ? formatMoney(row.amount, row.currency)
-                                  : formatMoney(row.converted, currency)}
+                                  ? money(row.amount, row.currency)
+                                  : money(row.converted, currency)}
                               </TableCell>
                             </TableRow>
                           ))
@@ -393,9 +456,9 @@ export function TaxYearView(): React.ReactElement {
               </Alert>
             ) : null}
           </Box>
-        ) : (
-          <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{t.empty.value}</Typography>
-        )}
+        ) : selectedCount > 0 ? (
+          <Typography sx={HINT_SX}>{fill(t.emptySelected.value, { year })}</Typography>
+        ) : null}
       </Box>
 
       {/* The archive */}
@@ -407,35 +470,29 @@ export function TaxYearView(): React.ReactElement {
           p: { xs: 2, sm: 3 },
         }}
       >
-        <Typography sx={{ fontSize: 14, fontWeight: 600, color: 'text.primary' }}>
-          {fill(t.packTitle.value, { year })}
-        </Typography>
-        <Typography sx={{ mt: 0.5, mb: 1.5, fontSize: 13, color: 'text.secondary', maxWidth: 640 }}>
-          {t.packDescription.value}
-        </Typography>
-        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+        <Typography sx={SECTION_TITLE_SX}>{fill(t.packTitle.value, { year })}</Typography>
+        <Typography sx={{ ...HINT_SX, mt: 0.5 }}>{t.packDescription.value}</Typography>
+        {/* The trust line sits before the action it is about. */}
+        <Typography sx={{ ...HINT_SX, mt: 1, mb: 2 }}>{t.packNote.value}</Typography>
+        {/* One main action; the full archive is a quieter text link beside it. */}
+        <Stack direction="row" sx={{ flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
           <Button
             variant="contained"
-            startIcon={<Download size={16} />}
             disabled={downloading !== null}
             onClick={() => void download('relevant')}
-            sx={{ textTransform: 'none', fontWeight: 600 }}
+            sx={{ textTransform: 'none', fontWeight: 500 }}
           >
             {downloading === 'relevant' ? t.preparing.value : t.downloadRelevant.value}
           </Button>
           <Button
-            variant="outlined"
-            startIcon={<Download size={16} />}
+            variant="text"
             disabled={downloading !== null}
             onClick={() => void download('all')}
-            sx={{ textTransform: 'none', fontWeight: 600 }}
+            sx={{ textTransform: 'none', fontWeight: 500, px: 0.5 }}
           >
             {downloading === 'all' ? t.preparing.value : t.downloadAll.value}
           </Button>
         </Stack>
-        <Typography sx={{ mt: 1.5, fontSize: 12, color: 'text.secondary', maxWidth: 640 }}>
-          {t.packNote.value}
-        </Typography>
       </Box>
 
       <DatevExportCard year={year} />

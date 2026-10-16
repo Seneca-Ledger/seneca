@@ -13,6 +13,10 @@ vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
 vi.mock('@/app/components/transactions/hooks/useWorkspaceMembers', () => ({
   useWorkspaceMembers: () => [],
 }));
+// The leaderboards under the view are their own components with their own tests.
+vi.mock('./CashFlowTab', () => ({
+  CashFlowTab: () => <div data-testid="leaderboards" />,
+}));
 vi.mock('@/app/components/CustomDatePicker', () => ({
   default: ({ label }: { label: string }) => <input aria-label={label} readOnly />,
 }));
@@ -71,15 +75,27 @@ describe('CashFlowView', () => {
     };
   });
 
-  it('shows totals, the sankey, the treemap and a comparison with deltas', () => {
+  it('shows totals, the sankey, the categories as a map or a table, and the leaderboards', () => {
     render(<CashFlowView />);
 
     expect(screen.getByText('Where the money went')).toBeInTheDocument();
     expect(screen.getByTestId('sankey')).toBeInTheDocument();
     expect(screen.getByTestId('treemap-tile-rent')).toBeInTheDocument();
+    expect(screen.getByTestId('leaderboards')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
     expect(screen.getByText('Groceries')).toBeInTheDocument();
-    // Food went from 300 to 400: more spending, shown as +100.
+    // Food went from 300 to 400: more spending, shown as +100, in grey.
     expect(screen.getAllByText(/\+.*100/).length).toBeGreaterThan(0);
+  });
+
+  it('keeps the leaderboards away when nothing moved in the period', () => {
+    hookMock.state = {
+      ...hookMock.state,
+      data: { ...data, income: { total: 0, sources: [] }, expense: { ...data.expense, total: 0 } },
+    };
+    render(<CashFlowView />);
+    expect(screen.queryByTestId('leaderboards')).toBeNull();
   });
 
   it('filters categories from a dropdown list applied on Apply, and toggles transfers', () => {
@@ -100,7 +116,9 @@ describe('CashFlowView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(hookMock.update).toHaveBeenCalledWith({ categories: ['__none__'] });
 
-    fireEvent.click(screen.getByLabelText('Include transfers and investments'));
+    // The switches live in Options.
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Include transfers and investments/ }));
     expect(hookMock.update).toHaveBeenCalledWith({ includeTransfers: true });
   });
 });

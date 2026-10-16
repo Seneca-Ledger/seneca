@@ -15,7 +15,8 @@ import {
   useSpendFlow,
 } from '@/app/(main)/statements/components/analytics/flow/useSpendFlow';
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
-import { formatMoney } from '@/app/lib/analytics-common';
+import { useLocale } from '@/app/i18n';
+import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
 
 /** Below this width the third column has no room for its labels. */
@@ -56,6 +57,8 @@ type Props = {
   chartLabels: SpendFlowChartLabels;
   emptyLabels: { emptyMonthSpend: string; emptyMonthIncome: string; emptyMonthHint: string };
   errorLabel: string;
+  /** False where the section above already names the chart: no second title in the card. */
+  heading?: boolean;
   /**
    * A second-column label (a category, a merchant) to blink twice once the
    * chart is drawn — how a `?focus=` deep link points something out here, the
@@ -110,9 +113,11 @@ export function SpendFlowChart({
   chartLabels,
   emptyLabels,
   errorLabel,
+  heading = true,
   flashNodeName = null,
 }: Props): React.JSX.Element {
   const query = useSpendFlow(groupBy, type, month);
+  const { locale } = useLocale();
   // Fetch the echarts chunk alongside the data: otherwise LazyECharts' own
   // plain skeleton replaces the sankey-shaped one for a moment after the data lands.
   useEffect(() => {
@@ -126,12 +131,16 @@ export function SpendFlowChart({
     if (!data) {
       return null;
     }
-    const formatAmount = (value: number): string => formatMoney(value, data.currency);
+    // The app's money format: symbol first, cents only under 100.
+    const formatAmount = (value: number): string =>
+      formatMoney(value, data.currency, locale, {
+        fractionDigits: Math.abs(value) >= 100 || Number.isInteger(value) ? 0 : 2,
+      });
     return buildSpendFlowSankey(data, resolvedTheme, chartLabels, formatAmount, {
       compact,
       isIncome: type === 'income',
     });
-  }, [data, resolvedTheme, chartLabels, compact, type]);
+  }, [data, resolvedTheme, chartLabels, compact, type, locale]);
 
   const flashNode = useMemo(() => {
     if (!data) {
@@ -246,10 +255,12 @@ export function SpendFlowChart({
         minWidth: 0,
       }}
     >
-      <div style={{ marginBottom: 12 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{title}</h3>
-        <p style={{ marginTop: 2, fontSize: 12, color: 'var(--muted-foreground)' }}>{subtitle}</p>
-      </div>
+      {heading ? (
+        <div style={{ marginBottom: 12 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}>{title}</h3>
+          <p style={{ marginTop: 2, fontSize: 14, color: 'var(--text-muted)' }}>{subtitle}</p>
+        </div>
+      ) : null}
       {renderBody()}
     </section>
   );

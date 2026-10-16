@@ -5,13 +5,14 @@ import {
   sortedCellStyle,
 } from '@/app/(main)/statements/components/analytics/AnalyticsSortableColumns';
 import { AnalyticsSourceBadge } from '@/app/(main)/statements/components/analytics/AnalyticsSourceBadge';
+import { useAnalyticsMoney } from '@/app/(main)/statements/components/analytics/useAnalyticsMoney';
 import type {
   AggregateSortKey,
   TopSpenderAggregateRow,
   TopSpenderSourceChannel,
 } from '@/app/(main)/statements/components/top-spenders/top-spenders.types';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
-import { formatMoney } from '@/app/lib/analytics-common';
+import { TextTabs } from '@/app/components/ui/text-tabs';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -46,31 +47,6 @@ type Props = {
 
 const SORT_KEYS: AggregateSortKey[] = ['amount', 'average', 'operations'];
 
-type SortBtnProps = { label: string; active: boolean; onClick: () => void };
-
-function SortBtn({ label, active, onClick }: SortBtnProps): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      style={{
-        borderRadius: tokens.radius.sm,
-        padding: '4px 10px',
-        fontSize: 12,
-        fontWeight: 500,
-        background: active ? 'var(--card-bg)' : 'transparent',
-        color: active ? 'var(--foreground)' : 'var(--text-secondary)',
-        border: 'none',
-        cursor: 'pointer',
-        boxShadow: active ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-      }}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-}
-
 type RowProps = {
   row: TopSpenderAggregateRow;
   sortKey: AggregateSortKey;
@@ -79,18 +55,19 @@ type RowProps = {
 };
 
 function LeaderboardRow({ row, sortKey, sourceLabels, onRowClick }: RowProps): React.JSX.Element {
+  const money = useAnalyticsMoney();
   const lastDate =
     row.lastDate && !Number.isNaN(new Date(row.lastDate).getTime())
       ? formatStoredDate(row.lastDate)
       : '-';
   return (
-    <tr style={{ color: 'var(--foreground)', borderTop: '1px solid var(--muted)' }}>
+    <tr style={{ color: 'var(--foreground)', borderTop: '1px solid var(--border)' }}>
       <td style={{ padding: '8px 16px 8px 0', fontWeight: 500, color: 'var(--foreground)' }}>
         <button
           type="button"
           style={{
             textAlign: 'left',
-            color: 'var(--primary)',
+            color: 'var(--foreground)',
             background: 'none',
             border: 'none',
             cursor: 'pointer',
@@ -109,8 +86,8 @@ function LeaderboardRow({ row, sortKey, sourceLabels, onRowClick }: RowProps): R
         />
       </td>
       <td style={sortedCellStyle('operations', sortKey)}>{row.count}</td>
-      <td style={sortedCellStyle('average', sortKey)}>{formatMoney(row.average, row.currency)}</td>
-      <td style={sortedCellStyle('amount', sortKey)}>{formatMoney(row.total, row.currency)}</td>
+      <td style={sortedCellStyle('average', sortKey)}>{money(row.average, row.currency)}</td>
+      <td style={sortedCellStyle('amount', sortKey)}>{money(row.total, row.currency)}</td>
       <td style={{ padding: '8px 0', textAlign: 'right', color: 'var(--muted-foreground)' }}>
         {lastDate}
       </td>
@@ -154,27 +131,18 @@ export function TopSpendersLeaderboard({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{title}</h3>
-          <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{rows.length}</span>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}>
+            {title}
+          </h3>
+          <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{rows.length}</span>
         </div>
-        <div
-          style={{
-            display: 'inline-flex',
-            border: '1px solid var(--border-color)',
-            background: 'var(--muted)',
-            padding: 4,
-            borderRadius: tokens.radius.md,
-          }}
-        >
-          {SORT_KEYS.map(k => (
-            <SortBtn
-              key={k}
-              label={sortKeyLabels[k]}
-              active={sortKey === k}
-              onClick={() => onSortChange(k)}
-            />
-          ))}
-        </div>
+        {/* Sort order as text tabs, like every other switch on the page. */}
+        <TextTabs
+          value={sortKey}
+          onChange={onSortChange}
+          ariaLabel={sortKeyLabels[sortKey]}
+          options={SORT_KEYS.map(key => ({ value: key, label: sortKeyLabels[key] }))}
+        />
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ minWidth: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
@@ -182,10 +150,9 @@ export function TopSpendersLeaderboard({
             <tr
               style={{
                 textAlign: 'left',
-                fontSize: 12,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                color: 'var(--muted-foreground)',
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'var(--text-muted)',
               }}
             >
               <th style={{ padding: '8px 16px 8px 0' }}>{columnLabels.company}</th>

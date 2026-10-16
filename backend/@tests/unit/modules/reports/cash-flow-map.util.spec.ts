@@ -141,9 +141,28 @@ describe('buildCashFlowMap', () => {
 });
 
 describe('previousPeriod', () => {
-  it('is the same number of days right before the period', () => {
-    expect(previousPeriod('2026-09-01', '2026-09-30')).toEqual({ from: '2026-08-02', to: '2026-08-31' });
+  it('compares a whole month with the whole month before', () => {
+    expect(previousPeriod('2026-09-01', '2026-09-30')).toEqual({ from: '2026-08-01', to: '2026-08-31' });
+    expect(previousPeriod('2026-10-01', '2026-10-31')).toEqual({ from: '2026-09-01', to: '2026-09-30' });
+  });
+
+  it('compares a quarter with the quarter before', () => {
+    expect(previousPeriod('2026-07-01', '2026-09-30')).toEqual({ from: '2026-04-01', to: '2026-06-30' });
+  });
+
+  it('compares part of a month with the same days of the month before', () => {
+    expect(previousPeriod('2026-10-01', '2026-10-15')).toEqual({ from: '2026-09-01', to: '2026-09-15' });
+    expect(previousPeriod('2026-03-01', '2026-03-31')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+    expect(previousPeriod('2026-03-01', '2026-03-30')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+  });
+
+  it('compares year to date with last year to the same date', () => {
+    expect(previousPeriod('2026-01-01', '2026-10-15')).toEqual({ from: '2025-01-01', to: '2025-10-15' });
+  });
+
+  it('falls back to the same number of days right before', () => {
     expect(previousPeriod('2026-03-01', '2026-03-01')).toEqual({ from: '2026-02-28', to: '2026-02-28' });
+    expect(previousPeriod('2026-03-10', '2026-03-19')).toEqual({ from: '2026-02-28', to: '2026-03-09' });
   });
 });
 
