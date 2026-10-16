@@ -75,7 +75,8 @@ function formatTypedCellText(
       const n = asNumber(value);
       return n === null || Number.isNaN(n)
         ? EMPTY_CELL
-        : formatCellNumber(n, numberFormatFor(column, fallbackCurrency));
+        : // A typographic minus, not a hyphen: the same width as the plus.
+          formatCellNumber(n, numberFormatFor(column, fallbackCurrency)).replace('-', '−');
     }
     case 'date':
       return typeof value === 'string' && value && !Number.isNaN(new Date(value).getTime())

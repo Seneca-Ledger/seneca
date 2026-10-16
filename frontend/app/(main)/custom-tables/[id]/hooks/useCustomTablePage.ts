@@ -17,6 +17,7 @@ import type { ConvertResult } from '../components/SendToStatementsDialog';
 import { showUndoToast } from '../components/UndoToast';
 import { isDraftRowId } from '../helpers/draftRowHelpers';
 import { buildDetailLabels } from '../labels';
+import { sourceViewDefaults } from '../utils/source-view-defaults';
 import type { AggregateFn, CustomTableColumn } from '../utils/types';
 import { useColumnEditor } from './useColumnEditor';
 import { usePasteImport } from './usePasteImport';
@@ -66,17 +67,68 @@ export function useCustomTablePage(tableId: string) {
   );
 
   const filters = useRowFilters();
-  const [sorting, setSorting] = useState<SortingState>([]);
+  // A table filled from Lumio opens newest first and without the columns that
+  // repeat the row (type, statement, a single currency). These defaults are
+  // derived during render, never set in an effect after the rows arrive: that
+  // re-sorted an already drawn table, emptied it and drew it again, so the old
+  // layout flashed after the skeleton. Whatever the user picks overrides them.
+  const isSourceTable = Boolean(data.table?.sourceBinding);
+  const defaultSorting = useMemo(
+    () => (isSourceTable ? sourceViewDefaults(columns, []).sorting : []),
+    [isSourceTable, columns],
+  );
+  const [userSorting, setUserSorting] = useState<{ tableId: string; value: SortingState } | null>(
+    null,
+  );
+  const sorting =
+    userSorting && userSorting.tableId === tableId ? userSorting.value : defaultSorting;
+  const setSorting = useCallback(
+    (updater: SortingState | ((current: SortingState) => SortingState)) =>
+      setUserSorting(prev => {
+        const current = prev && prev.tableId === tableId ? prev.value : defaultSorting;
+        return {
+          tableId: tableId ?? '',
+          value: typeof updater === 'function' ? updater(current) : updater,
+        };
+      }),
+    [tableId, defaultSorting],
+  );
   const grid = useTableGrid({
     tableId,
-    isAuthenticated,
+    // The first page is asked once the table is known, so it comes already in
+    // the order the table opens with, not re-sorted a moment later.
+    isAuthenticated: isAuthenticated && Boolean(data.table),
     combinedFiltersParam: filters.filtersParam,
     sort: sortParam(sorting),
     loadRowsFailedMessage: labels.toasts.loadRowsFailed,
   });
 
   const [rowSelection, setRowSelection] = useState<Record<string, true>>({});
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+  const [userVisibility, setUserVisibility] = useState<Record<string, boolean>>({});
+  // The currency column hides while every loaded row has one currency (and
+  // before any row is in, the usual case), so it does not pop out on arrival.
+  const defaultHidden = useMemo(
+    () =>
+      isSourceTable ? sourceViewDefaults(columns, grid.rows, { assumeSingle: true }).hidden : [],
+    [isSourceTable, columns, grid.rows],
+  );
+  const columnVisibility = useMemo(
+    () => ({ ...Object.fromEntries(defaultHidden.map(key => [key, false])), ...userVisibility }),
+    [defaultHidden, userVisibility],
+  );
+  const setColumnVisibility = useCallback(
+    (
+      updater:
+        | Record<string, boolean>
+        | ((current: Record<string, boolean>) => Record<string, boolean>),
+    ) =>
+      setUserVisibility(prev =>
+        typeof updater === 'function'
+          ? updater({ ...Object.fromEntries(defaultHidden.map(key => [key, false])), ...prev })
+          : updater,
+      ),
+    [defaultHidden],
+  );
   const [refreshToken, setRefreshToken] = useState(0);
   const onRowsChanged = useCallback(() => setRefreshToken(n => n + 1), []);
 

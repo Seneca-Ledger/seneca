@@ -186,6 +186,8 @@ export const SourcePreview = Schema.Struct({
     Schema.Struct({ field: Schema.String, title: Schema.String, type: CustomTableColumnType }),
   ),
   rows: Schema.Array(Schema.Record(Schema.String, CellValue)),
+  /** Currency codes across every matching row, for the currency filter's options. */
+  currencies: Schema.Array(Schema.String),
 });
 export type SourcePreview = Wire<typeof SourcePreview>;
 
