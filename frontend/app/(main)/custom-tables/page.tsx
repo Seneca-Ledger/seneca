@@ -230,6 +230,7 @@ export default function CustomTablesPage() {
         setForm={create.setForm}
         creating={create.creating}
         categories={list.categories}
+        existingTables={list.allTables}
         onSubmit={() => void create.submit()}
         onClose={create.close}
         labels={labels.create}

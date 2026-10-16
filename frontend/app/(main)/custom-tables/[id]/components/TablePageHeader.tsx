@@ -108,7 +108,8 @@ export function TablePageHeader({
           </h1>
         )}
         <p className="lumio-ct__meta">
-          <span>{source}</span>
+          {/* "Transactions · 860 rows" under a table named Transactions says it twice. */}
+          {source && source !== table.name ? <span>{source}</span> : null}
           {total !== null ? <span>{labels.rows.replace('{{count}}', String(total))}</span> : null}
           {table.category ? <span>{table.category.name}</span> : null}
           {syncedAt ? (

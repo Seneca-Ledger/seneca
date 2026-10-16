@@ -1738,6 +1738,7 @@ export class CustomTablesService {
     count: number;
     columns: Array<{ field: string; title: string; type: CustomTableColumnType }>;
     rows: Array<Record<string, SourceValue>>;
+    currencies: string[];
   }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const adapter = this.requireSources().get(dto.kind);
@@ -1756,6 +1757,13 @@ export class CustomTablesService {
         type: def.type,
       })),
       rows: rows.slice(0, 20).map(row => row.values),
+      currencies: [
+        ...new Set(
+          rows
+            .map(row => row.values.currency)
+            .filter((value): value is string => typeof value === 'string' && value !== ''),
+        ),
+      ].sort(),
     };
   }
 

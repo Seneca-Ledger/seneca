@@ -208,6 +208,14 @@ function MoreMenu({
  * Add row on the right. With rows selected the right side turns into the
  * selection actions.
  */
+const GHOST_TOOLBAR_BUTTON: React.CSSProperties = {
+  border: '1px solid transparent',
+  background: 'transparent',
+  fontWeight: 500,
+  minHeight: 32,
+  padding: '4px 10px',
+};
+
 export function TableToolbar(props: TableToolbarProps) {
   const { searchQuery, selectedCount, labels } = props;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -219,6 +227,8 @@ export function TableToolbar(props: TableToolbarProps) {
         onApply={props.onSearchChange}
         applyLabel={labels.apply}
         hint={labels.searchHint}
+        // Ghost, like Filter, View and "…" beside it: only Add row is filled.
+        buttonStyle={GHOST_TOOLBAR_BUTTON}
       />
       {props.filters}
       <input

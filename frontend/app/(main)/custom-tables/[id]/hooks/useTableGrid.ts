@@ -186,12 +186,20 @@ export function useTableGrid({
   );
 
   // Reset and reload when filters, sort or tableId changes
+  // The table whose rows are on screen: a new table starts empty, while a
+  // re-sort or re-filter keeps the current rows until the new ones arrive —
+  // clearing them flashed "No rows yet" for the length of the request.
+  const shownTableRef = useRef(tableId);
   useEffect(() => {
     if (!(isAuthenticated && tableId)) {
       return;
     }
     setHasMore(true);
-    setRows([]);
+    if (shownTableRef.current !== tableId) {
+      shownTableRef.current = tableId;
+      setRows([]);
+    }
+    setLoadingRows(true);
     const timer = window.setTimeout(() => {
       loadRows({ reset: true, filtersParam: combinedFiltersParam });
     }, 250);
