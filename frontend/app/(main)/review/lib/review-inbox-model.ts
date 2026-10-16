@@ -1,4 +1,5 @@
 import { addDays, format, isValid, parseISO } from 'date-fns';
+import { monthDeepLinkFilters } from '@/app/(main)/statements/components/filters/month-deep-link';
 import { getPresetRange } from '@/app/(main)/statements/components/filters/statement-filter-internals';
 import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
 import type { ReviewInboxDocument, ReviewInboxItem, ReviewInboxKind } from '@/app/lib/contracts';
@@ -127,6 +128,14 @@ export function targetIds(
 }
 
 const isoDay = (date: Date): string => format(date, 'yyyy-MM-dd');
+
+/**
+ * The date filter a link naming a month (`?month=YYYY-MM`, from the dashboard's
+ * month close) opens Review with: that whole month, as the dropdown names it.
+ */
+export function monthDateFilter(month: string | null): StatementFilterDate | null {
+  return monthDeepLinkFilters(month)?.date ?? null;
+}
 
 /**
  * The statements Date dropdown's value as the inclusive `from`/`to` days the

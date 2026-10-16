@@ -9,6 +9,8 @@ import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { filterEnabledCategories } from '@/app/(main)/statements/[id]/edit/editHelpers';
+import StatementCategoryDrawer from '@/app/(main)/statements/[id]/edit/StatementCategoryDrawer';
 import { statementColumnWidthStyle } from '@/app/(main)/statements/components/columns/statement-columns';
 import { DateFilterDropdown } from '@/app/(main)/statements/components/filters/DateFilterDropdown';
 import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
@@ -24,7 +26,7 @@ import { StatementsToolbarButton } from '@/app/(main)/statements/components/Stat
 import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
 import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
-import { ChevronDown } from '@/app/components/icons';
+import { ChevronDown, X } from '@/app/components/icons';
 import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
 import { formatDate } from '@/app/components/transactions/helpers/transactionFormatters';
 import { Alert } from '@/app/components/ui/alert';
@@ -131,6 +133,9 @@ export function ReviewInboxView({ state }: Props) {
   const preview = useStatementPreview();
   const [grouped, setGrouped] = useState(false);
   const [categoryId, setCategoryId] = useState('');
+  // The row whose empty category slot was clicked: the category drawer is open for it.
+  const [categoryRowId, setCategoryRowId] = useState<string | null>(null);
+  const editText = useIntlayer('statementEditPage');
   const categorySelectRef = useRef<HTMLDivElement | null>(null);
   // The statements Date dropdown, so both pages filter by date the same way.
   const statementsText = useIntlayer('statementsPage');
@@ -141,8 +146,10 @@ export function ReviewInboxView({ state }: Props) {
   const datePresets = buildDatePresets(filterOptionLabels);
   const dateModes = buildDateModes(filterOptionLabels);
   const [dateOpen, setDateOpen] = useState(false);
-  const [dateDraft, setDateDraft] = useState<StatementFilterDate | null>(null);
-  const [dateApplied, setDateApplied] = useState<StatementFilterDate | null>(null);
+  const [dateDraft, setDateDraft] = useState<StatementFilterDate | null>(state.initialDateFilter);
+  const [dateApplied, setDateApplied] = useState<StatementFilterDate | null>(
+    state.initialDateFilter,
+  );
 
   const {
     kind,
@@ -400,7 +407,7 @@ export function ReviewInboxView({ state }: Props) {
   /** A chosen category as Documents shows it; otherwise it says there is none yet. */
   const renderCategory = (item: Extract<ReviewInboxItem, { kind: 'transaction' }>) => {
     if (!hasChosenCategory(item.categoryName)) {
-      return <NoCategoryBadge />;
+      return <NoCategoryBadge onClick={() => setCategoryRowId(item.id)} />;
     }
     const category = categories.find(entry => entry.id === item.categoryId);
     const label = category ? getCategoryDisplayName(category, locale) : item.categoryName;
@@ -654,26 +661,34 @@ export function ReviewInboxView({ state }: Props) {
               aria-label={t.title.value}
               sx={{ ...sharedMuiTabsSx, mb: 0 }}
             >
-              {REVIEW_INBOX_KINDS.map(entry => (
-                <Tab
-                  key={entry}
-                  value={entry}
-                  label={
-                    page ? (
-                      <span>
-                        {tabLabels[entry]}{' '}
-                        <span
-                          className={`lumio-review-tab-count${page.counts[entry] === 0 ? ' lumio-review-tab-count--zero' : ''}`}
-                        >
-                          {page.counts[entry]}
+              {REVIEW_INBOX_KINDS.map(entry => {
+                // Filtered by "no category", the rows tab counts what it lists.
+                const count =
+                  page &&
+                  (entry === 'transaction' && state.uncategorized
+                    ? page.total
+                    : page.counts[entry]);
+                return (
+                  <Tab
+                    key={entry}
+                    value={entry}
+                    label={
+                      page ? (
+                        <span>
+                          {tabLabels[entry]}{' '}
+                          <span
+                            className={`lumio-review-tab-count${count === 0 ? ' lumio-review-tab-count--zero' : ''}`}
+                          >
+                            {count}
+                          </span>
                         </span>
-                      </span>
-                    ) : (
-                      tabLabels[entry]
-                    )
-                  }
-                />
-              ))}
+                      ) : (
+                        tabLabels[entry]
+                      )
+                    }
+                  />
+                );
+              })}
             </Tabs>
           </div>
           {canFilterByReviewer && (
@@ -707,6 +722,21 @@ export function ReviewInboxView({ state }: Props) {
               applyLabel={filterOptionLabels.apply}
               resetLabel={filterOptionLabels.reset}
             />
+          )}
+          {state.uncategorized && (
+            <StatementsToolbarButton
+              aria-pressed
+              aria-label={`${t.clearFilter.value}: ${t.filterUncategorized.value}`}
+              onClick={state.clearUncategorized}
+              style={{
+                borderColor: 'var(--primary)',
+                color: 'var(--primary)',
+                background: 'color-mix(in srgb, var(--primary) 8%, var(--card-bg))',
+              }}
+            >
+              {t.filterUncategorized.value}
+              <X size={14} aria-hidden="true" />
+            </StatementsToolbarButton>
           )}
           <StatementsToolbarButton
             aria-pressed={grouped}
@@ -791,6 +821,27 @@ export function ReviewInboxView({ state }: Props) {
           source={preview.preview.source}
         />
       ) : null}
+      <StatementCategoryDrawer
+        open={categoryRowId !== null}
+        onClose={() => setCategoryRowId(null)}
+        categories={filterEnabledCategories(categories)}
+        selectedCategoryId=""
+        selecting={busy}
+        onSelect={picked => {
+          const id = categoryRowId;
+          if (!(id && picked)) {
+            return;
+          }
+          void state.setCategory(id, picked).then(() => setCategoryRowId(null));
+        }}
+        showAllOption={false}
+        labels={{
+          title: editText.labels.categoryDrawerTitle.value,
+          searchPlaceholder: editText.labels.categorySearchPlaceholder.value,
+          allOption: editText.labels.categoryAllOption.value,
+          noResults: editText.labels.categoryNoResults.value,
+        }}
+      />
     </div>
   );
 }

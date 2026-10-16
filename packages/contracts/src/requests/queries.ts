@@ -227,7 +227,15 @@ export const ReviewInboxQuery = Schema.Struct({
    * Receipts and detected subscriptions belong to no one, so they ignore it.
    */
   reviewer: Schema.optional(Schema.Literals(['me', 'anyone'])),
-  /** Both bounds are inclusive calendar dates; together they make a "vacation mode" selection. */
+  /**
+   * Rows with no category, confirmed or not, instead of the unconfirmed ones
+   * (`kind=transaction` only): where the dashboard's "categorised" step links.
+   */
+  uncategorized: Schema.optional(BooleanInput),
+  /**
+   * Both bounds are inclusive calendar dates; together they make a "vacation mode" selection.
+   * They limit the tab counts too, and a receipt is dated by when it came in.
+   */
   from: Schema.optional(IsoDateString),
   to: Schema.optional(IsoDateString),
   page: Schema.optional(PageInput),

@@ -6,8 +6,9 @@ import { renderWithQuery } from '@/app/test/query-wrapper';
 import type { UseReviewInboxResult } from '../hooks/useReviewInbox';
 import { ReviewInboxView } from './ReviewInboxView';
 
+const routerPush = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: routerPush }),
   usePathname: () => '/review',
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -47,6 +48,9 @@ const state = (overrides: Partial<UseReviewInboxResult> = {}): UseReviewInboxRes
   to: '',
   setFrom: vi.fn(),
   setTo: vi.fn(),
+  initialDateFilter: null,
+  uncategorized: false,
+  clearUncategorized: vi.fn(),
   page: {
     kind: 'transaction',
     counts: { transaction: 2, receipt: 0, duplicate: 0, subscription: 0 },
@@ -68,6 +72,7 @@ const state = (overrides: Partial<UseReviewInboxResult> = {}): UseReviewInboxRes
   move: vi.fn(),
   busy: false,
   approve: vi.fn(async () => undefined),
+  setCategory: vi.fn(async () => undefined),
   resolveDuplicate: vi.fn(async () => undefined),
   approveReceipt: vi.fn(async () => undefined),
   decideSubscription: vi.fn(async () => undefined),
@@ -104,6 +109,49 @@ describe('ReviewInboxView', () => {
     expect(counts[0].className).not.toContain('--zero');
     expect(counts[1].className).toContain('lumio-review-tab-count--zero');
     expect(container.textContent).not.toContain('(0)');
+  });
+
+  it('shows the "no category" filter it was opened with, counts what it lists, and clears it', () => {
+    const clearUncategorized = vi.fn();
+    const base = state();
+    const { container } = renderWithQuery(
+      <ReviewInboxView
+        state={state({
+          uncategorized: true,
+          clearUncategorized,
+          // The rows tab badge counts unconfirmed rows; filtered, it counts the list.
+          page: { ...base.page, total: 4 } as UseReviewInboxResult['page'],
+        })}
+      />,
+    );
+    const counts = [...container.querySelectorAll('.lumio-review-tab-count')];
+    expect(counts[0].textContent).toBe('4');
+
+    screen.getByRole('button', { name: /filterUncategorized|No category/ }).click();
+    expect(clearUncategorized).toHaveBeenCalled();
+  });
+
+  it('opens the category drawer from an empty category slot instead of the document', async () => {
+    const setCategory = vi.fn(async () => undefined);
+    const push = vi.fn();
+    routerPush.mockImplementation(push);
+    renderWithQuery(
+      <ReviewInboxView
+        state={state({
+          setCategory,
+          items: [row({ categoryName: null, document: { source: 'statement', id: 's-1', fileName: 'a.pdf', fileType: 'pdf' } })],
+          categories: [
+            { id: '11111111-1111-4111-8111-111111111111', name: 'Groceries', type: 'expense', isEnabled: true },
+          ] as UseReviewInboxResult['categories'],
+        })}
+      />,
+    );
+
+    screen.getAllByTestId('no-category-badge')[0].click();
+    expect(push).not.toHaveBeenCalled();
+
+    (await screen.findByText('Groceries')).click();
+    expect(setCategory).toHaveBeenCalledWith('tx-1', '11111111-1111-4111-8111-111111111111');
   });
 
   it('shows the keyboard hints only once something is selected', () => {
