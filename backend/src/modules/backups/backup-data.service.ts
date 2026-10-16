@@ -17,6 +17,10 @@ const EXCLUDED_TABLES = new Set([
   'integration_tokens',
   'integrations',
   'open_protocol_settings',
+  // The access point's API key and secret: reconnected after a restore, like the other integrations.
+  'peppol_connections',
+  // The access point's API key and secret: reconnected after a restore, like the other integrations.
+  'peppol_connections',
   'notifications',
   'report_history',
   'drive_settings',
@@ -45,6 +49,15 @@ const SENSITIVE_PROPERTIES = new Set([
   'token',
 ]);
 
+/**
+ * Columns hidden from ordinary reads (`select: false`) that a backup still has
+ * to carry, by table: without them the rows cannot be restored.
+ */
+const HIDDEN_COLUMNS_IN_BACKUP: Record<string, string[]> = {
+  // The XML exactly as it went over Peppol (NOT NULL); the log means nothing without it.
+  peppol_transmissions: ['documentXml'],
+};
+
 type BackupSnapshotData = {
   collections: Record<string, unknown[]>;
   files: Array<{ path: string; contents: Buffer }>;
@@ -63,7 +76,10 @@ export class BackupDataService {
     for (const metadata of this.dataSource.entityMetadatas) {
       if (!this.isWorkspaceScoped(metadata) || EXCLUDED_TABLES.has(metadata.tableName)) continue;
       const repository = this.dataSource.getRepository(metadata.target);
-      const rows = await repository.find({ where: { workspaceId } as never });
+      const rows = await repository.find({
+        where: { workspaceId } as never,
+        ...this.selectFor(metadata),
+      });
       const records = rows.map(row => this.toBackupRecord(metadata, row));
       collections[metadata.tableName] = records;
       if (metadata.tableName === 'statements' && this.fileStorageService) {
@@ -75,6 +91,20 @@ export class BackupDataService {
     }
     await this.collectRelatedCollections(collections);
     return { collections, files };
+  }
+
+  /** The usual columns, plus the hidden ones this table's backup needs. */
+  private selectFor(metadata: EntityMetadata): { select?: never } {
+    const hidden = HIDDEN_COLUMNS_IN_BACKUP[metadata.tableName];
+    if (!hidden) {
+      return {};
+    }
+    const columns = metadata.columns.filter(
+      column => column.isSelect || hidden.includes(column.propertyName),
+    );
+    return {
+      select: Object.fromEntries(columns.map(column => [column.propertyName, true])) as never,
+    };
   }
 
   private isWorkspaceScoped(metadata: EntityMetadata): boolean {

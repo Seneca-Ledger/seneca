@@ -5,6 +5,7 @@ import CloudQueueOutlinedIcon from '@mui/icons-material/CloudQueueOutlined';
 import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined';
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import MarkEmailUnreadOutlinedIcon from '@mui/icons-material/MarkEmailUnreadOutlined';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import type React from 'react';
@@ -25,6 +26,7 @@ export type IntegrationCategoryKey =
   | 'messaging';
 
 type CatalogText = ReturnType<typeof useIntlayer<'integrationCatalog'>>;
+type PeppolText = ReturnType<typeof useIntlayer<'peppol'>>;
 
 type ProtocolConfig = Omit<ProtocolIntegrationPageProps, 'embedded' | 'onConnectionStatusChange'>;
 
@@ -92,7 +94,7 @@ function buildAiFields(f: CatalogText['fields']): ConfigField[] {
  * The integrations offered in the panel, in list order. Each entry carries the
  * settings its second layer renders, so there is one place to add a service.
  */
-function buildIntegrationCatalog(t: CatalogText): IntegrationEntry[] {
+function buildIntegrationCatalog(t: CatalogText, peppol: PeppolText): IntegrationEntry[] {
   const f = t.fields;
   const e = t.entries;
   const aiFields = buildAiFields(f);
@@ -355,6 +357,51 @@ function buildIntegrationCatalog(t: CatalogText): IntegrationEntry[] {
       detail: { kind: 'bank-sync' },
     },
     {
+      key: 'peppol',
+      name: peppol.integrationName.value,
+      description: peppol.integrationDescription.value,
+      badge: 'Peppol',
+      category: 'messaging',
+      recommended: false,
+      icon: <ReceiptLongOutlinedIcon sx={{ fontSize: 22 }} aria-hidden="true" />,
+      statusPath: '/integrations/peppol/status',
+      docsUrl: 'https://docs.recommand.eu',
+      detail: {
+        kind: 'protocol',
+        config: {
+          title: peppol.integrationName.value,
+          description: peppol.integrationDetail.value,
+          statusPath: '/integrations/peppol/status',
+          settingsPath: '/integrations/peppol/settings',
+          disconnectPath: '/integrations/peppol',
+          syncPath: '/integrations/peppol/sync',
+          icon: <ReceiptLongOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />,
+          // The form shows the workflow text, not the description: the sign-up steps go first.
+          workflow: `${peppol.integrationDetail.value} ${peppol.integrationWorkflow.value}`,
+          fields: [
+            {
+              name: 'apiKeyId',
+              label: peppol.apiKeyId.value,
+              placeholder: 'key_…',
+              required: true,
+            },
+            {
+              name: 'apiSecret',
+              label: peppol.apiSecret.value,
+              type: 'password',
+              placeholder: peppol.apiSecretPlaceholder.value,
+            },
+            { name: 'companyId', label: peppol.companyId.value, placeholder: 'c_…' },
+            {
+              name: 'senderPeppolId',
+              label: peppol.senderPeppolId.value,
+              placeholder: '9930:DE123456789',
+            },
+          ],
+        },
+      },
+    },
+    {
       key: 'telegram',
       name: 'Telegram',
       description: e.telegram.description.value,
@@ -393,7 +440,8 @@ function buildIntegrationCatalog(t: CatalogText): IntegrationEntry[] {
 /** The catalog with its names, descriptions and field labels in the active locale. */
 export function useIntegrationCatalog(): IntegrationEntry[] {
   const t = useIntlayer('integrationCatalog');
-  return useMemo(() => buildIntegrationCatalog(t), [t]);
+  const peppol = useIntlayer('peppol');
+  return useMemo(() => buildIntegrationCatalog(t, peppol), [t, peppol]);
 }
 
 export function findIntegrationEntry(

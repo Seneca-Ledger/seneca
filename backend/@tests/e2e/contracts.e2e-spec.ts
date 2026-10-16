@@ -12,8 +12,10 @@ import { generateSync } from 'otplib';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { encryptText } from '../../src/common/utils/encryption.util';
 import { BackupRun, BackupRunStatus, BackupRunTrigger } from '../../src/entities/backup-run.entity';
 import { Receipt, ReceiptSource, ReceiptStatus } from '../../src/entities/receipt.entity';
+import { PEPPOL_DOCTYPES } from '../../src/modules/e-invoices/peppol-ubl-writer';
 import { Transaction, TransactionType } from '../../src/entities/transaction.entity';
 import {
   Subscription,
@@ -120,6 +122,8 @@ import {
   PayeePendingReview,
   PayeesPage,
   PaymentCandidateList,
+  PeppolLookup,
+  PeppolTransmissionList,
   PublicInvoiceView,
   PushPublicKey,
   ReceiptApproval,
@@ -622,6 +626,7 @@ describe('API contracts (e2e)', () => {
         name: 'Acme GmbH',
         email: 'billing@acme.example',
         currency: 'USD',
+        peppolId: '0208:0428643097',
       }).expect(201);
       clientId = client.body.id;
       const invoice = await send('post', '/invoices', {
@@ -664,6 +669,48 @@ describe('API contracts (e2e)', () => {
       const notes = await get(`/invoices/${invoiceId}/credit-notes`);
       matches(CreditNoteList, notes.body);
       expect(notes.body).toHaveLength(1);
+    });
+
+    it('GET /invoices/:id/peppol and POST /peppol/lookup', async () => {
+      await dataSource.query(
+        `INSERT INTO peppol_connections (workspace_id, api_key_id, api_secret, company_id, sender_peppol_id)
+         VALUES ($1, 'key_c', $2, 'c_1', '9930:DE123456789')`,
+        [owner.workspaceId, encryptText('secret_c')],
+      );
+      await dataSource.query(
+        `INSERT INTO peppol_transmissions
+           (workspace_id, invoice_id, recipient, format, doc_type_id, provider_document_id, document_xml, status, failure)
+         VALUES ($1, $2, '0208:0428643097', 'peppol_bis', 'urn:x', 'doc_1', '<Invoice/>', 'failed', 'Receiver rejected')`,
+        [owner.workspaceId, invoiceId],
+      );
+      const log = await get(`/invoices/${invoiceId}/peppol`);
+      matches(PeppolTransmissionList, log.body);
+      expect(log.body).toHaveLength(1);
+
+      const fetchSpy = jest.spyOn(globalThis, 'fetch').mockImplementation(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: true,
+              isValid: true,
+              companyName: 'Klant NV',
+              supportedDocuments: [{ docTypeId: PEPPOL_DOCTYPES.bisInvoice, name: 'Invoice' }],
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+      );
+      try {
+        const lookup = await request(app.getHttpServer())
+          .post('/peppol/lookup')
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send({ peppolId: '0208:0428643097' })
+          .expect(201);
+        matches(PeppolLookup, lookup.body);
+        expect(lookup.body).toEqual({ registered: true, companyName: 'Klant NV', formats: ['peppol_bis'] });
+      } finally {
+        fetchSpy.mockRestore();
+      }
     });
   });
 

@@ -19,7 +19,11 @@ export function WizardProgress({
 }): React.ReactElement {
   return (
     <div className="lumio-invoice-wizard__progress">
-      <span className="lumio-invoice-wizard__progress-label">{progressLabel}</span>
+      {/* "Step 2 of 6 · Items": the number and the name of the step. */}
+      <span className="lumio-invoice-wizard__progress-label">
+        {progressLabel}
+        {labels[current] ? ` · ${labels[current]}` : ''}
+      </span>
       <ol className="lumio-invoice-wizard__segments">
         {labels.map((label, index) => (
           <li
@@ -97,6 +101,12 @@ export function WizardTotals({ form }: { form: InvoiceForm }): React.ReactElemen
   const t = useIntlayer('invoicesPage');
   const { locale } = useLocale();
   const { totals, currency } = form;
+  // "Tax (19%)" when every line carries the same rate: a bare "Tax" says nothing on an invoice.
+  const lineRates = new Set(form.lineItems.map(line => line.taxRateId || ''));
+  const onlyRate =
+    lineRates.size === 1
+      ? form.taxRates.find(rate => rate.id === [...lineRates][0])?.rate
+      : undefined;
   return (
     <dl className="lumio-invoice-wizard__totals">
       <div>
@@ -104,7 +114,10 @@ export function WizardTotals({ form }: { form: InvoiceForm }): React.ReactElemen
         <dd>{formatMoney(totals.subtotal, currency, locale)}</dd>
       </div>
       <div>
-        <dt>{t.detail.tax.value}</dt>
+        <dt>
+          {t.detail.tax.value}
+          {onlyRate !== undefined ? ` (${onlyRate}%)` : ''}
+        </dt>
         <dd>{formatMoney(totals.taxTotal, currency, locale)}</dd>
       </div>
       <div className="lumio-invoice-wizard__total">

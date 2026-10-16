@@ -193,6 +193,13 @@ export const queryKeys = {
     ['invoices', o.workspaceId, o.id] as const,
   invoicesAgeing: (workspaceId: string | null) => ['invoices', workspaceId, 'ageing'] as const,
   invoiceSettings: (workspaceId: string | null) => ['invoices', workspaceId, 'settings'] as const,
+  peppolConnection: (workspaceId: string | null) =>
+    ['integrations', workspaceId, 'peppol'] as const,
+  peppolTransmissions: (o: {
+    workspaceId: string | null;
+    kind: 'invoice' | 'credit_note';
+    documentId: string;
+  }) => ['invoices', o.workspaceId, 'peppol', o.kind, o.documentId] as const,
   clients: (workspaceId: string | null) => ['clients', workspaceId] as const,
   taxRateOptions: (workspaceId: string | null) => ['tax-rates', workspaceId, 'options'] as const,
 } as const;

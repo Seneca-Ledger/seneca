@@ -109,7 +109,7 @@ export const ReceiptRecord = Schema.Struct({
   id: Schema.String,
   statementId: Schema.NullOr(Schema.String),
   transactionId: Schema.NullOr(Schema.String),
-  source: Schema.Literals(['gmail', 'upload', 'telegram', 'scan', 'imap']),
+  source: Schema.Literals(['gmail', 'upload', 'telegram', 'scan', 'imap', 'peppol']),
   subject: Schema.String,
   sender: Schema.String,
   receivedAt: Timestamp,

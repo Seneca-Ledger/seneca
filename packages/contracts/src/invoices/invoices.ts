@@ -43,6 +43,8 @@ export const Client = Schema.Struct({
   buyerReference: Schema.optional(Schema.NullOr(Schema.String)),
   /** Goods or services: which tax-free EU supply a reverse-charged line is. */
   supplyType: Schema.optional(Schema.NullOr(Schema.Literals(['goods', 'services']))),
+  /** Where Peppol invoices to this client go: `scheme:value`, e.g. `0208:0428643097`. */
+  peppolId: Schema.optional(Schema.NullOr(Schema.String)),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 });
