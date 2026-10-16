@@ -437,4 +437,65 @@ describe('SubscriptionsService', () => {
       expect(subscriptionRepository.remove).toHaveBeenCalled();
     });
   });
+
+  describe('checkUpcomingCharges', () => {
+    const soon = (days: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + days);
+      return date.toISOString().slice(0, 10);
+    };
+
+    it('keeps one running notification per workspace, keyed by the charges it lists', async () => {
+      subscriptionRepository.find.mockResolvedValue([
+        {
+          id: 'sub-adobe',
+          workspaceId: 'ws-1',
+          vendorName: 'Adobe Creative Cloud',
+          amount: '66.45',
+          currency: 'EUR',
+          nextChargeDate: soon(2),
+        },
+        {
+          id: 'sub-dropbox',
+          workspaceId: 'ws-1',
+          vendorName: 'Dropbox',
+          amount: '11.99',
+          currency: 'EUR',
+          nextChargeDate: soon(1),
+        },
+      ]);
+
+      await service.checkUpcomingCharges();
+
+      expect(notificationsService.createForWorkspaceMembers).toHaveBeenCalledTimes(1);
+      const payload = notificationsService.createForWorkspaceMembers.mock.calls[0][0];
+      expect(payload.messageKey).toBe('subscription.upcoming');
+      expect(payload.messageParams.charges.items).toEqual([
+        { name: 'Adobe Creative Cloud', amount: 66.45, currency: 'EUR' },
+        { name: 'Dropbox', amount: 11.99, currency: 'EUR' },
+      ]);
+      expect(payload.fingerprint).toBe(
+        `sub-adobe:66.45:EUR:${soon(2)}|sub-dropbox:11.99:EUR:${soon(1)}`,
+      );
+    });
+
+    it('uses the singular wording for a single charge', async () => {
+      subscriptionRepository.find.mockResolvedValue([
+        {
+          id: 'sub-dropbox',
+          workspaceId: 'ws-1',
+          vendorName: 'Dropbox',
+          amount: '11.99',
+          currency: 'EUR',
+          nextChargeDate: soon(1),
+        },
+      ]);
+
+      await service.checkUpcomingCharges();
+
+      expect(notificationsService.createForWorkspaceMembers.mock.calls[0][0].messageKey).toBe(
+        'subscription.upcoming.one',
+      );
+    });
+  });
 });

@@ -141,3 +141,13 @@ export interface TaxDeadlineUpcomingEvent {
   /** "USt-Voranmeldung", "Einkommensteuererklärung", … */
   returnName: string;
 }
+
+/**
+ * A return was filed (in Lumio or marked as filed elsewhere): its reminders
+ * no longer describe anything that needs doing.
+ */
+export interface TaxDeadlineResolvedEvent {
+  workspaceId: string;
+  kind: 'vat_return' | 'income_tax';
+  periodEnd: string;
+}

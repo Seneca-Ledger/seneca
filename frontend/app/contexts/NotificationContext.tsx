@@ -36,6 +36,26 @@ interface NotificationsSnapshot {
   unreadCount: number;
 }
 
+/**
+ * A pushed notification on top of the list. A known id is one the server
+ * updated in place (the upcoming-charges reminder is a single row it rewrites):
+ * it takes the new text, moves back on top, and the unread count follows.
+ */
+export function mergePushedNotification(
+  previous: NotificationsSnapshot,
+  notification: NotificationItem,
+): NotificationsSnapshot {
+  const known = previous.items.find(item => item.id === notification.id);
+  const unreadDelta = (notification.isRead ? 0 : 1) - (known && !known.isRead ? 1 : 0);
+  return {
+    items: [notification, ...previous.items.filter(item => item.id !== notification.id)].slice(
+      0,
+      50,
+    ),
+    unreadCount: Math.max(0, previous.unreadCount + unreadDelta),
+  };
+}
+
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
@@ -94,15 +114,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // setQueryData, а не invalidateQueries: пуш и есть новый элемент,
       // рефетч был бы лишним раундтрипом на каждое событие.
-      queryClient.setQueryData<NotificationsSnapshot>(queryKey, previous => {
-        if (!previous || previous.items.some(item => item.id === notification.id)) {
-          return previous;
-        }
-        return {
-          items: [notification, ...previous.items].slice(0, 50),
-          unreadCount: notification.isRead ? previous.unreadCount : previous.unreadCount + 1,
-        };
-      });
+      queryClient.setQueryData<NotificationsSnapshot>(queryKey, previous =>
+        previous ? mergePushedNotification(previous, notification) : previous,
+      );
     };
 
     socket.on('notification:new', onNotification);

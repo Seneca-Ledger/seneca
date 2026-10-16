@@ -258,4 +258,143 @@ describe('NotificationsService', () => {
       expect(filter).toContain('FROM receipts');
     }
   });
+
+  describe('fingerprinted notifications (one running row per workspace)', () => {
+    const upcoming = (items: Array<{ name: string; amount: number }>, fingerprint: string) => ({
+      recipientId: 'user-1',
+      workspaceId: 'workspace-1',
+      type: NotificationType.SUBSCRIPTION_UPCOMING,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      messageKey: 'subscription.upcoming' as const,
+      messageParams: {
+        charges: {
+          kind: 'charges' as const,
+          items: items.map(item => ({ ...item, currency: 'EUR' })),
+        },
+      },
+      fingerprint,
+    });
+
+    beforeEach(() => {
+      preferenceRepository.findOne.mockResolvedValue({
+        id: 'pref-1',
+        userId: 'user-1',
+        workspaceUpdated: true,
+      } as NotificationPreference);
+    });
+
+    it('rewrites the existing row instead of adding a second one when the charges change', async () => {
+      const yesterday = new Date('2026-10-14T06:00:00Z');
+      const existing = {
+        id: 'n-1',
+        recipientId: 'user-1',
+        workspaceId: 'workspace-1',
+        type: NotificationType.SUBSCRIPTION_UPCOMING,
+        isRead: true,
+        createdAt: yesterday,
+        meta: { fingerprint: 'dropbox' },
+      } as unknown as Notification;
+      notificationRepository.find.mockResolvedValueOnce([existing]);
+
+      const result = await service.create(
+        upcoming(
+          [
+            { name: 'Dropbox', amount: 11.99 },
+            { name: 'Adobe Creative Cloud', amount: 66.45 },
+          ],
+          'dropbox|adobe',
+        ),
+      );
+
+      expect(notificationRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            recipientId: 'user-1',
+            workspaceId: 'workspace-1',
+            type: NotificationType.SUBSCRIPTION_UPCOMING,
+          },
+        }),
+      );
+      expect(notificationRepository.save).not.toHaveBeenCalled();
+      expect(notificationRepository.update).toHaveBeenCalledTimes(1);
+      const [criteria, changes] = notificationRepository.update.mock.calls[0];
+      expect(criteria).toEqual({ id: 'n-1', recipientId: 'user-1' });
+      expect(changes).toMatchObject({
+        isRead: false,
+        message: 'Dropbox €11.99 and Adobe Creative Cloud €66.45 are due soon',
+        meta: expect.objectContaining({ fingerprint: 'dropbox|adobe' }),
+      });
+      expect(changes.createdAt.getTime()).toBeGreaterThan(yesterday.getTime());
+      expect(result?.id).toBe('n-1');
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'notification.created',
+        expect.objectContaining({ id: 'n-1' }),
+      );
+    });
+
+    it('leaves the row alone, read state included, when nothing changed', async () => {
+      const existing = {
+        id: 'n-1',
+        isRead: true,
+        meta: { fingerprint: 'dropbox' },
+      } as unknown as Notification;
+      notificationRepository.find.mockResolvedValueOnce([existing]);
+
+      const result = await service.create(upcoming([{ name: 'Dropbox', amount: 11.99 }], 'dropbox'));
+
+      expect(result).toBe(existing);
+      expect(notificationRepository.update).not.toHaveBeenCalled();
+      expect(notificationRepository.save).not.toHaveBeenCalled();
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('inserts the first one and clears older duplicates left by earlier runs', async () => {
+      notificationRepository.find.mockResolvedValueOnce([]);
+      await service.create(upcoming([{ name: 'Dropbox', amount: 11.99 }], 'dropbox'));
+      expect(notificationRepository.save).toHaveBeenCalledTimes(1);
+      expect(notificationRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ meta: { fingerprint: 'dropbox' } }),
+      );
+
+      notificationRepository.find.mockResolvedValueOnce([
+        { id: 'newest', meta: { fingerprint: 'dropbox' } },
+        { id: 'older-1' },
+        { id: 'older-2' },
+      ]);
+      await service.create(upcoming([{ name: 'Dropbox', amount: 11.99 }], 'dropbox'));
+      expect(notificationRepository.delete).toHaveBeenCalledWith({
+        recipientId: 'user-1',
+        workspaceId: 'workspace-1',
+        id: expect.objectContaining({ _value: ['older-1', 'older-2'] }),
+      });
+    });
+  });
+
+  it('removes stale reminders only inside the given workspace and types', async () => {
+    const qb: any = {
+      delete: jest.fn(() => qb),
+      from: jest.fn(() => qb),
+      where: jest.fn(() => qb),
+      andWhere: jest.fn(() => qb),
+      execute: jest.fn(async () => ({ affected: 2 })),
+    };
+    notificationRepository.createQueryBuilder.mockReturnValueOnce(qb);
+
+    const removed = await service.removeForWorkspace(
+      'workspace-1',
+      [NotificationType.TAX_DEADLINE_UPCOMING],
+      { kind: 'vat_return', periodEnd: '2026-09-30' },
+    );
+
+    expect(removed).toBe(2);
+    expect(qb.where).toHaveBeenCalledWith('workspace_id = :workspaceId', {
+      workspaceId: 'workspace-1',
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith('type IN (:...types)', {
+      types: [NotificationType.TAX_DEADLINE_UPCOMING],
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith('meta @> CAST(:match AS jsonb)', {
+      match: JSON.stringify({ kind: 'vat_return', periodEnd: '2026-09-30' }),
+    });
+  });
 });

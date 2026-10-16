@@ -13,7 +13,10 @@ import {
   WorkspaceServiceSettingsKey,
 } from '../../entities/workspace-service-settings.entity';
 import { filingInfoFor } from '../income-tax/filing-info';
-import type { TaxDeadlineUpcomingEvent } from '../notifications/events/notification-events';
+import type {
+  TaxDeadlineResolvedEvent,
+  TaxDeadlineUpcomingEvent,
+} from '../notifications/events/notification-events';
 import { PublicHolidaysService } from '../reference-data/public-holidays.service';
 import { toDateOnly } from '../tax/jurisdictions.service';
 import {
@@ -158,6 +161,13 @@ export class TaxDeadlinesService {
       key: WorkspaceServiceSettingsKey.TAX_REMINDERS,
       config: { ...state, filedElsewhere: [...marked].slice(-SENT_KEYS_KEPT) },
     });
+    if (filed) {
+      this.eventEmitter.emit('tax.deadline.resolved', {
+        workspaceId,
+        kind,
+        periodEnd,
+      } satisfies TaxDeadlineResolvedEvent);
+    }
   }
 
   private async reminderState(workspaceId: string): Promise<ReminderState> {
