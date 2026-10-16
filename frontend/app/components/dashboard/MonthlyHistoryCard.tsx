@@ -22,16 +22,6 @@ export type HistoryMetricKey = Exclude<
   'month' | 'transactions' | 'statementsUploaded'
 >;
 
-const METRIC_COLOR: Record<HistoryMetricKey, string> = {
-  uncategorized: 'var(--ff-dash-warning)',
-  statementErrors: 'var(--ff-dash-critical)',
-  statementsPendingReview: 'var(--ff-dash-info)',
-  statementsPendingSubmit: 'var(--muted-foreground)',
-  receiptsPendingReview: 'var(--ff-dash-primary)',
-  parsingWarnings: 'var(--color-warning-soft-text)',
-  overduePayments: 'var(--ff-dash-critical)',
-};
-
 export const DATA_HEALTH_HISTORY_METRICS: HistoryMetricKey[] = [
   'uncategorized',
   'statementErrors',
@@ -40,13 +30,12 @@ export const DATA_HEALTH_HISTORY_METRICS: HistoryMetricKey[] = [
   'parsingWarnings',
 ];
 
-export const FINANCE_OPS_HISTORY_METRICS: HistoryMetricKey[] = [
-  'statementsPendingSubmit',
-  'statementsPendingReview',
-  'uncategorized',
-  'receiptsPendingReview',
-  'overduePayments',
-];
+/** One hue for every queue, told apart by strength: the bars count work, not alarms. */
+const SERIES_COLOR = 'var(--cat-tone-1)';
+const SERIES_OPACITY = [1, 0.7, 0.5, 0.35, 0.22];
+
+/** Fewer months than this with something to fix read better as a line than a chart. */
+const CHART_MIN_MONTHS = 3;
 
 interface MonthlyHistoryCardProps {
   displayMonth: Date;
@@ -70,7 +59,22 @@ export function MonthlyHistoryCard({
   const year = displayMonth.getFullYear();
   const { data, isPending, error } = useDashboardHealthHistory(year);
   const months = data?.months ?? [];
-  const series = metrics.map(key => ({ key, label: t[key].value, color: METRIC_COLOR[key] }));
+  // Only the queues the year had anything in: a legend of zeros says nothing.
+  const visible = metrics.filter(key => sumOf(months, key) > 0);
+  const series = visible.map((key, index) => ({
+    key,
+    label: t[key].value,
+    color: SERIES_COLOR,
+    opacity: SERIES_OPACITY[index] ?? SERIES_OPACITY[SERIES_OPACITY.length - 1],
+  }));
+  const monthsWithWork = months.filter(month => visible.some(key => month[key] > 0));
+  const asChart = monthsWithWork.length >= CHART_MIN_MONTHS;
+  const pick = (key: string): void => {
+    const picked = parseMonthParam(key);
+    if (picked) {
+      onSelectMonth(picked.getFullYear(), picked.getMonth());
+    }
+  };
 
   return (
     <DashboardCard
@@ -81,34 +85,106 @@ export function MonthlyHistoryCard({
         statements: String(sumOf(months, 'statementsUploaded')),
       })}
     >
-      <div className="lumio-chart__box lumio-chart__box--compact">
-        <HistoryChart
-          data={data}
+      {asChart ? (
+        <div className="lumio-chart__box lumio-chart__box--compact">
+          <HistoryChart
+            data={data}
+            isPending={isPending}
+            error={error}
+            emptyLabel={fillTemplate(t.empty.value, { year: String(year) })}
+            series={series}
+            activeMonth={formatMonthParam(displayMonth)}
+            locale={locale}
+            onSelectMonth={pick}
+          />
+        </div>
+      ) : (
+        <HistoryLine
+          months={monthsWithWork}
+          metrics={visible}
           isPending={isPending}
           error={error}
-          emptyLabel={fillTemplate(t.empty.value, { year: String(year) })}
-          series={series}
-          metrics={metrics}
-          activeMonth={formatMonthParam(displayMonth)}
           locale={locale}
-          onSelectMonth={key => {
-            const picked = parseMonthParam(key);
-            if (picked) {
-              onSelectMonth(picked.getFullYear(), picked.getMonth());
-            }
-          }}
+          noWork={
+            months.some(month => month.transactions > 0 || month.statementsUploaded > 0)
+              ? fillTemplate(t.allClear.value, { year: String(year) })
+              : fillTemplate(t.empty.value, { year: String(year) })
+          }
+          onSelectMonth={pick}
         />
-      </div>
-      <ul className="lumio-chart__legend">
-        {series.map(item => (
-          <li key={item.key} className="lumio-chart__legend-item">
-            <span className="lumio-chart__swatch" style={{ backgroundColor: item.color }} />
-            <span>{item.label}</span>
-            <span className="lumio-chart__legend-value">{sumOf(months, item.key)}</span>
+      )}
+      {series.length > 0 && (
+        <ul className="lumio-chart__legend">
+          <li className="lumio-chart__legend-item">
+            {fillTemplate(t.legendPeriod.value, { year: String(year) })}
           </li>
-        ))}
-      </ul>
+          {series.map(item => (
+            <li key={item.key} className="lumio-chart__legend-item">
+              {asChart && (
+                <span
+                  className="lumio-chart__swatch"
+                  style={{ backgroundColor: item.color, opacity: item.opacity }}
+                />
+              )}
+              <span>{item.label}</span>
+              <span className="lumio-chart__legend-value">{sumOf(months, item.key)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </DashboardCard>
+  );
+}
+
+/** "September: 1 · October: 8": a year with one or two busy months, without ten empty columns. */
+function HistoryLine({
+  months,
+  metrics,
+  isPending,
+  error,
+  locale,
+  noWork,
+  onSelectMonth,
+}: {
+  months: DashboardHealthMonth[];
+  metrics: HistoryMetricKey[];
+  isPending: boolean;
+  error: string | null;
+  locale: string;
+  noWork: string;
+  onSelectMonth: (month: string) => void;
+}): React.JSX.Element {
+  if (isPending) {
+    return <Skeleton variant="text" width="40%" />;
+  }
+  if (error) {
+    return <div className="lumio-chart__empty">{error}</div>;
+  }
+  if (months.length === 0) {
+    return <p className="lumio-history-line">{noWork}</p>;
+  }
+  const monthName = new Intl.DateTimeFormat(locale, { month: 'long' });
+  return (
+    <p className="lumio-history-line">
+      {months.map((month, index) => {
+        const name = monthName.format(
+          new Date(Number(month.month.slice(0, 4)), Number(month.month.slice(5, 7)) - 1, 1),
+        );
+        const total = metrics.reduce((sum, key) => sum + month[key], 0);
+        return (
+          <span key={month.month}>
+            {index > 0 && <span className="lumio-history-line__separator"> · </span>}
+            <button
+              type="button"
+              className="lumio-history-line__month"
+              onClick={() => onSelectMonth(month.month)}
+            >
+              {`${name.charAt(0).toLocaleUpperCase()}${name.slice(1)}: ${total}`}
+            </button>
+          </span>
+        );
+      })}
+    </p>
   );
 }
 
@@ -118,7 +194,6 @@ function HistoryChart({
   error,
   emptyLabel,
   series,
-  metrics,
   activeMonth,
   locale,
   onSelectMonth,
@@ -127,8 +202,7 @@ function HistoryChart({
   isPending: boolean;
   error: string | null;
   emptyLabel: string;
-  series: Array<{ key: string; label: string; color: string }>;
-  metrics: HistoryMetricKey[];
+  series: Array<{ key: string; label: string; color: string; opacity: number }>;
   activeMonth: string;
   locale: string;
   onSelectMonth: (month: string) => void;
@@ -140,11 +214,7 @@ function HistoryChart({
     return <div className="lumio-chart__empty lumio-dashboard__amount--negative">{error}</div>;
   }
   const months = data?.months ?? [];
-  const hasActivity = months.some(
-    month =>
-      month.transactions > 0 || month.statementsUploaded > 0 || metrics.some(key => month[key] > 0),
-  );
-  if (!hasActivity) {
+  if (months.length === 0) {
     return (
       <CardEmpty icon={CalendarMonthOutlined} fill>
         {emptyLabel}

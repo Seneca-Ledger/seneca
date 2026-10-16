@@ -1,6 +1,6 @@
 import { fillTemplate } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
 import type { DashboardData } from '@/app/hooks/useDashboard';
-import type { KpiTone } from './ui';
+import { reviewHref } from '@/app/lib/review-links';
 
 export interface RelativeTimeLabels {
   today: string;
@@ -41,126 +41,52 @@ export function getRelativeTime(
   return fillTemplate(labels.monthsAgo, { n: String(Math.floor(diffDays / 30)) });
 }
 
+export type DataHealthMetricKey =
+  | 'uncategorizedTransactions'
+  | 'statementsWithErrors'
+  | 'statementsPendingReview'
+  | 'receiptsPendingReview'
+  | 'parsingWarnings';
+
 export interface DataHealthMetric {
-  key: string;
-  label: string;
+  key: DataHealthMetricKey;
   value: number;
-  tone: KpiTone;
   href: string;
 }
 
-export interface DataHealthQuickLink {
-  id: string;
-  type: string;
-  label: string;
-  href: string;
-}
-
-export interface DataHealthLabels {
-  uncategorized: string;
-  statementErrors: string;
-  pendingReview: string;
-  receiptsPending: string;
-  parsingWarnings: string;
-  quickLinkUncategorized: string;
-  quickLinkStatementErrors: string;
-  quickLinkPendingStatements: string;
-  quickLinkReceipts: string;
-}
-
-export const HREFS = {
-  uncategorized: '/statements/submit?categoryId=uncategorized',
-  statementErrors: '/statements?status=error',
-  pendingReview: '/review',
-  // The receipts Review still asks about; the counts come from the same queue.
-  receipts: '/review?kind=receipt',
-  parsingWarnings: '/statements?filter=has_errors',
-} as const;
-
-function tone(value: number, severe: KpiTone): KpiTone {
-  return value > 0 ? severe : 'positive';
-}
-
+/**
+ * The month's data checks, in the order the tab lists them. What Review lists
+ * links to Review for `month`, where the server counts it by the same query.
+ */
 export function buildDataHealthMetrics(
   health: DashboardData['dataHealth'],
-  labels: DataHealthLabels,
+  month: Date,
 ): DataHealthMetric[] {
   return [
     {
       key: 'uncategorizedTransactions',
-      label: labels.uncategorized,
       value: health.uncategorizedTransactions,
-      tone: tone(health.uncategorizedTransactions, 'warning'),
-      href: HREFS.uncategorized,
+      href: reviewHref(month, { uncategorized: true }),
     },
     {
       key: 'statementsWithErrors',
-      label: labels.statementErrors,
       value: health.statementsWithErrors,
-      tone: tone(health.statementsWithErrors, 'negative'),
-      href: HREFS.statementErrors,
+      href: '/statements?status=error',
     },
     {
       key: 'statementsPendingReview',
-      label: labels.pendingReview,
       value: health.statementsPendingReview,
-      tone: tone(health.statementsPendingReview, 'info'),
-      href: HREFS.pendingReview,
+      href: reviewHref(month),
     },
     {
       key: 'receiptsPendingReview',
-      label: labels.receiptsPending,
       value: health.receiptsPendingReview,
-      tone: tone(health.receiptsPendingReview, 'warning'),
-      href: HREFS.receipts,
+      href: reviewHref(month, { kind: 'receipt' }),
     },
     {
       key: 'parsingWarnings',
-      label: labels.parsingWarnings,
       value: health.parsingWarnings,
-      tone: tone(health.parsingWarnings, 'warning'),
-      href: HREFS.parsingWarnings,
+      href: '/statements?filter=has_errors',
     },
   ];
-}
-
-export function buildDataHealthQuickLinks(
-  health: DashboardData['dataHealth'],
-  labels: DataHealthLabels,
-): DataHealthQuickLink[] {
-  const links: DataHealthQuickLink[] = [];
-  const push = (id: string, type: string, template: string, count: number, href: string): void => {
-    if (count > 0) {
-      links.push({ id, type, label: fillTemplate(template, { count: String(count) }), href });
-    }
-  };
-  push(
-    'uncategorized-transactions',
-    'transactions_uncategorized',
-    labels.quickLinkUncategorized,
-    health.uncategorizedTransactions,
-    HREFS.uncategorized,
-  );
-  push(
-    'statement-errors',
-    'parsing_warnings',
-    labels.quickLinkStatementErrors,
-    health.statementsWithErrors,
-    HREFS.statementErrors,
-  );
-  push(
-    'pending-statements',
-    'statements_pending_review',
-    labels.quickLinkPendingStatements,
-    health.statementsPendingReview,
-    HREFS.pendingReview,
-  );
-  push(
-    'pending-receipts',
-    'receipts_pending_review',
-    labels.quickLinkReceipts,
-    health.receiptsPendingReview,
-    HREFS.receipts,
-  );
-  return links;
 }

@@ -65,7 +65,7 @@ describe('queryKeys', () => {
       goalPlan: ['goals', 'plan', 'w1', 'g1'],
       goalItems: ['goals', 'items', 'w1', 'g1'],
       insights: ['insights', 'w1', 'en'],
-      netWorth: ['net-worth', 'w1', '90d'],
+      netWorth: ['net-worth', 'w1', '90d', null, null],
       auditEvents: ['audit-events', 'w1', { page: 1 }],
       integrationStatus: ['integration-status', 'w1', 'gmail'],
       webhookEndpoints: ['webhook-endpoints', 'w1'],

@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import Link from 'next/link';
 import type React from 'react';
 import { ChevronRight } from '@/app/components/icons';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { useReviewInboxTotal } from './useReviewInboxTotal';
 
@@ -20,6 +20,7 @@ export function UnconfirmedNotice({
   className?: string;
 }): React.JSX.Element | null {
   const t = useIntlayer('unconfirmedNotice');
+  const { locale } = useLocale();
   const total = useReviewInboxTotal();
   if (total <= 0) {
     return null;
@@ -28,7 +29,7 @@ export function UnconfirmedNotice({
     total === 1
       ? resolveLabel(t?.messageOne, "1 item isn't confirmed yet and isn't counted here.")
       : resolveLabel(
-          t?.message,
+          new Intl.PluralRules(locale).select(total) === 'few' ? t?.messageFew : t?.message,
           "{{count}} items aren't confirmed yet and aren't counted here.",
         ).replace('{{count}}', String(total));
 

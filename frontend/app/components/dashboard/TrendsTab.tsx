@@ -10,18 +10,24 @@ import {
   formatMonthParam,
   parseMonthParam,
 } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
+import { formatAxisAmount } from '@/app/components/charts/chart-format';
 import { categoryTones } from '@/app/components/charts/chart-theme';
 import { LazyCategoryDonut, LazySpendTrendBars } from '@/app/components/charts/lazy-charts';
 import type { DashboardTrends } from '@/app/hooks/useDashboard';
 import { useDashboardTrends } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import { CashFlowCard } from './CashFlowCard';
 import { CategoryIconBadge } from './CategoryIconBadge';
-import { signTone } from './dashboard-stats.util';
 import { CardEmpty, DashboardCard, KpiCard, ListRow } from './ui';
 import { useMonthLabel } from './use-month-label';
 
 const LEGEND_LIMIT = 10;
+/**
+ * Below this many categories a ring says nothing a list cannot: one slice
+ * fills it. Rows with a bar of their share say it plainly.
+ */
+const DONUT_MIN_CATEGORIES = 3;
 
 interface TrendsTabProps {
   formatAmount: (value: number) => string;
@@ -33,11 +39,14 @@ interface TrendsTabProps {
 
 type Formatter = (value: number) => string;
 
+/** The month's figures; each card names the month, so none reads as all time. */
 function TrendsKpis({
   trends,
+  monthLabel,
   formatAmount,
 }: {
   trends: DashboardTrends;
+  monthLabel: string;
   formatAmount: Formatter;
 }): React.JSX.Element {
   const t = useIntlayer('trendsTab');
@@ -46,21 +55,19 @@ function TrendsKpis({
   return (
     <div className="lumio-dashboard__stat-grid lumio-dashboard__stat-grid--auto">
       <KpiCard
-        label={t.statementsTitle.value}
+        label={t.income.value}
         value={formatAmount(income)}
-        tone={signTone(income)}
-        caption={`${t.expense.value}: ${formatAmount(expense)}`}
+        caption={`${t.expense.value} ${formatAmount(expense)} · ${monthLabel}`}
       />
       <KpiCard
         label={t.netFlowTitle.value}
-        value={`${net > 0 ? '+' : net < 0 ? '−' : ''}${formatAmount(Math.abs(net))}`}
-        tone={signTone(net)}
-        caption={`${t.categories.value}: ${trends.categories.length}`}
+        value={net < 0 ? `−${formatAmount(Math.abs(net))}` : formatAmount(net)}
+        caption={`${t.categories.value}: ${trends.categories.length} · ${monthLabel}`}
       />
       <KpiCard
         label={t.counterpartiesTitle.value}
         value={trends.counterparties.length}
-        caption={t.totalFound.value}
+        caption={`${t.totalFound.value} · ${monthLabel}`}
       />
     </div>
   );
@@ -134,6 +141,7 @@ function SpendTrendCard({
                 forecastLabel: t.forecastLabel.value,
               }}
               formatAmount={formatAmount}
+              formatTick={value => formatAxisAmount(value, locale)}
             />
           </div>
         ) : (
@@ -146,30 +154,38 @@ function SpendTrendCard({
 
 function CategoryBreakdownCard({
   state,
+  monthLabel,
   formatAmount,
 }: {
   state: SectionState;
+  monthLabel: string;
   formatAmount: Formatter;
 }): React.JSX.Element {
   const t = useIntlayer('trendsTab');
+  const { locale } = useLocale();
   const top = useMemo(() => state.trends?.categories.slice(0, LEGEND_LIMIT) ?? [], [state.trends]);
   const slices = useMemo(() => {
     const tones = categoryTones(top.map(c => ({ key: c.name })));
     return top.map((c, index) => ({
       key: c.name,
-      name: c.name,
+      // A system category reads in the interface's language ("Professional services").
+      name: localizeStatementCategoryName(c.name, locale),
       value: c.amount,
       color: tones[index],
     }));
-  }, [top]);
+  }, [top, locale]);
+  const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+  const asBars = slices.length < DONUT_MIN_CATEGORIES;
   return (
-    <DashboardCard title={t.categoryBreakdownTitle}>
+    <DashboardCard title={t.categoryBreakdownTitle} subtitle={monthLabel}>
       <CardState state={state} emptyLabel={t.noTrendDataForPeriod} emptyIcon={CategoryOutlined}>
         {slices.length > 0 ? (
           <>
-            <div className="lumio-dashboard__donut lumio-dashboard__donut--wide">
-              <LazyCategoryDonut slices={slices} formatAmount={formatAmount} />
-            </div>
+            {!asBars && (
+              <div className="lumio-dashboard__donut lumio-dashboard__donut--wide">
+                <LazyCategoryDonut slices={slices} formatAmount={formatAmount} />
+              </div>
+            )}
             <div className="lumio-dashboard__list">
               {top.map((c, rank) => (
                 <ListRow
@@ -179,13 +195,27 @@ function CategoryBreakdownCard({
                   }
                   primary={
                     <>
-                      <span
-                        className="lumio-dashboard__legend-dot"
-                        style={{ background: slices[rank].color }}
-                        aria-hidden="true"
-                      />
-                      {c.name}
+                      {!asBars && (
+                        <span
+                          className="lumio-dashboard__legend-dot"
+                          style={{ background: slices[rank].color }}
+                          aria-hidden="true"
+                        />
+                      )}
+                      {slices[rank].name}
                     </>
+                  }
+                  secondary={
+                    asBars && total > 0 ? (
+                      <span className="lumio-dashboard__share-bar" aria-hidden="true">
+                        <span
+                          style={{
+                            width: `${(slices[rank].value / total) * 100}%`,
+                            background: slices[rank].color,
+                          }}
+                        />
+                      </span>
+                    ) : undefined
                   }
                   trailing={formatAmount(c.amount)}
                 />
@@ -222,10 +252,10 @@ export function TrendsTab({
           }
         }}
       />
-      {trends && <TrendsKpis trends={trends} formatAmount={formatAmount} />}
+      {trends && <TrendsKpis trends={trends} monthLabel={monthLabel} formatAmount={formatAmount} />}
       <div className="lumio-dashboard__grid lumio-dashboard__grid--wide">
         <SpendTrendCard state={state} monthLabel={monthLabel} formatAmount={formatAmount} />
-        <CategoryBreakdownCard state={state} formatAmount={formatAmount} />
+        <CategoryBreakdownCard state={state} monthLabel={monthLabel} formatAmount={formatAmount} />
       </div>
     </div>
   );

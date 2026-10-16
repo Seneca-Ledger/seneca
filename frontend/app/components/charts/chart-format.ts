@@ -27,6 +27,18 @@ export function formatMonthLabel(key: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { month: 'short', year: 'numeric' }).format(parseKey(key));
 }
 
+/** An axis amount without its currency ("1.2K"): the figure above the chart names it. */
+export function formatAxisAmount(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(
+    value,
+  );
+}
+
+/** The month alone ("Oct"), for an axis whose years are marked apart. */
+export function formatShortMonthLabel(key: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { month: 'short' }).format(parseKey(key));
+}
+
 export function formatDayLabel(key: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, {
     day: 'numeric',

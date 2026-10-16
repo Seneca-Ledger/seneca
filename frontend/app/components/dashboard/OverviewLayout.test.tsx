@@ -142,7 +142,7 @@ describe('OverviewLayout', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Reset layout' })).not.toBeInTheDocument(),
     );
-    expect(order().slice(0, 2)).toEqual(['getting-started', 'kpi-income']);
+    expect(order().slice(0, 3)).toEqual(['getting-started', 'budgets', 'kpi-income']);
   });
 
   it('switches on a widget that is off by default from the picker', async () => {

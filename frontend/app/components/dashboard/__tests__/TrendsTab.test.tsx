@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../test-setup';
+import { chartedMonths } from '../CashFlowCard';
 import { TrendsTab } from '../TrendsTab';
 
 const chartProps = vi.hoisted(() => vi.fn<(props: Record<string, unknown>) => void>());
@@ -52,9 +53,8 @@ vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
     title: value('Cash flow'),
     noTrendDataForPeriod: value('No trend data available for this period.'),
-    statementsTitle: value('STATEMENTS'),
-    netFlowTitle: value('NET FLOW'),
-    counterpartiesTitle: value('COUNTERPARTIES'),
+    netFlowTitle: value('Net flow'),
+    counterpartiesTitle: value('Counterparties'),
     income: value('Income'),
     expense: value('Expense'),
     net: value('Net'),
@@ -67,6 +67,7 @@ vi.mock('@/app/i18n', () => ({
     forecastSuffix: value(' (forecast)'),
     forecastLabel: value('Forecast →'),
     empty: value('No cash flow data yet'),
+    noData: value('No data'),
     rangeAll: value('All time'),
     range5y: value('5 years'),
     range12m: value('12 mo'),
@@ -128,7 +129,7 @@ describe('TrendsTab', () => {
 
     expect(hooksMock.useDashboardTrends).toHaveBeenLastCalledWith({ month: '2026-03' });
     expect(screen.queryByRole('button', { name: '30D' })).not.toBeInTheDocument();
-    expect(screen.getByText('March 2026')).toBeInTheDocument();
+    expect(screen.getAllByText('March 2026').length).toBeGreaterThan(0);
   });
 
   it('renders the monthly cash flow card above the month sections', () => {
@@ -146,18 +147,38 @@ describe('TrendsTab', () => {
     expect(screen.getByText('No cash flow data yet')).toBeInTheDocument();
   });
 
-  it('lists top categories with amounts next to the donut', () => {
+  it('names the month on every card and keeps the figures without signs or dots', () => {
+    renderTab();
+
+    const net = screen.getByText('$60').closest('.lumio-dashboard__stat');
+    expect(net?.textContent).toContain('March 2026');
+    expect(net?.querySelector('.lumio-dashboard__stat-dot')).toBeNull();
+    expect(screen.getByText('Expense $40 · March 2026')).toBeInTheDocument();
+  });
+
+  it('shows two categories as rows with bars of their share instead of a ring', () => {
     renderTab();
 
     expect(screen.getByText('Office')).toBeInTheDocument();
-    expect(screen.getByText('$40')).toBeInTheDocument();
     expect(screen.getByText('Rent')).toBeInTheDocument();
-    expect(screen.getAllByTestId('mock-chart').length).toBeGreaterThanOrEqual(2);
-    expect(
-      screen.getByText('+$60').closest('.lumio-dashboard__stat')?.querySelector(
-        '.lumio-dashboard__stat-dot--positive',
-      ),
-    ).not.toBeNull();
+    expect(chartProps.mock.calls.some(([props]) => 'slices' in props)).toBe(false);
+    const bars = document.querySelectorAll<HTMLElement>('.lumio-dashboard__share-bar > span');
+    expect([...bars].map(bar => bar.style.width)).toEqual([`${(40 / 65) * 100}%`, `${(25 / 65) * 100}%`]);
+  });
+
+  it('draws the ring from three categories on', () => {
+    hooksMock.useDashboardTrends.mockReturnValue({
+      data: { ...trends, categories: [...trends.categories, { name: 'Travel', amount: 10, count: 1 }] },
+      isPending: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderTab();
+
+    expect(chartProps.mock.calls.some(([props]) => 'slices' in props)).toBe(true);
+    expect(document.querySelector('.lumio-dashboard__share-bar')).toBeNull();
   });
 
   it('highlights the picked month on the cash flow chart and switches month from a bar', () => {
@@ -176,5 +197,26 @@ describe('TrendsTab', () => {
     expect(barsProps?.activeMonth).toBe('2026-03');
     (barsProps?.onSelectMonth as (month: string) => void)('2025-11');
     expect(onSelectMonth).toHaveBeenCalledWith(2025, 10);
+  });
+});
+
+describe('chartedMonths', () => {
+  const point = (month: string, income = 0, expense = 0) => ({
+    month,
+    income,
+    expense,
+    net: income - expense,
+  });
+
+  it('opens on the first month with money in or out', () => {
+    const points = [point('2026-01'), point('2026-02'), point('2026-03', 5), point('2026-04')];
+
+    expect(chartedMonths(points).map(p => p.month)).toEqual(['2026-03', '2026-04']);
+  });
+
+  it('keeps an earlier picked month on the chart', () => {
+    const points = [point('2026-01'), point('2026-02'), point('2026-03', 5)];
+
+    expect(chartedMonths(points, '2026-02').map(p => p.month)).toEqual(['2026-02', '2026-03']);
   });
 });
