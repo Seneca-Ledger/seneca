@@ -49,8 +49,9 @@ describe('TopSpendersLeaderboard', () => {
     const average = screen.getByRole('columnheader', { name: /Average/ });
     expect(average.getAttribute('aria-sort')).toBe('descending');
     expect(screen.getByRole('columnheader', { name: /Amount/ }).getAttribute('aria-sort')).toBeNull();
-    expect(screen.getByRole('button', { name: 'By average' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText(/25,00|25\.00/).style.fontWeight).toBe('600');
-    expect(screen.getByText(/100,00|100\.00/).style.fontWeight).toBe('');
+    expect(screen.getByRole('tab', { name: 'By average' }).getAttribute('aria-selected')).toBe('true');
+    // The sorted column carries the weight (500 since the quiet pass), the others do not.
+    expect(screen.getByText(/^€25$/).style.fontWeight).toBe('500');
+    expect(screen.getByText(/^€100$/).style.fontWeight).toBe('');
   });
 });

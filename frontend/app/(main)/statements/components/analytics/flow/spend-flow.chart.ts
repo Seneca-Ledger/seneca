@@ -2,7 +2,11 @@ import type {
   SpendFlowData,
   SpendFlowNode,
 } from '@/app/(main)/statements/components/analytics/flow/useSpendFlow';
-import { categoryColorFor, NEUTRAL_CATEGORY_COLOR } from '@/app/lib/category-defaults';
+import {
+  CATEGORY_TONE_HEX,
+  categoryTonesHex,
+  OTHER_TONE_HEX,
+} from '@/app/components/charts/chart-theme';
 import { tokens } from '@/lib/theme-tokens';
 
 export type SpendFlowChartLabels = {
@@ -24,28 +28,11 @@ export type SpendFlowChartOptions = {
 };
 
 /**
- * Categories without a colour of their own still need distinct ones, or a
- * workspace of custom categories reads as one grey band.
- */
-const FALLBACK_PALETTE = [
-  '#0ea5e9',
-  '#f59e0b',
-  '#8b5cf6',
-  '#ec4899',
-  '#10b981',
-  '#ef4444',
-  '#14b8a6',
-  '#6366f1',
-  '#eab308',
-  '#f97316',
-];
-
-/**
  * ECharts sizes sankey nodes by value and has no minimum node height, so a
  * small merchant is a sliver separated from its neighbour by `nodeGap` alone.
  * The gap therefore has to fit a whole two-line label (2 × LINE_HEIGHT).
  */
-const LINE_HEIGHT = 14;
+const LINE_HEIGHT = 18;
 const NODE_GAP = 2 * LINE_HEIGHT + 2;
 /** Height shared out by value, on top of the gaps. */
 const VALUE_SPACE = 360;
@@ -141,37 +128,38 @@ export function buildSpendFlowSankey(
     }
     return node.kind === 'subcategory' ? labels.noSubcategory : labels.unknownMerchant;
   };
-  const percent = (share: number): string => `${(share * 100).toFixed(1)}%`;
+  const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
-  // The second column picks colours first: a category its own (or the next
-  // palette colour), a merchant straight under the total the next palette
-  // colour. Third-column nodes inherit their parent's, so every band reads
-  // as one hue from left to right.
+  // The earthy tones of every other chart, held by name (so Travel here is the
+  // Travel of the donut). Second-column nodes pick; the third column inherits
+  // its parent's, so every band reads as one hue from left to right.
+  const theme = isDark ? 'dark' : 'light';
   const parentOf = new Map(links.map(link => [link.target, link.source]));
-  const columnColor = new Map<string, string>();
-  let fallbackIndex = 0;
-  const nextPalette = (): string => FALLBACK_PALETTE[fallbackIndex++ % FALLBACK_PALETTE.length];
-  for (const node of nodes) {
-    if (parentOf.get(node.id) !== 'total' || node.kind === 'other') {
-      continue;
-    }
-    if (node.kind !== 'category') {
-      columnColor.set(node.id, nextPalette());
-      continue;
-    }
-    const own = node.name ? categoryColorFor(node.name, node.color) : NEUTRAL_CATEGORY_COLOR;
-    const uncategorised = node.id === 'cat:__none__';
-    columnColor.set(node.id, own !== NEUTRAL_CATEGORY_COLOR || uncategorised ? own : nextPalette());
-  }
+  const secondColumn = nodes.filter(
+    node => parentOf.get(node.id) === 'total' && node.kind !== 'other' && !isOtherCategories(node),
+  );
+  const tones = categoryTonesHex(
+    secondColumn.map(node => ({ key: labelOf(node) })),
+    theme,
+  );
+  const columnColor = new Map(secondColumn.map((node, index) => [node.id, tones[index]]));
   const nodeColor = (node: SpendFlowNode): string => {
     if (node.kind === 'total') {
-      return options.isIncome ? color.success : color.primary;
+      // The total is where everything starts: sage for income, stone for spending.
+      return options.isIncome ? CATEGORY_TONE_HEX[theme][0] : OTHER_TONE_HEX[theme];
     }
-    if (isOtherCategories(node)) {
-      return color.catOther;
+    // A rollup straight under the total is stone; "other merchants" of a category keep its hue.
+    if (
+      isOtherCategories(node) ||
+      node.id === 'cat:__none__' ||
+      (node.kind === 'other' && parentOf.get(node.id) === 'total')
+    ) {
+      return OTHER_TONE_HEX[theme];
     }
     return (
-      columnColor.get(node.id) ?? columnColor.get(parentOf.get(node.id) ?? '') ?? color.catOther
+      columnColor.get(node.id) ??
+      columnColor.get(parentOf.get(node.id) ?? '') ??
+      OTHER_TONE_HEX[theme]
     );
   };
 
@@ -211,34 +199,30 @@ export function buildSpendFlowSankey(
         // Keep the server's order (largest first). ECharts' relaxation pass
         // would reshuffle nodes and cross bands that never need to cross.
         layoutIterations: 0,
-        nodeWidth: 16,
+        nodeWidth: 6,
         nodeGap: NODE_GAP,
         draggable: false,
         emphasis: { focus: 'adjacency' },
-        lineStyle: { color: 'gradient', opacity: isDark ? 0.4 : 0.3, curveness: 0.5 },
+        lineStyle: { color: 'gradient', opacity: isDark ? 0.22 : 0.26, curveness: 0.5 },
         itemStyle: { borderWidth: 0, borderRadius: 2 },
         label: {
           position: 'left',
           color: color.textPrimary,
-          fontSize: 11,
+          fontSize: 13,
           lineHeight: LINE_HEIGHT,
-          width: 180,
+          width: 200,
           overflow: 'truncate',
           formatter: (params: { name?: string }) => {
             const node = byId.get(String(params.name ?? ''));
             if (!node) {
               return '';
             }
-            return `{n|${labelOf(node)}}\n{v|${formatAmount(node.amount)} (${percent(node.share)})}`;
+            // The name in ink, the amount and share under it in grey: 13px, no bold.
+            return `{n|${labelOf(node)}}\n{v|${formatAmount(node.amount)} · ${percent(node.share)}}`;
           },
           rich: {
-            n: { fontSize: 11, lineHeight: LINE_HEIGHT, color: color.textSecondary },
-            v: {
-              fontSize: 11,
-              lineHeight: LINE_HEIGHT,
-              fontWeight: 600,
-              color: color.textPrimary,
-            },
+            n: { fontSize: 13, lineHeight: LINE_HEIGHT, color: color.textPrimary },
+            v: { fontSize: 13, lineHeight: LINE_HEIGHT, color: color.textSecondary },
           },
         },
         // Only what the renderer needs: ECharts reads stray `id`/`color: null`

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CATEGORY_TONE_HEX, OTHER_TONE_HEX } from '@/app/components/charts/chart-theme';
 import type { SpendFlowData } from './useSpendFlow';
 import {
   buildSpendFlowSankey,
@@ -54,8 +55,8 @@ describe('buildSpendFlowSankey', () => {
     const series = seriesOf(buildSpendFlowSankey(data, 'light', labels, format, { compact: false, isIncome: false }));
 
     expect(series.lineStyle.color).toBe('gradient');
-    expect(series.label.formatter({ name: 'cat:food' })).toBe('{n|Food}\n{v|60.00 € (60.0%)}');
-    expect(series.label.formatter({ name: 'total' })).toBe('{n|Total spend}\n{v|100.00 € (100.0%)}');
+    expect(series.label.formatter({ name: 'cat:food' })).toBe('{n|Food}\n{v|60.00 € · 60%}');
+    expect(series.label.formatter({ name: 'total' })).toBe('{n|Total spend}\n{v|100.00 € · 100%}');
   });
 
   it('localizes the nodes the server leaves unnamed', () => {
@@ -68,12 +69,15 @@ describe('buildSpendFlowSankey', () => {
     expect(label('m:__none__:__none__')).toBe('{n|Unnamed}');
   });
 
-  it('gives merchants the colour of their category and puts the total label on the right', () => {
+  it('paints categories in the earthy tones, not their stored colour, and merchants in the hue of their category', () => {
     const series = seriesOf(buildSpendFlowSankey(data, 'light', labels, format, { compact: false, isIncome: false }));
     const colorOf = (name: string): string | undefined => series.data.find(item => item.name === name)?.itemStyle.color;
 
-    expect(colorOf('m:food:rewe')).toBe('#ff0000');
-    expect(colorOf('other:food')).toBe('#ff0000');
+    expect(CATEGORY_TONE_HEX.light).toContain(colorOf('cat:food'));
+    expect(colorOf('cat:food')).not.toBe('#ff0000');
+    expect(colorOf('m:food:rewe')).toBe(colorOf('cat:food'));
+    expect(colorOf('other:food')).toBe(colorOf('cat:food'));
+    expect(colorOf('cat:__other__')).toBe(OTHER_TONE_HEX.light);
     expect(series.data.find(item => item.name === 'total')?.label).toEqual({ position: 'right' });
     // Data items carry only what ECharts needs; a stray `id` blanks the series.
     expect(Object.keys(series.data[1]).sort()).toEqual(['itemStyle', 'name']);
@@ -89,13 +93,13 @@ describe('buildSpendFlowSankey', () => {
 
 describe('spendFlowChartHeight', () => {
   it('grows with the busiest column and never drops below the minimum', () => {
-    expect(spendFlowChartHeight(data, false)).toBe(2 * 30 + 360 + 24);
+    expect(spendFlowChartHeight(data, false)).toBe(2 * 38 + 360 + 24);
     expect(spendFlowChartHeight({ nodes: [], links: [] }, false)).toBe(420);
     const many = {
       nodes: data.nodes,
       links: Array.from({ length: 20 }, (_, i) => ({ source: 'cat:food', target: `m:${i}`, value: 1 })),
     };
-    expect(spendFlowChartHeight(many, false)).toBe(19 * 30 + 360 + 24);
+    expect(spendFlowChartHeight(many, false)).toBe(19 * 38 + 360 + 24);
     expect(visibleSpendFlow(many, true).links).toHaveLength(0);
   });
 });

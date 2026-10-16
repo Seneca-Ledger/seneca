@@ -11,6 +11,7 @@ vi.mock('@/app/lib/api', () => ({ default: api }));
 vi.mock('react-hot-toast', () => ({ default: toast }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/i18n', () => ({
+  useLocale: () => ({ locale: 'en-US' }),
   useIntlayer: () =>
     new Proxy({}, { get: (_target, key) => ({ value: String(key), toString: () => String(key) }) }),
 }));
@@ -119,14 +120,35 @@ describe('TaxYearView', () => {
     renderWithQuery(<TaxYearView />);
 
     expect(await screen.findByText('reserveTotal')).toBeInTheDocument();
-    expect(screen.getByText(/2,950\.00 EUR|2950\.00 EUR|2 950,00 EUR/)).toBeInTheDocument();
+    // One format: symbol first, no cents on whole amounts, a typographic minus.
+    expect(screen.getByText('€2,950')).toBeInTheDocument();
     expect(screen.getByText('reserveVat')).toBeInTheDocument();
+    expect(screen.getByText('−€1,000')).toBeInTheDocument();
+  });
+
+  it('calls negative VAT money to reclaim, and puts no minus on a zero', async () => {
+    mockApi({
+      reserve: {
+        currency: 'USD',
+        year: YEAR,
+        vat: { net: -20.04, outputTax: 0, inputTax: 20.04 },
+        incomeTax: null,
+        payments: { categoryId: null, amount: 0, count: 0 },
+        total: 0,
+        missingRateCurrencies: [],
+      },
+    });
+    renderWithQuery(<TaxYearView />);
+
+    expect(await screen.findByText('reserveVatReclaim')).toBeInTheDocument();
+    expect(screen.getByText('$20.04')).toBeInTheDocument();
+    expect(screen.getAllByText('$0')).toHaveLength(2);
   });
 
   it('offers top-level categories and toggles their tax-relevant mark', async () => {
     mockApi();
     renderWithQuery(<TaxYearView />);
-    const group = await screen.findByRole('group', { name: 'categoriesTitle' });
+    const group = await screen.findByRole('group', { name: 'groupExpenses' });
 
     expect(within(group).queryByText('Dentist')).not.toBeInTheDocument();
     fireEvent.click(await within(group).findByText('Groceries'));
@@ -179,9 +201,10 @@ describe('TaxYearView', () => {
     );
   });
 
-  it('says so when nothing is marked yet', async () => {
+  it('counts the chosen categories by the title, and says when they hold nothing this year', async () => {
     mockApi({ report: { ...REPORT, categories: [], rows: [] } });
     renderWithQuery(<TaxYearView />);
-    expect(await screen.findByText('empty')).toBeInTheDocument();
+    expect(await screen.findByText('selectedCount')).toBeInTheDocument();
+    expect(await screen.findByText('emptySelected')).toBeInTheDocument();
   });
 });

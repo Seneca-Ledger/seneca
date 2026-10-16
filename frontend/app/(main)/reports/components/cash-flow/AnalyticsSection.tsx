@@ -50,8 +50,10 @@ export function AnalyticsSection({
       className="lumio-cash-flow__section"
       data-attention={viewMode === 'chart' ? (attentionId ?? undefined) : undefined}
     >
-      <h2 className="lumio-cash-flow__section-title">{title}</h2>
-      {header}
+      <div className="lumio-cash-flow__section-head">
+        <h2 className="lumio-cash-flow__section-title">{title}</h2>
+        {header}
+      </div>
       {showSkeleton ? <AnalyticsLeaderboardSkeleton /> : null}
       {showEmpty ? (
         <div

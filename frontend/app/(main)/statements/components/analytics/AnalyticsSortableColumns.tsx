@@ -13,7 +13,8 @@ export const sortedCellStyle = (
 ): React.CSSProperties => ({
   padding: '8px 16px 8px 0',
   textAlign: 'right',
-  ...(column === sortKey ? { fontWeight: 600, color: 'var(--foreground)' } : {}),
+  fontVariantNumeric: 'tabular-nums',
+  ...(column === sortKey ? { fontWeight: 500, color: 'var(--foreground)' } : {}),
 });
 
 type SortableHeaderProps = {

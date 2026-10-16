@@ -28,7 +28,6 @@ import { blobOf } from '@/app/lib/blob-of';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import BalanceSheet from './components/BalanceSheet';
-import { CashFlowTab } from './components/cash-flow/CashFlowTab';
 import { CashFlowView } from './components/cash-flow/CashFlowView';
 import { type ReportGenerateParams, ReportGenerator } from './components/ReportGenerator';
 import { ReportHistory } from './components/ReportHistory';
@@ -287,10 +286,8 @@ export default function ReportsPage(): React.JSX.Element {
         {tab === 'tax' && <TaxReturnView />}
         {tab === 'tax-year' && <TaxYearView />}
         {tab === 'cash-flow' && (
-          <>
-            <CashFlowView />
-            <CashFlowTab focusId={focusId} />
-          </>
+          // The leaderboards sit inside the view: they take its period.
+          <CashFlowView focusId={focusId} />
         )}
         {tab === 'templates' && (
           <>

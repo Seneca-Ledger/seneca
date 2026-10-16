@@ -80,7 +80,7 @@ describe('TopMerchantsDrillDown', () => {
     render(<TopMerchantsDrillDown {...baseProps} />);
     const html = document.body.innerHTML;
 
-    expect(html).toContain('39,00');
+    expect(html).toContain('39');
     expect(html).toContain('$');
     expect(html).not.toContain('KZT');
   });
