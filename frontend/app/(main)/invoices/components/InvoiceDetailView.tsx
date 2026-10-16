@@ -37,6 +37,7 @@ import { InvoiceEmailDrawer } from './InvoiceEmailDrawer';
 import { InvoiceWizard } from './invoice-wizard/InvoiceWizard';
 import { lineAmount, useInvoiceForm } from './invoice-wizard/useInvoiceForm';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
+import { PeppolPanel } from './PeppolPanel';
 import { LineAdjustmentInput, UnitSelect, XRechnungMissingAlert } from './XRechnungFields';
 
 interface InvoiceDetailViewProps {
@@ -694,6 +695,10 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             </div>
           )}
 
+          {invoice && invoice.status !== 'draft' && invoice.status !== 'void' ? (
+            <PeppolPanel kind="invoice" documentId={invoice.id} />
+          ) : null}
+
           {creditNotes.length > 0 && (
             <div className="lumio-payable-drawer__field-group">
               <span className="lumio-payable-drawer__field-label">
@@ -703,7 +708,13 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                 {creditNotes.map(note => (
                   <li
                     key={note.id}
-                    style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
+                    style={{
+                      fontSize: 13,
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
                   >
                     <span style={{ color: 'var(--text-secondary)' }}>
                       {formatInvoiceDate(note.issueDate, locale)}
@@ -735,6 +746,9 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                     <Button variant="outline" onClick={() => void handleXRechnung(note)}>
                       {einvoice.downloadXRechnung.value}
                     </Button>
+                    {note.status === 'issued' && (
+                      <PeppolPanel kind="credit_note" documentId={note.id} compact />
+                    )}
                     {note.status === 'issued' && (
                       <Button
                         variant="outline"

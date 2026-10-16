@@ -7,7 +7,8 @@ import { Plus } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { InvoiceLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
@@ -143,6 +144,8 @@ export function InvoicesListView(): React.JSX.Element {
     );
   }
 
+  const noInvoices = items.length === 0 && status === 'all';
+
   return (
     <div className="container-shared lumio-stmt-list">
       <div
@@ -162,7 +165,15 @@ export function InvoicesListView(): React.JSX.Element {
             alignItems: 'flex-start',
           }}
         >
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+              gap: 8,
+              alignItems: 'center',
+            }}
+          >
             <Button variant="outline" onClick={() => router.push('/invoices/clients')}>
               {t.clientsNav}
             </Button>
@@ -175,10 +186,13 @@ export function InvoicesListView(): React.JSX.Element {
                 </Button>
               )}
             />
-            <Button onClick={() => router.push('/invoices/new')}>
-              <Plus size={18} aria-hidden />
-              {t.newInvoice}
-            </Button>
+            {/* With no invoices at all the empty state's button is the one action. */}
+            {noInvoices ? null : (
+              <Button onClick={() => router.push('/invoices/new')}>
+                <Plus size={18} aria-hidden />
+                {t.newInvoice}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -207,14 +221,30 @@ export function InvoicesListView(): React.JSX.Element {
 
       <InvoiceAgeingPanel />
 
-      {items.length === 0 ? (
-        <div className="lumio-payable-list__empty">
-          <EmptyStateIllustration name="receivables" size="md" />
-          <h3 style={{ fontSize: 18, fontWeight: 600 }}>{t.empty.title}</h3>
-          <p style={{ marginTop: 8, fontSize: 14, color: 'var(--text-secondary)' }}>
-            {t.empty.description}
-          </p>
-        </div>
+      {items.length === 0 && status !== 'all' ? (
+        <EmptyState
+          icon={<SearchLineIcon />}
+          title={t.empty.noMatchesTitle}
+          action={
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setStatus('all');
+                setPage(1);
+              }}
+            >
+              {t.empty.clearFilter}
+            </Button>
+          }
+        />
+      ) : items.length === 0 ? (
+        <EmptyState
+          fill
+          icon={<InvoiceLineIcon />}
+          title={t.empty.title}
+          description={t.empty.description}
+          action={<Button onClick={() => router.push('/invoices/new')}>{t.newInvoice}</Button>}
+        />
       ) : (
         <div className="lumio-payable-list">
           <div className="lumio-payable-list__table-wrap">

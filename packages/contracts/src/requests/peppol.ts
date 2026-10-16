@@ -1,0 +1,17 @@
+import * as Schema from 'effect/Schema';
+import { optionalNullable } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+/** The access point account; a blank secret keeps the stored one. */
+export const SavePeppolSettingsBody = Schema.Struct({
+  apiKeyId: optionalNullable(Schema.String.check(Schema.isMaxLength(200))),
+  apiSecret: optionalNullable(Schema.String.check(Schema.isMaxLength(500))),
+  companyId: optionalNullable(Schema.String.check(Schema.isMaxLength(100))),
+  senderPeppolId: optionalNullable(Schema.String.check(Schema.isMaxLength(100))),
+});
+export type SavePeppolSettingsBody = Wire<typeof SavePeppolSettingsBody>;
+
+export const PeppolLookupBody = Schema.Struct({
+  peppolId: Schema.String.check(Schema.isMaxLength(100)),
+});
+export type PeppolLookupBody = Wire<typeof PeppolLookupBody>;

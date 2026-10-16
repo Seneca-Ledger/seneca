@@ -12,6 +12,7 @@ import { useIntlayer } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { Client, CreateClientInput, UpdateClientInput } from '@/app/lib/invoices-api';
 import { LOCALE_DISPLAY_ORDER, LOCALE_ENDONYMS } from '@/app/lib/locale';
+import { PeppolIdField } from './PeppolIdField';
 
 interface ClientDrawerProps {
   open: boolean;
@@ -62,6 +63,7 @@ interface ClientFormState {
   countryCode: string;
   buyerReference: string;
   supplyType: '' | 'goods' | 'services';
+  peppolId: string;
 }
 
 const emptyState = (defaultCurrency: string): ClientFormState => ({
@@ -79,6 +81,7 @@ const emptyState = (defaultCurrency: string): ClientFormState => ({
   countryCode: '',
   buyerReference: '',
   supplyType: '',
+  peppolId: '',
 });
 
 export function ClientDrawer({
@@ -129,6 +132,7 @@ export function ClientDrawer({
             countryCode: client.countryCode || '',
             buyerReference: client.buyerReference || '',
             supplyType: client.supplyType || '',
+            peppolId: client.peppolId || '',
           }
         : emptyState(defaultCurrency),
     );
@@ -158,6 +162,7 @@ export function ClientDrawer({
         : {}),
       buyerReference: form.buyerReference.trim(),
       supplyType: form.supplyType || null,
+      peppolId: form.peppolId.trim(),
     });
   };
 
@@ -379,6 +384,11 @@ export function ClientDrawer({
                 ]}
               />
             </div>
+            <PeppolIdField
+              value={form.peppolId}
+              vatId={form.taxId}
+              onChange={peppolId => setForm(prev => ({ ...prev, peppolId }))}
+            />
             <div className="lumio-payable-drawer__field-group">
               <label className="lumio-payable-drawer__field-label" htmlFor="client-billing-address">
                 {labels.billingAddress}

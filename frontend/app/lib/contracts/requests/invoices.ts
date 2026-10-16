@@ -38,6 +38,10 @@ export const CreateClientBody = Schema.Struct({
   buyerReference: optionalNullable(Schema.String.check(Schema.isMaxLength(255))),
   /** Goods or services: decides the VAT category of a reverse-charged line. */
   supplyType: optionalNullable(Schema.Literals(['goods', 'services'])),
+  /** Peppol participant id, `scheme:value` (four-digit EAS scheme); blank clears it. */
+  peppolId: optionalNullable(
+    Schema.String.check(Schema.isMaxLength(100), Schema.isPattern(/^\s*(\d{4}\s*:\s*\S.*)?$/)),
+  ),
 });
 export type CreateClientBody = Wire<typeof CreateClientBody>;
 

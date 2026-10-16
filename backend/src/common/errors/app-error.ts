@@ -241,6 +241,26 @@ export const ERR = {
   INVOICE_NOT_SENT_YET: 'Issue the invoice before emailing it',
   INVOICE_NO_RECIPIENT: 'This client has no email address, and none was given',
 
+  // ── Peppol ───────────────────────────────────────────────────────────────
+  PEPPOL_NOT_CONNECTED: 'Connect a Peppol access point under Integrations first',
+  PEPPOL_AUTH_FAILED: 'The access point did not accept this API key and secret',
+  PEPPOL_COMPANY_REQUIRED:
+    'Your access point account has several companies; enter the id of the one to send as ({{companies}})',
+  PEPPOL_COMPANY_NOT_FOUND: 'The access point account has no company with this id',
+  PEPPOL_COMPANY_MISSING: 'Create and verify your company in the access point account first',
+  PEPPOL_ID_INVALID:
+    'A Peppol id is a four-digit scheme, a colon and the number, e.g. 9930:DE123456789',
+  PEPPOL_UNAVAILABLE: 'The access point could not be reached; try again later',
+  PEPPOL_REJECTED: 'The access point refused the document: {{reason}}',
+  PEPPOL_DOCUMENT_INCOMPLETE: 'The document lacks what Peppol requires',
+  PEPPOL_RECIPIENT_UNKNOWN: '{{recipient}} is not registered on the Peppol network',
+  PEPPOL_RECIPIENT_FORMAT:
+    '{{recipient}} accepts none of the formats Lumio writes (Peppol BIS 3.0, XRechnung CII)',
+  PEPPOL_LEITWEG_MISMATCH:
+    'An authority addressed by Leitweg-ID {{leitweg}} needs that id as the buyer reference',
+  PEPPOL_ALREADY_SENT: 'This document was already sent over Peppol',
+  PEPPOL_NOT_ISSUED: 'Only an issued document can be sent over Peppol',
+
   // ── credit notes ─────────────────────────────────────────────────────────
   CREDIT_NOTE_INVOICE_NOT_CREDITABLE: 'Only an issued invoice can be credited',
   CREDIT_NOTE_EXCEEDS_INVOICE:

@@ -85,9 +85,12 @@ export function LineAdjustmentInput({
 export function XRechnungMissingAlert({
   missing,
   onClose,
+  title,
 }: {
   missing: string[];
   onClose: () => void;
+  /** What the list is for; XRechnung's own heading when absent. */
+  title?: string;
 }): React.ReactElement {
   const t = useIntlayer('einvoiceFields');
   // Read key by key: indexing the dictionary with a variable loses its types.
@@ -115,11 +118,13 @@ export function XRechnungMissingAlert({
     delivery_date: t.missingDeliveryDate.value,
     line_tax_rate: t.missingLineTaxRate.value,
     lines: t.missingLines.value,
+    seller_peppol_id: t.missingSellerPeppolId.value,
+    buyer_peppol_id: t.missingBuyerPeppolId.value,
   };
   const items = [...new Set(missing.map(code => labels[code] ?? code))];
   return (
     <Alert severity="warning" onClose={onClose} data-testid="xrechnung-missing">
-      {t.missingTitle.value}
+      {title ?? t.missingTitle.value}
       <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
         {items.map(item => (
           <li key={item}>{item}</li>

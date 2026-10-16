@@ -121,6 +121,28 @@ export class InvoiceXRechnungService {
     };
   }
 
+  /**
+   * An issued invoice or credit note as e-invoice input, with what an
+   * XRechnung of it still lacks and the document's status: what a transport
+   * other than e-mail (Peppol) builds its own document from.
+   */
+  async documentFor(kind: 'invoice' | 'credit_note', id: string, workspaceId: string) {
+    return this.invoiceRepository.manager.transaction(async manager => {
+      if (kind === 'invoice') {
+        const invoice = await manager.findOne(Invoice, { where: { id, workspaceId } });
+        if (!invoice) {
+          throw new NotFoundException('Invoice not found');
+        }
+        return { ...(await this.invoiceInput(manager, invoice)), status: String(invoice.status) };
+      }
+      const note = await manager.findOne(CreditNote, { where: { id, workspaceId } });
+      if (!note) {
+        throw new NotFoundException('Credit note not found');
+      }
+      return { ...(await this.creditNoteInput(manager, note)), status: String(note.status) };
+    });
+  }
+
   private async build(invoiceId: string, workspaceId: string) {
     return this.invoiceRepository.manager.transaction(async manager => {
       const invoice = await manager.findOne(Invoice, { where: { id: invoiceId, workspaceId } });
@@ -329,6 +351,7 @@ function buyerOf(client: Client | null): XRechnungInput['buyer'] {
     countryCode: client?.countryCode ?? null,
     vatId: client?.taxId ?? null,
     email: client?.email ?? null,
+    peppolId: client?.peppolId ?? null,
   };
 }
 

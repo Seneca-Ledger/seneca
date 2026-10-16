@@ -27,6 +27,16 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
     setDiscountOpen(new Set());
   };
 
+  const unitLabels: Record<string, string> = {
+    C62: einvoice.unitPiece.value,
+    HUR: einvoice.unitHour.value,
+    DAY: einvoice.unitDay.value,
+    MON: einvoice.unitMonth.value,
+    LS: einvoice.unitLumpSum.value,
+    KGM: einvoice.unitKilogram.value,
+  };
+  const money = (value: number) => formatMoney(value, currency, locale);
+
   return (
     <>
       {lineItems.map((line, index) => (
@@ -50,20 +60,26 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
             <Input
               id={`invoice-line-${index}`}
               value={line.description}
+              placeholder={t.items.descriptionPlaceholder.value}
               onChange={event => form.updateLine(index, { description: event.target.value })}
             />
           </WizardField>
 
-          <div className="lumio-payable-drawer__2col">
+          {/* One row, one height: Qty | Unit | Unit price, bottoms aligned. */}
+          <div className="lumio-invoice-wizard__qty-row">
             <WizardField label={page.detail.quantity.value} htmlFor={`invoice-qty-${index}`}>
               <Input
                 id={`invoice-qty-${index}`}
                 type="number"
                 min="0"
                 step="1"
+                inputMode="decimal"
+                className="lumio-invoice-wizard__number"
                 value={String(line.quantity)}
                 onChange={event => form.updateLine(index, { quantity: Number(event.target.value) })}
               />
+            </WizardField>
+            <WizardField label={einvoice.unit.value}>
               <UnitSelect
                 value={line.unitCode || 'C62'}
                 onChange={unitCode => form.updateLine(index, { unitCode })}
@@ -75,6 +91,13 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
                 type="number"
                 min="0"
                 step="0.01"
+                inputMode="decimal"
+                className="lumio-invoice-wizard__number"
+                startAdornment={
+                  <span className="lumio-invoice-wizard__currency">
+                    {currencySymbol(currency, locale)}
+                  </span>
+                }
                 value={String(line.unitPrice)}
                 onChange={event =>
                   form.updateLine(index, { unitPrice: Number(event.target.value) })
@@ -91,36 +114,63 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
               />
             </WizardField>
           ) : (
-            <div>
-              <Button
-                variant="ghost"
-                onClick={() => setDiscountOpen(current => new Set(current).add(index))}
-              >
-                {t.items.discount.value}
-              </Button>
-            </div>
+            <button
+              type="button"
+              className="lumio-invoice-wizard__link"
+              onClick={() => setDiscountOpen(current => new Set(current).add(index))}
+            >
+              {t.items.discount.value}
+            </button>
           )}
 
+          {/* How the amount comes about, then the amount: "2 × €80 / hour   €160". */}
           <div className="lumio-invoice-wizard__line-amount">
-            <span>{page.detail.amount.value}</span>
-            <strong>{formatMoney(lineAmount(line), currency, locale)}</strong>
+            <span>
+              {line.quantity} × {money(line.unitPrice)} /{' '}
+              {unitLabels[line.unitCode || 'C62'] ?? line.unitCode}
+            </span>
+            <span className="lumio-invoice-wizard__line-sum">{money(lineAmount(line))}</span>
           </div>
         </section>
       ))}
 
       <div className="lumio-invoice-wizard__row-actions">
-        <Button variant="outline" onClick={form.addLine}>
-          <Plus size={16} style={{ marginRight: 6 }} />
+        <button type="button" className="lumio-invoice-wizard__link" onClick={form.addLine}>
+          <Plus size={16} aria-hidden />
           {t.items.addLine.value}
-        </Button>
-        {form.clientId ? (
-          <Button variant="ghost" onClick={() => void form.addLateFee()}>
-            {page.detail.lateFeeAdd.value}
-          </Button>
-        ) : null}
+        </button>
       </div>
 
+      {/* A late fee belongs to the invoice, not to a line: it sits with the totals. */}
       <WizardTotals form={form} />
+      {form.clientId ? (
+        <div className="lumio-invoice-wizard__totals-actions">
+          <button
+            type="button"
+            className="lumio-invoice-wizard__link"
+            onClick={() => void form.addLateFee()}
+          >
+            {page.detail.lateFeeAdd.value}
+          </button>
+        </div>
+      ) : null}
     </>
   );
+}
+
+/** "€" for EUR in this locale: the price field's prefix. */
+function currencySymbol(currency: string, locale: string): string {
+  try {
+    return (
+      new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency,
+        currencyDisplay: 'narrowSymbol',
+      })
+        .formatToParts(0)
+        .find(part => part.type === 'currency')?.value ?? currency
+    );
+  } catch {
+    return currency;
+  }
 }

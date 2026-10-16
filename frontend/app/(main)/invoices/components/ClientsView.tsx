@@ -5,7 +5,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { ChevronLeft, Plus } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { PeopleLineIcon } from '@/app/components/ui/empty-state-icons';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
@@ -76,6 +77,11 @@ export function ClientsView(): React.JSX.Element {
       .finally(() => setDeletingId(null));
   };
 
+  const openNewClient = (): void => {
+    setEditingClient(null);
+    setDrawerOpen(true);
+  };
+
   if (loading) {
     return <div style={{ padding: 40 }}>—</div>;
   }
@@ -99,22 +105,23 @@ export function ClientsView(): React.JSX.Element {
           <ChevronLeft size={20} />
         </button>
         <div style={{ flex: 1 }} />
-        <Button
-          onClick={() => {
-            setEditingClient(null);
-            setDrawerOpen(true);
-          }}
-        >
-          <Plus size={18} aria-hidden />
-          {t.clients.newClient}
-        </Button>
+        {/* With no clients the empty state's button is the one action. */}
+        {clients.length === 0 ? null : (
+          <Button onClick={openNewClient}>
+            <Plus size={18} aria-hidden />
+            {t.clients.newClient}
+          </Button>
+        )}
       </div>
 
       {clients.length === 0 ? (
-        <div className="lumio-payable-list__empty">
-          <EmptyStateIllustration name="clients" size="md" />
-          <h3 style={{ fontSize: 18, fontWeight: 600 }}>{t.clients.empty}</h3>
-        </div>
+        <EmptyState
+          fill
+          icon={<PeopleLineIcon />}
+          title={t.clients.empty}
+          description={t.clients.emptyHint}
+          action={<Button onClick={openNewClient}>{t.clients.newClient}</Button>}
+        />
       ) : (
         <div className="lumio-payable-list">
           <div className="lumio-payable-list__table-wrap">

@@ -100,7 +100,7 @@ export function InvoiceWizard({
     <div className="lumio-invoice-wizard">
       <WizardProgress
         current={step}
-        labels={STEPS.map(entry => headings[entry].title)}
+        labels={STEPS.map(entry => t.stepNames[entry].value)}
         progressLabel={String(t.progress.value)
           .replace('{current}', String(step + 1))
           .replace('{total}', String(STEPS.length))}

@@ -44,6 +44,8 @@ export interface CreateClientInput {
   countryCode?: string;
   buyerReference?: string;
   supplyType?: 'goods' | 'services' | null;
+  /** Peppol participant id, `scheme:value`; an empty string clears it. */
+  peppolId?: string;
 }
 
 export type UpdateClientInput = Partial<CreateClientInput>;
