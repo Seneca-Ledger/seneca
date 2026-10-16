@@ -269,9 +269,18 @@ describe('generateFromTemplate', () => {
   }
 
   beforeEach(() => {
+    // The rows are read through a query builder (the shared counting rule);
+    // `find` stays the place a test puts them, so the builder hands back its answer.
+    const rowsQuery: any = {
+      andWhere: jest.fn(() => rowsQuery),
+      where: jest.fn(() => rowsQuery),
+      leftJoinAndSelect: jest.fn(() => rowsQuery),
+      getMany: jest.fn(() => mockTransactionRepository.find()),
+    };
     mockTransactionRepository = {
       find: jest.fn(),
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn(() => rowsQuery),
+      rowsQuery,
     };
     mockReportHistoryRepo = {
       save: jest.fn().mockResolvedValue({}),
@@ -487,11 +496,15 @@ describe('generateFromTemplate', () => {
       categoryIds: ['22222222-2222-4222-8222-222222222222'],
     });
 
-    // Both alternatives (no statement / statement not trashed) carry the filters.
-    for (const where of mockTransactionRepository.find.mock.calls[0][0].where) {
-      expect(where.walletId).toBeDefined();
-      expect(where.categoryId).toBeDefined();
-    }
+    const conditions = mockTransactionRepository.rowsQuery.andWhere.mock.calls;
+    expect(conditions).toContainEqual([
+      'transaction.walletId IN (:...walletIds)',
+      { walletIds: ['11111111-1111-4111-8111-111111111111'] },
+    ]);
+    expect(conditions).toContainEqual([
+      'transaction.categoryId IN (:...categoryIds)',
+      { categoryIds: ['22222222-2222-4222-8222-222222222222'] },
+    ]);
   });
 
   it('omits the filter keys entirely when the arrays are empty', async () => {
@@ -506,10 +519,12 @@ describe('generateFromTemplate', () => {
       categoryIds: [],
     });
 
-    // `In([])` would render as `IN ()` and silently match nothing.
-    const where = mockTransactionRepository.find.mock.calls[0][0].where;
-    expect(where).not.toHaveProperty('walletId');
-    expect(where).not.toHaveProperty('categoryId');
+    // An empty list would render as `IN ()` and silently match nothing.
+    const sql = mockTransactionRepository.rowsQuery.andWhere.mock.calls.map(
+      ([condition]: [string]) => condition,
+    );
+    expect(sql.some((condition: string) => condition.includes('walletId'))).toBe(false);
+    expect(sql.some((condition: string) => condition.includes('categoryId'))).toBe(false);
   });
 
   it('should generate P&L as pdf', async () => {

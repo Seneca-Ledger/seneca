@@ -4,17 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  Between,
-  In,
-  IsNull,
-  MoreThanOrEqual,
-  type Repository,
-  type SelectQueryBuilder,
-} from 'typeorm';
+import { In, MoreThanOrEqual, type Repository, type SelectQueryBuilder } from 'typeorm';
 import * as xlsx from 'xlsx';
 import { appError } from '../../common/errors/app-error';
-import { countedWhere, onlyCounted } from '../../common/utils/counted-transactions.util';
+import { onlyCounted, onlyFlows } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { formatMoney } from '../../common/utils/format-money.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
@@ -450,8 +443,9 @@ export class ReportsService {
     private readonly holdingsSnapshotReport: HoldingsSnapshotReport,
   ) {}
 
-  private async getReportsVersion(userId: string): Promise<string> {
-    const key = `reports:version:${userId}`;
+  /** Cached reports are keyed by this version; TransactionsService bumps it on every edit. */
+  private async getReportsVersion(workspaceId: string): Promise<string> {
+    const key = `reports:version:${workspaceId}`;
     let version = await this.cacheManager.get<string>(key);
     if (!version) {
       version = Date.now().toString();
@@ -1719,7 +1713,14 @@ export class ReportsService {
     workspaceId: string,
     format: WorkspaceExportFormat,
   ): Promise<{ filePath: string; fileName: string; mimeType: string }> {
-    const transactions = await this.countedTransactions(workspaceId)
+    // A list of rows, not a figure: every confirmed row goes out, crypto moves included.
+    const transactions = await onlyCounted(
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+      'transaction',
+    )
+      .andWhere('transaction.transferPairId IS NULL')
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.branch', 'branch')
       .leftJoinAndSelect('transaction.wallet', 'wallet')
@@ -2575,7 +2576,8 @@ export class ReportsService {
     const to = this.toEndOfUtcDay(endDate);
 
     const qb = this.countedTransactions(workspaceId)
-      .innerJoin('transaction.statement', 'statement')
+      // Rows without a statement (cash, approved receipts) are spending too.
+      .leftJoin('transaction.statement', 'statement')
       .leftJoin('transaction.category', 'category')
       .andWhere('transaction.transactionDate >= :from', { from })
       .andWhere('transaction.transactionDate <= :to', { to });
@@ -3092,7 +3094,7 @@ export class ReportsService {
    * the statement under their own alias.
    */
   private countedTransactions(workspaceId: string): SelectQueryBuilder<Transaction> {
-    return onlyCounted(
+    return onlyFlows(
       this.transactionRepository
         .createQueryBuilder('transaction')
         .where('transaction.workspaceId = :workspaceId', { workspaceId }),
@@ -3108,20 +3110,25 @@ export class ReportsService {
     const dateTo = new Date(dto.dateTo);
     dateTo.setUTCHours(23, 59, 59, 999);
 
-    const where = countedWhere({
-      workspaceId,
-      transferPairId: IsNull(),
-      transactionDate: Between(dateFrom, dateTo),
-      // An empty array would compile to `IN ()` and match nothing, so an
-      // unset filter has to drop the key entirely rather than pass [].
-      ...(dto.walletIds?.length ? { walletId: In(dto.walletIds) } : {}),
-      ...(dto.categoryIds?.length ? { categoryId: In(dto.categoryIds) } : {}),
-    });
+    // The same rows every other figure counts (transfers already left out).
+    // Category group, account and tags are register columns of the templates.
+    const query = this.countedTransactions(workspaceId)
+      .leftJoinAndSelect('transaction.category', 'category')
+      .leftJoinAndSelect('category.parent', 'categoryParent')
+      .leftJoinAndSelect('transaction.wallet', 'wallet')
+      .leftJoinAndSelect('transaction.tags', 'tags')
+      .andWhere('transaction.transactionDate BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
+    // An empty list would compile to `IN ()` and match nothing: an unset filter adds no condition.
+    if (dto.walletIds?.length) {
+      query.andWhere('transaction.walletId IN (:...walletIds)', { walletIds: dto.walletIds });
+    }
+    if (dto.categoryIds?.length) {
+      query.andWhere('transaction.categoryId IN (:...categoryIds)', {
+        categoryIds: dto.categoryIds,
+      });
+    }
     const [transactions, currency] = await Promise.all([
-      this.transactionRepository.find({
-        where,
-        relations: ['category', 'category.parent', 'wallet', 'tags'],
-      }),
+      query.getMany(),
       this.getWorkspaceCurrency(workspaceId),
     ]);
 

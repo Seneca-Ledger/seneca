@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository, SelectQueryBuilder } from 'typeorm';
-import { onlyCounted } from '../../common/utils/counted-transactions.util';
+import { onlyFlows } from '../../common/utils/counted-transactions.util';
 import { applyOwnerFilter, parseOwnerFilter } from '../../common/utils/transaction-owner.util';
 import type { SpendFlowQuery } from '../../contracts';
 import { Category } from '../../entities/category.entity';
@@ -77,7 +77,7 @@ export class SpendFlowService {
       .andWhere('(t.statement_id IS NULL OR statement.deleted_at IS NULL)')
       // Money moved between the user's own accounts is neither spending nor income.
       .andWhere('t.transfer_pair_id IS NULL');
-    onlyCounted(qb, 't');
+    onlyFlows(qb, 't');
     applyOwnerFilter(qb, 't', parseOwnerFilter(query.owner, selfMemberId));
 
     // No date means all time, the way the top-spenders table reads it.

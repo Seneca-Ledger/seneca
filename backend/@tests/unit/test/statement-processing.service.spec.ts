@@ -318,6 +318,45 @@ describe('StatementProcessingService', () => {
     expect(statement.parsingDetails?.transactionsFlaggedDuplicate).toBe(1);
   });
 
+  it('flags a row repeating one booked by hand, before anything is saved', async () => {
+    const manualRowDuplicates = {
+      flagRepeats: jest.fn(async (drafts: Transaction[]) => {
+        drafts[0].isDuplicate = true;
+        drafts[0].duplicateOfId = 'tx-receipt';
+        return 1;
+      }),
+    };
+    const withManualCheck = new StatementProcessingService(
+      statementRepository as any,
+      transactionRepository as any,
+      { findOne: jest.fn().mockResolvedValue({ name: 'User' }) } as any,
+      parserFactory as any,
+      classificationService as any,
+      metadataExtractionService as any,
+      importSessionService as any,
+      transactionFingerprintService as any,
+      dataSource as any,
+      { resolve: jest.fn(async () => ({ taxRateId: null, taxReverseCharge: false })) } as any,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      manualRowDuplicates as any,
+    );
+
+    await withManualCheck.processStatement(statement.id);
+
+    expect(manualRowDuplicates.flagRepeats).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ documentNumber: 'DOC-1' })]),
+      statement.workspaceId,
+    );
+    expect(savedTransactions[0]).toMatchObject({ isDuplicate: true, duplicateOfId: 'tx-receipt' });
+    // The statement's count includes these, next to any the fingerprint found.
+    expect(statement.parsingDetails?.transactionsFlaggedDuplicate).toBe(
+      savedTransactions.filter(row => row.isDuplicate).length,
+    );
+  });
+
   it('fails the whole statement when the write transaction fails', async () => {
     dataSource.transaction.mockRejectedValueOnce(new Error('deadlock detected'));
 

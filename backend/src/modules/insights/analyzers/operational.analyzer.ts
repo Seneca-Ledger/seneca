@@ -93,17 +93,16 @@ export class OperationalAnalyzer implements InsightAnalyzer {
     queryBuilder: SelectQueryBuilder<Transaction>,
     context: AnalysisContext,
   ): SelectQueryBuilder<Transaction> {
-    queryBuilder
-      .innerJoin('transaction.statement', 'statement')
-      .where('statement.userId = :userId', { userId: context.userId });
-
+    // A workspace's rows are all of its rows, with a statement or without one;
+    // only without a workspace does the person's own statements stand in for it.
     if (context.workspaceId) {
-      queryBuilder.andWhere('transaction.workspaceId = :workspaceId', {
+      return queryBuilder.where('transaction.workspaceId = :workspaceId', {
         workspaceId: context.workspaceId,
       });
     }
-
-    return queryBuilder;
+    return queryBuilder
+      .innerJoin('transaction.statement', 'statement')
+      .where('statement.userId = :userId', { userId: context.userId });
   }
 
   private async countUnapproved(context: AnalysisContext): Promise<number> {

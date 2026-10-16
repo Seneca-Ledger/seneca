@@ -229,8 +229,8 @@ export class CategoriesService {
         .createQueryBuilder('transaction')
         .select('transaction.categoryId', 'categoryId')
         .addSelect('COUNT(transaction.id)', 'count')
-        .innerJoin('transaction.statement', 'statement')
-        .where('statement.workspaceId = :workspaceId', { workspaceId })
+        // Every row of the workspace, a receipt's or a cash payment's too.
+        .where('transaction.workspaceId = :workspaceId', { workspaceId })
         .andWhere('transaction.categoryId IS NOT NULL')
         .groupBy('transaction.categoryId')
         .getRawMany(),
@@ -277,9 +277,8 @@ export class CategoriesService {
     const [transactions, statements] = await Promise.all([
       this.transactionRepository
         .createQueryBuilder('transaction')
-        .innerJoin('transaction.statement', 'statement')
         .where('transaction.categoryId = :categoryId', { categoryId })
-        .andWhere('statement.workspaceId = :workspaceId', { workspaceId })
+        .andWhere('transaction.workspaceId = :workspaceId', { workspaceId })
         .getCount(),
       this.statementRepository.count({
         where: { categoryId, workspaceId },
