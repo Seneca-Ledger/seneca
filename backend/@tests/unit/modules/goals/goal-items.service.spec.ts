@@ -27,7 +27,7 @@ function createService(options: {
     findOne: jest.fn(async () => options.goal ?? null),
   } as never;
 
-  const exchangeRatesService = { getRate: jest.fn(async () => options.rate ?? 1) } as never;
+  const exchangeRatesService = { getRateOrNull: jest.fn(async () => options.rate ?? 1) } as never;
   const auditService = { createEvent: jest.fn(async () => ({})) };
 
   return {

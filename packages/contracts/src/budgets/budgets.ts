@@ -36,6 +36,13 @@ export const BudgetItem = Schema.Struct({
   carriedAmount: Schema.Number,
   /** Whether today falls inside the budget's window. */
   isActive: Schema.Boolean,
+  /**
+   * Spending in currencies with no rate to the budget's on its day: left out
+   * of spentAmount rather than counted one to one, and shown as a note.
+   */
+  unconvertedSpending: Schema.Array(
+    Schema.Struct({ currency: Schema.String, amount: Schema.Number }),
+  ),
 });
 export type BudgetItem = Wire<typeof BudgetItem>;
 

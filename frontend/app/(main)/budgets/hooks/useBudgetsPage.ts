@@ -40,6 +40,8 @@ export interface BudgetItem {
   endsOn?: string | null;
   /** Whether today falls inside that window. */
   isActive?: boolean;
+  /** Spending in currencies with no rate to the budget's: left out of spentAmount. */
+  unconvertedSpending?: Array<{ currency: string; amount: number }>;
   createdAt: string;
 }
 

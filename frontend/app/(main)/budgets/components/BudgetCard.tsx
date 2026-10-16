@@ -143,6 +143,18 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
           )}
         </Typography>
       )}
+      {/* Spending in a currency with no rate is left out of the figure, not counted one to one. */}
+      {(budget.unconvertedSpending ?? []).map(entry => (
+        <Typography
+          key={entry.currency}
+          variant="caption"
+          sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}
+        >
+          {t.unconvertedSpending.value
+            .replace('{{amount}}', formatMoney(entry.amount, entry.currency, locale))
+            .replace('{{currency}}', budget.currency)}
+        </Typography>
+      ))}
     </Box>
   );
 }

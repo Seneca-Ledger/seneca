@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { assertFound } from '../../common/utils/assert-found.util';
-import { countedSql } from '../../common/utils/counted-transactions.util';
+import { countedSql, flowsSql } from '../../common/utils/counted-transactions.util';
 import type { BudgetImpactQuery, CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Budget, BudgetPeriodType, BudgetRolloverMode } from '../../entities/budget.entity';
@@ -45,6 +45,21 @@ export interface BudgetWithSpending extends Budget {
   carriedAmount: number;
   /** Whether today falls inside the budget's window. Always true for open-ended ones. */
   isActive: boolean;
+  /** Spending in currencies with no rate to the budget's, left out of spentAmount. */
+  unconvertedSpending: UnconvertedSpending[];
+}
+
+/** Spending left out of a budget's figure: no rate from its currency to the budget's. */
+export interface UnconvertedSpending {
+  currency: string;
+  amount: number;
+}
+
+/** One row a budget covers, as read: its own amount, currency and day. */
+interface SpendingRow {
+  date: string | Date;
+  currency: string | null;
+  amount: string;
 }
 
 @Injectable()
@@ -357,17 +372,26 @@ export class BudgetsService {
     budget: Budget,
     now: Date,
   ): Promise<
-    Pick<BudgetWithSpending, 'spentAmount' | 'percentUsed' | 'availableAmount' | 'carriedAmount'>
+    Pick<
+      BudgetWithSpending,
+      'spentAmount' | 'percentUsed' | 'availableAmount' | 'carriedAmount' | 'unconvertedSpending'
+    >
   > {
     const limitAmount = Number(budget.limitAmount);
     const range = computePeriodRange(budget.periodType, now);
     const period = clampToWindow(range, budget);
     if (!period) {
-      return { spentAmount: 0, percentUsed: 0, availableAmount: limitAmount, carriedAmount: 0 };
+      return {
+        spentAmount: 0,
+        percentUsed: 0,
+        availableAmount: limitAmount,
+        carriedAmount: 0,
+        unconvertedSpending: [],
+      };
     }
     const categoryIds = await this.categoryIdsFor(budget.workspaceId, budget.categoryId);
-    const spentAmount = await this.computeSpending(
-      budget.workspaceId,
+    const { spent: spentAmount, unconverted } = await this.computeSpending(
+      budget,
       categoryIds,
       period.start,
       period.end,
@@ -386,6 +410,7 @@ export class BudgetsService {
       percentUsed: percentOf(spentAmount, availableAmount),
       availableAmount,
       carriedAmount,
+      unconvertedSpending: unconverted,
     };
   }
 
@@ -424,24 +449,18 @@ export class BudgetsService {
       );
     }
     if (periods.length === 0) return [];
-    const rows = await this.transactionRepository
-      .createQueryBuilder('t')
-      .select('t.transaction_date', 'date')
-      .addSelect('ABS(t.amount)', 'amount')
-      .where('t.workspace_id = :workspaceId', { workspaceId: budget.workspaceId })
-      .andWhere('t.category_id IN (:...categoryIds)', { categoryIds })
-      .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
-      .andWhere('t.transaction_date >= :start', { start: periods[0].start })
-      .andWhere('t.transaction_date <= :end', { end: periods[periods.length - 1].end })
-      .andWhere('t.is_duplicate = false')
-      .andWhere('t.transfer_pair_id IS NULL')
-      .andWhere(countedSql('t'))
-      .getRawMany<{ date: string | Date; amount: string }>();
+    const rows = await this.spendingRows(
+      budget.workspaceId,
+      categoryIds,
+      periods[0].start,
+      periods[periods.length - 1].end,
+    );
+    const converted = await this.inBudgetCurrency(budget, rows);
     return periods.map(period =>
-      rows.reduce((sum, row) => {
+      converted.reduce((sum, row) => {
         const at = parseDateOnly(row.date).getTime();
-        return at >= period.start.getTime() && at <= period.end.getTime()
-          ? sum + Number.parseFloat(row.amount)
+        return row.value !== null && at >= period.start.getTime() && at <= period.end.getTime()
+          ? sum + row.value
           : sum;
       }, 0),
     );
@@ -578,15 +597,47 @@ export class BudgetsService {
     }
   }
 
+  /**
+   * The period's spending in the budget's currency. Rows in another currency
+   * are converted at the rate of their own day; a row with no rate is left out
+   * and reported, never counted one to one (500 UAH is not 500 USD).
+   */
   private async computeSpending(
+    budget: Budget,
+    categoryIds: string[],
+    start: Date,
+    end: Date,
+  ): Promise<{ spent: number; unconverted: UnconvertedSpending[] }> {
+    const rows = await this.spendingRows(budget.workspaceId, categoryIds, start, end);
+    const converted = await this.inBudgetCurrency(budget, rows);
+    let spent = 0;
+    const missing = new Map<string, number>();
+    for (const row of converted) {
+      if (row.value !== null) {
+        spent += row.value;
+      } else {
+        missing.set(row.currency, (missing.get(row.currency) ?? 0) + row.amount);
+      }
+    }
+    const unconverted = [...missing].map(([currency, amount]) => ({
+      currency,
+      amount: Math.round(amount * 100) / 100,
+    }));
+    return { spent, unconverted };
+  }
+
+  /** The budget's rows between two days, summed per currency and day. */
+  private spendingRows(
     workspaceId: string,
     categoryIds: string[],
     start: Date,
     end: Date,
-  ): Promise<number> {
-    const result = await this.transactionRepository
+  ): Promise<SpendingRow[]> {
+    return this.transactionRepository
       .createQueryBuilder('t')
-      .select('COALESCE(SUM(ABS(t.amount)), 0)', 'total')
+      .select('t.transaction_date', 'date')
+      .addSelect('t.currency', 'currency')
+      .addSelect('SUM(ABS(t.amount))', 'amount')
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.category_id IN (:...categoryIds)', { categoryIds })
       .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
@@ -594,10 +645,38 @@ export class BudgetsService {
       .andWhere('t.transaction_date <= :end', { end })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
-      .andWhere(countedSql('t'))
-      .getRawOne();
+      .andWhere(flowsSql('t'))
+      .groupBy('t.transaction_date')
+      .addGroupBy('t.currency')
+      .getRawMany<SpendingRow>();
+  }
 
-    return Number.parseFloat(result?.total ?? '0');
+  /**
+   * Each row's amount in the budget's currency (`value`), or null when no rate
+   * exists for its day. A row with no currency is taken to be in the budget's.
+   */
+  private async inBudgetCurrency(
+    budget: Budget,
+    rows: SpendingRow[],
+  ): Promise<
+    Array<{ date: string | Date; currency: string; amount: number; value: number | null }>
+  > {
+    const target = budget.currency.toUpperCase();
+    return Promise.all(
+      rows.map(async row => {
+        const amount = Number.parseFloat(row.amount);
+        const currency = (row.currency || target).toUpperCase();
+        if (currency === target) {
+          return { date: row.date, currency, amount, value: amount };
+        }
+        const rate = this.exchangeRatesService
+          ? await this.exchangeRatesService
+              .getRateOrNull(currency, target, row.date, budget.workspaceId)
+              .catch(() => null)
+          : null;
+        return { date: row.date, currency, amount, value: rate === null ? null : amount * rate };
+      }),
+    );
   }
 }
 

@@ -1,4 +1,4 @@
-import { countedSql } from '@/common/utils/counted-transactions.util';
+import { countedSql, flowsSql } from '@/common/utils/counted-transactions.util';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { BudgetPeriodType, BudgetRolloverMode } from '@/entities/budget.entity';
@@ -15,11 +15,15 @@ const createRepoMock = () => ({
   createQueryBuilder: jest.fn(),
 });
 
+// The period's spending, summed per day and currency; no currency reads as the budget's own.
 const createQueryBuilderMock = (total: string) => ({
   select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
   andWhere: jest.fn().mockReturnThis(),
-  getRawOne: jest.fn().mockResolvedValue({ total }),
+  groupBy: jest.fn().mockReturnThis(),
+  addGroupBy: jest.fn().mockReturnThis(),
+  getRawMany: jest.fn().mockResolvedValue([{ date: '2026-05-01', currency: null, amount: total }]),
 });
 
 describe('BudgetsService', () => {
@@ -491,7 +495,7 @@ describe('BudgetsService', () => {
         categoryIds: ['food', 'groceries', 'restaurants'],
       });
       // Only what the user confirmed counts against a budget.
-      expect(builder.andWhere).toHaveBeenCalledWith(countedSql('t'));
+      expect(builder.andWhere).toHaveBeenCalledWith(flowsSql('t'));
     });
 
     it('carries the leftover of earlier periods into the current one', async () => {
@@ -503,6 +507,8 @@ describe('BudgetsService', () => {
         addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        addGroupBy: jest.fn().mockReturnThis(),
         // February (budget created on the 10th), March, April: 100 − 30, 100 − 0, 100 − 120.
         getRawMany: jest.fn().mockResolvedValue([
           { date: '2026-02-20', amount: '30' },
@@ -523,7 +529,7 @@ describe('BudgetsService', () => {
       expect(history.andWhere).toHaveBeenCalledWith('t.transaction_date >= :start', {
         start: new Date(2026, 1, 1),
       });
-      expect(history.andWhere).toHaveBeenCalledWith(countedSql('t'));
+      expect(history.andWhere).toHaveBeenCalledWith(flowsSql('t'));
     });
 
     it('tells what an expense would do to the budgets up the category tree and to the account', async () => {

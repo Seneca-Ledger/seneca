@@ -1,4 +1,4 @@
-import { countedSql } from '@/common/utils/counted-transactions.util';
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { NotFoundException } from '@nestjs/common';
 import { BudgetPeriodType } from '@/entities/budget.entity';
 import { GoalFlowService } from '@/modules/goals/goal-flow.service';
@@ -115,7 +115,7 @@ function createService(options: {
   } as never;
 
   const exchangeRatesService = {
-    getRate: jest.fn(async () => options.rate ?? 1),
+    getRateOrNull: jest.fn(async () => options.rate ?? 1),
   } as never;
 
   return {
@@ -131,7 +131,7 @@ function createService(options: {
     ),
     createQueryBuilder,
     conditions,
-    exchangeRatesService: exchangeRatesService as unknown as { getRate: jest.Mock },
+    exchangeRatesService: exchangeRatesService as unknown as { getRateOrNull: jest.Mock },
   };
 }
 
@@ -200,7 +200,7 @@ describe('GoalFlowService', () => {
 
     expect(conditions.length).toBeGreaterThan(0);
     for (const clauses of conditions) {
-      expect(clauses).toContain(countedSql('t'));
+      expect(clauses).toContain(flowsSql('t'));
     }
   });
 
@@ -220,7 +220,7 @@ describe('GoalFlowService', () => {
     expect(result.actualTotal).toBe(5000);
     expect(result.plannedTotal).toBe(50000);
     // One lookup for the single distinct source currency, not one per row.
-    expect(exchangeRatesService.getRate).toHaveBeenCalledTimes(1);
+    expect(exchangeRatesService.getRateOrNull).toHaveBeenCalledTimes(1);
   });
 
   it('puts a weekly limit on the same monthly axis as a monthly one', async () => {
