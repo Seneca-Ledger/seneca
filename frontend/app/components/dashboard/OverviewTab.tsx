@@ -11,16 +11,22 @@ import { FileUp } from '@/app/components/icons';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { Spinner } from '../ui/spinner';
+import { AdviceCard } from './AdviceCard';
 import { CryptoPortfolioCard } from './CryptoPortfolioCard';
-import { computeNet, computeSavingsRate } from './dashboard-stats.util';
+import { computeNet, computeSavingsRate, signTone } from './dashboard-stats.util';
 import { GettingStartedCard } from './GettingStartedCard';
 import { GoalsProgressCard } from './GoalsProgressCard';
+import { MoneyOwedCard } from './MoneyOwedCard';
 import { NetWorthCard } from './NetWorthCard';
 import { OverviewLayout } from './OverviewLayout';
 import type { KpiSectionId } from './overview-layout';
+import { OverviewMonthProvider } from './overview-month';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
+import { SafeToSpendTile } from './SafeToSpendTile';
 import { SpendCalendarCard } from './SpendCalendarCard';
+import { TaxesCard } from './TaxesCard';
 import { TopCategoriesCard } from './TopCategoriesCard';
+import { UpcomingChargesCard } from './UpcomingChargesCard';
 import { CardLink, DashboardCard, KpiCard } from './ui';
 import { useMonthLabel } from './use-month-label';
 import { WorkspaceActivityCard } from './WorkspaceActivityCard';
@@ -39,7 +45,8 @@ function sparkSeries(data: DashboardData): {
   expense?: number[];
   net?: number[];
 } {
-  const points = data.cashFlow.slice(-SPARK_POINTS);
+  // The month's last days are still ahead in the month we are in; their zeros are not a fall.
+  const points = elapsedDays(data).slice(-SPARK_POINTS);
   if (points.length < 2) {
     return {};
   }
@@ -52,7 +59,9 @@ function sparkSeries(data: DashboardData): {
 
 /** The month so far: days after today carry nothing yet and would thin every average. */
 function elapsedDays(data: DashboardData): DashboardData['cashFlow'] {
-  const today = new Date().toISOString().slice(0, 10);
+  // The reader's calendar day: in UTC it is still yesterday for a while after midnight east of it.
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   return data.cashFlow.filter(point => point.date <= today);
 }
 
@@ -79,7 +88,7 @@ function monthRangeHref(displayMonth: Date): string {
 }
 
 function signed(value: number, formatAmount: (value: number) => string): string {
-  return `${value >= 0 ? '+' : '−'}${formatAmount(Math.abs(value))}`;
+  return `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatAmount(Math.abs(value))}`;
 }
 
 function OverviewEmptyState(): React.JSX.Element {
@@ -135,7 +144,6 @@ function kpiTiles({
   const savingsRate = computeSavingsRate(income, expense);
   const spark = sparkSeries(data);
   const spinner = isLoading ? <Spinner size={12} /> : null;
-  const netTone = net >= 0 ? 'positive' : 'negative';
 
   // What a tile with room adds: the whole month's line and how the total came about.
   const days = elapsedDays(data);
@@ -152,7 +160,7 @@ function kpiTiles({
       <KpiCard
         label={labels.income}
         value={spinner || formatAmount(income)}
-        tone="positive"
+        tone={signTone(income)}
         caption={monthLabel}
         spark={spark.income && { points: spark.income }}
         wideSpark={month ? { points: month.map(p => p.income) } : undefined}
@@ -166,7 +174,8 @@ function kpiTiles({
       <KpiCard
         label={labels.spent}
         value={spinner || formatAmount(expense)}
-        tone="negative"
+        // Spending is not an alarm: the card stays neutral whatever the amount.
+        tone="neutral"
         caption={monthLabel}
         spark={spark.expense && { points: spark.expense }}
         wideSpark={month ? { points: month.map(p => p.expense) } : undefined}
@@ -180,7 +189,7 @@ function kpiTiles({
       <KpiCard
         label={labels.net}
         value={spinner || signed(net, formatAmount)}
-        tone={netTone}
+        tone={signTone(net)}
         caption={labels.netCaption}
         spark={spark.net && { points: spark.net }}
         wideSpark={month ? { points: month.map(p => p.income - p.expense) } : undefined}
@@ -191,7 +200,7 @@ function kpiTiles({
       <KpiCard
         label={labels.savingsRate}
         value={spinner || `${Math.round(savingsRate ?? 0)}%`}
-        tone={savingsRate === null ? 'neutral' : savingsRate >= 0 ? 'positive' : 'negative'}
+        tone={signTone(savingsRate)}
         caption={labels.savingsRateCaption}
         attentionId="kpi:savings-rate"
         details={split}
@@ -237,60 +246,73 @@ export function OverviewTab({
   }
 
   return (
-    <OverviewLayout
-      sections={{
-        'getting-started': gettingStarted,
-        ...kpiTiles({
-          data,
-          formatAmount,
-          monthLabel,
-          isLoading,
-          labels: {
-            income: t.income.value,
-            spent: t.spentLabel.value,
-            net: t.netLabel.value,
-            netCaption: t.netCaption.value,
-            savingsRate: t.savingsRateLabel.value,
-            savingsRateCaption: t.savingsRateCaption.value,
-            avgPerDay: wideText.avgPerDay.value,
-            biggestDay: wideText.biggestDay.value,
-          },
-          formatDay,
-        }),
-        crypto: (
-          <CryptoPortfolioCard
-            formatAmount={formatAmount}
-            month={monthKey(displayMonth)}
-            monthLabel={monthLabel}
-          />
-        ),
-        'top-categories': (
-          <DashboardCard
-            title={t.topCategoriesTitle}
-            subtitle={monthLabel}
-            action={<CardLink href="/reports?tab=cash-flow">{t.viewAll}</CardLink>}
-          >
-            <TopCategoriesCard
-              categories={data.topCategories ?? []}
+    <OverviewMonthProvider value={monthKey(displayMonth)}>
+      <OverviewLayout
+        sections={{
+          'getting-started': gettingStarted,
+          ...kpiTiles({
+            data,
+            formatAmount,
+            monthLabel,
+            isLoading,
+            labels: {
+              income: t.income.value,
+              spent: t.spentLabel.value,
+              net: t.netLabel.value,
+              netCaption: t.netCaption.value,
+              savingsRate: t.savingsRateLabel.value,
+              savingsRateCaption: t.savingsRateCaption.value,
+              avgPerDay: wideText.avgPerDay.value,
+              biggestDay: wideText.biggestDay.value,
+            },
+            formatDay,
+          }),
+          'safe-to-spend': <SafeToSpendTile formatAmount={formatAmount} />,
+          crypto: (
+            <CryptoPortfolioCard
               formatAmount={formatAmount}
               month={monthKey(displayMonth)}
+              monthLabel={monthLabel}
             />
-          </DashboardCard>
-        ),
-        'recent-transactions': (
-          <RecentTransactionsCard
-            transactions={data.recentTransactions ?? []}
-            formatAmount={formatAmount}
-            viewAllHref={viewAllHref}
-          />
-        ),
-        'spend-calendar': <SpendCalendarCard displayMonth={displayMonth} />,
-        goals: <GoalsProgressCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
-        'net-worth': <NetWorthCard />,
-        budgets: <BudgetSummaryWidget />,
-        'cash-runway': <CashRunwayWidget formatAmount={formatAmount} />,
-        activity: <WorkspaceActivityCard />,
-      }}
-    />
+          ),
+          'top-categories': (
+            <DashboardCard
+              title={t.topCategoriesTitle}
+              subtitle={monthLabel}
+              action={<CardLink href="/reports?tab=cash-flow">{t.viewAll}</CardLink>}
+            >
+              <TopCategoriesCard
+                categories={data.topCategories ?? []}
+                formatAmount={formatAmount}
+                month={monthKey(displayMonth)}
+              />
+            </DashboardCard>
+          ),
+          'recent-transactions': (
+            <RecentTransactionsCard
+              transactions={data.recentTransactions ?? []}
+              formatAmount={formatAmount}
+              viewAllHref={viewAllHref}
+            />
+          ),
+          'spend-calendar': <SpendCalendarCard displayMonth={displayMonth} />,
+          goals: <GoalsProgressCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
+          'net-worth': <NetWorthCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
+          budgets: <BudgetSummaryWidget month={monthKey(displayMonth)} monthLabel={monthLabel} />,
+          'cash-runway': <CashRunwayWidget formatAmount={formatAmount} />,
+          activity: <WorkspaceActivityCard />,
+          'upcoming-charges': <UpcomingChargesCard formatAmount={formatAmount} />,
+          'money-owed': (
+            <MoneyOwedCard
+              payable={data.snapshot.totalPayable}
+              overduePayable={data.snapshot.totalOverdue}
+              formatAmount={formatAmount}
+            />
+          ),
+          taxes: <TaxesCard />,
+          advice: <AdviceCard />,
+        }}
+      />
+    </OverviewMonthProvider>
   );
 }

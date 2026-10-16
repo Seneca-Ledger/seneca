@@ -12,7 +12,7 @@ export interface KpiCardProps {
   value: React.ReactNode;
   tone?: KpiTone;
   caption?: React.ReactNode;
-  /** Sparkline points; the line takes the card's tone colour. */
+  /** Sparkline points; the line takes the card's tone colour, as does a dot by the label. */
   spark?: { points: number[] };
   /** Renders the whole card as a link. */
   href?: string;
@@ -22,6 +22,8 @@ export interface KpiCardProps {
   wideSpark?: { points: number[] };
   /** With half a row or more: label–value lines under the figure. */
   details?: Array<{ label: string; value: React.ReactNode }>;
+  /** With half a row or more: a full chart in place of the sparkline. */
+  wideChart?: React.ReactNode;
 }
 
 export function KpiCard({
@@ -34,21 +36,25 @@ export function KpiCard({
   attentionId,
   wideSpark,
   details,
+  wideChart,
 }: KpiCardProps): React.JSX.Element {
   // A tile given half a row or more has room to say more than its figure.
   const roomy = useSectionSpan() >= GRID_COLUMNS / 2;
-  const line = roomy && wideSpark ? wideSpark : spark;
+  const chart = roomy ? wideChart : undefined;
+  const line = chart ? undefined : roomy && wideSpark ? wideSpark : spark;
   const body = (
     <>
-      <div className="lumio-dashboard__stat-label">{label}</div>
-      <div
-        className={clsx(
-          'lumio-dashboard__stat-value',
-          tone !== 'neutral' && `lumio-dashboard__stat-value--${tone}`,
+      <div className="lumio-dashboard__stat-label">
+        {/* The figure stays ink; the tone shows only as this dot and the sparkline. */}
+        {tone !== 'neutral' && (
+          <span
+            className={`lumio-dashboard__stat-dot lumio-dashboard__stat-dot--${tone}`}
+            aria-hidden="true"
+          />
         )}
-      >
-        {value}
+        {label}
       </div>
+      <div className="lumio-dashboard__stat-value">{value}</div>
       {caption && (
         <div className="lumio-dashboard__stat-row">
           <span className="lumio-dashboard__stat-sub">{caption}</span>
@@ -64,6 +70,7 @@ export function KpiCard({
           ))}
         </dl>
       )}
+      {chart && <div className="lumio-dashboard__stat-chart">{chart}</div>}
       {line && line.points.length >= 2 && (
         <div
           className={clsx(

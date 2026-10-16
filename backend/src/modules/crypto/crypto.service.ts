@@ -377,6 +377,10 @@ export class CryptoService {
   async getSummary(workspaceId: string, days = 30, month?: string): Promise<CryptoSummary> {
     const currency = await this.getWorkspaceCurrency(workspaceId);
     const window = month ? monthWindow(month) : { since: daysAgo(days), until: null };
+    // A month already over: its flows, and the portfolio as the last sync before its end found it.
+    if (window.until && window.until <= `${new Date().toISOString().slice(0, 7)}-01`) {
+      return this.getPastMonthSummary(workspaceId, currency, window);
+    }
 
     const [walletCount, flows, portfolio] = await Promise.all([
       this.walletRepo.count({ where: { workspaceId } }),
@@ -399,6 +403,37 @@ export class CryptoService {
         currency,
         workspaceId,
       ),
+    };
+  }
+
+  /**
+   * A past month as it ended. Which coins were held then and at what cost is
+   * not kept, so holdings and gains are left empty rather than filled with
+   * today's; the value is the portfolio snapshot the last sync before the
+   * month's end wrote.
+   */
+  private async getPastMonthSummary(
+    workspaceId: string,
+    currency: string,
+    window: { since: string; until: string },
+  ): Promise<CryptoSummary> {
+    const [walletCount, flows, portfolioValue] = await Promise.all([
+      this.walletRepo.count({ where: { workspaceId } }),
+      this.getFlows(workspaceId, window.since, window.until),
+      this.balanceService.valueBefore(workspaceId, window.until),
+    ]);
+    return {
+      currency,
+      portfolioValue: round2(portfolioValue),
+      income: flows.income,
+      expense: flows.expense,
+      walletCount,
+      holdings: [],
+      unpriced: [],
+      cost: null,
+      unrealized: null,
+      realized: 0,
+      portfolioChangeSinceYesterday: null,
     };
   }
 

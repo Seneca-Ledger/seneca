@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, type Repository } from 'typeorm';
+import { LessThan, MoreThanOrEqual, type Repository } from 'typeorm';
 import { BalanceAccount, BalanceAccountKind } from '../../entities/balance-account.entity';
 import { BalanceSnapshot } from '../../entities/balance-snapshot.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
@@ -91,6 +91,25 @@ export class CryptoBalanceService {
         value: Number(snapshot.amount),
       })),
     };
+  }
+
+  /**
+   * What the portfolio was worth just before `until` (exclusive, `YYYY-MM-DD`):
+   * the last snapshot a sync wrote before then, in the workspace currency, or 0
+   * when there was none yet.
+   */
+  async valueBefore(workspaceId: string, until: string): Promise<number> {
+    const account = await this.accountRepo.findOne({
+      where: { workspaceId, accountKind: BalanceAccountKind.CRYPTO },
+    });
+    if (!account) {
+      return 0;
+    }
+    const snapshot = await this.snapshotRepo.findOne({
+      where: { workspaceId, accountId: account.id, snapshotDate: LessThan(until) },
+      order: { snapshotDate: 'DESC' },
+    });
+    return snapshot ? Number(snapshot.amount) : 0;
   }
 
   /** The workspace's crypto account, created on first use. */

@@ -14,10 +14,18 @@ vi.mock('next/link', () => ({
 }));
 
 describe('KpiCard', () => {
-  it('applies the tone modifier to the value and shows the caption', () => {
-    render(<KpiCard label="Spent" value="$3,072" tone="negative" caption="excludes transfers" />);
-    expect(screen.getByText('$3,072').className).toContain('lumio-dashboard__stat-value--negative');
+  it('shows the tone as a dot by the label, not on the value, and shows the caption', () => {
+    const { container } = render(
+      <KpiCard label="Spent" value="$3,072" tone="negative" caption="excludes transfers" />,
+    );
+    expect(screen.getByText('$3,072').className).toBe('lumio-dashboard__stat-value');
+    expect(container.querySelector('.lumio-dashboard__stat-dot--negative')).not.toBeNull();
     expect(screen.getByText('excludes transfers')).toBeInTheDocument();
+  });
+
+  it('draws no dot for a neutral tone', () => {
+    const { container } = render(<KpiCard label="Net" value="$0" />);
+    expect(container.querySelector('.lumio-dashboard__stat-dot')).toBeNull();
   });
 
   it('renders as a link when href is given', () => {

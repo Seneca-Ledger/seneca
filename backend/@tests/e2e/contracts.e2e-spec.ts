@@ -178,6 +178,7 @@ import {
   TwoFactorSetup,
   TwoFactorStatus,
   UnreadCount,
+  UpcomingSubscriptionList,
   UserPermissions,
   UserSessionList,
   UserUpdateResponse,
@@ -554,6 +555,12 @@ describe('API contracts (e2e)', () => {
       const duplicates = await get('/subscriptions/duplicates');
       matches(SubscriptionDuplicateGroups, duplicates.body);
       expect(duplicates.body).toHaveLength(1);
+    });
+
+    it('GET /subscriptions/upcoming', async () => {
+      const upcoming = await get('/subscriptions/upcoming?days=30');
+      matches(UpcomingSubscriptionList, upcoming.body);
+      expect(upcoming.body).toHaveLength(2);
     });
   });
 

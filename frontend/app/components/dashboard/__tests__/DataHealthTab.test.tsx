@@ -113,13 +113,13 @@ describe('DataHealthTab', () => {
 
     const uncategorized = screen.getByRole('link', { name: /Uncategorized/ });
     expect(uncategorized.getAttribute('href')).toBe('/statements/submit?categoryId=uncategorized');
-    expect(uncategorized.querySelector('.lumio-dashboard__stat-value--warning')).not.toBeNull();
+    expect(uncategorized.querySelector('.lumio-dashboard__stat-dot--warning')).not.toBeNull();
 
     const errors = screen.getByRole('link', { name: /Statement errors/ });
-    expect(errors.querySelector('.lumio-dashboard__stat-value--negative')).not.toBeNull();
+    expect(errors.querySelector('.lumio-dashboard__stat-dot--negative')).not.toBeNull();
 
     const pending = screen.getByRole('link', { name: /Pending review/ });
-    expect(pending.querySelector('.lumio-dashboard__stat-value--positive')).not.toBeNull();
+    expect(pending.querySelector('.lumio-dashboard__stat-dot--positive')).not.toBeNull();
     expect(pending.textContent).toContain('All good');
 
     expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
@@ -160,9 +160,11 @@ describe('DataHealthTab', () => {
       parsingWarnings: 0,
     });
 
-    expect(screen.getByText('−$19.63').className).toContain(
-      'lumio-dashboard__stat-value--warning',
-    );
+    expect(
+      screen.getByText('−$19.63').closest('.lumio-dashboard__stat')?.querySelector(
+        '.lumio-dashboard__stat-dot--warning',
+      ),
+    ).not.toBeNull();
     expect(screen.queryByText('All cash approved')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Review & approve cash/ })).toHaveAttribute(
       'href',

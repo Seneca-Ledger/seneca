@@ -53,6 +53,44 @@ describe('TopCategoriesCard', () => {
     expect(screen.queryByTestId('mock-echarts')).not.toBeInTheDocument();
   });
 
+  it('paints slices in earthy tones held by each category, not their own colours, and dots the legend', () => {
+    const categories = [
+      { id: 'a', name: 'Taxes', color: '#ef4444', icon: null, amount: 300, percent: 60, count: 1 },
+      { id: 'b', name: 'Rent', color: '#f59e0b', icon: null, amount: 150, percent: 30, count: 1 },
+      {
+        id: null,
+        name: null,
+        isOther: true,
+        color: '#898781',
+        icon: null,
+        amount: 50,
+        percent: 10,
+        count: 1,
+      },
+    ];
+    const { container, rerender } = render(
+      <TopCategoriesCard categories={categories} formatAmount={v => `$${v}`} />,
+    );
+
+    const colors = (donutSlices.current as Array<{ color?: string }>).map(slice => slice.color);
+    expect(colors.every(color => color?.startsWith('var(--cat-tone-'))).toBe(true);
+    expect(colors[0]).not.toBe(colors[1]);
+    expect(colors[2]).toBe('var(--cat-tone-other)');
+    const dots = [...container.querySelectorAll<HTMLElement>('.lumio-dashboard__legend-dot')];
+    expect(dots).toHaveLength(3);
+
+    // Next month Rent ranks first: it keeps its tone.
+    rerender(
+      <TopCategoriesCard
+        categories={[categories[1], categories[0], categories[2]]}
+        formatAmount={v => `$${v}`}
+      />,
+    );
+    const after = (donutSlices.current as Array<{ color?: string }>).map(slice => slice.color);
+    expect(after[0]).toBe(colors[1]);
+    expect(after[1]).toBe(colors[0]);
+  });
+
   it('renders the localized fallback label for a null-name (uncategorized) row', () => {
     render(
       <TopCategoriesCard

@@ -2,7 +2,11 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithQuery } from '@/app/test/query-wrapper';
-import { DEFAULT_OVERVIEW_ROWS, type OverviewSectionId } from './overview-layout';
+import {
+  DEFAULT_OVERVIEW_ROWS,
+  OVERVIEW_SECTION_IDS,
+  type OverviewSectionId,
+} from './overview-layout';
 import { OverviewLayout } from './OverviewLayout';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
@@ -16,13 +20,14 @@ vi.mock('@/app/i18n', async () => {
       autoDictionary({
         layoutDragHandle: value('Drag to move'),
         layoutReset: value('Reset layout'),
+        pickerButton: value('Widgets'),
       }),
   };
 });
 
 function sections(overrides: Partial<Record<OverviewSectionId, React.ReactNode>> = {}) {
   const all = Object.fromEntries(
-    DEFAULT_OVERVIEW_ROWS.flat().map(id => [id, <div key={id}>{id} card</div>]),
+    OVERVIEW_SECTION_IDS.map(id => [id, <div key={id}>{id} card</div>]),
   ) as Record<OverviewSectionId, React.ReactNode>;
   return { ...all, ...overrides };
 }
@@ -106,10 +111,10 @@ describe('OverviewLayout', () => {
   it('lets a half take the whole row when its partner has nothing to show', async () => {
     api.get.mockResolvedValue({ data: { state: null } });
 
-    renderWithQuery(<OverviewLayout sections={sections({ budgets: null })} />);
+    renderWithQuery(<OverviewLayout sections={sections({ 'recent-transactions': null })} />);
 
-    await waitFor(() => expect(spanOf('cash-runway card')).toBe('12'));
-    expect(spanOf('top-categories card')).toBe('6');
+    await waitFor(() => expect(spanOf('top-categories card')).toBe('12'));
+    expect(spanOf('cash-runway card')).toBe('6');
   });
 
   it('gives every section, each KPI tile included, a grip to drag it by', async () => {
@@ -132,11 +137,46 @@ describe('OverviewLayout', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Reset layout' }));
 
     expect(api.put).toHaveBeenCalledWith('/view-preferences/dashboard', {
-      state: { overviewRows: DEFAULT_OVERVIEW_ROWS },
+      state: { overviewRows: DEFAULT_OVERVIEW_ROWS, hiddenSections: [] },
     });
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Reset layout' })).not.toBeInTheDocument(),
     );
     expect(order().slice(0, 2)).toEqual(['getting-started', 'kpi-income']);
+  });
+
+  it('switches on a widget that is off by default from the picker', async () => {
+    api.get.mockResolvedValue({ data: { state: null } });
+
+    renderWithQuery(<OverviewLayout sections={sections()} />);
+
+    expect(screen.queryByText('taxes card')).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: /Widgets/ }));
+    const taxes = screen.getByRole('menuitemcheckbox', { name: 'sections.taxes' });
+    expect(taxes).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(taxes);
+
+    expect(api.put).toHaveBeenCalledWith('/view-preferences/dashboard', {
+      state: { overviewRows: [...DEFAULT_OVERVIEW_ROWS, ['taxes']], hiddenSections: [] },
+    });
+    expect(await screen.findByText('taxes card')).toBeInTheDocument();
+  });
+
+  it('hides a section from the picker and keeps it hidden', async () => {
+    api.get.mockResolvedValue({ data: { state: null } });
+
+    renderWithQuery(<OverviewLayout sections={sections()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Widgets/ }));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'sections.netWorth' }));
+
+    await waitFor(() => expect(screen.queryByText('net-worth card')).toBeNull());
+    const saved = api.put.mock.calls[0][1].state;
+    expect(saved.hiddenSections).toEqual(['net-worth']);
+    expect(saved.overviewRows.flat()).not.toContain('net-worth');
+    expect(screen.getByRole('menuitemcheckbox', { name: 'sections.netWorth' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
   });
 });

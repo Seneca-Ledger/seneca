@@ -10,13 +10,14 @@ import {
   formatMonthParam,
   parseMonthParam,
 } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
+import { categoryTones } from '@/app/components/charts/chart-theme';
 import { LazyCategoryDonut, LazySpendTrendBars } from '@/app/components/charts/lazy-charts';
 import type { DashboardTrends } from '@/app/hooks/useDashboard';
 import { useDashboardTrends } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { categoryColorFor } from '@/app/lib/category-defaults';
 import { CashFlowCard } from './CashFlowCard';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { signTone } from './dashboard-stats.util';
 import { CardEmpty, DashboardCard, KpiCard, ListRow } from './ui';
 import { useMonthLabel } from './use-month-label';
 
@@ -47,13 +48,13 @@ function TrendsKpis({
       <KpiCard
         label={t.statementsTitle.value}
         value={formatAmount(income)}
-        tone="positive"
+        tone={signTone(income)}
         caption={`${t.expense.value}: ${formatAmount(expense)}`}
       />
       <KpiCard
         label={t.netFlowTitle.value}
-        value={`${net >= 0 ? '+' : '−'}${formatAmount(Math.abs(net))}`}
-        tone={net >= 0 ? 'positive' : 'negative'}
+        value={`${net > 0 ? '+' : net < 0 ? '−' : ''}${formatAmount(Math.abs(net))}`}
+        tone={signTone(net)}
         caption={`${t.categories.value}: ${trends.categories.length}`}
       />
       <KpiCard
@@ -152,16 +153,15 @@ function CategoryBreakdownCard({
 }): React.JSX.Element {
   const t = useIntlayer('trendsTab');
   const top = useMemo(() => state.trends?.categories.slice(0, LEGEND_LIMIT) ?? [], [state.trends]);
-  const slices = useMemo(
-    () =>
-      top.map(c => ({
-        key: c.name,
-        name: c.name,
-        value: c.amount,
-        color: categoryColorFor(c.name, c.color),
-      })),
-    [top],
-  );
+  const slices = useMemo(() => {
+    const tones = categoryTones(top.map(c => ({ key: c.name })));
+    return top.map((c, index) => ({
+      key: c.name,
+      name: c.name,
+      value: c.amount,
+      color: tones[index],
+    }));
+  }, [top]);
   return (
     <DashboardCard title={t.categoryBreakdownTitle}>
       <CardState state={state} emptyLabel={t.noTrendDataForPeriod} emptyIcon={CategoryOutlined}>
@@ -171,13 +171,22 @@ function CategoryBreakdownCard({
               <LazyCategoryDonut slices={slices} formatAmount={formatAmount} />
             </div>
             <div className="lumio-dashboard__list">
-              {top.map(c => (
+              {top.map((c, rank) => (
                 <ListRow
                   key={c.name}
                   leading={
                     <CategoryIconBadge name={c.name} color={c.color} icon={c.icon} size={28} />
                   }
-                  primary={c.name}
+                  primary={
+                    <>
+                      <span
+                        className="lumio-dashboard__legend-dot"
+                        style={{ background: slices[rank].color }}
+                        aria-hidden="true"
+                      />
+                      {c.name}
+                    </>
+                  }
                   trailing={formatAmount(c.amount)}
                 />
               ))}

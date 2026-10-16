@@ -5,7 +5,8 @@ import '../test-setup';
 import { CategoryIconBadge } from '../CategoryIconBadge';
 
 // Spread the real module: category-icon-choices pulls in the whole picker set.
-vi.mock('@/app/components/icons', async importOriginal => ({
+// Category glyphs come from the line-icon module now.
+vi.mock('@/app/lib/category-line-icons', async importOriginal => ({
   ...(await importOriginal<object>()),
   Tag: () => <span data-testid="icon-tag" />,
   MoreHorizontal: () => <span data-testid="icon-more" />,

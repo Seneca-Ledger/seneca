@@ -9,10 +9,25 @@ export const KPI_SECTION_IDS = ['kpi-income', 'kpi-spent', 'kpi-net', 'kpi-savin
 
 export type KpiSectionId = (typeof KPI_SECTION_IDS)[number];
 
+/** Sections drawn as tiles: a quarter of a row each. */
+const TILE_SECTION_IDS = [...KPI_SECTION_IDS, 'safe-to-spend'] as const;
+
+/**
+ * Widgets someone switches on from the picker; until then they stay off the
+ * Overview, so it does not fill up with cards most people never asked for.
+ */
+export const OFF_BY_DEFAULT_SECTION_IDS = [
+  'crypto',
+  'upcoming-charges',
+  'money-owed',
+  'taxes',
+  'advice',
+] as const;
+
 export const OVERVIEW_SECTION_IDS = [
   'getting-started',
   ...KPI_SECTION_IDS,
-  'crypto',
+  'safe-to-spend',
   'top-categories',
   'recent-transactions',
   'spend-calendar',
@@ -21,11 +36,18 @@ export const OVERVIEW_SECTION_IDS = [
   'budgets',
   'cash-runway',
   'activity',
+  ...OFF_BY_DEFAULT_SECTION_IDS,
 ] as const;
 
 export type OverviewSectionId = (typeof OVERVIEW_SECTION_IDS)[number];
 
 export type OverviewRows = string[][];
+
+/** What is saved per person and workspace: the rows, and the sections taken off them. */
+export type OverviewLayoutState = {
+  overviewRows: OverviewRows;
+  hiddenSections?: string[];
+};
 
 /** Where a dragged section lands relative to the one under the pointer. */
 export type DropZone = 'above' | 'below' | 'left' | 'right';
@@ -42,17 +64,18 @@ const LEGACY_KPI_ROW = 'kpis';
 export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
   ['getting-started'],
   [...KPI_SECTION_IDS],
-  ['crypto'],
   ['top-categories', 'recent-transactions'],
+  ['safe-to-spend', 'cash-runway'],
   ['spend-calendar'],
   ['goals'],
   ['net-worth'],
-  ['budgets', 'cash-runway'],
+  ['budgets'],
   ['activity'],
 ];
 
 const KNOWN = new Set<string>(OVERVIEW_SECTION_IDS);
-const TILES = new Set<string>(KPI_SECTION_IDS);
+const TILES = new Set<string>(TILE_SECTION_IDS);
+const OFF_BY_DEFAULT = new Set<string>(OFF_BY_DEFAULT_SECTION_IDS);
 
 export const isTile = (id: string): boolean => TILES.has(id);
 
@@ -92,17 +115,21 @@ function pack(ids: string[]): OverviewRows {
 }
 
 /**
- * A saved layout made safe to draw: sections that no longer exist and repeats
- * are dropped, the old single KPI row becomes the four tiles in its place,
- * overfull rows are cut, and sections added since the layout was saved are
- * appended, so nothing silently disappears (the setup checklist goes first
- * instead).
+ * A saved layout made safe to draw: sections that no longer exist, repeats and
+ * hidden ones are dropped, the old single KPI row becomes the four tiles in its
+ * place, overfull rows are cut, and sections added since the layout was saved
+ * are appended, so nothing silently disappears (the setup checklist goes first
+ * instead). Widgets that are off by default join only when switched on.
  */
-export function normalizeRows(saved: { rows?: unknown } | null | undefined): OverviewRows {
+export function normalizeRows(
+  saved: { rows?: unknown; hidden?: unknown } | null | undefined,
+): OverviewRows {
   if (!Array.isArray(saved?.rows)) {
     return DEFAULT_OVERVIEW_ROWS;
   }
-  const seen = new Set<string>();
+  const hidden = Array.isArray(saved.hidden) ? saved.hidden : [];
+  // Hidden sections count as placed: they are neither drawn nor appended.
+  const seen = new Set<string>(hidden.filter((id): id is string => typeof id === 'string'));
   const rows: OverviewRows = [];
   const overflow: string[] = [];
   for (const row of saved.rows) {
@@ -138,7 +165,9 @@ export function normalizeRows(saved: { rows?: unknown } | null | undefined): Ove
   }
   // The setup checklist is for newcomers, so it opens a layout saved before it
   // existed instead of hiding at the bottom; it vanishes once its job is done.
-  const missing = OVERVIEW_SECTION_IDS.filter(id => !seen.has(id) && id !== 'getting-started');
+  const missing = OVERVIEW_SECTION_IDS.filter(
+    id => !(seen.has(id) || OFF_BY_DEFAULT.has(id) || id === 'getting-started'),
+  );
   const head = seen.has('getting-started') ? [] : [['getting-started']];
   return [...head, ...rows, ...pack([...overflow, ...missing])];
 }
@@ -187,6 +216,22 @@ export function moveSection(
 
   const at = zone === 'above' ? targetRow : targetRow + 1;
   return [...without.slice(0, at), [active], ...without.slice(at)];
+}
+
+/** Takes a section off the Overview; it stays off until switched on again. */
+export function hideSection(rows: OverviewRows, hidden: string[], id: string): OverviewLayoutState {
+  return {
+    overviewRows: rows.map(row => row.filter(each => each !== id)).filter(row => row.length > 0),
+    hiddenSections: hidden.includes(id) ? hidden : [...hidden, id],
+  };
+}
+
+/** Puts a section back, on a row of its own at the bottom, where it is easy to find. */
+export function showSection(rows: OverviewRows, hidden: string[], id: string): OverviewLayoutState {
+  return {
+    overviewRows: rows.some(row => row.includes(id)) ? rows : [...rows, [id]],
+    hiddenSections: hidden.filter(each => each !== id),
+  };
 }
 
 export function isDefaultLayout(rows: OverviewRows): boolean {

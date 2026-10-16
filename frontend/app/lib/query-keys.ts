@@ -76,6 +76,9 @@ export const queryKeys = {
   customTables: (workspaceId: string | null) => ['custom-tables', workspaceId] as const,
   adminUsers: (workspaceId: string | null) => ['admin-users', workspaceId] as const,
   budgets: (workspaceId: string | null) => ['budgets', workspaceId] as const,
+  // Under the budgets prefix, so editing a budget refreshes past months as well.
+  budgetsAt: (workspaceId: string | null, date: string) =>
+    ['budgets', workspaceId, 'at', date] as const,
   // Under the budgets prefix, so saving or deleting a budget refreshes the plan-vs-actual too.
   stoicBalance: (workspaceId: string | null) => ['budgets', workspaceId, 'stoic-balance'] as const,
   balanceSheet: (o: { workspaceId: string | null; date: string | null; locale: string }) =>
@@ -129,6 +132,8 @@ export const queryKeys = {
     ['subscriptions', workspaceId, 'summary'] as const,
   subscriptionsDuplicates: (workspaceId: string | null) =>
     ['subscriptions', workspaceId, 'duplicates'] as const,
+  subscriptionsUpcoming: (o: { workspaceId: string | null; days: number }) =>
+    ['subscriptions', o.workspaceId, 'upcoming', o.days] as const,
   subscriptionsChargeCalendar: (o: { workspaceId: string | null; months: number }) =>
     ['subscriptions', o.workspaceId, 'charge-calendar', o.months] as const,
   auditEvents: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
@@ -140,8 +145,12 @@ export const queryKeys = {
   reconciliation: (workspaceId: string | null) => ['reconciliation', workspaceId] as const,
   cashFlowMap: (o: { workspaceId: string | null; params: string }) =>
     ['reports', o.workspaceId, 'cash-flow-map', o.params] as const,
-  netWorth: (o: { workspaceId: string | null; range: string; denominate?: string | null }) =>
-    ['net-worth', o.workspaceId, o.range, o.denominate ?? null] as const,
+  netWorth: (o: {
+    workspaceId: string | null;
+    range: string;
+    denominate?: string | null;
+    to?: string | null;
+  }) => ['net-worth', o.workspaceId, o.range, o.denominate ?? null, o.to ?? null] as const,
   cryptoWallets: (workspaceId: string | null) => ['crypto', 'wallets', workspaceId] as const,
   cryptoSummary: (workspaceId: string | null) => ['crypto', 'summary', workspaceId] as const,
   // Under cryptoSummary, so whatever refreshes the crypto page refreshes the dashboard card too.
@@ -182,6 +191,7 @@ export const queryKeys = {
     ['invoices', o.workspaceId, o.params] as const,
   invoice: (o: { workspaceId: string | null; id: string | null }) =>
     ['invoices', o.workspaceId, o.id] as const,
+  invoicesAgeing: (workspaceId: string | null) => ['invoices', workspaceId, 'ageing'] as const,
   invoiceSettings: (workspaceId: string | null) => ['invoices', workspaceId, 'settings'] as const,
   clients: (workspaceId: string | null) => ['clients', workspaceId] as const,
   taxRateOptions: (workspaceId: string | null) => ['tax-rates', workspaceId, 'options'] as const,

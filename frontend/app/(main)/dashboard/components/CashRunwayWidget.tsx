@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type React from 'react';
 import { NetWorthChart } from '@/app/(main)/net-worth/components/NetWorthChart';
+import { useTodayNote } from '@/app/components/dashboard/overview-month';
 import { useIsWideSection } from '@/app/components/dashboard/section-span';
 import { CardEmpty, CardLink, DashboardCard, ListRow } from '@/app/components/dashboard/ui';
 import { AlertTriangle } from '@/app/components/icons';
@@ -124,6 +125,7 @@ export function CashRunwayWidget({
   formatAmount,
 }: CashRunwayWidgetProps): React.JSX.Element | null {
   const t = useIntlayer('cashRunwayWidget');
+  const today = useTodayNote();
   const { data, loaded } = useCommitments();
 
   if (!loaded) {
@@ -132,7 +134,11 @@ export function CashRunwayWidget({
 
   const isEmpty = !data || (data.items.length === 0 && data.unscheduledCommitted === 0);
   return (
-    <DashboardCard title={t.title} action={<CardLink href="/forecast">{t.openForecast}</CardLink>}>
+    <DashboardCard
+      title={t.title}
+      subtitle={today}
+      action={<CardLink href="/forecast">{t.openForecast}</CardLink>}
+    >
       {isEmpty ? (
         <CardEmpty icon={EventAvailableOutlined}>{t.emptyDescription}</CardEmpty>
       ) : (

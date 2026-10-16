@@ -128,14 +128,15 @@ export class BudgetsService {
     return saved;
   }
 
-  async findAll(workspaceId: string): Promise<BudgetWithSpending[]> {
+  /** Every budget with its spending in the period `at` falls in: today unless asked for another day. */
+  async findAll(workspaceId: string, at: Date = new Date()): Promise<BudgetWithSpending[]> {
     const budgets = await this.budgetRepository.find({
       where: { workspaceId },
       relations: ['category'],
       order: { name: 'ASC' },
     });
 
-    return Promise.all(budgets.map(budget => this.attachSpending(budget)));
+    return Promise.all(budgets.map(budget => this.attachSpending(budget, at)));
   }
 
   async findOne(id: string, workspaceId: string): Promise<BudgetWithSpending> {
@@ -336,8 +337,7 @@ export class BudgetsService {
     assertFound(goal, 'Goal');
   }
 
-  private async attachSpending(budget: Budget): Promise<BudgetWithSpending> {
-    const now = new Date();
+  private async attachSpending(budget: Budget, now = new Date()): Promise<BudgetWithSpending> {
     const measured = await this.measure(budget, now);
     return Object.assign(budget, {
       ...measured,

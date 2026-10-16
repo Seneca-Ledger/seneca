@@ -48,6 +48,18 @@ export const SubscriptionItem = Schema.Struct({
 export type SubscriptionItem = Wire<typeof SubscriptionItem>;
 
 export const SubscriptionList = Schema.Array(SubscriptionItem);
+
+/** `GET /subscriptions/upcoming?days=`: active subscriptions charging within that many days. */
+export const UpcomingSubscriptionList = Schema.Array(
+  Schema.Struct({
+    id: Schema.String,
+    vendorName: Schema.String,
+    amount: DecimalString,
+    currency: Schema.String,
+    nextChargeDate: Schema.NullOr(DateOnly),
+  }),
+);
+export type UpcomingSubscriptionList = Wire<typeof UpcomingSubscriptionList>;
 export type SubscriptionList = Wire<typeof SubscriptionList>;
 
 /** `GET /subscriptions/summary`, in the workspace currency. */

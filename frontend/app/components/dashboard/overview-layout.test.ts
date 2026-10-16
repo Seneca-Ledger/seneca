@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   canSitBeside,
   DEFAULT_OVERVIEW_ROWS,
+  hideSection,
   isDefaultLayout,
   moveSection,
   normalizeRows,
   type OverviewRows,
   rowSpans,
+  showSection,
 } from './overview-layout';
 
 const ROWS: OverviewRows = [['a'], ['b', 'c'], ['d']];
@@ -111,7 +113,7 @@ describe('normalizeRows', () => {
     const rows = normalizeRows({ rows: saved });
 
     expect(rows.slice(0, 3)).toEqual([['getting-started'], ['net-worth'], ['crypto']]);
-    expect(rows.flat().sort()).toEqual(DEFAULT_OVERVIEW_ROWS.flat().sort());
+    expect(rows.flat().sort()).toEqual([...DEFAULT_OVERVIEW_ROWS.flat(), 'crypto'].sort());
   });
 
   it('opens an older saved layout with the setup checklist, and leaves a placed one alone', () => {
@@ -140,7 +142,46 @@ describe('normalizeRows', () => {
       ['kpi-income', 'kpi-spent', 'kpi-net', 'kpi-savings'],
       ['crypto'],
     ]);
-    expect(rows.flat().sort()).toEqual(DEFAULT_OVERVIEW_ROWS.flat().sort());
+    expect(rows.flat().sort()).toEqual([...DEFAULT_OVERVIEW_ROWS.flat(), 'crypto'].sort());
+  });
+});
+
+describe('hidden and optional sections', () => {
+  it('keeps the widgets that are off by default out until they are switched on', () => {
+    const rows = normalizeRows({ rows: [['goals']] }).flat();
+
+    expect(rows).not.toContain('taxes');
+    expect(rows).not.toContain('advice');
+    expect(rows).not.toContain('crypto');
+    expect(rows).toContain('safe-to-spend');
+    expect(normalizeRows({ rows: [['goals'], ['taxes']] }).flat()).toContain('taxes');
+  });
+
+  it('does not bring back a section that was hidden', () => {
+    const hidden = hideSection(DEFAULT_OVERVIEW_ROWS, [], 'net-worth');
+    const rows = normalizeRows({ rows: hidden.overviewRows, hidden: hidden.hiddenSections });
+
+    expect(hidden.hiddenSections).toEqual(['net-worth']);
+    expect(rows.flat()).not.toContain('net-worth');
+    expect(rows.flat()).toContain('goals');
+  });
+
+  it('closes the gap a hidden section leaves and puts a shown one on a row at the bottom', () => {
+    const rows: OverviewRows = [['goals'], ['net-worth'], ['budgets', 'cash-runway']];
+    expect(hideSection(rows, [], 'net-worth').overviewRows).toEqual([
+      ['goals'],
+      ['budgets', 'cash-runway'],
+    ]);
+    expect(showSection(rows, ['taxes'], 'taxes')).toEqual({
+      overviewRows: [...rows, ['taxes']],
+      hiddenSections: [],
+    });
+  });
+
+  it('hides a section that is both saved in a row and marked hidden', () => {
+    expect(normalizeRows({ rows: [['goals', 'crypto']], hidden: ['crypto'] })[1]).toEqual([
+      'goals',
+    ]);
   });
 });
 

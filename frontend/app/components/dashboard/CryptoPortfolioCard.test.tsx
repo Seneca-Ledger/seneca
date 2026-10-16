@@ -89,7 +89,7 @@ describe('CryptoPortfolioCard', () => {
     );
   });
 
-  it('lists each coin with its amount, value and profit only with the row to itself', async () => {
+  it('lists each coin with its amount, value and profit, also when sharing a row', async () => {
     apiGet.mockResolvedValue({
       data: cryptoSummary({
         currency: 'EUR',
@@ -101,16 +101,14 @@ describe('CryptoPortfolioCard', () => {
       }),
     });
     const card = <CryptoPortfolioCard formatAmount={format} month="2026-08" monthLabel="August 2026" />;
-    const half = renderWithQuery(<SectionSpanProvider value={6}>{card}</SectionSpanProvider>);
-    await screen.findByText('5532.00 €');
-    expect(screen.queryByRole('table')).toBeNull();
-    half.unmount();
-
-    renderWithQuery(<SectionSpanProvider value={12}>{card}</SectionSpanProvider>);
-    const table = await screen.findByRole('table');
-    expect(table.textContent).toContain('1.5');
-    expect(table.textContent).toContain('5000.00 €');
-    expect(table.textContent).toContain('+12.3%');
-    expect(screen.getByText('−2.5%')).toBeTruthy();
+    for (const span of [6, 12]) {
+      const view = renderWithQuery(<SectionSpanProvider value={span}>{card}</SectionSpanProvider>);
+      const table = await screen.findByRole('table');
+      expect(table.textContent).toContain('1.5');
+      expect(table.textContent).toContain('5000.00 €');
+      expect(table.textContent).toContain('+12.3%');
+      expect(screen.getByText('−2.5%')).toBeTruthy();
+      view.unmount();
+    }
   });
 });

@@ -28,6 +28,7 @@ export class NetWorthController {
       query.range ?? '90d',
       user.locale,
       toEnum(InvestmentMetal, query.denominate),
+      query.to,
     );
   }
 }
