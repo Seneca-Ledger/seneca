@@ -118,8 +118,14 @@ export function normalizeBudgetItem(budget: BudgetRow): BudgetItem {
  * `GET /budgets` as the app holds it. Every reader of `queryKeys.budgets` must
  * use this, so the cache never mixes raw rows with normalized ones.
  */
-export async function fetchBudgets(signal?: AbortSignal): Promise<BudgetItem[]> {
-  const rows = await apiQueryDecoded({ url: '/budgets', signal, contract: 'BudgetList' });
+/** `date` (`YYYY-MM-DD`) measures spending for the period that day falls in; today by default. */
+export async function fetchBudgets(signal?: AbortSignal, date?: string): Promise<BudgetItem[]> {
+  const rows = await apiQueryDecoded({
+    url: '/budgets',
+    params: date ? { date } : undefined,
+    signal,
+    contract: 'BudgetList',
+  });
   return rows.map(normalizeBudgetItem);
 }
 

@@ -1,14 +1,13 @@
 /* eslint-disable max-lines */
 'use client';
 
-import { Alert, Box, Button, TextField, Typography } from '@mui/material';
+import { Box, Button, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
-import MuiLink from '@mui/material/Link';
 import NextLink from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import React, { Suspense, useEffect, useState } from 'react';
-import { AuthGreeting } from '@/app/components/AuthGreeting';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { Eye, EyeOff } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
@@ -16,7 +15,6 @@ import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import { syncLocaleFromUser } from '@/app/lib/locale';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
-import { tokens } from '@/lib/theme-tokens';
 import { AuthHero } from '../AuthHero';
 import AuthLayout from '../AuthLayout';
 
@@ -29,6 +27,9 @@ function RegisterPageContent(): React.JSX.Element {
   const inviteToken = searchParams.get('invite');
   const presetEmail = searchParams.get('email');
   const t = useIntlayer('registerPage');
+  // The show/hide password labels are the login page's: one wording for both.
+  const tl = useIntlayer('loginPage');
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: presetEmail || '',
     password: '',
@@ -116,109 +117,136 @@ function RegisterPageContent(): React.JSX.Element {
       });
   };
 
-  const sideContent = <AuthHero title={t.rightTitle} tagline={t.rightTagline} />;
+  // The logo names the product; the right half says what it does for you.
+  const sideContent = <AuthHero tagline={t.rightTagline} />;
+  // A too-short password is told under its own field, in place of the hint.
+  const passwordError = error !== '' && error === t.passwordHelper.value;
+  const formError = error !== '' && !passwordError;
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
       {/* The product's own mark, not an emoji: it swaps for dark mode by itself. */}
       <div className="lumio-auth-logo" role="img" aria-label="Lumio" />
 
-      <AuthGreeting />
-      <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
-        {t.subtitle}
+      <Typography component="h1" className="lumio-auth-title">
+        {t.title}
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-        <TextField
-          margin="normal"
-          required
-          fullWidth
-          id="name"
-          label={t.fullNameLabel.value}
-          name="name"
-          autoComplete="name"
-          autoFocus
-          value={formData.name}
-          onChange={handleChange}
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          margin="normal"
-          required
-          fullWidth
-          id="email"
-          label={t.emailLabel.value}
-          name="email"
-          autoComplete="email"
-          value={formData.email}
-          onChange={handleChange}
-          disabled={emailLocked || inviteLoading}
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          margin="normal"
-          required
-          fullWidth
-          name="password"
-          label={t.passwordLabel.value}
-          type="password"
-          id="password"
-          autoComplete="new-password"
-          value={formData.password}
-          onChange={handleChange}
-          helperText={t.passwordHelper.value}
-          inputProps={{ minLength: MIN_PASSWORD_LENGTH }}
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          margin="normal"
-          fullWidth
-          id="company"
-          label={t.companyLabel.value}
-          name="company"
-          value={formData.company}
-          onChange={handleChange}
-          sx={{ mb: 3 }}
-        />
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        className="lumio-auth-form"
+        sx={{ width: '100%' }}
+      >
+        <div className="lumio-auth-field">
+          <label htmlFor="name" className="lumio-auth-field__label">
+            {t.fullNameLabel}
+          </label>
+          <TextField
+            required
+            fullWidth
+            id="name"
+            name="name"
+            autoComplete="name"
+            autoFocus
+            value={formData.name}
+            onChange={handleChange}
+          />
+        </div>
+        <div className="lumio-auth-field">
+          <label htmlFor="email" className="lumio-auth-field__label">
+            {t.emailLabel}
+          </label>
+          <TextField
+            required
+            fullWidth
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            value={formData.email}
+            onChange={handleChange}
+            disabled={emailLocked || inviteLoading}
+          />
+        </div>
+        <div className="lumio-auth-field">
+          <label htmlFor="password" className="lumio-auth-field__label">
+            {t.passwordLabel}
+          </label>
+          <TextField
+            required
+            fullWidth
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            id="password"
+            autoComplete="new-password"
+            value={formData.password}
+            onChange={handleChange}
+            error={passwordError}
+            slotProps={{
+              htmlInput: { minLength: MIN_PASSWORD_LENGTH, 'aria-describedby': 'password-hint' },
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      edge="end"
+                      size="small"
+                      aria-label={(showPassword ? tl.hidePassword : tl.showPassword).value}
+                      aria-pressed={showPassword}
+                      onClick={() => setShowPassword(prev => !prev)}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <p
+            id="password-hint"
+            role={passwordError ? 'alert' : undefined}
+            className={passwordError ? 'lumio-auth-error' : 'lumio-auth-field__hint'}
+          >
+            {t.passwordHelper}
+          </p>
+        </div>
+        <div className="lumio-auth-field">
+          <label htmlFor="company" className="lumio-auth-field__label">
+            {t.companyLabel}
+          </label>
+          <TextField
+            fullWidth
+            id="company"
+            name="company"
+            autoComplete="organization"
+            value={formData.company}
+            onChange={handleChange}
+          />
+        </div>
+        {formError ? (
+          <p role="alert" className="lumio-auth-error">
+            {error}
+          </p>
+        ) : null}
         <Button
           type="submit"
           fullWidth
           variant="contained"
           size="large"
-          sx={{
-            py: 1.5,
-            borderRadius: tokens.radius.full,
-            fontSize: '1rem',
-            fontWeight: 700,
-            textTransform: 'none',
-            boxShadow: 'none',
-            '&:hover': { boxShadow: 'none' },
-          }}
+          className="lumio-auth-submit"
           disabled={loading || inviteLoading}
         >
           {loading ? <CircularProgress size={24} color="inherit" /> : t.submit}
         </Button>
-        <Box textAlign="center" sx={{ mt: 3 }}>
-          <MuiLink
-            component={NextLink}
+        <p className="lumio-auth-footnote">
+          {t.haveAccountPrompt}{' '}
+          <NextLink
             href={nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login'}
-            variant="body2"
-            sx={{
-              textDecoration: 'none',
-              fontWeight: 600,
-              color: 'primary.main',
-              '&:hover': { textDecoration: 'underline' },
-            }}
+            className="lumio-auth-link lumio-auth-link--accent"
           >
-            {t.haveAccount}
-          </MuiLink>
-        </Box>
+            {t.logIn}
+          </NextLink>
+        </p>
       </Box>
     </AuthLayout>
   );

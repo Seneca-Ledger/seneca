@@ -1,14 +1,13 @@
 /* eslint-disable max-lines */
 'use client';
 
-import { Alert, Box, Button, TextField, Typography } from '@mui/material';
+import { Box, Button, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
-import MuiLink from '@mui/material/Link';
 import NextLink from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import React, { Suspense, useState } from 'react';
-import { AuthGreeting } from '@/app/components/AuthGreeting';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { Eye, EyeOff } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
@@ -16,7 +15,6 @@ import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import { syncLocaleFromUser } from '@/app/lib/locale';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
-import { tokens } from '@/lib/theme-tokens';
 import { AuthHero } from '../AuthHero';
 import AuthLayout from '../AuthLayout';
 
@@ -55,6 +53,7 @@ function LoginPageContent(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // eslint-disable-next-line max-lines-per-function
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -108,130 +107,132 @@ function LoginPageContent(): React.JSX.Element {
       });
   };
 
-  const sideContent = <AuthHero title={'Lumio'} tagline={t.rightTagline} />;
+  // The name is the logo on the left; the right half only says what it is for.
+  const sideContent = <AuthHero tagline={t.rightTagline} />;
+  const registerHref = nextPath
+    ? `/register?next=${encodeURIComponent(nextPath)}${
+        inviteToken ? `&invite=${encodeURIComponent(inviteToken)}` : ''
+      }`
+    : '/register';
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
       {/* The product's own mark, not an emoji: it swaps for dark mode by itself. */}
       <div className="lumio-auth-logo" role="img" aria-label="Lumio" />
 
-      <AuthGreeting />
-
-      <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
-        {t.subtitle}
+      <Typography component="h1" className="lumio-auth-title">
+        {t.title}
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-        <TextField
-          margin="normal"
-          required
-          fullWidth
-          id="email"
-          label={t.emailLabel.value}
-          name="email"
-          autoComplete="email"
-          autoFocus
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          InputProps={{
-            sx: { borderRadius: tokens.radius.md },
-          }}
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          margin="normal"
-          required
-          fullWidth
-          name="password"
-          label={t.passwordLabel.value}
-          type="password"
-          id="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          InputProps={{
-            sx: { borderRadius: tokens.radius.md },
-          }}
-          sx={{ mb: twoFactorRequired ? 2 : 3 }}
-        />
-        {twoFactorRequired && (
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        className="lumio-auth-form"
+        sx={{ width: '100%' }}
+      >
+        <div className="lumio-auth-field">
+          <label htmlFor="email" className="lumio-auth-field__label">
+            {t.emailLabel}
+          </label>
           <TextField
-            margin="normal"
             required
             fullWidth
-            id="twoFactorCode"
-            name="twoFactorCode"
-            label={t.twoFactorLabel.value}
-            helperText={t.twoFactorHint.value}
-            autoComplete="one-time-code"
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
             autoFocus
-            value={twoFactorCode}
-            onChange={e => setTwoFactorCode(e.target.value)}
-            InputProps={{
-              sx: { borderRadius: tokens.radius.md },
-            }}
-            sx={{ mb: 3 }}
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            error={Boolean(error)}
+            slotProps={{ htmlInput: { 'aria-describedby': error ? 'login-error' : undefined } }}
           />
+        </div>
+        <div className="lumio-auth-field">
+          <div className="lumio-auth-field__head">
+            <label htmlFor="password" className="lumio-auth-field__label">
+              {t.passwordLabel}
+            </label>
+            <NextLink href="/forgot-password" className="lumio-auth-link">
+              {t.forgotPassword}
+            </NextLink>
+          </div>
+          <TextField
+            required
+            fullWidth
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            id="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            error={Boolean(error)}
+            slotProps={{
+              htmlInput: { 'aria-describedby': error ? 'login-error' : undefined },
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      edge="end"
+                      size="small"
+                      aria-label={(showPassword ? t.hidePassword : t.showPassword).value}
+                      aria-pressed={showPassword}
+                      onClick={() => setShowPassword(prev => !prev)}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          {error && !twoFactorRequired ? (
+            <p id="login-error" role="alert" className="lumio-auth-error">
+              {error}
+            </p>
+          ) : null}
+        </div>
+        {twoFactorRequired && (
+          <div className="lumio-auth-field">
+            <label htmlFor="twoFactorCode" className="lumio-auth-field__label">
+              {t.twoFactorLabel}
+            </label>
+            <TextField
+              required
+              fullWidth
+              id="twoFactorCode"
+              name="twoFactorCode"
+              autoComplete="one-time-code"
+              autoFocus
+              value={twoFactorCode}
+              onChange={e => setTwoFactorCode(e.target.value)}
+              error={Boolean(error)}
+            />
+            {error ? (
+              <p id="login-error" role="alert" className="lumio-auth-error">
+                {error}
+              </p>
+            ) : (
+              <p className="lumio-auth-field__hint">{t.twoFactorHint}</p>
+            )}
+          </div>
         )}
         <Button
           type="submit"
           fullWidth
           variant="contained"
           size="large"
-          sx={{
-            py: 1.5,
-            borderRadius: tokens.radius.full,
-            fontSize: '1rem',
-            fontWeight: 700,
-            textTransform: 'none',
-            boxShadow: 'none',
-            '&:hover': { boxShadow: 'none' },
-          }}
+          className="lumio-auth-submit"
           disabled={loading}
         >
           {loading ? <CircularProgress size={24} color="inherit" /> : t.submit}
         </Button>
-        <Box textAlign="center" sx={{ mt: 2 }}>
-          <MuiLink
-            component={NextLink}
-            href="/forgot-password"
-            variant="body2"
-            sx={{
-              textDecoration: 'none',
-              color: 'text.secondary',
-              '&:hover': { textDecoration: 'underline' },
-            }}
-          >
-            {t.forgotPassword}
-          </MuiLink>
-        </Box>
-        <Box textAlign="center" sx={{ mt: 2 }}>
-          <MuiLink
-            component={NextLink}
-            href={
-              nextPath
-                ? `/register?next=${encodeURIComponent(nextPath)}${
-                    inviteToken ? `&invite=${encodeURIComponent(inviteToken)}` : ''
-                  }`
-                : '/register'
-            }
-            variant="body2"
-            sx={{
-              textDecoration: 'none',
-              fontWeight: 600,
-              color: 'primary.main',
-              '&:hover': { textDecoration: 'underline' },
-            }}
-          >
-            {t.noAccount}
-          </MuiLink>
-        </Box>
+        <p className="lumio-auth-footnote">
+          {t.noAccountPrompt}{' '}
+          <NextLink href={registerHref} className="lumio-auth-link lumio-auth-link--accent">
+            {t.signUp}
+          </NextLink>
+        </p>
       </Box>
     </AuthLayout>
   );

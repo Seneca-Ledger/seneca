@@ -2,6 +2,7 @@
 // Chart design adapted from Aurum by ZProger (https://github.com/ZProger/Aurum).
 // Reimplemented for Lumio; no Aurum source code was copied.
 // Colours come from theme CSS variables, which already carry the `.dark` overrides.
+@use '../abstracts' as *;
 
 .lumio-chart {
   &__box {
@@ -45,14 +46,14 @@
     font-size: 14px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
-    color: var(--muted-foreground);
+    color: var(--text-muted);
 
     &-income {
-      color: var(--ff-dash-success);
+      color: var(--money-up);
     }
 
     &-expense {
-      color: var(--ff-dash-critical);
+      color: var(--money-down);
     }
   }
 
@@ -90,8 +91,8 @@
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
-    font-size: 12px;
-    color: var(--muted-foreground);
+    font-size: 14px;
+    color: var(--text-muted);
   }
 
   &__tooltip {
@@ -123,6 +124,98 @@
 
     &--strong {
       font-weight: 600;
+    }
+  }
+}
+
+// Text tabs for a card's own switch (chart period, allocation cut): no frames,
+// the picked one in ink over a sage underline, the rest grey.
+.lumio-text-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+
+  &__tab {
+    padding: 4px 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    // The readable grey: an unpicked tab must not fade out of sight.
+    color: var(--text-muted);
+    cursor: pointer;
+    // A text underline, not an inset shadow: the app rounds every button's
+    // corners, and a shadow follows them into a curve.
+    text-decoration: underline 2px transparent;
+    text-underline-offset: 6px;
+    transition: color 0.15s, text-decoration-color 0.15s;
+
+    &:hover {
+      color: var(--foreground);
+    }
+
+    &[aria-selected='true'] {
+      color: var(--foreground);
+      text-decoration-color: var(--primary);
+    }
+  }
+}
+
+// Forecast "What is ahead": a quiet 16px outline box that fills sage only when
+// ticked; the app's filled 24px checkbox made the list a green column.
+.lumio-forecast-check.MuiCheckbox-root {
+  padding: 6px;
+
+  .MuiSvgIcon-root {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:not(.Mui-checked) .MuiSvgIcon-root rect {
+    fill: transparent;
+    stroke: $lumio-color-slot-dash;
+    stroke-width: 1.5;
+  }
+}
+
+// "overdue" in the forecast list: the one status that matters, behind an ochre dot.
+.lumio-forecast-overdue {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--foreground);
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $lumio-color-attention;
+
+    @include dark {
+      background: $lumio-color-warning-dk;
+    }
+  }
+}
+
+// Crypto realized gains: "needs attention" without alarm — a small ochre dot
+// before the word ("Unknown" purchase, the incomplete-basis note).
+.lumio-crypto-attention {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &::before {
+    content: '';
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $lumio-color-attention;
+
+    @include dark {
+      background: $lumio-color-warning-dk;
     }
   }
 }

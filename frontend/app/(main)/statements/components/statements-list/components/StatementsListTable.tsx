@@ -378,7 +378,6 @@ function StatementRow({
       duplicateGroupSize={duplicateMeta?.total}
       duplicateRole={duplicateMeta?.role}
       duplicateGroupLabel={duplicateMeta?.groupLabel}
-      duplicateGroupTone={duplicateMeta?.groupTone}
       duplicateReason={duplicateMeta?.reason}
       duplicateActionLabel={reviewDuplicateLabel}
       typeLabel={isReceipt ? 'Receipt' : statement.fileType}

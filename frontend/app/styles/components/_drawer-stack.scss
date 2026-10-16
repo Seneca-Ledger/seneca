@@ -17,3 +17,25 @@ $cover-fade: 200ms;
     opacity $cover-fade ease,
     visibility 0s linear $cover-fade;
 }
+
+// On a short desktop window — a laptop, more so at 125–150% display scaling —
+// a side panel's contents shrink as a whole, type, fields and buttons alike, so
+// the form keeps its proportions and more of it fits, instead of oversized
+// fields squeezed into a scrolling strip between the header and the footer.
+// `zoom` sits on the paper itself, so the panel narrows with its contents and
+// keeps its proportions (zooming only the children left a full-width panel around
+// shrunken fields); its height is a percentage of the screen, so it still fills
+// it. The steps follow the sidebar, which scales its rows by height too.
+// Touch screens keep their own sizes: on a phone the panel is the screen, and a
+// laptop at 150% can be under 900px wide, so the guard is the pointer, not width.
+@media (hover: hover) and (pointer: fine) {
+  .MuiDrawer-paper {
+    zoom: var(--lumio-drawer-zoom, 1);
+
+    @media (max-height: 860px) { --lumio-drawer-zoom: 0.94; }
+    @media (max-height: 780px) { --lumio-drawer-zoom: 0.88; }
+    @media (max-height: 700px) { --lumio-drawer-zoom: 0.82; }
+    @media (max-height: 620px) { --lumio-drawer-zoom: 0.76; }
+    @media (max-height: 540px) { --lumio-drawer-zoom: 0.7; }
+  }
+}

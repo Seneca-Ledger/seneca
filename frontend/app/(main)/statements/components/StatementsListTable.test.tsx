@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { renderWithQuery as render } from '@/app/test/query-wrapper';
 import { StatementsListTable } from './StatementsListTable';
+
+vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 
 vi.mock('@/app/components/DocumentTypeIcon', () => ({
   DocumentTypeIcon: () => <div data-testid="document-type-icon" />,
@@ -27,12 +30,17 @@ const statement = {
   currency: 'KZT',
 };
 
-const renderTable = (columns: React.ComponentProps<typeof StatementsListTable>['columns']) =>
+type TableProps = React.ComponentProps<typeof StatementsListTable>;
+
+const renderTable = (
+  columns: TableProps['columns'],
+  statements: TableProps['paginatedStatements'] = [statement],
+) =>
   render(
     <StatementsListTable
       loading={false}
-      displayStatements={[statement]}
-      paginatedStatements={[statement]}
+      displayStatements={statements}
+      paginatedStatements={statements}
       gmailSyncSkeletonKeys={[]}
       allVisibleSelected={false}
       selectedCount={0}
@@ -141,5 +149,25 @@ describe('StatementsListTable columns', () => {
     expect(desktopRow.textContent).toContain('Kaspi');
     expect(desktopRow.textContent).not.toContain('1,200.00KZT');
     expect(desktopRow.querySelector('[data-testid="statement-view-icon"]')).toBeTruthy();
+  });
+
+  it('drops the From column while every row on the page says the same there', () => {
+    const columns: TableProps['columns'] = [
+      { id: 'merchant', label: 'Merchant', visible: true, order: 0 },
+      { id: 'from', label: 'From', visible: true, order: 1 },
+    ];
+    const scan = (id: string, sender: string) => ({ ...statement, id, sender });
+
+    const { container, unmount } = renderTable(columns, [
+      scan('a', 'camera-scan'),
+      scan('b', 'camera-scan'),
+    ]);
+    expect(container.querySelector('[data-column-id="from"]')).toBeNull();
+    expect(screen.queryByTestId('statement-column-a-from')).toBeNull();
+    unmount();
+
+    const mixed = renderTable(columns, [scan('a', 'camera-scan'), scan('b', 'mail@shop.test')]);
+    expect(mixed.container.querySelector('[data-column-id="from"]')).not.toBeNull();
+    expect(screen.getByTestId('statement-column-b-from').textContent).toBe('mail@shop.test');
   });
 });

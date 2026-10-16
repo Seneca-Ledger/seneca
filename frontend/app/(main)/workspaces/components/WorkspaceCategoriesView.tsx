@@ -17,14 +17,14 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
-import { CategoryFormDialog, resolveIconUrl } from '@/app/components/categories/CategoryFormDialog';
+import { CategoryFormDialog } from '@/app/components/categories/CategoryFormDialog';
+import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import { ChevronRight, Lock, Plus, Search as SearchIcon } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { categoryIconFor } from '@/app/lib/category-icon-choices';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
@@ -48,17 +48,11 @@ const SOURCE_BADGE_COLORS: Record<
   NonNullable<Category['source']>,
   { bg: string; color: string; border: string }
 > = {
-  system: {
-    bg: 'var(--color-info-soft-bg)',
-    color: 'var(--color-info-soft-text)',
-    border: 'var(--color-info-soft-border)',
-  },
-  parsing: {
-    bg: 'var(--color-warning-soft-bg)',
-    color: '#d97706',
-    border: 'var(--color-warning-soft-border)',
-  },
-  user: { bg: 'var(--muted)', color: 'var(--text-secondary)', border: 'var(--border-color)' },
+  // Where a category came from is information, not a signal: quiet grey tags,
+  // with the ochre of attention kept for categories the parser invented.
+  system: { bg: 'transparent', color: 'var(--text-muted)', border: 'var(--border)' },
+  parsing: { bg: 'transparent', color: 'var(--attention)', border: 'var(--border)' },
+  user: { bg: 'transparent', color: 'var(--text-muted)', border: 'var(--border)' },
 };
 
 interface CategoryUsageCount {
@@ -508,11 +502,9 @@ export default function WorkspaceCategoriesView() {
               justifyContent: 'space-between',
               px: 1.5,
               py: 1,
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              color: 'var(--muted-foreground)',
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'var(--text-muted)',
               borderBottom: '1px solid',
               borderColor: HAIRLINE,
             }}
@@ -573,10 +565,6 @@ export default function WorkspaceCategoriesView() {
               }}
             >
               {filteredCategories.map((category, index) => {
-                const categoryColor = category.color || '#2196F3';
-                const hasIcon = Boolean(category.icon?.trim());
-                const iconUrl = resolveIconUrl(category.icon);
-                const CategoryGlyph = categoryIconFor(category.icon);
                 const badgeLabel = getCategoryBadgeLabel(category);
                 const badgeSource = getCategoryBadgeSource(category);
                 const badgeColors = badgeSource ? SOURCE_BADGE_COLORS[badgeSource] : null;
@@ -591,51 +579,18 @@ export default function WorkspaceCategoriesView() {
                         checked={selectedIds.has(category.id)}
                         onCheckedChange={() => handleToggleSelect(category.id)}
                       />
-                      {/* Colour as a small marker, not a stripe down every row. */}
-                      {!category.isSystem && hasIcon ? (
-                        <Box
-                          sx={{
-                            display: 'inline-flex',
-                            width: 16,
-                            justifyContent: 'center',
-                            color: categoryColor,
-                            opacity: isEnabled ? 1 : 0.5,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {iconUrl ? (
-                            <Box
-                              component="img"
-                              src={iconUrl}
-                              alt=""
-                              sx={{ width: 16, height: 16, objectFit: 'contain' }}
-                            />
-                          ) : (
-                            <CategoryGlyph size={16} />
-                          )}
-                        </Box>
-                      ) : (
-                        <Box
-                          sx={{
-                            width: 16,
-                            display: 'flex',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Box
-                            component="span"
-                            aria-hidden
-                            sx={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: '50%',
-                              bgcolor: categoryColor,
-                              opacity: isEnabled ? 1 : 0.4,
-                            }}
-                          />
-                        </Box>
-                      )}
+                      {/* The category's icon as everywhere else in the app: the one picked for it,
+                          or the default for its name, in the neutral circle. */}
+                      <Box
+                        sx={{ display: 'inline-flex', flexShrink: 0, opacity: isEnabled ? 1 : 0.5 }}
+                      >
+                        <CategoryIconBadge
+                          name={category.name}
+                          color={null}
+                          icon={category.icon}
+                          size={28}
+                        />
+                      </Box>
                       <Box sx={{ minWidth: 0 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Typography

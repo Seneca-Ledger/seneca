@@ -708,12 +708,11 @@
     gap: $lumio-space-4;
   }
 
+  // Field labels sit above their fields in sentence case, in the readable grey.
   &__label {
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-semibold;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: $lumio-color-ink-500;
+    font-size: 13px;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--text-muted);
   }
 
   &__options {
@@ -965,13 +964,19 @@
     }
   }
 
+  // Six starts as a 3×2 grid; two columns on a phone.
   &__templates {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: $lumio-space-2;
+
+    @media (max-width: 560px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   &__template {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -990,17 +995,26 @@
 
     &[aria-checked='true'] {
       border-color: var(--primary);
-      background-color: var(--primary-50);
-
-      @include dark {
-        background-color: $lumio-color-primary-50-dk;
-      }
+      background-color: var(--surface-soft);
     }
   }
 
-  // Card illustration: large enough to be what the eye lands on first. The green
-  // reads as the accent of the dialog in both themes (--primary is the button
-  // green in light, the dark-theme accent in dark).
+  // The picked card says so with a small sage check in its corner, not only a border.
+  &__template-check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: $lumio-radius-full;
+    background: var(--primary);
+    color: #fff;
+  }
+
+  // One line icon per card, sage, the size of the other line icons on the quiet screens.
   &__template-icon {
     display: flex;
     margin-bottom: $lumio-space-2;
@@ -1008,30 +1022,40 @@
 
     svg {
       display: block;
-      width: 56px;
-      height: 56px;
+      width: 30px;
+      height: 30px;
     }
   }
 
   &__template-name {
-    font-weight: $lumio-font-weight-semibold;
+    font-weight: $lumio-font-weight-medium;
   }
 
-  &__template-desc,
+  &__template-desc {
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--text-muted);
+  }
+
   &__template-count {
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__start-hint {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  &__field-note {
+    font-size: 13px;
+    color: var(--attention);
   }
 }
 
 // "Start from" switcher and the app data source panel of the create dialog.
 .lumio-ct {
-  &__label--quiet {
-    font-weight: $lumio-font-weight-medium;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
   &__section-head {
     display: flex;
     flex-wrap: wrap;
@@ -1056,41 +1080,6 @@
     margin-top: $lumio-space-2;
   }
 
-  &__mode-tabs {
-    display: inline-flex;
-    gap: 2px;
-    padding: 2px;
-    border-radius: $lumio-radius-full;
-    background: $lumio-color-surface-muted;
-
-    @include dark {
-      background: $lumio-color-surface-muted-dk;
-    }
-  }
-
-  &__mode-tab {
-    padding: 4px 12px;
-    border: 0;
-    border-radius: $lumio-radius-full;
-    background: none;
-    font: inherit;
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-semibold;
-    color: $lumio-color-ink-500;
-    cursor: pointer;
-
-    &[aria-selected='true'] {
-      background: $lumio-color-surface;
-      color: $lumio-color-text-primary;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-
-      @include dark {
-        background: $lumio-color-surface-dk;
-        color: $lumio-color-ink-100;
-      }
-    }
-  }
-
   // Flatter cards: a hairline instead of a box, so the grid reads as options, not panels.
   &__template {
     border-color: $lumio-color-ink-150;
@@ -1109,22 +1098,84 @@
     }
   }
 
-  &__source-panel {
-    display: flex;
-    flex-direction: column;
-    gap: $lumio-space-3;
+  // New table from app data: the form on the left, what it will create on the
+  // right, held in view while the dialog scrolls so a filter change shows at once.
+  &__create {
+    display: block;
+
+    &--split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      gap: $lumio-space-6;
+      align-items: start;
+
+      @media (max-width: 860px) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
   }
 
+  &__create-side {
+    position: sticky;
+    top: 0;
+    min-width: 0;
+
+    @media (max-width: 860px) {
+      position: static;
+    }
+  }
+
+  // Source cards beside the preview: three small cards a row (two rows for
+  // five), icon above the name and column count, no description.
+  &__templates--compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    .lumio-ct__template {
+      gap: 2px;
+      padding: 10px 12px;
+    }
+
+    .lumio-ct__template-icon {
+      margin-bottom: 6px;
+
+      svg {
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    .lumio-ct__template-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lumio-ct__template-desc {
+      display: none;
+    }
+
+    .lumio-ct__template-check {
+      top: 8px;
+      right: 8px;
+    }
+  }
+
+  // Filters and preview are plain blocks on the dialog's white, not grey cards.
   &__source-section {
     display: flex;
     flex-direction: column;
     gap: $lumio-space-3;
-    padding: $lumio-space-3 $lumio-space-4;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-surface-muted;
+    padding-top: $lumio-space-3;
+    border-top: 1px solid $lumio-color-hairline;
 
     @include dark {
-      background: $lumio-color-surface-muted-dk;
+      border-top-color: $lumio-color-ink-150-dk;
+    }
+
+    .lumio-ct__section-title {
+      font-size: 15px;
+      font-weight: $lumio-font-weight-medium;
+      color: var(--foreground);
     }
   }
 
@@ -1132,64 +1183,170 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: $lumio-space-3;
+
+    // Every filter field one look: white, a warm border, 8px corners.
+    .MuiOutlinedInput-root {
+      border-radius: $lumio-radius-sm;
+      background-color: $lumio-color-surface;
+
+      @include dark {
+        background-color: $lumio-color-surface-dk;
+      }
+    }
+
+    .MuiOutlinedInput-notchedOutline {
+      border-color: $lumio-color-slot-border;
+
+      @include dark {
+        border-color: $lumio-color-ink-200-dk;
+      }
+    }
+  }
+
+  &__text-button {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--primary);
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__preview-pane {
+    display: flex;
+    flex-direction: column;
+    gap: $lumio-space-3;
+  }
+
+  &__preview-source {
+    margin: 0;
+    padding-bottom: $lumio-space-2;
+    border-bottom: 1px solid $lumio-color-hairline;
+    font-size: 13px;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--text-muted);
+
+    @include dark {
+      border-bottom-color: $lumio-color-ink-150-dk;
+    }
+  }
+
+  &__preview-existing {
+    display: flex;
+    align-items: baseline;
+    gap: $lumio-space-2;
+    margin: 0;
+    font-size: 14px;
+    color: var(--foreground);
+
+    a {
+      color: var(--primary);
+      font-weight: $lumio-font-weight-medium;
+    }
+  }
+
+  &__preview-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: $lumio-radius-full;
+    background: var(--attention);
+    transform: translateY(-2px);
+  }
+
+  &__preview-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $lumio-space-2;
   }
 
   &__preview-count {
-    font-size: $lumio-font-size-sm;
-    color: $lumio-color-ink-600;
+    font-size: 15px;
+    font-weight: $lumio-font-weight-medium;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+    transition: opacity 120ms ease;
 
-    @include dark {
-      color: $lumio-color-ink-300;
+    &[data-loading] {
+      opacity: 0.55;
     }
   }
 
+  // What a refresh does to edits: in view above the table, but quieter than the count.
   &__preview-note {
     margin: 0;
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--text-muted);
   }
 
-  &__preview-scroll {
-    overflow: auto;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-sm;
-    background: $lumio-color-surface;
-
-    @include dark {
-      border-color: $lumio-color-ink-150-dk;
-      background: $lumio-color-surface-dk;
-    }
+  &__preview-caption {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
   }
 
+  // A few columns that fit: no frame, no inner scroll, long text ends in "…".
   &__preview-table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
-    font-size: $lumio-font-size-xs;
+    font-size: 14px;
 
     th,
     td {
-      padding: 8px 12px;
+      padding: 8px 8px;
+      overflow: hidden;
       text-align: left;
+      text-overflow: ellipsis;
       white-space: nowrap;
-      border-bottom: 1px solid $lumio-color-ink-100;
+      border-bottom: 1px solid $lumio-color-hairline;
 
       @include dark {
         border-bottom-color: $lumio-color-ink-150-dk;
       }
+
+      &:first-child {
+        padding-left: 0;
+      }
+
+      &:last-child {
+        padding-right: 0;
+      }
     }
 
     th {
+      font-size: 13px;
       font-weight: $lumio-font-weight-medium;
-      color: $lumio-color-ink-500;
-    }
-
-    tr:last-child td {
-      border-bottom: 0;
+      color: var(--text-muted);
     }
   }
 
+  // Dates, money and short enum values take what they need; names get the rest.
+  &__preview-col--date {
+    width: 112px;
+  }
+
+  &__preview-col--money {
+    width: 104px;
+  }
+
+  &__preview-col--enum {
+    width: 92px;
+  }
+
   &__preview-cell--numeric {
-    text-align: right;
+    text-align: right !important;
+    font-weight: $lumio-font-weight-medium;
     font-variant-numeric: tabular-nums;
   }
 }

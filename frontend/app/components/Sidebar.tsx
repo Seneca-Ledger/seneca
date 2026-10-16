@@ -3,6 +3,7 @@
 import Skeleton from '@mui/material/Skeleton';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type React from 'react';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useNotifications } from '@/app/hooks/useNotifications';
@@ -10,7 +11,7 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { useExperimentalMode } from '@/app/lib/experimental-mode';
 import { openCommandPalette } from './command-palette/command-palette-store';
-import { Bell, PanelLeftClose, Search, Settings } from './icons';
+import { Bell, Heart, PanelLeftClose, Search, Settings } from './icons';
 import { AccountMenu } from './navigation/AccountMenu';
 import {
   buildNavItems,
@@ -53,10 +54,15 @@ function SidebarContent({
   const reviewWaiting =
     useReviewInboxTotal(visibleNavItems.some(item => item.path === REVIEW_PATH)) > 0;
 
+  // Every row of the sidebar — the nav items plus the account entry and the
+  // support link below them — shares the window height; CSS sizes them from it.
+  const rowCount = (isLoading ? NAV_ITEM_SKELETON_KEYS.length : visibleNavItems.length) + 2;
+  const rowsStyle = { '--lumio-sidebar-rows': rowCount } as React.CSSProperties;
+
   return (
     <>
       {/* Brand: the emblem alone, so the rest of the row is free for the actions */}
-      <div className="lumio-sidebar__brand">
+      <div className="lumio-sidebar__brand" style={rowsStyle}>
         <Link href="/" className="lumio-sidebar__brand-link" aria-label={shell.home.value}>
           <span className="lumio-sidebar__brand-emblem" />
         </Link>
@@ -106,12 +112,15 @@ function SidebarContent({
       </div>
 
       {/* Navigation */}
-      <nav className="lumio-sidebar__nav" aria-label={shell.mainNavigation.value}>
+      <nav className="lumio-sidebar__nav" aria-label={shell.mainNavigation.value} style={rowsStyle}>
         {isLoading
           ? NAV_ITEM_SKELETON_KEYS.map(key => (
               <div className="lumio-sidebar__nav-item" key={key}>
                 <Skeleton variant="rounded" width={18} height={18} />
-                <Skeleton variant="text" width="60%" height={16} />
+                {/* Labelled like a real row, so the collapsed rail folds it away. */}
+                <span className="lumio-sidebar__nav-label">
+                  <Skeleton variant="text" width="60%" height={16} />
+                </span>
               </div>
             ))
           : visibleNavItems.map(item => {
@@ -140,7 +149,7 @@ function SidebarContent({
             })}
       </nav>
 
-      <div className="lumio-sidebar__footer">
+      <div className="lumio-sidebar__footer" style={rowsStyle}>
         <AccountMenu />
 
         <a
@@ -149,7 +158,9 @@ function SidebarContent({
           rel="noopener noreferrer"
           className="lumio-sidebar__support-link"
         >
-          <span className="lumio-sidebar__support-icon">💚</span>
+          <span className="lumio-sidebar__support-icon" aria-hidden="true">
+            <Heart />
+          </span>
           <span className="lumio-sidebar__support-label">
             {(supportProject as { value?: string })?.value ?? 'Support the project'}
           </span>

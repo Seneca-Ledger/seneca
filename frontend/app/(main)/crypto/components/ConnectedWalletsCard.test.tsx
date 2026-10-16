@@ -10,6 +10,14 @@ const labels = {
   remove: 'Disconnect',
   transactions: 'transactions',
   neverSynced: 'never synced',
+  walletOfChain: '{{chain}} wallet',
+  copyAddress: 'Copy address',
+  copied: 'Copied',
+  syncedToday: 'Synced today, {{time}}',
+  syncedOn: 'Synced {{date}}',
+  moreActions: 'More actions',
+  removeConfirm: 'Disconnect {{name}}?',
+  cancel: 'Cancel',
 };
 
 function wallet(overrides: Partial<CryptoWallet> = {}): CryptoWallet {
@@ -54,16 +62,30 @@ describe('ConnectedWalletsCard', () => {
     renderCard([wallet({ kind: 'exchange', label: 'Coinbase', address: null })]);
 
     expect(screen.queryByRole('button', { name: /^Sync/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Disconnect/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions: Coinbase' })).toBeInTheDocument();
   });
 
-  it('disconnects the wallet the button belongs to', async () => {
+  it('disconnects from the menu, and only after a confirmation', async () => {
     const onRemove = vi.fn();
     renderCard([wallet(), wallet({ id: 'w-2', label: 'Ledger' })], { onRemove });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Disconnect Ledger' }));
+    await userEvent.click(screen.getByRole('button', { name: 'More actions: Ledger' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Disconnect' }));
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(screen.getByText('Disconnect Ledger?')).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('button', { name: 'Disconnect' }).at(-1) as HTMLElement);
 
     expect(onRemove).toHaveBeenCalledWith('w-2');
+  });
+
+  it('names a wallet after its network once, with a short address', () => {
+    renderCard([
+      wallet({ label: 'Tron', chainName: 'Tron', address: 'TB5uC9XX13JMXc9eui9fEdSLCeRVCzWjuj' }),
+    ]);
+
+    expect(screen.getByText('Tron wallet')).toBeInTheDocument();
+    expect(screen.getByText('Tron · 47 transactions')).toBeInTheDocument();
+    expect(screen.getByText('TB5uC9…Wjuj')).toBeInTheDocument();
   });
 
   it('says when a wallet has never been synced', () => {

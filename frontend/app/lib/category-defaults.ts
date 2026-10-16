@@ -1,3 +1,6 @@
+import type { LucideIcon } from '@/app/components/icons';
+import { categoryIconFor } from './category-icon-choices';
+import { resolveCategoryIconUrl } from './category-icon-url';
 import {
   ArrowLeftRight,
   Banknote,
@@ -12,7 +15,6 @@ import {
   Home,
   Landmark,
   Laptop,
-  type LucideIcon,
   Megaphone,
   MoreHorizontal,
   Package,
@@ -32,9 +34,7 @@ import {
   Wallet,
   Wrench,
   Zap,
-} from '@/app/components/icons';
-import { categoryIconFor } from './category-icon-choices';
-import { resolveCategoryIconUrl } from './category-icon-url';
+} from './category-line-icons';
 import { resolveCategorySlug } from './statement-categories';
 
 /** The backend substitutes this when a category row has no colour; treat it as "unset". */

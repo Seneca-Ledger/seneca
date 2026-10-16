@@ -84,8 +84,8 @@ export function StatementsTableToolbar({
           resetLabel={labels.reset}
         />
 
-        {/* Not shown while loading: an orange chip flashing in and out on every
-            refetch reads as a warning even when there are no duplicates. */}
+        {/* Not shown while loading: a chip flashing in and out on every refetch
+            reads as a warning even when there are no duplicates. */}
         {!loading && duplicateStatementIds.length > 0 ? (
           <button
             type="button"
@@ -95,7 +95,7 @@ export function StatementsTableToolbar({
             <Copy size={14} />
             {labels.selectDuplicates}
             <span className="lumio-stmt-list-view__duplicate-count">
-              {duplicateStatementIds.length}
+              ({duplicateStatementIds.length})
             </span>
           </button>
         ) : null}

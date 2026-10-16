@@ -15,14 +15,18 @@ vi.mock('@/app/lib/api', () => ({
 vi.mock('@/app/i18n', () => ({
   useLocale: () => ({ locale: 'en' }),
   useIntlayer: () => ({
-    subtitle: 'Log in to continue using Lumio',
+    title: 'Welcome back',
     // AuthHero reads its own `authHero` dictionary through the same mock.
     features: {},
     rightTagline: 'A platform for bank statement processing',
-    emailLabel: { value: 'Email localized' },
-    passwordLabel: { value: 'Password' },
+    emailLabel: 'Email localized',
+    passwordLabel: 'Password',
     submit: 'Log in',
-    noAccount: "Don't have an account? Sign up",
+    noAccountPrompt: "Don't have an account?",
+    signUp: 'Sign up',
+    forgotPassword: 'Forgot your password?',
+    showPassword: { value: 'Show password' },
+    hidePassword: { value: 'Hide password' },
     loginFailed: { value: 'Failed to log in. Please try again.' },
   }),
 }));
@@ -202,5 +206,38 @@ describe('LoginPage locale persistence', () => {
 
     expect(localStorage.getItem('currentWorkspaceId')).toBe('workspace-primary');
     expect(locationHref).toBe('/dashboard');
+  });
+
+  it('shows and hides the password, and puts a failed login under the field', async () => {
+    apiPost.mockRejectedValue(new Error('Incorrect email or password'));
+    const { default: LoginPage } = await import('./page');
+
+    await act(async () => {
+      root.render(<LoginPage />);
+      await Promise.resolve();
+    });
+
+    const passwordInput = container.querySelector('input[name="password"]') as HTMLInputElement;
+    const toggle = container.querySelector(
+      'button[aria-label="Show password"]',
+    ) as HTMLButtonElement;
+    expect(passwordInput.type).toBe('password');
+    await act(async () => {
+      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(passwordInput.type).toBe('text');
+    expect(container.querySelector('button[aria-label="Hide password"]')).toBeTruthy();
+
+    const form = container.querySelector('form') as HTMLFormElement;
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const error = container.querySelector('#login-error');
+    expect(error?.getAttribute('role')).toBe('alert');
+    expect(passwordInput.getAttribute('aria-describedby')).toBe('login-error');
+    expect(container.querySelector('.MuiAlert-root')).toBeNull();
   });
 });

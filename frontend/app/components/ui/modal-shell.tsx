@@ -139,6 +139,8 @@ export function ModalShell({
       fullWidth
       fullScreen={size === 'full'}
       PaperProps={renderPaperProps(className, paperSx)}
+      // A light warm veil, not a heavy grey sheet: no blur, which read as murk.
+      slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(36, 33, 30, 0.2)' } } }}
       aria-labelledby={title ? 'modal-title' : undefined}
     >
       {(title || showCloseButton) && (
@@ -207,7 +209,13 @@ export function ModalFooter({
   return (
     <>
       {onCancel && (
-        <MuiButton type="button" onClick={onCancel} variant="outlined" color="inherit">
+        // A quiet way out: no frame that would outweigh the main button.
+        <MuiButton
+          type="button"
+          onClick={onCancel}
+          variant="text"
+          sx={{ color: 'var(--text-muted)', fontWeight: 500 }}
+        >
           {cancelText}
         </MuiButton>
       )}

@@ -49,9 +49,12 @@ export function StatementTransactionsPanel({
         signal,
         contract: 'StorageFileDetails',
       });
-      return details.transactions.map(tx =>
-        mapApiRecordToTransaction(fromStatementTransaction(tx)),
-      );
+      return {
+        statement: details.statement,
+        rows: details.transactions.map(tx =>
+          mapApiRecordToTransaction(fromStatementTransaction(tx)),
+        ),
+      };
     },
   });
   const categoriesQuery = useQuery({
@@ -85,7 +88,23 @@ export function StatementTransactionsPanel({
     );
   };
 
-  const rows = rowsQuery.data ?? [];
+  const rows = rowsQuery.data?.rows ?? [];
+  const statement = rowsQuery.data?.statement;
+  // The drawer names the document the row came from and opens it.
+  const source = statement
+    ? {
+        href: `/statements/${statement.id}/edit`,
+        name: statement.fileName,
+        // Only the last four digits of an account number are ever shown.
+        account:
+          [
+            statement.bankName,
+            statement.accountNumber && `••••${statement.accountNumber.slice(-4)}`,
+          ]
+            .filter(Boolean)
+            .join(' · ') || null,
+      }
+    : undefined;
 
   return (
     <div className="lumio-stmt-tx-panel">
@@ -144,6 +163,11 @@ export function StatementTransactionsPanel({
         onClose={closeDrawer}
         onUpdateCategory={updateCategory}
         onSplitDone={async () => {
+          closeDrawer();
+          void rowsQuery.refetch();
+        }}
+        source={source}
+        onChanged={() => {
           closeDrawer();
           void rowsQuery.refetch();
         }}

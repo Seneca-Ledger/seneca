@@ -10,14 +10,12 @@ import { EmptyState } from '@/app/components/ui/EmptyState';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { AllocationCard } from './components/AllocationCard';
+import { ActivityCard } from './components/ActivityCard';
 import { ConnectedWalletsCard } from './components/ConnectedWalletsCard';
 import { ConnectWalletDrawer } from './components/ConnectWalletDrawer';
-import { CryptoTransactionsTable } from './components/CryptoTransactionsTable';
 import { ExchangeImportButton } from './components/ExchangeImportButton';
-import { GainsCard } from './components/GainsCard';
 import { HoldingsTable } from './components/HoldingsTable';
-import { ManualHoldingsCard } from './components/ManualHoldingsCard';
+import { ManualHoldingsDialog } from './components/ManualHoldingsCard';
 import { PortfolioSummary } from './components/PortfolioSummary';
 import { useCrypto } from './hooks/useCrypto';
 
@@ -38,6 +36,8 @@ export default function CryptoPage(): React.JSX.Element {
     syncWallet,
     removeWallet,
     history,
+    historyDays,
+    setHistoryDays,
     savingHolding,
     saveHolding,
     removeHolding,
@@ -49,6 +49,7 @@ export default function CryptoPage(): React.JSX.Element {
   } = useCrypto();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [holdingsOpen, setHoldingsOpen] = useState(false);
 
   const currency = summary?.currency ?? 'USD';
   const money = (value: number): string => formatMoney(value, currency, locale);
@@ -153,6 +154,8 @@ export default function CryptoPage(): React.JSX.Element {
               history={history}
               locale={locale}
               money={money}
+              historyDays={historyDays}
+              onHistoryDaysChange={setHistoryDays}
               labels={{
                 sinceYesterday: t.sinceYesterday.value,
                 historyEmpty: t.historyEmpty.value,
@@ -164,80 +167,88 @@ export default function CryptoPage(): React.JSX.Element {
             />
           )}
 
-          {summary && summary.holdings.length > 0 && (
-            <HoldingsTable
-              holdings={summary.holdings}
-              locale={locale}
-              money={money}
-              labels={{
-                title: t.holdings.value,
-                asset: t.asset.value,
-                balance: t.balance.value,
-                price: t.price.value,
-                worth: t.worth.value,
-                avgCost: t.avgCost.value,
-                unrealized: t.unrealized.value,
-                basisUnknown: t.basisUnknown.value,
-              }}
-            />
-          )}
-
-          {/* Two columns, not three: the wallets are a list that grows, the other
-              two are short cards, and pairing them keeps both sides the same
-              height instead of leaving a hole under the shorter one. */}
+          {/* Holdings, and the wallets beside them as a narrow reference column:
+              Allocation repeated Holdings (it is the Share column now), and the
+              hand-kept coins are a dialog opened from Holdings' header. */}
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr)' },
+              gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' },
               gap: 3,
               alignItems: 'start',
             }}
           >
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {summary && summary.holdings.length > 0 && (
-                <AllocationCard
-                  holdings={summary.holdings}
-                  money={money}
-                  title={t.allocation.value}
-                />
-              )}
-
-              <ManualHoldingsCard
-                wallet={manualWallet}
-                balances={manualBalances}
-                saving={savingHolding}
-                labels={{
-                  title: t.manualHoldings.value,
-                  add: t.addHolding.value,
-                  ticker: t.tickerLabel.value,
-                  amount: t.amount.value,
-                  costPerUnit: t.costPerUnit.value,
-                  save: t.save.value,
-                  cancel: t.cancel.value,
-                  remove: t.remove.value,
-                }}
-                onSave={saveHolding}
-                onRemove={removeHolding}
-              />
-            </Box>
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <ConnectedWalletsCard
-                wallets={onChainWallets}
+            {summary && summary.holdings.length > 0 ? (
+              <HoldingsTable
+                holdings={summary.holdings}
                 locale={locale}
-                busyWalletId={busyWalletId}
+                currency={currency}
+                money={money}
+                onAddHolding={() => setHoldingsOpen(true)}
                 labels={{
-                  title: t.connectedWallets.value,
-                  sync: t.sync.value,
-                  remove: t.remove.value,
-                  transactions: t.transactions.value,
-                  neverSynced: t.neverSynced.value,
+                  title: t.holdings.value,
+                  asset: t.asset.value,
+                  balance: t.balance.value,
+                  price: t.price.value,
+                  worth: t.worth.value,
+                  avgCost: t.avgCost.value,
+                  unrealized: t.unrealized.value,
+                  basisUnknown: t.basisUnknown.value,
+                  share: t.share.value,
+                  addHolding: t.addHolding.value,
                 }}
-                onSync={id => syncWallet(id)}
-                onRemove={id => removeWallet(id)}
               />
-            </Box>
+            ) : (
+              <Box>
+                <Button variant="text" onClick={() => setHoldingsOpen(true)}>
+                  <Plus size={16} aria-hidden />
+                  {t.addHolding}
+                </Button>
+              </Box>
+            )}
+
+            <ConnectedWalletsCard
+              wallets={onChainWallets}
+              locale={locale}
+              busyWalletId={busyWalletId}
+              labels={{
+                title: t.connectedWallets.value,
+                sync: t.sync.value,
+                remove: t.remove.value,
+                transactions: t.transactions.value,
+                neverSynced: t.neverSynced.value,
+                walletOfChain: t.walletOfChain.value,
+                copyAddress: t.copyAddress.value,
+                copied: t.addressCopied.value,
+                syncedToday: t.syncedToday.value,
+                syncedOn: t.syncedOn.value,
+                moreActions: t.moreActions.value,
+                removeConfirm: t.removeWalletConfirm.value,
+                cancel: t.cancel.value,
+              }}
+              onSync={id => syncWallet(id)}
+              onRemove={id => removeWallet(id)}
+            />
           </Box>
+
+          <ManualHoldingsDialog
+            open={holdingsOpen}
+            onClose={() => setHoldingsOpen(false)}
+            balances={manualBalances}
+            saving={savingHolding}
+            labels={{
+              title: t.manualHoldings.value,
+              add: t.addHolding.value,
+              ticker: t.tickerLabel.value,
+              amount: t.amount.value,
+              costPerUnit: t.costPerUnit.value,
+              save: t.save.value,
+              cancel: t.cancel.value,
+              remove: t.remove.value,
+            }}
+            onSave={saveHolding}
+            onRemove={removeHolding}
+          />
 
           {summary && summary.unpriced.length > 0 && (
             <Alert severity="info" variant="outlined">
@@ -247,15 +258,32 @@ export default function CryptoPage(): React.JSX.Element {
             </Alert>
           )}
 
-          {gains && (
-            <GainsCard
-              gains={gains}
-              year={gainsYear}
-              years={gainYears.length > 0 ? gainYears : [new Date().getFullYear()]}
-              locale={locale}
-              money={money}
-              onYearChange={setGainsYear}
-              labels={{
+          {/* Transactions and realized gains in one block with tabs: two long
+              tables one after the other made the page endless. */}
+          <ActivityCard
+            transactions={transactions}
+            gains={gains}
+            gainsYear={gainsYear}
+            gainsYears={gainYears.length > 0 ? gainYears : [new Date().getFullYear()]}
+            onGainsYearChange={setGainsYear}
+            locale={locale}
+            money={money}
+            labels={{
+              tabs: t.activityTabs.value,
+              transactions: {
+                title: t.transactionsTab.value,
+                empty: t.noTransactions.value,
+                date: t.date.value,
+                wallet: t.wallet.value,
+                counterparty: t.counterparty.value,
+                amount: t.amount.value,
+                worth: t.worth.value,
+                received: t.received.value,
+                sent: t.sent.value,
+                receivedFrom: t.receivedFrom.value,
+                sentTo: t.sentTo.value,
+              },
+              gains: {
                 title: t.gains.value,
                 hint: t.gainsHint.value,
                 empty: t.gainsEmpty.value,
@@ -271,23 +299,12 @@ export default function CryptoPage(): React.JSX.Element {
                 exportCsv: t.exportCsv.value,
                 basisIncomplete: t.basisIncomplete.value,
                 basisIncompleteHint: t.basisIncompleteHint.value,
-              }}
-            />
-          )}
-
-          <CryptoTransactionsTable
-            transactions={transactions}
-            locale={locale}
-            labels={{
-              title: t.recentTransactions.value,
-              empty: t.noTransactions.value,
-              date: t.date.value,
-              wallet: t.wallet.value,
-              counterparty: t.counterparty.value,
-              amount: t.amount.value,
-              worth: t.worth.value,
-              received: t.received.value,
-              sent: t.sent.value,
+                acquiredUnknown: t.acquiredUnknown.value,
+                totalRealized: t.totalRealized.value,
+                lotCount: t.lotCount.value,
+                showUncovered: t.showUncovered.value,
+                hideUncovered: t.hideUncovered.value,
+              },
             }}
           />
         </Box>

@@ -115,9 +115,37 @@ describe('ForecastContent', () => {
     setState({ irregularIncomeMonthly: 450 });
     render(<ForecastContent />);
 
-    expect(screen.getByText(/everyday spending/)).toHaveTextContent(
-      /\$450\.00 a month of other income beyond regular paydays/,
+    // Income sits on its own line under the spending one, whole sums without ".00".
+    expect(screen.getByText(/everyday spending/)).not.toHaveTextContent(/other income/);
+    expect(screen.getByText(/other income beyond regular paydays/)).toHaveTextContent(
+      /\$450 a month of other income beyond regular paydays/,
     );
+  });
+
+  it('says overdue bills are counted as paid today', () => {
+    setState({
+      events: [
+        {
+          date: '2026-10-01',
+          label: 'Tax office',
+          amount: -4120,
+          kind: 'payable',
+          sourceId: 'tax',
+          isOverdue: true,
+        },
+      ],
+    });
+    render(<ForecastContent />);
+
+    expect(screen.getByText(/Overdue bills are assumed paid today/)).toBeInTheDocument();
+    expect(screen.getByText('overdue').className).toBe('lumio-forecast-overdue');
+  });
+
+  it('fades an item left out of the scenario rather than hiding it', () => {
+    setState({}, { scenario: { incomeFactor: 1, expenseFactor: 1, exclude: ['p1'] } });
+    render(<ForecastContent />);
+
+    expect(screen.getByText('Landlord').closest('li')).toHaveStyle({ opacity: '0.45' });
   });
 
   it('warns that unconfirmed rows are left out, like every screen with numbers', () => {

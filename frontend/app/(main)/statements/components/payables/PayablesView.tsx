@@ -674,19 +674,11 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
               alignItems: 'flex-start',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="lumio-stmt-toolbar" style={{ width: '100%' }}>
+              <div className="lumio-stmt-toolbar__tabs">
                 <StatementsQueueTabs />
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  gap: 12,
-                  flexShrink: 0,
-                }}
-              >
+              <div className="lumio-stmt-toolbar__group">
                 <PayableFiltersBar
                   value={filters}
                   onChange={handleFiltersChange}
@@ -694,16 +686,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
                   labels={labels.filters}
                 />
                 {/* Keeps the primary actions from reading as more filter buttons. */}
-                <span
-                  aria-hidden
-                  style={{
-                    width: 1,
-                    alignSelf: 'stretch',
-                    minHeight: 24,
-                    background: 'var(--border-color)',
-                    flexShrink: 0,
-                  }}
-                />
+                <span aria-hidden className="lumio-stmt-toolbar__divider" />
                 <Button variant="outline" onClick={() => router.push('/statements/reconcile')}>
                   {tx(['payables', 'reconcile'], 'Reconcile with the bank')}
                 </Button>

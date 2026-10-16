@@ -17,6 +17,8 @@ type Props = {
   applyLabel: string;
   /** What the term is matched against; defaults to the Documents wording. */
   hint?: string;
+  /** Overrides the toolbar button's look, e.g. a ghost button in a table toolbar. */
+  buttonStyle?: React.CSSProperties;
 };
 
 /**
@@ -29,6 +31,7 @@ export function StatementsSearchPopover({
   onApply,
   applyLabel,
   hint,
+  buttonStyle,
 }: Props): React.JSX.Element {
   const t = useIntlayer('statementFilterControls');
   const anchorRef = useRef<HTMLButtonElement | null>(null);
@@ -64,7 +67,7 @@ export function StatementsSearchPopover({
         aria-haspopup="dialog"
         aria-expanded={open}
         title={value || undefined}
-        style={value ? { borderColor: 'var(--primary)' } : undefined}
+        style={{ ...buttonStyle, ...(value ? { borderColor: 'var(--primary)' } : {}) }}
       >
         <Search size={14} />
         <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>

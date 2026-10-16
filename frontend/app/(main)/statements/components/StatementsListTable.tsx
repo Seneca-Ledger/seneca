@@ -20,6 +20,7 @@ import {
   type StatementColumnId,
   statementColumnWidthStyle,
 } from './columns/statement-columns';
+import { type CategoryTarget, DocumentCategoryDrawer } from './DocumentCategoryDrawer';
 import type { DuplicateMeta } from './hooks/useStatementSelection';
 import { StatementsGmailSync } from './StatementsGmailSync';
 import { StatementsListItem } from './StatementsListItem';
@@ -150,6 +151,27 @@ const getRenderedColumns = (
 };
 
 const NO_REVIEW_COUNTS: Record<string, number> = {};
+
+/** What the From column shows for a row; mirrors the cell in StatementsListItem. */
+const fromValue = (statement: StatementForTable): string =>
+  (statement.user?.name || statement.user?.email || statement.sender || '').trim();
+
+/**
+ * From says nothing when every row on the page has the same value there (all
+ * "camera-scan", say), so the column steps aside until the rows differ.
+ */
+const withoutUniformFrom = (
+  columns: StatementColumn[] | undefined,
+  statements: StatementForTable[],
+): StatementColumn[] | undefined => {
+  if (!columns?.some(column => column.id === 'from' && column.visible)) {
+    return columns;
+  }
+  if (new Set(statements.map(fromValue)).size > 1) {
+    return columns;
+  }
+  return columns.map(column => (column.id === 'from' ? { ...column, visible: false } : column));
+};
 
 interface StatementRowData {
   isReceipt: boolean;
@@ -333,12 +355,15 @@ export function StatementsListTable({
   const listText = useIntlayer('statementsListUi');
   // Statements whose rows are open under their line; each loads its rows on opening.
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
+  // The document whose "Add category" opened the category drawer.
+  const [categoryTarget, setCategoryTarget] = useState<CategoryTarget | null>(null);
   const toggleExpanded = (id: string): void =>
     setExpandedIds(prev => {
       const next = new Set(prev);
       if (!next.delete(id)) next.add(id);
       return next;
     });
+  const shownColumns = withoutUniformFrom(columns, paginatedStatements);
   if (loading && gmailSyncSkeletonKeys.length === 0) {
     return (
       <div className="lumio-stmt-list-view__table">
@@ -376,7 +401,7 @@ export function StatementsListTable({
             allVisibleSelected={allVisibleSelected}
             selectedCount={selectedCount}
             dateSortDirection={dateSortDirection}
-            columns={columns}
+            columns={shownColumns}
             labels={labels}
             reviewLabel={reviewDuplicateLabel}
             onToggleSelectAll={onToggleSelectAll}
@@ -386,6 +411,13 @@ export function StatementsListTable({
           {paginatedStatements.map((statement, index) => {
             const rowData = resolveStatementRowData(statement, labels.scanning);
             const duplicateMeta = duplicateMetaById.get(statement.id);
+            // Neighbours in the same group share one unbroken line on the left.
+            const sameGroup = (other: StatementForTable | undefined): boolean =>
+              Boolean(
+                duplicateMeta &&
+                  other &&
+                  duplicateMetaById.get(other.id)?.groupKey === duplicateMeta.groupKey,
+              );
             const transactionCount = rowData.isReceipt
               ? 0
               : Number(statement.totalTransactions ?? 0);
@@ -407,7 +439,8 @@ export function StatementsListTable({
                   duplicateGroupSize={duplicateMeta?.total}
                   duplicateRole={duplicateMeta?.role}
                   duplicateGroupLabel={duplicateMeta?.groupLabel}
-                  duplicateGroupTone={duplicateMeta?.groupTone}
+                  duplicateGroupStart={!sameGroup(paginatedStatements[index - 1])}
+                  duplicateGroupEnd={!sameGroup(paginatedStatements[index + 1])}
                   duplicateReason={duplicateMeta?.reason}
                   duplicateActionLabel={reviewDuplicateLabel}
                   pendingReview={resolvePendingReview(
@@ -422,12 +455,13 @@ export function StatementsListTable({
                   onIconClick={() => onIconClick(statement)}
                   onToggleSelect={() => onToggleStatement(statement.id)}
                   selected={selectedStatementIds.includes(statement.id)}
-                  columns={columns}
+                  columns={shownColumns}
                   currentExchangeRateLabels={currentExchangeRateLabels}
                   workspaceCurrency={workspaceCurrency}
                   transactionCount={transactionCount}
                   expanded={expanded}
                   onToggleExpand={() => toggleExpanded(statement.id)}
+                  onAddCategory={() => setCategoryTarget(statement)}
                 />
                 {expanded ? <StatementTransactionsPanel statementId={statement.id} /> : null}
               </Fragment>
@@ -435,6 +469,7 @@ export function StatementsListTable({
           })}
         </div>
       </div>
+      <DocumentCategoryDrawer target={categoryTarget} onClose={() => setCategoryTarget(null)} />
       <div className="lumio-stmt-list-view__pagination" style={{ marginTop: 24 }}>
         <div style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
           {formatPaginationLabel(labels.paginationShown, {

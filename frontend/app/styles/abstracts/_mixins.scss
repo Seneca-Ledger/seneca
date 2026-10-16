@@ -25,6 +25,11 @@
 // Visually hidden (accessibility)
 @mixin visually-hidden {
   position: absolute;
+  // Pinned to its containing block's corner. Left at its static place, a hidden
+  // header in the last column of a scrolling table sat past the scroller (whose
+  // overflow does not clip it) and widened the whole page on a phone.
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   padding: 0;

@@ -168,4 +168,30 @@ describe('StoicBalance', () => {
       expect(apiMocks.put).toHaveBeenCalledWith('/categories/gifts', { helpsOthers: true }),
     );
   });
+
+  it('with no plan, says where the money went in words instead of a one-colour bar', async () => {
+    const unplanned = (actual: ReturnType<typeof totals>): StoicBalanceData => ({
+      ...balance,
+      months: [{ ...balance.months[0], intended: totals({}), actual }],
+    });
+    apiMocks.get.mockResolvedValue({ data: unplanned(totals({ leisure: 120 })) });
+    const { unmount } = renderWithQuery(<StoicBalance />);
+
+    expect(await screen.findByText('allSpendingIs')).toBeTruthy();
+    expect(screen.queryByRole('img', { name: /actual:/ })).toBeNull();
+    // Planned against actual is not shown on the class cards until there is a plan.
+    expect(screen.queryByText(/planned .* actual/)).toBeNull();
+    unmount();
+
+    apiMocks.get.mockResolvedValue({ data: unplanned(totals({ leisure: 75, work: 25 })) });
+    renderWithQuery(<StoicBalance />);
+    expect(await screen.findByText('mostSpendingIs')).toBeTruthy();
+  });
+
+  it('writes an empty share on a class card as a dash', async () => {
+    renderWithQuery(<StoicBalance />);
+
+    // September: work and virtue have neither plan nor spending.
+    expect(await screen.findAllByText('planned — · actual —')).toHaveLength(2);
+  });
 });

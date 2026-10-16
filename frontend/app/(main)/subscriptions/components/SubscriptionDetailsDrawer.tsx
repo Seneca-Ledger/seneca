@@ -44,8 +44,7 @@ const DECISION_LABELS: Record<
   price_reduced: 'decisionPriceReduced',
 };
 
-const formatDate = (value: string | null): string =>
-  value ? formatStoredDate(value, 'ru-RU') : '—';
+const formatDate = (value: string | null): string => (value ? formatStoredDate(value) : '—');
 
 /** `GET /subscriptions/:id`: charges and decisions behind the card. */
 type SubscriptionDetails = SubscriptionDetail;

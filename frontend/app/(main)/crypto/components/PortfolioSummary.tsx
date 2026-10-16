@@ -6,8 +6,28 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { LazyNetWorthArea } from '@/app/components/charts/lazy-charts';
 import { ArrowDownRight, ArrowUpRight } from '@/app/components/icons';
+import { TextTabs } from '@/app/components/ui/text-tabs';
+import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
-import type { CryptoHistory, CryptoSummary } from '../hooks/useCrypto';
+import {
+  CRYPTO_HISTORY_DAYS,
+  type CryptoHistory,
+  type CryptoHistoryDays,
+  type CryptoSummary,
+} from '../hooks/useCrypto';
+
+/** A move smaller than this is noise, not news: it stays uncoloured. */
+const SIGNAL_PERCENT = 0.5;
+
+const PERIOD_LABELS: Record<CryptoHistoryDays, string> = { 30: '30D', 90: '90D', 365: '1Y' };
+
+/** Sage for a real rise, terracotta for a real fall, nothing for noise. */
+const signalColor = (percent: number | null): string | undefined =>
+  percent === null || Math.abs(percent) < SIGNAL_PERCENT
+    ? undefined
+    : percent > 0
+      ? 'var(--money-up)'
+      : 'var(--money-down)';
 
 type PortfolioSummaryLabels = {
   sinceYesterday: string;
@@ -24,6 +44,8 @@ type PortfolioSummaryProps = {
   labels: PortfolioSummaryLabels;
   locale: string;
   money: (value: number) => string;
+  historyDays: CryptoHistoryDays;
+  onHistoryDaysChange: (days: CryptoHistoryDays) => void;
 };
 
 /**
@@ -38,6 +60,8 @@ export function PortfolioSummary({
   labels,
   locale,
   money,
+  historyDays,
+  onHistoryDaysChange,
 }: PortfolioSummaryProps): React.JSX.Element {
   const change = summary.portfolioChangeSinceYesterday;
   const rising = (change ?? 0) >= 0;
@@ -65,29 +89,30 @@ export function PortfolioSummary({
       <Box>
         {/* The page is read for this number and the three beside it, so both are
             sized to be read across a desk, not squinted at. */}
-        <Typography variant="h2" fontWeight={700} sx={{ lineHeight: 1.05 }}>
+        <Typography variant="h2" fontWeight={600} sx={{ lineHeight: 1.05 }}>
           {money(summary.portfolioValue)}
         </Typography>
 
         {change !== null && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
             {rising ? (
-              <ArrowUpRight size={18} color="var(--ff-dash-success)" />
+              <ArrowUpRight size={16} color={signalColor(change) ?? 'var(--muted-foreground)'} />
             ) : (
-              <ArrowDownRight size={18} color="var(--ff-dash-critical)" />
+              <ArrowDownRight size={16} color={signalColor(change) ?? 'var(--muted-foreground)'} />
             )}
             <Typography
-              variant="body1"
+              variant="body2"
               sx={{
-                color: rising ? 'var(--ff-dash-success)' : 'var(--ff-dash-critical)',
-                fontWeight: 600,
+                color: signalColor(change) ?? 'text.secondary',
+                fontWeight: 500,
+                fontVariantNumeric: 'tabular-nums',
               }}
             >
               {rising ? '+' : '−'}
               {new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(Math.abs(change))}
               %
             </Typography>
-            <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               {labels.sinceYesterday}
             </Typography>
           </Box>
@@ -103,13 +128,29 @@ export function PortfolioSummary({
       </Box>
 
       {hasChart ? (
-        <Box sx={{ height: 180, minWidth: 0 }}>
-          <LazyNetWorthArea
-            points={points}
-            positive={points[points.length - 1].value >= points[0].value}
-            locale={locale}
-            formatValue={money}
-          />
+        <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <TextTabs<`${CryptoHistoryDays}`>
+              value={`${historyDays}`}
+              onChange={next => onHistoryDaysChange(Number(next) as CryptoHistoryDays)}
+              options={CRYPTO_HISTORY_DAYS.map(days => ({
+                value: `${days}` as `${CryptoHistoryDays}`,
+                label: PERIOD_LABELS[days],
+              }))}
+              ariaLabel={labels.sinceYesterday}
+            />
+          </Box>
+          <Box sx={{ height: 180 }}>
+            <LazyNetWorthArea
+              points={points}
+              positive={points[points.length - 1].value >= points[0].value}
+              locale={locale}
+              formatValue={money}
+              formatTick={value =>
+                formatMoney(value, summary.currency, locale, { notation: 'compact' })
+              }
+            />
+          </Box>
         </Box>
       ) : (
         <Stats
@@ -148,11 +189,19 @@ function Stats({
         ...(Array.isArray(sx) ? sx : [sx ?? {}]),
       ]}
     >
+      {/* The figure stays neutral: 66 cents on a portfolio of thousands is not
+          the headline. Its share of the cost, small, carries the colour, and
+          only when it is a real move. */}
       <Stat
         label={labels.unrealized}
         value={summary.unrealized === null ? '—' : money(summary.unrealized)}
+        signed={summary.unrealized !== null && summary.unrealized > 0}
+        percent={
+          summary.unrealized === null || !summary.cost
+            ? null
+            : (summary.unrealized / summary.cost) * 100
+        }
         hint={summary.cost === null ? undefined : `${labels.costBasis} ${money(summary.cost)}`}
-        tone={summary.unrealized === null ? undefined : summary.unrealized >= 0 ? 'up' : 'down'}
       />
       <Stat label={labels.income} value={money(summary.income)} />
       <Stat label={labels.expense} value={money(summary.expense)} />
@@ -164,12 +213,14 @@ function Stat({
   label,
   value,
   hint,
-  tone,
+  signed = false,
+  percent = null,
 }: {
   label: string;
   value: string;
   hint?: string;
-  tone?: 'up' | 'down';
+  signed?: boolean;
+  percent?: number | null;
 }): React.JSX.Element {
   return (
     <Box>
@@ -180,19 +231,23 @@ function Stat({
       </Typography>
       <Typography
         variant="h4"
-        sx={{
-          fontVariantNumeric: 'tabular-nums',
-          lineHeight: 1.2,
-          ...(tone
-            ? { color: tone === 'up' ? 'var(--ff-dash-success)' : 'var(--ff-dash-critical)' }
-            : {}),
-        }}
+        sx={{ fontVariantNumeric: 'tabular-nums', lineHeight: 1.2, fontWeight: 500 }}
       >
-        {tone === 'up' ? '+' : ''}
+        {signed ? '+' : ''}
         {value}
       </Typography>
-      {hint && (
-        <Typography variant="body2" sx={{ color: 'text.disabled', mt: 0.25 }}>
+      {(percent !== null || hint) && (
+        <Typography sx={{ fontSize: 13, color: 'var(--text-muted)', mt: 0.25 }}>
+          {percent !== null && (
+            <Box
+              component="span"
+              sx={{ color: signalColor(percent), fontVariantNumeric: 'tabular-nums' }}
+            >
+              {percent > 0 ? '+' : percent < 0 ? '−' : ''}
+              {Math.abs(percent).toFixed(2)}%
+            </Box>
+          )}
+          {percent !== null && hint ? ' · ' : null}
           {hint}
         </Typography>
       )}

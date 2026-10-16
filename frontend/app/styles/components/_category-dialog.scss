@@ -1,0 +1,174 @@
+@use '../abstracts' as *;
+
+/* Create / edit category (CategoryFormDialog.tsx): name, type and a line icon. */
+.lumio-category-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 4px;
+
+  &__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+
+    &--grow {
+      flex: 1 1 220px;
+    }
+  }
+
+  &__label {
+    font-size: 13px;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--text-muted);
+  }
+
+  &__name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid $lumio-color-slot-border;
+    border-radius: $lumio-radius-sm;
+    background: var(--card);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+
+    @include dark { border-color: $lumio-color-ink-200-dk; }
+
+    &:focus-within {
+      border-color: var(--primary);
+      box-shadow: inset 0 0 0 0.5px var(--primary);
+    }
+
+    // The frame is the wrapper's; the app's own input focus ring would draw a
+    // second, rounded one inside it.
+    input,
+    input:focus,
+    input:focus-visible {
+      flex: 1;
+      min-width: 0;
+      height: auto;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      outline: 0;
+      box-shadow: none;
+      background: transparent;
+      font: inherit;
+      font-size: 14px;
+      color: var(--foreground);
+
+      &::placeholder {
+        color: var(--text-muted);
+        opacity: 0.8;
+      }
+    }
+  }
+
+  // The chosen icon, in sage, with no coloured tile behind it.
+  &__name-icon {
+    display: inline-flex;
+    color: #3f7d5c;
+
+    @include dark { color: var(--primary); }
+  }
+
+  // Expense | Income: the picked one white with a hairline, on the soft track.
+  &__segment {
+    display: inline-flex;
+    gap: 2px;
+    height: 40px;
+    padding: 3px;
+    border-radius: $lumio-radius-sm;
+    background: var(--surface-soft);
+
+    button {
+      padding: 0 14px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: none;
+      font: inherit;
+      font-size: 14px;
+      font-weight: $lumio-font-weight-medium;
+      color: var(--text-muted);
+      cursor: pointer;
+
+      &[aria-checked='true'] {
+        border-color: $lumio-color-slot-border;
+        background: var(--card);
+        color: var(--foreground);
+
+        @include dark { border-color: $lumio-color-ink-200-dk; }
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 1px;
+      }
+    }
+  }
+
+  // Eight to a row: room around each line icon.
+  &__icons {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 6px;
+
+    @media (max-width: 420px) {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 44px;
+      padding: 0;
+      border: 1.5px solid transparent;
+      border-radius: $lumio-radius-sm;
+      background: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background-color 120ms ease;
+
+      &:hover {
+        background: var(--surface-soft);
+      }
+
+      &[aria-checked='true'] {
+        border-color: #3f7d5c;
+        background: #eef3ef;
+        color: #3f7d5c;
+
+        @include dark {
+          border-color: var(--primary);
+          background: var(--primary-50);
+          color: var(--primary);
+        }
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 1px;
+      }
+    }
+  }
+
+  // "No icon": a dashed ring, so it does not read as one more placeholder glyph.
+  &__no-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 1.5px dashed currentColor;
+    border-radius: 50%;
+  }
+}

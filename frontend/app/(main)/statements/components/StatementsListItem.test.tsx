@@ -118,7 +118,9 @@ describe('StatementsListItem', () => {
     expect(container.textContent).toContain('Shop');
     const viewIcon = container.querySelector('[data-testid="statement-view-icon"]');
     expect(viewIcon).toBeTruthy();
-    expect(container.querySelector('img[alt="Gmail"]')).not.toBeNull();
+    // The thumbnail stands for the document; the type is a word beside the date.
+    expect(container.querySelector('img[alt="Gmail"]')).toBeNull();
+    expect(container.textContent).toContain('02/01/2026 · PDF');
   });
 
   it('renders a stacked phone layout next to the column layout', () => {
@@ -453,7 +455,7 @@ describe('StatementsListItem', () => {
     expect(container.textContent).not.toContain('FILE');
   });
 
-  it('renders receipt icon for receipt-scan statement instead of gmail icon', () => {
+  it('names a receipt-scan statement by type beside the date, with no extra icon', () => {
     const root = createRoot(container);
 
     const statement: Statement = {
@@ -502,8 +504,8 @@ describe('StatementsListItem', () => {
     });
 
     expect(container.querySelector('img[alt="Gmail"]')).toBeNull();
-    const receiptIcons = container.querySelectorAll('[data-testid="receipt-statement-type-icon"]');
-    expect(receiptIcons.length).toBe(1);
+    expect(container.querySelector('[data-testid="receipt-statement-type-icon"]')).toBeNull();
+    expect(container.textContent).toContain('03/27/2026 · IMAGE');
     expect(
       container.querySelector('[data-testid="statement-thumbnail-trigger-receipt-scan-1"]'),
     ).toBeTruthy();
@@ -652,7 +654,7 @@ describe('StatementsListItem', () => {
     expect(container.querySelectorAll('[aria-label="Loading"]')).toHaveLength(2);
   });
 
-  it('uses the primary color for amounts in dark mode', () => {
+  it('sets the currency apart from the figure', () => {
     const root = createRoot(container);
 
     const statement: Statement = {
@@ -691,17 +693,14 @@ describe('StatementsListItem', () => {
     const desktop = container.querySelector(
       '[data-testid="statement-item-desktop-statement-dark-amount"]',
     ) as HTMLElement;
-    const amountNodes = Array.from(desktop.querySelectorAll('p, span')).filter(node =>
-      node.textContent?.includes('702,799.13KZT'),
+    const amount = desktop.querySelector('.lumio-stmt-list-item__amount');
+    expect(amount?.textContent).toBe('702,799.13 KZT');
+    expect(amount?.querySelector('.lumio-stmt-list-item__currency')?.textContent?.trim()).toBe(
+      'KZT',
     );
-
-    expect(amountNodes).toHaveLength(1);
-    amountNodes.forEach(node => {
-      expect(node.textContent).toContain('702,799.13KZT');
-    });
   });
 
-  it('renders primary duplicate badge and review action for duplicate item', () => {
+  it('marks a duplicate with a caption, a line on the left and a Review link', () => {
     const root = createRoot(container);
 
     const statement: Statement = {
@@ -743,22 +742,22 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.textContent).toContain('PRIMARY #1/2');
-    expect(container.textContent).toContain('Review');
+    expect(
+      container.querySelector('[data-testid="statement-duplicate-caption"]')?.textContent,
+    ).toContain('Possible duplicate · 1 of 2');
+    expect(container.textContent).not.toContain('PRIMARY');
+    const review = container.querySelector('[data-testid="statement-view-icon"]');
+    expect(review?.textContent).toBe('Review');
+    expect(review?.className).toContain('lumio-stmt-list-item__view-btn--link');
     const duplicateRow = container.querySelector('.lumio-stmt-list-item') as HTMLElement | null;
-    const duplicateAccent = container.querySelector(
-      '.lumio-stmt-list-item__accent',
-    ) as HTMLElement | null;
-
-    expect(duplicateRow?.style.backgroundColor).toBe('rgb(255, 255, 255)');
-    expect(duplicateRow?.style.boxShadow).toContain('inset 0 0 0 1px');
-    expect(duplicateAccent?.style.width).toBe('4px');
+    expect(duplicateRow?.style.boxShadow).toBe('');
+    // A lone duplicate both starts and ends its group's line.
+    const accent = container.querySelector('.lumio-stmt-list-item__accent');
+    expect(accent?.className).toContain('lumio-stmt-list-item__accent--start');
+    expect(accent?.className).toContain('lumio-stmt-list-item__accent--end');
   });
 
-  it('re-colours a suspected duplicate badge without mixing background and backgroundColor', () => {
-    // The group colour moves when an upload regroups the duplicates; React warns
-    // when a longhand changes on an element whose style also holds the shorthand.
-    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  it('runs the duplicate line through the middle of a group', () => {
     const root = createRoot(container);
     const statement: Statement = {
       id: 'duplicate-2',
@@ -774,36 +773,31 @@ describe('StatementsListItem', () => {
       fileType: 'pdf',
       currency: 'USD',
     };
-    const renderTone = (tone: 'sky' | 'stone') =>
-      act(() => {
-        root.render(
-          <StatementsListItem
-            statement={statement}
-            viewLabel="View"
-            isReceipt={false}
-            isProcessing={false}
-            merchantLabel="Railway"
-            amountLabel="14.63 USD"
-            dateLabel="10/09/2026"
-            isPossibleDuplicate
-            duplicateRole="suspected"
-            duplicateGroupTone={tone}
-            onView={() => undefined}
-            onIconClick={() => undefined}
-            onToggleSelect={() => undefined}
-            typeLabel="PDF"
-          />,
-        );
-      });
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Railway"
+          amountLabel="14.63 USD"
+          dateLabel="10/09/2026"
+          isPossibleDuplicate
+          duplicateRole="suspected"
+          duplicateGroupStart={false}
+          duplicateGroupEnd={false}
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          typeLabel="PDF"
+        />,
+      );
+    });
 
-    renderTone('sky');
-    renderTone('stone');
-
-    const conflicts = errors.mock.calls.filter(call =>
-      String(call[0]).includes('conflicting property'),
+    expect(container.querySelector('.lumio-stmt-list-item__accent')?.className).toBe(
+      'lumio-stmt-list-item__accent',
     );
-    errors.mockRestore();
-    expect(conflicts).toEqual([]);
   });
 
   it('honors desktop column visibility and keeps hidden action rows clickable', () => {
@@ -1112,6 +1106,46 @@ describe('StatementsListItem', () => {
     );
     expect(multiRow?.querySelector('[data-testid="no-category-badge"]')).toBeNull();
     expect(multiRow?.textContent).toBe('—');
+  });
+
+  it('opens the category drawer from "Add category" without opening the document', () => {
+    const root = createRoot(container);
+    const onView = vi.fn();
+    const onAddCategory = vi.fn();
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: 'add-category',
+              source: 'scan',
+              fileName: 'scan.jpg',
+              status: 'completed',
+              createdAt: '2026-02-05T00:00:00Z',
+              bankName: 'other',
+              fileType: 'image',
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt
+          isProcessing={false}
+          merchantLabel="Lidl"
+          amountLabel="9.99 EUR"
+          dateLabel="02/05/2026"
+          onView={onView}
+          onIconClick={() => undefined}
+          onAddCategory={onAddCategory}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const slot = container.querySelector('[data-testid="no-category-badge"]') as HTMLElement;
+    expect(slot.tagName).toBe('BUTTON');
+    act(() => slot.click());
+    expect(onAddCategory).toHaveBeenCalledTimes(1);
+    expect(onView).not.toHaveBeenCalled();
+    act(() => root.unmount());
   });
 
   it('links the category chip to that category on the Top categories leaderboard', () => {

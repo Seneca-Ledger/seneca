@@ -2,7 +2,6 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
@@ -48,8 +47,11 @@ function CategoryRow({
         <Typography variant="body2" noWrap>
           {category.name}
         </Typography>
+        {/* A quiet note, gone once the user picks a class themselves. */}
         {category.source === 'suggested' && (
-          <Chip label={t.suggested.value} size="small" variant="outlined" />
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {t.suggested.value}
+          </Typography>
         )}
       </Box>
       {/* Only virtue can be help given to others; the Stoic advice reads this
@@ -118,7 +120,8 @@ export function StoicClassifyList({
   const hiddenCount = categories.filter(category => !category.active).length;
 
   return (
-    <Box data-attention="stoic:unclassified">
+    // Kept narrow so each class picker sits near its category name, not across the card.
+    <Box data-attention="stoic:unclassified" sx={{ maxWidth: 720 }}>
       <Typography variant="subtitle2" fontWeight={600}>
         {t.classifyTitle.value}
       </Typography>
@@ -134,7 +137,17 @@ export function StoicClassifyList({
         />
       ))}
       {hiddenCount > 0 && (
-        <Button size="small" onClick={() => setShowInactive(value => !value)} sx={{ mt: 1 }}>
+        <Button
+          size="small"
+          onClick={() => setShowInactive(value => !value)}
+          sx={{
+            mt: 1,
+            p: 0,
+            minWidth: 0,
+            fontWeight: 400,
+            '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+          }}
+        >
           {showInactive ? t.hideInactive.value : `${t.showInactive.value} (${hiddenCount})`}
         </Button>
       )}

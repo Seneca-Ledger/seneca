@@ -56,6 +56,12 @@ export interface CryptoHoldingsResult {
  * number computed one way: balances as the last sync read them off the chain (or
  * as the user entered them for a manual holding), at today's price.
  */
+/**
+ * A unit price kept to six decimals: cents hide what matters for a stablecoin
+ * ($0.9991, not $1.00) or a coin worth a fraction of a cent.
+ */
+const roundPrice = (value: number): number => Math.round(value * 1e6) / 1e6;
+
 @Injectable()
 export class CryptoHoldingsService {
   constructor(
@@ -122,7 +128,7 @@ export class CryptoHoldingsService {
           return {
             asset,
             amount,
-            price: round2(usdPrices[asset] * usdToCurrency),
+            price: roundPrice(usdPrices[asset] * usdToCurrency),
             value,
             ...this.gain(basis.get(asset), Number(amount), value),
           };
@@ -158,13 +164,16 @@ export class CryptoHoldingsService {
         basisIncomplete: basis?.incomplete ?? true,
       };
     }
-    const cost = round2(avgCost * amount);
+    const exactCost = avgCost * amount;
+    const cost = round2(exactCost);
     const unrealized = round2(value - cost);
     return {
-      avgCost: round2(avgCost),
+      avgCost: roundPrice(avgCost),
       cost,
       unrealized,
-      unrealizedPercent: cost > 0 ? round2((unrealized / cost) * 100) : null,
+      // From the unrounded figures: on a few dollars, dividing two cent-rounded
+      // numbers moved ETH's +24.0% to +23.6%.
+      unrealizedPercent: exactCost > 0 ? round2(((value - exactCost) / exactCost) * 100) : null,
       realized: basis?.realized ?? 0,
       basisIncomplete: basis?.incomplete ?? false,
     };

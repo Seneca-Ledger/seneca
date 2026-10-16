@@ -252,7 +252,7 @@
   }
 
   &__amount--positive {
-    color: $lumio-color-success;
+    color: $lumio-color-money-up;
 
     @include dark {
       color: $lumio-color-success-dk;
@@ -260,7 +260,7 @@
   }
 
   &__amount--negative {
-    color: $lumio-color-danger;
+    color: $lumio-color-money-down;
 
     @include dark {
       color: $lumio-color-danger-dk;
@@ -360,5 +360,137 @@
     max-width: 320px;
     margin: 0;
     line-height: 1.5;
+  }
+}
+
+/* ── Unconfirmed notice: a quiet hairline row, not an alert ── */
+.lumio-unconfirmed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid $lumio-color-ink-150;
+  border-radius: $lumio-radius-md;
+  font-size: 13px;
+  line-height: 1.4;
+  color: $lumio-color-ink-500;
+
+  @include dark {
+    border-color: $lumio-color-ink-150-dk;
+    color: $lumio-color-ink-500-dk;
+  }
+
+  &__dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $lumio-color-attention;
+
+    @include dark {
+      background: $lumio-color-warning-dk;
+    }
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    font-weight: $lumio-font-weight-medium;
+    color: $lumio-color-ink-900;
+    text-decoration: none;
+    transition: color 120ms;
+
+    @include dark {
+      color: $lumio-color-ink-900-dk;
+    }
+
+    &:hover {
+      color: $lumio-color-ink-600;
+
+      @include dark {
+        color: $lumio-color-ink-600-dk;
+      }
+    }
+  }
+}
+
+// Advice page: one list with hairlines instead of a stack of framed cards.
+.lumio-advice {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: $lumio-radius-md;
+  border: 1px solid $lumio-color-hairline;
+  background: var(--card-bg);
+
+  @include dark {
+    border-color: $lumio-color-border-dk;
+  }
+
+  &__row {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+
+    & + & {
+      border-top: 1px solid $lumio-color-hairline;
+
+      @include dark {
+        border-top-color: $lumio-color-border-dk;
+      }
+    }
+  }
+
+  &__main {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: flex-start !important;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+    padding: 16px 48px 16px 16px !important;
+    text-align: left;
+    color: inherit;
+    border-radius: $lumio-radius-md;
+  }
+
+  &__arrow {
+    flex-shrink: 0;
+    margin-top: 3px;
+    color: var(--muted-foreground);
+  }
+
+  // The ochre dot of a line that asks for something.
+  &__dot {
+    width: 7px;
+    height: 7px;
+    margin-top: 6px;
+    border-radius: 50%;
+    background: $lumio-color-attention;
+
+    @include dark {
+      background: $lumio-color-warning-dk;
+    }
+  }
+
+  // Dismiss shows on the line under the pointer or the keyboard, not on every line.
+  &__dismiss {
+    position: absolute !important;
+    top: 12px;
+    right: 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  &__row:hover &__dismiss,
+  &__row:focus-within &__dismiss {
+    opacity: 1;
   }
 }
