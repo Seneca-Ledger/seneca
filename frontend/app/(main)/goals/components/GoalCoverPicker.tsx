@@ -11,11 +11,13 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Check, ChevronLeft, Search } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { useIntlayer } from '@/app/i18n';
 import { apiBaseUrl } from '@/app/lib/api';
 import { tokens } from '@/lib/theme-tokens';
 import { useCoverSearch } from '../hooks/useCoverSearch';
 import type { GoalCoverSelection } from '../hooks/useGoals';
 import { GOAL_COVER_PRESETS } from '../lib/goal-cover-presets';
+import { GoalPresetTile } from './GoalCoverThumb';
 
 export interface GoalCoverPickerLabels {
   title: string;
@@ -65,6 +67,7 @@ export function GoalCoverPicker({
   onSelect,
   onClose,
 }: GoalCoverPickerProps) {
+  const names = useIntlayer('goalCoverPresets');
   const [tab, setTab] = useState<'presets' | 'photos'>('presets');
   const [term, setTerm] = useState('');
   const { results, isPending, error, hasSearched, runSearch } = useCoverSearch();
@@ -105,14 +108,17 @@ export function GoalCoverPicker({
           >
             <ChevronLeft size={20} />
           </button>
-          <span style={{ fontSize: 18, fontWeight: 600, color: 'var(--foreground)' }}>
+          <span style={{ fontSize: 18, fontWeight: 500, color: 'var(--foreground)' }}>
             {labels.title}
           </span>
         </div>
       }
     >
       <div className="lumio-payable-drawer__body">
-        <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: 2 }}>
+        <Box
+          className="lumio-goal-cover-scroll"
+          sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: 2 }}
+        >
           <Tabs
             value={tab}
             onChange={(_, value: 'presets' | 'photos') => setTab(value)}
@@ -123,53 +129,30 @@ export function GoalCoverPicker({
           </Tabs>
 
           {tab === 'presets' && (
-            <Box sx={TILE_GRID}>
+            <div className="lumio-goal-cover-grid">
               {GOAL_COVER_PRESETS.map(preset => {
                 const isSelected = selection?.kind === 'preset' && selection.preset === preset.id;
+                const name = names[preset.id].value;
                 return (
-                  <Box
+                  <button
                     key={preset.id}
-                    component="button"
                     type="button"
-                    aria-label={preset.id}
+                    className="lumio-goal-cover-tile"
+                    title={name}
+                    aria-label={name}
                     aria-pressed={isSelected}
                     onClick={() => pick({ kind: 'preset', preset: preset.id })}
-                    sx={{
-                      position: 'relative',
-                      aspectRatio: '1 / 1',
-                      border: '2px solid',
-                      borderColor: isSelected ? 'primary.main' : 'transparent',
-                      borderRadius: tokens.radius.md,
-                      cursor: 'pointer',
-                      display: 'grid',
-                      placeItems: 'center',
-                      color: '#fff',
-                      p: 0,
-                      background: `linear-gradient(135deg, ${preset.from}, ${preset.to})`,
-                    }}
                   >
-                    <preset.Icon size={28} />
+                    <GoalPresetTile preset={preset} />
                     {isSelected && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: 4,
-                          right: 4,
-                          bgcolor: 'primary.main',
-                          borderRadius: tokens.radius.full,
-                          display: 'grid',
-                          placeItems: 'center',
-                          width: 20,
-                          height: 20,
-                        }}
-                      >
+                      <span className="lumio-goal-cover-tile__tick" aria-hidden="true">
                         <Check size={14} />
-                      </Box>
+                      </span>
                     )}
-                  </Box>
+                  </button>
                 );
               })}
-            </Box>
+            </div>
           )}
 
           {tab === 'photos' && (
@@ -229,6 +212,7 @@ export function GoalCoverPicker({
                           key={photo.id}
                           component="button"
                           type="button"
+                          className="lumio-goal-cover-tile"
                           title={photo.attribution}
                           aria-label={photo.title}
                           aria-pressed={isSelected}
@@ -239,17 +223,7 @@ export function GoalCoverPicker({
                               attribution: photo.attribution,
                             })
                           }
-                          sx={{
-                            position: 'relative',
-                            aspectRatio: '1 / 1',
-                            border: '2px solid',
-                            borderColor: isSelected ? 'primary.main' : 'transparent',
-                            borderRadius: tokens.radius.md,
-                            cursor: 'pointer',
-                            overflow: 'hidden',
-                            p: 0,
-                            bgcolor: 'action.hover',
-                          }}
+                          sx={{ overflow: 'hidden', bgcolor: 'var(--icon-badge-bg)' }}
                         >
                           <Box
                             component="img"
@@ -299,19 +273,22 @@ export function GoalCoverPicker({
             </>
           )}
         </Box>
-        <div className="lumio-payable-drawer__footer">
-          <Button
-            color="error"
-            sx={{ flex: 1 }}
-            disabled={!selection}
-            onClick={() => onSelect(null)}
-          >
-            {labels.remove}
-          </Button>
-          <Button variant="outlined" sx={{ flex: 1 }} onClick={onClose}>
-            {labels.close}
-          </Button>
-        </div>
+        {/* A pick applies at once and closes the panel, so there is no Close button;
+            the back arrow leaves without a change. Remove shows only with a cover. */}
+        {selection && (
+          <div className="lumio-payable-drawer__footer">
+            <Button
+              variant="text"
+              sx={{ color: 'var(--text-muted)' }}
+              onClick={() => {
+                onSelect(null);
+                onClose();
+              }}
+            >
+              {labels.remove}
+            </Button>
+          </div>
+        )}
       </div>
     </DrawerShell>
   );
