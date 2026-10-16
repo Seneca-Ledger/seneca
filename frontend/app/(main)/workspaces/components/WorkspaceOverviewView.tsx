@@ -2,8 +2,6 @@
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -12,17 +10,20 @@ import { ChevronDown, ChevronLeft, ImageIcon, Save, Trash2 } from '@/app/compone
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
 } from '@/app/lib/statement-expense-drawer';
 import { tokens } from '@/lib/theme-tokens';
-import { AVAILABLE_BACKGROUNDS } from '../constants';
+import { AVAILABLE_BACKGROUNDS, PLAIN_BACKGROUND } from '../constants';
 import { BackgroundPhotoSearch } from './BackgroundPhotoSearch';
+import { BackgroundPreviewCard } from './BackgroundPreviewCard';
 import { BackgroundSelector } from './BackgroundSelector';
 import { BusinessProfileSection } from './BusinessProfileSection';
 import { InvoiceSettingsSection } from './InvoiceSettingsSection';
@@ -32,7 +33,7 @@ import { TaxRulesSection } from './TaxRulesSection';
 import { TaxStatusSection } from './TaxStatusSection';
 
 const resolveBackgroundSrc = (backgroundImage: string | null) => {
-  if (!backgroundImage) {
+  if (!backgroundImage || backgroundImage === PLAIN_BACKGROUND) {
     return null;
   }
 
@@ -237,12 +238,13 @@ export default function WorkspaceOverviewView() {
     setSavingBackground(true);
 
     await (async () => {
+      // The drawer stays open: the preview card at its top is the confirmation,
+      // and the next tile can be tried right away.
       await save();
-      toast.success(t.toasts.backgroundUpdated.value);
-      setShowBackgroundPicker(false);
     })()
-      .catch(async () => {
-        toast.error(t.toasts.backgroundFailed.value);
+      // The server says why (Openverse slow or out of allowance); say that, not just "failed".
+      .catch(async (error: unknown) => {
+        toast.error(getApiErrorMessage(error, t.toasts.backgroundFailed.value));
       })
       .finally(async () => {
         setSavingBackground(false);
@@ -319,6 +321,8 @@ export default function WorkspaceOverviewView() {
                 alt={t.background.currentAlt.value}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
+            ) : currentWorkspace.backgroundImage === PLAIN_BACKGROUND ? (
+              <Box sx={{ height: '100%', bgcolor: 'var(--icon-badge-bg)' }} />
             ) : (
               <Box
                 sx={{
@@ -553,25 +557,33 @@ export default function WorkspaceOverviewView() {
             >
               <ChevronLeft size={20} />
             </button>
-            <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
+            <Typography variant="h6" fontWeight={500} sx={{ color: 'var(--foreground)' }}>
               {t.background.drawerTitle}
             </Typography>
           </Box>
         }
       >
         <Box sx={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
-          <Box sx={{ flex: 1, overflowY: 'auto', pb: 2 }}>
-            <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', mb: 1.5 }}>
+          <Box className="lumio-thin-scroll" sx={{ flex: 1, overflowY: 'auto', pb: 2 }}>
+            <Typography sx={{ fontSize: 14, color: 'var(--text-muted)', mb: 2 }}>
               {t.background.drawerHint}
             </Typography>
-            <Tabs
-              value={backgroundTab}
-              onChange={(_, value: 'gallery' | 'search') => setBackgroundTab(value)}
-              sx={{ mb: 1.5 }}
-            >
-              <Tab value="gallery" label={t.background.tabGallery} />
-              <Tab value="search" label={t.background.tabSearch} />
-            </Tabs>
+            <BackgroundPreviewCard
+              src={resolveBackgroundSrc(currentWorkspace.backgroundImage)}
+              name={currentWorkspace.name}
+              description={currentWorkspace.description}
+            />
+            <Box sx={{ mb: 2 }}>
+              <TextTabs
+                value={backgroundTab}
+                onChange={setBackgroundTab}
+                ariaLabel={t.background.drawerTitle.value}
+                options={[
+                  { value: 'gallery', label: t.background.tabGallery },
+                  { value: 'search', label: t.background.tabSearch },
+                ]}
+              />
+            </Box>
             {savingBackground && (
               <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
                 {t.details.saving}
@@ -582,6 +594,7 @@ export default function WorkspaceOverviewView() {
                 selectedBackground={currentWorkspace.backgroundImage}
                 onSelect={handleBackgroundChange}
                 backgrounds={AVAILABLE_BACKGROUNDS}
+                plainLabel={t.background.plain.value}
               />
             ) : (
               <BackgroundPhotoSearch

@@ -60,6 +60,18 @@ export interface WorkspaceBackground {
 
 type CachedThumbnail = { contentType: string; body: string };
 
+/**
+ * What a save needs about a photo, remembered from the search that showed it:
+ * the credit, the source page and (from a fresh search) the original's URL.
+ * Openverse can take 10–30 s to answer, and asking it again at save time made
+ * picking a photo fail on a timeout the picker had already sat through once.
+ */
+type RememberedPhoto = {
+  attribution: string;
+  sourceUrl: string | null;
+  originalUrl: string | null;
+};
+
 const USER_AGENT = 'Lumio/1.0 (self-hosted personal finance; workspace backgrounds)';
 
 /**
@@ -91,6 +103,9 @@ export class WorkspaceBackgroundsService {
     const cacheKey = `workspace-bg-search:v1:${page}:${term}`;
     const cached = await this.readCache<BackgroundSearchPage>(cacheKey);
     if (cached) {
+      // Pages cached before photos were remembered: credit and source suffice,
+      // the save then stores the (already cached) thumbnail.
+      await this.rememberPhotos(cached.results.map(item => ({ item, originalUrl: null })));
       return cached;
     }
 
@@ -112,9 +127,17 @@ export class WorkspaceBackgroundsService {
       this.openverseOptions(),
     );
     const rawResults = Array.isArray(payload.results) ? payload.results : [];
-    const results = rawResults
-      .map((item: OpenverseResult) => toSearchResult(item))
-      .filter((item): item is BackgroundSearchResult => item !== null);
+    const found = rawResults
+      .map((raw: OpenverseResult) => ({
+        item: toSearchResult(raw),
+        originalUrl: asHttpsUrl(raw.url, 2000),
+      }))
+      .filter(
+        (entry): entry is { item: BackgroundSearchResult; originalUrl: string | null } =>
+          entry.item !== null,
+      );
+    await this.rememberPhotos(found);
+    const results = found.map(entry => entry.item);
 
     const pageCount = typeof payload.page_count === 'number' ? payload.page_count : page;
     const result = { results, page, hasMore: page < pageCount };
@@ -170,13 +193,17 @@ export class WorkspaceBackgroundsService {
       throw new NotFoundException(appError('WORKSPACE_NOT_FOUND'));
     }
 
-    // The detail carries both the credit line and the original's URL. Unlike a
-    // goal cover, a failure here fails the save: without the credit the photo
-    // may not be shown at all.
-    const detail = await requestOpenverseJson(
-      `${OPENVERSE_API}${photoId}/`,
-      this.openverseOptions(),
-    );
+    // The credit line and the original's URL: remembered from the search that
+    // showed the photo, else asked of Openverse. Unlike a goal cover, a failure
+    // here fails the save: without the credit the photo may not be shown at all.
+    const remembered = await this.readCache<RememberedPhoto>(photoCacheKey(photoId));
+    const detail: OpenverseJson = remembered
+      ? {
+          attribution: remembered.attribution,
+          url: remembered.originalUrl,
+          foreign_landing_url: remembered.sourceUrl,
+        }
+      : await requestOpenverseJson(`${OPENVERSE_API}${photoId}/`, this.openverseOptions());
     const attribution = asText(detail.attribution, 400);
     if (!attribution) {
       throw new NotFoundException('That picture is no longer available');
@@ -279,6 +306,28 @@ export class WorkspaceBackgroundsService {
     };
   }
 
+  private async rememberPhotos(
+    entries: Array<{ item: BackgroundSearchResult; originalUrl: string | null }>,
+  ): Promise<void> {
+    await Promise.all(
+      entries.map(async ({ item, originalUrl }) => {
+        const known = originalUrl
+          ? null
+          : await this.readCache<RememberedPhoto>(photoCacheKey(item.id));
+        await this.writeCache(
+          photoCacheKey(item.id),
+          {
+            attribution: item.attribution,
+            sourceUrl: item.sourceUrl,
+            // A page from cache has no original URL; keep one a fresh search left.
+            originalUrl: originalUrl ?? known?.originalUrl ?? null,
+          } satisfies RememberedPhoto,
+          BACKGROUND_SEARCH_TTL_MS,
+        );
+      }),
+    );
+  }
+
   private async readCache<T>(key: string): Promise<T | null> {
     try {
       return (await this.cacheManager.get<T>(key)) ?? null;
@@ -295,6 +344,8 @@ export class WorkspaceBackgroundsService {
     }
   }
 }
+
+const photoCacheKey = (photoId: string): string => `workspace-bg-photo:v1:${photoId}`;
 
 function toSearchResult(item: OpenverseResult): BackgroundSearchResult | null {
   const id = asText(item.id, 40);
