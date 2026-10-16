@@ -37,6 +37,18 @@ const summary: SubscriptionSummary = {
   realizedAnnualSavings: 0,
 };
 
+const EMPTY: SubscriptionSummary = {
+  totalMonthlyCost: 0,
+  activeCount: 0,
+  upcomingCount: 0,
+  upcoming30DaysCount: 0,
+  priceChangeCount: 0,
+  priceChangeYearlyEffect: 0,
+  duplicateCount: 0,
+  overdueReviewCount: 0,
+  realizedAnnualSavings: 0,
+};
+
 const emptyCalendar: SubscriptionChargeCalendar = {
   currency: 'USD',
   months: [],
@@ -57,6 +69,7 @@ const renderContent = (
     chargeCalendar?: SubscriptionChargeCalendar;
     subscriptions?: SubscriptionItem[];
     workspaceMembers?: Array<{ id: string; name?: string | null; email?: string | null }>;
+    statusFilter?: string;
   } = {},
 ) =>
   render(
@@ -69,7 +82,7 @@ const renderContent = (
       isPending={false}
       isFetching={false}
       error={null}
-      statusFilter="all"
+      statusFilter={overrides.statusFilter ?? 'all'}
       setStatusFilter={vi.fn()}
       dialogOpen={false}
       editingSubscription={null}
@@ -142,7 +155,7 @@ describe('SubscriptionsContent', () => {
   });
 
   it('tells an empty workspace there is nothing yet, with dashes for the summary and no filters', () => {
-    renderContent({ subscriptions: [] });
+    renderContent({ subscriptions: [], summary: EMPTY });
 
     expect(screen.getByRole('heading', { name: 'No subscriptions yet' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Search subscriptions')).not.toBeVisible();
@@ -153,6 +166,20 @@ describe('SubscriptionsContent', () => {
       false,
       true,
     ]);
+  });
+
+  it('shows dashes on every tab while the workspace has nothing to summarise', () => {
+    renderContent({ subscriptions: [], summary: EMPTY, statusFilter: 'detected' });
+
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(6);
+    expect(screen.queryByText('0 USD')).toBeNull();
+    expect(screen.queryByText('0')).toBeNull();
+  });
+
+  it("keeps the workspace's real figures on a tab that happens to be empty", () => {
+    renderContent({ subscriptions: [], statusFilter: 'detected' });
+
+    expect(screen.queryByText('—')).toBeNull();
   });
 
   it('says "No matches" with a way back when the filters hide every row', () => {

@@ -2,6 +2,7 @@ import { alpha, createTheme, type ThemeOptions } from '@mui/material/styles';
 import { createSvgIcon } from '@mui/material/utils';
 import { createElement } from 'react';
 import { tokens } from '@/lib/theme-tokens';
+import { selectMenuComponents } from './components/ui/select-menu-theme';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -269,6 +270,7 @@ const getSharedOptions = (
           },
         },
       },
+      ...selectMenuComponents,
       MuiMenu: {
         styleOverrides: {
           paper: {

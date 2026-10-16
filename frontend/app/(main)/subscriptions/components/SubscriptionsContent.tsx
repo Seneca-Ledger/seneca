@@ -166,6 +166,9 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
   const hasSubscriptions = props.subscriptions.length > 0;
   // None in the workspace: the summary would be a row of zeros.
   const noneYet = !(props.isPending || hasSubscriptions) && props.statusFilter === 'all';
+  // The summary covers the whole workspace, whatever the tab: with nothing in it
+  // every card shows a dash rather than a row of zeros, on every tab alike.
+  const summaryEmpty = Object.values(props.summary).every(value => value === 0);
   const clearFilters = (): void => {
     setSearch('');
     setOwnerId('');
@@ -350,10 +353,10 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                   fontWeight: 500,
                   lineHeight: 1.2,
                   fontVariantNumeric: 'tabular-nums',
-                  color: noneYet ? 'var(--muted-foreground)' : (accent ?? 'text.primary'),
+                  color: summaryEmpty ? 'var(--muted-foreground)' : (accent ?? 'text.primary'),
                 }}
               >
-                {noneYet ? '—' : value}
+                {summaryEmpty ? '—' : value}
               </Typography>
             </CardContent>
           </Card>
