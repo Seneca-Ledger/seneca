@@ -22,10 +22,12 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GripVertical } from '@/app/components/icons';
 import { useViewPreference } from '@/app/components/transactions/hooks/useViewPreference';
 import { useIntlayer } from '@/app/i18n';
+import { OverviewWidgetPicker } from './OverviewWidgetPicker';
 import {
   canSitBeside,
   DEFAULT_OVERVIEW_ROWS,
   type DropZone,
+  hideSection,
   isDefaultLayout,
   isTile,
   moveSection,
@@ -33,6 +35,7 @@ import {
   type OverviewRows,
   type OverviewSectionId,
   rowSpans,
+  showSection,
 } from './overview-layout';
 import { SectionSpanProvider } from './section-span';
 
@@ -79,6 +82,8 @@ interface OverviewSectionProps {
   id: string;
   /** Columns of the twelve it spans, given what else in its row has something to show. */
   span: number;
+  /** The odd tile left over when a narrow screen pairs the row's tiles two by two. */
+  unpaired: boolean;
   drop: DropZone | null;
   handleLabel: string;
   onEmptyChange: (id: string, empty: boolean) => void;
@@ -88,6 +93,7 @@ interface OverviewSectionProps {
 function OverviewSection({
   id,
   span,
+  unpaired,
   drop,
   handleLabel,
   onEmptyChange,
@@ -129,6 +135,7 @@ function OverviewSection({
       className={clsx(
         'lumio-overview__section',
         isTile(id) && 'lumio-overview__section--tile',
+        unpaired && 'lumio-overview__section--unpaired',
         drag.isDragging && 'lumio-overview__section--dragging',
         drop && `lumio-overview__section--drop-${drop}`,
       )}
@@ -198,14 +205,23 @@ interface OverviewLayoutProps {
  * workspace. Phones get no grips: there everything is one column anyway.
  */
 /** The saved rows as stored; `normalizeRows` decides what of them is still usable. */
-const readOverviewRows = (saved: Readonly<Record<string, unknown>>): { overviewRows: unknown } => ({
+const readOverviewLayout = (
+  saved: Readonly<Record<string, unknown>>,
+): { overviewRows: unknown; hiddenSections?: string[] } => ({
   overviewRows: saved.overviewRows,
+  hiddenSections: Array.isArray(saved.hiddenSections)
+    ? saved.hiddenSections.filter((id): id is string => typeof id === 'string')
+    : [],
 });
 
 export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Element {
   const t = useIntlayer('overviewTab');
-  const { state, save } = useViewPreference('dashboard', readOverviewRows);
-  const rows = useMemo(() => normalizeRows(state ? { rows: state.overviewRows } : null), [state]);
+  const { state, save } = useViewPreference('dashboard', readOverviewLayout);
+  const hidden = useMemo(() => state?.hiddenSections ?? [], [state]);
+  const rows = useMemo(
+    () => normalizeRows(state ? { rows: state.overviewRows, hidden } : null),
+    [state, hidden],
+  );
   const [empty, setEmpty] = useState<ReadonlySet<string>>(() => new Set());
   const [drop, setDrop] = useState<Drop | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -279,13 +295,21 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
       if (drop) {
         const next = moveSection(rows, String(active.id), drop.target, drop.zone);
         if (next !== rows) {
-          save({ overviewRows: next });
+          save({ overviewRows: next, hiddenSections: hidden });
         }
       }
       stopTracking();
     },
-    [drop, rows, save, stopTracking],
+    [drop, rows, hidden, save, stopTracking],
   );
+
+  const toggleSection = useCallback(
+    (id: OverviewSectionId, shown: boolean) =>
+      save(shown ? showSection(rows, hidden, id) : hideSection(rows, hidden, id)),
+    [rows, hidden, save],
+  );
+
+  const shown = useMemo(() => new Set(rows.flat()), [rows]);
 
   const targetRow = drop ? rows.find(row => row.includes(drop.target)) : undefined;
 
@@ -305,13 +329,17 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
             {/* One flat list, not a wrapper per row: a moved card keeps its place
               in the tree, so it is not remounted and keeps its own state. */}
             {rows.flatMap(row => {
-              const spans = rowSpans(row.filter(id => !empty.has(id)));
+              const shown = row.filter(id => !empty.has(id));
+              const spans = rowSpans(shown);
+              const tiles = shown.filter(isTile);
+              const unpaired = tiles.length % 2 === 1 ? tiles[tiles.length - 1] : undefined;
               const vertical = drop && (drop.zone === 'above' || drop.zone === 'below');
               return row.map(id => (
                 <OverviewSection
                   key={id}
                   id={id}
                   span={spans.get(id) ?? 0}
+                  unpaired={id === unpaired}
                   drop={
                     drop?.target === id || (vertical && row === targetRow)
                       ? (drop?.zone ?? null)
@@ -326,15 +354,18 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
             })}
           </div>
         </div>
-        {!isDefaultLayout(rows) && (
-          <button
-            type="button"
-            className="lumio-overview__reset"
-            onClick={() => save({ overviewRows: DEFAULT_OVERVIEW_ROWS })}
-          >
-            {t.layoutReset}
-          </button>
-        )}
+        <div className="lumio-overview__footer">
+          <OverviewWidgetPicker shown={shown} onToggle={toggleSection} />
+          {!isDefaultLayout(rows) && (
+            <button
+              type="button"
+              className="lumio-overview__reset"
+              onClick={() => save({ overviewRows: DEFAULT_OVERVIEW_ROWS, hiddenSections: [] })}
+            >
+              {t.layoutReset}
+            </button>
+          )}
+        </div>
       </div>
       <DragOverlay>{dragging ? <SectionGhost id={dragging} /> : null}</DragOverlay>
     </DndContext>

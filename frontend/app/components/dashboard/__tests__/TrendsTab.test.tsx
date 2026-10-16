@@ -153,7 +153,11 @@ describe('TrendsTab', () => {
     expect(screen.getByText('$40')).toBeInTheDocument();
     expect(screen.getByText('Rent')).toBeInTheDocument();
     expect(screen.getAllByTestId('mock-chart').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('+$60').className).toContain('lumio-dashboard__stat-value--positive');
+    expect(
+      screen.getByText('+$60').closest('.lumio-dashboard__stat')?.querySelector(
+        '.lumio-dashboard__stat-dot--positive',
+      ),
+    ).not.toBeNull();
   });
 
   it('highlights the picked month on the cash flow chart and switches month from a bar', () => {

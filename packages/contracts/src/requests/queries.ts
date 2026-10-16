@@ -53,6 +53,8 @@ export const NetWorthQuery = Schema.Struct({
   range: Schema.optional(Schema.Literals(['30d', '90d', '180d', 'ytd', '1y', '3y', '5y', 'all'])),
   /** Measure the same net worth in troy ounces of this metal as well. */
   denominate: Schema.optional(Schema.Literals(['XAU', 'XAG', 'XPT', 'XPD'])),
+  /** `YYYY-MM-DD`: the window ends on this day instead of today (a later day reads as today). */
+  to: Schema.optional(IsoDateString),
 });
 export type NetWorthQuery = Wire<typeof NetWorthQuery>;
 
@@ -90,6 +92,10 @@ export const BalanceQuery = Schema.Struct({
   locale: Schema.optional(Schema.Literals(['ru', 'en', 'kk'])),
 });
 export type BalanceQuery = Wire<typeof BalanceQuery>;
+
+/** `GET /budgets`: spending is measured for the period this day falls in (today when absent). */
+export const BudgetListQuery = Schema.Struct({ date: Schema.optional(IsoDateString) });
+export type BudgetListQuery = Wire<typeof BudgetListQuery>;
 
 /** `GET /budgets/impact`: what an expense would do to its budget. */
 export const BudgetImpactQuery = Schema.Struct({

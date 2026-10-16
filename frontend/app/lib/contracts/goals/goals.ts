@@ -55,7 +55,10 @@ export type GoalDetail = Wire<typeof GoalDetail>;
 export const GoalList = Schema.Array(GoalWithProgress);
 export type GoalList = Wire<typeof GoalList>;
 
-/** `GET /goals?month=`: the goals moved forward that month, with what they received in it. */
+/**
+ * `GET /goals?month=`: the goals moved forward that month, with what they
+ * received in it; their progress is as it stood when that month ended.
+ */
 export const MonthGoal = Schema.Struct({
   ...GoalWithProgress.fields,
   contributedInMonth: Schema.Number,

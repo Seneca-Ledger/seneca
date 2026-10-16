@@ -114,7 +114,7 @@ export function DashboardContent({
         labels={headerLabels}
       />
       <MissingRatesBanner currencies={data.snapshot?.missingRates ?? []} />
-      <UnconfirmedNotice style={{ margin: '0 16px 12px' }} />
+      <UnconfirmedNotice className="lumio-dashboard__unconfirmed" />
       <DashboardTabContent
         activeTab={activeTab}
         data={data}

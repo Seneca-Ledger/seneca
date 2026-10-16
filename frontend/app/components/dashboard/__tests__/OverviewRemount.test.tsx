@@ -65,7 +65,16 @@ const CARDS: Array<{ name: string; ui: React.ReactElement; shows: string }> = [
     shows: '€5532',
   },
   // The widget names a budget by its category.
-  { name: 'budgets', ui: <BudgetSummaryWidget />, shows: 'Groceries' },
+  {
+    name: 'budgets',
+    ui: (
+      <BudgetSummaryWidget
+        month={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+        monthLabel="This month"
+      />
+    ),
+    shows: 'Groceries',
+  },
   { name: 'cash runway', ui: <CashRunwayWidget formatAmount={money} />, shows: 'Telekom' },
 ];
 

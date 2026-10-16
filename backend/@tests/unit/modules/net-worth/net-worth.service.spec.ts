@@ -145,6 +145,32 @@ describe('NetWorthService', () => {
     expect(values[values.length - 1]).toBe(900);
   });
 
+  it('ends the window on a past day when asked, ignoring what came later', async () => {
+    const { service } = createService({
+      snapshots: [
+        { accountId: 'a-fixed', snapshotDate: daysAgo(80), amount: 500 },
+        { accountId: 'a-fixed', snapshotDate: daysAgo(10), amount: 900 },
+      ],
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d', undefined, undefined, daysAgo(40));
+
+    expect(result.series[result.series.length - 1].date).toBe(daysAgo(40));
+    expect(result.current).toBe(500);
+    expect(result.byAssetClass).toEqual([]);
+  });
+
+  it('reads a day after today as today', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(10), amount: 900 }],
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d', undefined, undefined, '2999-01-31');
+
+    expect(result.series[result.series.length - 1].date).toBe(daysAgo(0));
+    expect(result.current).toBe(900);
+  });
+
   it('reads cash for every sample date from the balance sheet', async () => {
     const { service, balanceService } = createService({ cash: { KZT: 777 } });
 

@@ -100,9 +100,11 @@ export class GoalsService {
       return [];
     }
 
+    // A month's list shows each goal as it stood when that month ended, not as it is today.
     const totals = await this.sumContributions(
       workspaceId,
       goals.map(goal => goal.id),
+      month ? firstDayOfNextMonth(month) : undefined,
     );
 
     return goals.map(goal => {
@@ -271,16 +273,22 @@ export class GoalsService {
   }
 
   /** Totals for many goals in one query, so a list of N goals is not N+1. */
+  /** Every contribution per goal, or only those dated before `before` (`YYYY-MM-DD`, exclusive). */
   private async sumContributions(
     workspaceId: string,
     goalIds: string[],
+    before?: string,
   ): Promise<Map<string, number>> {
-    const rows = await this.contributionRepository
+    const query = this.contributionRepository
       .createQueryBuilder('contribution')
       .select('contribution.goal_id', 'goalId')
       .addSelect('COALESCE(SUM(contribution.amount), 0)', 'total')
       .where('contribution.workspace_id = :workspaceId', { workspaceId })
-      .andWhere('contribution.goal_id IN (:...goalIds)', { goalIds })
+      .andWhere('contribution.goal_id IN (:...goalIds)', { goalIds });
+    if (before) {
+      query.andWhere('contribution.contribution_date < :before', { before });
+    }
+    const rows = await query
       .groupBy('contribution.goal_id')
       .getRawMany<{ goalId: string; total: string }>();
 

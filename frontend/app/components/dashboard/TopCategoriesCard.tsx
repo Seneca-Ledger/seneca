@@ -4,10 +4,10 @@ import DonutLargeOutlined from '@mui/icons-material/DonutLargeOutlined';
 import clsx from 'clsx';
 import { useMemo } from 'react';
 import type { DonutSlice } from '@/app/components/charts/CategoryDonut';
+import { categoryTones } from '@/app/components/charts/chart-theme';
 import { LazyCategoryDonut } from '@/app/components/charts/lazy-charts';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer } from '@/app/i18n';
-import { categoryColorFor } from '@/app/lib/category-defaults';
 import { categoryReportHref } from '@/app/lib/category-report-href';
 import { CategoryIconBadge } from './CategoryIconBadge';
 import { useIsWideSection } from './section-span';
@@ -57,17 +57,20 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
     [t.uncategorized, t.other],
   );
 
-  const slices = useMemo<DonutSlice[]>(
-    () =>
-      categories.map(cat => ({
-        key: categoryKey(cat),
-        name: categoryDisplayName(cat, labels),
-        value: cat.amount,
-        color: cat.isOther ? cat.color : categoryColorFor(cat.name, cat.color),
-        href: categoryHref(cat, month),
-      })),
-    [categories, labels, month],
-  );
+  const slices = useMemo<DonutSlice[]>(() => {
+    // Tones follow the category, not this month's rank (see categoryTones).
+    const tones = categoryTones(
+      // By name, as on the Trends tab, so a category has one colour on both.
+      categories.map(cat => ({ key: cat.name ?? '__uncategorized__', isOther: cat.isOther })),
+    );
+    return categories.map((cat, index) => ({
+      key: categoryKey(cat),
+      name: categoryDisplayName(cat, labels),
+      value: cat.amount,
+      color: tones[index],
+      href: categoryHref(cat, month),
+    }));
+  }, [categories, labels, month]);
 
   if (!categories.length) {
     return <CardEmpty icon={DonutLargeOutlined}>{t.noCategoryData}</CardEmpty>;
@@ -79,7 +82,7 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
         <LazyCategoryDonut slices={slices} formatAmount={formatAmount} />
       </div>
       <div className={clsx('lumio-dashboard__list', wide && 'lumio-dashboard__list--columns')}>
-        {categories.map(cat => (
+        {categories.map((cat, rank) => (
           <ListRow
             key={categoryKey(cat)}
             href={categoryHref(cat, month)}
@@ -92,7 +95,16 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
                 size={32}
               />
             }
-            primary={categoryDisplayName(cat, labels)}
+            primary={
+              <>
+                <span
+                  className="lumio-dashboard__legend-dot"
+                  style={{ background: slices[rank].color }}
+                  aria-hidden="true"
+                />
+                {categoryDisplayName(cat, labels)}
+              </>
+            }
             secondary={
               wide && cat.count > 0
                 ? `${wideText.operations.value}: ${cat.count} · ${wideText.averageOperation.value}: ${formatAmount(cat.amount / cat.count)}`

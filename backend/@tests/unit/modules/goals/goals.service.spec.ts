@@ -150,6 +150,20 @@ describe('GoalsService', () => {
     });
   });
 
+  it('counts a month\'s progress only up to that month\'s end', async () => {
+    const { service, queryBuilder } = createService({
+      goals: [goal()],
+      monthlyTotals: [{ goalId: 'goal-1', total: '50' }],
+      totals: [{ goalId: 'goal-1', total: '300' }],
+    });
+
+    await service.findAll(WORKSPACE_ID, '2026-02');
+
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(expect.stringContaining('< :before'), {
+      before: '2026-03-01',
+    });
+  });
+
   it('leaves the plain list untouched by the month filter', async () => {
     const { service, contributionRepository } = createService({
       goals: [goal()],

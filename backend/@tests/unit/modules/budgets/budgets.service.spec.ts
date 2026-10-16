@@ -89,6 +89,31 @@ describe('BudgetsService', () => {
     );
   });
 
+  it('measures the period of the day asked for, not today', async () => {
+    budgetRepository.find.mockResolvedValue([
+      {
+        id: 'budget-1',
+        workspaceId: 'workspace-1',
+        categoryId: 'category-1',
+        name: 'Cloud tools',
+        limitAmount: 100,
+        currency: 'USD',
+        periodType: BudgetPeriodType.MONTHLY,
+        currentPeriodStart: new Date('2026-05-01T00:00:00.000Z'),
+      },
+    ]);
+    const query = createQueryBuilderMock('80');
+    transactionRepository.createQueryBuilder.mockReturnValue(query);
+
+    const [budget] = await service.findAll('workspace-1', new Date(2026, 2, 31));
+
+    const start = query.andWhere.mock.calls.find(([sql]) => String(sql).includes(':start'));
+    const end = query.andWhere.mock.calls.find(([sql]) => String(sql).includes(':end'));
+    expect(start?.[1].start).toEqual(new Date(2026, 2, 1));
+    expect(end?.[1].end.getMonth()).toBe(2);
+    expect(budget).toEqual(expect.objectContaining({ spentAmount: 80, percentUsed: 80 }));
+  });
+
   it('creates a budget with correct fields', async () => {
     budgetRepository.findOne.mockResolvedValue(null);
 

@@ -64,22 +64,28 @@ function applyPatch(
   };
 }
 
-export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState {
+/** `to` (`YYYY-MM-DD`) ends the window on that day instead of today. */
+export function useNetWorth(
+  initialRange: NetWorthRange = '90d',
+  to: string | null = null,
+): NetWorthState {
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<NetWorthRange>(initialRange);
   const [denominate, setDenominate] = useState<'XAU' | null>(null);
 
-  const queryKey = queryKeys.netWorth({ workspaceId, range, denominate });
+  const queryKey = queryKeys.netWorth({ workspaceId, range, denominate, to });
 
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         url: '/reports/net-worth',
-        params: (denominate
-          ? { range, denominate }
-          : { range }) satisfies ContractInput<'NetWorthQuery'>,
+        params: {
+          range,
+          ...(denominate ? { denominate } : {}),
+          ...(to ? { to } : {}),
+        } satisfies ContractInput<'NetWorthQuery'>,
         signal,
         contract: 'NetWorthResponse',
       }),

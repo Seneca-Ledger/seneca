@@ -10,12 +10,14 @@ import {
   BudgetImpact,
   BudgetImpactQuery,
   BudgetList,
+  BudgetListQuery,
   CreateBudgetBody,
   StoicBalance,
   UpdateBudgetBody,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { parseDateOnly } from './budget-period.util';
 import { BudgetsService } from './budgets.service';
 import { StoicLedgerService } from './stoic/stoic-ledger.service';
 
@@ -39,8 +41,14 @@ export class BudgetsController {
   @Get()
   @WorkspaceAuth(Permission.BUDGET_VIEW)
   @SchemaResponse(BudgetList)
-  async findAll(@WorkspaceId() workspaceId: string) {
-    return this.budgetsService.findAll(workspaceId);
+  async findAll(
+    @SchemaQuery(BudgetListQuery) query: BudgetListQuery,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.budgetsService.findAll(
+      workspaceId,
+      query.date ? parseDateOnly(query.date) : undefined,
+    );
   }
 
   /** Plan versus actual per Stoic class, plus how each expense category is judged. */

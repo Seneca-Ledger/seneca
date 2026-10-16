@@ -58,7 +58,11 @@ export type CryptoHolding = Wire<typeof CryptoHolding>;
 /** `GET /crypto/summary`. */
 export const CryptoSummary = Schema.Struct({
   currency: Schema.String,
-  /** Current value of every priced holding, in the workspace currency. */
+  /**
+   * Current value of every priced holding, in the workspace currency. For a
+   * `month` already over: the portfolio as the last sync before its end valued
+   * it, with `holdings` empty, since which coins were held then is not kept.
+   */
   portfolioValue: Schema.Number,
   /** Booked value of incoming transfers over the window. */
   income: Schema.Number,

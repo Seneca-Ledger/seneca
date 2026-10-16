@@ -91,10 +91,13 @@ export class NetWorthService {
     range: NetWorthRange = '90d',
     locale?: string,
     denominate?: InvestmentMetal,
+    asOf?: string,
   ): Promise<NetWorthResponse> {
     await this.balanceService.seedDefaultAccounts(workspaceId);
 
-    const to = isoDate(new Date());
+    const today = isoDate(new Date());
+    // Net worth as it stood at the end of a past day; nothing is known about later ones.
+    const to = asOf && asOf < today ? asOf : today;
     const from = await this.resolveFrom(workspaceId, range, to);
     const dates = samplePoints(from, to, SERIES_POINTS);
 
@@ -175,13 +178,12 @@ export class NetWorthService {
       snapshotsByAccount,
       currency,
     );
-    const byAssetClass = await this.buildAssetClasses(
-      workspaceId,
-      leaves,
-      valueAt,
-      to,
-      assetsTotal,
-    );
+    // The split by asset class prices holdings as they are now, which says
+    // nothing true about a past day; it is left out rather than made up.
+    const byAssetClass =
+      to === today
+        ? await this.buildAssetClasses(workspaceId, leaves, valueAt, to, assetsTotal)
+        : [];
 
     const assetLines = leaves
       .filter(leaf => leaf.accountType === BalanceAccountType.ASSET)
