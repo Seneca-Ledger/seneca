@@ -26,9 +26,9 @@
   --primary-100:        #{$lumio-color-primary-100};
   --primary-200:        #{$lumio-color-primary-200};
   --primary-strong:     #{$lumio-color-primary-dark};
-  --primary-rgb:        22, 129, 24;
+  --primary-rgb:        91, 123, 106;
   --color-primary:      #{$color-primary};
-  --color-primary-rgb:  22, 129, 24;
+  --color-primary-rgb:  91, 123, 106;
   --secondary:          #{$color-secondary};
   --secondary-foreground: #{$color-secondary-foreground};
   --muted:              #{$color-muted};
@@ -47,6 +47,24 @@
   --surface-success-glow: #{$color-surface-success-glow};
   --text-primary:       #{$lumio-color-text-primary};
   --text-secondary:     #{$lumio-color-text-secondary};
+  --icon-badge-bg:      #{$lumio-color-icon-badge-bg};
+  // A soft panel inside a card (Stoic class cards); neutral, unlike MUI's
+  // action.hover, which this app tints green.
+  --surface-soft:       #{$lumio-color-slot-bg};
+  // Money going up or down: deep sage and terracotta, not neon.
+  // Grey text that has to be read; --muted-foreground stays for captions.
+  --text-muted:         #{$lumio-color-text-muted};
+  // Ochre: something needs doing (overdue, incomplete). Not an error.
+  --attention:          #{$lumio-color-attention};
+  --money-up:           #{$lumio-color-money-up};
+  --money-down:         #{$lumio-color-money-down};
+  // Category tones for charts: sage, terracotta, sand, dusty blue, clay; stone for "Other".
+  --cat-tone-1:         #6f8f7b;
+  --cat-tone-2:         #b8665a;
+  --cat-tone-3:         #d2b48c;
+  --cat-tone-4:         #7c93a8;
+  --cat-tone-5:         #a98b76;
+  --cat-tone-other:     #a7ada3;
   --radius:             #{$lumio-radius-md};
   --radius-sm:          #{$lumio-radius-sm};
   --radius-md:          #{$lumio-radius-md};
@@ -99,21 +117,22 @@
   // in abstracts/_variables-dark.scss.
   --primary-fill:       #{$lumio-color-primary-fill-dk};
   --primary-fill-hover: #{$lumio-color-primary-fill-hover-dk};
-  --primary-foreground: #{$lumio-color-primary-contrast};
+  // Warm off-white on the deep sage fill, not pure white.
+  --primary-foreground: #ece7de;
   --primary-light:      #{$lumio-color-primary-100-dk};
   --primary-50:         #{$lumio-color-primary-50-dk};
   --primary-100:        #{$lumio-color-primary-100-dk};
   --primary-200:        #{$lumio-color-primary-200-dk};
   // A darker green would sink into the dark page; the hover accent reads instead.
   --primary-strong:     #{$lumio-color-primary-hover-dk};
-  --primary-rgb:        52, 211, 153;
+  --primary-rgb:        143, 179, 159;
   --color-primary:      #{$lumio-color-primary-dk};
-  --color-primary-rgb:  52, 211, 153;
+  --color-primary-rgb:  143, 179, 159;
   --secondary:          #{$lumio-color-ink-200-dk};
   --secondary-foreground: #{$lumio-color-ink-900-dk};
   --muted:              #{$lumio-color-ink-100-dk};
   --muted-foreground:   #{$lumio-color-ink-500-dk};
-  --muted-rgb:          24, 28, 25;
+  --muted-rgb:          38, 37, 35;
   --card:               #{$lumio-color-surface-dk};
   --card-bg:            #{$lumio-color-surface-dk};
   --card-foreground:    #{$lumio-color-ink-900-dk};
@@ -123,10 +142,23 @@
   --ring:               #{$lumio-color-primary-dk};
   --destructive:        #{$lumio-color-danger-dk};
   --destructive-foreground: #ffffff;
-  --surface-glow:         rgba(52, 211, 153, 0.24);
-  --surface-success-glow: rgba(52, 211, 153, 0.2);
+  --surface-glow:         rgba(143, 179, 159, 0.24);
+  --surface-success-glow: rgba(143, 179, 159, 0.2);
   --text-primary:       #{$lumio-color-text-primary-dk};
   --text-secondary:     #{$lumio-color-text-secondary-dk};
+  --icon-badge-bg:      #{$lumio-color-ink-100-dk};
+  --surface-soft:       #{$lumio-color-ink-100-dk};
+  --text-muted:         #{$lumio-color-ink-500-dk};
+  --attention:          #{$lumio-color-warning-dk};
+  --money-up:           #{$lumio-color-success-dk};
+  --money-down:         #{$lumio-color-danger-dk};
+  // The same five tones, lighter, so the donut does not sink into the dark card.
+  --cat-tone-1:         #8fb39f;
+  --cat-tone-2:         #d9806f;
+  --cat-tone-3:         #dcc39e;
+  --cat-tone-4:         #93a9bd;
+  --cat-tone-5:         #bfa18b;
+  --cat-tone-other:     #7d8279;
   --radius:             #{$lumio-radius-md};
   --radius-sm:          #{$lumio-radius-sm};
   --radius-md:          #{$lumio-radius-md};
@@ -137,17 +169,17 @@
   --radius-full:        #{$lumio-radius-full};
 
   /* ── Semantic soft status palette (dark) ── */
-  --color-warning-soft-bg:     rgba(245, 158, 11, 0.12);
-  --color-warning-soft-border: rgba(245, 158, 11, 0.35);
-  --color-warning-soft-text:   #fbbf24;
-  --color-success-soft-bg:     rgba(52, 211, 153, 0.12);
-  --color-success-soft-border: rgba(52, 211, 153, 0.35);
-  --color-success-soft-text:   #34d399;
-  --color-error-soft-bg:       rgba(251, 113, 133, 0.12);
-  --color-error-soft-border:   rgba(251, 113, 133, 0.4);
-  --color-info-soft-bg:        rgba(56, 189, 248, 0.12);
-  --color-info-soft-border:    rgba(56, 189, 248, 0.35);
-  --color-info-soft-text:      #38bdf8;
+  --color-warning-soft-bg:     rgba(212, 169, 79, 0.12);
+  --color-warning-soft-border: rgba(212, 169, 79, 0.35);
+  --color-warning-soft-text:   #d4a94f;
+  --color-success-soft-bg:     rgba(143, 179, 159, 0.12);
+  --color-success-soft-border: rgba(143, 179, 159, 0.35);
+  --color-success-soft-text:   #8fb39f;
+  --color-error-soft-bg:       rgba(217, 128, 111, 0.12);
+  --color-error-soft-border:   rgba(217, 128, 111, 0.4);
+  --color-info-soft-bg:        rgba(143, 165, 184, 0.12);
+  --color-info-soft-border:    rgba(143, 165, 184, 0.35);
+  --color-info-soft-text:      #8fa5b8;
 
   /* Dashboard palette (dark) */
   --ff-dash-primary:       #{$lumio-color-primary-dk};

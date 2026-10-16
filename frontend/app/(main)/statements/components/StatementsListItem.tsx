@@ -5,20 +5,11 @@ import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { formatMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
-import { BankLogoAvatar } from '@/app/components/BankLogoAvatar';
 import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
 import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
 import { DocumentTypeIcon } from '@/app/components/DocumentTypeIcon';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
-import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  CircleHelp,
-  CreditCard,
-  Receipt,
-} from '@/app/components/icons';
+import { AlertCircle, ChevronDown, ChevronRight, CreditCard } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
@@ -88,102 +79,6 @@ export type StatementListItem = {
 };
 
 type DuplicateRole = 'primary' | 'suspected';
-type DuplicateGroupTone = 'sky' | 'blue' | 'indigo' | 'slate' | 'zinc' | 'stone';
-
-type DuplicateGroupStyle = {
-  rowBorderColor: string;
-  rowBg: string;
-  lineColor: string;
-  badgeBg: string;
-  badgeColor: string;
-  buttonBorder: string;
-  buttonBg: string;
-  buttonColor: string;
-  buttonHoverBorder: string;
-  buttonHoverBg: string;
-  buttonHoverColor: string;
-};
-
-const DUPLICATE_GROUP_STYLES: Record<DuplicateGroupTone, DuplicateGroupStyle> = {
-  blue: {
-    rowBorderColor: 'var(--color-info-soft-border)',
-    rowBg: 'rgba(239,246,255,0.1)',
-    lineColor: 'rgba(147,197,253,0.9)',
-    badgeBg: 'var(--color-info-soft-border)',
-    badgeColor: 'var(--color-info-soft-text)',
-    buttonBorder: 'var(--color-info-soft-border)',
-    buttonBg: 'var(--color-info-soft-bg)',
-    buttonColor: 'var(--color-info-soft-text)',
-    buttonHoverBorder: 'var(--color-info-soft-border)',
-    buttonHoverBg: 'var(--color-info-soft-border)',
-    buttonHoverColor: '#1e40af',
-  },
-  sky: {
-    rowBorderColor: 'var(--color-info-soft-bg)',
-    rowBg: 'rgba(240,249,255,0.1)',
-    lineColor: 'rgba(125,211,252,0.9)',
-    badgeBg: 'var(--color-info-soft-bg)',
-    badgeColor: 'var(--color-info-soft-text)',
-    buttonBorder: 'var(--color-info-soft-border)',
-    buttonBg: 'var(--color-info-soft-bg)',
-    buttonColor: 'var(--color-info-soft-text)',
-    buttonHoverBorder: 'var(--color-info-soft-border)',
-    buttonHoverBg: 'var(--color-info-soft-bg)',
-    buttonHoverColor: '#075985',
-  },
-  indigo: {
-    rowBorderColor: 'var(--color-success-soft-bg)',
-    rowBg: 'rgba(237,247,237,0.1)',
-    lineColor: 'rgba(168,213,168,0.9)',
-    badgeBg: 'var(--color-success-soft-bg)',
-    badgeColor: 'var(--primary)',
-    buttonBorder: 'var(--color-success-soft-border)',
-    buttonBg: 'var(--color-success-soft-bg)',
-    buttonColor: 'var(--primary)',
-    buttonHoverBorder: 'var(--color-success-soft-border)',
-    buttonHoverBg: 'var(--color-success-soft-bg)',
-    buttonHoverColor: 'var(--primary-strong)',
-  },
-  slate: {
-    rowBorderColor: 'var(--border-color)',
-    rowBg: 'rgba(248,250,252,0.3)',
-    lineColor: 'rgba(148,163,184,0.85)',
-    badgeBg: 'var(--muted)',
-    badgeColor: 'var(--text-secondary)',
-    buttonBorder: 'var(--border-color)',
-    buttonBg: 'var(--muted)',
-    buttonColor: 'var(--text-secondary)',
-    buttonHoverBorder: 'var(--border-color)',
-    buttonHoverBg: 'var(--muted)',
-    buttonHoverColor: 'var(--text-secondary)',
-  },
-  zinc: {
-    rowBorderColor: 'var(--border-color)',
-    rowBg: 'rgba(250,250,250,0.3)',
-    lineColor: 'rgba(161,161,170,0.85)',
-    badgeBg: 'var(--muted)',
-    badgeColor: 'var(--text-secondary)',
-    buttonBorder: 'var(--border-color)',
-    buttonBg: 'var(--muted)',
-    buttonColor: 'var(--text-secondary)',
-    buttonHoverBorder: 'var(--border-color)',
-    buttonHoverBg: 'var(--muted)',
-    buttonHoverColor: 'var(--text-primary)',
-  },
-  stone: {
-    rowBorderColor: 'var(--border-color)',
-    rowBg: 'rgba(250,250,249,0.3)',
-    lineColor: 'rgba(168,162,158,0.85)',
-    badgeBg: 'var(--muted)',
-    badgeColor: 'var(--text-secondary)',
-    buttonBorder: 'var(--border-color)',
-    buttonBg: 'var(--muted)',
-    buttonColor: 'var(--text-secondary)',
-    buttonHoverBorder: 'var(--border-color)',
-    buttonHoverBg: 'var(--muted)',
-    buttonHoverColor: 'var(--text-primary)',
-  },
-};
 
 type Props = {
   dataTourId?: string;
@@ -207,7 +102,9 @@ type Props = {
   duplicateGroupSize?: number;
   duplicateRole?: DuplicateRole;
   duplicateGroupLabel?: string;
-  duplicateGroupTone?: DuplicateGroupTone;
+  /** The row opens or closes a run of its duplicate group: the line on the left stops there. */
+  duplicateGroupStart?: boolean;
+  duplicateGroupEnd?: boolean;
   duplicateReason?: string;
   viewDisabled?: boolean;
   columns?: StatementColumn[];
@@ -219,6 +116,8 @@ type Props = {
   transactionCount?: number;
   expanded?: boolean;
   onToggleExpand?: () => void;
+  /** Opens the category drawer for a document that has none yet. */
+  onAddCategory?: () => void;
 };
 
 const EMPTY_CELL = '—';
@@ -353,7 +252,8 @@ export function StatementsListItem({
   duplicateGroupSize,
   duplicateRole,
   duplicateGroupLabel,
-  duplicateGroupTone,
+  duplicateGroupStart = true,
+  duplicateGroupEnd = true,
   duplicateReason,
   viewDisabled = false,
   columns = DEFAULT_STATEMENT_COLUMNS,
@@ -363,6 +263,7 @@ export function StatementsListItem({
   transactionCount = 0,
   expanded = false,
   onToggleExpand,
+  onAddCategory,
 }: Props) {
   const { resolvedTheme } = useTheme();
   const listText = useIntlayer('statementsListUi');
@@ -399,50 +300,29 @@ export function StatementsListItem({
     !isReceipt && isPendingStatement && (isZeroAmountLabel || isMissingAmount);
   const resolvedDuplicateRole: DuplicateRole = duplicateRole || 'suspected';
   const resolvedDuplicateGroupLabel = duplicateGroupLabel || listText.group.value;
-  const resolvedDuplicateGroupTone: DuplicateGroupTone = duplicateGroupTone || 'stone';
-  const duplicateStyle = DUPLICATE_GROUP_STYLES[resolvedDuplicateGroupTone];
   const duplicateRoleLabel =
     resolvedDuplicateRole === 'primary' ? listText.rolePrimary.value : listText.roleSuspected.value;
+  // Group and role go to the tooltip; the row itself only says "possible duplicate, 1 of 2".
   const duplicateBadgeLabel = isPossibleDuplicate
     ? `${resolvedDuplicateGroupLabel} · ${duplicateRoleLabel} #${duplicatePosition || 1}${duplicateGroupSize ? `/${duplicateGroupSize}` : ''}`
     : null;
-  const duplicateTooltipText = duplicateReason || listText.duplicateReasonSame.value;
+  const duplicateCaption = isPossibleDuplicate
+    ? listText.possibleDuplicate.value
+        .replace('{position}', String(duplicatePosition || 1))
+        .replace('{total}', String(duplicateGroupSize || duplicatePosition || 1))
+    : null;
+  const duplicateTooltipText = `${duplicateBadgeLabel ?? ''} — ${duplicateReason || listText.duplicateReasonSame.value}`;
   const reviewLabel = duplicateActionLabel || listText.review.value;
   const actionLabel = isPossibleDuplicate ? reviewLabel : viewLabel;
-  const duplicateRoleBadgeStyle: React.CSSProperties =
-    resolvedDuplicateRole === 'primary'
-      ? { fontWeight: 700, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.15)' }
-      : resolvedTheme === 'dark'
-        ? {
-            fontWeight: 500,
-            border: '1px dashed rgba(255,255,255,0.18)',
-            // backgroundColor, not background: the badge sets backgroundColor
-            // too, and React warns when the group colour changes under a shorthand.
-            backgroundColor: 'rgba(255,255,255,0.06)',
-            opacity: 0.9,
-          }
-        : {
-            fontWeight: 500,
-            border: '1px dashed rgba(0,0,0,0.15)',
-            backgroundColor: 'rgba(255,255,255,0.7)',
-            opacity: 0.8,
-          };
-  const duplicateRoleButtonStyle: React.CSSProperties =
-    resolvedDuplicateRole === 'primary'
-      ? { fontWeight: 600, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }
-      : { fontWeight: 500, borderStyle: 'dashed', opacity: 0.9 };
-  const duplicateCardStyle: React.CSSProperties =
-    resolvedTheme === 'dark'
-      ? {
-          borderColor: duplicateStyle.lineColor,
-          background: `color-mix(in srgb, ${duplicateStyle.lineColor} 10%, var(--content-row-bg, ${c.surface}))`,
-          boxShadow: `inset 0 0 0 1px ${duplicateStyle.rowBorderColor}`,
-        }
-      : {
-          borderColor: duplicateStyle.rowBorderColor,
-          backgroundColor: `var(--content-row-bg, ${c.surface})`,
-          boxShadow: `inset 0 0 0 1px ${duplicateStyle.rowBorderColor}`,
-        };
+  // "23.00USD" → figure and currency, so the code can sit apart, smaller and grey.
+  const amountParts = /^(.*\d)\s*(\D+)$/.exec(amountLabel);
+  const amountFigure = amountParts ? amountParts[1] : amountLabel;
+  const amountCurrency = amountParts ? amountParts[2] : null;
+  const typeCaption = isManualExpense
+    ? null
+    : isReceipt
+      ? resolvedTypeLabel
+      : resolvedTypeLabel?.toUpperCase();
   const handleView = () => {
     if (viewDisabled) {
       return;
@@ -537,7 +417,11 @@ export function StatementsListItem({
       // majority of its rows', which carry their own (shown when opened).
       const awaitsCategory =
         (isReceipt || transactionCount <= 1) && !isProcessing && !isPendingStatement && !hasError;
-      return awaitsCategory ? <NoCategoryBadge /> : renderPlainCell('category', null);
+      return awaitsCategory ? (
+        <NoCategoryBadge onClick={onAddCategory} />
+      ) : (
+        renderPlainCell('category', null)
+      );
     }
     return (
       <Link
@@ -585,26 +469,6 @@ export function StatementsListItem({
   const renderMerchantCell = (): React.JSX.Element => (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, pointerEvents: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ flexShrink: 0, opacity: 0.6 }}>
-          {isGmailReceipt ? (
-            <img
-              src="/icons/gmail.png"
-              alt="Gmail"
-              width={16}
-              height={16}
-              style={{ borderRadius: tokens.radius.full, objectFit: 'contain' }}
-            />
-          ) : isLocalReceipt ? (
-            <Receipt
-              data-testid="receipt-statement-type-icon"
-              size={16}
-              style={{ color: c.ink500 }}
-            />
-          ) : (
-            <BankLogoAvatar bankName={statement.bankName} size={16} />
-          )}
-        </div>
-
         <span
           style={{
             overflow: 'hidden',
@@ -619,7 +483,7 @@ export function StatementsListItem({
         </span>
 
         {pendingReview > 0 && !isProcessing ? (
-          <span className="lumio-stmt-badge lumio-stmt-badge--review" style={{ flexShrink: 0 }}>
+          <span className="lumio-stmt-flag" style={{ flexShrink: 0 }}>
             {listText.toReview}
             {isReceipt ? null : ` · ${pendingReview}`}
           </span>
@@ -627,58 +491,21 @@ export function StatementsListItem({
 
         {hasError ? (
           <AlertCircle size={16} style={{ color: c.danger, marginLeft: 4 }} />
-        ) : isPossibleDuplicate ? (
-          <MuiTooltip title={duplicateTooltipText} placement="top" enterDelay={150}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '2px 6px',
-                borderRadius: tokens.radius.xs,
-                fontSize: 10,
-                letterSpacing: '0.05em',
-                marginLeft: 4,
-                backgroundColor: duplicateStyle.badgeBg,
-                color: duplicateStyle.badgeColor,
-                ...duplicateRoleBadgeStyle,
-              }}
-            >
-              {resolvedDuplicateRole === 'primary' ? (
-                <CheckCircle2 size={12} />
-              ) : (
-                <CircleHelp size={12} />
-              )}
-              {duplicateBadgeLabel}
-            </div>
-          </MuiTooltip>
         ) : isManualExpense ? (
           <CreditCard
             data-testid="manual-expense-type-icon"
             size={14}
             style={{ color: c.ink500, opacity: 0.5, marginLeft: 4 }}
           />
-        ) : (
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 500,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: c.ink400,
-              background: c.ink50,
-              borderRadius: tokens.radius.xs,
-              padding: '2px 6px',
-              marginLeft: 4,
-              opacity: 0.7,
-            }}
-          >
-            {resolvedTypeLabel === 'PDF' ? 'PDF' : resolvedTypeLabel}
-          </span>
-        )}
+        ) : null}
       </div>
-      <div style={{ fontSize: 11, fontWeight: 500, color: c.ink400, marginTop: 2, marginLeft: 24 }}>
-        {dateLabel}
+      <div className="lumio-stmt-list-item__meta">
+        {[dateLabel, typeCaption].filter(Boolean).join(' · ')}
+        {duplicateCaption ? (
+          <MuiTooltip title={duplicateTooltipText} placement="top" enterDelay={150}>
+            <span data-testid="statement-duplicate-caption"> · {duplicateCaption}</span>
+          </MuiTooltip>
+        ) : null}
         {renderRowsToggle()}
         <NotesBadge entityId={statement.id} />
       </div>
@@ -717,22 +544,20 @@ export function StatementsListItem({
       }}
     >
       <span
+        className="lumio-stmt-list-item__amount"
         style={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          fontSize: 19,
-          lineHeight: 1,
-          fontWeight: 900,
-          letterSpacing: '-0.025em',
-          fontVariantNumeric: 'tabular-nums',
           color: isNegativeAmount || hasError || isMissingAmount ? c.danger : c.ink900,
         }}
       >
         {showAmountLoader ? (
           <Spinner style={{ width: 16, height: 16, color: c.ink400 }} />
         ) : (
-          amountLabel
+          <>
+            {amountFigure}
+            {amountCurrency ? (
+              <span className="lumio-stmt-list-item__currency"> {amountCurrency}</span>
+            ) : null}
+          </>
         )}
       </span>
       <div
@@ -767,17 +592,7 @@ export function StatementsListItem({
         // The whole row already opens the statement, so a plain row gets a quiet
         // arrow instead of a "View" pill; a duplicate keeps its "Review" label,
         // which says something the row click does not.
-        className={`lumio-stmt-list-item__view-btn${isPossibleDuplicate ? '' : ' lumio-stmt-list-item__view-btn--arrow'}`}
-        style={
-          isPossibleDuplicate
-            ? {
-                borderColor: duplicateStyle.buttonBorder,
-                backgroundColor: duplicateStyle.buttonBg,
-                color: duplicateStyle.buttonColor,
-                ...duplicateRoleButtonStyle,
-              }
-            : {}
-        }
+        className={`lumio-stmt-list-item__view-btn ${isPossibleDuplicate ? 'lumio-stmt-list-item__view-btn--link' : 'lumio-stmt-list-item__view-btn--arrow'}`}
         aria-label={actionLabel}
         disabled={viewDisabled}
       >
@@ -810,13 +625,10 @@ export function StatementsListItem({
   };
 
   // Row styles based on duplicate/error/selected state
-  const rowStyle: React.CSSProperties = isPossibleDuplicate
-    ? duplicateCardStyle
-    : hasError
+  const rowStyle: React.CSSProperties =
+    hasError && !isPossibleDuplicate
       ? { borderColor: '#fecaca', backgroundColor: 'rgba(255,241,242,0.4)' }
-      : selected
-        ? {}
-        : {};
+      : {};
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: whole-row click is a shortcut for the buttons rendered inside this row. Giving the row role=button would nest interactive elements inside an interactive role, which is worse than the current state.
@@ -829,11 +641,7 @@ export function StatementsListItem({
       {isPossibleDuplicate ? (
         <span
           aria-hidden
-          className="lumio-stmt-list-item__accent"
-          style={{
-            width: 4,
-            backgroundColor: duplicateStyle.lineColor,
-          }}
+          className={`lumio-stmt-list-item__accent${duplicateGroupStart ? ' lumio-stmt-list-item__accent--start' : ''}${duplicateGroupEnd ? ' lumio-stmt-list-item__accent--end' : ''}`}
         />
       ) : null}
 
@@ -904,7 +712,7 @@ export function StatementsListItem({
           </div>
           <div className="lumio-stmt-list-item__mobile-line lumio-stmt-list-item__mobile-meta">
             <span className="lumio-stmt-list-item__mobile-meta-text">
-              {[dateLabel, isPossibleDuplicate ? duplicateBadgeLabel : categoryLabel || sourceLabel]
+              {[dateLabel, isPossibleDuplicate ? duplicateCaption : categoryLabel || sourceLabel]
                 .filter(Boolean)
                 .join(' · ')}
             </span>

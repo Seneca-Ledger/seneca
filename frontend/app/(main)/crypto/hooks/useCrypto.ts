@@ -102,6 +102,8 @@ interface UseCryptoState {
   syncWallet: (id: string) => void;
   removeWallet: (id: string) => void;
   history: CryptoHistory | null;
+  historyDays: CryptoHistoryDays;
+  setHistoryDays: (days: CryptoHistoryDays) => void;
   savingHolding: boolean;
   saveHolding: (holding: ManualHoldingInput) => Promise<boolean>;
   removeHolding: (asset: string) => void;
@@ -130,6 +132,10 @@ function resolveBusyWalletId(
   return null;
 }
 
+/** The chart's periods: a month, a quarter, a year. */
+export const CRYPTO_HISTORY_DAYS = [30, 90, 365] as const;
+export type CryptoHistoryDays = (typeof CRYPTO_HISTORY_DAYS)[number];
+
 export function useCrypto(): UseCryptoState {
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
@@ -152,10 +158,19 @@ export function useCrypto(): UseCryptoState {
       apiQueryDecoded({ url: '/crypto/transactions', signal, contract: 'CryptoTransactionList' }),
   });
 
+  // The period goes into the key under the shared prefix, so invalidating the
+  // history still reaches every period.
+  const [historyDays, setHistoryDays] = useState<CryptoHistoryDays>(90);
   const historyQuery = useQuery({
-    queryKey: queryKeys.cryptoHistory(workspaceId),
+    queryKey: [...queryKeys.cryptoHistory(workspaceId), historyDays],
     queryFn: ({ signal }) =>
-      apiQueryDecoded({ url: '/crypto/history', signal, contract: 'CryptoHistory' }),
+      apiQueryDecoded({
+        url: `/crypto/history?days=${historyDays}`,
+        signal,
+        contract: 'CryptoHistory',
+      }),
+    // The line stays on screen while another period loads.
+    placeholderData: previous => previous,
   });
 
   // Год приходит в ключ запроса: смена года — другой запрос, а не ручная перезагрузка.
@@ -328,6 +343,8 @@ export function useCrypto(): UseCryptoState {
     syncWallet,
     removeWallet,
     history: historyQuery.data ?? null,
+    historyDays,
+    setHistoryDays,
     savingHolding: saveHoldingMutation.isPending,
     saveHolding,
     removeHolding,

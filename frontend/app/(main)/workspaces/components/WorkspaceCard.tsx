@@ -8,6 +8,7 @@ import { alpha } from '@mui/material/styles';
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { tokens } from '@/lib/theme-tokens';
+import { PLAIN_BACKGROUND } from '../constants';
 
 const getApiMessage = (error: unknown, fallback: string) => {
   if (!error || typeof error !== 'object') {
@@ -59,6 +60,7 @@ export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: Workspac
         workspace.backgroundImage.startsWith('/')),
   );
 
+  const plain = workspace.backgroundImage === PLAIN_BACKGROUND;
   const backgroundImage = workspace.backgroundImage
     ? isExternalBackground
       ? workspace.backgroundImage
@@ -107,7 +109,9 @@ export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: Workspac
             sx={{
               position: 'absolute',
               inset: 0,
-              backgroundImage: `url(${backgroundImage})`,
+              // "No photo": the flat warm surface instead of a picture.
+              backgroundImage: plain ? 'none' : `url(${backgroundImage})`,
+              bgcolor: 'var(--icon-badge-bg)',
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               transition: 'transform 400ms ease',

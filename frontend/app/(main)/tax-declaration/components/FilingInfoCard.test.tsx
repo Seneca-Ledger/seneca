@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import '@/app/components/dashboard/test-setup';
 
@@ -39,12 +39,13 @@ const INFO: FilingInfo = {
 describe('FilingInfoCard', () => {
   it('says the dates were worked out from the law, and when it was read', () => {
     render(<FilingInfoCard info={INFO} />);
-    expect(screen.getByText('basisStatute Oct 10, 2026')).toBeInTheDocument();
+    // Checked date and source share one line.
+    expect(screen.getByText(/basisStatute Oct 10, 2026 ·/)).toBeInTheDocument();
   });
 
   it('says the dates were published by the authority', () => {
     render(<FilingInfoCard info={{ ...INFO, basis: 'published', checkedAt: '2026-09-14' }} />);
-    expect(screen.getByText('basisPublished Sep 14, 2026')).toBeInTheDocument();
+    expect(screen.getByText(/basisPublished Sep 14, 2026 ·/)).toBeInTheDocument();
   });
 
   it('says nothing about the basis for a draft saved before it was recorded', () => {
@@ -56,5 +57,23 @@ describe('FilingInfoCard', () => {
   it('says when no deadline was verified for the case', () => {
     render(<FilingInfoCard info={{ ...INFO, deadlines: [] }} />);
     expect(screen.getByText(/^noVerifiedDeadline/)).toBeInTheDocument();
+  });
+
+  it('says up front when every deadline has passed, and that filing late is still possible', () => {
+    render(<FilingInfoCard info={{ ...INFO, deadlines: [{ kind: 'standard', date: '2026-04-30' }] }} />);
+    expect(screen.getByText('deadlinePassedLate Apr 30, 2026')).toBeInTheDocument();
+  });
+
+  it('names only the form for the chosen method and folds the others away', () => {
+    render(
+      <FilingInfoCard
+        info={{ ...INFO, formName: 'PIT-36 / PIT-36L / PIT-28' }}
+        chosenForm={{ code: 'PIT-36L', label: 'Flat 19% tax (PIT-36L)' }}
+      />,
+    );
+    expect(screen.getByText(/Flat 19% tax \(PIT-36L\)/)).toBeInTheDocument();
+    expect(screen.queryByText('PIT-36 · PIT-28')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /otherForms/ }));
+    expect(screen.getByText('PIT-36 · PIT-28')).toBeInTheDocument();
   });
 });

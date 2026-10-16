@@ -39,6 +39,8 @@ export interface DrawerShellProps {
   sx?: SxProps<Theme>;
   /** Override z-index for the drawer modal (useful when rendering above MUI Dialog) */
   zIndex?: number;
+  /** Pinned under the content, which then scrolls on its own: the drawer's main actions. */
+  footer?: React.ReactNode;
 }
 
 /** Set on an overlay while a sidebar opened after it sits on top; styled in `_drawer-stack.scss`. */
@@ -140,6 +142,7 @@ export function DrawerShell({
   lockScroll: LockScroll = true,
   sx,
   zIndex,
+  footer,
 }: DrawerShellProps) {
   const t = useIntlayer('uiShell');
   // eslint-disable-next-line max-params
@@ -210,9 +213,21 @@ export function DrawerShell({
           )}
         </div>
       )}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 24, minHeight: 0 }}>
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 24,
+          minHeight: 0,
+          overflowY: footer ? 'auto' : undefined,
+        }}
+      >
         {children}
       </div>
+      {footer && (
+        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)' }}>{footer}</div>
+      )}
     </Drawer>
   );
 }

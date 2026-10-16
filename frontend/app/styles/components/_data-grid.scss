@@ -47,13 +47,12 @@
 
   &__th {
     padding: 10px 12px;
-    border-bottom: 1px solid $lumio-color-ink-150;
+    border-bottom: 1px solid $lumio-color-hairline;
     text-align: left;
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-semibold;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: $lumio-color-ink-500;
+    // Sentence case, small and grey: the rule for every table in the app.
+    font-size: 13px;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -117,7 +116,7 @@
   &__td {
     padding: 0 12px;
     height: 44px;
-    border-bottom: 1px solid $lumio-color-ink-100;
+    border-bottom: 1px solid $lumio-color-hairline;
     vertical-align: middle;
     white-space: nowrap;
     overflow: hidden;
@@ -132,7 +131,7 @@
     transition: background-color 120ms ease;
 
     &:hover > .lumio-grid__td {
-      background-color: $lumio-color-ink-50;
+      background-color: $lumio-color-slot-bg;
 
       @include dark {
         background-color: $lumio-color-ink-50-dk;
@@ -170,6 +169,7 @@
 
   &__cell--numeric {
     font-variant-numeric: tabular-nums;
+    font-weight: $lumio-font-weight-medium;
   }
 
   &__tfoot {

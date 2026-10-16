@@ -71,5 +71,6 @@ export function mapApiRecordToTransaction(tx: TransactionApiRecord): Transaction
     transferPairKind: tx.transferPairKind,
     reimbursementOfId: tx.reimbursementOfId,
     reimbursementOf: tx.reimbursementOf,
+    isVerified: tx.isVerified,
   };
 }

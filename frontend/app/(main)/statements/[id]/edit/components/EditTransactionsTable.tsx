@@ -17,12 +17,11 @@ import {
 } from '../helpers/transactionDisplayHelpers';
 import { TransactionRow } from './TransactionRow';
 
+/** Sentence case, grey and small: column titles label, they do not shout. */
 const CELL_HEADER_SX = {
-  fontWeight: 600,
-  fontSize: '0.75rem',
-  color: 'text.secondary',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
+  fontWeight: 400,
+  fontSize: 13,
+  color: 'var(--text-muted)',
 } as const;
 
 type TableHeaderRowProps = {
@@ -39,13 +38,7 @@ function TableHeaderRow({
   onSelectAll,
 }: TableHeaderRowProps): React.ReactElement {
   return (
-    <TableRow
-      sx={{
-        bgcolor: theme => (theme.palette.mode === 'dark' ? '#18222d' : theme.palette.grey[50]),
-        borderBottom: '1px solid',
-        borderBottomColor: 'divider',
-      }}
-    >
+    <TableRow sx={{ borderBottom: '1px solid', borderBottomColor: 'divider' }}>
       <TableCell padding="checkbox">
         <Checkbox
           checked={selectedRows.size === transactions.length && transactions.length > 0}
@@ -56,14 +49,14 @@ function TableHeaderRow({
       <TableCell sx={CELL_HEADER_SX}>{colLabels.date}</TableCell>
       <TableCell sx={CELL_HEADER_SX}>{colLabels.counterparty}</TableCell>
       <TableCell sx={CELL_HEADER_SX}>{colLabels.paymentPurpose}</TableCell>
+      {/* One signed column instead of Expense and Income half-filled with dashes. */}
       <TableCell align="right" sx={CELL_HEADER_SX}>
-        {colLabels.expense}
-      </TableCell>
-      <TableCell align="right" sx={CELL_HEADER_SX}>
-        {colLabels.income}
+        {colLabels.amount}
       </TableCell>
       <TableCell sx={CELL_HEADER_SX}>{colLabels.category}</TableCell>
-      <TableCell sx={CELL_HEADER_SX}>{colLabels.actions}</TableCell>
+      <TableCell sx={CELL_HEADER_SX}>
+        <span className="u-visually-hidden">{colLabels.actions}</span>
+      </TableCell>
     </TableRow>
   );
 }
@@ -143,6 +136,9 @@ export function EditTransactionsTable({
               locale={locale}
               formatNumber={formatNumber}
               confirmDeleteLabel={editLabels.confirmDelete}
+              deleteLabel={editLabels.deleteAction}
+              moreActionsLabel={editLabels.moreActions}
+              cancelLabel={editLabels.cancel}
               notSelectedLabel={editLabels.notSelected}
               noCategoryLabel={editLabels.noCategory}
               assignCategoryLabel={editLabels.assignCategory}

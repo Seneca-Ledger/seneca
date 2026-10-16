@@ -120,7 +120,7 @@ $lumio-logo-lockup-ratio: '1716 / 370';
   .lumio-account__trigger {
     justify-content: center;
     gap: 0;
-    width: 40px;
+    width: var(--lumio-sidebar-row, 40px);
     margin: 0 auto;
     padding: 0;
   }
@@ -153,7 +153,7 @@ $lumio-logo-lockup-ratio: '1716 / 370';
   align-items: center;
   gap: 2px;
   margin: $lumio-focus-ring-reach $lumio-focus-ring-reach 0;
-  height: $lumio-sidebar-brand-height;
+  height: clamp(32px, calc(var(--lumio-sidebar-row, 40px) * 1.1), #{$lumio-sidebar-brand-height});
   padding: 0 8px - $lumio-focus-ring-reach;
   box-sizing: border-box;
   flex-shrink: 0;
@@ -233,6 +233,53 @@ $lumio-logo-lockup-ratio: '1716 / 370';
   }
 }
 
+// ── Row scale ──
+// On a short window — a laptop, more so at 125% display scaling — the sidebar
+// shrinks as a whole instead of growing a scrollbar: the brand row, every nav row
+// and the two footer rows share the height (Sidebar.tsx sets the row count), and
+// type and icons keep their proportion to the row. The brand counts as 1.1 rows;
+// the fixed part is the focus-ring insets, the footer's padding and border, and
+// room for the brand's own floor. Only below the 20px floor does the nav scroll.
+$lumio-sidebar-fixed: 2 * $lumio-focus-ring-reach + 17px + 14px;
+
+.lumio-sidebar__brand,
+.lumio-sidebar__nav,
+.lumio-sidebar__footer {
+  --lumio-sidebar-row: clamp(
+    20px,
+    calc((100vh - #{$lumio-sidebar-fixed}) / (var(--lumio-sidebar-rows, 18) + 1.1) - 2px),
+    40px
+  );
+  --lumio-sidebar-type: max(10px, calc(var(--lumio-sidebar-row) * 0.3125));
+  --lumio-sidebar-icon: max(12px, calc(var(--lumio-sidebar-row) * 0.45));
+}
+
+.lumio-sidebar__nav-item,
+.lumio-sidebar__support-link,
+.lumio-sidebar__footer .lumio-account__trigger {
+  min-height: var(--lumio-sidebar-row);
+  max-height: var(--lumio-sidebar-row);
+  font-size: var(--lumio-sidebar-type);
+}
+
+.lumio-sidebar__nav-icon .MuiSvgIcon-root {
+  font-size: var(--lumio-sidebar-icon);
+}
+
+.lumio-sidebar__footer .lumio-account__avatar {
+  width: calc(var(--lumio-sidebar-row) * 0.6);
+  height: calc(var(--lumio-sidebar-row) * 0.6);
+}
+
+.lumio-sidebar__support-icon {
+  display: flex;
+  flex-shrink: 0;
+
+  .MuiSvgIcon-root {
+    font-size: var(--lumio-sidebar-icon);
+  }
+}
+
 // ── Navigation ──
 .lumio-sidebar__nav {
   flex: 1;
@@ -254,14 +301,11 @@ $lumio-logo-lockup-ratio: '1716 / 370';
   gap: 10px;
   width: 100%;
   flex: 0 0 auto;
-  min-height: 40px;
-  max-height: 40px;
   padding: 0 10px;
   border-radius: $lumio-radius-md;
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 12.5px;
   font-weight: 500;
   color: $lumio-color-text-secondary;
   text-align: left;
@@ -359,38 +403,21 @@ $lumio-logo-lockup-ratio: '1716 / 370';
   gap: 10px;
   width: 100%;
   flex: 0 0 auto;
-  min-height: 40px;
-  max-height: 40px;
   padding: 0 10px;
   border-radius: $lumio-radius-md;
-  border: 1px solid var(--primary-100);
-  background: var(--primary-50);
-  color: var(--primary-strong);
-  font-size: 12.5px;
-  font-weight: 600;
+  // A plain row with a grey line heart, like the nav above it: no green tile.
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-
-  @include dark {
-    border-color: $lumio-color-primary-100-dk;
-    background: $lumio-color-primary-50-dk;
-    color: $lumio-color-primary-dk;
-  }
+  transition: background 0.2s, color 0.2s;
 
   &:hover {
-    border-color: var(--primary-200);
-    background: var(--primary-100);
-
-    @include dark {
-      border-color: $lumio-color-primary-200-dk;
-      background: $lumio-color-primary-100-dk;
-    }
+    background: var(--surface-soft);
+    color: var(--foreground);
   }
-}
-
-.lumio-sidebar__support-icon {
-  font-size: 16px;
 }
 
 .lumio-sidebar__support-label {
@@ -514,7 +541,8 @@ $lumio-logo-lockup-ratio: '1716 / 370';
 // mark turns `position: fixed` on wide screens to sit on the column seam.
 .lumio-auth-logo {
   display: block;
-  height: 40px;
+  // Smaller than the wordmark's natural weight: the form, not the logo, leads.
+  height: 28px;
   aspect-ratio: #{$lumio-logo-lockup-ratio};
   margin: 0 auto 24px;
   background: url('/images/logo-lockup.svg') no-repeat center / contain;

@@ -3,6 +3,8 @@
 import React, { useMemo } from 'react';
 import { ArrowDown, ArrowUp, Minus } from '@/app/components/icons';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { resolveLocaleTag } from '@/app/lib/user-format';
+import { readStoredFormatPreferences } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import type { SummaryItem, SummarySection } from '../types';
 import { RenderIcon } from './components/RenderIcon';
@@ -17,7 +19,7 @@ export function SummaryItemComponent({ item }: { item: SummaryItem }) {
     let formatted: string;
     switch (item.format) {
       case 'currency':
-        formatted = new Intl.NumberFormat('ru-RU', {
+        formatted = new Intl.NumberFormat(resolveLocaleTag(readStoredFormatPreferences().locale), {
           style: 'currency',
           currency: FALLBACK_CURRENCY,
           minimumFractionDigits: 0,
@@ -27,7 +29,9 @@ export function SummaryItemComponent({ item }: { item: SummaryItem }) {
         formatted = `${item.value}%`;
         break;
       case 'number':
-        formatted = new Intl.NumberFormat('ru-RU').format(item.value);
+        formatted = new Intl.NumberFormat(
+          resolveLocaleTag(readStoredFormatPreferences().locale),
+        ).format(item.value);
         break;
       default:
         formatted = String(item.value);

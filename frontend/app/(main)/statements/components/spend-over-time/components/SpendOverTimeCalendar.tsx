@@ -57,6 +57,23 @@ const parseIso = (iso: string): Date => {
 };
 
 const startOfMonth = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), 1);
+
+/** Shades of the heat scale: one sage, five steps of strength. */
+const HEAT_LEVELS = 5;
+
+/**
+ * A day's step on the heat scale, by where its total ranks among the month's
+ * days (quantiles), not by its share of the largest: one day of €761 would
+ * otherwise leave every other day the same pale shade.
+ */
+export function heatLevel(total: number, sortedTotals: number[]): number {
+  if (sortedTotals.length === 0 || total <= 0) {
+    return 0;
+  }
+  const below = sortedTotals.filter(value => value < total).length;
+  const rank = sortedTotals.length > 1 ? below / (sortedTotals.length - 1) : 1;
+  return Math.min(HEAT_LEVELS, Math.floor(rank * HEAT_LEVELS) + 1);
+}
 const getGridStart = (monthStart: Date): Date => {
   const day = monthStart.getDay();
   const diff = day === 0 ? -6 : 1 - day;
@@ -142,6 +159,15 @@ export function SpendOverTimeCalendar({
   }, [dayMap, month]);
 
   const hasRecordsInMonth = days.some(day => day.inCurrentMonth && day.records.length > 0);
+  // The heat scale only compares like with like: days spent in the workspace currency.
+  const inBaseCurrency = (day: CalendarDay) =>
+    day.currencies.length === 1 && day.currencies[0] === currency;
+  const sortedTotals = days
+    .filter(day => day.inCurrentMonth && day.records.length > 0 && inBaseCurrency(day))
+    .map(day => day.total)
+    .sort((a, b) => a - b);
+  const todayIso = toIso(new Date());
+  const money = (value: number, code: string) => formatMoney(value, code, locale);
 
   const monthDaysWithItems = days.filter(day => day.inCurrentMonth && day.records.length > 0);
 
@@ -157,21 +183,31 @@ export function SpendOverTimeCalendar({
 
       <div className="lumio-spend-calendar__grid">
         {days.map(day => {
-          const hasItems = day.records.length > 0;
+          // Days of the neighbouring months are only a number: their spending
+          // belongs to another month's calendar.
+          const hasItems = day.inCurrentMonth && day.records.length > 0;
           const singleCurrency = day.currencies.length === 1 ? day.currencies[0] || currency : null;
           const totalLabel = singleCurrency
-            ? formatMoney(day.total, singleCurrency)
+            ? money(day.total, singleCurrency)
             : `${day.records.length} ${labels.operations}`;
+          // Spent in another currency: not summed with the rest, so it is
+          // marked and left off the heat scale.
+          const foreign = hasItems && !inBaseCurrency(day);
+          const level = hasItems && !foreign ? heatLevel(day.total, sortedTotals) : 0;
 
           return (
             <button
               key={day.iso}
               type="button"
               onClick={() => hasItems && onDayClick(day.iso)}
+              data-heat={level || undefined}
+              title={foreign ? day.currencies.join(', ') : undefined}
               className={[
                 'lumio-spend-calendar__day',
                 hasItems ? 'lumio-spend-calendar__day--active' : '',
+                foreign ? 'lumio-spend-calendar__day--foreign' : '',
                 day.inCurrentMonth ? '' : 'lumio-spend-calendar__day--outside',
+                day.iso === todayIso ? 'lumio-spend-calendar__day--today' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -215,7 +251,7 @@ export function SpendOverTimeCalendar({
                 </span>
                 <span className="lumio-spend-calendar__agenda-total">
                   {day.currencies.length === 1
-                    ? formatMoney(day.total, day.currencies[0] || currency)
+                    ? money(day.total, day.currencies[0] || currency)
                     : `${day.records.length} ${labels.operations}`}
                 </span>
               </button>

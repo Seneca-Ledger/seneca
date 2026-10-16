@@ -31,6 +31,8 @@ export default function AuthLayout({ children, sideContent, topRightAction }: Au
           bgcolor: 'var(--card-bg)',
           color: 'var(--foreground)',
           p: 6,
+          // A little above the geometric centre: the optical one.
+          pb: { md: '12vh' },
           position: 'relative',
           zIndex: 20,
         }}

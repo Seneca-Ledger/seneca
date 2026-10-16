@@ -245,8 +245,8 @@ export function StatementsListHeader({
     >
       {/* The tab strip scrolls inside its own column, so the actions stay in the corner.
           Search, Date and Filters ride here; every other filter lives inside the Filters drawer. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="lumio-stmt-toolbar">
+        <div className="lumio-stmt-toolbar__tabs">
           <StatementsQueueTabs />
         </div>
         <StatementsSearchPopover
@@ -298,16 +298,7 @@ export function StatementsListHeader({
           ) : null}
         </StatementsToolbarButton>
         {/* Keeps the primary action from reading as one more filter button. */}
-        <span
-          aria-hidden
-          style={{
-            width: 1,
-            alignSelf: 'stretch',
-            minHeight: 24,
-            background: 'var(--border-color)',
-            flexShrink: 0,
-          }}
-        />
+        <span aria-hidden className="lumio-stmt-toolbar__divider" />
         <StatementsUploadButton />
       </div>
 

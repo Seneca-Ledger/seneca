@@ -1,23 +1,24 @@
 'use client';
 
-import { Alert, Box, Button, TextField, Typography } from '@mui/material';
+import { Box, Button, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
-import MuiLink from '@mui/material/Link';
 import NextLink from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import React, { Suspense, useState } from 'react';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { Check, Eye, EyeOff } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { tokens } from '@/lib/theme-tokens';
+import { AuthHero } from '../AuthHero';
 import AuthLayout from '../AuthLayout';
 
 const MIN_PASSWORD_LENGTH = 8;
 
 function ResetPasswordContent(): React.JSX.Element {
   const t = useIntlayer('resetPasswordPage');
+  const tl = useIntlayer('loginPage');
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -26,24 +27,31 @@ function ResetPasswordContent(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which field the message is about: the first one, the second, or neither.
+  const [errorField, setErrorField] = useState<'password' | 'confirm' | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
 
     if (!token) {
+      setErrorField(null);
       setError(t.missingToken.value);
       return;
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
+      setErrorField('password');
       setError(t.tooShort.value);
       return;
     }
     if (password !== confirmPassword) {
+      setErrorField('confirm');
       setError(t.mismatch.value);
       return;
     }
 
     setLoading(true);
+    setErrorField(null);
     setError(null);
 
     await apiClient
@@ -62,82 +70,105 @@ function ResetPasswordContent(): React.JSX.Element {
       });
   };
 
-  const sideContent = (
-    <Box sx={{ color: 'white' }}>
-      <Typography
-        variant="h2"
-        fontWeight="bold"
-        gutterBottom
-        sx={{
-          fontFamily: 'var(--font-nunito), "Nunito", sans-serif',
-          textShadow: '0 4px 20px rgba(0,0,0,0.3)',
-        }}
+  const sideContent = <AuthHero tagline={tl.rightTagline} />;
+  const fieldError = (field: 'password' | 'confirm') =>
+    error && errorField === field ? (
+      <p id={`${field}-error`} role="alert" className="lumio-auth-error">
+        {error}
+      </p>
+    ) : null;
+  const visibilityToggle = (
+    <InputAdornment position="end">
+      <IconButton
+        edge="end"
+        size="small"
+        aria-label={(showPassword ? tl.hidePassword : tl.showPassword).value}
+        aria-pressed={showPassword}
+        onClick={() => setShowPassword(prev => !prev)}
       >
-        Lumio
-      </Typography>
-      <Typography variant="h5" sx={{ opacity: 0.9, lineHeight: 1.6 }}>
-        {t.subtitle}
-      </Typography>
-    </Box>
+        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+      </IconButton>
+    </InputAdornment>
   );
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
-      <Typography variant="h4" fontWeight="bold" align="center" sx={{ mb: 1 }}>
+      <div className="lumio-auth-logo" role="img" aria-label="Lumio" />
+      <Typography component="h1" className="lumio-auth-title lumio-auth-title--with-lead">
         {t.title}
       </Typography>
-      <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
-        {t.subtitle}
-      </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      <p className="lumio-auth-lead">{t.subtitle}</p>
 
       {done ? (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          {t.success}
-        </Alert>
+        <p role="status" className="lumio-auth-notice">
+          <Check size={18} aria-hidden />
+          <span>{t.success}</span>
+        </p>
       ) : (
-        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="password"
-            name="password"
-            type="password"
-            label={t.passwordLabel.value}
-            autoComplete="new-password"
-            autoFocus
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            InputProps={{ sx: { borderRadius: tokens.radius.md } }}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            label={t.confirmLabel.value}
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={e => setConfirmPassword(e.target.value)}
-            InputProps={{ sx: { borderRadius: tokens.radius.md } }}
-            sx={{ mb: 2 }}
-          />
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          className="lumio-auth-form"
+          sx={{ width: '100%' }}
+        >
+          <div className="lumio-auth-field">
+            <label htmlFor="password" className="lumio-auth-field__label">
+              {t.passwordLabel}
+            </label>
+            <TextField
+              required
+              fullWidth
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              autoFocus
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              error={errorField === 'password'}
+              slotProps={{
+                htmlInput: {
+                  'aria-describedby': errorField === 'password' ? 'password-error' : undefined,
+                },
+                input: { endAdornment: visibilityToggle },
+              }}
+            />
+            {fieldError('password')}
+          </div>
+          <div className="lumio-auth-field">
+            <label htmlFor="confirmPassword" className="lumio-auth-field__label">
+              {t.confirmLabel}
+            </label>
+            <TextField
+              required
+              fullWidth
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              error={errorField === 'confirm'}
+              slotProps={{
+                htmlInput: {
+                  'aria-describedby': errorField === 'confirm' ? 'confirm-error' : undefined,
+                },
+              }}
+            />
+            {fieldError('confirm')}
+          </div>
+          {error && errorField === null ? (
+            <p role="alert" className="lumio-auth-error">
+              {error}
+            </p>
+          ) : null}
           <Button
             type="submit"
             fullWidth
             variant="contained"
             size="large"
+            className="lumio-auth-submit"
             disabled={loading}
-            sx={{ mt: 1, mb: 3, borderRadius: tokens.radius.md, py: 1.5 }}
           >
             {loading ? (
               <>
@@ -151,11 +182,11 @@ function ResetPasswordContent(): React.JSX.Element {
         </Box>
       )}
 
-      <Typography variant="body2" align="center">
-        <MuiLink component={NextLink} href="/login" underline="hover">
+      <p className="lumio-auth-footnote">
+        <NextLink href="/login" className="lumio-auth-link lumio-auth-link--accent">
           {t.backToLogin}
-        </MuiLink>
-      </Typography>
+        </NextLink>
+      </p>
     </AuthLayout>
   );
 }

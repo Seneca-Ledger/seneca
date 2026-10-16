@@ -4,7 +4,11 @@ import { Box, Button, Card, CardContent, Chip, IconButton, Typography } from '@m
 import { Pencil, Trash2 } from '@/app/components/icons';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useIntlayer } from '@/app/i18n';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
+import { resolveLocaleTag } from '@/app/lib/user-format';
+import {
+  formatStoredDateWithOptions,
+  readStoredFormatPreferences,
+} from '@/app/lib/user-format-store';
 import { priceChangeOf, type SubscriptionItem } from '../hooks/useSubscriptionsPage';
 
 interface SubscriptionCardProps {
@@ -64,7 +68,9 @@ export function SubscriptionCard({
 }: SubscriptionCardProps) {
   const t = useIntlayer('subscriptionsPage');
   const formatAmount = (amount: number, currency: string) =>
-    `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(amount)} ${currency}`;
+    `${new Intl.NumberFormat(resolveLocaleTag(readStoredFormatPreferences().locale), {
+      maximumFractionDigits: 0,
+    }).format(amount)} ${currency}`;
   const priceChange = priceChangeOf(subscription);
   const setAside = monthlySetAsideOf(subscription);
   const fill = (template: string, values: Record<string, string>) =>
@@ -75,7 +81,7 @@ export function SubscriptionCard({
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—';
-    return formatStoredDateWithOptions(dateStr, { day: 'numeric', month: 'short' }, 'ru-RU');
+    return formatStoredDateWithOptions(dateStr, { day: 'numeric', month: 'short' });
   };
 
   return (

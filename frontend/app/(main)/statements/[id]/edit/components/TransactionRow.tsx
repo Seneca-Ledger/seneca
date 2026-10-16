@@ -1,21 +1,22 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import TableCell from '@mui/material/TableCell';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { CheckCircle2, Pencil, Trash2, TriangleAlert, XCircle } from '@/app/components/icons';
+import { useState } from 'react';
+import { CheckCircle2, MoreHorizontal, Pencil, XCircle } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import type { BranchOption, CategoryOption, FieldChangeParams, Transaction } from '../editHelpers';
 import {
   computeMissingCategory,
-  getCategoryChipSx,
   getEditValue,
   getFieldDisplay,
   getRowSx,
@@ -132,45 +133,59 @@ type CategoryChipProps = {
   assignCategoryLabel: string;
 };
 
+/**
+ * The category as text behind a small dot, not a filled pill down the whole
+ * column: a light frame shows on the row under the pointer, saying it can be
+ * changed. No category is an ochre dot, a thing to do rather than an error.
+ */
 function CategoryChip({
   transaction,
   locale,
   noCategoryLabel,
   assignCategoryLabel,
 }: CategoryChipProps): React.ReactElement {
-  if (!transaction.category?.name) {
-    return (
-      <Chip
-        label={noCategoryLabel}
-        size="small"
-        icon={<TriangleAlert size={16} />}
+  const missing = !transaction.category?.name;
+  const isDisabled = transaction.category?.isEnabled === false;
+  const displayName = missing
+    ? noCategoryLabel
+    : getCategoryDisplayName(
+        {
+          name: transaction.category?.name ?? '',
+          source: transaction.category?.source,
+          isSystem: transaction.category?.isSystem,
+        },
+        locale,
+      );
+  return (
+    <Box
+      component="span"
+      className="lumio-stmt-edit-table__category"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.75,
+        px: 1,
+        py: 0.25,
+        ml: -1,
+        borderRadius: 999,
+        border: '1px solid transparent',
+        fontSize: 13.5,
+        color: missing ? 'var(--text-muted)' : 'var(--foreground)',
+      }}
+    >
+      <Box
+        component="span"
+        aria-hidden
         sx={{
-          bgcolor: 'error.50',
-          color: 'error.700',
-          border: '1px solid',
-          borderColor: 'error.100',
-          fontWeight: 600,
-          fontSize: '0.8125rem',
-          '& .MuiChip-icon': { color: 'error.600' },
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          flexShrink: 0,
+          bgcolor: missing || isDisabled ? 'var(--attention)' : 'var(--muted-foreground)',
         }}
       />
-    );
-  }
-  const isDisabled = transaction.category.isEnabled === false;
-  const displayName = getCategoryDisplayName(
-    {
-      name: transaction.category.name,
-      source: transaction.category.source,
-      isSystem: transaction.category.isSystem,
-    },
-    locale,
-  );
-  return (
-    <Chip
-      label={isDisabled ? `${displayName} — ${assignCategoryLabel}` : displayName}
-      size="small"
-      sx={getCategoryChipSx(isDisabled)}
-    />
+      {isDisabled ? `${displayName} — ${assignCategoryLabel}` : displayName}
+    </Box>
   );
 }
 
@@ -178,62 +193,103 @@ type RowActionsProps = {
   isEditing: boolean;
   transaction: Transaction;
   confirmDeleteLabel: string;
+  deleteLabel: string;
+  moreActionsLabel: string;
+  cancelLabel: string;
   onSave: (id: string) => void;
   onCancel: () => void;
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => Promise<void>;
 };
 
+/**
+ * Edit shows on the row under the pointer; delete sits in the "…" menu behind
+ * a confirmation, away from the pencil it used to stand next to.
+ */
 function RowActions({
   isEditing,
   transaction,
   confirmDeleteLabel,
+  deleteLabel,
+  moreActionsLabel,
+  cancelLabel,
   onSave,
   onCancel,
   onEdit,
   onDelete,
 }: RowActionsProps): React.ReactElement {
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [confirming, setConfirming] = useState(false);
   if (isEditing) {
     return (
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         <IconButton
           size="small"
           onClick={() => onSave(transaction.id)}
-          sx={{ color: 'success.600', '&:hover': { bgcolor: 'success.50' } }}
+          sx={{ color: 'var(--money-up)' }}
         >
           <CheckCircle2 size={18} />
         </IconButton>
-        <IconButton
-          size="small"
-          onClick={onCancel}
-          sx={{ color: 'text.secondary', '&:hover': { bgcolor: 'grey.100' } }}
-        >
+        <IconButton size="small" onClick={onCancel} sx={{ color: 'text.secondary' }}>
           <XCircle size={18} />
         </IconButton>
       </Box>
     );
   }
   return (
-    <Box className="lumio-stmt-edit-table__row-actions" sx={{ display: 'flex', gap: 0.5 }}>
-      <IconButton
-        size="small"
-        onClick={() => onEdit(transaction)}
-        sx={{ color: 'text.secondary', '&:hover': { color: 'primary.600', bgcolor: 'primary.50' } }}
-      >
-        <Pencil size={18} />
-      </IconButton>
-      <IconButton
-        size="small"
-        onClick={() => {
-          if (window.confirm(confirmDeleteLabel)) {
-            void onDelete(transaction.id);
+    <>
+      <Box className="lumio-stmt-edit-table__row-actions" sx={{ display: 'flex', gap: 0.25 }}>
+        <IconButton
+          size="small"
+          onClick={() => onEdit(transaction)}
+          sx={{ color: 'text.secondary' }}
+        >
+          <Pencil size={16} />
+        </IconButton>
+        <IconButton
+          size="small"
+          aria-label={moreActionsLabel}
+          aria-haspopup="menu"
+          onClick={event => setMenuAnchor(event.currentTarget)}
+          sx={{ color: 'text.secondary' }}
+        >
+          <MoreHorizontal size={16} />
+        </IconButton>
+      </Box>
+      <Menu anchorEl={menuAnchor} open={menuAnchor !== null} onClose={() => setMenuAnchor(null)}>
+        <MenuItem
+          onClick={() => {
+            setMenuAnchor(null);
+            setConfirming(true);
+          }}
+          sx={{ color: 'var(--money-down)' }}
+        >
+          {deleteLabel}
+        </MenuItem>
+      </Menu>
+      {confirming ? (
+        <ModalShell
+          isOpen
+          onClose={() => setConfirming(false)}
+          title={deleteLabel}
+          size="sm"
+          footer={
+            <ModalFooter
+              onCancel={() => setConfirming(false)}
+              cancelText={cancelLabel}
+              onConfirm={() => {
+                setConfirming(false);
+                void onDelete(transaction.id);
+              }}
+              confirmText={deleteLabel}
+              confirmVariant="destructive"
+            />
           }
-        }}
-        sx={{ color: 'text.secondary', '&:hover': { color: 'error.600', bgcolor: 'error.50' } }}
-      >
-        <Trash2 size={18} />
-      </IconButton>
-    </Box>
+        >
+          <Typography variant="body2">{confirmDeleteLabel}</Typography>
+        </ModalShell>
+      ) : null}
+    </>
   );
 }
 
@@ -248,6 +304,9 @@ export type TransactionRowProps = {
   locale: string;
   formatNumber: (n?: number | null) => string;
   confirmDeleteLabel: string;
+  deleteLabel: string;
+  moreActionsLabel: string;
+  cancelLabel: string;
   notSelectedLabel: string;
   noCategoryLabel: string;
   assignCategoryLabel: string;
@@ -270,6 +329,9 @@ export function TransactionRow({
   locale,
   formatNumber,
   confirmDeleteLabel,
+  deleteLabel,
+  moreActionsLabel,
+  cancelLabel,
   notSelectedLabel,
   noCategoryLabel,
   assignCategoryLabel,
@@ -324,14 +386,22 @@ export function TransactionRow({
           </Tooltip>
         )}
       </TableCell>
-      <TableCell align="right" sx={{ color: 'error.600', fontWeight: 600, fontSize: '0.9375rem' }}>
-        {display('debit')}
-      </TableCell>
+      {/* One signed amount: money out in ink with a minus, money in sage with a plus. */}
       <TableCell
         align="right"
-        sx={{ color: 'success.600', fontWeight: 600, fontSize: '0.9375rem' }}
+        sx={{
+          fontWeight: 500,
+          fontSize: '0.9375rem',
+          fontVariantNumeric: 'tabular-nums',
+          whiteSpace: 'nowrap',
+          color: Number(transaction.credit) > 0 ? 'var(--money-up)' : 'var(--foreground)',
+        }}
       >
-        {display('credit')}
+        {Number(transaction.credit) > 0
+          ? `+${formatNumber(Number(transaction.credit))}`
+          : Number(transaction.debit) > 0
+            ? `−${formatNumber(Number(transaction.debit))}`
+            : '—'}
       </TableCell>
       <TableCell sx={{ minWidth: 150 }}>
         {isEditing ? (
@@ -350,6 +420,9 @@ export function TransactionRow({
           isEditing={isEditing}
           transaction={transaction}
           confirmDeleteLabel={confirmDeleteLabel}
+          deleteLabel={deleteLabel}
+          moreActionsLabel={moreActionsLabel}
+          cancelLabel={cancelLabel}
           onSave={onSave}
           onCancel={onCancel}
           onEdit={onEdit}

@@ -140,4 +140,30 @@ describe('SubscriptionsContent', () => {
     // The matrix loads as its own chunk, so it arrives a tick later.
     expect(await screen.findByTestId('charge-calendar')).toBeInTheDocument();
   });
+
+  it('tells an empty workspace there is nothing yet, with dashes for the summary and no filters', () => {
+    renderContent({ subscriptions: [] });
+
+    expect(screen.getByRole('heading', { name: 'No subscriptions yet' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Search subscriptions')).not.toBeVisible();
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(6);
+    // The empty state's button leads; the toolbar's steps back to outlined.
+    const addButtons = screen.getAllByRole('button', { name: /Add subscription/ });
+    expect(addButtons.map(button => button.className.includes('MuiButton-contained'))).toEqual([
+      false,
+      true,
+    ]);
+  });
+
+  it('says "No matches" with a way back when the filters hide every row', () => {
+    renderContent();
+    fireEvent.change(screen.getByLabelText('Search subscriptions'), {
+      target: { value: 'nothing like this' },
+    });
+
+    expect(screen.getByRole('heading', { name: 'No matches' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(screen.queryByRole('heading', { name: 'No matches' })).toBeNull();
+    expect(screen.getAllByText('Claude')).not.toHaveLength(0);
+  });
 });

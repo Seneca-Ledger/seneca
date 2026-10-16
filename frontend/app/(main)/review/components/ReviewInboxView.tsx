@@ -26,13 +26,16 @@ import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPrev
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import { ChevronDown } from '@/app/components/icons';
 import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
-import {
-  formatAmount,
-  formatDate,
-} from '@/app/components/transactions/helpers/transactionFormatters';
+import { formatDate } from '@/app/components/transactions/helpers/transactionFormatters';
 import { Alert } from '@/app/components/ui/alert';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import {
+  CalendarLineIcon,
+  DuplicateLineIcon,
+  InboxLineIcon,
+  ReceiptLineIcon,
+} from '@/app/components/ui/empty-state-icons';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import { Select } from '@/app/components/ui/select';
 import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
@@ -55,6 +58,14 @@ import {
 
 const SWIPE_THRESHOLD_PX = 80;
 
+/** One line icon per tab, from the set every empty state uses. */
+const EMPTY_ICONS: Record<ReviewInboxKind, React.ReactNode> = {
+  transaction: <InboxLineIcon />,
+  receipt: <ReceiptLineIcon />,
+  duplicate: <DuplicateLineIcon />,
+  subscription: <CalendarLineIcon />,
+};
+
 /** The checkbox slot of a Documents row and of its header. */
 const SELECT_CELL_SX = {
   width: 16,
@@ -67,12 +78,23 @@ const SELECT_CELL_SX = {
 /** Review rows sit on the Documents column widths, so both lists line up the same way. */
 type ReviewColumn = 'receipt' | 'merchant' | 'category' | 'amount';
 
+/**
+ * The name stops at 360px so the category sits next to it instead of across the
+ * row; the room left over goes between the category and the amount.
+ */
+const MERCHANT_MAX_WIDTH = 360;
+
+const reviewColumnWidthStyle = (column: ReviewColumn): React.CSSProperties => ({
+  ...statementColumnWidthStyle(column),
+  ...(column === 'merchant' ? { maxWidth: MERCHANT_MAX_WIDTH } : {}),
+});
+
 const columnStyle = (column: ReviewColumn): React.CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   overflow: 'hidden',
   justifyContent: column === 'receipt' ? 'center' : column === 'amount' ? 'flex-end' : undefined,
-  ...statementColumnWidthStyle(column),
+  ...reviewColumnWidthStyle(column),
 });
 
 // No `display` here: on phones the statements stylesheet hides the column
@@ -82,7 +104,7 @@ const headerStyle = (column: ReviewColumn): React.CSSProperties => ({
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   textAlign: column === 'receipt' ? 'center' : column === 'amount' ? 'right' : 'left',
-  ...statementColumnWidthStyle(column),
+  ...reviewColumnWidthStyle(column),
 });
 
 /** Same words, ignoring case and spacing: "Invoice number 29…" vs "Invoice number29…". */
@@ -228,15 +250,17 @@ export function ReviewInboxView({ state }: Props) {
   /** The amount column's actions for one row; also sizes the header's action column. */
   const renderActions = (item: ReviewInboxItem): React.ReactNode => {
     if (item.kind === 'transaction') {
+      // Shown on the row under the pointer or the keyboard cursor only: a column of
+      // identical buttons would outshout the rows. Bulk approval stays in the toolbar.
       return (
-        <Button
-          size="small"
-          variant="outlined"
+        <button
+          type="button"
+          className="lumio-review-row-approve"
           disabled={busy}
           onClick={() => approveWithCategory([item.id])}
         >
           {categoryId ? t.approveWithCategory.value : t.approveAsIs.value}
-        </Button>
+        </button>
       );
     }
     if (item.kind === 'duplicate') {
@@ -380,11 +404,13 @@ export function ReviewInboxView({ state }: Props) {
     }
     const category = categories.find(entry => entry.id === item.categoryId);
     const label = category ? getCategoryDisplayName(category, locale) : item.categoryName;
-    const source = item.categorySource
-      ? `${sourceLabels[item.categorySource] ?? item.categorySource}${
-          item.categoryReason ? ` · ${item.categoryReason}` : ''
-        }`
-      : null;
+    // "Picked by hand" is what nearly every row would say; only the other sources are news.
+    const source =
+      item.categorySource && item.categorySource !== 'manual'
+        ? `${sourceLabels[item.categorySource] ?? item.categorySource}${
+            item.categoryReason ? ` · ${item.categoryReason}` : ''
+          }`
+        : null;
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
         <CategoryIconBadge
@@ -418,10 +444,18 @@ export function ReviewInboxView({ state }: Props) {
   const renderRow = (item: ReviewInboxItem, index: number) => {
     const isCursor = index === cursor;
     const isSelected = selected.has(item.id);
+    // The figure, then the currency code apart and quieter ("289.00 ILS"): a
+    // bold ₪ or $ glued to the digits outweighed the payee's name.
     const amount =
       'amount' in item && item.amount !== null
-        ? formatAmount(item.amount, ('currency' in item && item.currency) || 'KZT', locale)
-        : '—';
+        ? {
+            figure: new Intl.NumberFormat(locale, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }).format(item.amount),
+            currency: (('currency' in item && item.currency) || 'KZT').toUpperCase(),
+          }
+        : null;
     const document = documentOf(item);
     const href = document ? documentHref(document) : null;
 
@@ -474,19 +508,16 @@ export function ReviewInboxView({ state }: Props) {
             <div style={columnStyle('category')}>{renderCategory(item)}</div>
           ) : null}
           <div style={isMobile ? { flex: '0 0 auto' } : columnStyle('amount')}>
-            <Typography
-              component="span"
-              sx={{
-                fontSize: 19,
-                lineHeight: 1,
-                fontWeight: 900,
-                letterSpacing: '-0.025em',
-                fontVariantNumeric: 'tabular-nums',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {amount}
-            </Typography>
+            <span className="lumio-stmt-list-item__amount" style={{ color: 'var(--foreground)' }}>
+              {amount ? (
+                <>
+                  {amount.figure}
+                  <span className="lumio-stmt-list-item__currency"> {amount.currency}</span>
+                </>
+              ) : (
+                '—'
+              )}
+            </span>
           </div>
           {!isMobile && (
             <Box
@@ -571,7 +602,7 @@ export function ReviewInboxView({ state }: Props) {
       </Box>
     ))
   ) : orderedItems.length === 0 ? (
-    <EmptyState illustration="no-data" title={t.empty.value} compact />
+    <EmptyState icon={EMPTY_ICONS[kind]} title={t.empty.value} compact />
   ) : groups ? (
     groups.map(group => {
       const start = orderedItems.indexOf(group.items[0]);
@@ -627,7 +658,20 @@ export function ReviewInboxView({ state }: Props) {
                 <Tab
                   key={entry}
                   value={entry}
-                  label={page ? `${tabLabels[entry]} (${page.counts[entry]})` : tabLabels[entry]}
+                  label={
+                    page ? (
+                      <span>
+                        {tabLabels[entry]}{' '}
+                        <span
+                          className={`lumio-review-tab-count${page.counts[entry] === 0 ? ' lumio-review-tab-count--zero' : ''}`}
+                        >
+                          {page.counts[entry]}
+                        </span>
+                      </span>
+                    ) : (
+                      tabLabels[entry]
+                    )
+                  }
                 />
               ))}
             </Tabs>
@@ -704,8 +748,9 @@ export function ReviewInboxView({ state }: Props) {
                     options={categoryOptions}
                   />
                 </Box>
+                {/* Outlined like "Approve as is" until a category is picked; then the page's one filled button. */}
                 <Button
-                  variant="contained"
+                  variant={categoryId ? 'contained' : 'outlined'}
                   disabled={busy || !categoryId || (selected.size === 0 && cursor < 0)}
                   onClick={() => approveWithCategory()}
                 >
@@ -721,10 +766,13 @@ export function ReviewInboxView({ state }: Props) {
               </Box>
             )}
           </Box>
+          {/* The keys matter once there is something to act on. */}
           {!isMobile ? (
-            <Typography variant="caption" color="text.secondary">
-              {t.shortcuts.value}
-            </Typography>
+            selected.size > 0 ? (
+              <Typography variant="caption" color="text.secondary">
+                {t.shortcuts.value}
+              </Typography>
+            ) : null
           ) : kind === 'transaction' ? (
             <Typography variant="caption" color="text.secondary">
               {t.swipeHint.value}

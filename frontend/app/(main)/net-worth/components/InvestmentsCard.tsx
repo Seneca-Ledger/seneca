@@ -9,15 +9,16 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Plus, Trash2 } from '@/app/components/icons';
+import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { tokens } from '@/lib/theme-tokens';
 import {
   ASSET_CLASSES,
   type InvestmentAccount,
   type InvestmentAssetClass,
   useInvestments,
 } from '../hooks/useInvestments';
+import { CardTitle, cardSx } from './net-worth-ui';
 
 /**
  * Labels for every asset class net worth can show. `crypto` is not a holding
@@ -40,15 +41,71 @@ export const ASSET_CLASS_KEYS: Record<InvestmentAssetClass | 'crypto' | 'metal',
 interface InvestmentsCardProps {
   currency: string;
   locale: string;
+  /** Drawn inside the Holdings section, which supplies the frame and the title. */
+  embedded?: boolean;
 }
 
-const card = {
-  border: '1px solid',
-  borderColor: 'divider',
-  borderRadius: tokens.radius.md,
-  bgcolor: 'background.paper',
-  p: 3,
-} as const;
+/** A new account: a name and its kind, in a dialog rather than a form on the page. */
+function AddAccountDialog({
+  open,
+  saving,
+  onClose,
+  onCreate,
+}: {
+  open: boolean;
+  saving: boolean;
+  onClose: () => void;
+  onCreate: (name: string, kind: 'investment' | 'retirement') => Promise<unknown>;
+}) {
+  const t = useIntlayer('netWorthPage');
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState<'investment' | 'retirement'>('investment');
+  if (!open) {
+    return null;
+  }
+  return (
+    <ModalShell
+      isOpen
+      onClose={onClose}
+      title={t.addAccount.value}
+      size="sm"
+      footer={
+        <ModalFooter
+          onCancel={onClose}
+          onConfirm={async () => {
+            await onCreate(name.trim(), kind);
+            setName('');
+            onClose();
+          }}
+          confirmText={t.addAccount.value}
+          isConfirmLoading={saving}
+          isConfirmDisabled={!name.trim() || saving}
+        />
+      }
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pt: 1 }}>
+        <TextField
+          size="small"
+          label={t.accountName.value}
+          value={name}
+          onChange={event => setName(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <TextField
+          select
+          size="small"
+          label={t.assetClass.value}
+          value={kind}
+          onChange={event => setKind(event.target.value as 'investment' | 'retirement')}
+          slotProps={{ inputLabel: { shrink: true } }}
+        >
+          <MenuItem value="investment">{t.kindInvestment}</MenuItem>
+          <MenuItem value="retirement">{t.kindRetirement}</MenuItem>
+        </TextField>
+      </Box>
+    </ModalShell>
+  );
+}
 
 function AddHoldingRow({
   account,
@@ -142,7 +199,7 @@ function AddHoldingRow({
 }
 
 /** Investment and retirement accounts with their holdings, right under the net worth they feed. */
-export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
+export function InvestmentsCard({ currency, locale, embedded = false }: InvestmentsCardProps) {
   const t = useIntlayer('netWorthPage');
   const {
     accounts,
@@ -153,13 +210,12 @@ export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
     deleteHolding,
     refreshPrices,
   } = useInvestments();
-  const [newName, setNewName] = useState('');
-  const [newKind, setNewKind] = useState<'investment' | 'retirement'>('investment');
+  const [adding, setAdding] = useState(false);
   const money = (value: number) => formatMoney(value, currency, locale);
   const hasSymbols = accounts.some(account => account.holdings.some(holding => holding.symbol));
 
   return (
-    <Box sx={card}>
+    <Box sx={embedded ? undefined : cardSx}>
       <Box
         sx={{
           display: 'flex',
@@ -170,27 +226,43 @@ export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
         }}
       >
         <Box>
-          <Typography
-            variant="overline"
-            sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: 0.6 }}
-          >
-            {t.investmentsTitle}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+          {/* Inside Holdings the section header already names it. */}
+          {embedded ? null : <CardTitle>{t.investmentsTitle}</CardTitle>}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: embedded ? 0 : 0.5 }}>
             {t.investmentsHint}
           </Typography>
         </Box>
-        {hasSymbols && (
-          <Button size="small" variant="outlined" disabled={saving} onClick={() => refreshPrices()}>
-            {t.refreshPrices}
-          </Button>
-        )}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {hasSymbols && (
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={saving}
+              onClick={() => refreshPrices()}
+            >
+              {t.refreshPrices}
+            </Button>
+          )}
+          {accounts.length > 0 && (
+            <Button size="small" variant="text" onClick={() => setAdding(true)}>
+              <Plus size={16} aria-hidden />
+              {t.addAccount}
+            </Button>
+          )}
+        </Box>
       </Box>
 
+      {/* Nothing yet: one quiet line and a way to add, no form on the page. */}
       {accounts.length === 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          {t.noAccounts}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t.noAccounts}
+          </Typography>
+          <Button size="small" variant="text" onClick={() => setAdding(true)}>
+            <Plus size={16} aria-hidden />
+            {t.addAccount}
+          </Button>
+        </Box>
       )}
 
       {accounts.map(account => (
@@ -294,36 +366,12 @@ export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
         </Box>
       ))}
 
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: 3 }}>
-        <TextField
-          size="small"
-          label={t.accountName.value}
-          value={newName}
-          onChange={event => setNewName(event.target.value)}
-          sx={{ width: 220 }}
-        />
-        <Select
-          size="small"
-          value={newKind}
-          onChange={event => setNewKind(event.target.value as 'investment' | 'retirement')}
-          inputProps={{ 'aria-label': t.assetClass.value }}
-        >
-          <MenuItem value="investment">{t.kindInvestment}</MenuItem>
-          <MenuItem value="retirement">{t.kindRetirement}</MenuItem>
-        </Select>
-        <Button
-          size="small"
-          variant="contained"
-          disabled={!newName.trim() || saving}
-          onClick={async () => {
-            await createAccount(newName.trim(), newKind);
-            setNewName('');
-          }}
-        >
-          <Plus size={18} aria-hidden />
-          {t.addAccount}
-        </Button>
-      </Box>
+      <AddAccountDialog
+        open={adding}
+        saving={saving}
+        onClose={() => setAdding(false)}
+        onCreate={createAccount}
+      />
     </Box>
   );
 }

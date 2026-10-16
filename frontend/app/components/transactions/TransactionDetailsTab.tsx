@@ -1,16 +1,17 @@
 /* eslint-disable max-lines */
 'use client';
 
-import { useTheme } from 'next-themes';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
+import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
+import { ChevronRight } from '@/app/components/icons';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
 import { Select } from '@/app/components/ui/select';
+import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { isPrivateCategory, pickableCategories } from '@/app/lib/private-category';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
-import { tokens } from '@/lib/theme-tokens';
 import { formatAmount, formatDate } from './helpers/transactionFormatters';
 import { useBulkUpdateOwner } from './hooks/useBulkUpdateOwner';
 import { useContributionLink } from './hooks/useContributionLink';
@@ -31,6 +32,27 @@ interface TransactionDetailsTabProps {
   onSplitDone?: () => void | Promise<void>;
 }
 
+interface ActionRowProps {
+  label: React.ReactNode;
+  /** One line on what the action means, for the ones whose name alone does not say. */
+  hint?: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+/** One action of the list: what it does, a line on what it means, an arrow. */
+function ActionRow({ label, hint, onClick, disabled }: ActionRowProps): React.JSX.Element {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className="lumio-tx-action">
+      <span className="lumio-tx-action__text">
+        <span className="lumio-tx-action__label">{label}</span>
+        {hint && <span className="lumio-tx-action__hint">{hint}</span>}
+      </span>
+      <ChevronRight size={16} className="lumio-tx-action__arrow" aria-hidden />
+    </button>
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function TransactionDetailsTab({
   transaction,
@@ -42,8 +64,7 @@ export function TransactionDetailsTab({
   const { locale } = useLocale();
   const t = useIntlayer('transactionsDrawer');
   const tOwner = useIntlayer('transactionOwner');
-  const { resolvedTheme } = useTheme();
-  const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
+  const isMobile = useIsMobile();
   const [ownerSaving, setOwnerSaving] = useState(false);
   const [privateSaving, setPrivateSaving] = useState(false);
   const members = useWorkspaceMembers();
@@ -189,11 +210,8 @@ export function TransactionDetailsTab({
         {/* Set Category */}
         {onUpdateCategory && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label
-              htmlFor="category-select"
-              style={{ display: 'block', fontSize: 12, fontWeight: 600, color: c.ink800 }}
-            >
-              {t.setCategory.value}
+            <label htmlFor="category-select" className="lumio-tx-detail__field-label">
+              {t.splitDialog.category.value}
             </label>
             <div className="lumio-tx-detail__set-cat">
               <Select
@@ -203,10 +221,26 @@ export function TransactionDetailsTab({
                 disabled={updating}
                 options={[
                   { value: '', label: t.selectCategory.value },
-                  ...categoryOptions.map(cat => ({
-                    value: cat.id,
-                    label: getCategoryDisplayName(cat, locale),
-                  })),
+                  ...categoryOptions.map(cat => {
+                    const name = getCategoryDisplayName(cat, locale);
+                    // The phone's own picker takes text only.
+                    return {
+                      value: cat.id,
+                      label: isMobile ? (
+                        name
+                      ) : (
+                        <span className="lumio-tx-detail__cat-option">
+                          <CategoryIconBadge
+                            name={cat.name}
+                            color={cat.color}
+                            icon={cat.icon}
+                            size={18}
+                          />
+                          {name}
+                        </span>
+                      ),
+                    };
+                  }),
                 ]}
                 sx={{ flex: 1 }}
               />
@@ -217,10 +251,7 @@ export function TransactionDetailsTab({
         {/* Who in the household it belongs to */}
         {members.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label
-              htmlFor="owner-select"
-              style={{ display: 'block', fontSize: 12, fontWeight: 600, color: c.ink800 }}
-            >
+            <label htmlFor="owner-select" className="lumio-tx-detail__field-label">
               {tOwner.assignOwner.value}
             </label>
             <Select
@@ -243,16 +274,7 @@ export function TransactionDetailsTab({
         {/* Hidden from the rest of the household */}
         {members.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                fontSize: 12,
-                fontWeight: 600,
-                color: c.ink800,
-              }}
-            >
+            <label className="lumio-tx-detail__check">
               <input
                 type="checkbox"
                 checked={transaction.isPrivate === true}
@@ -269,118 +291,99 @@ export function TransactionDetailsTab({
           </div>
         )}
 
-        {/* Split / Undo split */}
-        {onSplitDone &&
-          (transaction.splitGroupId ? (
-            <button
-              type="button"
-              onClick={() => unsplit(transaction.id)}
-              disabled={splitSaving}
-              className="lumio-tx-detail__ignore-btn"
-            >
-              {splitSaving ? t.undoingSplit.value : t.undoSplit.value}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setSplitOpen(true)}
-              disabled={splitSaving || splitTotal <= 0}
-              className="lumio-tx-detail__ignore-btn"
-            >
-              {t.split}
-            </button>
-          ))}
+        {/* What can be done to the row: a list, each with a line on what it means. */}
+        <div className="lumio-tx-detail__action-list">
+          {/* Split / Undo split */}
+          {onSplitDone &&
+            (transaction.splitGroupId ? (
+              <ActionRow
+                label={splitSaving ? t.undoingSplit.value : t.undoSplit.value}
+                onClick={() => unsplit(transaction.id)}
+                disabled={splitSaving}
+              />
+            ) : (
+              <ActionRow
+                label={t.split}
+                hint={t.sheet.splitHint}
+                onClick={() => setSplitOpen(true)}
+                disabled={splitSaving || splitTotal <= 0}
+              />
+            ))}
 
-        {/* Reimbursement of an expense (incoming rows only) */}
-        {onSplitDone &&
-          transaction.transactionType === 'income' &&
-          (transaction.reimbursementOfId ? (
-            <button
-              type="button"
-              onClick={() => unlinkReimbursement(transaction.id)}
-              disabled={transferSaving}
-              className="lumio-tx-detail__ignore-btn"
-            >
-              {t.reimbursement.unlink.value}
-            </button>
-          ) : (
-            !transaction.transferPairId && (
-              <button
-                type="button"
+          {/* Reimbursement of an expense (incoming rows only) */}
+          {onSplitDone &&
+            transaction.transactionType === 'income' &&
+            (transaction.reimbursementOfId ? (
+              <ActionRow
+                label={t.reimbursement.unlink.value}
+                onClick={() => unlinkReimbursement(transaction.id)}
+                disabled={transferSaving}
+              />
+            ) : (
+              !transaction.transferPairId && (
+                <ActionRow
+                  label={t.reimbursement.link.value}
+                  hint={t.sheet.reimbursementHint}
+                  onClick={() => {
+                    void loadTransferCandidates(transaction.id, 'reimbursement');
+                  }}
+                  disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
+                />
+              )
+            ))}
+
+          {/* Money moved into an investment account (outgoing rows only) */}
+          {onSplitDone &&
+            transaction.transactionType === 'expense' &&
+            !transaction.reimbursementOfId &&
+            (isInvestmentPair ? (
+              <ActionRow
+                label={t.investment.unlink.value}
+                onClick={() => contribution.unlink(transaction.id)}
+                disabled={contribution.saving}
+              />
+            ) : (
+              !transaction.transferPairId && (
+                <ActionRow
+                  label={t.investment.link.value}
+                  hint={t.sheet.contributionHint}
+                  onClick={() => {
+                    void contribution.loadAccounts();
+                  }}
+                  disabled={
+                    contribution.saving || contribution.loading || Boolean(transaction.splitGroupId)
+                  }
+                />
+              )
+            ))}
+
+          {/* Transfer between own accounts */}
+          {onSplitDone &&
+            !isReimbursementPair &&
+            !isInvestmentPair &&
+            !transaction.reimbursementOfId &&
+            (transaction.transferPairId ? (
+              <ActionRow
+                label={transferSaving ? t.transfer.unlinking.value : t.transfer.unlink.value}
+                onClick={() => unlinkTransfer(transaction.id)}
+                disabled={transferSaving}
+              />
+            ) : (
+              <ActionRow
+                label={t.transfer.link.value}
+                hint={t.sheet.transferHint}
                 onClick={() => {
-                  void loadTransferCandidates(transaction.id, 'reimbursement');
+                  void loadTransferCandidates(transaction.id);
                 }}
                 disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
-                className="lumio-tx-detail__ignore-btn"
-              >
-                {t.reimbursement.link.value}
-              </button>
-            )
-          ))}
+              />
+            ))}
 
-        {/* Money moved into an investment account (outgoing rows only) */}
-        {onSplitDone &&
-          transaction.transactionType === 'expense' &&
-          !transaction.reimbursementOfId &&
-          (isInvestmentPair ? (
-            <button
-              type="button"
-              onClick={() => contribution.unlink(transaction.id)}
-              disabled={contribution.saving}
-              className="lumio-tx-detail__ignore-btn"
-            >
-              {t.investment.unlink.value}
-            </button>
-          ) : (
-            !transaction.transferPairId && (
-              <button
-                type="button"
-                onClick={() => {
-                  void contribution.loadAccounts();
-                }}
-                disabled={
-                  contribution.saving || contribution.loading || Boolean(transaction.splitGroupId)
-                }
-                className="lumio-tx-detail__ignore-btn"
-              >
-                {t.investment.link.value}
-              </button>
-            )
-          ))}
-
-        {/* Transfer between own accounts */}
-        {onSplitDone &&
-          !isReimbursementPair &&
-          !isInvestmentPair &&
-          !transaction.reimbursementOfId &&
-          (transaction.transferPairId ? (
-            <button
-              type="button"
-              onClick={() => unlinkTransfer(transaction.id)}
-              disabled={transferSaving}
-              className="lumio-tx-detail__ignore-btn"
-            >
-              {transferSaving ? t.transfer.unlinking.value : t.transfer.unlink.value}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                void loadTransferCandidates(transaction.id);
-              }}
-              disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
-              className="lumio-tx-detail__ignore-btn"
-            >
-              {t.transfer.link.value}
-            </button>
-          ))}
-
-        {/* Mark as Ignored */}
-        {onMarkIgnored && (
-          <button type="button" onClick={handleMarkIgnored} className="lumio-tx-detail__ignore-btn">
-            {t.markIgnored.value}
-          </button>
-        )}
+          {/* Mark as Ignored */}
+          {onMarkIgnored && (
+            <ActionRow label={t.markIgnored.value} onClick={() => void handleMarkIgnored()} />
+          )}
+        </div>
       </div>
 
       {contribution.accounts && (

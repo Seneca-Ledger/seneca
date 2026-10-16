@@ -65,22 +65,69 @@
     }
   }
 
+  // Sentence case in the readable grey, like every other label: no capitals.
   &__stat-label {
-    font-size: 11.5px;
-    color: $lumio-color-ink-500;
+    font-size: 13px;
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
 
-    @include dark {
-      color: $lumio-color-ink-500-dk;
+  &__stat-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    vertical-align: 1px;
+
+    &--positive {
+      background: $lumio-color-money-up;
+
+      @include dark {
+        background: $lumio-color-success-dk;
+      }
     }
+
+    &--negative {
+      background: $lumio-color-money-down;
+
+      @include dark {
+        background: $lumio-color-danger-dk;
+      }
+    }
+
+    &--warning {
+      background: $lumio-color-warning;
+
+      @include dark {
+        background: $lumio-color-warning-dk;
+      }
+    }
+
+    &--info {
+      background: $lumio-color-info;
+
+      @include dark {
+        background: $lumio-color-info-dk;
+      }
+    }
+  }
+
+  /* Ties a category row to its slice: the only colour the list carries. */
+  &__legend-dot {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    border-radius: 50%;
+    vertical-align: 1px;
   }
 
   &__stat-value {
     font-size: 26px;
     font-weight: 600;
-    color: $lumio-color-ink-900;
+    color: $lumio-color-figure;
     letter-spacing: -0.015em;
     margin-top: 6px;
     line-height: 1.15;
@@ -153,6 +200,11 @@
   }
 
   /* What a tile with room adds under its figure: label on the left, value on the right. */
+  /* A tile with room drawing a full chart rather than its sparkline. */
+  &__stat-chart {
+    margin-top: 12px;
+  }
+
   &__stat-details {
     display: grid;
     gap: 4px;
@@ -205,14 +257,11 @@
     margin-top: 10px;
     pointer-events: none;
     opacity: 0.9;
-    color: var(--primary);
-
-    @include dark {
-      color: $lumio-color-primary-dk;
-    }
+    // A neutral line is grey: colour is kept for the cards that deviate.
+    color: var(--text-muted);
 
     &--positive {
-      color: $lumio-color-success;
+      color: $lumio-color-money-up;
 
       @include dark {
         color: $lumio-color-success-dk;
@@ -220,7 +269,7 @@
     }
 
     &--negative {
-      color: $lumio-color-danger;
+      color: $lumio-color-money-down;
 
       @include dark {
         color: $lumio-color-danger-dk;
@@ -342,17 +391,25 @@
       flex: 1 1 auto;
       min-width: 0;
     }
+
+    /* On a phone the head already wraps the actions under the title; there they
+       wrap too (period tabs, then the link) instead of running past the card. */
+    @include respond-to('sm') {
+      flex-shrink: 1;
+      flex-wrap: wrap;
+      min-width: 0;
+      row-gap: 8px;
+    }
   }
 
+  // Sentence case and a medium weight, as on every other card in the app.
   &__card-title {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: $lumio-color-ink-500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: 15px;
+    font-weight: $lumio-font-weight-medium;
+    color: $lumio-color-figure;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $lumio-color-ink-900-dk;
     }
   }
 
@@ -378,13 +435,9 @@
   }
 
   &__card-sub {
-    font-size: 12.5px;
-    color: $lumio-color-ink-500;
+    font-size: 14px;
+    color: var(--text-muted);
     margin-top: 4px;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
   }
 
   &__card-link-btn {
@@ -535,6 +588,25 @@
     @container overview-section (max-width: 720px) {
       display: none;
     }
+
+    /* Under the value when the card shares its row: the card's full width. */
+    &--stacked {
+      flex: none;
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+
+      @container overview-section (max-width: 720px) {
+        display: table;
+      }
+
+      @container overview-section (max-width: 400px) {
+        th:nth-child(2),
+        td:nth-child(2) {
+          display: none;
+        }
+      }
+    }
   }
 
   &__holdings-asset {
@@ -547,8 +619,9 @@
   /* A chart with the row to itself, and what explains it beside (net worth, cash runway). */
   &__chart-aside {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
-    gap: 24px;
+    // A narrow side column: each label sits next to its figure, not across the card.
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 32px;
     align-items: start;
 
     @container overview-section (max-width: 720px) {
@@ -568,6 +641,17 @@
 
     .lumio-dashboard__stat-details {
       margin: 0;
+      gap: 6px;
+      font-size: 14px;
+
+      dt {
+        color: var(--text-muted);
+      }
+
+      dd {
+        font-size: 16px;
+        font-weight: $lumio-font-weight-medium;
+      }
     }
   }
 
@@ -577,9 +661,26 @@
     justify-content: space-between;
     gap: 12px;
     margin-top: 6px;
-    font-size: 12px;
-    color: var(--muted-foreground);
+    font-size: 13px;
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
+  }
+
+  // Over the limit the bar stays inside its track; a short tick past the end
+  // says it went beyond.
+  &__budget-bar {
+    position: relative;
+
+    &[data-tone='over']::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      right: -1px;
+      width: 2px;
+      height: 11px;
+      border-radius: 1px;
+      background: var(--money-down);
+    }
   }
 
   &__budget-row {
@@ -612,7 +713,8 @@
 
   &__budget-pct {
     font-size: 13px;
-    font-weight: $lumio-font-weight-semibold;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--foreground);
     font-variant-numeric: tabular-nums;
   }
 
@@ -983,6 +1085,15 @@
     }
   }
 
+  /* Lined up with the tab content below (DashboardTabContent px: 2 / md: 4). */
+  &__unconfirmed {
+    margin: 12px 32px 0;
+
+    @media (max-width: 899.95px) {
+      margin: 12px 16px 0;
+    }
+  }
+
   /* ── Month strip + year stepper ── */
   &__month-strip {
     display: flex;
@@ -994,6 +1105,49 @@
   &__month-chips {
     flex: 1;
     min-width: 0;
+
+    // Desktop: stretch the twelve chips across the row instead of leaving a gap
+    // before the year stepper; below this width they keep their natural size and scroll.
+    @media (min-width: 1025px) {
+      .lumio-chip {
+        flex: 1 1 0;
+        justify-content: center;
+        height: 36px;
+        font-size: 14px;
+      }
+    }
+
+    // Months are text tabs, not twelve identical pills: no frame or fill, the
+    // picked month in ink with a sage underline, the rest in the readable grey.
+    // Doubled class: outweighs the chip's own dark and hover rules.
+    .lumio-chip.lumio-chip,
+    .lumio-chip.lumio-chip:hover:not(:disabled) {
+      border-color: transparent;
+      border-radius: 0;
+      background: none;
+      box-shadow: none;
+      color: var(--text-muted);
+      font-weight: $lumio-font-weight-medium;
+      text-decoration: underline 2px transparent;
+      text-underline-offset: 8px;
+      transition: color 0.15s, text-decoration-color 0.15s;
+    }
+
+    .lumio-chip.lumio-chip:hover:not(:disabled):not(.lumio-chip--active) {
+      border-color: transparent;
+      background: none;
+      color: var(--foreground);
+    }
+
+    .lumio-chip.lumio-chip--active,
+    .lumio-chip.lumio-chip--active:hover {
+      color: var(--foreground);
+      text-decoration-color: var(--primary);
+    }
+
+    .lumio-chip.lumio-chip--muted {
+      opacity: 0.45;
+    }
   }
 
   &__year-stepper {
@@ -1003,6 +1157,10 @@
     flex-shrink: 0;
     height: 32px;
     padding: 0 4px;
+
+    @media (min-width: 1025px) {
+      height: 36px;
+    }
     border: 1px solid $lumio-color-ink-150;
     border-radius: $lumio-radius-full;
     background: $lumio-color-surface;
@@ -1302,8 +1460,20 @@
     }
   }
 
-  &__reset {
+  /* Under the grid: the widget picker, and the way back to the shipped layout. */
+  &__footer {
     align-self: center;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  &__widgets,
+  &__reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 6px 12px;
     border: 0;
     border-radius: 6px;
@@ -1316,7 +1486,10 @@
       color: var(--foreground);
       background: var(--primary-fill);
     }
+  }
 
+  /* Phones have no grips, so nothing there moves away from the shipped layout by hand. */
+  &__reset {
     @media (max-width: 767px) {
       display: none;
     }
@@ -1331,6 +1504,11 @@
 
     &--tile {
       grid-column: span 6;
+    }
+
+    /* A tile with no partner in its row would leave half the row empty. */
+    &--unpaired {
+      grid-column: 1 / -1;
     }
   }
 }

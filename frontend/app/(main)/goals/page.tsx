@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Plus } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { FlagLineIcon } from '@/app/components/ui/empty-state-icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import { ContributionDrawer } from './components/ContributionDrawer';
@@ -107,6 +108,8 @@ export default function GoalsPage() {
     }
   };
 
+  const noGoals = !(isPending || error) && goals.length === 0;
+
   return (
     <Box
       component="main"
@@ -122,10 +125,13 @@ export default function GoalsPage() {
           flexWrap: 'wrap',
         }}
       >
-        <Button variant="contained" onClick={openCreate}>
-          <Plus size={18} aria-hidden />
-          {t.newGoal}
-        </Button>
+        {/* With no goals the empty state's own button is the one action on the page. */}
+        {noGoals ? null : (
+          <Button variant="contained" onClick={openCreate}>
+            <Plus size={18} aria-hidden />
+            {t.newGoal}
+          </Button>
+        )}
       </Box>
 
       {isPending && (
@@ -143,8 +149,19 @@ export default function GoalsPage() {
         </Typography>
       )}
 
-      {!(isPending || error) && goals.length === 0 && (
-        <EmptyState illustration="goals" description={t.empty} />
+      {noGoals && (
+        <EmptyState
+          fill
+          icon={<FlagLineIcon />}
+          title={t.emptyTitle}
+          description={t.emptyHint}
+          action={
+            <Button variant="contained" onClick={openCreate}>
+              {t.createGoal}
+            </Button>
+          }
+          hint={t.emptyExamples}
+        />
       )}
 
       <Box

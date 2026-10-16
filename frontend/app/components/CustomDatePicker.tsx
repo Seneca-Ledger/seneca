@@ -24,6 +24,8 @@ interface CustomDatePickerProps {
   /** Earliest and latest selectable days, as `yyyy-MM-dd`. */
   minDate?: string;
   maxDate?: string;
+  /** A filter-sized field: "Sep 1, 2024" and a small calendar icon. */
+  compact?: boolean;
 }
 
 const DATE_VALUE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -60,6 +62,7 @@ export default function CustomDatePicker({
   error,
   minDate,
   maxDate,
+  compact,
 }: CustomDatePickerProps) {
   const dateValue = normalizeToDate(value);
   const { preferences } = useUserFormat();
@@ -80,10 +83,11 @@ export default function CustomDatePicker({
         label={label}
         value={dateValue}
         onChange={handleChange}
-        format={displayFormat}
+        format={compact ? 'MMM d, yyyy' : displayFormat}
         minDate={normalizeToDate(minDate) ?? undefined}
         maxDate={normalizeToDate(maxDate) ?? undefined}
         slotProps={{
+          ...(compact ? { openPickerIcon: { fontSize: 'small' } } : {}),
           textField: {
             fullWidth: true,
             id,

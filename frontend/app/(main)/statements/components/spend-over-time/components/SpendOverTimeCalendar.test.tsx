@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SpendOverTimeRecord } from '@/app/(main)/statements/components/spend-over-time.utils';
-import { SpendOverTimeCalendar } from './SpendOverTimeCalendar';
+import { heatLevel, SpendOverTimeCalendar } from './SpendOverTimeCalendar';
 
 const createRecord = (overrides: Partial<SpendOverTimeRecord> = {}): SpendOverTimeRecord => ({
   id: 'record-1',
@@ -99,5 +99,42 @@ describe('SpendOverTimeCalendar', () => {
 
     expect(container.textContent).toContain('Empty month');
     expect(container.querySelectorAll('.lumio-spend-calendar__day--active')).toHaveLength(0);
+  });
+
+  it('shades a month by rank, a heat scale one big day cannot flatten', () => {
+    act(() => {
+      root.render(
+        <SpendOverTimeCalendar
+          records={[
+            createRecord({ id: 'a', dateValue: '2025-12-01', amount: 4 }),
+            createRecord({ id: 'b', dateValue: '2025-12-02', amount: 15 }),
+            createRecord({ id: 'c', dateValue: '2025-12-03', amount: 250 }),
+            createRecord({ id: 'd', dateValue: '2025-12-04', amount: 760 }),
+            createRecord({ id: 'usd', dateValue: '2025-12-05', amount: 9, currencyValue: 'USD' }),
+          ]}
+          month={new Date(2025, 11, 1)}
+          currency="KZT"
+          onDayClick={vi.fn()}
+          labels={{ emptyMonth: 'Nothing', operations: 'operations' }}
+        />,
+      );
+    });
+
+    const heat = [...container.querySelectorAll<HTMLElement>('[data-heat]')].map(
+      cell => cell.dataset.heat,
+    );
+    expect(heat).toEqual(['1', '2', '4', '5']);
+    // Another currency is marked and left off the scale.
+    const foreign = container.querySelector('.lumio-spend-calendar__day--foreign');
+    expect(foreign?.getAttribute('title')).toBe('USD');
+    expect(foreign?.hasAttribute('data-heat')).toBe(false);
+  });
+});
+
+describe('heatLevel', () => {
+  it('gives nothing to an empty day and the top step to the largest', () => {
+    expect(heatLevel(0, [1, 2, 3])).toBe(0);
+    expect(heatLevel(3, [1, 2, 3])).toBe(5);
+    expect(heatLevel(1, [1, 2, 3])).toBe(1);
   });
 });

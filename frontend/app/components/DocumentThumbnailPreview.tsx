@@ -8,6 +8,8 @@ import { DocumentTypeIcon } from '@/app/components/DocumentTypeIcon';
 import { PDFThumbnail } from '@/app/components/PDFThumbnail';
 import { tokens } from '@/lib/theme-tokens';
 
+/** The thumbnail in a list row, border included; the row's receipt column is as wide. */
+const THUMBNAIL_SIZE = 40;
 const PREVIEW_WIDTH = 430;
 const PREVIEW_HEIGHT = 620;
 const PREVIEW_IMAGE_WIDTH = (PREVIEW_WIDTH - 16) * 2;
@@ -107,7 +109,7 @@ export function DocumentThumbnailPreview({
         ref={triggerRef}
         data-testid={testId}
         style={{
-          width: 32,
+          width: THUMBNAIL_SIZE,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -125,12 +127,14 @@ export function DocumentThumbnailPreview({
         onMouseLeave={close}
         aria-label={fileName}
       >
+        {/* Big enough to tell one document from another, in full colour. */}
         <span
           style={{
+            display: 'flex',
+            overflow: 'hidden',
+            borderRadius: 6,
+            border: `1px solid ${c.ink150}`,
             color: c.ink400,
-            opacity: 0.6,
-            transition: 'opacity 0.15s',
-            display: 'contents',
           }}
         >
           <DocumentTypeIcon
@@ -138,8 +142,7 @@ export function DocumentThumbnailPreview({
             fileName={fileName}
             fileId={fileId}
             source={source}
-            size={28}
-            muted
+            size={THUMBNAIL_SIZE - 2}
           />
         </span>
       </button>

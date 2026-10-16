@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { CircleHelp } from '@/app/components/icons';
+import { Plus } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 
@@ -15,46 +15,48 @@ export function hasChosenCategory(name: string | null | undefined): name is stri
 }
 
 /**
- * The category cell of something nobody has categorised yet. Said in words, in
- * the place a category chip would stand, so it reads as "still to do" rather
- * than as an empty cell.
+ * The category cell of something nobody has categorised yet: an empty slot the
+ * shape of a category chip (dashed circle, grey "Add category"), quiet until
+ * hovered. The row's own "To review" carries the alarm; this only says what to do.
  */
-export function NoCategoryBadge({ size = 22 }: { size?: number }): React.JSX.Element {
+export function NoCategoryBadge({
+  size = 22,
+  onClick,
+}: {
+  size?: number;
+  /** Makes the slot a button, e.g. one that opens the category drawer. */
+  onClick?: () => void;
+}): React.JSX.Element {
   const t = useIntlayer('noCategory');
-  const label = resolveLabel(getNestedValue(t, ['label']), 'No category');
+  const label = resolveLabel(getNestedValue(t, ['label']), 'Add category');
   const hint = resolveLabel(getNestedValue(t, ['hint']), label);
-  return (
-    <span
-      data-testid="no-category-badge"
-      title={hint}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        minWidth: 0,
-        color: 'var(--color-warning-soft-text)',
-        fontWeight: 600,
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          border: '1px dashed var(--color-warning-soft-border)',
-          background: 'var(--color-warning-soft-bg)',
+  const content = (
+    <>
+      <span aria-hidden className="lumio-no-category__slot" style={{ width: size, height: size }}>
+        <Plus size={Math.round(size * 0.6)} />
+      </span>
+      <span className="lumio-no-category__text">{label}</span>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        data-testid="no-category-badge"
+        className="lumio-no-category lumio-no-category--button"
+        onClick={event => {
+          // The row behind it opens the document; this opens the category drawer instead.
+          event.stopPropagation();
+          onClick();
         }}
       >
-        <CircleHelp size={Math.round(size * 0.6)} />
-      </span>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
+        {content}
+      </button>
+    );
+  }
+  return (
+    <span data-testid="no-category-badge" title={hint} className="lumio-no-category">
+      {content}
     </span>
   );
 }

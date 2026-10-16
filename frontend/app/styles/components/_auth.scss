@@ -4,49 +4,218 @@
    Light by day, dark by night: the theme follows the app's auto schedule. */
 
 .lumio-auth-backdrop {
-  --auth-grid-line: rgba(15, 23, 42, 0.055);
+  // A flat warm page with a grid you only notice when you look for it, and a
+  // breath of sage behind the hero instead of a cold mint glow.
+  --auth-grid-line: rgba(237, 233, 226, 0.5);
+  --auth-submit: #4f6f5e;
+  --auth-submit-hover: #45614f;
   min-height: 100vh;
   // Not 100vw: that counts the scrollbar gutter.
   width: 100%;
   position: relative;
   overflow: hidden;
-  background-color: #f5f7f6;
+  background-color: $lumio-color-slot-bg;
   background-image:
-    radial-gradient(ellipse 60% 50% at 72% 45%, rgba(16, 185, 129, 0.13), transparent 70%),
+    radial-gradient(ellipse 55% 45% at 75% 45%, #eef3ef, transparent 70%),
     linear-gradient(var(--auth-grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--auth-grid-line) 1px, transparent 1px);
   background-size: 100% 100%, 32px 32px, 32px 32px;
 
   @include dark {
-    --auth-grid-line: rgba(255, 255, 255, 0.045);
-    background-color: #07110c;
+    --auth-grid-line: rgba(255, 255, 255, 0.025);
+    --auth-submit: var(--primary);
+    --auth-submit-hover: var(--primary);
+    background-color: var(--background);
     background-image:
-      radial-gradient(ellipse 60% 50% at 72% 45%, rgba(16, 185, 129, 0.22), transparent 70%),
       linear-gradient(var(--auth-grid-line) 1px, transparent 1px),
       linear-gradient(90deg, var(--auth-grid-line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
   }
 }
 
 .lumio-auth-hero {
-  color: #0b1a14;
+  color: $lumio-color-figure;
 
-  @include dark { color: #f1f5f4; }
+  @include dark { color: var(--foreground); }
 
   &__tagline {
-    color: rgba(11, 26, 20, 0.62);
+    color: var(--text-muted);
+  }
 
-    @include dark { color: rgba(241, 245, 244, 0.72); }
+  &__lead {
+    color: $lumio-color-figure;
+
+    @include dark { color: var(--foreground); }
   }
 
   &__check {
-    border: 1px solid rgba(5, 150, 105, 0.35);
-    background: rgba(255, 255, 255, 0.7);
-    color: #059669;
+    color: var(--primary);
+  }
+}
 
-    @include dark {
-      border-color: rgba(52, 211, 153, 0.45);
-      background: transparent;
-      color: #34d399;
+/* Login form: one heading, labels above the fields, 8px corners everywhere. */
+.lumio-auth-title {
+  margin: 0 0 32px !important;
+  text-align: center;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: var(--foreground);
+}
+
+.lumio-auth-title--with-lead {
+  margin-bottom: 8px !important;
+}
+
+.lumio-auth-lead {
+  margin: 0 0 32px;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+// A done state ("link sent", "password updated"): a quiet line with a sage tick.
+.lumio-auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--foreground);
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--primary);
+  }
+
+  &--plain {
+    align-items: center;
+    background: none;
+    padding: 0;
+    color: var(--text-muted);
+  }
+}
+
+.lumio-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lumio-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  &__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .MuiOutlinedInput-root {
+    border-radius: 8px;
+    background-color: var(--card-bg);
+
+    .MuiOutlinedInput-notchedOutline {
+      border-color: $lumio-color-slot-border;
+
+      @include dark { border-color: $lumio-color-ink-200-dk; }
+    }
+
+    &.Mui-focused .MuiOutlinedInput-notchedOutline {
+      border-color: var(--primary);
+      border-width: 1.5px;
+    }
+
+    &.Mui-error .MuiOutlinedInput-notchedOutline {
+      border-color: $lumio-color-money-down;
+    }
+  }
+}
+
+// The reason a sign-in failed, under the field it is about: text, no banner.
+.lumio-auth-error {
+  margin: 0;
+  font-size: 13px;
+  color: $lumio-color-money-down;
+
+  @include dark { color: #e08a80; }
+
+  &--block {
+    font-size: 14px;
+    text-align: center;
+  }
+}
+
+.lumio-auth-submit.MuiButton-root {
+  margin-top: 4px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background-color: var(--auth-submit);
+  box-shadow: none;
+  font-size: 16px;
+  font-weight: 500;
+  text-transform: none;
+
+  &:hover {
+    background-color: var(--auth-submit-hover);
+    box-shadow: none;
+  }
+}
+
+.lumio-auth-footnote {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+// Below a form, a notice or an error rather than inside the form's own gaps.
+.lumio-auth-form + .lumio-auth-footnote,
+.lumio-auth-notice + .lumio-auth-footnote,
+.lumio-auth-error + .lumio-auth-footnote {
+  margin-top: 24px;
+}
+
+// One link style on the page: 14px, regular weight; only "Sign up" in sage.
+.lumio-auth-link {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--foreground);
+    text-decoration: underline;
+  }
+
+  &--accent {
+    font-size: 14px;
+    color: var(--primary);
+
+    &:hover,
+    &:focus-visible {
+      color: var(--primary);
     }
   }
 }

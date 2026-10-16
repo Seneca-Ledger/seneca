@@ -166,7 +166,7 @@ export const formatDate = (dateString?: string | null): string => {
     return '';
   }
   try {
-    return formatStoredDate(dateString, 'ru-RU');
+    return formatStoredDate(dateString);
   } catch {
     return String(dateString);
   }

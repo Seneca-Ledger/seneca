@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { IntegrationConnection, ProtocolFileList } from '@/app/lib/contracts';
 import { checkContract } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
@@ -120,8 +121,10 @@ export function ProtocolIntegrationPage({
       void onConnectionStatusChange?.(next.connected);
       setActionMessage(t.messages.connected.value);
     })()
-      .catch(async () => {
-        setActionMessage(t.messages.connectionFailed.value);
+      // The backend's reason (translated by its code) says what to fix: a
+      // refused key, a missing company id.
+      .catch(async (error: unknown) => {
+        setActionMessage(getApiErrorMessage(error, t.messages.connectionFailed.value));
       })
       .finally(async () => {
         setSaving(false);

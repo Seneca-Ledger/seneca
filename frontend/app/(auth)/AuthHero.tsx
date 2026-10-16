@@ -24,28 +24,25 @@ const FEATURE_KEYS = [
 ] as const;
 
 type AuthHeroProps = {
-  title: ReactNode;
+  /** Left out where the logo beside it already names the product. */
+  title?: ReactNode;
   tagline: ReactNode;
 };
 
 function FeatureItem({ children }: { children: ReactNode }): React.JSX.Element {
   return (
-    <Box component="li" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontSize: 15 }}>
+    <Box
+      component="li"
+      sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, fontSize: 16, lineHeight: 1.6 }}
+    >
+      {/* A plain sage tick, no ring around it. */}
       <Box
         component="span"
         aria-hidden
         className="lumio-auth-hero__check"
-        sx={{
-          width: 24,
-          height: 24,
-          flexShrink: 0,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: '50%',
-        }}
+        sx={{ flexShrink: 0, display: 'inline-flex', pt: '3px' }}
       >
-        <Check size={14} />
+        <Check size={18} />
       </Box>
       <span>{children}</span>
     </Box>
@@ -79,21 +76,28 @@ export function AuthHero({ title, tagline }: AuthHeroProps): React.JSX.Element {
 
   return (
     <Box className="lumio-auth-hero" sx={{ textAlign: 'left', maxWidth: 440, mx: 'auto' }}>
+      {title ? (
+        <Typography
+          component="p"
+          sx={{
+            fontFamily: 'var(--font-nunito), "Nunito", sans-serif',
+            fontSize: { md: 48, lg: 56 },
+            fontWeight: 800,
+            letterSpacing: '-0.02em',
+            lineHeight: 1.05,
+          }}
+        >
+          {title}
+        </Typography>
+      ) : null}
+      {/* Without a title the tagline is the heading of the half. */}
       <Typography
-        component="p"
-        sx={{
-          fontFamily: 'var(--font-nunito), "Nunito", sans-serif',
-          fontSize: { md: 48, lg: 56 },
-          fontWeight: 800,
-          letterSpacing: '-0.02em',
-          lineHeight: 1.05,
-        }}
-      >
-        {title}
-      </Typography>
-      <Typography
-        className="lumio-auth-hero__tagline"
-        sx={{ mt: 2, fontSize: 18, lineHeight: 1.6 }}
+        className={title ? 'lumio-auth-hero__tagline' : 'lumio-auth-hero__lead'}
+        sx={
+          title
+            ? { mt: 2, fontSize: 18, lineHeight: 1.6 }
+            : { fontSize: 28, fontWeight: 500, lineHeight: 1.3, letterSpacing: '-0.01em' }
+        }
       >
         {tagline}
       </Typography>
@@ -103,7 +107,7 @@ export function AuthHero({ title, tagline }: AuthHeroProps): React.JSX.Element {
         onMouseLeave={() => setPaused(false)}
         onFocus={() => setPaused(true)}
         onBlur={() => setPaused(false)}
-        sx={{ mt: 4, minHeight: FEATURES_PER_GROUP * 38 }}
+        sx={{ mt: 4, minHeight: FEATURES_PER_GROUP * 44 }}
       >
         <AnimatePresence mode="wait" initial={false}>
           <motion.ul
@@ -112,7 +116,7 @@ export function AuthHero({ title, tagline }: AuthHeroProps): React.JSX.Element {
             animate={{ opacity: 1, y: 0 }}
             exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
             transition={{ duration: 0.35 }}
-            style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 14 }}
+            style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 16 }}
           >
             {visible.map(key => (
               <FeatureItem key={key}>{features[key]}</FeatureItem>

@@ -21,6 +21,7 @@ import { useMemo, useState } from 'react';
 import { Pencil, Plus, Trash2 } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { CalendarLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -160,6 +161,17 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
     return member ? member.name || member.email || null : null;
   };
   const [view, setView] = useState<'list' | 'matrix'>('list');
+  // Nothing in this tab at all, as opposed to filters that found nothing: the
+  // first gets "No subscriptions yet" and no filters, the second "No matches".
+  const hasSubscriptions = props.subscriptions.length > 0;
+  // None in the workspace: the summary would be a row of zeros.
+  const noneYet = !(props.isPending || hasSubscriptions) && props.statusFilter === 'all';
+  const clearFilters = (): void => {
+    setSearch('');
+    setOwnerId('');
+    setCategory('');
+    setRiskStatus('');
+  };
   const visibleSubscriptions = useMemo(
     () =>
       filterSubscriptions(props.subscriptions, {
@@ -216,9 +228,12 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
       <Box
         sx={{
           display: 'flex',
+          flexWrap: { xs: 'wrap', md: 'nowrap' },
           alignItems: 'center',
           gap: 2,
           mb: 3,
+          // On a phone the tabs take their own line; squeezed beside the actions they vanished.
+          '& > .MuiTabs-root': { flexBasis: { xs: '100%', md: 'auto' }, minWidth: 0 },
         }}
       >
         {/* The MuiTabs root itself gets a negative margin from the theme's
@@ -236,7 +251,16 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           <Tab value="paused" label={t.tabPaused.value} />
           <Tab value="cancelled" label={t.tabCancelled.value} />
         </Tabs>
-        <Box sx={{ display: 'flex', gap: 1.5, ml: 'auto', flexShrink: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            ml: 'auto',
+            flexShrink: { xs: 1, md: 0 },
+            minWidth: 0,
+          }}
+        >
           <ImportFromFileButton
             target="subscriptions"
             onImported={() => void props.invalidate()}
@@ -266,7 +290,8 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           >
             {t.businessReport}
           </Button>
-          <Button variant="contained" onClick={props.openCreate}>
+          {/* With nothing yet the empty state's own button is the one to press. */}
+          <Button variant={noneYet ? 'outlined' : 'contained'} onClick={props.openCreate}>
             <Plus size={18} aria-hidden />
             {t.addSubscription}
           </Button>
@@ -322,21 +347,22 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                 sx={{
                   mt: 0.5,
                   fontSize: 26,
-                  fontWeight: 700,
+                  fontWeight: 500,
                   lineHeight: 1.2,
                   fontVariantNumeric: 'tabular-nums',
-                  color: accent ?? 'text.primary',
+                  color: noneYet ? 'var(--muted-foreground)' : (accent ?? 'text.primary'),
                 }}
               >
-                {value}
+                {noneYet ? '—' : value}
               </Typography>
             </CardContent>
           </Card>
         ))}
       </Box>
+      {/* Nothing to filter in an empty tab. */}
       <Box
         sx={{
-          display: 'flex',
+          display: hasSubscriptions ? 'flex' : 'none',
           flexWrap: 'wrap',
           alignItems: 'center',
           gap: 1.5,
@@ -460,15 +486,29 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           {props.error}
         </Typography>
       ) : visibleSubscriptions.length === 0 || (matrixView && visibleCalendar.rows.length === 0) ? (
-        <EmptyState
-          illustration="subscriptions"
-          description={t.emptyFiltered}
-          action={
-            <Button variant="outlined" onClick={props.openCreate}>
-              {t.addSubscription}
-            </Button>
-          }
-        />
+        hasSubscriptions ? (
+          <EmptyState
+            icon={<SearchLineIcon />}
+            title={t.noMatchesTitle}
+            description={t.emptyFiltered}
+            action={
+              <Button variant="text" onClick={clearFilters}>
+                {t.clearFilters}
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={<CalendarLineIcon />}
+            title={t.emptyTitle}
+            description={t.emptyHint}
+            action={
+              <Button variant="contained" onClick={props.openCreate}>
+                {t.addSubscription}
+              </Button>
+            }
+          />
+        )
       ) : matrixView ? (
         <LazyChargeCalendar
           calendar={visibleCalendar}
