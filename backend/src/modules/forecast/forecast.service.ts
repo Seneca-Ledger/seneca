@@ -1,12 +1,11 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
-import { onlyCounted } from '../../common/utils/counted-transactions.util';
+import { onlyFlows } from '../../common/utils/counted-transactions.util';
 import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util';
 import type { ForecastQuery, ForecastResponse } from '../../contracts';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
 import { Payable, PayableDirection, PayableStatus } from '../../entities/payable.entity';
-import { StatementStatus } from '../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { DashboardService } from '../dashboard/dashboard.service';
@@ -313,7 +312,6 @@ export class ForecastService {
     const until = new Date(today.getFullYear(), today.getMonth(), 0);
     const historyQuery = this.transactionRepository
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
       .select('t.currency', 'currency')
       .addSelect('t.counterpartyName', 'party')
       .addSelect(
@@ -324,12 +322,8 @@ export class ForecastService {
         'COALESCE(SUM(CASE WHEN t.transactionType = :expense THEN t.debit ELSE 0 END), 0)',
         'expense',
       )
-      .where('s.workspaceId = :workspaceId', { workspaceId });
-    const rows = await onlyCounted(historyQuery, 't')
-      .andWhere('s.deletedAt IS NULL')
-      .andWhere('s.status NOT IN (:...excluded)', {
-        excluded: [StatementStatus.ERROR, StatementStatus.PROCESSING],
-      })
+      .where('t.workspaceId = :workspaceId', { workspaceId });
+    const rows = await onlyFlows(historyQuery, 't')
       .andWhere('t.isDuplicate = false')
       .andWhere('t.transferPairId IS NULL')
       .andWhere('t.transactionDate >= :since', { since })
@@ -368,11 +362,9 @@ export class ForecastService {
     // History starts at the first confirmed row: unconfirmed ones do not count yet.
     const earliestQuery = this.transactionRepository
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
       .select('MIN(t.transactionDate)', 'first')
-      .where('s.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('s.deletedAt IS NULL');
-    const earliest = await onlyCounted(earliestQuery, 't').getRawOne<{
+      .where('t.workspaceId = :workspaceId', { workspaceId });
+    const earliest = await onlyFlows(earliestQuery, 't').getRawOne<{
       first: string | Date | null;
     }>();
     const firstDate = earliest?.first ? new Date(earliest.first) : null;
@@ -405,15 +397,13 @@ export class ForecastService {
     const since = new Date(today.getFullYear(), today.getMonth() - INCOME_LOOKBACK_MONTHS, 1);
     const incomeQuery = this.transactionRepository
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
       .select([
         't.counterpartyName AS "counterpartyName"',
         't.credit AS amount',
         't.transactionDate AS "transactionDate"',
       ])
-      .where('s.workspaceId = :workspaceId', { workspaceId });
-    return onlyCounted(incomeQuery, 't')
-      .andWhere('s.deletedAt IS NULL')
+      .where('t.workspaceId = :workspaceId', { workspaceId });
+    return onlyFlows(incomeQuery, 't')
       .andWhere('t.transactionType = :income', { income: TransactionType.INCOME })
       .andWhere('t.isDuplicate = false')
       .andWhere('t.transferPairId IS NULL')

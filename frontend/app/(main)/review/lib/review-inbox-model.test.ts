@@ -5,6 +5,7 @@ import {
   documentHref,
   documentOf,
   groupByPayee,
+  monthDateFilter,
   moveCursor,
   type ReviewTransactionItem,
   targetIds,
@@ -153,5 +154,21 @@ describe('dateFilterToRange', () => {
       from: '',
       to: '2026-09-30',
     });
+  });
+});
+
+describe('monthDateFilter', () => {
+  it('opens a dashboard link on the whole month it names', () => {
+    const filter = monthDateFilter('2024-02');
+    expect(filter).toEqual({ mode: 'on', date: '2024-02-01', dateTo: '2024-02-29' });
+    expect(dateFilterToRange(filter, new Date(2026, 9, 16))).toEqual({
+      from: '2024-02-01',
+      to: '2024-02-29',
+    });
+  });
+
+  it('opens unfiltered on anything that is not a month', () => {
+    expect(monthDateFilter(null)).toBeNull();
+    expect(monthDateFilter('2026-13')).toBeNull();
   });
 });

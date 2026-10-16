@@ -30,8 +30,8 @@
   }
 
   &__total {
-    font-size: 28px;
-    font-weight: 600;
+    font-size: 32px;
+    font-weight: 500;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
     color: var(--foreground);
@@ -55,6 +55,34 @@
     &-expense {
       color: var(--money-down);
     }
+
+    // "Income $1,939 · Expense $122" under a chart of both: figures in ink, the
+    // colour only in the square that ties each to its bars.
+    &-series {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--foreground);
+
+      &::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+
+      &--income::before {
+        background: var(--cat-tone-1);
+      }
+
+      &--expense::before {
+        background: var(--cat-tone-2);
+      }
+
+      & + & {
+        margin-left: 16px;
+      }
+    }
   }
 
   &__legend {
@@ -75,7 +103,7 @@
   }
 
   &__legend-value {
-    font-weight: 600;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
     color: var(--foreground);
   }
@@ -108,22 +136,37 @@
 
   &__tooltip-title {
     margin-bottom: 2px;
-    color: var(--muted-foreground);
+    color: var(--text-muted);
   }
 
+  // Text in ink; income and spending carry their bar colour as a small square.
   &__tooltip-row {
     font-variant-numeric: tabular-nums;
 
-    &--positive {
-      color: var(--ff-dash-success);
+    &--positive,
+    &--negative {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      &::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
     }
 
-    &--negative {
-      color: var(--ff-dash-critical);
+    &--positive::before {
+      background: var(--cat-tone-1);
+    }
+
+    &--negative::before {
+      background: var(--cat-tone-2);
     }
 
     &--strong {
-      font-weight: 600;
+      font-weight: 500;
     }
   }
 }
@@ -216,6 +259,31 @@
 
     @include dark {
       background: $lumio-color-warning-dk;
+    }
+  }
+}
+
+// A year with one or two busy months, as "September: 1 · October: 8" instead of a chart.
+.lumio-history-line {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+
+  &__separator {
+    color: var(--text-muted);
+  }
+
+  &__month {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--primary);
     }
   }
 }

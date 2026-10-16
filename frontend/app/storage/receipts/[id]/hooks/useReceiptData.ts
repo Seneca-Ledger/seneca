@@ -10,6 +10,7 @@ import type {
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 
@@ -250,6 +251,8 @@ function usePersistParsedData(
         setReceipt(cur =>
           cur ? { ...cur, parsedData: { ...cur.parsedData, ...nextPayload } } : cur,
         );
+        // An approved receipt's row follows the edit, and every figure with it.
+        invalidateFinancialData();
       })().catch(async () => {
         toast.error('Failed to autosave receipt changes.');
       });
@@ -278,6 +281,7 @@ function useApproveReceipt(
       } satisfies ContractInput<'UpdateReceiptBody'>);
       lastSavedRef.current = JSON.stringify(payload);
       await receiptsApi.approveReceipt(receipt.id);
+      invalidateFinancialData();
       toast.success('Receipt approved.');
       await loadData();
     })()

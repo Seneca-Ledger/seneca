@@ -106,28 +106,6 @@ export const isPayableOverdue = (payable: Pick<Payable, 'status' | 'dueDate'>): 
   return dueDate < today;
 };
 
-export const getPayableStatusVariant = (
-  status: PayableStatus,
-  overdue: boolean,
-): 'destructive' | 'success' | 'info' | 'outline' | 'warning' => {
-  if (overdue || status === 'overdue') {
-    return 'destructive' as const;
-  }
-  if (status === 'paid') {
-    return 'success' as const;
-  }
-  if (status === 'partially_paid') {
-    return 'info' as const;
-  }
-  if (status === 'scheduled') {
-    return 'info' as const;
-  }
-  if (status === 'archived') {
-    return 'outline' as const;
-  }
-  return 'warning' as const;
-};
-
 type PayablesListParams = {
   direction?: PayableDirection;
   page?: number;
@@ -186,12 +164,21 @@ export const sortPayables = (payables: Payable[], sort: PayablesSortOption): Pay
   return copy;
 };
 
-type SummaryCardItem = { key: string; value: number; count?: number };
+type SummaryCardItem = { key: string; value: number; count: number };
 
+/**
+ * The four cards. The first is everything still open, overdue included: an
+ * overdue bill is still waiting to be paid, so leaving it out read as "nothing
+ * to pay" next to a card full of overdue ones. Overdue is then a part of it.
+ */
 export const getSummaryCardItems = (summary: PayablesSummary): readonly SummaryCardItem[] =>
   [
-    { key: 'toPay', value: summary.toPay, count: summary.toPayCount },
+    {
+      key: 'toPay',
+      value: summary.toPay + summary.overdue,
+      count: summary.toPayCount + summary.overdueCount,
+    },
     { key: 'overdue', value: summary.overdue, count: summary.overdueCount },
-    { key: 'dueThisWeek', value: summary.dueThisWeek },
+    { key: 'dueThisWeek', value: summary.dueThisWeek, count: summary.dueThisWeekCount ?? 0 },
     { key: 'paidTotal', value: summary.paidTotal, count: summary.paidTotalCount },
   ] as readonly SummaryCardItem[];

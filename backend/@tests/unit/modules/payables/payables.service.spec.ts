@@ -317,54 +317,40 @@ describe('PayablesService', () => {
       expect(result.vendor).toBe('New Vendor');
     });
 
-    it('sets paidAt only when status first becomes paid and preserves it on later edits', async () => {
+    // An open bill turns paid only through a payment (see the integration test);
+    // a bill already paid keeps the day it was paid through later edits.
+    it('preserves paidAt on later edits of a paid bill', async () => {
+      const paidAt = new Date('2026-03-17T12:00:00.000Z');
       const existing = {
+        ...payableEntity,
+        status: PayableStatus.PAID,
+        linkedTransactionId: 'tx-1',
+        paidAt,
+      } as Payable;
+      const saveSpy = jest.spyOn(payableRepository, 'save');
+      jest.spyOn(payableRepository, 'findOne').mockResolvedValue(existing);
+      saveSpy.mockResolvedValue({ ...existing, comment: 'later edit' } as Payable);
+
+      await service.update('payable-1', 'workspace-1', 'user-1', {
+        status: PayableStatus.PAID,
+        comment: 'later edit',
+      });
+
+      expect((saveSpy.mock.calls[0][0] as Payable).paidAt).toEqual(paidAt);
+    });
+
+    it('refuses to turn an open bill paid by an edit', async () => {
+      jest.spyOn(payableRepository, 'findOne').mockResolvedValue({
         ...payableEntity,
         status: PayableStatus.TO_PAY,
         paidAt: null,
-      } as Payable;
+      } as Payable);
       const saveSpy = jest.spyOn(payableRepository, 'save');
-      jest.spyOn(transactionRepository, 'findOne').mockResolvedValue(transactionEntity);
-      jest.useFakeTimers().setSystemTime(new Date('2026-03-17T12:00:00.000Z'));
 
-      jest.spyOn(payableRepository, 'findOne').mockResolvedValue(existing);
-      saveSpy.mockResolvedValue({
-        ...existing,
-        status: PayableStatus.PAID,
-        linkedTransactionId: 'tx-1',
-        paidAt: new Date('2026-03-17T12:00:00.000Z'),
-      } as Payable);
-
-      await service.update('payable-1', 'workspace-1', 'user-1', {
-        status: PayableStatus.PAID,
-        linkedTransactionId: 'tx-1',
-      });
-
-      const firstSaved = saveSpy.mock.calls[0][0] as Payable;
-      expect(firstSaved.paidAt).toEqual(new Date('2026-03-17T12:00:00.000Z'));
-
-      saveSpy.mockClear();
-      jest.spyOn(payableRepository, 'findOne').mockResolvedValue({
-        ...existing,
-        status: PayableStatus.PAID,
-        linkedTransactionId: 'tx-1',
-        paidAt: new Date('2026-03-17T12:00:00.000Z'),
-      } as Payable);
-      saveSpy.mockResolvedValue({
-        ...existing,
-        status: PayableStatus.PAID,
-        linkedTransactionId: 'tx-1',
-        paidAt: new Date('2026-03-17T12:00:00.000Z'),
-        comment: 'later edit',
-      } as Payable);
-
-      await service.update('payable-1', 'workspace-1', 'user-1', {
-        comment: 'later edit',
-      });
-
-      const secondSaved = saveSpy.mock.calls[0][0] as Payable;
-      expect(secondSaved.paidAt).toEqual(new Date('2026-03-17T12:00:00.000Z'));
-      jest.useRealTimers();
+      await expect(
+        service.update('payable-1', 'workspace-1', 'user-1', { status: PayableStatus.PAID }),
+      ).rejects.toThrow(BadRequestException);
+      expect(saveSpy).not.toHaveBeenCalled();
     });
 
     it('clears paidAt when status changes away from paid', async () => {
@@ -514,6 +500,8 @@ describe('PayablesService', () => {
 
   describe('getSummary', () => {
     it('aggregates to-pay, overdue, due this week, and paid this month metrics', async () => {
+      // Bills and workspace in one currency: this is about adding up, not converting.
+      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue({ currency: 'USD' } as Workspace);
       const rows = [
         {
           id: 'payable-to-pay',
@@ -554,6 +542,10 @@ describe('PayablesService', () => {
         toPayCount: 1,
         overdueCount: 1,
         paidTotalCount: 1,
+        dueThisWeekCount: 1,
+        unbookedTotal: 0,
+        unbookedCount: 0,
+        convertedCurrencies: [],
       });
       jest.useRealTimers();
     });
@@ -663,7 +655,79 @@ describe('PayablesService', () => {
       jest.useRealTimers();
     });
 
+    it('counts what is still owed on a partly paid bill, and what it brought in', async () => {
+      const rows = [
+        {
+          id: 'partly-overdue',
+          status: PayableStatus.PARTIALLY_PAID,
+          dueDate: new Date('2026-03-10T00:00:00.000Z'),
+          amount: 1000,
+          paidAmount: 400,
+          paidAt: null,
+          updatedAt: new Date('2026-03-01T10:00:00.000Z'),
+        },
+        {
+          id: 'partly-due-later',
+          status: PayableStatus.PARTIALLY_PAID,
+          dueDate: new Date('2026-04-30T00:00:00.000Z'),
+          amount: 500,
+          paidAmount: 100,
+          paidAt: null,
+          updatedAt: new Date('2026-03-01T10:00:00.000Z'),
+        },
+      ] as Payable[];
+      jest.spyOn(payableRepository, 'find').mockResolvedValue(rows);
+      jest.useFakeTimers().setSystemTime(new Date('2026-03-17T12:00:00.000Z'));
+
+      const result = await service.getSummary('workspace-1');
+
+      expect(result).toMatchObject({
+        overdue: 600,
+        overdueCount: 1,
+        toPay: 400,
+        toPayCount: 1,
+        paidTotal: 500,
+        paidTotalCount: 2,
+        paidThisMonth: 0,
+      });
+      jest.useRealTimers();
+    });
+
+    it('names the currencies it converted, so the totals can say so', async () => {
+      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue({ currency: 'USD' } as Workspace);
+      jest.spyOn(payableRepository, 'find').mockResolvedValue([
+        {
+          id: 'ils',
+          status: PayableStatus.PAID,
+          dueDate: new Date('2026-03-05T00:00:00.000Z'),
+          amount: 3500,
+          currency: 'ILS',
+          paidAt: new Date('2026-03-05T10:00:00.000Z'),
+          updatedAt: new Date('2026-03-05T10:00:00.000Z'),
+        },
+        {
+          id: 'usd',
+          status: PayableStatus.TO_PAY,
+          dueDate: new Date('2026-03-20T00:00:00.000Z'),
+          amount: 10,
+          currency: 'USD',
+          paidAt: null,
+          updatedAt: new Date('2026-03-01T10:00:00.000Z'),
+        },
+      ] as Payable[]);
+      exchangeRatesService.getRate.mockResolvedValue(0.3);
+      jest.useFakeTimers().setSystemTime(new Date('2026-03-17T12:00:00.000Z'));
+
+      const result = await service.getSummary('workspace-1');
+
+      expect(result.convertedCurrencies).toEqual(['ILS']);
+      expect(result.paidTotal).toBeCloseTo(1050);
+      jest.useRealTimers();
+    });
+
     it('treats past-due unpaid items as overdue immediately in summary', async () => {
+      // Bills and workspace in one currency: this is about adding up, not converting.
+      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue({ currency: 'USD' } as Workspace);
       const rows = [
         {
           id: 'payable-past-due',
@@ -696,6 +760,10 @@ describe('PayablesService', () => {
         toPayCount: 1,
         overdueCount: 1,
         paidTotalCount: 0,
+        dueThisWeekCount: 1,
+        unbookedTotal: 0,
+        unbookedCount: 0,
+        convertedCurrencies: [],
       });
       jest.useRealTimers();
     });

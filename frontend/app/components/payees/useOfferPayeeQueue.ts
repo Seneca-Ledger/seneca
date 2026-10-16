@@ -1,11 +1,11 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { offerAction } from './offer-action-toast';
 import type { PayeeRef } from './types';
@@ -22,7 +22,6 @@ function fill(template: string, params: Record<string, string | number>): string
  */
 export function useOfferPayeeQueue() {
   const t = useIntlayer('payees');
-  const queryClient = useQueryClient();
   const offerText = t.applyToOthers.value;
   const applyText = t.apply.value;
   const dismissText = t.cancel.value;
@@ -47,16 +46,12 @@ export function useOfferPayeeQueue() {
             } satisfies ContractInput<'BulkUpdateRequestBody'>)
             .then(async () => {
               toast.success(fill(appliedText, { count: rest.length }));
-              await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ['review-inbox'] }),
-                queryClient.invalidateQueries({ queryKey: ['transactions'] }),
-                queryClient.invalidateQueries({ queryKey: ['payees'] }),
-              ]);
+              invalidateFinancialData();
             })
             .catch((error: unknown) => toast.error(getApiErrorMessage(error, failedText)));
         },
       });
     },
-    [queryClient, offerText, applyText, dismissText, appliedText, failedText],
+    [offerText, applyText, dismissText, appliedText, failedText],
   );
 }

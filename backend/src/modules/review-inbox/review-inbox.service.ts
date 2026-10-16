@@ -26,7 +26,9 @@ import { DuplicateDecision, ReviewInboxKind } from './dto/review-inbox.dto';
 
 import {
   pendingReceiptsQuery,
+  QUEUE_DATE_COLUMN,
   reviewDuplicatesQuery,
+  uncategorizedRowsQuery,
   unconfirmedRowsQuery,
 } from './review-queue.queries';
 
@@ -36,6 +38,8 @@ const ALL_OWNERS: OwnerFilter = { kind: 'all' };
 export type { ReviewInboxCounts, ReviewInboxItem, ReviewInboxPage };
 
 const DEFAULT_LIMIT = 50;
+
+type DateRange = Pick<ReviewInboxQuery, 'from' | 'to'>;
 
 /**
  * One queue of everything that needs a human decision, read from the rows
@@ -61,10 +65,16 @@ export class ReviewInboxService {
   /**
    * Every row nobody confirmed yet. Only confirmed rows count anywhere in the
    * numbers, so a row a rule, the history or the model categorised still waits
-   * here; transfers too. Suspected duplicates have their own list.
+   * here; transfers too. Suspected duplicates have their own list. With
+   * `uncategorized`, the rows with no category instead, confirmed or not.
    */
-  private transactionsQuery(workspaceId: string, reviewer: OwnerFilter = ALL_OWNERS) {
-    const query = unconfirmedRowsQuery(this.transactionRepository, workspaceId)
+  private transactionsQuery(
+    workspaceId: string,
+    reviewer: OwnerFilter = ALL_OWNERS,
+    uncategorized = false,
+  ) {
+    const rows = uncategorized ? uncategorizedRowsQuery : unconfirmedRowsQuery;
+    const query = rows(this.transactionRepository, workspaceId)
       .addSelect(['s.id', 's.fileName', 's.fileType'])
       .leftJoinAndSelect('t.category', 'category')
       .leftJoinAndSelect('t.payee', 'payee');
@@ -80,16 +90,18 @@ export class ReviewInboxService {
     return applyOwnerFilter(query, 't', reviewer);
   }
 
+  /** Limits a queue to `from`..`to` (inclusive days) on the column it is dated by. */
   private applyDateRange<T extends { andWhere: (sql: string, params?: object) => T }>(
     query: T,
-    filters: Pick<ReviewInboxQuery, 'from' | 'to'>,
+    filters: DateRange,
+    column: string = QUEUE_DATE_COLUMN.row,
   ): T {
     let result = query;
     if (filters.from) {
-      result = result.andWhere('t.transactionDate >= :from', { from: filters.from });
+      result = result.andWhere(`${column} >= :from`, { from: localDay(filters.from) });
     }
     if (filters.to) {
-      result = result.andWhere('t.transactionDate <= :to', { to: filters.to });
+      result = result.andWhere(`${column} <= :to`, { to: localDay(filters.to, true) });
     }
     return result;
   }
@@ -129,11 +141,16 @@ export class ReviewInboxService {
   async counts(
     workspaceId: string,
     reviewer: OwnerFilter = ALL_OWNERS,
+    range: DateRange = {},
   ): Promise<ReviewInboxCounts> {
     const [transaction, duplicate, receipt, subscription] = await Promise.all([
-      this.transactionsQuery(workspaceId, reviewer).getCount(),
-      this.duplicatesQuery(workspaceId, reviewer).getCount(),
-      this.pendingReceiptsQuery(workspaceId).getCount(),
+      this.applyDateRange(this.transactionsQuery(workspaceId, reviewer), range).getCount(),
+      this.applyDateRange(this.duplicatesQuery(workspaceId, reviewer), range).getCount(),
+      this.applyDateRange(
+        this.pendingReceiptsQuery(workspaceId),
+        range,
+        QUEUE_DATE_COLUMN.receipt,
+      ).getCount(),
       this.subscriptionRepository.count({
         where: { workspaceId, status: SubscriptionStatus.DETECTED },
       }),
@@ -182,14 +199,14 @@ export class ReviewInboxService {
     const limit = filters.limit ?? DEFAULT_LIMIT;
     const skip = (page - 1) * limit;
     const reviewer = parseReviewerFilter(filters.reviewer, selfMemberId);
-    const counts = await this.counts(workspaceId, reviewer);
+    const counts = await this.counts(workspaceId, reviewer, filters);
 
     let items: ReviewInboxItem[] = [];
     let total = 0;
 
     if (kind === ReviewInboxKind.TRANSACTION) {
       const [rows, count] = await this.applyDateRange(
-        this.transactionsQuery(workspaceId, reviewer),
+        this.transactionsQuery(workspaceId, reviewer, filters.uncategorized),
         filters,
       )
         .orderBy('t.transactionDate', 'DESC')
@@ -247,13 +264,11 @@ export class ReviewInboxService {
         document: documentOf(row, null, selfMemberId),
       }));
     } else if (kind === ReviewInboxKind.RECEIPT) {
-      const query = this.pendingReceiptsQuery(workspaceId);
-      if (filters.from) {
-        query.andWhere('receipt.createdAt >= :from', { from: new Date(filters.from) });
-      }
-      if (filters.to) {
-        query.andWhere('receipt.createdAt <= :to', { to: endOfDay(filters.to) });
-      }
+      const query = this.applyDateRange(
+        this.pendingReceiptsQuery(workspaceId),
+        filters,
+        QUEUE_DATE_COLUMN.receipt,
+      );
       const [rows, count] = await query
         .orderBy('receipt.createdAt', 'DESC')
         .skip(skip)
@@ -425,10 +440,15 @@ function toDateString(value: Date | string): string {
   return typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10);
 }
 
-function endOfDay(date: string): Date {
-  const end = new Date(date);
-  end.setUTCHours(23, 59, 59, 999);
-  return end;
+/**
+ * The start (or end) of a `YYYY-MM-DD` day in server time, the way the
+ * dashboard bounds its month, so a month here is the same month there.
+ */
+function localDay(date: string, end = false): Date {
+  const [year, month, day] = date.slice(0, 10).split('-').map(Number);
+  return end
+    ? new Date(year, month - 1, day, 23, 59, 59, 999)
+    : new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
 function receiptIssues(receipt: Receipt): string[] {

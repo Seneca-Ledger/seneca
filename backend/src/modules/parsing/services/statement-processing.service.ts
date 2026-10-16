@@ -34,6 +34,7 @@ import type {
 import { MetricsService } from '../../observability/metrics.service';
 import { TaxAssignmentService } from '../../tax/tax-assignment.service';
 import { CrossStatementDeduplicationService } from '../../transactions/services/cross-statement-deduplication.service';
+import { ManualRowDuplicateService } from '../../transactions/services/manual-row-duplicate.service';
 import { TransactionFingerprintService } from '../../transactions/services/transaction-fingerprint.service';
 import { TransferPairingService } from '../../transactions/services/transfer-pairing.service';
 import { AiParseValidator } from '../helpers/ai-parse-validator.helper';
@@ -108,6 +109,8 @@ export class StatementProcessingService {
     private readonly eventEmitter?: EventEmitter2,
     @Optional()
     private readonly transferPairingService?: TransferPairingService,
+    @Optional()
+    private readonly manualRowDuplicates?: ManualRowDuplicateService,
   ) {}
 
   private isRecord(value: unknown): value is Record<string, unknown> {
@@ -1274,7 +1277,17 @@ export class StatementProcessingService {
       }
     }
 
-    const duplicatesFlagged = await this.flagFingerprintDuplicates(drafts, statement, log);
+    const fingerprintRepeats = await this.flagFingerprintDuplicates(drafts, statement, log);
+    // A cash payment or an approved receipt has no fingerprint to match; its
+    // bank row is caught by amount and date instead, so it is not counted twice.
+    const repeatsOfManualRows =
+      statement.workspaceId && this.manualRowDuplicates
+        ? await this.manualRowDuplicates.flagRepeats(drafts, statement.workspaceId)
+        : 0;
+    if (repeatsOfManualRows) {
+      log('warn', `${repeatsOfManualRows} transactions repeat a row booked by hand`);
+    }
+    const duplicatesFlagged = fingerprintRepeats + repeatsOfManualRows;
 
     // Single atomic write. A half-imported statement marked COMPLETED is worse
     // than a failed one: totals and balance checks would silently be wrong.

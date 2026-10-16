@@ -7,6 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { StatementParsingDetails } from '../editHelpers';
 
 export const NEEDS_REVIEW_STATUS = 'needs_review';
@@ -94,6 +95,8 @@ function useConfirmBalance({
 
     await (async () => {
       await apiClient.post(`/statements/${statementId}/confirm-balance`);
+      // A confirmed statement's rows start counting.
+      invalidateFinancialData();
       onConfirmed();
     })()
       .catch(async () => {

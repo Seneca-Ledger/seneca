@@ -17,7 +17,27 @@ export const CHART_TICK = {
 /** Bars other than the picked month are dimmed to this opacity. */
 export const INACTIVE_BAR_OPACITY = 0.45;
 
-export const LEGEND_STYLE = { fontSize: 12, fontFamily: 'var(--font-dashboard-sans)' };
+/** A forecast is a guess: the same colours as the facts, and much fainter. */
+export const FORECAST_OPACITY = 0.35;
+
+/**
+ * Income and spending bars: the sage and terracotta of the chart tones. Spending
+ * is not an alarm, so neither is the bright green and red of a status.
+ */
+export const INCOME_FILL = 'var(--cat-tone-1)';
+export const EXPENSE_FILL = 'var(--cat-tone-2)';
+
+/** The column under the pointer: a faint wash, lighter than any bar. */
+export const HOVER_CURSOR = { fill: 'var(--surface-soft)' };
+
+/** Thin horizontal guides behind bars, two or three of them. */
+export const GRID_STROKE = 'var(--border)';
+
+export const LEGEND_STYLE = {
+  fontSize: 13,
+  fontFamily: 'var(--font-dashboard-sans)',
+  color: 'var(--text-muted)',
+};
 
 /**
  * Category colours: five muted earth tones (sage, terracotta, sand, dusty blue,

@@ -97,6 +97,7 @@ export function budgetItem(
     availableAmount: 100,
     carriedAmount: 0,
     isActive: true,
+    unconvertedSpending: [],
     ...overrides,
   };
 }

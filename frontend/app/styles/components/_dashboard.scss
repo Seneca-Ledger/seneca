@@ -113,6 +113,22 @@
     }
   }
 
+  /* A category's share of the spending, under its name: for two or three, in place of a ring. */
+  &__share-bar {
+    display: block;
+    height: 4px;
+    margin-top: 6px;
+    border-radius: 2px;
+    background: var(--icon-badge-bg);
+    overflow: hidden;
+
+    > span {
+      display: block;
+      height: 100%;
+      border-radius: 2px;
+    }
+  }
+
   /* Ties a category row to its slice: the only colour the list carries. */
   &__legend-dot {
     display: inline-block;
@@ -746,264 +762,12 @@
     }
   }
 
-  /* ── Finance Ops ── */
-  &__saved-views {
-    margin-top: 16px;
-  }
-
-  &__feature-summary {
-    margin: 0 0 16px;
-    font-size: 13.5px;
-    line-height: 1.55;
-    color: $lumio-color-ink-600;
-
-    @include dark {
-      color: $lumio-color-ink-600-dk;
-    }
-  }
-
-  &__feature-metric {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 8px;
-
-    .lumio-dashboard__stat-value {
-      margin-top: 0;
-    }
-  }
-
-  &__feature-footer {
-    margin-top: auto;
-    padding-top: 12px;
-    margin-left: -8px;
-  }
-
-  /* Card whose body is a single interactive surface (upload zone). */
-  &__card--flush {
-    padding: 8px;
-  }
-
-  &__card--flush &__upload-zone {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-  }
-
-  /* ── Quick actions ── */
-  &__action-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  &__action-row {
-    display: grid;
-    grid-template-columns: 32px 1fr auto;
-    gap: 12px;
-    align-items: center;
-    padding: 10px;
-    border-radius: $lumio-radius-sm;
-    cursor: pointer;
-    transition: background-color 120ms;
-    text-align: left;
-    background: none;
-    border: none;
-    width: 100%;
-    text-decoration: none;
-    color: inherit;
-
-    &:hover {
-      background: $lumio-color-ink-50;
-
-      @include dark {
-        background: $lumio-color-ink-50-dk;
-      }
-    }
-  }
-
-  &__action-ico {
-    width: 32px;
-    height: 32px;
-    border-radius: $lumio-radius-sm;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-
-    &--warning {
-      background: $lumio-color-warning-soft;
-      color: $lumio-color-warning;
-
-      @include dark {
-        background: $lumio-color-warning-soft-dk;
-        color: $lumio-color-warning-dk;
-      }
-    }
-
-    &--info {
-      background: $lumio-color-info-soft;
-      color: $lumio-color-info;
-
-      @include dark {
-        background: $lumio-color-info-soft-dk;
-        color: $lumio-color-info-dk;
-      }
-    }
-
-    &--success {
-      background: $lumio-color-success-soft;
-      color: $lumio-color-success;
-
-      @include dark {
-        background: $lumio-color-success-soft-dk;
-        color: $lumio-color-success-dk;
-      }
-    }
-
-    &--neutral {
-      background: $lumio-color-ink-100;
-      color: $lumio-color-ink-600;
-
-      @include dark {
-        background: $lumio-color-ink-100-dk;
-        color: $lumio-color-ink-600-dk;
-      }
-    }
-
-    &--critical {
-      background: $lumio-color-danger-soft;
-      color: $lumio-color-danger;
-
-      @include dark {
-        background: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
-      }
-    }
-  }
-
-  &__action-body {
-    min-width: 0;
-  }
-
-  &__action-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: $lumio-color-ink-900;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-
-    @include dark {
-      color: $lumio-color-ink-900-dk;
-    }
-  }
-
-  &__action-sub {
-    font-size: 11.5px;
-    color: $lumio-color-ink-500;
-    margin-top: 2px;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
   &__action-chevron {
     color: $lumio-color-ink-300;
     flex-shrink: 0;
 
     @include dark {
       color: $lumio-color-ink-300-dk;
-    }
-  }
-
-  /* ── Upload zone ── */
-  &__upload-zone {
-    border: 1.5px dashed $lumio-color-ink-200;
-    border-radius: $lumio-radius-md;
-    padding: 24px;
-    text-align: center;
-    transition: border-color 120ms, background-color 120ms;
-    cursor: pointer;
-    display: block;
-    text-decoration: none;
-
-    @include dark {
-      border-color: $lumio-color-ink-200-dk;
-    }
-
-    &:hover {
-      border-color: var(--primary);
-      background: var(--primary-50);
-
-      @include dark {
-        border-color: $lumio-color-primary-dk;
-        background: $lumio-color-primary-50-dk;
-      }
-    }
-  }
-
-  &__upload-ico {
-    width: 44px;
-    height: 44px;
-    margin: 0 auto 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-md;
-    background: var(--primary-50);
-    color: var(--primary);
-
-    @include dark {
-      background: $lumio-color-primary-50-dk;
-      color: $lumio-color-primary-dk;
-    }
-  }
-
-  &__upload-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: $lumio-color-ink-900;
-
-    @include dark {
-      color: $lumio-color-ink-900-dk;
-    }
-  }
-
-  &__upload-sub {
-    font-size: 12px;
-    color: $lumio-color-ink-500;
-    margin-top: 4px;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
-  &__upload-formats {
-    display: flex;
-    gap: 4px;
-    justify-content: center;
-    margin-top: 14px;
-    flex-wrap: wrap;
-  }
-
-  &__format-tag {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: $lumio-radius-xs;
-    font-size: 11px;
-    font-weight: 500;
-    background: $lumio-color-ink-100;
-    color: $lumio-color-ink-600;
-
-    @include dark {
-      background: $lumio-color-ink-100-dk;
-      color: $lumio-color-ink-600-dk;
     }
   }
 
@@ -1714,5 +1478,84 @@
         color: $lumio-color-ink-900-dk;
       }
     }
+  }
+}
+
+// Finance ops: the month's close as one headline and one list of steps.
+.lumio-close-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+
+  &__title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--foreground);
+
+    @media (max-width: 640px) {
+      font-size: 22px;
+    }
+  }
+
+  &__note {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+}
+
+// A reference fact (last upload, money not counted yet): moderate figure, one line under it.
+.lumio-fact {
+  &__value {
+    font-size: 20px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  &__caption {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+}
+
+.lumio-close-step {
+  // A step still open: an ochre dot, not a red alarm. Done: a sage tick, no circle.
+  &__open {
+    display: block;
+    width: 8px;
+    height: 8px;
+    margin: 0 4px;
+    border-radius: 50%;
+    background: var(--attention);
+  }
+
+  &__done {
+    color: var(--primary);
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary);
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .lumio-dashboard__row-secondary {
+    font-size: 13px;
+    color: var(--text-muted);
   }
 }

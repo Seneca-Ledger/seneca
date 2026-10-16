@@ -11,6 +11,7 @@ import { ClassificationModule } from '../classification/classification.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { TaxModule } from '../tax/tax.module';
 import { CrossStatementDeduplicationService } from './services/cross-statement-deduplication.service';
+import { ManualRowDuplicateService } from './services/manual-row-duplicate.service';
 import { TransactionAttachmentsService } from './services/transaction-attachments.service';
 import { TransactionFingerprintService } from './services/transaction-fingerprint.service';
 import { TransactionTagsService } from './services/transaction-tags.service';
@@ -38,6 +39,7 @@ import { TransactionsService } from './transactions.service';
   providers: [
     TransactionsService,
     CrossStatementDeduplicationService,
+    ManualRowDuplicateService,
     TransactionFingerprintService,
     TransactionTagsService,
     TransactionAttachmentsService,
@@ -46,6 +48,7 @@ import { TransactionsService } from './transactions.service';
   exports: [
     TransactionsService,
     CrossStatementDeduplicationService,
+    ManualRowDuplicateService,
     TransactionFingerprintService,
     TransferPairingService,
     TransactionAttachmentsService,

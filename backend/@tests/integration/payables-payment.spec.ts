@@ -389,4 +389,52 @@ describe('settling payables (real Postgres)', () => {
       }),
     ).resolves.toMatchObject({ status: PayableStatus.PAID });
   });
+
+  // "Paid" is what the payment log says. Setting it by hand left a bill paid
+  // with no payment and no transaction: received money that no figure shows.
+  it('does not let a bill be created or edited into paid without a payment', async () => {
+    expect(
+      await errorOf(
+        payables.create(workspaceId, userId, {
+          vendor: 'Sold a laptop',
+          amount: 900,
+          currency: 'EUR',
+          direction: 'receivable',
+          status: 'paid',
+        } as never),
+      ),
+    ).toEqual({ status: 400, code: 'PAYABLE_PAID_THROUGH_PAYMENT' });
+    expect(await payableRepo.existsBy({ vendor: 'Sold a laptop' })).toBe(false);
+
+    const open = await bill();
+    expect(
+      await errorOf(payables.update(open.id, workspaceId, userId, { status: PayableStatus.PAID })),
+    ).toEqual({ status: 400, code: 'PAYABLE_PAID_THROUGH_PAYMENT' });
+    expect((await payableRepo.findOneByOrFail({ id: open.id })).status).toBe(PayableStatus.TO_PAY);
+  });
+
+  it('still saves an edit of a bill that was paid through its payment', async () => {
+    const payable = await bill();
+    await payables.markAsPaid(payable.id, workspaceId, userId, { payFromWalletId: walletId });
+
+    // The edit form sends the status back as it is.
+    await expect(
+      payables.update(payable.id, workspaceId, userId, {
+        status: PayableStatus.PAID,
+        comment: 'Invoice 7',
+      }),
+    ).resolves.toMatchObject({ status: PayableStatus.PAID, comment: 'Invoice 7' });
+  });
+
+  it('does not settle a bill in full with a smaller transaction', async () => {
+    const payable = await bill({ amount: 300 });
+    const small = await transaction({ statementId, amount: 120, debit: 120 });
+
+    expect(
+      await errorOf(
+        payables.markAsPaid(payable.id, workspaceId, userId, { linkedTransactionId: small.id }),
+      ),
+    ).toEqual({ status: 400, code: 'PAYABLE_PAYMENT_SHORT' });
+    expect((await payableRepo.findOneByOrFail({ id: payable.id })).status).toBe(PayableStatus.TO_PAY);
+  });
 });

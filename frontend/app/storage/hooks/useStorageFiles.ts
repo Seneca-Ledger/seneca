@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import api from '../../lib/api';
@@ -162,6 +163,8 @@ export function useStorageFiles(
             : file,
         ),
       );
+      // A file's category reaches its rows (a scan's own), so the figures move.
+      invalidateFinancialData();
       toast.success(messages.categoryUpdated);
     })().catch(async error => {
       console.error('Failed to update file category:', error);
@@ -183,6 +186,8 @@ export function useStorageFiles(
     await (async () => {
       await api.post(`/storage/files/${fileToDelete.id}/trash`);
       setFiles(prev => prev.filter(file => file.id !== fileToDelete.id));
+      // A trashed statement's rows stop counting.
+      invalidateFinancialData();
       toast.success(messages.deleteSuccess, { id: toastId });
     })().catch(async error => {
       console.error('Failed to move file to trash:', error);
@@ -221,6 +226,7 @@ export function useStorageFiles(
     await (async () => {
       await api.post(`/storage/files/${file.id}/trash/restore`);
       setFiles(prev => prev.filter(item => item.id !== file.id));
+      invalidateFinancialData();
       toast.success(messages.trashRestoreSuccess, { id: toastId });
     })().catch(async error => {
       console.error('Failed to restore file from trash:', error);
@@ -239,6 +245,7 @@ export function useStorageFiles(
         statementIds: ids,
       } satisfies ContractInput<'BulkFileActionBody'>);
       setFiles(prev => prev.filter(file => !ids.includes(file.id)));
+      invalidateFinancialData();
       toast.success(messages.trashRestoreSuccess, { id: toastId });
     })().catch(async error => {
       console.error('Failed to restore files from trash:', error);

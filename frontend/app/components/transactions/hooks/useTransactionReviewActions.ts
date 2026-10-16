@@ -1,10 +1,10 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 interface Messages {
@@ -29,13 +29,9 @@ export function useTransactionReviewActions(
   messages: Messages,
   onDone?: () => void,
 ): TransactionReviewActions {
-  const workspaceId = useWorkspaceId();
-  const queryClient = useQueryClient();
+  // Confirming or deleting a row moves every figure, not only the lists.
   const refresh = async (): Promise<void> => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['transactions', workspaceId] }),
-      queryClient.invalidateQueries({ queryKey: ['review-inbox', workspaceId] }),
-    ]);
+    invalidateFinancialData();
   };
 
   const confirmMutation = useMutation({

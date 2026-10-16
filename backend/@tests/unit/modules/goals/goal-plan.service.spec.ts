@@ -1,4 +1,4 @@
-import { countedSql } from '@/common/utils/counted-transactions.util';
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { NotFoundException } from '@nestjs/common';
 import { BudgetPeriodType } from '@/entities/budget.entity';
 import { GoalPlanService } from '@/modules/goals/goal-plan.service';
@@ -80,7 +80,7 @@ function createService(options: Options) {
     estimatedTotal: jest.fn(async () => options.estimatedTotal ?? 0),
   } as never;
 
-  const exchangeRatesService = { getRate: jest.fn(async () => options.rate ?? 1) } as never;
+  const exchangeRatesService = { getRateOrNull: jest.fn(async () => options.rate ?? 1) } as never;
 
   return new GoalPlanService(
     goalRepository,
@@ -219,7 +219,7 @@ describe('GoalPlanService', () => {
 
     await service.getPlan(GOAL_ID, WORKSPACE_ID, NOW);
 
-    expect(incomeClauses).toContain(countedSql('t'));
+    expect(incomeClauses).toContain(flowsSql('t'));
   });
 
   it('ignores a budget whose window has closed', async () => {

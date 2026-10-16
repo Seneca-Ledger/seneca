@@ -16,13 +16,7 @@ const TILE_SECTION_IDS = [...KPI_SECTION_IDS, 'safe-to-spend'] as const;
  * Widgets someone switches on from the picker; until then they stay off the
  * Overview, so it does not fill up with cards most people never asked for.
  */
-export const OFF_BY_DEFAULT_SECTION_IDS = [
-  'crypto',
-  'upcoming-charges',
-  'money-owed',
-  'taxes',
-  'advice',
-] as const;
+export const OFF_BY_DEFAULT_SECTION_IDS = ['crypto', 'money-owed', 'taxes'] as const;
 
 export const OVERVIEW_SECTION_IDS = [
   'getting-started',
@@ -36,6 +30,8 @@ export const OVERVIEW_SECTION_IDS = [
   'budgets',
   'cash-runway',
   'activity',
+  'upcoming-charges',
+  'advice',
   ...OFF_BY_DEFAULT_SECTION_IDS,
 ] as const;
 
@@ -61,16 +57,17 @@ const CARD_UNITS = 2;
 /** Before the tiles moved one by one they were a single section; saved layouts may still say so. */
 const LEGACY_KPI_ROW = 'kpis';
 
+/** The arrangement set up in the Administrator workspace, made everyone's starting point. */
 export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
-  ['getting-started'],
+  ['getting-started', 'budgets'],
   [...KPI_SECTION_IDS],
   ['top-categories', 'recent-transactions'],
   ['safe-to-spend', 'cash-runway'],
   ['spend-calendar'],
+  ['net-worth', 'upcoming-charges'],
   ['goals'],
-  ['net-worth'],
-  ['budgets'],
   ['activity'],
+  ['advice'],
 ];
 
 const KNOWN = new Set<string>(OVERVIEW_SECTION_IDS);

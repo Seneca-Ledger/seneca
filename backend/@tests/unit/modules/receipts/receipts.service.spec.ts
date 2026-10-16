@@ -405,6 +405,28 @@ describe('ReceiptsService', () => {
     );
   });
 
+  // Every income and spending figure sums debit and credit: a row with only an
+  // amount counts as zero everywhere.
+  it.each([
+    ['an expense', 'expense', 99.5, { debit: 99.5, credit: null }],
+    ['an income', 'income', 99.5, { debit: null, credit: 99.5 }],
+    ['an amount read as text', 'expense', '12.30', { debit: 12.3, credit: null }],
+  ])('books %s on its side of the ledger', async (_name, transactionType, amount, sides) => {
+    receiptRepository.findOne.mockResolvedValue({
+      id: `receipt-${transactionType}`,
+      workspaceId: 'workspace-1',
+      status: ReceiptStatus.DRAFT,
+      parsedData: { amount, currency: 'EUR', vendor: 'Lidl', date: '2026-03-20', transactionType },
+      transactionId: null,
+    });
+
+    await service.approve(`receipt-${transactionType}`, 'workspace-1', 'user-1');
+
+    expect(transactionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ ...sides, amount: Math.abs(Number(amount)) }),
+    );
+  });
+
   it('refuses to book a transaction for a receipt without a date', async () => {
     receiptRepository.findOne.mockResolvedValue({
       id: 'receipt-dateless',

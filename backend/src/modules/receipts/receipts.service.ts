@@ -255,6 +255,9 @@ export class ReceiptsService {
 
     const saved = await this.receiptRepository.save(receipt);
     await this.syncStatementCategory(saved, workspaceId);
+    if (dto.parsedData) {
+      await this.syncBookedTransaction(saved, workspaceId, dto.parsedData);
+    }
 
     if (userId) {
       await this.recordAudit({
@@ -320,6 +323,83 @@ export class ReceiptsService {
       // update() skips the tax subscriber; the new category may carry another rate.
       await this.taxAssignmentService?.reassess(workspaceId, { statementId: statement.id });
     }
+  }
+
+  /**
+   * Every figure sums transactions, not receipts, so an edit to an approved
+   * receipt has to reach the row it stands for, or the documents list shows one
+   * date and every number another. The row the receipt booked itself (its scan's
+   * row, or the one approval created) takes every field the edit touched. A row
+   * it was attached to (a bank row) keeps the bank's date and amount and takes
+   * only a category picked here. A row filed on a tax return does not change.
+   */
+  private async syncBookedTransaction(
+    receipt: Receipt,
+    workspaceId: string,
+    edits: Record<string, unknown>,
+  ): Promise<void> {
+    if (!receipt.transactionId) {
+      return;
+    }
+    const target = await this.transactionRepository.findOne({
+      where: { id: receipt.transactionId, workspaceId },
+    });
+    if (!target || target.taxLocked) {
+      return;
+    }
+
+    if (await this.isBookedByReceipt(receipt, target, workspaceId)) {
+      const touched = Object.keys(edits).some(key => SYNCED_RECEIPT_FIELDS.has(key));
+      if (!touched) {
+        return;
+      }
+      const currency = await this.workspaceCurrency.resolve(workspaceId);
+      const fields = receiptTransactionFields(receipt, workspaceId, currency);
+      await this.transactionRepository.update(
+        { id: target.id, workspaceId },
+        {
+          ...scanTransactionUpdate(fields, Boolean(receipt.parsedData?.date)),
+          // update() skips the subscriber: the vendor may have changed.
+          payeeId: await resolvePayeeId(this.transactionRepository.manager, workspaceId, fields),
+        },
+      );
+    } else if (receipt.parsedData?.categoryId && edits.categoryId !== undefined) {
+      await this.transactionRepository.update(
+        { id: target.id, workspaceId },
+        {
+          categoryId: receipt.parsedData.categoryId,
+          categorySource: receipt.parsedData.categorySource ?? null,
+          categoryReason: receipt.parsedData.categoryReason ?? null,
+        },
+      );
+    } else {
+      return;
+    }
+    // update() skips the tax subscriber; the new amount or category may carry another rate.
+    await this.taxAssignmentService?.reassess(workspaceId, { ids: [target.id] });
+  }
+
+  /**
+   * Whether the receipt booked this row itself rather than being attached to an
+   * existing one: the row on its own scan's statement, or a row approval created
+   * (no statement, wallet or crypto wallet; a bank row always has a statement).
+   */
+  private async isBookedByReceipt(
+    receipt: Receipt,
+    target: Transaction,
+    workspaceId: string,
+  ): Promise<boolean> {
+    if (target.statementId) {
+      if (target.statementId !== receipt.statementId) {
+        return false;
+      }
+      const statement = await this.statementRepository.findOne({
+        where: { id: target.statementId, workspaceId },
+        select: ['id', 'parsingDetails'],
+      });
+      return statement?.parsingDetails?.detectedBy === 'receipt-scan';
+    }
+    return !(target.walletId || target.cryptoWalletId);
   }
 
   async approve(
@@ -483,7 +563,7 @@ export class ReceiptsService {
       }
 
       const transaction = await transactions.save(
-        transactions.create({ ...buildTransaction(receipt), isVerified: true }),
+        transactions.create(withLedgerSides({ ...buildTransaction(receipt), isVerified: true })),
       );
       const previousStatus = receipt.status;
       receipt.status = ReceiptStatus.APPROVED;
@@ -855,36 +935,59 @@ export class ReceiptsService {
     if (!receipt.parsedData?.date) {
       throw new BadRequestException('Set the receipt date before approving it');
     }
-
-    const transactionType =
-      receipt.parsedData?.transactionType === 'income'
-        ? TransactionType.INCOME
-        : TransactionType.EXPENSE;
-
-    const counterpartyName = receipt.parsedData?.vendor || receipt.subject || 'Unknown';
-    const paymentPurpose = receipt.parsedData?.vendor || receipt.subject || '';
-    return {
-      statementId: null,
-      workspaceId,
-      transactionDate: new Date(receipt.parsedData.date),
-      counterpartyName,
-      paymentPurpose,
-      // Set here because a scan's row is confirmed with update(), which skips
-      // the entity hook: the vendor may have been corrected since the upload.
-      payeeKey: payeeKeyOf({ counterpartyName, paymentPurpose }),
-      amount: receipt.parsedData?.amount ?? null,
-      currency: currencyCodeOrDefault(receipt.parsedData?.currency, workspaceCurrency),
-      // A category passed in is the one the person picked while approving.
-      ...(categoryId
-        ? { categoryId, categorySource: TransactionCategorySource.MANUAL, categoryReason: null }
-        : {
-            categoryId: receipt.parsedData?.categoryId || null,
-            categorySource: receipt.parsedData?.categorySource ?? null,
-            categoryReason: receipt.parsedData?.categoryReason ?? null,
-          }),
-      transactionType,
-    };
+    return receiptTransactionFields(receipt, workspaceId, workspaceCurrency, categoryId);
   }
+}
+
+/** The receipt fields that live on the row it booked too, so an edit to one moves the row. */
+const SYNCED_RECEIPT_FIELDS = new Set([
+  'date',
+  'amount',
+  'currency',
+  'vendor',
+  'transactionType',
+  'categoryId',
+]);
+
+/**
+ * The row a receipt books, from its fields as they stand. Without a date the
+ * transaction date is today's; callers that may lack one leave it out
+ * (`scanTransactionUpdate`).
+ */
+function receiptTransactionFields(
+  receipt: Receipt,
+  workspaceId: string,
+  workspaceCurrency: string,
+  categoryId?: string,
+): Partial<Transaction> {
+  const transactionType =
+    receipt.parsedData?.transactionType === 'income'
+      ? TransactionType.INCOME
+      : TransactionType.EXPENSE;
+
+  const counterpartyName = receipt.parsedData?.vendor || receipt.subject || 'Unknown';
+  const paymentPurpose = receipt.parsedData?.vendor || receipt.subject || '';
+  return {
+    statementId: null,
+    workspaceId,
+    transactionDate: receipt.parsedData?.date ? new Date(receipt.parsedData.date) : new Date(),
+    counterpartyName,
+    paymentPurpose,
+    // Set here because a scan's row is confirmed with update(), which skips
+    // the entity hook: the vendor may have been corrected since the upload.
+    payeeKey: payeeKeyOf({ counterpartyName, paymentPurpose }),
+    amount: receipt.parsedData?.amount ?? null,
+    currency: currencyCodeOrDefault(receipt.parsedData?.currency, workspaceCurrency),
+    // A category passed in is the one the person picked while approving.
+    ...(categoryId
+      ? { categoryId, categorySource: TransactionCategorySource.MANUAL, categoryReason: null }
+      : {
+          categoryId: receipt.parsedData?.categoryId || null,
+          categorySource: receipt.parsedData?.categorySource ?? null,
+          categoryReason: receipt.parsedData?.categoryReason ?? null,
+        }),
+    transactionType,
+  };
 }
 
 /** Plain fields of a receipt for the audit diff: no file paths, metadata or relations. */
@@ -919,10 +1022,28 @@ function scanTransactionUpdate(
   if (hasDate) {
     update.transactionDate = transactionDate;
   }
-  if (typeof update.amount === 'number') {
-    const isExpense = update.transactionType !== TransactionType.INCOME;
-    update.debit = isExpense ? update.amount : null;
-    update.credit = isExpense ? null : update.amount;
+  return withLedgerSides(update as Partial<Transaction>) as QueryDeepPartialEntity<Transaction>;
+}
+
+/**
+ * A booked row carries its amount on the side it moves: debit for spending,
+ * credit for income. Every income and spending figure sums those two, so a row
+ * with only an amount would count as nothing. A parse may hand the amount over
+ * as text; it is a number by the time it is stored.
+ */
+function withLedgerSides<T extends Partial<Transaction>>(fields: T): T {
+  if (fields.amount === null || fields.amount === undefined) {
+    return fields;
   }
-  return update;
+  const amount = Math.round(Math.abs(Number(fields.amount)) * 100) / 100;
+  if (!Number.isFinite(amount)) {
+    return fields;
+  }
+  const isExpense = fields.transactionType !== TransactionType.INCOME;
+  return {
+    ...fields,
+    amount,
+    debit: isExpense ? amount : null,
+    credit: isExpense ? null : amount,
+  };
 }

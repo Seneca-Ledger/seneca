@@ -1,7 +1,8 @@
 'use client';
 
-import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
+import { type UseMutationResult, useMutation } from '@tanstack/react-query';
 import api from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface BulkUpdateOwnerVariables {
@@ -20,8 +21,6 @@ export interface BulkUpdateOwnerVariables {
  * counting different rows.
  */
 export function useBulkUpdateOwner(): UseMutationResult<unknown, Error, BulkUpdateOwnerVariables> {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ txIds, ownerMemberId, isPrivate }: BulkUpdateOwnerVariables) => {
       // Only the fields the caller named: an absent key means "leave it alone",
@@ -34,9 +33,9 @@ export function useBulkUpdateOwner(): UseMutationResult<unknown, Error, BulkUpda
         items: txIds.map(id => ({ id, updates })),
       } satisfies ContractInput<'BulkUpdateRequestBody'>);
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      await queryClient.invalidateQueries({ queryKey: ['reports'] });
+    // Owner and privacy decide whose figures a row counts in.
+    onSuccess: () => {
+      invalidateFinancialData();
     },
   });
 }

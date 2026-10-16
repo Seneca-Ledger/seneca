@@ -1,4 +1,4 @@
-import { countedSql } from '@/common/utils/counted-transactions.util';
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { SubscriptionFrequency } from '@/entities/subscription.entity';
 import { StoicBehaviorService } from '@/modules/insights/stoic/stoic-behavior.service';
 
@@ -18,7 +18,7 @@ function transactionRepository(results: unknown[][]) {
   };
 }
 
-const exchangeRates = { getRate: jest.fn(async (from: string) => (from === 'USD' ? 0.5 : 1)) };
+const exchangeRates = { getRateOrNull: jest.fn(async (from: string) => (from === 'USD' ? 0.5 : 1)) };
 
 describe('StoicBehaviorService', () => {
   it('merges merchants across categories and currencies, and splits weekends', async () => {
@@ -76,7 +76,7 @@ describe('StoicBehaviorService', () => {
     const builders = transactions.createQueryBuilder.mock.results.map(result => result.value);
     expect(builders).toHaveLength(4);
     for (const qb of builders) {
-      expect(qb.andWhere).toHaveBeenCalledWith(countedSql('t'));
+      expect(qb.andWhere).toHaveBeenCalledWith(flowsSql('t'));
     }
   });
 });

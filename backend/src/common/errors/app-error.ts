@@ -228,6 +228,11 @@ export const ERR = {
   PAYABLE_WALLET_CURRENCY_MISMATCH:
     'The wallet holds {{walletCurrency}}; the bill is in {{currency}}',
   PAYABLE_ALREADY_LINKED: 'This bill is already linked to a transaction',
+  PAYABLE_PAID_THROUGH_PAYMENT:
+    'Mark it paid instead: choose the wallet or the bank transaction the money went through',
+  PAYABLE_BOOK_NEEDS_SOURCE: 'Choose the bank transaction or the wallet the money went into',
+  PAYABLE_PAYMENT_SHORT:
+    'That transaction is less than what is still owed; record it as a partial payment',
   PAYABLE_CATEGORY_NOT_FOUND: 'Category not found in this workspace',
 
   // ── invoices ─────────────────────────────────────────────────────────────

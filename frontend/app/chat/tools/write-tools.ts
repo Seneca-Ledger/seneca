@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import apiClient from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import type { ChatTool } from './types';
 
@@ -66,6 +67,8 @@ export const writeTools: ChatTool[] = [
           'idempotency-key': crypto.randomUUID(),
         },
       });
+      // A new expense moves the figures on every page.
+      invalidateFinancialData();
       return response.data;
     },
   },
@@ -88,6 +91,7 @@ export const writeTools: ChatTool[] = [
         } satisfies ContractInput<'UpdateTransactionBody'>,
         { headers: AI_ACTOR_HEADERS },
       );
+      invalidateFinancialData();
       return response.data;
     },
   },

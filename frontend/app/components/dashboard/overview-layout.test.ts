@@ -151,7 +151,7 @@ describe('hidden and optional sections', () => {
     const rows = normalizeRows({ rows: [['goals']] }).flat();
 
     expect(rows).not.toContain('taxes');
-    expect(rows).not.toContain('advice');
+    expect(rows).not.toContain('money-owed');
     expect(rows).not.toContain('crypto');
     expect(rows).toContain('safe-to-spend');
     expect(normalizeRows({ rows: [['goals'], ['taxes']] }).flat()).toContain('taxes');
@@ -182,6 +182,30 @@ describe('hidden and optional sections', () => {
     expect(normalizeRows({ rows: [['goals', 'crypto']], hidden: ['crypto'] })[1]).toEqual([
       'goals',
     ]);
+  });
+});
+
+describe('the shipped layout', () => {
+  it('is the one arranged in the Administrator workspace', () => {
+    // Saved there on 2026-10-15, with the bills and taxes cards switched off.
+    const saved = {
+      rows: [
+        ['getting-started', 'budgets'],
+        ['kpi-income', 'kpi-spent', 'kpi-net', 'kpi-savings'],
+        ['top-categories', 'recent-transactions'],
+        ['safe-to-spend', 'cash-runway'],
+        ['spend-calendar'],
+        ['net-worth', 'upcoming-charges'],
+        ['goals'],
+        ['activity'],
+        ['advice'],
+      ],
+      hidden: ['money-owed', 'taxes'],
+    };
+
+    expect(normalizeRows(saved)).toEqual(DEFAULT_OVERVIEW_ROWS);
+    expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('money-owed');
+    expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('taxes');
   });
 });
 

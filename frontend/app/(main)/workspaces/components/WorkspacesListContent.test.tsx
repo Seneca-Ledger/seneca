@@ -117,6 +117,23 @@ describe('WorkspacesListContent', () => {
     expect(html).not.toContain('Close');
   });
 
+  it('lets the page scroll to the last card instead of cutting the list at screen height', async () => {
+    const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspacesListContent embedded onCloseEmbedded={vi.fn()} />);
+    });
+
+    const outer = container.firstElementChild as HTMLElement;
+    expect(getComputedStyle(outer).overflow).not.toBe('hidden');
+    expect(getComputedStyle(outer).height).not.toContain('100vh');
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('renders statements-style search bar in embedded mode', async () => {
     const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
     const container = document.createElement('div');

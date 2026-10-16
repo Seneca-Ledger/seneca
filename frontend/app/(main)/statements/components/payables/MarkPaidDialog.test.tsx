@@ -131,6 +131,93 @@ describe('MarkPaidDialog', () => {
     });
   });
 
+  it('asks where the money of a payment marked without it went, instead of for another payment', async () => {
+    apiMocks.paymentCandidates.mockResolvedValue([]);
+    apiMocks.payments.mockResolvedValue([
+      {
+        id: 'payment-1',
+        payableId: 'payable-1',
+        amount: '120.00',
+        feeAmount: '0.00',
+        paidOn: '2026-10-16',
+        transactionId: null,
+        comment: null,
+        createdAt: '2026-10-16T08:00:00.000Z',
+      },
+    ]);
+    const { onConfirm } = renderDialog({ ...payable, paidAmount: '120.00', status: 'paid' } as Payable);
+
+    expect(await screen.findByText('bookIntro')).toBeInTheDocument();
+    expect(screen.getByText(/notInAccount/)).toBeInTheDocument();
+    // Nothing is left to pay, and "just mark it" would leave the money nowhere again.
+    expect(screen.queryByLabelText('amount', { selector: 'input' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'modePlain' })).toBeNull();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'wallet' })).toHaveTextContent('Till'));
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ id: 'payable-1' }), {
+      kind: 'book',
+      paymentId: 'payment-1',
+      payload: { payFromWalletId: 'wallet-eur', categoryId: undefined },
+    });
+  });
+
+  it('books a sale paid in hand as cash kept in no wallet when no wallet has its currency', async () => {
+    apiMocks.paymentCandidates.mockResolvedValue([]);
+    apiMocks.payments.mockResolvedValue([
+      {
+        id: 'payment-1',
+        payableId: 'payable-1',
+        amount: '3500.00',
+        feeAmount: '0.00',
+        paidOn: '2026-10-16',
+        transactionId: null,
+        comment: null,
+        createdAt: '2026-10-16T08:00:00.000Z',
+      },
+    ]);
+    const sale = {
+      ...payable,
+      direction: 'receivable',
+      vendor: 'Mac Mini buyer',
+      amount: '3500.00',
+      paidAmount: '3500.00',
+      currency: 'ils',
+      status: 'paid',
+    } as Payable;
+    const { onConfirm } = renderDialog(sale);
+
+    expect(await screen.findByText('bookIntro')).toBeInTheDocument();
+    // No wallet in shekels: cash in hand is preselected, and the payment's own day stands.
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'wallet' })).toHaveTextContent('inHand'));
+    expect(screen.getByText('inHandHint')).toBeInTheDocument();
+    expect(screen.queryByLabelText('paidOn')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ id: 'payable-1' }), {
+      kind: 'book',
+      paymentId: 'payment-1',
+      payload: { inHand: true, categoryId: undefined },
+    });
+  });
+
+  it('offers cash in hand beside the wallets and records a payment with it', async () => {
+    apiMocks.paymentCandidates.mockResolvedValue([]);
+    const { onConfirm } = renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'modeCash' }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'wallet' })).toHaveTextContent('Till'));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'wallet' }));
+    fireEvent.click(screen.getByRole('option', { name: 'inHand' }));
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+
+    expect(onConfirm).toHaveBeenCalledWith(payable, {
+      kind: 'full',
+      payload: { inHand: true, paidOn: new Date().toISOString().slice(0, 10), categoryId: undefined },
+    });
+  });
+
   it('falls back to a plain status change when nothing matches', async () => {
     apiMocks.paymentCandidates.mockResolvedValue([]);
     const { onConfirm } = renderDialog();

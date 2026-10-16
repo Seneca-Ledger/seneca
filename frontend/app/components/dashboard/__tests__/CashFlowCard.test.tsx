@@ -44,6 +44,7 @@ vi.mock('@/app/i18n', () => ({
     income: value('Income'),
     expense: value('Expense'),
     net: value('Net'),
+    noData: value('No data'),
     rangeAll: value('All time'),
     range5y: value('5 years'),
     range12m: value('12 mo'),
@@ -77,7 +78,7 @@ describe('CashFlowCard', () => {
     searchMock.query = 'tab=trends';
   });
 
-  it('shows the signed net total, the income/expense split and the first/last month', () => {
+  it('shows the net total without a plus and the income/expense split', () => {
     hooksMock.useDashboardCashFlow.mockReturnValue(
       loaded([
         { month: '2025-08', income: 30000, expense: 10000 },
@@ -87,11 +88,9 @@ describe('CashFlowCard', () => {
 
     render(<CashFlowCard formatAmount={v => `$${v}`} />);
 
-    expect(screen.getByText('+$26731')).toBeInTheDocument();
+    expect(screen.getByText('$26731')).toBeInTheDocument();
     expect(screen.getByText('Income $44141')).toBeInTheDocument();
     expect(screen.getByText('Expense $17410')).toBeInTheDocument();
-    expect(screen.getByText('Aug 2025')).toBeInTheDocument();
-    expect(screen.getByText('Aug 2026')).toBeInTheDocument();
     const [props] = chartProps.mock.calls.at(-1) ?? [];
     expect((props?.points as unknown[]).length).toBe(2);
   });
@@ -107,11 +106,10 @@ describe('CashFlowCard', () => {
     render(<CashFlowCard formatAmount={v => `$${v}`} activeMonth="2026-07" />);
 
     expect(hooksMock.useDashboardCashFlow).toHaveBeenLastCalledWith('12m', '2026-07');
-    expect(screen.getByText('+$412')).toBeInTheDocument();
+    expect(screen.getByText('$412')).toBeInTheDocument();
     expect(screen.getByText('Income $980')).toBeInTheDocument();
     expect(screen.getByText('Expense $568')).toBeInTheDocument();
-    // Subtitle and the chart's last-month label both name July.
-    expect(screen.getAllByText('Jul 2026')).toHaveLength(2);
+    expect(screen.getByText('Jul 2026')).toBeInTheDocument();
   });
 
   it('shows zeros for a picked month with no row in the series', () => {
@@ -119,7 +117,7 @@ describe('CashFlowCard', () => {
 
     render(<CashFlowCard formatAmount={v => `$${v}`} activeMonth="2026-07" />);
 
-    expect(screen.getByText('+$0')).toBeInTheDocument();
+    expect(screen.getByText('$0')).toBeInTheDocument();
     expect(screen.getByText('Income $0')).toBeInTheDocument();
   });
 
@@ -143,13 +141,13 @@ describe('CashFlowCard', () => {
 
     const { unmount } = render(<CashFlowCard formatAmount={String} />);
     expect(hooksMock.useDashboardCashFlow).toHaveBeenLastCalledWith('12m', undefined);
-    expect(screen.getByRole('button', { name: '12 mo' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: '12 mo' })).toHaveAttribute('aria-selected', 'true');
     unmount();
 
     searchMock.query = 'tab=trends&cf=5y';
     render(<CashFlowCard formatAmount={String} />);
     expect(hooksMock.useDashboardCashFlow).toHaveBeenLastCalledWith('5y', undefined);
-    expect(screen.getByRole('button', { name: '5 years' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: '5 years' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('writes the picked range to the URL and drops the default', () => {
@@ -157,13 +155,23 @@ describe('CashFlowCard', () => {
     hooksMock.useDashboardCashFlow.mockReturnValue(loaded([]));
 
     render(<CashFlowCard formatAmount={String} />);
-    fireEvent.click(screen.getByRole('button', { name: 'All time' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'All time' }));
     expect(routerMock.replace).toHaveBeenLastCalledWith('/dashboard?tab=trends&cf=all', {
       scroll: false,
     });
 
-    fireEvent.click(screen.getByRole('button', { name: '12 mo' }));
+    fireEvent.click(screen.getByRole('tab', { name: '12 mo' }));
     expect(routerMock.replace).toHaveBeenLastCalledWith('/dashboard?tab=trends', { scroll: false });
+  });
+
+  it('shows a loss with a typographic minus', () => {
+    hooksMock.useDashboardCashFlow.mockReturnValue(
+      loaded([{ month: '2026-07', income: 100, expense: 250 }]),
+    );
+
+    render(<CashFlowCard formatAmount={v => `$${v}`} activeMonth="2026-07" />);
+
+    expect(screen.getByText('−$150')).toBeInTheDocument();
   });
 
   it('shows the empty state instead of a chart when the window has no data', () => {

@@ -1,3 +1,4 @@
+import type { LucideIcon } from '@/app/components/icons';
 import {
   Briefcase,
   Camera,
@@ -7,7 +8,6 @@ import {
   GraduationCap,
   Heart,
   Home,
-  type LucideIcon,
   Monitor,
   PawPrint,
   PiggyBank,
@@ -16,49 +16,72 @@ import {
   Stethoscope,
   TrendingUp,
   Wrench,
-} from '@/app/components/icons';
+} from '@/app/lib/category-line-icons';
+
+/**
+ * The earthy chart tones a cover is painted in: sage, terracotta, sand, dusty
+ * blue, clay (`--cat-tone-1…5`) and stone (`--cat-tone-other`).
+ */
+export type GoalCoverTone = 1 | 2 | 3 | 4 | 5 | 'stone';
+
+export type GoalCoverPresetId =
+  | 'travel'
+  | 'home'
+  | 'car'
+  | 'education'
+  | 'emergency'
+  | 'wedding'
+  | 'retirement'
+  | 'camera'
+  | 'tech'
+  | 'health'
+  | 'gift'
+  | 'pet'
+  | 'sport'
+  | 'renovation'
+  | 'business'
+  | 'investment';
 
 export interface GoalCoverPreset {
   /** The wire value stored on the goal. Renaming one orphans every goal that chose it. */
-  id: string;
+  id: GoalCoverPresetId;
   Icon: LucideIcon;
-  /** Two stops of a diagonal gradient, drawn behind the icon. */
-  from: string;
-  to: string;
+  tone: GoalCoverTone;
 }
 
 /**
- * The bundled covers: a gradient tile with an icon, drawn here rather than
- * downloaded. They cost no bytes, no network call and no licence, which is
- * what makes them the picker's first screen and its fallback when the photo
- * search has used up the day's allowance.
+ * The bundled covers: a flat tile in one of the app's six earthy tones with a
+ * line icon from the category set, drawn here rather than downloaded. They cost
+ * no bytes, no network call and no licence, which is what makes them the
+ * picker's first screen and its fallback when the photo search has used up the
+ * day's allowance.
  *
- * The ids mirror GOAL_COVER_PRESETS on the server, which validates them.
- *
- * Fixed hex rather than theme tokens on purpose: a cover is a picture, and it
- * should look the same in light and dark the way a photo does. The white icon
- * is legible on every gradient here.
+ * The ids mirror GOAL_COVER_PRESETS on the server, which validates them. The
+ * tones are theme variables, so dark mode gets its lighter set; the icon colour
+ * per tone lives in `.lumio-goal-cover` (_goals.scss).
  */
 export const GOAL_COVER_PRESETS: readonly GoalCoverPreset[] = [
-  { id: 'travel', Icon: Plane, from: '#0ea5e9', to: '#2563eb' },
-  { id: 'home', Icon: Home, from: '#f59e0b', to: '#d97706' },
-  { id: 'car', Icon: Car, from: '#64748b', to: '#334155' },
-  { id: 'education', Icon: GraduationCap, from: '#8b5cf6', to: '#6d28d9' },
-  { id: 'emergency', Icon: ShieldCheck, from: '#ef4444', to: '#b91c1c' },
-  { id: 'wedding', Icon: Heart, from: '#f472b6', to: '#db2777' },
-  { id: 'retirement', Icon: PiggyBank, from: '#14b8a6', to: '#0f766e' },
-  { id: 'camera', Icon: Camera, from: '#475569', to: '#1e293b' },
-  { id: 'tech', Icon: Monitor, from: '#6366f1', to: '#4338ca' },
-  { id: 'health', Icon: Stethoscope, from: '#22c55e', to: '#15803d' },
-  { id: 'gift', Icon: Gift, from: '#fb7185', to: '#e11d48' },
-  { id: 'pet', Icon: PawPrint, from: '#a3703a', to: '#78350f' },
-  { id: 'sport', Icon: Dumbbell, from: '#f97316', to: '#c2410c' },
-  { id: 'renovation', Icon: Wrench, from: '#eab308', to: '#a16207' },
-  { id: 'business', Icon: Briefcase, from: '#0891b2', to: '#155e75' },
-  { id: 'investment', Icon: TrendingUp, from: '#10b981', to: '#047857' },
+  { id: 'travel', Icon: Plane, tone: 4 },
+  { id: 'home', Icon: Home, tone: 5 },
+  { id: 'car', Icon: Car, tone: 'stone' },
+  { id: 'education', Icon: GraduationCap, tone: 1 },
+  { id: 'emergency', Icon: ShieldCheck, tone: 2 },
+  { id: 'wedding', Icon: Heart, tone: 2 },
+  { id: 'retirement', Icon: PiggyBank, tone: 1 },
+  { id: 'camera', Icon: Camera, tone: 'stone' },
+  { id: 'tech', Icon: Monitor, tone: 4 },
+  { id: 'health', Icon: Stethoscope, tone: 1 },
+  { id: 'gift', Icon: Gift, tone: 3 },
+  { id: 'pet', Icon: PawPrint, tone: 5 },
+  { id: 'sport', Icon: Dumbbell, tone: 3 },
+  { id: 'renovation', Icon: Wrench, tone: 5 },
+  { id: 'business', Icon: Briefcase, tone: 4 },
+  { id: 'investment', Icon: TrendingUp, tone: 1 },
 ];
 
-const BY_ID = new Map(GOAL_COVER_PRESETS.map(preset => [preset.id, preset]));
+const BY_ID = new Map<string, GoalCoverPreset>(
+  GOAL_COVER_PRESETS.map(preset => [preset.id, preset]),
+);
 
 /** Null for an id this build does not know — an older client against a newer server. */
 export function findGoalCoverPreset(id: string): GoalCoverPreset | null {

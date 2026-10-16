@@ -392,7 +392,7 @@ describe('TransactionsService.split', () => {
       parts: [{ amount: 8000 }, { amount: 4000 }],
     });
 
-    expect(cacheManager.set).toHaveBeenCalledWith('reports:version:u-1', expect.any(String), 0);
+    expect(cacheManager.set).toHaveBeenCalledWith('reports:version:ws-1', expect.any(String), 0);
     expect(auditService.createEvent).toHaveBeenCalledTimes(1);
     expect(auditService.createEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -677,7 +677,7 @@ describe('TransactionsService.unsplit', () => {
   it('records an audit event with the pre-merge parts and invalidates the reports cache', async () => {
     await service.unsplit('tx-1', 'ws-1', 'u-1');
 
-    expect(cacheManager.set).toHaveBeenCalledWith('reports:version:u-1', expect.any(String), 0);
+    expect(cacheManager.set).toHaveBeenCalledWith('reports:version:ws-1', expect.any(String), 0);
     expect(auditService.createEvent).toHaveBeenCalledTimes(1);
     const event = auditService.createEvent.mock.calls[0][0];
     expect(event).toEqual(

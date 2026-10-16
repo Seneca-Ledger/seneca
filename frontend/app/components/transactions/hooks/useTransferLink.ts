@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { fromStatementTransaction, mapApiRecordToTransaction } from '../helpers/transactionMapper';
 import type { Transaction } from '../types';
@@ -85,6 +86,7 @@ export function useTransferLink(onDone: () => void | Promise<void>): UseTransfer
         .then(async () => {
           toast.success(linkedText);
           setCandidates(null);
+          invalidateFinancialData();
           await onDone();
         })
         .catch((error: unknown) => {
@@ -102,6 +104,7 @@ export function useTransferLink(onDone: () => void | Promise<void>): UseTransfer
         .post(`/transactions/${transactionId}/unlink-transfer`)
         .then(async () => {
           toast.success(unlinkedText);
+          invalidateFinancialData();
           await onDone();
         })
         .catch((error: unknown) => {
@@ -122,6 +125,7 @@ export function useTransferLink(onDone: () => void | Promise<void>): UseTransfer
         .then(async () => {
           toast.success(reimbursedText);
           setCandidates(null);
+          invalidateFinancialData();
           await onDone();
         })
         .catch((error: unknown) => {
@@ -139,6 +143,7 @@ export function useTransferLink(onDone: () => void | Promise<void>): UseTransfer
         .post(`/transactions/${transactionId}/unlink-reimbursement`)
         .then(async () => {
           toast.success(unreimbursedText);
+          invalidateFinancialData();
           await onDone();
         })
         .catch((error: unknown) => {

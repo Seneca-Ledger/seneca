@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type Repository } from 'typeorm';
-import { onlyCounted } from '../../common/utils/counted-transactions.util';
+import { onlyFlows } from '../../common/utils/counted-transactions.util';
 import {
   applyOwnerFilter,
   type OwnerFilter,
@@ -9,7 +9,6 @@ import {
 } from '../../common/utils/transaction-owner.util';
 import type { CashFlowMapQuery } from '../../contracts';
 import { Category } from '../../entities/category.entity';
-import { StatementStatus } from '../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
@@ -157,7 +156,6 @@ export class CashFlowMapService {
   ): Promise<CashFlowRow[]> {
     const qb = this.transactionRepository
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
       .select([
         't.transactionType AS "type"',
         't.currency AS currency',
@@ -167,15 +165,11 @@ export class CashFlowMapService {
         't.counterpartyName AS "counterpartyName"',
         't.transferPairId AS "transferPairId"',
       ])
-      .where('s.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('s.deletedAt IS NULL')
-      .andWhere('s.status NOT IN (:...excluded)', {
-        excluded: [StatementStatus.ERROR, StatementStatus.PROCESSING],
-      })
+      .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.isDuplicate = false')
       .andWhere('t.transactionDate >= :from', { from })
       .andWhere('t.transactionDate <= :to', { to });
-    onlyCounted(qb, 't');
+    onlyFlows(qb, 't');
     applyOwnerFilter(qb, 't', owner);
     if (!includeTransfers) {
       qb.andWhere('t.transferPairId IS NULL');
