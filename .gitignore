@@ -89,3 +89,6 @@ graphify-out/*
 # SkillOpt-Sleep (staging, evidence logs with transcript excerpts)
 .skillopt-sleep/
 .skillopt-sleep-handoff/
+
+# make db-backup / make upgrade dumps
+backup_*.sql

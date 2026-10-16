@@ -50,6 +50,62 @@ This starts:
 Migrations run automatically when the backend starts (`RUN_MIGRATIONS=true`). PostgreSQL and Redis publish their
 ports on `127.0.0.1` only.
 
+## Upgrading
+
+```bash
+make upgrade                    # newest release (or LUMIO_IMAGE_TAG from .env)
+make upgrade VERSION=v1.2.0     # a specific release
+```
+
+`make upgrade` does four things:
+
+1. Dumps the database to `backup_<timestamp>.sql` in the repository root.
+2. Pulls the backend and frontend images from GHCR.
+3. Recreates the containers.
+4. Waits up to five minutes for `/api/v1/health/ready`.
+
+The backend applies any pending migrations when it starts. Your volumes and `.env` are left as they are. Without
+make, run the same two steps that `make upgrade` runs after the backup:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+To roll back, pin the previous tag with `make upgrade VERSION=<old tag>`. If the newer release has already migrated
+the schema, also restore the backup into an empty database:
+
+```bash
+docker compose stop backend frontend
+docker exec finflow-postgres sh -c 'dropdb -U "$POSTGRES_USER" "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
+make db-restore file=backup_<timestamp>.sql
+make upgrade VERSION=<old tag>
+```
+
+The `make upgrade VERSION=<old tag>` at the end takes a fresh backup of the restored database before it starts the
+old release.
+
+### Updating from Settings
+
+Instance admins see the running version and the newest release under **Settings → Advanced → Changelog**. To install
+a release from there, turn on the updater container once:
+
+```bash
+echo 'COMPOSE_PROFILES=updater' >> .env
+docker compose up -d
+```
+
+**Update to vX.Y.Z** then runs the same steps as `make upgrade`: it backs up the database to `backup_<timestamp>.sql`,
+pulls the images, recreates the backend and frontend and waits for the backend. The page follows the progress and
+reloads once the new version answers. A failed step is reported with its error output and the backup's file name.
+
+The updater mounts `/var/run/docker.sock`, which gives it root on the host. It publishes no port and only reads
+release tags (`vX.Y.Z`) that the backend writes to a shared volume. Only users with the `admin` role who are signed
+in to the app can ask for an update; API keys cannot. Leave the profile off if you prefer to update over SSH.
+
+Releases that change `docker-compose.yml` or `infra/updater/updater.sh` still need a `git pull` on the server, as with
+`make upgrade`.
+
 ## Optional: receipt maps
 
 ```bash

@@ -120,10 +120,6 @@ const nextConfig = {
   // Auto-memoizes components and hooks (React 19 + Next 16). See plan: re-render audit 2026-09.
   reactCompiler: true,
 
-  // Stamped at build time so the UI can tell whether a newer commit exists upstream.
-  env: {
-    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
-  },
   outputFileTracingRoot: __dirname,
 
   serverExternalPackages: ['esbuild'],

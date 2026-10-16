@@ -505,6 +505,8 @@ docker compose up -d
 
 `LUMIO_IMAGE_TAG` in `.env` pins a specific release (defaults to the newest one).
 
+To update later, run `make upgrade`. It backs up the database, pulls the new images, restarts the stack, and lets the backend apply any migrations. Instance admins can also update from Settings → Advanced once `COMPOSE_PROFILES=updater` is in `.env`. See [Upgrading](website/docs/deployment/docker.md#upgrading).
+
 To stop local mode, press `Ctrl + C` in the terminal running `npm run setup:dev:local`.
 
 For a new contributor, Docker full-stack is the recommended path. It builds and runs PostgreSQL, Redis, backend, and frontend, waits for backend readiness, seeds the demo account, and prints the URLs and login credentials.

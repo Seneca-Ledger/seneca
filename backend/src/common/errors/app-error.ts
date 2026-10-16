@@ -275,6 +275,13 @@ export const ERR = {
     'Transactions on a filed tax return: {{count}}. Reopen the return before deleting or changing them.',
   TAX_RETURN_MISSING_RATES:
     'Transactions without an exchange rate for their date: {{count}} ({{currencies}}). Add the rates before filing.',
+
+  // ── system update ───────────────────────────────────────────────────────
+  SYSTEM_UPDATE_ADMIN_ONLY: 'Only an instance administrator can update Lumio',
+  SYSTEM_UPDATER_UNAVAILABLE:
+    'The updater is not running. Add COMPOSE_PROFILES=updater to .env and run docker compose up -d, or run make upgrade on the server.',
+  SYSTEM_UPDATE_IN_PROGRESS: 'An update is already running',
+  SYSTEM_UPDATE_NOT_AVAILABLE: 'This instance already runs the newest release',
 } as const;
 
 export type ErrorCode = keyof typeof ERR;

@@ -120,6 +120,7 @@ import { SmbModule } from './modules/smb/smb.module';
 import { StatementsModule } from './modules/statements/statements.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { SystemUpdateModule } from './modules/system-update/system-update.module';
 import { TaxModule } from './modules/tax/tax.module';
 import { TaxPackModule } from './modules/tax-pack/tax-pack.module';
 import { TaxRemindersModule } from './modules/tax-reminders/tax-reminders.module';
@@ -234,6 +235,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     ]),
     CommonModule,
     ApplicationSettingsModule,
+    SystemUpdateModule,
     AiAnalysisModule,
     BackupsModule,
     AuthModule,

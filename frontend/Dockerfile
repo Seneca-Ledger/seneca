@@ -26,6 +26,11 @@ CMD ["sh", "scripts/dev-entrypoint.sh", "npm", "run", "dev"]
 # --- Build stage ---
 FROM deps AS builder
 
+# Not /app: with the project at /app, webpack resolves `@/lib/...` imports into
+# the App Router's app/lib/ (both have a theme-tokens.ts) and prerendering fails.
+WORKDIR /build
+COPY --from=deps /app/node_modules ./node_modules
+
 # Copy source code
 COPY . .
 
@@ -35,6 +40,9 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+# rewrites() in next.config.js are resolved at build time
+ARG API_PROXY_TARGET
+ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 
 # Build application
 RUN npm run build
@@ -55,9 +63,9 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Next.js standalone output already contains the minimal runtime node_modules.
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+COPY --from=builder /build/.next/standalone ./
+COPY --from=builder /build/.next/static ./.next/static
+COPY --from=builder /build/public ./public
 
 # Use non-root user for runtime
 RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app

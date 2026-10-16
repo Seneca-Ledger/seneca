@@ -202,4 +202,6 @@ export const queryKeys = {
   }) => ['invoices', o.workspaceId, 'peppol', o.kind, o.documentId] as const,
   clients: (workspaceId: string | null) => ['clients', workspaceId] as const,
   taxRateOptions: (workspaceId: string | null) => ['tax-rates', workspaceId, 'options'] as const,
+  /** Instance-wide (the running containers), so the one key without a workspace. */
+  systemUpdate: () => ['system-update'] as const,
 } as const;

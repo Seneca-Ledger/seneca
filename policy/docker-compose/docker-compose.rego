@@ -29,7 +29,16 @@ deny[msg] {
   some i
   v := vols[i]
   contains(v, "/var/run/docker.sock")
+  not docker_socket_allowed(name, svc)
   msg := sprintf("docker-compose: service %q must not mount docker socket (%s)", [name, v])
+}
+
+# The in-app updater (`make upgrade` from Settings) has to drive Docker. It is
+# the one exception, and only while it stays opt-in behind its own profile.
+docker_socket_allowed(name, svc) {
+  name == "updater"
+  some i
+  svc.profiles[i] == "updater"
 }
 
 deny[msg] {

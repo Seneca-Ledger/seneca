@@ -2,9 +2,9 @@ jest.mock('franc', () => ({
   franc: () => 'und',
 }));
 
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import path, { join } from 'node:path';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Schema } from 'effect';
@@ -165,6 +165,7 @@ import {
   SubscriptionDuplicateGroups,
   SubscriptionList,
   SubscriptionSummary,
+  SystemUpdateStatus,
   TaxJurisdictionList,
   TaxRateItem,
   TaxRateList,
@@ -828,6 +829,53 @@ describe('API contracts (e2e)', () => {
       expect(users.body.length).toBeGreaterThan(0);
       matches(UserPermissions, (await get(`/users/${users.body[0].id}/permissions`)).body);
       matches(DisclaimerStatus, (await get('/users/me/disclaimer')).body);
+    });
+
+    it('GET /system/update, with a release and an updater run', async () => {
+      await dataSource.query('UPDATE users SET role = $1 WHERE id = $2', ['admin', owner.userId]);
+      const dir = path.join(process.cwd(), 'update');
+      const created = !existsSync(dir);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, 'heartbeat'), '');
+      writeFileSync(
+        path.join(dir, 'status.json'),
+        JSON.stringify({
+          state: 'failed',
+          tag: 'v1.3.0',
+          step: 'pull',
+          message: 'manifest unknown',
+          backup: 'backup_20261016_100000.sql',
+          startedAt: '2026-10-16T10:00:00Z',
+          finishedAt: '2026-10-16T10:01:00Z',
+        }),
+      );
+      const originalFetch = global.fetch;
+      const originalVersion = process.env.APP_VERSION;
+      process.env.APP_VERSION = 'v1.2.0';
+      global.fetch = (async () =>
+        new Response(
+          JSON.stringify({
+            tag_name: 'v1.3.0',
+            html_url: 'https://github.com/symonbaikov/lumio/releases/tag/v1.3.0',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )) as typeof fetch;
+      try {
+        const status = await get('/system/update');
+        matches(SystemUpdateStatus, status.body);
+        expect(status.body).toMatchObject({
+          currentVersion: 'v1.2.0',
+          latestVersion: 'v1.3.0',
+          updateAvailable: true,
+          updaterAvailable: true,
+          run: { state: 'failed', step: 'pull' },
+        });
+      } finally {
+        global.fetch = originalFetch;
+        process.env.APP_VERSION = originalVersion;
+        if (created) rmSync(dir, { recursive: true, force: true });
+        else for (const file of ['heartbeat', 'status.json']) rmSync(path.join(dir, file), { force: true });
+      }
     });
 
     it('GET /workspaces/invitations/:token', async () => {
