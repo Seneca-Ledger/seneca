@@ -52,6 +52,10 @@ describe('payablesApi', () => {
         toPayCount: 3,
         overdueCount: 1,
         paidTotalCount: 2,
+        dueThisWeekCount: 1,
+        unbookedTotal: 0,
+        unbookedCount: 0,
+        convertedCurrencies: [],
       },
     };
     apiClientMock.get.mockResolvedValue(response);

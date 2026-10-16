@@ -32,6 +32,8 @@ export const Payable = Schema.Struct({
   status: PayableStatus,
   /** The sum of the payments recorded against the bill. */
   paidAmount: DecimalString,
+  /** Of what was paid, how much has no transaction yet; on list rows only. */
+  unbookedAmount: Schema.optional(DecimalString),
   linkedTransactionId: Schema.NullOr(Schema.String),
   source: PayableSource,
   isRecurring: Schema.Boolean,
@@ -70,6 +72,12 @@ export const PayablesSummary = Schema.Struct({
   toPayCount: Schema.Number,
   overdueCount: Schema.Number,
   paidTotalCount: Schema.Number,
+  dueThisWeekCount: Schema.Number,
+  /** Marked paid or received with no money in an account yet, and how many bills. */
+  unbookedTotal: Schema.Number,
+  unbookedCount: Schema.Number,
+  /** Currencies whose bills were converted into the workspace currency for these totals. */
+  convertedCurrencies: Schema.Array(Schema.String),
 });
 export type PayablesSummary = Wire<typeof PayablesSummary>;
 

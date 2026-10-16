@@ -1326,17 +1326,12 @@
     border-collapse: collapse;
   }
 
+  // Column names in sentence case and the readable grey, like every other label.
   &__thead tr {
     text-align: left;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #94a3b8;
-
-    @include dark {
-      color: $lumio-color-ink-400-dk;
-    }
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
   }
 
   &__th {
@@ -1385,6 +1380,138 @@
     justify-content: flex-end;
     gap: 8px;
   }
+
+  // A click anywhere on a row opens the bill.
+  &__row {
+    cursor: pointer;
+
+    &:hover {
+      background: var(--surface-soft);
+    }
+  }
+
+  &__vendor {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 500;
+    color: var(--foreground);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  &__muted {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  &__amount {
+    text-align: right;
+    font-weight: 500;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__amount-note {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
+  &__empty-title {
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__empty-text {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  // The row's one action, a sage text link that shows on hover or focus, so a
+  // column of identical buttons does not repeat down the list.
+  &__mark {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary);
+    cursor: pointer;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    &:focus-visible {
+      opacity: 1;
+    }
+
+    &:disabled {
+      cursor: default;
+    }
+  }
+
+  &__row:hover &__mark,
+  &__row:focus-within &__mark,
+  &__mobile-row &__mark {
+    opacity: 1;
+  }
+}
+
+// A status is a word with a small dot. Only overdue gets a colour beyond the dot:
+// how long it has been, in terracotta, the one accent of its row.
+.lumio-payable-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--foreground);
+  white-space: nowrap;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--cat-tone-other);
+  }
+
+  &--overdue::before {
+    background: var(--money-down);
+  }
+
+  &--done::before {
+    background: var(--money-up);
+  }
+
+  &--partial::before {
+    background: var(--attention);
+  }
+
+  &__since {
+    font-size: 13px;
+    color: var(--money-down);
+  }
+
+  // Ochre: something waits, nothing is wrong yet.
+  &__unbooked {
+    font-size: 13px;
+    color: var(--attention);
+  }
+}
+
+.lumio-payable-summary-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .lumio-payable-summary {
@@ -1403,41 +1530,37 @@
   &__card-content {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 20px;
+    gap: 4px;
+    padding: 16px 20px;
   }
 
-  &__card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    color: #94a3b8;
-
-    @include dark {
-      color: $lumio-color-ink-400-dk;
-    }
+  &__label {
+    font-size: 14px;
+    color: var(--text-muted);
   }
 
-  &__icon {
-    display: flex;
-    height: 36px;
-    width: 36px;
-    align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-md;
-    border: 1px solid #e5e7eb;
-    background: #f8fafc;
-    color: #475569;
+  &__value {
+    margin-top: 4px;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
 
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
-      color: $lumio-color-ink-600-dk;
-    }
+  &__count {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__note {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__unbooked {
+    color: var(--attention);
   }
 }
 

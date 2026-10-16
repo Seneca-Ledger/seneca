@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, IsNull, Repository } from 'typeorm';
@@ -16,6 +17,7 @@ import { normalizePagination } from '../../common/utils/pagination.util';
 import type {
   AddPayablePaymentBody,
   AllocateTransactionBody,
+  BookPayablePaymentBody,
   CreatePayableBody,
   FilterPayablesBody,
   MarkPayablePaidBody,
@@ -46,6 +48,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ExportFormat, PayablesSortOption } from './dto/filter-payables.dto';
 import { PayablesExportService } from './payables-export.service';
+import { UnbookedPaymentsService } from './unbooked-payments.service';
 
 /** A transaction that may be the payment of a bill. */
 export type { PaymentCandidate };
@@ -95,9 +98,16 @@ export class PayablesService {
     private readonly notificationsService: NotificationsService,
     private readonly payablesExportService: PayablesExportService,
     private readonly workspaceCurrency: WorkspaceCurrencyService,
+    @Optional()
+    private readonly unbookedPayments?: UnbookedPaymentsService,
   ) {}
 
   async create(workspaceId: string, userId: string, dto: CreatePayableBody): Promise<Payable> {
+    // Paid is what the payment log says; a bill set paid by hand has no payment
+    // and no transaction, so the money it says came in shows in no figure.
+    if (toEnum(PayableStatus, dto.status) === PayableStatus.PAID) {
+      throw new BadRequestException(appError('PAYABLE_PAID_THROUGH_PAYMENT'));
+    }
     await this.assertLinkedEntitiesInWorkspace(
       workspaceId,
       dto.linkedTransactionId ?? null,
@@ -132,6 +142,15 @@ export class PayablesService {
       .take(limit);
 
     const [data, total] = await queryBuilder.getManyAndCount();
+    // What each bill says came in (or went out) without the money being in an account yet.
+    const unbooked =
+      (await this.unbookedPayments?.unbookedByPayable(
+        workspaceId,
+        data.map(item => item.id),
+      )) ?? new Map<string, number>();
+    for (const item of data) {
+      item.unbookedAmount = (unbooked.get(item.id) ?? 0).toFixed(2);
+    }
 
     return {
       data,
@@ -164,6 +183,14 @@ export class PayablesService {
     dto: UpdatePayableBody,
   ): Promise<Payable> {
     const payable = await this.findOne(id, workspaceId);
+    // The edit form sends a paid bill's status back unchanged; only turning an
+    // open bill paid is refused, for the same reason as on create.
+    if (
+      toEnum(PayableStatus, dto.status) === PayableStatus.PAID &&
+      payable.status !== PayableStatus.PAID
+    ) {
+      throw new BadRequestException(appError('PAYABLE_PAID_THROUGH_PAYMENT'));
+    }
     await this.assertLinkedEntitiesInWorkspace(
       workspaceId,
       dto.linkedTransactionId === undefined ? undefined : (dto.linkedTransactionId ?? null),
@@ -188,9 +215,7 @@ export class PayablesService {
     userId: string,
     payload: MarkPayablePaidBody,
   ): Promise<Payable> {
-    if (payload.linkedTransactionId && payload.payFromWalletId) {
-      throw new BadRequestException(appError('PAYABLE_PAYMENT_AMBIGUOUS'));
-    }
+    this.assertOneSource(payload);
     await this.findOne(id, workspaceId);
     await this.assertLinkedTransactionInWorkspace(workspaceId, payload.linkedTransactionId ?? null);
 
@@ -199,7 +224,7 @@ export class PayablesService {
         where: { id, workspaceId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (payload.payFromWalletId) {
+      if (payload.payFromWalletId || payload.inHand) {
         if (payable.status === PayableStatus.PAID && payable.linkedTransactionId) {
           return payable;
         }
@@ -209,7 +234,7 @@ export class PayablesService {
         payable.linkedTransactionId = await this.recordCashPayment(
           manager,
           payable,
-          payload.payFromWalletId,
+          payload.payFromWalletId ?? null,
           payload,
         );
       }
@@ -222,6 +247,9 @@ export class PayablesService {
       ) {
         throw new ConflictException(appError('PAYABLE_ALREADY_LINKED'));
       }
+      if (payload.linkedTransactionId) {
+        await this.assertCoversOutstanding(manager, payable, payload.linkedTransactionId);
+      }
       payable.linkedTransactionId = payload.linkedTransactionId || payable.linkedTransactionId;
       // Settling in full is one payment for everything still outstanding, so
       // the payment log is the whole truth and the status is derived from it.
@@ -231,7 +259,10 @@ export class PayablesService {
         transactionId: payable.linkedTransactionId,
         createdById: userId,
       });
-      return this.applyPaymentTotals(manager, payable, workspaceId);
+      return this.linkIfUnbooked(
+        manager,
+        await this.applyPaymentTotals(manager, payable, workspaceId),
+      );
     });
 
     try {
@@ -259,24 +290,54 @@ export class PayablesService {
     return saved;
   }
 
+  /**
+   * A transaction smaller than what is still owed is a partial payment: taken
+   * as the whole one, it would close the bill while money is still missing.
+   * Amounts in another currency are not compared here; their rate is not known.
+   */
+  private async assertCoversOutstanding(
+    manager: EntityManager,
+    payable: Payable,
+    transactionId: string,
+  ): Promise<void> {
+    const transaction = await manager.getRepository(Transaction).findOne({
+      where: { id: transactionId, workspaceId: payable.workspaceId },
+      select: ['id', 'amount', 'debit', 'credit', 'currency'],
+    });
+    if (!transaction || transaction.currency.toUpperCase() !== payable.currency.toUpperCase()) {
+      return;
+    }
+    const paid = Math.max(
+      Math.abs(Number(transaction.amount ?? 0)),
+      Number(transaction.debit ?? 0),
+      Number(transaction.credit ?? 0),
+    );
+    if (Math.round(paid * 100) < Math.round(this.outstandingOf(payable) * 100)) {
+      throw new BadRequestException(appError('PAYABLE_PAYMENT_SHORT'));
+    }
+  }
+
   private async recordCashPayment(
     manager: EntityManager,
     payable: Payable,
-    walletId: string,
+    /** Null: cash handed over in person and kept in no wallet. */
+    walletId: string | null,
     payload: Pick<MarkPayablePaidBody, 'paidOn' | 'categoryId'>,
     /** What was handed over now; the whole bill when not said otherwise. */
     paidAmount?: number,
   ): Promise<string> {
     const workspaceId = payable.workspaceId;
-    const wallet = await manager.getRepository(Wallet).findOne({
-      where: { id: walletId, workspaceId },
-      select: ['id', 'currency'],
-    });
-    if (!wallet) {
+    const currency = payable.currency.toUpperCase();
+    const wallet = walletId
+      ? await manager.getRepository(Wallet).findOne({
+          where: { id: walletId, workspaceId },
+          select: ['id', 'currency'],
+        })
+      : null;
+    if (walletId && !wallet) {
       throw new BadRequestException(appError('PAYABLE_WALLET_NOT_FOUND'));
     }
-    const currency = payable.currency.toUpperCase();
-    if (wallet.currency.toUpperCase() !== currency) {
+    if (wallet && wallet.currency.toUpperCase() !== currency) {
       throw new BadRequestException(
         appError('PAYABLE_WALLET_CURRENCY_MISMATCH', {
           walletCurrency: wallet.currency.toUpperCase(),
@@ -300,7 +361,7 @@ export class PayablesService {
       transactions.create({
         workspaceId,
         statementId: null,
-        walletId: wallet.id,
+        walletId: wallet?.id ?? null,
         transactionDate: payload.paidOn ? new Date(payload.paidOn) : new Date(),
         counterpartyName: payable.vendor,
         paymentPurpose: payable.comment || payable.vendor,
@@ -345,9 +406,7 @@ export class PayablesService {
     userId: string,
     dto: AddPayablePaymentBody,
   ): Promise<Payable> {
-    if (dto.linkedTransactionId && dto.payFromWalletId) {
-      throw new BadRequestException(appError('PAYABLE_PAYMENT_AMBIGUOUS'));
-    }
+    this.assertOneSource(dto);
     await this.findOne(id, workspaceId);
     await this.assertLinkedTransactionInWorkspace(workspaceId, dto.linkedTransactionId ?? null);
 
@@ -371,11 +430,11 @@ export class PayablesService {
       }
 
       let transactionId = dto.linkedTransactionId ?? null;
-      if (dto.payFromWalletId) {
+      if (dto.payFromWalletId || dto.inHand) {
         transactionId = await this.recordCashPayment(
           manager,
           payable,
-          dto.payFromWalletId,
+          dto.payFromWalletId ?? null,
           { paidOn: dto.paidOn, categoryId: dto.categoryId },
           amount,
         );
@@ -395,8 +454,132 @@ export class PayablesService {
       if (transactionId && !payable.linkedTransactionId) {
         payable.linkedTransactionId = transactionId;
       }
-      return this.applyPaymentTotals(manager, payable, workspaceId);
+      return this.linkIfUnbooked(
+        manager,
+        await this.applyPaymentTotals(manager, payable, workspaceId),
+      );
     });
+  }
+
+  /**
+   * Books the money of a payment recorded without it: the bank row it came in
+   * (or went out) on, or a wallet when it was cash. Until then the payment is
+   * on the bill but in no account, so no figure counts it. A row already
+   * paying other bills may pay this one too, up to what is left on it.
+   */
+  async bookPayment(
+    id: string,
+    paymentId: string,
+    workspaceId: string,
+    userId: string,
+    dto: BookPayablePaymentBody,
+  ): Promise<Payable> {
+    this.assertOneSource(dto);
+    if (!(dto.linkedTransactionId || dto.payFromWalletId || dto.inHand)) {
+      throw new BadRequestException(appError('PAYABLE_BOOK_NEEDS_SOURCE'));
+    }
+    await this.findOne(id, workspaceId);
+    await this.assertLinkedTransactionInWorkspace(workspaceId, dto.linkedTransactionId ?? null);
+
+    return this.payableRepository.manager.transaction(async manager => {
+      const payable = await manager.getRepository(Payable).findOneOrFail({
+        where: { id, workspaceId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const payments = manager.getRepository(PayablePayment);
+      const payment = await payments.findOne({
+        where: { id: paymentId, payableId: id, workspaceId },
+      });
+      if (!payment) {
+        throw new NotFoundException(appError('PAYABLE_PAYMENT_NOT_FOUND'));
+      }
+      if (payment.transactionId) {
+        throw new ConflictException(appError('PAYABLE_ALREADY_LINKED'));
+      }
+      // What reached the account: the payment less what the processor kept.
+      const net = this.round2(Number(payment.amount) - Number(payment.feeAmount ?? 0));
+
+      let transactionId: string;
+      if (dto.payFromWalletId || dto.inHand) {
+        transactionId = await this.recordCashPayment(
+          manager,
+          payable,
+          dto.payFromWalletId ?? null,
+          { paidOn: String(payment.paidOn).slice(0, 10), categoryId: dto.categoryId },
+          net,
+        );
+      } else {
+        transactionId = dto.linkedTransactionId as string;
+        await this.assertRowHasRoomFor(manager, payable, transactionId, net);
+      }
+
+      await payments.update({ id: payment.id }, { transactionId });
+      if (!payable.linkedTransactionId) {
+        await manager
+          .getRepository(Payable)
+          .update({ id, workspaceId }, { linkedTransactionId: transactionId });
+      }
+      return this.asStored(
+        await manager.getRepository(Payable).findOneOrFail({ where: { id, workspaceId } }),
+      );
+    });
+  }
+
+  /** The money came one way: a bank row, a wallet, or cash in hand — never two at once. */
+  private assertOneSource(source: {
+    linkedTransactionId?: string | null;
+    payFromWalletId?: string | null;
+    inHand?: boolean | null;
+  }): void {
+    const sources = [source.linkedTransactionId, source.payFromWalletId, source.inHand].filter(
+      Boolean,
+    );
+    if (sources.length > 1) {
+      throw new BadRequestException(appError('PAYABLE_PAYMENT_AMBIGUOUS'));
+    }
+  }
+
+  /** A row may pay several bills, but not more than its own amount, in the bill's currency. */
+  private async assertRowHasRoomFor(
+    manager: EntityManager,
+    payable: Payable,
+    transactionId: string,
+    amount: number,
+  ): Promise<void> {
+    const [row]: Array<{ currency: string; total: string; used: string }> = await manager.query(
+      `SELECT t.currency,
+              GREATEST(ABS(COALESCE(t.amount, 0)), COALESCE(t.debit, 0), COALESCE(t.credit, 0)) AS total,
+              COALESCE((SELECT SUM(pp.amount - pp.fee_amount) FROM payable_payments pp
+                        WHERE pp.transaction_id = t.id), 0) AS used
+         FROM transactions t WHERE t.id = $1 AND t.workspace_id = $2`,
+      [transactionId, payable.workspaceId],
+    );
+    if (!row || row.currency.toUpperCase() !== payable.currency.toUpperCase()) {
+      throw new BadRequestException(appError('PAYABLE_BOOK_NEEDS_SOURCE'));
+    }
+    if (Math.round((Number(row.total) - Number(row.used)) * 100) < Math.round(amount * 100)) {
+      throw new BadRequestException(appError('PAYABLE_PAYMENT_SHORT'));
+    }
+  }
+
+  /**
+   * A payment recorded without a transaction waits for the bank row of that
+   * money; if the row is already there, it is linked now. Runs after the
+   * totals are saved, so that save does not write the old link back.
+   */
+  private async linkIfUnbooked(manager: EntityManager, payable: Payable): Promise<Payable> {
+    if (!this.unbookedPayments) {
+      return payable;
+    }
+    const linked = await this.unbookedPayments.linkUnbooked(payable.workspaceId, manager);
+    if (linked === 0) {
+      return payable;
+    }
+    return this.asStored(
+      await manager.getRepository(Payable).findOneOrFail({
+        where: { id: payable.id, workspaceId: payable.workspaceId },
+      }),
+    );
   }
 
   /** Undoes one payment; the status falls back to whatever the rest adds up to. */
@@ -727,6 +910,18 @@ export class PayablesService {
   async findPaymentCandidates(id: string, workspaceId: string): Promise<PaymentCandidate[]> {
     const payable = await this.findOne(id, workspaceId);
     const anchor = payable.dueDate ?? payable.createdAt;
+    // A bill paid on paper is looking for the money of its unbooked payment, not for a remainder.
+    const outstanding = this.outstandingOf(payable);
+    const unbookedPayment =
+      outstanding > 0
+        ? null
+        : await this.paymentRepository.findOne({
+            where: { payableId: payable.id, workspaceId, transactionId: IsNull() },
+            order: { paidOn: 'ASC' },
+          });
+    const target = unbookedPayment
+      ? this.round2(Number(unbookedPayment.amount) - Number(unbookedPayment.feeAmount ?? 0))
+      : outstanding;
     const rows: Array<{
       id: string;
       transaction_date: string;
@@ -785,7 +980,7 @@ export class PayablesService {
       [
         workspaceId,
         payable.currency,
-        this.outstandingOf(payable),
+        target,
         payable.direction === PayableDirection.RECEIVABLE
           ? TransactionType.INCOME
           : TransactionType.EXPENSE,
@@ -834,6 +1029,7 @@ export class PayablesService {
         status: true,
         dueDate: true,
         amount: true,
+        paidAmount: true,
         currency: true,
         paidAt: true,
         updatedAt: true,
@@ -845,6 +1041,8 @@ export class PayablesService {
     });
     const targetCurrency = this.normalizeCurrency(workspace?.currency);
     const rateCache = new Map<string, number>();
+    const convert = (value: number, currency: string | null | undefined) =>
+      this.convertSummaryAmount(value, currency, targetCurrency, rateCache, workspaceId);
 
     const now = new Date();
     const startOfToday = this.startOfDay(now);
@@ -863,45 +1061,55 @@ export class PayablesService {
     let toPayCount = 0;
     let overdueCount = 0;
     let paidTotalCount = 0;
+    let dueThisWeekCount = 0;
+    let unbookedTotal = 0;
+    let unbookedCount = 0;
+    const unbooked =
+      (await this.unbookedPayments?.unbookedByPayable(workspaceId)) ?? new Map<string, number>();
+    const convertedCurrencies = new Set<string>();
 
     for (const row of rows) {
-      const amount = await this.convertSummaryAmount(
-        Number(row.amount || 0),
-        row.currency,
-        targetCurrency,
-        rateCache,
-        workspaceId,
-      );
+      const currency = this.normalizeCurrency(row.currency);
+      if (currency !== targetCurrency) {
+        convertedCurrencies.add(currency);
+      }
+      const isPaid = row.status === PayableStatus.PAID;
+      const isOpen = !isPaid && row.status !== PayableStatus.ARCHIVED;
+      const fullAmount = Number(row.amount || 0);
+      // A paid bill is received in full; any other counts what its payments brought in.
+      const received = isPaid ? fullAmount : Math.min(Number(row.paidAmount || 0), fullAmount);
       const dueDate = this.parseDate(row.dueDate);
       const paidAt = this.parseDate(row.paidAt ?? row.updatedAt);
-      const effectiveOverdue =
-        dueDate !== null &&
-        dueDate < startOfToday &&
-        ![PayableStatus.PAID, PayableStatus.ARCHIVED].includes(row.status);
 
-      if (effectiveOverdue) {
-        overdue += amount;
-        overdueCount += 1;
-      } else if (row.status === PayableStatus.TO_PAY || row.status === PayableStatus.SCHEDULED) {
-        toPay += amount;
-        toPayCount += 1;
-        if (dueDate && dueDate >= startOfToday && dueDate <= endOfWeek) {
-          dueThisWeek += amount;
+      // What is still open is what is still owed: a partly paid bill counts its remainder.
+      if (isOpen) {
+        const outstanding = await convert(Math.max(fullAmount - received, 0), row.currency);
+        if (dueDate !== null && dueDate < startOfToday) {
+          overdue += outstanding;
+          overdueCount += 1;
+        } else {
+          toPay += outstanding;
+          toPayCount += 1;
+          if (dueDate && dueDate <= endOfWeek) {
+            dueThisWeek += outstanding;
+            dueThisWeekCount += 1;
+          }
         }
       }
 
-      if (
-        row.status === PayableStatus.PAID &&
-        paidAt &&
-        paidAt >= startOfMonth &&
-        paidAt <= endOfMonth
-      ) {
-        paidThisMonth += amount;
+      if (received > 0 && row.status !== PayableStatus.ARCHIVED) {
+        paidTotal += await convert(received, row.currency);
+        paidTotalCount += 1;
+        // Marked received (or paid) with no money in an account yet.
+        const notBooked = unbooked.get(row.id) ?? 0;
+        if (notBooked > 0) {
+          unbookedTotal += await convert(notBooked, row.currency);
+          unbookedCount += 1;
+        }
       }
 
-      if (row.status === PayableStatus.PAID) {
-        paidTotal += amount;
-        paidTotalCount += 1;
+      if (isPaid && paidAt && paidAt >= startOfMonth && paidAt <= endOfMonth) {
+        paidThisMonth += await convert(fullAmount, row.currency);
       }
     }
 
@@ -914,6 +1122,10 @@ export class PayablesService {
       toPayCount,
       overdueCount,
       paidTotalCount,
+      dueThisWeekCount,
+      unbookedTotal,
+      unbookedCount,
+      convertedCurrencies: [...convertedCurrencies].sort(),
     };
   }
 

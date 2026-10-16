@@ -31,11 +31,27 @@ export const AddPayablePaymentBody = Schema.Struct({
   linkedTransactionId: optionalNullable(Schema.String.check(Schema.isUUID())),
   /** Paid in cash: record the payment as a new transaction of this wallet. */
   payFromWalletId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** Cash handed over in person, kept in no wallet: booked as a transaction without one. */
+  inHand: optionalNullable(Schema.Boolean),
   /** Category of the cash payment's transaction. */
   categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
   comment: optionalNullable(Schema.String.check(Schema.isMaxLength(500))),
 });
 export type AddPayablePaymentBody = Wire<typeof AddPayablePaymentBody>;
+
+/**
+ * `POST /payables/:id/payments/:paymentId/book`: where the money of a payment
+ * marked without it went — a bank row already in Lumio, or a wallet (cash).
+ */
+export const BookPayablePaymentBody = Schema.Struct({
+  linkedTransactionId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  payFromWalletId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** Cash handed over in person, kept in no wallet: booked as a transaction without one. */
+  inHand: optionalNullable(Schema.Boolean),
+  /** Category of the wallet transaction. */
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+});
+export type BookPayablePaymentBody = Wire<typeof BookPayablePaymentBody>;
 
 export const TransactionAllocationInput = Schema.Struct({
   payableId: Schema.String.check(Schema.isUUID()),
@@ -74,6 +90,8 @@ export const MarkPayablePaidBody = Schema.Struct({
   linkedTransactionId: optionalNullable(Schema.String.check(Schema.isUUID())),
   /** Paid in cash: record the payment as a new transaction of this wallet. */
   payFromWalletId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** Cash handed over in person, kept in no wallet: booked as a transaction without one. */
+  inHand: optionalNullable(Schema.Boolean),
   /** Day of the cash payment; today when omitted. */
   paidOn: optionalNullable(IsoDateString),
   /** Category of the cash payment's transaction. */

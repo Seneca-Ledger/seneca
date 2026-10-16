@@ -116,6 +116,12 @@ export class Payable {
   @Column({ name: 'paid_amount', type: 'decimal', precision: 15, scale: 2, default: 0 })
   paidAmount: number;
 
+  /**
+   * Not a column: of what was received (or paid), how much has no transaction
+   * yet — marked without a wallet or a bank row. Filled in by the list.
+   */
+  unbookedAmount?: string;
+
   @Column({ name: 'due_soon_notified_at', type: 'timestamptz', nullable: true })
   dueSoonNotifiedAt: Date | null;
 

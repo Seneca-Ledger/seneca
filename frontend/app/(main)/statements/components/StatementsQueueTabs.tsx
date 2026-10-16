@@ -26,12 +26,22 @@ export function getStatementsActiveTab(pathname: string | null): TabId | undefin
 }
 
 // A count still loading is left off the label rather than swapped for a spinner,
-// which would make the tab width jump as the counts land.
-function tabLabel(tab: QueueTab): string {
+// which would make the tab width jump as the counts land. The count follows the
+// name without brackets, as Review's tabs do, and a zero is grey.
+function tabLabel(tab: QueueTab): React.ReactNode {
   if (tab.badge === null || tab.badgeLoading) {
     return tab.label;
   }
-  return `${tab.label} (${tab.badge})`;
+  return (
+    <span>
+      {tab.label}{' '}
+      <span
+        className={`lumio-review-tab-count${tab.badge === 0 ? ' lumio-review-tab-count--zero' : ''}`}
+      >
+        {tab.badge}
+      </span>
+    </span>
+  );
 }
 
 /**

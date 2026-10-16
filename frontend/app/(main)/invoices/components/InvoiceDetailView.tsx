@@ -259,7 +259,9 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
   const confirmMarkPaid = async (payable: Payable, result: MarkPaidResult): Promise<void> => {
     await (result.kind === 'full'
       ? payablesApi.markAsPaid(payable.id, result.payload)
-      : payablesApi.addPayment(payable.id, result.payload)
+      : result.kind === 'book'
+        ? payablesApi.bookPayment(payable.id, result.paymentId, result.payload)
+        : payablesApi.addPayment(payable.id, result.payload)
     )
       .then(async updated => {
         // Still short: the dialog stays open for the next instalment.

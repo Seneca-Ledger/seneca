@@ -14,6 +14,7 @@ import {
   AddPayablePaymentBody,
   AllocateTransactionBody,
   AllocationSuggestion,
+  BookPayablePaymentBody,
   CreatePayableBody,
   FilterPayablesBody,
   MarkPayablePaidBody,
@@ -107,6 +108,20 @@ export class PayablesController {
     @WorkspaceId() workspaceId: string,
   ) {
     return this.payablesService.addPayment(id, workspaceId, user.id, dto);
+  }
+
+  /** Where the money of a payment marked without it went: a bank row, or a wallet. */
+  @Post(':id/payments/:paymentId/book')
+  @WorkspaceAuth(Permission.PAYABLE_EDIT)
+  @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  async bookPayment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
+    @SchemaBody(BookPayablePaymentBody) dto: BookPayablePaymentBody,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payablesService.bookPayment(id, paymentId, workspaceId, user.id, dto);
   }
 
   @Delete(':id/payments/:paymentId')
