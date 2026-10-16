@@ -150,6 +150,49 @@ describe('WorkspaceBackgroundsService', () => {
     });
   });
 
+  describe('remembered photos', () => {
+    it('keeps the credit and original of each result for the save', async () => {
+      const { service, cacheManager } = createService();
+      fetchSpy.mockImplementation(async () => jsonResponse({ page_count: 1, results: [DETAIL] }));
+
+      await service.search('fjord');
+
+      expect(cacheManager.set).toHaveBeenCalledWith(
+        `workspace-bg-photo:v1:${PHOTO_ID}`,
+        {
+          attribution: DETAIL.attribution,
+          sourceUrl: DETAIL.foreign_landing_url,
+          originalUrl: ORIGINAL_URL,
+        },
+        expect.any(Number),
+      );
+    });
+
+    it('saves a photo the search showed without asking Openverse again', async () => {
+      const { service, cacheManager } = createService();
+      cacheManager.get.mockImplementation(async (key: string) =>
+        key === `workspace-bg-photo:v1:${PHOTO_ID}`
+          ? {
+              attribution: DETAIL.attribution,
+              sourceUrl: DETAIL.foreign_landing_url,
+              originalUrl: ORIGINAL_URL,
+            }
+          : undefined,
+      );
+      mockedFetchPublicUrl.mockResolvedValueOnce(imageResponse(Buffer.from('original')));
+
+      const result = await service.setPhoto(WORKSPACE_ID, USER_ID, PHOTO_ID);
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(result.backgroundAttribution).toBe(DETAIL.attribution);
+      expect(result.backgroundSourceUrl).toBe(DETAIL.foreign_landing_url);
+      expect(mockedFs.writeFile).toHaveBeenCalledWith(
+        expect.any(String),
+        Buffer.from('encoded:original'),
+      );
+    });
+  });
+
   describe('setPhoto', () => {
     it('refuses a member who cannot edit workspace settings before calling upstream', async () => {
       const { service, workspaceRepository } = createService(WorkspaceRole.MEMBER);
