@@ -126,7 +126,7 @@ jobs:
             -w /mnt \
             koalaman/shellcheck:stable \
             --format=gcc \
-            scripts/*.sh backend/scripts/*.sh
+            scripts/*.sh backend/scripts/*.sh infra/updater/*.sh
 
   hadolint:
     runs-on: ubuntu-latest

@@ -68,6 +68,7 @@ services:
       - LOG_LEVEL=info
     volumes:
       - backend_uploads:/app/uploads
+      - update_requests:/app/update
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,6 +86,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        API_PROXY_TARGET: http://backend:3001
     container_name: finflow-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
@@ -96,6 +98,24 @@ services:
       - API_PROXY_TARGET=http://backend:3001
     depends_on:
       - backend
+    networks:
+      - finflow-network
+    restart: unless-stopped
+
+  # --- In-app updates (optional, off by default) -------------------------------
+  # Lets an instance admin run the equivalent of `make upgrade` from
+  # Settings -> Advanced. It drives Docker through the socket, which amounts to
+  # root on the host, so it is opt-in: add COMPOSE_PROFILES=updater to .env.
+  updater:
+    image: docker:28-cli
+    container_name: finflow-updater
+    profiles: ["updater"]
+    entrypoint: ["sh", "/updater.sh"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/project
+      - ./infra/updater/updater.sh:/updater.sh:ro
+      - update_requests:/update
     networks:
       - finflow-network
     restart: unless-stopped
@@ -173,6 +193,7 @@ volumes:
   postgres_data:
   redis_data:
   backend_uploads:
+  update_requests:
   map_data:
   nominatim_data:
 
