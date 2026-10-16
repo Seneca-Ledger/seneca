@@ -12,6 +12,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { DuplicateGroups } from '@/app/lib/contracts';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import DuplicateGroupCard from './components/DuplicateGroupCard';
 
@@ -150,6 +151,8 @@ export default function TransactionDuplicatesPage() {
       );
       setSuccess(t.markSuccess.value.replace('{count}', String(markedCount)));
       setSelectedGroups(new Set());
+      // A row marked as a duplicate stops counting in every figure.
+      invalidateFinancialData();
       await loadDuplicates(); // Reload to update the list
     })()
       .catch(async (error: unknown) => {
