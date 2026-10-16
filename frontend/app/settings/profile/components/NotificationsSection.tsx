@@ -26,10 +26,16 @@ type ToggleChannel = (
   value: boolean,
 ) => Promise<void>;
 
-/** Label column plus one narrow column per channel. The label track may shrink
- * to nothing so the three channel columns still fit a phone: a 140px floor plus
- * `minWidth: 360` below pushed the Telegram column past the card's edge. */
-const ROW_GRID = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) repeat(3, 64px)' };
+/** Label column plus one narrow column per channel. A phone has no room for
+ * both (the label was squeezed to a word a line and the fourth channel wrapped),
+ * so there the label takes a line of its own and the channels share the next. */
+const ROW_GRID = {
+  display: 'grid',
+  gridTemplateColumns: {
+    xs: `repeat(${notificationChannels.length}, minmax(0, 1fr))`,
+    sm: `minmax(0, 1fr) repeat(${notificationChannels.length}, 64px)`,
+  },
+};
 
 const CHANNEL_FALLBACKS: Record<NotificationChannel, string> = {
   inApp: 'Bell',
@@ -52,7 +58,7 @@ type Props = {
 function ChannelHeader({ tx }: { tx: Tx }) {
   return (
     <Box sx={{ ...ROW_GRID, px: 1.5, pb: 0.5 }}>
-      <span />
+      <Box component="span" sx={{ display: { xs: 'none', sm: 'block' } }} />
       {notificationChannels.map(channel => (
         <Typography
           key={channel}
@@ -95,7 +101,7 @@ function NotificationSettingRow({
         p: 1.5,
       }}
     >
-      <Stack spacing={0.25} sx={{ pr: 1 }}>
+      <Stack spacing={0.25} sx={{ pr: 1, gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
         <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
           {label}
         </Typography>

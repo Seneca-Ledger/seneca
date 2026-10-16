@@ -888,20 +888,38 @@ export class SubscriptionsService {
     }
 
     for (const [workspaceId, subs] of byWorkspace) {
+      const charges = subs.map(s => ({
+        id: s.id,
+        vendor: s.vendorName,
+        amount: Number(s.amount),
+        currency: s.currency,
+        // A `date` column arrives as a string despite the Date type.
+        chargeDate:
+          typeof s.nextChargeDate === 'string'
+            ? (s.nextChargeDate as string).slice(0, 10)
+            : (s.nextChargeDate as Date).toISOString().slice(0, 10),
+      }));
+      // One running notification per workspace, rewritten when the set of
+      // charges changes rather than added again every morning.
       await this.notificationsService.createForWorkspaceMembers({
         workspaceId,
         type: NotificationType.SUBSCRIPTION_UPCOMING,
         category: NotificationCategory.WORKSPACE_ACTIVITY,
         severity: NotificationSeverity.INFO,
-        messageKey: 'subscription.upcoming',
+        messageKey: subs.length === 1 ? 'subscription.upcoming.one' : 'subscription.upcoming',
         messageParams: {
-          details: subs.map(s => `${s.vendorName} (${s.amount} ${s.currency})`).join(', '),
+          charges: {
+            kind: 'charges',
+            items: charges.map(c => ({ name: c.vendor, amount: c.amount, currency: c.currency })),
+          },
         },
         entityType: 'subscription',
         entityId: subs[0].id,
-        meta: {
-          subscriptions: subs.map(s => ({ id: s.id, vendor: s.vendorName, amount: s.amount })),
-        },
+        meta: { subscriptions: charges },
+        fingerprint: charges
+          .map(c => `${c.id}:${c.amount}:${c.currency}:${c.chargeDate}`)
+          .sort()
+          .join('|'),
       });
     }
 

@@ -46,6 +46,7 @@ describe('TaxReturnsService', () => {
       exchangeRates as never,
       {} as never,
       auditService as never,
+      { emit: jest.fn() } as never,
     );
   });
 

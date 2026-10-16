@@ -32,6 +32,17 @@ vi.mock('@/app/i18n', () => ({
     empty: { value: 'Empty' },
     settingsLink: { value: 'Notification settings' },
     justNow: { value: 'just now' },
+    groupAttention: { value: 'Needs attention' },
+    groupToday: { value: 'Today' },
+    groupYesterday: { value: 'Yesterday' },
+    groupEarlier: { value: 'Earlier' },
+    actionFileReturn: { value: 'File return' },
+    actionViewBill: { value: 'View bill' },
+    actionViewSubscriptions: { value: 'View subscriptions' },
+    actionReviewRates: { value: 'Review rates' },
+    actionViewBudget: { value: 'View budget' },
+    actionReview: { value: 'Review' },
+    actionOpen: { value: 'Open' },
     notificationTypes: {
       receiptUncategorized: {
         title: { value: 'Receipt without category' },
@@ -62,8 +73,8 @@ vi.mock('@/app/components/ui/drawer-shell', () => ({
     if (!isOpen) {
       return null;
     }
-    // The dictionary mock hands back `{ value }` nodes, which only intlayer renders.
-    const heading = (title as { value?: string } | null)?.value ?? '';
+    // The panel passes its title row as an element (title and "Mark all as read").
+    const heading = title as React.ReactNode;
     return (
       <div data-testid="notification-panel">
         <div>{heading}</div>

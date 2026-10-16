@@ -180,5 +180,18 @@ describe('TaxDeadlinesService', () => {
       await service.setFiledElsewhere('ws-1', 'vat_return', '2026-09-30', false);
       expect(settingsRepo.save.mock.calls[1][0].config.filedElsewhere).toEqual([]);
     });
+
+    it('retires the reminders for the period once it is marked as filed', async () => {
+      await service.setFiledElsewhere('ws-1', 'vat_return', '2026-09-30', true);
+      await service.setFiledElsewhere('ws-1', 'vat_return', '2026-09-30', false);
+
+      const resolved = events.emit.mock.calls.filter(([name]) => name === 'tax.deadline.resolved');
+      expect(resolved).toEqual([
+        [
+          'tax.deadline.resolved',
+          { workspaceId: 'ws-1', kind: 'vat_return', periodEnd: '2026-09-30' },
+        ],
+      ]);
+    });
   });
 });

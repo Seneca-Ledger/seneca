@@ -3,11 +3,17 @@ import Divider from '@mui/material/Divider';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { AlertTriangle, CircleAlert, Info } from '@/app/components/icons';
+import { Settings } from '@/app/components/icons';
+import {
+  groupNotifications,
+  needsAttention,
+  notificationActionKey,
+} from '@/app/components/notifications/notification-groups';
 import { notificationHref } from '@/app/components/notifications/notification-href';
 import { closeAppPanel, useAppPanelState } from '@/app/components/panels/app-panels-store';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { InboxLineIcon } from '@/app/components/ui/empty-state-icons';
 import { useNotifications } from '@/app/hooks/useNotifications';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatStoredDate } from '@/app/lib/user-format-store';
@@ -166,10 +172,34 @@ export function NotificationsPanel() {
     };
   };
 
+  const groupTitles = {
+    attention: t.groupAttention.value,
+    today: t.groupToday.value,
+    yesterday: t.groupYesterday.value,
+    earlier: t.groupEarlier.value,
+  };
+
+  const openNotification = (notification: (typeof notifications)[number]): void => {
+    if (!notification.isRead) {
+      markAsRead([notification.id]);
+    }
+    const href = notificationHref(notification);
+    if (href) {
+      handleClose();
+      router.push(href);
+    }
+  };
+
   return (
-    <DrawerShell isOpen={open} onClose={handleClose} position="right" width="md" title={t.title}>
-      <div className="lumio-notification-panel">
-        <div className="lumio-notification-panel__actions">
+    <DrawerShell
+      isOpen={open}
+      onClose={handleClose}
+      position="right"
+      width="md"
+      title={
+        // "Mark all as read" on the title's line, not a row of its own.
+        <span className="lumio-notification-panel__title-row">
+          <span>{t.title.value}</span>
           <button
             type="button"
             className="lumio-notification-panel__mark-all"
@@ -178,68 +208,78 @@ export function NotificationsPanel() {
           >
             {t.markAllRead.value}
           </button>
-        </div>
-
+        </span>
+      }
+    >
+      <div className="lumio-notification-panel">
         <div className="lumio-notification-panel__list">
           {isPending && notifications.length === 0 ? (
             <div className="lumio-notification-panel__empty">{t.loading.value}</div>
           ) : null}
 
           {!isPending && notifications.length === 0 ? (
-            <div className="lumio-notification-panel__empty">
-              <EmptyStateIllustration name="notifications" size="sm" />
-              {t.empty.value}
-            </div>
+            <EmptyState icon={<InboxLineIcon />} title={t.empty.value} compact />
           ) : null}
 
-          {notifications.map(notification => {
-            const href = notificationHref(notification);
-            const localizedCopy = getLocalizedNotificationCopy(notification);
-            const severityIcon =
-              notification.severity === 'error' ? (
-                <CircleAlert size={14} style={{ color: 'var(--destructive)' }} />
-              ) : notification.severity === 'warn' ? (
-                <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
-              ) : (
-                <Info size={14} style={{ color: 'var(--color-primary)' }} />
-              );
-
-            return (
-              <button
-                key={notification.id}
-                type="button"
-                onClick={() => {
-                  if (!notification.isRead) {
-                    markAsRead([notification.id]);
-                  }
-
-                  if (href) {
-                    handleClose();
-                    router.push(href);
-                  }
-                }}
-                className={`lumio-notification-panel__item${!notification.isRead ? ' lumio-notification-panel__item--unread' : ''}`}
-              >
-                <div className="lumio-notification-panel__item-body">
-                  <div className="lumio-notification-panel__item-icon">{severityIcon}</div>
-                  <div className="lumio-notification-panel__item-content">
-                    <div className="lumio-notification-panel__item-header-row">
-                      <p className="lumio-notification-panel__item-title">{localizedCopy.title}</p>
-                      {!notification.isRead ? (
-                        <span className="lumio-notification-panel__unread-dot" />
-                      ) : null}
+          {groupNotifications(notifications).map(group => (
+            <section key={group.key} className="lumio-notification-panel__group">
+              <h3 className="lumio-notification-panel__group-title">{groupTitles[group.key]}</h3>
+              {group.items.map(notification => {
+                const href = notificationHref(notification);
+                const localizedCopy = getLocalizedNotificationCopy(notification);
+                const important = needsAttention(notification);
+                // One mark per line: the severity's colour for what needs doing,
+                // a sage dot for anything still unread, nothing otherwise.
+                const dot = important
+                  ? notification.severity === 'error'
+                    ? 'error'
+                    : 'attention'
+                  : notification.isRead
+                    ? null
+                    : 'unread';
+                return (
+                  <div
+                    key={notification.id}
+                    className={`lumio-notification-panel__item${notification.isRead ? '' : ' lumio-notification-panel__item--unread'}`}
+                  >
+                    <span
+                      aria-hidden
+                      className={`lumio-notification-panel__dot${dot ? ` lumio-notification-panel__dot--${dot}` : ''}`}
+                    />
+                    <div className="lumio-notification-panel__item-content">
+                      <button
+                        type="button"
+                        className="lumio-notification-panel__item-main"
+                        onClick={() => openNotification(notification)}
+                      >
+                        <span className="lumio-notification-panel__item-title">
+                          {localizedCopy.title}
+                        </span>
+                        <span className="lumio-notification-panel__item-message">
+                          {localizedCopy.message}
+                        </span>
+                      </button>
+                      <p className="lumio-notification-panel__item-meta">
+                        {important && href ? (
+                          <>
+                            <button
+                              type="button"
+                              className="lumio-notification-panel__item-action"
+                              onClick={() => openNotification(notification)}
+                            >
+                              {t[notificationActionKey(notification.type)].value}
+                            </button>
+                            {' · '}
+                          </>
+                        ) : null}
+                        {formatRelativeTime(notification.createdAt, locale, t.justNow.value)}
+                      </p>
                     </div>
-                    <p className="lumio-notification-panel__item-message">
-                      {localizedCopy.message}
-                    </p>
-                    <p className="lumio-notification-panel__item-time">
-                      {formatRelativeTime(notification.createdAt, locale, t.justNow.value)}
-                    </p>
                   </div>
-                </div>
-              </button>
-            );
-          })}
+                );
+              })}
+            </section>
+          ))}
         </div>
 
         <Divider />
@@ -249,6 +289,7 @@ export function NotificationsPanel() {
             className="lumio-notification-panel__settings-link"
             onClick={() => handleClose()}
           >
+            <Settings size={14} aria-hidden />
             {t.settingsLink.value}
           </Link>
         </div>
