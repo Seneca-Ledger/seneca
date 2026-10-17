@@ -86,6 +86,13 @@ describe('ReceiptsService', () => {
       remove: jest.fn().mockResolvedValue(undefined),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
+    // An edit finds a draft scan's row through the transaction repository's manager.
+    Object.assign(transactionRepository, {
+      manager: {
+        getRepository: (entity: unknown) =>
+          entity === Statement ? statementRepository : transactionRepository,
+      },
+    });
 
     categoryRepository = {
       find: jest.fn().mockResolvedValue([]),

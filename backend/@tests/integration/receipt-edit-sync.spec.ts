@@ -271,6 +271,52 @@ describe('editing an approved receipt reaches the figures (real Postgres)', () =
     await txRepo.delete({ id });
   });
 
+  it("moves a scan's row while the receipt still waits in Review", async () => {
+    // Before approval the scan's row exists on its statement, but the receipt
+    // has no transactionId yet: Review lists that row.
+    const scan = await statement({
+      fileName: 'scan.jpg',
+      currency: 'ARS',
+      parsingDetails: { detectedBy: 'receipt-scan' } as Statement['parsingDetails'],
+    });
+    const id = await row({
+      statementId: scan,
+      currency: 'ARS',
+      counterpartyName: 'Google Play',
+      amount: 8.9,
+      debit: 8.9,
+      isVerified: false,
+    });
+    const receiptId = await approvedReceipt({
+      statementId: scan,
+      status: ReceiptStatus.DRAFT,
+      parsedData: {
+        date: LAST_MONTH,
+        amount: 8.9,
+        currency: 'ARS',
+        vendor: 'Google Play',
+        categoryId: softwareId,
+        transactionType: 'expense',
+      },
+    });
+
+    await receipts.update(
+      receiptId,
+      workspaceId,
+      { parsedData: { currency: 'ILS', vendor: '100 Telegram Stars' } },
+      userId,
+    );
+
+    const edited = await txRepo.findOneByOrFail({ id });
+    expect(edited.currency).toBe('ILS');
+    expect(edited.counterpartyName).toBe('100 Telegram Stars');
+    expect(Number(edited.debit)).toBe(8.9);
+    expect(String(edited.transactionDate).slice(0, 10)).toBe(LAST_MONTH);
+    // Still waiting in Review: an edit is not an approval.
+    expect(edited.isVerified).toBe(false);
+    await txRepo.delete({ id });
+  });
+
   it('moves the row an emailed receipt booked when it was approved', async () => {
     const id = await row({ amount: 12, debit: 12 });
     const receiptId = await approvedReceipt({
