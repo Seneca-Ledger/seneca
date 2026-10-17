@@ -226,4 +226,51 @@ describe('a budget counts spending in its own currency (real Postgres)', () => {
     expect(measured.carriedAmount).toBe(10);
     expect(measured.availableAmount).toBe(30);
   });
+
+  it('names the spending a mid-month start leaves out instead of showing a bare 0', async () => {
+    // Only Date is faked: the database driver still needs real timers.
+    jest.useFakeTimers({
+      now: new Date(now.getFullYear(), now.getMonth(), 20, 12),
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'clearImmediate',
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+        'queueMicrotask',
+        'hrtime',
+        'performance',
+      ],
+    });
+    try {
+      const day = (date: number) => isoDay(new Date(now.getFullYear(), now.getMonth(), date));
+      const { id } = await budget();
+      await dataSource.getRepository(Budget).update({ id }, { startsOn: day(16) });
+      await expense(8.9, 'USD', day(5));
+      await expense(400, 'UAH', day(5));
+      await expense(3, 'USD', day(18));
+
+      const measured = await budgets.findOne(id, workspaceId);
+
+      expect(measured.spentAmount).toBe(3);
+      expect(measured.beforeStartSpending).toEqual(
+        expect.arrayContaining([
+          { currency: 'USD', amount: 8.9 },
+          { currency: 'UAH', amount: 400 },
+        ]),
+      );
+      expect(measured.beforeStartSpending).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reports nothing left out when the budget has no start date', async () => {
+    const { id } = await budget();
+    await expense(5, 'USD');
+
+    expect((await budgets.findOne(id, workspaceId)).beforeStartSpending).toEqual([]);
+  });
 });
