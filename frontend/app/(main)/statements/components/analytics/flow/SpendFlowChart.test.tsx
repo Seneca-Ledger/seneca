@@ -4,14 +4,23 @@ import { SpendFlowChart } from './SpendFlowChart';
 
 const useSpendFlow = vi.fn();
 vi.mock('./useSpendFlow', () => ({ useSpendFlow: (...args: unknown[]) => useSpendFlow(...args) }));
-vi.mock('@/app/i18n', () => ({ useLocale: () => ({ locale: 'en' }) }));
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+vi.mock('@/app/i18n', () => ({ useLocale: () => ({ locale: appLocale.current }) }));
 vi.mock('@/app/components/ui/EmptyStateIllustration', () => ({ EmptyStateIllustration: () => null }));
 // The stub stands in for the echarts instance: the card only ever reaches it
 // through `onChartReady`.
 const dispatchAction = vi.fn();
 const setOption = vi.fn();
+const drawn = vi.hoisted(() => ({ option: null as Record<string, unknown> | null }));
 vi.mock('@/app/components/ui/lazy-echarts', () => ({
-  LazyECharts: ({ onChartReady }: { onChartReady?: (instance: unknown) => void }) => {
+  LazyECharts: ({
+    option,
+    onChartReady,
+  }: {
+    option: Record<string, unknown>;
+    onChartReady?: (instance: unknown) => void;
+  }) => {
+    drawn.option = option;
     onChartReady?.({ dispatchAction, setOption });
     return <div data-testid="sankey" />;
   },
@@ -54,6 +63,7 @@ const flow = {
 
 describe('SpendFlowChart', () => {
   beforeEach(() => {
+    appLocale.current = 'en';
     useSpendFlow.mockReset();
     // jsdom has no ResizeObserver; the card only needs it to exist.
     vi.stubGlobal(
@@ -117,6 +127,21 @@ describe('SpendFlowChart', () => {
     render(<SpendFlowChart {...props} />);
     expect(screen.getByTestId('sankey')).toBeInTheDocument();
     expect(screen.getByText('From categorized transactions')).toBeInTheDocument();
+  });
+
+  it('names a system category in the reader\'s language', () => {
+    appLocale.current = 'ru';
+    useSpendFlow.mockReturnValue({
+      data: {
+        ...flow,
+        nodes: [flow.nodes[0], { ...flow.nodes[1], name: 'Advertising' }],
+      },
+      isError: false,
+    });
+    render(<SpendFlowChart {...props} />);
+
+    const series = (drawn.option?.series as Array<{ label: { formatter: (p: { name: string }) => string } }>)[0];
+    expect(series.label.formatter({ name: 'cat:a' })).toMatch(/^\{n\|Реклама\}/);
   });
 
   it('says so when nothing matches the filters', () => {

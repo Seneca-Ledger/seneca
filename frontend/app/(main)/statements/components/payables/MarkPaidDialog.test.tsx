@@ -6,6 +6,8 @@ import { renderWithQuery } from '@/app/test/query-wrapper';
 import { MarkPaidDialog } from './MarkPaidDialog';
 import { categoryItem, walletItem } from '@/app/test/fixtures/contracts';
 
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+
 const apiMocks = vi.hoisted(() => ({
   paymentCandidates: vi.fn(),
   payments: vi.fn(),
@@ -31,7 +33,7 @@ vi.mock('@/app/i18n', () => ({
       string,
       { value: string }
     >,
-  useLocale: () => ({ locale: 'en' }),
+  useLocale: () => ({ locale: appLocale.current }),
 }));
 
 const payable = {
@@ -73,6 +75,7 @@ const amountField = () => screen.getByLabelText('amount', { selector: 'input' })
 describe('MarkPaidDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    appLocale.current = 'en';
     apiMocks.payments.mockResolvedValue([]);
     apiMocks.apiQuery.mockImplementation(async ({ url }: { url: string }) =>
       url === '/wallets'
@@ -127,6 +130,34 @@ describe('MarkPaidDialog', () => {
         payFromWalletId: 'wallet-eur',
         paidOn: new Date().toISOString().slice(0, 10),
         categoryId: 'cat-out',
+      },
+    });
+  });
+
+  it("offers system categories in the reader's language and books the chosen one by id", async () => {
+    appLocale.current = 'ru';
+    apiMocks.apiQuery.mockImplementation(async ({ url }: { url: string }) =>
+      url === '/wallets'
+        ? [walletItem({ id: 'wallet-eur', name: 'Till', currency: 'EUR' })]
+        : [categoryItem({ id: 'cat-ads', name: 'Advertising' })],
+    );
+    apiMocks.paymentCandidates.mockResolvedValue([]);
+    const { onConfirm } = renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'modeCash' }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'wallet' })).toHaveTextContent('Till'));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'category' }));
+    expect(screen.queryByRole('option', { name: 'Advertising' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('option', { name: 'Реклама' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+
+    expect(onConfirm).toHaveBeenCalledWith(payable, {
+      kind: 'full',
+      payload: {
+        payFromWalletId: 'wallet-eur',
+        paidOn: new Date().toISOString().slice(0, 10),
+        categoryId: 'cat-ads',
       },
     });
   });

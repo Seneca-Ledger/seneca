@@ -392,6 +392,7 @@ describe('StatementsService', () => {
     ) => {
       const qb = {
         select: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getQuery: jest
@@ -496,9 +497,13 @@ describe('StatementsService', () => {
         ),
         expect.objectContaining({ amountMin: 100, amountMax: 500 }),
       );
-      expect(qb.andWhere).toHaveBeenCalledWith('statement.status IN (:...approvedStatuses)', {
-        approvedStatuses: ['validated', 'completed', 'parsed'],
-      });
+      // Approved = parsed and nothing of it left in Review (rows checked in a subquery).
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /^\(statement\.status IN \(:\.\.\.approvedStatuses\) AND NOT \(EXISTS \(.+\) OR EXISTS \(.+\)\)\)$/,
+        ),
+        expect.objectContaining({ approvedStatuses: ['validated', 'completed', 'parsed'] }),
+      );
       expect(qb.andWhere).toHaveBeenCalledWith(
         'GREATEST(COALESCE(statement.totalDebit, 0), COALESCE(statement.totalCredit, 0)) <= 0',
       );

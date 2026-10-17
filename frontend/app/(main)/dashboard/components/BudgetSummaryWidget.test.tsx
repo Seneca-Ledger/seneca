@@ -7,6 +7,7 @@ import { renderWithQuery } from '@/app/test/query-wrapper';
 import { BudgetSummaryWidget, budgetTone } from './BudgetSummaryWidget';
 
 const apiGet = vi.hoisted(() => vi.fn());
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
 
 vi.mock('@/app/lib/api', () => ({ default: { get: apiGet }, apiBaseUrl: '/api/v1' }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
@@ -21,7 +22,7 @@ vi.mock('@/app/i18n', async () => {
         left: value('{{amount}} left'),
         over: value('{{amount}} over'),
       }),
-    useLocale: () => ({ locale: 'en' }),
+    useLocale: () => ({ locale: appLocale.current }),
   };
 });
 vi.mock('next/link', () => ({
@@ -48,6 +49,7 @@ const THIS_MONTH = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2
 
 describe('BudgetSummaryWidget', () => {
   beforeEach(() => {
+    appLocale.current = 'en';
     apiGet.mockReset();
     apiGet.mockImplementation(async () => ({ data: BUDGETS }));
   });
@@ -92,6 +94,25 @@ describe('BudgetSummaryWidget', () => {
       expect.objectContaining({ params: { date: '2024-02-29' } }),
     );
     expect(screen.getByText('February 2024')).toBeInTheDocument();
+  });
+
+  it("names a budget by its category in the reader's language", async () => {
+    appLocale.current = 'ru';
+    apiGet.mockImplementation(async () => ({
+      data: [
+        budgetItem({
+          id: 'b-ads',
+          name: 'Ads budget',
+          category: categoryRef({ id: 'c-ads', name: 'Advertising' }),
+          currency: 'USD',
+          percentUsed: 10,
+        }),
+      ],
+    }));
+    renderWithQuery(<BudgetSummaryWidget month={THIS_MONTH} monthLabel="This month" />);
+
+    expect(await screen.findByText('Реклама')).toBeInTheDocument();
+    expect(screen.queryByText('Advertising')).not.toBeInTheDocument();
   });
 });
 

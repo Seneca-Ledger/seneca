@@ -1,10 +1,16 @@
 // @vitest-environment jsdom
 import { screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReviewTransactionItem } from '@/app/lib/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import type { UseReviewInboxResult } from '../hooks/useReviewInbox';
 import { ReviewInboxView } from './ReviewInboxView';
+
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
 
 const routerPush = vi.fn();
 vi.mock('next/navigation', () => ({
@@ -80,6 +86,10 @@ const state = (overrides: Partial<UseReviewInboxResult> = {}): UseReviewInboxRes
 });
 
 describe('ReviewInboxView', () => {
+  beforeEach(() => {
+    appLocale.current = 'en';
+  });
+
   it('sets the currency code apart from the figure', () => {
     const { container } = renderWithQuery(<ReviewInboxView state={state()} />);
     const amount = container.querySelector('[data-testid="review-row"] .lumio-stmt-list-item__amount');
@@ -162,5 +172,17 @@ describe('ReviewInboxView', () => {
       <ReviewInboxView state={state({ selected: new Set(['tx-1']) })} />,
     );
     expect(selected.container.textContent).toMatch(/j\/k/);
+  });
+
+  it("names a system category the workspace list does not hold in the reader's language", () => {
+    appLocale.current = 'ru';
+    renderWithQuery(
+      <ReviewInboxView
+        state={state({ items: [row({ categoryId: 'c-ads', categoryName: 'Advertising' })] })}
+      />,
+    );
+
+    expect(screen.getByTitle('Реклама')).toHaveTextContent('Реклама');
+    expect(screen.queryByText('Advertising')).toBeNull();
   });
 });

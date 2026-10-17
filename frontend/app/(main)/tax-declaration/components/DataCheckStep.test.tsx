@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/app/components/dashboard/test-setup';
+
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
 
 vi.mock('@/app/i18n', () => ({
   // Every string is its own key; the card reads `.value` of some, renders others.
@@ -18,7 +20,7 @@ vi.mock('@/app/i18n', () => ({
         },
       },
     ),
-  useLocale: () => ({ locale: 'en' }),
+  useLocale: () => ({ locale: appLocale.current }),
 }));
 
 import type { CompletenessReport } from '../tax-declaration.types';
@@ -32,6 +34,10 @@ const clean: CompletenessReport = {
 };
 
 describe('DataCheckStep', () => {
+  beforeEach(() => {
+    appLocale.current = 'en';
+  });
+
   it('lists every check it ran, and flags a year with few recorded days', () => {
     const { container } = render(<DataCheckStep completeness={clean} onGoToStep={vi.fn()} />);
 
@@ -65,6 +71,29 @@ describe('DataCheckStep', () => {
     expect(screen.getByText('dataIntro')).toBeInTheDocument();
     expect(screen.queryByText('noIssues')).toBeNull();
     expect(screen.getByText('4')).toBeInTheDocument();
+  });
+
+  it("names unmapped system categories in the reader's language", () => {
+    appLocale.current = 'ru';
+    render(
+      <DataCheckStep
+        completeness={{
+          ...clean,
+          score: 90,
+          issues: [
+            {
+              code: 'unmapped_categories',
+              severity: 'warning',
+              count: 1,
+              params: { categories: [{ name: 'Advertising', transactionCount: 3 }] },
+            },
+          ],
+        }}
+        onGoToStep={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Реклама (3)')).toBeInTheDocument();
   });
 
   it('leads on to the form lines and back to the profile', () => {

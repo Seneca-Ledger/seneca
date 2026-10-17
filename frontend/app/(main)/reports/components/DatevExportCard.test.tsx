@@ -6,13 +6,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 const saveBlob = vi.hoisted(() => vi.fn());
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+// A key's text is the key itself unless a test gives it a template.
+const templates = vi.hoisted(() => ({ current: {} as Record<string, string> }));
 
 vi.mock('@/app/lib/api', () => ({ default: api }));
 vi.mock('react-hot-toast', () => ({ default: toast }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/i18n', () => ({
+  useLocale: () => ({ locale: appLocale.current }),
   useIntlayer: () =>
-    new Proxy({}, { get: (_target, key) => ({ value: String(key), toString: () => String(key) }) }),
+    new Proxy(
+      {},
+      {
+        get: (_target, key) => {
+          const text = templates.current[String(key)] ?? String(key);
+          return { value: text, toString: () => text };
+        },
+      },
+    ),
 }));
 vi.mock('./tax-return.helpers', async importOriginal => ({
   ...(await importOriginal<typeof import('./tax-return.helpers')>()),
@@ -76,6 +88,8 @@ function mockApi(settings: unknown = SETTINGS, preview: unknown = PREVIEW) {
 
 describe('DatevExportCard', () => {
   beforeEach(() => {
+    appLocale.current = 'en';
+    templates.current = {};
     vi.clearAllMocks();
     api.put.mockImplementation((_url: string, body: unknown) => Promise.resolve({ data: body }));
   });
@@ -145,6 +159,48 @@ describe('DatevExportCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'download' }));
     await waitFor(() =>
       expect(saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'EXTF_Buchungsstapel_20260101_20261231.csv'),
+    );
+  });
+
+  it('names system categories in the reader\'s language and still maps them by id', async () => {
+    appLocale.current = 'ru';
+    templates.current = { accountFor: 'Account for {{name}}', unmapped: 'Unmapped: {{categories}}' };
+    api.get.mockImplementation((url: string) => {
+      if (url === '/tax/datev/settings') return Promise.resolve({ data: SETTINGS });
+      if (url.startsWith('/tax/datev/mapping'))
+        return Promise.resolve({
+          data: {
+            ...MAPPING,
+            categories: [
+              { categoryId: 'cat-ads', name: 'Advertising', type: 'expense', transactionCount: 4, account: null, suggestion: null },
+            ],
+          },
+        });
+      if (url.startsWith('/tax/datev/preview'))
+        return Promise.resolve({
+          data: {
+            ...PREVIEW,
+            skipped: { ...PREVIEW.skipped, unmapped: [{ categoryId: 'cat-ads', name: 'Advertising', count: 4 }] },
+          },
+        });
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+    renderWithQuery(<DatevExportCard year={2026} />);
+
+    const mapping = await screen.findByTestId('datev-mapping');
+    expect(await within(mapping).findByText(/^Реклама/)).toBeInTheDocument();
+    fireEvent.change(within(mapping).getByRole('textbox', { name: 'Account for Реклама' }), {
+      target: { value: '4600' },
+    });
+    expect(await screen.findByText('Unmapped: Реклама (4)')).toBeInTheDocument();
+    expect(screen.queryByText(/Advertising/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        '/tax/datev/settings',
+        expect.objectContaining({ accounts: { 'cat-rent': '4210', 'cat-ads': '4600' } }),
+      ),
     );
   });
 

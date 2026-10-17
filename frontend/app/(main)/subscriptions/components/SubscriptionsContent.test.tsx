@@ -1,13 +1,19 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   SubscriptionChargeCalendar,
   SubscriptionItem,
   SubscriptionSummary,
 } from '../hooks/useSubscriptionsPage';
 import { normalizeSubscription } from '../hooks/useSubscriptionsPage';
-import { subscriptionRow } from '@/app/test/fixtures/contracts';
+import { categoryRef, subscriptionRow } from '@/app/test/fixtures/contracts';
 import { SubscriptionsContent } from './SubscriptionsContent';
+
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
 
 vi.mock('./SubscriptionFormDrawer', () => ({ SubscriptionFormDrawer: () => null }));
 vi.mock('./SubscriptionDetailsDrawer', () => ({ SubscriptionDetailsDrawer: () => null }));
@@ -111,6 +117,10 @@ const renderContent = (
   );
 
 describe('SubscriptionsContent', () => {
+  beforeEach(() => {
+    appLocale.current = 'en';
+  });
+
   it('shows the management KPIs and a desktop subscription row', () => {
     renderContent();
 
@@ -192,5 +202,33 @@ describe('SubscriptionsContent', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(screen.queryByRole('heading', { name: 'No matches' })).toBeNull();
     expect(screen.getAllByText('Claude')).not.toHaveLength(0);
+  });
+
+  it("lists category filters in the reader's language and still filters by the stored name", () => {
+    appLocale.current = 'ru';
+    const advertising = categoryRef({
+      id: 'c-ads',
+      name: 'Advertising',
+      isSystem: true,
+      source: 'system',
+    });
+    renderContent({
+      subscriptions: [
+        { ...subscription, categoryId: advertising.id, category: advertising },
+        { ...subscription, id: 'sub-2', vendorName: 'Adobe' },
+      ],
+    });
+    const trigger = screen
+      .getAllByRole('combobox')
+      .find(element => element.textContent === 'All categories');
+    if (!trigger) throw new Error('no category filter');
+
+    fireEvent.mouseDown(trigger);
+    expect(screen.queryByRole('option', { name: 'Advertising' })).toBeNull();
+    fireEvent.click(screen.getByRole('option', { name: 'Реклама' }));
+
+    expect(trigger).toHaveTextContent('Реклама');
+    expect(screen.getAllByText('Claude')).not.toHaveLength(0);
+    expect(screen.queryByText('Adobe')).toBeNull();
   });
 });

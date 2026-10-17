@@ -1,9 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SubscriptionItem } from '../hooks/useSubscriptionsPage';
 import { normalizeSubscription } from '../hooks/useSubscriptionsPage';
-import { subscriptionRow } from '@/app/test/fixtures/contracts';
+import { categoryRef, subscriptionRow } from '@/app/test/fixtures/contracts';
 import { monthlySetAsideOf, SubscriptionCard } from './SubscriptionCard';
+
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
 
 const base: SubscriptionItem = {
   ...normalizeSubscription(
@@ -34,6 +40,10 @@ const renderCard = (overrides: Partial<SubscriptionItem> = {}, props: Record<str
 };
 
 describe('SubscriptionCard', () => {
+  beforeEach(() => {
+    appLocale.current = 'en';
+  });
+
   it('offers to set aside a monthly amount for an annual charge and records a tap', () => {
     const { onUse, onSinkingFund } = renderCard();
 
@@ -75,5 +85,15 @@ describe('SubscriptionCard', () => {
     expect(monthlySetAsideOf(base)).toBe(20);
     expect(monthlySetAsideOf({ ...base, frequency: 'quarterly', amount: 90 })).toBe(30);
     expect(monthlySetAsideOf({ ...base, frequency: 'monthly' })).toBeNull();
+  });
+
+  it("names a system category in the reader's language", () => {
+    appLocale.current = 'ru';
+    renderCard({
+      category: categoryRef({ id: 'c-ads', name: 'Advertising', isSystem: true, source: 'system' }),
+    });
+
+    expect(screen.getByText('Реклама')).toBeInTheDocument();
+    expect(screen.queryByText('Advertising')).toBeNull();
   });
 });

@@ -25,6 +25,8 @@ export type SpendFlowChartOptions = {
   /** Drops the third column: a phone has no room for three ranks of labels. */
   compact: boolean;
   isIncome: boolean;
+  /** How a stored category name reads in the user's language; merchants stay as written. */
+  categoryName?: (name: string) => string;
 };
 
 /**
@@ -110,6 +112,9 @@ export function buildSpendFlowSankey(
   const { nodes, links } = visibleSpendFlow(data, options.compact);
   const byId = new Map(nodes.map(node => [node.id, node]));
 
+  const categoryName = options.categoryName ?? ((name: string) => name);
+  const nameOf = (node: SpendFlowNode, name: string): string =>
+    node.kind === 'category' || node.kind === 'subcategory' ? categoryName(name) : name;
   const labelOf = (node: SpendFlowNode): string => {
     if (node.kind === 'total') {
       return labels.total;
@@ -121,7 +126,7 @@ export function buildSpendFlowSankey(
       return labels.otherMerchants.replace('{{count}}', String(node.mergedCount ?? 0));
     }
     if (node.name) {
-      return node.name;
+      return nameOf(node, node.name);
     }
     if (node.kind === 'category') {
       return labels.uncategorised;
@@ -139,7 +144,8 @@ export function buildSpendFlowSankey(
     node => parentOf.get(node.id) === 'total' && node.kind !== 'other' && !isOtherCategories(node),
   );
   const tones = categoryTonesHex(
-    secondColumn.map(node => ({ key: labelOf(node) })),
+    // Keyed by the stored name, so a category keeps its tone in every language.
+    secondColumn.map(node => ({ key: node.name || labelOf(node) })),
     theme,
   );
   const columnColor = new Map(secondColumn.map((node, index) => [node.id, tones[index]]));

@@ -32,6 +32,7 @@ import { blobOf } from '@/app/lib/blob-of';
 import type { CategoryItem } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 import { DatevExportCard } from './DatevExportCard';
 import { TaxThresholdCard } from './TaxThresholdCard';
@@ -98,6 +99,7 @@ function Figure({ label, value }: { label: string; value: string }) {
 export function TaxYearView(): React.ReactElement {
   const t = useIntlayer('taxYearView');
   const { locale } = useLocale();
+  const categoryName = useCategoryName();
   const money = (value: number, code: string) => taxMoney(value, code, locale);
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
@@ -325,7 +327,7 @@ export function TaxYearView(): React.ReactElement {
                       }
                       sx={{ p: 0.5 }}
                     />
-                    {category.name}
+                    {categoryName(category.name)}
                   </Box>
                 ))}
               </Box>
@@ -394,7 +396,7 @@ export function TaxYearView(): React.ReactElement {
                             }
                             sx={{ textTransform: 'none', color: 'text.primary', fontWeight: 600 }}
                           >
-                            {category.name}
+                            {categoryName(category.name)}
                           </Button>
                           {category.type === 'income' ? (
                             <Chip size="small" label={t.income.value} sx={{ ml: 1 }} />

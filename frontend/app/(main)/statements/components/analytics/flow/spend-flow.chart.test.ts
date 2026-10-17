@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CATEGORY_TONE_HEX, OTHER_TONE_HEX } from '@/app/components/charts/chart-theme';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import type { SpendFlowData } from './useSpendFlow';
 import {
   buildSpendFlowSankey,
@@ -81,6 +82,46 @@ describe('buildSpendFlowSankey', () => {
     expect(series.data.find(item => item.name === 'total')?.label).toEqual({ position: 'right' });
     // Data items carry only what ECharts needs; a stray `id` blanks the series.
     expect(Object.keys(series.data[1]).sort()).toEqual(['itemStyle', 'name']);
+  });
+
+  it('names categories in the reader\'s language and keeps merchants, tones and deep links as stored', () => {
+    const ads: SpendFlowData = {
+      ...data,
+      nodes: [
+        { id: 'total', kind: 'total', name: null, amount: 100, share: 1, color: null },
+        { id: 'cat:ads', kind: 'category', name: 'Advertising', amount: 100, share: 1, color: null },
+        { id: 'sub:ads', kind: 'subcategory', name: 'Advertising', amount: 60, share: 0.6, color: null },
+        { id: 'm:ads', kind: 'merchant', name: 'Advertising', amount: 40, share: 0.4, color: null },
+      ],
+      links: [
+        { source: 'total', target: 'cat:ads', value: 100 },
+        { source: 'cat:ads', target: 'sub:ads', value: 60 },
+        { source: 'cat:ads', target: 'm:ads', value: 40 },
+      ],
+    };
+    const ru = (name: string) => localizeStatementCategoryName(name, 'ru');
+    const option = buildSpendFlowSankey(ads, 'light', labels, format, {
+      compact: false,
+      isIncome: false,
+      categoryName: ru,
+    });
+    const series = seriesOf(option);
+    const label = (name: string): string => series.label.formatter({ name }).split('\n')[0];
+    const tooltip = (option.tooltip as { formatter: (p: Record<string, unknown>) => string }).formatter;
+
+    expect(label('cat:ads')).toBe('{n|Реклама}');
+    expect(label('sub:ads')).toBe('{n|Реклама}');
+    // A merchant is a name as written, even one that spells a category.
+    expect(label('m:ads')).toBe('{n|Advertising}');
+    expect(tooltip({ name: 'cat:ads' })).toMatch(/^Реклама<br\/>/);
+    expect(tooltip({ dataType: 'edge', value: 40, data: { source: 'cat:ads', target: 'm:ads' } })).toMatch(
+      /^Реклама → Advertising<br\/>/,
+    );
+    const english = seriesOf(buildSpendFlowSankey(ads, 'light', labels, format, { compact: false, isIncome: false }));
+    expect(series.data.find(item => item.name === 'cat:ads')?.itemStyle.color).toBe(
+      english.data.find(item => item.name === 'cat:ads')?.itemStyle.color,
+    );
+    expect(findSpendFlowNodeId(ads, 'advertising')).toBe('cat:ads');
   });
 
   it('drops the merchant column in compact mode', () => {

@@ -12,6 +12,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { type BudgetItem as BudgetSummary, fetchBudgets } from '../../budgets/hooks/useBudgetsPage';
 
 /** A half-width card shows the most used few; with the row to itself, every budget. */
@@ -78,6 +79,7 @@ export function BudgetSummaryWidget({
   const { locale } = useLocale();
   const { budgets, loaded } = useBudgets(month);
   const wide = useIsWideSection();
+  const categoryName = useCategoryName();
 
   if (!loaded) {
     return null;
@@ -124,7 +126,9 @@ export function BudgetSummaryWidget({
             return (
               <div key={b.id} className="lumio-dashboard__budget-row">
                 <div className="lumio-dashboard__budget-head">
-                  <span className="lumio-dashboard__row-primary">{b.category?.name ?? b.name}</span>
+                  <span className="lumio-dashboard__row-primary">
+                    {b.category ? categoryName(b.category.name) : b.name}
+                  </span>
                   {/* The figure stays neutral; the bar and "over" carry the signal. */}
                   <span className="lumio-dashboard__budget-pct">{Math.round(b.percentUsed)}%</span>
                 </div>

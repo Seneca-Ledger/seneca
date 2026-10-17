@@ -12,10 +12,14 @@ export function buildCashFlowSankey(
   resolvedTheme: string | undefined,
   formatAmount: (value: number) => string,
   compact = false,
+  categoryName: (name: string) => string = name => name,
 ): Record<string, unknown> {
   const isDark = resolvedTheme === 'dark';
   const color = isDark ? tokens.dark.color : tokens.color;
   const byId = new Map(data.sankey.nodes.map(node => [node.id, node]));
+  // Category nodes carry the stored name; income sources and the hub are already words.
+  const labelOf = (node: CashFlowMapData['sankey']['nodes'][number]): string =>
+    node.kind === 'category' || node.kind === 'subcategory' ? categoryName(node.name) : node.name;
   // Labels sit right of their node by default; the last column has no room there.
   const hasOutflow = new Set(data.sankey.links.map(link => link.source));
   const hasInflow = new Set(data.sankey.links.map(link => link.target));
@@ -58,7 +62,7 @@ export function buildCashFlowSankey(
       formatter: (params: { dataType?: string; name?: string; value?: unknown }) => {
         if (params.dataType === 'edge') return formatAmount(Number(params.value ?? 0));
         const node = byId.get(String(params.name ?? ''));
-        return node ? node.name : '';
+        return node ? labelOf(node) : '';
       },
     },
     series: [
@@ -84,7 +88,7 @@ export function buildCashFlowSankey(
           formatter: (params: { name?: string; value?: unknown }) => {
             const node = byId.get(String(params.name ?? ''));
             return node
-              ? `{name|${node.name}}\n{value|${formatAmount(Number(params.value ?? 0))}}`
+              ? `{name|${labelOf(node)}}\n{value|${formatAmount(Number(params.value ?? 0))}}`
               : '';
           },
           rich: {

@@ -17,6 +17,7 @@ import {
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
 import { useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 
 /** Below this width the third column has no room for its labels. */
@@ -118,6 +119,7 @@ export function SpendFlowChart({
 }: Props): React.JSX.Element {
   const query = useSpendFlow(groupBy, type, month);
   const { locale } = useLocale();
+  const categoryName = useCategoryName();
   // Fetch the echarts chunk alongside the data: otherwise LazyECharts' own
   // plain skeleton replaces the sankey-shaped one for a moment after the data lands.
   useEffect(() => {
@@ -139,8 +141,9 @@ export function SpendFlowChart({
     return buildSpendFlowSankey(data, resolvedTheme, chartLabels, formatAmount, {
       compact,
       isIncome: type === 'income',
+      categoryName,
     });
-  }, [data, resolvedTheme, chartLabels, compact, type, locale]);
+  }, [data, resolvedTheme, chartLabels, compact, type, locale, categoryName]);
 
   const flashNode = useMemo(() => {
     if (!data) {

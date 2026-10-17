@@ -9,6 +9,7 @@ import { LazyCategoryDonut } from '@/app/components/charts/lazy-charts';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer } from '@/app/i18n';
 import { categoryReportHref } from '@/app/lib/category-report-href';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { CategoryIconBadge } from './CategoryIconBadge';
 import { useIsWideSection } from './section-span';
 import { CardEmpty, ListRow } from './ui';
@@ -25,11 +26,12 @@ interface TopCategoriesCardProps {
 function categoryDisplayName(
   cat: TopCategory,
   labels: { uncategorized: string; other: string },
+  nameOf: (name: string) => string,
 ): string {
   if (cat.isOther) {
     return labels.other;
   }
-  return cat.name ?? labels.uncategorized;
+  return cat.name ? nameOf(cat.name) : labels.uncategorized;
 }
 
 function categoryKey(cat: TopCategory): string {
@@ -52,6 +54,7 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
   const wideText = useIntlayer('dashboardWideView');
   // With the row to itself the list can say how each total came about.
   const wide = useIsWideSection();
+  const categoryName = useCategoryName();
   const labels = useMemo(
     () => ({ uncategorized: t.uncategorized.value, other: t.other.value }),
     [t.uncategorized, t.other],
@@ -65,12 +68,12 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
     );
     return categories.map((cat, index) => ({
       key: categoryKey(cat),
-      name: categoryDisplayName(cat, labels),
+      name: categoryDisplayName(cat, labels, categoryName),
       value: cat.amount,
       color: tones[index],
       href: categoryHref(cat, month),
     }));
-  }, [categories, labels, month]);
+  }, [categories, labels, categoryName, month]);
 
   if (!categories.length) {
     return <CardEmpty icon={DonutLargeOutlined}>{t.noCategoryData}</CardEmpty>;
@@ -102,7 +105,7 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
                   style={{ background: slices[rank].color }}
                   aria-hidden="true"
                 />
-                {categoryDisplayName(cat, labels)}
+                {categoryDisplayName(cat, labels, categoryName)}
               </>
             }
             secondary={

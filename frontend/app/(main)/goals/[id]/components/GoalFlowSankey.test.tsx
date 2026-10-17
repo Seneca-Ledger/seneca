@@ -1,15 +1,25 @@
 // @vitest-environment jsdom
 import type { GoalFlowResponse } from '@/app/lib/goals-api';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/app/components/dashboard/test-setup';
 import { GoalFlowSankey } from './GoalFlowSankey';
 
 vi.mock('next-themes', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),
 }));
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
+// The option the card hands ECharts, so its labels can be read.
+const chartOption = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
 vi.mock('next/dynamic', () => ({
-  default: () => () => <div data-testid="mock-echarts" />,
+  default: () => (props: { option: Record<string, unknown> }) => {
+    chartOption.current = props.option;
+    return <div data-testid="mock-echarts" />;
+  },
 }));
 
 const labels = {
@@ -61,6 +71,10 @@ function response(overrides: Partial<GoalFlowResponse> = {}): GoalFlowResponse {
 }
 
 describe('GoalFlowSankey', () => {
+  beforeEach(() => {
+    appLocale.current = 'en';
+  });
+
   it('renders the chart when the goal has a flow to draw', () => {
     render(
       <GoalFlowSankey
@@ -105,5 +119,39 @@ describe('GoalFlowSankey', () => {
     const chart = container.querySelector('[data-testid="mock-echarts"]');
     expect(chart).not.toBeNull();
     expect(container.querySelector('.lumio-dashboard__chart')).toBeNull();
+  });
+
+  it("labels a system category node in the reader's language, keyed by its id", () => {
+    appLocale.current = 'ru';
+    const category = {
+      id: 'category:c1',
+      kind: 'category' as const,
+      name: 'Advertising',
+      planned: null,
+      actual: 620,
+      color: null,
+    };
+    const base = response();
+    render(
+      <GoalFlowSankey
+        data={{ ...base, nodes: [...base.nodes, category] }}
+        title="Plan versus actual"
+        emptyLabel="No budget linked"
+        labels={labels}
+        formatAmount={value => String(value)}
+      />,
+    );
+
+    const series = (chartOption.current?.series as Array<Record<string, unknown>>)[0];
+    const label = (series.label as { formatter: (p: unknown) => string }).formatter;
+    const tooltip = (chartOption.current?.tooltip as { formatter: (p: unknown) => string })
+      .formatter;
+    expect(label({ name: 'category:c1' })).toBe('Реклама');
+    expect(tooltip({ name: 'category:c1' })).toBe('Реклама<br/>Actual: 620');
+    // A budget is named by its owner, not translated.
+    expect(label({ name: 'budget:b1' })).toBe('Materials');
+    expect((series.data as Array<{ name: string }>).map(node => node.name)).toContain(
+      'category:c1',
+    );
   });
 });

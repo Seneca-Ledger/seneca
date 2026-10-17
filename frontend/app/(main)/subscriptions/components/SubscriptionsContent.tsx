@@ -23,9 +23,10 @@ import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromF
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { CalendarLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
 import { VendorIcon } from '@/app/components/VendorIcon';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { blobOf } from '@/app/lib/blob-of';
+import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import {
   formatStoredDateWithOptions,
@@ -150,6 +151,7 @@ const formatDate = (date: string | null) =>
 
 export function SubscriptionsContent(props: SubscriptionsContentProps) {
   const t = useIntlayer('subscriptionsPage');
+  const { locale } = useLocale();
   const [search, setSearch] = useState('');
   const [ownerId, setOwnerId] = useState('');
   const [category, setCategory] = useState('');
@@ -185,13 +187,14 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
       }),
     [props.subscriptions, search, ownerId, category, riskStatus],
   );
+  // The filter matches on the stored name; only the option label is translated.
   const categories = useMemo(
     () => [
-      ...new Set(
-        props.subscriptions
-          .map(item => item.category?.name)
-          .filter((name): name is string => Boolean(name)),
-      ),
+      ...new Map(
+        props.subscriptions.flatMap(item =>
+          item.category ? [[item.category.name, item.category] as const] : [],
+        ),
+      ).values(),
     ],
     [props.subscriptions],
   );
@@ -401,9 +404,9 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           onChange={event => setCategory(event.target.value)}
         >
           <MenuItem value="">{t.allCategories}</MenuItem>
-          {categories.map(name => (
-            <MenuItem key={name} value={name}>
-              {name}
+          {categories.map(item => (
+            <MenuItem key={item.name} value={item.name}>
+              {getCategoryDisplayName(item, locale)}
             </MenuItem>
           ))}
         </Select>
