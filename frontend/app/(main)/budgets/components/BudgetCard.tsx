@@ -7,6 +7,7 @@ import { budgetTone } from '@/app/(main)/dashboard/components/BudgetSummaryWidge
 import { Pencil, Trash2 } from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
 import type { BudgetItem } from '../hooks/useBudgetsPage';
 import type { StoicClass } from '../hooks/useStoicBalance';
@@ -68,7 +69,10 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
             {budget.name}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {budget.category?.name ?? t.unknownCategory} · {t[PERIOD_LABEL_KEYS[budget.periodType]]}
+            {budget.category
+              ? localizeStatementCategoryName(budget.category.name, locale)
+              : t.unknownCategory}{' '}
+            · {t[PERIOD_LABEL_KEYS[budget.periodType]]}
             {stoicClass && (
               <>
                 {' · '}

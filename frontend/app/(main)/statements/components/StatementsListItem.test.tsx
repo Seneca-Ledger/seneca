@@ -4,6 +4,12 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const documentTypeIconSpy = vi.hoisted(() => vi.fn());
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
 const pdfThumbnailSpy = vi.hoisted(() => vi.fn());
 
 type IconProps = {
@@ -61,6 +67,7 @@ describe('StatementsListItem', () => {
     document.body.appendChild(container);
     documentTypeIconSpy.mockReset();
     pdfThumbnailSpy.mockReset();
+    appLocale.current = 'en';
   });
 
   afterEach(() => {
@@ -1309,5 +1316,87 @@ describe('StatementsListItem', () => {
         .querySelector('.lumio-stmt-list-item__rows-toggle')
         ?.getAttribute('aria-expanded'),
     ).toBe('true');
+  });
+
+  const renderApprovedCell = (status: string, isReceipt: boolean, pendingReview: number) => {
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: `approved-${status}`,
+              source: isReceipt ? 'scan' : 'statement',
+              fileName: 'doc.pdf',
+              status,
+              createdAt: '2026-10-14T00:00:00Z',
+              bankName: 'other',
+              fileType: 'pdf',
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt={isReceipt}
+          isProcessing={false}
+          merchantLabel="Shop"
+          amountLabel="8.90 ILS"
+          dateLabel="10/14/2026"
+          pendingReview={pendingReview}
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          columns={[{ id: 'approved', label: 'Approved', visible: true, order: 0 }]}
+        />,
+      );
+    });
+    const text = container.textContent;
+    act(() => root.unmount());
+    return text;
+  };
+
+  it('marks an approved receipt as approved and a draft one as not', () => {
+    expect(renderApprovedCell('approved', true, 0)).toContain('Yes');
+    expect(renderApprovedCell('draft', true, 1)).toContain('No');
+  });
+
+  it('does not call a parsed statement approved while its rows wait in Review', () => {
+    expect(renderApprovedCell('completed', false, 3)).toContain('No');
+    expect(renderApprovedCell('completed', false, 0)).toContain('Yes');
+  });
+
+  it("shows a system category in the reader's language and links it by its stored name", () => {
+    appLocale.current = 'ru';
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: 'ru-category',
+              source: 'scan',
+              fileName: 'scan.jpg',
+              status: 'draft',
+              createdAt: '2026-10-14T00:00:00Z',
+              bankName: 'other',
+              fileType: 'image',
+              category: { id: 'cat-ad', name: 'Advertising', color: null, icon: null },
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt
+          isProcessing={false}
+          merchantLabel="100 Telegram Stars"
+          amountLabel="8.90 ILS"
+          dateLabel="10/14/2026"
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const link = container.querySelector('.lumio-stmt-category-link') as HTMLAnchorElement;
+    expect(link.textContent).toContain('Реклама');
+    expect(link.textContent).not.toContain('Advertising');
+    expect(link.getAttribute('href')).toContain('focus=category%3Aadvertising');
+    act(() => root.unmount());
   });
 });

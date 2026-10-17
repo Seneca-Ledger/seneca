@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStatementRequestParams,
   deriveVisibleFilterScreens,
+  isDocumentApproved,
   isReceiptDerivedStatement,
   paginateStatements,
   reconcileFiltersWithColumns,
@@ -271,6 +272,23 @@ describe('StatementsListView utils', () => {
       for (const status of ['approved', 'rejected', 'failed']) {
         expect(resolvePendingReview({ id: 'r', status }, true, counts)).toBe(0);
       }
+    });
+  });
+
+  describe('isDocumentApproved', () => {
+    it('reads a receipt by its own status, not by a parse status', () => {
+      expect(isDocumentApproved('approved', true, 0)).toBe(true);
+      for (const status of ['draft', 'new', 'parsed', 'needs_review', 'rejected', 'completed']) {
+        expect(isDocumentApproved(status, true, 0)).toBe(false);
+      }
+    });
+
+    it('counts a parsed statement as approved only once Review holds none of its rows', () => {
+      expect(isDocumentApproved('completed', false, 0)).toBe(true);
+      expect(isDocumentApproved('COMPLETED', false, 0)).toBe(true);
+      expect(isDocumentApproved('completed', false, 2)).toBe(false);
+      expect(isDocumentApproved('uploaded', false, 0)).toBe(false);
+      expect(isDocumentApproved('error', false, 0)).toBe(false);
     });
   });
 });

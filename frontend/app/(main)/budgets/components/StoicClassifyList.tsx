@@ -8,6 +8,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Select } from '@/app/components/ui/select';
+import { useLocale } from '@/app/i18n';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import {
   type CategoryJudgment,
   STOIC_CLASSES,
@@ -26,6 +28,8 @@ function CategoryRow({
   onJudge: (changes: Omit<CategoryJudgment, 'categoryId'>) => void;
 }): React.JSX.Element {
   const { t, names } = useClassText();
+  const { locale } = useLocale();
+  const name = localizeStatementCategoryName(category.name, locale);
   const options = [
     ...(category.stoicClass === null ? [{ value: '', label: t.chooseClass.value }] : []),
     ...STOIC_CLASSES.map(stoicClass => ({ value: stoicClass, label: names[stoicClass] })),
@@ -45,7 +49,7 @@ function CategoryRow({
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
         <Typography variant="body2" noWrap>
-          {category.name}
+          {name}
         </Typography>
         {/* A quiet note, gone once the user picks a class themselves. */}
         {category.source === 'suggested' && (
@@ -67,7 +71,7 @@ function CategoryRow({
                 disabled={busy}
                 onChange={event => onJudge({ helpsOthers: event.target.checked })}
                 slotProps={{
-                  input: { 'aria-label': `${t.helpsOthers.value}: ${category.name}` },
+                  input: { 'aria-label': `${t.helpsOthers.value}: ${name}` },
                 }}
               />
             }
@@ -80,7 +84,7 @@ function CategoryRow({
         value={category.stoicClass ?? ''}
         options={options}
         disabled={busy}
-        inputProps={{ 'aria-label': `${t.classLabel.value}: ${category.name}` }}
+        inputProps={{ 'aria-label': `${t.classLabel.value}: ${name}` }}
         onChange={value => {
           if (value) {
             onJudge({ stoicClass: value as StoicClass });

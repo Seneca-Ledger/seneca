@@ -15,8 +15,9 @@ import { useCallback, useEffect, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronLeft } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import type { BudgetFormData, BudgetItem } from '../hooks/useBudgetsPage';
 
 type CategoryOption = { id: string; name: string; type: string };
@@ -128,6 +129,7 @@ function CategoryField({
   onChange: (value: string) => void;
 }): React.JSX.Element {
   const t = useIntlayer('budgetsPage');
+  const { locale } = useLocale();
   return (
     <FormControl fullWidth>
       <InputLabel>{t.fieldCategory}</InputLabel>
@@ -139,7 +141,7 @@ function CategoryField({
       >
         {categories.map(category => (
           <MenuItem key={category.id} value={category.id}>
-            {category.name}
+            {localizeStatementCategoryName(category.name, locale)}
           </MenuItem>
         ))}
       </Select>
