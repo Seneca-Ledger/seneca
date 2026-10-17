@@ -25,6 +25,12 @@ export const WorkspaceSummary = Schema.Struct({
   isFavorite: Schema.Boolean,
   /** `version`: a past version of a workspace opened to look at, read only. */
   kind: Schema.optional(Schema.Literals(['standard', 'version'])),
+  /** For an opened version: which version, of which workspace, taken when. */
+  version: Schema.optional(
+    Schema.NullOr(
+      Schema.Struct({ id: Schema.String, takenAt: Timestamp, sourceWorkspaceId: Schema.String }),
+    ),
+  ),
   settings: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
   ownerId: Schema.NullOr(Schema.String),
   createdAt: Timestamp,

@@ -151,5 +151,6 @@ function metadata(tableName: string, target: string, properties: string[]) {
     tableName,
     target,
     columns: properties.map(propertyName => ({ propertyName })),
+    primaryColumns: [{ propertyName: 'id' }],
   };
 }

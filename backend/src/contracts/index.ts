@@ -82,6 +82,7 @@ export * from './settings/backups';
 export * from './settings/business-profile';
 export * from './settings/settings';
 export * from './settings/system-update';
+export * from './settings/versions';
 export * from './statements/statement-list';
 export * from './storage/storage';
 export * from './subscriptions/subscriptions';

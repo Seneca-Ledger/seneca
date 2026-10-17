@@ -48,5 +48,7 @@ import { BackupsService } from './backups.service';
     BackupsService,
     FileStorageService,
   ],
+  // Workspace versions are taken and opened with the same collect and restore.
+  exports: [BackupDataService, BackupKeyService, BackupRestoreService],
 })
 export class BackupsModule {}

@@ -291,6 +291,10 @@ export const ERR = {
     'The updater is not running. Add COMPOSE_PROFILES=updater to .env and run docker compose up -d, or run make upgrade on the server.',
   SYSTEM_UPDATE_IN_PROGRESS: 'An update is already running',
   SYSTEM_UPDATE_NOT_AVAILABLE: 'This instance already runs the newest release',
+  // ── versions ──────────────────────────────────────────────────────────────
+  VERSION_SNAPSHOT_RUNNING: 'A snapshot is being taken right now; try again in a moment',
+  VERSION_LIST_OWNER_ONLY: 'Only the owner can see and take snapshots',
+  VERSION_NOT_FOUND: 'This version is not available',
 } as const;
 
 export type ErrorCode = keyof typeof ERR;

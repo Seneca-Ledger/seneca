@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import type React from 'react';
 import {
   createContext,
@@ -12,6 +13,7 @@ import {
 } from 'react';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { hasSessionCookie } from '@/app/lib/csrf';
+import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { checkContract, reportContractDrift } from '@/app/lib/query-fn-schema';
 import { api } from '../lib/api';
@@ -24,6 +26,13 @@ interface WorkspaceStats {
   recentActivity: boolean;
   memberCount: number;
   lastAccessedAt: string | null;
+}
+
+/** An opened past version: which one, of which workspace, taken when. */
+export interface WorkspaceVersionRef {
+  id: string;
+  takenAt: string;
+  sourceWorkspaceId: string;
 }
 
 interface Workspace {
@@ -45,10 +54,14 @@ interface Workspace {
   memberRole?: string;
   memberPermissions?: WorkspacePermissions | null;
   stats?: WorkspaceStats;
+  /** `version`: a hidden read-only copy of a past version, never listed in switchers. */
+  kind?: 'standard' | 'version';
+  version?: WorkspaceVersionRef | null;
 }
 
 interface WorkspaceData {
   currentWorkspace: Workspace | null;
+  /** The workspaces to pick from: opened versions are left out. */
   workspaces: Workspace[];
   loading: boolean;
   error: string | null;
@@ -56,6 +69,8 @@ interface WorkspaceData {
 
 interface WorkspaceActions {
   switchWorkspace: (workspaceId: string) => Promise<void>;
+  /** Opens a past version as a read-only workspace and switches the app into it. */
+  openVersion: (versionId: string) => Promise<void>;
   clearWorkspace: () => void;
   refreshWorkspaces: () => Promise<void>;
   toggleFavorite: (workspaceId: string) => Promise<void>;
@@ -102,7 +117,8 @@ async function fetchAndSetWorkspaces({
     setWorkspaces(data);
     const storedId = localStorage.getItem('currentWorkspaceId');
     const found = storedId ? data.find(w => w.id === storedId) : null;
-    const workspace = found ?? data[0] ?? null;
+    // A version is only ever entered on purpose: the fallback is a real workspace.
+    const workspace = found ?? data.find(w => !isVersion(w)) ?? null;
     if (workspace) {
       setCurrentWorkspace(workspace);
       localStorage.setItem('currentWorkspaceId', workspace.id);
@@ -127,10 +143,12 @@ async function apiSwitchWorkspace(
     setters.setLoading(true);
     setters.setError(null);
     await api.post(`/workspaces/${workspaceId}/switch`);
+    // Stored first: a workspace the list does not know yet (a version just
+    // opened) is picked up by the refresh through this id.
+    localStorage.setItem('currentWorkspaceId', workspaceId);
     const workspace = workspaces.find(w => w.id === workspaceId);
     if (workspace) {
       setters.setCurrentWorkspace(workspace);
-      localStorage.setItem('currentWorkspaceId', workspaceId);
     } else {
       await refreshWorkspaces();
     }
@@ -140,6 +158,21 @@ async function apiSwitchWorkspace(
   } finally {
     setters.setLoading(false);
   }
+}
+
+async function apiOpenVersion(versionId: string): Promise<string> {
+  // Restoring the copy happens in this request, so it may take a few seconds.
+  const response = await api.post(`/versions/${versionId}/open`);
+  const { workspaceId } = await checkContract(
+    'OpenedWorkspaceVersion',
+    response.data,
+    '/versions/:id/open',
+  );
+  return workspaceId;
+}
+
+function isVersion(workspace: Workspace | null | undefined): boolean {
+  return workspace?.kind === 'version';
 }
 
 async function apiToggleFavorite(
@@ -214,16 +247,20 @@ async function apiSetBackgroundPhoto(
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  // Every workspace the API lists, opened versions included, so the current
+  // one resolves while the app is inside a version.
+  const [allWorkspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // switchWorkspace reads the latest list through a ref so its identity does
   // not change every time the list is refreshed.
-  const workspacesRef = useRef(workspaces);
+  const workspacesRef = useRef(allWorkspaces);
   useEffect(() => {
-    workspacesRef.current = workspaces;
-  }, [workspaces]);
+    workspacesRef.current = allWorkspaces;
+  }, [allWorkspaces]);
+  const workspaces = useMemo(() => allWorkspaces.filter(w => !isVersion(w)), [allWorkspaces]);
+  const router = useRouter();
 
   const setters = useMemo<WorkspaceSetters>(
     () => ({ setWorkspaces, setCurrentWorkspace, setLoading, setError }),
@@ -236,6 +273,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     async (workspaceId: string) =>
       apiSwitchWorkspace({ workspaceId, refreshWorkspaces }, workspacesRef.current, setters),
     [refreshWorkspaces, setters],
+  );
+
+  const openVersion = useCallback(
+    async (versionId: string) => {
+      const workspaceId = await apiOpenVersion(versionId);
+      await switchWorkspace(workspaceId);
+      router.push(DEFAULT_APP_ROUTE);
+    },
+    [switchWorkspace, router],
   );
 
   const clearWorkspace = useCallback(() => {
@@ -279,6 +325,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const actions = useMemo<WorkspaceActions>(
     () => ({
       switchWorkspace,
+      openVersion,
       clearWorkspace,
       refreshWorkspaces,
       toggleFavorite,
@@ -287,6 +334,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       switchWorkspace,
+      openVersion,
       clearWorkspace,
       refreshWorkspaces,
       toggleFavorite,
@@ -318,4 +366,17 @@ export function useWorkspace(): WorkspaceContextType {
     throw new Error('useWorkspace must be used within a WorkspaceProvider');
   }
   return useMemo(() => ({ ...data, ...actions }), [data, actions]);
+}
+
+/**
+ * Whether the app is inside an opened past version, where nothing can be
+ * changed. Outside a WorkspaceProvider (isolated component tests) it is not.
+ */
+export function useReadOnlyWorkspace(): {
+  isReadOnly: boolean;
+  version: WorkspaceVersionRef | null;
+} {
+  const current = useContext(WorkspaceDataContext)?.currentWorkspace ?? null;
+  const isReadOnly = isVersion(current);
+  return { isReadOnly, version: isReadOnly ? (current?.version ?? null) : null };
 }
