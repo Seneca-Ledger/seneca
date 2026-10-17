@@ -20,6 +20,7 @@ const delivery = (id: string, subscriptionId: string) => ({
 
 const subscription = (id: string, url: string, secret: string) => ({
   id,
+  workspaceId: `ws-${id}`,
   url,
   secret,
   isActive: true,
@@ -30,11 +31,13 @@ describe('WebhookProcessorService', () => {
   let mockDeliveryRepo: { save: Mock; query: Mock; find: Mock };
   let mockSubRepo: { findOne: Mock };
   let post: Mock;
+  // The workspace's webhooks switch (PR #322), on for every test here.
+  const mockPlugins = { isEnabled: vi.fn().mockResolvedValue(true) };
 
   beforeEach(() => {
     mockDeliveryRepo = { save: vi.fn(), query: vi.fn(), find: vi.fn() };
     mockSubRepo = { findOne: vi.fn() };
-    service = new WebhookProcessorService(mockDeliveryRepo as any, mockSubRepo as any);
+    service = new (WebhookProcessorService as any)(mockDeliveryRepo, mockSubRepo, mockPlugins);
     post = vi.fn().mockResolvedValue({ status: 200, body: 'ok' });
     (service as any).postWithPinnedDns = post;
   });
@@ -74,7 +77,7 @@ describe('WebhookProcessorService', () => {
     expect(post).toHaveBeenCalledTimes(1);
     const [url, body, headers] = post.mock.calls[0];
     expect(url).toBe('https://a.example/hook');
-    expect(headers['X-Lumio-Signature']).toBe(
+    expect(headers['X-Seneca-Signature']).toBe(
       'sha256=' + createHmac('sha256', 'secret-a-0123456789').update(body).digest('hex'),
     );
     expect(mockDeliveryRepo.save).toHaveBeenCalledWith(
