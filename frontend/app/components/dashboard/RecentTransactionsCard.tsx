@@ -50,7 +50,7 @@ export function RecentTransactionsCard({
             return (
               <ListRow
                 key={tx.id}
-                href={tx.href}
+                href={tx.href ?? undefined}
                 leading={
                   <div title={categoryLabel}>
                     <CategoryIconBadge

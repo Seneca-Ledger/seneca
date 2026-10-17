@@ -963,6 +963,39 @@ describe('DashboardService', () => {
     ]);
   });
 
+  it('getRecentTransactions gives a transaction entered by hand no link', async () => {
+    const qb = createQueryBuilderMock([
+      {
+        id: 'tx-manual',
+        description: 'Sold Mac Mini M4',
+        debit: null,
+        credit: '1132',
+        transactionType: TransactionType.INCOME,
+        currency: 'USD',
+        date: '2026-10-16',
+        categoryId: null,
+        categoryName: null,
+        categoryColor: null,
+        categoryIcon: null,
+        bankName: null,
+        accountNumber: null,
+        statementId: null,
+        statementStatus: null,
+        parsingDetails: null,
+      },
+    ]);
+    transactionRepo.createQueryBuilder.mockReturnValue(qb);
+
+    const [row] = await (service as any).getRecentTransactions(
+      'ws-1',
+      new Date('2026-10-01'),
+      new Date('2026-10-31'),
+    );
+
+    // No document behind it: no link, not one to /storage/null.
+    expect(row.href).toBeNull();
+  });
+
   it('getMemberRole returns correct role', async () => {
     memberRepo.findOne.mockResolvedValue({ role: WorkspaceRole.ADMIN });
     const adminRole = await (service as any).getMemberRole('user-1', 'ws-1');

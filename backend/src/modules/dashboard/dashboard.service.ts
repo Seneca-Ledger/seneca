@@ -798,18 +798,23 @@ export class DashboardService {
         categoryIcon: string | null;
         bankName: BankName;
         accountNumber: string | null;
-        statementId: string;
+        statementId: string | null;
         statementStatus: Statement['status'];
         parsingDetails: Statement['parsingDetails'];
       }>();
 
-    // A transaction has no page of its own: a click opens its document.
-    const documents = rows.map(row => ({
-      id: row.statementId,
-      status: row.statementStatus,
-      parsingDetails: row.parsingDetails,
-    }));
-    const scanReceipts = await findScanReceipts(this.receiptRepo, workspaceId, documents);
+    // A transaction has no page of its own: a click opens its document. One
+    // entered by hand has none, so it gets no link rather than a dead one.
+    const documents = rows.map(row =>
+      row.statementId
+        ? { id: row.statementId, status: row.statementStatus, parsingDetails: row.parsingDetails }
+        : null,
+    );
+    const scanReceipts = await findScanReceipts(
+      this.receiptRepo,
+      workspaceId,
+      documents.filter(document => document !== null),
+    );
 
     return Promise.all(
       rows.map(async (row, index) => {
@@ -837,7 +842,7 @@ export class DashboardService {
           categoryName: row.categoryName,
           categoryColor: row.categoryColor || OTHER_CATEGORY_COLOR,
           categoryIcon: row.categoryIcon,
-          href: documentHref(documents[index], scanReceipts),
+          href: documents[index] ? documentHref(documents[index], scanReceipts) : null,
         };
       }),
     );
