@@ -10,6 +10,7 @@ import { Plus } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { PiggyLineIcon } from '@/app/components/ui/empty-state-icons';
+import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
@@ -123,10 +124,12 @@ export function BudgetsContent({
             )}
           />
           {/* With no budgets the empty state's button leads; this one steps back. */}
-          <Button variant={noBudgets ? 'text' : 'contained'} onClick={() => openCreate()}>
-            <Plus size={18} aria-hidden />
-            {t.newBudget}
-          </Button>
+          <ReadOnlyHint>
+            <Button variant={noBudgets ? 'text' : 'contained'} onClick={() => openCreate()}>
+              <Plus size={18} aria-hidden />
+              {t.newBudget}
+            </Button>
+          </ReadOnlyHint>
         </Box>
       </Box>
 
@@ -156,9 +159,11 @@ export function BudgetsContent({
             title={t.emptyTitle}
             description={t.emptyDescription}
             action={
-              <Button variant="contained" onClick={() => openCreate()}>
-                {t.createFirst}
-              </Button>
+              <ReadOnlyHint>
+                <Button variant="contained" onClick={() => openCreate()}>
+                  {t.createFirst}
+                </Button>
+              </ReadOnlyHint>
             }
           />
           <StoicBalance />

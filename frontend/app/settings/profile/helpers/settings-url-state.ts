@@ -3,7 +3,14 @@
  * reload or a shared link restores the same view. Pure helpers, no React.
  */
 
-export const SETTINGS_TABS = ['general', 'security', 'notifications', 'data', 'advanced'] as const;
+export const SETTINGS_TABS = [
+  'general',
+  'security',
+  'notifications',
+  'data',
+  'advanced',
+  'versions',
+] as const;
 export type SettingsTabId = (typeof SETTINGS_TABS)[number];
 export const DEFAULT_SETTINGS_TAB: SettingsTabId = 'general';
 
@@ -21,6 +28,7 @@ export const SETTINGS_SECTIONS = {
     'my-data',
   ],
   advanced: ['changelog'],
+  versions: ['versions'],
 } as const satisfies Record<SettingsTabId, readonly string[]>;
 export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[SettingsTabId][number];
 

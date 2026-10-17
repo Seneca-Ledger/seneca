@@ -74,6 +74,15 @@ export function getApiErrorStatus(error: unknown): number | undefined {
   return isAxiosError(error) ? error.response?.status : undefined;
 }
 
+/** A write refused because the open workspace is a past version, which can only be viewed. */
+export function isVersionReadOnlyError(error: unknown): boolean {
+  return (
+    isAxiosError(error) &&
+    error.response?.status === 403 &&
+    error.response.data?.error?.code === 'VERSION_READ_ONLY'
+  );
+}
+
 function isAxiosError(error: unknown): error is AxiosError<ApiErrorResponse> {
   return (
     typeof error === 'object' &&

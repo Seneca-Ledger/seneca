@@ -11,6 +11,7 @@ import { EmptyState } from '@/app/components/ui/EmptyState';
 import { InvoiceLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Select } from '@/app/components/ui/select';
+import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -188,10 +189,12 @@ export function InvoicesListView(): React.JSX.Element {
             />
             {/* With no invoices at all the empty state's button is the one action. */}
             {noInvoices ? null : (
-              <Button onClick={() => router.push('/invoices/new')}>
-                <Plus size={18} aria-hidden />
-                {t.newInvoice}
-              </Button>
+              <ReadOnlyHint>
+                <Button onClick={() => router.push('/invoices/new')}>
+                  <Plus size={18} aria-hidden />
+                  {t.newInvoice}
+                </Button>
+              </ReadOnlyHint>
             )}
           </div>
         </div>
@@ -243,7 +246,11 @@ export function InvoicesListView(): React.JSX.Element {
           icon={<InvoiceLineIcon />}
           title={t.empty.title}
           description={t.empty.description}
-          action={<Button onClick={() => router.push('/invoices/new')}>{t.newInvoice}</Button>}
+          action={
+            <ReadOnlyHint>
+              <Button onClick={() => router.push('/invoices/new')}>{t.newInvoice}</Button>
+            </ReadOnlyHint>
+          }
         />
       ) : (
         <div className="lumio-payable-list">
