@@ -457,6 +457,22 @@ export const isDocumentApproved = (
   return PARSED_STATEMENT_STATUSES.has(normalized) && pendingReview === 0;
 };
 
+/** The Approved filter, by the same rule as the Approved column. */
+export const filterByApproved = <T extends { id: string; status: string; source?: string }>(
+  documents: T[],
+  approved: boolean | null,
+  statementReviewCounts: Record<string, number>,
+): T[] => {
+  if (approved === null) {
+    return documents;
+  }
+  return documents.filter(document => {
+    const isReceipt = document.source === 'gmail' || document.source === 'scan';
+    const pending = resolvePendingReview(document, isReceipt, statementReviewCounts);
+    return isDocumentApproved(document.status, isReceipt, pending) === approved;
+  });
+};
+
 export const paginateStatements = <T>(statements: T[], page: number, pageSize: number): T[] => {
   if (pageSize <= 0) {
     return [];

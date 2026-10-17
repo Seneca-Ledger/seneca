@@ -1,4 +1,4 @@
-import type { Repository, SelectQueryBuilder } from 'typeorm';
+import type { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { onlyFlows } from '../../common/utils/counted-transactions.util';
 import { type Receipt, ReceiptSource, ReceiptStatus } from '../../entities/receipt.entity';
 import type { Transaction } from '../../entities/transaction.entity';
@@ -36,6 +36,25 @@ export function reviewDuplicatesQuery(
     .andWhere('t.isVerified = false')
     .andWhere("(t.duplicateMatchType IS NULL OR t.duplicateMatchType != 'manual')")
     .andWhere('(t.statementId IS NULL OR s.deletedAt IS NULL)');
+}
+
+/**
+ * SQL that is true while Review still holds a row of the statement under
+ * `statementAlias` (an unconfirmed row or an unsettled duplicate), built from
+ * the queue's own queries so the documents list and Review cannot disagree.
+ */
+export function reviewHoldsStatementRows(
+  transactions: Repository<Transaction>,
+  workspaceId: string,
+  statementAlias: string,
+): { clause: string; params: ObjectLiteral } {
+  const queues = [unconfirmedRowsQuery, reviewDuplicatesQuery].map(rows =>
+    rows(transactions, workspaceId).select('1').andWhere(`t.statementId = ${statementAlias}.id`),
+  );
+  return {
+    clause: `(${queues.map(query => `EXISTS (${query.getQuery()})`).join(' OR ')})`,
+    params: Object.assign({}, ...queues.map(query => query.getParameters())),
+  };
 }
 
 /**

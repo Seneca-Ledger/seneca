@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStatementRequestParams,
   deriveVisibleFilterScreens,
+  filterByApproved,
   isDocumentApproved,
   isReceiptDerivedStatement,
   paginateStatements,
@@ -289,6 +290,32 @@ describe('StatementsListView utils', () => {
       expect(isDocumentApproved('completed', false, 2)).toBe(false);
       expect(isDocumentApproved('uploaded', false, 0)).toBe(false);
       expect(isDocumentApproved('error', false, 0)).toBe(false);
+    });
+  });
+
+  describe('filterByApproved', () => {
+    const documents = [
+      { id: 'receipt-approved', status: 'approved', source: 'scan' },
+      { id: 'receipt-draft', status: 'draft', source: 'scan' },
+      { id: 'gmail-approved', status: 'approved', source: 'gmail' },
+      { id: 'statement-done', status: 'completed', source: 'statement' },
+      { id: 'statement-waiting', status: 'completed', source: 'statement' },
+      { id: 'statement-uploading', status: 'uploaded', source: 'statement' },
+    ];
+    const reviewCounts = { 'statement-waiting': 2 };
+    const ids = (approved: boolean | null) =>
+      filterByApproved(documents, approved, reviewCounts).map(document => document.id);
+
+    it('keeps approved receipts and statements Review is done with', () => {
+      expect(ids(true)).toEqual(['receipt-approved', 'gmail-approved', 'statement-done']);
+    });
+
+    it('keeps drafts, statements with rows in Review and unparsed files as not approved', () => {
+      expect(ids(false)).toEqual(['receipt-draft', 'statement-waiting', 'statement-uploading']);
+    });
+
+    it('leaves the list alone without the filter', () => {
+      expect(ids(null)).toHaveLength(documents.length);
     });
   });
 });

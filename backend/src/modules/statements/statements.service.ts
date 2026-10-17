@@ -54,6 +54,7 @@ import type {
 } from '../notifications/events/notification-events';
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
+import { reviewHoldsStatementRows } from '../review-inbox/review-queue.queries';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
@@ -87,12 +88,6 @@ const APPROVED_STATUSES = [
   StatementStatus.VALIDATED,
   StatementStatus.COMPLETED,
   StatementStatus.PARSED,
-];
-const NOT_APPROVED_STATUSES = [
-  StatementStatus.UPLOADED,
-  StatementStatus.PROCESSING,
-  StatementStatus.ERROR,
-  StatementStatus.NEEDS_REVIEW,
 ];
 
 const toDateOnlyString = (value: Date) => {
@@ -934,15 +929,13 @@ export class StatementsService {
     }
 
     if (typeof filters.approved === 'boolean') {
-      if (filters.approved) {
-        qb.andWhere('statement.status IN (:...approvedStatuses)', {
-          approvedStatuses: APPROVED_STATUSES,
-        });
-      } else {
-        qb.andWhere('statement.status IN (:...notApprovedStatuses)', {
-          notApprovedStatuses: NOT_APPROVED_STATUSES,
-        });
-      }
+      // As the Approved column says it: parsed, and Review holds none of its rows.
+      const review = reviewHoldsStatementRows(this.transactionRepository, workspaceId, 'statement');
+      const approved = `(statement.status IN (:...approvedStatuses) AND NOT ${review.clause})`;
+      qb.andWhere(filters.approved ? approved : `NOT ${approved}`, {
+        approvedStatuses: APPROVED_STATUSES,
+        ...review.params,
+      });
     }
 
     if (typeof filters.billable === 'boolean') {

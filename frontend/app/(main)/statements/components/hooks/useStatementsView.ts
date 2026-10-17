@@ -38,6 +38,7 @@ import {
   deriveVisibleFilterScreens,
   type FilterLabels,
   type FilterOptionLabels,
+  filterByApproved,
   isReceiptDerivedStatement,
   paginateStatements,
   resolveStatementSortDate,
@@ -437,9 +438,19 @@ export function useStatementsView({
     [statements, search, receiptStatements],
   );
 
+  // Approved needs Review's counts and the row kind, which the shared filters
+  // do not know, so it is applied here, before the limit cuts the list.
   const displayStatements = useMemo(
-    () => applyStatementsFilters(documentStatements, filterState.appliedFilters),
-    [documentStatements, filterState.appliedFilters],
+    () =>
+      applyStatementsFilters(
+        filterByApproved(
+          documentStatements,
+          filterState.appliedFilters.approved,
+          statementReviewCounts,
+        ),
+        { ...filterState.appliedFilters, approved: null },
+      ),
+    [documentStatements, filterState.appliedFilters, statementReviewCounts],
   );
 
   const sortedDisplayStatements = useMemo(
