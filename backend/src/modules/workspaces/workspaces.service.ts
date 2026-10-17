@@ -866,7 +866,12 @@ export class WorkspacesService {
       opened.flatMap(workspace => {
         const row = byId.get(workspace.versionId as string);
         return row
-          ? [[workspace.id, { id: row.id, takenAt: row.taken_at, sourceWorkspaceId: row.workspace_id }]]
+          ? [
+              [
+                workspace.id,
+                { id: row.id, takenAt: row.taken_at, sourceWorkspaceId: row.workspace_id },
+              ],
+            ]
           : [];
       }),
     );

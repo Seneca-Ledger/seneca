@@ -101,5 +101,5 @@ export * from './workspace-business-profile.entity';
 export * from './workspace-exchange-rate.entity';
 export * from './workspace-invitation.entity';
 export * from './workspace-member.entity';
-export * from './workspace-version.entity';
 export * from './workspace-service-settings.entity';
+export * from './workspace-version.entity';

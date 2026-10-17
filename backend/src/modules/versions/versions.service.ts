@@ -71,7 +71,10 @@ export class VersionsService {
     // An opened version stays while someone looks at it; idle ones are discarded first.
     const openedRows = versions.length
       ? await this.workspaceRepository.find({
-          where: { kind: WorkspaceKind.VERSION, versionId: In(versions.map(version => version.id)) },
+          where: {
+            kind: WorkspaceKind.VERSION,
+            versionId: In(versions.map(version => version.id)),
+          },
           select: ['id', 'versionId'],
         })
       : [];
@@ -142,7 +145,8 @@ export class VersionsService {
     const timeZone = await this.ownerTimeZone(userId);
     opened.kind = WorkspaceKind.STANDARD;
     opened.versionId = null;
-    opened.name = name?.trim() || `${version.workspace.name} — ${localDay(version.takenAt, timeZone)}`;
+    opened.name =
+      name?.trim() || `${version.workspace.name} — ${localDay(version.takenAt, timeZone)}`;
     return this.workspaceRepository.save(opened);
   }
 

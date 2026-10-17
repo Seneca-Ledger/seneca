@@ -8,7 +8,10 @@ import { VersionsController } from './versions.controller';
 import { VersionsService } from './versions.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Workspace, WorkspaceMember, WorkspaceVersion]), BackupsModule],
+  imports: [
+    TypeOrmModule.forFeature([User, Workspace, WorkspaceMember, WorkspaceVersion]),
+    BackupsModule,
+  ],
   controllers: [VersionsController],
   providers: [VersionSchedulerService, VersionSnapshotService, VersionsService],
 })
