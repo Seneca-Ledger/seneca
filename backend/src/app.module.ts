@@ -101,6 +101,7 @@ import { InvestmentsModule } from './modules/investments/investments.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { MapsModule } from './modules/maps/maps.module';
+import { McpModule } from './modules/mcp/mcp.module';
 import { NetWorthModule } from './modules/net-worth/net-worth.module';
 import { NotesModule } from './modules/notes/notes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -295,6 +296,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     CryptoModule,
     WebhooksModule,
     ApiKeysModule,
+    McpModule,
   ],
   controllers: [AppController],
   providers: [
