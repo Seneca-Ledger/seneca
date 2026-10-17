@@ -1,14 +1,162 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "14d8074b7b9bd8a2b285f4d8520270df890ef22a"
+      "main": "b5f34f4fa4fec67de68cae587ce43f61c6defc69"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-17T21:07:59.043Z",
+    "lastGeneratedAt": "2026-10-17T22:32:22.880Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-17-b5f34f4",
+      "version": "main-b5f34f4",
+      "branch": "main",
+      "date": "2026-10-17T22:32:22.880Z",
+      "title": "Release update - October 17, 2026",
+      "summary": "This release includes 3 features and 1 improvement.",
+      "markdown": "## Features\n- **versions**: Nightly and manual snapshots of a workspace\n- **versions**: Open a version read only, save it as a copy\n- **versions**: The Versions tab and the read-only app\n\n## Improvements\n- **versions**: Format and sort imports",
+      "commits": [
+        {
+          "sha": "09aa1d4e3d2d188850debca4f11e46dbd243e94b",
+          "shortSha": "09aa1d4e",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-17T21:07:59Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "51d9eb42277fb20046d2bbf8ecfa798a7b2a35c5",
+          "shortSha": "51d9eb42",
+          "subject": "feat(versions): nightly and manual snapshots of a workspace",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T00:08:06+03:00",
+          "files": [
+            "backend/@tests/integration/workspace-versions.spec.ts",
+            "backend/@tests/unit/modules/backups/backup-data.service.spec.ts",
+            "backend/@tests/unit/modules/versions/version-blob-store.spec.ts",
+            "backend/@tests/unit/modules/versions/version-retention.spec.ts",
+            "backend/src/app.module.ts",
+            "backend/src/common/errors/app-error.ts",
+            "backend/src/contracts/index.ts",
+            "backend/src/contracts/settings/versions.ts",
+            "backend/src/entities/index.ts",
+            "backend/src/entities/workspace-version.entity.ts",
+            "backend/src/migrations/1787250000000-CreateWorkspaceVersions.ts",
+            "backend/src/modules/backups/backup-data.service.ts",
+            "backend/src/modules/backups/backups.module.ts",
+            "backend/src/modules/versions/version-blob-store.ts",
+            "backend/src/modules/versions/version-payload.ts",
+            "backend/src/modules/versions/version-retention.ts",
+            "backend/src/modules/versions/version-scheduler.service.ts",
+            "backend/src/modules/versions/version-snapshot.service.ts",
+            "backend/src/modules/versions/versions.controller.ts",
+            "backend/src/modules/versions/versions.module.ts",
+            "backend/src/modules/versions/versions.service.ts",
+            "frontend/app/lib/contracts/index.ts",
+            "frontend/app/lib/contracts/settings/versions.ts",
+            "packages/contracts/src/index.ts",
+            "packages/contracts/src/settings/versions.ts"
+          ]
+        },
+        {
+          "sha": "9b20ff1e172eadac012394d979a535f932a7fa03",
+          "shortSha": "9b20ff1e",
+          "subject": "feat(versions): open a version read only, save it as a copy",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T00:08:06+03:00",
+          "files": [
+            "backend/@tests/e2e/workspace-versions.e2e-spec.ts",
+            "backend/@tests/integration/workspace-versions.spec.ts",
+            "backend/src/common/errors/app-error.ts",
+            "backend/src/contracts/settings/versions.ts",
+            "backend/src/contracts/workspaces/workspaces.ts",
+            "backend/src/entities/workspace.entity.ts",
+            "backend/src/migrations/1787260000000-AddWorkspaceVersionLink.ts",
+            "backend/src/modules/backups/backup-restore.service.ts",
+            "backend/src/modules/versions/version-scheduler.service.ts",
+            "backend/src/modules/versions/versions.controller.ts",
+            "backend/src/modules/versions/versions.module.ts",
+            "backend/src/modules/versions/versions.service.ts",
+            "backend/src/modules/workspaces/dto/workspace-response.dto.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts",
+            "frontend/app/lib/contracts/settings/versions.ts",
+            "frontend/app/lib/contracts/workspaces/workspaces.ts",
+            "packages/contracts/src/settings/versions.ts",
+            "packages/contracts/src/workspaces/workspaces.ts"
+          ]
+        },
+        {
+          "sha": "6f1aa3843b821de9c65ad7763482c7b6db256f4f",
+          "shortSha": "6f1aa384",
+          "subject": "feat(versions): the Versions tab and the read-only app",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T00:08:06+03:00",
+          "files": [
+            "frontend/app/(main)/budgets/components/BudgetsContent.tsx",
+            "frontend/app/(main)/goals/page.tsx",
+            "frontend/app/(main)/invoices/components/InvoicesListView.tsx",
+            "frontend/app/(main)/statements/components/StatementsUploadButton.tsx",
+            "frontend/app/components/icons/index.tsx",
+            "frontend/app/components/versions/ReadOnlyHint.tsx",
+            "frontend/app/components/versions/VersionBanner.content.ts",
+            "frontend/app/components/versions/VersionBanner.test.tsx",
+            "frontend/app/components/versions/VersionBanner.tsx",
+            "frontend/app/contexts/WorkspaceContext.test.tsx",
+            "frontend/app/contexts/WorkspaceContext.tsx",
+            "frontend/app/lib/api-error.ts",
+            "frontend/app/lib/api.test.ts",
+            "frontend/app/lib/api.ts",
+            "frontend/app/lib/apiErrors.content.ts",
+            "frontend/app/lib/invalidate-document-lists.ts",
+            "frontend/app/lib/offline/useOfflineQueue.test.ts",
+            "frontend/app/lib/offline/useOfflineQueue.ts",
+            "frontend/app/lib/query-keys.ts",
+            "frontend/app/providers.test.tsx",
+            "frontend/app/providers.tsx",
+            "frontend/app/settings/profile/components/SettingsSkeleton.tsx",
+            "frontend/app/settings/profile/components/SettingsTabs.tsx",
+            "frontend/app/settings/profile/components/VersionsSection.content.ts",
+            "frontend/app/settings/profile/components/VersionsSection.test.tsx",
+            "frontend/app/settings/profile/components/VersionsSection.tsx",
+            "frontend/app/settings/profile/helpers/settings-url-state.ts",
+            "frontend/app/settings/profile/hooks/useVersions.ts",
+            "frontend/app/settings/profile/page.content.ts",
+            "frontend/app/settings/profile/page.test.tsx",
+            "frontend/app/settings/profile/page.tsx",
+            "frontend/app/settings/profile/tabs/VersionsTab.tsx"
+          ]
+        },
+        {
+          "sha": "6753bc165bbd4a7518097069917cc7c19ca9eb6c",
+          "shortSha": "6753bc16",
+          "subject": "style(versions): format and sort imports",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T00:25:17+03:00",
+          "files": [
+            "backend/src/app.module.ts",
+            "backend/src/contracts/index.ts",
+            "backend/src/entities/index.ts",
+            "backend/src/modules/versions/versions.module.ts",
+            "backend/src/modules/versions/versions.service.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts",
+            "frontend/app/lib/contracts/index.ts",
+            "packages/contracts/src/index.ts"
+          ]
+        },
+        {
+          "sha": "b5f34f4fa4fec67de68cae587ce43f61c6defc69",
+          "shortSha": "b5f34f4f",
+          "subject": "Merge pull request #325 from symonbaikov/feat/workspace-versions",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T01:31:58+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-17-14d8074",
       "version": "main-14d8074",
