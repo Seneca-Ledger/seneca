@@ -1,14 +1,127 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "88782584e1e40d10e688811c551c7f734e0217a0"
+      "main": "14d8074b7b9bd8a2b285f4d8520270df890ef22a"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-17T16:31:24.264Z",
+    "lastGeneratedAt": "2026-10-17T21:07:59.043Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-17-14d8074",
+      "version": "main-14d8074",
+      "branch": "main",
+      "date": "2026-10-17T21:07:59.043Z",
+      "title": "Release update - October 17, 2026",
+      "summary": "This release includes 1 feature and 1 fix.",
+      "markdown": "## Features\n- **workspaces**: Read-only version workspaces, skipped by every background job\n\n## Fixes\n- **backups**: A restored invoice keeps its PDF; round trip proven on Postgres",
+      "commits": [
+        {
+          "sha": "39bbfa44aca34d95998f11018e59e48867644645",
+          "shortSha": "39bbfa44",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-17T16:31:24Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "c3cd78e7d4276a889cf1878abf6293a387c31ef2",
+          "shortSha": "c3cd78e7",
+          "subject": "fix(backups): a restored invoice keeps its PDF; round trip proven on Postgres",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T22:59:36+03:00",
+          "files": [
+            "backend/@tests/integration/workspace-snapshot-roundtrip.spec.ts",
+            "backend/src/modules/backups/backup-data.service.ts",
+            "backend/src/modules/backups/backup-restore.service.ts"
+          ]
+        },
+        {
+          "sha": "855e71ccba71f52f277f908f069b5cb0cd1c1326",
+          "shortSha": "855e71cc",
+          "subject": "feat(workspaces): read-only version workspaces, skipped by every background job",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T23:25:23+03:00",
+          "files": [
+            "backend/@tests/e2e/version-read-only.e2e-spec.ts",
+            "backend/@tests/integration/version-workspace-crons.spec.ts",
+            "backend/@tests/unit/common/guards/workspace-context.guard.spec.ts",
+            "backend/@tests/unit/common/services/cloud-storage-base.service.spec.ts",
+            "backend/@tests/unit/common/workspaces/version-workspaces.spec.ts",
+            "backend/@tests/unit/modules/bank-sync/bank-sync.service.spec.ts",
+            "backend/@tests/unit/modules/budgets/budgets.service.spec.ts",
+            "backend/@tests/unit/modules/gmail/gmail-scheduler.spec.ts",
+            "backend/@tests/unit/modules/gmail/gmail-sync.service.spec.ts",
+            "backend/@tests/unit/modules/notifications/notifications.service.spec.ts",
+            "backend/@tests/unit/modules/parsing/queue/statement-parsing.processor.spec.ts",
+            "backend/src/common/decorators/allow-in-version.decorator.ts",
+            "backend/src/common/errors/app-error.ts",
+            "backend/src/common/guards/workspace-context.guard.ts",
+            "backend/src/common/services/cloud-storage-base.service.ts",
+            "backend/src/common/workspaces/version-workspaces.ts",
+            "backend/src/contracts/workspaces/workspaces.ts",
+            "backend/src/entities/workspace.entity.ts",
+            "backend/src/migrations/1787240000000-AddWorkspaceKind.ts",
+            "backend/src/modules/ai-analysis/transaction-search.controller.ts",
+            "backend/src/modules/backups/backup-scheduler.service.ts",
+            "backend/src/modules/bank-sync/bank-sync.service.ts",
+            "backend/src/modules/budgets/budgets.service.ts",
+            "backend/src/modules/classification/categorization-rules.controller.ts",
+            "backend/src/modules/crypto/crypto-sync.service.ts",
+            "backend/src/modules/custom-tables/custom-table-export-schedules.service.ts",
+            "backend/src/modules/custom-tables/custom-tables.controller.ts",
+            "backend/src/modules/gmail/gmail-receipt-processor.ts",
+            "backend/src/modules/gmail/gmail.controller.ts",
+            "backend/src/modules/gmail/gmail.scheduler.ts",
+            "backend/src/modules/gmail/services/gmail-sync.service.ts",
+            "backend/src/modules/invoices/invoice-settings.service.ts",
+            "backend/src/modules/invoices/invoices.scheduler.ts",
+            "backend/src/modules/ledger/ledger-sync.service.ts",
+            "backend/src/modules/notifications/notifications.service.ts",
+            "backend/src/modules/parsing/queue/statement-parsing.processor.ts",
+            "backend/src/modules/payables/payables.controller.ts",
+            "backend/src/modules/payables/payables.service.ts",
+            "backend/src/modules/payees/payees.service.ts",
+            "backend/src/modules/peppol/peppol.service.ts",
+            "backend/src/modules/reports/report-schedules.service.ts",
+            "backend/src/modules/reports/reports.controller.ts",
+            "backend/src/modules/review-inbox/review-inbox.scheduler.ts",
+            "backend/src/modules/storage/storage-trash.scheduler.ts",
+            "backend/src/modules/storage/storage.controller.ts",
+            "backend/src/modules/subscriptions/subscriptions.service.ts",
+            "backend/src/modules/tax-reminders/tax-deadlines.service.ts",
+            "backend/src/modules/tax/official-vat-rates.service.ts",
+            "backend/src/modules/tax/tax-threshold.service.ts",
+            "backend/src/modules/telegram/telegram.service.ts",
+            "backend/src/modules/workspaces/dto/workspace-response.dto.ts",
+            "backend/src/modules/workspaces/workspace-backgrounds.service.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts",
+            "frontend/app/lib/contracts/workspaces/workspaces.ts",
+            "packages/contracts/src/workspaces/workspaces.ts"
+          ]
+        },
+        {
+          "sha": "84abe6d74c663eeccb015e9aa3c8d54f611a50be",
+          "shortSha": "84abe6d7",
+          "subject": "Merge pull request #320 from symonbaikov/feat/versions-1-snapshot-engine",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T23:30:39+03:00",
+          "files": []
+        },
+        {
+          "sha": "14d8074b7b9bd8a2b285f4d8520270df890ef22a",
+          "shortSha": "14d8074b",
+          "subject": "Merge pull request #321 from symonbaikov/feat/versions-2-read-only-workspaces",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T00:07:31+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-17-8878258",
       "version": "main-8878258",
