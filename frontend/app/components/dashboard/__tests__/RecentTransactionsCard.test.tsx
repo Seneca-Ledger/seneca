@@ -103,6 +103,34 @@ describe('RecentTransactionsCard', () => {
     );
   });
 
+  it('leaves a transaction entered by hand unclickable: it has no document to open', () => {
+    render(
+      <SectionSpanProvider value={6}>
+        <RecentTransactionsCard
+          transactions={[
+            {
+              id: 'tx-manual',
+              description: 'Sold Mac Mini M4',
+              amount: 1132,
+              currency: 'USD',
+              date: '2026-10-16',
+              account: 'Bank',
+              categoryId: null,
+              categoryName: null,
+              categoryColor: '#898781',
+              categoryIcon: null,
+              href: null,
+            },
+          ]}
+          formatAmount={v => `$${v}`}
+          viewAllHref="/statements/transactions"
+        />
+      </SectionSpanProvider>,
+    );
+
+    expect(screen.getByText('Sold Mac Mini M4').closest('a')).toBeNull();
+  });
+
   it('lists six at half width, and all with category and account columns at full width', () => {
     const transactions = Array.from({ length: 12 }, (_, index) => ({
       id: `tx-${index}`,

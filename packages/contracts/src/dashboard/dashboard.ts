@@ -80,8 +80,11 @@ export const DashboardRecentTransaction = Schema.Struct({
   /** Always a concrete color — falls back to a neutral swatch when unset. */
   categoryColor: Schema.String,
   categoryIcon: Schema.NullOr(Schema.String),
-  /** The document the transaction lives in, opened the way the Documents list opens it. */
-  href: Schema.String,
+  /**
+   * The document the transaction lives in, opened the way the Documents list
+   * opens it; null for one entered by hand, which has no document to open.
+   */
+  href: Schema.NullOr(Schema.String),
 });
 export type DashboardRecentTransaction = Wire<typeof DashboardRecentTransaction>;
 
