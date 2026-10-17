@@ -132,6 +132,7 @@ import { ViewPreferencesModule } from './modules/view-preferences/view-preferenc
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { VersionsModule } from './modules/versions/versions.module';
 
 @Module({
   imports: [
@@ -238,6 +239,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     SystemUpdateModule,
     AiAnalysisModule,
     BackupsModule,
+    VersionsModule,
     AuthModule,
     AuditModule,
     BalanceModule,

@@ -79,6 +79,7 @@ export * from './requests/workspaces';
 export * from './review/review-inbox';
 export * from './search/search';
 export * from './settings/backups';
+export * from './settings/versions';
 export * from './settings/business-profile';
 export * from './settings/settings';
 export * from './settings/system-update';
