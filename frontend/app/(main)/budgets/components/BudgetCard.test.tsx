@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { budgetItem } from '@/app/test/fixtures/contracts';
+import { budgetItem, categoryRef } from '@/app/test/fixtures/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { normalizeBudgetItem } from '../hooks/useBudgetsPage';
 import { BudgetCard } from './BudgetCard';
+
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
 
 const card = (overrides: Parameters<typeof budgetItem>[0]) =>
   renderWithQuery(<BudgetCard
@@ -31,5 +38,28 @@ describe('BudgetCard', () => {
     const { container } = card({ id: 'b-1', name: 'Charity', spentAmount: 12, percentUsed: 60 });
 
     expect(container.textContent).not.toMatch(/XYZ|UAH/);
+  });
+
+  it("names a system category in the reader's language, not as it was stored", () => {
+    appLocale.current = 'ru';
+    const { container } = card({
+      id: 'b-ad',
+      name: 'Реклама вакансий',
+      category: categoryRef({ id: 'cat-ad', name: 'Advertising', isSystem: true }),
+    });
+    appLocale.current = 'en';
+
+    expect(container.textContent).toContain('Реклама ·');
+    expect(container.textContent).not.toContain('Advertising');
+  });
+
+  it('keeps the name of a category the user made', () => {
+    const { container } = card({
+      id: 'b-own',
+      name: 'Gifts',
+      category: categoryRef({ id: 'cat-own', name: 'Donate' }),
+    });
+
+    expect(container.textContent).toContain('Donate ·');
   });
 });

@@ -438,6 +438,25 @@ export const resolvePendingReview = (
   return statementReviewCounts[document.id] ?? 0;
 };
 
+const PARSED_STATEMENT_STATUSES = new Set(['completed', 'parsed', 'validated']);
+
+/**
+ * The Approved column: a person has confirmed the document. A receipt once it
+ * is approved; a statement once its file is parsed and none of its rows still
+ * waits in Review. A receipt's status is the receipt's own, never a parse status.
+ */
+export const isDocumentApproved = (
+  status: string,
+  isReceipt: boolean,
+  pendingReview: number,
+): boolean => {
+  const normalized = status.toLowerCase();
+  if (isReceipt) {
+    return normalized === 'approved';
+  }
+  return PARSED_STATEMENT_STATUSES.has(normalized) && pendingReview === 0;
+};
+
 export const paginateStatements = <T>(statements: T[], page: number, pageSize: number): T[] => {
   if (pageSize <= 0) {
     return [];

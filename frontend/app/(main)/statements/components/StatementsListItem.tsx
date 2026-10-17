@@ -13,10 +13,11 @@ import { AlertCircle, ChevronDown, ChevronRight, CreditCard } from '@/app/compon
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { categoryReportHref } from '@/app/lib/category-report-href';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
 import {
   DEFAULT_STATEMENT_COLUMNS,
@@ -24,7 +25,7 @@ import {
   type StatementColumnId,
   statementColumnWidthStyle,
 } from './columns/statement-columns';
-import { resolveStatementSortDate } from './StatementsListView.utils';
+import { isDocumentApproved, resolveStatementSortDate } from './StatementsListView.utils';
 
 export type StatementListItem = {
   id: string;
@@ -121,7 +122,6 @@ type Props = {
 };
 
 const EMPTY_CELL = '—';
-const APPROVED_STATUSES = new Set(['completed', 'parsed', 'validated']);
 const NUMERIC_COLUMN_IDS = new Set<StatementColumnId>(['amount', 'exchangeRate']);
 
 const normalizeExchangeRateCurrency = (
@@ -267,6 +267,7 @@ export function StatementsListItem({
 }: Props) {
   const { resolvedTheme } = useTheme();
   const listText = useIntlayer('statementsListUi');
+  const { locale } = useLocale();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   const [categoryLit, setCategoryLit] = useState(false);
   const categoryTimerRef = useRef<number | undefined>(undefined);
@@ -339,6 +340,9 @@ export function StatementsListItem({
   // importPreview.categoryId is deliberately not a fallback: it is a bare id,
   // and rendering it puts a raw UUID in the column.
   const categoryLabel = firstNonEmpty(statement.category?.name, statement.parsedData?.category);
+  // System categories are stored by their English name; the link and the icon
+  // keep that name, the reader sees it in their language.
+  const categoryText = categoryLabel && localizeStatementCategoryName(categoryLabel, locale);
   const tagsLabel =
     statement.tags
       ?.map(tag => tag.name)
@@ -370,7 +374,7 @@ export function StatementsListItem({
       ? listText.mixed.value
       : firstNonEmpty(statement.transactionSummary?.exchangeRate));
   const approvedLabel = formatBoolean(
-    APPROVED_STATUSES.has(statement.status.toLowerCase()),
+    isDocumentApproved(statement.status, isReceipt, pendingReview),
     listText.yes.value,
     listText.no.value,
   );
@@ -434,7 +438,7 @@ export function StatementsListItem({
         // lights the chip at once and Enter goes to the leaderboard.
         onFocus={() => setCategoryLit(true)}
         onBlur={unlightCategory}
-        title={listText.categoryLink.value.replace('{category}', categoryLabel)}
+        title={listText.categoryLink.value.replace('{category}', categoryText ?? categoryLabel)}
       >
         <span className="lumio-stmt-category-link__badge">
           <CategoryIconBadge
@@ -446,10 +450,10 @@ export function StatementsListItem({
         </span>
         <span
           className="lumio-stmt-category-link__text"
-          data-label={categoryLabel}
+          data-label={categoryText}
           style={{ ...textCellStyle('category'), width: 'auto', minWidth: 0 }}
         >
-          {categoryLabel}
+          {categoryText}
         </span>
       </Link>
     );
@@ -712,7 +716,7 @@ export function StatementsListItem({
           </div>
           <div className="lumio-stmt-list-item__mobile-line lumio-stmt-list-item__mobile-meta">
             <span className="lumio-stmt-list-item__mobile-meta-text">
-              {[dateLabel, isPossibleDuplicate ? duplicateCaption : categoryLabel || sourceLabel]
+              {[dateLabel, isPossibleDuplicate ? duplicateCaption : categoryText || sourceLabel]
                 .filter(Boolean)
                 .join(' · ')}
             </span>
