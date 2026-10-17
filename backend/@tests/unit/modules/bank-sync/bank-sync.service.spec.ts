@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { IntegrationProvider, IntegrationStatus } from '../../../../src/entities';
+import { IntegrationProvider, IntegrationStatus, WorkspaceKind } from '../../../../src/entities';
 import {
   type BankSyncAccount,
   BankSyncAuthError,
@@ -254,5 +254,15 @@ describe('BankSyncService', () => {
       ['ACT-1', true],
       ['ACT-2', false],
     ]);
+  });
+
+  it('auto-syncs connections of ordinary workspaces only, never a past version', async () => {
+    await service().autoSync();
+
+    expect(integrationRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ workspace: { kind: WorkspaceKind.STANDARD } }),
+      }),
+    );
   });
 });

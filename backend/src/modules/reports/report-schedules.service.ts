@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import nodemailer from 'nodemailer';
 import { LessThanOrEqual, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { CreateReportScheduleBody, GenerateReportBody } from '../../contracts';
 import { ReportSchedule, ReportScheduleCadence } from '../../entities/report-schedule.entity';
 import { User } from '../../entities/user.entity';
@@ -231,8 +232,9 @@ export class ReportSchedulesService {
    * recipient list cannot block the rest or spin forever.
    */
   async runDue(now = new Date()): Promise<{ ran: number; failed: number }> {
+    // A past version keeps its copied schedules but never mails them.
     const due = await this.scheduleRepository.find({
-      where: { isActive: true, nextRunAt: LessThanOrEqual(now) },
+      where: { isActive: true, nextRunAt: LessThanOrEqual(now), workspace: STANDARD_WORKSPACE },
     });
 
     let failed = 0;

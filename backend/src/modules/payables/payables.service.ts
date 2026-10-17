@@ -14,6 +14,7 @@ import { appError } from '../../common/errors/app-error';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import { notInVersionWorkspace } from '../../common/workspaces/version-workspaces';
 import type {
   AddPayablePaymentBody,
   AllocateTransactionBody,
@@ -1172,10 +1173,12 @@ export class PayablesService {
     return this.startOfDay(payable.dueDate) < this.startOfDay(new Date());
   }
 
+  /** Across workspaces, for the daily sweep; a past version keeps the statuses it was copied with. */
   async findOverduePayables(): Promise<Payable[]> {
     return this.payableRepository
       .createQueryBuilder('payable')
       .where('payable.deletedAt IS NULL')
+      .andWhere(notInVersionWorkspace('payable.workspaceId'))
       .andWhere('payable.status IN (:...statuses)', {
         statuses: [PayableStatus.TO_PAY, PayableStatus.SCHEDULED],
       })
@@ -1199,6 +1202,7 @@ export class PayablesService {
     return this.payableRepository
       .createQueryBuilder('payable')
       .where('payable.deletedAt IS NULL')
+      .andWhere(notInVersionWorkspace('payable.workspaceId'))
       .andWhere('payable.direction = :direction', { direction: PayableDirection.PAYABLE })
       .andWhere('payable.status IN (:...statuses)', {
         statuses: [PayableStatus.TO_PAY, PayableStatus.SCHEDULED],

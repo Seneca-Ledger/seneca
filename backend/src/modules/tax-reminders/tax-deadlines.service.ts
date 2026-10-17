@@ -7,7 +7,7 @@ import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util'
 import { IncomeTaxProfile } from '../../entities/income-tax-profile.entity';
 import { IncomeTaxReturn, IncomeTaxReturnStatus } from '../../entities/income-tax-return.entity';
 import { TaxReturn, TaxReturnStatus } from '../../entities/tax-return.entity';
-import { VatStatus, Workspace } from '../../entities/workspace.entity';
+import { VatStatus, Workspace, WorkspaceKind } from '../../entities/workspace.entity';
 import {
   WorkspaceServiceSettings,
   WorkspaceServiceSettingsKey,
@@ -343,8 +343,9 @@ export class TaxDeadlinesService {
 
   @Cron(CronExpression.EVERY_DAY_AT_7AM)
   async remindAll(): Promise<void> {
+    // A past version is a copy, not a workspace anyone files from.
     const workspaces = await this.workspaceRepository.find({
-      where: { taxJurisdictionId: Not(IsNull()) },
+      where: { taxJurisdictionId: Not(IsNull()), kind: WorkspaceKind.STANDARD },
       select: ['id'],
     });
     for (const workspace of workspaces) {

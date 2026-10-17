@@ -2,7 +2,8 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
+import { notInVersionWorkspace } from '../../common/workspaces/version-workspaces';
 import {
   ActorType,
   AuditAction,
@@ -68,14 +69,21 @@ export class GmailReceiptProcessor {
       const now = new Date();
       const lockTimeout = new Date(now.getTime() - JOB_LOCK_TIMEOUT_MS);
 
-      // Find pending jobs or stale locked jobs
+      // Find pending jobs or stale locked jobs. A past version takes no mail in;
+      // its jobs are left out here rather than failed, so they never block the queue.
       const job = await this.jobRepository
         .createQueryBuilder('job')
-        .where('job.status = :status', { status: ReceiptJobStatus.PENDING })
-        .orWhere('job.status = :processing AND job.lockedAt < :lockTimeout', {
-          processing: ReceiptJobStatus.PROCESSING,
-          lockTimeout,
-        })
+        .where(
+          new Brackets(status =>
+            status
+              .where('job.status = :status', { status: ReceiptJobStatus.PENDING })
+              .orWhere('job.status = :processing AND job.lockedAt < :lockTimeout', {
+                processing: ReceiptJobStatus.PROCESSING,
+                lockTimeout,
+              }),
+          ),
+        )
+        .andWhere(notInVersionWorkspace('job.workspaceId'))
         .orderBy('job.createdAt', 'ASC')
         .limit(1)
         .getOne();

@@ -11,6 +11,7 @@ import { In, IsNull, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql, flowsSql } from '../../common/utils/counted-transactions.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { BudgetImpactQuery, CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Budget, BudgetPeriodType, BudgetRolloverMode } from '../../entities/budget.entity';
@@ -293,7 +294,10 @@ export class BudgetsService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async resetPeriodAlertFlags(): Promise<void> {
     const budgets = await this.budgetRepository.find({
-      where: [{ alertAt80Sent: true }, { alertAt100Sent: true }],
+      where: [
+        { alertAt80Sent: true, workspace: STANDARD_WORKSPACE },
+        { alertAt100Sent: true, workspace: STANDARD_WORKSPACE },
+      ],
     });
 
     const now = new Date();

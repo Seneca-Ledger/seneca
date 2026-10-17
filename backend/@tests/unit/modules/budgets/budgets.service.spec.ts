@@ -2,6 +2,7 @@ import { countedSql, flowsSql } from '@/common/utils/counted-transactions.util';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { BudgetPeriodType, BudgetRolloverMode } from '@/entities/budget.entity';
+import { WorkspaceKind } from '@/entities/workspace.entity';
 import { BudgetsService } from '@/modules/budgets/budgets.service';
 import { IsNull } from 'typeorm';
 import { workspaceCurrencyStub } from '../../../helpers/workspace-currency-stub';
@@ -652,6 +653,20 @@ describe('BudgetsService', () => {
 
       await expect(service.remove('budget-1', 'workspace-1', 'user-1')).resolves.toBeUndefined();
       expect(budgetRepository.remove).toHaveBeenCalled();
+    });
+  });
+
+  it('resets alert flags of ordinary workspaces only, leaving a past version as it was copied', async () => {
+    budgetRepository.find.mockResolvedValue([]);
+
+    await service.resetPeriodAlertFlags();
+
+    const standard = { kind: WorkspaceKind.STANDARD };
+    expect(budgetRepository.find).toHaveBeenCalledWith({
+      where: [
+        { alertAt80Sent: true, workspace: standard },
+        { alertAt100Sent: true, workspace: standard },
+      ],
     });
   });
 });

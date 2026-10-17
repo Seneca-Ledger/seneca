@@ -5,6 +5,8 @@ import {
   NotificationSeverity,
   NotificationType,
   User,
+  Workspace,
+  WorkspaceKind,
   WorkspaceMember,
 } from '../../../../src/entities';
 import { NotificationsService } from '../../../../src/modules/notifications/notifications.service';
@@ -18,6 +20,8 @@ function createRepoMock<T>() {
     update: jest.fn(async () => ({ affected: 1 })),
     delete: jest.fn(async () => ({ affected: 1 })),
     createQueryBuilder: jest.fn(),
+    // Asked whether the workspace is a past version; an ordinary one by default.
+    manager: { exists: jest.fn(async () => false) },
   } as any;
 }
 
@@ -219,6 +223,45 @@ describe('NotificationsService', () => {
       2,
       expect.objectContaining({ recipientId: 'user-3' }),
     );
+  });
+
+  it('tells no one about a past version: it creates nothing, sends nothing, emits nothing', async () => {
+    notificationRepository.manager.exists.mockResolvedValueOnce(true);
+
+    const result = await service.create({
+      recipientId: 'user-1',
+      workspaceId: 'version-1',
+      type: NotificationType.STATEMENT_UPLOADED,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      messageKey: 'statement.uploaded',
+      messageParams: { actorName: 'Alice', statementName: 'Jan 2026' },
+    });
+
+    expect(result).toBeNull();
+    expect(notificationRepository.manager.exists).toHaveBeenCalledWith(Workspace, {
+      where: { id: 'version-1', kind: WorkspaceKind.VERSION },
+    });
+    expect(preferenceRepository.findOne).not.toHaveBeenCalled();
+    expect(notificationRepository.save).not.toHaveBeenCalled();
+    expect(eventEmitter.emit).not.toHaveBeenCalled();
+  });
+
+  it('looks for members of an ordinary workspace only, so a past version has no one to tell', async () => {
+    workspaceMemberRepository.find.mockResolvedValue([]);
+
+    const count = await service.createForWorkspaceMembers({
+      workspaceId: 'version-1',
+      type: NotificationType.PAYABLE_OVERDUE,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      messageKey: 'payable.overdue',
+      messageParams: { vendor: 'Acme', amount: '', dueDate: '' },
+    });
+
+    expect(count).toBe(0);
+    expect(workspaceMemberRepository.find).toHaveBeenCalledWith({
+      where: { workspaceId: 'version-1', workspace: { kind: WorkspaceKind.STANDARD } },
+      select: ['userId'],
+    });
   });
 
   it('requires workspaceId when listing and counting notifications', async () => {

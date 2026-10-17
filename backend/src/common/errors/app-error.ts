@@ -132,6 +132,10 @@ export const ERR = {
   WORKSPACE_NOT_FOUND: 'Workspace not found',
   WORKSPACE_OWNER_NOT_FOUND: 'Workspace owner not found',
   WORKSPACE_NOT_A_MEMBER: 'You are not a member of this workspace',
+  // A past version: the message must not say "workspace" — the client reads
+  // any 403 that does as "you lost access" and switches workspaces.
+  VERSION_READ_ONLY: 'This is a past version and can only be viewed',
+  VERSION_OWNER_ONLY: 'Only the owner can open past versions',
   WORKSPACE_ONLY_OWNER_CAN_DELETE: 'Only the owner can delete the workspace',
   WORKSPACE_ONLY_OWNER_CAN_MANAGE_ADMINS: 'Only the owner can manage administrators',
   WORKSPACE_ONLY_OWNER_CAN_MANAGE_ADMINS_AND_OWNER:

@@ -13,6 +13,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import { CreditNoteStatus } from '../../entities/credit-note.entity';
 import { InvoiceStatus } from '../../entities/invoice.entity';
 import { PeppolConnection } from '../../entities/peppol-connection.entity';
@@ -472,8 +473,13 @@ export class PeppolService {
   /** Delivery is confirmed after the send answers; pending ones are asked about every ten minutes. */
   @Cron(CronExpression.EVERY_10_MINUTES)
   async refreshPending(): Promise<void> {
+    // A past version keeps the statuses it was copied with.
     const pending = await this.transmissions.find({
-      where: { status: 'pending', providerDocumentId: Not(IsNull()) },
+      where: {
+        status: 'pending',
+        providerDocumentId: Not(IsNull()),
+        workspace: STANDARD_WORKSPACE,
+      },
     });
     const byWorkspace = new Map<string, PeppolTransmission[]>();
     for (const row of pending) {
@@ -597,7 +603,11 @@ export class PeppolService {
   /** Every connected workspace's inbox, every ten minutes. */
   @Cron(CronExpression.EVERY_10_MINUTES)
   async pollAll(): Promise<void> {
-    const connected = await this.connections.find({ select: { workspaceId: true } });
+    // A past version takes nothing in: documents arriving now belong to the live workspace.
+    const connected = await this.connections.find({
+      where: { workspace: STANDARD_WORKSPACE },
+      select: { workspaceId: true },
+    });
     for (const { workspaceId } of connected) {
       await this.poll(workspaceId).catch((error: unknown) =>
         this.logger.warn(

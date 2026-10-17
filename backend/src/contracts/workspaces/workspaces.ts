@@ -25,6 +25,8 @@ export const WorkspaceSummary = Schema.Struct({
   backgroundImage: Schema.NullOr(Schema.String),
   currency: Schema.String,
   isFavorite: Schema.Boolean,
+  /** `version`: a past version of a workspace opened to look at, read only. */
+  kind: Schema.optional(Schema.Literals(['standard', 'version'])),
   settings: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
   ownerId: Schema.NullOr(Schema.String),
   createdAt: Timestamp,

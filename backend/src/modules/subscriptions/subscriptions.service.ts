@@ -9,6 +9,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type {
   CreateSubscriptionBody,
   RecordSubscriptionDecisionBody,
@@ -876,6 +877,7 @@ export class SubscriptionsService {
       where: {
         status: SubscriptionStatus.ACTIVE,
         nextChargeDate: LessThanOrEqual(threeDaysAhead),
+        workspace: STANDARD_WORKSPACE,
       },
     });
 
@@ -933,10 +935,12 @@ export class SubscriptionsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // A past version keeps the charge dates it was copied with.
     const pastDue = await this.subscriptionRepository.find({
       where: {
         status: SubscriptionStatus.ACTIVE,
         nextChargeDate: LessThanOrEqual(today),
+        workspace: STANDARD_WORKSPACE,
       },
     });
 
