@@ -1,14 +1,80 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "19b62df37f01d5279ea6c80c6f1f543bcb901cdc"
+      "main": "e25da8a69a64f76c8f0f61d68a0a955470e0edae"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-16T22:03:32.250Z",
+    "lastGeneratedAt": "2026-10-17T11:51:42.821Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-17-e25da8a",
+      "version": "main-e25da8a",
+      "branch": "main",
+      "date": "2026-10-17T11:51:42.821Z",
+      "title": "Release update - October 17, 2026",
+      "summary": "This release includes 2 fixes.",
+      "markdown": "## Fixes\n- **receipts**: Edits to a draft scan reach the row Review shows\n- **documents, budgets**: Real Approved column, category names in the reader's language",
+      "commits": [
+        {
+          "sha": "8927587ad07acd07e40233a177b5b4daa919cae3",
+          "shortSha": "8927587a",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-16T22:03:32Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "d28045cc508232d005ba1265dd7b97f755598312",
+          "shortSha": "d28045cc",
+          "subject": "fix(receipts): edits to a draft scan reach the row Review shows",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T12:37:24+03:00",
+          "files": [
+            "backend/@tests/integration/receipt-edit-sync.spec.ts",
+            "backend/@tests/unit/modules/receipts/receipts.service.spec.ts",
+            "backend/src/modules/receipts/receipts.service.ts"
+          ]
+        },
+        {
+          "sha": "5d4715d2bb96f0d5c34f8d0fb2fcc7667cdfcf4b",
+          "shortSha": "5d4715d2",
+          "subject": "Merge pull request #315 from symonbaikov/fix/receipt-draft-scan-sync",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T13:06:48+03:00",
+          "files": []
+        },
+        {
+          "sha": "6f543b20c113b34ed19a3d43b4aa02ec3333d904",
+          "shortSha": "6f543b20",
+          "subject": "fix(documents, budgets): real Approved column, category names in the reader's language",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T14:21:27+03:00",
+          "files": [
+            "frontend/app/(main)/budgets/components/BudgetCard.test.tsx",
+            "frontend/app/(main)/budgets/components/BudgetCard.tsx",
+            "frontend/app/(main)/budgets/components/BudgetFormDrawer.tsx",
+            "frontend/app/(main)/budgets/components/StoicClassifyList.tsx",
+            "frontend/app/(main)/statements/components/StatementsListItem.test.tsx",
+            "frontend/app/(main)/statements/components/StatementsListItem.tsx",
+            "frontend/app/(main)/statements/components/StatementsListView.utils.test.ts",
+            "frontend/app/(main)/statements/components/StatementsListView.utils.ts"
+          ]
+        },
+        {
+          "sha": "e25da8a69a64f76c8f0f61d68a0a955470e0edae",
+          "shortSha": "e25da8a6",
+          "subject": "Merge pull request #316 from symonbaikov/fix/approved-column-category-names",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T14:51:20+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-16-19b62df",
       "version": "main-19b62df",
