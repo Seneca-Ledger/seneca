@@ -17,6 +17,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useCategoryName } from '@/app/lib/use-category-name';
 
 const EMPTY_CELL = '—';
 
@@ -34,6 +35,7 @@ export function StatementTransactionsPanel({
 }): React.JSX.Element {
   const workspaceId = useWorkspaceId();
   const { locale } = useLocale();
+  const categoryName = useCategoryName();
   const tTable = useIntlayer('transactionsTable');
   const tPage = useIntlayer('transactionsPageView');
   const bulkUpdateCategory = useBulkUpdateCategory();
@@ -140,7 +142,7 @@ export function StatementTransactionsPanel({
                       icon={icon}
                       size={18}
                     />
-                    <span>{tx.category.name}</span>
+                    <span>{categoryName(tx.category.name)}</span>
                   </>
                 ) : (
                   <NoCategoryBadge size={18} />

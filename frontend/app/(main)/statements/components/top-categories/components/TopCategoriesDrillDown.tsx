@@ -10,6 +10,7 @@ import type {
 } from '@/app/(main)/statements/components/top-categories.utils';
 import { X } from '@/app/components/icons';
 import { closeOnBackdropClick } from '@/app/components/ui/backdrop-click';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -50,6 +51,7 @@ function DrillDownHeader({
   labels,
   onClose,
 }: HeaderProps): React.JSX.Element {
+  const categoryName = useCategoryName();
   return (
     <div
       style={{
@@ -65,7 +67,7 @@ function DrillDownHeader({
           style={{ fontSize: 14, fontWeight: 600, color: selectedRow.color ?? 'var(--foreground)' }}
         >
           {selectedRow.icon ? `${selectedRow.icon} ` : ''}
-          {selectedRow.category} - {labels.drillDown}
+          {categoryName(selectedRow.category)} - {labels.drillDown}
         </h4>
         <p style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
           <AnalyticsSourceBadge
@@ -170,6 +172,7 @@ export function TopCategoriesDrillDown({
   sourceLabels,
   labels,
 }: Props): React.JSX.Element {
+  const categoryName = useCategoryName();
   // Modal traps focus inside the drill-down, closes on Escape and restores focus on unmount.
   return (
     <Modal open onClose={onClose} hideBackdrop>
@@ -192,7 +195,7 @@ export function TopCategoriesDrillDown({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`${selectedRow.category} - ${labels.drillDown}`}
+          aria-label={`${categoryName(selectedRow.category)} - ${labels.drillDown}`}
           style={{
             maxHeight: '85vh',
             width: '100%',

@@ -9,6 +9,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 
 interface NamedOption {
@@ -51,6 +52,7 @@ export function ReportScopeFilters({
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
+  const categoryName = useCategoryName();
 
   const [wallets, setWallets] = useState<NamedOption[]>([]);
   const [categories, setCategories] = useState<NamedOption[]>([]);
@@ -141,7 +143,7 @@ export function ReportScopeFilters({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           <span style={fieldLabelStyle}>{text('filterCategories', 'Categories')}</span>
           {renderSelect(
-            categories,
+            categories.map(category => ({ ...category, name: categoryName(category.name) })),
             value.categoryIds,
             categoryIds => onChange({ ...value, categoryIds }),
             text('filterAllCategories', 'All categories'),

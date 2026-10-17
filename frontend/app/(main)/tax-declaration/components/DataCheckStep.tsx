@@ -6,6 +6,7 @@ import type React from 'react';
 import type { ReactNode } from 'react';
 import { Check } from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { issueTarget, type StepKey } from '../tax-declaration.helpers';
 import type { CompletenessIssue, CompletenessReport, IssueCode } from '../tax-declaration.types';
 
@@ -27,6 +28,7 @@ function monthName(month: number, locale: string): string {
 /** The specifics behind an issue: which accounts miss which months, which categories, which currencies. */
 function IssueDetails({ issue }: { issue: CompletenessIssue }): React.ReactElement | null {
   const { locale } = useLocale();
+  const categoryName = useCategoryName();
   const params = issue.params ?? {};
 
   if (issue.code === 'statement_coverage_gaps') {
@@ -49,7 +51,9 @@ function IssueDetails({ issue }: { issue: CompletenessIssue }): React.ReactEleme
     }>;
     return (
       <Typography sx={{ fontSize: 13, color: 'var(--text-muted)' }}>
-        {categories.map(category => `${category.name} (${category.transactionCount})`).join(', ')}
+        {categories
+          .map(category => `${categoryName(category.name)} (${category.transactionCount})`)
+          .join(', ')}
       </Typography>
     );
   }

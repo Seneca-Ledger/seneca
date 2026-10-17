@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../test-setup';
 import { SectionSpanProvider } from '../section-span';
 import { TopCategoriesCard } from '../TopCategoriesCard';
@@ -17,6 +17,8 @@ const value = (v: string) =>
     },
   });
 
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
     noCategoryData: value('No category data'),
@@ -25,7 +27,7 @@ vi.mock('@/app/i18n', () => ({
     operations: value('Operations'),
     averageOperation: value('Average spend'),
   }),
-  useLocale: () => ({ locale: 'en' }),
+  useLocale: () => ({ locale: appLocale.current }),
 }));
 
 vi.mock('next-themes', () => ({
@@ -46,6 +48,10 @@ vi.mock('@/app/components/charts/lazy-charts', () => ({
 }));
 
 describe('TopCategoriesCard', () => {
+  beforeEach(() => {
+    appLocale.current = 'en';
+  });
+
   it('shows the empty state when there are no categories', () => {
     render(<TopCategoriesCard categories={[]} formatAmount={value => String(value)} />);
 
@@ -197,5 +203,25 @@ describe('TopCategoriesCard', () => {
 
     rerender(<SectionSpanProvider value={12}>{card}</SectionSpanProvider>);
     expect(screen.getByText('Operations: 3 · Average spend: $4')).toBeInTheDocument();
+  });
+
+  it("names a system category in the reader's language but links by its stored name", () => {
+    appLocale.current = 'ru';
+    render(
+      <TopCategoriesCard
+        month="2026-10"
+        categories={[
+          { id: 'c1', name: 'Advertising', color: '#0ea5e9', icon: null, amount: 4, percent: 100, count: 1 },
+        ]}
+        formatAmount={v => `$${v}`}
+      />,
+    );
+
+    expect(screen.getByText('Реклама').closest('a')?.getAttribute('href')).toBe(
+      '/reports?tab=cash-flow&month=2026-10&focus=category%3Aadvertising',
+    );
+    expect(screen.queryByText('Advertising')).not.toBeInTheDocument();
+    // The donut's tooltip and legend read the slice name.
+    expect(donutSlices.current.map(slice => slice.name)).toEqual(['Реклама']);
   });
 });

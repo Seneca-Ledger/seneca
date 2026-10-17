@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../test-setup';
 import { RecentTransactionsCard } from '../RecentTransactionsCard';
 import { SectionSpanProvider } from '../section-span';
@@ -17,6 +17,8 @@ const value = (v: string) =>
     },
   });
 
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
     title: value('Recent transactions'),
@@ -24,10 +26,14 @@ vi.mock('@/app/i18n', () => ({
     empty: value('No transactions this period'),
     uncategorized: value('Uncategorized'),
   }),
-  useLocale: () => ({ locale: 'en' }),
+  useLocale: () => ({ locale: appLocale.current }),
 }));
 
 describe('RecentTransactionsCard', () => {
+  beforeEach(() => {
+    appLocale.current = 'en';
+  });
+
   it('shows the empty state and still renders the deep link when there are no transactions', () => {
     render(
       <RecentTransactionsCard
@@ -125,5 +131,36 @@ describe('RecentTransactionsCard', () => {
     rerender(<SectionSpanProvider value={12}>{card}</SectionSpanProvider>);
     expect(screen.getAllByText(/^Shop /)).toHaveLength(12);
     expect(screen.getAllByText('Groceries')).toHaveLength(12);
+  });
+
+  it("names a system category in the reader's language in its column and tooltip", () => {
+    appLocale.current = 'ru';
+    const { container } = render(
+      <SectionSpanProvider value={12}>
+        <RecentTransactionsCard
+          transactions={[
+            {
+              id: 'tx-1',
+              description: 'Google Ads',
+              amount: -40,
+              currency: 'USD',
+              date: '2026-03-09',
+              account: 'Bank',
+              categoryId: 'cat-1',
+              categoryName: 'Advertising',
+              categoryColor: '#10b981',
+              categoryIcon: null,
+              href: '/statements/st-1/edit',
+            },
+          ]}
+          formatAmount={v => `$${v}`}
+          viewAllHref="/statements/transactions"
+        />
+      </SectionSpanProvider>,
+    );
+
+    expect(screen.getByText('Реклама')).toBeInTheDocument();
+    expect(container.querySelector('[title="Реклама"]')).not.toBeNull();
+    expect(screen.queryByText('Advertising')).not.toBeInTheDocument();
   });
 });

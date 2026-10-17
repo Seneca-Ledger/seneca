@@ -28,6 +28,7 @@ import {
   TriangleAlert,
 } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import type { GmailReceipt, ReceiptCategoryOption } from '../hooks/useGmailReceiptData';
 
 interface GmailReceiptHeaderProps {
@@ -64,10 +65,12 @@ function CategoryButton({
   selectedCategory: ReceiptCategoryOption | undefined;
   onOpen: () => void;
 }): React.ReactElement {
+  const categoryName = useCategoryName();
+  const selectedName = selectedCategory ? categoryName(selectedCategory.name) : undefined;
   const label = hasDisabledCategory
-    ? `${selectedCategory?.name} — disabled`
+    ? `${selectedName} — disabled`
     : hasCategory
-      ? selectedCategory?.name
+      ? selectedName
       : 'Category';
 
   const issueSx = {
@@ -93,7 +96,7 @@ function CategoryButton({
       variant="outlined"
       startIcon={<Layers size={18} />}
       onClick={onOpen}
-      title={selectedCategory?.name || 'Select category'}
+      title={selectedName || 'Select category'}
       sx={{
         textTransform: 'none',
         fontWeight: 700,

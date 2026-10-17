@@ -19,6 +19,7 @@ import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import type { StatementTransaction } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 
 /** A statement's row as the storage and shared pages receive it: money as decimal strings. */
@@ -50,6 +51,7 @@ const getNamedObjectLabel = (value: object): string | null => {
 export default function TransactionsView({ transactions }: TransactionsViewProps) {
   const t = useIntlayer('transactionsView');
   const { locale } = useLocale();
+  const categoryName = useCategoryName();
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -194,8 +196,8 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
           <Chip
             label={
               tx.category.isEnabled === false
-                ? `${tx.category.name} — select category`
-                : tx.category.name
+                ? `${categoryName(tx.category.name)} — select category`
+                : categoryName(tx.category.name)
             }
             size="small"
             variant="outlined"
@@ -256,7 +258,7 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
     });
 
     return columns;
-  }, [transactions, locale, t, formatDate, formatAmount, getTypeColor, getTypeLabel]);
+  }, [transactions, locale, t, formatDate, formatAmount, getTypeColor, getTypeLabel, categoryName]);
 
   return (
     <Box>

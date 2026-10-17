@@ -14,6 +14,7 @@ import type {
 } from '@/app/(main)/statements/components/top-categories.utils';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { TextTabs } from '@/app/components/ui/text-tabs';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -62,6 +63,7 @@ type RowProps = {
 
 function LeaderboardRow({ row, sortKey, sourceLabels, onRowClick }: RowProps): React.JSX.Element {
   const money = useAnalyticsMoney();
+  const categoryName = useCategoryName();
   const lastDate =
     row.lastDate && !Number.isNaN(new Date(row.lastDate).getTime())
       ? formatStoredDate(row.lastDate)
@@ -86,7 +88,7 @@ function LeaderboardRow({ row, sortKey, sourceLabels, onRowClick }: RowProps): R
           }}
           onClick={() => onRowClick(row.id)}
         >
-          {row.category}
+          {categoryName(row.category)}
         </button>
       </td>
       <td style={{ padding: '8px 16px 8px 0' }}>

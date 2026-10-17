@@ -6,6 +6,7 @@ import { Check } from '@/app/components/icons';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { Select } from '@/app/components/ui/select';
 import { TextTabs } from '@/app/components/ui/text-tabs';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import type { CreateTableForm } from '../hooks/useCreateTable';
 import { useSourcePreview } from '../hooks/useSourcePreview';
 import type { TableCategory } from '../hooks/useTablesList';
@@ -246,6 +247,7 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
     onClose,
     labels,
   } = props;
+  const categoryName = useCategoryName();
   const existingNames = existingTables.map(table => table.name);
   const nameRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -331,7 +333,10 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
               onChange={categoryId => setForm(prev => ({ ...prev, categoryId }))}
               options={[
                 { value: '', label: labels.noCategory },
-                ...categories.map(category => ({ value: category.id, label: category.name })),
+                ...categories.map(category => ({
+                  value: category.id,
+                  label: categoryName(category.name),
+                })),
               ]}
             />
           </div>

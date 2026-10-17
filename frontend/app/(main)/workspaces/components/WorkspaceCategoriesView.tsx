@@ -575,7 +575,7 @@ export default function WorkspaceCategoriesView() {
                   <Box key={category.id} sx={CATEGORY_ROW_SX}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
                       <Checkbox
-                        aria-label={category.name}
+                        aria-label={getCategoryDisplayName(category, locale)}
                         checked={selectedIds.has(category.id)}
                         onCheckedChange={() => handleToggleSelect(category.id)}
                       />
@@ -724,7 +724,7 @@ export default function WorkspaceCategoriesView() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Typography variant="body2" color="text.secondary">
                 {disableUsedInBefore}
-                <strong>{disableConfirm.category.name}</strong>
+                <strong>{getCategoryDisplayName(disableConfirm.category, locale)}</strong>
                 {disableUsedInAfter}
               </Typography>
               <Typography variant="body2" color="text.primary">

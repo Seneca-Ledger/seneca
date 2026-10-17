@@ -25,6 +25,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { blobOf } from '@/app/lib/blob-of';
 import { formatMoney } from '@/app/lib/format-money';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { PERIOD_PRESETS, presetRangeValues } from '../report-period-presets';
 import { CashFlowTab } from './CashFlowTab';
 import { CashFlowTreemap } from './CashFlowTreemap';
@@ -79,6 +80,7 @@ function CategoryTable({
   text: Text;
   formatTile: (value: number) => string;
 }): React.JSX.Element {
+  const categoryName = useCategoryName();
   const compare = data.previous !== null;
   const row = (
     key: string,
@@ -128,9 +130,21 @@ function CategoryTable({
       </thead>
       <tbody>
         {data.expense.categories.flatMap(category => [
-          row(category.id, category.name, category.amount, category.previousAmount, false),
+          row(
+            category.id,
+            categoryName(category.name),
+            category.amount,
+            category.previousAmount,
+            false,
+          ),
           ...category.children.map(child =>
-            row(`${category.id}:${child.id}`, child.name, child.amount, child.previousAmount, true),
+            row(
+              `${category.id}:${child.id}`,
+              categoryName(child.name),
+              child.amount,
+              child.previousAmount,
+              true,
+            ),
           ),
         ])}
       </tbody>
@@ -261,6 +275,7 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   const text: Text = (key, fallback) => labels[key]?.value ?? fallback;
   const { locale } = useLocale();
+  const categoryName = useCategoryName();
   const { resolvedTheme } = useTheme();
   const { data, isPending, isFetching, error, filters, update, exportUrl } = useCashFlowMap();
   const members = useWorkspaceMembers();
@@ -289,10 +304,11 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
     : '';
   const isMobile = useIsMobile();
   const option = useMemo(
-    () => (data ? buildCashFlowSankey(data, resolvedTheme, formatAmount, isMobile) : null),
+    () =>
+      data ? buildCashFlowSankey(data, resolvedTheme, formatAmount, isMobile, categoryName) : null,
     // formatAmount is rebuilt every render; the chart only needs to follow the data and theme.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, resolvedTheme, currency, locale, isMobile],
+    [data, resolvedTheme, currency, locale, isMobile, categoryName],
   );
   const roots = (data?.availableCategories ?? []).filter(category => !category.parentId);
   const allSelected = filters.categories.length === 0;
@@ -370,7 +386,10 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
               <FromFilterDropdown
                 open={filtersOpen}
                 onOpenChange={openFilters}
-                options={roots.map(category => ({ id: category.id, label: category.name }))}
+                options={roots.map(category => ({
+                  id: category.id,
+                  label: categoryName(category.name),
+                }))}
                 values={draftCategories}
                 onChange={setDraftCategories}
                 onApply={applyCategories}

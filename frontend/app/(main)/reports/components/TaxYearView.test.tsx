@@ -6,12 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 const saveBlob = vi.hoisted(() => vi.fn());
+const appLocale = vi.hoisted(() => ({ current: 'en-US' }));
 
 vi.mock('@/app/lib/api', () => ({ default: api }));
 vi.mock('react-hot-toast', () => ({ default: toast }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/i18n', () => ({
-  useLocale: () => ({ locale: 'en-US' }),
+  useLocale: () => ({ locale: appLocale.current }),
   useIntlayer: () =>
     new Proxy({}, { get: (_target, key) => ({ value: String(key), toString: () => String(key) }) }),
 }));
@@ -63,7 +64,17 @@ const REPORT = {
   missingRateCurrencies: [],
 };
 
-function mockApi({ reserve = null as unknown, report = REPORT as unknown } = {}) {
+const CATEGORIES = [
+  categoryItem({ id: 'cat-med', name: 'Medical', taxRelevant: true }),
+  categoryItem({ id: 'cat-food', name: 'Groceries' }),
+  categoryItem({ id: 'cat-sub', name: 'Dentist', parentId: 'cat-med' }),
+];
+
+function mockApi({
+  reserve = null as unknown,
+  report = REPORT as unknown,
+  categories = CATEGORIES as unknown,
+} = {}) {
   api.get.mockImplementation((url: string) => {
     if (url.startsWith('/tax/year-report')) return Promise.resolve({ data: report });
     if (url === '/tax/settings/reserve/amount')
@@ -80,13 +91,7 @@ function mockApi({ reserve = null as unknown, report = REPORT as unknown } = {})
         },
       });
     if (url === '/categories')
-      return Promise.resolve({
-        data: [
-          categoryItem({ id: 'cat-med', name: 'Medical', taxRelevant: true }),
-          categoryItem({ id: 'cat-food', name: 'Groceries' }),
-          categoryItem({ id: 'cat-sub', name: 'Dentist', parentId: 'cat-med' }),
-        ],
-      });
+      return Promise.resolve({ data: categories });
     if (url.startsWith('/tax/pack')) return Promise.resolve({ data: new Blob(['zip']) });
     return Promise.reject(new Error(`unexpected ${url}`));
   });
@@ -94,6 +99,7 @@ function mockApi({ reserve = null as unknown, report = REPORT as unknown } = {})
 
 describe('TaxYearView', () => {
   beforeEach(() => {
+    appLocale.current = 'en-US';
     vi.clearAllMocks();
     api.put.mockResolvedValue({ data: {} });
   });
@@ -160,6 +166,30 @@ describe('TaxYearView', () => {
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith('/categories/cat-med', { taxRelevant: false }),
     );
+  });
+
+  it('names system categories in the reader\'s language in the picker and the table', async () => {
+    appLocale.current = 'ru';
+    mockApi({
+      categories: [categoryItem({ id: 'cat-ads', name: 'Advertising', isSystem: true, source: 'system' })],
+      report: {
+        ...REPORT,
+        categories: [{ ...REPORT.categories[0], categoryId: 'cat-ads', name: 'Advertising' }],
+        rows: REPORT.rows.map(row => ({ ...row, categoryId: 'cat-ads', categoryName: 'Advertising' })),
+      },
+    });
+    renderWithQuery(<TaxYearView />);
+
+    const group = await screen.findByRole('group', { name: 'groupExpenses' });
+    fireEvent.click(await within(group).findByText('Реклама'));
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith('/categories/cat-ads', { taxRelevant: true }),
+    );
+
+    const table = await screen.findByRole('table', { name: 'tableLabel' });
+    fireEvent.click(within(table).getByRole('button', { name: 'Реклама' }));
+    expect(await screen.findAllByTestId('tax-year-row')).toHaveLength(2);
+    expect(screen.queryByText('Advertising')).not.toBeInTheDocument();
   });
 
   it('opts a row out, or hands a hand-marked row back to its category', async () => {

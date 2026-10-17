@@ -23,7 +23,10 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { PayeeRecord } from '@/app/lib/contracts';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import { getCategoryDisplayName } from '@/app/lib/statement-categories';
+import {
+  getCategoryDisplayName,
+  localizeStatementCategoryName,
+} from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
 
 const PAGE_SIZE = 50;
@@ -226,7 +229,9 @@ export default function WorkspacePayeesView() {
   const renderRow = (payee: Payee) => {
     const isRenaming = renaming?.id === payee.id;
     const filesAs = payee.defaultCategory
-      ? fill(t.filesAs.value, { category: payee.defaultCategory.name })
+      ? fill(t.filesAs.value, {
+          category: localizeStatementCategoryName(payee.defaultCategory.name, locale),
+        })
       : t.noDefault.value;
     return (
       <Box

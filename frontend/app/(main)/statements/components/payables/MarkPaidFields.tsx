@@ -16,6 +16,7 @@ import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import type { PayablePayment, PaymentCandidate } from '@/app/lib/payables-api';
+import { useCategoryName } from '@/app/lib/use-category-name';
 
 export type WalletOption = { id: string; name: string; currency: string; isActive?: boolean };
 
@@ -100,6 +101,7 @@ export function CashFields(props: {
 }): React.JSX.Element {
   const t = useIntlayer('payableMarkPaid');
   const unbookedText = useIntlayer('payablesUnbooked');
+  const categoryName = useCategoryName();
   const { value, onChange } = props;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -153,7 +155,10 @@ export function CashFields(props: {
           value={value.categoryId}
           options={[
             { value: '', label: t.noCategory.value },
-            ...props.categories.map(category => ({ value: category.id, label: category.name })),
+            ...props.categories.map(category => ({
+              value: category.id,
+              label: categoryName(category.name),
+            })),
           ]}
           onChange={categoryId => onChange({ ...value, categoryId })}
         />

@@ -3,7 +3,8 @@ import { Box, Button, Card, CardContent, Chip, IconButton, Typography } from '@m
 
 import { Pencil, Trash2 } from '@/app/components/icons';
 import { VendorIcon } from '@/app/components/VendorIcon';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import {
   formatStoredDateWithOptions,
@@ -67,6 +68,7 @@ export function SubscriptionCard({
   duplicate = false,
 }: SubscriptionCardProps) {
   const t = useIntlayer('subscriptionsPage');
+  const { locale } = useLocale();
   const formatAmount = (amount: number, currency: string) =>
     `${new Intl.NumberFormat(resolveLocaleTag(readStoredFormatPreferences().locale), {
       maximumFractionDigits: 0,
@@ -144,7 +146,7 @@ export function SubscriptionCard({
           )}
           {subscription.category && (
             <Typography variant="body2" color="text.secondary">
-              {subscription.category.name}
+              {getCategoryDisplayName(subscription.category, locale)}
             </Typography>
           )}
           {typeof subscription.costPerUse === 'number' && (

@@ -3,6 +3,7 @@
 import Box from '@mui/material/Box';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { categoryTones } from '@/app/components/charts/chart-theme';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { layoutTreemap } from './treemap-layout';
 import type { CashFlowMapData } from './useCashFlowMap';
 
@@ -15,6 +16,7 @@ interface CashFlowTreemapProps {
 /** Categories as tiles sized by spend; click a tile to see its subcategories. */
 export function CashFlowTreemap({ items, formatAmount, height = 320 }: CashFlowTreemapProps) {
   const [focus, setFocus] = useState<string | null>(null);
+  const categoryName = useCategoryName();
   // Laid out at the box's real width: a fixed frame stretched to fit
   // (preserveAspectRatio="none") stretched the lettering with it.
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -63,7 +65,7 @@ export function CashFlowTreemap({ items, formatAmount, height = 320 }: CashFlowT
         width="100%"
         height={height}
         role="img"
-        aria-label={focused ? focused.name : 'treemap'}
+        aria-label={focused ? categoryName(focused.name) : 'treemap'}
         style={{ display: 'block', borderRadius: 8 }}
       >
         {tiles.map(tile => (
@@ -71,7 +73,7 @@ export function CashFlowTreemap({ items, formatAmount, height = 320 }: CashFlowT
             key={tile.id}
             role="button"
             tabIndex={0}
-            aria-label={`${tile.item.name} ${formatAmount(tile.item.value)}`}
+            aria-label={`${categoryName(tile.item.name)} ${formatAmount(tile.item.value)}`}
             onClick={() => setFocus(focused ? null : tile.id)}
             onKeyDown={event => {
               if (event.key === 'Enter' || event.key === ' ') {
@@ -102,7 +104,7 @@ export function CashFlowTreemap({ items, formatAmount, height = 320 }: CashFlowT
                 fontWeight={500}
                 style={{ pointerEvents: 'none', fontFamily: 'var(--font-dashboard-sans), inherit' }}
               >
-                {tile.item.name}
+                {categoryName(tile.item.name)}
                 <tspan x={tile.x + 10} dy={18} fontSize={13} fontWeight={400} opacity={0.75}>
                   {formatAmount(tile.item.value)}
                 </tspan>

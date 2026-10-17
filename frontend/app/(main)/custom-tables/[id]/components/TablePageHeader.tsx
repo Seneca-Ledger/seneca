@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Pencil } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { CustomTable } from '../utils/tableTypes';
 
@@ -36,6 +37,7 @@ export function TablePageHeader({
   actions,
   labels,
 }: TablePageHeaderProps) {
+  const categoryName = useCategoryName();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(table.name);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -111,7 +113,7 @@ export function TablePageHeader({
           {/* "Transactions · 860 rows" under a table named Transactions says it twice. */}
           {source && source !== table.name ? <span>{source}</span> : null}
           {total !== null ? <span>{labels.rows.replace('{{count}}', String(total))}</span> : null}
-          {table.category ? <span>{table.category.name}</span> : null}
+          {table.category ? <span>{categoryName(table.category.name)}</span> : null}
           {syncedAt ? (
             <span>{labels.syncedAt.replace('{{date}}', formatStoredDate(new Date(syncedAt)))}</span>
           ) : null}

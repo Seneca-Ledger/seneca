@@ -22,6 +22,7 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { VatFilingSettings, WorkspaceTaxSettings } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { OfficialRatesPanel } from './OfficialRatesPanel';
 import { SettingsSection } from './SettingsSection';
 
@@ -42,6 +43,7 @@ function fill(template: string, params: Record<string, string | number>): string
  */
 export function TaxStatusSection(): React.ReactElement {
   const t = useIntlayer('workspaceTaxStatus');
+  const categoryName = useCategoryName();
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
 
@@ -302,7 +304,7 @@ export function TaxStatusSection(): React.ReactElement {
                 { value: '', label: t.noPaymentsCategory.value },
                 ...expenseCategories.map(category => ({
                   value: category.id,
-                  label: category.name,
+                  label: categoryName(category.name),
                 })),
               ]}
               sx={{ minWidth: 220 }}

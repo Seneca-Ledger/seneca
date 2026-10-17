@@ -9,6 +9,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useLocale } from '@/app/i18n';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import type { SourcePreview } from '../hooks/useSourcePreview';
@@ -164,6 +165,7 @@ interface SourceFilterFieldsProps {
 export function SourceFilterFields(props: SourceFilterFieldsProps) {
   const { source, filters, onChange, categories, currencies, labels } = props;
   const workspaceId = useWorkspaceId();
+  const categoryName = useCategoryName();
   const wantsStatements = source.filterFields.includes('statements');
   const statementsQuery = useQuery({
     queryKey: [...queryKeys.customTables(workspaceId), 'source-statements'],
@@ -286,7 +288,7 @@ export function SourceFilterFields(props: SourceFilterFieldsProps) {
               value={filters.categoryIds}
               options={categories.map(category => ({
                 value: category.id,
-                label: category.name,
+                label: categoryName(category.name),
               }))}
               placeholder={categories.length ? labels.filters.any : labels.filters.categoriesEmpty}
               selectedLabel={labels.filters.selected}

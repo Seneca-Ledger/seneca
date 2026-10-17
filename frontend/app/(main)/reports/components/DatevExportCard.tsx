@@ -15,6 +15,7 @@ import { blobOf } from '@/app/lib/blob-of';
 import type { DatevSettings } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 import { saveBlob } from './tax-return.helpers';
 
@@ -42,6 +43,7 @@ function periodOf(year: number, month: string): { from: string; to: string } {
  */
 export function DatevExportCard({ year }: { year: number }): React.ReactElement | null {
   const t = useIntlayer('datevExport');
+  const categoryName = useCategoryName();
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   const [month, setMonth] = useState('year');
@@ -260,7 +262,7 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
               sx={{ flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}
             >
               <Typography sx={{ fontSize: 13, flex: '1 1 180px' }}>
-                {row.name}{' '}
+                {categoryName(row.name)}{' '}
                 <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>
                   · {fill(t.transactions.value, { count: row.transactionCount })}
                 </Typography>
@@ -277,7 +279,7 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
                   })
                 }
                 inputProps={{
-                  'aria-label': fill(t.accountFor.value, { name: row.name }),
+                  'aria-label': fill(t.accountFor.value, { name: categoryName(row.name) }),
                   maxLength: 9,
                 }}
                 sx={{ width: 110 }}
@@ -372,7 +374,7 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
             <Alert severity="warning" sx={{ mt: 1 }}>
               {fill(t.unmapped.value, {
                 categories: preview.data.skipped.unmapped
-                  .map(item => `${item.name} (${item.count})`)
+                  .map(item => `${categoryName(item.name)} (${item.count})`)
                   .join(', '),
               })}
             </Alert>

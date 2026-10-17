@@ -13,6 +13,7 @@ import { AppPagination } from '@/app/components/ui/pagination';
 import { Select } from '@/app/components/ui/select';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { CreateTableDialog } from './components/CreateTableDialog';
 import { useCreateTable } from './hooks/useCreateTable';
@@ -22,6 +23,7 @@ import type { SourceKind } from './sources';
 
 function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => void) {
   const router = useRouter();
+  const categoryName = useCategoryName();
   return useMemo<GridColumnDef<TableListItem, unknown>[]>(
     () => [
       {
@@ -61,7 +63,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         accessorFn: row => row.category?.name ?? '',
         header: labels.columns.category,
         size: 160,
-        cell: ({ row }) => row.original.category?.name ?? '—',
+        cell: ({ row }) => (row.original.category ? categoryName(row.original.category.name) : '—'),
       },
       {
         id: 'rows',
@@ -117,7 +119,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         ),
       },
     ],
-    [labels, router, onDelete],
+    [labels, router, onDelete, categoryName],
   );
 }
 

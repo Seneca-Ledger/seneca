@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { parseDateOnly, resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { CategoryIconBadge } from './CategoryIconBadge';
 import { useIsWideSection } from './section-span';
 import { CardEmpty, CardLink, DashboardCard, ListRow } from './ui';
@@ -28,6 +29,7 @@ export function RecentTransactionsCard({
   const t = useIntlayer('recentTransactionsCard');
   const { locale } = useLocale();
   const wide = useIsWideSection();
+  const categoryName = useCategoryName();
   const shown = wide ? transactions : transactions.slice(0, NARROW_LIMIT);
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(resolveLocale(locale), { day: 'numeric', month: 'short' }),
@@ -42,12 +44,15 @@ export function RecentTransactionsCard({
         <div className="lumio-dashboard__list">
           {shown.map(tx => {
             const isPositive = tx.amount >= 0;
+            const categoryLabel = tx.categoryName
+              ? categoryName(tx.categoryName)
+              : t.uncategorized.value;
             return (
               <ListRow
                 key={tx.id}
                 href={tx.href}
                 leading={
-                  <div title={tx.categoryName ?? t.uncategorized.value}>
+                  <div title={categoryLabel}>
                     <CategoryIconBadge
                       name={tx.categoryName}
                       color={tx.categoryColor}
@@ -67,9 +72,7 @@ export function RecentTransactionsCard({
                     {/* With room, category and account get columns of their own. */}
                     {wide && (
                       <>
-                        <span className="lumio-dashboard__recent-col">
-                          {tx.categoryName ?? t.uncategorized.value}
-                        </span>
+                        <span className="lumio-dashboard__recent-col">{categoryLabel}</span>
                         <span className="lumio-dashboard__recent-col">{tx.account}</span>
                       </>
                     )}

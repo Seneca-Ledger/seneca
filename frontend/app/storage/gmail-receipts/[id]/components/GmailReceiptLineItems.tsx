@@ -29,6 +29,7 @@ import {
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import type {
   EditableLineItem,
@@ -94,6 +95,7 @@ function LineItemRow({
   setEditedData,
 }: LineItemRowProps): React.ReactElement {
   const t = useIntlayer('gmailReceiptPage');
+  const categoryName = useCategoryName();
   const edited = editedRowData[item.id] || item;
   const missingCategory = !(hasCategory || editedData.categoryId);
 
@@ -197,7 +199,7 @@ function LineItemRow({
             <MenuItem value="">{t.lineItems.select}</MenuItem>
             {enabledCategories.map(cat => (
               <MenuItem key={cat.id} value={cat.id}>
-                {cat.name}
+                {categoryName(cat.name)}
               </MenuItem>
             ))}
           </TextField>
@@ -207,8 +209,9 @@ function LineItemRow({
               <Chip
                 label={
                   editedData.categoryId
-                    ? enabledCategories.find(c => c.id === selectedCategoryId)?.name ||
-                      t.lineItems.category.value
+                    ? categoryName(
+                        enabledCategories.find(c => c.id === selectedCategoryId)?.name ?? '',
+                      ) || t.lineItems.category.value
                     : t.lineItems.category.value
                 }
                 size="small"

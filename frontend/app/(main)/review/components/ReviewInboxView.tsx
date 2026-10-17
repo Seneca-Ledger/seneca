@@ -44,7 +44,10 @@ import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
-import { getCategoryDisplayName } from '@/app/lib/statement-categories';
+import {
+  getCategoryDisplayName,
+  localizeStatementCategoryName,
+} from '@/app/lib/statement-categories';
 import type { UseReviewInboxResult } from '../hooks/useReviewInbox';
 import {
   dateFilterToRange,
@@ -410,7 +413,9 @@ export function ReviewInboxView({ state }: Props) {
       return <NoCategoryBadge onClick={() => setCategoryRowId(item.id)} />;
     }
     const category = categories.find(entry => entry.id === item.categoryId);
-    const label = category ? getCategoryDisplayName(category, locale) : item.categoryName;
+    const label = category
+      ? getCategoryDisplayName(category, locale)
+      : localizeStatementCategoryName(item.categoryName, locale);
     // "Picked by hand" is what nearly every row would say; only the other sources are news.
     const source =
       item.categorySource && item.categorySource !== 'manual'
