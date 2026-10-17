@@ -56,6 +56,9 @@ const SENSITIVE_PROPERTIES = new Set([
 const HIDDEN_COLUMNS_IN_BACKUP: Record<string, string[]> = {
   // The XML exactly as it went over Peppol (NOT NULL); the log means nothing without it.
   peppol_transmissions: ['documentXml'],
+  // The documents as issued and sent: a restored invoice reopens the same PDF.
+  invoices: ['fileData'],
+  credit_notes: ['fileData'],
 };
 
 type BackupSnapshotData = {
@@ -115,8 +118,12 @@ export class BackupDataService {
     const source = row as Record<string, unknown>;
     return metadata.columns.reduce<Record<string, unknown>>((record, column) => {
       const propertyName = column.propertyName;
-      if (!SENSITIVE_PROPERTIES.has(propertyName) && source[propertyName] !== undefined) {
-        record[propertyName] = source[propertyName];
+      const value = source[propertyName];
+      if (!SENSITIVE_PROPERTIES.has(propertyName) && value !== undefined) {
+        // Binary columns (stored PDFs, file versions) travel as base64 inside the JSON.
+        record[propertyName] = Buffer.isBuffer(value)
+          ? { encoding: 'base64', value: value.toString('base64') }
+          : value;
       }
       return record;
     }, {});
@@ -221,12 +228,6 @@ export class BackupDataService {
       this.ids(collections.transactions),
       collections,
     );
-    collections.file_versions = (collections.file_versions || []).map(record => {
-      const value = record as Record<string, unknown>;
-      return Buffer.isBuffer(value.fileData)
-        ? { ...value, fileData: { encoding: 'base64', value: value.fileData.toString('base64') } }
-        : value;
-    });
   }
 
   private async collectByReference(
