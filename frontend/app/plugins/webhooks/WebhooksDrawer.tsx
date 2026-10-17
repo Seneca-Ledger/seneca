@@ -9,6 +9,7 @@ import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
+import { PluginOffBanner } from '../components/PluginOffBanner';
 import { useWebhookEndpoints, useWebhookSubscriptions, type WebhookEventName } from './useWebhooks';
 
 const EVENTS = [
@@ -62,6 +63,7 @@ const actionBtnStyle = (variant: 'danger' | 'default' | 'primary') => ({
 
 export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDrawerProps) {
   const t = useIntlayer('webhooksDrawer');
+  const pluginsText = useIntlayer('pluginsPage');
   const [activeTab, setActiveTab] = useState<'inbound' | 'outbound'>('inbound');
 
   const {
@@ -134,6 +136,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
       zIndex={zIndex}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+        <PluginOffBanner plugin="webhooks" message={pluginsText.offBanner.webhooks} />
         {/* Tab switcher */}
         <Box
           sx={{

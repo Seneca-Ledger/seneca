@@ -141,6 +141,7 @@ export const ERR = {
   WORKSPACE_ADMIN_REQUIRED_TO_EDIT_SETTINGS:
     'Only the owner or an administrator can change settings',
   WORKSPACE_TRANSFER_OWNERSHIP_FIRST: 'Transfer ownership to another member first',
+  PLUGIN_DISABLED: 'The {{plugin}} plugin is turned off for this workspace',
   MEMBER_NOT_FOUND: 'Member not found',
   MEMBER_ALREADY_IN_WORKSPACE: 'User is already in the workspace',
   MEMBER_CANNOT_REMOVE_OWNER: 'The workspace owner cannot be removed',

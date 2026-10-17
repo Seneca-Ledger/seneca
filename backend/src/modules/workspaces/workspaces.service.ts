@@ -19,6 +19,7 @@ import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import { mergePluginSettings } from '../../common/utils/workspace-plugins.util';
 import { mergeProcessingSettings } from '../../common/utils/workspace-processing.util';
 import {
   mergeWorkspaceProfile,
@@ -1033,6 +1034,9 @@ export class WorkspacesService {
     const becameHome = dto.profile === 'home' && readWorkspaceProfile(workspace) !== 'home';
     if (dto.profile != null) {
       workspace.settings = mergeWorkspaceProfile(workspace.settings, dto.profile);
+    }
+    if (dto.plugins != null) {
+      workspace.settings = mergePluginSettings(workspace.settings, withoutNulls(dto.plugins));
     }
 
     const updated = await this.workspaceRepository.save(workspace);

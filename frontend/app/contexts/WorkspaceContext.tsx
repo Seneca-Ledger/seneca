@@ -65,6 +65,11 @@ interface WorkspaceActions {
   }) => Promise<void>;
   /** Copies a searched photo into the workspace and makes it the background. */
   setWorkspaceBackgroundPhoto: (params: { workspaceId: string; photoId: string }) => Promise<void>;
+  /** Switches plugins on or off for the whole workspace (owners and admins only). */
+  setWorkspacePlugins: (params: {
+    workspaceId: string;
+    plugins: NonNullable<ContractInput<'UpdateWorkspaceBody'>['plugins']>;
+  }) => Promise<void>;
 }
 
 type WorkspaceContextType = WorkspaceData & WorkspaceActions;
@@ -211,6 +216,18 @@ async function apiSetBackgroundPhoto(
   );
 }
 
+async function apiSetPlugins(
+  { workspaceId, plugins }: Parameters<WorkspaceActions['setWorkspacePlugins']>[0],
+  setters: Pick<WorkspaceSetters, 'setWorkspaces' | 'setCurrentWorkspace'>,
+): Promise<void> {
+  const response = await api.patch(`/workspaces/${workspaceId}`, {
+    plugins,
+  } satisfies ContractInput<'UpdateWorkspaceBody'>);
+  const { settings } = await checkContract('WorkspaceSummary', response.data, '/workspaces/:id');
+  setters.setWorkspaces(prev => prev.map(w => (w.id === workspaceId ? { ...w, settings } : w)));
+  setters.setCurrentWorkspace(prev => (prev?.id === workspaceId ? { ...prev, settings } : prev));
+}
+
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
@@ -260,6 +277,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     [setters],
   );
 
+  const setWorkspacePlugins = useCallback<WorkspaceActions['setWorkspacePlugins']>(
+    async params => apiSetPlugins(params, setters),
+    [setters],
+  );
+
   useEffect(() => {
     if (hasSessionCookie()) {
       void refreshWorkspaces();
@@ -284,6 +306,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       toggleFavorite,
       updateWorkspaceBackground,
       setWorkspaceBackgroundPhoto,
+      setWorkspacePlugins,
     }),
     [
       switchWorkspace,
@@ -292,6 +315,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       toggleFavorite,
       updateWorkspaceBackground,
       setWorkspaceBackgroundPhoto,
+      setWorkspacePlugins,
     ],
   );
 

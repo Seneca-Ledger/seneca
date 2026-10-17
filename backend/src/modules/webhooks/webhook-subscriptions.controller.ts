@@ -13,6 +13,7 @@ import {
 import { User } from '../../entities/user.entity';
 import { WebhookEvent } from '../../entities/webhook-subscription.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { WorkspacePluginsService } from '../workspaces/workspace-plugins.service';
 import { WebhookDeliveryService } from './services/webhook-delivery.service';
 import { WebhookDispatcherService } from './services/webhook-dispatcher.service';
 import { WebhookSubscriptionsService } from './services/webhook-subscriptions.service';
@@ -23,6 +24,7 @@ export class WebhookSubscriptionsController {
   constructor(
     private readonly service: WebhookSubscriptionsService,
     private readonly deliveryService: WebhookDeliveryService,
+    private readonly plugins: WorkspacePluginsService,
     dispatcher: WebhookDispatcherService,
   ) {}
 
@@ -86,6 +88,7 @@ export class WebhookSubscriptionsController {
   @ApiOperation({ summary: 'Send a test ping to the subscription URL' })
   async testPing(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const sub = await this.service.findOne(id, workspaceId);
+    await this.plugins.assertEnabled(workspaceId, 'webhooks');
     await this.deliveryService.enqueue(sub.id, WebhookEvent.STATEMENT_PROCESSED, {
       event: WebhookEvent.STATEMENT_PROCESSED,
       test: true,
