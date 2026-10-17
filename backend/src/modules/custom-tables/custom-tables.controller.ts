@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
@@ -213,6 +214,8 @@ export class CustomTablesController {
   }
 
   @Post('source-preview')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
   @SchemaResponse(SourcePreview)
   async previewSource(
@@ -270,6 +273,8 @@ export class CustomTablesController {
   }
 
   @Post(':id/formula-preview')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
   @SchemaResponse(FormulaPreview)
   async previewFormula(

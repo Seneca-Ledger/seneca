@@ -4,6 +4,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import {
   CryptoWallet,
   type CryptoWalletBalance,
@@ -116,9 +117,10 @@ export class CryptoSyncService {
 
   @Cron('0 */6 * * *')
   async syncAllWallets(): Promise<void> {
-    // A manual holding has no chain to read; only addresses are synced.
+    // A manual holding has no chain to read; only addresses are synced. A past
+    // version keeps the balances it was copied with.
     const wallets = await this.walletRepo.find({
-      where: { isActive: true, kind: CryptoWalletKind.ONCHAIN },
+      where: { isActive: true, kind: CryptoWalletKind.ONCHAIN, workspace: STANDARD_WORKSPACE },
     });
     this.logger.log(`Syncing ${wallets.length} crypto wallet(s)`);
 

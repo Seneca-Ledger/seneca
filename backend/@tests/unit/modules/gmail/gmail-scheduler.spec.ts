@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { GmailWatchSubscription, Integration } from '../../../../src/entities';
+import { GmailWatchSubscription, Integration, WorkspaceKind } from '../../../../src/entities';
 import { GmailScheduler } from '../../../../src/modules/gmail/gmail.scheduler';
 import { GmailSyncService } from '../../../../src/modules/gmail/services/gmail-sync.service';
 import { GmailWatchService } from '../../../../src/modules/gmail/services/gmail-watch.service';
@@ -8,6 +8,7 @@ import { GmailWatchService } from '../../../../src/modules/gmail/services/gmail-
 describe('GmailScheduler', () => {
   let scheduler: GmailScheduler;
   let gmailSyncService: jest.Mocked<GmailSyncService>;
+  let watchRepository: { find: jest.Mock };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -50,6 +51,7 @@ describe('GmailScheduler', () => {
 
     scheduler = module.get<GmailScheduler>(GmailScheduler);
     gmailSyncService = module.get(GmailSyncService);
+    watchRepository = module.get(getRepositoryToken(GmailWatchSubscription));
   });
 
   describe('runDailySync', () => {
@@ -63,6 +65,20 @@ describe('GmailScheduler', () => {
       gmailSyncService.syncAllIntegrations.mockRejectedValue(new Error('Sync failed'));
 
       await expect(scheduler.runDailySync()).resolves.not.toThrow();
+    });
+  });
+
+  describe('renewExpiringWatches', () => {
+    it('renews watches of ordinary workspaces only, never one copied into a past version', async () => {
+      await scheduler.renewExpiringWatches();
+
+      expect(watchRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            integration: { workspace: { kind: WorkspaceKind.STANDARD } },
+          }),
+        }),
+      );
     });
   });
 });

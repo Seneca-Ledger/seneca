@@ -8,6 +8,7 @@ import {
   IntegrationStatus,
   Receipt,
   ReceiptProcessingJob,
+  WorkspaceKind,
 } from '../../../../src/entities';
 import { GmailSyncService } from '../../../../src/modules/gmail/services/gmail-sync.service';
 import { GmailService } from '../../../../src/modules/gmail/services/gmail.service';
@@ -113,6 +114,7 @@ describe('GmailSyncService', () => {
         where: {
           provider: IntegrationProvider.GMAIL,
           status: IntegrationStatus.CONNECTED,
+          workspace: { kind: WorkspaceKind.STANDARD },
         },
         relations: ['gmailSettings'],
       });

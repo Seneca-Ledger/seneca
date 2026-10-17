@@ -8,7 +8,7 @@ import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/mo
 import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util';
 import { TaxThresholdPeriod } from '../../entities/tax-jurisdiction.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
-import { VatStatus, Workspace } from '../../entities/workspace.entity';
+import { VatStatus, Workspace, WorkspaceKind } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { TaxThresholdReachedEvent } from '../notifications/events/notification-events';
 import { JurisdictionAdoptionService } from './jurisdiction-adoption.service';
@@ -244,6 +244,8 @@ export class TaxThresholdService {
       where: {
         taxJurisdictionId: Not(IsNull()),
         vatStatus: In([VatStatus.NOT_REGISTERED, VatStatus.SMALL_BUSINESS]),
+        // A past version is a copy of books already checked; it raises no alerts.
+        kind: WorkspaceKind.STANDARD,
       },
       select: ['id'],
     });

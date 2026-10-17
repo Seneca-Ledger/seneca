@@ -7,6 +7,7 @@ import { appError } from '../../common/errors/app-error';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { normalizeFilename } from '../../common/utils/filename.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import { CustomTable } from '../../entities/custom-table.entity';
 import {
   CustomTableExportSchedule,
@@ -107,8 +108,9 @@ export class CustomTableExportSchedulesService {
   }
 
   async findDueSchedules(now: Date = new Date()): Promise<CustomTableExportSchedule[]> {
+    // A past version keeps its copied schedules but never runs them.
     const candidates = await this.scheduleRepository.find({
-      where: { enabled: true },
+      where: { enabled: true, workspace: STANDARD_WORKSPACE },
       take: 50,
     });
     return candidates.filter(schedule => {

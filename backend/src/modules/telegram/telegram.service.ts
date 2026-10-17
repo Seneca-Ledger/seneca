@@ -6,6 +6,7 @@ import * as path from 'path';
 import type { Repository } from 'typeorm';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { formatMoney } from '../../common/utils/format-money.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { ConnectTelegramBody, SendTelegramReportBody } from '../../contracts';
 import { CategoryType } from '../../entities/category.entity';
 import { IdempotencyKey } from '../../entities/idempotency-key.entity';
@@ -171,8 +172,10 @@ export class TelegramService {
       return null;
     }
 
+    // A past version is never the bot's workspace: no reports from it and no
+    // documents filed into it, scheduled or sent from the chat.
     const membership = await this.workspaceMemberRepository.findOne({
-      where: { workspaceId, userId: user.id },
+      where: { workspaceId, userId: user.id, workspace: STANDARD_WORKSPACE },
     });
     return membership ? workspaceId : null;
   }

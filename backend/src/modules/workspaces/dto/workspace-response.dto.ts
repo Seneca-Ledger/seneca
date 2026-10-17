@@ -1,3 +1,4 @@
+import type { WorkspaceKind } from '../../../entities/workspace.entity';
 import {
   WorkspaceMemberPermissions,
   WorkspaceRole,
@@ -24,6 +25,8 @@ export class WorkspaceResponseDto {
   backgroundSourceUrl: string | null;
   currency: string;
   isFavorite: boolean;
+  /** `version`: a past version opened to look at, read only. */
+  kind: WorkspaceKind;
   settings: JsonObject | null;
   ownerId: string | null;
   createdAt: Date;

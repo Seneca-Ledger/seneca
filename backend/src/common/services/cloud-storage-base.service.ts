@@ -12,6 +12,7 @@ import {
 } from '../../entities';
 import { validateFile } from '../utils/file-validator.util';
 import { normalizeFilename } from '../utils/filename.util';
+import { STANDARD_WORKSPACE } from '../workspaces/version-workspaces';
 import {
   OAuthIntegrationBaseService,
   type OAuthRepositoryLike,
@@ -191,6 +192,8 @@ export abstract class CloudStorageBaseService<
       where: {
         provider: this.getProvider(),
         status: IntegrationStatus.CONNECTED,
+        // A past version files nothing new, whatever its copied settings say.
+        workspace: STANDARD_WORKSPACE,
       },
       relations: ['token', this.getSettingsRelationName()],
     });

@@ -2,6 +2,7 @@
 
 import { UnrecoverableError } from 'bullmq';
 import { StatementStatus } from '@/entities/statement.entity';
+import { WorkspaceKind } from '@/entities/workspace.entity';
 import {
   MAX_PARSING_ATTEMPTS,
   StaleStatementReaper,
@@ -11,6 +12,7 @@ import { StatementRejected } from '@/modules/parsing/services/statement-processi
 
 describe('StatementParsingProcessor', () => {
   const statementRepository = {
+    exists: jest.fn(async () => false),
     increment: jest.fn(async () => undefined),
     find: jest.fn(async () => []),
     update: jest.fn(async () => undefined),
@@ -68,6 +70,18 @@ describe('StatementParsingProcessor', () => {
       processor().process(job(1)),
     ).rejects.toThrow('parser blew up');
   });
+
+  it('drops a job for a statement of a past version without counting or parsing it', async () => {
+    statementRepository.exists.mockResolvedValueOnce(true);
+
+    await processor().process(job(0));
+
+    expect(statementRepository.exists).toHaveBeenCalledWith({
+      where: { id: 'stmt-1', workspace: { kind: WorkspaceKind.VERSION } },
+    });
+    expect(statementRepository.increment).not.toHaveBeenCalled();
+    expect(statementProcessingService.processStatement).not.toHaveBeenCalled();
+  });
 });
 
 describe('StaleStatementReaper', () => {
@@ -115,6 +129,18 @@ describe('StaleStatementReaper', () => {
 
     expect(statementRepository.update).not.toHaveBeenCalled();
     expect(queue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('looks only at statements of ordinary workspaces, never a past version', async () => {
+    statementRepository.find.mockResolvedValueOnce([]);
+
+    await reaper().reap();
+
+    expect(statementRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ workspace: { kind: WorkspaceKind.STANDARD } }),
+      }),
+    );
   });
 
   it('does not re-queue (or clobber) a statement that already left PROCESSING by the time the conditional update runs', async () => {

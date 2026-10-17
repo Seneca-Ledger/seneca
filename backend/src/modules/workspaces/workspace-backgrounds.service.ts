@@ -20,7 +20,7 @@ import {
   requestOpenverseJson,
 } from '../../common/utils/openverse.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
-import { Workspace, WorkspaceMember, WorkspaceRole } from '../../entities';
+import { Workspace, WorkspaceKind, WorkspaceMember, WorkspaceRole } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -191,6 +191,10 @@ export class WorkspaceBackgroundsService {
     const workspace = await this.workspaceRepository.findOne({ where: { id: workspaceId } });
     if (!workspace) {
       throw new NotFoundException(appError('WORKSPACE_NOT_FOUND'));
+    }
+    // The route names the workspace in its path, past the guard that keeps a version read only.
+    if (workspace.kind === WorkspaceKind.VERSION) {
+      throw new ForbiddenException(appError('VERSION_READ_ONLY'));
     }
 
     // The credit line and the original's URL: remembered from the search that
