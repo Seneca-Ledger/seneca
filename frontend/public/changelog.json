@@ -1,14 +1,139 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "e25da8a69a64f76c8f0f61d68a0a955470e0edae"
+      "main": "9e990e75dd60842f51a1371c539eeb483ad54ddb"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-17T11:51:42.821Z",
+    "lastGeneratedAt": "2026-10-17T14:46:23.629Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-17-9e990e7",
+      "version": "main-9e990e7",
+      "branch": "main",
+      "date": "2026-10-17T14:46:23.629Z",
+      "title": "Release update - October 17, 2026",
+      "summary": "This release includes 3 fixes.",
+      "markdown": "## Fixes\n- **dates**: Format dates in the interface language, not the sign-up locale\n- **documents**: The Approved filter follows the Approved column\n- **i18n**: Show system category names in the reader's language everywhere",
+      "commits": [
+        {
+          "sha": "1a0db29226a8fa9c02184c87dc056ad94e184167",
+          "shortSha": "1a0db292",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-17T11:51:43Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "f6f02d14fac0c01cf81196b3c830a3c3b752b41d",
+          "shortSha": "f6f02d14",
+          "subject": "fix(dates): format dates in the interface language, not the sign-up locale",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T17:11:51+03:00",
+          "files": [
+            "frontend/app/lib/user-format-store.test.ts",
+            "frontend/app/lib/user-format-store.ts"
+          ]
+        },
+        {
+          "sha": "63be3704dca8762898035c8494eeeb4eb16e14e3",
+          "shortSha": "63be3704",
+          "subject": "fix(documents): the Approved filter follows the Approved column",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T17:12:04+03:00",
+          "files": [
+            "backend/@tests/integration/statements-approved-filter.spec.ts",
+            "backend/@tests/unit/modules/statements/statements.service.spec.ts",
+            "backend/src/modules/review-inbox/review-queue.queries.ts",
+            "backend/src/modules/statements/statements.service.ts",
+            "frontend/app/(main)/statements/components/StatementsListView.utils.test.ts",
+            "frontend/app/(main)/statements/components/StatementsListView.utils.ts",
+            "frontend/app/(main)/statements/components/hooks/useStatementsView.ts"
+          ]
+        },
+        {
+          "sha": "6d6ba1c945e1908917347146a2a07bf7b6268c9c",
+          "shortSha": "6d6ba1c9",
+          "subject": "fix(i18n): show system category names in the reader's language everywhere",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T17:12:04+03:00",
+          "files": [
+            "frontend/app/(main)/custom-tables/[id]/components/TablePageHeader.test.tsx",
+            "frontend/app/(main)/custom-tables/[id]/components/TablePageHeader.tsx",
+            "frontend/app/(main)/custom-tables/components/CreateTableDialog.tsx",
+            "frontend/app/(main)/custom-tables/components/SourceFilterPanel.tsx",
+            "frontend/app/(main)/custom-tables/page.tsx",
+            "frontend/app/(main)/dashboard/components/BudgetSummaryWidget.test.tsx",
+            "frontend/app/(main)/dashboard/components/BudgetSummaryWidget.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalFlowSankey.test.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalFlowSankey.tsx",
+            "frontend/app/(main)/goals/[id]/components/goal-flow.chart.ts",
+            "frontend/app/(main)/reports/components/DatevExportCard.test.tsx",
+            "frontend/app/(main)/reports/components/DatevExportCard.tsx",
+            "frontend/app/(main)/reports/components/ReportScopeFilters.test.tsx",
+            "frontend/app/(main)/reports/components/ReportScopeFilters.tsx",
+            "frontend/app/(main)/reports/components/TaxYearView.test.tsx",
+            "frontend/app/(main)/reports/components/TaxYearView.tsx",
+            "frontend/app/(main)/reports/components/cash-flow/CashFlowTreemap.tsx",
+            "frontend/app/(main)/reports/components/cash-flow/CashFlowView.test.tsx",
+            "frontend/app/(main)/reports/components/cash-flow/CashFlowView.tsx",
+            "frontend/app/(main)/reports/components/cash-flow/cash-flow.chart.test.ts",
+            "frontend/app/(main)/reports/components/cash-flow/cash-flow.chart.ts",
+            "frontend/app/(main)/review/components/ReviewInboxView.test.tsx",
+            "frontend/app/(main)/review/components/ReviewInboxView.tsx",
+            "frontend/app/(main)/statements/components/StatementTransactionsPanel.test.tsx",
+            "frontend/app/(main)/statements/components/StatementTransactionsPanel.tsx",
+            "frontend/app/(main)/statements/components/analytics/flow/SpendFlowChart.test.tsx",
+            "frontend/app/(main)/statements/components/analytics/flow/SpendFlowChart.tsx",
+            "frontend/app/(main)/statements/components/analytics/flow/spend-flow.chart.test.ts",
+            "frontend/app/(main)/statements/components/analytics/flow/spend-flow.chart.ts",
+            "frontend/app/(main)/statements/components/payables/MarkPaidDialog.test.tsx",
+            "frontend/app/(main)/statements/components/payables/MarkPaidFields.tsx",
+            "frontend/app/(main)/statements/components/top-categories/components/TopCategoriesDrillDown.tsx",
+            "frontend/app/(main)/statements/components/top-categories/components/TopCategoriesLeaderboard.test.tsx",
+            "frontend/app/(main)/statements/components/top-categories/components/TopCategoriesLeaderboard.tsx",
+            "frontend/app/(main)/subscriptions/components/SubscriptionCard.test.tsx",
+            "frontend/app/(main)/subscriptions/components/SubscriptionCard.tsx",
+            "frontend/app/(main)/subscriptions/components/SubscriptionsContent.test.tsx",
+            "frontend/app/(main)/subscriptions/components/SubscriptionsContent.tsx",
+            "frontend/app/(main)/tax-declaration/components/DataCheckStep.test.tsx",
+            "frontend/app/(main)/tax-declaration/components/DataCheckStep.tsx",
+            "frontend/app/(main)/tax-declaration/components/MappingStep.test.tsx",
+            "frontend/app/(main)/tax-declaration/components/MappingStep.tsx",
+            "frontend/app/(main)/workspaces/components/TaxRulesSection.test.tsx",
+            "frontend/app/(main)/workspaces/components/TaxRulesSection.tsx",
+            "frontend/app/(main)/workspaces/components/TaxStatusSection.tsx",
+            "frontend/app/(main)/workspaces/components/WorkspaceCategoriesView.test.tsx",
+            "frontend/app/(main)/workspaces/components/WorkspaceCategoriesView.tsx",
+            "frontend/app/(main)/workspaces/components/WorkspacePayeesView.test.tsx",
+            "frontend/app/(main)/workspaces/components/WorkspacePayeesView.tsx",
+            "frontend/app/components/TransactionsView.test.tsx",
+            "frontend/app/components/TransactionsView.tsx",
+            "frontend/app/components/dashboard/RecentTransactionsCard.tsx",
+            "frontend/app/components/dashboard/TopCategoriesCard.tsx",
+            "frontend/app/components/dashboard/__tests__/RecentTransactionsCard.test.tsx",
+            "frontend/app/components/dashboard/__tests__/TopCategoriesCard.test.tsx",
+            "frontend/app/lib/use-category-name.ts",
+            "frontend/app/storage/gmail-receipts/[id]/components/GmailReceiptDuplicates.tsx",
+            "frontend/app/storage/gmail-receipts/[id]/components/GmailReceiptHeader.test.tsx",
+            "frontend/app/storage/gmail-receipts/[id]/components/GmailReceiptHeader.tsx",
+            "frontend/app/storage/gmail-receipts/[id]/components/GmailReceiptLineItems.tsx"
+          ]
+        },
+        {
+          "sha": "9e990e75dd60842f51a1371c539eeb483ad54ddb",
+          "shortSha": "9e990e75",
+          "subject": "Merge pull request #317 from symonbaikov/fix/i18n-categories-approved-filter-runway",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T17:46:00+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-17-e25da8a",
       "version": "main-e25da8a",
