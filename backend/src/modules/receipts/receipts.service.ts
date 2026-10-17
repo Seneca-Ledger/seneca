@@ -326,24 +326,25 @@ export class ReceiptsService {
   }
 
   /**
-   * Every figure sums transactions, not receipts, so an edit to an approved
-   * receipt has to reach the row it stands for, or the documents list shows one
-   * date and every number another. The row the receipt booked itself (its scan's
-   * row, or the one approval created) takes every field the edit touched. A row
-   * it was attached to (a bank row) keeps the bank's date and amount and takes
-   * only a category picked here. A row filed on a tax return does not change.
+   * Every figure sums transactions, not receipts, so an edit to a receipt has
+   * to reach the row it stands for, or the documents list shows one date and
+   * every number another. The row the receipt booked itself (its scan's row, or
+   * the one approval created) takes every field the edit touched. A scan's row
+   * exists before approval, while the receipt has no transactionId yet: Review
+   * lists it. A row it was attached to (a bank row) keeps the bank's date and
+   * amount and takes only a category picked here. A row filed on a tax return
+   * does not change.
    */
   private async syncBookedTransaction(
     receipt: Receipt,
     workspaceId: string,
     edits: Record<string, unknown>,
   ): Promise<void> {
-    if (!receipt.transactionId) {
-      return;
-    }
-    const target = await this.transactionRepository.findOne({
-      where: { id: receipt.transactionId, workspaceId },
-    });
+    const target = receipt.transactionId
+      ? await this.transactionRepository.findOne({
+          where: { id: receipt.transactionId, workspaceId },
+        })
+      : await this.findScanTransaction(this.transactionRepository.manager, receipt, workspaceId);
     if (!target || target.taxLocked) {
       return;
     }
