@@ -304,13 +304,16 @@ export class BackupRestoreService {
     workspaceId: string,
     userId: string,
   ): Record<string, unknown> {
-    const mapped = metadata.columns.reduce<Record<string, unknown>>((record, column) => {
+    return metadata.columns.reduce<Record<string, unknown>>((record, column) => {
       const property = column.propertyName;
-      if (source[property] === undefined) return record;
+      const value = source[property];
+      if (value === undefined) return record;
       if (property === 'workspaceId') {
         record[property] = workspaceId;
       } else if (property === 'id') {
         record[property] = idMap.get(String(source[property])) || randomUUID();
+      } else if (this.isBase64FileData(value)) {
+        record[property] = Buffer.from(value.value, 'base64');
       } else if (PUBLIC_TOKEN_PROPERTIES.has(property)) {
         record[property] = null;
       } else if (USER_REFERENCE_PROPERTIES.has(property)) {
@@ -322,10 +325,6 @@ export class BackupRestoreService {
       }
       return record;
     }, {});
-    if (metadata.tableName === 'file_versions' && this.isBase64FileData(source.fileData)) {
-      mapped.fileData = Buffer.from(source.fileData.value, 'base64');
-    }
-    return mapped;
   }
 
   private async prepareCollections(
