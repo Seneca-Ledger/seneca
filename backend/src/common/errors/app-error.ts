@@ -294,6 +294,7 @@ export const ERR = {
   // ── versions ──────────────────────────────────────────────────────────────
   VERSION_SNAPSHOT_RUNNING: 'A snapshot is being taken right now; try again in a moment',
   VERSION_LIST_OWNER_ONLY: 'Only the owner can see and take snapshots',
+  VERSION_NOT_FOUND: 'This version is not available',
 } as const;
 
 export type ErrorCode = keyof typeof ERR;

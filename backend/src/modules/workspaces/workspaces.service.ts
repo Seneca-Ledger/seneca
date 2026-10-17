@@ -848,6 +848,30 @@ export class WorkspacesService {
     };
   }
 
+  /** For each opened version among these workspaces: its version, source and date. */
+  private async openedVersions(
+    workspaces: Workspace[],
+  ): Promise<Map<string, { id: string; takenAt: Date; sourceWorkspaceId: string }>> {
+    const opened = workspaces.filter(
+      workspace => workspace.kind === WorkspaceKind.VERSION && workspace.versionId,
+    );
+    if (opened.length === 0) return new Map();
+    const rows: Array<{ id: string; taken_at: Date; workspace_id: string }> =
+      await this.workspaceRepository.query(
+        'SELECT id, taken_at, workspace_id FROM workspace_versions WHERE id = ANY($1::uuid[])',
+        [opened.map(workspace => workspace.versionId)],
+      );
+    const byId = new Map(rows.map(row => [row.id, row]));
+    return new Map(
+      opened.flatMap(workspace => {
+        const row = byId.get(workspace.versionId as string);
+        return row
+          ? [[workspace.id, { id: row.id, takenAt: row.taken_at, sourceWorkspaceId: row.workspace_id }]]
+          : [];
+      }),
+    );
+  }
+
   /**
    * Settings and membership of a past version do not change: it is a copy of
    * the books as they were. These routes name the workspace in their path, so
@@ -870,6 +894,7 @@ export class WorkspacesService {
       order: { lastAccessedAt: 'DESC' },
     });
 
+    const versions = await this.openedVersions(memberships.map(membership => membership.workspace));
     const workspaces = await Promise.all(
       memberships.map(async membership => {
         const workspace = membership.workspace;
@@ -887,6 +912,7 @@ export class WorkspacesService {
           currency: workspace.currency,
           isFavorite: workspace.isFavorite,
           kind: workspace.kind,
+          version: versions.get(workspace.id) ?? null,
           settings: workspace.settings,
           ownerId: workspace.ownerId,
           createdAt: workspace.createdAt,

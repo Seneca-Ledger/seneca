@@ -16,9 +16,11 @@ import { DataSource } from 'typeorm';
 
 import { resolveUploadsDir } from '../../src/common/utils/uploads.util';
 import * as entityIndex from '../../src/entities';
-import { User, Workspace, WorkspaceVersion } from '../../src/entities';
+import { User, Workspace, WorkspaceMember, WorkspaceVersion } from '../../src/entities';
+import { BackupArchiveService } from '../../src/modules/backups/backup-archive.service';
 import { BackupDataService } from '../../src/modules/backups/backup-data.service';
 import { BackupKeyService } from '../../src/modules/backups/backup-key.service';
+import { BackupRestoreService } from '../../src/modules/backups/backup-restore.service';
 import { VersionBlobStore } from '../../src/modules/versions/version-blob-store';
 import { VersionSchedulerService } from '../../src/modules/versions/version-scheduler.service';
 import { decodePayload } from '../../src/modules/versions/version-payload';
@@ -118,7 +120,15 @@ describe('workspace versions are taken and kept (real Postgres)', () => {
       dataSource.getRepository(WorkspaceVersion),
       dataSource.getRepository(Workspace),
       dataSource.getRepository(User),
+      dataSource.getRepository(WorkspaceMember),
       snapshots,
+      new BackupRestoreService(
+        dataSource,
+        dataSource.getRepository(Workspace),
+        dataSource.getRepository(WorkspaceMember),
+        new BackupArchiveService(),
+      ),
+      keyService,
     );
 
     const [{ id: workspaceId }] = await sql(
@@ -295,6 +305,103 @@ describe('workspace versions are taken and kept (real Postgres)', () => {
     it('is not taken of a past version opened to look at', async () => {
       await scheduler.runNightly(night);
       expect(await scheduledOn(versionWorkspaceId)).toEqual([]);
+    });
+  });
+
+  describe('opening a version', () => {
+    let versionId: string;
+
+    beforeAll(async () => {
+      const taken = await versions.takeNow(workspace.id, owner.id);
+      versionId = taken.id;
+    });
+
+    const documentsOf = async (workspaceId: string): Promise<string[]> =>
+      (await sql('SELECT file_path FROM statements WHERE workspace_id = $1', [workspaceId])).map(
+        (row: { file_path: string }) => row.file_path,
+      );
+
+    it('rebuilds it as a read-only workspace of its own, the same one when opened again', async () => {
+      const opened = await versions.open(versionId, owner.id);
+
+      expect(opened.kind).toBe('version');
+      expect(opened.versionId).toBe(versionId);
+      expect(opened.ownerId).toBe(owner.id);
+      const [{ count }] = await sql(
+        'SELECT COUNT(*)::int AS count FROM transactions WHERE workspace_id = $1',
+        [opened.id],
+      );
+      expect(count).toBe(1);
+      const [file] = await documentsOf(opened.id);
+      expect(fs.readFileSync(file, 'utf8')).toBe('%PDF-1.4 bank statement');
+
+      expect((await versions.open(versionId, owner.id)).id).toBe(opened.id);
+      // From inside it, the list is still the source's.
+      expect((await versions.list(opened.id, owner.id)).map(version => version.id)).toContain(
+        versionId,
+      );
+    });
+
+    it('is kept while it is open, even when retention would let the version go', async () => {
+      const opened = await versions.open(versionId, owner.id);
+      await sql(
+        "UPDATE workspace_versions SET taken_at = now() - interval '400 days' WHERE id = $1",
+        [versionId],
+      );
+      await versions.takeNow(workspace.id, owner.id);
+      await sql(
+        "UPDATE workspace_versions SET taken_at = now() - interval '399 days' WHERE workspace_id = $1 AND id <> $2 AND taken_at > now() - interval '1 day'",
+        [workspace.id, versionId],
+      );
+
+      await versions.prune(workspace);
+
+      expect(await dataSource.getRepository(Workspace).findOneBy({ id: opened.id })).not.toBeNull();
+      expect(await dataSource.getRepository(WorkspaceVersion).findOneBy({ id: versionId })).not.toBeNull();
+    });
+
+    it('is closed with the documents restored for it', async () => {
+      const opened = await versions.open(versionId, owner.id);
+      const files = await documentsOf(opened.id);
+
+      await versions.close(versionId, owner.id);
+
+      expect(await dataSource.getRepository(Workspace).findOneBy({ id: opened.id })).toBeNull();
+      for (const file of files) expect(fs.existsSync(file)).toBe(false);
+    });
+
+    it('is discarded after a day nobody looked at it', async () => {
+      const opened = await versions.open(versionId, owner.id);
+      await sql(
+        "UPDATE workspace_members SET last_accessed_at = now() - interval '25 hours' WHERE workspace_id = $1",
+        [opened.id],
+      );
+      const fresh = await versions.open(versionId, owner.id);
+      expect(fresh.id).toBe(opened.id);
+      // Opening again counts as a visit: nothing to discard yet.
+      expect(await versions.discardIdle()).toBe(0);
+
+      await sql(
+        "UPDATE workspace_members SET last_accessed_at = now() - interval '25 hours' WHERE workspace_id = $1",
+        [opened.id],
+      );
+      expect(await versions.discardIdle()).toBe(1);
+      expect(await dataSource.getRepository(Workspace).findOneBy({ id: opened.id })).toBeNull();
+    });
+
+    it('is saved as an ordinary workspace named after its day', async () => {
+      const copy = await versions.copy(versionId, owner.id);
+
+      expect(copy.kind).toBe('standard');
+      expect(copy.versionId).toBeNull();
+      expect(copy.name).toMatch(/^Keller Design — \d{4}-\d{2}-\d{2}$/);
+      // A copy is no longer the opened version: opening again makes a new one.
+      expect((await versions.open(versionId, owner.id)).id).not.toBe(copy.id);
+      tempFiles.push(...(await documentsOf(copy.id)));
+    });
+
+    it('is the owner’s alone', async () => {
+      await expect(versions.open(versionId, randomUUID())).rejects.toThrow(ForbiddenException);
     });
   });
 });

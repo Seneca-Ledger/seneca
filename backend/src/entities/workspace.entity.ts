@@ -110,6 +110,10 @@ export class Workspace {
   @Column({ type: 'varchar', length: 16, default: WorkspaceKind.STANDARD })
   kind: WorkspaceKind;
 
+  /** For a past version opened to look at: the version it was opened from. */
+  @Column({ name: 'version_id', type: 'uuid', nullable: true })
+  versionId: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   settings: Record<string, unknown> | null;
 

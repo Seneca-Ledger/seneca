@@ -20,3 +20,16 @@ export type WorkspaceVersion = Wire<typeof WorkspaceVersion>;
 
 export const WorkspaceVersionList = Schema.Array(WorkspaceVersion);
 export type WorkspaceVersionList = Wire<typeof WorkspaceVersionList>;
+
+/** `POST /versions/:id/open` and `/copy`: the workspace to switch to. */
+export const OpenedWorkspaceVersion = Schema.Struct({
+  workspaceId: Schema.String,
+  name: Schema.String,
+});
+export type OpenedWorkspaceVersion = Wire<typeof OpenedWorkspaceVersion>;
+
+/** `POST /versions/:id/copy`: the copy's name; by default "<workspace> — <day>". */
+export const CopyWorkspaceVersionBody = Schema.Struct({
+  name: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(255)))),
+});
+export type CopyWorkspaceVersionBody = Wire<typeof CopyWorkspaceVersionBody>;

@@ -8,7 +8,7 @@ import { appDefaultCurrency } from '../../common/utils/currency.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import { WorkspaceRole } from '../../entities';
 import type { User } from '../../entities/user.entity';
-import { Workspace } from '../../entities/workspace.entity';
+import { Workspace, WorkspaceKind } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { BackupArchiveService, type OpenedBackup } from './backup-archive.service';
 
@@ -116,11 +116,37 @@ export class BackupRestoreService {
     workspaceName?: string,
   ): Promise<Workspace> {
     const opened = await this.archiveService.open(archive, password);
+    return this.restoreOpened(opened, user, {
+      name: workspaceName?.trim() || `Restored ${this.sourceWorkspaceName(opened) ?? 'workspace'}`,
+    });
+  }
+
+  /**
+   * Rebuilds a snapshot that is already open, as a new workspace: a backup
+   * just read from its archive, or a workspace version read from the version
+   * store (`kind: version`, read only).
+   */
+  async restoreOpened(
+    opened: Pick<OpenedBackup, 'collections' | 'files'>,
+    user: User,
+    options: { name: string; kind?: WorkspaceKind; versionId?: string },
+  ): Promise<Workspace> {
     const sourceWorkspace = this.sourceWorkspace(opened);
     const workspace = await this.workspaceRepository.save(
       this.workspaceRepository.create({
-        name:
-          workspaceName?.trim() || `Restored ${this.sourceWorkspaceName(opened) ?? 'workspace'}`,
+        name: options.name,
+        kind: options.kind ?? WorkspaceKind.STANDARD,
+        versionId: options.versionId ?? null,
+        // Older snapshots carry none of these; the defaults then apply.
+        ...(typeof sourceWorkspace.ledgerBaseCurrency === 'string'
+          ? { ledgerBaseCurrency: sourceWorkspace.ledgerBaseCurrency }
+          : {}),
+        ...(typeof sourceWorkspace.taxJurisdictionId === 'string'
+          ? { taxJurisdictionId: sourceWorkspace.taxJurisdictionId }
+          : {}),
+        ...(typeof sourceWorkspace.vatStatus === 'string'
+          ? { vatStatus: sourceWorkspace.vatStatus as Workspace['vatStatus'] }
+          : {}),
         description: this.stringOrNull(sourceWorkspace.description),
         icon: this.stringOrNull(sourceWorkspace.icon),
         color: this.stringOrNull(sourceWorkspace.color),
@@ -247,19 +273,19 @@ export class BackupRestoreService {
   }
 
   /** The archived workspace's name, when it has one that reads as a name. */
-  private sourceWorkspaceName(opened: OpenedBackup): string | null {
+  private sourceWorkspaceName(opened: Pick<OpenedBackup, 'collections'>): string | null {
     const name = this.sourceWorkspace(opened).name;
     return typeof name === 'string' && name.trim() ? name : null;
   }
 
-  private sourceWorkspace(opened: OpenedBackup): Record<string, unknown> {
+  private sourceWorkspace(opened: Pick<OpenedBackup, 'collections'>): Record<string, unknown> {
     const workspace = opened.collections.workspace?.[0];
     if (workspace && typeof workspace === 'object') return workspace as Record<string, unknown>;
     throw new BadRequestException('Backup does not contain workspace data');
   }
 
   private buildIdMap(
-    opened: OpenedBackup,
+    opened: Pick<OpenedBackup, 'collections'>,
     sourceWorkspaceId: unknown,
     workspaceId: string,
   ): Map<string, string> {
@@ -328,7 +354,7 @@ export class BackupRestoreService {
   }
 
   private async prepareCollections(
-    opened: OpenedBackup,
+    opened: Pick<OpenedBackup, 'collections' | 'files'>,
     idMap: Map<string, string>,
     workspaceId: string,
     userId: string,

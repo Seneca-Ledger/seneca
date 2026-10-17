@@ -59,6 +59,13 @@ export class VersionSchedulerService {
     }
   }
 
+  /** Opened versions are copies kept for looking at; a day unvisited, they go. */
+  @Cron('35 * * * *')
+  async discardIdleOpened(now = new Date()): Promise<void> {
+    const discarded = await this.versions.discardIdle(now);
+    if (discarded > 0) this.logger.log(`Discarded ${discarded} idle opened versions`);
+  }
+
   /** The night's row, or null when another server (or an earlier run) has it. */
   private async claim(workspaceId: string, day: string): Promise<WorkspaceVersion | null> {
     const inserted: Array<{ id: string }> = await this.versionRepository.query(
