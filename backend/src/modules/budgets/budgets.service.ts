@@ -47,6 +47,11 @@ export interface BudgetWithSpending extends Budget {
   isActive: boolean;
   /** Spending in currencies with no rate to the budget's, left out of spentAmount. */
   unconvertedSpending: UnconvertedSpending[];
+  /**
+   * The category's spending earlier in the current period than the budget's
+   * start date, per currency as booked: not counted, and said so on the card.
+   */
+  beforeStartSpending: UnconvertedSpending[];
 }
 
 /** Spending left out of a budget's figure: no rate from its currency to the budget's. */
@@ -374,7 +379,12 @@ export class BudgetsService {
   ): Promise<
     Pick<
       BudgetWithSpending,
-      'spentAmount' | 'percentUsed' | 'availableAmount' | 'carriedAmount' | 'unconvertedSpending'
+      | 'spentAmount'
+      | 'percentUsed'
+      | 'availableAmount'
+      | 'carriedAmount'
+      | 'unconvertedSpending'
+      | 'beforeStartSpending'
     >
   > {
     const limitAmount = Number(budget.limitAmount);
@@ -387,6 +397,7 @@ export class BudgetsService {
         availableAmount: limitAmount,
         carriedAmount: 0,
         unconvertedSpending: [],
+        beforeStartSpending: [],
       };
     }
     const categoryIds = await this.categoryIdsFor(budget.workspaceId, budget.categoryId);
@@ -411,7 +422,39 @@ export class BudgetsService {
       availableAmount,
       carriedAmount,
       unconvertedSpending: unconverted,
+      beforeStartSpending:
+        period.start.getTime() > range.start.getTime()
+          ? await this.spendingBeforeStart(budget, categoryIds, range.start, period.start)
+          : [],
     };
+  }
+
+  /**
+   * The category's spending from the period's first day up to the day before
+   * the budget starts, per currency as booked. A budget started mid-period
+   * leaves it out, which reads as "nothing spent" unless the card says so.
+   */
+  private async spendingBeforeStart(
+    budget: Budget,
+    categoryIds: string[],
+    periodStart: Date,
+    budgetStart: Date,
+  ): Promise<UnconvertedSpending[]> {
+    const dayBefore = new Date(
+      budgetStart.getFullYear(),
+      budgetStart.getMonth(),
+      budgetStart.getDate() - 1,
+    );
+    const rows = await this.spendingRows(budget.workspaceId, categoryIds, periodStart, dayBefore);
+    const byCurrency = new Map<string, number>();
+    for (const row of rows) {
+      const currency = (row.currency || budget.currency).toUpperCase();
+      byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + Number.parseFloat(row.amount));
+    }
+    return [...byCurrency].map(([currency, amount]) => ({
+      currency,
+      amount: Math.round(amount * 100) / 100,
+    }));
   }
 
   /** How many settled periods rollover looks back on; a year of months, a quarter of weeks. */

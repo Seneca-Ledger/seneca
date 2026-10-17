@@ -8,6 +8,7 @@ import { Pencil, Trash2 } from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import type { BudgetItem } from '../hooks/useBudgetsPage';
 import type { StoicClass } from '../hooks/useStoicBalance';
@@ -48,6 +49,8 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
   const progressValue = Math.min(budget.percentUsed, 100);
   const availableAmount = budget.availableAmount ?? budget.limitAmount;
   const carriedAmount = budget.carriedAmount ?? 0;
+  const formatDay = (date: string): string =>
+    formatStoredDateWithOptions(`${date}T00:00:00`, { day: 'numeric', month: 'short' }, locale);
 
   return (
     <Box
@@ -73,6 +76,11 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
               ? localizeStatementCategoryName(budget.category.name, locale)
               : t.unknownCategory}{' '}
             · {t[PERIOD_LABEL_KEYS[budget.periodType]]}
+            {/* A window cuts the period short, so the card has to say where it does. */}
+            {budget.startsOn &&
+              ` · ${t.windowFrom.value.replace('{{date}}', formatDay(budget.startsOn))}`}
+            {budget.endsOn &&
+              ` · ${t.windowUntil.value.replace('{{date}}', formatDay(budget.endsOn))}`}
             {stoicClass && (
               <>
                 {' · '}
@@ -157,6 +165,19 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
           {t.unconvertedSpending.value
             .replace('{{amount}}', formatMoney(entry.amount, entry.currency, locale))
             .replace('{{currency}}', budget.currency)}
+        </Typography>
+      ))}
+      {/* Spending earlier in the period than the start: without this, 0 reads as broken. */}
+      {(budget.beforeStartSpending ?? []).map(entry => (
+        <Typography
+          key={`before-${entry.currency}`}
+          variant="caption"
+          sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}
+        >
+          {t.beforeStartSpending.value.replace(
+            '{{amount}}',
+            formatMoney(entry.amount, entry.currency, locale),
+          )}
         </Typography>
       ))}
     </Box>

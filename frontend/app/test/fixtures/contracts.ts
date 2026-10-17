@@ -98,6 +98,7 @@ export function budgetItem(
     carriedAmount: 0,
     isActive: true,
     unconvertedSpending: [],
+    beforeStartSpending: [],
     ...overrides,
   };
 }

@@ -62,4 +62,24 @@ describe('BudgetCard', () => {
 
     expect(container.textContent).toContain('Donate ·');
   });
+
+  it('shows when a budget starts and the spending before that it leaves out', () => {
+    const { container } = card({
+      id: 'b-window',
+      name: 'Реклама вакансий',
+      startsOn: '2026-10-16',
+      spentAmount: 0,
+      percentUsed: 0,
+      beforeStartSpending: [{ currency: 'ILS', amount: 8.9 }],
+    });
+
+    expect(container.textContent).toContain('from Oct 16');
+    expect(container.textContent).toMatch(/Not counted: .*8\.90 — spent before the budget starts/);
+  });
+
+  it('says nothing about a start when the budget has none', () => {
+    const { container } = card({ id: 'b-open', name: 'Charity' });
+
+    expect(container.textContent).not.toMatch(/from |Not counted/);
+  });
 });
