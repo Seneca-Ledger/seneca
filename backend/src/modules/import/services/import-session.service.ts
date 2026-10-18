@@ -795,6 +795,8 @@ export class ImportSessionService {
           actorName: await this.resolveActorName(session.userId),
           statementId: session.statementId || undefined,
           transactionCount: summary.newCount + summary.matchedCount,
+          transactionIds: savedTransactions.map(transaction => transaction.id),
+          source: 'import_session',
         } satisfies ImportCommittedEvent);
       }
 

@@ -48,9 +48,10 @@ import {
 } from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
 import { AuditService } from '../audit/audit.service';
-import type {
-  DataDeletedEvent,
-  StatementUploadedEvent,
+import {
+  type DataDeletedEvent,
+  type StatementUploadedEvent,
+  transactionCreatedEvent,
 } from '../notifications/events/notification-events';
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
@@ -475,6 +476,7 @@ export class StatementsService {
     // Проверка дубликата и обе вставки — в одной транзакции под advisory-lock:
     // иначе double-submit формы проходил check-then-act дважды и создавал два
     // одинаковых расхода (тот же паттерн, что в create() для выписок).
+    let createdTransaction: Transaction | null = null;
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
         `manual-expense:${workspaceId}:${payload.date}:${merchant}:${amountValue}:${currency}`,
@@ -567,7 +569,7 @@ export class StatementsService {
         isVerified: true,
       });
 
-      await manager.getRepository(Transaction).save(transaction);
+      createdTransaction = await manager.getRepository(Transaction).save(transaction);
       return created;
     });
 
@@ -599,6 +601,14 @@ export class StatementsService {
       severity: Severity.INFO,
       isUndoable: false,
     });
+
+    // After the commit: a listener must never see a row that rolled back.
+    if (createdTransaction) {
+      this.eventEmitter?.emit(
+        'transaction.created',
+        transactionCreatedEvent(createdTransaction, 'manual_expense'),
+      );
+    }
 
     return savedStatement;
   }
@@ -742,6 +752,10 @@ export class StatementsService {
       severity: Severity.INFO,
       isUndoable: false,
     });
+    this.eventEmitter?.emit(
+      'transaction.created',
+      transactionCreatedEvent(savedTransaction, 'dropped_sample'),
+    );
 
     return {
       statement: savedStatement,

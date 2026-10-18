@@ -5,6 +5,7 @@ import {
   Logger,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
@@ -26,6 +27,7 @@ import { Wallet } from '../../entities/wallet.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { BudgetExceededEvent } from '../notifications/events/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import {
@@ -89,6 +91,8 @@ export class BudgetsService {
     private readonly walletRepository?: Repository<Wallet>,
     @Optional()
     private readonly exchangeRatesService?: ExchangeRatesService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async create(workspaceId: string, userId: string, dto: CreateBudgetBody): Promise<Budget> {
@@ -265,6 +269,16 @@ export class BudgetsService {
             percentUsed: Math.round(percentUsed),
           },
         });
+        this.eventEmitter?.emit('budget.exceeded', {
+          workspaceId,
+          budgetId: budget.id,
+          name: budget.name,
+          categoryId: budget.categoryId ?? null,
+          limitAmount: Number(budget.limitAmount),
+          spentAmount: Number(spentAmount),
+          percentUsed: Math.round(percentUsed),
+          currency: budget.currency,
+        } satisfies BudgetExceededEvent);
       } else if (percentUsed >= 80 && !budget.alertAt80Sent) {
         budget.alertAt80Sent = true;
         await this.budgetRepository.save(budget);

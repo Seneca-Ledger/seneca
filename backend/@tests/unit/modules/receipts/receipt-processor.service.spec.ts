@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import {
@@ -39,6 +40,8 @@ const minimalParse = {
   lineItems: [],
 };
 
+const eventEmitter = { emit: jest.fn() };
+
 describe('ReceiptProcessorService', () => {
   let service: ReceiptProcessorService;
   let receiptRepository: { findOne: jest.Mock; save: jest.Mock };
@@ -59,6 +62,7 @@ describe('ReceiptProcessorService', () => {
       extractFromPdf: jest.fn(),
     };
     locationService = { applyAutoLocation: jest.fn().mockResolvedValue(undefined) };
+    eventEmitter.emit.mockReset();
     mockReadExifGps.mockReset().mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -76,6 +80,7 @@ describe('ReceiptProcessorService', () => {
           useValue: { categorize: jest.fn().mockResolvedValue(null) },
         },
         { provide: ReceiptLocationService, useValue: locationService },
+        { provide: EventEmitter2, useValue: eventEmitter },
       ],
     }).compile();
 
@@ -145,6 +150,8 @@ describe('ReceiptProcessorService', () => {
       receiptRepository.save.mock.invocationCallOrder[0],
     );
     expect(job.status).toBe(ReceiptJobStatus.COMPLETED);
+    // A readable receipt with no duplicate needs nobody: no review event.
+    expect(eventEmitter.emit).not.toHaveBeenCalledWith('receipt.needs_review', expect.anything());
   });
 
   it('marks receipt as needs_review when amount is missing', async () => {
@@ -188,6 +195,10 @@ describe('ReceiptProcessorService', () => {
       expect.objectContaining({
         status: ReceiptStatus.NEEDS_REVIEW,
       }),
+    );
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'receipt.needs_review',
+      expect.objectContaining({ receiptId: 'receipt-2', reasons: ['missing_amount'] }),
     );
   });
 

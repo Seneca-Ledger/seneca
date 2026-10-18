@@ -14,7 +14,10 @@ import {
   ReceiptStatus,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
-import type { ReceiptUncategorizedEvent } from '../notifications/events/notification-events';
+import type {
+  ReceiptNeedsReviewEvent,
+  ReceiptUncategorizedEvent,
+} from '../notifications/events/notification-events';
 import { ReceiptMatchService } from '../receipts/services/receipt-match.service';
 import type { GmailApi } from './gmail-api.types';
 import { GmailService } from './services/gmail.service';
@@ -345,6 +348,17 @@ export class GmailReceiptProcessor {
 
       // Save final receipt state
       await this.receiptRepository.save(savedReceipt);
+
+      if (savedReceipt.status === ReceiptStatus.NEEDS_REVIEW) {
+        this.eventEmitter?.emit('receipt.needs_review', {
+          workspaceId,
+          receiptId: savedReceipt.id,
+          source: savedReceipt.source,
+          reasons: savedReceipt.metadata?.potentialDuplicates?.length
+            ? ['possible_duplicate']
+            : ['missing_amount'],
+        } satisfies ReceiptNeedsReviewEvent);
+      }
 
       // Mark job as completed
       job.status = ReceiptJobStatus.COMPLETED;

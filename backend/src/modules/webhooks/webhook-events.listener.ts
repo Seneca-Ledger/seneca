@@ -1,65 +1,117 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { WebhookEvent } from '../../entities/webhook-subscription.entity';
 import type {
+  BudgetExceededEvent,
   ImportCommittedEvent,
+  ImportFailedEvent,
+  ParsingErrorEvent,
+  PayableOverdueEvent,
+  PayablePaidEvent,
   ReceiptApprovedEvent,
+  ReceiptNeedsReviewEvent,
+  StatementUploadedEvent,
+  TaxDeadlineUpcomingEvent,
+  TaxThresholdReachedEvent,
   TransactionCreatedEvent,
+  TransactionsImportedEvent,
+  TransactionsUncategorizedEvent,
 } from '../notifications/events/notification-events';
 import { WebhookDispatcherService } from './services/webhook-dispatcher.service';
+import * as payloads from './webhook-payloads';
 
+/** Turns what happens in the app into outbound webhook deliveries. */
 @Injectable()
 export class WebhookEventsListener {
   private readonly logger = new Logger(WebhookEventsListener.name);
 
   constructor(private readonly dispatcher: WebhookDispatcherService) {}
 
-  @OnEvent('import.committed')
-  async onImportCommitted(event: ImportCommittedEvent): Promise<void> {
+  /** A failed dispatch is logged; the action that raised the event already happened. */
+  private async send(message: payloads.WebhookMessage): Promise<void> {
     try {
-      await this.dispatcher.dispatch(event.workspaceId, WebhookEvent.STATEMENT_PROCESSED, {
-        event: WebhookEvent.STATEMENT_PROCESSED,
-        workspaceId: event.workspaceId,
-        statementId: event.statementId,
-        transactionCount: event.transactionCount,
-        timestamp: new Date().toISOString(),
-      });
+      await this.dispatcher.dispatch(message.workspaceId, message.event, message.body);
     } catch (err) {
-      this.logger.error('Failed to dispatch statement.processed webhook', err);
+      this.logger.error(`Failed to dispatch ${message.event} webhook`, err);
     }
   }
 
-  @OnEvent('receipt.approved')
-  async onReceiptApproved(event: ReceiptApprovedEvent): Promise<void> {
-    try {
-      await this.dispatcher.dispatch(event.workspaceId, WebhookEvent.RECEIPT_APPROVED, {
-        event: WebhookEvent.RECEIPT_APPROVED,
-        workspaceId: event.workspaceId,
-        receiptId: event.receiptId,
-        transactionId: event.transactionId,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      this.logger.error('Failed to dispatch receipt.approved webhook', err);
+  @OnEvent('import.committed')
+  async onImportCommitted(event: ImportCommittedEvent): Promise<void> {
+    await this.send(payloads.statementProcessed(event));
+    if (event.transactionIds?.length) {
+      await this.send(
+        payloads.transactionsImported({
+          workspaceId: event.workspaceId,
+          source: event.source ?? 'statement',
+          statementId: event.statementId,
+          transactionIds: event.transactionIds,
+        }),
+      );
     }
+  }
+
+  @OnEvent('transactions.imported')
+  async onTransactionsImported(event: TransactionsImportedEvent): Promise<void> {
+    await this.send(payloads.transactionsImported(event));
   }
 
   @OnEvent('transaction.created')
   async onTransactionCreated(event: TransactionCreatedEvent): Promise<void> {
-    try {
-      await this.dispatcher.dispatch(event.workspaceId, WebhookEvent.TRANSACTION_CREATED, {
-        event: WebhookEvent.TRANSACTION_CREATED,
-        workspaceId: event.workspaceId,
-        transactionId: event.transactionId,
-        amount: event.amount,
-        currency: event.currency,
-        transactionDate: event.transactionDate,
-        counterpartyName: event.counterpartyName,
-        transactionType: event.transactionType,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      this.logger.error('Failed to dispatch transaction.created webhook', err);
-    }
+    await this.send(payloads.transactionCreated(event));
+  }
+
+  @OnEvent('statement.uploaded')
+  async onStatementUploaded(event: StatementUploadedEvent): Promise<void> {
+    await this.send(payloads.statementUploaded(event));
+  }
+
+  @OnEvent('parsing.error')
+  async onParsingError(event: ParsingErrorEvent): Promise<void> {
+    await this.send(payloads.statementFailed(event, 'parsing'));
+  }
+
+  @OnEvent('import.failed')
+  async onImportFailed(event: ImportFailedEvent): Promise<void> {
+    await this.send(payloads.statementFailed(event, 'import'));
+  }
+
+  @OnEvent('transactions.uncategorized')
+  async onTransactionsUncategorized(event: TransactionsUncategorizedEvent): Promise<void> {
+    await this.send(payloads.transactionsUncategorized(event));
+  }
+
+  @OnEvent('receipt.approved')
+  async onReceiptApproved(event: ReceiptApprovedEvent): Promise<void> {
+    await this.send(payloads.receiptApproved(event));
+  }
+
+  @OnEvent('receipt.needs_review')
+  async onReceiptNeedsReview(event: ReceiptNeedsReviewEvent): Promise<void> {
+    await this.send(payloads.receiptNeedsReview(event));
+  }
+
+  @OnEvent('payable.paid')
+  async onPayablePaid(event: PayablePaidEvent): Promise<void> {
+    await this.send(payloads.payablePaid(event));
+  }
+
+  @OnEvent('payable.overdue')
+  async onPayableOverdue(event: PayableOverdueEvent): Promise<void> {
+    await this.send(payloads.payableOverdue(event));
+  }
+
+  @OnEvent('budget.exceeded')
+  async onBudgetExceeded(event: BudgetExceededEvent): Promise<void> {
+    await this.send(payloads.budgetExceeded(event));
+  }
+
+  @OnEvent('tax.deadline.upcoming')
+  async onTaxDeadlineUpcoming(event: TaxDeadlineUpcomingEvent): Promise<void> {
+    await this.send(payloads.taxDeadlineUpcoming(event));
+  }
+
+  @OnEvent('tax.threshold.reached')
+  async onTaxThresholdReached(event: TaxThresholdReachedEvent): Promise<void> {
+    await this.send(payloads.taxThresholdReached(event));
   }
 }

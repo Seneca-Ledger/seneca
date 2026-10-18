@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs/promises';
 import { Repository } from 'typeorm';
@@ -6,6 +7,7 @@ import { readExifGps } from '../../../common/utils/exif-gps.util';
 import { Receipt, ReceiptJobStatus, ReceiptProcessingJob, ReceiptStatus } from '../../../entities';
 import { readEInvoice } from '../../e-invoices/einvoice-reader';
 import { parsedDocumentOf, summarizeEInvoice } from '../../e-invoices/einvoice-summary';
+import type { ReceiptNeedsReviewEvent } from '../../notifications/events/notification-events';
 import { UniversalExtractorService } from '../../parsing/services/universal-extractor.service';
 import { ReceiptCategoryService } from './receipt-category.service';
 import { ReceiptDuplicateService } from './receipt-duplicate.service';
@@ -29,6 +31,8 @@ export class ReceiptProcessorService {
     private readonly locationService: ReceiptLocationService,
     @Optional()
     private readonly matchService?: ReceiptMatchService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async processReceipt(job: ReceiptProcessingJob): Promise<Receipt | null> {
@@ -117,6 +121,7 @@ export class ReceiptProcessorService {
       }
       await this.locationService.applyAutoLocation(receipt);
 
+      const reviewReasons: string[] = [];
       if (typeof parsed.totalAmount === 'number' && Number.isFinite(parsed.totalAmount)) {
         const potentialDuplicates = await this.duplicateService.findPotentialDuplicates(receipt);
         if (potentialDuplicates.length > 0) {
@@ -125,11 +130,13 @@ export class ReceiptProcessorService {
             potentialDuplicates: potentialDuplicates.map(item => item.id),
           };
           receipt.status = ReceiptStatus.NEEDS_REVIEW;
+          reviewReasons.push('possible_duplicate');
         } else {
           receipt.status = ReceiptStatus.DRAFT;
         }
       } else {
         receipt.status = ReceiptStatus.NEEDS_REVIEW;
+        reviewReasons.push('missing_amount');
       }
 
       await this.categoryService.categorize(receipt);
@@ -144,6 +151,15 @@ export class ReceiptProcessorService {
       job.result = { receiptId: savedReceipt.id };
       job.error = null;
       await this.jobRepository.save(job);
+
+      if (reviewReasons.length > 0) {
+        this.eventEmitter?.emit('receipt.needs_review', {
+          workspaceId: savedReceipt.workspaceId,
+          receiptId: savedReceipt.id,
+          source: savedReceipt.source,
+          reasons: reviewReasons,
+        } satisfies ReceiptNeedsReviewEvent);
+      }
 
       this.logger.log(`Processed receipt ${savedReceipt.id}`);
       return savedReceipt;
