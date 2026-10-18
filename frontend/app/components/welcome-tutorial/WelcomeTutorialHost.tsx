@@ -5,32 +5,50 @@ import type React from 'react';
 import { useState } from 'react';
 import { useMarkWelcomeTutorialSeen } from './useMarkWelcomeTutorialSeen';
 import { useWelcomeTutorialAutoOpen } from './useWelcomeTutorialAutoOpen';
-import { closeWelcomeTutorial, useWelcomeTutorialOpen } from './welcome-tutorial-store';
+import { closeWelcomeTutorial, useWelcomeTutorialView } from './welcome-tutorial-store';
 
-// The dialog and its screenshots load only once the tutorial is opened.
+// Each window loads only once it is opened.
+const WelcomeWindow = dynamic(() => import('@/app/components/welcome-window/WelcomeWindow'), {
+  ssr: false,
+});
 const WelcomeTutorialDialog = dynamic(() => import('./WelcomeTutorialDialog'), { ssr: false });
 
 /**
- * Mounted once in the root layout. Opens the tutorial by itself for a new account
- * and shows it whenever the avatar menu asks for it.
+ * Counts the openings. Each one starts a fresh window; after closing, the window
+ * stays mounted so that its exit transition can play.
  */
-export function WelcomeTutorialHost(): React.JSX.Element | null {
-  const open = useWelcomeTutorialOpen();
-  const markSeen = useMarkWelcomeTutorialSeen();
-  // Each opening is a new session that starts from the intro; after closing, the
-  // dialog stays mounted so that its exit transition can play.
+function useOpenings(open: boolean): number {
   const [session, setSession] = useState({ open: false, count: 0 });
-  useWelcomeTutorialAutoOpen();
-
   if (open !== session.open) {
     setSession({ open, count: open ? session.count + 1 : session.count });
   }
-  if (session.count === 0) {
-    return null;
-  }
+  return session.count;
+}
+
+/**
+ * Mounted once in the root layout. Opens the welcome window by itself for a new
+ * account, and the guide whenever Settings asks for it.
+ */
+export function WelcomeTutorialHost(): React.JSX.Element {
+  const view = useWelcomeTutorialView();
+  const markSeen = useMarkWelcomeTutorialSeen();
+  const welcomeOpenings = useOpenings(view === 'welcome');
+  const guideOpenings = useOpenings(view === 'guide');
+  useWelcomeTutorialAutoOpen();
+
+  // Any way out of either window counts as seen: the welcome window does not come back.
   const handleClose = (): void => {
     closeWelcomeTutorial();
     markSeen();
   };
-  return <WelcomeTutorialDialog key={session.count} open={open} onClose={handleClose} />;
+  return (
+    <>
+      {welcomeOpenings > 0 && (
+        <WelcomeWindow key={welcomeOpenings} open={view === 'welcome'} onClose={handleClose} />
+      )}
+      {guideOpenings > 0 && (
+        <WelcomeTutorialDialog key={guideOpenings} open={view === 'guide'} onClose={handleClose} />
+      )}
+    </>
+  );
 }

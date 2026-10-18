@@ -129,6 +129,7 @@ function SidebarContent({
                 <Link
                   key={item.path}
                   href={item.path}
+                  data-hint={item.path === REVIEW_PATH ? 'nav-review' : undefined}
                   className={`lumio-sidebar__nav-item${active ? ' lumio-sidebar__nav-item--active' : ''}`}
                 >
                   {item.path === REVIEW_PATH ? (

@@ -214,3 +214,10 @@ export const UpdateMyPreferencesBody = Schema.Struct({
   mapStylePreference: optionalNullable(Schema.String.check(Schema.isMaxLength(64))),
 });
 export type UpdateMyPreferencesBody = Wire<typeof UpdateMyPreferencesBody>;
+
+/** `POST /users/me/page-hints`: the hints of `page` were closed up to `version`. */
+export const PageHintsSeenBody = Schema.Struct({
+  page: Schema.String.check(Schema.isPattern(/^[a-z][a-zA-Z0-9]{0,39}$/)),
+  version: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(1000)),
+});
+export type PageHintsSeenBody = Wire<typeof PageHintsSeenBody>;

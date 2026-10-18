@@ -25,5 +25,6 @@ export function toCurrentUser(user: User): CurrentUser {
     avatarUrl: user.avatarUrl,
     onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
     welcomeTutorialSeenAt: user.welcomeTutorialSeenAt?.toISOString() ?? null,
+    pageHintsSeen: user.pageHintsSeen ?? {},
   };
 }

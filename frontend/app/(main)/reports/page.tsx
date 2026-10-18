@@ -262,8 +262,16 @@ export default function ReportsPage(): React.JSX.Element {
           scrollButtons={false}
           sx={sharedMuiTabsSx}
         >
-          <Tab value="cash-flow" label={text('tabCashFlow', 'Cash flow')} />
-          <Tab value="templates" label={text('tabTemplates', 'Templates')} />
+          <Tab
+            value="cash-flow"
+            data-hint="reports-cash-flow"
+            label={text('tabCashFlow', 'Cash flow')}
+          />
+          <Tab
+            value="templates"
+            data-hint="reports-templates"
+            label={text('tabTemplates', 'Templates')}
+          />
           <Tab
             value="schedules"
             label={text('tabSchedules', 'Schedules')}

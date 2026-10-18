@@ -67,6 +67,12 @@ export const WelcomeTutorialSeen = Schema.Struct({
 });
 export type WelcomeTutorialSeen = Wire<typeof WelcomeTutorialSeen>;
 
+/** `POST` and `DELETE /users/me/page-hints`: page id → the highest hint version seen there. */
+export const PageHintsSeen = Schema.Struct({
+  pageHintsSeen: Schema.Record(Schema.String, Schema.Number),
+});
+export type PageHintsSeen = Wire<typeof PageHintsSeen>;
+
 /** `POST /receipts/place-suggestions`: shops near a fix, when the scan still needs a place. */
 export const PlaceSuggestions = Schema.Union([
   Schema.Struct({ needed: Schema.Literal(false) }),

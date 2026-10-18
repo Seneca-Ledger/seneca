@@ -17,7 +17,11 @@ export function StatementsUploadButton(): React.JSX.Element {
 
   return (
     <ReadOnlyHint>
-      <Button data-tour-id="statements-upload-trigger" onClick={onScan}>
+      <Button
+        data-tour-id="statements-upload-trigger"
+        data-hint="statements-upload"
+        onClick={onScan}
+      >
         <Plus size={18} aria-hidden />
         {resolveLabel(getNestedValue(t, ['uploadStatement']), 'Upload statement')}
       </Button>

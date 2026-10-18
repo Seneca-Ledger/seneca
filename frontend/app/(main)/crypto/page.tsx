@@ -99,7 +99,7 @@ export default function CryptoPage(): React.JSX.Element {
           }}
           onImport={importExchangeCsv}
         />
-        <Button variant="contained" onClick={() => setDrawerOpen(true)}>
+        <Button variant="contained" data-hint="crypto-connect" onClick={() => setDrawerOpen(true)}>
           <Plus size={18} aria-hidden />
           {t.connect}
         </Button>
