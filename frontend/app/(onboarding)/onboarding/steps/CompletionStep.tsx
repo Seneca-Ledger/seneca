@@ -124,7 +124,7 @@ export function CompletionStep({ data, mode }: CompletionStepProps) {
       >
         {text(
           ['completion', 'laterHint'],
-          'Mail import, file storage, AI and Telegram can be connected at any time under Integrations.',
+          'Mail import, file storage and Telegram can be connected at any time under Integrations.',
         )}
       </Box>
     </Box>

@@ -69,7 +69,7 @@ function ThresholdField({
   );
 }
 
-type SwitchKey = 'aiCategorization' | 'aiMerchantNormalization' | 'merchantLearning';
+type SwitchKey = 'merchantLearning';
 
 const SWITCHES: Array<{
   key: SwitchKey;
@@ -78,22 +78,6 @@ const SWITCHES: Array<{
   labelFallback: string;
   helpFallback: string;
 }> = [
-  {
-    key: 'aiCategorization',
-    label: 'aiCategorizationLabel',
-    help: 'aiCategorizationHelp',
-    labelFallback: 'AI categorisation',
-    helpFallback:
-      'Ask the model during import when rules and your corrections found nothing. Off means no AI influence at all.',
-  },
-  {
-    key: 'aiMerchantNormalization',
-    label: 'aiMerchantLabel',
-    help: 'aiMerchantHelp',
-    labelFallback: 'AI merchant names',
-    helpFallback:
-      'Keep a normalised name next to the raw statement text. The raw text is always kept.',
-  },
   {
     key: 'merchantLearning',
     label: 'learningLabel',
@@ -174,7 +158,7 @@ export function ProcessingSection({ tx, processing }: Props) {
               <Typography variant="caption" color="text.secondary">
                 {tx(
                   ['processingCard', 'orderHelp'],
-                  'Your pick → rules → keywords → your corrections → payee history → AI → “Uncategorised”. A category you picked by hand is never overwritten.',
+                  'Your pick → rules → keywords → your corrections → payee history → “Uncategorised”. A category you picked by hand is never overwritten.',
                 )}
               </Typography>
             </Stack>

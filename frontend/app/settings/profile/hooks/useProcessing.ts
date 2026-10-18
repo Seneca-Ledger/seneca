@@ -11,8 +11,6 @@ export type DuplicateResolution = (typeof duplicateResolutions)[number];
 export type ProcessingSettings = {
   categorizationThreshold: number;
   duplicateResolution: DuplicateResolution;
-  aiCategorization: boolean;
-  aiMerchantNormalization: boolean;
   merchantLearning: boolean;
 };
 
@@ -20,8 +18,6 @@ export type ProcessingSettings = {
 const DEFAULTS: ProcessingSettings = {
   categorizationThreshold: 0.7,
   duplicateResolution: 'skip',
-  aiCategorization: false,
-  aiMerchantNormalization: true,
   merchantLearning: true,
 };
 

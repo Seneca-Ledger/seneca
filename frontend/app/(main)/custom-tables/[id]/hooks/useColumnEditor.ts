@@ -24,7 +24,6 @@ export interface ColumnDraft {
   isRequired: boolean;
   isUnique: boolean;
   targetTableId: string;
-  prompt: string;
   /** Decimal places for number/currency/formula; empty means default. */
   precision: string;
   format: 'plain' | 'percent';
@@ -39,7 +38,6 @@ export const emptyColumnDraft = (currency = DEFAULT_COLUMN_CURRENCY): ColumnDraf
   isRequired: false,
   isUnique: false,
   targetTableId: '',
-  prompt: '',
   precision: '',
   format: 'plain',
   options: [],
@@ -58,7 +56,6 @@ export function draftFromColumn(
     isRequired: Boolean(column.isRequired),
     isUnique: Boolean(column.isUnique),
     targetTableId: typeof config.targetTableId === 'string' ? config.targetTableId : '',
-    prompt: typeof config.prompt === 'string' ? config.prompt : '',
     precision: typeof config.precision === 'number' ? String(config.precision) : '',
     format: config.format === 'percent' ? 'percent' : 'plain',
     options: normalizeSelectOptions(config),
@@ -100,8 +97,6 @@ export function buildColumnConfig(
       return { expression: draft.expression.trim(), ...numberFormatConfig(draft) };
     case 'relation':
       return { targetTableId: draft.targetTableId };
-    case 'ai':
-      return { prompt: draft.prompt.trim() };
     case 'select':
     case 'multi_select':
       return { options: normalizeSelectOptions({ options: draft.options }) };

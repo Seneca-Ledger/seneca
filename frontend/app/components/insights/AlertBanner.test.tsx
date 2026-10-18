@@ -76,7 +76,7 @@ describe('AlertBanner', () => {
 
   it('leaves an insight with no destination as a plain notice', async () => {
     apiMocks.get.mockResolvedValue({
-      data: insightPage([insight({ type: 'ai.summary', data: null })]),
+      data: insightPage([insight({ type: 'unknown.type', data: null })]),
     });
 
     renderWithQuery(<AlertBanner />);

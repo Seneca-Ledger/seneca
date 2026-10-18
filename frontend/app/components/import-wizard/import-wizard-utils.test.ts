@@ -50,7 +50,6 @@ describe('mapping helpers', () => {
       mappingFromSuggestion({
         target: 'payables',
         confidence: 0.8,
-        source: 'heuristic',
         alternatives: [],
         columns: [
           { index: 0, role: 'vendor' },

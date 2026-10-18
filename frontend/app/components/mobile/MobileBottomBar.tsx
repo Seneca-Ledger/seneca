@@ -20,7 +20,7 @@ import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
 import { isNavItemActive } from '../navigation/helpers/navigation-config';
 import { MobileMenuDrawer } from './MobileMenuDrawer';
 
-const HIDDEN_PATHS = ['/onboarding', ...AUTH_ROUTE_PREFIXES, '/shared', '/invite', '/chat'];
+const HIDDEN_PATHS = ['/onboarding', ...AUTH_ROUTE_PREFIXES, '/shared', '/invite'];
 
 const FAB_ACTIONS = [
   {

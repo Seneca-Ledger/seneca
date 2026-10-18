@@ -31,7 +31,6 @@ export interface ColumnDialogLabels {
   addOption: string;
   removeOption: string;
   relationTarget: string;
-  prompt: string;
   required: string;
   unique: string;
   save: string;
@@ -62,7 +61,6 @@ const COLUMN_TYPES: ColumnType[] = [
   'multi_select',
   'formula',
   'relation',
-  'ai',
 ];
 
 const NUMERIC: ReadonlySet<ColumnType> = new Set(['number', 'currency', 'formula']);
@@ -208,17 +206,6 @@ function TypeFields({
             ]}
           />
         </div>
-      ) : null}
-      {draft.type === 'ai' ? (
-        <label className="lumio-ct__field lumio-ct__field--wide">
-          <span className="lumio-ct__label">{labels.prompt}</span>
-          <textarea
-            className="lumio-ct__input"
-            rows={3}
-            value={draft.prompt}
-            onChange={event => patch({ prompt: event.target.value })}
-          />
-        </label>
       ) : null}
       {draft.type === 'select' || draft.type === 'multi_select' ? (
         <OptionsEditor

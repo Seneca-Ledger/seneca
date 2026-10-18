@@ -11,14 +11,12 @@ import {
   Landmark,
   LayoutDashboard,
   Lightbulb,
-  MessageCircle,
   PiggyBank,
   Plug,
   Puzzle,
   ReceiptText,
   Scale,
   ScrollText,
-  Sparkles,
   Table,
   TrendingUp,
   Wallet,
@@ -206,23 +204,8 @@ export function buildUserMenuNavItems(nav: {
   activityLog: unknown;
   integrations: unknown;
   plugins: unknown;
-  aiAnalysis: unknown;
-  chatMode: unknown;
 }): NavItem[] {
   return [
-    {
-      label: nav.aiAnalysis as ReactNode,
-      path: '/ai-analysis',
-      icon: React.createElement(Sparkles, { size: 18 }),
-      permission: 'statement.view',
-    },
-    {
-      label: nav.chatMode as ReactNode,
-      path: '/chat',
-      icon: React.createElement(MessageCircle, { size: 18 }),
-      permission: 'statement.view',
-      experimental: true,
-    },
     {
       label: nav.integrations as ReactNode,
       path: '/integrations',

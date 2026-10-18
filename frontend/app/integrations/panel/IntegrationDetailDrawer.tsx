@@ -1,7 +1,6 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { ExternalLink } from '@/app/components/icons';
@@ -35,26 +34,10 @@ function DetailBody({
     return <BankSyncPanel onConnectionChange={onConnectionChange} />;
   }
 
-  const { config, secondary } = entry.detail;
+  const { config } = entry.detail;
 
   return (
-    <>
-      <ProtocolIntegrationPage {...config} embedded onConnectionStatusChange={onConnectionChange} />
-      {secondary ? (
-        <>
-          <Divider sx={{ my: 2 }} />
-          <Box>
-            <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary' }}>
-              {secondary.title}
-            </Typography>
-            <Typography sx={{ fontSize: 13, lineHeight: 1.6, color: 'text.secondary' }}>
-              {secondary.description}
-            </Typography>
-          </Box>
-          <ProtocolIntegrationPage {...secondary} embedded />
-        </>
-      ) : null}
-    </>
+    <ProtocolIntegrationPage {...config} embedded onConnectionStatusChange={onConnectionChange} />
   );
 }
 
