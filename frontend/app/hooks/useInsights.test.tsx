@@ -58,6 +58,26 @@ describe('useInsights', () => {
     expect(result.current.items.map(item => item.id)).toEqual(['a', 'c']);
   });
 
+  it('names a system category in the reader\'s language inside the text', async () => {
+    const meals = {
+      ...insight('m', 'info'),
+      title: '"Meals and entertainment" takes most of leisure',
+      message: '84% went to "Meals and entertainment".',
+      messageParams: { category: 'Meals and entertainment', percent: 84 },
+    };
+    const own = { ...insight('o', 'info'), messageParams: { category: 'Studio rent' } };
+    apiMocks.get.mockResolvedValue({ data: insightPage([meals, own]) });
+
+    const { result } = renderHookWithQuery(() => useInsights({ severities: ['info'] }));
+
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+    const [localized, untouched] = result.current.items;
+    expect(localized?.title).toBe('"Bewirtung und Repräsentation" takes most of leisure');
+    expect(localized?.message).toBe('84% went to "Bewirtung und Repräsentation".');
+    // A category the user named has no translation and stays as typed.
+    expect(untouched).toEqual(own);
+  });
+
   it('asks for the feed in the interface language, not the profile one', async () => {
     apiMocks.get.mockResolvedValue({ data: insightPage([]) });
 
