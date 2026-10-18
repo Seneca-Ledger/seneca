@@ -118,6 +118,7 @@ Lumio is a full-stack platform for importing, categorizing and analyzing bank st
 - **Audit Log** — Complete event trail with one-click rollback for supported operations.
 - **Webhooks** — Outbound event delivery to subscribed endpoints with token-based authentication.
 - **API Keys** — Programmatic access via `lum_`-prefixed, SHA-256 hashed keys with revocation support.
+- **MCP** — AI agents (Claude Code, Claude Desktop, any MCP client) connect to `/api/v1/mcp` with an API key; tools follow the key's scopes and their writes are audited as the key.
 - **Budgets** — Budget tracking with manual spend recording and alerts.
 - **Subscriptions** — Recurring billing detection and management with frequency-based tracking.
 - **Goals & Net Worth** — Savings goals with progress tracking, and net worth aggregated across accounts, wallets, investments, precious metals and crypto holdings.
@@ -295,6 +296,7 @@ lumio/
 │   ├── src/
 │   │   ├── modules/                 # 65 feature modules
 │   │   │   ├── api-keys/            # Programmatic API key management
+│   │   │   ├── mcp/                 # MCP endpoint (/api/v1/mcp) for AI agents, behind API keys
 │   │   │   ├── application-settings/ # Runtime system configuration
 │   │   │   ├── auth/                # Cookie sessions, CSRF, 2FA, password reset
 │   │   │   ├── users/               # User CRUD, avatars, backgrounds, email change, permissions
@@ -414,7 +416,6 @@ lumio/
 │   └── statements-examples/         # Sample bank statement files for testing
 ├── infra/
 │   └── maps/                        # Tile server assets and config for the `maps` profile
-├── mcp-server/                      # Claude MCP server integration
 ├── website/                         # Docusaurus documentation site
 ├── scripts/                         # Shell helper scripts
 │   ├── generate-env.sh              # Generate .env files with random secrets
