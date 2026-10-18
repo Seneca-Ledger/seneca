@@ -22,7 +22,7 @@ export function useStatementReviewCounts(enabled: boolean): Record<string, numbe
         signal,
         contract: 'ReviewInboxByStatement',
       }),
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
   });
   return query.data ?? NO_COUNTS;
 }

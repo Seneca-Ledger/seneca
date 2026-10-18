@@ -41,7 +41,7 @@ function useConnectionStatuses(enabled: boolean): {
 
   const query = useQuery({
     queryKey,
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
     queryFn: async () => {
       const entries = catalog.filter(entry => entry.statusPath);
       const pairs = await Promise.all(

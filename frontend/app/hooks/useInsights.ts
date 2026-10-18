@@ -62,6 +62,7 @@ export function useInsights({ severities }: UseInsightsOptions): UseInsightsStat
         drift: 'report',
       }),
     select: selectBySeverity,
+    enabled: Boolean(workspaceId),
   });
 
   const dismissMutation = useMutation({

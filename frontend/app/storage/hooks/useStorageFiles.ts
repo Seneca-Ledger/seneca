@@ -79,6 +79,7 @@ export function useStorageFiles(
         signal,
         contract: 'StorageFileList',
       }),
+    enabled: Boolean(workspaceId),
   });
 
   const loadFailed = filesQuery.isError;

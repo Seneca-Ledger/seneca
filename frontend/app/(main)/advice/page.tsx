@@ -13,6 +13,7 @@ import { insightHref } from '@/app/components/insights/insight-href';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { BulbLineIcon } from '@/app/components/ui/empty-state-icons';
 import { type Insight, useInsights, useRefreshInsights } from '@/app/hooks/useInsights';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -216,9 +217,13 @@ export default function AdvicePage() {
   const triggerRefresh = refreshInsights.mutate;
   // Switching the interface language rewrites the advice in it.
   const { locale } = useLocale();
+  // Waits for the workspace: without one the server answers 403 (a fresh browser).
+  const workspaceId = useWorkspaceId();
   useEffect(() => {
-    triggerRefresh(locale);
-  }, [triggerRefresh, locale]);
+    if (workspaceId) {
+      triggerRefresh(locale);
+    }
+  }, [triggerRefresh, locale, workspaceId]);
 
   return (
     <Box

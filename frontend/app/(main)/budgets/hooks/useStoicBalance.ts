@@ -77,6 +77,7 @@ export function useStoicBalance(): {
     queryKey: queryKeys.stoicBalance(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/budgets/stoic-balance', signal, contract: 'StoicBalance' }),
+    enabled: Boolean(workspaceId),
   });
 
   const classify = useMutation({

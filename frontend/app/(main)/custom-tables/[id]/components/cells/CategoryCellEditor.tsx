@@ -38,6 +38,7 @@ export function CategoryCellEditor({
     queryKey: queryKeys.categories(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
+    enabled: Boolean(workspaceId),
   });
   const categories = (categoriesQuery.data ?? []).filter(category => category.isEnabled !== false);
   const selectedId = categories.find(category => category.name === current)?.id ?? '';

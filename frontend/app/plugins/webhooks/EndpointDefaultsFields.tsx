@@ -27,10 +27,12 @@ export function EndpointDefaultsFields({
   const wallets = useQuery({
     queryKey: queryKeys.wallets(workspaceId),
     queryFn: ({ signal }) => apiQueryDecoded({ url: '/wallets', signal, contract: 'WalletList' }),
+    enabled: Boolean(workspaceId),
   });
   const branches = useQuery({
     queryKey: queryKeys.branches(workspaceId),
     queryFn: ({ signal }) => apiQueryDecoded({ url: '/branches', signal, contract: 'BranchList' }),
+    enabled: Boolean(workspaceId),
   });
   const none = { value: '', label: t.noDefault.value };
 

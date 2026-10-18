@@ -131,6 +131,7 @@ export default function UsersManagementPage() {
   const usersQuery = useQuery({
     queryKey: queryKeys.adminUsers(workspaceId),
     queryFn: ({ signal }) => apiQueryDecoded({ url: '/users', signal, contract: 'AdminUserList' }),
+    enabled: Boolean(workspaceId),
   });
 
   const users = usersQuery.data ?? [];
