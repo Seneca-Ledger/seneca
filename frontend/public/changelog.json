@@ -1,14 +1,170 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "c51bafbef19c78284453f42f59c029090a3324d6"
+      "main": "a376de9aafc38d63c937098a7d54741b63d5e2c2"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-18T09:45:42.023Z",
+    "lastGeneratedAt": "2026-10-18T09:51:29.949Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-18-a376de9",
+      "version": "main-a376de9",
+      "branch": "main",
+      "date": "2026-10-18T09:51:29.949Z",
+      "title": "Release update - October 18, 2026",
+      "summary": "This release includes 3 features and 1 fix.",
+      "markdown": "## Features\n- **webhooks**: Events for what happens in the app, not three of it\n- **webhooks**: The drawer shows every event, the upload URLs and the delivery log\n- **ai-assistant**: Richer prompts and goals/subscriptions cards\n\n## Fixes\n- **webhooks**: An invoice closed by a credit note is announced as paid",
+      "commits": [
+        {
+          "sha": "c78697f17470573b442cde15effce23f21722e87",
+          "shortSha": "c78697f1",
+          "subject": "feat(webhooks): events for what happens in the app, not three of it",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T10:48:36+03:00",
+          "files": [
+            "backend/@tests/e2e/webhook-events.e2e-spec.ts",
+            "backend/@tests/unit/modules/receipts/receipt-processor.service.spec.ts",
+            "backend/@tests/unit/modules/receipts/receipts.service.spec.ts",
+            "backend/@tests/unit/modules/review-inbox/review-inbox.service.spec.ts",
+            "backend/@tests/unit/modules/webhooks/webhook-events.listener.spec.ts",
+            "backend/src/contracts/requests/webhooks.ts",
+            "backend/src/contracts/webhooks/webhooks.ts",
+            "backend/src/entities/webhook-subscription.entity.ts",
+            "backend/src/modules/budgets/budget-events.listener.ts",
+            "backend/src/modules/budgets/budgets.service.ts",
+            "backend/src/modules/crypto/crypto-import.service.ts",
+            "backend/src/modules/crypto/crypto-sync.service.ts",
+            "backend/src/modules/custom-tables/custom-tables.service.ts",
+            "backend/src/modules/entity-imports/entity-import.service.ts",
+            "backend/src/modules/gmail/gmail-receipt-processor.ts",
+            "backend/src/modules/import/services/import-session.service.ts",
+            "backend/src/modules/notifications/events/notification-events.ts",
+            "backend/src/modules/parsing/services/statement-processing.service.ts",
+            "backend/src/modules/payables/payables.service.ts",
+            "backend/src/modules/receipts/receipts.service.ts",
+            "backend/src/modules/receipts/services/receipt-processor.service.ts",
+            "backend/src/modules/review-inbox/review-inbox.service.ts",
+            "backend/src/modules/statements/services/receipt-statement.service.ts",
+            "backend/src/modules/statements/statements.service.ts",
+            "backend/src/modules/webhooks/webhook-events.listener.ts",
+            "backend/src/modules/webhooks/webhook-payloads.ts",
+            "frontend/app/lib/contracts/requests/webhooks.ts",
+            "frontend/app/lib/contracts/webhooks/webhooks.ts",
+            "packages/contracts/src/requests/webhooks.ts",
+            "packages/contracts/src/webhooks/webhooks.ts",
+            "website/docs/guides/webhooks.md",
+            "website/sidebars.ts"
+          ]
+        },
+        {
+          "sha": "c3aa64afefdbcca21776f64f07fe2103852d7ec6",
+          "shortSha": "c3aa64af",
+          "subject": "fix(webhooks): an invoice closed by a credit note is announced as paid",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T10:56:07+03:00",
+          "files": [
+            "backend/@tests/integration/credit-notes.spec.ts",
+            "backend/src/modules/invoices/credit-notes.service.ts",
+            "backend/src/modules/payables/payables.service.ts"
+          ]
+        },
+        {
+          "sha": "1c0c2eacd6979f380273dda763d6c0c3f5470aa6",
+          "shortSha": "1c0c2eac",
+          "subject": "test(webhooks): switch webhooks on before expecting deliveries",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T11:27:09+03:00",
+          "files": [
+            "backend/@tests/e2e/webhook-events.e2e-spec.ts"
+          ]
+        },
+        {
+          "sha": "b56bbda904b320d69730f5a42850b82c8633273f",
+          "shortSha": "b56bbda9",
+          "subject": "feat(webhooks): the drawer shows every event, the upload URLs and the delivery log",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T11:13:12+03:00",
+          "files": [
+            "backend/@tests/e2e/webhook-events.e2e-spec.ts",
+            "backend/src/contracts/webhooks/webhooks.ts",
+            "backend/src/modules/webhooks/webhook-subscriptions.controller.ts",
+            "frontend/app/lib/contracts/webhooks/webhooks.ts",
+            "frontend/app/lib/query-keys.ts",
+            "frontend/app/plugins/webhooks/EndpointDefaultsFields.tsx",
+            "frontend/app/plugins/webhooks/WebhookDeliveryLog.test.tsx",
+            "frontend/app/plugins/webhooks/WebhookDeliveryLog.tsx",
+            "frontend/app/plugins/webhooks/WebhookEventPicker.test.tsx",
+            "frontend/app/plugins/webhooks/WebhookEventPicker.tsx",
+            "frontend/app/plugins/webhooks/WebhooksDrawer.content.ts",
+            "frontend/app/plugins/webhooks/WebhooksDrawer.test.tsx",
+            "frontend/app/plugins/webhooks/WebhooksDrawer.tsx",
+            "frontend/app/plugins/webhooks/useWebhooks.ts",
+            "frontend/app/plugins/webhooks/webhook-events.ts",
+            "frontend/app/plugins/webhooks/webhook-urls.test.ts",
+            "frontend/app/plugins/webhooks/webhook-urls.ts",
+            "packages/contracts/src/webhooks/webhooks.ts"
+          ]
+        },
+        {
+          "sha": "19f4bc8380dd23d5bdc10a52abae44ccb7e2dacc",
+          "shortSha": "19f4bc83",
+          "subject": "feat(ai-assistant): richer prompts and goals/subscriptions cards",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T11:43:09+03:00",
+          "files": [
+            "frontend/app/plugins/ai-assistant/AiAssistantDrawer.content.ts",
+            "frontend/app/plugins/ai-assistant/AiAssistantDrawer.test.tsx",
+            "frontend/app/plugins/ai-assistant/AiAssistantDrawer.tsx",
+            "frontend/app/plugins/ai-assistant/prompt-templates.test.ts",
+            "frontend/app/plugins/ai-assistant/prompt-templates.ts"
+          ]
+        },
+        {
+          "sha": "69ab010519424dba078dd452b23d290bbb337988",
+          "shortSha": "69ab0105",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-18T09:45:42Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "cd43886baa85f3fea157a3d3a4501814511148ba",
+          "shortSha": "cd43886b",
+          "subject": "Merge pull request #328 from symonbaikov/feat/webhook-events",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T12:50:47+03:00",
+          "files": [
+            "backend/src/modules/budgets/budgets.service.ts",
+            "backend/src/modules/crypto/crypto-sync.service.ts",
+            "backend/src/modules/gmail/gmail-receipt-processor.ts",
+            "backend/src/modules/payables/payables.service.ts"
+          ]
+        },
+        {
+          "sha": "f9410ff109d243caf4da605e6c0d93ea3755a102",
+          "shortSha": "f9410ff1",
+          "subject": "Merge pull request #329 from symonbaikov/feat/webhooks-drawer",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T12:51:02+03:00",
+          "files": [
+            "frontend/app/lib/query-keys.ts"
+          ]
+        },
+        {
+          "sha": "a376de9aafc38d63c937098a7d54741b63d5e2c2",
+          "shortSha": "a376de9a",
+          "subject": "Merge pull request #331 from symonbaikov/feat/ai-assistant-prompts",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T12:51:06+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-18-c51bafb",
       "version": "main-c51bafb",
