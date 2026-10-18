@@ -2,16 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Category, Receipt } from '@/entities';
 import { TransactionCategorySource, TransactionType } from '@/entities/transaction.entity';
-import { AiCategoryClassifier } from '@/modules/classification/helpers/ai-category-classifier.helper';
 import { ClassificationService } from '@/modules/classification/services/classification.service';
 import { ReceiptCategoryService } from '@/modules/receipts/services/receipt-category.service';
 
 describe('ReceiptCategoryService', () => {
   let service: ReceiptCategoryService;
   let categoryRepository: { findOne: jest.Mock };
-  let classification: { suggestForPayee: jest.Mock; isAiCategorizationEnabled: jest.Mock };
-  let isAvailableSpy: jest.SpyInstance;
-  let classifySpy: jest.SpyInstance;
+  let classification: { suggestForPayee: jest.Mock };
 
   const receipt = (parsedData: Receipt['parsedData']) =>
     ({ workspaceId: 'workspace-1', userId: 'user-1', parsedData }) as Receipt;
@@ -20,7 +17,6 @@ describe('ReceiptCategoryService', () => {
     categoryRepository = { findOne: jest.fn() };
     classification = {
       suggestForPayee: jest.fn(async () => null),
-      isAiCategorizationEnabled: jest.fn(async () => false),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -32,18 +28,6 @@ describe('ReceiptCategoryService', () => {
     }).compile();
 
     service = module.get(ReceiptCategoryService);
-
-    isAvailableSpy = jest
-      .spyOn(AiCategoryClassifier.prototype, 'isAvailable')
-      .mockReturnValue(true);
-    classifySpy = jest
-      .spyOn(AiCategoryClassifier.prototype, 'classifyBatch')
-      .mockResolvedValue({ matches: [], failedCount: 0 });
-  });
-
-  afterEach(() => {
-    isAvailableSpy.mockRestore();
-    classifySpy.mockRestore();
   });
 
   describe('the category of a receipt vendor', () => {
@@ -136,36 +120,6 @@ describe('ReceiptCategoryService', () => {
     it('does not match keywords when no category corresponds', () => {
       const categories = [{ id: 'salary', name: 'Зарплата' }] as Category[];
       expect(service.matchByKeywords('Кафе Пушкин', categories)).toBeNull();
-    });
-
-    it('does not ask the model unless the workspace turned it on', async () => {
-      const categories = [{ id: 'food', name: 'Продукты' }] as Category[];
-
-      const result = await service.classifyDescriptions(
-        receipt({ vendor: 'Magnum' }),
-        ['Молоко'],
-        categories,
-      );
-
-      expect(result).toEqual([null]);
-      expect(classifySpy).not.toHaveBeenCalled();
-    });
-
-    it('asks the model about line items when the workspace turned it on', async () => {
-      classification.isAiCategorizationEnabled.mockResolvedValue(true);
-      classifySpy.mockResolvedValue({
-        matches: [{ index: 0, categoryName: 'Продукты', categoryId: 'food', confidence: 0.95 }],
-        failedCount: 0,
-      });
-      const categories = [{ id: 'food', name: 'Продукты' }] as Category[];
-
-      const result = await service.classifyDescriptions(
-        receipt({ vendor: 'Magnum' }),
-        ['Молоко'],
-        categories,
-      );
-
-      expect(result).toEqual(['food']);
     });
   });
 });

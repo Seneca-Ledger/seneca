@@ -147,9 +147,7 @@ export class TelegramScheduler {
         if (!workspaceId) {
           continue;
         }
-        const { newInsights } = await this.insightsService.refresh(user.id, workspaceId, {
-          phrase: false,
-        });
+        const { newInsights } = await this.insightsService.refresh(user.id, workspaceId);
         const urgent = newInsights.filter(
           insight =>
             insight.severity === InsightSeverity.WARN ||

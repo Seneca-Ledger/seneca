@@ -23,7 +23,7 @@ const createRepositoryMock = () => ({
 const TABLE_ID = "11111111-1111-4111-8111-111111111111";
 
 const buildCustomTablesService = (classificationService?: {
-	classifyTransactionsBatch: jest.Mock;
+	classifyTransaction: jest.Mock;
 }) => {
 	const customTableRepository = createRepositoryMock();
 	const categoryRepository = createRepositoryMock();
@@ -208,14 +208,10 @@ describe("CustomTablesService.convertToStatement", () => {
 
 	it("categorizes converted transactions through the workspace classifier", async () => {
 		const classificationService = {
-			classifyTransactionsBatch: jest
-				.fn()
-				.mockResolvedValue(new Map([[0, { categoryId: "cat-food" }]])),
-			// Rules and learning find nothing, so the model's answer is taken.
 			classifyTransaction: jest.fn().mockResolvedValue({
-				categoryId: "cat-none",
-				categorySource: "default",
-				categoryReason: null,
+				categoryId: "cat-food",
+				categorySource: "history",
+				categoryReason: "Magnum",
 			}),
 		};
 		const {
@@ -267,22 +263,17 @@ describe("CustomTablesService.convertToStatement", () => {
 
 		await service.convertToStatement("user-1", "workspace-1", TABLE_ID);
 
-		expect(
-			classificationService.classifyTransactionsBatch,
-		).toHaveBeenCalledWith(
-			[
-				{
-					index: 0,
-					counterpartyName: "Magnum",
-					paymentPurpose: "Magnum",
-					transactionType: "expense",
-				},
-			],
-			"workspace-1",
+		expect(classificationService.classifyTransaction).toHaveBeenCalledWith(
+			expect.objectContaining({ counterpartyName: "Magnum" }),
+			"user-1",
 		);
 		expect(transactionRepository.update).toHaveBeenCalledWith(
 			{ id: "tx-0" },
-			{ categoryId: "cat-food", categorySource: "ai", categoryReason: null },
+			{
+				categoryId: "cat-food",
+				categorySource: "history",
+				categoryReason: "Magnum",
+			},
 		);
 	});
 

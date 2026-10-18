@@ -5,12 +5,10 @@ import {
 } from '@/common/utils/workspace-processing.util';
 
 describe('readProcessingSettings', () => {
-  it('keeps the model out of categorisation unless the workspace turns it on', () => {
+  it('falls back to the defaults', () => {
     expect(readProcessingSettings(null)).toEqual({
       categorizationThreshold: 0.7,
       duplicateResolution: 'skip',
-      aiCategorization: false,
-      aiMerchantNormalization: true,
       merchantLearning: true,
     });
     expect(readProcessingSettings({ settings: null })).toEqual(DEFAULT_PROCESSING_SETTINGS);
@@ -22,7 +20,6 @@ describe('readProcessingSettings', () => {
       processing: {
         categorizationThreshold: 0.4,
         duplicateResolution: 'skip',
-        aiCategorization: false,
         merchantLearning: false,
       },
     };
@@ -30,8 +27,6 @@ describe('readProcessingSettings', () => {
     expect(readProcessingSettings({ settings })).toEqual({
       categorizationThreshold: 0.4,
       duplicateResolution: 'skip',
-      aiCategorization: false,
-      aiMerchantNormalization: true,
       merchantLearning: false,
     });
   });
@@ -72,8 +67,6 @@ describe('mergeProcessingSettings', () => {
     expect(merged.processing).toEqual({
       categorizationThreshold: 0.5,
       duplicateResolution: 'mark_duplicate',
-      aiCategorization: false,
-      aiMerchantNormalization: true,
       merchantLearning: true,
     });
   });
@@ -82,8 +75,6 @@ describe('mergeProcessingSettings', () => {
     expect(mergeProcessingSettings(null, { categorizationThreshold: 0.9 }).processing).toEqual({
       categorizationThreshold: 0.9,
       duplicateResolution: 'skip',
-      aiCategorization: false,
-      aiMerchantNormalization: true,
       merchantLearning: true,
     });
   });

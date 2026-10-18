@@ -188,13 +188,6 @@ export const ReorderCustomTableColumnsBody = Schema.Struct({
 });
 export type ReorderCustomTableColumnsBody = Wire<typeof ReorderCustomTableColumnsBody>;
 
-export const FillAiColumnBody = Schema.Struct({
-  columnKey: Schema.String.check(Schema.isMinLength(1)),
-  /** Заполняем только выбранные строки: запрос к модели стоит денег. */
-  rowIds: Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(200)),
-});
-export type FillAiColumnBody = Wire<typeof FillAiColumnBody>;
-
 export const ClassifyPaidStatusBody = Schema.Struct({
   rowIds: Schema.Array(Schema.String).check(Schema.isMinLength(1), Schema.isMaxLength(200)),
 });

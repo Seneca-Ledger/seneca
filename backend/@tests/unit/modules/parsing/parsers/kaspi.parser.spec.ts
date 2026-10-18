@@ -1,6 +1,5 @@
 import { extractTablesFromPdf, extractTextFromPdf } from '@/common/utils/pdf-parser.util';
 import { BankName, FileType } from '@/entities/statement.entity';
-import { AiTransactionExtractor } from '@/modules/parsing/helpers/ai-transaction-extractor.helper';
 import { KaspiParser } from '@/modules/parsing/parsers/kaspi.parser';
 
 jest.mock('@/common/utils/advanced-language-detector.util', () => ({
@@ -20,7 +19,6 @@ jest.mock('@/common/utils/pdf-parser.util', () => ({
 }));
 
 describe('KaspiParser', () => {
-  let aiAvailableSpy: jest.SpyInstance;
   const expectDateParts = (date: Date | null | undefined, expected: string) => {
     expect(date).toBeInstanceOf(Date);
     if (!date) {
@@ -34,13 +32,6 @@ describe('KaspiParser', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    aiAvailableSpy = jest
-      .spyOn(AiTransactionExtractor.prototype, 'isAvailable')
-      .mockReturnValue(false);
-  });
-
-  afterEach(() => {
-    aiAvailableSpy.mockRestore();
   });
 
   describe('canParse', () => {

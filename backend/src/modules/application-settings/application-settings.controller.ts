@@ -18,7 +18,6 @@ import { Permission } from '../../common/enums/permissions.enum';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import {
   LocalCategorizationStatus,
-  SaveAiSettingsBody,
   SaveAppSettingsBody,
   SaveLocalCategorizationBody,
   SaveSmtpSettingsBody,
@@ -38,59 +37,6 @@ type UploadedModelArchive = {
 @Controller('settings')
 export class ApplicationSettingsController {
   constructor(private readonly applicationSettingsService: ApplicationSettingsService) {}
-
-  @Get('integrations/ai')
-  @UseGuards(WorkspaceContextGuard)
-  getAi(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
-    return this.applicationSettingsService.getAiStatus(user, workspaceId);
-  }
-
-  @Put('integrations/ai')
-  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  saveAi(
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-    @SchemaBody(SaveAiSettingsBody) body: SaveAiSettingsBody,
-  ) {
-    return this.applicationSettingsService.saveAiSettings(user, body, workspaceId);
-  }
-
-  @Delete('integrations/ai')
-  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  disconnectAi(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
-    return this.applicationSettingsService.disconnect(
-      user,
-      WorkspaceServiceSettingsKey.AI,
-      workspaceId,
-    );
-  }
-
-  /**
-   * A member's own AI key for chat mode. No WORKSPACE_SETTINGS_MANAGE on
-   * purpose: these credentials belong to the caller, are stored per
-   * (user, workspace), and serve only that member's chat.
-   */
-  @Get('integrations/ai/personal')
-  @UseGuards(WorkspaceContextGuard)
-  getPersonalAi(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
-    return this.applicationSettingsService.getPersonalAiStatus(user, workspaceId);
-  }
-
-  @Put('integrations/ai/personal')
-  @UseGuards(WorkspaceContextGuard)
-  savePersonalAi(
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-    @SchemaBody(SaveAiSettingsBody) body: SaveAiSettingsBody,
-  ) {
-    return this.applicationSettingsService.savePersonalAiSettings(user, body, workspaceId);
-  }
-
-  @Delete('integrations/ai/personal')
-  @UseGuards(WorkspaceContextGuard)
-  disconnectPersonalAi(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
-    return this.applicationSettingsService.disconnectPersonalAi(user, workspaceId);
-  }
 
   @Get('local-categorization')
   @UseGuards(WorkspaceContextGuard)

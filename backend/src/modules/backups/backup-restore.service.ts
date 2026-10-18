@@ -34,10 +34,17 @@ const RESTORE_ORDER = [
 
 /**
  * Collections that older backups may carry but whose tables no longer exist
- * (the Google Sheets import jobs went with the integration). Skipped on
- * restore so those archives still restore instead of failing as unsupported.
+ * (the Google Sheets import jobs went with the integration, the AI chat and
+ * its embeddings with the external models). Skipped on restore so those
+ * archives still restore instead of failing as unsupported.
  */
-const REMOVED_COLLECTIONS = new Set(['custom_table_import_jobs']);
+const REMOVED_COLLECTIONS = new Set([
+  'custom_table_import_jobs',
+  'ai_chats',
+  'ai_chat_messages',
+  'transaction_embeddings',
+  'user_ai_settings',
+]);
 
 /**
  * Collections that backups made before they were excluded still carry, and
@@ -52,7 +59,6 @@ const UNRESTORABLE_COLLECTIONS = new Set([
   // the same user's live insights would collide.
   'insights',
   'users',
-  'user_ai_settings',
   'workspace_invitations',
   'workspace_members',
 ]);

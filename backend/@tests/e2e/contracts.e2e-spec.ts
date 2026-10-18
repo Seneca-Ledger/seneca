@@ -26,8 +26,6 @@ import {
   AccountLedger,
   AdminUserList,
   AgeingReport,
-  AiChatList,
-  AiChatTranscript,
   AllocationSuggestion,
   AvailableCustomTables,
   BackupConfiguration,
@@ -40,8 +38,6 @@ import {
   CashFlowMap,
   CategoryList,
   CategoryUsageCount,
-  ChatCompletionStatus,
-  ChatSummary,
   Client,
   ClientList,
   CreatedCustomTable,
@@ -178,7 +174,6 @@ import {
   TransactionAttachmentList,
   TransactionCandidates,
   TransactionList,
-  TransactionSearchResult,
   TrialBalance,
   TwoFactorSetup,
   TwoFactorStatus,
@@ -1307,15 +1302,6 @@ describe('API contracts (e2e)', () => {
 
     beforeAll(async () => {
       transactionId = (await get('/transactions')).body.data[0].id;
-      const chat = await send('post', '/ai-analysis/chats', {
-        modelId: 'local-model',
-        firstQuestion: 'Where does my money go?',
-      }).expect(201);
-      await send('post', `/ai-analysis/chats/${chat.body.id}/messages`, {
-        role: 'assistant',
-        content: 'Mostly coffee.',
-        actionPayload: { kind: 'none' },
-      }).expect(201);
       await send('post', '/notes', {
         entityType: 'transaction',
         entityId: transactionId,
@@ -1340,15 +1326,6 @@ describe('API contracts (e2e)', () => {
         secret: 'contract-signing-secret',
         events: ['transaction.created'],
       }).expect(201);
-    });
-
-    it('GET the AI chats, one transcript and the completion status', async () => {
-      const chats = await get('/ai-analysis/chats');
-      matches(AiChatList, chats.body);
-      const transcript = await get(`/ai-analysis/chats/${chats.body[0].id}`);
-      matches(AiChatTranscript, transcript.body);
-      expect(transcript.body.messages.length).toBeGreaterThan(0);
-      matches(ChatCompletionStatus, (await get('/ai-analysis/completions/status')).body);
     });
 
     it('GET activity, a usage count, a rate, the daily quote and the map styles', async () => {
@@ -1795,15 +1772,6 @@ describe('API contracts (e2e)', () => {
         CreatedWebhookEndpoint,
         (await call('post', '/webhook-endpoints', { name: 'Action endpoint' }).expect(succeeded)).body,
       );
-      matches(
-        ChatSummary,
-        (
-          await call('post', '/ai-analysis/chats', {
-            modelId: 'local-model',
-            firstQuestion: 'Anything new?',
-          }).expect(succeeded)
-        ).body,
-      );
       const clients = await get('/clients');
       // A write answers with the bare row; the page reads the invoice back whole.
       const invoice = await call('post', '/invoices', {
@@ -1815,10 +1783,6 @@ describe('API contracts (e2e)', () => {
           }).expect(succeeded);
       matches(InvoiceCreated, invoice.body);
       matches(XRechnungCheck, (await get(`/invoices/${invoice.body.id}/xrechnung/check`)).body);
-      matches(
-        TransactionSearchResult,
-        (await call('post', '/ai-analysis/search', { query: 'coffee' }).expect(succeeded)).body,
-      );
     });
   });
 

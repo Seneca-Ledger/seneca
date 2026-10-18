@@ -1,5 +1,5 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
@@ -23,31 +23,14 @@ import {
 } from '../../../entities/transaction.entity';
 import { Wallet } from '../../../entities/wallet.entity';
 import { Workspace } from '../../../entities/workspace.entity';
-import { ApplicationSettingsService } from '../../application-settings/application-settings.service';
 import { AuditService } from '../../audit/audit.service';
-import { CategoriesService } from '../../categories/categories.service';
-import {
-  isUncategorizedName,
-  UNCATEGORIZED_CATEGORY_NAME,
-} from '../../categories/uncategorized-category';
+import { UNCATEGORIZED_CATEGORY_NAME } from '../../categories/uncategorized-category';
 import { decidePayeeCategory } from '../engine/payee-category.matcher';
 import { onlyPayeeEvidence } from '../engine/payee-evidence';
-import {
-  AiCategoryClassifier,
-  type AiCategoryMatch,
-} from '../helpers/ai-category-classifier.helper';
 import {
   type ClassificationCondition,
   type ClassificationRule,
 } from '../interfaces/classification-rule.interface';
-import type { TransactionEnrichment } from '../interfaces/transaction-enrichment.interface';
-
-type BatchTransactionClassificationInput = {
-  index: number;
-  counterpartyName: string;
-  paymentPurpose: string;
-  transactionType: TransactionType;
-};
 
 /** A category plus the step that found it and the payload the UI shows as "why". */
 export type AutoCategoryMatch = {
@@ -66,8 +49,6 @@ const PROCESSING_SETTINGS_TTL_MS = 60_000;
 
 @Injectable()
 export class ClassificationService {
-  private readonly aiCategoryClassifier = new AiCategoryClassifier();
-
   constructor(
     @InjectRepository(Category)
     private categoryRepository: Repository<Category>,
@@ -87,9 +68,6 @@ export class ClassificationService {
     private workspaceRepository: Repository<Workspace>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
-    private readonly categoriesService: CategoriesService,
-    @Optional()
-    private readonly applicationSettingsService?: ApplicationSettingsService,
   ) {}
 
   async classifyTransaction(
@@ -224,9 +202,8 @@ export class ClassificationService {
   /**
    * The category for one payee outside a statement import: a scanned receipt,
    * an emailed invoice. The same steps a bank row goes through: a rule the user
-   * wrote, then what this payee was filed as before, then the model when the
-   * workspace turned it on. `null` means "leave it for the user", never the
-   * Uncategorized fallback.
+   * wrote, then what this payee was filed as before. `null` means "leave it for
+   * the user", never the Uncategorized fallback.
    */
   async suggestForPayee(input: {
     workspaceId: string;
@@ -256,38 +233,7 @@ export class ClassificationService {
       };
     }
 
-    const payeeMatch = await this.matchByPayeeHistory(transaction, input.workspaceId);
-    if (payeeMatch) {
-      return payeeMatch;
-    }
-
-    const ai = await this.classifyTransactionsBatch(
-      [
-        {
-          index: 0,
-          counterpartyName: input.counterpartyName,
-          paymentPurpose: transaction.paymentPurpose,
-          transactionType: input.transactionType,
-        },
-      ],
-      input.workspaceId,
-    );
-    const aiMatch = ai.get(0);
-    return aiMatch
-      ? {
-          categoryId: aiMatch.categoryId,
-          source: TransactionCategorySource.AI,
-          reason:
-            aiMatch.enrichment?.confidence !== undefined
-              ? `confidence ${aiMatch.enrichment.confidence.toFixed(2)}`
-              : null,
-        }
-      : null;
-  }
-
-  /** Whether the workspace lets the model categorise; off unless turned on. */
-  async isAiCategorizationEnabled(workspaceId: string): Promise<boolean> {
-    return (await this.getProcessingSettings(workspaceId)).aiCategorization;
+    return (await this.matchByPayeeHistory(transaction, input.workspaceId)) ?? null;
   }
 
   matchesRule(transaction: Transaction, conditions: ClassificationCondition[]): boolean {
@@ -560,98 +506,6 @@ export class ClassificationService {
     // or Spanish workspace with Russian categories. Bank-specific wording
     // belongs to the bank profile, not to every workspace in the product.
     return dbRules.sort((a, b) => b.priority - a.priority);
-  }
-
-  async classifyTransactionsBatch(
-    transactions: BatchTransactionClassificationInput[],
-    workspaceId: string,
-  ): Promise<Map<number, { categoryId: string; enrichment?: TransactionEnrichment }>> {
-    const resultByIndex = new Map<
-      number,
-      { categoryId: string; enrichment?: TransactionEnrichment }
-    >();
-
-    if (!(transactions.length && workspaceId)) {
-      return resultByIndex;
-    }
-
-    const processing = await this.getProcessingSettings(workspaceId);
-    if (!processing.aiCategorization) {
-      return resultByIndex;
-    }
-
-    const aiSettings =
-      await this.applicationSettingsService?.getAiSettingsForWorkspaceId(workspaceId);
-    if (aiSettings) {
-      this.aiCategoryClassifier.configureAiClient(aiSettings);
-    }
-    if (!this.aiCategoryClassifier.isAvailable()) {
-      return resultByIndex;
-    }
-
-    const incomeTransactions = transactions.filter(
-      tx => tx.transactionType === TransactionType.INCOME,
-    );
-    const expenseTransactions = transactions.filter(
-      tx => tx.transactionType === TransactionType.EXPENSE,
-    );
-
-    const [incomeCategories, expenseCategories] = await Promise.all([
-      this.getAiCategoryOptions(workspaceId, CategoryType.INCOME),
-      this.getAiCategoryOptions(workspaceId, CategoryType.EXPENSE),
-    ]);
-
-    const [incomeResult, expenseResult] = await Promise.all([
-      this.classifyTransactionGroupWithAi(incomeTransactions, incomeCategories),
-      this.classifyTransactionGroupWithAi(expenseTransactions, expenseCategories),
-    ]);
-
-    const matches = [...incomeResult, ...expenseResult];
-
-    for (const match of matches) {
-      const enrichment: TransactionEnrichment = {
-        vendorNormalized: processing.aiMerchantNormalization ? match.vendorNormalized : undefined,
-        categoryHint: match.categoryHint,
-        taxMentioned: match.taxMentioned,
-        taxRate: match.taxRate,
-        transactionNature: match.transactionNature,
-        confidence: match.confidence,
-      };
-      resultByIndex.set(match.index, { categoryId: match.categoryId, enrichment });
-    }
-
-    return resultByIndex;
-  }
-
-  private async classifyTransactionGroupWithAi(
-    transactions: BatchTransactionClassificationInput[],
-    categories: Array<{ id: string; name: string }>,
-  ): Promise<AiCategoryMatch[]> {
-    if (!(transactions.length && categories.length)) {
-      return [];
-    }
-
-    const result = await this.aiCategoryClassifier.classifyBatch(
-      transactions.map(tx => ({
-        index: tx.index,
-        counterpartyName: tx.counterpartyName,
-        paymentPurpose: tx.paymentPurpose,
-      })),
-      categories,
-    );
-
-    return result.matches;
-  }
-
-  private async getAiCategoryOptions(
-    workspaceId: string,
-    type: CategoryType,
-  ): Promise<Array<{ id: string; name: string }>> {
-    const categories = await this.categoriesService.findAll(workspaceId, type);
-    return categories
-      .filter(category => category.isEnabled !== false)
-      .filter(category => !isUncategorizedName(category.name))
-      .map(category => ({ id: category.id, name: category.name }));
   }
 
   async ensureCategory(

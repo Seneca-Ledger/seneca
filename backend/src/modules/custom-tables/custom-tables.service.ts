@@ -71,11 +71,7 @@ import { CustomTableRow } from '../../entities/custom-table-row.entity';
 import { DataEntry, DataEntryType } from '../../entities/data-entry.entity';
 import { DataEntryCustomField } from '../../entities/data-entry-custom-field.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../entities/statement.entity';
-import {
-  Transaction,
-  TransactionCategorySource,
-  TransactionType,
-} from '../../entities/transaction.entity';
+import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
@@ -93,8 +89,6 @@ import {
   type CustomTableRowSortDto,
 } from './dto/list-custom-table-rows.dto';
 import { FormulaRecalcService, formulaColumnsOf } from './formula-recalc.service';
-import { AiColumnFiller } from './helpers/ai-column.helper';
-import { AiPaidStatusClassifier, type PaidStatusInput } from './helpers/ai-paid-status.helper';
 import {
   assertValidFormula,
   collectFieldRefs,
@@ -104,6 +98,7 @@ import {
   type FormulaValue,
   inferFormulaResultType,
 } from './helpers/formula-evaluator';
+import { detectPaidStatus, type PaidStatusInput } from './helpers/paid-status.helper';
 import { orderFormulaColumns } from './helpers/table-evaluator';
 import type { SourceAdapter, SourceFilters, SourceRow, SourceValue } from './sources/source.types';
 import { MAX_SOURCE_ROWS } from './sources/source.utils';
@@ -182,7 +177,7 @@ export class CustomTablesService {
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
     private readonly auditService: AuditService,
-    // Optional: the classifier needs AI settings; unit tests build the service without it.
+    // Optional: unit tests build the service without the classifier.
     @Optional() private readonly classificationService?: ClassificationService,
     // Optional for the same reason: most unit specs never touch app data sources.
     @Optional() private readonly customTableSources?: CustomTableSourcesService,
@@ -339,7 +334,6 @@ export class CustomTablesService {
    * a classifier failure must not undo the conversion itself.
    */
   private async categorizeConvertedTransactions(
-    workspaceId: string,
     userId: string,
     transactions: Transaction[],
   ): Promise<void> {
@@ -348,32 +342,13 @@ export class CustomTablesService {
       return;
     }
     try {
-      const results = await this.classificationService.classifyTransactionsBatch(
-        pending.map((transaction, index) => ({
-          index,
-          counterpartyName: transaction.counterpartyName ?? '',
-          paymentPurpose: transaction.paymentPurpose ?? '',
-          transactionType: transaction.transactionType,
-        })),
-        workspaceId,
-      );
-      for (const [index, transaction] of pending.entries()) {
-        // Same order as a statement import: rules, keywords and what the user
-        // taught first; the model only where those fell through to "uncategorised".
+      for (const transaction of pending) {
+        // Same order as a statement import: rules, keywords and what the user taught.
         const classification = await this.classificationService.classifyTransaction(
           transaction,
           userId,
         );
-        let { categoryId, categorySource, categoryReason } = classification;
-        const aiResult = results.get(index);
-        if (aiResult && (!categoryId || categorySource === TransactionCategorySource.DEFAULT)) {
-          categoryId = aiResult.categoryId;
-          categorySource = TransactionCategorySource.AI;
-          categoryReason =
-            aiResult.enrichment?.confidence !== undefined
-              ? `confidence ${aiResult.enrichment.confidence.toFixed(2)}`
-              : null;
-        }
+        const { categoryId, categorySource, categoryReason } = classification;
         if (categoryId) {
           await this.transactionRepository.update(
             { id: transaction.id },
@@ -2258,7 +2233,7 @@ export class CustomTablesService {
     );
 
     const savedTransactions = await this.transactionRepository.save(transactions);
-    await this.categorizeConvertedTransactions(workspaceId, userId, savedTransactions);
+    await this.categorizeConvertedTransactions(userId, savedTransactions);
     // Converted rows are created without tax and categorised with update(),
     // which the tax subscriber never sees: assess them once they have a category.
     await this.taxAssignmentService?.reassess(workspaceId, {
@@ -4174,98 +4149,6 @@ export class CustomTablesService {
     }
   }
 
-  /**
-   * Заполняет AI-колонку по её промпту. Обобщение classifyPaidStatus: тот же
-   * приём (батчи, санитизация, фолбэк), но результат произвольный, а не
-   * булев флаг «оплачено».
-   */
-  async fillAiColumn(
-    workspaceId: string,
-    tableId: string,
-    dto: { columnKey: string; rowIds: string[] },
-  ): Promise<{ items: Array<{ rowId: string; value: string | null }>; aiAvailable: boolean }> {
-    await this.requireTable(workspaceId, tableId);
-
-    const column = await this.customTableColumnRepository.findOne({
-      where: { tableId, key: dto.columnKey },
-    });
-    if (!column || column.type !== CustomTableColumnType.AI) {
-      throw new BadRequestException(appError('COLUMN_NOT_AI'));
-    }
-    const prompt = column.config?.prompt;
-    if (typeof prompt !== 'string' || !prompt.trim()) {
-      throw new BadRequestException(appError('COLUMN_AI_PROMPT_MISSING'));
-    }
-
-    const rowIds = Array.from(new Set((dto.rowIds ?? []).filter(id => this.isUuid(id))));
-    if (!rowIds.length) {
-      return { items: [], aiAvailable: true };
-    }
-
-    const [rows, columns] = await Promise.all([
-      this.customTableRowRepository.find({
-        where: { tableId, id: In(rowIds) },
-        select: ['id', 'data'],
-      }),
-      this.customTableColumnRepository.find({
-        where: { tableId },
-        select: ['key', 'title', 'type'],
-      }),
-    ]);
-
-    // В модель отправляем только человекочитаемые поля, без служебных
-    // и без самой AI-колонки — иначе она будет видеть свой прошлый ответ.
-    const sourceColumns = columns.filter(
-      col => col.key !== column.key && col.type !== CustomTableColumnType.AI,
-    );
-
-    const filler = new AiColumnFiller();
-    const inputs = rows.map(row => {
-      const data = (row.data ?? {}) as Record<string, unknown>;
-      const text = sourceColumns
-        .map(col => {
-          const value = data[col.key];
-          return value === null || value === undefined || String(value).trim() === ''
-            ? null
-            : `${col.title}: ${String(value)}`;
-        })
-        .filter(Boolean)
-        .join('; ');
-      return { id: row.id, text };
-    });
-
-    const results: Array<{ id: string; value: string | null }> = [];
-    const batchSize = 25;
-    for (let i = 0; i < inputs.length; i += batchSize) {
-      results.push(...(await filler.fill(prompt, inputs.slice(i, i + batchSize))));
-    }
-
-    // Сохраняем: повторный вызов модели стоит денег, а ответ недетерминирован.
-    const byId = new Map(results.map(item => [item.id, item.value]));
-    for (const row of rows) {
-      const value = byId.get(row.id) ?? null;
-      if (value === null) {
-        continue;
-      }
-      await this.customTableRowRepository.update(
-        { id: row.id },
-        {
-          // jsonb: TypeORM's deep-partial type cannot express `unknown` values.
-          data: {
-            ...((row.data ?? {}) as Record<string, unknown>),
-            [column.key]: value,
-          } as QueryDeepPartialEntity<CustomTableRow>['data'],
-        },
-      );
-    }
-
-    await this.recalcAfterWrite(tableId, workspaceId);
-    return {
-      items: rowIds.map(rowId => ({ rowId, value: byId.get(rowId) ?? null })),
-      aiAvailable: filler.isReady(),
-    };
-  }
-
   async classifyPaidStatus(
     workspaceId: string,
     tableId: string,
@@ -4315,16 +4198,9 @@ export class CustomTablesService {
       };
     });
 
-    const classifier = new AiPaidStatusClassifier();
-    const results: Array<{ id: string; paid: boolean | null }> = [];
-    const batchSize = 25;
-    for (let i = 0; i < inputs.length; i += batchSize) {
-      const batch = inputs.slice(i, i + batchSize);
-      const chunkResults = await classifier.classify(batch);
-      results.push(...chunkResults);
-    }
-
-    const byId = new Map<string, boolean | null>(results.map(item => [item.id, item.paid]));
+    const byId = new Map<string, boolean | null>(
+      inputs.map(input => [input.id, detectPaidStatus(input)]),
+    );
     const items = uniqueRowIds.map(rowId => ({
       rowId,
       paid: byId.has(rowId) ? (byId.get(rowId) as boolean | null) : null,

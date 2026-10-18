@@ -1,7 +1,6 @@
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { extractTablesFromPdf, extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
-import { AiTransactionExtractor } from '../helpers/ai-transaction-extractor.helper';
 import {
   mapPdfTableRowsToTransactions,
   pickReconciledTransactions,
@@ -10,8 +9,6 @@ import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
 import { BaseParser } from './base.parser';
 
 export class GenericPdfParser extends BaseParser {
-  private aiExtractor = new AiTransactionExtractor();
-
   async canParse(
     bankName: BankName,
     fileType: FileType,
@@ -51,7 +48,7 @@ export class GenericPdfParser extends BaseParser {
       this.extractBalance(text, 'Остаток на конец периода') ??
       this.extractBalance(text, 'Исходящий остаток');
 
-    let transactions = pickReconciledTransactions(
+    const transactions = pickReconciledTransactions(
       rowSets.map(rows =>
         mapPdfTableRowsToTransactions(rows, {
           defaultCurrency: detectedCurrency,
@@ -61,14 +58,6 @@ export class GenericPdfParser extends BaseParser {
       balanceStart,
       balanceEnd,
     );
-
-    if (!transactions.length && this.aiExtractor.isAvailable() && text.trim().length) {
-      try {
-        transactions = await this.aiExtractor.extractTransactions(text);
-      } catch (error) {
-        this.logger.warn('AI extraction failed:', (error as Error)?.message);
-      }
-    }
 
     const dateRange = this.extractDateRange(text);
     const transactionDates = transactions.map(t => t.transactionDate).filter(Boolean);

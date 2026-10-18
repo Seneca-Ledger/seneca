@@ -12,7 +12,6 @@ import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 
 export enum WorkspaceServiceSettingsKey {
-  AI = 'ai',
   LOCAL_CATEGORIZATION = 'local_categorization',
   SMTP = 'smtp',
   TELEGRAM = 'telegram',

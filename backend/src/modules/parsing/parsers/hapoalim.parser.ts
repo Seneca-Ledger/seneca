@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import { normalizeDate, normalizeNumber } from '../../../common/utils/number-normalizer.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
-import { AiHapoalimExtractor } from '../helpers/ai-hapoalim-extractor.helper';
 import type {
   ParsedStatement,
   ParsedStatementMetadata,
@@ -36,7 +35,6 @@ const MIN_OCR_CONFIDENCE = 0.4;
 
 export class HapoalimParser extends BaseParser {
   private ocrService = new OcrService();
-  private aiExtractor = new AiHapoalimExtractor();
   private cachedOcrResult: { text: string; confidence: number; filePath: string } | null = null;
 
   async canParse(
@@ -95,29 +93,6 @@ export class HapoalimParser extends BaseParser {
     if (confidence >= MIN_OCR_CONFIDENCE) {
       transactions = this.parseTransactionsFromText(text);
       this.logger.debug(`OCR text parsing: ${transactions.length} transactions`);
-    }
-
-    // Fall back to AI vision if no transactions or low confidence
-    if (transactions.length === 0 && fileType === FileType.IMAGE) {
-      this.logger.debug('Falling back to AI vision extraction...');
-      try {
-        const imageBuffer = await fs.promises.readFile(filePath);
-        transactions = await this.aiExtractor.extractFromImage(imageBuffer);
-        this.logger.debug(`AI vision: ${transactions.length} transactions`);
-      } catch (error) {
-        this.logger.error('AI vision failed:', error);
-      }
-    }
-
-    // Fall back to AI text extraction
-    if (transactions.length === 0 && text.length > 50 && this.aiExtractor.isAvailable()) {
-      this.logger.debug('Falling back to AI text extraction...');
-      try {
-        transactions = await this.aiExtractor.extractTransactions(text);
-        this.logger.debug(`AI text: ${transactions.length} transactions`);
-      } catch (error) {
-        this.logger.error('AI text extraction failed:', error);
-      }
     }
 
     // Clear OCR cache

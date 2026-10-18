@@ -123,23 +123,4 @@ describe('API key scopes and trusted agents (e2e)', () => {
     expect(mine.meta.onBehalfOfUserId).toBeTruthy();
     expect(mine.isUndoable).toBe(true);
   });
-
-  it('audits the assistant’s writes as the assistant', async () => {
-    const statement = await as(owner, request(server()).post('/statements/manual-expense'))
-      .set('x-lumio-actor', 'ai-chat')
-      .field('amount', '9')
-      .field('currency', 'USD')
-      .field('merchant', 'Chat shop')
-      .field('categoryId', categoryId)
-      .field('date', today())
-      .expect(201);
-    expect(statement.body.id).toBeTruthy();
-
-    const events = await as(owner, request(server()).get('/audit-events?actorType=ai&limit=20')).expect(
-      200,
-    );
-    const rows = events.body.data ?? events.body;
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows[0].actorLabel).toBe('AI assistant (chat)');
-  });
 });

@@ -1,7 +1,6 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { findDocumentDate } from '../../../common/utils/document-date.util';
-import { payeeKeyOf } from '../../../common/utils/payee-key.util';
 import { parsePdf } from '../../../common/utils/pdf-text.util';
 import {
   createReceiptAmountHelpers,
@@ -16,10 +15,6 @@ import {
   extractAmountFragments as extractSharedAmountFragments,
   lineItemsReconcile,
 } from '../../../common/utils/receipt-extraction.util';
-import {
-  AiDocumentExtractor,
-  type AiExtractionResult,
-} from '../helpers/ai-document-extractor.helper';
 import type {
   DocumentType,
   LineItem,
@@ -67,9 +62,6 @@ const SUBTOTAL_PATTERNS = [
   /промежуточный\s*итог[:\s]+(\d+[\s,.]?\d*)/i,
 ];
 
-const hasPayeeName = (vendor: string | undefined): boolean =>
-  payeeKeyOf({ counterpartyName: vendor }) !== null;
-
 @Injectable()
 export class UniversalExtractorService {
   private readonly logger = new Logger(UniversalExtractorService.name);
@@ -80,9 +72,6 @@ export class UniversalExtractorService {
     private readonly typeDetector: TransactionTypeDetectorService,
     private readonly classifier: DocumentClassifierService,
     private readonly ocrService: OcrService,
-    @Optional()
-    @Inject('AI_DOCUMENT_EXTRACTOR')
-    private readonly aiExtractor?: AiDocumentExtractor,
   ) {}
 
   async extractFromText(text: string, context: ExtractorContext = {}): Promise<ParsedDocument> {
@@ -95,22 +84,12 @@ export class UniversalExtractorService {
     });
 
     const regexResult = await this.extractWithRegex(text, classification.documentType, context);
-
-    // A document without a usable vendor is worth asking about even when the
-    // amount and date were read confidently: the vendor is who the row is filed under.
-    const aiResult =
-      this.aiExtractor?.isAvailable() &&
-      (regexResult.confidence < 0.6 || !hasPayeeName(regexResult.vendor))
-        ? await this.aiExtractor.extractFromText(text)
-        : null;
-
-    const merged = this.mergeResults(regexResult, aiResult);
-    return this.validate(merged);
+    return this.validate(regexResult);
   }
 
   async extractFromImage(
     imageBuffer: Buffer,
-    mimeType: string,
+    _mimeType: string,
     context: ExtractorContext = {},
   ): Promise<ParsedDocument> {
     const ocrResult = await this.ocrService.extractTextFromImage(imageBuffer, {
@@ -122,16 +101,7 @@ export class UniversalExtractorService {
     fromText.extractionMethod = 'ocr_regex';
     fromText.confidence = Math.round(fromText.confidence * ocrResult.confidence * 100) / 100;
     fromText.language = ocrResult.language;
-
-    if (!this.aiExtractor?.isAvailable()) {
-      return fromText;
-    }
-
-    const aiFromImage = await this.aiExtractor.extractFromImage(imageBuffer, mimeType);
-    const merged = this.mergeResults(fromText, aiFromImage);
-    merged.extractionMethod = 'ocr_hybrid';
-    merged.language = ocrResult.language;
-    return this.validate(merged);
+    return fromText;
   }
 
   async extractFromPdf(pdfBuffer: Buffer, context: ExtractorContext = {}): Promise<ParsedDocument> {
@@ -414,64 +384,6 @@ export class UniversalExtractorService {
       extractCurrency: text => this.amountHelpers.extractCurrency(text),
       skipTaxLines: true,
     });
-  }
-
-  private mergeResults(
-    primary: ParsedDocument,
-    aiResult: AiExtractionResult | null,
-  ): ParsedDocument {
-    if (!aiResult) {
-      return primary;
-    }
-
-    // The figures the merged document ends up with, so either side's line items
-    // are judged against the same total.
-    const figures = {
-      totalAmount: primary.totalAmount ?? aiResult.totalAmount,
-      subtotal: primary.subtotal ?? aiResult.subtotal,
-      tax: primary.tax ?? aiResult.tax,
-    };
-    const merged: ParsedDocument = {
-      ...primary,
-      totalAmount: primary.totalAmount ?? aiResult.totalAmount,
-      transactionType:
-        primary.transactionType !== 'unknown'
-          ? primary.transactionType
-          : aiResult.transactionType || 'unknown',
-      currency: primary.currency || aiResult.currency,
-      date: primary.date || (aiResult.date ? new Date(aiResult.date) : undefined),
-      // The heuristic wins unless what it read names nobody ("Invoice 4711").
-      vendor: hasPayeeName(primary.vendor) ? primary.vendor : aiResult.vendor || primary.vendor,
-      // Unlike the other fields the model wins here: it reads a multi-line store
-      // header far better than the single-line heuristic does.
-      merchantAddress: aiResult.merchantAddress || primary.merchantAddress,
-      tax: primary.tax ?? aiResult.tax,
-      taxRate: primary.taxRate ?? aiResult.taxRate,
-      subtotal: primary.subtotal ?? aiResult.subtotal,
-      lineItems: lineItemsReconcile(primary.lineItems, figures)
-        ? primary.lineItems
-        : lineItemsReconcile(aiResult.lineItems ?? [], figures)
-          ? (aiResult.lineItems ?? [])
-          : primary.lineItems,
-      categoryHint: primary.categoryHint || aiResult.categoryHint,
-      paymentMethod: primary.paymentMethod || aiResult.paymentMethod,
-      documentNumber: primary.documentNumber || aiResult.documentNumber,
-      extractionMethod: 'hybrid',
-      fieldConfidence: {
-        ...primary.fieldConfidence,
-        totalAmount: primary.fieldConfidence.totalAmount || (aiResult.totalAmount ? 0.75 : 0),
-        transactionType:
-          primary.fieldConfidence.transactionType || (aiResult.transactionType ? 0.7 : 0),
-        date: primary.fieldConfidence.date || (aiResult.date ? 0.7 : 0),
-        vendor: primary.fieldConfidence.vendor || (aiResult.vendor ? 0.7 : 0),
-        currency: primary.fieldConfidence.currency || (aiResult.currency ? 0.7 : 0),
-        tax: primary.fieldConfidence.tax || (aiResult.tax ? 0.65 : 0),
-        lineItems: primary.fieldConfidence.lineItems || (aiResult.lineItems?.length ? 0.65 : 0),
-      },
-    };
-
-    merged.confidence = this.calculateOverallConfidence(merged.fieldConfidence);
-    return merged;
   }
 
   private validate(doc: ParsedDocument): ParsedDocument {

@@ -20,7 +20,6 @@ npm run setup:env
 
 Пользовательские интеграции настраиваются через UI на уровне workspace:
 
-- **Integrations → AI-compatible endpoint** для OpenAI-совместимых провайдеров. Адрес из UI должен быть публичным; локальный Ollama/LocalAI/vLLM задаётся через `AI_BASE_URL` и `AI_MODEL`.
 - **Integrations → SMTP email** для приглашений, ссылок сброса пароля и подтверждения смены email. Хост из UI должен быть публичным; SMTP-relay во внутренней сети — через `SMTP_HOST`/`SMTP_FROM`.
 - **Settings → Telegram** для bot token.
 - **Integrations → S3-compatible/WebDAV/IMAP** для storage и receipt import. Адреса из UI должны резолвиться в публичные IP — egress guard отклоняет приватные и loopback-хосты при сохранении и при каждом подключении.

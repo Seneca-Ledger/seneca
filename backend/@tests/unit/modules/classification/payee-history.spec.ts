@@ -11,7 +11,6 @@ import {
 import { Wallet } from '@/entities/wallet.entity';
 import { Workspace } from '@/entities/workspace.entity';
 import { AuditService } from '@/modules/audit/audit.service';
-import { CategoriesService } from '@/modules/categories/categories.service';
 import { ClassificationService } from '@/modules/classification/services/classification.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Test, type TestingModule } from '@nestjs/testing';
@@ -128,13 +127,6 @@ describe('categorising from what this payee was filed as before', () => {
           },
         },
         { provide: AuditService, useValue: { createEvent: jest.fn() } },
-        {
-          provide: CategoriesService,
-          useValue: {
-            findAll: async (_ws: string, type: CategoryType) =>
-              CATEGORIES.filter(category => category.type === type),
-          },
-        },
       ],
     }).compile();
 

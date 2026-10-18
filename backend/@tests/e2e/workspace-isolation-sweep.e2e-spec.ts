@@ -61,7 +61,7 @@ const METHODS: Partial<Record<RequestMethod, HttpMethod>> = {
  * call outside services.
  */
 const EXCLUDED =
-  /^\/(auth|users\/me|maps|vendor-icons|public|metrics|health|telegram\/webhook|webhooks\/|gmail\/webhook|integrations\/)|^\/goals\/covers|^\/workspaces\/backgrounds|^\/ai-analysis\/(completions|model-proxy)/;
+  /^\/(auth|users\/me|maps|vendor-icons|public|metrics|health|telegram\/webhook|webhooks\/|gmail\/webhook|integrations\/)|^\/goals\/covers|^\/workspaces\/backgrounds/;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A body field that names a record: `id`, `categoryId`, `transactionIds`. */

@@ -26,11 +26,8 @@ export class EntityImportsController {
 
   @Post('suggest')
   @SchemaResponse(ImportSuggestion)
-  suggestTarget(
-    @WorkspaceId() workspaceId: string,
-    @SchemaBody(SuggestImportBody) dto: SuggestImportBody,
-  ) {
-    return this.suggest.suggest(workspaceId, dto);
+  suggestTarget(@SchemaBody(SuggestImportBody) dto: SuggestImportBody) {
+    return this.suggest.suggest(dto);
   }
 
   @Post()

@@ -21,7 +21,6 @@ export const ImportSuggestion = Schema.Struct({
     Schema.Struct({ index: Schema.Number, role: Schema.NullOr(Schema.String) }),
   ),
   alternatives: Schema.Array(Schema.Struct({ target: ImportTarget, confidence: Schema.Number })),
-  source: Schema.Literals(['heuristic', 'ai']),
 });
 export type ImportSuggestion = Wire<typeof ImportSuggestion>;
 

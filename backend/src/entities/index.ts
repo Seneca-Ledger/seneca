@@ -1,6 +1,4 @@
 export * from '../modules/api-keys/entities/api-key.entity';
-export * from './ai-chat.entity';
-export * from './ai-chat-message.entity';
 export * from './audit-event.entity';
 export * from './auth-session.entity';
 export * from './backup-configuration.entity';
@@ -88,9 +86,7 @@ export * from './tax-rule.entity';
 export * from './telegram-report.entity';
 export * from './transaction.entity';
 export * from './transaction-attachment.entity';
-export * from './transaction-embedding.entity';
 export * from './user.entity';
-export * from './user-ai-settings.entity';
 export * from './view-preference.entity';
 export * from './wallet.entity';
 export * from './webhook-delivery.entity';

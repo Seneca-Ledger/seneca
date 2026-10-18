@@ -202,34 +202,6 @@ describe('UniversalExtractorService', () => {
       // The total is untouched: only the items were wrong.
       expect(result.totalAmount).toBeGreaterThan(0);
     });
-
-    it("takes the model's items when the heuristic's do not add up", async () => {
-      const ai = {
-        isAvailable: () => true,
-        extractFromText: jest.fn(async () => ({
-          vendor: 'Railway Corporation',
-          lineItems: [
-            { description: 'Hobby plan', amount: 5 },
-            { description: 'Usage', amount: 9.63 },
-          ],
-        })),
-      };
-      const withAi = new UniversalExtractorService(
-        new UniversalAmountParser(),
-        new TransactionTypeDetectorService(),
-        new DocumentClassifierService(),
-        new OcrService(),
-        ai as any,
-      );
-      // No issuer the heuristic can name, so the model is asked.
-      const text = ['Invoice', 'Invoice No. 4711', 'Page 1 of 2', 'Total: $14.63'].join('\n');
-
-      const result = await withAi.extractFromText(text);
-
-      expect(ai.extractFromText).toHaveBeenCalled();
-      expect(result.totalAmount).toBe(14.63);
-      expect(result.lineItems.map(item => item.description)).toEqual(['Hobby plan', 'Usage']);
-    });
   });
 
   describe('the vendor of an invoice', () => {
@@ -270,60 +242,6 @@ describe('UniversalExtractorService', () => {
       const result = await service.extractFromText(text);
 
       expect(result.vendor).toBe(vendor);
-    });
-
-    it('asks the model when the heuristic found no name, and takes its vendor', async () => {
-      const aiExtractor = {
-        isAvailable: () => true,
-        extractFromText: jest.fn(async () => ({ vendor: 'Railway Corporation' })),
-      };
-      const withAi = new UniversalExtractorService(
-        new UniversalAmountParser(),
-        new TransactionTypeDetectorService(),
-        new DocumentClassifierService(),
-        new OcrService(),
-        aiExtractor as never,
-      );
-      const text = ['Invoice', 'Invoice No. 4711', 'Bill to', 'Jane Doe', 'Total: $14.63'].join('\n');
-
-      const result = await withAi.extractFromText(text);
-
-      expect(aiExtractor.extractFromText).toHaveBeenCalled();
-      expect(result.vendor).toBe('Railway Corporation');
-    });
-  });
-
-  describe('mergeResults', () => {
-    const primary = {
-      documentType: 'receipt',
-      transactionType: 'expense',
-      merchantAddress: 'ул. Абая 10',
-      lineItems: [],
-      confidence: 0.5,
-      extractionMethod: 'regex',
-      fieldConfidence: {},
-      validationIssues: [],
-    };
-
-    it('prefers the AI merchant address over the line heuristic', () => {
-      const merge = (service as any).mergeResults.bind(service);
-
-      expect(merge(primary, { merchantAddress: 'г. Алматы, ул. Абая 10' }).merchantAddress).toBe(
-        'г. Алматы, ул. Абая 10',
-      );
-      expect(merge(primary, {}).merchantAddress).toBe('ул. Абая 10');
-    });
-
-    it('keeps the heuristic vendor when it names someone, else takes the model one', () => {
-      const merge = (service as any).mergeResults.bind(service);
-
-      expect(merge({ ...primary, vendor: 'Railway Corporation' }, { vendor: 'Railway' }).vendor).toBe(
-        'Railway Corporation',
-      );
-      expect(merge({ ...primary, vendor: 'Invoice 4711' }, { vendor: 'Railway' }).vendor).toBe(
-        'Railway',
-      );
-      expect(merge({ ...primary, vendor: 'Invoice 4711' }, {}).vendor).toBe('Invoice 4711');
     });
   });
 });
