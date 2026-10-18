@@ -6,7 +6,7 @@ import type React from 'react';
 import { useEffect } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import { TutorialFooter } from './TutorialFooter';
-import { TutorialFragments } from './TutorialFragments';
+import { TutorialPicture, TutorialPoints } from './TutorialFragments';
 import { useFocusTitleOnMount } from './useFocusTitleOnMount';
 import type { TutorialPager } from './useTutorialPager';
 import { enterSx, focusableTitleSx, TITLE_ID } from './welcome-tutorial.styles';
@@ -16,6 +16,7 @@ import {
   descriptionSx,
   eyebrowSx,
   taglineSx,
+  textColumnSx,
 } from './welcome-tutorial-step.styles';
 import type { TutorialStep } from './welcome-tutorial-steps';
 
@@ -58,7 +59,7 @@ function StepText({ step }: { step: TutorialStep }): React.JSX.Element {
   );
 }
 
-/** One sidebar page: what it is for, and its main parts as numbered screenshots. */
+/** One sidebar page: what it is for and what is on it, beside one picture of it. */
 export function TutorialStepView({
   steps,
   pager,
@@ -73,9 +74,12 @@ export function TutorialStepView({
   return (
     <>
       <Box key={step.id} sx={[bodySx, enterSx]}>
-        <StepText step={step} />
-        <TutorialFragments step={step} />
-        <Typography sx={demoNoteSx}>{controls.demoNote}</Typography>
+        <Box sx={textColumnSx}>
+          <StepText step={step} />
+          <TutorialPoints step={step} />
+          <Typography sx={demoNoteSx}>{controls.demoNote}</Typography>
+        </Box>
+        <TutorialPicture step={step} />
       </Box>
       <TutorialFooter
         single={single}
