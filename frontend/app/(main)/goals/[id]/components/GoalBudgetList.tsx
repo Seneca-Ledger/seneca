@@ -7,6 +7,7 @@ import type React from 'react';
 import { formatMoney } from '@/app/lib/format-money';
 import type { GoalFlowBudget } from '@/app/lib/goals-api';
 import { tokens } from '@/lib/theme-tokens';
+import { formatGoalDate } from './goal-dates';
 
 export interface GoalBudgetListProps {
   budgets: GoalFlowBudget[];
@@ -73,7 +74,8 @@ export function GoalBudgetList({
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               {nativePeriodLabel}: {formatAmount(budget.nativePeriod.actual)} /{' '}
               {formatMoney(budget.limitAmount, budget.limitCurrency, locale)} ·{' '}
-              {budget.nativePeriod.start} — {budget.nativePeriod.end}
+              {formatGoalDate(budget.nativePeriod.start, locale)} —{' '}
+              {formatGoalDate(budget.nativePeriod.end, locale)}
             </Typography>
           </Box>
         ))}
