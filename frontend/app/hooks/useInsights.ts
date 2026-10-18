@@ -119,7 +119,8 @@ export function useRefreshInsights(): UseMutationResult<unknown, Error, string> 
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (locale: string) => {
-      await apiClient.post('/insights/refresh', null, { params: { locale } });
+      // No body at all: a JSON `null` is rejected by the server's strict body parser (400).
+      await apiClient.post('/insights/refresh', undefined, { params: { locale } });
     },
     // Пересчёт переписывает сами строки, а не их перевод, поэтому устаревает
     // кэш на всех языках сразу — инвалидация идёт по префиксу без локали.

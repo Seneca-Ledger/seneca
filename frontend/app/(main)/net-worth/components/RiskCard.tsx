@@ -213,7 +213,7 @@ export function RiskCard({
   ];
 
   return (
-    <Box data-attention="card:risk" sx={cardSx}>
+    <Box data-attention="card:risk" data-tour-shot="net-worth-risk" sx={cardSx}>
       {/* Two columns on a wide screen: the reading (limit and totals) on the
           left, the lines and their choices on the right, with room between. */}
       <Box

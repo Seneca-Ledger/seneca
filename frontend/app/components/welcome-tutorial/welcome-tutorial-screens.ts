@@ -4,7 +4,7 @@ import type { TutorialStepId } from './welcome-tutorial-routes';
  * Frames of the step layout. With three fragments the first takes the large frame and
  * the other two share the column beside it; two fragments get a pair of equal frames.
  * scripts/capture-tutorial-screenshots.mjs cuts every fragment to its frame, so the
- * aspect ratios below and the ones in that script have to stay in step.
+ * aspect ratios below and the ones in scripts/tour-shots/plan.mjs have to stay in step.
  */
 export const FRAME_ASPECT = { hero: 1.55, side: 2.24, pair: 1.55 } as const;
 
@@ -16,7 +16,10 @@ export interface TutorialFragment {
   frame: TutorialFrame;
 }
 
-/** Screenshot fragments per step, from the demo workspace. */
+/**
+ * Screenshot fragments per step, from the demo workspace. scripts/tour-shots/steps.mjs says
+ * where on the page each one is taken; the two lists have to match (plan.test.mjs).
+ */
 export const TUTORIAL_SCREENS: Record<TutorialStepId, TutorialFragment[]> = {
   dashboard: [
     {
@@ -36,30 +39,20 @@ export const TUTORIAL_SCREENS: Record<TutorialStepId, TutorialFragment[]> = {
   ],
   workspaces: [
     { id: 'list', frame: 'hero' },
-    {
-      id: 'invitations',
-      frame: 'side',
-    },
+    { id: 'members', frame: 'side' },
     {
       id: 'categories',
       frame: 'side',
     },
   ],
   reports: [
-    { id: 'templates', frame: 'hero' },
-    { id: 'history', frame: 'side' },
-    { id: 'schedules', frame: 'side' },
+    { id: 'flow', frame: 'hero' },
+    { id: 'templates', frame: 'side' },
+    { id: 'categories', frame: 'side' },
   ],
   taxDeclaration: [
-    { id: 'draft', frame: 'hero' },
-    {
-      id: 'profile',
-      frame: 'side',
-    },
-    {
-      id: 'checks',
-      frame: 'side',
-    },
+    { id: 'gate', frame: 'pair' },
+    { id: 'steps', frame: 'pair' },
   ],
   netWorth: [
     { id: 'chart', frame: 'hero' },
@@ -74,8 +67,8 @@ export const TUTORIAL_SCREENS: Record<TutorialStepId, TutorialFragment[]> = {
     { id: 'over', frame: 'pair' },
   ],
   advice: [
-    { id: 'forecast', frame: 'pair' },
-    { id: 'prices', frame: 'pair' },
+    { id: 'attention', frame: 'pair' },
+    { id: 'info', frame: 'pair' },
   ],
   goals: [
     { id: 'list', frame: 'pair' },
@@ -95,7 +88,7 @@ export const TUTORIAL_SCREENS: Record<TutorialStepId, TutorialFragment[]> = {
     { id: 'list', frame: 'side' },
   ],
   crypto: [
-    { id: 'portfolio', frame: 'pair' },
+    { id: 'wallets', frame: 'pair' },
     { id: 'connect', frame: 'pair' },
   ],
 };

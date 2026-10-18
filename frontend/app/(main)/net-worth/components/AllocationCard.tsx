@@ -36,7 +36,7 @@ export function AllocationCard({ title, views, currency, locale }: AllocationCar
   }
 
   return (
-    <Box sx={cardSx}>
+    <Box data-tour-shot="net-worth-allocation" sx={cardSx}>
       <Box
         sx={{
           display: 'flex',

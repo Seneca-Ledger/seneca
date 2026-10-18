@@ -308,6 +308,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
         </Box>
       </Box>
       <Box
+        data-tour-shot="subscriptions-kpis"
         sx={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -534,6 +535,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
         // Фоновое обновление после действия в строке не гасит список скелетоном.
         <Box sx={{ opacity: props.isFetching ? 0.6 : 1, transition: 'opacity 150ms ease' }}>
           <Box
+            data-tour-shot="subscriptions-list"
             sx={{
               display: { xs: 'none', md: 'block' },
               overflowX: 'auto',

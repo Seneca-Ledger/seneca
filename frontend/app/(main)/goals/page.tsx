@@ -170,6 +170,7 @@ export default function GoalsPage() {
       )}
 
       <Box
+        data-tour-shot="goals-list"
         sx={{
           display: 'flex',
           flexDirection: 'column',

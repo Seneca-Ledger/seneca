@@ -142,6 +142,7 @@ function TaxDeclarationContent(): React.ReactElement {
         {/* The step tabs lead the page, level with the sidebar logo; the year picker
             and the completeness read-out ride on the same row. */}
         <Box
+          data-tour-shot="tax-declaration-steps"
           sx={{
             display: 'flex',
             alignItems: 'center',

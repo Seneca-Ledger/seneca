@@ -108,6 +108,7 @@ export default function RoiPage() {
         </Typography>
 
         <Box
+          data-tour-shot="roi-inputs"
           sx={{
             border: '1px solid',
             borderColor: 'divider',
@@ -179,6 +180,7 @@ export default function RoiPage() {
         </Box>
         {result !== null && result.annualIncome > 0 && (
           <Box
+            data-tour-shot="roi-chart"
             sx={{
               border: '1px solid',
               borderColor: 'divider',
@@ -196,7 +198,10 @@ export default function RoiPage() {
               simpleLabel={t.simpleLabel.value}
             />
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
+            <Box
+              data-tour-shot="roi-table"
+              sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}
+            >
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <Typography variant="caption" sx={{ color: 'text.secondary', flex: '0 0 60px' }}>
                   {t.yearColumn}
