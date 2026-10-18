@@ -39,6 +39,7 @@ import {
 } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { loadPdfMake } from '../reports/report-document.util';
+import { balanceAccountName } from './balance-account-name';
 import { DEFAULT_BALANCE_ACCOUNTS } from './balance-default-accounts';
 import { BalanceExportFormat } from './dto/export-balance.dto';
 
@@ -117,15 +118,7 @@ export class BalanceService {
   }
 
   private resolveAccountName(node: BalanceAccountNode, locale?: string): string {
-    if (locale === 'en' && node.nameEn) {
-      return node.nameEn;
-    }
-
-    if (locale === 'kk' && node.nameKk) {
-      return node.nameKk;
-    }
-
-    return node.name;
+    return balanceAccountName(node, locale);
   }
 
   private localizeTree(nodes: BalanceAccountNode[], locale?: string): void {
