@@ -1,14 +1,136 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "b5f34f4fa4fec67de68cae587ce43f61c6defc69"
+      "main": "c51bafbef19c78284453f42f59c029090a3324d6"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-17T22:32:22.880Z",
+    "lastGeneratedAt": "2026-10-18T09:45:42.023Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-18-c51bafb",
+      "version": "main-c51bafb",
+      "branch": "main",
+      "date": "2026-10-18T09:45:42.023Z",
+      "title": "Release update - October 18, 2026",
+      "summary": "This release includes 1 feature and 1 fix.",
+      "markdown": "## Features\n- **plugins**: Plugin switches are per-workspace settings that gate the plugin\n\n## Fixes\n- **a11y**: Switches carry their accessible name again",
+      "commits": [
+        {
+          "sha": "2bf37764daefcee728280c284bbc6e3551386968",
+          "shortSha": "2bf37764",
+          "subject": "feat(plugins): plugin switches are per-workspace settings that gate the plugin",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T23:39:52+03:00",
+          "files": [
+            "backend/@tests/e2e/workspace-plugins.e2e-spec.ts",
+            "backend/@tests/unit/common/workspace-plugins.util.spec.ts",
+            "backend/@tests/unit/modules/webhooks/webhook-dispatcher.service.spec.ts",
+            "backend/@tests/unit/modules/webhooks/webhook-processor.plugin-switch.spec.ts",
+            "backend/@tests/unit/modules/webhooks/webhook-token.guard.spec.ts",
+            "backend/@tests/unit/modules/workspaces/workspace-plugins.service.spec.ts",
+            "backend/src/common/errors/app-error.ts",
+            "backend/src/common/utils/workspace-plugins.util.ts",
+            "backend/src/contracts/requests/workspaces.ts",
+            "backend/src/migrations/1787240000000-AddWorkspacePluginSettings.ts",
+            "backend/src/modules/webhooks/guards/webhook-token.guard.ts",
+            "backend/src/modules/webhooks/services/webhook-dispatcher.service.ts",
+            "backend/src/modules/webhooks/services/webhook-processor.service.ts",
+            "backend/src/modules/webhooks/webhook-subscriptions.controller.ts",
+            "backend/src/modules/webhooks/webhooks.module.ts",
+            "backend/src/modules/workspaces/workspace-plugins.module.ts",
+            "backend/src/modules/workspaces/workspace-plugins.service.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts",
+            "frontend/app/contexts/WorkspaceContext.tsx",
+            "frontend/app/lib/contracts/requests/workspaces.ts",
+            "frontend/app/plugins/components/PluginOffBanner.test.tsx",
+            "frontend/app/plugins/components/PluginOffBanner.tsx",
+            "frontend/app/plugins/hooks/usePluginState.test.ts",
+            "frontend/app/plugins/hooks/usePluginState.ts",
+            "frontend/app/plugins/page.content.ts",
+            "frontend/app/plugins/panel/PluginsPanel.test.tsx",
+            "frontend/app/plugins/panel/PluginsPanel.tsx",
+            "frontend/app/plugins/webhooks/WebhooksDrawer.tsx",
+            "packages/contracts/src/requests/workspaces.ts"
+          ]
+        },
+        {
+          "sha": "04b98795b0af480bc76ad0251b6595b9e4abd54a",
+          "shortSha": "04b98795",
+          "subject": "fix(a11y): switches carry their accessible name again",
+          "author": "Symon Baikov",
+          "date": "2026-10-17T23:53:48+03:00",
+          "files": [
+            "frontend/app/(main)/reports/components/ReportSchedules.test.tsx",
+            "frontend/app/(main)/reports/components/ReportSchedules.tsx",
+            "frontend/app/integrations/bank-sync/BankSyncPanel.a11y.test.tsx",
+            "frontend/app/integrations/bank-sync/BankSyncPanel.tsx",
+            "frontend/app/plugins/panel/PluginsPanel.tsx",
+            "frontend/app/settings/profile/components/ProcessingSection.test.tsx",
+            "frontend/app/settings/profile/components/ProcessingSection.tsx",
+            "frontend/eslint.config.mjs"
+          ]
+        },
+        {
+          "sha": "56309610b05b3e1ece22b3f90f629a3439681ebb",
+          "shortSha": "56309610",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-17T22:32:23Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "e8e1ea251f04a78941a2e964abac6aa298a49031",
+          "shortSha": "e8e1ea25",
+          "subject": "test(versions): keep both backdated versions in one ISO week on any weekday",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T12:00:34+03:00",
+          "files": [
+            "backend/@tests/integration/workspace-versions.spec.ts"
+          ]
+        },
+        {
+          "sha": "01e75c3edf079a407ed647174de358795ec4d98e",
+          "shortSha": "01e75c3e",
+          "subject": "Merge pull request #323 from symonbaikov/fix/switch-accessible-names",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T12:00:58+03:00",
+          "files": []
+        },
+        {
+          "sha": "822e3e139d993b09d7bc7e365c4807f4e2395dd9",
+          "shortSha": "822e3e13",
+          "subject": "Merge remote-tracking branch 'origin/main' into feat/plugin-switches",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T12:01:39+03:00",
+          "files": [
+            "backend/src/common/errors/app-error.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts",
+            "frontend/app/contexts/WorkspaceContext.tsx"
+          ]
+        },
+        {
+          "sha": "c911736e65960f816d11f80b0fc7d1c26a9596de",
+          "shortSha": "c911736e",
+          "subject": "Merge pull request #333 from symonbaikov/fix/versions-retention-test-week",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T12:45:04+03:00",
+          "files": []
+        },
+        {
+          "sha": "c51bafbef19c78284453f42f59c029090a3324d6",
+          "shortSha": "c51bafbe",
+          "subject": "Merge pull request #322 from symonbaikov/feat/plugin-switches",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T12:45:07+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-17-b5f34f4",
       "version": "main-b5f34f4",
