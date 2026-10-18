@@ -1605,6 +1605,8 @@ describe('API contracts (e2e)', () => {
       );
       matches(GoalWithProgress, (await call('post', '/goals', { name: 'Mutation goal', targetAmount: 100 }).expect(201)).body);
       matches(WorkspaceSummary, (await call('post', '/workspaces', { name: 'Mutation workspace' }).expect(201)).body);
+      matches(WorkspaceSummary, (await call('post', '/workspaces/demo', { name: 'Demo' }).expect(201)).body);
+      matches(WorkspaceSummary, (await call('post', '/workspaces/demo', { name: 'Demo' }).expect(200)).body);
       const profile = await call('patch', '/users/me/preferences', { name: 'Contracts Owner' }).expect(200);
       matches(UserUpdateResponse, profile.body);
       for (const field of ['passwordHash', 'tokenVersion', 'googleId', 'isActive']) {

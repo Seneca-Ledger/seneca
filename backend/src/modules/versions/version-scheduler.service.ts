@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { NOT_DEMO_WORKSPACE } from '../../common/workspaces/demo-workspaces';
 import { Workspace, WorkspaceKind } from '../../entities/workspace.entity';
 import {
   WorkspaceVersion,
@@ -41,9 +42,10 @@ export class VersionSchedulerService {
 
   @Cron('5 * * * *')
   async runNightly(now = new Date()): Promise<void> {
-    // Only ordinary workspaces: a past version opened to look at is not versioned again.
+    // Only ordinary workspaces: a past version opened to look at is not versioned
+    // again, and a demo is sample data a new request makes afresh.
     const workspaces = await this.workspaceRepository.find({
-      where: { kind: WorkspaceKind.STANDARD },
+      where: { kind: WorkspaceKind.STANDARD, ...NOT_DEMO_WORKSPACE },
     });
     for (const workspace of workspaces) {
       try {
