@@ -77,6 +77,11 @@ describe('Webhook events (e2e)', () => {
     const categories = await as(owner, request(server()).get('/categories?type=expense')).expect(200);
     categoryId = categories.body[0].id;
 
+    // A new workspace starts with webhooks off; nothing is queued until they are on.
+    await as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+      .send({ plugins: { webhooks: true } })
+      .expect(200);
+
     // `.invalid` never resolves, so the processor cannot deliver anything out of the test.
     const subscription = await dataSource.getRepository(WebhookSubscription).save({
       workspaceId: owner.workspaceId,
