@@ -1,24 +1,15 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
-import { X } from '@/app/components/icons';
+import { useEffect } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import { TutorialFooter } from './TutorialFooter';
 import { TutorialFragments } from './TutorialFragments';
-import { TutorialStepper } from './TutorialStepper';
 import { useFocusTitleOnMount } from './useFocusTitleOnMount';
 import type { TutorialPager } from './useTutorialPager';
-import {
-  closeButtonSx,
-  enterSx,
-  focusableTitleSx,
-  headerSx,
-  TITLE_ID,
-  wordmarkSx,
-} from './welcome-tutorial.styles';
+import { enterSx, focusableTitleSx, TITLE_ID } from './welcome-tutorial.styles';
 import {
   bodySx,
   demoNoteSx,
@@ -34,28 +25,22 @@ interface TutorialStepViewProps {
   onClose: () => void;
 }
 
-export function TutorialHeader({
-  children,
-  onClose,
-}: {
-  children?: React.ReactNode;
-  onClose: () => void;
-}): React.JSX.Element {
-  const { controls } = useIntlayer('welcomeTutorial');
-  return (
-    <Box component="header" sx={headerSx}>
-      <Box sx={wordmarkSx}>Lumio</Box>
-      {children}
-      <IconButton aria-label={controls.close.value} onClick={onClose} sx={closeButtonSx}>
-        <X size={20} />
-      </IconButton>
-    </Box>
-  );
+/**
+ * A page turned by an arrow key takes the focused heading away with the old page, and
+ * the next key would land outside the dialog. The new heading takes the focus instead.
+ */
+function useKeepFocusOnPageTurn(): void {
+  useEffect(() => {
+    if (document.activeElement === document.body) {
+      document.getElementById(TITLE_ID)?.focus();
+    }
+  }, []);
 }
 
 function StepText({ step }: { step: TutorialStep }): React.JSX.Element {
   const { steps } = useIntlayer('welcomeTutorialSteps');
   const text = steps[step.id];
+  useKeepFocusOnPageTurn();
   return (
     <>
       <Box sx={eyebrowSx}>
@@ -77,26 +62,23 @@ export function TutorialStepView({
   onClose,
 }: TutorialStepViewProps): React.JSX.Element {
   const { controls } = useIntlayer('welcomeTutorial');
-  // Once per arrival from the intro or the outro; Next and the stepper keep their own focus.
+  // Once, when the guide opens; Next and the dots keep their own focus after that.
   useFocusTitleOnMount();
-  const index = pager.state.index;
-  const step = steps[index];
+  const step = steps[pager.index];
   return (
     <>
-      <TutorialHeader onClose={onClose}>
-        <TutorialStepper steps={steps} current={index} onSelect={pager.goTo} />
-      </TutorialHeader>
       <Box key={step.id} sx={[bodySx, enterSx]}>
         <StepText step={step} />
         <TutorialFragments step={step} />
         <Typography sx={demoNoteSx}>{controls.demoNote}</Typography>
       </Box>
       <TutorialFooter
-        current={index}
-        total={steps.length}
+        steps={steps}
+        current={pager.index}
         onBack={pager.back}
         onNext={pager.next}
-        onHide={onClose}
+        onSelect={pager.goTo}
+        onClose={onClose}
       />
     </>
   );

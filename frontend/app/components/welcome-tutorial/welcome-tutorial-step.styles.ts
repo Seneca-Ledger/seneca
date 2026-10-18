@@ -1,10 +1,11 @@
 import type { SxProps, Theme } from '@mui/material';
+import { paperBackground } from './welcome-tutorial.styles';
 
 export const bodySx = {
   flex: 1,
   overflowY: 'auto',
   px: { xs: 2, md: 5 },
-  pt: { xs: 2.5, md: 3.5 },
+  pt: { xs: 3, md: 4 },
   pb: 3,
 } satisfies SxProps<Theme>;
 
@@ -13,27 +14,24 @@ export const eyebrowSx = {
   alignItems: 'center',
   gap: 1,
   color: 'var(--primary)',
-  fontSize: 13,
-  fontWeight: 600,
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase',
+  fontSize: 14,
+  fontWeight: 500,
 } satisfies SxProps<Theme>;
 
 export const taglineSx = {
   mt: 1,
   fontSize: { xs: 22, md: 28 },
-  fontWeight: 700,
-  lineHeight: 1.2,
-  letterSpacing: '-0.01em',
+  fontWeight: 500,
+  lineHeight: 1.25,
   color: 'var(--foreground)',
 } satisfies SxProps<Theme>;
 
 export const descriptionSx = {
   mt: 1,
   maxWidth: 760,
-  fontSize: 15,
+  fontSize: { xs: 15, md: 16 },
   lineHeight: 1.6,
-  color: 'var(--muted-foreground)',
+  color: 'var(--text-muted)',
 } satisfies SxProps<Theme>;
 
 export const bentoSx = {
@@ -59,28 +57,30 @@ export function frameSlotSx(aspect: number): SxProps<Theme> {
 export const frameSx = {
   position: 'absolute',
   inset: 0,
-  borderRadius: '14px',
+  borderRadius: '12px',
   overflow: 'hidden',
-  border: '1px solid var(--border-color)',
-  bgcolor: 'var(--background)',
-  boxShadow: '0 18px 40px -26px rgba(15, 23, 42, 0.5)',
+  // A hairline, no shadow; the soft fill shows while the screenshot loads.
+  border: '1px solid var(--border)',
+  bgcolor: 'var(--surface-soft)',
 } satisfies SxProps<Theme>;
 
+/** A small sage digit in a thin sage ring, on the paper's own colour. */
 export const badgeSx = {
   position: 'absolute',
   top: -9,
   insetInlineStart: -9,
   zIndex: 1,
-  width: 24,
-  height: 24,
+  width: 22,
+  height: 22,
   borderRadius: '50%',
   display: 'grid',
   placeItems: 'center',
-  bgcolor: 'var(--primary-fill)',
-  color: '#fff',
+  border: '1px solid var(--primary)',
+  bgcolor: paperBackground,
+  color: 'var(--primary)',
   fontSize: 12,
-  fontWeight: 700,
-  boxShadow: '0 0 0 3px var(--card-bg)',
+  fontWeight: 500,
+  fontVariantNumeric: 'tabular-nums',
 } satisfies SxProps<Theme>;
 
 export function captionsSx(count: number): SxProps<Theme> {
@@ -102,12 +102,11 @@ export const captionNumberSx = {
   ...badgeSx,
   position: 'static',
   flexShrink: 0,
-  boxShadow: 'none',
 } satisfies SxProps<Theme>;
 
 export const captionTitleSx = {
   fontSize: 14,
-  fontWeight: 600,
+  fontWeight: 500,
   color: 'var(--foreground)',
 } satisfies SxProps<Theme>;
 
@@ -115,13 +114,15 @@ export const captionTextSx = {
   mt: 0.25,
   fontSize: 13,
   lineHeight: 1.5,
-  color: 'var(--muted-foreground)',
+  color: 'var(--text-muted)',
 } satisfies SxProps<Theme>;
 
 export const scrollerSx = {
-  mt: 2.5,
+  mt: 1.5,
   mx: -2,
   px: 2,
+  // Room for the numbers on the frames' corners: a scroll box clips both axes.
+  pt: 1.25,
   pb: 1,
   display: 'flex',
   gap: 1.5,
@@ -137,6 +138,6 @@ export const scrollItemSx = { flex: '0 0 86%', scrollSnapAlign: 'start' } satisf
 
 export const demoNoteSx = {
   mt: 2.5,
-  fontSize: 12,
-  color: 'var(--muted-foreground)',
+  fontSize: 13,
+  color: 'var(--text-muted)',
 } satisfies SxProps<Theme>;

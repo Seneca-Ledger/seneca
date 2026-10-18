@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // Captures the screenshot fragments of the welcome tutorial from a workspace with demo data
 // (the "Keller Design Studio" showcase workspace in the dev database) and writes them as
-// app/components/welcome-tutorial/screens/<step>-<fragment>-<light|dark>.webp.
+// public/tour/<locale>/<step>-<fragment>-<light|dark>.webp, where the guide loads them from.
 //
 //   TUTORIAL_SHOTS_EMAIL=... TUTORIAL_SHOTS_PASSWORD=... TUTORIAL_SHOTS_WORKSPACE_ID=... \
-//     node scripts/capture-tutorial-screenshots.mjs [--only=dashboard,budgets] [--theme=dark]
+//     node scripts/capture-tutorial-screenshots.mjs [--only=dashboard,budgets] [--theme=dark] [--locale=en]
 //
 // Env: TUTORIAL_SHOTS_BASE_URL (default http://localhost:3002), TUTORIAL_SHOTS_OUT (default
-// the screens folder above), CHROME_PATH (default /usr/bin/chromium).
+// the locale's folder above), CHROME_PATH (default /usr/bin/chromium).
 // Uses playwright-core (a devDependency) and sharp (installed with next).
 //
 // Nothing is saved server-side. Theme, locale and the owner's display name are swapped in the
@@ -22,15 +22,14 @@ import sharp from 'sharp';
 const env = process.env;
 const baseUrl = env.TUTORIAL_SHOTS_BASE_URL ?? 'http://localhost:3002';
 const workspaceId = required('TUTORIAL_SHOTS_WORKSPACE_ID');
-const outDir = path.resolve(
-  env.TUTORIAL_SHOTS_OUT ??
-    path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      '../app/components/welcome-tutorial/screens',
-    ),
-);
 const args = Object.fromEntries(
   process.argv.slice(2).map(arg => arg.replace(/^--/, '').split('=')),
+);
+// Only the output folder follows it so far: the app itself is still shown in English.
+const locale = args.locale ?? 'en';
+const outDir = path.resolve(
+  env.TUTORIAL_SHOTS_OUT ??
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '../public/tour', locale),
 );
 const only = args.only?.split(',');
 const themes = args.theme ? [args.theme] : ['light', 'dark'];

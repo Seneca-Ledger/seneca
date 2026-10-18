@@ -6,23 +6,25 @@ import type React from 'react';
 import { ChevronLeft, ChevronRight } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import {
+  closeButtonSx,
   directionalIconSx,
+  dotSx,
+  dotsSx,
+  footerActionsSx,
   footerSx,
-  hideButtonSx,
-  progressBarSx,
-  progressSx,
-  progressTrackSx,
 } from './welcome-tutorial.styles';
+import type { TutorialStep } from './welcome-tutorial-steps';
 
 interface TutorialFooterProps {
+  steps: TutorialStep[];
   current: number;
-  total: number;
   onBack: () => void;
   onNext: () => void;
-  onHide: () => void;
+  onSelect: (index: number) => void;
+  onClose: () => void;
 }
 
-export const BackIcon = (
+const BackIcon = (
   <Box component="span" sx={directionalIconSx}>
     <ChevronLeft size={18} />
   </Box>
@@ -34,48 +36,64 @@ const NextIcon = (
   </Box>
 );
 
-function Progress({
+/** One dot per page; each one jumps to its page. The group reads "Step 3 of 13". */
+function StepDots({
+  steps,
   current,
-  total,
-}: Pick<TutorialFooterProps, 'current' | 'total'>): React.JSX.Element {
+  onSelect,
+}: Pick<TutorialFooterProps, 'steps' | 'current' | 'onSelect'>): React.JSX.Element {
   const { controls } = useIntlayer('welcomeTutorial');
   const label = controls.progress.value
     .replace('{{current}}', String(current + 1))
-    .replace('{{total}}', String(total));
+    .replace('{{total}}', String(steps.length));
   return (
-    <Box sx={progressSx}>
-      <Box sx={progressTrackSx}>
-        <Box sx={progressBarSx((current + 1) / total)} />
-      </Box>
-      <span>{label}</span>
+    <Box role="group" aria-label={label} sx={dotsSx}>
+      {[...steps.entries()].map(([index, step]) => (
+        <Box
+          key={step.id}
+          component="button"
+          type="button"
+          aria-label={step.title}
+          aria-current={index === current ? 'step' : undefined}
+          title={step.title}
+          onClick={() => onSelect(index)}
+          sx={dotSx(index === current)}
+        />
+      ))}
     </Box>
   );
 }
 
+// eslint-disable-next-line max-lines-per-function -- one row of controls, kept together
 export function TutorialFooter({
+  steps,
   current,
-  total,
   onBack,
   onNext,
-  onHide,
+  onSelect,
+  onClose,
 }: TutorialFooterProps): React.JSX.Element {
   const { controls } = useIntlayer('welcomeTutorial');
+  const last = current === steps.length - 1;
   return (
     <Box component="footer" sx={footerSx}>
-      <Button
-        variant="text"
-        onClick={onHide}
-        sx={[hideButtonSx, { display: { xs: 'none', sm: 'inline-flex' } }]}
-      >
-        {controls.hide}
+      <Button variant="text" onClick={onClose} sx={closeButtonSx}>
+        {controls.close}
       </Button>
-      <Progress current={current} total={total} />
-      <Button variant="outlined" onClick={onBack} startIcon={BackIcon}>
-        {controls.back}
-      </Button>
-      <Button variant="contained" onClick={onNext} endIcon={NextIcon}>
-        {controls.next}
-      </Button>
+      <StepDots steps={steps} current={current} onSelect={onSelect} />
+      <Box sx={footerActionsSx}>
+        <Button variant="outlined" onClick={onBack} disabled={current === 0} startIcon={BackIcon}>
+          {controls.back}
+        </Button>
+        {/* The last page has nowhere to go next: the same button closes the guide. */}
+        <Button
+          variant="contained"
+          onClick={last ? onClose : onNext}
+          endIcon={last ? null : NextIcon}
+        >
+          {last ? controls.finish : controls.next}
+        </Button>
+      </Box>
     </Box>
   );
 }

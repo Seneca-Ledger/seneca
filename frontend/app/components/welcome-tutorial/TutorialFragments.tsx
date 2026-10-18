@@ -6,8 +6,14 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Image from 'next/image';
 import type React from 'react';
-import { useIntlayer } from '@/app/i18n';
-import { FRAME_ASPECT, type TutorialFragment } from './welcome-tutorial-screens';
+import { useState } from 'react';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import {
+  FALLBACK_SCREENS_LOCALE,
+  FRAME_ASPECT,
+  type TutorialFragment,
+  tutorialScreenUrl,
+} from './welcome-tutorial-screens';
 import {
   badgeSx,
   bentoSx,
@@ -47,19 +53,39 @@ function useCaption({ step, fragment }: Omit<FragmentProps, 'number'>): CaptionT
   return (steps[step.id].fragments as unknown as Record<string, CaptionText>)[fragment.id];
 }
 
-function FragmentFrame({ step, fragment, number }: FragmentProps): React.JSX.Element {
+/**
+ * The screenshot in the user's language; a language whose screenshots are not generated
+ * yet answers 404, and the frame then shows the English one instead (once, no retry loop).
+ */
+function useScreenUrl({ step, fragment }: Omit<FragmentProps, 'number'>): {
+  url: string;
+  onError: () => void;
+} {
+  const { locale } = useLocale();
   const mode = useTheme().palette.mode;
+  const [fallback, setFallback] = useState(false);
+  const url = tutorialScreenUrl({
+    locale: fallback ? FALLBACK_SCREENS_LOCALE : String(locale),
+    stepId: step.id,
+    fragmentId: fragment.id,
+    mode,
+  });
+  const onError = (): void => setFallback(true);
+  return { url, onError };
+}
+
+function FragmentFrame({ step, fragment, number }: FragmentProps): React.JSX.Element {
   const caption = useCaption({ step, fragment });
+  const { url, onError } = useScreenUrl({ step, fragment });
   return (
     <Box sx={frameSlotSx(FRAME_ASPECT[fragment.frame])}>
       <Box sx={frameSx}>
         <Image
-          src={fragment[mode]}
+          src={url}
           alt={caption.title.value}
           fill
           sizes={SIZES[fragment.frame]}
-          placeholder="blur"
-          preload
+          onError={onError}
           style={{ objectFit: 'cover', objectPosition: 'top left' }}
         />
       </Box>

@@ -2,17 +2,10 @@
 
 import type React from 'react';
 import { useState } from 'react';
-import {
-  goToStep,
-  INITIAL_PAGER,
-  nextPage,
-  type PagerState,
-  pageTurnOf,
-  previousPage,
-} from './tutorial-pager';
+import { nextStep, pageTurnOf, previousStep } from './tutorial-pager';
 
 export interface TutorialPager {
-  state: PagerState;
+  index: number;
   next: () => void;
   back: () => void;
   goTo: (index: number) => void;
@@ -20,9 +13,9 @@ export interface TutorialPager {
 }
 
 export function useTutorialPager(stepCount: number): TutorialPager {
-  const [state, setState] = useState<PagerState>(INITIAL_PAGER);
-  const next = (): void => setState(current => nextPage(current, stepCount));
-  const back = (): void => setState(current => previousPage(current, stepCount));
+  const [index, setIndex] = useState(0);
+  const next = (): void => setIndex(current => nextStep(current, stepCount));
+  const back = (): void => setIndex(previousStep);
   const onKeyDown = (event: React.KeyboardEvent): void => {
     const turn = pageTurnOf(event.key, document.documentElement.dir === 'rtl');
     if (turn) {
@@ -30,5 +23,5 @@ export function useTutorialPager(stepCount: number): TutorialPager {
       (turn === 'next' ? next : back)();
     }
   };
-  return { state, next, back, goTo: index => setState(goToStep(index)), onKeyDown };
+  return { index, next, back, goTo: setIndex, onKeyDown };
 }

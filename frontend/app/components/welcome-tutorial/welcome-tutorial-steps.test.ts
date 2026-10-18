@@ -1,7 +1,9 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildNavItems } from '@/app/components/navigation/helpers/navigation-config';
 import { TUTORIAL_PAGES } from './welcome-tutorial-routes';
-import { TUTORIAL_SCREENS } from './welcome-tutorial-screens';
+import { TUTORIAL_SCREENS, tutorialScreenUrl } from './welcome-tutorial-screens';
 import { buildTutorialSteps } from './welcome-tutorial-steps';
 import stepTexts from './welcome-tutorial-steps.content';
 
@@ -47,5 +49,25 @@ describe('welcome tutorial steps', () => {
         TUTORIAL_SCREENS[page.id].map(fragment => fragment.id).sort(),
       );
     }
+  });
+
+  it('has the English screenshots of every fragment in both themes under public/', () => {
+    const missing = TUTORIAL_PAGES.flatMap(page =>
+      TUTORIAL_SCREENS[page.id].flatMap(fragment =>
+        (['light', 'dark'] as const)
+          .map(mode =>
+            tutorialScreenUrl({ locale: 'en', stepId: page.id, fragmentId: fragment.id, mode }),
+          )
+          // Tests run from frontend/, which serves public/ at the root.
+          .filter(url => !existsSync(path.join(process.cwd(), 'public', url))),
+      ),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it('names screenshot files after the page in kebab case', () => {
+    expect(
+      tutorialScreenUrl({ locale: 'ru', stepId: 'netWorth', fragmentId: 'chart', mode: 'dark' }),
+    ).toBe('/tour/ru/net-worth-chart-dark.webp');
   });
 });
