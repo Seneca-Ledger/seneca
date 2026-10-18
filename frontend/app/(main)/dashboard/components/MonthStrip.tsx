@@ -65,7 +65,7 @@ export function MonthStrip({
   };
 
   return (
-    <div className="lumio-dashboard__month-strip" data-hint="dashboard-month">
+    <div className="lumio-dashboard__month-strip">
       <ChipGroup
         ref={groupRef}
         scroll

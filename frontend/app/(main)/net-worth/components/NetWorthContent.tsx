@@ -188,7 +188,6 @@ export function NetWorthContent() {
           }}
         >
           <Box
-            data-hint="net-worth-total"
             data-tour-shot="net-worth-chart"
             sx={{
               border: '1px solid',
@@ -344,7 +343,7 @@ export function NetWorthContent() {
             onClassify={classify}
           />
 
-          <Box sx={cardSx} data-hint="net-worth-holdings">
+          <Box sx={cardSx}>
             <CardTitle>{t.holdingsTitle}</CardTitle>
             <Box sx={{ mt: 1.5 }}>
               <HoldingsSection title={t.investmentsTitle.value}>

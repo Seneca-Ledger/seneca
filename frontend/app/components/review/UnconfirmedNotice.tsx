@@ -37,7 +37,6 @@ export function UnconfirmedNotice({
     <div
       role="status"
       data-testid="unconfirmed-notice"
-      data-hint="unconfirmed"
       className={clsx('lumio-unconfirmed', className)}
       style={style}
     >

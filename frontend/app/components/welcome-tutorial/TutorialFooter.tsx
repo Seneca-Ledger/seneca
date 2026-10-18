@@ -16,6 +16,8 @@ import {
 import type { TutorialStep } from './welcome-tutorial-steps';
 
 interface TutorialFooterProps {
+  single: boolean;
+  onWholeGuide: () => void;
   steps: TutorialStep[];
   current: number;
   onBack: () => void;
@@ -64,8 +66,30 @@ function StepDots({
   );
 }
 
+/** One page on its own: the way into the whole guide, and Done. */
+function SingleFooter({
+  onWholeGuide,
+  onClose,
+}: Pick<TutorialFooterProps, 'onWholeGuide' | 'onClose'>): React.JSX.Element {
+  const { controls } = useIntlayer('welcomeTutorial');
+  return (
+    <Box component="footer" sx={footerSx}>
+      <Button variant="text" onClick={onWholeGuide} sx={closeButtonSx}>
+        {controls.wholeGuide}
+      </Button>
+      <Box sx={footerActionsSx}>
+        <Button variant="contained" onClick={onClose}>
+          {controls.finish}
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
 // eslint-disable-next-line max-lines-per-function -- one row of controls, kept together
 export function TutorialFooter({
+  single,
+  onWholeGuide,
   steps,
   current,
   onBack,
@@ -75,6 +99,9 @@ export function TutorialFooter({
 }: TutorialFooterProps): React.JSX.Element {
   const { controls } = useIntlayer('welcomeTutorial');
   const last = current === steps.length - 1;
+  if (single) {
+    return <SingleFooter onWholeGuide={onWholeGuide} onClose={onClose} />;
+  }
   return (
     <Box component="footer" sx={footerSx}>
       <Button variant="text" onClick={onClose} sx={closeButtonSx}>

@@ -36,7 +36,6 @@ export function TaxDisclaimerGate({
 
   return (
     <Box
-      data-hint="tax-gate"
       data-tour-shot="tax-declaration-gate"
       sx={{
         maxWidth: 680,
@@ -56,12 +55,7 @@ export function TaxDisclaimerGate({
           {t.disclaimerIntro}
         </Typography>
 
-        <Stack
-          component="ul"
-          data-hint="tax-gate-points"
-          spacing={1.25}
-          sx={{ listStyle: 'disc', m: 0, pl: 2.5 }}
-        >
+        <Stack component="ul" spacing={1.25} sx={{ listStyle: 'disc', m: 0, pl: 2.5 }}>
           {points.map(point => (
             <Typography
               key={point.key}

@@ -22,6 +22,8 @@ import {
   captionsSx,
   captionTextSx,
   captionTitleSx,
+  fragmentAreaSx,
+  frameCellSx,
   frameSlotSx,
   frameSx,
   pairSx,
@@ -34,6 +36,8 @@ interface FragmentProps {
   step: TutorialStep;
   fragment: TutorialFragment;
   number: number;
+  /** Fills a cell of the desktop grid instead of keeping the screenshot's proportions. */
+  fill?: boolean;
 }
 
 interface CaptionText {
@@ -43,9 +47,9 @@ interface CaptionText {
 
 // Rendered widths of each frame, so the optimizer serves a fitting size.
 const SIZES = {
-  hero: '(max-width: 899px) 86vw, 660px',
-  side: '(max-width: 899px) 86vw, 460px',
-  pair: '(max-width: 899px) 86vw, 560px',
+  hero: '(max-width: 899px) 86vw, 55vw',
+  side: '(max-width: 899px) 86vw, 38vw',
+  pair: '(max-width: 899px) 86vw, 46vw',
 } as const;
 
 function useCaption({ step, fragment }: Omit<FragmentProps, 'number'>): CaptionText {
@@ -74,11 +78,11 @@ function useScreenUrl({ step, fragment }: Omit<FragmentProps, 'number'>): {
   return { url, onError };
 }
 
-function FragmentFrame({ step, fragment, number }: FragmentProps): React.JSX.Element {
+function FragmentFrame({ step, fragment, number, fill = false }: FragmentProps): React.JSX.Element {
   const caption = useCaption({ step, fragment });
   const { url, onError } = useScreenUrl({ step, fragment });
-  return (
-    <Box sx={frameSlotSx(FRAME_ASPECT[fragment.frame])}>
+  const frame = (
+    <Box sx={frameSlotSx(FRAME_ASPECT[fragment.frame], fill)}>
       <Box sx={frameSx}>
         <Image
           src={url}
@@ -94,6 +98,7 @@ function FragmentFrame({ step, fragment, number }: FragmentProps): React.JSX.Ele
       </Box>
     </Box>
   );
+  return fill ? <Box sx={frameCellSx}>{frame}</Box> : frame;
 }
 
 function FragmentCaption({ step, fragment, number }: FragmentProps): React.JSX.Element {
@@ -119,10 +124,10 @@ function FragmentGrid({ step }: { step: TutorialStep }): React.JSX.Element {
     number: index + 1,
   }));
   return (
-    <>
+    <Box sx={fragmentAreaSx}>
       <Box sx={fragments.length === 3 ? bentoSx : pairSx}>
         {fragments.map(props => (
-          <FragmentFrame key={props.fragment.id} {...props} />
+          <FragmentFrame key={props.fragment.id} {...props} fill />
         ))}
       </Box>
       <Box sx={captionsSx(fragments.length)}>
@@ -130,7 +135,7 @@ function FragmentGrid({ step }: { step: TutorialStep }): React.JSX.Element {
           <FragmentCaption key={props.fragment.id} {...props} />
         ))}
       </Box>
-    </>
+    </Box>
   );
 }
 

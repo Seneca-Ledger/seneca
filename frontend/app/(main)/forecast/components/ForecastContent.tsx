@@ -138,18 +138,15 @@ export function ForecastContent() {
           mb: 2,
         }}
       >
-        {/* A wrapper for the page hint: TextTabs does not pass attributes on. */}
-        <Box data-hint="forecast-horizon">
-          <TextTabs<`${ForecastHorizon}`>
-            value={`${horizon}`}
-            onChange={next => setHorizon(Number(next) as ForecastHorizon)}
-            options={FORECAST_HORIZONS.map(option => ({
-              value: `${option}` as `${ForecastHorizon}`,
-              label: option,
-            }))}
-            ariaLabel={t.title.value}
-          />
-        </Box>
+        <TextTabs<`${ForecastHorizon}`>
+          value={`${horizon}`}
+          onChange={next => setHorizon(Number(next) as ForecastHorizon)}
+          options={FORECAST_HORIZONS.map(option => ({
+            value: `${option}` as `${ForecastHorizon}`,
+            label: option,
+          }))}
+          ariaLabel={t.title.value}
+        />
       </Box>
 
       <UnconfirmedNotice style={{ marginBottom: 16 }} />
@@ -343,10 +340,7 @@ export function ForecastContent() {
                 ))}
               </Box>
             </Box>
-            <Typography
-              data-hint="forecast-exclude"
-              sx={{ fontSize: 13, color: 'text.secondary', mt: 1, mb: 2 }}
-            >
+            <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 1, mb: 2 }}>
               {t.excludeHint}
             </Typography>
             <ForecastEvents

@@ -102,7 +102,6 @@ export default function CryptoPage(): React.JSX.Element {
         />
         <Button
           variant="contained"
-          data-hint="crypto-connect"
           onClick={() => setDrawerOpen(true)}
           data-tour-shot="crypto-connect"
         >

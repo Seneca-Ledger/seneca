@@ -129,7 +129,7 @@ export default function GoalsPage() {
         {/* With no goals the empty state's own button is the one action on the page. */}
         {noGoals ? null : (
           <ReadOnlyHint>
-            <Button variant="contained" data-hint="goals-create" onClick={openCreate}>
+            <Button variant="contained" onClick={openCreate}>
               <Plus size={18} aria-hidden />
               {t.newGoal}
             </Button>
@@ -160,7 +160,7 @@ export default function GoalsPage() {
           description={t.emptyHint}
           action={
             <ReadOnlyHint>
-              <Button variant="contained" data-hint="goals-create" onClick={openCreate}>
+              <Button variant="contained" onClick={openCreate}>
                 {t.createGoal}
               </Button>
             </ReadOnlyHint>

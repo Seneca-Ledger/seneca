@@ -245,7 +245,7 @@ export default function AdvicePage() {
           title={t.adviceEmptyTitle}
           description={t.adviceEmptyHint}
           action={
-            <Button variant="contained" component={Link} href="/budgets" data-hint="advice-main">
+            <Button variant="contained" component={Link} href="/budgets">
               {t.openBudgets}
             </Button>
           }
@@ -254,7 +254,7 @@ export default function AdvicePage() {
 
       {/* What asks for something first, then the rest, as two quiet lists. */}
       {items.length > 0 && (
-        <Box data-hint="advice-main" sx={{ maxWidth: LIST_MAX_WIDTH, display: 'grid', gap: 4 }}>
+        <Box sx={{ maxWidth: LIST_MAX_WIDTH, display: 'grid', gap: 4 }}>
           {[
             { key: 'attention', title: t.needsAttention.value, rows: items.filter(needsAttention) },
             {

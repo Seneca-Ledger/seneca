@@ -12,8 +12,8 @@ export interface TutorialPager {
   onKeyDown: (event: React.KeyboardEvent) => void;
 }
 
-export function useTutorialPager(stepCount: number): TutorialPager {
-  const [index, setIndex] = useState(0);
+export function useTutorialPager(stepCount: number, initialIndex = 0): TutorialPager {
+  const [index, setIndex] = useState(initialIndex);
   const next = (): void => setIndex(current => nextStep(current, stepCount));
   const back = (): void => setIndex(previousStep);
   const onKeyDown = (event: React.KeyboardEvent): void => {

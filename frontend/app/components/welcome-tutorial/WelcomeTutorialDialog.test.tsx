@@ -28,10 +28,10 @@ const STEPS: TutorialStep[] = [
 // Which pages are visible depends on permissions; that is tested with the step builder.
 vi.mock('./useTutorialSteps', () => ({ useTutorialSteps: () => STEPS }));
 
-function renderDialog(onClose: () => void, locale = 'en'): void {
+function renderDialog(onClose: () => void, locale = 'en', page: 'crypto' | null = null): void {
   render(
     <IntlayerProviderContent locale={locale as 'en'} setLocale={() => undefined}>
-      <WelcomeTutorialDialog open onClose={onClose} />
+      <WelcomeTutorialDialog open page={page} onClose={onClose} />
     </IntlayerProviderContent>,
   );
 }
@@ -75,6 +75,30 @@ describe('WelcomeTutorialDialog', () => {
     click('Next');
     press('ArrowLeft');
     expect(heading().textContent).toBe('Your month at a glance');
+  });
+
+  it('opened on one page, shows it alone until asked for the whole guide', () => {
+    const onClose = vi.fn();
+    renderDialog(onClose, 'en', 'crypto');
+    expect(heading().textContent).toBe('Wallets next to your bank accounts');
+    // No page turning on its own: no dots, no Back, and the arrow keys stay put.
+    expect(screen.queryByRole('group', { name: /Step/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    press('ArrowLeft');
+    expect(heading().textContent).toBe('Wallets next to your bank accounts');
+
+    click('Whole guide');
+    expect(screen.getByRole('group', { name: 'Step 2 of 2' })).toBeTruthy();
+    press('ArrowLeft');
+    expect(heading().textContent).toBe('Your month at a glance');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('closes a single page with Done', () => {
+    const onClose = vi.fn();
+    renderDialog(onClose, 'en', 'crypto');
+    click('Done');
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('closes from the last page with Done', () => {

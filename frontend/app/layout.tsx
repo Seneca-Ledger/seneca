@@ -10,7 +10,6 @@ import { ChatModeRedirect } from './chat/ChatModeRedirect';
 import AppChrome from './components/AppChrome';
 import DynamicPageTitle from './components/DynamicPageTitle';
 import MobileBottomBar from './components/mobile/MobileBottomBar';
-import { PageHintsHost } from './components/page-hints/PageHintsHost';
 import { AppPanels } from './components/panels/AppPanels';
 import { ReactScan } from './components/ReactScan';
 import { ReceiptPlaceFollowupHost } from './components/receipts/place-followup/ReceiptPlaceFollowupHost';
@@ -113,7 +112,6 @@ export default async function RootLayout({
                     <MobileBottomBar />
                     <AppPanels />
                     <WelcomeTutorialHost />
-                    <PageHintsHost />
                     <ReceiptPlaceFollowupHost />
                     <div
                       id="fab-portal"

@@ -62,7 +62,6 @@ export function ExchangeImportButton({
         <span>
           <Button
             variant="outlined"
-            data-hint="crypto-import"
             disabled={importing}
             startIcon={importing ? <Spinner size={16} /> : undefined}
             onClick={() => input.current?.click()}

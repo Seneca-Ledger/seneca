@@ -22,6 +22,9 @@ import type { TutorialStep } from './welcome-tutorial-steps';
 interface TutorialStepViewProps {
   steps: TutorialStep[];
   pager: TutorialPager;
+  /** One page on its own: no page turning, just "Done" and a way into the whole guide. */
+  single: boolean;
+  onWholeGuide: () => void;
   onClose: () => void;
 }
 
@@ -59,6 +62,8 @@ function StepText({ step }: { step: TutorialStep }): React.JSX.Element {
 export function TutorialStepView({
   steps,
   pager,
+  single,
+  onWholeGuide,
   onClose,
 }: TutorialStepViewProps): React.JSX.Element {
   const { controls } = useIntlayer('welcomeTutorial');
@@ -73,6 +78,8 @@ export function TutorialStepView({
         <Typography sx={demoNoteSx}>{controls.demoNote}</Typography>
       </Box>
       <TutorialFooter
+        single={single}
+        onWholeGuide={onWholeGuide}
         steps={steps}
         current={pager.index}
         onBack={pager.back}

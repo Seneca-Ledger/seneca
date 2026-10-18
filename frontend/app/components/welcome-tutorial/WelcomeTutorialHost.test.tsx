@@ -16,6 +16,10 @@ vi.mock('@/app/hooks/useAuth', () => ({
   useAuth: () => ({ user: mocks.user, loading: false, setUser: mocks.setUser }),
 }));
 vi.mock('@/app/lib/api', () => ({ default: { post: mocks.post } }));
+// The pages this user has in the sidebar (the real hook reads permissions and the workspace).
+vi.mock('./useTutorialSteps', () => ({
+  useTutorialSteps: () => [{ id: 'dashboard' }, { id: 'budgets' }],
+}));
 // Both windows are lazy-loaded and tested on their own (WelcomeWindow.test.tsx,
 // WelcomeTutorialDialog.test.tsx); stand-ins show which one is open.
 vi.mock('next/dynamic', async () => {
@@ -23,13 +27,17 @@ vi.mock('next/dynamic', async () => {
   return {
     default: (loader: () => unknown) => {
       const kind = String(loader).includes('WelcomeWindow') ? 'welcome' : 'guide';
-      return function WindowStandIn(props: { open: boolean; onClose: () => void }) {
+      return function WindowStandIn(props: {
+        open: boolean;
+        page?: string | null;
+        onClose: () => void;
+      }) {
         // Counts mounts: every opening is meant to start a fresh window.
         useEffect(() => {
           mocks.mounts[kind] += 1;
         }, []);
         return props.open ? (
-          <button type="button" onClick={props.onClose}>
+          <button type="button" data-page={props.page ?? ''} onClick={props.onClose}>
             {`close ${kind}`}
           </button>
         ) : null;
@@ -161,5 +169,68 @@ describe('WelcomeTutorialHost', () => {
 
     expect(shown('guide')).toBeTruthy();
     expect(mocks.mounts).toEqual({ welcome: 1, guide: 2 });
+  });
+
+  describe('guide page on a first visit', () => {
+    const welcomed: User = {
+      ...newAccount,
+      welcomeTutorialSeenAt: '2026-09-25T12:00:00.000Z',
+      pageHintsSeen: {},
+    };
+
+    beforeEach(() => {
+      mocks.user = welcomed;
+      mocks.post.mockResolvedValue({ data: { pageHintsSeen: { dashboard: 2 } } });
+    });
+
+    afterEach(() => {
+      document.body.querySelector('.MuiModal-root')?.remove();
+    });
+
+    it('opens the guide on this page alone and records the close at the current version', async () => {
+      await renderHost();
+
+      expect(shown('guide')?.getAttribute('data-page')).toBe('dashboard');
+      await close('guide');
+
+      expect(shown('guide')).toBeNull();
+      expect(mocks.post).toHaveBeenCalledWith('/users/me/page-hints', {
+        page: 'dashboard',
+        version: 2,
+      });
+    });
+
+    it('does not open again once closed at the current version', async () => {
+      mocks.user = { ...welcomed, pageHintsSeen: { dashboard: 2 } };
+      await renderHost();
+      expect(shown('guide')).toBeNull();
+    });
+
+    it('opens again for someone who saw only the old hint cards (version 1)', async () => {
+      mocks.user = { ...welcomed, pageHintsSeen: { dashboard: 1 } };
+      await renderHost();
+      expect(shown('guide')?.getAttribute('data-page')).toBe('dashboard');
+    });
+
+    it('waits while the user object lacks the server record', async () => {
+      const { pageHintsSeen: _omitted, ...withoutRecord } = welcomed;
+      mocks.user = withoutRecord;
+      await renderHost();
+      expect(shown('guide')).toBeNull();
+    });
+
+    it('never opens over another window', async () => {
+      const modal = document.createElement('div');
+      modal.className = 'MuiModal-root';
+      document.body.append(modal);
+      await renderHost();
+      expect(shown('guide')).toBeNull();
+    });
+
+    it('stays closed on a page the guide does not cover or the sidebar hides', async () => {
+      mocks.pathname = '/goals';
+      await renderHost();
+      expect(shown('guide')).toBeNull();
+    });
   });
 });

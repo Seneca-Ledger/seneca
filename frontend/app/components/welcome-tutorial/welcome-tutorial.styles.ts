@@ -27,14 +27,17 @@ export const paperBackground = (theme: Theme): string =>
   theme.palette.mode === 'dark' ? 'var(--card)' : 'var(--background)';
 
 export const paperSx = {
-  // `--guide-inset` is the sidebar's width while it shows: the guide sits beside it,
-  // so the highlighted item stays in view.
-  width: { md: 'min(1180px, calc(100vw - var(--guide-inset, 0px) - 48px))' },
+  // The whole screen beside the sidebar: `--guide-inset` is the sidebar's width while
+  // it shows, so the highlighted item stays in view. Small screens get MUI's fullScreen.
+  width: { md: 'calc(100vw - var(--guide-inset, 0px))' },
   maxWidth: { md: 'none' },
-  m: { md: 3 },
-  marginInlineStart: { md: 'calc(var(--guide-inset, 0px) + 24px)' },
-  // A fixed height: the dialog does not jump from step to step, the body scrolls instead.
-  height: { md: 'min(860px, calc(100vh - 48px))' },
+  height: { md: '100dvh' },
+  maxHeight: { md: 'none' },
+  m: { md: 0 },
+  marginInlineStart: { md: 'var(--guide-inset, 0px)' },
+  // Full screen at every size: no rounded corners.
+  borderRadius: 0,
+  borderInlineStart: { md: '1px solid var(--border)' },
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',

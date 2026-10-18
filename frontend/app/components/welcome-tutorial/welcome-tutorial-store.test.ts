@@ -33,6 +33,22 @@ describe('welcome tutorial store', () => {
     expect(result.current).toBe('guide');
   });
 
+  it('opens the guide on one page, and forgets the page when it closes', async () => {
+    const store = await loadStore();
+    const view = renderHook(() => store.useWelcomeTutorialView());
+    const page = renderHook(() => store.useGuidePage());
+
+    act(() => store.openGuidePage('budgets'));
+    expect(view.result.current).toBe('guide');
+    expect(page.result.current).toBe('budgets');
+
+    act(() => store.closeWelcomeTutorial());
+    expect(page.result.current).toBeNull();
+
+    act(() => store.openGuide());
+    expect(page.result.current).toBeNull();
+  });
+
   it('allows one automatic opening per page load', async () => {
     const store = await loadStore();
     expect(store.claimAutoOpen()).toBe(true);

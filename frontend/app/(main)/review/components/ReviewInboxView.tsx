@@ -773,7 +773,6 @@ export function ReviewInboxView({ state }: Props) {
             {kind === 'transaction' && (
               <Box
                 data-testid="review-bulk-bar"
-                data-hint="review-approve"
                 sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}
               >
                 <Box ref={categorySelectRef} sx={{ minWidth: 220 }}>

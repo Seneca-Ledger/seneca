@@ -14,7 +14,7 @@ export function AccuracyBanner({ notes = [] }: { notes?: React.ReactNode[] }): R
   const t = useIntlayer('taxDeclarationPage');
 
   return (
-    <Stack role="note" data-hint="tax-accuracy" spacing={0.5}>
+    <Stack role="note" spacing={0.5}>
       <Typography sx={{ fontSize: 13, color: 'var(--text-muted)' }}>{t.bannerAccuracy}</Typography>
       {notes.map((note, index) => (
         // Notes are plain text lines in a fixed order; nothing reorders them.

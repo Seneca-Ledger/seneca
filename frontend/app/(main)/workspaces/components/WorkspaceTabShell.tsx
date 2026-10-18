@@ -89,14 +89,12 @@ export default function WorkspaceTabShell({ activeItem, children }: Props) {
               value={item.id}
               component={Link}
               href={item.href}
-              data-hint={item.id === 'members' ? 'workspaces-members' : undefined}
               onClick={() => setIsAllWorkspacesOpen(false)}
               label={item.badge === undefined ? item.label : `${item.label} (${item.badge})`}
             />
           ))}
           <Tab
             value={ALL_WORKSPACES_TAB}
-            data-hint="workspaces-all"
             label={t.tabs.allWorkspaces}
             onClick={() => setIsAllWorkspacesOpen(true)}
           />

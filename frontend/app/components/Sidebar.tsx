@@ -131,7 +131,6 @@ function SidebarContent({
                   href={item.path}
                   // The guide finds the item of the page it explains by this.
                   data-nav-path={item.path}
-                  data-hint={item.path === REVIEW_PATH ? 'nav-review' : undefined}
                   className={`lumio-sidebar__nav-item${active ? ' lumio-sidebar__nav-item--active' : ''}`}
                 >
                   {item.path === REVIEW_PATH ? (
