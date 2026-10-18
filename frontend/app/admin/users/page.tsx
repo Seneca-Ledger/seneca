@@ -33,6 +33,7 @@ import { Pencil } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import apiClient from '../../lib/api';
@@ -337,10 +338,7 @@ export default function UsersManagementPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        {formatStoredDate(
-                          user.createdAt,
-                          locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-                        )}
+                        {formatStoredDate(user.createdAt, resolveLocaleTag(locale))}
                       </TableCell>
                       <TableCell>
                         <IconButton

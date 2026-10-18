@@ -20,6 +20,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import type { StatementTransaction } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { useCategoryName } from '@/app/lib/use-category-name';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 
 /** A statement's row as the storage and shared pages receive it: money as decimal strings. */
@@ -59,24 +60,18 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
   const formatDate = useCallback(
     (dateString: string): string => {
       const date = new Date(dateString);
-      return formatStoredDate(
-        date,
-        locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-      );
+      return formatStoredDate(date, resolveLocaleTag(locale));
     },
     [locale],
   );
 
   const formatAmount = useCallback(
     (amount: number, currency?: string): string => {
-      return new Intl.NumberFormat(
-        locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-        {
-          style: 'currency',
-          currency: currency || FALLBACK_CURRENCY,
-          minimumFractionDigits: 2,
-        },
-      ).format(amount);
+      return new Intl.NumberFormat(resolveLocaleTag(locale), {
+        style: 'currency',
+        currency: currency || FALLBACK_CURRENCY,
+        minimumFractionDigits: 2,
+      }).format(amount);
     },
     [locale],
   );
@@ -179,10 +174,9 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
       currency: tx => tx.currency || FALLBACK_CURRENCY,
       exchangeRate: tx =>
         tx.exchangeRate
-          ? Number(tx.exchangeRate).toLocaleString(
-              locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-              { minimumFractionDigits: 2 },
-            )
+          ? Number(tx.exchangeRate).toLocaleString(resolveLocaleTag(locale), {
+              minimumFractionDigits: 2,
+            })
           : t.dash,
       transactionType: tx => (
         <Chip
@@ -214,10 +208,9 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
       documentNumber: tx => tx.documentNumber || t.dash.value,
       amountForeign: tx =>
         tx.amountForeign
-          ? Number(tx.amountForeign).toLocaleString(
-              locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-              { minimumFractionDigits: 2 },
-            )
+          ? Number(tx.amountForeign).toLocaleString(resolveLocaleTag(locale), {
+              minimumFractionDigits: 2,
+            })
           : t.dash,
     };
 
@@ -245,9 +238,7 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
             return t.dash;
           }
           if (typeof value === 'number') {
-            return value.toLocaleString(
-              locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-            );
+            return value.toLocaleString(resolveLocaleTag(locale));
           }
           if (typeof value === 'object') {
             return getNamedObjectLabel(value) || JSON.stringify(value);
