@@ -120,7 +120,7 @@ export async function seedDemoWorkspace(
   for (const statement of data.statements) {
     const wallet = wallets.get(statement.account) as Wallet;
     const saved = await manager.save(
-      manager.create(Statement, statementRow(statement, wallet.accountNumber as string, target)),
+      manager.create(Statement, statementRow(statement, wallet, target)),
     );
     const rows = statement.transactions.map(row => {
       const pairId = transferPairId(row.transferKey);
@@ -328,9 +328,10 @@ async function prepareCategories(
 
 function statementRow(
   statement: DemoStatement,
-  accountNumber: string,
+  wallet: Wallet,
   target: { workspaceId: string; userId: string },
 ): Partial<Statement> {
+  const accountNumber = wallet.accountNumber as string;
   const bytes = Buffer.from(statement.csv, 'utf8');
   const debit = statement.transactions
     .filter(row => row.type === 'expense')
@@ -378,6 +379,9 @@ function statementRow(
         currency: DEMO_CURRENCY,
       },
       validation: { passed: true, warnings: [] },
+      // The list names a statement by its bank, and the fictional bank has no
+      // BankName value: without this every demo statement reads "other".
+      importPreview: { merchant: wallet.name },
       errors: [],
       warnings: [],
     },

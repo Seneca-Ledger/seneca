@@ -85,8 +85,10 @@ const dotSx = (active: boolean): SxProps<Theme> => ({
 
 const closeSx = { color: 'var(--text-muted)', fontWeight: 500 } satisfies SxProps<Theme>;
 
+// `html` lifts the rule over MUI's own `outline: 0` on buttons (same specificity,
+// injected later), which otherwise hides the ring on a button anchor.
 const ringStyles = {
-  [`[${ACTIVE_ATTRIBUTE}]`]: {
+  [`html [${ACTIVE_ATTRIBUTE}]`]: {
     outline: '2px solid var(--primary)',
     outlineOffset: 3,
   },

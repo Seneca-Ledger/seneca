@@ -36,6 +36,9 @@ const paperSx = {
   backgroundImage: 'none',
   boxShadow: 'none',
   border: '1px solid var(--border)',
+  // The dialog takes focus when it opens by itself on page load; a ring around
+  // the whole window there is noise, the buttons keep theirs.
+  '&:focus-visible': { outline: 'none' },
   '& .MuiDialogTitle-root': {
     px: { xs: 2.5, sm: 3.5 },
     pt: { xs: 3, sm: 3.5 },
