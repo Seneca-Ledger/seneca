@@ -41,6 +41,8 @@ export const SetupProgress = Schema.Struct({
   hasCustomCategories: Schema.Boolean,
   hasBudget: Schema.Boolean,
   hasGoal: Schema.Boolean,
+  telegramAvailable: Schema.Boolean,
+  hasTelegram: Schema.Boolean,
 });
 export type SetupProgress = Wire<typeof SetupProgress>;
 

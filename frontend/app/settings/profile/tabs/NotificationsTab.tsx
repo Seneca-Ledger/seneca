@@ -64,7 +64,7 @@ export function NotificationsTab({ user }: SettingsTabProps): React.JSX.Element 
           icon={Bot}
           defaultExpanded
         >
-          <TelegramSettingsPanel />
+          <TelegramSettingsPanel isAdmin={user?.role === 'admin'} />
         </SettingsAccordion>
       ) : null}
     </Stack>

@@ -115,8 +115,11 @@ export class TelegramBotsService implements OnApplicationBootstrap, OnModuleDest
    * Start there sends `/start <code>`, which connects the chat.
    */
   async createLink(user: User, workspaceId: string): Promise<TelegramLink> {
-    const settings = await this.applicationSettingsService.getTelegramSettings(user, workspaceId);
-    const botToken = settings.botToken || process.env.TELEGRAM_BOT_TOKEN || null;
+    // The workspace's own bot, else the shared one.
+    const { botToken } = await this.applicationSettingsService.getTelegramSettings(
+      user,
+      workspaceId,
+    );
     if (!botToken) {
       throw new BadRequestException('Telegram bot is not configured');
     }

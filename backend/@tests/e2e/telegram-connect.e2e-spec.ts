@@ -8,7 +8,7 @@ import { Schema } from 'effect';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
-import { TelegramConnection, TelegramLink } from '../../src/contracts';
+import { InstanceTelegramBotStatus, TelegramConnection, TelegramLink } from '../../src/contracts';
 import { webhookSecretOf } from '../../src/modules/telegram/telegram-bots.service';
 import { deleteUserByEmail, type E2eAccount, e2eTestingModule, registerAccount } from './helpers/e2e-app';
 
@@ -24,13 +24,14 @@ const CHAT_ID = 4242;
 describe('Telegram Connect (e2e)', () => {
   const email = `telegram-connect-${Date.now()}@example.com`;
   const sent: Array<{ chat_id: string; text: string }> = [];
+  const botCalls: Array<{ url: string; body: Record<string, unknown> }> = [];
   const previousEnv = { ...process.env };
   const originalFetch = global.fetch;
   let app: INestApplication;
   let dataSource: DataSource;
   let owner: E2eAccount;
 
-  const as = (method: 'get' | 'post' | 'delete', url: string) =>
+  const as = (method: 'get' | 'post' | 'put' | 'delete', url: string) =>
     request(app.getHttpServer())
       [method](url)
       .set('Authorization', `Bearer ${owner.token}`)
@@ -56,6 +57,7 @@ describe('Telegram Connect (e2e)', () => {
     global.fetch = (async (input: unknown, init?: RequestInit) => {
       const method = String(input).split('/').pop();
       const body = init?.body ? JSON.parse(String(init.body)) : {};
+      botCalls.push({ url: String(input), body });
       if (method === 'sendMessage') {
         sent.push(body);
       }
@@ -126,5 +128,43 @@ describe('Telegram Connect (e2e)', () => {
 
     const after = await as('get', '/telegram/connection').expect(200);
     expect(after.body).toEqual({ connected: false, inThisWorkspace: false });
+  });
+
+  describe('shared bot', () => {
+    it('is only for instance admins', async () => {
+      await as('get', '/settings/instance/telegram').expect(403);
+      await as('put', '/settings/instance/telegram').send({ botToken: '555:shared' }).expect(403);
+    });
+
+    it('serves a workspace without its own bot once an admin saves it', async () => {
+      await dataSource.query('UPDATE users SET role = $1 WHERE id = $2', ['admin', owner.userId]);
+      const before = await as('get', '/settings/instance/telegram').expect(200);
+      decodes(InstanceTelegramBotStatus, before.body);
+      expect(before.body).toEqual({ source: 'env' });
+
+      const saved = await as('put', '/settings/instance/telegram').send({ botToken: '555:shared' }).expect(200);
+      expect(saved.body).toEqual({ source: 'instance' });
+
+      const status = await as('get', '/settings/notifications/telegram').expect(200);
+      expect(status.body).toMatchObject({ source: 'instance', settings: { sharedBot: true } });
+      const progress = await as('get', '/dashboard/setup-progress').expect(200);
+      expect(progress.body).toMatchObject({ telegramAvailable: true, hasTelegram: false });
+
+      botCalls.length = 0;
+      await as('post', '/telegram/link').expect(201);
+      // The link is for the shared bot, which starts listening before the user presses Start.
+      expect(botCalls.map(call => call.url)).toEqual(
+        expect.arrayContaining([
+          'https://api.telegram.org/bot555:shared/setWebhook',
+          'https://api.telegram.org/bot555:shared/getMe',
+        ]),
+      );
+      expect(botCalls.find(call => call.url.endsWith('/setWebhook'))?.body.url).toBe(
+        'https://lumio.example/api/v1/telegram/webhook/555',
+      );
+
+      const cleared = await as('delete', '/settings/instance/telegram').expect(200);
+      expect(cleared.body).toEqual({ source: 'env' });
+    });
   });
 });

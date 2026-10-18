@@ -11,6 +11,7 @@ import { Subscription } from '../../entities/subscription.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
+import { ApplicationSettingsModule } from '../application-settings/application-settings.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
@@ -33,6 +34,7 @@ import { SetupProgressService } from './setup-progress.service';
       Goal,
     ]),
     ExchangeRatesModule,
+    ApplicationSettingsModule,
   ],
   controllers: [DashboardController, SetupProgressController],
   providers: [DashboardService, SetupProgressService],

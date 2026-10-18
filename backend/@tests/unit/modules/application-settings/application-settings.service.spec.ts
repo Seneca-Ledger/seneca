@@ -62,11 +62,25 @@ describe('ApplicationSettingsService', () => {
     delete: jest.fn(),
   };
 
+  let instanceSaved: Record<string, unknown> | null = null;
+  const instanceRepository = {
+    findOne: jest.fn(async () => instanceSaved),
+    create: jest.fn(input => input),
+    save: jest.fn(async entity => {
+      instanceSaved = entity;
+      return entity;
+    }),
+    delete: jest.fn(async () => {
+      instanceSaved = null;
+    }),
+  };
+
   const createService = () =>
     new ApplicationSettingsService(
       repository as never,
       personalRepository as never,
       new EffectRuntime(),
+      instanceRepository as never,
     );
 
   beforeEach(() => {
@@ -86,6 +100,8 @@ describe('ApplicationSettingsService', () => {
     (assertPublicEgressUrl as jest.Mock).mockClear();
     Object.keys(saved).forEach(key => delete saved[key]);
     personalSaved = null;
+    instanceSaved = null;
+    instanceRepository.save.mockClear();
     personalRepository.findOne.mockClear();
     personalRepository.save.mockClear();
     personalRepository.delete.mockClear();
@@ -268,6 +284,105 @@ describe('ApplicationSettingsService', () => {
       await expect(createService().listTelegramBots()).resolves.toEqual([
         { botToken: '3:b', publicUrl: 'http://127.0.0.1:3000' },
       ]);
+    });
+
+    it('lists the bot an instance admin saved as the shared one, instead of TELEGRAM_BOT_TOKEN', async () => {
+      process.env.TELEGRAM_BOT_TOKEN = '1:env';
+      instanceSaved = { key: 'telegram', encryptedSecrets: { botToken: encryptText('4:shared') } };
+      Object.assign(repository, { find: jest.fn(async () => []) });
+
+      await expect(createService().listTelegramBots()).resolves.toEqual([
+        { botToken: '4:shared', publicUrl: 'http://127.0.0.1:3000' },
+      ]);
+    });
+  });
+
+  describe('shared Telegram bot', () => {
+    const getMeAnswers = (status: number, body: unknown) =>
+      (global.fetch as jest.Mock).mockImplementation(
+        async () =>
+          new Response(JSON.stringify(body), {
+            status,
+            headers: { 'content-type': 'application/json' },
+          }),
+      );
+
+    beforeEach(() => {
+      process.env.INTEGRATIONS_ENCRYPTION_KEY = 'unit-test-key';
+      delete process.env.TELEGRAM_BOT_TOKEN;
+    });
+
+    it('serves a workspace its own bot first, then the admin’s shared bot, then TELEGRAM_BOT_TOKEN', async () => {
+      process.env.TELEGRAM_BOT_TOKEN = '1:env';
+      const service = createService();
+      await expect(service.getTelegramSettings(user)).resolves.toMatchObject({
+        botToken: '1:env',
+        source: 'env',
+      });
+
+      instanceSaved = { key: 'telegram', encryptedSecrets: { botToken: encryptText('4:shared') } };
+      await expect(service.getTelegramSettings(user)).resolves.toMatchObject({
+        botToken: '4:shared',
+        source: 'instance',
+      });
+
+      saved[WorkspaceServiceSettingsKey.TELEGRAM] = {
+        config: {},
+        encryptedSecrets: { botToken: encryptText('2:own') },
+      };
+      await expect(service.getTelegramSettings(user)).resolves.toMatchObject({
+        botToken: '2:own',
+        source: 'workspace',
+      });
+    });
+
+    it('falls through to the shared bot when the workspace row has no token', async () => {
+      instanceSaved = { key: 'telegram', encryptedSecrets: { botToken: encryptText('4:shared') } };
+      saved[WorkspaceServiceSettingsKey.TELEGRAM] = { config: { timeoutMs: 5000 }, encryptedSecrets: {} };
+
+      await expect(createService().getTelegramSettings(user)).resolves.toMatchObject({
+        botToken: '4:shared',
+        source: 'instance',
+      });
+    });
+
+    it('tells the settings page whether a shared bot exists', async () => {
+      const service = createService();
+      await expect(service.getTelegramStatus(user)).resolves.toMatchObject({
+        source: 'disabled',
+        settings: { botTokenConfigured: false, sharedBot: false },
+      });
+
+      process.env.TELEGRAM_BOT_TOKEN = '1:env';
+      await expect(service.getTelegramStatus(user)).resolves.toMatchObject({
+        source: 'env',
+        settings: { botTokenConfigured: true, sharedBot: true },
+      });
+    });
+
+    it('saves the shared bot encrypted once getMe accepts it, and removes it again', async () => {
+      getMeAnswers(200, { ok: true, result: { id: 4 } });
+      const service = createService();
+
+      await expect(service.saveInstanceTelegramSettings(user, { botToken: '4:shared' })).resolves.toEqual({
+        source: 'instance',
+      });
+      const [input] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(String(input)).toBe('https://api.telegram.org/bot4:shared/getMe');
+      const stored = instanceSaved as { encryptedSecrets: { botToken: string }; updatedByUserId: string };
+      expect(stored.encryptedSecrets.botToken).not.toBe('4:shared');
+      expect(stored.updatedByUserId).toBe('user-1');
+
+      await expect(service.clearInstanceTelegramSettings()).resolves.toEqual({ source: 'disabled' });
+    });
+
+    it('keeps the old shared bot when Telegram rejects the new token', async () => {
+      getMeAnswers(401, { ok: false, description: 'Unauthorized' });
+
+      await expect(
+        createService().saveInstanceTelegramSettings(user, { botToken: '4:wrong' }),
+      ).rejects.toThrow('Unauthorized');
+      expect(instanceRepository.save).not.toHaveBeenCalled();
     });
   });
 

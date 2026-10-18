@@ -680,7 +680,7 @@ Do not add closed SaaS SDKs for new integration work. Prefer OSS libraries that 
 <details>
 <summary><b>Telegram Bot</b></summary>
 
-Get a token from [@BotFather](https://t.me/botfather), then save the bot token in **Settings → Notifications → Telegram**. The token is stored encrypted; `TELEGRAM_BOT_TOKEN` is only a fallback server default.
+Get a token from [@BotFather](https://t.me/botfather) once per server. An instance admin saves it as the **shared server bot** in **Settings → Notifications → Telegram**; the token is stored encrypted, and `TELEGRAM_BOT_TOKEN` in `.env` does the same job if nothing is saved there. Every workspace uses the shared bot unless its owner saves a bot of the workspace's own in the same section. People in a workspace on the shared bot see no token form at all, and the dashboard's Getting started list gets a **Connect Telegram** step. Changing the shared bot means people connect again, because a chat only accepts messages from a bot it has started.
 
 After that, each user presses **Connect** in the same section: Telegram opens the bot, they press **Start**, and the chat is connected to their account and the open workspace. The link carries a one-time code that is valid for 10 minutes, so nobody types a chat id.
 

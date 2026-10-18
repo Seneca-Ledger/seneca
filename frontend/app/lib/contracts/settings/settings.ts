@@ -40,7 +40,7 @@ export const NotificationPreferences = Schema.Struct({
 });
 export type NotificationPreferences = Wire<typeof NotificationPreferences>;
 
-const SettingsSource = Schema.Literals(['workspace', 'env', 'disabled']);
+const SettingsSource = Schema.Literals(['workspace', 'instance', 'env', 'disabled']);
 
 /** `GET /settings/local-categorization`. */
 export const LocalCategorizationStatus = Schema.Struct({
@@ -74,9 +74,17 @@ export const TelegramBotStatus = Schema.Struct({
   settings: Schema.Struct({
     timeoutMs: Schema.Number,
     botTokenConfigured: Schema.Boolean,
+    /** A bot every workspace can use: saved by an instance admin, or TELEGRAM_BOT_TOKEN. */
+    sharedBot: Schema.Boolean,
   }),
 });
 export type TelegramBotStatus = Wire<typeof TelegramBotStatus>;
+
+/** `GET /settings/instance/telegram` (instance admins): where the shared bot comes from. */
+export const InstanceTelegramBotStatus = Schema.Struct({
+  source: Schema.Literals(['instance', 'env', 'disabled']),
+});
+export type InstanceTelegramBotStatus = Wire<typeof InstanceTelegramBotStatus>;
 
 export const TelegramReport = Schema.Struct({
   id: Schema.String,

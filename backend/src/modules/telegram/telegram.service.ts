@@ -27,6 +27,7 @@ import type { DailyReport } from '../reports/interfaces/daily-report.interface';
 import type { MonthlyReport } from '../reports/interfaces/monthly-report.interface';
 import { ReportsService } from '../reports/reports.service';
 import { StatementsService } from '../statements/statements.service';
+import { telegramConnectionOf } from './telegram-connection.util';
 import { parseExpenseText } from './telegram-inbound.util';
 import { TelegramLinkCodes } from './telegram-link-codes';
 import {
@@ -159,16 +160,8 @@ export class TelegramService {
     };
   }
 
-  /**
-   * Whether the user's chat is connected, and whether the bot answers for
-   * `workspaceId` (it serves one workspace: the one Connect was pressed in).
-   */
   getConnection(user: User, workspaceId: string): TelegramConnection {
-    const connected = Boolean(user.telegramChatId);
-    return {
-      connected,
-      inThisWorkspace: connected && (user.telegramWorkspaceId ?? user.workspaceId) === workspaceId,
-    };
+    return telegramConnectionOf(user, workspaceId);
   }
 
   async disconnect(user: User): Promise<void> {

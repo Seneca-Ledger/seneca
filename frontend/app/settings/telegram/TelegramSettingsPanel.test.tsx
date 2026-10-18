@@ -36,16 +36,18 @@ vi.mock('@/app/i18n', () => ({
 
 const LINK = { url: 'https://t.me/lumio_bot?start=code', expiresAt: '2099-01-01T00:00:00.000Z' };
 
-function botStatus(configured: boolean) {
+type Bot = 'own' | 'shared' | 'none';
+
+function botStatus(bot: Bot) {
   return {
-    connected: configured,
-    status: configured ? 'connected' : 'disconnected',
-    source: configured ? 'workspace' : 'disabled',
-    settings: { timeoutMs: 10000, botTokenConfigured: configured },
+    connected: bot !== 'none',
+    status: bot !== 'none' ? 'connected' : 'disconnected',
+    source: bot === 'own' ? 'workspace' : bot === 'shared' ? 'instance' : 'disabled',
+    settings: { timeoutMs: 10000, botTokenConfigured: bot !== 'none', sharedBot: bot === 'shared' },
   };
 }
 
-function mockApi(options: { botConfigured?: boolean; connections: Array<Record<string, boolean>> }) {
+function mockApi(options: { bot?: Bot; connections: Array<Record<string, boolean>> }) {
   const connections = [...options.connections];
   apiGet.mockImplementation(async (url: string) => {
     if (url === '/telegram/connection') {
@@ -53,7 +55,10 @@ function mockApi(options: { botConfigured?: boolean; connections: Array<Record<s
       return apiResponse(connections.length > 1 ? connections.shift() : connections[0]);
     }
     if (url === '/settings/notifications/telegram') {
-      return apiResponse(botStatus(options.botConfigured ?? true));
+      return apiResponse(botStatus(options.bot ?? 'own'));
+    }
+    if (url === '/settings/instance/telegram') {
+      return apiResponse({ source: options.bot === 'shared' ? 'instance' : 'disabled' });
     }
     return apiResponse({ data: [], total: 0, page: 1, limit: 20 });
   });
@@ -61,11 +66,11 @@ function mockApi(options: { botConfigured?: boolean; connections: Array<Record<s
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
-async function render(): Promise<HTMLDivElement> {
+async function render(isAdmin = false): Promise<HTMLDivElement> {
   const container = document.createElement('div');
   document.body.appendChild(container);
   await act(async () => {
-    createRoot(container).render(<TelegramSettingsPanel />);
+    createRoot(container).render(<TelegramSettingsPanel isAdmin={isAdmin} />);
   });
   await act(flush);
   return container;
@@ -190,10 +195,38 @@ describe('TelegramSettingsPanel', () => {
   });
 
   it('asks for a bot token before Connect can be pressed', async () => {
-    mockApi({ botConfigured: false, connections: [{ connected: false, inThisWorkspace: false }] });
+    mockApi({ bot: 'none', connections: [{ connected: false, inThisWorkspace: false }] });
     const container = await render();
 
     expect(container.textContent).toContain('connect.botMissing');
     expect(button(container, 'connect.button')?.disabled).toBe(true);
+  });
+
+  it('shows people of a workspace on the shared bot only Connect, not a token form', async () => {
+    mockApi({ bot: 'shared', connections: [{ connected: false, inThisWorkspace: false }] });
+    const container = await render();
+
+    expect(button(container, 'connect.button')?.disabled).toBe(false);
+    expect(container.textContent).not.toContain('bot.title');
+    expect(container.textContent).not.toContain('sharedBot.title');
+    expect(apiGet).not.toHaveBeenCalledWith('/settings/instance/telegram');
+  });
+
+  it('keeps the token form when there is no shared bot', async () => {
+    mockApi({ bot: 'none', connections: [{ connected: false, inThisWorkspace: false }] });
+    const container = await render();
+
+    expect(container.textContent).toContain('bot.title');
+    expect(container.textContent).not.toContain('sharedBot.title');
+  });
+
+  it('shows an instance admin the shared bot and the optional workspace bot', async () => {
+    mockApi({ bot: 'shared', connections: [{ connected: false, inThisWorkspace: false }] });
+    const container = await render(true);
+
+    expect(container.textContent).toContain('sharedBot.title');
+    expect(container.textContent).toContain('sharedBot.sourceInstance');
+    expect(container.textContent).toContain('bot.title');
+    expect(container.textContent).toContain('bot.overrideHint');
   });
 });

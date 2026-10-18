@@ -41,6 +41,7 @@ export * from './idempotency-key.entity';
 export * from './import-batch.entity';
 export * from './import-session.entity';
 export * from './insight.entity';
+export * from './instance-setting.entity';
 export * from './integration.entity';
 export * from './integration-token.entity';
 export * from './investment-holding.entity';

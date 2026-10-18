@@ -26,6 +26,7 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { TelegramConnection, TelegramLink } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
+import { SharedTelegramBotCard } from './SharedTelegramBotCard';
 
 type ReportStatus = 'pending' | 'sent' | 'failed';
 type ReportType = 'daily' | 'monthly' | 'custom';
@@ -56,7 +57,7 @@ const loadConnection = async (): Promise<TelegramConnection | null> =>
  * Notifications settings tab, after the page's own auth gate.
  */
 // eslint-disable-next-line max-lines-per-function, complexity
-export function TelegramSettingsPanel(): React.JSX.Element {
+export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.JSX.Element {
   const { hasPermission } = usePermissions();
   const t = useIntlayer('settingsTelegramPage');
   const { locale } = useLocale();
@@ -73,7 +74,10 @@ export function TelegramSettingsPanel(): React.JSX.Element {
   const [sendingMonthly, setSendingMonthly] = useState(false);
   const [botToken, setBotToken] = useState('');
   const [botTimeoutMs, setBotTimeoutMs] = useState('10000');
-  const [botConfigured, setBotConfigured] = useState(false);
+  // The workspace's own bot, and a shared one (an admin's, or TELEGRAM_BOT_TOKEN).
+  const [ownBot, setOwnBot] = useState(false);
+  const [sharedBot, setSharedBot] = useState(false);
+  const botConfigured = ownBot || sharedBot;
   const [savingBot, setSavingBot] = useState(false);
 
   const formatTelegramDate = (dateString: string | null | undefined): string => {
@@ -126,7 +130,8 @@ export function TelegramSettingsPanel(): React.JSX.Element {
         url: '/settings/notifications/telegram',
         contract: 'TelegramBotStatus',
       });
-      setBotConfigured(bot.settings.botTokenConfigured || bot.connected);
+      setOwnBot(bot.source === 'workspace');
+      setSharedBot(bot.settings.sharedBot);
       setBotTimeoutMs(String(bot.settings.timeoutMs || 10000));
     })().catch(async err => {
       console.error('Failed to load telegram bot settings', err);
@@ -171,7 +176,7 @@ export function TelegramSettingsPanel(): React.JSX.Element {
         timeoutMs: Number(botTimeoutMs) || 10000,
       } satisfies ContractInput<'SaveTelegramSettingsBody'>);
       setBotToken('');
-      setBotConfigured(true);
+      setOwnBot(true);
       setStatusMessage(t.bot.saved.value);
     })()
       .catch(async err => {
@@ -266,58 +271,64 @@ export function TelegramSettingsPanel(): React.JSX.Element {
         </Box>
       )}
 
-      <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider' }}>
-        <Stack spacing={3}>
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {t.bot.title.value}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t.bot.description.value}
-            </Typography>
-          </Box>
+      {isAdmin && <SharedTelegramBotCard onChange={() => void loadBotSettings()} />}
 
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField
-              fullWidth
-              type="password"
-              label={t.bot.tokenLabel.value}
-              placeholder={botConfigured ? t.bot.tokenPlaceholderConfigured.value : '123456:ABC'}
-              value={botToken}
-              onChange={e => setBotToken(e.target.value)}
-            />
-            <TextField
-              fullWidth
-              label={t.bot.timeoutLabel.value}
-              value={botTimeoutMs}
-              onChange={e => setBotTimeoutMs(e.target.value)}
-            />
-          </Stack>
+      {/* People with a shared bot only press Connect; admins and owners of a workspace bot still see it. */}
+      {(isAdmin || !sharedBot || ownBot) && (
+        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider' }}>
+          <Stack spacing={3}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                {t.bot.title.value}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t.bot.description.value}
+              </Typography>
+              {sharedBot && (
+                <Typography variant="body2" color="text.secondary">
+                  {t.bot.overrideHint.value}
+                </Typography>
+              )}
+            </Box>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <Button
-              variant="contained"
-              startIcon={<CheckCircle size={18} />}
-              onClick={saveBotSettings}
-              disabled={savingBot || !(botConfigured || botToken)}
-            >
-              {savingBot
-                ? t.bot.checking.value
-                : botConfigured
-                  ? t.bot.update.value
-                  : t.bot.save.value}
-            </Button>
-            {botConfigured && (
-              <Chip
-                icon={<TelegramIcon size={16} />}
-                color="success"
-                label={t.bot.configured.value}
-                variant="outlined"
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField
+                fullWidth
+                type="password"
+                label={t.bot.tokenLabel.value}
+                placeholder={ownBot ? t.bot.tokenPlaceholderConfigured.value : '123456:ABC'}
+                value={botToken}
+                onChange={e => setBotToken(e.target.value)}
               />
-            )}
+              <TextField
+                fullWidth
+                label={t.bot.timeoutLabel.value}
+                value={botTimeoutMs}
+                onChange={e => setBotTimeoutMs(e.target.value)}
+              />
+            </Stack>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Button
+                variant="contained"
+                startIcon={<CheckCircle size={18} />}
+                onClick={saveBotSettings}
+                disabled={savingBot || !(ownBot || botToken)}
+              >
+                {savingBot ? t.bot.checking.value : ownBot ? t.bot.update.value : t.bot.save.value}
+              </Button>
+              {ownBot && (
+                <Chip
+                  icon={<TelegramIcon size={16} />}
+                  color="success"
+                  label={t.bot.configured.value}
+                  variant="outlined"
+                />
+              )}
+            </Stack>
           </Stack>
-        </Stack>
-      </Paper>
+        </Paper>
+      )}
 
       <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider' }}>
         <Stack spacing={3}>

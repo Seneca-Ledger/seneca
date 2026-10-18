@@ -285,6 +285,8 @@ export const ERR = {
   TAX_RETURN_MISSING_RATES:
     'Transactions without an exchange rate for their date: {{count}} ({{currencies}}). Add the rates before filing.',
 
+  INSTANCE_ADMIN_ONLY: 'Only an instance administrator can change this',
+
   // ── system update ───────────────────────────────────────────────────────
   SYSTEM_UPDATE_ADMIN_ONLY: 'Only an instance administrator can update Lumio',
   SYSTEM_UPDATER_UNAVAILABLE:
