@@ -123,7 +123,9 @@ function ProcessingSwitch({
         checked={checked}
         disabled={saving}
         onChange={event => onChange(event.target.checked)}
-        inputProps={{ 'aria-label': tx(['processingCard', entry.label], entry.labelFallback) }}
+        slotProps={{
+          input: { 'aria-label': tx(['processingCard', entry.label], entry.labelFallback) },
+        }}
       />
       <Stack spacing={0.25} sx={{ pt: 0.75 }}>
         <Typography variant="body2" fontWeight={600}>

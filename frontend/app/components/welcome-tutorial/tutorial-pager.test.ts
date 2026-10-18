@@ -1,45 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import {
-  goToStep,
-  INITIAL_PAGER,
-  nextPage,
-  pageTurnOf,
-  previousPage,
-  stepStateOf,
-} from './tutorial-pager';
+import { nextStep, pageTurnOf, previousStep } from './tutorial-pager';
 
 describe('tutorial pager', () => {
-  it('goes from the intro through every step to the outro', () => {
-    let state = INITIAL_PAGER;
-    const seen: string[] = [];
-    for (let i = 0; i < 4; i += 1) {
-      state = nextPage(state, 3);
-      seen.push(state.view === 'step' ? `step ${state.index}` : state.view);
+  it('walks through every step and stays on the last one', () => {
+    const seen: number[] = [];
+    let index = 0;
+    for (let i = 0; i < 3; i += 1) {
+      index = nextStep(index, 3);
+      seen.push(index);
     }
-    expect(seen).toEqual(['step 0', 'step 1', 'step 2', 'outro']);
+    expect(seen).toEqual([1, 2, 2]);
   });
 
-  it('stays on the outro when asked to go further', () => {
-    expect(nextPage({ view: 'outro', index: 2 }, 3)).toEqual({ view: 'outro', index: 2 });
+  it('goes back one step and stays on the first one', () => {
+    expect(previousStep(2)).toBe(1);
+    expect(previousStep(0)).toBe(0);
   });
 
-  it('goes back from the outro to the last step, and from the first step to the intro', () => {
-    expect(previousPage({ view: 'outro', index: 2 }, 3)).toEqual({ view: 'step', index: 2 });
-    expect(previousPage({ view: 'step', index: 1 }, 3)).toEqual({ view: 'step', index: 0 });
-    expect(previousPage({ view: 'step', index: 0 }, 3)).toEqual(INITIAL_PAGER);
-  });
-
-  it('skips straight to the outro when no step is visible', () => {
-    expect(nextPage(INITIAL_PAGER, 0)).toEqual({ view: 'outro', index: 0 });
-    expect(previousPage({ view: 'outro', index: 0 }, 0)).toEqual(INITIAL_PAGER);
-  });
-
-  it('jumps to a step', () => {
-    expect(goToStep(5)).toEqual({ view: 'step', index: 5 });
-  });
-
-  it('marks steps before the current one as done', () => {
-    expect([0, 1, 2].map(index => stepStateOf(index, 1))).toEqual(['done', 'active', 'todo']);
+  it('stays on the first step when there is only one', () => {
+    expect(nextStep(0, 1)).toBe(0);
   });
 });
 

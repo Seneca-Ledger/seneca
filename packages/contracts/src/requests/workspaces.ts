@@ -15,6 +15,15 @@ export const CreateWorkspaceBody = Schema.Struct({
 });
 export type CreateWorkspaceBody = Wire<typeof CreateWorkspaceBody>;
 
+/**
+ * `POST /workspaces/demo`: the caller's demo workspace, made on first call.
+ * The client sends the name in the user's language; the data is fixed.
+ */
+export const CreateDemoWorkspaceBody = Schema.Struct({
+  name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(100)),
+});
+export type CreateDemoWorkspaceBody = Wire<typeof CreateDemoWorkspaceBody>;
+
 export const WorkspaceProcessingInput = Schema.Struct({
   /** 0 categorises almost everything, 1 only exact matches. */
   categorizationThreshold: optionalNullable(
@@ -29,6 +38,14 @@ export const WorkspaceProcessingInput = Schema.Struct({
 });
 export type WorkspaceProcessingInput = Wire<typeof WorkspaceProcessingInput>;
 
+/** Which plugins are switched on; a missing key leaves that switch as it is. */
+export const WorkspacePluginsInput = Schema.Struct({
+  webhooks: optionalNullable(Schema.Boolean),
+  mcp: optionalNullable(Schema.Boolean),
+  aiAssistant: optionalNullable(Schema.Boolean),
+});
+export type WorkspacePluginsInput = Wire<typeof WorkspacePluginsInput>;
+
 export const UpdateWorkspaceBody = CreateWorkspaceBody.mapFields(
   Struct.map(optionalNullable),
 ).mapFields(
@@ -36,6 +53,8 @@ export const UpdateWorkspaceBody = CreateWorkspaceBody.mapFields(
     isFavorite: optionalNullable(Schema.Boolean),
     /** How this workspace categorises and de-duplicates incoming data. */
     processing: optionalNullable(WorkspaceProcessingInput),
+    /** Owners and admins switch plugins on and off for the whole workspace. */
+    plugins: optionalNullable(WorkspacePluginsInput),
   }),
 );
 export type UpdateWorkspaceBody = Wire<typeof UpdateWorkspaceBody>;

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
@@ -18,6 +19,7 @@ import {
 } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { TransactionsImportedEvent } from '../notifications/events/notification-events';
 import { TransferPairingService } from '../transactions/services/transfer-pairing.service';
 import { BitcoinClient } from './bitcoin.client';
 import {
@@ -105,6 +107,7 @@ export class CryptoSyncService {
     private readonly solana: SolanaRpcClient,
     private readonly transferPairing: TransferPairingService,
     private readonly balanceService: CryptoBalanceService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /** One reader per chain family; each returns the chain's balances and transfers. */
@@ -170,16 +173,24 @@ export class CryptoSyncService {
     const transfers = finalizeTransfers(chain.transfers);
     await this.primePrices(transfers);
 
-    let imported = 0;
+    const importedIds: string[] = [];
     let skipped = 0;
 
     for (const transfer of transfers) {
-      const inserted = await this.persistTransfer(wallet, transfer, currency);
-      if (inserted) {
-        imported += 1;
+      const insertedId = await this.persistTransfer(wallet, transfer, currency);
+      if (insertedId) {
+        importedIds.push(insertedId);
       } else {
         skipped += 1;
       }
+    }
+    const imported = importedIds.length;
+    if (imported > 0) {
+      this.eventEmitter?.emit('transactions.imported', {
+        workspaceId: wallet.workspaceId,
+        source: 'crypto_sync',
+        transactionIds: importedIds,
+      } satisfies TransactionsImportedEvent);
     }
 
     // A swap's two legs are linked so neither counts as income or spending, and the
@@ -406,11 +417,11 @@ export class CryptoSyncService {
     wallet: CryptoWallet,
     transfer: ChainTransfer,
     currency: string,
-  ): Promise<boolean> {
+  ): Promise<string | null> {
     const date = new Date(transfer.timestamp * 1000);
     const usdPrice = await this.priceService.getUsdPrice(transfer.asset, date);
     if (usdPrice === null) {
-      return false;
+      return null;
     }
 
     const usdRate = await this.exchangeRatesService.getRateOrNull(
@@ -420,7 +431,7 @@ export class CryptoSyncService {
       wallet.workspaceId,
     );
     if (usdRate === null) {
-      return false;
+      return null;
     }
 
     // A fee we cannot price is dropped from the row rather than taking the whole
@@ -464,7 +475,9 @@ export class CryptoSyncService {
 
     // `ON CONFLICT DO NOTHING` returns no row when the unique index rejected the
     // insert, which is exactly how a repeated sync stays idempotent.
-    return Array.isArray(result.raw) && result.raw.length > 0;
+    return Array.isArray(result.raw)
+      ? ((result.raw[0] as { id?: string } | undefined)?.id ?? null)
+      : null;
   }
 
   /** The fee folded onto a transfer, priced; null when there is none or no price. */

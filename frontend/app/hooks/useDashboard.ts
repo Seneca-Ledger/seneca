@@ -83,6 +83,7 @@ export function useDashboardTrends({
       }),
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const refetch = useCallback((): void => {
@@ -117,6 +118,7 @@ export function useDashboardHealthHistory(year: number): HealthHistoryState {
       }),
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   return {
@@ -146,6 +148,7 @@ export function useDashboardCashFlow(range: DashboardCashFlowRange, month?: stri
       }),
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   return {
@@ -184,6 +187,7 @@ export function useDashboard(
     },
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const changeRange = useCallback((newRange: DashboardRange): void => {

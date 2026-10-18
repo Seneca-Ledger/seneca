@@ -31,6 +31,7 @@ export function useTaxDeclaration(taxYear: number) {
     queryKey: queryKeys.incomeTaxDisclaimer(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/income-tax/disclaimer', signal, contract: 'IncomeTaxDisclaimer' }),
+    enabled: Boolean(workspaceId),
   });
 
   const acceptDisclaimer = useMutation({

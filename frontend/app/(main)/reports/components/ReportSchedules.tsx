@@ -282,7 +282,7 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
               size="small"
               checked={row.isActive}
               onChange={() => void toggle(row)}
-              inputProps={{ 'aria-label': text('scheduleActive', 'Active') }}
+              slotProps={{ input: { 'aria-label': text('scheduleActive', 'Active') } }}
             />
             <IconButton
               size="small"

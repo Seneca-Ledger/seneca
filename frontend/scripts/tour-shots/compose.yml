@@ -1,0 +1,11 @@
+# Added to docker-compose.yml for the guide screenshots (.github/workflows/tour-screenshots.yml):
+#   docker compose -f docker-compose.yml -f frontend/scripts/tour-shots/compose.yml up -d
+# The backend's clock starts at noon UTC of DEMO_DATA_ANCHOR_DATE (fake-now.cjs), so "this
+# month" on the server is the demo data's last month whatever day the run happens on.
+services:
+  backend:
+    environment:
+      - NODE_OPTIONS=--require=/tour-shots/fake-now.cjs
+      - TOUR_SHOTS_NOW=${DEMO_DATA_ANCHOR_DATE:?DEMO_DATA_ANCHOR_DATE is required}T12:00:00Z
+    volumes:
+      - ./frontend/scripts/tour-shots/fake-now.cjs:/tour-shots/fake-now.cjs:ro

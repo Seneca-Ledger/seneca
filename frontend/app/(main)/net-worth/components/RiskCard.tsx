@@ -6,6 +6,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { ChevronDown } from '@/app/components/icons';
+import { localizeBalanceAccountName } from '@/app/lib/balance-account-names';
 import {
   CAPITAL_ROLES,
   type CapitalRole,
@@ -213,7 +214,7 @@ export function RiskCard({
   ];
 
   return (
-    <Box data-attention="card:risk" sx={cardSx}>
+    <Box data-attention="card:risk" data-tour-shot="net-worth-risk" sx={cardSx}>
       {/* Two columns on a wide screen: the reading (limit and totals) on the
           left, the lines and their choices on the right, with room between. */}
       <Box
@@ -256,7 +257,7 @@ export function RiskCard({
               sx={{ ...LINE_GRID, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}
             >
               <Typography variant="body2" sx={{ minWidth: 0 }} noWrap>
-                {plainLineName(line.name)}
+                {plainLineName(localizeBalanceAccountName(line.name, locale))}
               </Typography>
               <Typography
                 variant="body2"

@@ -6,6 +6,7 @@ import type {
   PayableStatus,
   PayablesSummary,
 } from '@/app/lib/payables-api';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 
 export type PayablesSortOption = 'dueDateAsc' | 'dueDateDesc' | 'amountDesc' | 'vendorAsc';
@@ -29,13 +30,7 @@ export const DEFAULT_PAYABLES_FILTERS: PayablesFiltersState = {
 };
 
 export const resolveLocale = (locale?: string): string => {
-  if (locale === 'ru') {
-    return 'ru-RU';
-  }
-  if (locale === 'kk') {
-    return 'kk-KZ';
-  }
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

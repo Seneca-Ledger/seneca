@@ -1,5 +1,6 @@
 'use client';
 
+import Box from '@mui/material/Box';
 import { useTheme } from 'next-themes';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -15,6 +16,8 @@ export interface GoalFlowSankeyProps {
   subtitle?: React.ReactNode;
   action?: React.ReactNode;
   emptyLabel: string;
+  /** Shown beside the empty line, e.g. a button that creates the first budget. */
+  emptyAction?: React.ReactNode;
   labels: GoalFlowChartLabels;
   formatAmount: (value: number) => string;
 }
@@ -25,6 +28,7 @@ export function GoalFlowSankey({
   subtitle,
   action,
   emptyLabel,
+  emptyAction,
   labels,
   formatAmount,
 }: GoalFlowSankeyProps): React.JSX.Element {
@@ -48,7 +52,23 @@ export function GoalFlowSankey({
         // still being resolved at that moment. Four ranks of labels need the room.
         <LazyECharts option={option} style={{ height: 440, width: '100%' }} notMerge />
       ) : (
-        <p className="lumio-dashboard__empty">{emptyLabel}</p>
+        // One line and the way out of it, not a tall blank card: with nothing
+        // attached there is nothing to page through either, so the page drops
+        // the month strip in this state.
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Box component="p" sx={{ m: 0, fontSize: 14, color: 'var(--text-muted)' }}>
+            {emptyLabel}
+          </Box>
+          {emptyAction}
+        </Box>
       )}
     </DashboardCard>
   );

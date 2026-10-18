@@ -144,18 +144,21 @@ export function useCrypto(): UseCryptoState {
     queryKey: queryKeys.cryptoWallets(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/crypto/wallets', signal, contract: 'CryptoWalletList' }),
+    enabled: Boolean(workspaceId),
   });
 
   const summaryQuery = useQuery({
     queryKey: queryKeys.cryptoSummary(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/crypto/summary', signal, contract: 'CryptoSummary' }),
+    enabled: Boolean(workspaceId),
   });
 
   const transactionsQuery = useQuery({
     queryKey: queryKeys.cryptoTransactions(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/crypto/transactions', signal, contract: 'CryptoTransactionList' }),
+    enabled: Boolean(workspaceId),
   });
 
   // The period goes into the key under the shared prefix, so invalidating the
@@ -171,6 +174,7 @@ export function useCrypto(): UseCryptoState {
       }),
     // The line stays on screen while another period loads.
     placeholderData: previous => previous,
+    enabled: Boolean(workspaceId),
   });
 
   // Год приходит в ключ запроса: смена года — другой запрос, а не ручная перезагрузка.
@@ -184,6 +188,7 @@ export function useCrypto(): UseCryptoState {
         signal,
         contract: 'CryptoGains',
       }),
+    enabled: Boolean(workspaceId),
   });
 
   // Список сетей статичен на сервере — один запрос на сессию.
@@ -192,6 +197,7 @@ export function useCrypto(): UseCryptoState {
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/crypto/networks', signal, contract: 'CryptoNetworkList' }),
     staleTime: Number.POSITIVE_INFINITY,
+    enabled: Boolean(workspaceId),
   });
 
   // Общий префикс ключа: одна инвалидация сметает и кошельки, и сводку.

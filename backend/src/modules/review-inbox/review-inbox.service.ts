@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, type Repository, type SelectQueryBuilder } from 'typeorm';
 import {
@@ -20,6 +21,7 @@ import { Statement } from '../../entities/statement.entity';
 import { Subscription, SubscriptionStatus } from '../../entities/subscription.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { isUncategorizedName } from '../categories/uncategorized-category';
+import type { ReceiptApprovedEvent } from '../notifications/events/notification-events';
 import { CrossStatementDeduplicationService } from '../transactions/services/cross-statement-deduplication.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { DuplicateDecision, ReviewInboxKind } from './dto/review-inbox.dto';
@@ -60,6 +62,7 @@ export class ReviewInboxService {
     private readonly statementRepository: Repository<Statement>,
     private readonly transactionsService: TransactionsService,
     private readonly deduplicationService: CrossStatementDeduplicationService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /**
@@ -351,6 +354,12 @@ export class ReviewInboxService {
           transactionId: rowByStatement.get(receipt.statementId as string),
         },
       );
+      this.eventEmitter?.emit('receipt.approved', {
+        workspaceId,
+        receiptId: receipt.id,
+        transactionId: rowByStatement.get(receipt.statementId as string) as string,
+        mode: 'confirmed_scan',
+      } satisfies ReceiptApprovedEvent);
     }
   }
 

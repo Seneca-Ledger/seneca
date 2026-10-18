@@ -22,6 +22,7 @@ export function useGoalPlan(goalId: string): GoalPlanState {
   const query = useQuery({
     queryKey: queryKeys.goalPlan({ workspaceId, goalId }),
     queryFn: ({ signal }) => fetchGoalPlan(goalId, signal),
+    enabled: Boolean(workspaceId),
   });
 
   return {

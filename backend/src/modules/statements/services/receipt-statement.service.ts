@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import { IsNull, type Repository } from 'typeorm';
@@ -19,6 +26,7 @@ import { Transaction, TransactionType } from '../../../entities/transaction.enti
 import { User } from '../../../entities/user.entity';
 import { AuditService } from '../../audit/audit.service';
 import type { EInvoiceSummary } from '../../e-invoices/einvoice-summary';
+import { transactionCreatedEvent } from '../../notifications/events/notification-events';
 import { ReceiptsService } from '../../receipts/receipts.service';
 import { TaxAssignmentService } from '../../tax/tax-assignment.service';
 
@@ -40,6 +48,7 @@ export class ReceiptStatementService {
     private readonly receiptsService: ReceiptsService,
     private readonly auditService: AuditService,
     private readonly taxAssignmentService: TaxAssignmentService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async createFromReceiptScan(params: {
@@ -383,8 +392,12 @@ export class ReceiptStatementService {
         isVerified: false,
       });
 
-      await this.transactionRepository.save(transaction);
+      const saved = await this.transactionRepository.save(transaction);
       await this.adoptSupplierDetails(workspaceId, transaction, parsed.einvoice);
+      this.eventEmitter?.emit(
+        'transaction.created',
+        transactionCreatedEvent(saved, 'receipt_scan'),
+      );
     }
 
     await this.auditService.createEvent({

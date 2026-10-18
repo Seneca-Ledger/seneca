@@ -49,6 +49,8 @@ import {
   DeleteMyAccountBody,
   DisclaimerStatus,
   MessageResult,
+  PageHintsSeen,
+  PageHintsSeenBody,
   RemovePermissionBody,
   UpdateMyPreferencesBody,
   UpdatePermissionsBody,
@@ -162,6 +164,32 @@ export class UsersController {
   async markWelcomeTutorialSeen(@CurrentUser() currentUser: User) {
     const welcomeTutorialSeenAt = await this.usersService.markWelcomeTutorialSeen(currentUser.id);
     return { welcomeTutorialSeenAt };
+  }
+
+  /**
+   * Called when the person closes a page's hints. Answers only the map, which the
+   * client merges into the user it already has, like the welcome tutorial above.
+   */
+  @Post('me/page-hints')
+  @SchemaResponse(PageHintsSeen)
+  async markPageHintsSeen(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(PageHintsSeenBody) body: PageHintsSeenBody,
+  ) {
+    const pageHintsSeen = await this.usersService.markPageHintsSeen(
+      currentUser.id,
+      body.page,
+      body.version,
+    );
+    return { pageHintsSeen };
+  }
+
+  /** Settings → "Show hints again". */
+  @Delete('me/page-hints')
+  @SchemaResponse(PageHintsSeen)
+  async resetPageHints(@CurrentUser() currentUser: User) {
+    const pageHintsSeen = await this.usersService.resetPageHints(currentUser.id);
+    return { pageHintsSeen };
   }
 
   @Public()

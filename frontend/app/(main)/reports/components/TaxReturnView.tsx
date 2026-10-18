@@ -148,6 +148,7 @@ export function TaxReturnView(): React.ReactElement {
     // нового, но только внутри того же воркспейса.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const record = returnQuery.data?.record ?? null;

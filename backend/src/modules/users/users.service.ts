@@ -34,6 +34,9 @@ import { WorkspacesService } from '../workspaces/workspaces.service';
 import { CURRENT_DISCLAIMER_VERSION } from './disclaimer.constant';
 import { EmailChangeService } from './services/email-change.service';
 
+/** How many pages the page-hint map may name; see markPageHintsSeen. */
+export const PAGE_HINTS_MAX_KEYS = 100;
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -89,6 +92,7 @@ export class UsersService {
         'disclaimerAcceptedAt',
         'disclaimerVersion',
         'welcomeTutorialSeenAt',
+        'pageHintsSeen',
         'tokenVersion',
       ],
     });
@@ -152,6 +156,7 @@ export class UsersService {
         'disclaimerAcceptedAt',
         'disclaimerVersion',
         'welcomeTutorialSeenAt',
+        'pageHintsSeen',
       ],
     });
 
@@ -294,6 +299,45 @@ export class UsersService {
     );
     const { welcomeTutorialSeenAt } = await this.findOne(userId);
     return welcomeTutorialSeenAt;
+  }
+
+  /**
+   * Records that the hints of `page` were closed up to `version`. One conditional
+   * UPDATE keeps the higher of the stored and the given version, so an older tab
+   * cannot lower it, and no other column is read back and rewritten. A new key is
+   * refused once the map holds PAGE_HINTS_MAX_KEYS pages: the client only knows a
+   * few dozen, so anything beyond that is someone filling the column.
+   */
+  async markPageHintsSeen(
+    userId: string,
+    page: string,
+    version: number,
+  ): Promise<Record<string, number>> {
+    await this.userRepository.query(
+      `UPDATE "users"
+       SET "page_hints_seen" = "page_hints_seen" || jsonb_build_object(
+         $2::text,
+         GREATEST(COALESCE(("page_hints_seen" ->> $2::text)::int, 0), $3::int)
+       )
+       WHERE "id" = $1
+         AND (
+           ("page_hints_seen" -> $2::text) IS NOT NULL
+           OR (SELECT count(*) FROM jsonb_object_keys("page_hints_seen")) < $4
+         )`,
+      [userId, page, version, PAGE_HINTS_MAX_KEYS],
+    );
+    const { pageHintsSeen } = await this.findOne(userId);
+    return pageHintsSeen;
+  }
+
+  /** Settings → "Show hints again": every page shows its hints once more. */
+  async resetPageHints(userId: string): Promise<Record<string, number>> {
+    await this.userRepository.query(
+      `UPDATE "users" SET "page_hints_seen" = '{}'::jsonb WHERE "id" = $1`,
+      [userId],
+    );
+    const { pageHintsSeen } = await this.findOne(userId);
+    return pageHintsSeen;
   }
 
   /**

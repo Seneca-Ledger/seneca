@@ -4,12 +4,12 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/app/hooks/useAuth';
 import { isWelcomeTutorialEligible } from './welcome-tutorial-routes';
-import { claimAutoOpen, openWelcomeTutorial } from './welcome-tutorial-store';
+import { claimAutoOpen, openWelcome } from './welcome-tutorial-store';
 
 // Lets the page under it paint first.
 const AUTO_OPEN_DELAY_MS = 600;
 
-/** Opens the tutorial by itself once, for a new account on one of the sidebar pages. */
+/** Opens the welcome window by itself once, for a new account on one of the sidebar pages. */
 export function useWelcomeTutorialAutoOpen(): void {
   const { user, loading } = useAuth();
   const pathname = usePathname();
@@ -23,7 +23,7 @@ export function useWelcomeTutorialAutoOpen(): void {
     // does not use up the one automatic opening.
     const timer = window.setTimeout(() => {
       if (claimAutoOpen()) {
-        openWelcomeTutorial();
+        openWelcome();
       }
     }, AUTO_OPEN_DELAY_MS);
     return () => window.clearTimeout(timer);

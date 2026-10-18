@@ -2,6 +2,7 @@
 
 import { Box, Chip } from '@mui/material';
 import React from 'react';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -230,13 +231,7 @@ interface RenderFunctionParams {
 }
 
 function resolveLocale(locale: string): string {
-  if (locale === 'kk') {
-    return 'kk-KZ';
-  }
-  if (locale === 'ru') {
-    return 'ru-RU';
-  }
-  return 'en-US';
+  return resolveLocaleTag(locale);
 }
 
 function buildRenderTrashExpiryBadge({
