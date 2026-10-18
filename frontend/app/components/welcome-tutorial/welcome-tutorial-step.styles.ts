@@ -8,6 +8,9 @@ export const bodySx = {
   minHeight: 0,
   display: 'flex',
   flexDirection: 'column',
+  // Centred on the screen: the text above, the screenshots below it.
+  alignItems: 'center',
+  textAlign: 'center',
   overflowY: 'auto',
   px: { xs: 2, md: 5 },
   pt: { xs: 3, md: 4 },
@@ -44,6 +47,7 @@ export const descriptionSx = {
  * less than a readable size. A size container, so the grid can be measured by it.
  */
 export const fragmentAreaSx = {
+  alignSelf: 'stretch',
   flex: 1,
   minHeight: 320,
   containerType: 'size',
@@ -63,6 +67,7 @@ export function fragmentBlockSx(heightPerWidth: number): SxProps<Theme> {
   return {
     '--grid-width': `min(100cqw, calc((100cqh - ${CAPTIONS_RESERVE}) / ${heightPerWidth.toFixed(4)} + ${GAP}))`,
     width: 'var(--grid-width)',
+    mx: 'auto',
   };
 }
 
@@ -147,6 +152,8 @@ export const badgeSx = {
 export function captionsSx(count: number): SxProps<Theme> {
   return {
     mt: 2,
+    // Each caption reads from the start of its frame.
+    textAlign: 'start',
     display: 'grid',
     gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))`,
     gap: 2,
@@ -179,6 +186,8 @@ export const captionTextSx = {
 } satisfies SxProps<Theme>;
 
 export const scrollerSx = {
+  alignSelf: 'stretch',
+  textAlign: 'start',
   mt: 1.5,
   mx: -2,
   px: 2,
