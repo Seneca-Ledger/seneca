@@ -237,14 +237,17 @@ describe('workspace versions are taken and kept (real Postgres)', () => {
         id,
         days,
       ]);
-    // Two versions two days apart in one week, ten weeks ago, with different rows.
+    // Two versions two days apart in one week, ten weeks ago, with different rows:
+    // the Tuesday and Thursday of that ISO week, whatever weekday today is.
+    const weekday = new Date().getUTCDay() || 7;
+    const tuesday = 70 + weekday - 2;
     const [latest] = await versions.list(workspace.id, owner.id);
-    await backdate(latest.id, 71);
+    await backdate(latest.id, tuesday);
     await sql("UPDATE transactions SET counterparty_name = 'Lidl Mitte' WHERE workspace_id = $1", [
       workspace.id,
     ]);
     const newer = await versions.takeNow(workspace.id, owner.id);
-    await backdate(newer.id, 69);
+    await backdate(newer.id, tuesday - 2);
     expect(await versions.list(workspace.id, owner.id)).toHaveLength(2);
     // Old enough for collection.
     const old = (Date.now() - 2 * 60 * 60 * 1000) / 1000;
