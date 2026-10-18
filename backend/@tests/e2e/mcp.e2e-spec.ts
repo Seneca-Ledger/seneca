@@ -11,6 +11,8 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { User, UserRole } from '../../src/entities/user.entity';
+import { WorkspaceMember, WorkspaceRole } from '../../src/entities/workspace-member.entity';
+import { ApiKeysService } from '../../src/modules/api-keys/api-keys.service';
 import {
   deleteUserByEmail,
   type E2eAccount,
@@ -30,11 +32,14 @@ describe('MCP endpoint (e2e)', () => {
   const emails = {
     owner: `mcp-owner-${stamp}@example.com`,
     other: `mcp-other-${stamp}@example.com`,
+    viewer: `mcp-viewer-${stamp}@example.com`,
   };
   let owner: E2eAccount;
   let other: E2eAccount;
   let readKey: string;
   let categoriesOnlyKey: string;
+  let writeKey: string;
+  let viewerKey: string;
   let otherTransactionId: string;
 
   const server = () => app.getHttpServer();
@@ -96,6 +101,28 @@ describe('MCP endpoint (e2e)', () => {
         .send({ name: 'MCP categories', scopes: ['category.view'] })
         .expect(201)
     ).body.key;
+
+    writeKey = (
+      await as(owner, request(server()).post('/api-keys'))
+        .send({ name: 'MCP writer', scopes: scopes.body.presets.write })
+        .expect(201)
+    ).body.key;
+
+    // A viewer of the owner's workspace. Only instance admins create keys over
+    // the API, so this one is made by the service, as the viewer's own.
+    const viewer = await registerAccount(app, emails.viewer, 'MCP Viewer');
+    await dataSource.getRepository(WorkspaceMember).save({
+      workspaceId: owner.workspaceId,
+      userId: viewer.userId,
+      role: WorkspaceRole.VIEWER,
+    });
+    viewerKey = (
+      await app
+        .get(ApiKeysService)
+        .generate(owner.workspaceId, viewer.userId, 'MCP viewer', {
+          scopes: scopes.body.presets.write,
+        })
+    ).key;
 
     await as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
       .send({ plugins: { mcp: true } })
@@ -210,6 +237,109 @@ describe('MCP endpoint (e2e)', () => {
     expect(result.isError).toBeFalsy();
     const dashboard = JSON.parse((result.content as Array<{ text: string }>)[0].text);
     expect(dashboard.snapshot.currency).toBeTruthy();
+  });
+
+  it('answers every reading tool on a real workspace', async () => {
+    const listed = await rpc(readKey, 'tools/list').expect(200);
+    const page = JSON.parse((await callTool(readKey, 'list_transactions')).text);
+    const transaction = page.data[0];
+    const argsFor: Record<string, Record<string, unknown>> = {
+      get_transaction: { id: transaction.id },
+      get_statement: { id: transaction.statementId },
+      get_tax_year_report: { year: new Date().getFullYear(), includeRows: true },
+      search: { q: 'coffee' },
+    };
+    // A receipt needs a scan to exist; the receipt tools are covered by the list.
+    const skipped = new Set(['get_receipt']);
+    const reading = listed.body.result.tools.filter(
+      (candidate: { name: string; annotations: { readOnlyHint: boolean } }) =>
+        candidate.annotations.readOnlyHint && !skipped.has(candidate.name),
+    );
+
+    expect(reading.length).toBeGreaterThanOrEqual(25);
+    for (const { name } of reading) {
+      const { isError, text } = await callTool(readKey, name, argsFor[name] ?? {});
+      expect({ name, isError, text: isError ? text : 'ok' }).toEqual({ name, isError: false, text: 'ok' });
+    }
+  });
+
+  it('writes as the key: logged with the tool name, and undoable', async () => {
+    const page = JSON.parse((await callTool(readKey, 'list_transactions')).text);
+    const id = page.data[0].id;
+
+    const updated = await callTool(writeKey, 'update_transaction', { id, comments: 'Set over MCP' });
+    expect(updated.isError).toBe(false);
+    expect(JSON.parse(updated.text).comments).toBe('Set over MCP');
+
+    const events = await as(
+      owner,
+      request(server()).get('/audit-events?actorType=integration&limit=50'),
+    ).expect(200);
+    const event = (events.body.data ?? events.body).find(
+      (candidate: { entityId: string; meta?: { mcpTool?: string } }) =>
+        candidate.entityId === id && candidate.meta?.mcpTool === 'update_transaction',
+    );
+    expect(event).toBeDefined();
+    expect(event.actorLabel).toContain('MCP writer');
+    expect(event.isUndoable).toBe(true);
+
+    await as(owner, request(server()).post(`/audit-events/${event.id}/rollback`)).expect(
+      (res: request.Response) => expect([200, 201]).toContain(res.status),
+    );
+    const after = JSON.parse((await callTool(readKey, 'get_transaction', { id })).text);
+    expect(after.comments).not.toBe('Set over MCP');
+  });
+
+  it('creates and categorises through the writing tools', async () => {
+    const created = await callTool(writeKey, 'create_category', {
+      name: `MCP ${stamp}`,
+      type: 'expense',
+    });
+    expect(created.isError).toBe(false);
+    const categoryId = JSON.parse(created.text).id;
+
+    const page = JSON.parse((await callTool(readKey, 'list_transactions')).text);
+    const ids = page.data.map((row: { id: string }) => row.id);
+    const moved = await callTool(writeKey, 'set_transactions_category', {
+      transactionIds: ids,
+      categoryId,
+    });
+    expect(JSON.parse(moved.text)).toEqual({ updated: ids.length });
+
+    const approved = await callTool(writeKey, 'approve_transactions', { ids });
+    expect(approved.isError).toBe(false);
+
+    const budget = await callTool(writeKey, 'create_budget', {
+      name: 'MCP budget',
+      categoryId,
+      limitAmount: 100,
+      periodType: 'monthly',
+    });
+    expect(budget.isError).toBe(false);
+    const budgets = JSON.parse((await callTool(readKey, 'list_budgets')).text);
+    expect(budgets.map((row: { name: string }) => row.name)).toContain('MCP budget');
+  });
+
+  it('uploads a statement from base64', async () => {
+    const csv = 'Date,Description,Amount\n2026-01-05,Bakery,-4.20\n2026-01-06,Salary,1500.00\n';
+    const uploaded = await callTool(writeKey, 'upload_statement', {
+      fileName: `mcp-${stamp}.csv`,
+      fileBase64: Buffer.from(csv).toString('base64'),
+    });
+
+    expect(uploaded.isError).toBe(false);
+    expect(JSON.parse(uploaded.text)).toMatchObject({ status: 'uploaded' });
+  });
+
+  it('keeps a viewer read-only whatever the key scopes say', async () => {
+    const listed = await rpc(viewerKey, 'tools/list').expect(200);
+    const names = listed.body.result.tools.map((candidate: { name: string }) => candidate.name);
+    expect(names).toContain('list_transactions');
+    expect(names).not.toContain('update_transaction');
+
+    const refused = await callTool(viewerKey, 'create_category', { name: 'Nope', type: 'expense' });
+    expect(refused.isError).toBe(true);
+    expect(JSON.parse(refused.text).status).toBe(403);
   });
 
   it('answers an unknown tool with a protocol error', async () => {

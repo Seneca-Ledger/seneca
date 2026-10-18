@@ -25,7 +25,7 @@ import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
-import { isEInvoiceXml, validateFile } from '../../common/utils/file-validator.util';
+import { assertReceiptFileSupported, validateFile } from '../../common/utils/file-validator.util';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { multerConfig } from '../../config/multer.config';
 import {
@@ -60,18 +60,6 @@ import { ReceiptStageService } from './services/receipt-stage.service';
 
 type MulterFile = Express.Multer.File;
 
-const SUPPORTED_RECEIPT_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/bmp',
-  'image/tiff',
-  'application/pdf',
-  // A structured e-invoice (XRechnung) sent as the XML itself.
-  'application/xml',
-  'text/xml',
-]);
-
 @Controller('receipts')
 export class ReceiptsController {
   constructor(
@@ -100,7 +88,7 @@ export class ReceiptsController {
 
     files.forEach(file => {
       validateFile(file, { allowEInvoiceXml: true });
-      this.assertReceiptFileSupported(file);
+      assertReceiptFileSupported(file);
     });
 
     const receipts = await Promise.all(
@@ -133,7 +121,7 @@ export class ReceiptsController {
     }
 
     validateFile(file, { allowEInvoiceXml: true });
-    this.assertReceiptFileSupported(file);
+    assertReceiptFileSupported(file);
 
     return this.receiptsService.createFromScan({
       userId: user.id,
@@ -376,14 +364,5 @@ export class ReceiptsController {
     res.setHeader('Content-Disposition', buildContentDisposition('inline', filePayload.fileName));
     res.setHeader('Cache-Control', 'private, max-age=600');
     return res.send(filePayload.buffer);
-  }
-
-  private assertReceiptFileSupported(file: MulterFile): void {
-    const isXml = file.mimetype === 'application/xml' || file.mimetype === 'text/xml';
-    if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype) || (isXml && !isEInvoiceXml(file))) {
-      throw new BadRequestException(
-        'Only image, PDF and e-invoice XML receipt files are supported',
-      );
-    }
   }
 }
