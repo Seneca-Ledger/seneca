@@ -168,15 +168,15 @@ async function answerFor(route, settings) {
   if (!text) {
     return { response };
   }
-    const { pathname } = new URL(route.request().url());
-    let json = steadyJson(JSON.parse(text), now);
-    if (pathname.endsWith('/auth/me')) {
-      json = patchProfile(json, settings);
-    }
-    // Warnings open a banner above every page; Advice itself lists only `info`.
-    if (pathname.endsWith('/insights') && Array.isArray(json.items)) {
-      json = { ...json, items: json.items.filter(item => item.severity === 'info') };
-    }
+  const { pathname } = new URL(route.request().url());
+  let json = steadyJson(JSON.parse(text), now);
+  if (pathname.endsWith('/auth/me')) {
+    json = patchProfile(json, settings);
+  }
+  // Warnings open a banner above every page; Advice itself lists only `info`.
+  if (pathname.endsWith('/insights') && Array.isArray(json.items)) {
+    json = { ...json, items: json.items.filter(item => item.severity === 'info') };
+  }
   for (const [suffix, patch] of Object.entries(settings.overrides)) {
     if (pathname.endsWith(suffix)) {
       json = patch(json);
