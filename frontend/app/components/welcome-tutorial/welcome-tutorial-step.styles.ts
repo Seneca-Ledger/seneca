@@ -51,21 +51,32 @@ export const fragmentAreaSx = {
 
 // Room the captions under the grid need, with the grid's top margin.
 const CAPTIONS_RESERVE = '128px';
+const GAP = '16px';
 
 /**
- * As tall as the screenshots are at the full width of their columns, and no taller
- * than the area allows: the captions then sit right under the frames, and the spare
- * height stays below them. `widthRatio` is a column's share of the grid width (gaps
- * taken off) divided by its screenshot's proportions.
+ * The frames and their captions as one block, as wide as the frames can be: the
+ * width of the area, or less when the height runs out first. `heightPerWidth` is the
+ * grid's height for each pixel of its width (gaps taken off), from the screenshots'
+ * proportions. The frames then fill their cells exactly, with no gaps beside them.
  */
-function gridHeight(widthRatio: number): string {
-  return `min(calc(100cqh - ${CAPTIONS_RESERVE}), calc((100cqw - 16px) * ${widthRatio.toFixed(4)}))`;
+export function fragmentBlockSx(heightPerWidth: number): SxProps<Theme> {
+  return {
+    '--grid-width': `min(100cqw, calc((100cqh - ${CAPTIONS_RESERVE}) / ${heightPerWidth.toFixed(4)} + ${GAP}))`,
+    width: 'var(--grid-width)',
+  };
 }
+
+const gridHeight = (heightPerWidth: number): string =>
+  `calc((var(--grid-width) - ${GAP}) * ${heightPerWidth.toFixed(4)})`;
+
+/** The large frame: 1.44 of 2.44 columns, proportions 1.55 (FRAME_ASPECT.hero). */
+export const BENTO_HEIGHT_PER_WIDTH = 1.44 / 2.44 / 1.55;
+/** Two equal columns, proportions 1.55 (FRAME_ASPECT.pair). */
+export const PAIR_HEIGHT_PER_WIDTH = 1 / 2 / 1.55;
 
 export const bentoSx = {
   mt: 3,
-  // The large frame: 1.44 of 2.44 columns, proportions 1.55 (FRAME_ASPECT.hero).
-  height: gridHeight(1.44 / 2.44 / 1.55),
+  height: gridHeight(BENTO_HEIGHT_PER_WIDTH),
   display: 'grid',
   gridTemplateColumns: 'minmax(0, 1.44fr) minmax(0, 1fr)',
   gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
@@ -75,8 +86,7 @@ export const bentoSx = {
 
 export const pairSx = {
   mt: 3,
-  // Two equal columns, proportions 1.55 (FRAME_ASPECT.pair).
-  height: gridHeight(1 / 2 / 1.55),
+  height: gridHeight(PAIR_HEIGHT_PER_WIDTH),
   display: 'grid',
   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gridTemplateRows: 'minmax(0, 1fr)',

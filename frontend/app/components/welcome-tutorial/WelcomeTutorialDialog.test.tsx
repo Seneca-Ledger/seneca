@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { IntlayerProviderContent } from 'react-intlayer';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import WelcomeTutorialDialog from './WelcomeTutorialDialog';
 import { TUTORIAL_SCREENS } from './welcome-tutorial-screens';
 import type { TutorialStep } from './welcome-tutorial-steps';
@@ -40,23 +40,7 @@ const heading = (): HTMLElement => screen.getByRole('heading', { level: 2 });
 const press = (key: string): boolean => fireEvent.keyDown(screen.getByRole('dialog'), { key });
 const click = (name: string): boolean => fireEvent.click(screen.getByRole('button', { name }));
 
-/** A stand-in for the real sidebar: one nav item, measured where the sidebar would put it. */
-function mountSidebarItem(path: string, rect: Partial<DOMRect>): void {
-  const aside = document.createElement('aside');
-  const item = document.createElement('a');
-  item.dataset.navPath = path;
-  aside.append(item);
-  document.body.append(aside);
-  const box = { top: 0, left: 0, width: 0, height: 0, right: 0, bottom: 0, ...rect };
-  item.getBoundingClientRect = () => box as DOMRect;
-  aside.getBoundingClientRect = () => ({ ...box, left: 0, right: 192 }) as DOMRect;
-}
-
 describe('WelcomeTutorialDialog', () => {
-  afterEach(() => {
-    for (const aside of document.querySelectorAll('aside')) aside.remove();
-  });
-
   it('opens on the first page and turns pages with the buttons and the arrow keys', () => {
     renderDialog(vi.fn());
     expect(heading().textContent).toBe('Your month at a glance');
@@ -149,26 +133,9 @@ describe('WelcomeTutorialDialog', () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it('rings the sidebar item of the page on show and moves with the pages', () => {
-    mountSidebarItem('/dashboard', { top: 100, left: 8, width: 176, height: 36 });
-    mountSidebarItem('/crypto', { top: 140, left: 8, width: 176, height: 36 });
+  it('covers the whole screen', () => {
     renderDialog(vi.fn());
-
-    const ring = (): HTMLElement => screen.getByTestId('guide-sidebar-ring');
-    expect(ring().style).toMatchObject({ top: '97px', left: '5px', width: '182px', height: '42px' });
-
-    press('ArrowRight');
-    expect(ring().style.top).toBe('137px');
-    // The guide moves over to leave the sidebar uncovered.
-    const paper = document.querySelector('.MuiDialog-paper') as HTMLElement;
-    expect(paper.style.getPropertyValue('--guide-inset')).toBe('192px');
-  });
-
-  it('draws no ring while the sidebar is hidden', () => {
-    // display: none measures as an empty box.
-    mountSidebarItem('/dashboard', {});
-    renderDialog(vi.fn());
-    expect(screen.queryByTestId('guide-sidebar-ring')).toBeNull();
+    expect(screen.getByRole('dialog').className).toContain('MuiDialog-paperFullScreen');
   });
 
   it('loads the screenshots of the current language, and the English ones when they are missing', () => {

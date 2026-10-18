@@ -15,6 +15,7 @@ import {
   tutorialScreenUrl,
 } from './welcome-tutorial-screens';
 import {
+  BENTO_HEIGHT_PER_WIDTH,
   badgeSx,
   bentoSx,
   captionNumberSx,
@@ -23,9 +24,11 @@ import {
   captionTextSx,
   captionTitleSx,
   fragmentAreaSx,
+  fragmentBlockSx,
   frameCellSx,
   frameSlotSx,
   frameSx,
+  PAIR_HEIGHT_PER_WIDTH,
   pairSx,
   scrollerSx,
   scrollItemSx,
@@ -123,17 +126,20 @@ function FragmentGrid({ step }: { step: TutorialStep }): React.JSX.Element {
     fragment,
     number: index + 1,
   }));
+  const bento = fragments.length === 3;
   return (
     <Box sx={fragmentAreaSx}>
-      <Box sx={fragments.length === 3 ? bentoSx : pairSx}>
-        {fragments.map(props => (
-          <FragmentFrame key={props.fragment.id} {...props} fill />
-        ))}
-      </Box>
-      <Box sx={captionsSx(fragments.length)}>
-        {fragments.map(props => (
-          <FragmentCaption key={props.fragment.id} {...props} />
-        ))}
+      <Box sx={fragmentBlockSx(bento ? BENTO_HEIGHT_PER_WIDTH : PAIR_HEIGHT_PER_WIDTH)}>
+        <Box sx={bento ? bentoSx : pairSx}>
+          {fragments.map(props => (
+            <FragmentFrame key={props.fragment.id} {...props} fill />
+          ))}
+        </Box>
+        <Box sx={captionsSx(fragments.length)}>
+          {fragments.map(props => (
+            <FragmentCaption key={props.fragment.id} {...props} />
+          ))}
+        </Box>
       </Box>
     </Box>
   );

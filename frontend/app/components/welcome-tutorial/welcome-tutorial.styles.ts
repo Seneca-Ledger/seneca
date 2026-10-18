@@ -1,6 +1,5 @@
 import type { SxProps, Theme } from '@mui/material';
 import { keyframes } from '@mui/material/styles';
-import { SPOT_RADIUS } from './sidebar-spot';
 
 /** The dialog is labelled by the heading of whichever screen is showing. */
 export const TITLE_ID = 'welcome-tutorial-title';
@@ -8,11 +7,6 @@ export const TITLE_ID = 'welcome-tutorial-title';
 const enter = keyframes`
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
-`;
-
-const fadeIn = keyframes`
-  from { opacity: 0; }
-  to { opacity: 1; }
 `;
 
 // CSS animations, not JS ones: the app's reduce-motion setting and the OS preference
@@ -27,17 +21,7 @@ export const paperBackground = (theme: Theme): string =>
   theme.palette.mode === 'dark' ? 'var(--card)' : 'var(--background)';
 
 export const paperSx = {
-  // The whole screen beside the sidebar: `--guide-inset` is the sidebar's width while
-  // it shows, so the highlighted item stays in view. Small screens get MUI's fullScreen.
-  width: { md: 'calc(100vw - var(--guide-inset, 0px))' },
-  maxWidth: { md: 'none' },
-  height: { md: '100dvh' },
-  maxHeight: { md: 'none' },
-  m: { md: 0 },
-  marginInlineStart: { md: 'var(--guide-inset, 0px)' },
-  // Full screen at every size: no rounded corners.
-  borderRadius: 0,
-  borderInlineStart: { md: '1px solid var(--border)' },
+  // Over the whole screen (the Dialog is fullScreen), on the warm paper.
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
@@ -47,15 +31,6 @@ export const paperSx = {
 
 /** Headings take programmatic focus when their screen appears; they are not controls. */
 export const focusableTitleSx = { '&:focus': { outline: 'none' } } as const;
-
-export const sidebarRingSx = {
-  position: 'fixed',
-  pointerEvents: 'none',
-  borderRadius: `${SPOT_RADIUS}px`,
-  border: '1.5px solid var(--primary)',
-  animation: `${fadeIn} 200ms ease both`,
-  '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
-} satisfies SxProps<Theme>;
 
 export const footerSx = {
   display: 'flex',
