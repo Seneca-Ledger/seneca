@@ -22,6 +22,13 @@ export interface WebhookEndpoint {
   createdAt: string;
 }
 
+/** A new inbound endpoint: its name and where its statements land unless the sender says. */
+export interface NewEndpointInput {
+  name: string;
+  defaultWalletId?: string | null;
+  defaultBranchId?: string | null;
+}
+
 export interface WebhookEndpointFull extends WebhookEndpoint {
   token: string; // only on creation
 }
@@ -52,10 +59,11 @@ export function useWebhookEndpoints() {
   }, [queryClient, workspaceId]);
 
   const createMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const response = await apiClient.post('/webhook-endpoints', {
-        name,
-      } satisfies ContractInput<'CreateWebhookEndpointBody'>);
+    mutationFn: async (input: NewEndpointInput) => {
+      const response = await apiClient.post(
+        '/webhook-endpoints',
+        input satisfies ContractInput<'CreateWebhookEndpointBody'>,
+      );
       return checkContract('CreatedWebhookEndpoint', response.data, '/webhook-endpoints');
     },
     onSuccess: endpoint => {
@@ -90,8 +98,8 @@ export function useWebhookEndpoints() {
   }, [invalidate]);
 
   const create = useCallback(
-    async (name: string) => {
-      createMutation.mutate(name);
+    async (input: NewEndpointInput) => {
+      createMutation.mutate(input);
     },
     [createMutation.mutate],
   );
@@ -206,5 +214,39 @@ export function useWebhookSubscriptions() {
     create,
     remove,
     testPing,
+  };
+}
+
+/** The delivery log of one subscription, read when it is opened, and a way to send one again. */
+export function useWebhookDeliveries(subscriptionId: string) {
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
+  const t = useIntlayer('webhooksDrawer');
+  const queryKey = queryKeys.webhookDeliveries(workspaceId, subscriptionId);
+
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: `/webhook-subscriptions/${subscriptionId}/deliveries`,
+        signal,
+        contract: 'WebhookDeliveryList',
+      }),
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: async (deliveryId: string) => {
+      await apiClient.post(`/webhook-deliveries/${deliveryId}/retry`);
+    },
+    onSuccess: () => toast.success(t.toasts.retryQueued.value),
+    onError: () => toast.error(t.toasts.retryFailed.value),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  return {
+    deliveries: query.data ?? [],
+    loading: query.isPending,
+    retry: retryMutation.mutate,
+    retrying: retryMutation.isPending ? retryMutation.variables : null,
   };
 }

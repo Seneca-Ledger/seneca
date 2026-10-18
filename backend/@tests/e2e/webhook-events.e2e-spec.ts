@@ -241,4 +241,30 @@ describe('Webhook events (e2e)', () => {
       dueDate: '2026-01-05',
     });
   });
+
+  it('lists a subscription deliveries as its contract says, and queues one again', async () => {
+    const res = await as(
+      owner,
+      request(server()).get(`/webhook-subscriptions/${subscriptionId}/deliveries`),
+    ).expect(200);
+
+    expect(res.body.length).toBeGreaterThan(0);
+    const delivery = res.body.find((row: { event: string }) => row.event === 'transaction.created');
+    expect(delivery).toMatchObject({
+      status: expect.stringMatching(/^(pending|processing|success|failed|exhausted)$/),
+      attemptCount: expect.any(Number),
+      maxAttempts: expect.any(Number),
+      createdAt: expect.any(String),
+    });
+    // The payload and the receiver's answer stay out of the list.
+    expect(delivery.payload).toBeUndefined();
+    expect(delivery.lastResponseBody).toBeUndefined();
+
+    await as(owner, request(server()).post(`/webhook-deliveries/${delivery.id}/retry`)).expect(201);
+    const [row] = await dataSource.query(
+      'SELECT status, attempt_count FROM webhook_deliveries WHERE id = $1',
+      [delivery.id],
+    );
+    expect(row.status).toBe('pending');
+  });
 });
