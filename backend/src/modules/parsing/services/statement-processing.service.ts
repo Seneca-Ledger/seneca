@@ -973,6 +973,8 @@ export class StatementProcessingService {
           actorName,
           statementId: statement.id,
           transactionCount: creationResult.transactions.length,
+          transactionIds: creationResult.transactions.map(transaction => transaction.id),
+          source: 'statement',
         } satisfies ImportCommittedEvent);
 
         const uncategorizedCount = creationResult.transactions.filter(

@@ -110,7 +110,9 @@ export class CreditNotesService {
   ): Promise<CreditNote> {
     const issueDate = dto.issueDate ?? new Date().toISOString().slice(0, 10);
 
-    return this.creditNoteRepository.manager.transaction(async manager => {
+    // Through the payables service: crediting an invoice down to what was paid
+    // closes it, and that is announced once this transaction commits.
+    return this.payables.inPaymentTransaction(async manager => {
       const resolved = await this.resolveApplications(manager, workspaceId, dto);
       const [first] = resolved;
       const note = await manager.getRepository(CreditNote).save(
@@ -210,7 +212,9 @@ export class CreditNotesService {
    * document that was sent out is never deleted.
    */
   async void(id: string, workspaceId: string, userId: string): Promise<CreditNote> {
-    return this.creditNoteRepository.manager.transaction(async manager => {
+    // Through the payables service: crediting an invoice down to what was paid
+    // closes it, and that is announced once this transaction commits.
+    return this.payables.inPaymentTransaction(async manager => {
       const notes = manager.getRepository(CreditNote);
       const note = await notes.findOne({
         where: { id, workspaceId },

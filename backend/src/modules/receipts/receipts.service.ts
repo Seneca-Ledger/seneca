@@ -34,7 +34,10 @@ import { TransactionCategorySource } from '../../entities/transaction.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { hasDecidedCategory } from '../classification/engine/category-decision';
-import { ReceiptApprovedEvent } from '../notifications/events/notification-events';
+import {
+  type ReceiptApprovedEvent,
+  transactionCreatedEvent,
+} from '../notifications/events/notification-events';
 import { resolvePayeeId } from '../payees/payee-resolution';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { TransactionAttachmentsService } from '../transactions/services/transaction-attachments.service';
@@ -84,6 +87,9 @@ type ScanParams = {
 };
 
 const MANUAL_RECEIPT_WORKER_ID = 'manual-receipt-sync';
+
+/** How an approval settled a receipt. */
+type ApproveMode = NonNullable<ReceiptApprovedEvent['mode']>;
 
 @Injectable()
 export class ReceiptsService {
@@ -443,6 +449,8 @@ export class ReceiptsService {
     created: boolean;
     /** The receipt was attached to a transaction that already existed: a bank row, or its scan's own. */
     attached: boolean;
+    /** How this call approved it; null when it had been approved before. */
+    mode: ApproveMode | null;
     previousStatus: ReceiptStatus;
   } | null> {
     const result = await this.receiptRepository.manager.transaction(async manager => {
@@ -465,6 +473,7 @@ export class ReceiptsService {
             transaction: existing,
             created: false,
             attached: false,
+            mode: null as ApproveMode | null,
             previousStatus: receipt.status,
           };
         }
@@ -527,6 +536,9 @@ export class ReceiptsService {
           transaction: target,
           created: false,
           attached: true,
+          mode: (scanTransaction?.id === target.id
+            ? 'confirmed_scan'
+            : 'attached_to_bank_row') as ApproveMode,
           previousStatus,
         };
       }
@@ -559,6 +571,7 @@ export class ReceiptsService {
           transaction: confirmed,
           created: false,
           attached: true,
+          mode: 'confirmed_scan' as ApproveMode,
           previousStatus,
         };
       }
@@ -570,21 +583,35 @@ export class ReceiptsService {
       receipt.status = ReceiptStatus.APPROVED;
       receipt.transactionId = transaction.id;
       const saved = await receipts.save(receipt);
-      return { receipt: saved, transaction, created: true, attached: false, previousStatus };
+      return {
+        receipt: saved,
+        transaction,
+        created: true,
+        attached: false,
+        mode: 'created' as ApproveMode,
+        previousStatus,
+      };
     });
 
     if (result?.attached) {
       await this.copyFileToTransaction(result.receipt, result.transaction.id, options.userId);
     }
 
-    if (result?.created) {
+    if (result?.mode) {
       this.eventEmitter
         .emitAsync('receipt.approved', {
           workspaceId: result.receipt.workspaceId,
           receiptId: result.receipt.id,
           transactionId: result.transaction.id,
+          mode: result.mode,
         } satisfies ReceiptApprovedEvent)
         .catch(err => this.logger.error('Failed to emit receipt.approved event', err));
+    }
+    if (result?.created) {
+      this.eventEmitter.emit(
+        'transaction.created',
+        transactionCreatedEvent(result.transaction, 'receipt_approval'),
+      );
     }
     return result;
   }
