@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import { ArrowRight, BookOpen, CheckCircle2, Scale, X } from '@/app/components/icons';
 import { insightHref } from '@/app/components/insights/insight-href';
+import { isWorkInsight } from '@/app/components/insights/work-insights';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { BulbLineIcon } from '@/app/components/ui/empty-state-icons';
 import { type Insight, useInsights, useRefreshInsights } from '@/app/hooks/useInsights';
@@ -46,7 +47,7 @@ const ATTENTION_TYPES = new Set([
   'stoic.generosity',
 ]);
 const needsAttention = (item: Insight) =>
-  ATTENTION_TYPES.has(item.type) || item.type.startsWith('operational.');
+  ATTENTION_TYPES.has(item.type) || item.messageKey === 'trend.savings_rate_down';
 
 /** Good news: the user is doing well, so it gets a sage check rather than nothing. */
 const isGoodNews = (item: Insight) =>
@@ -208,7 +209,16 @@ export default function AdvicePage() {
   const t = useIntlayer('insights');
   // The one place that recomputes: opening this page is the user asking for a
   // fresh read, unlike a banner that happens to render on every route.
-  const { items: unordered, isPending, dismiss } = useInsights({ severities: ['info'] });
+  // Every observation, whatever its severity; the work items (unconfirmed rows,
+  // categories, duplicates) are the strip above the pages and live there only.
+  const {
+    items: everything,
+    isPending,
+    dismiss,
+  } = useInsights({
+    severities: ['info', 'warn', 'critical'],
+  });
+  const unordered = everything.filter(item => !isWorkInsight(item));
   // The Stoic reading of the month comes first; plain observations follow.
   // The Stoic reading of the month first, then the experts, then plain observations.
   const rank = (item: Insight) => (isStoic(item) ? 2 : isExpert(item) ? 1 : 0);

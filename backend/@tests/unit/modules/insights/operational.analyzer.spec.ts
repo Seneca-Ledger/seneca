@@ -47,6 +47,22 @@ describe('OperationalAnalyzer', () => {
     ]);
   });
 
+  it("counts with the Review queue's own queries, so the number matches what Review lists", async () => {
+    const builders = [64, 12, 3].map(createCountQueryBuilder);
+    for (const builder of builders) {
+      transactionRepository.createQueryBuilder.mockReturnValueOnce(builder);
+    }
+
+    await analyzer.analyze({ userId: 'user-1', workspaceId: 'workspace-1' });
+
+    // Rows of a trashed statement are not waiting for anyone (unconfirmed, duplicates)…
+    for (const builder of [builders[0], builders[2]]) {
+      expect(builder.andWhere).toHaveBeenCalledWith('(t.statementId IS NULL OR s.deletedAt IS NULL)');
+    }
+    // …and a transfer has no category to give (uncategorized).
+    expect(builders[1].andWhere).toHaveBeenCalledWith('t.transferPairId IS NULL');
+  });
+
   it('returns no candidates when counts do not pass thresholds', async () => {
     transactionRepository.createQueryBuilder
       .mockReturnValueOnce(createCountQueryBuilder(0))
