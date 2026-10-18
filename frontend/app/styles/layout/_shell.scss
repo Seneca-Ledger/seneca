@@ -4,9 +4,9 @@
 // Height of the brand row atop the sidebar; the same in every state, so nothing
 // shifts when the rail opens.
 $lumio-sidebar-brand-height: 44px;
-// The logo-lockup.svg viewBox, cropped to the artwork, so the lockup can be sized by height alone.
+// The logo-lockup.png artwork's own aspect ratio, so the lockup can be sized by height alone.
 // Quoted: it is a CSS `aspect-ratio` value, not a division for Sass to fold.
-$lumio-logo-lockup-ratio: '1716 / 370';
+$lumio-logo-lockup-ratio: '893 / 300';
 
 // ── Layout shell ──
 .lumio-shell {
@@ -168,16 +168,14 @@ $lumio-logo-lockup-ratio: '1716 / 370';
     text-decoration: none;
   }
 
-  // The brand green is near-black against the dark sidebar, so the mark gets
-  // the same accent the illustrations use there.
   &-emblem {
     display: block;
     width: 24px;
     height: 24px;
-    background: url('/images/logo-mark.svg') no-repeat center / contain;
+    background: url('/images/logo-mark.png') no-repeat center / contain;
 
     @include dark {
-      background-image: url('/images/logo-mark-dark.svg');
+      background-image: url('/images/logo-mark-dark.png');
     }
   }
 
@@ -499,9 +497,9 @@ $lumio-sidebar-fixed: 2 * $lumio-focus-ring-reach + 17px + 14px;
     &-mark {
       height: 16px;
       aspect-ratio: #{$lumio-logo-lockup-ratio};
-      background: url('/images/logo-lockup.svg') no-repeat center / contain;
+      background: url('/images/logo-lockup.png') no-repeat center / contain;
 
-      @include dark { background-image: url('/images/logo-lockup-dark.svg'); }
+      @include dark { background-image: url('/images/logo-lockup-dark.png'); }
     }
   }
 
@@ -545,9 +543,9 @@ $lumio-sidebar-fixed: 2 * $lumio-focus-ring-reach + 17px + 14px;
   height: 28px;
   aspect-ratio: #{$lumio-logo-lockup-ratio};
   margin: 0 auto 24px;
-  background: url('/images/logo-lockup.svg') no-repeat center / contain;
+  background: url('/images/logo-lockup.png') no-repeat center / contain;
 
-  @include dark { background-image: url('/images/logo-lockup-dark.svg'); }
+  @include dark { background-image: url('/images/logo-lockup-dark.png'); }
 }
 
 // ── Responsive ──

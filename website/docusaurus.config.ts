@@ -4,7 +4,7 @@ import { themes as prismThemes } from 'prism-react-renderer';
 const config: Config = {
   title: 'Lumio Docs',
   tagline: 'Open-source financial data platform for bank statements',
-  favicon: 'img/favicon.svg',
+  favicon: 'img/favicon.png',
 
   url: 'https://symonbaikov.github.io',
   baseUrl: '/lumio/',
@@ -44,7 +44,7 @@ const config: Config = {
       title: 'Lumio',
       logo: {
         alt: 'Lumio logo',
-        src: 'img/logo.svg',
+        src: 'img/logo.png',
       },
       items: [
         {
