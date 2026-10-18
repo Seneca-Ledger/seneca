@@ -115,6 +115,8 @@ interface KpiTilesProps {
   data: DashboardData;
   formatAmount: (value: number) => string;
   monthLabel: string;
+  /** The month shown is the one we are in: its figures are still moving. */
+  monthInProgress: boolean;
   isLoading?: boolean;
   /** Formats a `YYYY-MM-DD` day as a short date in the reader's language. */
   formatDay: (day: string) => string;
@@ -125,6 +127,7 @@ interface KpiTilesProps {
     netCaption: string;
     savingsRate: string;
     savingsRateCaption: string;
+    monthInProgress: string;
     avgPerDay: string;
     biggestDay: string;
   };
@@ -135,6 +138,7 @@ function kpiTiles({
   data,
   formatAmount,
   monthLabel,
+  monthInProgress,
   isLoading,
   formatDay,
   labels,
@@ -202,6 +206,9 @@ function kpiTiles({
         value={spinner || `${Math.round(savingsRate ?? 0)}%`}
         tone={signTone(savingsRate)}
         caption={labels.savingsRateCaption}
+        // A share of a month that is not over reads as final; with most of the
+        // spending still ahead it is near 100% early in every month.
+        note={monthInProgress ? labels.monthInProgress : undefined}
         attentionId="kpi:savings-rate"
         details={split}
       />
@@ -254,6 +261,7 @@ export function OverviewTab({
             data,
             formatAmount,
             monthLabel,
+            monthInProgress: monthKey(displayMonth) === monthKey(new Date()),
             isLoading,
             labels: {
               income: t.income.value,
@@ -262,6 +270,7 @@ export function OverviewTab({
               netCaption: t.netCaption.value,
               savingsRate: t.savingsRateLabel.value,
               savingsRateCaption: t.savingsRateCaption.value,
+              monthInProgress: t.monthInProgress.value,
               avgPerDay: wideText.avgPerDay.value,
               biggestDay: wideText.biggestDay.value,
             },
