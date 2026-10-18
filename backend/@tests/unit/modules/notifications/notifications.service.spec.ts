@@ -246,6 +246,27 @@ describe('NotificationsService', () => {
     expect(eventEmitter.emit).not.toHaveBeenCalled();
   });
 
+  it('tells no one about a demo workspace either', async () => {
+    // Not a past version; a demo.
+    notificationRepository.manager.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+    const result = await service.create({
+      recipientId: 'user-1',
+      workspaceId: 'demo-1',
+      type: NotificationType.STATEMENT_UPLOADED,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      messageKey: 'statement.uploaded',
+      messageParams: { actorName: 'Alice', statementName: 'Jan 2026' },
+    });
+
+    expect(result).toBeNull();
+    expect(notificationRepository.manager.exists).toHaveBeenLastCalledWith(Workspace, {
+      where: { id: 'demo-1', demoOfUserId: expect.anything() },
+    });
+    expect(notificationRepository.save).not.toHaveBeenCalled();
+    expect(eventEmitter.emit).not.toHaveBeenCalled();
+  });
+
   it('looks for members of an ordinary workspace only, so a past version has no one to tell', async () => {
     workspaceMemberRepository.find.mockResolvedValue([]);
 

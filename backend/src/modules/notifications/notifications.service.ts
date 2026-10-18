@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, type Repository } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { withoutNulls } from '../../common/effect/without-nulls';
+import { isDemoWorkspace } from '../../common/workspaces/demo-workspaces';
 import { isVersionWorkspace, STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { UpdateNotificationPreferencesBody } from '../../contracts';
 import {
@@ -160,8 +161,13 @@ export class NotificationsService {
 
   async create(payload: CreateNotificationPayload): Promise<Notification | null> {
     // A past version is a copy of old books, not where anything happens: no
-    // event in it is news, whichever job or listener reported it.
-    if (await isVersionWorkspace(this.notificationRepository.manager, payload.workspaceId)) {
+    // event in it is news, whichever job or listener reported it. Nor is
+    // anything in a demo, whose sample data is dated around another day.
+    const manager = this.notificationRepository.manager;
+    if (
+      (await isVersionWorkspace(manager, payload.workspaceId)) ||
+      (await isDemoWorkspace(manager, payload.workspaceId))
+    ) {
       return null;
     }
     return this.notify(payload);
