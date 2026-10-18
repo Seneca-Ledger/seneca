@@ -60,6 +60,7 @@ export default function GoalDetailPage(): React.JSX.Element {
   );
 
   const currency = data?.currency ?? FALLBACK_CURRENCY;
+  const hasBudgets = (data?.budgets.length ?? 0) > 0;
   const money = useCallback(
     (value: number) => formatMoney(value, currency, locale),
     [currency, locale],
@@ -117,26 +118,46 @@ export default function GoalDetailPage(): React.JSX.Element {
               reached: goalsT.reached.value,
               remaining: goalsT.remaining.value,
             }}
+            locale={locale}
             formatAmount={money}
           />
 
+          {/* With no budget attached every month is the same zero, so the totals
+              and the month strip only appear once there is something to show. */}
           <GoalFlowSankey
             data={data}
             title={t.flowTitle}
-            subtitle={`${t.planned.value} ${money(data.plannedTotal)} · ${t.actual.value} ${money(data.actualTotal)}`}
+            subtitle={
+              hasBudgets
+                ? `${t.planned.value} ${money(data.plannedTotal)} · ${t.actual.value} ${money(data.actualTotal)}`
+                : undefined
+            }
             action={
-              <MonthStrip
-                displayMonth={month}
-                onChange={changeMonth}
-                locale={locale}
-                labels={{
-                  group: headerT.monthStripLabel.value,
-                  previousYear: headerT.previousYear.value,
-                  nextYear: headerT.nextYear.value,
-                }}
-              />
+              hasBudgets && (
+                <MonthStrip
+                  displayMonth={month}
+                  onChange={changeMonth}
+                  locale={locale}
+                  labels={{
+                    group: headerT.monthStripLabel.value,
+                    previousYear: headerT.previousYear.value,
+                    nextYear: headerT.nextYear.value,
+                  }}
+                />
+              )
             }
             emptyLabel={t.noBudgets.value}
+            emptyAction={
+              <Button
+                component={Link}
+                href={`/budgets?newBudgetGoal=${encodeURIComponent(goalId)}`}
+                variant="outlined"
+                size="small"
+                sx={{ flexShrink: 0 }}
+              >
+                {t.createBudget}
+              </Button>
+            }
             labels={chartLabels}
             formatAmount={money}
           />
@@ -149,7 +170,7 @@ export default function GoalDetailPage(): React.JSX.Element {
             </Typography>
           )}
 
-          {data.budgets.length > 0 && (
+          {hasBudgets && (
             <GoalBudgetList
               budgets={data.budgets}
               title={t.budgetsTitle}
