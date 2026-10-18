@@ -13,7 +13,7 @@ exports into reliable, queryable financial data.
 
 - Import statements from PDF, CSV, XLSX, DOCX, and image files, with OCR for scans and native parsers for Kaspi,
   Bereke, and Bank Hapoalim / Isracard.
-- Normalize, deduplicate, and classify transactions with rules and AI-assisted categorization.
+- Normalize, deduplicate, and classify transactions with rules and payee history.
 - Collect receipts by upload or from an IMAP inbox and see where each was bought on a self-hosted map
   ([Receipt Maps](guides/receipt-maps)).
 - Manage multi-tenant workspaces with RBAC and full audit history.
@@ -31,7 +31,7 @@ exports into reliable, queryable financial data.
 - Backend: NestJS 11 with TypeORM and PostgreSQL
 - Frontend: Next.js 16 with React 19, UI in 35 languages
 - Data services: PostgreSQL 14 + Redis 7 (Docker Compose)
-- Integrations: OpenAI-compatible AI endpoint, SMTP, IMAP, S3-compatible and WebDAV storage, Telegram,
+- Integrations: SMTP, IMAP, S3-compatible and WebDAV storage, SimpleFIN bank sync, Telegram,
   webhooks, and API keys
 - Optional: self-hosted map tiles (tileserver-gl) and geocoding (Nominatim)
 - Observability: Prometheus-format metrics at `/api/v1/metrics` and structured JSON logs

@@ -7,7 +7,7 @@ Lumio accepts multiple statement formats and standardizes them into a consistent
 
 ## Supported inputs
 
-- PDF — native parsers for supported banks, and an AI-assisted generic parser for the rest
+- PDF — native parsers for supported banks, and a generic table parser for the rest
 - CSV, XLSX and XLS exports
 - DOCX files with statement tables
 - Images (JPG, PNG, TIFF, BMP, WEBP) via OCR

@@ -20,7 +20,7 @@ const sidebars: SidebarsConfig = {
         'guides/importing-statements',
         'guides/workspaces-and-rbac',
         'guides/integrations',
-        'guides/ai-categorization',
+        'guides/categorization',
         'guides/receipt-maps',
         'guides/income-tax-declaration',
         'guides/observability',

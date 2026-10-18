@@ -58,7 +58,7 @@
 > **TL;DR**
 >
 > - Upload bank statements (PDF / CSV / XLSX / OFX / QIF / MT940 / CAMT.053 / image) → auto-parse → deduplicate → categorize → review
-> - Private by default: your data stays on your machine or server, no bank login required, AI is off unless you point it at a model (a local one works)
+> - Private by default: your data stays on your machine or server, no bank login required, no external AI model is ever contacted
 > - Workspaces for yourself, your household or your team — roles, private transactions, audit log and one-click rollback
 > - Full stack running locally in one command: `npm run setup:dev`
 >
@@ -105,11 +105,11 @@ Lumio is a full-stack platform for importing, categorizing and analyzing bank st
 
 ### Core capabilities
 
-- **Multi-format Statement Import** — PDF, CSV, XLSX / XLS, DOCX, OFX / QFX, QIF, MT940, CAMT.053 and image files. Native PDF parsers for Kaspi Bank, Bereke Bank, and Bank Hapoalim / Isracard; CSV column presets for 22 banks and fintechs (Revolut, Wise, N26, Monzo, Chase, ING and others); a generic AI PDF parser for any other bank.
+- **Multi-format Statement Import** — PDF, CSV, XLSX / XLS, DOCX, OFX / QFX, QIF, MT940, CAMT.053 and image files. Native PDF parsers for Kaspi Bank, Bereke Bank, and Bank Hapoalim / Isracard; CSV column presets for 22 banks and fintechs (Revolut, Wise, N26, Monzo, Chase, ING and others); a generic table parser for any other bank's PDF.
 - **OCR for Image Statements** — Tesseract.js text extraction from scanned documents and photos.
 - **Idempotent Uploads** — SHA-256 file hashing prevents duplicate imports.
 - **Transaction Deduplication** — Fingerprint-based duplicate detection with confidence scoring, merge, and mark-as-duplicate workflows.
-- **Categorization** — Rules first, then what the workspace already taught Lumio about a payee (payees with aliases, learned from your confirmations); an OpenAI-compatible model only for rows those leave uncategorised. AI categorization is off by default.
+- **Categorization** — Rules first, then what the workspace already taught Lumio about a payee (payees with aliases, learned from your confirmations). Rows neither covers stay uncategorised for review; no external model is ever contacted.
 - **Review Queue** — Every imported row waits in Review until a person confirms it; only confirmed rows count in reports, budgets and the ledger. Suspected duplicates have their own list.
 - **Bank Sync (bring your own aggregator)** — Connect your own SimpleFIN Bridge account; new rows are pulled on demand or every six hours and go through the same import path as an uploaded file.
 - **Multi-Tenant Workspaces** — Unlimited workspaces with invitation flows and per-workspace data isolation.
@@ -124,7 +124,7 @@ Lumio is a full-stack platform for importing, categorizing and analyzing bank st
 - **Forecast** — Cash-flow forecast from known paydays, bills, subscriptions and receivables, with safe-to-spend and runway.
 - **Investments & Precious Metals** — Investment and retirement accounts with holdings and contributions; precious-metal lots valued by weight and purity.
 - **Crypto Portfolio** — Crypto holdings with price and wallet sync across Ethereum, Base, Arbitrum, Optimism, Polygon, Tron, Bitcoin and Solana, and transfer mapping into transactions.
-- **AI Chat & Semantic Search** — Ask questions about your data; embeddings-backed transaction search plus a global cross-entity search.
+- **Search** — Global cross-entity search across the workspace.
 - **Tax Engine** — VAT rates, rules, jurisdictions, thresholds, and VAT return generation; EU VAT numbers checked against VIES; reminders for upcoming VAT and income tax deadlines.
 - **Tax Pack & DATEV** — One archive for your accountant with the year's tax-relevant rows and every receipt and invoice behind them; a DATEV Buchungsstapel export for businesses in Germany and Austria.
 - **Double-Entry Ledger** — Every transaction is posted as a balanced journal entry into a chart of accounts built from your categories, bank accounts and wallets: VAT on its own account, other currencies converted into one base currency at the posting date, duplicates left out. Statement and wallet opening balances are booked against opening equity, and crypto transfers land on each crypto wallet's own account at the fiat value they were recorded at (not today's market value). Foreign-currency balances can be revalued at any day's rate, with the difference booked as FX gain or loss. Manual entries go through draft → post → reverse, and a posted entry can only be reversed, never edited. The database itself refuses an entry whose debits and credits differ. Trial balance, account ledger, profit and loss, and balance sheet are read straight from the journal, with each bank account reconciled against its latest statement. Opt in under Settings → Experimental.
@@ -139,8 +139,8 @@ Lumio is a full-stack platform for importing, categorizing and analyzing bank st
 ### Intelligence
 
 - **Categorization Rules & Payee Memory** — Per-workspace categorization rules, plus payees (with aliases) that remember the category you confirmed for a merchant and apply it on future imports.
-- **AI Financial Insights** — Automatically generated insights surfaced on the dashboard; dismissible per-user.
-- **Generic AI PDF Parser** — an OpenAI-compatible endpoint extracts structured transaction data from any PDF when no native parser matches.
+- **Financial Insights** — Insights generated by rule-based analyzers from your own numbers, surfaced on the dashboard; dismissible per-user.
+- **Generic PDF Parser** — reads transaction tables from any PDF when no native parser matches.
 
 ### Integrations
 
@@ -218,7 +218,7 @@ Setting expectations upfront:
 | 🌍 Any bank | QIF | `QifParser` |
 | 🌍 Any bank | MT940 | `Mt940Parser` — SWIFT statement |
 | 🌍 Any bank | CAMT.053 (XML) | `Camt053Parser` — ISO 20022 statement |
-| 🌍 Any bank | PDF | `GenericPdfParser` — AI-assisted via OpenAI-compatible endpoint |
+| 🌍 Any bank | PDF | `GenericPdfParser` — generic table extraction |
 | 🌍 Any bank | Image (PNG / JPG) | OCR pipeline via Tesseract.js |
 
 Your bank is missing or parses badly? See [Wanted: real bank statements](#-wanted-real-bank-statements-for-parser-development).
@@ -238,7 +238,6 @@ Your bank is missing or parses badly? See [Wanted: real bank statements](#-wante
 | Auth | JWT in HttpOnly cookies (access 30 min / refresh 30 d), double-submit CSRF, TOTP 2FA, Passport.js, bcrypt |
 | File Processing | pdfplumber (Python), pdf-parse, pdf-lib, tesseract.js v5, sharp, xlsx, exifr |
 | Documents | pdfmake (invoices, reports), XRechnung / Peppol UBL / ZUGFeRD writers |
-| AI / LLM | OpenAI-compatible HTTP endpoint (Ollama, LocalAI, vLLM) |
 | Email | SMTP via nodemailer + React Email templates |
 | Real-time | Socket.IO 4 + @nestjs/websockets; web push (VAPID) |
 | Scheduling | @nestjs/schedule (cron jobs for Telegram reports, backups, crypto and bank sync, tax deadline reminders) |
@@ -302,12 +301,12 @@ lumio/
 │   │   │   ├── statements/          # Bank statement upload & lifecycle management
 │   │   │   ├── transactions/        # Transaction CRUD, search, deduplication
 │   │   │   ├── categories/          # Hierarchical category management
-│   │   │   ├── classification/      # Categorization rules, payee history, optional AI
+│   │   │   ├── classification/      # Categorization rules, payee history
 │   │   │   ├── payees/              # Payees, aliases and the categories learned for them
 │   │   │   ├── review-inbox/        # Review queue: unconfirmed rows and suspected duplicates
 │   │   │   ├── bank-sync/           # Bank sync through the user's own aggregator (SimpleFIN)
 │   │   │   ├── entity-imports/      # Spreadsheet import into transactions, budgets, invoices, bills…
-│   │   │   ├── parsing/             # Multi-format file parsers (Kaspi, Bereke, Hapoalim, CSV, OFX, QIF, MT940, CAMT, AI)
+│   │   │   ├── parsing/             # Multi-format file parsers (Kaspi, Bereke, Hapoalim, CSV, OFX, QIF, MT940, CAMT, generic PDF)
 │   │   │   ├── dashboard/           # Dashboard stats, trends, cash flow
 │   │   │   ├── reports/             # Financial reports, export (CSV/XLSX)
 │   │   │   ├── balance/             # Balance sheet accounts & snapshots
@@ -326,7 +325,7 @@ lumio/
 │   │   │   ├── view-preferences/    # Per-user remembered page state
 │   │   │   ├── vendor-icons/        # Merchant logos
 │   │   │   ├── notes/               # Notes on statements and receipts
-│   │   │   ├── insights/            # AI-generated financial insights
+│   │   │   ├── insights/            # Rule-based financial insights
 │   │   │   ├── audit/               # Audit log with rollback
 │   │   │   ├── import/              # Import session tracking
 │   │   │   ├── branches/            # Branch reference data
@@ -349,7 +348,6 @@ lumio/
 │   │   │   ├── subscriptions/       # Recurring billing detection & management
 │   │   │   ├── webhooks/            # Outbound event delivery to endpoints
 │   │   │   ├── open-protocol-integrations/ # S3, WebDAV, IMAP protocol handlers
-│   │   │   ├── ai-analysis/         # AI chat, embeddings, semantic transaction search
 │   │   │   ├── search/              # Global cross-entity search
 │   │   │   ├── crypto/              # Crypto holdings, price and wallet sync
 │   │   │   ├── goals/               # Savings / financial goals
@@ -384,14 +382,12 @@ lumio/
 │   │   │   ├── crypto/              # Crypto portfolio
 │   │   │   ├── subscriptions/       # Recurring billing
 │   │   │   ├── roi/                 # ROI analysis
-│   │   │   ├── advice/              # AI advice
-│   │   │   ├── ai-analysis/         # AI chat over your data
+│   │   │   ├── advice/              # Advice from your own numbers
 │   │   │   ├── custom-tables/       # Custom table UI
 │   │   │   ├── workspaces/          # Workspace management
 │   │   │   ├── supported-banks/     # Supported banks reference page
 │   │   │   └── tax-declaration/     # Income tax declaration wizard
 │   │   ├── categories/              # Category management
-│   │   ├── chat/                    # AI chat UI
 │   │   ├── integrations/            # Integration hub (S3, WebDAV, IMAP, bank sync, Peppol, workbook import)
 │   │   ├── plugins/                 # AI assistant, MCP server, webhooks
 │   │   ├── offline/                 # PWA offline page
@@ -643,9 +639,9 @@ Endpoints and hosts saved in the UI must resolve to public addresses: the egress
 </details>
 
 <details>
-<summary><b>AI Auto-Categorization & Generic PDF Parsing</b></summary>
+<summary><b>Categorization & Generic PDF Parsing</b></summary>
 
-Point Lumio at an OpenAI-compatible endpoint from **Integrations → AI-compatible endpoint**. Endpoints saved in the UI must resolve to a public address — the egress guard rejects private and loopback hosts. For a self-hosted model on your own network (Ollama on `localhost`, a LAN vLLM box), set `AI_BASE_URL` and `AI_MODEL` on the server instead; `AI_API_KEY` may be omitted when the endpoint needs no authentication.
+Lumio never contacts an external AI model. Categories come from your rules first, then from payee history (a payee's default moves only when two of its three most recent confirmed rows agree); anything left stays uncategorised in Review. **Integrations → Local categorization** can install a Transformers.js embedding model on the server from an uploaded ZIP; remote model loading stays disabled. PDFs from banks without a native parser go through `GenericPdfParser`, which reads the transaction tables from the PDF text layer.
 </details>
 
 <details>
@@ -674,7 +670,7 @@ GEOCODER_URL=http://nominatim:8080
 <details>
 <summary><b>Dependency Policy</b></summary>
 
-Do not add closed SaaS SDKs for new integration work. Prefer OSS libraries that implement open protocols such as SMTP, IMAP, WebDAV, S3-compatible object storage, and OpenAI-compatible local inference.
+Do not add closed SaaS SDKs for new integration work. Prefer OSS libraries that implement open protocols such as SMTP, IMAP, WebDAV, and S3-compatible object storage.
 </details>
 
 <details>
@@ -932,7 +928,7 @@ Upload request
       ├── BerekeOldParser    (Bereke Bank legacy PDF)
       ├── KaspiParser        (Kaspi Bank PDF)
       ├── HapoalimParser     (Bank Hapoalim / Isracard PDF)
-      ├── GenericPdfParser   (AI-assisted: OpenAI-compatible endpoint)
+      ├── GenericPdfParser   (generic PDF table extraction)
       ├── ExcelParser        (XLSX / XLS)
       ├── CsvParser          (CSV, with per-bank presets)
       ├── DocxParser         (DOCX tables)
@@ -941,7 +937,7 @@ Upload request
       └── OCR Pipeline       (Tesseract.js for images)
   → ImportSession created (status: processing)
   → Transactions persisted
-  → Categorization (rules → payee history → optional AI)
+  → Categorization (rules → payee history)
   → Deduplication (fingerprint check, within and across statements)
   → Review queue (rows count only once confirmed)
   → ImportSession status: complete

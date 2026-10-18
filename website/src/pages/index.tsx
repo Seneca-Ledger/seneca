@@ -7,12 +7,12 @@ const features = [
   {
     title: 'Statement import',
     description:
-      'PDF, CSV, XLSX, DOCX and image files. Native parsers for Kaspi, Bereke and Bank Hapoalim / Isracard, OCR for scans, and a generic AI parser for any other bank. SHA-256 hashing stops duplicate uploads.',
+      'PDF, CSV, XLSX, DOCX and image files. Native parsers for Kaspi, Bereke and Bank Hapoalim / Isracard, OCR for scans, and a generic table parser for any other bank. SHA-256 hashing stops duplicate uploads.',
   },
   {
     title: 'Clean, categorized data',
     description:
-      'Fingerprint-based deduplication, categorization rules that learn from your corrections, and AI categorization through any OpenAI-compatible endpoint, including a local one.',
+      'Fingerprint-based deduplication, categorization rules, and payee history that learns from your corrections. No external model is ever contacted.',
   },
   {
     title: 'Dashboards and reports',

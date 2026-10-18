@@ -1,50 +1,35 @@
 ---
-title: AI Categorization
-description: Configure an OpenAI-compatible or provider endpoint
+title: Categorization
+description: How Lumio assigns categories without an external model
 ---
 
-Lumio can auto-categorize transactions with an AI model. It is optional and configured per workspace.
+Lumio categorizes transactions deterministically, on your own server. No external model is
+contacted at any step.
 
-## Supported providers
+## The chain
 
-- Presets for OpenAI, Anthropic and OpenRouter
-- Any OpenAI-compatible backend, such as Ollama, LocalAI or vLLM
+Each imported row goes through these steps, and the first one that answers wins:
 
-## Configuration
+1. **Your rules**, in priority order. A rule you wrote is an explicit instruction and is never
+   replaced by anything later in the chain.
+2. **Payee history.** Lumio keeps payees with their aliases and learns a default category from the
+   rows you confirmed. The default only moves when two of the three most recent confirmed
+   transactions agree on a different category, so one odd purchase does not refile every later
+   one. A payee can also be pinned to a category (*always*) or excluded from learning (*never*).
+3. **Uncategorized.** Anything left lands in *Uncategorized* and shows up in **Review**.
 
-Open **Integrations → AI-compatible endpoint** and set:
+No category is guessed from words in a bank descriptor: those match category names by accident
+too often to be trusted.
 
-- Enabled
-- Base URL
-- Model
-- API key, if your endpoint requires one
-- Timeout, in milliseconds
+Learning from corrections can be switched off under **Settings → Data → Processing** (*Learn from
+my corrections*).
 
-Saving validates the endpoint with a chat completion request. The API key is stored encrypted and
-never returned to the browser.
+## Local categorization
 
-### Self-hosted models on a private network
-
-An endpoint entered in the UI must resolve to a public address — the backend refuses private and
-loopback hosts there. For Ollama on `localhost` or another private host, set the endpoint on the
-backend instead:
-
-```bash
-AI_BASE_URL=http://localhost:11434
-AI_MODEL=llama3.1
-AI_API_KEY=        # optional
-```
-
-The env endpoint is used when a workspace has no endpoint of its own.
-
-## Quality controls
-
-- A category is applied only when the model's confidence is at least 0.9; lower-confidence answers
-  are dropped.
-- Timeouts, concurrency and a circuit breaker are tuned through backend env: `AI_TIMEOUT_MS`,
-  `AI_CONCURRENCY` (default 2), `AI_CIRCUIT_FAILURE_THRESHOLD` and `AI_CIRCUIT_COOLDOWN_MS`
-  (default 300000).
-
-For categorization without an external model, use **Integrations → Local categorization**.
+**Integrations → Local categorization** installs a Transformers.js embedding model on the server
+(upload a ZIP with `config.json` and an ONNX file; the default model id is
+`Xenova/paraphrase-multilingual-MiniLM-L12-v2`) and lets you test merchant names against a list
+of categories with a similarity threshold. Remote model loading is disabled: the model runs from
+the uploaded files and sends nothing out.
 
 Next: [Receipt Maps](receipt-maps)

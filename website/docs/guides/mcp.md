@@ -64,10 +64,6 @@ Every write made through an API key is an audit event with the actor **Integrati
 name and prefix in the label (`API key "Claude Code" (ab12cd34)`), the user it acted for in
 `meta.onBehalfOfUserId`, and **Undo** available wherever rollback knows the entity (transactions,
 statements, categories, custom tables, workspace settings). Filter the activity log by actor
-**Integration** to review it, or by **AI assistant** for the in-app chat, whose writes carry the
-`X-Lumio-Actor: ai-chat` header and are logged the same way.
-
-In the in-app assistant, any number in a reply comes from a tool result: the model is told not to
-estimate totals itself, and writes run only after you confirm the action card.
+**Integration** to review it.
 
 See also [Security posture](security-posture).

@@ -66,12 +66,12 @@ JWT_REFRESH_SECRET=<generated>
 INTEGRATIONS_ENCRYPTION_KEY=<generated>
 ```
 
-`backend/.env.all-options` lists every infrastructure setting — parsing and AI timeouts, concurrency,
+`backend/.env.all-options` lists every infrastructure setting — parsing timeouts, concurrency,
 storage paths and more. Treat it as a reference and copy single values, not the whole file.
 
 ## Integrations
 
-Configure AI endpoints, SMTP, S3-compatible storage, WebDAV, IMAP, Telegram and the public App URL in
+Configure SMTP, S3-compatible storage, WebDAV, IMAP, Telegram and the public App URL in
 the app under **Integrations** and **Settings**. Their credentials are stored encrypted per workspace;
 env values with the same purpose are only temporary fallback defaults. See
 [Integrations](../guides/integrations).

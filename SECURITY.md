@@ -133,12 +133,13 @@ When deploying Lumio, please follow these security best practices:
 
 ### Outbound Requests
 
-- Requests to user-supplied URLs (AI-compatible endpoints, webhooks, S3/WebDAV/IMAP integrations) go through an egress guard that rejects private and loopback addresses, including after DNS resolution
+- Requests to user-supplied URLs (webhooks, S3/WebDAV/IMAP integrations) go through an egress guard that rejects private and loopback addresses, including after DNS resolution
 - The optional geocoder and tile server are reached by the backend on the internal network only; the tile server needs no public port
+- No external LLM is ever contacted: statement parsing and categorization are deterministic, and local categorization loads its model from uploaded files with remote model loading disabled
 
 ### Open Protocol Integrations
 
-- SMTP, IMAP, S3-compatible, WebDAV, AI API keys, and Telegram bot tokens must be stored encrypted
+- SMTP, IMAP, S3-compatible, WebDAV credentials and Telegram bot tokens must be stored encrypted
 - New user-facing integrations must be configurable through the UI; env-only integration credentials are fallback-only
 - Do not add closed SaaS SDKs for new integration work; prefer OSS libraries and open protocols
 - Integration credentials should be scoped to dedicated service accounts or buckets
