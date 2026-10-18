@@ -1,14 +1,139 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "a376de9aafc38d63c937098a7d54741b63d5e2c2"
+      "main": "755b28a57740813b96aa1b08ef47235c449f5625"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-18T09:51:29.949Z",
+    "lastGeneratedAt": "2026-10-18T22:34:25.230Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-18-755b28a",
+      "version": "main-755b28a",
+      "branch": "main",
+      "date": "2026-10-18T22:34:25.230Z",
+      "title": "Release update - October 18, 2026",
+      "summary": "This release includes 1 feature.",
+      "markdown": "## Features\n- **goals**: Calmer goal detail page, explained plan figures",
+      "commits": [
+        {
+          "sha": "defc95e98c761f27ca41d50b328b3f904d9d1c73",
+          "shortSha": "defc95e9",
+          "subject": "ci: stop gating typecheck, tests, build and dependency-scan on lint",
+          "author": "Symon Baikov",
+          "date": "2026-10-10T17:10:15+03:00",
+          "files": [
+            ".github/workflows/ci.yml"
+          ]
+        },
+        {
+          "sha": "fc460c307c2962dded6f43e61291d2791d54bf71",
+          "shortSha": "fc460c30",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-18T09:51:30Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "73ff1e8abc59ef775991056bc749b1bfa9b477f7",
+          "shortSha": "73ff1e8a",
+          "subject": "Merge remote-tracking branch 'origin/main' into HEAD",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T17:37:57+03:00",
+          "files": [
+            ".github/workflows/ci.yml"
+          ]
+        },
+        {
+          "sha": "4aee9fcd0385055a4b4ffb1916da65ccfcac75a6",
+          "shortSha": "4aee9fcd",
+          "subject": "feat(goals): calmer goal detail page, explained plan figures",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T17:42:10+03:00",
+          "files": [
+            "frontend/app/(main)/budgets/hooks/useBudgetsPage.ts",
+            "frontend/app/(main)/budgets/hooks/useBudgetsPage.url.test.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalBudgetList.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalFlowSankey.test.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalFlowSankey.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalItemsCard.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalPlanCard.test.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalPlanCard.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalProgressHeader.tsx",
+            "frontend/app/(main)/goals/[id]/components/goal-dates.test.ts",
+            "frontend/app/(main)/goals/[id]/components/goal-dates.ts",
+            "frontend/app/(main)/goals/[id]/page.content.ts",
+            "frontend/app/(main)/goals/[id]/page.tsx"
+          ]
+        },
+        {
+          "sha": "837878d7f265a387160bcfb573abecfd2c53fde3",
+          "shortSha": "837878d7",
+          "subject": "Merge pull request #335 from symonbaikov/feat/goal-detail-calm",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T18:28:40+03:00",
+          "files": []
+        },
+        {
+          "sha": "12139a78ef57400ea7ba9b7d54ac3182857f9ec4",
+          "shortSha": "12139a78",
+          "subject": "chore(branding): replace app logo with new emblem",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T01:31:57+03:00",
+          "files": [
+            "frontend/app/styles/layout/_shell.scss",
+            "frontend/public/images/favicon-new.png",
+            "frontend/public/images/logo-lockup-dark.png",
+            "frontend/public/images/logo-lockup-dark.svg",
+            "frontend/public/images/logo-lockup.png",
+            "frontend/public/images/logo-lockup.svg",
+            "frontend/public/images/logo-mark-dark.png",
+            "frontend/public/images/logo-mark-dark.svg",
+            "frontend/public/images/logo-mark.png",
+            "frontend/public/images/logo-mark.svg",
+            "website/docusaurus.config.ts",
+            "website/static/img/favicon.png",
+            "website/static/img/favicon.svg",
+            "website/static/img/logo.png",
+            "website/static/img/logo.svg"
+          ]
+        },
+        {
+          "sha": "1eb2cecfe13452729fd110fcffa121522d6dde5d",
+          "shortSha": "1eb2cecf",
+          "subject": "chore: sync goal-detail-calm files already merged upstream in #335",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T01:33:43+03:00",
+          "files": [
+            "frontend/app/(main)/budgets/hooks/useBudgetsPage.ts",
+            "frontend/app/(main)/budgets/hooks/useBudgetsPage.url.test.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalBudgetList.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalFlowSankey.test.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalFlowSankey.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalItemsCard.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalPlanCard.test.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalPlanCard.tsx",
+            "frontend/app/(main)/goals/[id]/components/GoalProgressHeader.tsx",
+            "frontend/app/(main)/goals/[id]/components/goal-dates.test.ts",
+            "frontend/app/(main)/goals/[id]/components/goal-dates.ts",
+            "frontend/app/(main)/goals/[id]/page.content.ts",
+            "frontend/app/(main)/goals/[id]/page.tsx"
+          ]
+        },
+        {
+          "sha": "755b28a57740813b96aa1b08ef47235c449f5625",
+          "shortSha": "755b28a5",
+          "subject": "Merge remote-tracking branch 'origin/main'",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T01:33:49+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-18-a376de9",
       "version": "main-a376de9",
