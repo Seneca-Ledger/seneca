@@ -140,7 +140,7 @@ function PluginRow({
         checked={active}
         onChange={onToggle}
         size="small"
-        inputProps={{ 'aria-label': t.toggle.value.replace('{name}', plugin.name) }}
+        slotProps={{ input: { 'aria-label': t.toggle.value.replace('{name}', plugin.name) } }}
         sx={{ mr: 0.5 }}
       />
     </Box>

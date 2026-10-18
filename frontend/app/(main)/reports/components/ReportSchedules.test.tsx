@@ -7,8 +7,9 @@ vi.mock('@/app/i18n', () => ({
   useLocale: () => ({ locale: 'de' }),
 }));
 
+const schedules = vi.hoisted(() => ({ rows: [] as unknown[] }));
 vi.mock('@/app/lib/query-fn-schema', () => ({
-  apiQueryDecoded: vi.fn(async () => []),
+  apiQueryDecoded: vi.fn(async () => schedules.rows),
 }));
 
 const post = vi.fn(async (_url: string, _body: unknown) => ({}));
@@ -48,5 +49,31 @@ describe('ReportSchedules', () => {
       format: 'pdf',
       locale: 'de',
     });
+  });
+
+  it('names the on/off switch of each schedule', async () => {
+    schedules.rows = [
+      {
+        id: 's1',
+        templateId: 'pnl',
+        format: 'pdf',
+        cadence: 'weekly',
+        recipients: ['a@example.com'],
+        walletIds: [],
+        categoryIds: [],
+        groupBy: null,
+        locale: null,
+        isActive: true,
+        lastRunAt: null,
+        nextRunAt: '2026-10-20T08:00:00.000Z',
+        lastError: null,
+        createdAt: '2026-10-01T08:00:00.000Z',
+      },
+    ];
+    const { ReportSchedules } = await import('./ReportSchedules');
+    render(<ReportSchedules templates={templates} />);
+
+    expect(await screen.findByRole('switch', { name: 'Active' })).toBeChecked();
+    schedules.rows = [];
   });
 });
