@@ -26,6 +26,7 @@ export function useLedgerSettings() {
     queryKey: queryKeys.ledgerSettings(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/ledger/settings', signal, contract: 'LedgerSettings' }),
+    enabled: Boolean(workspaceId),
   });
 }
 
@@ -35,7 +36,7 @@ export function useLedgerIntegrity(enabled: boolean) {
     queryKey: queryKeys.ledgerIntegrity(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/ledger/integrity', signal, contract: 'LedgerIntegrity' }),
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
     refetchInterval: query =>
       query.state.data &&
       query.state.data.pendingTransactions > query.state.data.failingTransactions
@@ -50,7 +51,7 @@ export function useLedgerAccounts(enabled = true) {
     queryKey: queryKeys.ledgerAccounts(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/ledger/accounts', signal, contract: 'LedgerAccountList' }),
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
   });
 }
 
@@ -82,6 +83,7 @@ export function useJournalEntries(filters: EntryFilters) {
     // Keeps the page visible while paging, but never across a workspace switch.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 }
 
@@ -112,7 +114,7 @@ export function useTrialBalance(params: PeriodParams, enabled: boolean) {
         signal,
         contract: 'TrialBalance',
       }),
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
   });
 }
 

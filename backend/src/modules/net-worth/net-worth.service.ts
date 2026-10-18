@@ -22,6 +22,7 @@ import {
 } from '../../entities';
 import type { InvestmentMetal } from '../../entities/investment-holding.entity';
 import { BalanceService, CASH_ACCOUNT_CODE } from '../balance/balance.service';
+import { balanceAccountName } from '../balance/balance-account-name';
 import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { InvestmentsService } from '../investments/investments.service';
@@ -190,7 +191,7 @@ export class NetWorthService {
       .map(leaf => ({
         id: leaf.id,
         code: leaf.code,
-        name: resolveName(leaf, locale),
+        name: balanceAccountName(leaf, locale),
         amount: round2(valueAt(leaf.id, leaf.code, to)),
         // Cash answers for itself: always low risk, never the user's call.
         capitalRole: leaf.capitalRole,
@@ -410,7 +411,7 @@ export class NetWorthService {
 
     return sections.map(section => ({
       code: section.account.code,
-      name: resolveName(section.account, locale),
+      name: balanceAccountName(section.account, locale),
       amount: section.amount,
       percent: assetsTotal > 0 ? round2((section.amount / assetsTotal) * 100) : 0,
     }));
@@ -597,14 +598,4 @@ function round4(value: number): number {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-function resolveName(account: BalanceAccount, locale?: string): string {
-  if (locale === 'en' && account.nameEn) {
-    return account.nameEn;
-  }
-  if (locale === 'kk' && account.nameKk) {
-    return account.nameKk;
-  }
-  return account.name;
 }

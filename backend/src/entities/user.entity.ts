@@ -138,6 +138,21 @@ export class User {
   })
   welcomeTutorialSeenAt: Date | null;
 
+  /**
+   * Page hints closed so far: page id → the highest hint version seen there. A
+   * page shows only the steps added after that version. Written only by
+   * UsersService.markPageHintsSeen / resetPageHints with conditional SQL, for the
+   * same reason as welcomeTutorialSeenAt: a whole-row save must not write back a
+   * map it loaded before a hint was closed.
+   */
+  @Column({
+    name: 'page_hints_seen',
+    type: 'jsonb',
+    default: () => "'{}'::jsonb",
+    update: false,
+  })
+  pageHintsSeen: Record<string, number>;
+
   /** Base32 TOTP secret, encrypted at rest. Set during setup, before 2FA is confirmed. */
   @Column({ name: 'two_factor_secret', type: 'text', nullable: true, select: false })
   twoFactorSecret: string | null;

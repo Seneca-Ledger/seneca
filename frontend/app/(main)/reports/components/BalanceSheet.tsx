@@ -21,10 +21,12 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { localizeBalanceAccountName } from '@/app/lib/balance-account-names';
 import type { BalanceAccountNode } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { tokens } from '@/lib/theme-tokens';
 import apiClient from '../../../lib/api';
 import { blobOf } from '../../../lib/blob-of';
@@ -36,9 +38,7 @@ const reportLocaleOf = (locale: string): 'ru' | 'en' | 'kk' =>
   locale === 'ru' || locale === 'kk' ? locale : 'en';
 
 const resolveLocale = (locale: string): string => {
-  if (locale === 'ru') return 'ru-RU';
-  if (locale === 'kk') return 'kk-KZ';
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 const toDateInputValue = (date: Date): string => {
@@ -159,6 +159,7 @@ function BalanceSheet(): React.JSX.Element {
     // экране до прихода новых цифр, но только внутри того же воркспейса.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const sheet = sheetQuery.data ?? null;
@@ -364,7 +365,7 @@ function BalanceSheet(): React.JSX.Element {
                 color: isSection ? 'var(--foreground)' : 'var(--muted-foreground)',
               }}
             >
-              {account.name}
+              {localizeBalanceAccountName(account.name, locale)}
             </span>
           </Box>
 
@@ -400,7 +401,7 @@ function BalanceSheet(): React.JSX.Element {
                     }
                   }}
                   disabled={savingAccountId === account.id}
-                  aria-label={account.name}
+                  aria-label={localizeBalanceAccountName(account.name, locale)}
                 />
                 <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted-foreground)' }}>
                   {currencyCode}

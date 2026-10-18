@@ -15,6 +15,15 @@ export const CreateWorkspaceBody = Schema.Struct({
 });
 export type CreateWorkspaceBody = Wire<typeof CreateWorkspaceBody>;
 
+/**
+ * `POST /workspaces/demo`: the caller's demo workspace, made on first call.
+ * The client sends the name in the user's language; the data is fixed.
+ */
+export const CreateDemoWorkspaceBody = Schema.Struct({
+  name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(100)),
+});
+export type CreateDemoWorkspaceBody = Wire<typeof CreateDemoWorkspaceBody>;
+
 export const WorkspaceProcessingInput = Schema.Struct({
   /** 0 categorises almost everything, 1 only exact matches. */
   categorizationThreshold: optionalNullable(

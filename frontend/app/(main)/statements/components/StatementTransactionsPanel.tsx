@@ -58,12 +58,14 @@ export function StatementTransactionsPanel({
         ),
       };
     },
+    enabled: Boolean(workspaceId),
   });
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     staleTime: 5 * 60_000,
+    enabled: Boolean(workspaceId),
   });
   const categories = categoriesQuery.data ?? [];
   const dateFormat = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' });

@@ -55,7 +55,7 @@ export function useGmailReceiptsQuery({
       const response = await gmailReceiptsApi.listReceipts(params);
       return Array.isArray(response.data?.receipts) ? response.data.receipts : [];
     },
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
     refetchInterval: POLL_INTERVAL_MS,
     select: selectByAmount,
   });

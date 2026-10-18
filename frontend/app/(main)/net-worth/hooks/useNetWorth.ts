@@ -93,6 +93,7 @@ export function useNetWorth(
     // на экране до прихода новых, но только внутри того же воркспейса.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const classifyMutation = useMutation({

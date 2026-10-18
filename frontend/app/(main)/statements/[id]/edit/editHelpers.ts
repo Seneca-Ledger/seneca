@@ -4,6 +4,7 @@ import type {
   StatementParsingDetails as ContractStatementParsingDetails,
   TransactionListItem,
 } from '@/app/lib/contracts';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 
 export interface CategoryOption {
@@ -140,13 +141,7 @@ export const parseNullableNumber = (value: string): number | null => {
 };
 
 export const resolveLocale = (locale: string): string => {
-  if (locale === 'ru') {
-    return 'ru-RU';
-  }
-  if (locale === 'kk') {
-    return 'kk-KZ';
-  }
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 export const isIdEmpty = (id?: string | null): boolean =>

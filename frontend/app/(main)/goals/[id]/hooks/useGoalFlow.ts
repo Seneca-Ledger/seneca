@@ -25,6 +25,7 @@ export function useGoalFlow(goalId: string, month: string): GoalFlowState {
     // for a frame (workspaceId is the third key segment).
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const refetch = useCallback((): void => {

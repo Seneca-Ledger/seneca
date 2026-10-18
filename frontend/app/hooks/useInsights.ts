@@ -12,6 +12,7 @@ import apiClient from '@/app/lib/api';
 import type { Insight, InsightList, InsightSeverity } from '@/app/lib/contracts';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import { useWorkspaceId } from './useWorkspaceId';
 
 export type { Insight, InsightSeverity } from '@/app/lib/contracts';
@@ -26,6 +27,26 @@ interface UseInsightsState {
   isPending: boolean;
   dismiss: (id: string) => void;
   refetch: () => void;
+}
+
+/**
+ * The server writes the stored category name into the text, and a system
+ * category is stored by its English name; the reader's language has its own.
+ */
+function withLocalCategoryName(item: Insight, locale: string): Insight {
+  const stored = item.messageParams?.category;
+  if (typeof stored !== 'string' || !stored) {
+    return item;
+  }
+  const shown = localizeStatementCategoryName(stored, locale);
+  if (shown === stored) {
+    return item;
+  }
+  return {
+    ...item,
+    title: item.title.replaceAll(stored, shown),
+    message: item.message.replaceAll(stored, shown),
+  };
 }
 
 /**
@@ -46,9 +67,11 @@ export function useInsights({ severities }: UseInsightsOptions): UseInsightsStat
   const selectBySeverity = useCallback(
     (payload: InsightList): Insight[] => {
       const wanted = new Set(key.split(','));
-      return payload.items.filter(item => wanted.has(item.severity));
+      return payload.items
+        .filter(item => wanted.has(item.severity))
+        .map(item => withLocalCategoryName(item, locale));
     },
-    [key],
+    [key, locale],
   );
 
   const query = useQuery({
@@ -62,6 +85,7 @@ export function useInsights({ severities }: UseInsightsOptions): UseInsightsStat
         drift: 'report',
       }),
     select: selectBySeverity,
+    enabled: Boolean(workspaceId),
   });
 
   const dismissMutation = useMutation({
@@ -119,7 +143,8 @@ export function useRefreshInsights(): UseMutationResult<unknown, Error, string> 
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (locale: string) => {
-      await apiClient.post('/insights/refresh', null, { params: { locale } });
+      // No body at all: a JSON `null` is rejected by the server's strict body parser (400).
+      await apiClient.post('/insights/refresh', undefined, { params: { locale } });
     },
     // Пересчёт переписывает сами строки, а не их перевод, поэтому устаревает
     // кэш на всех языках сразу — инвалидация идёт по префиксу без локали.

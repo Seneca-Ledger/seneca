@@ -35,7 +35,7 @@ export function DashboardHeader({
       <div className="lumio-dashboard-header__tabs">
         <DashboardTabs activeTab={activeTab} onTabChange={onTabChange} labels={labels.tabs} />
       </div>
-      <div className="lumio-dashboard-header__controls">
+      <div className="lumio-dashboard-header__controls" data-tour-shot="dashboard-month">
         <MonthStrip
           displayMonth={displayMonth}
           onChange={changeMonth}
