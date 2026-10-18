@@ -116,8 +116,10 @@ export class PayablesService {
   /**
    * Runs a payment change in one transaction and sends the events it queued
    * once it commits: a listener must never hear of a payment that rolled back.
+   * Callers outside this service that recompute a bill inside their own
+   * transaction (a credit note) run it through here for the same reason.
    */
-  private async inPaymentTransaction<T>(work: (manager: EntityManager) => Promise<T>): Promise<T> {
+  async inPaymentTransaction<T>(work: (manager: EntityManager) => Promise<T>): Promise<T> {
     const events: Array<[string, unknown]> = [];
     const result = await this.payableRepository.manager.transaction(async manager => {
       this.pendingEvents.set(manager, events);
