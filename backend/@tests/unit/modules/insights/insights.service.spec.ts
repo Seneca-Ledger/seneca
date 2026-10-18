@@ -213,6 +213,36 @@ describe('InsightsService', () => {
     expect(result.newInsights).toHaveLength(2);
   });
 
+  it('updates the row a concurrent refresh created first instead of failing', async () => {
+    const candidate: InsightCandidate = {
+      type: InsightType.UNAPPROVED_COUNT,
+      category: InsightCategory.OPERATIONAL,
+      severity: InsightSeverity.WARN,
+      messageKey: 'operational.unapproved',
+      messageParams: { count: 3 },
+      deduplicationKey: 'operational:unapproved:workspace-1',
+      data: { count: 3 },
+      actions: [],
+    };
+    operationalAnalyzer.analyze.mockResolvedValue([candidate]);
+    const winner = { id: 'winner', isDismissed: false } as Insight;
+    // No active row, nothing snoozed; the insert loses the race; the row is there now.
+    insightRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(winner);
+    insightRepository.save
+      .mockRejectedValueOnce(Object.assign(new Error('duplicate key'), { code: '23505' }))
+      .mockImplementation(async (row: Insight) => row);
+
+    const result = await service.refresh('user-1', 'workspace-1');
+
+    expect(result).toMatchObject({ created: 0, updated: 1 });
+    expect(insightRepository.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'winner', messageParams: expect.objectContaining({ count: 3 }) }),
+    );
+  });
+
   describe('closing an insight means "not now"', () => {
     const candidate: InsightCandidate = {
       type: InsightType.UNAPPROVED_COUNT,

@@ -15,6 +15,7 @@ import {
 } from './welcome-tutorial-screens';
 import {
   demoBadgeSx,
+  figureSx,
   pictureCellSx,
   pictureSx,
   pointsSx,
@@ -61,17 +62,19 @@ export function TutorialPicture({ step }: { step: TutorialStep }): React.JSX.Ele
   const { url, onError } = useScreenUrl(step, main);
   return (
     <Box sx={pictureCellSx}>
-      <Box sx={pictureSx(FRAME_ASPECT[main.frame])}>
-        <Image
-          src={url}
-          alt={caption.title.value}
-          fill
-          sizes="(max-width: 899px) 92vw, 56vw"
-          onError={onError}
-          style={{ objectFit: 'cover', objectPosition: 'top left' }}
-        />
+      <Box sx={figureSx(FRAME_ASPECT[main.frame])}>
         <Box component="span" sx={demoBadgeSx}>
           {controls.demoBadge}
+        </Box>
+        <Box sx={pictureSx(FRAME_ASPECT[main.frame])}>
+          <Image
+            src={url}
+            alt={caption.title.value}
+            fill
+            sizes="(max-width: 899px) 92vw, 56vw"
+            onError={onError}
+            style={{ objectFit: 'cover', objectPosition: 'top left' }}
+          />
         </Box>
       </Box>
     </Box>

@@ -86,10 +86,24 @@ export const pictureCellSx = {
   containerType: { md: 'size' },
 } satisfies SxProps<Theme>;
 
+/**
+ * The picture with its "Demo" label above it: as wide as the cell allows, and no
+ * taller than the cell (less the label's line).
+ */
+export function figureSx(aspect: number): SxProps<Theme> {
+  return {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 1,
+    width: { xs: '100%', md: `min(100cqw, calc((100cqh - 32px) * ${aspect}))` },
+  };
+}
+
 export function pictureSx(aspect: number): SxProps<Theme> {
   return {
     position: 'relative',
-    width: { xs: '100%', md: `min(100cqw, calc(100cqh * ${aspect}))` },
+    width: '100%',
     aspectRatio: String(aspect),
     borderRadius: '12px',
     overflow: 'hidden',
@@ -99,20 +113,16 @@ export function pictureSx(aspect: number): SxProps<Theme> {
   };
 }
 
-/** "Demo", on the picture itself: the figures are sample data, not the reader's. */
+/** "Demo" next to the picture, never over it: the figures are sample data, not the reader's. */
 export const demoBadgeSx = {
-  position: 'absolute',
-  // Bottom corner: the top of a card holds its title and links.
-  bottom: 10,
-  insetInlineEnd: 10,
   px: 1,
   py: 0.25,
   borderRadius: 999,
   border: '1px solid var(--border)',
-  bgcolor: 'var(--card)',
   color: 'var(--text-muted)',
   fontSize: 12,
   fontWeight: 500,
+  lineHeight: 1.5,
 } satisfies SxProps<Theme>;
 
 export const demoNoteSx = {
