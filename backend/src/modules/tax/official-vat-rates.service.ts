@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaxRateKind } from '../../entities/tax-jurisdiction-rate.entity';
 import { TaxRate } from '../../entities/tax-rate.entity';
-import { VatStatus, Workspace } from '../../entities/workspace.entity';
+import { VatStatus, Workspace, WorkspaceKind } from '../../entities/workspace.entity';
 import {
   WorkspaceServiceSettings,
   WorkspaceServiceSettingsKey,
@@ -311,7 +311,8 @@ export class OfficialVatRatesService {
   @Cron(CronExpression.EVERY_WEEK)
   async checkAll(): Promise<void> {
     const workspaces = await this.workspaceRepository.find({
-      where: { vatStatus: VatStatus.REGISTERED },
+      // A past version is a copy, not a workspace anyone files from.
+      where: { vatStatus: VatStatus.REGISTERED, kind: WorkspaceKind.STANDARD },
       relations: { taxJurisdiction: true },
       select: { id: true, vatStatus: true, taxJurisdiction: { id: true, code: true, isEu: true } },
     });

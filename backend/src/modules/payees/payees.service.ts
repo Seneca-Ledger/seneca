@@ -9,6 +9,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { type DataSource, In, IsNull, LessThan, Not, Or, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type {
   MergePayeesBody,
   PayeePendingReview,
@@ -324,6 +325,8 @@ export class PayeesService {
         countryCode: Not(IsNull()),
         vatIdStatus: IsNull(),
         vatIdCheckedAt: Or(IsNull(), LessThan(new Date(now.getTime() - VIES_RETRY_AFTER_MS))),
+        // A past version keeps the answers it was copied with.
+        workspace: STANDARD_WORKSPACE,
       },
       order: { vatIdCheckedAt: { direction: 'ASC', nulls: 'FIRST' } },
       take: VIES_RETRY_BATCH,

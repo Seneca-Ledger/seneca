@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import * as fs from 'fs';
+import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
@@ -153,6 +154,8 @@ export class ReportsController {
   }
 
   @Post('custom-tables/summary')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
   async getCustomTablesSummary(
     @CurrentUser() _user: User,
@@ -163,6 +166,8 @@ export class ReportsController {
   }
 
   @Post('custom-tables/report')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
   @SchemaResponse(CustomTablesReport)
   async getCustomTablesReport(
@@ -174,6 +179,8 @@ export class ReportsController {
   }
 
   @Post('custom-tables/report/drill-down')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
   @SchemaResponse(CustomTablesReportDrillDown)
   async getCustomTablesReportDrillDown(
@@ -225,6 +232,8 @@ export class ReportsController {
   }
 
   @Post('custom')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
   async getCustomReport(
     @CurrentUser() _user: User,
@@ -235,6 +244,8 @@ export class ReportsController {
   }
 
   @Post('export')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_EXPORT)
   async exportReport(
     @CurrentUser() user: User,
@@ -284,6 +295,8 @@ export class ReportsController {
   }
 
   @Post('preview')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
   @SchemaResponse(ReportPreview)
   async previewReport(
@@ -314,6 +327,8 @@ export class ReportsController {
   }
 
   @Post('workspace-export')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_EXPORT)
   async exportWorkspaceTransactions(
     @WorkspaceId() workspaceId: string,

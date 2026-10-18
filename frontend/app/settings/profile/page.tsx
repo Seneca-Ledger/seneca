@@ -23,6 +23,7 @@ import { GeneralTab } from '@/app/settings/profile/tabs/GeneralTab';
 import { NotificationsTab } from '@/app/settings/profile/tabs/NotificationsTab';
 import { SecurityTab } from '@/app/settings/profile/tabs/SecurityTab';
 import type { SettingsTabProps } from '@/app/settings/profile/tabs/types';
+import { VersionsTab } from '@/app/settings/profile/tabs/VersionsTab';
 
 const TAB_COMPONENT: Record<SettingsTabId, ComponentType<SettingsTabProps>> = {
   general: GeneralTab,
@@ -30,6 +31,7 @@ const TAB_COMPONENT: Record<SettingsTabId, ComponentType<SettingsTabProps>> = {
   notifications: NotificationsTab,
   data: DataTab,
   advanced: AdvancedTab,
+  versions: VersionsTab,
 };
 
 /**
@@ -99,6 +101,7 @@ function ProfileSettingsPageInner(): React.JSX.Element {
     notifications: tx(['tabs', 'notifications'], 'Notifications'),
     data: tx(['tabs', 'data'], 'Data'),
     advanced: tx(['tabs', 'advanced'], 'Advanced'),
+    versions: tx(['tabs', 'versions'], 'Versions'),
   };
 
   return (

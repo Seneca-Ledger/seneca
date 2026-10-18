@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, type Repository } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { withoutNulls } from '../../common/effect/without-nulls';
+import { isVersionWorkspace, STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { UpdateNotificationPreferencesBody } from '../../contracts';
 import {
   Notification,
@@ -158,6 +159,15 @@ export class NotificationsService {
   ) {}
 
   async create(payload: CreateNotificationPayload): Promise<Notification | null> {
+    // A past version is a copy of old books, not where anything happens: no
+    // event in it is news, whichever job or listener reported it.
+    if (await isVersionWorkspace(this.notificationRepository.manager, payload.workspaceId)) {
+      return null;
+    }
+    return this.notify(payload);
+  }
+
+  private async notify(payload: CreateNotificationPayload): Promise<Notification | null> {
     const preferences = await this.getPreferences(payload.recipientId);
     const channels = this.resolveChannels(preferences, payload.type);
 
@@ -348,8 +358,9 @@ export class NotificationsService {
   }
 
   async createForWorkspaceMembers(payload: WorkspaceNotificationPayload): Promise<number> {
+    // No one is told about a past version (see `create`).
     const members = await this.workspaceMemberRepository.find({
-      where: { workspaceId: payload.workspaceId },
+      where: { workspaceId: payload.workspaceId, workspace: STANDARD_WORKSPACE },
       select: ['userId'],
     });
 

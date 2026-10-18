@@ -21,6 +21,7 @@ import { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Repository } from 'typeorm';
+import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -689,6 +690,8 @@ export class GmailController {
   }
 
   @Post('receipts/export-xlsx')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @ApiOperation({ summary: 'Export receipts to an Excel (.xlsx) file' })
   async exportToXlsx(@WorkspaceId() workspaceId: string, @Body() dto: ExportXlsxDto) {

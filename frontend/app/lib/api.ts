@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import toast from 'react-hot-toast';
 import type {
   PlaceSuggestions as ContractPlaceSuggestions,
   ReceiptLocationSource as ContractReceiptLocationSource,
@@ -14,6 +15,7 @@ import type {
   ReceiptUploadResult,
 } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { getApiErrorMessage, isVersionReadOnlyError } from './api-error';
 import { CSRF_HEADER, clearCsrfCookie, getCsrfHeaders, getCsrfToken } from './csrf';
 import { isPublicPath } from './public-paths';
 import { getQueryClient } from './query-client';
@@ -207,12 +209,22 @@ function isUnauthorizedRetryable(
   );
 }
 
+/** One id, so repeated refusals replace the note instead of stacking copies. */
+export const VERSION_READ_ONLY_TOAST_ID = 'version-read-only';
+
 // Response interceptor for handling errors
 rawClient.interceptors.response.use(
   response => response,
   async (error: unknown) => {
     const err = error as Record<string, unknown>;
     const originalRequest = err.config as Record<string, unknown>;
+
+    // Inside a past version every write is refused. One quiet note, not a
+    // lost-access reset: the version is still the workspace being looked at.
+    if (isVersionReadOnlyError(error)) {
+      toast(getApiErrorMessage(error), { id: VERSION_READ_ONLY_TOAST_ID });
+      return Promise.reject(error);
+    }
 
     if (isForbiddenWorkspaceError(err)) {
       return handleForbiddenError(error);
