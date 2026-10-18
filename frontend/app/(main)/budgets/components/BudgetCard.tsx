@@ -55,6 +55,7 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
   return (
     <Box
       data-attention={`budget:${budget.categoryId}`}
+      data-tour-shot={`budgets-${tone}`}
       sx={{
         p: 2.5,
         borderRadius: tokens.radius.lg,
@@ -69,7 +70,8 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
       >
         <Box>
           <Typography variant="subtitle1" fontWeight={500}>
-            {budget.name}
+            {/* A budget named after a system category (the demo's are) reads in the user's language. */}
+            {localizeStatementCategoryName(budget.name, locale)}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             {budget.category

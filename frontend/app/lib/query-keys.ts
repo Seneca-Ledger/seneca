@@ -70,6 +70,9 @@ export const queryKeys = {
   integrationCatalogStatuses: (workspaceId: string | null) =>
     ['integration-status', workspaceId, 'catalog'] as const,
   webhookEndpoints: (workspaceId: string | null) => ['webhook-endpoints', workspaceId] as const,
+  webhookDeliveries: (workspaceId: string | null, subscriptionId: string) =>
+    ['webhook-deliveries', workspaceId, subscriptionId] as const,
+  branches: (workspaceId: string | null) => ['branches', workspaceId] as const,
   webhookSubscriptions: (workspaceId: string | null) =>
     ['webhook-subscriptions', workspaceId] as const,
   apiKeys: (workspaceId: string | null) => ['api-keys', workspaceId] as const,

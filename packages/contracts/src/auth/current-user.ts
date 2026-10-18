@@ -41,6 +41,8 @@ export const CurrentUser = Schema.Struct({
   onboardingCompletedAt: Schema.NullOr(Timestamp),
   /** When the welcome tutorial was closed; null opens it after sign-up. */
   welcomeTutorialSeenAt: Schema.NullOr(Timestamp),
+  /** Page hints closed so far: page id → the highest hint version seen there. */
+  pageHintsSeen: Schema.Record(Schema.String, Schema.Number),
 });
 export type CurrentUser = Wire<typeof CurrentUser>;
 

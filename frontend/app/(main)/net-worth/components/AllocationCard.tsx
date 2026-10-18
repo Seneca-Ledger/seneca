@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { TextTabs } from '@/app/components/ui/text-tabs';
+import { localizeBalanceAccountName } from '@/app/lib/balance-account-names';
 import type { NetWorthBreakdownItem } from '../hooks/useNetWorth';
 import { CardTitle, cardSx, plainLineName, WholeMoney } from './net-worth-ui';
 
@@ -36,7 +37,7 @@ export function AllocationCard({ title, views, currency, locale }: AllocationCar
   }
 
   return (
-    <Box sx={cardSx}>
+    <Box data-tour-shot="net-worth-allocation" sx={cardSx}>
       <Box
         sx={{
           display: 'flex',
@@ -61,7 +62,7 @@ export function AllocationCard({ title, views, currency, locale }: AllocationCar
         {view.items.map((item, index) => (
           <Box
             key={item.code}
-            title={`${plainLineName(item.name)} ${item.percent}%`}
+            title={`${plainLineName(localizeBalanceAccountName(item.name, locale))} ${item.percent}%`}
             sx={{
               flexGrow: Math.max(item.percent, 0.5),
               bgcolor: SERIES_COLORS[index % SERIES_COLORS.length],
@@ -84,7 +85,7 @@ export function AllocationCard({ title, views, currency, locale }: AllocationCar
               }}
             />
             <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0 }} noWrap>
-              {plainLineName(item.name)}
+              {plainLineName(localizeBalanceAccountName(item.name, locale))}
             </Typography>
             <Typography
               variant="body2"

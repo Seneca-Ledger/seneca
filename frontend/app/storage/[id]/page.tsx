@@ -17,6 +17,7 @@ import {
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage, getApiErrorStatus } from '@/app/lib/api-error';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import PermissionsPanel from '../../components/PermissionsPanel';
@@ -257,7 +258,7 @@ export default function FileDetailsPage() {
     return formatStoredDateWithOptions(
       date,
       { year: 'numeric', month: 'long', day: 'numeric' },
-      locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
+      resolveLocaleTag(locale),
     );
   };
 

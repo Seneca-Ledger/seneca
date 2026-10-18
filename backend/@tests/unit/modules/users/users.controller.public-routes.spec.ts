@@ -23,6 +23,8 @@ describe('UsersController public routes', () => {
     'getProfile',
     'changePassword',
     'markWelcomeTutorialSeen',
+    'markPageHintsSeen',
+    'resetPageHints',
   ] as const)(
     'requires authentication for %s',
     handlerName => {

@@ -33,6 +33,7 @@ export function useGoalItems(goalId: string): GoalItemsState {
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) => fetchGoalItems(goalId, signal),
+    enabled: Boolean(workspaceId),
   });
 
   // Every write returns the whole list back, so the response is written

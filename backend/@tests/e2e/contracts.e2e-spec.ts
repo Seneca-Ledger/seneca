@@ -220,6 +220,7 @@ import {
   InvitationAccepted,
   InvoiceCreated,
   MessageResult,
+  PageHintsSeen,
   PayeeRecord,
   PlaceSuggestions,
   ReceiptUploadResult,
@@ -1582,6 +1583,8 @@ describe('API contracts (e2e)', () => {
       );
       matches(GoalWithProgress, (await call('post', '/goals', { name: 'Mutation goal', targetAmount: 100 }).expect(201)).body);
       matches(WorkspaceSummary, (await call('post', '/workspaces', { name: 'Mutation workspace' }).expect(201)).body);
+      matches(WorkspaceSummary, (await call('post', '/workspaces/demo', { name: 'Demo' }).expect(201)).body);
+      matches(WorkspaceSummary, (await call('post', '/workspaces/demo', { name: 'Demo' }).expect(200)).body);
       const profile = await call('patch', '/users/me/preferences', { name: 'Contracts Owner' }).expect(200);
       matches(UserUpdateResponse, profile.body);
       for (const field of ['passwordHash', 'tokenVersion', 'googleId', 'isActive']) {
@@ -1793,7 +1796,7 @@ describe('API contracts (e2e)', () => {
         throw new Error(`${res.status} ${JSON.stringify(res.body)}`);
       }
     };
-    const call = (method: 'post' | 'patch' | 'put', url: string, body?: object) => {
+    const call = (method: 'post' | 'patch' | 'put' | 'delete', url: string, body?: object) => {
       const req = request(app.getHttpServer())
         [method](url)
         .set('Authorization', `Bearer ${owner.token}`)
@@ -1883,7 +1886,7 @@ describe('API contracts (e2e)', () => {
       expect(await status('/view-preferences/nonsense')).toBe(400);
     });
 
-    it('the setup progress, view preferences and the welcome tutorial', async () => {
+    it('the setup progress, view preferences, the welcome tutorial and page hints', async () => {
       matches(SetupProgress, (await get('/dashboard/setup-progress')).body);
       matches(ViewPreferenceState, (await get('/view-preferences/transactions')).body);
       await call('put', '/view-preferences/transactions', { state: { owner: 'me' } }).expect(
@@ -1895,6 +1898,14 @@ describe('API contracts (e2e)', () => {
       const seen = await call('post', '/users/me/welcome-tutorial').expect(succeeded);
       matches(WelcomeTutorialSeen, seen.body);
       expect(seen.body.welcomeTutorialSeenAt).toEqual(expect.any(String));
+      const hints = await call('post', '/users/me/page-hints', { page: 'budgets', version: 1 }).expect(
+        succeeded,
+      );
+      matches(PageHintsSeen, hints.body);
+      expect(hints.body.pageHintsSeen).toEqual({ budgets: 1 });
+      const reset = await call('delete', '/users/me/page-hints').expect(succeeded);
+      matches(PageHintsSeen, reset.body);
+      expect(reset.body.pageHintsSeen).toEqual({});
     });
 
     it('branches, category usage, an uploaded icon and a file category', async () => {

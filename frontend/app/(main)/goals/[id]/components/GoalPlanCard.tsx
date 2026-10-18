@@ -1,12 +1,12 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useIntlayer } from '@/app/i18n';
 import type { GoalPlanResponse, GoalPlanStatus } from '@/app/lib/goals-api';
 import { tokens } from '@/lib/theme-tokens';
+import { formatGoalDate, formatGoalMonth, formatMonthCount } from './goal-dates';
 
 export interface GoalPlanCardProps {
   plan: GoalPlanResponse;
@@ -34,9 +34,23 @@ export function GoalPlanCard({ plan, locale, formatAmount }: GoalPlanCardProps):
     no_deadline: t.statusNoDeadline.value,
   };
 
-  const forecastLabel = plan.forecast.month
-    ? formatMonth(plan.forecast.month, locale)
-    : t.planNoHistory.value;
+  const subtitle =
+    plan.targetDate && plan.monthsLeft !== null
+      ? t.planUntil.value
+          .replace('{{months}}', formatMonthCount(plan.monthsLeft, locale))
+          .replace('{{date}}', formatGoalDate(plan.targetDate, locale))
+      : null;
+
+  // The saved amount can be non-zero while the pace is zero: pace only reads
+  // complete months, so money added this month (or long ago) is not in it.
+  const paceHint =
+    plan.pace.monthsObserved === 0
+      ? t.planPaceNoHistory.value
+      : plan.pace.perMonth === 0
+        ? t.planPaceNone.value
+        : undefined;
+
+  const free = plan.capacity.free;
 
   return (
     <Box
@@ -45,30 +59,49 @@ export function GoalPlanCard({ plan, locale, formatAmount }: GoalPlanCardProps):
         borderColor: 'divider',
         borderRadius: tokens.radius.md,
         bgcolor: 'background.paper',
-        p: 2,
+        p: 2.5,
         mt: 3,
       }}
     >
       <Box
         sx={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'space-between',
           gap: 1,
           flexWrap: 'wrap',
-          mb: 2,
+          mb: 2.5,
         }}
       >
-        <Typography variant="subtitle1" fontWeight={600}>
-          {t.planTitle}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {plan.monthsLeft !== null && (
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {t.planMonthsLeft.value.replace('{{count}}', String(plan.monthsLeft))}
+        <Box>
+          <Typography sx={{ fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}>
+            {t.planTitle}
+          </Typography>
+          {subtitle && (
+            <Typography sx={{ fontSize: 13, color: 'var(--text-muted)', mt: 0.25 }}>
+              {subtitle}
             </Typography>
           )}
-          <Chip size="small" label={statusLabels[plan.status]} color={statusColor(plan.status)} />
+        </Box>
+        {/* The one signal on the card: a dot and a word. Every figure below
+            stays ink, so the verdict is not repeated three times in red. */}
+        <Box
+          component="span"
+          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, fontSize: 14 }}
+        >
+          <Box
+            component="span"
+            aria-hidden
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: statusTone(plan.status),
+            }}
+          />
+          <Box component="span" sx={{ color: 'var(--foreground)' }}>
+            {statusLabels[plan.status]}
+          </Box>
         </Box>
       </Box>
 
@@ -76,37 +109,58 @@ export function GoalPlanCard({ plan, locale, formatAmount }: GoalPlanCardProps):
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
-          gap: 2,
+          gap: 2.5,
         }}
       >
         <Stat
           label={t.planRequired}
           value={plan.requiredPerMonth === null ? '—' : formatAmount(plan.requiredPerMonth)}
         />
-        <Stat label={t.planPace} value={formatAmount(plan.pace.perMonth)} />
+        <Stat
+          label={t.planPace}
+          value={plan.pace.monthsObserved === 0 ? '—' : formatAmount(plan.pace.perMonth)}
+          hint={paceHint}
+        />
         <Stat
           label={t.planForecast}
-          value={forecastLabel}
+          value={plan.forecast.month ? formatGoalMonth(plan.forecast.month, locale) : '—'}
           hint={
-            plan.forecast.monthsLate
-              ? t.planLate.value.replace('{{count}}', String(plan.forecast.monthsLate))
-              : undefined
+            !plan.forecast.month
+              ? t.planNoHistory.value
+              : plan.forecast.monthsLate
+                ? t.planLate.value.replace('{{count}}', String(plan.forecast.monthsLate))
+                : undefined
           }
-          tone={plan.forecast.monthsLate ? 'error' : undefined}
         />
         <Stat
           label={t.planFree}
-          value={formatAmount(plan.capacity.free)}
-          tone={plan.capacity.free <= 0 ? 'error' : undefined}
+          value={formatAmount(free)}
+          hint={free < 0 ? t.planOverCommitted.value : undefined}
         />
       </Box>
 
       {/* Only the shortfall is called out. A plan that fits needs no commentary,
-          and repeating "you have room" on every goal trains the eye to skip it. */}
-      {plan.gap !== null && plan.gap > 0 && (
-        <Typography variant="body2" color="error" sx={{ mt: 2, fontWeight: 600 }}>
-          {t.planGap}: {formatAmount(plan.gap)}
-        </Typography>
+          and repeating "you have room" on every goal trains the eye to skip it.
+          The gap is required − free, so with free below zero it is larger than
+          the required amount; the second line says where the difference is. */}
+      {plan.gap !== null && plan.gap > 0 && plan.requiredPerMonth !== null && (
+        <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography sx={{ fontSize: 14, color: 'var(--foreground)' }}>
+            {t.planGap}:{' '}
+            <Box component="span" sx={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+              {formatAmount(plan.gap)}
+            </Box>
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: 'var(--text-muted)', mt: 0.25 }}>
+            {free < 0
+              ? t.planGapOverCommitted.value
+                  .replace('{{required}}', formatAmount(plan.requiredPerMonth))
+                  .replace('{{overflow}}', formatAmount(-free))
+              : t.planGapShort.value
+                  .replace('{{required}}', formatAmount(plan.requiredPerMonth))
+                  .replace('{{free}}', formatAmount(free))}
+          </Typography>
+        </Box>
       )}
     </Box>
   );
@@ -116,49 +170,43 @@ function Stat({
   label,
   value,
   hint,
-  tone,
 }: {
   label: React.ReactNode;
   value: string;
   hint?: string;
-  tone?: 'error';
 }): React.JSX.Element {
   return (
-    <Box>
-      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-        {label}
-      </Typography>
-      <Typography variant="body1" fontWeight={600} color={tone === 'error' ? 'error' : undefined}>
+    <Box sx={{ minWidth: 0 }}>
+      <Typography sx={{ fontSize: 13, color: 'var(--text-muted)' }}>{label}</Typography>
+      <Typography
+        sx={{
+          fontSize: 20,
+          fontWeight: 500,
+          color: 'var(--foreground)',
+          fontVariantNumeric: 'tabular-nums',
+          mt: 0.25,
+        }}
+      >
         {value}
       </Typography>
       {hint && (
-        <Typography variant="caption" color={tone === 'error' ? 'error' : 'text.secondary'}>
-          {hint}
-        </Typography>
+        <Typography sx={{ fontSize: 13, color: 'var(--text-muted)', mt: 0.25 }}>{hint}</Typography>
       )}
     </Box>
   );
 }
 
-function statusColor(status: GoalPlanStatus): 'success' | 'warning' | 'error' | 'default' {
+/** Sage for good news, ochre for attention, terracotta for a plan that does not fit. */
+function statusTone(status: GoalPlanStatus): string {
   switch (status) {
     case 'reached':
     case 'on_track':
-      return 'success';
+      return 'var(--money-up)';
     case 'tight':
-      return 'warning';
+      return 'var(--attention)';
     case 'not_feasible':
-      return 'error';
+      return 'var(--money-down)';
     case 'no_deadline':
-      return 'default';
+      return 'var(--text-muted)';
   }
-}
-
-/** `YYYY-MM` as a month the reader recognises, e.g. "октябрь 2026". */
-function formatMonth(month: string, locale: string): string {
-  const [year, index] = month.split('-').map(Number);
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'long',
-  }).format(new Date(year, index - 1, 1));
 }

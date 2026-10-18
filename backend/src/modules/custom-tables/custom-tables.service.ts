@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   In,
@@ -76,6 +77,7 @@ import { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { ClassificationService } from '../classification/services/classification.service';
+import type { TransactionsImportedEvent } from '../notifications/events/notification-events';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { CustomTableSourcesService } from './custom-table-sources.service';
@@ -189,6 +191,8 @@ export class CustomTablesService {
     @Optional() private readonly taxAssignmentService?: TaxAssignmentService,
     // Optional: cells of tables filled from app data write back through it.
     @Optional() private readonly sourceWriteBack?: SourceWriteBackService,
+    // Optional: announces converted rows to webhooks; unit specs build the service without it.
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   private getDriverErrorCode(error: unknown): string | undefined {
@@ -2255,6 +2259,14 @@ export class CustomTablesService {
       },
       isUndoable: false,
     });
+    if (savedTransactions.length > 0) {
+      this.eventEmitter?.emit('transactions.imported', {
+        workspaceId,
+        source: 'custom_table',
+        statementId: savedStatement.id,
+        transactionIds: savedTransactions.map(transaction => transaction.id),
+      } satisfies TransactionsImportedEvent);
+    }
 
     return {
       statementId: savedStatement.id,

@@ -32,7 +32,7 @@ import React, { useState } from 'react';
 import { Pencil, Trash2, UserPlus } from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { resolvePickerFormat } from '@/app/lib/user-format';
+import { resolveLocaleTag, resolvePickerFormat } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions, useUserFormat } from '@/app/lib/user-format-store';
 import api from '../lib/api';
 
@@ -343,13 +343,11 @@ export default function PermissionsPanel({
     setExpiresAt(permission.expiresAt || '');
     setEditDialogOpen(true);
   };
-
-  const LOCALE_MAP: Record<string, string> = { kk: 'kk-KZ', ru: 'ru-RU' };
   const formatDate = (dateString: string): string =>
     formatStoredDateWithOptions(
       dateString,
       { year: 'numeric', month: 'long', day: 'numeric' },
-      LOCALE_MAP[locale] ?? 'en-US',
+      resolveLocaleTag(locale),
     );
 
   const formProps: PermFormProps = {

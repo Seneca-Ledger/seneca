@@ -36,6 +36,7 @@ export function TaxDisclaimerGate({
 
   return (
     <Box
+      data-tour-shot="tax-declaration-gate"
       sx={{
         maxWidth: 680,
         border: '1px solid',

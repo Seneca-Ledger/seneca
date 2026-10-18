@@ -114,6 +114,13 @@ export class Workspace {
   @Column({ name: 'version_id', type: 'uuid', nullable: true })
   versionId: string | null;
 
+  /**
+   * Set on the demo workspace `POST /workspaces/demo` made: the user it was
+   * made for. Unique, so each user has at most one.
+   */
+  @Column({ name: 'demo_of_user_id', type: 'uuid', nullable: true })
+  demoOfUserId: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   settings: Record<string, unknown> | null;
 

@@ -1,16 +1,11 @@
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import type { Transaction } from '../types';
 
-const LOCALE_MAP: Record<string, string> = {
-  kk: 'kk-KZ',
-  ru: 'ru-RU',
-  en: 'en-US',
-};
-
 function resolveLocale(locale: string): string {
-  return LOCALE_MAP[locale] ?? 'en-US';
+  return resolveLocaleTag(locale);
 }
 
 export function formatDate(dateString: string, locale: string): string {

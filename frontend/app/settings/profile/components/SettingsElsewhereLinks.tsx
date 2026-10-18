@@ -43,7 +43,7 @@ const BUG_REPORT_URL = 'https://github.com/symonbaikov/lumio/issues/new?template
 /**
  * Settings that live outside this page. The account menu in the sidebar is kept
  * short on purpose, so everything it does not carry — the trash, the activity
- * log, the language, the tutorial — is reachable from here.
+ * log, the language, the guide — is reachable from here.
  */
 // eslint-disable-next-line max-lines-per-function
 export function SettingsElsewhereLinks({ tx }: { tx: Tx }) {
@@ -99,7 +99,7 @@ export function SettingsElsewhereLinks({ tx }: { tx: Tx }) {
     },
     {
       key: 'welcomeTutorial',
-      label: resolveLabel(userMenu.welcomeTutorial, 'Welcome tutorial'),
+      label: resolveLabel(userMenu.welcomeTutorial, 'Guide'),
       icon: PlayCircle,
       onClick: openWelcomeTutorial,
     },

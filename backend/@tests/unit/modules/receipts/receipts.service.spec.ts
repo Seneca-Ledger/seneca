@@ -408,8 +408,43 @@ describe('ReceiptsService', () => {
     expect(result).toMatchObject({ transaction: { id: 'tx-1' } });
     expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
       'receipt.approved',
-      expect.objectContaining({ receiptId: expect.any(String) }),
+      expect.objectContaining({ receiptId: expect.any(String), mode: 'created' }),
     );
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'transaction.created',
+      expect.objectContaining({
+        transactionId: 'tx-1',
+        workspaceId: 'workspace-1',
+        source: 'receipt_approval',
+      }),
+    );
+  });
+
+  it('announces a receipt attached to its bank row, but no new transaction', async () => {
+    receiptRepository.findOne.mockResolvedValue({
+      id: 'receipt-attach',
+      workspaceId: 'workspace-1',
+      status: ReceiptStatus.DRAFT,
+      parsedData: { amount: 20, currency: 'EUR', vendor: 'Rewe', date: '2026-03-21' },
+      subject: 'receipt.jpg',
+      transactionId: null,
+    });
+    transactionRepository.findOne.mockResolvedValue({ id: 'bank-row', workspaceId: 'workspace-1' });
+    jest
+      .spyOn(service as any, 'copyFileToTransaction')
+      .mockResolvedValue(undefined);
+
+    await service.approve('receipt-attach', 'workspace-1', 'user-1', { attachTo: 'bank-row' });
+
+    expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
+      'receipt.approved',
+      expect.objectContaining({
+        receiptId: 'receipt-attach',
+        transactionId: 'bank-row',
+        mode: 'attached_to_bank_row',
+      }),
+    );
+    expect(mockEventEmitter.emit).not.toHaveBeenCalledWith('transaction.created', expect.anything());
   });
 
   // Every income and spending figure sums debit and credit: a row with only an

@@ -1,63 +1,59 @@
 'use client';
 
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useState } from 'react';
+import toast from 'react-hot-toast';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useIntlayer } from '@/app/i18n';
 import type { PluginKey } from '../types';
 
-const STORAGE_KEY = 'LUMIO_PLUGINS_STATE';
-const EVENT_NAME = 'lumio-plugin-state-change';
-const EMPTY_PLUGIN_STATE = {} as Record<PluginKey, boolean>;
+/** Where each plugin's switch lives in `workspace.settings.plugins`. */
+const SETTINGS_KEY = {
+  'ai-assistant': 'aiAssistant',
+  webhooks: 'webhooks',
+  'mcp-server': 'mcp',
+} as const satisfies Record<PluginKey, string>;
 
-function readState(): Record<PluginKey, boolean> {
-  if (typeof window === 'undefined') {
-    return EMPTY_PLUGIN_STATE;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Record<PluginKey, boolean>) : EMPTY_PLUGIN_STATE;
-  } catch {
-    return EMPTY_PLUGIN_STATE;
-  }
+/** A missing or non-boolean switch counts as off, as on the server. */
+export function readPluginSwitch(
+  settings: Record<string, unknown> | null | undefined,
+  key: PluginKey,
+): boolean {
+  const plugins = settings?.plugins;
+  return (
+    typeof plugins === 'object' &&
+    plugins !== null &&
+    (plugins as Record<string, unknown>)[SETTINGS_KEY[key]] === true
+  );
 }
 
-function writeState(state: Record<PluginKey, boolean>): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  window.dispatchEvent(new CustomEvent(EVENT_NAME));
-}
-
-let snapshot = readState();
-
-function subscribe(cb: () => void): () => void {
-  const handler = (): void => {
-    snapshot = readState();
-    cb();
-  };
-  window.addEventListener(EVENT_NAME, handler);
-  return () => window.removeEventListener(EVENT_NAME, handler);
-}
-
-function getSnapshot(): Record<PluginKey, boolean> {
-  return snapshot;
-}
-
-function getServerSnapshot(): Record<PluginKey, boolean> {
-  return EMPTY_PLUGIN_STATE;
-}
-
+/** Plugin switches of the open workspace; only owners and admins may flip them. */
 export function usePluginState() {
-  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const { currentWorkspace, setWorkspacePlugins } = useWorkspace();
+  const t = useIntlayer('pluginsPage');
+  const [pending, setPending] = useState<PluginKey | null>(null);
+  const settings = currentWorkspace?.settings;
+  const workspaceId = currentWorkspace?.id;
+  const canToggle =
+    currentWorkspace?.memberRole === 'owner' || currentWorkspace?.memberRole === 'admin';
 
-  const isEnabled = useCallback((key: PluginKey): boolean => Boolean(state[key]), [state]);
+  const isEnabled = useCallback((key: PluginKey) => readPluginSwitch(settings, key), [settings]);
 
-  const toggle = useCallback((key: PluginKey): void => {
-    const current = readState();
-    writeState({ ...current, [key]: !current[key] });
-  }, []);
-
-  const enabledPlugins = useMemo(
-    () => (Object.keys(state) as PluginKey[]).filter(k => state[k]),
-    [state],
+  const setEnabled = useCallback(
+    async (key: PluginKey, enabled: boolean): Promise<void> => {
+      if (!workspaceId) {
+        return;
+      }
+      setPending(key);
+      try {
+        await setWorkspacePlugins({ workspaceId, plugins: { [SETTINGS_KEY[key]]: enabled } });
+      } catch {
+        toast.error(t.toggleFailed.value);
+      } finally {
+        setPending(null);
+      }
+    },
+    [workspaceId, setWorkspacePlugins, t.toggleFailed],
   );
 
-  return { isEnabled, toggle, enabledPlugins };
+  return { isEnabled, setEnabled, canToggle, pending };
 }
