@@ -16,6 +16,7 @@ function createUserRepoMock(users: Partial<User>[] = []) {
   return {
     merge: jest.fn((user: any, patch: any) => ({ ...user, ...patch })),
     save: jest.fn(async (user: any) => user),
+    update: jest.fn(async () => ({ affected: 1 })),
     createQueryBuilder: jest.fn(() => queryBuilder),
     findOne: jest.fn(async () => null),
   } as any;
@@ -79,6 +80,10 @@ function createService(options: {
   netWorth?: unknown;
   /** Whether the user is still a member of the workspace the bot serves. */
   member?: boolean;
+  /** What a Connect link code resolves to; null for an unknown or used code. */
+  linkClaim?: { userId: string; workspaceId: string; botId: string } | null;
+  /** The bot token saved in the settings of the workspace the chat is connected in. */
+  workspaceBotToken?: string;
 } = {}) {
   const userRepository = createUserRepoMock(options.users ?? []);
   const telegramReportRepository = createReportRepoMock();
@@ -93,6 +98,11 @@ function createService(options: {
     findOne: jest.fn(async () => (options.member === false ? null : { role: 'owner' })),
   } as any;
 
+  const applicationSettingsService = {
+    getTelegramSettings: jest.fn(async () => ({ botToken: options.workspaceBotToken ?? null })),
+  } as any;
+  const linkCodes = { take: jest.fn(async () => options.linkClaim ?? null) } as any;
+
   const service = new TelegramService(
     createConfigMock(),
     userRepository,
@@ -102,6 +112,12 @@ function createService(options: {
     goalsService,
     netWorthService,
     workspaceMemberRepository,
+    applicationSettingsService,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    linkCodes,
   );
 
   return {
@@ -112,14 +128,16 @@ function createService(options: {
     netWorthService,
     reportsService,
     workspaceMemberRepository,
+    applicationSettingsService,
+    linkCodes,
   };
 }
 
 /** Captures every `sendMessage` payload the service posts to Telegram. */
 function mockFetchOk() {
-  const calls: Array<{ chat_id: string; text: string }> = [];
-  global.fetch = jest.fn(async (_url: unknown, init: any) => {
-    calls.push(JSON.parse(init.body));
+  const calls: Array<{ chat_id: string; text: string; url: string }> = [];
+  global.fetch = jest.fn(async (url: unknown, init: any) => {
+    calls.push({ ...JSON.parse(init.body), url: String(url) });
     return {
       ok: true,
       status: 200,
@@ -130,17 +148,7 @@ function mockFetchOk() {
 }
 
 describe('TelegramService locale resolution', () => {
-  it('renders the connect confirmation in the connecting user’s locale', async () => {
-    const calls = mockFetchOk();
-    const { service } = createService();
-
-    await service.connectAccount(user({ locale: 'en' }), 'workspace-1', { chatId: 'chat-1' });
-
-    expect(calls).toHaveLength(1);
-    expect(calls[0].text).toContain('Telegram connected');
-  });
-
-  it('greets a known user with /start in their stored locale, not the client language', async () => {
+  it('tells a known user with /start that the chat is connected, in their stored locale', async () => {
     const calls = mockFetchOk();
     const { service } = createService({ users: [user({ locale: 'es', telegramId: 'tg-9' })] });
 
@@ -152,7 +160,7 @@ describe('TelegramService locale resolution', () => {
       },
     });
 
-    expect(calls[0].text).toContain('¡Hola!');
+    expect(calls[0].text).toContain('Telegram conectado');
   });
 
   it('falls back to Telegram’s client language for an unmatched /start', async () => {
@@ -238,7 +246,7 @@ describe('TelegramService /goals', () => {
       message: { chat: { id: 'chat-1' }, text: '/goals', from: { id: 'tg-unknown', language_code: 'en' } },
     });
 
-    expect(calls[0].text).toContain('No account is connected to Telegram ID tg-unknown');
+    expect(calls[0].text).toContain("This chat isn't connected to a Lumio account yet");
   });
 });
 
@@ -350,17 +358,6 @@ describe('TelegramService.pushInsightDigest', () => {
 });
 
 describe('TelegramService workspace', () => {
-  it('binds the chat to the workspace it was connected from', async () => {
-    mockFetchOk();
-    const { service, userRepository } = createService();
-
-    await service.connectAccount(user({ workspaceId: 'ws-home' }), 'ws-open', { chatId: 'chat-1' });
-
-    expect(userRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ telegramChatId: 'chat-1', telegramWorkspaceId: 'ws-open' }),
-    );
-  });
-
   it('answers for the linked workspace, not the one the user registered with', async () => {
     mockFetchOk();
     const { service, goalsService } = createService({
@@ -386,7 +383,7 @@ describe('TelegramService workspace', () => {
     });
 
     expect(goalsService.findAll).not.toHaveBeenCalled();
-    expect(calls[0].text).toContain('No account is connected to Telegram ID tg-9');
+    expect(calls[0].text).toContain("This chat isn't connected to a Lumio account yet");
   });
 
   it('builds reports for the workspace, not for the user id', async () => {
@@ -404,5 +401,130 @@ describe('TelegramService workspace', () => {
       .catch(() => undefined);
 
     expect(reportsService.generateDailyReport).toHaveBeenCalledWith('ws-open', '2026-09-01');
+  });
+});
+
+describe('TelegramService Connect link', () => {
+  const claim = { userId: 'user-1', workspaceId: 'ws-open', botId: '123' };
+  const start = (code: string, languageCode = 'en') => ({
+    message: { chat: { id: 555 }, text: `/start ${code}`, from: { id: 777, language_code: languageCode } },
+  });
+
+  it('binds the chat to the account and workspace the code was issued for', async () => {
+    const calls = mockFetchOk();
+    const { service, userRepository, linkCodes } = createService({ linkClaim: claim });
+    userRepository.findOne.mockResolvedValue(user({ locale: 'en', telegramId: null, telegramChatId: null }));
+
+    await service.handleUpdate(start('code-1'), '123:secret');
+
+    expect(linkCodes.take).toHaveBeenCalledWith('code-1');
+    expect(userRepository.update).toHaveBeenCalledWith(
+      { id: 'user-1' },
+      { telegramId: '777', telegramChatId: '555', telegramWorkspaceId: 'ws-open' },
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0].text).toContain('Telegram connected');
+    // The reply goes out through the bot the code came in on.
+    expect(calls[0].url).toContain('/bot123:secret/sendMessage');
+  });
+
+  it('takes the chat away from any account it was connected to before', async () => {
+    mockFetchOk();
+    const { service, userRepository } = createService({ linkClaim: claim });
+    userRepository.findOne.mockResolvedValue(user());
+
+    await service.handleUpdate(start('code-1'), '123:secret');
+
+    const released = { telegramId: null, telegramChatId: null, telegramWorkspaceId: null };
+    expect(userRepository.update).toHaveBeenCalledWith({ telegramId: '777' }, released);
+    expect(userRepository.update).toHaveBeenCalledWith({ telegramChatId: '555' }, released);
+  });
+
+  it('refuses an unknown, expired or used code', async () => {
+    const calls = mockFetchOk();
+    const { service, userRepository } = createService({ linkClaim: null });
+
+    await service.handleUpdate(start('code-1', 'de'), '123:secret');
+
+    expect(userRepository.update).not.toHaveBeenCalled();
+    expect(calls[0].text).toContain('abgelaufen');
+  });
+
+  it('refuses a code issued for another bot', async () => {
+    const calls = mockFetchOk();
+    const { service, userRepository } = createService({ linkClaim: { ...claim, botId: '999' } });
+    userRepository.findOne.mockResolvedValue(user());
+
+    await service.handleUpdate(start('code-1'), '123:secret');
+
+    expect(userRepository.update).not.toHaveBeenCalled();
+    expect(calls[0].text).toContain('This link has expired');
+  });
+
+  it('refuses a code once its user has left the workspace', async () => {
+    const calls = mockFetchOk();
+    const { service, userRepository } = createService({ linkClaim: claim, member: false });
+    userRepository.findOne.mockResolvedValue(user());
+
+    await service.handleUpdate(start('code-1'), '123:secret');
+
+    expect(userRepository.update).not.toHaveBeenCalled();
+    expect(calls[0].text).toContain('This link has expired');
+  });
+});
+
+describe('TelegramService bot choice', () => {
+  it('writes to a connected chat through the bot of the workspace it was connected in', async () => {
+    const calls = mockFetchOk();
+    const { service, applicationSettingsService } = createService({ workspaceBotToken: '456:ws' });
+    const connected = user({ telegramWorkspaceId: 'ws-open' });
+
+    await service.pushInsightDigest(connected, [{ title: 't', message: 'm' } as any]);
+
+    expect(applicationSettingsService.getTelegramSettings).toHaveBeenCalledWith(connected, 'ws-open');
+    expect(calls[0].url).toContain('/bot456:ws/sendMessage');
+  });
+
+  it('falls back to the server bot when the workspace has none of its own', async () => {
+    const calls = mockFetchOk();
+    const { service } = createService();
+
+    await service.pushInsightDigest(user(), [{ title: 't', message: 'm' } as any]);
+
+    expect(calls[0].url).toContain('/bottest-bot-token/sendMessage');
+  });
+});
+
+describe('TelegramService connection', () => {
+  it('reports whether the bot answers for the workspace being viewed', () => {
+    const { service } = createService();
+    const connected = user({ telegramWorkspaceId: 'ws-open' });
+
+    expect(service.getConnection(connected, 'ws-open')).toEqual({ connected: true, inThisWorkspace: true });
+    expect(service.getConnection(connected, 'ws-other')).toEqual({ connected: true, inThisWorkspace: false });
+    expect(service.getConnection(user({ telegramChatId: null }), 'ws-open')).toEqual({
+      connected: false,
+      inThisWorkspace: false,
+    });
+  });
+
+  it('counts a chat connected before the workspace was recorded as the registration workspace', () => {
+    const { service } = createService();
+
+    expect(service.getConnection(user({ telegramWorkspaceId: null }), 'workspace-1')).toEqual({
+      connected: true,
+      inThisWorkspace: true,
+    });
+  });
+
+  it('forgets the chat on disconnect', async () => {
+    const { service, userRepository } = createService();
+
+    await service.disconnect(user());
+
+    expect(userRepository.update).toHaveBeenCalledWith(
+      { id: 'user-1' },
+      { telegramId: null, telegramChatId: null, telegramWorkspaceId: null },
+    );
   });
 });

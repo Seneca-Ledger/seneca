@@ -680,7 +680,11 @@ Do not add closed SaaS SDKs for new integration work. Prefer OSS libraries that 
 <details>
 <summary><b>Telegram Bot</b></summary>
 
-Get a token from [@BotFather](https://t.me/botfather), then save the bot token in **Settings → Telegram**. The token is stored encrypted; `TELEGRAM_BOT_TOKEN` is only a fallback server default.
+Get a token from [@BotFather](https://t.me/botfather), then save the bot token in **Settings → Notifications → Telegram**. The token is stored encrypted; `TELEGRAM_BOT_TOKEN` is only a fallback server default.
+
+After that, each user presses **Connect** in the same section: Telegram opens the bot, they press **Start**, and the chat is connected to their account and the open workspace. The link carries a one-time code that is valid for 10 minutes, so nobody types a chat id.
+
+The server receives the bot's messages by itself. When the app's public URL (`APP_URL`, or the public URL saved in the workspace) is `https://`, it registers a webhook at `<url>/api/v1/telegram/webhook/<bot id>`. Otherwise, for example on a home server behind NAT, it long-polls Telegram. Long polling expects one backend instance per bot. A webhook you set up by hand for `TELEGRAM_BOT_TOKEN` with `TELEGRAM_WEBHOOK_SECRET` at `/api/v1/telegram/webhook` is left as it is.
 </details>
 
 <details>

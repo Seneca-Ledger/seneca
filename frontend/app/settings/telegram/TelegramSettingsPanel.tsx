@@ -19,11 +19,11 @@ import {
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { CheckCircle, Clock, Send, Bot as TelegramIcon } from '@/app/components/icons';
-import type { User } from '@/app/hooks/useAuth';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { TelegramConnection, TelegramLink } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
@@ -40,18 +40,30 @@ interface TelegramReport {
   createdAt: string;
 }
 
+// How often the panel asks whether Start was pressed, while a link is open.
+const CONNECTION_POLL_MS = 2000;
+
+const loadConnection = async (): Promise<TelegramConnection | null> =>
+  apiQueryDecoded({ url: '/telegram/connection', contract: 'TelegramConnection' }).catch(
+    async err => {
+      console.error('Failed to load telegram connection', err);
+      return null;
+    },
+  );
+
 /**
  * Telegram bot + chat wiring and the report history. Rendered inside the
  * Notifications settings tab, after the page's own auth gate.
  */
 // eslint-disable-next-line max-lines-per-function, complexity
-export function TelegramSettingsPanel({ user }: { user: User | null }): React.JSX.Element {
+export function TelegramSettingsPanel(): React.JSX.Element {
   const { hasPermission } = usePermissions();
   const t = useIntlayer('settingsTelegramPage');
   const { locale } = useLocale();
 
-  const [chatId, setChatId] = useState('');
-  const [telegramId, setTelegramId] = useState('');
+  const [connection, setConnection] = useState<TelegramConnection | null>(null);
+  // The link opened by Connect, while the panel waits for Start in Telegram.
+  const [pendingLink, setPendingLink] = useState<TelegramLink | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -92,15 +104,6 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
     }
   };
 
-  // Adopt the profile's Telegram ids when the user object changes (during
-  // render, not in an effect, so it costs one render instead of two).
-  const [seenUser, setSeenUser] = useState<User | null>(null);
-  if (user && user !== seenUser) {
-    setSeenUser(user);
-    setChatId(user.telegramChatId || '');
-    setTelegramId(user.telegramId || '');
-  }
-
   const loadReports = async (): Promise<void> => {
     await (async () => {
       setLoadingReports(true);
@@ -133,7 +136,30 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
   useEffect(() => {
     void loadReports();
     void loadBotSettings();
+    void loadConnection().then(setConnection);
   }, []);
+
+  // While a link is open, wait for the bot to see Start, until the link expires.
+  useEffect(() => {
+    if (!pendingLink) {
+      return;
+    }
+    const timer = setInterval(() => {
+      if (Date.now() > Date.parse(pendingLink.expiresAt)) {
+        setPendingLink(null);
+        setError(t.connect.expired.value);
+        return;
+      }
+      void loadConnection().then(next => {
+        if (next?.inThisWorkspace) {
+          setConnection(next);
+          setPendingLink(null);
+          setStatusMessage(t.messages.connected.value);
+        }
+      });
+    }, CONNECTION_POLL_MS);
+    return () => clearInterval(timer);
+  }, [pendingLink, t.connect.expired.value, t.messages.connected.value]);
 
   const saveBotSettings = async (): Promise<void> => {
     await (async () => {
@@ -158,23 +184,40 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
   };
 
   const connectTelegram = async (): Promise<void> => {
-    if (!chatId) {
-      setError(t.errors.chatIdRequired.value);
-      return;
-    }
+    setStatusMessage(null);
+    setError(null);
+    // Opened before the request: a tab opened after an await counts as a popup.
+    const tab = window.open('', '_blank');
+    await (async () => {
+      setLoading(true);
+      const response = await apiClient.post('/telegram/link');
+      const link = await checkContract('TelegramLink', response.data, '/telegram/link');
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = link.url;
+      }
+      setPendingLink(link);
+    })()
+      .catch(async err => {
+        tab?.close();
+        const message = getApiErrorMessage(err, t.errors.connectFailed.value);
+        setError(message);
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
+  };
 
+  const disconnectTelegram = async (): Promise<void> => {
     await (async () => {
       setLoading(true);
       setStatusMessage(null);
       setError(null);
-      await apiClient.post('/telegram/connect', {
-        chatId,
-        telegramId: telegramId || undefined,
-      } satisfies ContractInput<'ConnectTelegramBody'>);
-      setStatusMessage(t.messages.connected.value);
+      await apiClient.delete('/telegram/connection');
+      setConnection(await loadConnection());
     })()
       .catch(async err => {
-        const message = getApiErrorMessage(err, t.errors.connectFailed.value);
+        const message = getApiErrorMessage(err, t.errors.disconnectFailed.value);
         setError(message);
       })
       .finally(async () => {
@@ -191,7 +234,6 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
     await (async () => {
       await apiClient.post('/telegram/send-report', {
         reportType: type,
-        chatId: chatId || undefined,
       } satisfies ContractInput<'SendTelegramReportBody'>);
       setStatusMessage(t.messages.sent.value);
       await loadReports();
@@ -283,48 +325,63 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               {t.connect.title.value}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+            <Typography variant="body2" color="text.secondary">
               {t.connect.steps.value}
             </Typography>
           </Box>
 
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField
-              fullWidth
-              label={t.connect.chatIdLabel.value}
-              placeholder={t.connect.chatIdPlaceholder.value}
-              value={chatId}
-              onChange={e => setChatId(e.target.value)}
-              helperText={t.connect.chatIdHelp.value}
-            />
-            <TextField
-              fullWidth
-              label={t.connect.telegramIdLabel.value}
-              placeholder={t.connect.telegramIdPlaceholder.value}
-              value={telegramId}
-              onChange={e => setTelegramId(e.target.value)}
-              helperText={t.connect.telegramIdHelp.value}
-            />
-          </Stack>
+          {connection?.connected && !connection.inThisWorkspace && (
+            <Alert severity="info">{t.connect.connectedElsewhere.value}</Alert>
+          )}
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <Button
-              variant="contained"
-              startIcon={<CheckCircle size={18} />}
-              onClick={connectTelegram}
-              disabled={loading}
-            >
-              {t.connect.save.value}
-            </Button>
-            {user?.telegramId && (
+          {connection?.inThisWorkspace ? (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
               <Chip
                 icon={<TelegramIcon size={16} />}
                 color="success"
-                label={`${t.connect.linkedIdPrefix.value}: ${user.telegramId}`}
+                label={t.connect.connectedHere.value}
                 variant="outlined"
               />
-            )}
-          </Stack>
+              {hasPermission('telegram.connect') && (
+                <Button variant="outlined" onClick={disconnectTelegram} disabled={loading}>
+                  {t.connect.disconnect.value}
+                </Button>
+              )}
+            </Stack>
+          ) : (
+            <Stack spacing={1}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+                <Button
+                  variant="contained"
+                  startIcon={<TelegramIcon size={18} />}
+                  onClick={connectTelegram}
+                  disabled={loading || !botConfigured || !hasPermission('telegram.connect')}
+                >
+                  {t.connect.button.value}
+                </Button>
+                {pendingLink && (
+                  <Button
+                    variant="text"
+                    href={pendingLink.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {t.connect.openTelegram.value}
+                  </Button>
+                )}
+              </Stack>
+              {pendingLink && (
+                <Typography variant="body2" color="text.secondary">
+                  {t.connect.waiting.value}
+                </Typography>
+              )}
+              {!botConfigured && (
+                <Typography variant="body2" color="text.secondary">
+                  {t.connect.botMissing.value}
+                </Typography>
+              )}
+            </Stack>
+          )}
         </Stack>
       </Paper>
 
@@ -349,7 +406,7 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
               color="primary"
               startIcon={<Send />}
               onClick={() => sendReport('daily')}
-              disabled={sendingDaily || !chatId}
+              disabled={sendingDaily || !connection?.inThisWorkspace}
             >
               {t.quickSend.sendToday.value}
             </Button>
@@ -357,7 +414,7 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
               variant="outlined"
               startIcon={<Clock size={18} />}
               onClick={() => sendReport('monthly')}
-              disabled={sendingMonthly || !chatId}
+              disabled={sendingMonthly || !connection?.inThisWorkspace}
             >
               {t.quickSend.sendMonth.value}
             </Button>
@@ -416,15 +473,6 @@ export function TelegramSettingsPanel({ user }: { user: User | null }): React.JS
             </Table>
           </TableContainer>
         </Stack>
-      </Paper>
-
-      <Paper elevation={0} sx={{ p: 3, border: '1px dashed', borderColor: 'divider' }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-          {t.howTo.title.value}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t.howTo.text.value}
-        </Typography>
       </Paper>
     </Stack>
   );

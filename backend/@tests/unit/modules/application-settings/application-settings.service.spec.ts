@@ -35,6 +35,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { EffectRuntime } from '@/common/effect/effect-runtime';
+import { encryptText } from '@/common/utils/encryption.util';
 
 describe('ApplicationSettingsService', () => {
   const originalEnv = process.env;
@@ -223,6 +224,50 @@ describe('ApplicationSettingsService', () => {
         createService().saveTelegramSettings(user, { botToken: '1:a/../x', timeoutMs: 1000 }),
       ).rejects.toThrow('Telegram bot token is invalid');
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Telegram bots the server answers for', () => {
+    const row = (workspaceId: string, botToken: string | null) => ({
+      workspaceId,
+      key: WorkspaceServiceSettingsKey.TELEGRAM,
+      config: {},
+      encryptedSecrets: botToken ? { botToken: encryptText(botToken) } : {},
+    });
+
+    beforeEach(() => {
+      process.env.INTEGRATIONS_ENCRYPTION_KEY = 'unit-test-key';
+      process.env.APP_URL = 'http://127.0.0.1:3000';
+      delete process.env.TELEGRAM_BOT_TOKEN;
+    });
+
+    afterEach(() => {
+      delete (repository as { find?: unknown }).find;
+    });
+
+    it('lists the server bot and each workspace bot once, each with its public address', async () => {
+      process.env.TELEGRAM_BOT_TOKEN = '1:env';
+      Object.assign(repository, {
+        find: jest.fn(async () => [row('ws-a', '2:a'), row('ws-b', '1:env'), row('ws-c', null)]),
+      });
+      repository.findOne.mockImplementation(async ({ where }: { where: { workspaceId: string } }) =>
+        where.workspaceId === 'ws-a' ? { config: { publicUrl: 'https://a.example' } } : null,
+      );
+
+      await expect(createService().listTelegramBots()).resolves.toEqual([
+        { botToken: '1:env', publicUrl: 'http://127.0.0.1:3000' },
+        { botToken: '2:a', publicUrl: 'https://a.example' },
+      ]);
+    });
+
+    it('skips a token it cannot decrypt and keeps the others', async () => {
+      const broken = { ...row('ws-a', null), encryptedSecrets: { botToken: `enc:${Buffer.alloc(40, 7).toString('base64')}` } };
+      Object.assign(repository, { find: jest.fn(async () => [broken, row('ws-b', '3:b')]) });
+      repository.findOne.mockResolvedValue(null);
+
+      await expect(createService().listTelegramBots()).resolves.toEqual([
+        { botToken: '3:b', publicUrl: 'http://127.0.0.1:3000' },
+      ]);
     });
   });
 

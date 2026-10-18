@@ -617,6 +617,41 @@ export class ApplicationSettingsService {
     return env.botToken ? { ...env, source: 'env' } : { ...env, source: 'disabled' };
   }
 
+  /**
+   * Every bot this server answers for: the TELEGRAM_BOT_TOKEN default and each
+   * workspace's own token, once per token. A bot comes with the public URL of
+   * its workspace, which is where Telegram has to deliver the bot's updates.
+   */
+  async listTelegramBots(): Promise<Array<{ botToken: string; publicUrl: string | null }>> {
+    const envPublicUrl = (await this.getAppSettings()).publicUrl;
+    const bots = new Map<string, string | null>();
+    if (process.env.TELEGRAM_BOT_TOKEN) {
+      bots.set(process.env.TELEGRAM_BOT_TOKEN, envPublicUrl);
+    }
+
+    const rows = await this.settingsRepository.find({
+      where: { key: WorkspaceServiceSettingsKey.TELEGRAM },
+    });
+    for (const row of rows) {
+      let botToken: string | null;
+      try {
+        botToken = this.decryptSecrets(row.encryptedSecrets).botToken || null;
+      } catch {
+        // A token encrypted under another key cannot be used; the others still can.
+        continue;
+      }
+      if (!botToken || bots.has(botToken)) {
+        continue;
+      }
+      const app = await this.settingsRepository.findOne({
+        where: { workspaceId: row.workspaceId, key: WorkspaceServiceSettingsKey.APP },
+      });
+      bots.set(botToken, this.stringValue(app?.config.publicUrl) || envPublicUrl);
+    }
+
+    return [...bots].map(([botToken, publicUrl]) => ({ botToken, publicUrl }));
+  }
+
   async getAppSettings(
     user?: User | null,
     requestWorkspaceId?: string,

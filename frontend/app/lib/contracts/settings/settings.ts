@@ -99,6 +99,23 @@ export const TelegramReportPage = Schema.Struct({
 });
 export type TelegramReportPage = Wire<typeof TelegramReportPage>;
 
+/**
+ * `POST /telegram/link`: a t.me link that opens the bot with a one-time code.
+ * Pressing Start in Telegram sends the code back and connects the chat.
+ */
+export const TelegramLink = Schema.Struct({
+  url: Schema.String,
+  expiresAt: Timestamp,
+});
+export type TelegramLink = Wire<typeof TelegramLink>;
+
+/** `GET /telegram/connection`: whether the user's chat is connected, and to this workspace. */
+export const TelegramConnection = Schema.Struct({
+  connected: Schema.Boolean,
+  inThisWorkspace: Schema.Boolean,
+});
+export type TelegramConnection = Wire<typeof TelegramConnection>;
+
 /** `GET /push/public-key`: the VAPID key, or `enabled: false` without one. */
 export const PushPublicKey = Schema.Struct({
   enabled: Schema.Boolean,

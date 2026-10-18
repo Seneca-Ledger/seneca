@@ -113,6 +113,7 @@ const findButton = (container: HTMLElement, text: string): HTMLButtonElement | u
 const SETTINGS_RESPONSES: Record<string, unknown> = {
   '/backups/config': null,
   '/telegram/reports': { data: [], total: 0, page: 1, limit: 20 },
+  '/telegram/connection': { connected: false, inThisWorkspace: false },
   '/settings/notifications/telegram': {
     connected: false,
     status: 'disconnected',
