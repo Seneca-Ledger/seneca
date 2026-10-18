@@ -1,161 +1,97 @@
-// What the guide shows of each page, captured from the demo workspace. One entry per guide
-// step (TUTORIAL_SCREENS in welcome-tutorial-screens.ts, same ids, same fragments and frames —
-// plan.test.mjs checks it). Elements are found by `data-tour-shot` (and a few other data
-// attributes, roles or positions), never by visible text, so the same steps work in every
-// language.
+// What the guide shows of each page, captured from the demo workspace. The guide draws one
+// picture per step, its first fragment (TUTORIAL_SCREENS in welcome-tutorial-screens.ts —
+// same ids and frame, plan.test.mjs checks it); the other fragments are text only.
+// Elements are found by `data-tour-shot` (and a few other data attributes, roles or
+// positions), never by visible text, so the same steps work in every language.
 //
 // A fragment starts at the top-left corner of the union of its `target` boxes (minus `pad`,
 // default 16); it is `width` wide (default: the union's width) and as tall as its frame's
 // proportions allow. It stays inside the page's main area unless `clamp` is false (dialogs
-// and drawers). `css` narrows single-column pages so that a card fills its frame, `viewport`
-// gives a page a smaller window. Keep a fragment about as wide as its frame is drawn
-// (FRAME_WIDTH in plan.mjs) or more: much wider and its text shrinks below reading size.
+// and drawers). `css` narrows a page so that one card fills the picture, `viewport` gives a
+// page a smaller window. The picture is drawn up to PICTURE_WIDTH (plan.mjs) wide: keep a
+// fragment well under that, around 520–600 px, so its text reads larger than on the page.
 
 export const MAIN = '#main-content';
 
 const shot = name => `[data-tour-shot="${name}"]`;
 const narrow = width => `${MAIN} > * { max-width: ${width}px; }`;
-const dialog = page => page.locator('.MuiDialog-paper, .MuiDrawer-paper').last();
 
 /** The second text-tabs row on the net worth page is the range; '1y' is its fourth option. */
 const NET_WORTH_YEAR_TAB = 3;
-/** Reports tabs: cash flow, templates, … */
-const REPORTS_TEMPLATES_TAB = 1;
 
 /**
- * @param {{ month: string }} demo the demo's anchor month (`YYYY-MM`)
+ * @param {{ month: string, tableId: string }} demo the demo's anchor month (`YYYY-MM`) and
+ *   its custom table
  */
 export function buildSteps(demo) {
-  const dashboard = `/dashboard?month=${demo.month}`;
   return [
     {
       id: 'dashboard',
-      path: dashboard,
-      fragments: [
-        {
-          id: 'categories',
-          frame: 'hero',
-          target: page => page.locator('[data-overview-section="top-categories"]'),
-          pad: 0,
-        },
-        {
-          id: 'month',
-          frame: 'side',
-          // The strip and the line under it about rows not confirmed yet.
-          css: `${shot('dashboard-month')}, .lumio-dashboard__unconfirmed { max-width: 600px; }`,
-          target: page => [
-            page.locator(shot('dashboard-month')),
-            page.locator('.lumio-dashboard__unconfirmed'),
-          ],
-        },
-        {
-          id: 'recent',
-          frame: 'side',
-          target: page => page.locator('[data-overview-section="recent-transactions"]'),
-          pad: 0,
-        },
-      ],
+      path: `/dashboard?month=${demo.month}`,
+      // Two columns of cards, each about as wide as the picture.
+      viewport: { width: 1240, height: 900 },
+      // The sections above it are hidden: their heights shift with the order rows come back
+      // in, and the card moved with them by a fraction of a pixel, which changed every pixel.
+      css: '[data-overview-section="budgets"], [data-overview-section^="kpi-"] { display: none; }',
+      fragment: {
+        id: 'categories',
+        frame: 'hero',
+        target: page => page.locator('[data-overview-section="top-categories"]'),
+        pad: 0,
+      },
     },
     {
       id: 'statements',
       path: '/statements',
       viewport: { width: 1180, height: 900 },
-      fragments: [
-        {
-          id: 'list',
-          frame: 'pair',
-          target: page => page.locator('[data-tour-id="statements-table"]'),
-          width: 620,
-        },
-        {
-          id: 'upload',
-          frame: 'pair',
-          path: '/statements?upload=1',
-          target: dialog,
-          clamp: false,
-          pad: 0,
-        },
-      ],
+      fragment: {
+        id: 'list',
+        frame: 'pair',
+        target: page => page.locator('[data-tour-id="statements-table"]'),
+        width: 560,
+      },
     },
     {
       id: 'budgets',
       path: '/budgets',
-      css: narrow(552),
-      fragments: [
-        // The second budget with room left: the first sits right above the one that is over.
-        { id: 'cards', frame: 'pair', target: page => page.locator(shot('budgets-calm')).nth(1) },
-        { id: 'over', frame: 'pair', target: page => page.locator(shot('budgets-over')) },
-      ],
+      css: narrow(520),
+      // The second budget with room left: the first sits right above the one that is over.
+      fragment: {
+        id: 'cards',
+        frame: 'pair',
+        target: page => page.locator(shot('budgets-calm')).nth(1),
+      },
     },
     {
       id: 'subscriptions',
       path: '/subscriptions',
       viewport: { width: 1180, height: 900 },
-      fragments: [
-        {
-          id: 'calendar',
-          frame: 'hero',
-          prepare: page => page.locator('button[value="matrix"]').click(),
-          target: page => page.locator('.lumio-charge-calendar'),
-          width: 760,
-        },
-        {
-          id: 'kpis',
-          frame: 'side',
-          target: page => page.locator(shot('subscriptions-kpis')),
-          width: 560,
-        },
-        {
-          id: 'list',
-          frame: 'side',
-          target: page => page.locator(shot('subscriptions-list')),
-          width: 560,
-        },
-      ],
+      fragment: {
+        id: 'calendar',
+        frame: 'hero',
+        prepare: page => page.locator('button[value="matrix"]').click(),
+        target: page => page.locator('.lumio-charge-calendar'),
+        width: 600,
+      },
     },
     {
       id: 'reports',
       path: '/reports',
       viewport: { width: 1024, height: 900 },
-      fragments: [
-        { id: 'flow', frame: 'hero', target: page => page.locator(shot('reports-flow')) },
-        {
-          id: 'templates',
-          frame: 'side',
-          prepare: page =>
-            page
-              .locator('[data-tour-id="reports-tabs"] [role="tab"]')
-              .nth(REPORTS_TEMPLATES_TAB)
-              .click(),
-          target: page => page.locator('[data-tour-id="reports-templates-grid"]'),
-          width: 580,
-        },
-        {
-          id: 'categories',
-          frame: 'side',
-          // The "By category" card: the third block of the cash-flow view.
-          target: page => page.locator(`${shot('reports-flow')} > :nth-child(3)`),
-          width: 580,
-          pad: 0,
-        },
-      ],
+      // The three totals in one narrow row, the money-flow card's title under them.
+      css: `${shot('reports-flow')} > :first-child { max-width: 600px; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }`,
+      fragment: {
+        id: 'flow',
+        frame: 'hero',
+        target: page => page.locator(shot('reports-flow')),
+        width: 632,
+      },
     },
     {
       id: 'goals',
       path: '/goals',
-      css: narrow(552),
-      fragments: [
-        { id: 'list', frame: 'pair', target: page => page.locator(shot('goals-list')) },
-        {
-          id: 'progress',
-          frame: 'pair',
-          // The dashboard's card: each goal's bar with what was put in this month.
-          path: dashboard,
-          css: '[data-overview-section="goals"] { max-width: 640px; }',
-          target: page => page.locator('[data-overview-section="goals"]'),
-          pad: 0,
-        },
-      ],
+      css: narrow(520),
+      fragment: { id: 'list', frame: 'pair', target: page => page.locator(shot('goals-list')) },
     },
     {
       id: 'netWorth',
@@ -168,71 +104,50 @@ export function buildSteps(demo) {
           .locator('[role="tab"]')
           .nth(NET_WORTH_YEAR_TAB)
           .click(),
-      fragments: [
-        { id: 'chart', frame: 'hero', target: page => page.locator(shot('net-worth-chart')) },
-        {
-          id: 'allocation',
-          frame: 'side',
-          target: page => page.locator(shot('net-worth-allocation')),
-        },
-        { id: 'risk', frame: 'side', target: page => page.locator(shot('net-worth-risk')) },
-      ],
+      fragment: {
+        id: 'chart',
+        frame: 'hero',
+        target: page => page.locator(shot('net-worth-chart')),
+      },
     },
     {
       id: 'advice',
       path: '/advice',
-      css: narrow(600),
-      fragments: [
-        // The two lists: what needs a look, then plain information.
-        {
-          id: 'attention',
-          frame: 'pair',
-          target: page => page.locator(`${MAIN} section`).first(),
-        },
-        { id: 'info', frame: 'pair', target: page => page.locator(`${MAIN} section`).nth(1) },
-      ],
+      // The list of plain observations: two whole cards, one a dry fact (the savings rate).
+      // The app writes their age relative to today ("3 hours ago"), which a demo shot
+      // should not carry, so that line is left out. The list above it is hidden: its rows
+      // come back in any order, and their summed heights moved this one by a pixel; the
+      // margin keeps the strip over the page out of the picture.
+      css: `${narrow(500)} .lumio-advice__main > div > p:last-child { display: none; } ${MAIN} section:first-of-type { display: none; } ${MAIN} section { margin-top: 32px; }`,
+      fragment: {
+        id: 'info',
+        frame: 'pair',
+        target: page => page.locator(`${MAIN} section`).nth(1),
+      },
     },
     {
       id: 'taxDeclaration',
       path: '/tax-declaration',
-      fragments: [
-        {
-          id: 'gate',
-          frame: 'pair',
-          target: page => page.locator(shot('tax-declaration-gate')),
-          width: 712,
-        },
-        {
-          id: 'steps',
-          frame: 'pair',
-          // Past the notice, without accepting it: only the browser is told it was.
-          api: { '/income-tax/disclaimer': json => ({ ...json, accepted: true }) },
-          target: page => page.locator(shot('tax-declaration-steps')),
-          width: 660,
-        },
-      ],
+      css: `${shot('tax-declaration-gate')} { max-width: 560px; }`,
+      fragment: {
+        id: 'gate',
+        frame: 'pair',
+        target: page => page.locator(shot('tax-declaration-gate')),
+      },
     },
     {
       id: 'crypto',
       path: '/crypto',
-      css: narrow(560),
-      fragments: [
-        // The page as a new workspace sees it: the two ways in and the empty state.
-        {
-          id: 'wallets',
-          frame: 'pair',
-          target: page => page.locator(shot('crypto-actions')),
-          width: 560,
-        },
-        {
-          id: 'connect',
-          frame: 'pair',
-          prepare: page => page.locator(shot('crypto-connect')).click(),
-          target: dialog,
-          clamp: false,
-          pad: 0,
-        },
-      ],
+      // Room above the buttons inside the picture, so the strip over the page stays out.
+      css: `${narrow(520)} ${shot('crypto-actions')} { padding-top: 16px; }`,
+      // The page as a new workspace sees it: the two ways in and the empty state.
+      fragment: {
+        id: 'wallets',
+        frame: 'pair',
+        target: page => page.locator(shot('crypto-actions')),
+        width: 520,
+        pad: 0,
+      },
     },
     {
       id: 'roi',
@@ -243,63 +158,30 @@ export function buildSteps(demo) {
         await inputs.nth(1).fill('350');
         await inputs.nth(1).blur();
       },
-      fragments: [
-        { id: 'chart', frame: 'hero', target: page => page.locator(shot('roi-chart')) },
-        { id: 'inputs', frame: 'side', target: page => page.locator(shot('roi-inputs')) },
-        {
-          id: 'table',
-          frame: 'side',
-          target: page => page.locator(shot('roi-table')),
-          width: 520,
-        },
-      ],
+      fragment: { id: 'chart', frame: 'hero', target: page => page.locator(shot('roi-chart')) },
     },
     {
       id: 'tables',
-      path: '/custom-tables',
+      // The demo's one table, "Client projects": rows the way a spreadsheet shows them.
+      path: `/custom-tables/${demo.tableId}`,
       viewport: { width: 1024, height: 900 },
-      fragments: [
-        {
-          id: 'list',
-          frame: 'pair',
-          target: page => page.locator('[data-tour-id="tables-list"]'),
-          width: 680,
-        },
-        {
-          id: 'grid',
-          frame: 'pair',
-          path: ({ tableId }) => `/custom-tables/${tableId}`,
-          target: page => page.locator('[role="grid"], table').first(),
-          width: 680,
-        },
-      ],
+      fragment: {
+        id: 'grid',
+        frame: 'pair',
+        target: page => page.locator('[role="grid"], table').first(),
+        width: 600,
+      },
     },
     {
       id: 'workspaces',
       path: '/workspaces/list',
-      fragments: [
-        {
-          id: 'list',
-          frame: 'hero',
-          target: page => page.locator(shot('workspaces-list')),
-          width: 760,
-        },
-        {
-          id: 'members',
-          frame: 'side',
-          path: '/workspaces/members',
-          css: `${shot('workspaces-members')} { max-width: 600px; }`,
-          target: page => page.locator(shot('workspaces-members')),
-          pad: 0,
-        },
-        {
-          id: 'categories',
-          frame: 'side',
-          path: '/workspaces/categories',
-          target: page => page.locator('[data-tour-id="categories-list"]'),
-          width: 560,
-        },
-      ],
+      viewport: { width: 1024, height: 900 },
+      css: `${shot('workspaces-list')} { max-width: 600px; }`,
+      fragment: {
+        id: 'list',
+        frame: 'hero',
+        target: page => page.locator(shot('workspaces-list')),
+      },
     },
   ];
 }

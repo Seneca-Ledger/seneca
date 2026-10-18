@@ -92,6 +92,20 @@ describe('generateDemoData', () => {
     expect(spent).toBeGreaterThan(meals?.limitCents ?? Number.POSITIVE_INFINITY);
   });
 
+  it('saves a larger share of income in the anchor month than the month before', () => {
+    // Read like the savings-rate advice: confirmed income and spending, no moves between accounts.
+    const rateOf = (month: string) => {
+      const rows = rowsOf(ANCHOR).filter(
+        row => row.date.startsWith(month) && row.confirmed && row.transferKey === null,
+      );
+      const total = (type: DemoTransaction['type']) =>
+        rows.filter(row => row.type === type).reduce((sum, row) => sum + row.cents, 0);
+      return ((total('income') - total('expense')) / total('income')) * 100;
+    };
+    // The advice speaks from a difference of five points.
+    expect(rateOf('2026-09') - rateOf('2026-08')).toBeGreaterThan(5);
+  });
+
   it('names real charges for each subscription and a next charge after the last', () => {
     const data = generateDemoData(ANCHOR);
     const refs = new Set(rowsOf(ANCHOR).map(row => row.ref));

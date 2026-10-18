@@ -362,7 +362,9 @@ function statementRow(
     balanceEnd: euros(statement.closingCents),
     currency: DEMO_CURRENCY,
     processedAt: new Date(`${statement.uploadedOn}T09:00:00Z`),
-    createdAt: new Date(`${statement.uploadedOn}T09:00:00Z`),
+    // The card's statement a few minutes after the current account's: lists sort by this,
+    // and two equal stamps came back in either order.
+    createdAt: new Date(`${statement.uploadedOn}T09:0${statement.account === 'card' ? 5 : 0}:00Z`),
     parsingDetails: {
       detectedBank: 'other',
       detectedFormat: 'csv',
