@@ -487,7 +487,11 @@ export function StatementsListItem({
         </span>
 
         {pendingReview > 0 && !isProcessing ? (
-          <span className="lumio-stmt-flag" style={{ flexShrink: 0 }}>
+          <span
+            className="lumio-stmt-flag"
+            data-hint="statements-to-review"
+            style={{ flexShrink: 0 }}
+          >
             {listText.toReview}
             {isReceipt ? null : ` · ${pendingReview}`}
           </span>

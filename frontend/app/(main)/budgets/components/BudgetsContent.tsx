@@ -125,7 +125,11 @@ export function BudgetsContent({
           />
           {/* With no budgets the empty state's button leads; this one steps back. */}
           <ReadOnlyHint>
-            <Button variant={noBudgets ? 'text' : 'contained'} onClick={() => openCreate()}>
+            <Button
+              variant={noBudgets ? 'text' : 'contained'}
+              data-hint="budgets-new"
+              onClick={() => openCreate()}
+            >
               <Plus size={18} aria-hidden />
               {t.newBudget}
             </Button>

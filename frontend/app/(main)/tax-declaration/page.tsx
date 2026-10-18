@@ -151,6 +151,7 @@ function TaxDeclarationContent(): React.ReactElement {
           }}
         >
           <Tabs
+            data-hint="tax-steps"
             value={step}
             // eslint-disable-next-line max-params
             onChange={(_event, value: StepKey) => updateQuery({ step: value })}

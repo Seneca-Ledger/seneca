@@ -116,7 +116,10 @@ export default function RoiPage() {
             p: 3,
           }}
         >
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+          <Box
+            data-hint="roi-inputs"
+            sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}
+          >
             <AmountField
               label={t.investmentLabel.value}
               value={investment}

@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { Clock } from '@/app/components/icons';
+import { ResetPageHintsButton } from '@/app/components/page-hints/ResetPageHintsButton';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useLocale } from '@/app/i18n';
 import { isExperimentalModeEnabled, setExperimentalModeEnabled } from '@/app/lib/experimental-mode';
@@ -75,6 +76,7 @@ export function AdvancedTab({ user }: SettingsTabProps): React.JSX.Element {
             {tx(['navigation', 'elsewhere'], 'Elsewhere')}
           </Typography>
           <SettingsElsewhereLinks tx={tx} />
+          <ResetPageHintsButton />
         </CardContent>
       </Card>
     </Stack>

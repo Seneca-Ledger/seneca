@@ -288,6 +288,7 @@ export function currentUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
     avatarUrl: null,
     onboardingCompletedAt: null,
     welcomeTutorialSeenAt: null,
+    pageHintsSeen: {},
     ...overrides,
   };
 }

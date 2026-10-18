@@ -191,6 +191,7 @@ export default function CustomTablesPage() {
             size="sm"
             type="button"
             data-tour-id="custom-tables-create-export"
+            data-hint="tables-new"
             onClick={() => create.setOpen(true)}
           >
             <Plus size={18} aria-hidden />

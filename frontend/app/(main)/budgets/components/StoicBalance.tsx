@@ -300,6 +300,7 @@ export function StoicBalance(): React.JSX.Element | null {
   return (
     <Box
       component="section"
+      data-hint="stoic-balance"
       aria-labelledby="stoic-balance-title"
       sx={{
         p: 2.5,

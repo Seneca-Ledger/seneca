@@ -252,7 +252,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           allowScrollButtonsMobile
         >
           <Tab value="all" label={t.tabAll.value} />
-          <Tab value="detected" label={t.tabDetected.value} />
+          <Tab value="detected" data-hint="subscriptions-detected" label={t.tabDetected.value} />
           <Tab value="active" label={t.tabActive.value} />
           <Tab value="paused" label={t.tabPaused.value} />
           <Tab value="cancelled" label={t.tabCancelled.value} />
@@ -297,7 +297,11 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
             {t.businessReport}
           </Button>
           {/* With nothing yet the empty state's own button is the one to press. */}
-          <Button variant={noneYet ? 'outlined' : 'contained'} onClick={props.openCreate}>
+          <Button
+            variant={noneYet ? 'outlined' : 'contained'}
+            data-hint="subscriptions-add"
+            onClick={props.openCreate}
+          >
             <Plus size={18} aria-hidden />
             {t.addSubscription}
           </Button>
