@@ -7,10 +7,13 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { Trash2 } from '@/app/components/icons';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { InvoiceLineIcon } from '@/app/components/ui/empty-state-icons';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import type { GoalItem, GoalItemsResponse } from '@/app/lib/goals-api';
 import { tokens } from '@/lib/theme-tokens';
+import { formatGoalMonth } from './goal-dates';
 
 export interface GoalItemsCardProps {
   data: GoalItemsResponse;
@@ -37,9 +40,19 @@ export function GoalItemsCard({
   const t = useIntlayer('goalDetailPage');
   const money = (value: number): string => formatMoney(value, data.currency, locale);
   const { summary } = data;
+  const isEmpty = data.items.length === 0;
 
   return (
-    <Box sx={{ mt: 4 }}>
+    <Box
+      sx={{
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: tokens.radius.md,
+        bgcolor: 'background.paper',
+        p: 2.5,
+        mt: 3,
+      }}
+    >
       <Box
         sx={{
           display: 'flex',
@@ -49,18 +62,29 @@ export function GoalItemsCard({
           mb: 1.5,
         }}
       >
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography sx={{ fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}>
           {t.itemsTitle}
         </Typography>
-        <Button size="small" onClick={onAdd}>
-          {t.itemsAdd}
-        </Button>
+        {/* Empty, the button lives in the empty state: one way to add, not two. */}
+        {!isEmpty && (
+          <Button size="small" onClick={onAdd}>
+            {t.itemsAdd}
+          </Button>
+        )}
       </Box>
 
-      {data.items.length === 0 ? (
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {t.itemsEmpty}
-        </Typography>
+      {isEmpty ? (
+        <EmptyState
+          compact
+          size="sm"
+          icon={<InvoiceLineIcon />}
+          description={t.itemsEmpty}
+          action={
+            <Button variant="outlined" size="small" onClick={onAdd}>
+              {t.itemsAdd}
+            </Button>
+          }
+        />
       ) : (
         <>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -99,7 +123,7 @@ export function GoalItemsCard({
                     {item.name}
                   </Typography>
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    {item.dueMonth ?? '—'}
+                    {item.dueMonth ? formatGoalMonth(item.dueMonth, locale) : '—'}
                   </Typography>
                 </Box>
 
