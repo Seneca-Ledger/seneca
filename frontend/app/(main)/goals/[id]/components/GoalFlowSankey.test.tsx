@@ -105,6 +105,24 @@ describe('GoalFlowSankey', () => {
     expect(screen.queryByTestId('mock-echarts')).not.toBeInTheDocument();
   });
 
+  it('offers the way out beside the empty line instead of a tall blank card', () => {
+    render(
+      <GoalFlowSankey
+        data={response({ links: [] })}
+        title="Plan versus actual"
+        emptyLabel="No budget linked"
+        emptyAction={<a href="/budgets?newBudgetGoal=g1">Create a budget</a>}
+        labels={labels}
+        formatAmount={value => String(value)}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Create a budget' })).toHaveAttribute(
+      'href',
+      '/budgets?newBudgetGoal=g1',
+    );
+  });
+
   it('gives the chart a definite height so ECharts never caches a 0x0 box', () => {
     const { container } = render(
       <GoalFlowSankey
