@@ -13,6 +13,7 @@ import { AppPagination } from '@/app/components/ui/pagination';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import {
@@ -341,7 +342,8 @@ export default function TrashListView() {
     await (async () => {
       await apiClient.post(`/storage/files/${id}/trash/restore`);
       removeFilesFromState([id]);
-      await queryClient.invalidateQueries({ queryKey: ['statements'] });
+      // A restored statement's rows count again in every figure.
+      invalidateFinancialData();
       toast.success(labels.restoreSuccess, { id: toastId });
     })().catch(async error => {
       console.error('Failed to restore trash file:', error);
@@ -360,7 +362,8 @@ export default function TrashListView() {
         statementIds: selectedIds,
       } satisfies ContractInput<'BulkFileActionBody'>);
       removeFilesFromState(selectedIds);
-      await queryClient.invalidateQueries({ queryKey: ['statements'] });
+      // A restored statement's rows count again in every figure.
+      invalidateFinancialData();
       toast.success(labels.restoreSuccess, { id: toastId });
     })().catch(async error => {
       console.error('Failed to bulk restore trash files:', error);

@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export type {
@@ -30,11 +30,12 @@ export function useForecast() {
   const [scenario, setScenario] = useState<ForecastScenario>(DEFAULT_SCENARIO);
 
   const params = useMemo(() => {
-    const query: Record<string, string | number> = { days: horizon };
-    if (scenario.incomeFactor !== 1) query.incomeFactor = scenario.incomeFactor;
-    if (scenario.expenseFactor !== 1) query.expenseFactor = scenario.expenseFactor;
-    if (scenario.exclude.length > 0) query.exclude = scenario.exclude.join(',');
-    return query;
+    return {
+      days: horizon,
+      ...(scenario.incomeFactor !== 1 ? { incomeFactor: scenario.incomeFactor } : {}),
+      ...(scenario.expenseFactor !== 1 ? { expenseFactor: scenario.expenseFactor } : {}),
+      ...(scenario.exclude.length > 0 ? { exclude: scenario.exclude.join(',') } : {}),
+    } satisfies ContractInput<'ForecastQuery'>;
   }, [horizon, scenario]);
 
   const query = useQuery({

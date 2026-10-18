@@ -11,46 +11,13 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { blobOf } from '@/app/lib/blob-of';
+import type { DatevSettings } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 import { saveBlob } from './tax-return.helpers';
-
-interface DatevSettings {
-  available: boolean;
-  chart: '03' | '04';
-  consultantNumber: number | null;
-  clientNumber: number | null;
-  bankAccount: string;
-  accounts: Record<string, string>;
-  bankAccounts: Record<string, string>;
-}
-
-interface Mapping {
-  categories: MappingRow[];
-  bankAccounts: Array<{ accountNumber: string; transactionCount: number; account: string | null }>;
-}
-
-interface MappingRow {
-  categoryId: string;
-  name: string;
-  type: 'income' | 'expense';
-  transactionCount: number;
-  account: string | null;
-  suggestion: { concept: string; account: string; name: string } | null;
-}
-
-interface Preview {
-  bookings: number;
-  skipped: {
-    uncategorized: number;
-    unmapped: Array<{ categoryId: string; name: string; count: number }>;
-    foreignCurrency: number;
-  };
-  converted: number;
-  issues: Array<{ kind: string; transactionId: string }>;
-  missingSettings: string[];
-}
 
 const ACCOUNT = /^[0-9]{1,9}$/;
 
@@ -76,30 +43,42 @@ function periodOf(year: number, month: string): { from: string; to: string } {
  */
 export function DatevExportCard({ year }: { year: number }): React.ReactElement | null {
   const t = useIntlayer('datevExport');
+  const categoryName = useCategoryName();
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   const [month, setMonth] = useState('year');
-  const [form, setForm] = useState({ chart: '03', consultant: '', client: '', bank: '' });
+  const [form, setForm] = useState<{
+    chart: DatevSettings['chart'];
+    consultant: string;
+    client: string;
+    bank: string;
+  }>({ chart: '03', consultant: '', client: '', bank: '' });
   const [accounts, setAccounts] = useState<Record<string, string>>({});
   const [bankAccounts, setBankAccounts] = useState<Record<string, string>>({});
   const [downloading, setDownloading] = useState(false);
 
   const settings = useQuery({
     queryKey: queryKeys.datevSettings(workspaceId),
-    queryFn: ({ signal }) => apiQuery<DatevSettings>({ url: '/tax/datev/settings', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/tax/datev/settings', signal, contract: 'DatevSettings' }),
     enabled: Boolean(workspaceId),
   });
   const available = settings.data?.available === true;
   const mapping = useQuery({
     queryKey: queryKeys.datevMapping({ workspaceId, year }),
-    queryFn: ({ signal }) => apiQuery<Mapping>({ url: `/tax/datev/mapping?year=${year}`, signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: `/tax/datev/mapping?year=${year}`, signal, contract: 'DatevMapping' }),
     enabled: Boolean(workspaceId) && available,
   });
   const period = periodOf(year, month);
   const preview = useQuery({
     queryKey: queryKeys.datevPreview({ workspaceId, ...period }),
     queryFn: ({ signal }) =>
-      apiQuery<Preview>({ url: `/tax/datev/preview?from=${period.from}&to=${period.to}`, signal }),
+      apiQueryDecoded({
+        url: `/tax/datev/preview?from=${period.from}&to=${period.to}`,
+        signal,
+        contract: 'DatevPreview',
+      }),
     enabled: Boolean(workspaceId) && available,
   });
 
@@ -117,8 +96,9 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
   }, [settings.data]);
 
   const save = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      apiClient.put<DatevSettings>('/tax/datev/settings', body).then(response => response.data),
+    mutationFn: async (body: ContractInput<'SaveDatevSettingsBody'>) => {
+      await apiClient.put('/tax/datev/settings', body);
+    },
     onSuccess: () => {
       toast.success(t.saved.value);
       void queryClient.invalidateQueries({ queryKey: ['datev', workspaceId] });
@@ -173,7 +153,7 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
       .get(`/tax/datev/export?from=${period.from}&to=${period.to}`, { responseType: 'blob' })
       .then(response =>
         saveBlob(
-          response.data as Blob,
+          blobOf(response),
           `EXTF_Buchungsstapel_${period.from.replace(/-/g, '')}_${period.to.replace(/-/g, '')}.csv`,
         ),
       )
@@ -212,7 +192,7 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
           size="small"
           value={form.chart}
           aria-label={t.chartLabel.value}
-          onChange={value => setForm({ ...form, chart: value })}
+          onChange={value => setForm({ ...form, chart: value === '04' ? '04' : '03' })}
           options={[
             { value: '03', label: 'SKR 03' },
             { value: '04', label: 'SKR 04' },
@@ -282,7 +262,7 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
               sx={{ flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}
             >
               <Typography sx={{ fontSize: 13, flex: '1 1 180px' }}>
-                {row.name}{' '}
+                {categoryName(row.name)}{' '}
                 <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>
                   · {fill(t.transactions.value, { count: row.transactionCount })}
                 </Typography>
@@ -299,7 +279,7 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
                   })
                 }
                 inputProps={{
-                  'aria-label': fill(t.accountFor.value, { name: row.name }),
+                  'aria-label': fill(t.accountFor.value, { name: categoryName(row.name) }),
                   maxLength: 9,
                 }}
                 sx={{ width: 110 }}
@@ -394,7 +374,7 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
             <Alert severity="warning" sx={{ mt: 1 }}>
               {fill(t.unmapped.value, {
                 categories: preview.data.skipped.unmapped
-                  .map(item => `${item.name} (${item.count})`)
+                  .map(item => `${categoryName(item.name)} (${item.count})`)
                   .join(', '),
               })}
             </Alert>

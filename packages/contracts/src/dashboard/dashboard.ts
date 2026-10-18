@@ -80,15 +80,24 @@ export const DashboardRecentTransaction = Schema.Struct({
   /** Always a concrete color — falls back to a neutral swatch when unset. */
   categoryColor: Schema.String,
   categoryIcon: Schema.NullOr(Schema.String),
+  /**
+   * The document the transaction lives in, opened the way the Documents list
+   * opens it; null for one entered by hand, which has no document to open.
+   */
+  href: Schema.NullOr(Schema.String),
 });
 export type DashboardRecentTransaction = Wire<typeof DashboardRecentTransaction>;
 
 export const DashboardDataHealth = Schema.Struct({
   uncategorizedTransactions: Schema.Number,
   statementsWithErrors: Schema.Number,
+  /** Rows waiting in Review (unconfirmed plus possible duplicates), by the queue's own rules. */
   statementsPendingReview: Schema.Number,
+  /** Statements uploaded and not parsed yet. */
   statementsPendingSubmit: Schema.Number,
+  /** Receipts Review still lists, by the queue's own rule. */
   receiptsPendingReview: Schema.Number,
+  /** Income minus spending in the rows Review still asks about, in the workspace currency. */
   unapprovedCash: Schema.Number,
   lastUploadDate: Schema.NullOr(Schema.String),
   parsingWarnings: Schema.Number,
@@ -146,9 +155,11 @@ export const DashboardHealthMonth = Schema.Struct({
   uncategorized: Schema.Number,
   statementsUploaded: Schema.Number,
   statementErrors: Schema.Number,
+  /** Rows waiting in Review, by transaction date. */
   statementsPendingReview: Schema.Number,
   statementsPendingSubmit: Schema.Number,
   parsingWarnings: Schema.Number,
+  /** Receipts Review still lists, by the date they came in. */
   receiptsPendingReview: Schema.Number,
   overduePayments: Schema.Number,
 });
@@ -168,6 +179,14 @@ const NamedTotal = Schema.Struct({
   count: Schema.Number,
 });
 
+const CategoryTotal = Schema.Struct({
+  name: Schema.String,
+  color: Schema.NullOr(Schema.String),
+  icon: Schema.NullOr(Schema.String),
+  amount: Schema.Number,
+  count: Schema.Number,
+});
+
 /** `GET /dashboard/trends`. */
 export const DashboardTrendsResponse = Schema.Struct({
   /** Combined daily income/expense from all sources. */
@@ -175,7 +194,7 @@ export const DashboardTrendsResponse = Schema.Struct({
   /** Forecast from historical patterns (WMA + day-of-week seasonality). */
   forecast: Schema.Array(DailyFlow),
   /** Top expense categories. */
-  categories: Schema.Array(NamedTotal),
+  categories: Schema.Array(CategoryTotal),
   /** Top income counterparties. */
   counterparties: Schema.Array(NamedTotal),
   sources: Schema.Struct({

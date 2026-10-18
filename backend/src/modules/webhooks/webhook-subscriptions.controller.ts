@@ -3,11 +3,18 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { CreateWebhookSubscriptionBody, UpdateWebhookSubscriptionBody } from '../../contracts';
+import {
+  CreateWebhookSubscriptionBody,
+  UpdateWebhookSubscriptionBody,
+  WebhookDeliveryList,
+  WebhookSubscriptionList,
+} from '../../contracts';
 import { User } from '../../entities/user.entity';
 import { WebhookEvent } from '../../entities/webhook-subscription.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { WorkspacePluginsService } from '../workspaces/workspace-plugins.service';
 import { WebhookDeliveryService } from './services/webhook-delivery.service';
 import { WebhookDispatcherService } from './services/webhook-dispatcher.service';
 import { WebhookSubscriptionsService } from './services/webhook-subscriptions.service';
@@ -18,6 +25,7 @@ export class WebhookSubscriptionsController {
   constructor(
     private readonly service: WebhookSubscriptionsService,
     private readonly deliveryService: WebhookDeliveryService,
+    private readonly plugins: WorkspacePluginsService,
     dispatcher: WebhookDispatcherService,
   ) {}
 
@@ -33,6 +41,7 @@ export class WebhookSubscriptionsController {
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(WebhookSubscriptionList)
   async findAll(@WorkspaceId() workspaceId: string) {
     const subs = await this.service.findAll(workspaceId);
     return subs.map(({ secret, ...rest }) => rest); // never return secret
@@ -70,6 +79,7 @@ export class WebhookSubscriptionsController {
 
   @Get(':id/deliveries')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(WebhookDeliveryList)
   async deliveries(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     await this.service.findOne(id, workspaceId); // scope check
     return this.deliveryService.findForSubscription(id);
@@ -80,6 +90,7 @@ export class WebhookSubscriptionsController {
   @ApiOperation({ summary: 'Send a test ping to the subscription URL' })
   async testPing(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const sub = await this.service.findOne(id, workspaceId);
+    await this.plugins.assertEnabled(workspaceId, 'webhooks');
     await this.deliveryService.enqueue(sub.id, WebhookEvent.STATEMENT_PROCESSED, {
       event: WebhookEvent.STATEMENT_PROCESSED,
       test: true,

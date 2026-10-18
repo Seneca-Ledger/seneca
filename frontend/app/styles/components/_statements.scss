@@ -971,7 +971,7 @@
     }
 
     &:hover {
-      border-color: #34d399;
+      border-color: var(--primary);
       background: #ecfdf5;
 
       @include dark {
@@ -1066,6 +1066,16 @@
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+  }
+
+  &__footer {
+    flex: none;
+    padding-top: 12px;
+    border-top: 1px solid $color-border;
+
+    @include dark {
+      border-top-color: $lumio-color-border-dk;
     }
   }
 
@@ -1316,17 +1326,12 @@
     border-collapse: collapse;
   }
 
+  // Column names in sentence case and the readable grey, like every other label.
   &__thead tr {
     text-align: left;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #94a3b8;
-
-    @include dark {
-      color: $lumio-color-ink-400-dk;
-    }
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
   }
 
   &__th {
@@ -1375,6 +1380,138 @@
     justify-content: flex-end;
     gap: 8px;
   }
+
+  // A click anywhere on a row opens the bill.
+  &__row {
+    cursor: pointer;
+
+    &:hover {
+      background: var(--surface-soft);
+    }
+  }
+
+  &__vendor {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 500;
+    color: var(--foreground);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  &__muted {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  &__amount {
+    text-align: right;
+    font-weight: 500;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__amount-note {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
+  &__empty-title {
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__empty-text {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  // The row's one action, a sage text link that shows on hover or focus, so a
+  // column of identical buttons does not repeat down the list.
+  &__mark {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary);
+    cursor: pointer;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    &:focus-visible {
+      opacity: 1;
+    }
+
+    &:disabled {
+      cursor: default;
+    }
+  }
+
+  &__row:hover &__mark,
+  &__row:focus-within &__mark,
+  &__mobile-row &__mark {
+    opacity: 1;
+  }
+}
+
+// A status is a word with a small dot. Only overdue gets a colour beyond the dot:
+// how long it has been, in terracotta, the one accent of its row.
+.lumio-payable-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--foreground);
+  white-space: nowrap;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--cat-tone-other);
+  }
+
+  &--overdue::before {
+    background: var(--money-down);
+  }
+
+  &--done::before {
+    background: var(--money-up);
+  }
+
+  &--partial::before {
+    background: var(--attention);
+  }
+
+  &__since {
+    font-size: 13px;
+    color: var(--money-down);
+  }
+
+  // Ochre: something waits, nothing is wrong yet.
+  &__unbooked {
+    font-size: 13px;
+    color: var(--attention);
+  }
+}
+
+.lumio-payable-summary-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .lumio-payable-summary {
@@ -1393,41 +1530,37 @@
   &__card-content {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 20px;
+    gap: 4px;
+    padding: 16px 20px;
   }
 
-  &__card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    color: #94a3b8;
-
-    @include dark {
-      color: $lumio-color-ink-400-dk;
-    }
+  &__label {
+    font-size: 14px;
+    color: var(--text-muted);
   }
 
-  &__icon {
-    display: flex;
-    height: 36px;
-    width: 36px;
-    align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-md;
-    border: 1px solid #e5e7eb;
-    background: #f8fafc;
-    color: #475569;
+  &__value {
+    margin-top: 4px;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
 
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
-      color: $lumio-color-ink-600-dk;
-    }
+  &__count {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__note {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__unbooked {
+    color: var(--attention);
   }
 }
 
@@ -1466,6 +1599,334 @@
       width: 100%;
       margin-left: 0;
     }
+  }
+}
+
+/* ── New / draft invoice wizard ───────────────────────────── */
+// One question per step in a narrow column, the onboarding's rhythm inside the app.
+.lumio-invoice-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 640px;
+  margin: 0 auto;
+
+  &__progress {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__progress-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__segments {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__segment {
+    flex: 1;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--border-color);
+    transition: background-color 240ms ease;
+
+    &--done {
+      background: var(--primary);
+    }
+  }
+
+  &__step {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  &__heading {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    h2 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.2;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--foreground);
+
+      &:focus {
+        outline: none;
+      }
+    }
+
+    p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+  }
+
+  // Every field of the wizard one family: 44px tall, 8px corners, 14px type, the
+  // label 6px above it — the shared Input is 48px/16px and the Select 40px.
+  // Doubled class: outweighs the theme's own small-size height (34px).
+  .MuiOutlinedInput-root.MuiOutlinedInput-root {
+    height: 44px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  // Numbers are typed, not stepped: no browser spinner arrows in the field.
+  input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      margin: 0;
+      -webkit-appearance: none;
+    }
+  }
+
+  .lumio-payable-drawer__field-group {
+    gap: 6px;
+  }
+
+  .lumio-payable-drawer__field-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__number input {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__currency {
+    margin-right: 6px;
+    color: var(--text-muted);
+  }
+
+  // Qty | Unit | Unit price, bottoms aligned: nothing sits under one field and not the others.
+  &__qty-row {
+    display: grid;
+    grid-template-columns: 96px 140px minmax(0, 1fr);
+    // Fields are one height, so aligning the tops lines up the labels and the fields alike.
+    align-items: start;
+
+    // UnitSelect brings its own 4px top margin (it was made to sit under Qty).
+    .MuiOutlinedInput-root {
+      margin-top: 0;
+    }
+    gap: 12px;
+
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr 1fr;
+
+      > :last-child {
+        grid-column: 1 / -1;
+      }
+    }
+  }
+
+  // Quiet actions as sage text: "Add a discount", "Add another line", "Add late fee".
+  &__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    color: #3f7d5c;
+    cursor: pointer;
+
+    @include dark { color: var(--primary); }
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+    }
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__hint,
+  &__note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  &__note {
+    font-size: 14px;
+  }
+
+  &__muted {
+    color: var(--muted-foreground);
+  }
+
+  // One hairline around a line, no fill and no rule inside it.
+  &__line {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+    border: 1px solid $lumio-color-hairline;
+    border-radius: 12px;
+
+    @include dark { border-color: var(--border); }
+  }
+
+  &__line-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 32px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__line-amount {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__line-sum {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  // Labels next to their numbers: a narrow block on the right, not across the page.
+  &__totals {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    margin-left: auto;
+    width: min(280px, 100%);
+    font-size: 14px;
+    color: var(--text-muted);
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    dd {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+      color: var(--foreground);
+    }
+  }
+
+  &__total {
+    padding-top: 6px;
+    border-top: 1px solid $lumio-color-hairline;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--foreground);
+
+    @include dark { border-top-color: var(--border); }
+  }
+
+  &__totals-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -8px;
+  }
+
+  &__review-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+  }
+
+  &__review-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    h3 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted-foreground);
+    }
+  }
+
+  &__review-lines {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+  }
+
+  &__review-extras {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+
+    div {
+      display: flex;
+      gap: 8px;
+    }
+
+    dt {
+      color: var(--muted-foreground);
+
+      &::after {
+        content: ':';
+      }
+    }
+
+    dd {
+      margin: 0;
+    }
+  }
+
+  &__review-notes {
+    white-space: pre-wrap;
   }
 }
 
@@ -1714,12 +2175,22 @@
     gap: 16px;
   }
 
-  /* The tab's header owns the month and the toggles, so a section needs
-     nothing but its name to say which leaderboard this is. */
+
+  // Name on the left, Spending | Income and Chart | Table on the right, one row.
+  &__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 24px;
+  }
+
+  /* The page's header owns the period, so a section needs nothing but its
+     name — the size of every other card title, not a page heading. */
   &__section-title {
     margin: 0;
-    font-size: 20px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 500;
     color: var(--foreground);
   }
 }
@@ -2633,7 +3104,7 @@
     }
 
     &:hover:not(:disabled) {
-      border-color: #34d399;
+      border-color: var(--primary);
       background: #ecfdf5;
 
       @include dark {
@@ -2867,6 +3338,74 @@
   }
 }
 
+// Review: a row's own "Approve as is" is a sage text link that only shows on
+// the row under the pointer or the keyboard cursor, or when tabbed to. It keeps
+// its room while hidden, so the amounts stay in one column.
+.lumio-review-row-approve {
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--primary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+
+  .lumio-stmt-list-item:hover &,
+  .lumio-stmt-list-item:focus-within &,
+  .lumio-stmt-list-item[data-cursor='true'] & {
+    opacity: 1;
+  }
+
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+// Review tab counts: "Receipts 0", the zero greyed out so only real work stands out.
+.lumio-review-tab-count {
+  font-variant-numeric: tabular-nums;
+
+  &--zero {
+    color: $lumio-color-tab-count-zero;
+
+    @include dark {
+      color: $lumio-color-ink-400-dk;
+    }
+  }
+}
+
+// "To review": the one status a row shows, as a dot and a word, no fill.
+.lumio-stmt-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text-secondary);
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $lumio-color-attention;
+
+    @include dark {
+      background: $lumio-color-warning-dk;
+    }
+  }
+}
+
 @keyframes pulse {
   0%,
   100% {
@@ -2883,7 +3422,7 @@
   // (.lumio-stmt-list-view__table) is the only surface.
   position: relative;
   overflow: hidden;
-  border-bottom: 1px solid $lumio-color-ink-150;
+  border-bottom: 1px solid $lumio-color-hairline;
   padding: 12px;
   transition: background-color 0.15s;
 
@@ -2904,7 +3443,7 @@
   }
 
   @media (min-width: 768px) {
-    padding: 14px 16px;
+    padding: 18px 16px;
   }
 
   &--selected,
@@ -2920,13 +3459,57 @@
     }
   }
 
+  // A possible duplicate: one sage line down the left, unbroken across the rows
+  // of its group and inset where the group starts and ends, so neighbouring
+  // groups read apart without a colour of their own.
   &__accent {
     position: absolute;
     left: 0;
-    top: 8px;
-    bottom: 8px;
+    top: 0;
+    bottom: 0;
     width: 2px;
-    border-radius: $lumio-radius-md;
+    background: var(--primary);
+
+    &--start {
+      top: 8px;
+      border-top-left-radius: $lumio-radius-md;
+      border-top-right-radius: $lumio-radius-md;
+    }
+
+    &--end {
+      bottom: 8px;
+      border-bottom-left-radius: $lumio-radius-md;
+      border-bottom-right-radius: $lumio-radius-md;
+    }
+  }
+
+  // Under the merchant: "Oct 10, 2026 · Receipt · Possible duplicate · 1 of 2".
+  &__meta {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  // The amount is read after the merchant, not before it: regular weight, the
+  // currency apart and quieter.
+  &__amount {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    line-height: 1.2;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__currency {
+    font-size: 12px;
+    font-weight: 400;
+    color: $lumio-color-slot-text;
+
+    @include dark {
+      color: var(--muted-foreground);
+    }
   }
 
   &__desktop-overlay {
@@ -3041,6 +3624,8 @@
   }
 
   &__mobile-meta {
+    flex-wrap: wrap;
+    row-gap: 2px;
     font-size: 12px;
     color: $lumio-color-ink-400;
 
@@ -3049,8 +3634,11 @@
     }
   }
 
+  /* The date and category keep their full width; the rows toggle and the
+     status move to the next line instead of cutting the date to "Sep 1…". */
   &__mobile-meta-text {
-    flex: 1;
+    flex: 1 0 auto;
+    max-width: 100%;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3127,6 +3715,29 @@
     }
   }
 
+  // A duplicate's Review: a sage text link, not a filled pill.
+  &__view-btn--link,
+  &__view-btn--link:hover:not(:disabled) {
+    border: 0;
+    background: none;
+    box-shadow: none;
+    padding: 4px 0;
+    font-weight: 500;
+    color: var(--primary);
+
+    @include dark {
+      border: 0;
+      background: none;
+      box-shadow: none;
+      color: var(--primary);
+    }
+  }
+
+  &__view-btn--link:hover:not(:disabled) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
   // Invisible copy of the Review label in every action cell, header included:
   // it keeps the button's width but no height, so the action column is as wide
   // as the label in the current language on every row alike.
@@ -3157,6 +3768,73 @@
 // (CATEGORY_LINK_DELAY_MS in StatementsListItem.tsx) and is also what makes the
 // link navigate — before it, a click belongs to the row — so the wait lives
 // there, in one place, rather than in a `transition-delay` here.
+// No category yet (NoCategoryBadge): the mirror of a category chip — a dashed
+// circle where the icon would be and grey words — that only shows it can be
+// clicked on hover. The padding is taken back by the margin so the circle sits
+// where a chosen category's icon does.
+.lumio-no-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: -4px 0 -4px -4px;
+  padding: 3px 10px 3px 3px;
+  border: 1px solid transparent;
+  border-radius: $lumio-radius-full;
+  font-weight: 400;
+  color: $lumio-color-text-muted;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+
+  @include dark {
+    color: var(--muted-foreground);
+  }
+
+  &:hover {
+    border-color: $lumio-color-slot-border;
+    background: $lumio-color-slot-bg;
+    color: $lumio-color-figure;
+
+    @include dark {
+      border-color: $lumio-color-border-dk;
+      background: $lumio-color-ink-100-dk;
+      color: $lumio-color-ink-900-dk;
+    }
+  }
+
+  &--button {
+    background: none;
+    font: inherit;
+    font-weight: 400;
+    cursor: pointer;
+    pointer-events: auto;
+
+    &:focus-visible {
+      border-color: $lumio-color-slot-border;
+      background: $lumio-color-slot-bg;
+      color: $lumio-color-figure;
+    }
+  }
+
+  &__slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px dashed $lumio-color-slot-dash;
+    border-radius: 50%;
+
+    @include dark {
+      border-color: $lumio-color-ink-300-dk;
+    }
+  }
+
+  &__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .lumio-stmt-category-link {
   display: flex;
   align-items: center;
@@ -3280,6 +3958,13 @@
     .lumio-stmt-edit-table__row-actions:focus-within {
       opacity: 1;
     }
+  }
+
+  // The category reads as text; on the row under the pointer it gets a light
+  // frame, the sign it can be changed.
+  .MuiTableRow-root:hover .lumio-stmt-edit-table__category {
+    border-color: var(--border);
+    background: var(--card-bg);
   }
 }
 
@@ -3407,6 +4092,55 @@
 }
 
 /* ── StatementsListView ──────────────────────────────────── */
+/* Queue tabs and the list's actions on one line; on a phone the tabs take a
+   line of their own (otherwise they shrink to nothing) and the actions wrap. */
+.lumio-stmt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  &__tabs {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  /* Keeps the primary action from reading as one more filter button. */
+  &__divider {
+    width: 1px;
+    align-self: stretch;
+    min-height: 24px;
+    background: var(--border-color);
+    flex-shrink: 0;
+  }
+
+  @include respond-to('sm') {
+    flex-wrap: wrap;
+    gap: 8px;
+
+    &__tabs {
+      flex-basis: 100%;
+    }
+
+    &__group {
+      flex-shrink: 1;
+      min-width: 0;
+      gap: 8px;
+    }
+
+    &__divider {
+      display: none;
+    }
+  }
+}
+
 .lumio-stmt-list-view {
   display: flex;
   flex-direction: column;
@@ -3684,12 +4418,10 @@
     align-items: center;
     gap: 16px;
     padding: 12px 16px;
-    border-bottom: 1px solid $lumio-color-ink-150;
-    font-size: 12px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #9ca3af;
+    border-bottom: 1px solid $lumio-color-hairline;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted-foreground);
 
     @include dark {
       border-bottom-color: $lumio-color-ink-150-dk;
@@ -3939,49 +4671,24 @@
     align-items: center;
     gap: 6px;
     border-radius: $lumio-radius-md;
-    border: 1px solid #fde68a;
-    background: $lumio-color-surface-muted;
+    border: 1px solid transparent;
+    background: none;
     padding: 6px 10px;
     font-size: 13px;
     font-weight: 500;
-    color: #92400e;
+    color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s;
-
-    @include dark {
-      border-color: $lumio-color-warning-dk;
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
-    }
+    transition: background-color 0.15s;
 
     &:hover {
-      border-color: #fcd34d;
-      background: #fef3c7;
-
-      @include dark {
-        border-color: $lumio-color-warning-dk;
-        background: $lumio-color-warning-soft-dk;
-      }
+      background: var(--muted);
     }
   }
 
   &__duplicate-count {
-    display: inline-flex;
-    height: 20px;
-    min-width: 20px;
-    align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-surface;
-    padding: 0 4px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #92400e;
-
-    @include dark {
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-warning-dk;
-    }
+    font-weight: 400;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
   }
 
   /* Skeleton rows */
@@ -4639,6 +5346,26 @@
     display: none;
   }
 
+  // An operation opens the document behind it.
+  &__row--link {
+    cursor: pointer;
+
+    &:hover td {
+      background: var(--muted);
+    }
+  }
+
+  &__link {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--foreground);
+      text-decoration: underline;
+    }
+  }
+
   @include respond-to('md') {
     &__table {
       display: none;
@@ -4659,10 +5386,12 @@
       gap: 4px 12px;
       padding: 12px 0;
       border-bottom: 1px solid var(--border-color);
+      color: inherit;
+      text-decoration: none;
+    }
 
-      &:last-child {
-        border-bottom: 0;
-      }
+    &__list > li:last-child > &__item {
+      border-bottom: 0;
     }
 
     &__merchant {
@@ -4710,23 +5439,24 @@
 
   &__weekday {
     padding: 0 4px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted-foreground);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted);
     overflow: hidden;
     text-overflow: clip;
     white-space: nowrap;
   }
 
+  // An empty day is just its number; only days with spending get a cell, so
+  // they read as islands. The cell's shade is the day's step on a one-colour
+  // heat scale (data-heat 1–5).
   &__day {
     min-width: 0;
     min-height: 62px;
     padding: 8px;
     border-radius: 12px;
-    border: 1px solid var(--border-color);
-    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid transparent;
+    background: transparent;
     color: var(--foreground);
     display: flex;
     flex-direction: column;
@@ -4737,21 +5467,50 @@
     cursor: default;
 
     &--active {
-      background: rgba(92, 196, 98, 0.1);
       cursor: pointer;
+      background: color-mix(in srgb, #{$lumio-color-empty-icon} 8%, transparent);
+
+      &:hover {
+        border-color: color-mix(in srgb, #{$lumio-color-empty-icon} 45%, transparent);
+      }
+    }
+
+    &[data-heat='1'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 8%, transparent); }
+    &[data-heat='2'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 16%, transparent); }
+    &[data-heat='3'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 24%, transparent); }
+    &[data-heat='4'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 34%, transparent); }
+    &[data-heat='5'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 45%, transparent); }
+
+    // Another currency: a hairline instead of a shade, and a small mark.
+    &--foreign {
+      position: relative;
+      background: transparent;
+      border-color: $lumio-color-hairline;
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--text-muted);
+      }
+    }
+
+    &--today {
+      border-color: var(--primary);
     }
 
     &--outside {
-      border-style: dashed;
-      border-color: rgba(255, 255, 255, 0.06);
-      background: rgba(255, 255, 255, 0.01);
-      opacity: 0.5;
+      color: var(--muted-foreground);
     }
   }
 
   &__day-number {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   &__day-total {
@@ -4759,9 +5518,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--primary);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
   }
 
   &__day-compact {
@@ -4849,7 +5609,7 @@
       font-weight: 700;
       line-height: 1.2;
       letter-spacing: -0.02em;
-      color: var(--primary);
+      color: var(--foreground);
     }
 
     &__agenda {

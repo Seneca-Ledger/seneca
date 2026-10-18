@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface SplitPartInput {
@@ -47,6 +48,7 @@ export function useTransactionSplit(onDone: () => void | Promise<void>): UseTran
         } satisfies ContractInput<'SplitTransactionBody'>)
         .then(async () => {
           toast.success(successText);
+          invalidateFinancialData();
           await onDone();
         })
         .catch((error: unknown) => {
@@ -64,6 +66,7 @@ export function useTransactionSplit(onDone: () => void | Promise<void>): UseTran
         .post(`/transactions/${transactionId}/unsplit`)
         .then(async () => {
           toast.success(undoneText);
+          invalidateFinancialData();
           await onDone();
         })
         .catch((error: unknown) => {

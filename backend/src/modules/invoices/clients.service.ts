@@ -4,6 +4,7 @@ import type { FindOptionsOrder, Repository } from 'typeorm';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
 import type { CreateClientBody, UpdateClientBody } from '../../contracts';
 import { Client } from '../../entities/client.entity';
+import { formatPeppolId, parsePeppolId } from '../e-invoices/peppol-id';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 
 @Injectable()
@@ -26,6 +27,9 @@ export class ClientsService extends WorkspaceCrudBaseService<Client> {
     }
     if (dto.countryCode !== undefined) {
       normalized.countryCode = (dto.countryCode ? dto.countryCode.toUpperCase() : null) as never;
+    }
+    if (dto.peppolId !== undefined) {
+      normalized.peppolId = normalizedPeppolId(dto.peppolId) as never;
     }
     return super.update(id, workspaceId, normalized as never);
   }
@@ -51,7 +55,14 @@ export class ClientsService extends WorkspaceCrudBaseService<Client> {
       countryCode: dto.countryCode ? dto.countryCode.toUpperCase() : null,
       buyerReference: dto.buyerReference?.trim() || null,
       supplyType: dto.supplyType ?? null,
+      peppolId: normalizedPeppolId(dto.peppolId),
     });
     return this.repository.save(client);
   }
+}
+
+/** `0208 : 0428 643 097` → `0208:0428643097`; blank → NULL (the contract rejects anything else). */
+function normalizedPeppolId(value: string | null | undefined): string | null {
+  const id = parsePeppolId(value);
+  return id ? formatPeppolId(id) : null;
 }

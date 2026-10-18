@@ -13,9 +13,11 @@ import {
 } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { Plus } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 import { SettingsSection } from './SettingsSection';
 
@@ -54,6 +56,7 @@ type RuleError = 'loadError' | 'addError' | 'deleteError' | { message: string };
  */
 export function TaxRulesSection(): React.ReactElement {
   const t = useIntlayer('workspaceTaxRules');
+  const categoryName = useCategoryName();
   const [loading, setLoading] = useState(true);
   const [rules, setRules] = useState<TaxRule[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -132,10 +135,13 @@ export function TaxRulesSection(): React.ReactElement {
       });
   };
 
-  const nameOfCategory = (id: string | null) =>
-    id
-      ? (categories.find(category => category.id === id)?.name ?? t.unknownCategory.value)
-      : t.anyCategory.value;
+  const nameOfCategory = (id: string | null) => {
+    if (!id) {
+      return t.anyCategory.value;
+    }
+    const category = categories.find(candidate => candidate.id === id);
+    return category ? categoryName(category.name) : t.unknownCategory.value;
+  };
 
   if (loading) {
     return (
@@ -218,7 +224,7 @@ export function TaxRulesSection(): React.ReactElement {
                 <MenuItem value="">{t.anyCategory}</MenuItem>
                 {categories.map(category => (
                   <MenuItem key={category.id} value={category.id}>
-                    {category.name}
+                    {categoryName(category.name)}
                   </MenuItem>
                 ))}
               </Select>
@@ -261,6 +267,7 @@ export function TaxRulesSection(): React.ReactElement {
                 disabled={busy || !draft.taxRateCode}
                 sx={{ borderRadius: tokens.radius.md, textTransform: 'none', fontWeight: 600 }}
               >
+                <Plus size={18} aria-hidden />
                 {t.addRule}
               </Button>
             </Stack>

@@ -10,10 +10,23 @@ import {
 } from 'typeorm';
 import { Workspace } from './workspace.entity';
 
+/** The outbound events; the contract's `WebhookEventName` lists the same, a test keeps them equal. */
 export enum WebhookEvent {
   TRANSACTION_CREATED = 'transaction.created',
+  TRANSACTIONS_IMPORTED = 'transactions.imported',
+  STATEMENT_UPLOADED = 'statement.uploaded',
   STATEMENT_PROCESSED = 'statement.processed',
+  STATEMENT_FAILED = 'statement.failed',
+  TRANSACTIONS_UNCATEGORIZED = 'transactions.uncategorized',
   RECEIPT_APPROVED = 'receipt.approved',
+  RECEIPT_NEEDS_REVIEW = 'receipt.needs_review',
+  INVOICE_PAID = 'invoice.paid',
+  INVOICE_OVERDUE = 'invoice.overdue',
+  BILL_PAID = 'bill.paid',
+  BILL_OVERDUE = 'bill.overdue',
+  BUDGET_EXCEEDED = 'budget.exceeded',
+  TAX_DEADLINE_UPCOMING = 'tax.deadline.upcoming',
+  TAX_THRESHOLD_REACHED = 'tax.threshold.reached',
 }
 
 @Entity('webhook_subscriptions')

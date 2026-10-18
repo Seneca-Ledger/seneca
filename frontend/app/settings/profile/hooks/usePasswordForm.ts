@@ -43,12 +43,12 @@ export function usePasswordForm(messages: UsePasswordFormMessages): UsePasswordF
 
     await (async () => {
       setPasswordLoading(true);
-      const response = await apiClient.patch('/users/me/password', {
+      await apiClient.patch('/users/me/password', {
         currentPassword: passwords.current,
         newPassword: passwords.next,
       } satisfies ContractInput<'ChangePasswordBody'>);
 
-      setPasswordMessage(response.data?.message || messages.successFallback);
+      setPasswordMessage(messages.successFallback);
       setPasswords({ current: '', next: '', confirm: '' });
     })()
       .catch(async (error: unknown) => {

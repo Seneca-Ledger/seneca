@@ -86,6 +86,13 @@ describe('ReceiptsService', () => {
       remove: jest.fn().mockResolvedValue(undefined),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
+    // An edit finds a draft scan's row through the transaction repository's manager.
+    Object.assign(transactionRepository, {
+      manager: {
+        getRepository: (entity: unknown) =>
+          entity === Statement ? statementRepository : transactionRepository,
+      },
+    });
 
     categoryRepository = {
       find: jest.fn().mockResolvedValue([]),
@@ -258,6 +265,17 @@ describe('ReceiptsService', () => {
     });
   });
 
+  it('finds the receipt behind a scan’s statement', async () => {
+    await service.findAll('workspace-1', { statementId: 'statement-1', limit: 1 });
+
+    expect(receiptRepository.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workspaceId: 'workspace-1', statementId: 'statement-1' },
+        take: 1,
+      }),
+    );
+  });
+
   it('resolves the picked category name for listed receipts', async () => {
     receiptRepository.findAndCount.mockResolvedValue([
       [{ id: 'receipt-1', parsedData: { categoryId: 'cat-1' } }],
@@ -390,7 +408,64 @@ describe('ReceiptsService', () => {
     expect(result).toMatchObject({ transaction: { id: 'tx-1' } });
     expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
       'receipt.approved',
-      expect.objectContaining({ receiptId: expect.any(String) }),
+      expect.objectContaining({ receiptId: expect.any(String), mode: 'created' }),
+    );
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'transaction.created',
+      expect.objectContaining({
+        transactionId: 'tx-1',
+        workspaceId: 'workspace-1',
+        source: 'receipt_approval',
+      }),
+    );
+  });
+
+  it('announces a receipt attached to its bank row, but no new transaction', async () => {
+    receiptRepository.findOne.mockResolvedValue({
+      id: 'receipt-attach',
+      workspaceId: 'workspace-1',
+      status: ReceiptStatus.DRAFT,
+      parsedData: { amount: 20, currency: 'EUR', vendor: 'Rewe', date: '2026-03-21' },
+      subject: 'receipt.jpg',
+      transactionId: null,
+    });
+    transactionRepository.findOne.mockResolvedValue({ id: 'bank-row', workspaceId: 'workspace-1' });
+    jest
+      .spyOn(service as any, 'copyFileToTransaction')
+      .mockResolvedValue(undefined);
+
+    await service.approve('receipt-attach', 'workspace-1', 'user-1', { attachTo: 'bank-row' });
+
+    expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
+      'receipt.approved',
+      expect.objectContaining({
+        receiptId: 'receipt-attach',
+        transactionId: 'bank-row',
+        mode: 'attached_to_bank_row',
+      }),
+    );
+    expect(mockEventEmitter.emit).not.toHaveBeenCalledWith('transaction.created', expect.anything());
+  });
+
+  // Every income and spending figure sums debit and credit: a row with only an
+  // amount counts as zero everywhere.
+  it.each([
+    ['an expense', 'expense', 99.5, { debit: 99.5, credit: null }],
+    ['an income', 'income', 99.5, { debit: null, credit: 99.5 }],
+    ['an amount read as text', 'expense', '12.30', { debit: 12.3, credit: null }],
+  ])('books %s on its side of the ledger', async (_name, transactionType, amount, sides) => {
+    receiptRepository.findOne.mockResolvedValue({
+      id: `receipt-${transactionType}`,
+      workspaceId: 'workspace-1',
+      status: ReceiptStatus.DRAFT,
+      parsedData: { amount, currency: 'EUR', vendor: 'Lidl', date: '2026-03-20', transactionType },
+      transactionId: null,
+    });
+
+    await service.approve(`receipt-${transactionType}`, 'workspace-1', 'user-1');
+
+    expect(transactionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ ...sides, amount: Math.abs(Number(amount)) }),
     );
   });
 

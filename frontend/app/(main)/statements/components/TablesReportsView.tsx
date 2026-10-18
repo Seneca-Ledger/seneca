@@ -11,7 +11,7 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -25,7 +25,6 @@ import {
   saveTablesReportsFilters,
   type TablesReportDrillDownResponse,
   type TablesReportFlowType,
-  type TablesReportResponse,
   type TablesReportSortKey,
 } from './tables-reports.utils';
 
@@ -130,12 +129,12 @@ export default function TablesReportsView() {
   const reportQuery = useQuery({
     queryKey: queryKeys.tablesReport({ workspaceId, params: reportPayload }),
     queryFn: async ({ signal }) => {
-      const response = await apiClient.post<TablesReportResponse>(
+      const response = await apiClient.post(
         '/reports/custom-tables/report',
         reportPayload satisfies ContractInput<'CustomTablesReportBody'>,
         { signal },
       );
-      return response.data;
+      return checkContract('CustomTablesReport', response.data, '/reports/custom-tables/report');
     },
     // Клик по фильтру меняет ключ; цифры и графики держатся на экране до
     // прихода нового отчёта, но только внутри того же воркспейса.
@@ -171,7 +170,13 @@ export default function TablesReportsView() {
           '/reports/custom-tables/report/drill-down',
           payload satisfies ContractInput<'CustomTablesReportDrillDownBody'>,
         );
-        setDrillDown(response.data);
+        setDrillDown(
+          await checkContract(
+            'CustomTablesReportDrillDown',
+            response.data,
+            '/reports/custom-tables/report/drill-down',
+          ),
+        );
       })().catch(async () => {
         setDrillDown({ counterparty, items: [] });
       });

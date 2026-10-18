@@ -158,6 +158,8 @@ export function useTablesList({ enabled, messages }: UseTablesListParams) {
 
   return {
     items: pageItems,
+    // Every table, unpaged: the create dialog checks names and sources against them.
+    allTables: items,
     totalCount: filtered.length,
     loading: tablesQuery.isPending,
     categories: categoriesQuery.data ?? [],

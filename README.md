@@ -13,7 +13,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](CONTRIBUTING.md)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9%20%7C%206.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
 **Open-source financial data platform for importing, processing, and analyzing bank statements**
 
@@ -57,11 +57,24 @@
 
 > **TL;DR**
 >
-> - Upload bank statements (PDF / CSV / XLSX / image) → auto-parse → deduplicate → AI-categorize
-> - Multi-tenant workspaces with RBAC, audit log, and one-click rollback
+> - Upload bank statements (PDF / CSV / XLSX / OFX / QIF / MT940 / CAMT.053 / image) → auto-parse → deduplicate → categorize → review
+> - Private by default: your data stays on your machine or server, no bank login required, AI is off unless you point it at a model (a local one works)
+> - Workspaces for yourself, your household or your team — roles, private transactions, audit log and one-click rollback
 > - Full stack running locally in one command: `npm run setup:dev`
 >
-> Built for finance teams, accountants, and developers who need to process and analyze bank statement data without proprietary SaaS lock-in.
+> Built for people who want to understand their money without handing their bank data to someone else's cloud — and for freelancers, small businesses, accountants and developers who need the same control. Self-hosted, open source, no proprietary SaaS lock-in.
+
+---
+
+## 📢 Wanted: real bank statements for parser development
+
+Lumio's parsers are only as good as the statements they were tested on. **I'm looking for people willing to share bank statements** — any bank, any country, any format (PDF, CSV, XLSX, OFX, MT940, CAMT.053, a phone screenshot) — so I can write and test parsers for them.
+
+- **Redact what you like.** Names, account numbers, addresses and counterparties can be blacked out or replaced; the parser needs the layout, the columns and the way dates and amounts are written, not your data. A statement with a handful of rows is enough.
+- **Your files stay private.** They are used only to build and test the parser. The originals are never committed to this repository — test fixtures that land in the repo are anonymized first.
+- **Even one statement helps**, especially from banks that are not yet in [Supported Banks](#supported-banks).
+
+📧 Send them to **[peterbaikov12@proton.me](mailto:peterbaikov12@proton.me)** — please mention the bank, the country and how you exported the file.
 
 ---
 <p align="center">
@@ -82,21 +95,23 @@
 
 ## Why Lumio exists
 
-Lumio turns unstructured financial documents (PDFs, CSVs, email receipts) into clean, queryable data. Open-source, self-hosted, and built for teams that need control over their financial data pipeline.
+Lumio turns unstructured financial documents (PDFs, CSVs, email receipts) into clean, queryable data. Most personal finance apps ask for your bank login or upload your statements to their servers; Lumio runs on your own machine or server, so your financial history stays with you. Open source and self-hosted — for a single person keeping private books as much as for a team that needs control over its financial data pipeline.
 
 ---
 
 ## Features
 
-Lumio is a full-stack financial operations platform built for teams that need to import, categorize, analyze, and collaborate on bank statement data.
+Lumio is a full-stack platform for importing, categorizing and analyzing bank statement data — on your own for personal finances, or together with a partner, an accountant or a team.
 
 ### Core capabilities
 
-- **Multi-format Statement Import** — PDF, CSV, XLSX, and image files. Native parsers for Kaspi Bank, Bereke Bank, and Bank Hapoalim / Isracard. Generic AI PDF parser for any other bank.
+- **Multi-format Statement Import** — PDF, CSV, XLSX / XLS, DOCX, OFX / QFX, QIF, MT940, CAMT.053 and image files. Native PDF parsers for Kaspi Bank, Bereke Bank, and Bank Hapoalim / Isracard; CSV column presets for 22 banks and fintechs (Revolut, Wise, N26, Monzo, Chase, ING and others); a generic AI PDF parser for any other bank.
 - **OCR for Image Statements** — Tesseract.js text extraction from scanned documents and photos.
 - **Idempotent Uploads** — SHA-256 file hashing prevents duplicate imports.
 - **Transaction Deduplication** — Fingerprint-based duplicate detection with confidence scoring, merge, and mark-as-duplicate workflows.
-- **AI Auto-Categorization** — OpenAI-compatible local/provider endpoint with per-workspace learning rules.
+- **Categorization** — Rules first, then what the workspace already taught Lumio about a payee (payees with aliases, learned from your confirmations); an OpenAI-compatible model only for rows those leave uncategorised. AI categorization is off by default.
+- **Review Queue** — Every imported row waits in Review until a person confirms it; only confirmed rows count in reports, budgets and the ledger. Suspected duplicates have their own list.
+- **Bank Sync (bring your own aggregator)** — Connect your own SimpleFIN Bridge account; new rows are pulled on demand or every six hours and go through the same import path as an uploaded file.
 - **Multi-Tenant Workspaces** — Unlimited workspaces with invitation flows and per-workspace data isolation.
 - **Granular RBAC** — Roles: owner, admin, member, viewer. Per-user permission overrides.
 - **Dashboard & Reports** — Cash flow, top categories, trends, custom report builder with CSV/XLSX export.
@@ -105,10 +120,13 @@ Lumio is a full-stack financial operations platform built for teams that need to
 - **API Keys** — Programmatic access via `lum_`-prefixed, SHA-256 hashed keys with revocation support.
 - **Budgets** — Budget tracking with manual spend recording and alerts.
 - **Subscriptions** — Recurring billing detection and management with frequency-based tracking.
-- **Goals & Net Worth** — Savings goals with progress tracking, and net worth aggregated across accounts, wallets, and crypto holdings.
-- **Crypto Portfolio** — Crypto holdings with price and wallet sync, and transfer mapping into transactions.
+- **Goals & Net Worth** — Savings goals with progress tracking, and net worth aggregated across accounts, wallets, investments, precious metals and crypto holdings.
+- **Forecast** — Cash-flow forecast from known paydays, bills, subscriptions and receivables, with safe-to-spend and runway.
+- **Investments & Precious Metals** — Investment and retirement accounts with holdings and contributions; precious-metal lots valued by weight and purity.
+- **Crypto Portfolio** — Crypto holdings with price and wallet sync across Ethereum, Base, Arbitrum, Optimism, Polygon, Tron, Bitcoin and Solana, and transfer mapping into transactions.
 - **AI Chat & Semantic Search** — Ask questions about your data; embeddings-backed transaction search plus a global cross-entity search.
-- **Tax Engine** — VAT rates, rules, jurisdictions, thresholds, and VAT return generation.
+- **Tax Engine** — VAT rates, rules, jurisdictions, thresholds, and VAT return generation; EU VAT numbers checked against VIES; reminders for upcoming VAT and income tax deadlines.
+- **Tax Pack & DATEV** — One archive for your accountant with the year's tax-relevant rows and every receipt and invoice behind them; a DATEV Buchungsstapel export for businesses in Germany and Austria.
 - **Double-Entry Ledger** — Every transaction is posted as a balanced journal entry into a chart of accounts built from your categories, bank accounts and wallets: VAT on its own account, other currencies converted into one base currency at the posting date, duplicates left out. Statement and wallet opening balances are booked against opening equity, and crypto transfers land on each crypto wallet's own account at the fiat value they were recorded at (not today's market value). Foreign-currency balances can be revalued at any day's rate, with the difference booked as FX gain or loss. Manual entries go through draft → post → reverse, and a posted entry can only be reversed, never edited. The database itself refuses an entry whose debits and credits differ. Trial balance, account ledger, profit and loss, and balance sheet are read straight from the journal, with each bank account reconciled against its latest statement. Opt in under Settings → Experimental.
 - **Income Tax Declaration** — Year-end draft for the self-employed, built only from the category → form-line mappings you confirm: Germany Anlage EÜR, Spain Modelo 100 (estimación directa simplificada), Poland PIT-36L / PIT-28 / PIT-36, and a generic income and expense summary everywhere else. Checks data completeness, converts currencies with the official source where one is verified (NBP for Poland, Banca d'Italia for Italy), shows filing deadlines and portals for 25 EU countries, and exports PDF or XLSX.
 - **Receipt Locations & Maps** — Every receipt can show where it was bought on a self-hosted map: a manual pin, the geocoded merchant address, the photo's GPS tag, or the device position.
@@ -120,17 +138,19 @@ Lumio is a full-stack financial operations platform built for teams that need to
 
 ### Intelligence
 
-- **ML Categorization Rules** — `CategoryLearning` remembers per-workspace merchant→category patterns and applies them automatically on future imports.
+- **Categorization Rules & Payee Memory** — Per-workspace categorization rules, plus payees (with aliases) that remember the category you confirmed for a merchant and apply it on future imports.
 - **AI Financial Insights** — Automatically generated insights surfaced on the dashboard; dismissible per-user.
 - **Generic AI PDF Parser** — an OpenAI-compatible endpoint extracts structured transaction data from any PDF when no native parser matches.
 
 ### Integrations
 
-- **IMAP Receipts** — mailbox polling pulls email receipts, parses merchant/amount/tax/line-item data, links receipts to transactions.
+- **IMAP Receipts** — syncs chosen mailbox folders on demand, parses merchant/amount/tax/line-item data, links receipts to transactions.
 - **S3-compatible Storage** — import and sync statement files with MinIO or another S3-compatible bucket.
 - **WebDAV Storage** — import and sync statement files with Nextcloud or another WebDAV-compatible server.
 - **Workbook Import** — export and import custom table data via XLSX, CSV, and ODS files.
-- **Telegram Bot** — Scheduled financial reports delivered to a Telegram chat or channel.
+- **Telegram Bot** — Scheduled financial reports delivered to a Telegram chat or channel, and quick expense capture from chat (`coffee 4.50`).
+- **Peppol** — Send and receive e-invoices through your own access point account (Recommand).
+- **Spreadsheet Import** — Import transactions, budgets, invoices, bills, subscriptions and metal lots from a spreadsheet, with column mapping suggested from the headers.
 
 ### Collaboration & Access Control
 
@@ -142,7 +162,8 @@ Lumio is a full-stack financial operations platform built for teams that need to
 
 - **Balance Sheet** — Account-level balance tracking with historical snapshots and export.
 - **Accounts Payable** — Pay-tab workflow for managing and tracking payable records. Marking a bill paid links the bank transaction that settled it (matching candidates are suggested) or records a cash payment from a wallet, so the payment reaches the ledger.
-- **Invoicing** — Clients, itemized invoices with per-line tax rates, and server-generated PDFs. Sending an invoice assigns it a sequential number, opens a receivable that is chased and paid the same way as a bill, and (when the double-entry ledger is enabled) books the accrual entry straight away — Dr Accounts Receivable, Cr Revenue and VAT payable. Recurring invoices generate their next draft automatically.
+- **Invoicing** — Clients, itemized invoices with per-line tax rates, and server-generated PDFs. Sending an invoice assigns it a sequential number, opens a receivable that is chased and paid the same way as a bill, and (when the double-entry ledger is enabled) books the accrual entry straight away — Dr Accounts Receivable, Cr Revenue and VAT payable. Recurring invoices generate their next draft automatically. Credit notes, and structured e-invoices: XRechnung (CII), Peppol BIS 3.0 (UBL) and ZUGFeRD / Factur-X hybrid PDFs, both written and read.
+- **Small-Business Pack** — Statement rows matched against open bills and receivables, ageing, duplicate-bill detection and emailed payment reminders.
 - **Custom Tables** — User-defined data structures with typed columns, batch editing, and formula support.
 - **Manual Data Entry** — Record cash expenses, income, and receipts manually with custom fields and file attachments.
 - **Categories** — Hierarchical transaction categories with usage counts and enable/disable toggle.
@@ -153,9 +174,10 @@ Lumio is a full-stack financial operations platform built for teams that need to
 
 - **File Storage** — Document store with folders, tags, versioning, per-file permissions, and expiring shared links.
 - **In-App Notifications** — Real-time feed with per-category preferences and unread badge count.
+- **Installable App (PWA)** — Web push notifications, an offline page, and manual entries made offline queued until the connection is back.
 - **WebSocket Support** — Live updates via Socket.IO for notifications and import progress.
 - **Observability** — Prometheus-format metrics endpoint (`/api/v1/metrics`), structured JSON logs, and correlation IDs — point your own collector at it.
-- **Guided Onboarding** — 9 interactive feature tours.
+- **Guided Onboarding** — Onboarding flow, a getting-started checklist on the dashboard and 7 interactive feature tours.
 - **Localization** — The UI ships in 35 languages via Intlayer; English is the default locale.
 - **Content Background** — A bundled or uploaded photo behind the app content, with adjustable dimming.
 
@@ -178,15 +200,28 @@ Setting expectations upfront:
 
 | Bank | Format | Parser |
 |---|---|---|
-| Kaspi Bank | PDF | `KaspiParser` — native table extraction |
-| Bereke Bank (new format) | PDF | `BerekeNewParser` — native |
-| Bereke Bank (legacy format) | PDF | `BerekeOldParser` — native |
-| Bank Hapoalim / Isracard | PDF | `HapoalimParser` — native (Hebrew) |
-| Any bank | CSV | `CsvParser` — generic delimiter detection |
-| Any bank | XLSX / XLS | `ExcelParser` — generic |
-| Any bank | DOCX | `DocxParser` — generic table extraction |
-| Any bank | PDF | `GenericPdfParser` — AI-assisted via OpenAI-compatible endpoint |
-| Any bank | Image (PNG / JPG) | OCR pipeline via Tesseract.js |
+| 🇰🇿 Kaspi Bank | PDF | `KaspiParser` — native table extraction |
+| 🇰🇿 Bereke Bank (new format) | PDF | `BerekeNewParser` — native |
+| 🇰🇿 Bereke Bank (legacy format) | PDF | `BerekeOldParser` — native |
+| 🇮🇱 Bank Hapoalim / Isracard | PDF | `HapoalimParser` — native (Hebrew) |
+| 🌍 Revolut, Wise, PayPal | CSV | `CsvParser` — column presets per bank |
+| 🇬🇧 Monzo, Starling, Santander UK, Barclays, HSBC, Lloyds | CSV | `CsvParser` — column presets per bank |
+| 🇺🇸 Chase, Bank of America, Capital One, American Express, Wells Fargo | CSV | `CsvParser` — column presets per bank |
+| 🇩🇪 N26, Sparkasse / DKB, Commerzbank | CSV | `CsvParser` — column presets per bank |
+| 🇳🇱 ING, Rabobank | CSV | `CsvParser` — column presets per bank |
+| 🇸🇪 🇩🇰 🇳🇴 🇫🇮 Nordea | CSV | `CsvParser` — column presets per bank |
+| T-Bank (Tinkoff) | CSV | `CsvParser` — column presets per bank |
+| 🌍 Any bank | CSV | `CsvParser` — generic delimiter detection |
+| 🌍 Any bank | XLSX / XLS | `ExcelParser` — generic |
+| 🌍 Any bank | DOCX | `DocxParser` — generic table extraction |
+| 🌍 Any bank | OFX / QFX | `OfxParser` |
+| 🌍 Any bank | QIF | `QifParser` |
+| 🌍 Any bank | MT940 | `Mt940Parser` — SWIFT statement |
+| 🌍 Any bank | CAMT.053 (XML) | `Camt053Parser` — ISO 20022 statement |
+| 🌍 Any bank | PDF | `GenericPdfParser` — AI-assisted via OpenAI-compatible endpoint |
+| 🌍 Any bank | Image (PNG / JPG) | OCR pipeline via Tesseract.js |
+
+Your bank is missing or parses badly? See [Wanted: real bank statements](#-wanted-real-bank-statements-for-parser-development).
 
 ---
 
@@ -197,20 +232,21 @@ Setting expectations upfront:
 | Layer | Technology |
 |---|---|
 | Framework | [NestJS 11](https://nestjs.com/) |
-| Language | TypeScript 5 (strict) |
+| Language | TypeScript 6 (strict) |
 | Database | [PostgreSQL 14](https://www.postgresql.org/) via [TypeORM 0.3](https://typeorm.io/) |
 | Cache | [Redis 7](https://redis.io/) via `cache-manager` |
 | Auth | JWT in HttpOnly cookies (access 30 min / refresh 30 d), double-submit CSRF, TOTP 2FA, Passport.js, bcrypt |
 | File Processing | pdfplumber (Python), pdf-parse, pdf-lib, tesseract.js v5, sharp, xlsx, exifr |
+| Documents | pdfmake (invoices, reports), XRechnung / Peppol UBL / ZUGFeRD writers |
 | AI / LLM | OpenAI-compatible HTTP endpoint (Ollama, LocalAI, vLLM) |
 | Email | SMTP via nodemailer + React Email templates |
-| Real-time | Socket.IO 4 + @nestjs/websockets |
-| Scheduling | @nestjs/schedule (cron jobs for Telegram reports, backups, crypto sync) |
+| Real-time | Socket.IO 4 + @nestjs/websockets; web push (VAPID) |
+| Scheduling | @nestjs/schedule (cron jobs for Telegram reports, backups, crypto and bank sync, tax deadline reminders) |
 | Queues | BullMQ on Redis (statement parsing) |
 | Hardening | helmet, @nestjs/throttler with Redis storage |
 | Maps (optional) | tileserver-gl + Nominatim, self-hosted and proxied by the backend |
 | Metrics | prom-client (Prometheus) |
-| Validation | class-validator + class-transformer (DTOs) |
+| Validation | class-validator + class-transformer (DTOs); Effect 4 Schema for shared API contracts (`packages/contracts`) and decoded external calls |
 | API Docs | Swagger / OpenAPI at `/api/docs` |
 | Linter | [Biome](https://biomejs.dev/) |
 
@@ -220,16 +256,18 @@ Setting expectations upfront:
 |---|---|
 | Framework | [Next.js 16](https://nextjs.org/) (App Router) |
 | Runtime | React 19 |
-| Language | TypeScript 5 |
+| Language | TypeScript 5.9 (strict) |
 | Styling | MUI v7 + Emotion |
 | Icons | MUI Icons |
-| Tables | TanStack Table v8 + TanStack Virtual v3 |
+| Tables | TanStack Table v9 + TanStack Virtual v3 |
 | Charts | Recharts v3 (cash flow, net worth, categories, ROI) + ECharts v6 (goal Sankey, forecasts, statements) |
 | Drag & Drop | @dnd-kit/core + @dnd-kit/sortable |
-| Data Fetching | TanStack Query v5 + Axios v1 (cookie credentials) |
+| Data Fetching | TanStack Query v5 + Axios v1 (cookie credentials), responses typed by the shared Effect contracts |
 | Real-time | socket.io-client v4 |
 | i18n | Intlayer v7 + next-intlayer (35 locales) |
 | Maps | Leaflet 1.9 |
+| Date pickers | MUI X Date Pickers v9 |
+| Offline / PWA | Service worker (`public/sw.js`), IndexedDB queue for offline entries |
 | Onboarding | driver.js |
 | PDF Viewer | react-pdf v10 |
 | Animation | framer-motion v12 |
@@ -242,7 +280,7 @@ Setting expectations upfront:
 | Layer | Technology |
 |---|---|
 | Containerization | Docker + Docker Compose |
-| CI/CD | GitHub Actions (CI, CD, CodeQL, dependency-review, Scorecard, release-please, docs) |
+| CI/CD | GitHub Actions (CI, CD, CodeQL, dependency-review, Scorecard, release-please, changelog, Makefile check, docs) |
 | Supply chain | Trivy scans, Conftest policies, cosign signatures, SPDX SBOM attestations |
 | Maps stack (optional) | Planetiler, tileserver-gl, Nominatim via Compose profiles |
 | Docs site | Docusaurus (`website/`) |
@@ -255,7 +293,7 @@ Setting expectations upfront:
 lumio/
 ├── backend/                         # NestJS API server
 │   ├── src/
-│   │   ├── modules/                 # 49 feature modules
+│   │   ├── modules/                 # 65 feature modules
 │   │   │   ├── api-keys/            # Programmatic API key management
 │   │   │   ├── application-settings/ # Runtime system configuration
 │   │   │   ├── auth/                # Cookie sessions, CSRF, 2FA, password reset
@@ -264,8 +302,12 @@ lumio/
 │   │   │   ├── statements/          # Bank statement upload & lifecycle management
 │   │   │   ├── transactions/        # Transaction CRUD, search, deduplication
 │   │   │   ├── categories/          # Hierarchical category management
-│   │   │   ├── classification/      # AI auto-categorization + ML learning rules
-│   │   │   ├── parsing/             # Multi-format file parsers (Kaspi, Bereke, Hapoalim, CSV, AI)
+│   │   │   ├── classification/      # Categorization rules, payee history, optional AI
+│   │   │   ├── payees/              # Payees, aliases and the categories learned for them
+│   │   │   ├── review-inbox/        # Review queue: unconfirmed rows and suspected duplicates
+│   │   │   ├── bank-sync/           # Bank sync through the user's own aggregator (SimpleFIN)
+│   │   │   ├── entity-imports/      # Spreadsheet import into transactions, budgets, invoices, bills…
+│   │   │   ├── parsing/             # Multi-format file parsers (Kaspi, Bereke, Hapoalim, CSV, OFX, QIF, MT940, CAMT, AI)
 │   │   │   ├── dashboard/           # Dashboard stats, trends, cash flow
 │   │   │   ├── reports/             # Financial reports, export (CSV/XLSX)
 │   │   │   ├── balance/             # Balance sheet accounts & snapshots
@@ -280,6 +322,9 @@ lumio/
 │   │   │   ├── custom-tables/       # User-defined data structures
 │   │   │   ├── data-entry/          # Manual expense/income entry
 │   │   │   ├── notifications/       # In-app notifications & preferences
+│   │   │   ├── push/                # Web push subscriptions (VAPID)
+│   │   │   ├── view-preferences/    # Per-user remembered page state
+│   │   │   ├── vendor-icons/        # Merchant logos
 │   │   │   ├── notes/               # Notes on statements and receipts
 │   │   │   ├── insights/            # AI-generated financial insights
 │   │   │   ├── audit/               # Audit log with rollback
@@ -287,9 +332,17 @@ lumio/
 │   │   │   ├── branches/            # Branch reference data
 │   │   │   ├── wallets/             # Wallet reference data
 │   │   │   ├── tax/                 # VAT rates, rules, jurisdictions, VAT returns
+│   │   │   ├── tax-pack/            # Year archive for the accountant (rows + receipts + invoices)
+│   │   │   ├── tax-reminders/       # Upcoming VAT / income tax deadlines and reminders
+│   │   │   ├── datev/               # DATEV Buchungsstapel export (DE/AT)
+│   │   │   ├── reference-data/      # VIES VAT check, EU VAT rates (TEDB), public holidays
 │   │   │   ├── income-tax/          # Income tax declaration drafts, rule packs, FX sources
 │   │   │   ├── payables/            # Accounts payable workflow
-│   │   │   ├── invoices/            # Invoicing: clients, invoices, line items, PDF, recurrence
+│   │   │   ├── invoices/            # Invoicing: clients, invoices, credit notes, PDF, recurrence
+│   │   │   ├── e-invoices/          # XRechnung, Peppol UBL, ZUGFeRD / Factur-X read & write
+│   │   │   ├── peppol/              # Peppol sending/receiving via the workspace's access point
+│   │   │   ├── smb/                 # Bill/receivable matching, ageing, payment reminders
+│   │   │   ├── business-profile/    # Seller details and logo for issued documents
 │   │   │   ├── receipts/            # Receipt management, browser, locations
 │   │   │   ├── maps/                # Proxy to the self-hosted tile server
 │   │   │   ├── geocoding/           # Nominatim client for merchant addresses
@@ -301,14 +354,17 @@ lumio/
 │   │   │   ├── crypto/              # Crypto holdings, price and wallet sync
 │   │   │   ├── goals/               # Savings / financial goals
 │   │   │   ├── net-worth/           # Net worth aggregation across accounts
+│   │   │   ├── investments/         # Investment accounts, holdings, precious metals
+│   │   │   ├── forecast/            # Cash-flow forecast, safe-to-spend, runway
 │   │   │   ├── backups/             # Encrypted scheduled backups, export & restore
 │   │   │   ├── mailer/              # Transactional email delivery
 │   │   │   └── observability/       # Prometheus metrics endpoint
-│   │   ├── entities/                # 89 TypeORM entities
+│   │   ├── entities/                # 108 TypeORM entities
 │   │   ├── common/                  # Guards, decorators, interceptors, filters
 │   │   ├── config/                  # App configuration
-│   │   └── migrations/              # 149 database migrations (auto-applied on startup)
-│   ├── scripts/                     # Admin, seed, parse debug, storage repair
+│   │   └── migrations/              # 223 database migrations (auto-applied on startup)
+│   ├── scripts/                     # Admin, seed, parse debug, storage repair, statement anonymizer
+│   ├── golden/                      # Anonymized parser golden fixtures (golden-private/ is git-ignored)
 │   └── @tests/                      # Unit and E2E test suites
 ├── frontend/                        # Next.js application
 │   ├── app/
@@ -317,10 +373,14 @@ lumio/
 │   │   ├── (main)/                  # Protected app routes
 │   │   │   ├── dashboard/           # Dashboard
 │   │   │   ├── statements/          # Statement list, detail, reports sub-routes
+│   │   │   ├── review/              # Review queue
 │   │   │   ├── reports/             # Financial reports
 │   │   │   ├── budgets/             # Budget tracking
 │   │   │   ├── goals/               # Financial goals
 │   │   │   ├── net-worth/           # Net worth overview
+│   │   │   ├── forecast/            # Cash-flow forecast
+│   │   │   ├── invoices/            # Invoices, clients, credit notes
+│   │   │   ├── ledger/              # Double-entry ledger (experimental)
 │   │   │   ├── crypto/              # Crypto portfolio
 │   │   │   ├── subscriptions/       # Recurring billing
 │   │   │   ├── roi/                 # ROI analysis
@@ -332,7 +392,9 @@ lumio/
 │   │   │   └── tax-declaration/     # Income tax declaration wizard
 │   │   ├── categories/              # Category management
 │   │   ├── chat/                    # AI chat UI
-│   │   ├── integrations/            # Integration hub (S3, WebDAV, IMAP, workbook import)
+│   │   ├── integrations/            # Integration hub (S3, WebDAV, IMAP, bank sync, Peppol, workbook import)
+│   │   ├── plugins/                 # AI assistant, MCP server, webhooks
+│   │   ├── offline/                 # PWA offline page
 │   │   ├── storage/                 # File storage browser
 │   │   ├── settings/                # Profile, notifications, workspace, Telegram
 │   │   ├── audit/                   # Audit log viewer
@@ -342,9 +404,11 @@ lumio/
 │   │   ├── components/              # Reusable React components
 │   │   ├── hooks/                   # Custom hooks (useAuth, etc.)
 │   │   └── tours/                   # driver.js guided tour definitions
-│   └── public/                      # Static assets, bank logos
+│   └── public/                      # Static assets, bank logos, service worker
+├── packages/
+│   └── contracts/                   # Effect Schema API contracts (source; synced into backend and frontend)
 ├── docs/
-│   ├── plans/                       # 35 feature design & implementation plans
+│   ├── plans/                       # 55 feature design & implementation plans
 │   ├── CI/                          # CI/CD pipeline documentation
 │   ├── security/                    # CVE allowlists, license exceptions
 │   └── statements-examples/         # Sample bank statement files for testing
@@ -370,11 +434,11 @@ Choose the startup mode that matches your machine:
 
 | Mode | Command | Requirements | Best for |
 |---|---|---|---|
-| Interactive | `npm run setup:dev` | Node.js 20+; Docker optional depending on selected mode | First run; lets you choose a mode |
+| Interactive | `npm run setup:dev` | Node.js 22.18+; Docker optional depending on selected mode | First run; lets you choose a mode |
 | Docker full-stack | `npm run setup:dev:docker` | Docker Desktop or Docker Engine with Compose | Fastest fresh-clone path |
-| Local app + Docker infra | `npm run setup:dev:local` | Node.js 20+, npm, Docker Compose | Running backend/frontend on your host |
-| Native no-Docker | `npm run setup:dev:native` | Node.js 20+, npm, local PostgreSQL, local Redis, `psql`, `redis-cli` | Contributors who do not want Docker |
-| Env only | `npm run setup:env` | Node.js 20+ | Preparing `.env` files without starting services |
+| Local app + Docker infra | `npm run setup:dev:local` | Node.js 22.18+, npm, Docker Compose | Running backend/frontend on your host |
+| Native no-Docker | `npm run setup:dev:native` | Node.js 22.18+, npm, local PostgreSQL, local Redis, `psql`, `redis-cli` | Contributors who do not want Docker |
+| Env only | `npm run setup:env` | Node.js 22.18+ | Preparing `.env` files without starting services |
 
 ### One-command development startup
 
@@ -388,7 +452,7 @@ npm run setup:dev
 
 ### Fast bootstrap checklist (new contributor flow)
 
-1. Install Node.js 20+ and Docker (with Compose) before you start.
+1. Install Node.js 22.18+ and Docker (with Compose) before you start.
 2. Ensure ports are free: `3000` (frontend), `3001` (backend).
 3. Prepare environment files once:
 
@@ -440,6 +504,8 @@ docker compose up -d
 ```
 
 `LUMIO_IMAGE_TAG` in `.env` pins a specific release (defaults to the newest one).
+
+To update later, run `make upgrade`. It backs up the database, pulls the new images, restarts the stack, and lets the backend apply any migrations. Instance admins can also update from Settings → Advanced once `COMPOSE_PROFILES=updater` is in `.env`. See [Upgrading](website/docs/deployment/docker.md#upgrading).
 
 To stop local mode, press `Ctrl + C` in the terminal running `npm run setup:dev:local`.
 
@@ -739,7 +805,7 @@ make update            # Update npm dependencies
 
 ### Database Migrations
 
-Lumio uses TypeORM migrations exclusively (`synchronize: false`). Migrations run automatically on every startup unless `RUN_MIGRATIONS=false` is set. There are currently 149 migrations covering the entire schema history.
+Lumio uses TypeORM migrations exclusively (`synchronize: false`). Migrations run automatically on every startup unless `RUN_MIGRATIONS=false` is set. There are currently 223 migrations covering the entire schema history.
 
 ```bash
 # Apply all pending migrations (Docker)
@@ -751,7 +817,7 @@ cd backend && npm run migration:run
 # Generate a new migration after changing an entity
 make migrate-generate name=AddTransactionMerchantColumn
 # or locally:
-cd backend && npm run migration:generate -- AddTransactionMerchantColumn
+cd backend && npm run migration:generate -- src/migrations/AddTransactionMerchantColumn
 
 # Revert the last applied migration
 make migrate-revert
@@ -830,65 +896,8 @@ npm test               # Run all tests with Vitest
 
 ## Architecture
 
-### System Overview
+<img width="594" height="1125" alt="architecture" src="https://github.com/user-attachments/assets/8fdad21b-a3ee-4557-b186-22cf013dac04" />
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Browser / Client                        │
-└────────────┬────────────────────────────────────┬───────────────┘
-             │                                    │
-             │ HTTP/WebSocket                     │ HTTP
-             │                                    │
-┌────────────▼────────────┐         ┌────────────▼───────────────┐
-│   Next.js Frontend      │         │   External Integrations     │
-│   (Port 3000)           │         │  - SMTP / IMAP              │
-│                         │         │  - S3-compatible storage    │
-│  - App Router           │         │  - WebDAV storage           │
-│  - React 19             │         │  - Workbook files           │
-│  - MUI + Emotion        │         │  - Telegram Bot             │
-│  - Real-time updates    │         │  - OpenAI-compatible AI     │
-│                         │         │  - tileserver-gl, Nominatim │
-└────────────┬────────────┘         └─────────────────────────────┘
-             │
-             │ REST API (/api/v1)
-             │ WebSocket (Socket.IO)
-             │
-┌────────────▼─────────────────────────────────────────────────────┐
-│              NestJS Backend (Port 3001)                          │
-│                                                                  │
-│  ┌─────────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │  Auth & RBAC    │  │   Parsing    │  │  Classification  │  │
-│  │  - JWT + CSRF   │  │  - Kaspi     │  │  - AI Auto-Cat   │  │
-│  │  - Sessions/2FA │  │  - Bereke    │  │  - ML Rules      │  │
-│  │  - Permissions  │  │  - CSV/XLSX  │  │  - Learning      │  │
-│  └─────────────────┘  │  - Generic   │  └──────────────────┘  │
-│                       │  - OCR       │                          │
-│  ┌─────────────────┐  └──────────────┘  ┌──────────────────┐  │
-│  │  Transactions   │                    │   Workspaces     │  │
-│  │  - CRUD         │  ┌──────────────┐  │  - Multi-tenant  │  │
-│  │  - Dedup        │  │  Reports &   │  │  - Invitations   │  │
-│  │  - Search       │  │  Dashboard   │  │  - RBAC          │  │
-│  └─────────────────┘  │  - Cash flow │  └──────────────────┘  │
-│                       │  - Export    │                          │
-│  ┌─────────────────┐  └──────────────┘  ┌──────────────────┐  │
-│  │  Audit Log      │                    │   Storage &      │  │
-│  │  - Events       │  ┌──────────────┐  │   Files          │  │
-│  │  - Rollback     │  │ Integrations │  │  - Versions      │  │
-│  └─────────────────┘  │ - S3/WebDAV  │  │  - Shared links  │  │
-│                       │ - IMAP       │  └──────────────────┘  │
-│                       │ - Telegram   │                          │
-│                       └──────────────┘                          │
-└──────────┬────────────────────────────┬─────────────────────────┘
-           │                            │
-           │                            │
-┌──────────▼────────────┐   ┌──────────▼────────────┐
-│   PostgreSQL 14       │   │     Redis 7           │
-│                       │   │                       │
-│  - 89 TypeORM entities│   │  - Cache              │
-│  - 149 migrations     │   │  - Rate limiting      │
-│  - Full-text search   │   │  - BullMQ queues      │
-└───────────────────────┘   └───────────────────────┘
-```
 
 ### API Design
 
@@ -911,7 +920,7 @@ npm test               # Run all tests with Vitest
 - SHA-256 `fileHash` on statements for idempotent re-upload detection
 - `Idempotency-Key` header supported on upload endpoints (stored in `IdempotencyKey` entity)
 - Transaction fingerprinting for cross-statement duplicate detection
-- 89 TypeORM entities covering all domain objects (see `backend/src/entities/`)
+- 108 TypeORM entities covering all domain objects (see `backend/src/entities/`)
 
 ### Parsing Pipeline
 
@@ -925,13 +934,16 @@ Upload request
       ├── HapoalimParser     (Bank Hapoalim / Isracard PDF)
       ├── GenericPdfParser   (AI-assisted: OpenAI-compatible endpoint)
       ├── ExcelParser        (XLSX / XLS)
-      ├── CsvParser          (CSV)
+      ├── CsvParser          (CSV, with per-bank presets)
       ├── DocxParser         (DOCX tables)
+      ├── OfxParser / QifParser
+      ├── Mt940Parser / Camt053Parser
       └── OCR Pipeline       (Tesseract.js for images)
   → ImportSession created (status: processing)
   → Transactions persisted
-  → ClassificationService (AI categorization + ML rules)
-  → DeduplicationService (fingerprint check)
+  → Categorization (rules → payee history → optional AI)
+  → Deduplication (fingerprint check, within and across statements)
+  → Review queue (rows count only once confirmed)
   → ImportSession status: complete
 ```
 
@@ -1023,7 +1035,7 @@ CD builds, scans, signs and publishes the images on version tags and stops there
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What is planned, in order |
 | [docs/ui-principles.md](docs/ui-principles.md) | UI stability principles the product follows |
 | [website/docs/](website/docs/) | Documentation site: getting started, guides, architecture, API and deployment reference |
-| [docs/plans/](docs/plans/) | 35 feature design and implementation plan documents |
+| [docs/plans/](docs/plans/) | 55 feature design and implementation plan documents |
 | [docs/CI/](docs/CI/) | CI/CD pipeline documentation |
 | [docs/security/](docs/security/) | CVE allowlists and license exceptions |
 
@@ -1041,8 +1053,9 @@ We welcome contributions from the community.
 - **Suggest features** — use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.yml)
 - **Improve documentation** — fix typos, clarify guides, add examples
 - **Submit pull requests** — fix bugs, add features, write tests
-- **Add bank parsers** — support new banks by implementing the parser interface
-- **Translate** — improve any of the 21 UI locales (`*.content.ts` dictionaries)
+- **Add bank parsers** — support new banks by implementing the parser interface or adding a CSV preset
+- **Share a bank statement** — see [Wanted: real bank statements](#-wanted-real-bank-statements-for-parser-development)
+- **Translate** — improve any of the 35 UI locales (`*.content.ts` dictionaries)
 
 ### Development Workflow
 

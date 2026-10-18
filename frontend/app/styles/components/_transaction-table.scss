@@ -1036,45 +1036,209 @@
 .lumio-tx-drawer {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 
+  &__title {
+    font-weight: 500;
+  }
+
+  // One hairline under the text tabs, the only line between the header and the content.
   &__tabs {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border-bottom: 1px solid $lumio-color-ink-150;
-    padding-bottom: 8px;
-    font-size: 14px;
-    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
 
-    @include dark {
-      border-bottom-color: $lumio-color-ink-150-dk;
+  &__empty {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+}
+
+// Which transaction the drawer is about: merchant, amount, then the facts.
+.lumio-tx-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  &__merchant {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+
+  &__amount {
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__facts {
+    display: grid;
+    gap: 6px;
+    margin: 12px 0 0;
+
+    > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 13px;
+    }
+
+    dt {
+      color: var(--text-muted);
+    }
+
+    dd {
+      margin: 0;
+      color: var(--foreground);
+      text-align: right;
+      overflow-wrap: anywhere;
     }
   }
 
-  &__tab {
-    padding: 4px 12px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    color: $lumio-color-ink-500;
-    font-size: 14px;
-    font-weight: 600;
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 
-    @include dark {
-      color: $lumio-color-ink-500-dk;
+    &::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
     }
 
-    &--active {
-      border-bottom-color: var(--primary);
-      color: var(--primary);
+    &--pending::before {
+      background: var(--attention);
+    }
+  }
+}
 
-      @include dark {
-        border-bottom-color: $color-primary-dk;
-        color: $color-primary-dk;
+// One action of the drawer's list: its name, a grey line on what it means, an arrow.
+.lumio-tx-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__hint {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__arrow {
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  &:hover:not(:disabled) &__label,
+  &:hover:not(:disabled) &__arrow {
+    color: var(--primary);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+}
+
+// The pinned row under the drawer's content: open the source, delete, confirm.
+.lumio-tx-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  &__question {
+    margin-right: auto;
+    font-size: 14px;
+    color: var(--foreground);
+  }
+
+  &__text-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary);
+    text-decoration: none;
+    cursor: pointer;
+
+    &--muted {
+      color: var(--text-muted);
+
+      &:hover {
+        color: var(--money-down);
       }
     }
+  }
+
+  // A final step in the terracotta of overruns; text, since a fill of it reads poorly in dark.
+  &__danger-btn {
+    padding: 8px 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--money-down);
+    cursor: pointer;
+  }
+
+  &__primary-btn {
+    padding: 8px 18px;
+    border: 0;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
+  }
+
+  // The drawer's main action: filled sage, at the far end.
+  &__primary-btn {
+    margin-left: auto;
+    background: var(--primary-fill);
+    color: var(--primary-foreground);
   }
 }
 
@@ -1116,13 +1280,36 @@
   &__actions {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    border-top: 1px solid $lumio-color-ink-150;
-    padding-top: 24px;
+    gap: 16px;
+  }
 
-    @include dark {
-      border-top-color: $lumio-color-ink-150-dk;
-    }
+  // Field labels: above the field, sentence case, the readable grey.
+  &__field-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__cat-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  &__action-list {
+    display: flex;
+    flex-direction: column;
   }
 
   &__set-cat {

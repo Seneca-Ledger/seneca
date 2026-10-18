@@ -1,6 +1,8 @@
 'use client';
 
+import { Plus } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
+import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useIntlayer } from '@/app/i18n';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import { useStatementsQueue } from './statements-queue-context';
@@ -14,8 +16,11 @@ export function StatementsUploadButton(): React.JSX.Element {
   const { onScan } = useStatementsQueue();
 
   return (
-    <Button data-tour-id="statements-upload-trigger" onClick={onScan}>
-      {resolveLabel(getNestedValue(t, ['uploadStatement']), 'Upload statement')}
-    </Button>
+    <ReadOnlyHint>
+      <Button data-tour-id="statements-upload-trigger" onClick={onScan}>
+        <Plus size={18} aria-hidden />
+        {resolveLabel(getNestedValue(t, ['uploadStatement']), 'Upload statement')}
+      </Button>
+    </ReadOnlyHint>
   );
 }

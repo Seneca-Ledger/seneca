@@ -12,7 +12,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
@@ -27,7 +26,6 @@ import { ProfileStep } from './components/ProfileStep';
 import { TaxDisclaimerGate } from './components/TaxDisclaimerGate';
 import { useTaxDeclaration } from './hooks/useTaxDeclaration';
 import {
-  completenessTone,
   parseStep,
   parseTaxYear,
   STEPS,
@@ -160,44 +158,72 @@ function TaxDeclarationContent(): React.ReactElement {
             scrollButtons={false}
             sx={sharedMuiTabsSx}
           >
-            {STEPS.map(key => (
-              <Tab key={key} value={key} label={stepLabels[key]} />
+            {/* Numbered: the tabs are the steps of one task, in order. */}
+            {STEPS.map((key, index) => (
+              <Tab
+                key={key}
+                value={key}
+                label={
+                  <span>
+                    <Box component="span" sx={{ color: 'var(--text-muted)', mr: 0.75 }}>
+                      {index + 1}
+                    </Box>
+                    {stepLabels[key]}
+                  </span>
+                }
+              />
             ))}
           </Tabs>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ ml: 'auto', flexShrink: 0 }}>
-            {draft.data ? (
+            {/* The data check shows the score itself, large; the bar would repeat it. */}
+            {draft.data && step !== 'data' ? (
               <Box sx={{ minWidth: 120 }}>
-                <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.75 }}>
-                  {t.completenessLabel}: {draft.data.completeness.score}/100
+                <Typography sx={{ fontSize: 12, color: 'var(--text-muted)', mb: 0.75 }}>
+                  {t.completenessPercent.value.replace(
+                    '{score}',
+                    String(draft.data.completeness.score),
+                  )}
                 </Typography>
-                {/* A hairline, not a bar: the score is context for the page, not its focus.
-                      The track is a neutral tint — action.hover is green in this theme. */}
+                {/* Sage on a neutral track: an unfinished profile is not an error,
+                    so the bar is never red. */}
                 <LinearProgress
                   variant="determinate"
                   value={draft.data.completeness.score}
-                  color={completenessTone(draft.data.completeness.score)}
+                  aria-label={t.completenessLabel.value}
                   sx={{
-                    height: 2,
+                    height: 4,
                     borderRadius: 999,
-                    bgcolor: theme => alpha(theme.palette.text.primary, 0.08),
+                    bgcolor: 'var(--icon-badge-bg)',
+                    '& .MuiLinearProgress-bar': { bgcolor: 'var(--primary)', borderRadius: 999 },
                   }}
                 />
               </Box>
             ) : null}
-            <TextField
-              select
-              size="small"
-              label={t.taxYearLabel.value}
-              value={taxYear}
-              onChange={event => updateQuery({ year: event.target.value })}
-              sx={{ minWidth: 140 }}
-            >
-              {taxYearOptions().map(year => (
-                <MenuItem key={year} value={year}>
-                  {year}
-                </MenuItem>
-              ))}
-            </TextField>
+            {/* The label sits above the field, as on every form in the app. */}
+            <Box>
+              <Typography
+                component="label"
+                htmlFor="tax-year"
+                sx={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', mb: 0.5 }}
+              >
+                {t.taxYearLabel}
+              </Typography>
+              <TextField
+                select
+                size="small"
+                id="tax-year"
+                value={taxYear}
+                onChange={event => updateQuery({ year: event.target.value })}
+                sx={{ minWidth: 140 }}
+                slotProps={{ select: { inputProps: { 'aria-label': t.taxYearLabel.value } } }}
+              >
+                {taxYearOptions().map(year => (
+                  <MenuItem key={year} value={year}>
+                    {year}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
           </Stack>
         </Box>
 
@@ -222,7 +248,8 @@ function TaxDeclarationContent(): React.ReactElement {
       component="main"
       sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
     >
-      {renderBody()}
+      {/* One centred column: wider, the two cards stopped short of the edge. */}
+      <Box sx={{ maxWidth: 1100, mx: 'auto' }}>{renderBody()}</Box>
     </Box>
   );
 }

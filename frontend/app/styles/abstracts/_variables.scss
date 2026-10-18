@@ -3,12 +3,12 @@
 // Dark equivalents are in _variables-dark.scss.
 
 // ── Brand / Primary ──────────────────────────────────────────
-$lumio-color-primary:          #168118;
-$lumio-color-primary-hover:    #157811;
-$lumio-color-primary-dark:     #036704;
-$lumio-color-primary-50:       #edf7ed;
-$lumio-color-primary-100:      #d4edd4;
-$lumio-color-primary-200:      #a8d5a8;
+$lumio-color-primary:          #5b7b6a;
+$lumio-color-primary-hover:    #4e6b5c;
+$lumio-color-primary-dark:     #3f574a;
+$lumio-color-primary-50:       #eef3f0;
+$lumio-color-primary-100:      #dce6e0;
+$lumio-color-primary-200:      #b9cbc1;
 $lumio-color-primary-contrast: #ffffff;
 $lumio-color-forest:           #0e2a10;
 $lumio-color-lime:             #9fe870;
@@ -36,6 +36,30 @@ $lumio-color-danger:        #e11d48;
 $lumio-color-danger-soft:   #fff1f2;
 $lumio-color-info:          #0ea5e9;
 $lumio-color-info-soft:     #f0f9ff;
+// Money up/down on the dashboard: earthy rather than neon, both ≥4.5:1 on white.
+// The app-wide success/danger above stay for alerts and destructive actions.
+$lumio-color-money-up:      #3f7d5c;
+$lumio-color-money-down:    #b4493f;
+// Big figures: a warm near-black, softer than ink-900 on the warm page.
+$lumio-color-figure:        #24211e;
+// Attention that isn't an error (an unconfirmed item): ochre, not orange.
+$lumio-color-attention:     #c79a3b;
+// The one neutral circle behind every category icon.
+$lumio-color-icon-badge-bg: #efebe4;
+// Row dividers in lists: a warm hairline that barely separates.
+$lumio-color-hairline:      #ede9e2;
+// Grey text that has to be read (descriptions, hints): #6b665d is ~5.7:1 on
+// white. #8a857c below (~3.7:1) is for decorative captions only.
+$lumio-color-text-muted:    #6b665d;
+// An empty slot waiting for input ("Add category"): grey at rest, a chip on hover.
+$lumio-color-slot-text:     #8a857c;
+$lumio-color-slot-dash:     #cfc9be;
+$lumio-color-slot-border:   #e3ded5;
+$lumio-color-slot-bg:       #f4f1eb;
+// A tab's count when there is nothing in it.
+$lumio-color-tab-count-zero: #b5afa4;
+// The line icon of an empty state, on the $lumio-color-icon-badge-bg circle.
+$lumio-color-empty-icon:    #6f8f7b;
 
 // ── Legacy aliases ────────────────────────────────────────────
 $lumio-color-secondary:          $lumio-color-ink-600;
@@ -51,7 +75,7 @@ $lumio-color-cat-income:    #10b981;
 $lumio-color-cat-other:     #64748b;
 
 // ── Surface / background ──────────────────────────────────────
-$lumio-color-bg:              #f7f8f7;
+$lumio-color-bg:              #faf8f5;
 $lumio-color-surface:         #ffffff;
 $lumio-color-surface-muted:   #f2f2f4;
 $lumio-color-surface-warning: #fffbeb;
@@ -122,10 +146,10 @@ $lumio-z-popover:  1400;
 $lumio-z-tooltip:  1500;
 
 // ── Theme tokens (globals / Tailwind layer) ───────────────────
-$color-background:           #f7f8f7;
+$color-background:           #faf8f5;
 $color-foreground:           #0b0b10;
-$color-primary:              #168118;
-$color-primary-hover:        #157811;
+$color-primary:              #5b7b6a;
+$color-primary-hover:        #4e6b5c;
 $color-primary-foreground:   #ffffff;
 $color-secondary:            $lumio-color-ink-600;
 $color-secondary-foreground: #ffffff;
@@ -138,12 +162,12 @@ $color-input:                $lumio-color-ink-200;
 $color-ring:                 $color-primary;
 $color-destructive:          $lumio-color-danger;
 $color-destructive-foreground: #ffffff;
-$color-surface-glow:           rgba(22, 129, 24, 0.14);
+$color-surface-glow:           rgba(91, 123, 106, 0.14);
 $color-surface-success-glow:   rgba(16, 185, 129, 0.12);
 
 // Dashboard palette
-$ff-dash-primary:       #168118;
-$ff-dash-primary-soft:  #a8d5a8;
+$ff-dash-primary:       #5b7b6a;
+$ff-dash-primary-soft:  #b9cbc1;
 $ff-dash-cta:           #084f09;
 $ff-dash-surface:       #ffffff;
 $ff-dash-foreground:    #0b0b10;

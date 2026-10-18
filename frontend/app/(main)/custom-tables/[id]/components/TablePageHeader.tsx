@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Pencil } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { CustomTable } from '../utils/tableTypes';
 
@@ -22,11 +23,21 @@ interface TablePageHeaderProps {
   total: number | null;
   onBack: () => void;
   onRename: (name: string) => Promise<void>;
+  /** The toolbar, drawn on the title's line so the grid starts higher. */
+  actions?: ReactNode;
   labels: TablePageHeaderLabels;
 }
 
-/** Back link, editable title, description and a short meta line. */
-export function TablePageHeader({ table, total, onBack, onRename, labels }: TablePageHeaderProps) {
+/** Back arrow and editable title with a short meta line under it; the toolbar sits to the right. */
+export function TablePageHeader({
+  table,
+  total,
+  onBack,
+  onRename,
+  actions,
+  labels,
+}: TablePageHeaderProps) {
+  const categoryName = useCategoryName();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(table.name);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -53,9 +64,16 @@ export function TablePageHeader({ table, total, onBack, onRename, labels }: Tabl
 
   return (
     <header className="lumio-ct__header">
-      <Button variant="ghost" size="sm" type="button" onClick={onBack} className="lumio-ct__back">
-        <ArrowLeft size={16} aria-hidden />
-        {labels.back}
+      <Button
+        variant="ghost"
+        size="icon"
+        type="button"
+        onClick={onBack}
+        className="lumio-ct__back"
+        aria-label={labels.back}
+        title={labels.back}
+      >
+        <ArrowLeft size={18} aria-hidden />
       </Button>
       <div className="lumio-ct__title-row">
         {editing ? (
@@ -92,15 +110,17 @@ export function TablePageHeader({ table, total, onBack, onRename, labels }: Tabl
           </h1>
         )}
         <p className="lumio-ct__meta">
-          <span className="lumio-ct__badge lumio-ct__badge--neutral">{source}</span>
+          {/* "Transactions · 860 rows" under a table named Transactions says it twice. */}
+          {source && source !== table.name ? <span>{source}</span> : null}
           {total !== null ? <span>{labels.rows.replace('{{count}}', String(total))}</span> : null}
-          {table.category ? <span>{table.category.name}</span> : null}
+          {table.category ? <span>{categoryName(table.category.name)}</span> : null}
           {syncedAt ? (
             <span>{labels.syncedAt.replace('{{date}}', formatStoredDate(new Date(syncedAt)))}</span>
           ) : null}
         </p>
         {table.description ? <p className="lumio-ct__description">{table.description}</p> : null}
       </div>
+      {actions}
     </header>
   );
 }

@@ -8,12 +8,14 @@ import type React from 'react';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { ChartTooltipCard } from './ChartParts';
 import { formatMonthLabel, monthAtIndex } from './chart-format';
-import { CHART_MARGIN, CHART_TICK, INACTIVE_BAR_OPACITY } from './chart-theme';
+import { CHART_MARGIN, CHART_TICK, HOVER_CURSOR, INACTIVE_BAR_OPACITY } from './chart-theme';
 
 export interface MonthlySeries {
   key: string;
   label: string;
   color: string;
+  /** Series of one hue told apart by strength: 1 is full colour. */
+  opacity?: number;
 }
 
 export interface MonthlyStackedBarsProps {
@@ -62,7 +64,7 @@ export function MonthlyStackedBars({
           interval={0}
         />
         <Tooltip
-          cursor={{ fill: 'var(--muted)' }}
+          cursor={HOVER_CURSOR}
           content={({ active, payload }) => {
             const point = payload?.[0]?.payload as { month: string } | undefined;
             if (!(active && point)) {
@@ -71,10 +73,12 @@ export function MonthlyStackedBars({
             return (
               <ChartTooltipCard
                 title={formatMonthLabel(point.month, locale)}
-                rows={series.map(item => ({
-                  label: item.label,
-                  value: String(seriesValue(point, item.key)),
-                }))}
+                rows={series
+                  .filter(item => seriesValue(point, item.key) > 0)
+                  .map(item => ({
+                    label: item.label,
+                    value: String(seriesValue(point, item.key)),
+                  }))}
               />
             );
           }}
@@ -86,13 +90,18 @@ export function MonthlyStackedBars({
             name={item.label}
             stackId="history"
             fill={item.color}
+            // A hairline in the card colour keeps stacked parts of one hue apart.
+            stroke="var(--card)"
+            strokeWidth={1}
             isAnimationActive={false}
             cursor="pointer"
           >
             {points.map(point => (
               <Cell
                 key={point.month}
-                fillOpacity={point.month === activeMonth ? 1 : INACTIVE_BAR_OPACITY}
+                fillOpacity={
+                  (item.opacity ?? 1) * (point.month === activeMonth ? 1 : INACTIVE_BAR_OPACITY)
+                }
               />
             ))}
           </Bar>

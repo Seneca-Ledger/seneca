@@ -77,8 +77,9 @@ export class TransactionsService {
     return user?.name || user?.email || 'User';
   }
 
-  private async invalidateReports(userId: string): Promise<void> {
-    const key = `reports:version:${userId}`;
+  /** Bumps the version the cached reports are keyed by; they are keyed by workspace. */
+  private async invalidateReports(workspaceId: string): Promise<void> {
+    const key = `reports:version:${workspaceId}`;
     await this.cacheManager.set(key, Date.now().toString(), 0);
   }
 
@@ -320,7 +321,7 @@ export class TransactionsService {
     }
 
     const saved = await this.transactionRepository.save(transaction);
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     // Audit: capture transaction update with before/after snapshot.
     await this.auditService.createEvent({
@@ -419,7 +420,7 @@ export class TransactionsService {
     }
 
     if (updatedTransactions.length > 0) {
-      await this.invalidateReports(userId);
+      await this.invalidateReports(workspaceId);
     }
 
     return updatedTransactions;
@@ -715,7 +716,7 @@ export class TransactionsService {
       return rows;
     });
 
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     await this.auditService.createEvent({
       workspaceId,
@@ -892,7 +893,7 @@ export class TransactionsService {
       return saved;
     });
 
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     await this.auditService.createEvent({
       workspaceId,
@@ -925,7 +926,7 @@ export class TransactionsService {
     // Use delete for simplicity; entity already validated for ownership.
 
     await this.transactionRepository.delete(transaction.id);
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     // Audit: record deletion for potential rollback.
     await this.auditService.createEvent({

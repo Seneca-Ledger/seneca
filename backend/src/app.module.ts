@@ -19,6 +19,8 @@ import { CsrfGuard } from './common/guards/csrf.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AuditActorInterceptor } from './common/interceptors/audit-actor.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { StripKeysInterceptor } from './common/interceptors/strip-keys.interceptor';
+import { SERVER_ONLY_KEYS } from './common/utils/sensitive-keys.util';
 import { getDatabaseConfig } from './config/database.config';
 import { validateEnv } from './config/env.schema';
 import {
@@ -108,6 +110,7 @@ import { OpenProtocolIntegrationsModule } from './modules/open-protocol-integrat
 import { ParsingModule } from './modules/parsing/parsing.module';
 import { PayablesModule } from './modules/payables/payables.module';
 import { PayeesModule } from './modules/payees/payees.module';
+import { PeppolModule } from './modules/peppol/peppol.module';
 import { PushModule } from './modules/push/push.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -117,6 +120,7 @@ import { SmbModule } from './modules/smb/smb.module';
 import { StatementsModule } from './modules/statements/statements.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { SystemUpdateModule } from './modules/system-update/system-update.module';
 import { TaxModule } from './modules/tax/tax.module';
 import { TaxPackModule } from './modules/tax-pack/tax-pack.module';
 import { TaxRemindersModule } from './modules/tax-reminders/tax-reminders.module';
@@ -124,6 +128,7 @@ import { TelegramModule } from './modules/telegram/telegram.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { UsersModule } from './modules/users/users.module';
 import { VendorIconsModule } from './modules/vendor-icons/vendor-icons.module';
+import { VersionsModule } from './modules/versions/versions.module';
 import { ViewPreferencesModule } from './modules/view-preferences/view-preferences.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
@@ -231,8 +236,10 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     ]),
     CommonModule,
     ApplicationSettingsModule,
+    SystemUpdateModule,
     AiAnalysisModule,
     BackupsModule,
+    VersionsModule,
     AuthModule,
     AuditModule,
     BalanceModule,
@@ -278,6 +285,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     SearchModule,
     PayablesModule,
     InvoicesModule,
+    PeppolModule,
     BusinessProfileModule,
     ExchangeRatesModule,
     SubscriptionsModule,
@@ -296,6 +304,11 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
+    },
+    // Outermost, so it sees every answer last: nothing leaves with a file path or a credential.
+    {
+      provide: APP_INTERCEPTOR,
+      useValue: new StripKeysInterceptor(SERVER_ONLY_KEYS),
     },
     {
       provide: APP_INTERCEPTOR,

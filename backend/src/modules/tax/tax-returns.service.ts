@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, IsNull, Not, Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
@@ -13,6 +14,7 @@ import {
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { AuditService } from '../audit/audit.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { TaxDeadlineResolvedEvent } from '../notifications/events/notification-events';
 import { JurisdictionAdoptionService } from './jurisdiction-adoption.service';
 import { JurisdictionsService, toDateOnly } from './jurisdictions.service';
 import {
@@ -59,6 +61,7 @@ export class TaxReturnsService {
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly jurisdictionsService: JurisdictionsService,
     private readonly auditService: AuditService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -327,6 +330,11 @@ export class TaxReturnsService {
     });
 
     await this.recordStatusChange(workspaceId, userId, existing, filed);
+    this.eventEmitter.emit('tax.deadline.resolved', {
+      workspaceId,
+      kind: 'vat_return',
+      periodEnd,
+    } satisfies TaxDeadlineResolvedEvent);
     return filed;
   }
 

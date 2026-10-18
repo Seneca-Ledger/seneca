@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { CATEGORY_TONE_HEX, OTHER_TONE_HEX } from '@/app/components/charts/chart-theme';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import type { SpendFlowData } from './useSpendFlow';
 import {
   buildSpendFlowSankey,
@@ -54,8 +56,8 @@ describe('buildSpendFlowSankey', () => {
     const series = seriesOf(buildSpendFlowSankey(data, 'light', labels, format, { compact: false, isIncome: false }));
 
     expect(series.lineStyle.color).toBe('gradient');
-    expect(series.label.formatter({ name: 'cat:food' })).toBe('{n|Food}\n{v|60.00 € (60.0%)}');
-    expect(series.label.formatter({ name: 'total' })).toBe('{n|Total spend}\n{v|100.00 € (100.0%)}');
+    expect(series.label.formatter({ name: 'cat:food' })).toBe('{n|Food}\n{v|60.00 € · 60%}');
+    expect(series.label.formatter({ name: 'total' })).toBe('{n|Total spend}\n{v|100.00 € · 100%}');
   });
 
   it('localizes the nodes the server leaves unnamed', () => {
@@ -68,15 +70,58 @@ describe('buildSpendFlowSankey', () => {
     expect(label('m:__none__:__none__')).toBe('{n|Unnamed}');
   });
 
-  it('gives merchants the colour of their category and puts the total label on the right', () => {
+  it('paints categories in the earthy tones, not their stored colour, and merchants in the hue of their category', () => {
     const series = seriesOf(buildSpendFlowSankey(data, 'light', labels, format, { compact: false, isIncome: false }));
     const colorOf = (name: string): string | undefined => series.data.find(item => item.name === name)?.itemStyle.color;
 
-    expect(colorOf('m:food:rewe')).toBe('#ff0000');
-    expect(colorOf('other:food')).toBe('#ff0000');
+    expect(CATEGORY_TONE_HEX.light).toContain(colorOf('cat:food'));
+    expect(colorOf('cat:food')).not.toBe('#ff0000');
+    expect(colorOf('m:food:rewe')).toBe(colorOf('cat:food'));
+    expect(colorOf('other:food')).toBe(colorOf('cat:food'));
+    expect(colorOf('cat:__other__')).toBe(OTHER_TONE_HEX.light);
     expect(series.data.find(item => item.name === 'total')?.label).toEqual({ position: 'right' });
     // Data items carry only what ECharts needs; a stray `id` blanks the series.
     expect(Object.keys(series.data[1]).sort()).toEqual(['itemStyle', 'name']);
+  });
+
+  it('names categories in the reader\'s language and keeps merchants, tones and deep links as stored', () => {
+    const ads: SpendFlowData = {
+      ...data,
+      nodes: [
+        { id: 'total', kind: 'total', name: null, amount: 100, share: 1, color: null },
+        { id: 'cat:ads', kind: 'category', name: 'Advertising', amount: 100, share: 1, color: null },
+        { id: 'sub:ads', kind: 'subcategory', name: 'Advertising', amount: 60, share: 0.6, color: null },
+        { id: 'm:ads', kind: 'merchant', name: 'Advertising', amount: 40, share: 0.4, color: null },
+      ],
+      links: [
+        { source: 'total', target: 'cat:ads', value: 100 },
+        { source: 'cat:ads', target: 'sub:ads', value: 60 },
+        { source: 'cat:ads', target: 'm:ads', value: 40 },
+      ],
+    };
+    const ru = (name: string) => localizeStatementCategoryName(name, 'ru');
+    const option = buildSpendFlowSankey(ads, 'light', labels, format, {
+      compact: false,
+      isIncome: false,
+      categoryName: ru,
+    });
+    const series = seriesOf(option);
+    const label = (name: string): string => series.label.formatter({ name }).split('\n')[0];
+    const tooltip = (option.tooltip as { formatter: (p: Record<string, unknown>) => string }).formatter;
+
+    expect(label('cat:ads')).toBe('{n|Реклама}');
+    expect(label('sub:ads')).toBe('{n|Реклама}');
+    // A merchant is a name as written, even one that spells a category.
+    expect(label('m:ads')).toBe('{n|Advertising}');
+    expect(tooltip({ name: 'cat:ads' })).toMatch(/^Реклама<br\/>/);
+    expect(tooltip({ dataType: 'edge', value: 40, data: { source: 'cat:ads', target: 'm:ads' } })).toMatch(
+      /^Реклама → Advertising<br\/>/,
+    );
+    const english = seriesOf(buildSpendFlowSankey(ads, 'light', labels, format, { compact: false, isIncome: false }));
+    expect(series.data.find(item => item.name === 'cat:ads')?.itemStyle.color).toBe(
+      english.data.find(item => item.name === 'cat:ads')?.itemStyle.color,
+    );
+    expect(findSpendFlowNodeId(ads, 'advertising')).toBe('cat:ads');
   });
 
   it('drops the merchant column in compact mode', () => {
@@ -89,13 +134,13 @@ describe('buildSpendFlowSankey', () => {
 
 describe('spendFlowChartHeight', () => {
   it('grows with the busiest column and never drops below the minimum', () => {
-    expect(spendFlowChartHeight(data, false)).toBe(2 * 30 + 360 + 24);
+    expect(spendFlowChartHeight(data, false)).toBe(2 * 38 + 360 + 24);
     expect(spendFlowChartHeight({ nodes: [], links: [] }, false)).toBe(420);
     const many = {
       nodes: data.nodes,
       links: Array.from({ length: 20 }, (_, i) => ({ source: 'cat:food', target: `m:${i}`, value: 1 })),
     };
-    expect(spendFlowChartHeight(many, false)).toBe(19 * 30 + 360 + 24);
+    expect(spendFlowChartHeight(many, false)).toBe(19 * 38 + 360 + 24);
     expect(visibleSpendFlow(many, true).links).toHaveLength(0);
   });
 });

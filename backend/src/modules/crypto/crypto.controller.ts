@@ -20,9 +20,19 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { multerConfig } from '../../config/multer.config';
-import { ConnectCryptoWalletBody, ManualHoldingBody } from '../../contracts';
+import {
+  ConnectCryptoWalletBody,
+  CryptoGains,
+  CryptoHistory,
+  CryptoNetworkList,
+  CryptoSummary,
+  CryptoTransactionList,
+  CryptoWalletList,
+  ManualHoldingBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CryptoService } from './crypto.service';
@@ -67,18 +77,21 @@ export class CryptoController {
 
   @Get('wallets')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoWalletList)
   async findAll(@WorkspaceId() workspaceId: string) {
     return this.cryptoService.findAll(workspaceId);
   }
 
   @Get('networks')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoNetworkList)
   getNetworks() {
     return this.cryptoService.getNetworks();
   }
 
   @Get('summary')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoSummary)
   async getSummary(
     @WorkspaceId() workspaceId: string,
     @Query('days') days?: string,
@@ -95,6 +108,7 @@ export class CryptoController {
 
   @Get('transactions')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoTransactionList)
   async getRecentTransactions(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
     const parsed = Number.parseInt(limit ?? '', 10);
     return this.cryptoService.getRecentTransactions(
@@ -105,6 +119,7 @@ export class CryptoController {
 
   @Get('history')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoHistory)
   async getHistory(@WorkspaceId() workspaceId: string, @Query('days') days?: string) {
     const parsed = Number.parseInt(days ?? '', 10);
     return this.cryptoService.getHistory(
@@ -119,6 +134,7 @@ export class CryptoController {
    */
   @Get('gains')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoGains)
   async getGains(@WorkspaceId() workspaceId: string, @Query('year') year?: string) {
     const parsed = Number.parseInt(year ?? '', 10);
     const valid = Number.isFinite(parsed) && parsed >= 2009 && parsed <= 2100;

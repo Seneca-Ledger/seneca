@@ -11,13 +11,24 @@ import {
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { parseReviewerFilter } from '../../common/utils/transaction-owner.util';
-import { ApproveTransactionsBody, ResolveDuplicateBody } from '../../contracts';
+import {
+  ApproveTransactionsBody,
+  ResolveDuplicateBody,
+  ReviewApproved,
+  ReviewInboxByStatement,
+  ReviewInboxCounts,
+  ReviewInboxPage,
+  ReviewInboxQuery,
+  StatementApproved,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { DuplicateDecision, ReviewInboxQueryDto } from './dto/review-inbox.dto';
+import { DuplicateDecision } from './dto/review-inbox.dto';
 import { ReviewInboxService } from './review-inbox.service';
 
 @Controller('review-inbox')
@@ -26,10 +37,11 @@ export class ReviewInboxController {
 
   @Get()
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(ReviewInboxPage)
   async list(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: ReviewInboxQueryDto,
+    @SchemaQuery(ReviewInboxQuery) query: ReviewInboxQuery,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.reviewInboxService.list(workspaceId, query, selfMemberId);
@@ -37,6 +49,7 @@ export class ReviewInboxController {
 
   @Get('counts')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(ReviewInboxCounts)
   async counts(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -49,6 +62,7 @@ export class ReviewInboxController {
   /** Rows each statement still has in the inbox, keyed by statement id; finished ones are absent. */
   @Get('statements')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(ReviewInboxByStatement)
   async pendingByStatement(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.reviewInboxService.pendingByStatement(workspaceId);
   }
@@ -57,6 +71,7 @@ export class ReviewInboxController {
   @Post('statements/:id/approve')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(StatementApproved)
   async approveStatement(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: User,
@@ -68,6 +83,7 @@ export class ReviewInboxController {
   @Post('transactions/approve')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(ReviewApproved)
   async approveTransactions(
     @SchemaBody(ApproveTransactionsBody) body: ApproveTransactionsBody,
     @CurrentUser() user: User,

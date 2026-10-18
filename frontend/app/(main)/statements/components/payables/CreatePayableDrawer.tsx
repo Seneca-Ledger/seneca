@@ -272,10 +272,11 @@ export function CreatePayableDrawer({
                 sx={FORM_CONTROL_SX}
                 value={form.status}
                 onChange={value => setForm(prev => ({ ...prev, status: value as PayableStatus }))}
-                options={Object.entries(labels.statusOptions).map(([value, label]) => ({
-                  value,
-                  label,
-                }))}
+                // Paid comes from recording the payment (Mark paid), which books the
+                // money; an edit cannot make an open bill paid, only keep a paid one so.
+                options={Object.entries(labels.statusOptions)
+                  .filter(([value]) => value !== 'paid' || payable?.status === 'paid')
+                  .map(([value, label]) => ({ value, label }))}
               />
             </div>
 

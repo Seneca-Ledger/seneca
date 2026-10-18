@@ -10,6 +10,8 @@ import type {
   Payable,
   ReceiptRecord,
   SubscriptionItem,
+  TaxJurisdictionItem,
+  TransactionListItem,
   WalletItem,
   WorkspaceDetail,
   WorkspaceMember,
@@ -36,6 +38,7 @@ export function categoryItem(
     icon: null,
     stoicClass: null,
     helpsOthers: null,
+    taxRelevant: false,
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
     parent: null,
@@ -94,6 +97,8 @@ export function budgetItem(
     availableAmount: 100,
     carriedAmount: 0,
     isActive: true,
+    unconvertedSpending: [],
+    beforeStartSpending: [],
     ...overrides,
   };
 }
@@ -309,4 +314,66 @@ export function authUser(overrides: Partial<AuthUser> = {}): AuthUser {
 /** `GET /insights`: one page of insights. */
 export function insightPage(items: Insight[]) {
   return { items, total: items.length, limit: 50, offset: 0 };
+}
+
+/** A jurisdiction as `GET /tax/settings` and `GET /tax/jurisdictions` send it: Germany by default. */
+export function taxJurisdictionItem(
+  overrides: Partial<TaxJurisdictionItem> = {},
+): TaxJurisdictionItem {
+  return {
+    id: 'jurisdiction-de',
+    code: 'DE',
+    name: 'Germany',
+    taxName: 'USt',
+    currency: 'EUR',
+    scheme: 'vat',
+    isEu: true,
+    filingPeriod: 'quarterly',
+    registrationThreshold: '25000.00',
+    thresholdPeriod: 'calendar_year',
+    ...overrides,
+  };
+}
+
+/** A row of `GET /transactions`: an unverified expense of 10.00 USD. */
+export function transactionItem(
+  overrides: Partial<TransactionListItem> & Pick<TransactionListItem, 'id'>,
+): TransactionListItem {
+  return {
+    statementId: null,
+    cryptoWalletId: null,
+    transactionDate: '2026-01-01',
+    transactionType: 'expense',
+    isVerified: false,
+    documentNumber: null,
+    counterpartyName: 'Merchant',
+    counterpartyBin: null,
+    counterpartyAccount: null,
+    counterpartyBank: null,
+    paymentPurpose: 'Purchase',
+    debit: '10.00',
+    credit: null,
+    currency: 'USD',
+    exchangeRate: null,
+    amountForeign: null,
+    categoryId: null,
+    branchId: null,
+    walletId: null,
+    article: null,
+    comments: null,
+    category: null,
+    branch: null,
+    wallet: null,
+    amount: '-10.00',
+    ownerMemberId: null,
+    isPrivate: false,
+    privateCategoryId: null,
+    transferPairId: null,
+    transferPairSource: null,
+    transferPairKind: null,
+    reimbursementOfId: null,
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+    ...overrides,
+  };
 }

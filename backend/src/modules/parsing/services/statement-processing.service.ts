@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Data } from 'effect';
@@ -34,6 +34,7 @@ import type {
 import { MetricsService } from '../../observability/metrics.service';
 import { TaxAssignmentService } from '../../tax/tax-assignment.service';
 import { CrossStatementDeduplicationService } from '../../transactions/services/cross-statement-deduplication.service';
+import { ManualRowDuplicateService } from '../../transactions/services/manual-row-duplicate.service';
 import { TransactionFingerprintService } from '../../transactions/services/transaction-fingerprint.service';
 import { TransferPairingService } from '../../transactions/services/transfer-pairing.service';
 import { AiParseValidator } from '../helpers/ai-parse-validator.helper';
@@ -108,6 +109,8 @@ export class StatementProcessingService {
     private readonly eventEmitter?: EventEmitter2,
     @Optional()
     private readonly transferPairingService?: TransferPairingService,
+    @Optional()
+    private readonly manualRowDuplicates?: ManualRowDuplicateService,
   ) {}
 
   private isRecord(value: unknown): value is Record<string, unknown> {
@@ -470,7 +473,7 @@ export class StatementProcessingService {
     });
 
     if (!statement) {
-      throw new Error(`Statement ${statementId} not found`);
+      throw new NotFoundException(`Statement ${statementId} not found`);
     }
 
     const importPreview = this.getImportPreview(statement);
@@ -486,12 +489,13 @@ export class StatementProcessingService {
       if (transactionCount > 0) {
         return statement;
       }
-      throw new Error(`Import preview session missing for statement ${statementId}`);
+      // Nothing was previewed, so there is nothing to commit: the caller's state, not a fault.
+      throw new ConflictException(`Import preview session missing for statement ${statementId}`);
     }
 
     const transactions = this.hydratePreviewTransactions(importPreview.transactions);
     if (transactions.length === 0) {
-      throw new Error(`No preview transactions available for statement ${statementId}`);
+      throw new ConflictException(`No preview transactions available for statement ${statementId}`);
     }
 
     const commitResult = await this.importSessionService.processImport(
@@ -969,6 +973,8 @@ export class StatementProcessingService {
           actorName,
           statementId: statement.id,
           transactionCount: creationResult.transactions.length,
+          transactionIds: creationResult.transactions.map(transaction => transaction.id),
+          source: 'statement',
         } satisfies ImportCommittedEvent);
 
         const uncategorizedCount = creationResult.transactions.filter(
@@ -1273,7 +1279,17 @@ export class StatementProcessingService {
       }
     }
 
-    const duplicatesFlagged = await this.flagFingerprintDuplicates(drafts, statement, log);
+    const fingerprintRepeats = await this.flagFingerprintDuplicates(drafts, statement, log);
+    // A cash payment or an approved receipt has no fingerprint to match; its
+    // bank row is caught by amount and date instead, so it is not counted twice.
+    const repeatsOfManualRows =
+      statement.workspaceId && this.manualRowDuplicates
+        ? await this.manualRowDuplicates.flagRepeats(drafts, statement.workspaceId)
+        : 0;
+    if (repeatsOfManualRows) {
+      log('warn', `${repeatsOfManualRows} transactions repeat a row booked by hand`);
+    }
+    const duplicatesFlagged = fingerprintRepeats + repeatsOfManualRows;
 
     // Single atomic write. A half-imported statement marked COMPLETED is worse
     // than a failed one: totals and balance checks would silently be wrong.

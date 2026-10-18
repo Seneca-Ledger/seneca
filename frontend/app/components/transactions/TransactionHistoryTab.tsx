@@ -30,6 +30,11 @@ export function TransactionHistoryTab({ events, loading, onSelect }: Transaction
     );
   }
 
+  // Says what will show up here, rather than only that nothing has yet.
+  if (events.length === 0) {
+    return <p className="lumio-tx-drawer__empty">{t.sheet.historyEmpty}</p>;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <EntityHistoryTimeline events={events} onSelect={onSelect} />

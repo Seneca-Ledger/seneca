@@ -65,22 +65,85 @@
     }
   }
 
+  // Sentence case in the readable grey, like every other label: no capitals.
   &__stat-label {
-    font-size: 11.5px;
-    color: $lumio-color-ink-500;
+    font-size: 13px;
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
 
-    @include dark {
-      color: $lumio-color-ink-500-dk;
+  &__stat-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    vertical-align: 1px;
+
+    &--positive {
+      background: $lumio-color-money-up;
+
+      @include dark {
+        background: $lumio-color-success-dk;
+      }
     }
+
+    &--negative {
+      background: $lumio-color-money-down;
+
+      @include dark {
+        background: $lumio-color-danger-dk;
+      }
+    }
+
+    &--warning {
+      background: $lumio-color-warning;
+
+      @include dark {
+        background: $lumio-color-warning-dk;
+      }
+    }
+
+    &--info {
+      background: $lumio-color-info;
+
+      @include dark {
+        background: $lumio-color-info-dk;
+      }
+    }
+  }
+
+  /* A category's share of the spending, under its name: for two or three, in place of a ring. */
+  &__share-bar {
+    display: block;
+    height: 4px;
+    margin-top: 6px;
+    border-radius: 2px;
+    background: var(--icon-badge-bg);
+    overflow: hidden;
+
+    > span {
+      display: block;
+      height: 100%;
+      border-radius: 2px;
+    }
+  }
+
+  /* Ties a category row to its slice: the only colour the list carries. */
+  &__legend-dot {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    border-radius: 50%;
+    vertical-align: 1px;
   }
 
   &__stat-value {
     font-size: 26px;
     font-weight: 600;
-    color: $lumio-color-ink-900;
+    color: $lumio-color-figure;
     letter-spacing: -0.015em;
     margin-top: 6px;
     line-height: 1.15;
@@ -152,6 +215,37 @@
     font-size: 12px;
   }
 
+  /* What a tile with room adds under its figure: label on the left, value on the right. */
+  /* A tile with room drawing a full chart rather than its sparkline. */
+  &__stat-chart {
+    margin-top: 12px;
+  }
+
+  &__stat-details {
+    display: grid;
+    gap: 4px;
+    margin: 10px 0 0;
+    font-size: 12px;
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    dt {
+      color: var(--muted-foreground);
+    }
+
+    dd {
+      margin: 0;
+      font-weight: 600;
+      color: var(--foreground);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+  }
+
   &__stat-sub {
     color: $lumio-color-ink-500;
 
@@ -179,14 +273,11 @@
     margin-top: 10px;
     pointer-events: none;
     opacity: 0.9;
-    color: var(--primary);
-
-    @include dark {
-      color: $lumio-color-primary-dk;
-    }
+    // A neutral line is grey: colour is kept for the cards that deviate.
+    color: var(--text-muted);
 
     &--positive {
-      color: $lumio-color-success;
+      color: $lumio-color-money-up;
 
       @include dark {
         color: $lumio-color-success-dk;
@@ -194,7 +285,7 @@
     }
 
     &--negative {
-      color: $lumio-color-danger;
+      color: $lumio-color-money-down;
 
       @include dark {
         color: $lumio-color-danger-dk;
@@ -316,17 +407,25 @@
       flex: 1 1 auto;
       min-width: 0;
     }
+
+    /* On a phone the head already wraps the actions under the title; there they
+       wrap too (period tabs, then the link) instead of running past the card. */
+    @include respond-to('sm') {
+      flex-shrink: 1;
+      flex-wrap: wrap;
+      min-width: 0;
+      row-gap: 8px;
+    }
   }
 
+  // Sentence case and a medium weight, as on every other card in the app.
   &__card-title {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: $lumio-color-ink-500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: 15px;
+    font-weight: $lumio-font-weight-medium;
+    color: $lumio-color-figure;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $lumio-color-ink-900-dk;
     }
   }
 
@@ -352,13 +451,9 @@
   }
 
   &__card-sub {
-    font-size: 12.5px;
-    color: $lumio-color-ink-500;
+    font-size: 14px;
+    color: var(--text-muted);
     margin-top: 4px;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
   }
 
   &__card-link-btn {
@@ -440,9 +535,170 @@
   &__list {
     flex: 1;
     min-width: 0;
+
+    /* A card with the row to itself: its list in two columns. */
+    &--columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 32px;
+      align-content: start;
+
+      @container overview-section (max-width: 720px) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  }
+
+  /* Recent transactions with the row to itself: category and account as columns. */
+  &__recent-col {
+    width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted-foreground);
+
+    @container overview-section (max-width: 720px) {
+      display: none;
+    }
+  }
+
+  &__recent-amount {
+    min-width: 88px;
+    text-align: right;
+  }
+
+  /* The crypto card with the row to itself: its holdings as a small table. */
+  &__holdings {
+    flex: 1;
+    max-width: 560px;
+    margin-left: auto;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+
+    th {
+      padding: 0 0 6px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      text-align: right;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted-foreground);
+    }
+
+    td {
+      padding: 6px 0 6px 16px;
+      text-align: right;
+      color: var(--foreground);
+      border-top: 1px solid var(--border-color);
+    }
+
+    th:first-child,
+    td:first-child {
+      padding-left: 0;
+      text-align: left;
+    }
+
+    @container overview-section (max-width: 720px) {
+      display: none;
+    }
+
+    /* Under the value when the card shares its row: the card's full width. */
+    &--stacked {
+      flex: none;
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+
+      @container overview-section (max-width: 720px) {
+        display: table;
+      }
+
+      @container overview-section (max-width: 400px) {
+        th:nth-child(2),
+        td:nth-child(2) {
+          display: none;
+        }
+      }
+    }
+  }
+
+  &__holdings-asset {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+
+  /* A chart with the row to itself, and what explains it beside (net worth, cash runway). */
+  &__chart-aside {
+    display: grid;
+    // A narrow side column: each label sits next to its figure, not across the card.
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 32px;
+    align-items: start;
+
+    @container overview-section (max-width: 720px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  &__chart-aside-main {
+    min-width: 0;
+    margin: 0;
+  }
+
+  &__chart-aside-side {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .lumio-dashboard__stat-details {
+      margin: 0;
+      gap: 6px;
+      font-size: 14px;
+
+      dt {
+        color: var(--text-muted);
+      }
+
+      dd {
+        font-size: 16px;
+        font-weight: $lumio-font-weight-medium;
+      }
+    }
   }
 
   /* ── Budget rows ── */
+  &__budget-amounts {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  // Over the limit the bar stays inside its track; a short tick past the end
+  // says it went beyond.
+  &__budget-bar {
+    position: relative;
+
+    &[data-tone='over']::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      right: -1px;
+      width: 2px;
+      height: 11px;
+      border-radius: 1px;
+      background: var(--money-down);
+    }
+  }
+
   &__budget-row {
     padding: 10px 0;
 
@@ -473,7 +729,8 @@
 
   &__budget-pct {
     font-size: 13px;
-    font-weight: $lumio-font-weight-semibold;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--foreground);
     font-variant-numeric: tabular-nums;
   }
 
@@ -505,264 +762,12 @@
     }
   }
 
-  /* ── Finance Ops ── */
-  &__saved-views {
-    margin-top: 16px;
-  }
-
-  &__feature-summary {
-    margin: 0 0 16px;
-    font-size: 13.5px;
-    line-height: 1.55;
-    color: $lumio-color-ink-600;
-
-    @include dark {
-      color: $lumio-color-ink-600-dk;
-    }
-  }
-
-  &__feature-metric {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 8px;
-
-    .lumio-dashboard__stat-value {
-      margin-top: 0;
-    }
-  }
-
-  &__feature-footer {
-    margin-top: auto;
-    padding-top: 12px;
-    margin-left: -8px;
-  }
-
-  /* Card whose body is a single interactive surface (upload zone). */
-  &__card--flush {
-    padding: 8px;
-  }
-
-  &__card--flush &__upload-zone {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-  }
-
-  /* ── Quick actions ── */
-  &__action-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  &__action-row {
-    display: grid;
-    grid-template-columns: 32px 1fr auto;
-    gap: 12px;
-    align-items: center;
-    padding: 10px;
-    border-radius: $lumio-radius-sm;
-    cursor: pointer;
-    transition: background-color 120ms;
-    text-align: left;
-    background: none;
-    border: none;
-    width: 100%;
-    text-decoration: none;
-    color: inherit;
-
-    &:hover {
-      background: $lumio-color-ink-50;
-
-      @include dark {
-        background: $lumio-color-ink-50-dk;
-      }
-    }
-  }
-
-  &__action-ico {
-    width: 32px;
-    height: 32px;
-    border-radius: $lumio-radius-sm;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-
-    &--warning {
-      background: $lumio-color-warning-soft;
-      color: $lumio-color-warning;
-
-      @include dark {
-        background: $lumio-color-warning-soft-dk;
-        color: $lumio-color-warning-dk;
-      }
-    }
-
-    &--info {
-      background: $lumio-color-info-soft;
-      color: $lumio-color-info;
-
-      @include dark {
-        background: $lumio-color-info-soft-dk;
-        color: $lumio-color-info-dk;
-      }
-    }
-
-    &--success {
-      background: $lumio-color-success-soft;
-      color: $lumio-color-success;
-
-      @include dark {
-        background: $lumio-color-success-soft-dk;
-        color: $lumio-color-success-dk;
-      }
-    }
-
-    &--neutral {
-      background: $lumio-color-ink-100;
-      color: $lumio-color-ink-600;
-
-      @include dark {
-        background: $lumio-color-ink-100-dk;
-        color: $lumio-color-ink-600-dk;
-      }
-    }
-
-    &--critical {
-      background: $lumio-color-danger-soft;
-      color: $lumio-color-danger;
-
-      @include dark {
-        background: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
-      }
-    }
-  }
-
-  &__action-body {
-    min-width: 0;
-  }
-
-  &__action-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: $lumio-color-ink-900;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-
-    @include dark {
-      color: $lumio-color-ink-900-dk;
-    }
-  }
-
-  &__action-sub {
-    font-size: 11.5px;
-    color: $lumio-color-ink-500;
-    margin-top: 2px;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
   &__action-chevron {
     color: $lumio-color-ink-300;
     flex-shrink: 0;
 
     @include dark {
       color: $lumio-color-ink-300-dk;
-    }
-  }
-
-  /* ── Upload zone ── */
-  &__upload-zone {
-    border: 1.5px dashed $lumio-color-ink-200;
-    border-radius: $lumio-radius-md;
-    padding: 24px;
-    text-align: center;
-    transition: border-color 120ms, background-color 120ms;
-    cursor: pointer;
-    display: block;
-    text-decoration: none;
-
-    @include dark {
-      border-color: $lumio-color-ink-200-dk;
-    }
-
-    &:hover {
-      border-color: var(--primary);
-      background: var(--primary-50);
-
-      @include dark {
-        border-color: $lumio-color-primary-dk;
-        background: $lumio-color-primary-50-dk;
-      }
-    }
-  }
-
-  &__upload-ico {
-    width: 44px;
-    height: 44px;
-    margin: 0 auto 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-md;
-    background: var(--primary-50);
-    color: var(--primary);
-
-    @include dark {
-      background: $lumio-color-primary-50-dk;
-      color: $lumio-color-primary-dk;
-    }
-  }
-
-  &__upload-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: $lumio-color-ink-900;
-
-    @include dark {
-      color: $lumio-color-ink-900-dk;
-    }
-  }
-
-  &__upload-sub {
-    font-size: 12px;
-    color: $lumio-color-ink-500;
-    margin-top: 4px;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
-  &__upload-formats {
-    display: flex;
-    gap: 4px;
-    justify-content: center;
-    margin-top: 14px;
-    flex-wrap: wrap;
-  }
-
-  &__format-tag {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: $lumio-radius-xs;
-    font-size: 11px;
-    font-weight: 500;
-    background: $lumio-color-ink-100;
-    color: $lumio-color-ink-600;
-
-    @include dark {
-      background: $lumio-color-ink-100-dk;
-      color: $lumio-color-ink-600-dk;
     }
   }
 
@@ -844,6 +849,15 @@
     }
   }
 
+  /* Lined up with the tab content below (DashboardTabContent px: 2 / md: 4). */
+  &__unconfirmed {
+    margin: 12px 32px 0;
+
+    @media (max-width: 899.95px) {
+      margin: 12px 16px 0;
+    }
+  }
+
   /* ── Month strip + year stepper ── */
   &__month-strip {
     display: flex;
@@ -855,6 +869,49 @@
   &__month-chips {
     flex: 1;
     min-width: 0;
+
+    // Desktop: stretch the twelve chips across the row instead of leaving a gap
+    // before the year stepper; below this width they keep their natural size and scroll.
+    @media (min-width: 1025px) {
+      .lumio-chip {
+        flex: 1 1 0;
+        justify-content: center;
+        height: 36px;
+        font-size: 14px;
+      }
+    }
+
+    // Months are text tabs, not twelve identical pills: no frame or fill, the
+    // picked month in ink with a sage underline, the rest in the readable grey.
+    // Doubled class: outweighs the chip's own dark and hover rules.
+    .lumio-chip.lumio-chip,
+    .lumio-chip.lumio-chip:hover:not(:disabled) {
+      border-color: transparent;
+      border-radius: 0;
+      background: none;
+      box-shadow: none;
+      color: var(--text-muted);
+      font-weight: $lumio-font-weight-medium;
+      text-decoration: underline 2px transparent;
+      text-underline-offset: 8px;
+      transition: color 0.15s, text-decoration-color 0.15s;
+    }
+
+    .lumio-chip.lumio-chip:hover:not(:disabled):not(.lumio-chip--active) {
+      border-color: transparent;
+      background: none;
+      color: var(--foreground);
+    }
+
+    .lumio-chip.lumio-chip--active,
+    .lumio-chip.lumio-chip--active:hover {
+      color: var(--foreground);
+      text-decoration-color: var(--primary);
+    }
+
+    .lumio-chip.lumio-chip--muted {
+      opacity: 0.45;
+    }
   }
 
   &__year-stepper {
@@ -864,6 +921,10 @@
     flex-shrink: 0;
     height: 32px;
     padding: 0 4px;
+
+    @media (min-width: 1025px) {
+      height: 36px;
+    }
     border: 1px solid $lumio-color-ink-150;
     border-radius: $lumio-radius-full;
     background: $lumio-color-surface;
@@ -1019,8 +1080,9 @@
 }
 
 /* ── Overview: sections moved by their grip ──
-   One flat two-column grid: a section alone in its row spans both columns, a
-   pair splits them. Width decisions live in OverviewLayout; this only draws. */
+   One flat twelve-column grid: each section spans the columns OverviewLayout
+   gives it (`--overview-span`) — a card alone the whole row, two cards half
+   each, KPI tiles their share. Width decisions live there; this only draws. */
 .lumio-overview {
   &__body {
     container: overview / inline-size;
@@ -1028,7 +1090,7 @@
 
   &__grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 16px;
     align-items: stretch;
 
@@ -1042,15 +1104,12 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    grid-column: span var(--overview-span, 12);
     container: overview-section / inline-size;
 
-    /* The two halves of a row share its height. */
+    /* The sections of a row share its height. */
     > :not(.lumio-overview__handle) {
       flex: 1 1 auto;
-    }
-
-    &--wide {
-      grid-column: 1 / -1;
     }
 
     /* A card with nothing to show takes no room. */
@@ -1165,8 +1224,20 @@
     }
   }
 
-  &__reset {
+  /* Under the grid: the widget picker, and the way back to the shipped layout. */
+  &__footer {
     align-self: center;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  &__widgets,
+  &__reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 6px 12px;
     border: 0;
     border-radius: 6px;
@@ -1179,24 +1250,30 @@
       color: var(--foreground);
       background: var(--primary-fill);
     }
+  }
 
+  /* Phones have no grips, so nothing there moves away from the shipped layout by hand. */
+  &__reset {
     @media (max-width: 767px) {
       display: none;
     }
   }
 }
 
-/* Too narrow for halves (a tablet with the sidebar open): one column. */
+/* Too narrow for halves (a phone, a tablet with the sidebar open): cards take
+   the whole row and KPI tiles go two by two rather than a column of four. */
 @container overview (max-width: 720px) {
-  .lumio-overview__grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+  .lumio-overview__section {
+    grid-column: 1 / -1;
 
-/* Four KPI tiles in half a row would be slivers; two by two reads. */
-@container overview-section (max-width: 760px) {
-  .lumio-dashboard__stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    &--tile {
+      grid-column: span 6;
+    }
+
+    /* A tile with no partner in its row would leave half the row empty. */
+    &--unpaired {
+      grid-column: 1 / -1;
+    }
   }
 }
 
@@ -1401,5 +1478,84 @@
         color: $lumio-color-ink-900-dk;
       }
     }
+  }
+}
+
+// Finance ops: the month's close as one headline and one list of steps.
+.lumio-close-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+
+  &__title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--foreground);
+
+    @media (max-width: 640px) {
+      font-size: 22px;
+    }
+  }
+
+  &__note {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+}
+
+// A reference fact (last upload, money not counted yet): moderate figure, one line under it.
+.lumio-fact {
+  &__value {
+    font-size: 20px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  &__caption {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+}
+
+.lumio-close-step {
+  // A step still open: an ochre dot, not a red alarm. Done: a sage tick, no circle.
+  &__open {
+    display: block;
+    width: 8px;
+    height: 8px;
+    margin: 0 4px;
+    border-radius: 50%;
+    background: var(--attention);
+  }
+
+  &__done {
+    color: var(--primary);
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary);
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .lumio-dashboard__row-secondary {
+    font-size: 13px;
+    color: var(--text-muted);
   }
 }

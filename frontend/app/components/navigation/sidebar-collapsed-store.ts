@@ -4,9 +4,11 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * The rail/full state of the left sidebar. Outside React because the command
- * palette toggles it from a completely different part of the tree.
+ * palette toggles it from a completely different part of the tree. Every load
+ * starts on the rail (hovering it peeks the full sidebar); the toggle at the top
+ * pins it open for the rest of the visit.
  */
-let collapsed = false;
+let collapsed = true;
 const listeners = new Set<() => void>();
 
 function emit(next: boolean): void {
@@ -31,6 +33,6 @@ export function useSidebarCollapsed(): boolean {
   return useSyncExternalStore(
     subscribe,
     () => collapsed,
-    () => false,
+    () => true,
   );
 }

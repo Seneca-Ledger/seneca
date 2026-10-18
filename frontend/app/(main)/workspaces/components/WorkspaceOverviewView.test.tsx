@@ -118,7 +118,7 @@ describe('WorkspaceOverviewView', () => {
     fireEvent.click(screen.getByTestId('workspace-background-trigger'));
 
     expect(await screen.findByText('Select workspace background')).toBeTruthy();
-    expect(screen.getByAltText('ferdinand-stohr-W1FIkdPAB7E-unsplash.jpg')).toBeTruthy();
+    expect(screen.getByAltText('Fjord between grey peaks under clouds')).toBeTruthy();
   });
 
   it('updates the current workspace background by id', async () => {
@@ -127,7 +127,7 @@ describe('WorkspaceOverviewView', () => {
     render(<WorkspaceOverviewView />);
 
     fireEvent.click(screen.getByTestId('workspace-background-trigger'));
-    fireEvent.click(await screen.findByAltText('ferdinand-stohr-W1FIkdPAB7E-unsplash.jpg'));
+    fireEvent.click(await screen.findByAltText('Fjord between grey peaks under clouds'));
 
     await waitFor(() => {
       expect(updateWorkspaceBackgroundMock).toHaveBeenCalledWith({

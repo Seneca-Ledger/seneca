@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 export type UseEmailFormMessages = {
@@ -54,7 +54,9 @@ export function useEmailForm(
         currentPassword: emailPassword,
       } satisfies ContractInput<'ChangeEmailBody'>);
 
-      setEmailMessage(response.data?.message || messages.successFallback);
+      // The server's sentence: the address changes only once the emailed link is opened.
+      const { message } = await checkContract('MessageResult', response.data, '/users/me/email');
+      setEmailMessage(message);
       setEmailPassword('');
     })()
       .catch(async (error: unknown) => {

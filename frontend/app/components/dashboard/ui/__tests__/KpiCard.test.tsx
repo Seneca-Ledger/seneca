@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { SectionSpanProvider } from '../../section-span';
 import { KpiCard } from '../KpiCard';
 
 vi.mock('next/link', () => ({
@@ -13,10 +14,18 @@ vi.mock('next/link', () => ({
 }));
 
 describe('KpiCard', () => {
-  it('applies the tone modifier to the value and shows the caption', () => {
-    render(<KpiCard label="Spent" value="$3,072" tone="negative" caption="excludes transfers" />);
-    expect(screen.getByText('$3,072').className).toContain('lumio-dashboard__stat-value--negative');
+  it('shows the tone as a dot by the label, not on the value, and shows the caption', () => {
+    const { container } = render(
+      <KpiCard label="Spent" value="$3,072" tone="negative" caption="excludes transfers" />,
+    );
+    expect(screen.getByText('$3,072').className).toBe('lumio-dashboard__stat-value');
+    expect(container.querySelector('.lumio-dashboard__stat-dot--negative')).not.toBeNull();
     expect(screen.getByText('excludes transfers')).toBeInTheDocument();
+  });
+
+  it('draws no dot for a neutral tone', () => {
+    const { container } = render(<KpiCard label="Net" value="$0" />);
+    expect(container.querySelector('.lumio-dashboard__stat-dot')).toBeNull();
   });
 
   it('renders as a link when href is given', () => {
@@ -33,5 +42,21 @@ describe('KpiCard', () => {
     expect(container.querySelector('svg')).toBeNull();
     rerender(<KpiCard label="Income" value="1" spark={{ points: [1, 2, 3] }} />);
     expect(container.querySelector('svg')).not.toBeNull();
+  });
+
+  it('shows its details only when given half a row or more', () => {
+    const tile = (
+      <KpiCard
+        label="Income"
+        value="$100"
+        details={[{ label: 'Average per day', value: '$10' }]}
+      />
+    );
+    const { rerender } = render(<SectionSpanProvider value={3}>{tile}</SectionSpanProvider>);
+    expect(screen.queryByText('Average per day')).not.toBeInTheDocument();
+
+    rerender(<SectionSpanProvider value={6}>{tile}</SectionSpanProvider>);
+    expect(screen.getByText('Average per day')).toBeInTheDocument();
+    expect(screen.getByText('$10')).toBeInTheDocument();
   });
 });

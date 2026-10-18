@@ -19,12 +19,15 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
+import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
 import {
@@ -34,10 +37,14 @@ import {
   validateFiles,
 } from '../../common/utils/file-validator.util';
 import { pipeFileStreamResponse } from '../../common/utils/stream-response.util';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { multerConfig } from '../../config/multer.config';
 import {
   ConvertDroppedSampleBody,
   CreateManualExpenseBody,
+  StatementDetail,
+  StatementListPage,
+  StatementsQuery,
   UpdateStatementBody,
   UpdateStatementStageBody,
   UploadReceiptScanBody,
@@ -48,7 +55,6 @@ import { StatementStage } from '../../entities/statement.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { FilterStatementsDto } from './dto/filter-statements.dto';
 import { UpdateStatementStageResultDto } from './dto/update-statement-stage.dto';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { StatementStageService } from './services/statement-stage.service';
@@ -73,6 +79,7 @@ interface ThumbnailErrorLike {
 }
 
 @Controller('statements')
+@UseInterceptors(HideInternalColumnsInterceptor)
 export class StatementsController {
   private readonly logger = new Logger(StatementsController.name);
 
@@ -306,10 +313,11 @@ export class StatementsController {
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(StatementListPage)
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() filters: FilterStatementsDto,
+    @SchemaQuery(StatementsQuery) filters: StatementsQuery,
   ) {
     const result = await this.statementsService.findAll(workspaceId, filters);
 
@@ -483,12 +491,17 @@ export class StatementsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(StatementDetail)
   async findOne(
     @Param('id') id: string,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.statementsService.findOne(id, workspaceId);
+    const statement = await this.statementsService.findOne(id, workspaceId);
+    // A private row reads as a placeholder to all but its owner, here as in the list.
+    redactPrivateRows(statement.transactions ?? [], selfMemberId);
+    return statement;
   }
 
   @Patch(':id')

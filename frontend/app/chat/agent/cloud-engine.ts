@@ -1,6 +1,6 @@
 import type { PromptMessage } from '@/app/(main)/ai-analysis/chat/build-prompt';
 import apiClient from '@/app/lib/api';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type { AgentEngine } from './useAgentChat';
 
 /** Which settings answered for this chat: the member's own key, or the workspace's. */
@@ -38,14 +38,19 @@ export async function fetchCloudProviderStatus(): Promise<CloudProviderStatus> {
 export function createCloudAgentEngine(onUsage?: (usage: CloudUsage) => void): AgentEngine {
   return {
     async complete(messages: PromptMessage[]): Promise<string> {
-      const response = await apiClient.post<{ content: string; usage?: CloudUsage }>(
+      const response = await apiClient.post('/ai-analysis/completions', {
+        messages,
+      } satisfies ContractInput<'CreateChatCompletionBody'>);
+      const result = await checkContract(
+        'ChatCompletionResult',
+        response.data,
         '/ai-analysis/completions',
-        { messages } satisfies ContractInput<'CreateChatCompletionBody'>,
       );
-      if (response.data.usage) {
-        onUsage?.(response.data.usage);
+      // The provider may report no usage at all: both counts are null then.
+      if (result.usage.promptTokens !== null || result.usage.completionTokens !== null) {
+        onUsage?.(result.usage);
       }
-      return response.data.content;
+      return result.content;
     },
   };
 }

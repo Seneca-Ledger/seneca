@@ -1,4 +1,4 @@
-.PHONY: help setup start stop restart logs clean clean-build-cache test build migrate admin seed-demo quick-dev quick-start
+.PHONY: help setup start stop restart logs clean clean-build-cache test build migrate admin seed-demo quick-dev quick-start upgrade db-backup
 
 # Variables
 DOCKER_COMPOSE = docker compose
@@ -57,6 +57,22 @@ start: ## Start all services in production mode
 	@echo "Frontend: http://localhost:3000"
 	@echo "Backend:  http://localhost:3001/api/v1"
 	@echo "Swagger:  http://localhost:3001/api/docs"
+
+upgrade: ## Pull release images from GHCR and restart (pin a version: make upgrade VERSION=v1.2.0)
+	@touch .env
+	@$(MAKE) --no-print-directory db-backup
+	@tag=$${VERSION:-$$(grep -E '^LUMIO_IMAGE_TAG=' .env 2>/dev/null | cut -d= -f2)}; tag=$${tag:-latest}; \
+	echo "⬇️  Pulling Lumio $$tag..."; \
+	LUMIO_IMAGE_TAG=$$tag $(DOCKER_COMPOSE) pull backend frontend && \
+	LUMIO_IMAGE_TAG=$$tag $(DOCKER_COMPOSE) up -d --no-build --remove-orphans
+	@echo "⏳ Waiting for backend (migrations run on start)..."
+	@port=$$(grep -E '^BACKEND_PORT=' .env 2>/dev/null | cut -d= -f2); port=$${port:-3001}; \
+	for i in $$(seq 1 300); do \
+		curl -sf "http://localhost:$$port/api/v1/health/ready" >/dev/null 2>&1 && { echo "✅ Lumio upgraded"; exit 0; }; \
+		sleep 1; \
+	done; \
+	echo "❌ Backend not ready after 5 min: docker logs finflow-backend"; exit 1
+	@docker image prune -f >/dev/null
 
 dev: ## Start all services in development mode (with hot reload)
 	@echo "🐳 Starting Lumio (development mode)..."
@@ -148,8 +164,9 @@ db-shell: ## Open PostgreSQL shell
 
 db-backup: ## Backup database
 	@echo "💾 Creating database backup..."
-	@$(DOCKER_EXEC_DB) pg_dump -U finflow finflow > backup_$(shell date +%Y%m%d_%H%M%S).sql
-	@echo "✅ Backup created!"
+	@file=backup_$$(date +%Y%m%d_%H%M%S).sql; \
+	docker exec finflow-postgres sh -c 'pg_dump -U "$$POSTGRES_USER" "$$POSTGRES_DB"' > $$file || { rm -f $$file; exit 1; }; \
+	echo "✅ Backup created: $$file"
 
 db-restore: ## Restore database (usage: make db-restore file=backup.sql)
 	@if [ -z "$(file)" ]; then \
@@ -157,7 +174,7 @@ db-restore: ## Restore database (usage: make db-restore file=backup.sql)
 		exit 1; \
 	fi
 	@echo "📥 Restoring database from $(file)..."
-	@cat $(file) | $(DOCKER_EXEC_DB) psql -U finflow finflow
+	@cat $(file) | docker exec -i finflow-postgres sh -c 'psql -U "$$POSTGRES_USER" "$$POSTGRES_DB"'
 	@echo "✅ Database restored!"
 
 ##@ User Management

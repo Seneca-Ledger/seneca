@@ -6,9 +6,15 @@ import type React from 'react';
 import { TokenIcon } from '@/app/(main)/crypto/components/TokenIcon';
 import { ChevronRight } from '@/app/components/icons';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useIsWideSection } from './section-span';
+
+/** Holdings the card lists with the row to itself; the rest are on the crypto page. */
+const WIDE_HOLDINGS = 8;
+/** Holdings listed under the value when the card shares its row. */
+const HALF_HOLDINGS = 5;
 
 type CryptoPortfolioCardProps = {
   formatAmount: (value: number) => string;
@@ -30,6 +36,8 @@ export function CryptoPortfolioCard({
 }: CryptoPortfolioCardProps): React.JSX.Element | null {
   const workspaceId = useWorkspaceId();
   const t = useIntlayer('cryptoPage');
+  const { locale } = useLocale();
+  const wide = useIsWideSection();
   // Cached, so the card is drawn at once when Overview is opened again. The
   // dashboard must render without crypto: a failed request just leaves it hidden.
   const { data: summary } = useQuery({
@@ -51,38 +59,103 @@ export function CryptoPortfolioCard({
     return null;
   }
 
-  return (
-    <Link href="/crypto" className="lumio-dashboard__card" style={CARD_STYLE}>
-      <div>
-        <div className="lumio-dashboard__card-sub">{t.portfolio}</div>
-        <div className="lumio-dashboard__stat-value" style={VALUE_STYLE}>
-          {formatAmount(summary.portfolioValue)}
-        </div>
+  const change = summary.portfolioChangeSinceYesterday;
+  const coins = new Intl.NumberFormat(locale, { maximumFractionDigits: 6 });
+  const percent = (value: number) => `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(1)}%`;
+
+  const holdings = summary.holdings.slice(0, wide ? WIDE_HOLDINGS : HALF_HOLDINGS);
+
+  const overview = (
+    <div>
+      <div className="lumio-dashboard__card-sub">{t.portfolio}</div>
+      <div className="lumio-dashboard__stat-value" style={VALUE_STYLE}>
+        {formatAmount(summary.portfolioValue)}
+      </div>
+      {change !== null && (
         <div className="lumio-dashboard__card-sub">
-          {monthLabel} ·{' '}
-          <span className="lumio-dashboard__amount--positive">+{formatAmount(summary.income)}</span>{' '}
-          ·{' '}
-          <span className="lumio-dashboard__amount--negative">
-            −{formatAmount(summary.expense)}
-          </span>
-        </div>
-        {summary.holdings.length > 0 && (
-          <div
-            className="lumio-dashboard__card-sub"
-            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+          <span
+            className={
+              change >= 0
+                ? 'lumio-dashboard__amount--positive'
+                : 'lumio-dashboard__amount--negative'
+            }
           >
-            {summary.holdings.slice(0, 4).map(holding => (
-              <span
-                key={holding.asset}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-              >
+            {percent(change)}
+          </span>{' '}
+          {t.sinceYesterday}
+        </div>
+      )}
+      <div className="lumio-dashboard__card-sub">
+        {monthLabel} ·{' '}
+        <span className="lumio-dashboard__amount--positive">+{formatAmount(summary.income)}</span> ·{' '}
+        <span className="lumio-dashboard__amount--negative">−{formatAmount(summary.expense)}</span>
+      </div>
+    </div>
+  );
+
+  // What is held, and how each coin is doing.
+  const table = holdings.length > 0 && (
+    <table
+      className={
+        wide
+          ? 'lumio-dashboard__holdings'
+          : 'lumio-dashboard__holdings lumio-dashboard__holdings--stacked'
+      }
+    >
+      <thead>
+        <tr>
+          <th>{t.asset}</th>
+          <th>{t.amount}</th>
+          <th>{t.worth}</th>
+          <th>{t.unrealized}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {holdings.map(holding => (
+          <tr key={holding.asset}>
+            <td>
+              <span className="lumio-dashboard__holdings-asset">
                 <TokenIcon asset={holding.asset} size={16} />
                 {holding.asset}
               </span>
-            ))}
-          </div>
-        )}
-      </div>
+            </td>
+            <td>{coins.format(Number(holding.amount))}</td>
+            <td>{formatAmount(holding.value)}</td>
+            <td
+              className={
+                holding.unrealizedPercent === null
+                  ? undefined
+                  : holding.unrealizedPercent >= 0
+                    ? 'lumio-dashboard__amount--positive'
+                    : 'lumio-dashboard__amount--negative'
+              }
+            >
+              {holding.unrealizedPercent === null ? '—' : percent(holding.unrealizedPercent)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  // With the row to itself the table sits beside the value; sharing a row it
+  // goes underneath, so the card fills the height its neighbour gives it.
+  if (!wide) {
+    return (
+      <Link href="/crypto" className="lumio-dashboard__card" style={STACKED_CARD_STYLE}>
+        <div style={HEAD_STYLE}>
+          {overview}
+          <ChevronRight size={18} />
+        </div>
+        {table}
+      </Link>
+    );
+  }
+
+  return (
+    <Link href="/crypto" className="lumio-dashboard__card" style={CARD_STYLE}>
+      {overview}
+      {table}
       <ChevronRight size={18} />
     </Link>
   );
@@ -97,6 +170,15 @@ const CARD_STYLE = {
   justifyContent: 'space-between',
   gap: 16,
   textDecoration: 'none',
+} as const;
+
+const STACKED_CARD_STYLE = { gap: 16, textDecoration: 'none' } as const;
+
+const HEAD_STYLE = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 16,
 } as const;
 
 const VALUE_STYLE = { fontSize: 22 } as const;

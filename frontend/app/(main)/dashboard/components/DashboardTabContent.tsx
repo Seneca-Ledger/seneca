@@ -30,12 +30,7 @@ export function DashboardTabContent({
   return (
     <Box sx={{ width: '100%', px: { xs: 2, md: 4 }, pt: 2.5, flex: 1, pb: 6 }}>
       {activeTab === 'finance-ops' && (
-        <FinanceOpsTab
-          data={data}
-          formatAmount={formatAmount}
-          displayMonth={displayMonth}
-          onSelectMonth={onSelectMonth}
-        />
+        <FinanceOpsTab data={data} formatAmount={formatAmount} displayMonth={displayMonth} />
       )}
       {activeTab === 'overview' && (
         <OverviewTab

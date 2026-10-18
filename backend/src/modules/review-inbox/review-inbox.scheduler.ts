@@ -7,7 +7,7 @@ import {
   NotificationSeverity,
   NotificationType,
 } from '../../entities/notification.entity';
-import { Workspace } from '../../entities/workspace.entity';
+import { Workspace, WorkspaceKind } from '../../entities/workspace.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ReviewInboxService } from './review-inbox.service';
 
@@ -30,7 +30,11 @@ export class ReviewInboxScheduler {
 
   @Cron('30 8 * * 1')
   async notifyWaiting(): Promise<void> {
-    const workspaces = await this.workspaceRepository.find({ select: ['id'] });
+    // Nothing in a past version waits for anyone: it cannot be changed.
+    const workspaces = await this.workspaceRepository.find({
+      where: { kind: WorkspaceKind.STANDARD },
+      select: ['id'],
+    });
     for (const workspace of workspaces) {
       try {
         const counts = await this.reviewInboxService.counts(workspace.id);

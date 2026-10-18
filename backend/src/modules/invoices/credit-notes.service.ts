@@ -10,7 +10,7 @@ import { type EntityManager, In, Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { fromMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
-import type { CreateCreditNoteBody } from '../../contracts';
+import type { CreateCreditNoteBody, InvoicesQuery } from '../../contracts';
 import { Client } from '../../entities/client.entity';
 import { CreditNote, CreditNoteStatus } from '../../entities/credit-note.entity';
 import { CreditNoteApplication } from '../../entities/credit-note-application.entity';
@@ -23,7 +23,6 @@ import { Payable } from '../../entities/payable.entity';
 import { BusinessProfileService } from '../business-profile/business-profile.service';
 import { LedgerPostingError, LedgerPostingService } from '../ledger/ledger-posting.service';
 import { PayablesService } from '../payables/payables.service';
-import { FilterInvoicesDto } from './dto/filter-invoices.dto';
 import { buildCreditNotePdf } from './invoice-document';
 import { documentLines, priceLines, totalsOf } from './invoice-pricing';
 import { InvoiceXRechnungService } from './invoice-xrechnung.service';
@@ -60,7 +59,7 @@ export class CreditNotesService {
     private readonly xrechnung: InvoiceXRechnungService,
   ) {}
 
-  async findAll(workspaceId: string, filters: FilterInvoicesDto) {
+  async findAll(workspaceId: string, filters: InvoicesQuery) {
     const { page, limit, skip } = normalizePagination(filters);
     const query = this.creditNoteRepository
       .createQueryBuilder('note')
@@ -111,7 +110,9 @@ export class CreditNotesService {
   ): Promise<CreditNote> {
     const issueDate = dto.issueDate ?? new Date().toISOString().slice(0, 10);
 
-    return this.creditNoteRepository.manager.transaction(async manager => {
+    // Through the payables service: crediting an invoice down to what was paid
+    // closes it, and that is announced once this transaction commits.
+    return this.payables.inPaymentTransaction(async manager => {
       const resolved = await this.resolveApplications(manager, workspaceId, dto);
       const [first] = resolved;
       const note = await manager.getRepository(CreditNote).save(
@@ -211,7 +212,9 @@ export class CreditNotesService {
    * document that was sent out is never deleted.
    */
   async void(id: string, workspaceId: string, userId: string): Promise<CreditNote> {
-    return this.creditNoteRepository.manager.transaction(async manager => {
+    // Through the payables service: crediting an invoice down to what was paid
+    // closes it, and that is announced once this transaction commits.
+    return this.payables.inPaymentTransaction(async manager => {
       const notes = manager.getRepository(CreditNote);
       const note = await notes.findOne({
         where: { id, workspaceId },

@@ -8,7 +8,7 @@ import { TaxRate } from '@/entities/tax-rate.entity';
 import { LedgerPostingError, LedgerPostingService } from '@/modules/ledger/ledger-posting.service';
 import { InvoiceXRechnungService } from '@/modules/invoices/invoice-xrechnung.service';
 import { InvoicesService } from '@/modules/invoices/invoices.service';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
@@ -28,6 +28,7 @@ function createRepositoryMock<T extends object>() {
     findOne: jest.fn(),
     findOneOrFail: jest.fn(),
     findBy: jest.fn(async () => []),
+    count: jest.fn(async () => 0),
     exists: jest.fn(async () => true),
     delete: jest.fn(),
     insert: jest.fn(),
@@ -101,6 +102,7 @@ describe('InvoicesService', () => {
       transaction: jest.fn(async (work: (manager: unknown) => Promise<unknown>) =>
         work(createManagerMock(repos, queryMock)),
       ),
+      getRepository: createManagerMock(repos, queryMock).getRepository,
       query: queryMock,
     };
 
@@ -158,6 +160,7 @@ describe('InvoicesService', () => {
         ...data,
       }));
       taxRateRepository.findBy.mockResolvedValue([{ id: 'tax-1', rate: 21 }]);
+      taxRateRepository.count.mockResolvedValue(1);
       lineItemRepository.find.mockResolvedValue([
         { quantity: 2, unitPrice: 100, taxRateId: 'tax-1' }, // 200 net, 42 tax
         { quantity: 1, unitPrice: 50, taxRateId: null }, // 50 net, 0 tax
@@ -177,6 +180,24 @@ describe('InvoicesService', () => {
       expect(invoice.subtotal).toBe(250);
       expect(invoice.taxTotal).toBe(42);
       expect(invoice.total).toBe(292);
+    });
+
+    it('refuses a tax rate of another workspace', async () => {
+      taxRateRepository.count.mockResolvedValue(0);
+
+      await expect(
+        service.create('workspace-1', {
+          clientId: 'client-1',
+          issueDate: '2026-03-01',
+          lineItems: [
+            { description: 'Consulting', quantity: 1, unitPrice: 100, taxRateId: 'their-rate' },
+          ],
+        } as any),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(taxRateRepository.count).toHaveBeenCalledWith({
+        where: { id: expect.anything(), workspaceId: 'workspace-1' },
+      });
+      expect(invoiceRepository.save).not.toHaveBeenCalled();
     });
   });
 

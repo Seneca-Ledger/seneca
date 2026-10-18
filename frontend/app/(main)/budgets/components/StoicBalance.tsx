@@ -25,24 +25,24 @@ import { StoicClassifyList } from './StoicClassifyList';
 type Segment = StoicClass | 'unclassified';
 
 /**
- * Four categorical hues in a fixed order (validated for colour-blind
- * separation in both modes), plus a neutral for spending nobody judged yet.
- * Light mode's virtue and leisure fall under 3:1 against the surface, which is
- * why every share is also written out in the legend.
+ * Four related, muted earth tones from the app's chart palette (dusty blue,
+ * clay, sage, sand) rather than a rainbow, plus a neutral for spending nobody
+ * judged yet. Mid tones, so they hold on either surface. Sand and sage are
+ * faint against white, which is why every share is also written out.
  */
 const SEGMENT_COLORS: Record<'light' | 'dark', Record<Segment, string>> = {
   light: {
-    necessity: '#2a78d6',
-    work: '#eb6834',
-    virtue: '#1baf7a',
-    leisure: '#eda100',
-    unclassified: '#b7b7c0',
+    necessity: '#7c93a8',
+    work: '#a98b76',
+    virtue: '#6f8f7b',
+    leisure: '#d2b48c',
+    unclassified: '#cfc9be',
   },
   dark: {
-    necessity: '#3987e5',
-    work: '#d95926',
-    virtue: '#199e70',
-    leisure: '#c98500',
+    necessity: '#7c93a8',
+    work: '#a98b76',
+    virtue: '#6f8f7b',
+    leisure: '#d2b48c',
     unclassified: '#4a4a58',
   },
 };
@@ -98,10 +98,10 @@ function ShareBar({
         sx={{
           display: 'flex',
           gap: '2px',
-          height: 14,
+          height: 8,
           borderRadius: '4px',
           overflow: 'hidden',
-          bgcolor: 'action.hover',
+          bgcolor: 'var(--icon-badge-bg)',
         }}
       >
         {visible.map(segment => (
@@ -121,11 +121,19 @@ function ShareBar({
 }
 
 /** One card per class: what it covers, and its planned and actual share that month. */
-function ClassLegend({ month }: { month: StoicMonth }): React.JSX.Element {
+function ClassLegend({
+  month,
+  hasPlan,
+}: {
+  month: StoicMonth;
+  hasPlan: boolean;
+}): React.JSX.Element {
   const { t, names, hints } = useClassText();
   const mode = useTheme().palette.mode;
   const planned = toShares(month.intended);
   const actual = toShares(month.actual);
+  // A zero share reads as a dash: four "0%" in a row is noise, not news.
+  const share = (value: number): string => (value > 0 ? `${Math.round(value)}%` : '—');
 
   return (
     <Box
@@ -145,7 +153,7 @@ function ClassLegend({ month }: { month: StoicMonth }): React.JSX.Element {
           component="li"
           key={stoicClass}
           data-attention={`stoic:${stoicClass}`}
-          sx={{ p: 1.5, borderRadius: tokens.radius.md, bgcolor: 'action.hover' }}
+          sx={{ p: 1.5, borderRadius: tokens.radius.md, bgcolor: 'var(--surface-soft)' }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box
@@ -156,20 +164,57 @@ function ClassLegend({ month }: { month: StoicMonth }): React.JSX.Element {
                 bgcolor: SEGMENT_COLORS[mode][stoicClass],
               }}
             />
-            <Typography variant="body2" fontWeight={600}>
+            <Typography variant="body2" fontWeight={500}>
               {names[stoicClass]}
             </Typography>
           </Box>
-          <Typography variant="caption" component="p" sx={{ color: 'text.secondary', mt: 0.5 }}>
+          <Typography
+            component="p"
+            sx={{ color: 'text.secondary', mt: 0.5, fontSize: 13, lineHeight: 1.45 }}
+          >
             {hints[stoicClass]}
           </Typography>
-          <Typography variant="body2" sx={{ mt: 0.75 }}>
-            {t.planned.value} {Math.round(planned[stoicClass])}% · {t.actual.value}{' '}
-            {Math.round(actual[stoicClass])}%
-          </Typography>
+          {/* Planned against actual means nothing until there is a plan. */}
+          {hasPlan ? (
+            <Typography variant="body2" sx={{ mt: 0.75, fontVariantNumeric: 'tabular-nums' }}>
+              {t.planned.value} {share(planned[stoicClass])} · {t.actual.value}{' '}
+              {share(actual[stoicClass])}
+            </Typography>
+          ) : null}
         </Box>
       ))}
     </Box>
+  );
+}
+
+/** The month's spending in one sentence, for a month with no plan to set it against. */
+function SpendingFact({
+  totals,
+  names,
+}: {
+  totals: StoicTotals;
+  names: Record<Segment, string>;
+}): React.JSX.Element {
+  const { t } = useClassText();
+  const mode = useTheme().palette.mode;
+  const shares = toShares(totals);
+  const top = SEGMENTS.reduce((best, segment) => (shares[segment] > shares[best] ? segment : best));
+  const percent = Math.round(shares[top]);
+  const sentence =
+    percent >= 100
+      ? t.allSpendingIs.value.replace('{class}', names[top])
+      : t.mostSpendingIs.value.replace('{class}', names[top]).replace('{share}', String(percent));
+  return (
+    <Typography
+      variant="body2"
+      sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}
+    >
+      <Box
+        component="span"
+        sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: SEGMENT_COLORS[mode][top] }}
+      />
+      {sentence}
+    </Typography>
   );
 }
 
@@ -293,15 +338,15 @@ export function StoicBalance(): React.JSX.Element | null {
 
       {current && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+          {/* With nothing planned there is nothing to compare: say where the money
+              went in words instead of a bar filled with one colour. */}
           {hasPlan ? (
             <ShareBar label={t.planned.value} totals={current.intended} names={names} />
-          ) : (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {t.noPlan.value}
-            </Typography>
-          )}
-          {hasSpending ? (
+          ) : null}
+          {hasPlan && hasSpending ? (
             <ShareBar label={t.actual.value} totals={current.actual} names={names} />
+          ) : hasSpending ? (
+            <SpendingFact totals={current.actual} names={names} />
           ) : (
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               {t.noSpending.value}
@@ -310,7 +355,7 @@ export function StoicBalance(): React.JSX.Element | null {
         </Box>
       )}
 
-      {current && <ClassLegend month={current} />}
+      {current && <ClassLegend month={current} hasPlan={hasPlan} />}
 
       <StoicClassifyList
         categories={balance.categories}

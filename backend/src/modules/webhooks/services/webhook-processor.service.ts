@@ -11,6 +11,7 @@ import {
 } from '../../../common/utils/egress-url.util';
 import { WebhookDelivery, WebhookDeliveryStatus } from '../../../entities/webhook-delivery.entity';
 import { WebhookSubscription } from '../../../entities/webhook-subscription.entity';
+import { WorkspacePluginsService } from '../../workspaces/workspace-plugins.service';
 
 // HOSTNAME is set by Docker and Kubernetes alike; the UUID covers a bare
 // process run outside a container.
@@ -27,6 +28,7 @@ export class WebhookProcessorService {
     private readonly deliveryRepo: Repository<WebhookDelivery>,
     @InjectRepository(WebhookSubscription)
     private readonly subRepo: Repository<WebhookSubscription>,
+    private readonly plugins: WorkspacePluginsService,
   ) {}
 
   @Interval(5000)
@@ -126,6 +128,17 @@ export class WebhookProcessorService {
         ...delivery,
         status: WebhookDeliveryStatus.EXHAUSTED,
         lastError: sub ? 'Subscription is inactive' : 'Subscription not found',
+      });
+      return;
+    }
+    // Queued before the plugin was switched off. Kept retryable from the UI.
+    if (!(await this.plugins.isEnabled(sub.workspaceId, 'webhooks'))) {
+      await this.deliveryRepo.save({
+        ...delivery,
+        status: WebhookDeliveryStatus.EXHAUSTED,
+        lastError: 'Webhooks are turned off for this workspace',
+        lockedAt: null,
+        lockedBy: null,
       });
       return;
     }

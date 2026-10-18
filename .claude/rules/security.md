@@ -21,7 +21,7 @@ paths:
 ## 3. Authorization (RBAC/ABAC)
 - **Fail-Safe Defaults**: Access must be denied by default. Explicitly grant permissions.
 - **Multi-Level Check**: Check permissions at the Controller level (Interceptor/Guard) AND at the Domain/Service level to prevent vertical/horizontal privilege escalation.
-- **Tenant Isolation**: Every query must include a `workspaceId` or `ownerId` check to ensure the user cannot access data from other tenants.
+- **Tenant Isolation**: Every query must include a `workspaceId` or `ownerId` check to ensure the user cannot access data from other tenants. That includes ids from a request body (a category, a tag, a tax rate): look them up with the caller's `workspaceId`. The isolation sweep (`@tests/e2e/workspace-isolation-sweep.e2e-spec.ts`) checks every route; give a new kind of record a seed step in `@tests/e2e/helpers/seed-workspace.ts`.
 
 ## 4. API Security
 - **CORS**: Only the `CORS_ORIGINS` allowlist (falling back to `FRONTEND_URL`) may make credentialed requests.

@@ -49,27 +49,23 @@ jobs:
             test -p policy/github-actions \
             .github/workflows/*.yml
 
-  build-and-publish:
-    name: Build & publish hardened image
+  # Tags and the CI gate, once for every image and architecture below.
+  prepare:
     runs-on: ubuntu-latest
     needs: policy-as-code
     permissions:
-      contents: write
-      packages: write
-      id-token: write
-      attestations: write
+      actions: read
+      contents: read
     outputs:
+      image_name: ${{ steps.image.outputs.image_name }}
+      suffixes: ${{ steps.image.outputs.suffixes }}
       primary_tag: ${{ steps.image.outputs.primary_tag }}
+      version: ${{ steps.image.outputs.version }}
     steps:
       - name: Harden runner (audit egress)
         uses: step-security/harden-runner@v2
         with:
           egress-policy: audit
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
 
       - name: Wait for CI to succeed
         uses: actions/github-script@v7
@@ -127,27 +123,44 @@ jobs:
             PRIMARY_SUFFIX="${REF_NAME}"
           fi
 
-          # One tag list per image: the combined image (root Dockerfile) plus the
-          # per-service images docker-compose.yml pulls (lumio-backend, lumio-frontend).
-          emit_tags() {
-            local name="$1" key="$2" suffix
-            echo "${key}<<EOF" >> "$GITHUB_OUTPUT"
-            for suffix in ${SUFFIXES}; do
-              echo "${name}:${suffix}" >> "$GITHUB_OUTPUT"
-            done
-            echo "EOF" >> "$GITHUB_OUTPUT"
-          }
+          {
+            echo "image_name=${IMAGE_NAME}"
+            echo "suffixes=${SUFFIXES}"
+            echo "primary_tag=${IMAGE_NAME}:${PRIMARY_SUFFIX}"
+            echo "version=${PRIMARY_SUFFIX}"
+          } >> "$GITHUB_OUTPUT"
 
-          echo "image_name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "primary_tag=${IMAGE_NAME}:${PRIMARY_SUFFIX}" >> "$GITHUB_OUTPUT"
-          emit_tags "${IMAGE_NAME}" tags
-          emit_tags "${IMAGE_NAME}-backend" backend_tags
-          emit_tags "${IMAGE_NAME}-frontend" frontend_tags
-
-      - name: Set up QEMU (multi-arch)
-        uses: docker/setup-qemu-action@v3
+  # Every image on a native runner per architecture: arm64 under QEMU took hours.
+  # Each build pushes by digest; build-and-publish joins them under the tags.
+  build:
+    name: Build ${{ matrix.image.name }} (${{ matrix.platform.arch }})
+    runs-on: ${{ matrix.platform.runner }}
+    needs: prepare
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        platform:
+          - { arch: amd64, runner: ubuntu-latest }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+        # The combined image (root Dockerfile) plus the per-service images
+        # docker-compose.yml pulls (lumio-backend, lumio-frontend).
+        image:
+          - { name: combined, context: ., suffix: "" }
+          - { name: backend, context: ./backend, suffix: -backend }
+          - { name: frontend, context: ./frontend, suffix: -frontend }
+    steps:
+      - name: Harden runner (audit egress)
+        uses: step-security/harden-runner@v2
         with:
-          platforms: arm64
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -159,52 +172,103 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      # The frontend proxies /api/v1 to the backend through Next rewrites, which
+      # are resolved at build time, so both the API URL and the target are baked.
+      - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: .
-          push: true
-          tags: ${{ steps.image.outputs.tags }}
-          platforms: linux/amd64,linux/arm64
-          provenance: true
-
-      # Per-service images consumed by docker-compose.yml (`docker compose pull`
-      # starts the stack without a local build). The frontend proxies /api/v1 to
-      # the backend through Next rewrites, so the API URL is baked as a relative path.
-      - name: Build and push backend image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          push: true
-          tags: ${{ steps.image.outputs.backend_tags }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
-
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          push: true
-          tags: ${{ steps.image.outputs.frontend_tags }}
-          platforms: linux/amd64,linux/arm64
+          context: ${{ matrix.image.context }}
+          platforms: linux/${{ matrix.platform.arch }}
+          outputs: type=image,"name=${{ needs.prepare.outputs.image_name }}${{ matrix.image.suffix }}",push-by-digest=true,name-canonical=true,push=true
+          provenance: false
           build-args: |
-            NEXT_PUBLIC_API_URL=/api/v1
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
+            ${{ matrix.image.name == 'backend' && format('APP_VERSION={0}', needs.prepare.outputs.version) || '' }}
+            ${{ matrix.image.name == 'frontend' && 'NEXT_PUBLIC_API_URL=/api/v1' || '' }}
+            ${{ matrix.image.name == 'frontend' && 'API_PROXY_TARGET=http://backend:3001' || '' }}
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "${RUNNER_TEMP}/digests"
+          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build-and-publish:
+    name: Build & publish hardened image
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE_NAME: ${{ needs.prepare.outputs.image_name }}
+      SUFFIXES: ${{ needs.prepare.outputs.suffixes }}
+      PRIMARY_TAG: ${{ needs.prepare.outputs.primary_tag }}
+    steps:
+      - name: Harden runner (audit egress)
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # One multi-arch manifest per image, under every tag of this run.
+      - name: Publish multi-arch manifests
+        id: build
+        run: |
+          publish() {
+            local image="$1" name="$2" suffix tags=() refs=() file
+            for suffix in ${SUFFIXES}; do tags+=(-t "${name}:${suffix}"); done
+            for file in "${RUNNER_TEMP}/digests/digests-${image}-"*/*; do
+              refs+=("${name}@sha256:$(basename "${file}")")
+            done
+            [ "${#refs[@]}" -eq 2 ] || { echo "::error::expected 2 digests for ${image}, got ${#refs[@]}"; exit 1; }
+            docker buildx imagetools create "${tags[@]}" "${refs[@]}"
+          }
+          publish combined "${IMAGE_NAME}"
+          publish backend "${IMAGE_NAME}-backend"
+          publish frontend "${IMAGE_NAME}-frontend"
+          digest=$(docker buildx imagetools inspect "${PRIMARY_TAG}" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       - name: SLSA provenance attestation
         uses: actions/attest-build-provenance@v1
         with:
-          subject-name: ${{ steps.image.outputs.image_name }}
+          subject-name: ${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
       - name: Scan pushed image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ steps.image.outputs.primary_tag }}
+          image-ref: ${{ env.PRIMARY_TAG }}
           severity: HIGH,CRITICAL
           vuln-type: "os,library"
           exit-code: 1
@@ -214,7 +278,7 @@ jobs:
         id: sbom
         uses: anchore/sbom-action@v0.24.0
         with:
-          image: ${{ steps.image.outputs.primary_tag }}
+          image: ${{ env.PRIMARY_TAG }}
           format: spdx-json
           output-file: sbom-${{ github.sha }}.spdx.json
           upload-artifact: false
@@ -222,7 +286,7 @@ jobs:
       - name: SLSA SBOM attestation
         uses: actions/attest-sbom@v1
         with:
-          subject-name: ${{ steps.image.outputs.image_name }}
+          subject-name: ${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           sbom-path: sbom-${{ github.sha }}.spdx.json
           push-to-registry: true
@@ -239,12 +303,12 @@ jobs:
       - name: Sign container image
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign --yes --recursive ${{ steps.image.outputs.primary_tag }}
+        run: cosign sign --yes --recursive ${{ env.PRIMARY_TAG }}
 
       - name: Attest SBOM
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign attest --yes --predicate sbom-${{ github.sha }}.spdx.json --type spdxjson ${{ steps.image.outputs.primary_tag }}
+        run: cosign attest --yes --predicate sbom-${{ github.sha }}.spdx.json --type spdxjson ${{ env.PRIMARY_TAG }}
 
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/')

@@ -1,17 +1,17 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query, Res } from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { CreateCreditNoteBody } from '../../contracts';
+import { CreateCreditNoteBody, InvoicesQuery } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreditNotesService } from './credit-notes.service';
-import { FilterInvoicesDto } from './dto/filter-invoices.dto';
 import { InvoiceXRechnungService } from './invoice-xrechnung.service';
 
 @Controller('credit-notes')
@@ -35,7 +35,10 @@ export class CreditNotesController {
 
   @Get()
   @WorkspaceAuth(Permission.INVOICE_VIEW)
-  async findAll(@WorkspaceId() workspaceId: string, @Query() query: FilterInvoicesDto) {
+  async findAll(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(InvoicesQuery) query: InvoicesQuery,
+  ) {
     return this.creditNotesService.findAll(workspaceId, query);
   }
 

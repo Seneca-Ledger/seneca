@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import type { AnalyticsFlowType } from '@/app/(main)/statements/components/analytics/flow/analytics-flow.types';
+import { useAnalyticsPeriod } from '@/app/(main)/statements/components/analytics/flow/analytics-period';
 import { SpendFlowChart } from '@/app/(main)/statements/components/analytics/flow/SpendFlowChart';
 import type { SpendFlowGroupBy } from '@/app/(main)/statements/components/analytics/flow/useSpendFlow';
 
@@ -32,6 +33,8 @@ export function AnalyticsFlowSection({
   flashNodeName = null,
 }: Props): React.JSX.Element {
   const isIncome = flowType === 'income';
+  // Under a page period the section heading names the chart; the card does not repeat it.
+  const pagePeriod = useAnalyticsPeriod();
   const chartLabels = useMemo(
     () => ({
       total: isIncome ? labels.flowTotalIncome : labels.flowTotalSpend,
@@ -62,6 +65,7 @@ export function AnalyticsFlowSection({
       chartLabels={chartLabels}
       emptyLabels={emptyLabels}
       errorLabel={labels.flowError}
+      heading={!pagePeriod}
       flashNodeName={flashNodeName}
     />
   );

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { statementsApi } from '@/app/lib/api';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { blobOf } from '@/app/lib/blob-of';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export type BankStat = {
   bank: string;
@@ -18,7 +19,11 @@ export function useSync() {
 
   useEffect(() => {
     setStatsLoading(true);
-    apiQueryDecoded({ url: '/statements', params: { limit: 1000 }, contract: 'StatementList' })
+    apiQueryDecoded({
+      url: '/statements',
+      params: { limit: 1000 } satisfies ContractInput<'StatementsQuery'>,
+      contract: 'StatementList',
+    })
       .then(items => {
         const byBank = new Map<string, number>();
         for (const item of items) {
@@ -44,7 +49,7 @@ export function useSync() {
 
     await (async () => {
       const res = await statementsApi.exportZip();
-      const blob = new Blob([res.data as BlobPart], { type: 'application/zip' });
+      const blob = new Blob([blobOf(res)], { type: 'application/zip' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

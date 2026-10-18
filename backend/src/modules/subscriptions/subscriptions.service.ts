@@ -9,6 +9,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type {
   CreateSubscriptionBody,
   RecordSubscriptionDecisionBody,
@@ -18,6 +19,7 @@ import type {
   UpdateSubscriptionBody,
 } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
+import { Category } from '../../entities/category.entity';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
 import {
   NotificationCategory,
@@ -111,6 +113,8 @@ export class SubscriptionsService {
     private readonly workspaceRepository: Repository<Workspace>,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly auditService: AuditService,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
     @Optional()
     private readonly goalsService?: GoalsService,
     @Optional()
@@ -126,6 +130,7 @@ export class SubscriptionsService {
     userId: string,
     dto: CreateSubscriptionBody,
   ): Promise<Subscription> {
+    await this.assertCategoryInWorkspace(dto.categoryId, workspaceId);
     const subscription = this.subscriptionRepository.create({
       workspaceId,
       createdById: userId,
@@ -150,6 +155,18 @@ export class SubscriptionsService {
       meta: { name: saved.vendorName },
     });
     return saved;
+  }
+
+  /** The id came from the request: another workspace's category is "not found". */
+  private async assertCategoryInWorkspace(
+    categoryId: string | null | undefined,
+    workspaceId: string,
+  ): Promise<void> {
+    if (!categoryId) return;
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId, workspaceId },
+    });
+    if (!category) throw new NotFoundException('Category not found');
   }
 
   async findAll(
@@ -205,7 +222,10 @@ export class SubscriptionsService {
       subscription.frequency = toEnum(SubscriptionFrequency, dto.frequency);
     if (dto.status != null) subscription.status = toEnum(SubscriptionStatus, dto.status);
     if (dto.currency != null) subscription.currency = dto.currency;
-    if (dto.categoryId !== undefined) subscription.categoryId = dto.categoryId;
+    if (dto.categoryId !== undefined) {
+      await this.assertCategoryInWorkspace(dto.categoryId, workspaceId);
+      subscription.categoryId = dto.categoryId;
+    }
     // null clears the date (new Date(null) would have stored 1970-01-01).
     if (dto.nextChargeDate !== undefined)
       subscription.nextChargeDate = dto.nextChargeDate ? new Date(dto.nextChargeDate) : null;
@@ -857,6 +877,7 @@ export class SubscriptionsService {
       where: {
         status: SubscriptionStatus.ACTIVE,
         nextChargeDate: LessThanOrEqual(threeDaysAhead),
+        workspace: STANDARD_WORKSPACE,
       },
     });
 
@@ -869,20 +890,38 @@ export class SubscriptionsService {
     }
 
     for (const [workspaceId, subs] of byWorkspace) {
+      const charges = subs.map(s => ({
+        id: s.id,
+        vendor: s.vendorName,
+        amount: Number(s.amount),
+        currency: s.currency,
+        // A `date` column arrives as a string despite the Date type.
+        chargeDate:
+          typeof s.nextChargeDate === 'string'
+            ? (s.nextChargeDate as string).slice(0, 10)
+            : (s.nextChargeDate as Date).toISOString().slice(0, 10),
+      }));
+      // One running notification per workspace, rewritten when the set of
+      // charges changes rather than added again every morning.
       await this.notificationsService.createForWorkspaceMembers({
         workspaceId,
         type: NotificationType.SUBSCRIPTION_UPCOMING,
         category: NotificationCategory.WORKSPACE_ACTIVITY,
         severity: NotificationSeverity.INFO,
-        messageKey: 'subscription.upcoming',
+        messageKey: subs.length === 1 ? 'subscription.upcoming.one' : 'subscription.upcoming',
         messageParams: {
-          details: subs.map(s => `${s.vendorName} (${s.amount} ${s.currency})`).join(', '),
+          charges: {
+            kind: 'charges',
+            items: charges.map(c => ({ name: c.vendor, amount: c.amount, currency: c.currency })),
+          },
         },
         entityType: 'subscription',
         entityId: subs[0].id,
-        meta: {
-          subscriptions: subs.map(s => ({ id: s.id, vendor: s.vendorName, amount: s.amount })),
-        },
+        meta: { subscriptions: charges },
+        fingerprint: charges
+          .map(c => `${c.id}:${c.amount}:${c.currency}:${c.chargeDate}`)
+          .sort()
+          .join('|'),
       });
     }
 
@@ -896,10 +935,12 @@ export class SubscriptionsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // A past version keeps the charge dates it was copied with.
     const pastDue = await this.subscriptionRepository.find({
       where: {
         status: SubscriptionStatus.ACTIVE,
         nextChargeDate: LessThanOrEqual(today),
+        workspace: STANDARD_WORKSPACE,
       },
     });
 

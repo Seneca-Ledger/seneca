@@ -25,7 +25,7 @@ export type { UseStatementEditFormReturn } from './useStatementEditFormTypes';
 export interface UseStatementEditFormOptions {
   statementId: string;
   user: { id: string } | null | undefined;
-  router: { push: (path: string) => void };
+  router: { push: (path: string) => void; replace: (path: string) => void };
   messages: {
     loadDataError: string;
     saveTransactionError: string;
@@ -73,9 +73,12 @@ export function useStatementEditForm({
         setWallets: s.setWallets,
         setMetadataForm: s.setMetadataForm,
         setError: s.setError,
+        // Replace, not push: Back must not return to the editor it just left.
+        redirect: router.replace,
       },
     );
   }, [
+    router.replace,
     statementId,
     messages.loadDataError,
     s.setLoading,
@@ -201,12 +204,10 @@ export function useStatementEditForm({
         index,
         warning,
         loadData,
-        setStatement: s.setStatement,
-        setTransactions: s.setTransactions,
         setSuccess: s.setSuccess,
       });
     },
-    [statementId, loadData, s.setStatement, s.setTransactions, s.setSuccess],
+    [statementId, loadData, s.setSuccess],
   );
 
   const handleDelete = async (transactionId: string): Promise<void> => {
@@ -264,14 +265,10 @@ export function useStatementEditForm({
     });
   };
 
-  const handleStatementCategorySelect = async (
-    categoryId: string,
-    flattenedStatementCategories: { id: string; name: string }[],
-  ): Promise<void> => {
+  const handleStatementCategorySelect = async (categoryId: string): Promise<void> => {
     await updateStatementCategoryAction({
       statement: s.statement,
       categoryId,
-      flatCategories: flattenedStatementCategories,
       messages: {
         categoryUpdated: messages.categoryUpdated,
         categoryUpdateFailed: messages.categoryUpdateFailed,

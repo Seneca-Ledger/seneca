@@ -76,6 +76,45 @@ export const ExportReportBody = Schema.Struct({
 });
 export type ExportReportBody = Wire<typeof ExportReportBody>;
 
+/** The languages a generated report document can be printed in — the app's own set. */
+export const REPORT_LOCALES = [
+  'ru',
+  'en',
+  'kk',
+  'de',
+  'fr',
+  'es',
+  'pt',
+  'tr',
+  'uk',
+  'zh',
+  'pl',
+  'it',
+  'sk',
+  'ja',
+  'ko',
+  'hi',
+  'nl',
+  'sv',
+  'vi',
+  'id',
+  'da',
+  'nb',
+  'nn',
+  'fi',
+  'is',
+  'fo',
+  'cs',
+  'bg',
+  'hr',
+  'sr',
+  'sl',
+  'mk',
+  'be',
+  'bs',
+  'hsb',
+] as const;
+
 export const GenerateReportBody = Schema.Struct({
   templateId: Schema.String,
   dateFrom: IsoDateString,
@@ -87,8 +126,8 @@ export const GenerateReportBody = Schema.Struct({
   categoryIds: optionalNullable(Schema.Array(Schema.String.check(Schema.isUUID()))),
   /** Only Cash Flow uses this; defaults to daily buckets. */
   groupBy: optionalNullable(Schema.Literals(['day', 'week', 'month'])),
-  /** Only Balance Sheet uses this, to localize account names. */
-  locale: optionalNullable(Schema.Literals(['ru', 'en', 'kk'])),
+  /** Language of the document's titles and headers; English when omitted. */
+  locale: optionalNullable(Schema.Literals(REPORT_LOCALES)),
 });
 export type GenerateReportBody = Wire<typeof GenerateReportBody>;
 
@@ -108,7 +147,7 @@ export const CreateReportScheduleBody = Schema.Struct({
   walletIds: optionalNullable(Schema.Array(Schema.String.check(Schema.isUUID()))),
   categoryIds: optionalNullable(Schema.Array(Schema.String.check(Schema.isUUID()))),
   groupBy: optionalNullable(Schema.Literals(['day', 'week', 'month'])),
-  locale: optionalNullable(Schema.Literals(['ru', 'en', 'kk'])),
+  locale: optionalNullable(Schema.Literals(REPORT_LOCALES)),
 });
 export type CreateReportScheduleBody = Wire<typeof CreateReportScheduleBody>;
 

@@ -7,12 +7,16 @@ import apiClient from '@/app/lib/api';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type { Payee, PayeeChoice, PayeeMode, TransactionPayeeResult } from './types';
+import type { PayeeChoice, PayeeMode } from './types';
 
 /** One page of the workspace's payees, newest-seen first, filtered by name. */
 export function usePayeesList(search: string, limit: number, page = 1) {
   const workspaceId = useWorkspaceId();
-  const params = { search: search.trim() || undefined, limit, page };
+  const params = {
+    search: search.trim() || undefined,
+    limit,
+    page,
+  } satisfies ContractInput<'PayeesQuery'>;
   return useQuery({
     queryKey: queryKeys.payees({ workspaceId, params }),
     // Not apiQuery: it would unwrap `data` and drop the total the pager needs.
@@ -61,8 +65,8 @@ export function useUpdatePayee() {
       supplyType?: 'goods' | 'services' | null;
     }) =>
       apiClient
-        .patch<Payee>(`/payees/${id}`, body satisfies ContractInput<'UpdatePayeeBody'>)
-        .then(response => response.data),
+        .patch(`/payees/${id}`, body satisfies ContractInput<'UpdatePayeeBody'>)
+        .then(response => checkContract('PayeeRecord', response.data, '/payees/:id')),
     onSuccess: invalidate,
   });
 }
@@ -72,7 +76,9 @@ export function useRecheckPayeeVat() {
   const invalidate = useInvalidatePayees();
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Payee>(`/payees/${id}/vat-check`, {}).then(response => response.data),
+      apiClient
+        .post(`/payees/${id}/vat-check`, {})
+        .then(response => checkContract('PayeeRecord', response.data, '/payees/:id/vat-check')),
     onSuccess: invalidate,
   });
 }
@@ -80,12 +86,11 @@ export function useRecheckPayeeVat() {
 export function useMergePayees() {
   const invalidate = useInvalidatePayees();
   return useMutation({
-    mutationFn: ({ targetId, sourceIds }: { targetId: string; sourceIds: string[] }) =>
-      apiClient
-        .post<{ merged: number }>(`/payees/${targetId}/merge`, {
-          sourceIds,
-        } satisfies ContractInput<'MergePayeesBody'>)
-        .then(response => response.data),
+    mutationFn: async ({ targetId, sourceIds }: { targetId: string; sourceIds: string[] }) => {
+      await apiClient.post(`/payees/${targetId}/merge`, {
+        sourceIds,
+      } satisfies ContractInput<'MergePayeesBody'>);
+    },
     onSuccess: invalidate,
   });
 }
@@ -95,11 +100,13 @@ export function useSetTransactionPayee() {
   return useMutation({
     mutationFn: ({ transactionId, choice }: { transactionId: string; choice: PayeeChoice }) =>
       apiClient
-        .put<TransactionPayeeResult>(
+        .put(
           `/transactions/${transactionId}/payee`,
           choice satisfies ContractInput<'SetTransactionPayeeBody'>,
         )
-        .then(response => response.data),
+        .then(response =>
+          checkContract('TransactionPayeeResult', response.data, '/transactions/:id/payee'),
+        ),
     onSuccess: invalidate,
   });
 }

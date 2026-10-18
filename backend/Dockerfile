@@ -52,13 +52,16 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
   /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 RUN groupadd --system app && useradd --system --gid app app && \
-  mkdir -p uploads/reports && chown -R app:app /app
+  mkdir -p uploads/reports update && chown -R app:app /app
 
 # Pruned in the builder so the runtime image carries only production deps.
 COPY --chown=app:app --from=builder /app/package*.json ./
 COPY --chown=app:app --from=builder /app/node_modules ./node_modules
 COPY --chown=app:app --from=builder /app/dist ./dist
 COPY --chown=app:app --from=builder /app/scripts ./scripts
+# Release tag (vX.Y.Z) the Settings page compares with the newest GitHub release.
+ARG APP_VERSION=""
+ENV APP_VERSION=${APP_VERSION}
 
 USER app
 

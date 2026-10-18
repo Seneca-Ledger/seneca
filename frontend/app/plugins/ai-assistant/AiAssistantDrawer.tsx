@@ -7,8 +7,10 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   DollarSign,
+  Flag,
   Landmark,
   PiggyBank,
+  Repeat,
   ShieldAlert,
   TrendingUp,
   Users,
@@ -78,6 +80,18 @@ export function AiAssistantDrawer({ isOpen, onClose, onBack, zIndex }: AiAssista
       description: t.cards.budgetRecommendations.description,
       icon: <PiggyBank size={20} />,
     },
+    {
+      key: 'goals-runway',
+      title: t.cards.goalsRunway.title,
+      description: t.cards.goalsRunway.description,
+      icon: <Flag size={20} />,
+    },
+    {
+      key: 'subscriptions-review',
+      title: t.cards.subscriptionsReview.title,
+      description: t.cards.subscriptionsReview.description,
+      icon: <Repeat size={20} />,
+    },
   ];
 
   const handleCardClick = useCallback(
@@ -140,7 +154,7 @@ export function AiAssistantDrawer({ isOpen, onClose, onBack, zIndex }: AiAssista
                   if (!isLoading) void handleCardClick(card.key);
                 }}
                 sx={{
-                  border: '1px solid var(--border-color, #e5e7eb)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: tokens.radius.lg,
                   p: 2,
                   cursor: isLoading ? 'wait' : 'pointer',

@@ -44,7 +44,10 @@ function EmptyWorkspacesState({
         type="button"
         onClick={onCreateClick}
         style={{
-          padding: '12px 24px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '12px 24px 12px 20px',
           background: 'var(--primary-fill)',
           color: '#fff',
           fontWeight: 500,
@@ -54,6 +57,7 @@ function EmptyWorkspacesState({
           borderRadius: tokens.radius.md,
         }}
       >
+        <Plus size={18} aria-hidden />
         {createLabel}
       </button>
     </Box>

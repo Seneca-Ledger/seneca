@@ -21,6 +21,7 @@ import { diskStorage } from 'multer';
 import * as path from 'path';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
@@ -33,6 +34,7 @@ import {
   CreateDataEntryBody,
   CreateDataEntryCustomFieldBody,
   UpdateDataEntryCustomFieldBody,
+  UploadedIcon,
 } from '../../contracts';
 import { DataEntryType } from '../../entities/data-entry.entity';
 import type { User } from '../../entities/user.entity';
@@ -162,6 +164,7 @@ export class DataEntryController {
       limits: { fileSize: 1_500_000 },
     }),
   )
+  @SchemaResponse(UploadedIcon)
   async uploadCustomIcon(@UploadedFile() file: { filename: string } | undefined) {
     if (!file) {
       throw new BadRequestException(appError('FILE_NOT_UPLOADED'));

@@ -227,7 +227,7 @@ npm --prefix frontend run format
 
 ### Prerequisites
 
-- Node.js 20+ and npm
+- Node.js 22.18+ and npm
 - Docker with Compose v2 (`docker compose`) for local PostgreSQL/Redis
 - Git
 - PostgreSQL 14+ (optional if you do not use Docker)

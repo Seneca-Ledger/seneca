@@ -6,11 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 const saveBlob = vi.hoisted(() => vi.fn());
+const appLocale = vi.hoisted(() => ({ current: 'en-US' }));
 
 vi.mock('@/app/lib/api', () => ({ default: api }));
 vi.mock('react-hot-toast', () => ({ default: toast }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/i18n', () => ({
+  useLocale: () => ({ locale: appLocale.current }),
   useIntlayer: () =>
     new Proxy({}, { get: (_target, key) => ({ value: String(key), toString: () => String(key) }) }),
 }));
@@ -20,6 +22,7 @@ vi.mock('./tax-return.helpers', async importOriginal => ({
 }));
 
 import { TaxYearView } from './TaxYearView';
+import { categoryItem } from '@/app/test/fixtures/contracts';
 
 const YEAR = new Date().getFullYear();
 
@@ -61,7 +64,17 @@ const REPORT = {
   missingRateCurrencies: [],
 };
 
-function mockApi({ reserve = null as unknown, report = REPORT as unknown } = {}) {
+const CATEGORIES = [
+  categoryItem({ id: 'cat-med', name: 'Medical', taxRelevant: true }),
+  categoryItem({ id: 'cat-food', name: 'Groceries' }),
+  categoryItem({ id: 'cat-sub', name: 'Dentist', parentId: 'cat-med' }),
+];
+
+function mockApi({
+  reserve = null as unknown,
+  report = REPORT as unknown,
+  categories = CATEGORIES as unknown,
+} = {}) {
   api.get.mockImplementation((url: string) => {
     if (url.startsWith('/tax/year-report')) return Promise.resolve({ data: report });
     if (url === '/tax/settings/reserve/amount')
@@ -69,6 +82,7 @@ function mockApi({ reserve = null as unknown, report = REPORT as unknown } = {})
         data: reserve ?? {
           currency: 'EUR',
           year: YEAR,
+          asOf: `${YEAR}-06-30`,
           vat: null,
           incomeTax: null,
           payments: { categoryId: null, amount: 0, count: 0 },
@@ -77,13 +91,7 @@ function mockApi({ reserve = null as unknown, report = REPORT as unknown } = {})
         },
       });
     if (url === '/categories')
-      return Promise.resolve({
-        data: [
-          { id: 'cat-med', name: 'Medical', type: 'expense', parentId: null, taxRelevant: true },
-          { id: 'cat-food', name: 'Groceries', type: 'expense', parentId: null },
-          { id: 'cat-sub', name: 'Dentist', type: 'expense', parentId: 'cat-med' },
-        ],
-      });
+      return Promise.resolve({ data: categories });
     if (url.startsWith('/tax/pack')) return Promise.resolve({ data: new Blob(['zip']) });
     return Promise.reject(new Error(`unexpected ${url}`));
   });
@@ -91,6 +99,7 @@ function mockApi({ reserve = null as unknown, report = REPORT as unknown } = {})
 
 describe('TaxYearView', () => {
   beforeEach(() => {
+    appLocale.current = 'en-US';
     vi.clearAllMocks();
     api.put.mockResolvedValue({ data: {} });
   });
@@ -106,6 +115,7 @@ describe('TaxYearView', () => {
       reserve: {
         currency: 'EUR',
         year: YEAR,
+        asOf: `${YEAR}-06-30`,
         vat: { net: 950, outputTax: 1900, inputTax: 950 },
         incomeTax: { percent: 30, earnings: 10000, amount: 3000 },
         payments: { categoryId: 'cat-tax', amount: 1000, count: 2 },
@@ -116,14 +126,35 @@ describe('TaxYearView', () => {
     renderWithQuery(<TaxYearView />);
 
     expect(await screen.findByText('reserveTotal')).toBeInTheDocument();
-    expect(screen.getByText(/2,950\.00 EUR|2950\.00 EUR|2 950,00 EUR/)).toBeInTheDocument();
+    // One format: symbol first, no cents on whole amounts, a typographic minus.
+    expect(screen.getByText('€2,950')).toBeInTheDocument();
     expect(screen.getByText('reserveVat')).toBeInTheDocument();
+    expect(screen.getByText('−€1,000')).toBeInTheDocument();
+  });
+
+  it('calls negative VAT money to reclaim, and puts no minus on a zero', async () => {
+    mockApi({
+      reserve: {
+        currency: 'USD',
+        year: YEAR,
+        vat: { net: -20.04, outputTax: 0, inputTax: 20.04 },
+        incomeTax: null,
+        payments: { categoryId: null, amount: 0, count: 0 },
+        total: 0,
+        missingRateCurrencies: [],
+      },
+    });
+    renderWithQuery(<TaxYearView />);
+
+    expect(await screen.findByText('reserveVatReclaim')).toBeInTheDocument();
+    expect(screen.getByText('$20.04')).toBeInTheDocument();
+    expect(screen.getAllByText('$0')).toHaveLength(2);
   });
 
   it('offers top-level categories and toggles their tax-relevant mark', async () => {
     mockApi();
     renderWithQuery(<TaxYearView />);
-    const group = await screen.findByRole('group', { name: 'categoriesTitle' });
+    const group = await screen.findByRole('group', { name: 'groupExpenses' });
 
     expect(within(group).queryByText('Dentist')).not.toBeInTheDocument();
     fireEvent.click(await within(group).findByText('Groceries'));
@@ -135,6 +166,30 @@ describe('TaxYearView', () => {
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith('/categories/cat-med', { taxRelevant: false }),
     );
+  });
+
+  it('names system categories in the reader\'s language in the picker and the table', async () => {
+    appLocale.current = 'ru';
+    mockApi({
+      categories: [categoryItem({ id: 'cat-ads', name: 'Advertising', isSystem: true, source: 'system' })],
+      report: {
+        ...REPORT,
+        categories: [{ ...REPORT.categories[0], categoryId: 'cat-ads', name: 'Advertising' }],
+        rows: REPORT.rows.map(row => ({ ...row, categoryId: 'cat-ads', categoryName: 'Advertising' })),
+      },
+    });
+    renderWithQuery(<TaxYearView />);
+
+    const group = await screen.findByRole('group', { name: 'groupExpenses' });
+    fireEvent.click(await within(group).findByText('Реклама'));
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith('/categories/cat-ads', { taxRelevant: true }),
+    );
+
+    const table = await screen.findByRole('table', { name: 'tableLabel' });
+    fireEvent.click(within(table).getByRole('button', { name: 'Реклама' }));
+    expect(await screen.findAllByTestId('tax-year-row')).toHaveLength(2);
+    expect(screen.queryByText('Advertising')).not.toBeInTheDocument();
   });
 
   it('opts a row out, or hands a hand-marked row back to its category', async () => {
@@ -176,9 +231,10 @@ describe('TaxYearView', () => {
     );
   });
 
-  it('says so when nothing is marked yet', async () => {
+  it('counts the chosen categories by the title, and says when they hold nothing this year', async () => {
     mockApi({ report: { ...REPORT, categories: [], rows: [] } });
     renderWithQuery(<TaxYearView />);
-    expect(await screen.findByText('empty')).toBeInTheDocument();
+    expect(await screen.findByText('selectedCount')).toBeInTheDocument();
+    expect(await screen.findByText('emptySelected')).toBeInTheDocument();
   });
 });

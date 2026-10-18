@@ -61,6 +61,10 @@ export class Client {
   @Column({ name: 'supply_type', type: 'varchar', length: 16, nullable: true })
   supplyType: 'goods' | 'services' | null;
 
+  /** The client's Peppol participant id (`scheme:value`), where Peppol invoices go. */
+  @Column({ name: 'peppol_id', type: 'varchar', length: 100, nullable: true })
+  peppolId: string | null;
+
   /** Currency invoices to this client are denominated in by default. */
   @Column({ type: 'varchar', length: 3 })
   currency: string;

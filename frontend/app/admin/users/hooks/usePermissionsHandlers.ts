@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import apiClient from '../../../lib/api';
+import { checkContract } from '../../../lib/query-fn-schema';
 
 interface User {
   id: string;
@@ -27,7 +28,12 @@ export interface PermissionsHandlers {
 
 async function fetchUserPermissions(userId: string): Promise<string[]> {
   const response = await apiClient.get(`/users/${userId}/permissions`);
-  return response.data.customPermissions || [];
+  const { customPermissions } = await checkContract(
+    'UserPermissions',
+    response.data,
+    '/users/:id/permissions',
+  );
+  return [...customPermissions];
 }
 
 export function usePermissionsHandlers({

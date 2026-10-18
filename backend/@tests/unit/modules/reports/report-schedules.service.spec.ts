@@ -201,6 +201,8 @@ describe('ReportSchedulesService.runDue', () => {
 
     expect(sendMail).toHaveBeenCalledTimes(1);
     expect(sendMail.mock.calls[0][0].to).toBe('finance@example.com');
+    // Named in the reader's language, not by its id.
+    expect(sendMail.mock.calls[0][0].subject).toMatch(/^Profit & Loss \(P&L\): /);
     expect(result).toEqual({ ran: 1, failed: 0 });
     expect(scheduleRepository.save.mock.calls[0][0].lastError).toBeNull();
   });
@@ -217,6 +219,34 @@ describe('ReportSchedulesService CRUD', () => {
         recipients: [],
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a template it does not know when the schedule is created', async () => {
+    const { service, scheduleRepository } = createService();
+    await expect(
+      service.create('ws1', 'u1', {
+        templateId: 'no-such-report',
+        format: 'csv',
+        cadence: ReportScheduleCadence.DAILY,
+        recipients: ['a@example.com'],
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(scheduleRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects a format the template cannot be written in', async () => {
+    const { service, scheduleRepository } = createService();
+    // The Balance Sheet has no CSV renderer; without this check the schedule
+    // would be saved and fail on every run.
+    await expect(
+      service.create('ws1', 'u1', {
+        templateId: 'balance-sheet',
+        format: 'csv',
+        cadence: ReportScheduleCadence.DAILY,
+        recipients: ['a@example.com'],
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(scheduleRepository.save).not.toHaveBeenCalled();
   });
 
   it('reschedules from now when a paused schedule is resumed', async () => {
@@ -242,5 +272,59 @@ describe('ReportSchedulesService CRUD', () => {
       scheduleRepository: { delete: jest.fn(async () => ({ affected: 0 })) },
     });
     await expect(service.remove('ws1', 's1')).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe("ReportSchedulesService on the owner's clock", () => {
+  const { service } = createService();
+
+  it('sends at 06:00 local, not at 06:00 UTC', () => {
+    // Almaty is UTC+5, so breakfast there is 01:00 UTC.
+    expect(
+      service
+        .computeNextRunAt(
+          ReportScheduleCadence.DAILY,
+          new Date('2026-03-05T02:00:00.000Z'),
+          'Asia/Almaty',
+        )
+        .toISOString(),
+    ).toBe('2026-03-06T01:00:00.000Z');
+  });
+
+  it('keeps 06:00 local across a daylight-saving change', () => {
+    // Berlin moves to UTC+2 on 29 March 2026: 06:00 local goes from 05:00 to 04:00 UTC.
+    expect(
+      service
+        .computeNextRunAt(
+          ReportScheduleCadence.DAILY,
+          new Date('2026-03-28T06:00:00.000Z'),
+          'Europe/Berlin',
+        )
+        .toISOString(),
+    ).toBe('2026-03-29T04:00:00.000Z');
+  });
+
+  it("counts yesterday by the owner's calendar", () => {
+    // 00:30 UTC on the 6th is already 05:30 on the 6th in Almaty, so the last
+    // whole day there is the 5th — in UTC it would still look like the 4th.
+    expect(
+      service.resolvePeriod(
+        ReportScheduleCadence.DAILY,
+        new Date('2026-03-06T00:30:00.000Z'),
+        'Asia/Almaty',
+      ),
+    ).toEqual({ dateFrom: '2026-03-05', dateTo: '2026-03-05' });
+  });
+
+  it('falls back to UTC for a zone it does not recognise', () => {
+    expect(
+      service
+        .computeNextRunAt(
+          ReportScheduleCadence.DAILY,
+          new Date('2026-03-05T07:00:00.000Z'),
+          'Mars/Olympus',
+        )
+        .toISOString(),
+    ).toBe('2026-03-06T06:00:00.000Z');
   });
 });

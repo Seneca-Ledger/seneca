@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
+import { Plus } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
@@ -47,6 +48,10 @@ const DEFAULT_SUMMARY: PayablesSummary = {
   toPayCount: 0,
   overdueCount: 0,
   paidTotalCount: 0,
+  dueThisWeekCount: 0,
+  unbookedTotal: 0,
+  unbookedCount: 0,
+  convertedCurrencies: [],
 };
 
 const PAGE_SIZE = 20;
@@ -256,6 +261,10 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         dueThisWeek: tx(['payables', 'summary', 'dueThisWeek'], 'Due This Week'),
         paidTotal: dx(['summary', 'paidThisMonth'], 'Paid', 'Received'),
         itemsSuffix: tx(['payables', 'summary', 'itemsSuffix'], 'items'),
+        convertedNote: tx(
+          ['payables', 'summary', 'convertedNote'],
+          "In {currency}; {currencies} converted at today's rate",
+        ),
       },
       filters: {
         status: tx(['payables', 'filters', 'status'], 'Status'),
@@ -535,7 +544,9 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
       const updated =
         result.kind === 'full'
           ? await payablesApi.markAsPaid(payable.id, result.payload)
-          : await payablesApi.addPayment(payable.id, result.payload);
+          : result.kind === 'book'
+            ? await payablesApi.bookPayment(payable.id, result.paymentId, result.payload)
+            : await payablesApi.addPayment(payable.id, result.payload);
       // A bill that is still short keeps the dialog open on its new outstanding
       // amount: instalments arrive one after another.
       setPayingPayable(updated.status === 'partially_paid' ? updated : null);
@@ -673,19 +684,11 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
               alignItems: 'flex-start',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="lumio-stmt-toolbar" style={{ width: '100%' }}>
+              <div className="lumio-stmt-toolbar__tabs">
                 <StatementsQueueTabs />
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  gap: 12,
-                  flexShrink: 0,
-                }}
-              >
+              <div className="lumio-stmt-toolbar__group">
                 <PayableFiltersBar
                   value={filters}
                   onChange={handleFiltersChange}
@@ -693,20 +696,15 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
                   labels={labels.filters}
                 />
                 {/* Keeps the primary actions from reading as more filter buttons. */}
-                <span
-                  aria-hidden
-                  style={{
-                    width: 1,
-                    alignSelf: 'stretch',
-                    minHeight: 24,
-                    background: 'var(--border-color)',
-                    flexShrink: 0,
-                  }}
-                />
-                <Button variant="outline" onClick={() => router.push('/statements/reconcile')}>
+                <span aria-hidden className="lumio-stmt-toolbar__divider" />
+                {/* One primary action per page; the bank check is secondary. */}
+                <Button variant="ghost" onClick={() => router.push('/statements/reconcile')}>
                   {tx(['payables', 'reconcile'], 'Reconcile with the bank')}
                 </Button>
-                <Button onClick={openCreateDrawer}>{labels.add}</Button>
+                <Button onClick={openCreateDrawer}>
+                  <Plus size={18} aria-hidden />
+                  {labels.add}
+                </Button>
               </div>
             </div>
           </div>

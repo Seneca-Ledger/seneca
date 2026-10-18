@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { transactionItem } from '@/app/test/fixtures/contracts';
 import { useAnalyticsData } from './useAnalyticsData';
 
 const apiGet = vi.hoisted(() => vi.fn());
@@ -8,15 +9,15 @@ const apiGet = vi.hoisted(() => vi.fn());
 vi.mock('@/app/lib/api', () => ({ default: { get: apiGet } }));
 vi.mock('react-hot-toast', () => ({ default: { error: vi.fn() } }));
 
+// A row of the list also names the expense it pays back, by id.
+const listed = [
+  { ...transactionItem({ id: 'confirmed', isVerified: true }), reimbursementOf: null },
+  { ...transactionItem({ id: 'unconfirmed', isVerified: false }), reimbursementOf: null },
+];
+
 const pages: Record<string, unknown> = {
-  '/statements': { data: [], total: 0 },
-  '/transactions': {
-    data: [
-      { id: 'confirmed', isVerified: true },
-      { id: 'unconfirmed', isVerified: false },
-    ],
-    total: 2,
-  },
+  '/statements': { data: [], items: [], total: 0, page: 1, limit: 500 },
+  '/transactions': { data: listed, items: listed, total: 2, page: 1, limit: 500 },
   '/integrations/gmail/receipts': {
     receipts: [
       { id: 'approved', status: 'approved' },

@@ -16,6 +16,7 @@ import { Checkbox } from '@/app/components/ui/checkbox';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Spinner } from '@/app/components/ui/spinner';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
 import {
   getStatementDisplayMerchant,
@@ -44,9 +45,7 @@ export interface StatementForTable {
     currency?: string;
     date?: string;
   };
-  parsingDetails?: {
-    importPreview?: { source?: string; attachments?: number };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 interface ListHeaderLabels {
@@ -379,7 +378,6 @@ function StatementRow({
       duplicateGroupSize={duplicateMeta?.total}
       duplicateRole={duplicateMeta?.role}
       duplicateGroupLabel={duplicateMeta?.groupLabel}
-      duplicateGroupTone={duplicateMeta?.groupTone}
       duplicateReason={duplicateMeta?.reason}
       duplicateActionLabel={reviewDuplicateLabel}
       typeLabel={isReceipt ? 'Receipt' : statement.fileType}

@@ -59,3 +59,14 @@ export const TransactionSearchResult = Schema.Struct({
   pendingEmbeddings: Schema.Number,
 });
 export type TransactionSearchResult = Wire<typeof TransactionSearchResult>;
+
+/** `POST /ai-analysis/completions`: the model's answer and what it cost. */
+export const ChatCompletionResult = Schema.Struct({
+  content: Schema.String,
+  model: Schema.String,
+  usage: Schema.Struct({
+    promptTokens: Schema.NullOr(Schema.Number),
+    completionTokens: Schema.NullOr(Schema.Number),
+  }),
+});
+export type ChatCompletionResult = Wire<typeof ChatCompletionResult>;

@@ -1,14 +1,23 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
-import { CreateNoteBody, ListNoteCountsBody, SetNoteResolvedBody } from '../../contracts';
+import {
+  CreateNoteBody,
+  ListNoteCountsBody,
+  NoteCounts,
+  NoteItem,
+  NoteList,
+  NotesQuery,
+  SetNoteResolvedBody,
+} from '../../contracts';
 import { NoteEntityType } from '../../entities/note.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { NoteTargetDto } from './dto/note.dto';
 import { NotesService } from './notes.service';
 
 /**
@@ -21,13 +30,19 @@ export class NotesController {
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
-  async listNotes(@WorkspaceId() workspaceId: string, @Query() query: NoteTargetDto) {
-    const items = await this.notesService.listNotes(workspaceId, query.entityType, query.entityId);
+  @SchemaResponse(NoteList)
+  async listNotes(@WorkspaceId() workspaceId: string, @SchemaQuery(NotesQuery) query: NotesQuery) {
+    const items = await this.notesService.listNotes(
+      workspaceId,
+      toEnum(NoteEntityType, query.entityType),
+      query.entityId,
+    );
     return { items };
   }
 
   @Post()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(NoteItem)
   async createNote(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -45,6 +60,7 @@ export class NotesController {
 
   @Post('counts')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(NoteCounts)
   async countNotes(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(ListNoteCountsBody) dto: ListNoteCountsBody,
@@ -59,6 +75,7 @@ export class NotesController {
 
   @Patch(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(NoteItem)
   async setResolved(
     @WorkspaceId() workspaceId: string,
     @Param('id', new ParseUUIDPipe()) noteId: string,

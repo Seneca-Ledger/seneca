@@ -6,12 +6,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { type EntityManager, Repository } from 'typeorm';
+import { type EntityManager, In, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { fromMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
-import type { CreateInvoiceBody, InvoiceLineItemInput, UpdateInvoiceBody } from '../../contracts';
+import type {
+  CreateInvoiceBody,
+  InvoiceLineItemInput,
+  InvoicesQuery,
+  UpdateInvoiceBody,
+} from '../../contracts';
 import { Client } from '../../entities/client.entity';
 import { CreditNoteStatus } from '../../entities/credit-note.entity';
 import { Invoice, InvoiceRecurrenceInterval, InvoiceStatus } from '../../entities/invoice.entity';
@@ -24,11 +29,11 @@ import {
   PayableSource,
   PayableStatus,
 } from '../../entities/payable.entity';
+import { TaxRate } from '../../entities/tax-rate.entity';
 import type { WorkspaceBusinessProfile } from '../../entities/workspace-business-profile.entity';
 import { BusinessProfileService } from '../business-profile/business-profile.service';
 import { LedgerPostingError, LedgerPostingService } from '../ledger/ledger-posting.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import { FilterInvoicesDto } from './dto/filter-invoices.dto';
 import { buildInvoicePdf } from './invoice-document';
 import { documentLines, priceLines, totalsOf } from './invoice-pricing';
 import { advanceIssueDate, shiftDueDate } from './invoice-recurrence.util';
@@ -111,6 +116,7 @@ export class InvoicesService {
 
   async create(workspaceId: string, dto: CreateInvoiceBody): Promise<Invoice> {
     const client = await this.clientInWorkspace(workspaceId, dto.clientId);
+    await this.taxRatesInWorkspace(workspaceId, dto.lineItems);
     return this.buildDraft(workspaceId, dto.clientId, {
       issueDate: dto.issueDate,
       dueDate: dto.dueDate ?? (await this.dueDateFor(workspaceId, client, dto.issueDate)),
@@ -162,7 +168,7 @@ export class InvoicesService {
     });
   }
 
-  async findAll(workspaceId: string, filters: FilterInvoicesDto) {
+  async findAll(workspaceId: string, filters: InvoicesQuery) {
     const { page, limit, skip } = normalizePagination(filters);
     const queryBuilder = this.invoiceRepository
       .createQueryBuilder('invoice')
@@ -268,6 +274,7 @@ export class InvoicesService {
       await invoices.save(invoice);
 
       if (dto.lineItems) {
+        await this.taxRatesInWorkspace(workspaceId, dto.lineItems);
         await this.replaceLineItems(manager, invoice.id, dto.lineItems);
       }
       return this.recalculateTotals(manager, invoice.id);
@@ -686,6 +693,21 @@ export class InvoicesService {
       throw new BadRequestException(appError('INVOICE_CLIENT_NOT_FOUND'));
     }
     return client;
+  }
+
+  /** A line's tax rate comes from the request: one of another workspace's is "not found". */
+  private async taxRatesInWorkspace(
+    workspaceId: string,
+    lineItems: ReadonlyArray<{ taxRateId?: string | null }>,
+  ): Promise<void> {
+    const ids = [...new Set(lineItems.map(item => item.taxRateId).filter(id => !!id))];
+    if (ids.length === 0) return;
+    const found = await this.invoiceRepository.manager
+      .getRepository(TaxRate)
+      .count({ where: { id: In(ids), workspaceId } });
+    if (found !== ids.length) {
+      throw new NotFoundException('Tax rate not found');
+    }
   }
 
   private parseDateOnly(value: string): Date {

@@ -1,8 +1,9 @@
 'use client';
 
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
+import { useAnalyticsPeriod } from '@/app/(main)/statements/components/analytics/flow/analytics-period';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 const isoDate = (date: Date): string =>
@@ -51,7 +52,9 @@ export function useSpendFlow(
   month: Date,
 ): UseQueryResult<SpendFlowData> {
   const workspaceId = useWorkspaceId();
-  const params = { groupBy, type, ...monthRange(month) };
+  const period = useAnalyticsPeriod();
+  const range = period ? { dateFrom: period.from, dateTo: period.to } : monthRange(month);
+  const params = { groupBy, type, ...range } satisfies ContractInput<'SpendFlowQuery'>;
   return useQuery({
     queryKey: queryKeys.spendFlow({ workspaceId, params }),
     queryFn: ({ signal }) =>

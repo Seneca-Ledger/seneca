@@ -1,3 +1,5 @@
+import { ALLOW_IN_VERSION_KEY } from '@/common/decorators/allow-in-version.decorator';
+import { appError } from '@/common/errors/app-error';
 import { WorkspaceContextGuard } from '@/common/guards/workspace-context.guard';
 import { WorkspaceMember, WorkspaceRole } from '@/entities/workspace-member.entity';
 import { ForbiddenException } from '@nestjs/common';
@@ -173,5 +175,68 @@ describe('WorkspaceContextGuard', () => {
     await guard.canActivate(context);
 
     expect(req.workspaceRole).toBe(WorkspaceRole.OWNER);
+  });
+
+  describe('a past version', () => {
+    const version = {
+      ...mockMembership,
+      role: WorkspaceRole.OWNER,
+      workspace: { id: 'ws-v', kind: 'version', ownerId: 'user-1' } as any,
+    };
+    const readOnly = () => {};
+    const exportOnly = () => {};
+    Reflect.defineMetadata(ALLOW_IN_VERSION_KEY, true, exportOnly);
+
+    const versionContext = (method: string, handler = readOnly, userId = 'user-1') =>
+      ({
+        switchToHttp: () => ({
+          getRequest: () => ({ method, headers: { 'x-workspace-id': 'ws-v' }, user: { id: userId } }),
+        }),
+        getHandler: () => handler,
+        getClass: () => class Controller {},
+      }) as unknown as ExecutionContext;
+
+    const codeOf = async (promise: Promise<unknown>) => {
+      try {
+        await promise;
+        return 'allowed';
+      } catch (error) {
+        return ((error as ForbiddenException).getResponse() as { code?: string }).code;
+      }
+    };
+
+    beforeEach(() => mockRepository.findOne.mockResolvedValue(version));
+
+    it('answers reads', async () => {
+      expect(await codeOf(guard.canActivate(versionContext('GET')))).toBe('allowed');
+    });
+
+    it('refuses every change with a code that does not read as lost access', async () => {
+      for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+        expect(await codeOf(guard.canActivate(versionContext(method)))).toBe('VERSION_READ_ONLY');
+      }
+      // The client resets the workspace on a 403 whose message says "workspace".
+      expect(appError('VERSION_READ_ONLY').message).not.toMatch(/workspace/);
+      expect(appError('VERSION_OWNER_ONLY').message).not.toMatch(/workspace/);
+    });
+
+    it('lets through a POST that only reads', async () => {
+      expect(await codeOf(guard.canActivate(versionContext('POST', exportOnly)))).toBe('allowed');
+    });
+
+    it('is for the person who opened it alone', async () => {
+      expect(await codeOf(guard.canActivate(versionContext('GET', readOnly, 'user-2')))).toBe(
+        'VERSION_OWNER_ONLY',
+      );
+    });
+
+    it('leaves an ordinary workspace as it was', async () => {
+      mockRepository.findOne.mockResolvedValue({
+        ...mockMembership,
+        workspace: { id: 'ws-1', kind: 'standard', ownerId: 'someone-else' },
+      });
+      const context = versionContext('DELETE');
+      expect(await codeOf(guard.canActivate(context))).toBe('allowed');
+    });
   });
 });

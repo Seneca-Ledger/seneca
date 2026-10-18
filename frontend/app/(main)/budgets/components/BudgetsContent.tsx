@@ -6,8 +6,11 @@ import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import NextLink from 'next/link';
 import { useEffect } from 'react';
+import { Plus } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { PiggyLineIcon } from '@/app/components/ui/empty-state-icons';
+import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
@@ -90,6 +93,7 @@ export function BudgetsContent({
     (balance?.categories ?? []).map(category => [category.id, category.stoicClass]),
   );
   const listReady = !(isPending || error) && budgets.length > 0;
+  const noBudgets = !(isPending || error) && budgets.length === 0;
   // The browser's own jump to the anchor fires before the list has loaded,
   // so the scroll waits for the cards to render.
   useEffect(() => {
@@ -102,10 +106,11 @@ export function BudgetsContent({
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 1.5 }}>
           {/* Budgets can fund a goal, so the goals page is reached from here. */}
+          {/* Secondary ways in are links; the page keeps one filled button. */}
           {hasPermission('goal.view') && (
-            <Button variant="outlined" component={NextLink} href="/goals">
+            <Button variant="text" component={NextLink} href="/goals">
               {t.savingsGoals}
             </Button>
           )}
@@ -113,18 +118,24 @@ export function BudgetsContent({
             target="budgets"
             onImported={refresh}
             renderTrigger={(open, label) => (
-              <Button variant="outlined" onClick={open}>
+              <Button variant="text" onClick={open}>
                 {label}
               </Button>
             )}
           />
-          <Button variant="contained" onClick={() => openCreate()}>
-            {t.newBudget}
-          </Button>
+          {/* With no budgets the empty state's button leads; this one steps back. */}
+          <ReadOnlyHint>
+            <Button variant={noBudgets ? 'text' : 'contained'} onClick={() => openCreate()}>
+              <Plus size={18} aria-hidden />
+              {t.newBudget}
+            </Button>
+          </ReadOnlyHint>
         </Box>
       </Box>
 
-      <StoicBalance />
+      {/* Without a budget there is no plan to weigh: the invitation to make one
+          comes first, the Stoic balance after it. */}
+      {noBudgets ? null : <StoicBalance />}
 
       {isPending && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -141,16 +152,22 @@ export function BudgetsContent({
         </Typography>
       )}
 
-      {!(isPending || error) && budgets.length === 0 && (
-        <EmptyState
-          illustration="top-categories"
-          description={t.emptyDescription}
-          action={
-            <Button variant="outlined" onClick={() => openCreate()}>
-              {t.createFirst}
-            </Button>
-          }
-        />
+      {noBudgets && (
+        <>
+          <EmptyState
+            icon={<PiggyLineIcon />}
+            title={t.emptyTitle}
+            description={t.emptyDescription}
+            action={
+              <ReadOnlyHint>
+                <Button variant="contained" onClick={() => openCreate()}>
+                  {t.createFirst}
+                </Button>
+              </ReadOnlyHint>
+            }
+          />
+          <StoicBalance />
+        </>
       )}
 
       {listReady && (

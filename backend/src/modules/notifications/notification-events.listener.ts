@@ -17,6 +17,7 @@ import type {
   ParsingErrorEvent,
   ReceiptUncategorizedEvent,
   StatementUploadedEvent,
+  TaxDeadlineResolvedEvent,
   TaxDeadlineUpcomingEvent,
   TaxThresholdReachedEvent,
   TransactionsUncategorizedEvent,
@@ -24,6 +25,11 @@ import type {
 } from './events/notification-events';
 import type { NotificationMessageKey } from './notification-translations';
 import { NotificationsService } from './notifications.service';
+
+const TAX_DEADLINE_TYPES = [
+  NotificationType.TAX_DEADLINE_UPCOMING,
+  NotificationType.TAX_DEADLINE_OVERDUE,
+];
 
 @Injectable()
 export class NotificationEventsListener {
@@ -307,7 +313,7 @@ export class NotificationEventsListener {
       category: NotificationCategory.WORKSPACE_ACTIVITY,
       severity: NotificationSeverity.WARN,
       messageKey: 'tax.rates.official',
-      messageParams: { country: event.country, count: event.count },
+      messageParams: { country: { kind: 'region', code: event.country }, count: event.count },
       entityType: 'workspace',
       entityId: event.workspaceId,
       meta: { country: event.country, count: event.count },
@@ -325,6 +331,13 @@ export class NotificationEventsListener {
         : 'tax.deadline.income'
     ) as NotificationMessageKey;
 
+    // One live reminder per return: the "due in a week" one gives way to "due
+    // tomorrow", and that to "overdue", instead of contradicting each other.
+    await this.notificationsService.removeForWorkspace(event.workspaceId, TAX_DEADLINE_TYPES, {
+      kind: event.kind,
+      dueDate: event.dueDate,
+    });
+
     await this.notificationsService.createForWorkspaceMembers({
       workspaceId: event.workspaceId,
       type: overdue
@@ -336,14 +349,28 @@ export class NotificationEventsListener {
       messageKey,
       messageParams: {
         returnName: event.returnName,
-        periodStart: event.periodStart,
-        periodEnd: event.periodEnd,
+        period: { kind: 'taxPeriod', start: event.periodStart, end: event.periodEnd },
+        range: { kind: 'dateRange', start: event.periodStart, end: event.periodEnd },
         taxYear: event.periodStart.slice(0, 4),
-        dueDate: event.dueDate,
+        dueDate: { kind: 'date', value: event.dueDate },
       },
       entityType: 'workspace',
       entityId: event.workspaceId,
-      meta: { kind: event.kind, dueDate: event.dueDate, daysLeft: event.daysLeft },
+      meta: {
+        kind: event.kind,
+        periodStart: event.periodStart,
+        periodEnd: event.periodEnd,
+        dueDate: event.dueDate,
+        daysLeft: event.daysLeft,
+      },
+    });
+  }
+
+  @OnEvent('tax.deadline.resolved')
+  async onTaxDeadlineResolved(event: TaxDeadlineResolvedEvent): Promise<void> {
+    await this.notificationsService.removeForWorkspace(event.workspaceId, TAX_DEADLINE_TYPES, {
+      kind: event.kind,
+      periodEnd: event.periodEnd,
     });
   }
 }

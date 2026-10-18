@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
 import { type Reviewer, useDefaultReviewer } from '@/app/components/review/useReviewer';
 import { useHouseholdMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
@@ -12,12 +13,16 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient, { receiptsApi } from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { REVIEW_LINK_PARAMS } from '@/app/lib/review-links';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import {
   cursorAfterRemoval,
+  dateFilterToRange,
   isReviewInboxKind,
+  monthDateFilter,
   moveCursor,
   type ReviewInboxItem,
   type ReviewInboxKind,
@@ -41,6 +46,11 @@ export interface UseReviewInboxResult {
   to: string;
   setFrom: (value: string) => void;
   setTo: (value: string) => void;
+  /** The date filter the page opened with: a month the link named, or none. */
+  initialDateFilter: StatementFilterDate | null;
+  /** Rows with no category, confirmed or not, instead of the unconfirmed ones. */
+  uncategorized: boolean;
+  clearUncategorized: () => void;
   page: ReviewInboxPage | undefined;
   items: ReviewInboxItem[];
   categories: Category[];
@@ -56,6 +66,8 @@ export interface UseReviewInboxResult {
   busy: boolean;
   /** Approves the selection (or the cursor row) with a category, or as is. */
   approve: (categoryId?: string, ids?: string[]) => Promise<void>;
+  /** Files the row under a category without confirming it, the way Documents does. */
+  setCategory: (id: string, categoryId: string) => Promise<void>;
   resolveDuplicate: (id: string, decision: 'keep' | 'confirm') => Promise<void>;
   approveReceipt: (id: string) => Promise<void>;
   decideSubscription: (id: string, decision: 'confirm' | 'dismiss') => Promise<void>;
@@ -80,8 +92,15 @@ export function useReviewInbox(): UseReviewInboxResult {
   const reviewerParam = searchParams.get('reviewer');
   const reviewer: Reviewer =
     reviewerParam === 'me' || reviewerParam === 'anyone' ? reviewerParam : defaultReviewer;
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  // A link naming a month (the dashboard's month close) opens on that month,
+  // so the list holds exactly what the link counted.
+  const [initialDateFilter] = useState(() =>
+    monthDateFilter(searchParams.get(REVIEW_LINK_PARAMS.month)),
+  );
+  const [from, setFrom] = useState(() => dateFilterToRange(initialDateFilter, new Date()).from);
+  const [to, setTo] = useState(() => dateFilterToRange(initialDateFilter, new Date()).to);
+  const uncategorized =
+    kind === 'transaction' && searchParams.get(REVIEW_LINK_PARAMS.uncategorized) === 'true';
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [cursor, setCursor] = useState(-1);
 
@@ -106,15 +125,26 @@ export function useReviewInbox(): UseReviewInboxResult {
     [kind, router, searchParams],
   );
 
+  const clearUncategorized = useCallback(() => {
+    setSelected(new Set());
+    setCursor(-1);
+    const query = new URLSearchParams(searchParams.toString());
+    query.delete(REVIEW_LINK_PARAMS.uncategorized);
+    const rest = query.toString();
+    router.replace(rest ? `/review?${rest}` : '/review');
+  }, [router, searchParams]);
+
   const params = useMemo(
-    () => ({
-      kind,
-      limit: PAGE_SIZE,
-      reviewer,
-      ...(from ? { from } : {}),
-      ...(to ? { to } : {}),
-    }),
-    [kind, reviewer, from, to],
+    () =>
+      ({
+        kind,
+        limit: PAGE_SIZE,
+        reviewer,
+        ...(uncategorized ? { uncategorized: true } : {}),
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
+      }) satisfies ContractInput<'ReviewInboxQuery'>,
+    [kind, reviewer, uncategorized, from, to],
   );
 
   const pageQuery = useQuery({
@@ -134,12 +164,10 @@ export function useReviewInbox(): UseReviewInboxResult {
 
   const items = pageQuery.data?.items ?? [];
 
+  // Approving or categorising a row moves every figure, not only this queue.
   const invalidate = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['review-inbox'] }),
-      queryClient.invalidateQueries({ queryKey: ['transactions'] }),
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
-    ]);
+    invalidateFinancialData();
+    await queryClient.invalidateQueries({ queryKey: ['review-inbox'] });
   }, [queryClient]);
 
   const failedText = t.toastFailed.value;
@@ -204,6 +232,28 @@ export function useReviewInbox(): UseReviewInboxResult {
       toast.error(getApiErrorMessage(error, failedText));
     },
   });
+
+  const categoryMutation = useMutation({
+    mutationFn: ({ id, categoryId }: { id: string; categoryId: string }) =>
+      // PUT: the API has no PATCH route for transactions.
+      apiClient.put(`/transactions/${id}`, {
+        categoryId,
+      } satisfies ContractInput<'UpdateTransactionBody'>),
+    onSuccess: async () => {
+      toast.success(doneText);
+      await invalidate();
+    },
+    onError: (error: unknown) => {
+      toast.error(getApiErrorMessage(error, failedText));
+    },
+  });
+
+  const setCategory = useCallback(
+    async (id: string, categoryId: string) => {
+      await categoryMutation.mutateAsync({ id, categoryId }).catch(() => undefined);
+    },
+    [categoryMutation],
+  );
 
   const simpleMutation = useMutation({
     mutationFn: ({ id, run }: { id: string; run: () => Promise<unknown> }) => run().then(() => id),
@@ -280,6 +330,9 @@ export function useReviewInbox(): UseReviewInboxResult {
     to,
     setFrom,
     setTo,
+    initialDateFilter,
+    uncategorized,
+    clearUncategorized,
     page: pageQuery.data,
     items,
     categories: categoriesQuery.data ?? [],
@@ -292,8 +345,9 @@ export function useReviewInbox(): UseReviewInboxResult {
     cursor,
     setCursor,
     move,
-    busy: approveMutation.isPending || simpleMutation.isPending,
+    busy: approveMutation.isPending || simpleMutation.isPending || categoryMutation.isPending,
     approve,
+    setCategory,
     resolveDuplicate,
     approveReceipt,
     decideSubscription,

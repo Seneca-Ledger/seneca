@@ -1,16 +1,13 @@
 'use client';
 
 import { MonthStrip } from '@/app/(main)/dashboard/components/MonthStrip';
-import {
-  AnalyticsIconToggle,
-  type IconToggleOption,
-} from '@/app/(main)/statements/components/analytics/flow/AnalyticsIconToggle';
 import type {
   AnalyticsFlowHeaderLabels,
   AnalyticsFlowType,
   AnalyticsViewMode,
 } from '@/app/(main)/statements/components/analytics/flow/analytics-flow.types';
-import { ArrowDownLeft, ArrowUpRight, Table, Workflow } from '@/app/components/icons';
+import { useAnalyticsPeriod } from '@/app/(main)/statements/components/analytics/flow/analytics-period';
+import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIntlayer, useLocale } from '@/app/i18n';
 
 type Props = {
@@ -25,7 +22,8 @@ type Props = {
 
 /**
  * Header of one analytics section (top spenders, merchants, categories): the
- * dashboard's month strip, then icon toggles for spend/income and chart/table.
+ * dashboard's month strip (unless the page sets the period), then text tabs for
+ * spend/income and chart/table — words, not a pair of filled icon toggles.
  * The section heading above it names the leaderboard, so this carries no title.
  */
 export function AnalyticsFlowHeader({
@@ -39,14 +37,33 @@ export function AnalyticsFlowHeader({
 }: Props): React.JSX.Element {
   const headerT = useIntlayer('dashboardHeader');
   const { locale } = useLocale();
-  const flowOptions: IconToggleOption<AnalyticsFlowType>[] = [
-    { value: 'spend', label: labels.tabSpenders, Icon: ArrowUpRight },
-    { value: 'income', label: labels.tabIncomeSenders, Icon: ArrowDownLeft },
-  ];
-  const viewOptions: IconToggleOption<AnalyticsViewMode>[] = [
-    { value: 'chart', label: labels.viewChart, Icon: Workflow },
-    { value: 'table', label: labels.viewTable, Icon: Table },
-  ];
+  // On a page with one period for everything (the Cash flow tab) there is no strip of its own.
+  const period = useAnalyticsPeriod();
+  const tabs = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginLeft: 'auto' }}>
+      <TextTabs
+        value={flowType}
+        onChange={onFlowTypeChange}
+        ariaLabel={labels.flowTypeLabel}
+        options={[
+          { value: 'spend', label: labels.tabSpenders },
+          { value: 'income', label: labels.tabIncomeSenders },
+        ]}
+      />
+      <TextTabs
+        value={viewMode}
+        onChange={onViewModeChange}
+        ariaLabel={labels.viewModeLabel}
+        options={[
+          { value: 'chart', label: labels.viewChart },
+          { value: 'table', label: labels.viewTable },
+        ]}
+      />
+    </div>
+  );
+  if (period) {
+    return tabs;
+  }
   return (
     <div
       style={{
@@ -73,20 +90,7 @@ export function AnalyticsFlowHeader({
           }}
         />
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-        <AnalyticsIconToggle
-          options={flowOptions}
-          value={flowType}
-          onChange={onFlowTypeChange}
-          groupLabel={labels.flowTypeLabel}
-        />
-        <AnalyticsIconToggle
-          options={viewOptions}
-          value={viewMode}
-          onChange={onViewModeChange}
-          groupLabel={labels.viewModeLabel}
-        />
-      </div>
+      {tabs}
     </div>
   );
 }

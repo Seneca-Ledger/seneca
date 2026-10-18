@@ -1,8 +1,8 @@
-import type { DashboardData } from '@/app/hooks/useDashboard';
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
-import React from 'react';
+import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import type { DashboardData } from '@/app/hooks/useDashboard';
 import '../test-setup';
 import { FinanceOpsTab } from '../FinanceOpsTab';
 
@@ -19,42 +19,23 @@ vi.mock('@/app/i18n', async () => {
   return {
     useIntlayer: () =>
       autoDictionary({
-        title: value('Quick actions'),
-        noActionsNeeded: value('No actions needed'),
-        itemsToReview: value('{count} items to review'),
-        parsingIssuesFound: value('Parsing issues found'),
-        uploadDropTitle: value('Drop a statement here'),
+        headline: value('{month}: {done} of {total} done'),
+        headlineDone: value('{month} is ready to close'),
+        leftToReview: value('To review: {count}'),
+        leftUncategorized: value('Without a category: {count}'),
+        overdue: value('Overdue payments: {count} · {amount}'),
+        parsing: value('Parsing warnings: {count}'),
+        unread: value('Statements that could not be read: {count}'),
       }),
     useLocale: () => ({ locale: 'en' }),
   };
 });
 
-const historyProps = vi.hoisted(() => vi.fn<(props: Record<string, unknown>) => void>());
+const displayMonth = new Date(2026, 9, 1);
 
-vi.mock('../MonthlyHistoryCard', async () => {
-  const actual = await vi.importActual<typeof import('../MonthlyHistoryCard')>(
-    '../MonthlyHistoryCard',
-  );
-  return {
-    ...actual,
-    MonthlyHistoryCard: (props: Record<string, unknown>) => {
-      historyProps(props);
-      return <div data-testid="monthly-history" />;
-    },
-  };
-});
-
-const onSelectMonth = vi.fn();
-const displayMonth = new Date(2026, 6, 1);
-
-const renderTab = () =>
+const renderTab = (dashboard: DashboardData = data) =>
   render(
-    <FinanceOpsTab
-      data={data}
-      formatAmount={value => String(value)}
-      displayMonth={displayMonth}
-      onSelectMonth={onSelectMonth}
-    />,
+    <FinanceOpsTab data={dashboard} formatAmount={value => `$${value}`} displayMonth={displayMonth} />,
   );
 
 const data: DashboardData = {
@@ -79,10 +60,10 @@ const data: DashboardData = {
   role: 'owner',
   range: 'month',
   dataHealth: {
-    uncategorizedTransactions: 0,
+    uncategorizedTransactions: 6,
     statementsWithErrors: 0,
-    statementsPendingReview: 0,
-    statementsPendingSubmit: 0,
+    statementsPendingReview: 2,
+    statementsPendingSubmit: 1,
     receiptsPendingReview: 0,
     unapprovedCash: 0,
     lastUploadDate: '2026-02-01T00:00:00.000Z',
@@ -91,49 +72,66 @@ const data: DashboardData = {
 };
 
 describe('FinanceOpsTab', () => {
-  it('shows the by-month history for the picked month with the finance-ops queues', async () => {
-    const { FINANCE_OPS_HISTORY_METRICS } = await import('../MonthlyHistoryCard');
+  it('says how far the month is from closing', () => {
     renderTab();
 
-    expect(screen.getByTestId('monthly-history')).toBeInTheDocument();
-    expect(historyProps).toHaveBeenLastCalledWith({
-      displayMonth,
-      metrics: FINANCE_OPS_HISTORY_METRICS,
-      onSelectMonth,
-    });
+    expect(screen.getByRole('heading', { name: 'October 2026: 1 of 3 done' })).toBeInTheDocument();
   });
 
-  it('hosts the quick actions card with backend and parsing rows', () => {
+  it('lists every step once, with what is left and a link to Review for the month', () => {
     renderTab();
 
-    expect(screen.getByText('Quick actions')).toBeInTheDocument();
-    const overdue = screen.getByRole('link', { name: /overdue payments/i });
-    expect(overdue.getAttribute('href')).toBe('/statements/pay');
-    expect(overdue.textContent).toContain('2 items to review');
-    const parsing = screen.getByRole('link', { name: /parsing issues found/i });
-    expect(parsing.getAttribute('href')).toBe('/statements?filter=has_errors');
-  });
-
-  it('hosts the upload drop zone linking to the scanner', () => {
-    renderTab();
-
-    const zone = screen.getByRole('link', { name: /drop a statement here/i });
-    expect(zone.getAttribute('href')).toBe('/statements?openExpenseDrawer=scan');
-  });
-
-  it('renders the checklist rows as links, saved-view chips with counts and status pills', () => {
-    renderTab();
-
-    const checklist = screen.getByRole('link', { name: /checklist\.statementsImported/ });
-    expect(checklist.getAttribute('href')).toBeTruthy();
-    const savedView = screen.getByRole('link', { name: /savedViews\.uncategorized/ });
-    expect(savedView.className).toContain('lumio-chip');
-    expect(savedView.querySelector('.lumio-chip__count')).not.toBeNull();
-    const pills = ['statusReady', 'statusReview', 'statusBlocked'].flatMap(label =>
-      screen.queryAllByText(label),
+    expect(screen.getByText('To review: 2')).toBeInTheDocument();
+    expect(screen.getByText('Without a category: 6')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /actionReview/ })).toHaveAttribute(
+      'href',
+      '/review?month=2026-10',
     );
-    expect(pills.length).toBeGreaterThan(0);
-    expect(pills[0].className).toContain('lumio-chip--tone-');
-    expect(screen.getByText('featuresTitle')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /actionCategorize/ })).toHaveAttribute(
+      'href',
+      '/review?uncategorized=true&month=2026-10',
+    );
+    // Done steps carry no action; there is no step for sending statements anywhere.
+    expect(screen.queryByRole('link', { name: /actionMatch/ })).toBeNull();
+    expect(screen.queryByText(/submitted/i)).toBeNull();
+  });
+
+  it('lists statements that could not be read as needing attention, not as review', () => {
+    renderTab({ ...data, dataHealth: { ...data.dataHealth, statementsWithErrors: 1 } });
+
+    expect(screen.getByText('To review: 2')).toBeInTheDocument();
+    expect(screen.getByText('Statements that could not be read: 1')).toBeInTheDocument();
+  });
+
+  it('shows what else needs attention only when there is something', () => {
+    const { unmount } = renderTab();
+    expect(screen.getByText('Overdue payments: 2 · $0')).toBeInTheDocument();
+    expect(screen.getByText('Parsing warnings: 3')).toBeInTheDocument();
+    unmount();
+
+    renderTab({
+      ...data,
+      actions: [],
+      dataHealth: { ...data.dataHealth, parsingWarnings: 0 },
+    });
+    expect(screen.queryByText('attentionTitle')).toBeNull();
+  });
+
+  it('says the month is ready once every step is done', () => {
+    renderTab({
+      ...data,
+      dataHealth: { ...data.dataHealth, statementsPendingReview: 0, uncategorizedTransactions: 0 },
+    });
+
+    expect(screen.getByRole('heading', { name: 'October 2026 is ready to close' })).toBeInTheDocument();
+  });
+
+  it('puts the statement upload in a quiet button', () => {
+    renderTab();
+
+    expect(screen.getByRole('link', { name: /upload/ })).toHaveAttribute(
+      'href',
+      '/statements?openExpenseDrawer=scan',
+    );
   });
 });

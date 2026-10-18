@@ -2,11 +2,21 @@ import { Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { MergePayeesBody, SetTransactionPayeeBody, UpdatePayeeBody } from '../../contracts';
+import {
+  MergePayeesBody,
+  PayeePendingReview,
+  PayeeRecord,
+  PayeesPage,
+  PayeesQuery,
+  SetTransactionPayeeBody,
+  TransactionPayeeResult,
+  UpdatePayeeBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { PayeesQueryDto } from './dto/payees.dto';
 import { PayeesService } from './payees.service';
 
 @Controller()
@@ -15,12 +25,14 @@ export class PayeesController {
 
   @Get('payees')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
-  async list(@WorkspaceId() workspaceId: string, @Query() query: PayeesQueryDto) {
+  @SchemaResponse(PayeesPage)
+  async list(@WorkspaceId() workspaceId: string, @SchemaQuery(PayeesQuery) query: PayeesQuery) {
     return this.payeesService.list(workspaceId, query);
   }
 
   @Patch('payees/:id')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(PayeeRecord)
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @SchemaBody(UpdatePayeeBody) body: UpdatePayeeBody,
@@ -55,6 +67,7 @@ export class PayeesController {
   /** Rows of this payee in Review whose category nobody chose yet. */
   @Get('payees/:id/pending-review')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(PayeePendingReview)
   async pendingReview(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query('excludeTransactionId', new ParseUUIDPipe({ optional: true }))
@@ -66,6 +79,7 @@ export class PayeesController {
 
   @Put('transactions/:id/payee')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(TransactionPayeeResult)
   async setTransactionPayee(
     @Param('id', new ParseUUIDPipe()) id: string,
     @SchemaBody(SetTransactionPayeeBody) body: SetTransactionPayeeBody,

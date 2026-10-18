@@ -1,8 +1,7 @@
 import apiClient from '@/app/lib/api';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
-import { getCreatedRowResponse } from '../utils/tableHelpers';
+import { toGridRow, toRowPatch } from '../utils/tableHelpers';
 import type { CustomTableGridRow, CustomTableRowPatch } from '../utils/types';
-import { isDraftRowId } from './draftRowHelpers';
 
 export function applyRowDataPatch(
   rows: CustomTableGridRow[],
@@ -10,40 +9,6 @@ export function applyRowDataPatch(
   patch: CustomTableRowPatch,
 ): CustomTableGridRow[] {
   return rows.map(r => (r.id === rowId ? { ...r, data: { ...(r.data || {}), ...patch } } : r));
-}
-
-function extractPayload(data: unknown): unknown {
-  if (!data || typeof data !== 'object') {
-    return data;
-  }
-  const d = data as Record<string, unknown>;
-  // A row itself has a `data` field with cell values, so the envelope is only
-  // unwrapped when the outer object is not a row; otherwise the cells would be
-  // parsed instead of the row and the id would be replaced by a draft one.
-  if (typeof d.id === 'string' || typeof d.rowNumber === 'number') {
-    return data;
-  }
-  return d.data ?? d.item ?? data;
-}
-
-export function parseCreateRowResponse(data: unknown, rowCount: number): CustomTableGridRow | null {
-  const payload = extractPayload(data);
-  const raw = Array.isArray(payload) ? payload[0] : payload;
-  const created = getCreatedRowResponse(raw);
-  if (!created || isDraftRowId(created.id)) {
-    return null;
-  }
-  created.rowNumber = created.rowNumber || rowCount + 1;
-  return created;
-}
-
-/** Row data from a PATCH/POST reply, with server-computed formula values. */
-export function extractRowData(data: unknown): CustomTableRowPatch {
-  const payload = extractPayload(data);
-  const raw = (Array.isArray(payload) ? payload[0] : payload) as { data?: unknown } | null;
-  return raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object'
-    ? (raw.data as CustomTableRowPatch)
-    : {};
 }
 
 export async function createRowRequest(
@@ -55,11 +20,8 @@ export async function createRowRequest(
     data,
   } satisfies ContractInput<'CreateCustomTableRowBody'>);
   const row = await checkContract('CustomTableRowItem', response.data, '/custom-tables/:id/rows');
-  const created = parseCreateRowResponse(row, rowCount);
-  if (!created) {
-    throw new Error('Invalid create row response');
-  }
-  return created;
+  const created = toGridRow(row);
+  return { ...created, rowNumber: created.rowNumber || rowCount + 1 };
 }
 
 export async function updateRowPatchRequest(
@@ -72,7 +34,10 @@ export async function updateRowPatchRequest(
     data: patchData,
     ...(styles ? { styles } : {}),
   } satisfies ContractInput<'UpdateCustomTableRowBody'>);
-  return extractRowData(
-    await checkContract('CustomTableRowItem', response.data, '/custom-tables/:id/rows/:rowId'),
+  const row = await checkContract(
+    'CustomTableRowItem',
+    response.data,
+    '/custom-tables/:id/rows/:rowId',
   );
+  return toRowPatch(row.data);
 }

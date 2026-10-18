@@ -119,14 +119,14 @@ export default function AcceptInvitePage() {
     await (async () => {
       const response = await apiClient.post(`/workspaces/invitations/${token}/accept`);
 
-      const message = response.data?.message || t.messages.acceptedFallback.value;
       const { workspaceId } = await checkContract(
         'InvitationAccepted',
         response.data,
         '/workspaces/invitations/:token/accept',
       );
 
-      setAcceptSuccess(message);
+      // The server's sentence is English only.
+      setAcceptSuccess(t.messages.acceptedFallback.value);
 
       await (async () => {
         const storedUser = localStorage.getItem('user');

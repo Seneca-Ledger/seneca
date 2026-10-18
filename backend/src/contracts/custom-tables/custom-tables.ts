@@ -188,6 +188,8 @@ export const SourcePreview = Schema.Struct({
     Schema.Struct({ field: Schema.String, title: Schema.String, type: CustomTableColumnType }),
   ),
   rows: Schema.Array(Schema.Record(Schema.String, CellValue)),
+  /** Currency codes across every matching row, for the currency filter's options. */
+  currencies: Schema.Array(Schema.String),
 });
 export type SourcePreview = Wire<typeof SourcePreview>;
 
@@ -220,6 +222,28 @@ export const RefreshedFromSource = Schema.Struct({
 });
 export type RefreshedFromSource = Wire<typeof RefreshedFromSource>;
 
+/** One app change a restore could not undo, by the app's error code. */
+export const RestoreFailure = Schema.Struct({
+  sourceKey: Schema.String,
+  field: Schema.String,
+  code: Schema.String,
+});
+export type RestoreFailure = Wire<typeof RestoreFailure>;
+
+/**
+ * `POST /custom-tables/:id/restore-default`: app changes made from the table
+ * that were undone, left alone because the record changed in the app since,
+ * or refused; then the rebuilt table's row count.
+ */
+export const RestoredTableDefault = Schema.Struct({
+  tableId: Schema.String,
+  reverted: Schema.Number,
+  skippedChanged: Schema.Number,
+  failed: Schema.Array(RestoreFailure),
+  rows: Schema.Number,
+});
+export type RestoredTableDefault = Wire<typeof RestoredTableDefault>;
+
 /** `POST /custom-tables/:id/convert-to-statement`. */
 export const ConvertedToStatement = Schema.Struct({
   statementId: Schema.String,
@@ -228,3 +252,11 @@ export const ConvertedToStatement = Schema.Struct({
   warnings: Schema.Array(Schema.String),
 });
 export type ConvertedToStatement = Wire<typeof ConvertedToStatement>;
+
+/** `POST /custom-tables/:id/rows/batch`: the rows as created. */
+export const CustomTableRowBatch = Schema.Struct({
+  ok: Schema.Boolean,
+  created: Schema.Number,
+  rows: Schema.Array(CustomTableRowItem),
+});
+export type CustomTableRowBatch = Wire<typeof CustomTableRowBatch>;

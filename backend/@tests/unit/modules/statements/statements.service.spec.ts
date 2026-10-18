@@ -11,7 +11,7 @@ import { WorkspaceMember, WorkspaceRole } from '@/entities/workspace-member.enti
 import { AuditService } from '@/modules/audit/audit.service';
 import { StatementParsingQueue } from '@/modules/parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '@/modules/parsing/services/statement-processing.service';
-import { FilterStatementsDto } from '@/modules/statements/dto/filter-statements.dto';
+import type { StatementsQuery } from '@/contracts';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
 import { StatementsService } from '@/modules/statements/statements.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -392,6 +392,7 @@ describe('StatementsService', () => {
     ) => {
       const qb = {
         select: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getQuery: jest
@@ -474,7 +475,7 @@ describe('StatementsService', () => {
         has: ['errors', 'transactions'],
         categoryId: 'cat-1',
         groupBy: 'amount',
-      } satisfies FilterStatementsDto);
+      } satisfies StatementsQuery);
 
       expect(qb.skip).not.toHaveBeenCalled();
       expect(qb.take).toHaveBeenCalledWith(15);
@@ -496,9 +497,13 @@ describe('StatementsService', () => {
         ),
         expect.objectContaining({ amountMin: 100, amountMax: 500 }),
       );
-      expect(qb.andWhere).toHaveBeenCalledWith('statement.status IN (:...approvedStatuses)', {
-        approvedStatuses: ['validated', 'completed', 'parsed'],
-      });
+      // Approved = parsed and nothing of it left in Review (rows checked in a subquery).
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /^\(statement\.status IN \(:\.\.\.approvedStatuses\) AND NOT \(EXISTS \(.+\) OR EXISTS \(.+\)\)\)$/,
+        ),
+        expect.objectContaining({ approvedStatuses: ['validated', 'completed', 'parsed'] }),
+      );
       expect(qb.andWhere).toHaveBeenCalledWith(
         'GREATEST(COALESCE(statement.totalDebit, 0), COALESCE(statement.totalCredit, 0)) <= 0',
       );
@@ -544,7 +549,7 @@ describe('StatementsService', () => {
       await service.findAll('ws-1', {
         from: ['bank:receipt', 'bank:gmail', 'bank:kaspi'],
         to: ['bank:receipt', 'bank:other'],
-      } satisfies FilterStatementsDto);
+      } satisfies StatementsQuery);
 
       expect(qb.andWhere).toHaveBeenCalledWith(
         expect.stringContaining('statement.bankName IN (:...fromBankNames)'),

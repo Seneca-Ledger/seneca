@@ -3,6 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useMemo, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
 import { getStatementDisplayMerchant, getStatementMerchantLabel } from '@/app/lib/statement-status';
 import {
@@ -26,11 +27,7 @@ interface StatementForDuplicates {
   subject?: string;
   sender?: string;
   parsedData?: { vendor?: string };
-  parsingDetails?: {
-    detectedBy?: string;
-    parserUsed?: string;
-    importPreview?: { source?: string; merchant?: string };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 interface UseStatementsDuplicatesParams {

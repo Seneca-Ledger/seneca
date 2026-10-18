@@ -18,12 +18,15 @@ import {
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 
-import { Pencil, Trash2 } from '@/app/components/icons';
+import { Pencil, Plus, Trash2 } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { CalendarLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
 import { VendorIcon } from '@/app/components/VendorIcon';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
+import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import {
   formatStoredDateWithOptions,
@@ -148,6 +151,7 @@ const formatDate = (date: string | null) =>
 
 export function SubscriptionsContent(props: SubscriptionsContentProps) {
   const t = useIntlayer('subscriptionsPage');
+  const { locale } = useLocale();
   const [search, setSearch] = useState('');
   const [ownerId, setOwnerId] = useState('');
   const [category, setCategory] = useState('');
@@ -159,6 +163,20 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
     return member ? member.name || member.email || null : null;
   };
   const [view, setView] = useState<'list' | 'matrix'>('list');
+  // Nothing in this tab at all, as opposed to filters that found nothing: the
+  // first gets "No subscriptions yet" and no filters, the second "No matches".
+  const hasSubscriptions = props.subscriptions.length > 0;
+  // None in the workspace: the summary would be a row of zeros.
+  const noneYet = !(props.isPending || hasSubscriptions) && props.statusFilter === 'all';
+  // The summary covers the whole workspace, whatever the tab: with nothing in it
+  // every card shows a dash rather than a row of zeros, on every tab alike.
+  const summaryEmpty = Object.values(props.summary).every(value => value === 0);
+  const clearFilters = (): void => {
+    setSearch('');
+    setOwnerId('');
+    setCategory('');
+    setRiskStatus('');
+  };
   const visibleSubscriptions = useMemo(
     () =>
       filterSubscriptions(props.subscriptions, {
@@ -169,13 +187,14 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
       }),
     [props.subscriptions, search, ownerId, category, riskStatus],
   );
+  // The filter matches on the stored name; only the option label is translated.
   const categories = useMemo(
     () => [
-      ...new Set(
-        props.subscriptions
-          .map(item => item.category?.name)
-          .filter((name): name is string => Boolean(name)),
-      ),
+      ...new Map(
+        props.subscriptions.flatMap(item =>
+          item.category ? [[item.category.name, item.category] as const] : [],
+        ),
+      ).values(),
     ],
     [props.subscriptions],
   );
@@ -215,9 +234,12 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
       <Box
         sx={{
           display: 'flex',
+          flexWrap: { xs: 'wrap', md: 'nowrap' },
           alignItems: 'center',
           gap: 2,
           mb: 3,
+          // On a phone the tabs take their own line; squeezed beside the actions they vanished.
+          '& > .MuiTabs-root': { flexBasis: { xs: '100%', md: 'auto' }, minWidth: 0 },
         }}
       >
         {/* The MuiTabs root itself gets a negative margin from the theme's
@@ -235,7 +257,16 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           <Tab value="paused" label={t.tabPaused.value} />
           <Tab value="cancelled" label={t.tabCancelled.value} />
         </Tabs>
-        <Box sx={{ display: 'flex', gap: 1.5, ml: 'auto', flexShrink: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            ml: 'auto',
+            flexShrink: { xs: 1, md: 0 },
+            minWidth: 0,
+          }}
+        >
           <ImportFromFileButton
             target="subscriptions"
             onImported={() => void props.invalidate()}
@@ -249,12 +280,12 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
             variant="outlined"
             onClick={() => {
               void apiClient
-                .get<Blob>('/subscriptions/business-report', {
+                .get('/subscriptions/business-report', {
                   params: { format: 'csv' },
                   responseType: 'blob',
                 })
                 .then(response => {
-                  const url = URL.createObjectURL(response.data);
+                  const url = URL.createObjectURL(blobOf(response));
                   const link = document.createElement('a');
                   link.href = url;
                   link.download = 'business-subscriptions.csv';
@@ -265,7 +296,9 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           >
             {t.businessReport}
           </Button>
-          <Button variant="contained" onClick={props.openCreate}>
+          {/* With nothing yet the empty state's own button is the one to press. */}
+          <Button variant={noneYet ? 'outlined' : 'contained'} onClick={props.openCreate}>
+            <Plus size={18} aria-hidden />
             {t.addSubscription}
           </Button>
         </Box>
@@ -320,21 +353,22 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                 sx={{
                   mt: 0.5,
                   fontSize: 26,
-                  fontWeight: 700,
+                  fontWeight: 500,
                   lineHeight: 1.2,
                   fontVariantNumeric: 'tabular-nums',
-                  color: accent ?? 'text.primary',
+                  color: summaryEmpty ? 'var(--muted-foreground)' : (accent ?? 'text.primary'),
                 }}
               >
-                {value}
+                {summaryEmpty ? '—' : value}
               </Typography>
             </CardContent>
           </Card>
         ))}
       </Box>
+      {/* Nothing to filter in an empty tab. */}
       <Box
         sx={{
-          display: 'flex',
+          display: hasSubscriptions ? 'flex' : 'none',
           flexWrap: 'wrap',
           alignItems: 'center',
           gap: 1.5,
@@ -370,9 +404,9 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           onChange={event => setCategory(event.target.value)}
         >
           <MenuItem value="">{t.allCategories}</MenuItem>
-          {categories.map(name => (
-            <MenuItem key={name} value={name}>
-              {name}
+          {categories.map(item => (
+            <MenuItem key={item.name} value={item.name}>
+              {getCategoryDisplayName(item, locale)}
             </MenuItem>
           ))}
         </Select>
@@ -458,15 +492,29 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           {props.error}
         </Typography>
       ) : visibleSubscriptions.length === 0 || (matrixView && visibleCalendar.rows.length === 0) ? (
-        <EmptyState
-          illustration="subscriptions"
-          description={t.emptyFiltered}
-          action={
-            <Button variant="outlined" onClick={props.openCreate}>
-              {t.addSubscription}
-            </Button>
-          }
-        />
+        hasSubscriptions ? (
+          <EmptyState
+            icon={<SearchLineIcon />}
+            title={t.noMatchesTitle}
+            description={t.emptyFiltered}
+            action={
+              <Button variant="text" onClick={clearFilters}>
+                {t.clearFilters}
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={<CalendarLineIcon />}
+            title={t.emptyTitle}
+            description={t.emptyHint}
+            action={
+              <Button variant="contained" onClick={props.openCreate}>
+                {t.addSubscription}
+              </Button>
+            }
+          />
+        )
       ) : matrixView ? (
         <LazyChargeCalendar
           calendar={visibleCalendar}

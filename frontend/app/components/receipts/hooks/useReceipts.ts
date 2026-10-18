@@ -1,18 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  type ReceiptListFilters,
-  type ReceiptListResponse,
-  type ReceiptRecord,
-  receiptsApi,
-} from '@/app/lib/api';
+import { type ReceiptListFilters, type ReceiptListResponse, receiptsApi } from '@/app/lib/api';
 
 export interface ReceiptsFilterState {
   page: number;
   limit: number;
-  status: string;
-  source: string;
+  status: NonNullable<ReceiptListFilters['status']> | 'all';
+  source: NonNullable<ReceiptListFilters['source']> | 'all';
   search: string;
 }
 
@@ -61,7 +56,7 @@ export function useReceipts(initialFilters?: Partial<ReceiptsFilterState>) {
   }, [loadReceipts]);
 
   return {
-    receipts: data.data as ReceiptRecord[],
+    receipts: data.data,
     total: data.total,
     page: data.page,
     limit: data.limit,

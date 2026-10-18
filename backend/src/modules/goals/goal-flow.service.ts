@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
-import { countedSql } from '../../common/utils/counted-transactions.util';
+import { flowsSql } from '../../common/utils/counted-transactions.util';
 import type {
   GoalFlowBudget,
   GoalFlowLink,
@@ -28,6 +28,7 @@ import {
 import { CategoriesService } from '../categories/categories.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import {
+  addMissingRates,
   buildRateMap,
   convertWith,
   normalizeCurrency,
@@ -152,6 +153,7 @@ export class GoalFlowService {
       descendants,
       anchor,
       rates,
+      currency,
     );
 
     const targetAmount = toNumber(goal.targetAmount);
@@ -471,6 +473,7 @@ export class GoalFlowService {
     descendants: Map<string, string[]>,
     anchor: Date,
     rates: Map<string, number>,
+    currency: string,
   ): Promise<Map<string, { start: Date; end: Date; actual: number }>> {
     const result = new Map<string, { start: Date; end: Date; actual: number }>();
 
@@ -497,16 +500,20 @@ export class GoalFlowService {
           ),
         ];
         const rows = await this.loadCategoryTotals(workspaceId, categoryIds, period);
+        // A budget's own period can reach rows in currencies the goal's window had none of.
+        await addMissingRates(
+          this.exchangeRatesService,
+          rates,
+          rows.map(row => row.currency),
+          currency,
+          workspaceId,
+        );
 
         for (const budget of group) {
           const wanted = new Set(descendants.get(budget.categoryId) ?? [budget.categoryId]);
           const actual = rows
             .filter(row => wanted.has(row.categoryId))
-            .reduce(
-              (sum, row) =>
-                sum + Number(row.total) * (rates.get(normalizeCurrency(row.currency)) ?? 1),
-              0,
-            );
+            .reduce((sum, row) => sum + convertWith(rates, row.total, row.currency), 0);
           result.set(budget.id, { ...period, actual });
         }
       }),
@@ -556,7 +563,7 @@ export class GoalFlowService {
       .andWhere('t.transaction_date <= :end', { end: window.end })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
-      .andWhere(countedSql('t'));
+      .andWhere(flowsSql('t'));
   }
 
   private async sumContributions(workspaceId: string, goalId: string): Promise<number> {

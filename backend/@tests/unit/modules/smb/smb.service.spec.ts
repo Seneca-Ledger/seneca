@@ -1,4 +1,4 @@
-import { countedSql } from '@/common/utils/counted-transactions.util';
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { SmbService } from '../../../../src/modules/smb/smb.service';
 
 function queryBuilder() {
@@ -29,6 +29,6 @@ describe('SmbService bank rows', () => {
     // The rows the reconciliation and ageing views match bills against.
     await (service as unknown as { bankRows(id: string): Promise<unknown[]> }).bankRows('ws-1');
 
-    expect(qb.andWhere).toHaveBeenCalledWith(countedSql('t'));
+    expect(qb.andWhere).toHaveBeenCalledWith(flowsSql('t'));
   });
 });

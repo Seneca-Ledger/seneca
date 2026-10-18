@@ -66,7 +66,7 @@ export const toDateOnly = (value?: string | null): Date | null => {
 
 export const getMetadataCurrency = (s: StatementFilterItem): string | undefined => {
   const meta = s.parsingDetails?.metadataExtracted;
-  return meta?.currency ?? meta?.headerDisplay?.currencyDisplay;
+  return meta?.currency ?? meta?.headerDisplay?.currencyDisplay ?? undefined;
 };
 
 export const resolveStatementCurrency = (s: StatementFilterItem): string =>

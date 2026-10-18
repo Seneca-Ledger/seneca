@@ -7,13 +7,16 @@ import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util'
 import { IncomeTaxProfile } from '../../entities/income-tax-profile.entity';
 import { IncomeTaxReturn, IncomeTaxReturnStatus } from '../../entities/income-tax-return.entity';
 import { TaxReturn, TaxReturnStatus } from '../../entities/tax-return.entity';
-import { VatStatus, Workspace } from '../../entities/workspace.entity';
+import { VatStatus, Workspace, WorkspaceKind } from '../../entities/workspace.entity';
 import {
   WorkspaceServiceSettings,
   WorkspaceServiceSettingsKey,
 } from '../../entities/workspace-service-settings.entity';
 import { filingInfoFor } from '../income-tax/filing-info';
-import type { TaxDeadlineUpcomingEvent } from '../notifications/events/notification-events';
+import type {
+  TaxDeadlineResolvedEvent,
+  TaxDeadlineUpcomingEvent,
+} from '../notifications/events/notification-events';
 import { PublicHolidaysService } from '../reference-data/public-holidays.service';
 import { toDateOnly } from '../tax/jurisdictions.service';
 import {
@@ -158,6 +161,13 @@ export class TaxDeadlinesService {
       key: WorkspaceServiceSettingsKey.TAX_REMINDERS,
       config: { ...state, filedElsewhere: [...marked].slice(-SENT_KEYS_KEPT) },
     });
+    if (filed) {
+      this.eventEmitter.emit('tax.deadline.resolved', {
+        workspaceId,
+        kind,
+        periodEnd,
+      } satisfies TaxDeadlineResolvedEvent);
+    }
   }
 
   private async reminderState(workspaceId: string): Promise<ReminderState> {
@@ -333,8 +343,9 @@ export class TaxDeadlinesService {
 
   @Cron(CronExpression.EVERY_DAY_AT_7AM)
   async remindAll(): Promise<void> {
+    // A past version is a copy, not a workspace anyone files from.
     const workspaces = await this.workspaceRepository.find({
-      where: { taxJurisdictionId: Not(IsNull()) },
+      where: { taxJurisdictionId: Not(IsNull()), kind: WorkspaceKind.STANDARD },
       select: ['id'],
     });
     for (const workspace of workspaces) {

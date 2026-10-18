@@ -2,9 +2,15 @@ import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nes
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { CreateLedgerAccountBody, UpdateLedgerAccountBody } from '../../contracts';
+import {
+  CreateLedgerAccountBody,
+  LedgerAccount,
+  LedgerAccountList,
+  UpdateLedgerAccountBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import type { LedgerAccountResponseDto } from './dto/ledger-account-response.dto';
@@ -18,6 +24,7 @@ export class LedgerController {
   /** Flat list ordered by position; build the tree from `parentId`. Seeds the chart on first read. */
   @Get()
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(LedgerAccountList)
   async list(@WorkspaceId() workspaceId: string): Promise<LedgerAccountResponseDto[]> {
     return this.accountsService.list(workspaceId);
   }
@@ -25,6 +32,7 @@ export class LedgerController {
   @Post()
   @WorkspaceAuth(Permission.LEDGER_MANAGE_ACCOUNTS)
   @Audit({ entityType: EntityType.LEDGER_ACCOUNT, includeDiff: true })
+  @SchemaResponse(LedgerAccount)
   async create(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(CreateLedgerAccountBody) dto: CreateLedgerAccountBody,

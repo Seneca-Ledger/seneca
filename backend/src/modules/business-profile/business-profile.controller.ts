@@ -19,6 +19,7 @@ import { diskStorage } from 'multer';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import {
@@ -27,7 +28,11 @@ import {
 } from '../../common/utils/avatar-filename.util';
 import { removeUploadedFile, validateImageSignature } from '../../common/utils/file-validator.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
-import { UpdateBusinessProfileBody } from '../../contracts';
+import {
+  BusinessProfileLogo,
+  BusinessProfileResponse,
+  UpdateBusinessProfileBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -50,6 +55,7 @@ export class BusinessProfileController {
 
   @Get()
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(BusinessProfileResponse)
   async get(@WorkspaceId() workspaceId: string) {
     const profile = await this.businessProfileService.get(workspaceId);
     return {
@@ -61,6 +67,7 @@ export class BusinessProfileController {
   @Put()
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   @Audit({ entityType: EntityType.WORKSPACE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(BusinessProfileResponse)
   async update(
     @SchemaBody(UpdateBusinessProfileBody) dto: UpdateBusinessProfileBody,
     @WorkspaceId() workspaceId: string,
@@ -107,6 +114,7 @@ export class BusinessProfileController {
       limits: { fileSize: 2_000_000 },
     }),
   )
+  @SchemaResponse(BusinessProfileLogo)
   async uploadLogo(
     @UploadedFile() file: MulterFile | undefined,
     @WorkspaceId() workspaceId: string,

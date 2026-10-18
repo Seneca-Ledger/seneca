@@ -289,6 +289,10 @@ describe('PayablesView', () => {
       toPayCount: 2,
       overdueCount: 1,
       paidTotalCount: 2,
+      dueThisWeekCount: 1,
+      unbookedTotal: 0,
+      unbookedCount: 0,
+      convertedCurrencies: [],
     });
     apiMocks.list.mockResolvedValue({
       data: [
@@ -346,7 +350,9 @@ describe('PayablesView', () => {
 
     expect(await screen.findByText('ACME LLC')).toBeInTheDocument();
     expect(screen.getAllByText('Paid').length).toBeGreaterThan(0);
-    expect(screen.getByText('KZT 1,800.00')).toBeInTheDocument();
+    // Overview figures in whole units; the first card is everything open, overdue included.
+    expect(screen.getByText('KZT 1,800')).toBeInTheDocument();
+    expect(screen.getByText('KZT 1,500')).toBeInTheDocument();
     expect(screen.queryByText('Sort')).not.toBeInTheDocument();
     expect(apiMocks.getSummary).toHaveBeenCalledTimes(1);
     expect(apiMocks.list).toHaveBeenCalledTimes(1);
@@ -414,7 +420,8 @@ describe('PayablesView', () => {
     expect(await screen.findByText('No receivables found')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add receivable' })).toBeInTheDocument();
     expect(screen.getByText('To Receive')).toBeInTheDocument();
-    expect(container.querySelector('img')?.getAttribute('src')).toContain('receivables.svg');
+    // Empty states draw a line icon in a circle now, not a picture.
+    expect(container.querySelector('.lumio-empty-state__icon svg')).not.toBeNull();
     expect(apiMocks.getSummary).toHaveBeenCalledWith('receivable');
   });
 
@@ -556,7 +563,8 @@ describe('PayablesView', () => {
     });
 
     await screen.findByText('Page One Vendor');
-    expect(screen.getByText('Showing 1–20 of 20')).toBeInTheDocument();
+    // Back to a single page: no page count and no page buttons.
+    expect(screen.queryByText('Showing 1–20 of 20')).not.toBeInTheDocument();
   });
 
   it('applies status filter from search params on first load', async () => {

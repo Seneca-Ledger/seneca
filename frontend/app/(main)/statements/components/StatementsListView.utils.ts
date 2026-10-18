@@ -2,6 +2,7 @@
 
 import { resolveBankLogo } from '@bank-logos';
 import { getCachedIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import type { StatementCategoryNode } from '@/app/lib/statement-categories';
@@ -16,6 +17,7 @@ import {
   getVisibleFilterScreens,
   resetHiddenStatementFilters,
   type StatementFilterScreen,
+  type StatementsQueryParams,
   serializeStatementFiltersToQuery,
 } from './filters/server-statement-filters';
 import type { StatementFilters } from './filters/statement-filters';
@@ -129,19 +131,7 @@ export type StatementLike = {
   statementDateTo?: string | null;
   receivedAt?: string;
   createdAt?: string;
-  parsingDetails?: {
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: { currencyDisplay?: string };
-    };
-    importPreview?: {
-      source?: string;
-      attachments?: number;
-      description?: string;
-      merchant?: string;
-      categoryId?: string;
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 export type DuplicateGroupTone = 'sky' | 'blue' | 'indigo' | 'slate' | 'zinc' | 'stone';
@@ -152,12 +142,7 @@ export type StatementCategoryWithEnabled = StatementCategoryNode & {
 };
 
 type ReceiptDerivedStatementCandidate = {
-  parsingDetails?: {
-    detectedBy?: string;
-    importPreview?: {
-      source?: string;
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 type StatementViewCandidate = {
@@ -205,9 +190,7 @@ export const isStoreReceiptStatement = (
 type StatementCurrencyLike = {
   parsedData?: { currency?: string };
   currency?: string | null;
-  parsingDetails?: {
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 // eslint-disable-next-line complexity
@@ -387,7 +370,7 @@ export const buildStatementRequestParams = ({
   appliedFilters: StatementFilters;
   categoryId?: string | null;
   search?: string;
-}): Record<string, unknown> => {
+}): StatementsQueryParams => {
   const serverSafeFilters: StatementFilters = {
     ...appliedFilters,
     type:
@@ -453,6 +436,41 @@ export const resolvePendingReview = (
     return SETTLED_RECEIPT_STATUSES.has(document.status) ? 0 : 1;
   }
   return statementReviewCounts[document.id] ?? 0;
+};
+
+const PARSED_STATEMENT_STATUSES = new Set(['completed', 'parsed', 'validated']);
+
+/**
+ * The Approved column: a person has confirmed the document. A receipt once it
+ * is approved; a statement once its file is parsed and none of its rows still
+ * waits in Review. A receipt's status is the receipt's own, never a parse status.
+ */
+export const isDocumentApproved = (
+  status: string,
+  isReceipt: boolean,
+  pendingReview: number,
+): boolean => {
+  const normalized = status.toLowerCase();
+  if (isReceipt) {
+    return normalized === 'approved';
+  }
+  return PARSED_STATEMENT_STATUSES.has(normalized) && pendingReview === 0;
+};
+
+/** The Approved filter, by the same rule as the Approved column. */
+export const filterByApproved = <T extends { id: string; status: string; source?: string }>(
+  documents: T[],
+  approved: boolean | null,
+  statementReviewCounts: Record<string, number>,
+): T[] => {
+  if (approved === null) {
+    return documents;
+  }
+  return documents.filter(document => {
+    const isReceipt = document.source === 'gmail' || document.source === 'scan';
+    const pending = resolvePendingReview(document, isReceipt, statementReviewCounts);
+    return isDocumentApproved(document.status, isReceipt, pending) === approved;
+  });
 };
 
 export const paginateStatements = <T>(statements: T[], page: number, pageSize: number): T[] => {
@@ -774,9 +792,7 @@ export const buildFromOptions = (
 interface StatementForCurrencyOptions {
   parsedData?: { currency?: string };
   currency?: string | null;
-  parsingDetails?: {
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 export const buildCurrencyOptions = (stagedStatements: StatementForCurrencyOptions[]): string[] => {

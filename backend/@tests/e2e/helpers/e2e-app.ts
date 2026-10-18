@@ -1,4 +1,5 @@
 import type { INestApplication, ModuleMetadata } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import request, { type Response } from 'supertest';
@@ -8,6 +9,7 @@ import {
   REFERENCE_FETCH,
   type ReferenceFetch,
 } from '../../../src/modules/reference-data/reference-fetch';
+import { LeakGuardInterceptor } from './leak-guard';
 
 /**
  * A throttler store that never counts. Every e2e suite reaches the API from the
@@ -39,8 +41,18 @@ const offlineFetch: ReferenceFetch = async (input, init) => {
   throw new Error('No network in e2e tests');
 };
 
+/**
+ * Every e2e app also runs the leak guard, outermost: a suite's request fails
+ * when its answer hands out an account detail, a credential or a file's path.
+ */
 export function e2eTestingModule(metadata: ModuleMetadata): TestingModuleBuilder {
-  return Test.createTestingModule(metadata)
+  return Test.createTestingModule({
+    ...metadata,
+    providers: [
+      { provide: APP_INTERCEPTOR, useClass: LeakGuardInterceptor },
+      ...(metadata.providers ?? []),
+    ],
+  })
     .overrideProvider(ThrottlerStorage)
     .useValue(unlimitedStorage)
     .overrideProvider(REFERENCE_FETCH)

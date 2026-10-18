@@ -20,7 +20,7 @@ vi.mock('@/app/lib/api', () => ({ default: { get: apiGet }, apiBaseUrl: '/api/v1
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/i18n', async () => {
   const { autoDictionary } = await import('./intlayer-mock');
-  return { useIntlayer: () => autoDictionary() };
+  return { useIntlayer: () => autoDictionary(), useLocale: () => ({ locale: 'en' }) };
 });
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
@@ -65,7 +65,16 @@ const CARDS: Array<{ name: string; ui: React.ReactElement; shows: string }> = [
     shows: '€5532',
   },
   // The widget names a budget by its category.
-  { name: 'budgets', ui: <BudgetSummaryWidget />, shows: 'Groceries' },
+  {
+    name: 'budgets',
+    ui: (
+      <BudgetSummaryWidget
+        month={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+        monthLabel="This month"
+      />
+    ),
+    shows: 'Groceries',
+  },
   { name: 'cash runway', ui: <CashRunwayWidget formatAmount={money} />, shows: 'Telekom' },
 ];
 

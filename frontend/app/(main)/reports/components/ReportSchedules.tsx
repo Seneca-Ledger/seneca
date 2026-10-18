@@ -11,8 +11,8 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { Trash2 } from '@/app/components/icons';
-import { useIntlayer } from '@/app/i18n';
+import { Plus, Trash2 } from '@/app/components/icons';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
@@ -33,12 +33,11 @@ interface ReportScheduleRow {
 }
 
 interface ReportSchedulesProps {
-  /** Template ids and labels, so the picker matches the Templates tab. */
-  templates: Array<{ id: string; name: string }>;
+  /** Template ids, labels and formats, so the picker matches the Templates tab. */
+  templates: Array<{ id: string; name: string; formats: Format[] }>;
 }
 
 const CADENCES: Cadence[] = ['daily', 'weekly', 'monthly'];
-const FORMATS: Format[] = ['pdf', 'excel', 'csv'];
 
 const controlSx = {
   height: 36,
@@ -66,6 +65,7 @@ function parseRecipients(raw: string): string[] {
 // eslint-disable-next-line max-lines-per-function
 export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.Element {
   const t = useIntlayer('reportsPage');
+  const { locale } = useLocale();
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
@@ -73,6 +73,9 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
   const [rows, setRows] = useState<ReportScheduleRow[]>([]);
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? 'pnl');
   const [format, setFormat] = useState<Format>('pdf');
+  // Only the formats the chosen template can be written in; the server refuses the rest.
+  const formats = templates.find(item => item.id === templateId)?.formats ?? ['pdf'];
+  const selectedFormat = formats.includes(format) ? format : formats[0];
   const [cadence, setCadence] = useState<Cadence>('monthly');
   const [recipientsRaw, setRecipientsRaw] = useState('');
   const [saving, setSaving] = useState(false);
@@ -103,9 +106,10 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
     await (async () => {
       await apiClient.post('/reports/schedules', {
         templateId,
-        format,
+        format: selectedFormat,
         cadence,
         recipients,
+        locale: locale as ContractInput<'CreateReportScheduleBody'>['locale'],
       } satisfies ContractInput<'CreateReportScheduleBody'>);
       setRecipientsRaw('');
       await load();
@@ -150,7 +154,7 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
         <Typography variant="body2" sx={{ mb: 2.5, color: 'var(--muted-foreground)' }}>
           {text(
             'scheduleNewSubtitle',
-            'Delivered by email at 06:00 UTC, covering the last completed period',
+            'Delivered by email at 06:00 your time, covering the last completed period',
           )}
         </Typography>
 
@@ -198,11 +202,11 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
             <span style={labelStyle}>{text('format', 'Format')}</span>
             <Select
               size="small"
-              value={format}
+              value={selectedFormat}
               onChange={event => setFormat(event.target.value as Format)}
               sx={controlSx}
             >
-              {FORMATS.map(value => (
+              {formats.map(value => (
                 <MenuItem key={value} value={value} sx={{ fontSize: 12 }}>
                   {value.toUpperCase()}
                 </MenuItem>
@@ -224,6 +228,7 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button variant="contained" onClick={handleCreate} disabled={saving}>
+            <Plus size={18} aria-hidden />
             {text('scheduleCreate', 'Create schedule')}
           </Button>
           {error && (
@@ -277,7 +282,7 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
               size="small"
               checked={row.isActive}
               onChange={() => void toggle(row)}
-              inputProps={{ 'aria-label': text('scheduleActive', 'Active') }}
+              slotProps={{ input: { 'aria-label': text('scheduleActive', 'Active') } }}
             />
             <IconButton
               size="small"

@@ -1,9 +1,15 @@
 import { Controller, Delete, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
-import { RunEntityImportBody, SuggestImportBody } from '../../contracts';
+import {
+  EntityImportResult,
+  ImportSuggestion,
+  RunEntityImportBody,
+  SuggestImportBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { EntityImportService } from './entity-import.service';
@@ -19,6 +25,7 @@ export class EntityImportsController {
   ) {}
 
   @Post('suggest')
+  @SchemaResponse(ImportSuggestion)
   suggestTarget(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(SuggestImportBody) dto: SuggestImportBody,
@@ -27,6 +34,7 @@ export class EntityImportsController {
   }
 
   @Post()
+  @SchemaResponse(EntityImportResult)
   run(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

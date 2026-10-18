@@ -245,13 +245,9 @@ export default function WorkspacesListContent({
   }
 
   return (
-    <Box
-      sx={{
-        height: 'calc(100vh - var(--global-nav-height, 0px))',
-        overflow: 'hidden',
-        pt: embedded ? 2 : 0,
-      }}
-    >
+    // No fixed height: the page scrolls, and the shell keeps the room under the
+    // mobile bottom bar. A screen-high box with hidden overflow cut off the last cards.
+    <Box sx={{ pt: embedded ? 2 : 0 }}>
       <WorkspaceListBody
         ls={ls}
         allCount={workspaces.length}

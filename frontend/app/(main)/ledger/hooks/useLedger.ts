@@ -6,7 +6,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type { AccountType, RevaluationResult, Side } from '../ledger.types';
+import type { AccountType, EntrySource, EntryStatus, Side } from '../ledger.types';
 
 /** While the worker books the backlog, poll so the page fills in by itself. */
 const CATCH_UP_POLL_MS = 3000;
@@ -55,8 +55,10 @@ export function useLedgerAccounts(enabled = true) {
 }
 
 export interface EntryFilters {
-  status?: string;
-  source?: string;
+  /** Empty: every status. */
+  status?: EntryStatus | '';
+  /** Empty: every source. */
+  source?: EntrySource | '';
   page: number;
 }
 
@@ -67,7 +69,7 @@ export function useJournalEntries(filters: EntryFilters) {
     limit: 25,
     ...(filters.status ? { status: filters.status } : {}),
     ...(filters.source ? { source: filters.source } : {}),
-  };
+  } satisfies ContractInput<'JournalEntriesQuery'>;
   return useQuery({
     queryKey: queryKeys.ledgerEntries({ workspaceId, params }),
     // Not apiQuery: its envelope unwrapping would strip the list down to `data` and lose `total`.
@@ -106,7 +108,7 @@ export function useTrialBalance(params: PeriodParams, enabled: boolean) {
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         url: '/ledger/reports/trial-balance',
-        params: { ...params },
+        params: { ...params } satisfies ContractInput<'LedgerPeriodQuery'>,
         signal,
         contract: 'TrialBalance',
       }),
@@ -121,7 +123,7 @@ export function useAccountCard(accountId: string | null, params: PeriodParams & 
     queryFn: async ({ signal }) =>
       await apiQueryDecoded({
         url: `/ledger/reports/accounts/${accountId}`,
-        params: { ...params, limit: 50 },
+        params: { ...params, limit: 50 } satisfies ContractInput<'AccountLedgerQuery'>,
         signal,
         contract: 'AccountLedger',
       }),
@@ -156,19 +158,26 @@ export function useLedgerMutations() {
   const invalidate = useInvalidateLedger();
 
   const enable = useMutation({
-    mutationFn: (baseCurrency: string) =>
-      apiClient.put('/ledger/settings', {
+    mutationFn: async (baseCurrency: string) => {
+      await apiClient.put('/ledger/settings', {
         baseCurrency,
-      } satisfies ContractInput<'EnableLedgerBody'>),
+      } satisfies ContractInput<'EnableLedgerBody'>);
+    },
     onSuccess: invalidate,
   });
   const createAccount = useMutation({
-    mutationFn: (input: NewAccountInput) =>
-      apiClient.post('/ledger/accounts', input satisfies ContractInput<'CreateLedgerAccountBody'>),
+    mutationFn: async (input: NewAccountInput) => {
+      await apiClient.post(
+        '/ledger/accounts',
+        input satisfies ContractInput<'CreateLedgerAccountBody'>,
+      );
+    },
     onSuccess: invalidate,
   });
   const deleteAccount = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/ledger/accounts/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/ledger/accounts/${id}`);
+    },
     onSuccess: invalidate,
   });
   const saveDraft = useMutation({
@@ -209,16 +218,18 @@ export function useLedgerMutations() {
     onSuccess: invalidate,
   });
   const deleteDraft = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/ledger/entries/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/ledger/entries/${id}`);
+    },
     onSuccess: invalidate,
   });
   const revalue = useMutation({
-    mutationFn: async (date: string) =>
-      (
-        await apiClient.post<RevaluationResult>('/ledger/revaluations', {
-          date,
-        } satisfies ContractInput<'RevalueLedgerBody'>)
-      ).data,
+    mutationFn: async (date: string) => {
+      const response = await apiClient.post('/ledger/revaluations', {
+        date,
+      } satisfies ContractInput<'RevalueLedgerBody'>);
+      return checkContract('RevaluationResult', response.data, '/ledger/revaluations');
+    },
     onSuccess: invalidate,
   });
 

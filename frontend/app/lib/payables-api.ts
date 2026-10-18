@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 import type {
   PayableDirection,
   PayableListPage,
@@ -32,20 +33,7 @@ export type Payable = Omit<PayableRow, 'amount' | 'paidAmount'> & {
   paidAmount: number | string;
 };
 
-export interface ListPayablesParams {
-  direction?: PayableDirection;
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: PayableStatus;
-  source?: PayableSource;
-  dueDateFrom?: string;
-  dueDateTo?: string;
-  minAmount?: number;
-  maxAmount?: number;
-  includeArchived?: boolean;
-  sort?: 'dueDateAsc' | 'dueDateDesc' | 'amountDesc' | 'vendorAsc';
-}
+export type ListPayablesParams = ContractInput<'PayablesQuery'>;
 
 export interface CreatePayableInput {
   direction?: PayableDirection;
@@ -79,6 +67,8 @@ export interface MarkPayablePaidInput {
   linkedTransactionId?: string;
   /** Paid in cash: the server records the payment as a transaction of this wallet. */
   payFromWalletId?: string;
+  /** Cash handed over in person, kept in no wallet. */
+  inHand?: boolean;
   paidOn?: string;
   categoryId?: string;
 }
@@ -91,8 +81,18 @@ export interface AddPayablePaymentInput {
   linkedTransactionId?: string;
   /** Paid in cash: the server records the payment as a transaction of this wallet. */
   payFromWalletId?: string;
+  /** Cash handed over in person, kept in no wallet. */
+  inHand?: boolean;
   categoryId?: string;
   comment?: string;
+}
+
+/** Where the money of a payment marked without it went: a bank row, or a wallet. */
+export interface BookPayablePaymentInput {
+  linkedTransactionId?: string;
+  payFromWalletId?: string;
+  inHand?: boolean;
+  categoryId?: string;
 }
 
 /** One transaction spread over several bills. */
@@ -165,7 +165,7 @@ export const payablesApi = {
   },
 
   async create(payload: CreatePayableInput): Promise<Payable> {
-    const response = await apiClient.post<Payable>(
+    const response = await apiClient.post(
       '/payables',
       payload satisfies ContractInput<'CreatePayableBody'>,
     );
@@ -173,7 +173,7 @@ export const payablesApi = {
   },
 
   async update(id: string, payload: UpdatePayableInput): Promise<Payable> {
-    const response = await apiClient.put<Payable>(
+    const response = await apiClient.put(
       `/payables/${id}`,
       payload satisfies ContractInput<'UpdatePayableBody'>,
     );
@@ -195,20 +195,32 @@ export const payablesApi = {
   },
 
   async addPayment(id: string, payload: AddPayablePaymentInput): Promise<Payable> {
-    const response = await apiClient.post<Payable>(
+    const response = await apiClient.post(
       `/payables/${id}/payments`,
       payload satisfies ContractInput<'AddPayablePaymentBody'>,
     );
     return checkContract('Payable', unwrapData(response), '/payables/:id/payments');
   },
 
+  async bookPayment(
+    id: string,
+    paymentId: string,
+    payload: BookPayablePaymentInput,
+  ): Promise<Payable> {
+    const response = await apiClient.post(
+      `/payables/${id}/payments/${paymentId}/book`,
+      payload satisfies ContractInput<'BookPayablePaymentBody'>,
+    );
+    return checkContract('Payable', unwrapData(response), '/payables/:id/payments/:paymentId/book');
+  },
+
   async removePayment(id: string, paymentId: string): Promise<Payable> {
-    const response = await apiClient.delete<Payable>(`/payables/${id}/payments/${paymentId}`);
+    const response = await apiClient.delete(`/payables/${id}/payments/${paymentId}`);
     return checkContract('Payable', unwrapData(response), '/payables/:id/payments/:paymentId');
   },
 
   async allocate(payload: AllocateTransactionInput): Promise<Payable[]> {
-    const response = await apiClient.post<Payable[]>(
+    const response = await apiClient.post(
       '/payables/allocate',
       payload satisfies ContractInput<'AllocateTransactionBody'>,
     );
@@ -223,7 +235,7 @@ export const payablesApi = {
   },
 
   async markAsPaid(id: string, payload: MarkPayablePaidInput = {}): Promise<Payable> {
-    const response = await apiClient.put<Payable>(
+    const response = await apiClient.put(
       `/payables/${id}/mark-paid`,
       payload satisfies ContractInput<'MarkPayablePaidBody'>,
     );
@@ -231,17 +243,16 @@ export const payablesApi = {
   },
 
   async archive(id: string): Promise<Payable> {
-    const response = await apiClient.put<Payable>(`/payables/${id}/archive`);
+    const response = await apiClient.put(`/payables/${id}/archive`);
     return checkContract('Payable', unwrapData(response), '/payables/:id/archive');
   },
 
-  async delete(id: string): Promise<{ message: string }> {
-    const response = await apiClient.delete<{ message: string }>(`/payables/${id}`);
-    return unwrapData(response);
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/payables/${id}`);
   },
 
   async exportList(params: ExportPayablesParams): Promise<ExportPayablesResult> {
-    const response = await apiClient.post<Blob>(
+    const response = await apiClient.post(
       '/payables/export',
       params satisfies ContractInput<'FilterPayablesBody'>,
       {
@@ -249,14 +260,15 @@ export const payablesApi = {
       },
     );
 
+    const blob = blobOf(response);
     return {
-      blob: response.data,
+      blob,
       fileName: parseContentDispositionFilename(
         response.headers['content-disposition'] as string | undefined,
       ),
       contentType:
         (response.headers['content-type'] as string | undefined) ||
-        response.data.type ||
+        blob.type ||
         'application/octet-stream',
     };
   },

@@ -1,13 +1,19 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   SubscriptionChargeCalendar,
   SubscriptionItem,
   SubscriptionSummary,
 } from '../hooks/useSubscriptionsPage';
 import { normalizeSubscription } from '../hooks/useSubscriptionsPage';
-import { subscriptionRow } from '@/app/test/fixtures/contracts';
+import { categoryRef, subscriptionRow } from '@/app/test/fixtures/contracts';
 import { SubscriptionsContent } from './SubscriptionsContent';
+
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
 
 vi.mock('./SubscriptionFormDrawer', () => ({ SubscriptionFormDrawer: () => null }));
 vi.mock('./SubscriptionDetailsDrawer', () => ({ SubscriptionDetailsDrawer: () => null }));
@@ -37,6 +43,18 @@ const summary: SubscriptionSummary = {
   realizedAnnualSavings: 0,
 };
 
+const EMPTY: SubscriptionSummary = {
+  totalMonthlyCost: 0,
+  activeCount: 0,
+  upcomingCount: 0,
+  upcoming30DaysCount: 0,
+  priceChangeCount: 0,
+  priceChangeYearlyEffect: 0,
+  duplicateCount: 0,
+  overdueReviewCount: 0,
+  realizedAnnualSavings: 0,
+};
+
 const emptyCalendar: SubscriptionChargeCalendar = {
   currency: 'USD',
   months: [],
@@ -57,6 +75,7 @@ const renderContent = (
     chargeCalendar?: SubscriptionChargeCalendar;
     subscriptions?: SubscriptionItem[];
     workspaceMembers?: Array<{ id: string; name?: string | null; email?: string | null }>;
+    statusFilter?: string;
   } = {},
 ) =>
   render(
@@ -69,7 +88,7 @@ const renderContent = (
       isPending={false}
       isFetching={false}
       error={null}
-      statusFilter="all"
+      statusFilter={overrides.statusFilter ?? 'all'}
       setStatusFilter={vi.fn()}
       dialogOpen={false}
       editingSubscription={null}
@@ -98,6 +117,10 @@ const renderContent = (
   );
 
 describe('SubscriptionsContent', () => {
+  beforeEach(() => {
+    appLocale.current = 'en';
+  });
+
   it('shows the management KPIs and a desktop subscription row', () => {
     renderContent();
 
@@ -139,5 +162,73 @@ describe('SubscriptionsContent', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Upcoming charges' }));
     // The matrix loads as its own chunk, so it arrives a tick later.
     expect(await screen.findByTestId('charge-calendar')).toBeInTheDocument();
+  });
+
+  it('tells an empty workspace there is nothing yet, with dashes for the summary and no filters', () => {
+    renderContent({ subscriptions: [], summary: EMPTY });
+
+    expect(screen.getByRole('heading', { name: 'No subscriptions yet' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Search subscriptions')).not.toBeVisible();
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(6);
+    // The empty state's button leads; the toolbar's steps back to outlined.
+    const addButtons = screen.getAllByRole('button', { name: /Add subscription/ });
+    expect(addButtons.map(button => button.className.includes('MuiButton-contained'))).toEqual([
+      false,
+      true,
+    ]);
+  });
+
+  it('shows dashes on every tab while the workspace has nothing to summarise', () => {
+    renderContent({ subscriptions: [], summary: EMPTY, statusFilter: 'detected' });
+
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(6);
+    expect(screen.queryByText('0 USD')).toBeNull();
+    expect(screen.queryByText('0')).toBeNull();
+  });
+
+  it("keeps the workspace's real figures on a tab that happens to be empty", () => {
+    renderContent({ subscriptions: [], statusFilter: 'detected' });
+
+    expect(screen.queryByText('—')).toBeNull();
+  });
+
+  it('says "No matches" with a way back when the filters hide every row', () => {
+    renderContent();
+    fireEvent.change(screen.getByLabelText('Search subscriptions'), {
+      target: { value: 'nothing like this' },
+    });
+
+    expect(screen.getByRole('heading', { name: 'No matches' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(screen.queryByRole('heading', { name: 'No matches' })).toBeNull();
+    expect(screen.getAllByText('Claude')).not.toHaveLength(0);
+  });
+
+  it("lists category filters in the reader's language and still filters by the stored name", () => {
+    appLocale.current = 'ru';
+    const advertising = categoryRef({
+      id: 'c-ads',
+      name: 'Advertising',
+      isSystem: true,
+      source: 'system',
+    });
+    renderContent({
+      subscriptions: [
+        { ...subscription, categoryId: advertising.id, category: advertising },
+        { ...subscription, id: 'sub-2', vendorName: 'Adobe' },
+      ],
+    });
+    const trigger = screen
+      .getAllByRole('combobox')
+      .find(element => element.textContent === 'All categories');
+    if (!trigger) throw new Error('no category filter');
+
+    fireEvent.mouseDown(trigger);
+    expect(screen.queryByRole('option', { name: 'Advertising' })).toBeNull();
+    fireEvent.click(screen.getByRole('option', { name: 'Реклама' }));
+
+    expect(trigger).toHaveTextContent('Реклама');
+    expect(screen.getAllByText('Claude')).not.toHaveLength(0);
+    expect(screen.queryByText('Adobe')).toBeNull();
   });
 });

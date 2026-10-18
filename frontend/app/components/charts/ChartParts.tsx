@@ -37,6 +37,14 @@ export function ChartTooltipCard({
   );
 }
 
+/**
+ * A legend entry's text in the readable grey. Recharts paints it in the series
+ * colour by default, which turns the legend into two coloured words.
+ */
+export function legendText(value: string): React.JSX.Element {
+  return <span style={{ color: 'var(--text-muted)' }}>{value}</span>;
+}
+
 /** First and last point labels under a chart that has no permanent X axis. */
 export function ChartRangeFooter({
   start,

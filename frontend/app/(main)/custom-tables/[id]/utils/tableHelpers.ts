@@ -1,4 +1,5 @@
-import type { CustomTableGridRow, CustomTableRowPatch } from './types';
+import type { CustomTableRowItem } from '@/app/lib/contracts';
+import type { CustomTableCellValue, CustomTableGridRow, CustomTableRowPatch } from './types';
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -39,41 +40,42 @@ export const tx = (root: unknown, path: string[], fallback = '') =>
 export const isContentEditableTarget = (value: unknown): value is { isContentEditable: boolean } =>
   isRecord(value) && typeof value.isContentEditable === 'boolean';
 
-export const getCreatedRowResponse = (value: unknown): CustomTableGridRow | null => {
-  const record = getRecord(value);
-  if (!record) {
-    return null;
+const isCellValue = (value: unknown): value is CustomTableCellValue =>
+  value === null ||
+  typeof value === 'string' ||
+  typeof value === 'number' ||
+  typeof value === 'boolean' ||
+  (Array.isArray(value) && value.every(item => typeof item === 'string'));
+
+/** Stored cells, as the grid edits them; anything else the server kept shows as its JSON. */
+export const toRowPatch = (data: Readonly<Record<string, unknown>>): CustomTableRowPatch =>
+  Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [
+      key,
+      isCellValue(value) ? value : JSON.stringify(value),
+    ]),
+  );
+
+const toCellStyles = (
+  styles: Readonly<Record<string, unknown>>,
+): NonNullable<CustomTableGridRow['styles']> => {
+  const result: NonNullable<CustomTableGridRow['styles']> = {};
+  for (const [key, value] of Object.entries(styles)) {
+    if (!isRecord(value)) continue;
+    const { importIssue, ...rest } = value;
+    result[key] = typeof importIssue === 'boolean' ? { ...rest, importIssue } : rest;
   }
-
-  const idCandidate = record.id ?? record.rowId ?? record.row_id;
-  const rowNumberCandidate = record.rowNumber ?? record.row_number;
-  const id = typeof idCandidate === 'string' ? idCandidate : null;
-  const rowNumber = typeof rowNumberCandidate === 'number' ? rowNumberCandidate : null;
-  const data = getRecord(record.data) as CustomTableRowPatch | null;
-  const styles = getRecord(record.styles) as CustomTableGridRow['styles'] | null;
-
-  return {
-    id: id ?? `temp-${Date.now()}`,
-    rowNumber: rowNumber ?? 1,
-    data: data ?? {},
-    ...(styles ? { styles } : {}),
-  };
+  return result;
 };
 
-export const getResponseItems = (value: unknown): CustomTableGridRow[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter(isRecord).map(item => {
-    const styles = getRecord(item.styles) as CustomTableGridRow['styles'] | null;
-    return {
-      id: typeof item.id === 'string' ? item.id : String(item.rowNumber ?? ''),
-      rowNumber: typeof item.rowNumber === 'number' ? item.rowNumber : 0,
-      data: (getRecord(item.data) as CustomTableRowPatch | null) ?? {},
-      ...(styles ? { styles } : {}),
-    };
-  });
-};
+/** A row as the server sends it, narrowed to what the grid renders. */
+export const toGridRow = (row: CustomTableRowItem): CustomTableGridRow => ({
+  id: row.id,
+  rowNumber: row.rowNumber,
+  data: toRowPatch(row.data),
+  ...(row.styles ? { styles: toCellStyles(row.styles) } : {}),
+  ...(row.relationLabels ? { relationLabels: row.relationLabels } : {}),
+});
 
 export const getClassificationResults = (value: unknown): Map<string, boolean | null> => {
   const payload =

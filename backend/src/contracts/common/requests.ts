@@ -53,13 +53,58 @@ export const TrimmedLowercase = Schema.String.pipe(
   ),
 );
 
+/**
+ * The date part names a day that exists (no 2026-02-30, no year 0) and the
+ * whole string parses: Postgres rejects anything else with a 500.
+ */
+const isExistingDate = Schema.makeFilter<string>(value => {
+  const day = value.slice(0, 10);
+  const parsed = new Date(`${day}T00:00:00Z`);
+  return day.slice(0, 4) !== '0000' &&
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === day &&
+    !Number.isNaN(Date.parse(value.replace(' ', 'T')))
+    ? undefined
+    : 'Expected a date that exists';
+});
+
 /** ISO 8601 date (`YYYY-MM-DD`) or timestamp, as `@IsDateString()` accepted. */
 export const IsoDateString = Schema.String.check(
   Schema.isPattern(
     /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}(?::?\d{2})?)?)?$/,
     { message: 'Expected an ISO 8601 date' },
   ),
+  isExistingDate,
 );
+
+/** A calendar date, `YYYY-MM-DD`, with a real month and day range. */
+export const DateOnlyInput = Schema.String.check(
+  Schema.isPattern(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, {
+    message: 'Expected a date as YYYY-MM-DD',
+  }),
+  isExistingDate,
+);
+
+/**
+ * A list in a query string: repeated keys (`?a=x&a=y`), comma-separated
+ * values (`?a=x,y`) or both, trimmed, empty parts dropped.
+ */
+export const StringListInput = Schema.Union([Schema.String, Schema.Array(Schema.String)]).pipe(
+  Schema.decodeTo(
+    Schema.Array(Schema.String),
+    SchemaTransformation.transform({
+      decode: (value: string | ReadonlyArray<string>): ReadonlyArray<string> =>
+        (typeof value === 'string' ? [value] : value)
+          .flatMap(item => item.split(','))
+          .map(item => item.trim())
+          .filter(Boolean),
+      encode: (value: ReadonlyArray<string>): string | ReadonlyArray<string> => value.join(','),
+    }),
+  ),
+);
+
+/** A whole number from a query string, at least 1: page numbers and sizes. */
+export const PageInput = NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1));
 
 export const Email = Schema.String.check(
   Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { message: 'Expected an email address' }),

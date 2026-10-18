@@ -15,7 +15,9 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { DeviceLocation } from '@/app/lib/device-location';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import type {
@@ -216,10 +218,13 @@ export default function StatementsListView(): React.JSX.Element {
   const refreshAfterCreate = async (): Promise<void> => {
     v.setPage(1);
     v.refetchStatements();
+    // A new expense counts on the dashboard and in reports right away.
+    invalidateFinancialData();
   };
 
   const refreshAfterAttach = (): void => {
     v.refetchStatements();
+    invalidateFinancialData();
   };
 
   const onUploadSuccess = (msg: string): void => {
@@ -303,7 +308,7 @@ export default function StatementsListView(): React.JSX.Element {
     id: string;
     source?: string;
     fileName: string;
-    parsingDetails?: { importPreview?: { attachments?: number } } | null;
+    parsingDetails?: StatementParsingDetails | null;
   }): void => {
     const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
     if (isReceipt) {

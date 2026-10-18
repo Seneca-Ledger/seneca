@@ -9,23 +9,40 @@ import {
   Post,
   Query,
   Res,
+  UseInterceptors,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import * as fs from 'fs';
+import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
+import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  AvailableCustomTables,
+  CashFlowMapAnswer,
+  CashFlowMapQuery,
   CreateReportScheduleBody,
   CustomReportBody,
+  CustomTablesReport,
   CustomTablesReportBody,
+  CustomTablesReportDrillDown,
   CustomTablesReportDrillDownBody,
   CustomTablesSummaryBody,
   ExportReportBody,
   GenerateReportBody,
+  ReportHistoryList,
+  ReportPreview,
+  ReportScheduleList,
+  SpendFlow,
+  SpendFlowQuery,
+  SpendOverTimeQuery,
+  TopCategoriesQuery,
   UpdateReportScheduleActiveBody,
   WorkspaceExportBody,
 } from '../../contracts';
@@ -33,12 +50,8 @@ import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CashFlowMapService } from './cash-flow-map.service';
 import { cashFlowMapToCsv } from './cash-flow-map.util';
-import { CashFlowMapQueryDto } from './dto/cash-flow-map-query.dto';
 import { ReportFormat } from './dto/custom-report.dto';
 import { ExportFormat } from './dto/export-report.dto';
-import { SpendFlowQueryDto } from './dto/spend-flow-query.dto';
-import { SpendOverTimeQueryDto } from './dto/spend-over-time-query.dto';
-import { TopCategoriesQueryDto } from './dto/top-categories-query.dto';
 import { WorkspaceExportFormat } from './dto/workspace-export.dto';
 import type { CustomReport } from './interfaces/custom-report.interface';
 import type { DailyReport } from './interfaces/daily-report.interface';
@@ -82,10 +95,11 @@ export class ReportsController {
   /** Income sources → categories → subcategories, a treemap and a period comparison; `format=csv` exports the table. */
   @Get('cash-flow-map')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(CashFlowMapAnswer)
   async getCashFlowMap(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: CashFlowMapQueryDto,
+    @SchemaQuery(CashFlowMapQuery) query: CashFlowMapQuery,
     @Res({ passthrough: true }) res: Response,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
@@ -111,7 +125,7 @@ export class ReportsController {
   async getTopCategories(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: TopCategoriesQueryDto,
+    @SchemaQuery(TopCategoriesQuery) query: TopCategoriesQuery,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.reportsService.getTopCategoriesReport(workspaceId, query, selfMemberId);
@@ -119,9 +133,10 @@ export class ReportsController {
 
   @Get('spend-flow')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(SpendFlow)
   async getSpendFlow(
     @WorkspaceId() workspaceId: string,
-    @Query() query: SpendFlowQueryDto,
+    @SchemaQuery(SpendFlowQuery) query: SpendFlowQuery,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.spendFlowService.getSpendFlow(workspaceId, query, selfMemberId);
@@ -132,13 +147,15 @@ export class ReportsController {
   async getSpendOverTimeReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: SpendOverTimeQueryDto,
+    @SchemaQuery(SpendOverTimeQuery) query: SpendOverTimeQuery,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.reportsService.getSpendOverTimeReport(workspaceId, query, selfMemberId);
   }
 
   @Post('custom-tables/summary')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
   async getCustomTablesSummary(
     @CurrentUser() _user: User,
@@ -149,7 +166,10 @@ export class ReportsController {
   }
 
   @Post('custom-tables/report')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(CustomTablesReport)
   async getCustomTablesReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -159,7 +179,10 @@ export class ReportsController {
   }
 
   @Post('custom-tables/report/drill-down')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(CustomTablesReportDrillDown)
   async getCustomTablesReportDrillDown(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -170,6 +193,7 @@ export class ReportsController {
 
   @Get('custom-tables/available')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(AvailableCustomTables)
   async getAvailableCustomTables(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.reportsService.getAvailableCustomTables(workspaceId);
   }
@@ -208,6 +232,8 @@ export class ReportsController {
   }
 
   @Post('custom')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
   async getCustomReport(
     @CurrentUser() _user: User,
@@ -218,6 +244,8 @@ export class ReportsController {
   }
 
   @Post('export')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_EXPORT)
   async exportReport(
     @CurrentUser() user: User,
@@ -267,7 +295,10 @@ export class ReportsController {
   }
 
   @Post('preview')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(ReportPreview)
   async previewReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -296,6 +327,8 @@ export class ReportsController {
   }
 
   @Post('workspace-export')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_EXPORT)
   async exportWorkspaceTransactions(
     @WorkspaceId() workspaceId: string,
@@ -317,6 +350,8 @@ export class ReportsController {
 
   @Get('history')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @UseInterceptors(HideInternalColumnsInterceptor)
+  @SchemaResponse(ReportHistoryList)
   async getHistory(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.reportsService.getReportHistory(workspaceId);
   }
@@ -341,6 +376,7 @@ export class ReportsController {
 
   @Get('schedules')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(ReportScheduleList)
   async listSchedules(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.reportSchedules.list(workspaceId);
   }

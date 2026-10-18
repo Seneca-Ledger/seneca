@@ -5,13 +5,15 @@ import {
   Logger,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { assertFound } from '../../common/utils/assert-found.util';
-import { countedSql } from '../../common/utils/counted-transactions.util';
-import type { CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
+import { countedSql, flowsSql } from '../../common/utils/counted-transactions.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
+import type { BudgetImpactQuery, CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Budget, BudgetPeriodType, BudgetRolloverMode } from '../../entities/budget.entity';
 import { Category } from '../../entities/category.entity';
@@ -26,6 +28,7 @@ import { Wallet } from '../../entities/wallet.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { BudgetExceededEvent } from '../notifications/events/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import {
@@ -35,7 +38,6 @@ import {
   parseDateOnly,
 } from './budget-period.util';
 import { percentOf, resolveAvailable } from './budget-rollover.util';
-import type { BudgetImpactQueryDto } from './dto/budget-impact-query.dto';
 
 export interface BudgetWithSpending extends Budget {
   spentAmount: number;
@@ -46,6 +48,26 @@ export interface BudgetWithSpending extends Budget {
   carriedAmount: number;
   /** Whether today falls inside the budget's window. Always true for open-ended ones. */
   isActive: boolean;
+  /** Spending in currencies with no rate to the budget's, left out of spentAmount. */
+  unconvertedSpending: UnconvertedSpending[];
+  /**
+   * The category's spending earlier in the current period than the budget's
+   * start date, per currency as booked: not counted, and said so on the card.
+   */
+  beforeStartSpending: UnconvertedSpending[];
+}
+
+/** Spending left out of a budget's figure: no rate from its currency to the budget's. */
+export interface UnconvertedSpending {
+  currency: string;
+  amount: number;
+}
+
+/** One row a budget covers, as read: its own amount, currency and day. */
+interface SpendingRow {
+  date: string | Date;
+  currency: string | null;
+  amount: string;
 }
 
 @Injectable()
@@ -70,6 +92,8 @@ export class BudgetsService {
     private readonly walletRepository?: Repository<Wallet>,
     @Optional()
     private readonly exchangeRatesService?: ExchangeRatesService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async create(workspaceId: string, userId: string, dto: CreateBudgetBody): Promise<Budget> {
@@ -95,6 +119,7 @@ export class BudgetsService {
     }
 
     assertWindowOrdered(dto.startsOn, dto.endsOn);
+    await this.assertCategoryInWorkspace(dto.categoryId, workspaceId);
     await this.assertGoalInWorkspace(dto.goalId, workspaceId);
 
     const { start } = computePeriodRange(periodType, new Date());
@@ -128,14 +153,15 @@ export class BudgetsService {
     return saved;
   }
 
-  async findAll(workspaceId: string): Promise<BudgetWithSpending[]> {
+  /** Every budget with its spending in the period `at` falls in: today unless asked for another day. */
+  async findAll(workspaceId: string, at: Date = new Date()): Promise<BudgetWithSpending[]> {
     const budgets = await this.budgetRepository.find({
       where: { workspaceId },
       relations: ['category'],
       order: { name: 'ASC' },
     });
 
-    return Promise.all(budgets.map(budget => this.attachSpending(budget)));
+    return Promise.all(budgets.map(budget => this.attachSpending(budget, at)));
   }
 
   async findOne(id: string, workspaceId: string): Promise<BudgetWithSpending> {
@@ -244,6 +270,16 @@ export class BudgetsService {
             percentUsed: Math.round(percentUsed),
           },
         });
+        this.eventEmitter?.emit('budget.exceeded', {
+          workspaceId,
+          budgetId: budget.id,
+          name: budget.name,
+          categoryId: budget.categoryId ?? null,
+          limitAmount: Number(budget.limitAmount),
+          spentAmount: Number(spentAmount),
+          percentUsed: Math.round(percentUsed),
+          currency: budget.currency,
+        } satisfies BudgetExceededEvent);
       } else if (percentUsed >= 80 && !budget.alertAt80Sent) {
         budget.alertAt80Sent = true;
         await this.budgetRepository.save(budget);
@@ -272,7 +308,10 @@ export class BudgetsService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async resetPeriodAlertFlags(): Promise<void> {
     const budgets = await this.budgetRepository.find({
-      where: [{ alertAt80Sent: true }, { alertAt100Sent: true }],
+      where: [
+        { alertAt80Sent: true, workspace: STANDARD_WORKSPACE },
+        { alertAt100Sent: true, workspace: STANDARD_WORKSPACE },
+      ],
     });
 
     const now = new Date();
@@ -317,6 +356,14 @@ export class BudgetsService {
    * Soft-deleted goals are excluded by TypeORM's default scope, so an archived
    * goal cannot be attached either.
    */
+  /** The id came from the request: another workspace's category is "not found". */
+  private async assertCategoryInWorkspace(categoryId: string, workspaceId: string): Promise<void> {
+    const category = await this.categoryRepository?.findOne({
+      where: { id: categoryId, workspaceId },
+    });
+    assertFound(category, 'Category');
+  }
+
   private async assertGoalInWorkspace(
     goalId: string | null | undefined,
     workspaceId: string,
@@ -328,8 +375,7 @@ export class BudgetsService {
     assertFound(goal, 'Goal');
   }
 
-  private async attachSpending(budget: Budget): Promise<BudgetWithSpending> {
-    const now = new Date();
+  private async attachSpending(budget: Budget, now = new Date()): Promise<BudgetWithSpending> {
     const measured = await this.measure(budget, now);
     return Object.assign(budget, {
       ...measured,
@@ -349,17 +395,32 @@ export class BudgetsService {
     budget: Budget,
     now: Date,
   ): Promise<
-    Pick<BudgetWithSpending, 'spentAmount' | 'percentUsed' | 'availableAmount' | 'carriedAmount'>
+    Pick<
+      BudgetWithSpending,
+      | 'spentAmount'
+      | 'percentUsed'
+      | 'availableAmount'
+      | 'carriedAmount'
+      | 'unconvertedSpending'
+      | 'beforeStartSpending'
+    >
   > {
     const limitAmount = Number(budget.limitAmount);
     const range = computePeriodRange(budget.periodType, now);
     const period = clampToWindow(range, budget);
     if (!period) {
-      return { spentAmount: 0, percentUsed: 0, availableAmount: limitAmount, carriedAmount: 0 };
+      return {
+        spentAmount: 0,
+        percentUsed: 0,
+        availableAmount: limitAmount,
+        carriedAmount: 0,
+        unconvertedSpending: [],
+        beforeStartSpending: [],
+      };
     }
     const categoryIds = await this.categoryIdsFor(budget.workspaceId, budget.categoryId);
-    const spentAmount = await this.computeSpending(
-      budget.workspaceId,
+    const { spent: spentAmount, unconverted } = await this.computeSpending(
+      budget,
       categoryIds,
       period.start,
       period.end,
@@ -378,7 +439,40 @@ export class BudgetsService {
       percentUsed: percentOf(spentAmount, availableAmount),
       availableAmount,
       carriedAmount,
+      unconvertedSpending: unconverted,
+      beforeStartSpending:
+        period.start.getTime() > range.start.getTime()
+          ? await this.spendingBeforeStart(budget, categoryIds, range.start, period.start)
+          : [],
     };
+  }
+
+  /**
+   * The category's spending from the period's first day up to the day before
+   * the budget starts, per currency as booked. A budget started mid-period
+   * leaves it out, which reads as "nothing spent" unless the card says so.
+   */
+  private async spendingBeforeStart(
+    budget: Budget,
+    categoryIds: string[],
+    periodStart: Date,
+    budgetStart: Date,
+  ): Promise<UnconvertedSpending[]> {
+    const dayBefore = new Date(
+      budgetStart.getFullYear(),
+      budgetStart.getMonth(),
+      budgetStart.getDate() - 1,
+    );
+    const rows = await this.spendingRows(budget.workspaceId, categoryIds, periodStart, dayBefore);
+    const byCurrency = new Map<string, number>();
+    for (const row of rows) {
+      const currency = (row.currency || budget.currency).toUpperCase();
+      byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + Number.parseFloat(row.amount));
+    }
+    return [...byCurrency].map(([currency, amount]) => ({
+      currency,
+      amount: Math.round(amount * 100) / 100,
+    }));
   }
 
   /** How many settled periods rollover looks back on; a year of months, a quarter of weeks. */
@@ -416,24 +510,18 @@ export class BudgetsService {
       );
     }
     if (periods.length === 0) return [];
-    const rows = await this.transactionRepository
-      .createQueryBuilder('t')
-      .select('t.transaction_date', 'date')
-      .addSelect('ABS(t.amount)', 'amount')
-      .where('t.workspace_id = :workspaceId', { workspaceId: budget.workspaceId })
-      .andWhere('t.category_id IN (:...categoryIds)', { categoryIds })
-      .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
-      .andWhere('t.transaction_date >= :start', { start: periods[0].start })
-      .andWhere('t.transaction_date <= :end', { end: periods[periods.length - 1].end })
-      .andWhere('t.is_duplicate = false')
-      .andWhere('t.transfer_pair_id IS NULL')
-      .andWhere(countedSql('t'))
-      .getRawMany<{ date: string | Date; amount: string }>();
+    const rows = await this.spendingRows(
+      budget.workspaceId,
+      categoryIds,
+      periods[0].start,
+      periods[periods.length - 1].end,
+    );
+    const converted = await this.inBudgetCurrency(budget, rows);
     return periods.map(period =>
-      rows.reduce((sum, row) => {
+      converted.reduce((sum, row) => {
         const at = parseDateOnly(row.date).getTime();
-        return at >= period.start.getTime() && at <= period.end.getTime()
-          ? sum + Number.parseFloat(row.amount)
+        return row.value !== null && at >= period.start.getTime() && at <= period.end.getTime()
+          ? sum + row.value
           : sum;
       }, 0),
     );
@@ -476,7 +564,7 @@ export class BudgetsService {
    * available amount, and whether it takes the default account below zero.
    * Advice, not a gate: the entry is still allowed.
    */
-  async getImpact(workspaceId: string, dto: BudgetImpactQueryDto): Promise<BudgetImpact> {
+  async getImpact(workspaceId: string, dto: BudgetImpactQuery): Promise<BudgetImpact> {
     const now = dto.date ? parseDateOnly(dto.date) : new Date();
     const currency = (dto.currency || '').toUpperCase();
     const chain = await this.categoryChainFor(workspaceId, dto.categoryId);
@@ -570,15 +658,47 @@ export class BudgetsService {
     }
   }
 
+  /**
+   * The period's spending in the budget's currency. Rows in another currency
+   * are converted at the rate of their own day; a row with no rate is left out
+   * and reported, never counted one to one (500 UAH is not 500 USD).
+   */
   private async computeSpending(
+    budget: Budget,
+    categoryIds: string[],
+    start: Date,
+    end: Date,
+  ): Promise<{ spent: number; unconverted: UnconvertedSpending[] }> {
+    const rows = await this.spendingRows(budget.workspaceId, categoryIds, start, end);
+    const converted = await this.inBudgetCurrency(budget, rows);
+    let spent = 0;
+    const missing = new Map<string, number>();
+    for (const row of converted) {
+      if (row.value !== null) {
+        spent += row.value;
+      } else {
+        missing.set(row.currency, (missing.get(row.currency) ?? 0) + row.amount);
+      }
+    }
+    const unconverted = [...missing].map(([currency, amount]) => ({
+      currency,
+      amount: Math.round(amount * 100) / 100,
+    }));
+    return { spent, unconverted };
+  }
+
+  /** The budget's rows between two days, summed per currency and day. */
+  private spendingRows(
     workspaceId: string,
     categoryIds: string[],
     start: Date,
     end: Date,
-  ): Promise<number> {
-    const result = await this.transactionRepository
+  ): Promise<SpendingRow[]> {
+    return this.transactionRepository
       .createQueryBuilder('t')
-      .select('COALESCE(SUM(ABS(t.amount)), 0)', 'total')
+      .select('t.transaction_date', 'date')
+      .addSelect('t.currency', 'currency')
+      .addSelect('SUM(ABS(t.amount))', 'amount')
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.category_id IN (:...categoryIds)', { categoryIds })
       .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
@@ -586,10 +706,38 @@ export class BudgetsService {
       .andWhere('t.transaction_date <= :end', { end })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
-      .andWhere(countedSql('t'))
-      .getRawOne();
+      .andWhere(flowsSql('t'))
+      .groupBy('t.transaction_date')
+      .addGroupBy('t.currency')
+      .getRawMany<SpendingRow>();
+  }
 
-    return Number.parseFloat(result?.total ?? '0');
+  /**
+   * Each row's amount in the budget's currency (`value`), or null when no rate
+   * exists for its day. A row with no currency is taken to be in the budget's.
+   */
+  private async inBudgetCurrency(
+    budget: Budget,
+    rows: SpendingRow[],
+  ): Promise<
+    Array<{ date: string | Date; currency: string; amount: number; value: number | null }>
+  > {
+    const target = budget.currency.toUpperCase();
+    return Promise.all(
+      rows.map(async row => {
+        const amount = Number.parseFloat(row.amount);
+        const currency = (row.currency || target).toUpperCase();
+        if (currency === target) {
+          return { date: row.date, currency, amount, value: amount };
+        }
+        const rate = this.exchangeRatesService
+          ? await this.exchangeRatesService
+              .getRateOrNull(currency, target, row.date, budget.workspaceId)
+              .catch(() => null)
+          : null;
+        return { date: row.date, currency, amount, value: rate === null ? null : amount * rate };
+      }),
+    );
   }
 }
 

@@ -6,6 +6,7 @@ import * as path from 'path';
 import type { Repository } from 'typeorm';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { formatMoney } from '../../common/utils/format-money.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { ConnectTelegramBody, SendTelegramReportBody } from '../../contracts';
 import { CategoryType } from '../../entities/category.entity';
 import { IdempotencyKey } from '../../entities/idempotency-key.entity';
@@ -31,51 +32,14 @@ import {
   resolveTelegramLocale,
   type TelegramMessageKey,
 } from './telegram-translations';
+import type {
+  TelegramCallbackQuery,
+  TelegramDocument,
+  TelegramUpdate,
+} from './telegram-update.schema';
 
 interface TelegramSendResult {
   messageId: string;
-}
-
-interface TelegramDocumentPayload {
-  file_id: string;
-  file_name?: string;
-  mime_type?: string;
-}
-
-interface TelegramFromPayload {
-  id?: number | string;
-  language_code?: string;
-}
-
-interface TelegramPhotoSizePayload {
-  file_id: string;
-  file_size?: number;
-  width?: number;
-  height?: number;
-}
-
-interface TelegramMessagePayload {
-  chat?: { id?: number | string };
-  text?: string;
-  caption?: string;
-  from?: TelegramFromPayload;
-  document?: TelegramDocumentPayload;
-  /** Telegram sends every size of a photo; the last one is the largest. */
-  photo?: TelegramPhotoSizePayload[];
-}
-
-interface TelegramCallbackQueryPayload {
-  id: string;
-  from?: TelegramFromPayload;
-  message?: { chat?: { id?: number | string } };
-  data?: string;
-}
-
-export interface TelegramUpdatePayload {
-  /** Telegram resends an update with the same id when the webhook answer is late or fails. */
-  update_id?: number;
-  message?: TelegramMessagePayload;
-  callback_query?: TelegramCallbackQueryPayload;
 }
 
 /** An inline keyboard in Telegram's own shape, passed through as `reply_markup`. */
@@ -208,8 +172,10 @@ export class TelegramService {
       return null;
     }
 
+    // A past version is never the bot's workspace: no reports from it and no
+    // documents filed into it, scheduled or sent from the chat.
     const membership = await this.workspaceMemberRepository.findOne({
-      where: { workspaceId, userId: user.id },
+      where: { workspaceId, userId: user.id, workspace: STANDARD_WORKSPACE },
     });
     return membership ? workspaceId : null;
   }
@@ -459,7 +425,7 @@ export class TelegramService {
     }
   }
 
-  async handleUpdate(update: TelegramUpdatePayload): Promise<void> {
+  async handleUpdate(update: TelegramUpdate): Promise<void> {
     if (!(await this.isEnabled())) {
       return;
     }
@@ -630,7 +596,7 @@ export class TelegramService {
   private async handleReceiptImage(
     chatId: string,
     telegramId: string | null,
-    document: TelegramDocumentPayload,
+    document: TelegramDocument,
     fallbackLocale: string,
     updateId?: number,
   ): Promise<void> {
@@ -785,7 +751,7 @@ export class TelegramService {
   }
 
   /** The delete button under a bot reply; anything else is acknowledged and ignored. */
-  private async handleCallbackQuery(query: TelegramCallbackQueryPayload): Promise<void> {
+  private async handleCallbackQuery(query: TelegramCallbackQuery): Promise<void> {
     const chatId = query.message?.chat?.id ? String(query.message.chat.id) : null;
     const telegramId = query.from?.id ? String(query.from.id) : null;
     const match = query.data ? CALLBACK_PATTERN.exec(query.data) : null;
@@ -1026,7 +992,7 @@ export class TelegramService {
   private async handleDocumentUpload(
     chatId: string,
     telegramId: string | null,
-    document: TelegramDocumentPayload,
+    document: TelegramDocument,
     fallbackLocale: string,
     updateId?: number,
   ): Promise<void> {

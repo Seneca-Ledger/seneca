@@ -17,7 +17,7 @@ describe('ExchangeRatesController', () => {
   describe('getRate', () => {
     it('returns rate for a currency pair', async () => {
       exchangeRatesService.getRateQuote.mockResolvedValue({ rate: 3.67, rateDate: '2025-06-15', stale: false });
-      const result = await controller.getRate('ws-1', 'USD', 'ILS');
+      const result = await controller.getRate('ws-1', { from: 'USD', to: 'ILS' });
 
       expect(result).toEqual({
         from: 'USD',
@@ -35,7 +35,7 @@ describe('ExchangeRatesController', () => {
 
     it('passes date when provided', async () => {
       exchangeRatesService.getRateQuote.mockResolvedValue({ rate: 3.6, rateDate: '2025-06-15', stale: false });
-      const result = await controller.getRate('ws-1', 'USD', 'ILS', '2025-06-15');
+      const result = await controller.getRate('ws-1', { from: 'USD', to: 'ILS', date: '2025-06-15' });
 
       expect(result.date).toBe('2025-06-15');
       expect(exchangeRatesService.getRateQuote).toHaveBeenCalledWith(
@@ -48,7 +48,7 @@ describe('ExchangeRatesController', () => {
 
     it('says so when no rate exists instead of a silent 1', async () => {
       exchangeRatesService.getRateQuote.mockResolvedValue(null);
-      const result = await controller.getRate('ws-1', 'ZZX', 'USD');
+      const result = await controller.getRate('ws-1', { from: 'ZZX', to: 'USD' });
       expect(result).toMatchObject({ rate: 1, missing: true, rateDate: null });
     });
   });

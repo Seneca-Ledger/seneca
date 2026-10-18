@@ -14,11 +14,19 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { BackupImportBody, UpdateBackupConfigurationBody } from '../../contracts';
+import {
+  BackupConfiguration,
+  BackupImportBody,
+  BackupImportPreview,
+  BackupRestoreResult,
+  BackupRunList,
+  UpdateBackupConfigurationBody,
+} from '../../contracts';
 import { BackupDestinationKind, BackupRunTrigger } from '../../entities';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -42,12 +50,14 @@ export class BackupsController {
 
   @Get('config')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(BackupConfiguration)
   getConfiguration(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.backupsService.getConfiguration(user, workspaceId);
   }
 
   @Put('config')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(BackupConfiguration)
   configure(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -61,6 +71,7 @@ export class BackupsController {
 
   @Get('runs')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(BackupRunList)
   listRuns(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.backupsService.listRuns(user, workspaceId);
   }
@@ -87,6 +98,7 @@ export class BackupsController {
 
   @Post('import/preview')
   @UseInterceptors(FileInterceptor('file', BACKUP_UPLOAD_OPTIONS))
+  @SchemaResponse(BackupImportPreview)
   previewImport(
     @CurrentUser() user: User,
     @UploadedFile() file: MulterFile | undefined,
@@ -97,6 +109,7 @@ export class BackupsController {
 
   @Post('imports/:id/restore')
   @UseInterceptors(FileInterceptor('file', BACKUP_UPLOAD_OPTIONS))
+  @SchemaResponse(BackupRestoreResult)
   async restoreImport(
     @Param('id') importId: string,
     @CurrentUser() user: User,

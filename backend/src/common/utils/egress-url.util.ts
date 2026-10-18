@@ -81,7 +81,10 @@ export async function assertPublicEgressHost(
   }
 
   const lookup = options.lookup || (async (name: string) => dns.lookup(name, { all: true }));
-  const records = await lookup(normalizedHost);
+  // A name that does not resolve is the caller's typo, not a server failure.
+  const records = await lookup(normalizedHost).catch(() => {
+    throw new BadRequestException('Destination host cannot be resolved');
+  });
   if (records.length === 0 || records.some(record => isBlockedEgressAddress(record.address))) {
     throw new BadRequestException('Destination resolves to a blocked address');
   }

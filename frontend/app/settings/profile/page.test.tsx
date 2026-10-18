@@ -188,11 +188,11 @@ describe('ProfileSettingsPage', () => {
     expect(berlin?.textContent).toContain('Центральная Европа');
   });
 
-  it('renders the five tabs and switches tab through the URL', async () => {
+  it('renders the six tabs and switches tab through the URL', async () => {
     const container = await renderPage();
 
     const tabs = container.querySelectorAll('[role="tab"]');
-    expect(tabs).toHaveLength(5);
+    expect(tabs).toHaveLength(6);
     expect(container.textContent).toContain('tabs.general');
 
     const securityTab = findButton(container, 'tabs.security');

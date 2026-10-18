@@ -79,7 +79,7 @@ export function useAppearance(
       setUser(nextUser as User);
       localStorage.setItem('user', JSON.stringify(nextUser));
       notifyUserFormatChanged();
-      setAppearanceMessage(response.data?.message || messages.successFallback);
+      setAppearanceMessage(messages.successFallback);
     })()
       .catch(async (error: unknown) => {
         setAppearanceError(getApiErrorMessage(error, messages.errorFallback));
@@ -138,7 +138,7 @@ export function useAppearance(
         );
       }
 
-      setAppearanceMessage(response.data?.message || messages.successFallback);
+      setAppearanceMessage(messages.successFallback);
     })()
       .catch(async (error: unknown) => {
         setAppearanceError(getApiErrorMessage(error, messages.errorFallback));

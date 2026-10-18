@@ -18,3 +18,31 @@
   @include dark { background: $lumio-color-ink-400-dk; }
 }
 ::-webkit-scrollbar-track     { background: transparent; }
+
+// A panel's own scroll: a 6px thumb that shows only while the pointer is over
+// the panel or it scrolls, not a wide grey rail beside the content.
+.lumio-thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+
+  &:hover,
+  &:focus-within {
+    scrollbar-color: var(--border) transparent;
+  }
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border: 0;
+    border-radius: 3px;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background: var(--border);
+  }
+}

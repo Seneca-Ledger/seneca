@@ -7,19 +7,9 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import type { LocalCategorizationStatus, LocalCategorizationTestResult } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
-
-type LocalCategorizationStatus = {
-  connected: boolean;
-  settings?: {
-    enabled?: boolean;
-    modelId?: string;
-    threshold?: number;
-    localModelPath?: string | null;
-    modelInstalled?: boolean;
-  };
-};
 
 type MessageKey =
   | 'loadFailed'
@@ -28,13 +18,6 @@ type MessageKey =
   | 'modelInstalled'
   | 'installFailed'
   | 'testFailed';
-
-type LocalCategorizationTestResult = {
-  ready: boolean;
-  merchantName: string;
-  category: string | null;
-  modelLoadError: string | null;
-};
 
 const DEFAULT_MODEL_ID = 'Xenova/paraphrase-multilingual-MiniLM-L12-v2';
 // Starter values for an editable field, not UI copy: the user replaces them
@@ -93,15 +76,18 @@ export function LocalCategorizationPanel(): React.JSX.Element {
     setMessage(null);
 
     await (async () => {
-      const response = await apiClient.put<LocalCategorizationStatus>(
-        '/settings/local-categorization',
-        {
-          enabled,
-          modelId,
-          threshold,
-        } satisfies ContractInput<'SaveLocalCategorizationBody'>,
+      const response = await apiClient.put('/settings/local-categorization', {
+        enabled,
+        modelId,
+        threshold,
+      } satisfies ContractInput<'SaveLocalCategorizationBody'>);
+      applyStatus(
+        await checkContract(
+          'LocalCategorizationStatus',
+          response.data,
+          '/settings/local-categorization',
+        ),
       );
-      applyStatus(response.data);
       setMessage('saved');
     })()
       .catch(async () => {
@@ -122,12 +108,16 @@ export function LocalCategorizationPanel(): React.JSX.Element {
     await (async () => {
       const formData = new FormData();
       formData.append('model', file);
-      const response = await apiClient.post<LocalCategorizationStatus>(
-        '/settings/local-categorization/model',
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
+      const response = await apiClient.post('/settings/local-categorization/model', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      applyStatus(
+        await checkContract(
+          'LocalCategorizationStatus',
+          response.data,
+          '/settings/local-categorization/model',
+        ),
       );
-      applyStatus(response.data);
       setMessage('modelInstalled');
     })()
       .catch(async () => {
@@ -143,14 +133,17 @@ export function LocalCategorizationPanel(): React.JSX.Element {
     setMessage(null);
 
     await (async () => {
-      const response = await apiClient.post<LocalCategorizationTestResult>(
-        '/settings/local-categorization/test',
-        {
-          merchantName,
-          categories: splitCategories(categories),
-        } satisfies ContractInput<'TestLocalCategorizationBody'>,
+      const response = await apiClient.post('/settings/local-categorization/test', {
+        merchantName,
+        categories: splitCategories(categories),
+      } satisfies ContractInput<'TestLocalCategorizationBody'>);
+      setTestResult(
+        await checkContract(
+          'LocalCategorizationTestResult',
+          response.data,
+          '/settings/local-categorization/test',
+        ),
       );
-      setTestResult(response.data);
     })()
       .catch(async () => {
         setMessage('testFailed');

@@ -16,6 +16,7 @@ import {
 import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import type React from 'react';
 import { useIntlayer } from '@/app/i18n';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatLineRef, linesForCategory, suggestionEntries } from '../tax-declaration.helpers';
 import type { MappingEntry, MappingStatus, MappingsResponse } from '../tax-declaration.types';
 
@@ -57,6 +58,7 @@ interface MappingStepProps {
  */
 export function MappingStep({ mappings, saving, onSave }: MappingStepProps): React.ReactElement {
   const t = useIntlayer('taxDeclarationPage');
+  const categoryName = useCategoryName();
   const suggestions = suggestionEntries(mappings.categories);
   const statusLabel: Record<MappingStatus, React.ReactNode> = {
     confirmed: t.statusConfirmed,
@@ -99,7 +101,7 @@ export function MappingStep({ mappings, saving, onSave }: MappingStepProps): Rea
           <TableBody>
             {categories.map(category => (
               <TableRow key={category.categoryId}>
-                <TableCell>{category.name}</TableCell>
+                <TableCell>{categoryName(category.name)}</TableCell>
                 <TableCell align="right">{category.transactionCount}</TableCell>
                 <TableCell sx={{ minWidth: 300 }}>
                   <TextField
@@ -110,7 +112,9 @@ export function MappingStep({ mappings, saving, onSave }: MappingStepProps): Rea
                     sx={FLAT_SELECT_SX}
                     value={category.lineKey ?? ''}
                     SelectProps={{ displayEmpty: true }}
-                    inputProps={{ 'aria-label': `${t.mappingLine.value}: ${category.name}` }}
+                    inputProps={{
+                      'aria-label': `${t.mappingLine.value}: ${categoryName(category.name)}`,
+                    }}
                     onChange={event =>
                       onSave([
                         { categoryId: category.categoryId, lineKey: event.target.value || null },

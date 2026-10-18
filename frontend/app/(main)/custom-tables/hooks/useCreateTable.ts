@@ -7,6 +7,7 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
+import { unwrapEnvelope } from '@/app/lib/query-fn';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import {
   buildSourcePayload,
@@ -117,7 +118,7 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
           }),
           post: async (url, body) => {
             const columnResponse = await apiClient.post(url, body);
-            return columnResponse.data?.data ?? columnResponse.data ?? null;
+            return checkContract('CustomTableColumnItem', unwrapEnvelope(columnResponse.data), url);
           },
         });
         if (failed.length) {

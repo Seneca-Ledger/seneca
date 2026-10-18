@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStatementRequestParams,
   deriveVisibleFilterScreens,
+  filterByApproved,
+  isDocumentApproved,
   isReceiptDerivedStatement,
   paginateStatements,
   reconcileFiltersWithColumns,
@@ -271,6 +273,49 @@ describe('StatementsListView utils', () => {
       for (const status of ['approved', 'rejected', 'failed']) {
         expect(resolvePendingReview({ id: 'r', status }, true, counts)).toBe(0);
       }
+    });
+  });
+
+  describe('isDocumentApproved', () => {
+    it('reads a receipt by its own status, not by a parse status', () => {
+      expect(isDocumentApproved('approved', true, 0)).toBe(true);
+      for (const status of ['draft', 'new', 'parsed', 'needs_review', 'rejected', 'completed']) {
+        expect(isDocumentApproved(status, true, 0)).toBe(false);
+      }
+    });
+
+    it('counts a parsed statement as approved only once Review holds none of its rows', () => {
+      expect(isDocumentApproved('completed', false, 0)).toBe(true);
+      expect(isDocumentApproved('COMPLETED', false, 0)).toBe(true);
+      expect(isDocumentApproved('completed', false, 2)).toBe(false);
+      expect(isDocumentApproved('uploaded', false, 0)).toBe(false);
+      expect(isDocumentApproved('error', false, 0)).toBe(false);
+    });
+  });
+
+  describe('filterByApproved', () => {
+    const documents = [
+      { id: 'receipt-approved', status: 'approved', source: 'scan' },
+      { id: 'receipt-draft', status: 'draft', source: 'scan' },
+      { id: 'gmail-approved', status: 'approved', source: 'gmail' },
+      { id: 'statement-done', status: 'completed', source: 'statement' },
+      { id: 'statement-waiting', status: 'completed', source: 'statement' },
+      { id: 'statement-uploading', status: 'uploaded', source: 'statement' },
+    ];
+    const reviewCounts = { 'statement-waiting': 2 };
+    const ids = (approved: boolean | null) =>
+      filterByApproved(documents, approved, reviewCounts).map(document => document.id);
+
+    it('keeps approved receipts and statements Review is done with', () => {
+      expect(ids(true)).toEqual(['receipt-approved', 'gmail-approved', 'statement-done']);
+    });
+
+    it('keeps drafts, statements with rows in Review and unparsed files as not approved', () => {
+      expect(ids(false)).toEqual(['receipt-draft', 'statement-waiting', 'statement-uploading']);
+    });
+
+    it('leaves the list alone without the filter', () => {
+      expect(ids(null)).toHaveLength(documents.length);
     });
   });
 });

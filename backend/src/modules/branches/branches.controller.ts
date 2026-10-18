@@ -2,9 +2,10 @@ import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { CreateBranchBody, UpdateBranchBody } from '../../contracts';
+import { BranchList, CreateBranchBody, UpdateBranchBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BranchesService } from './branches.service';
@@ -17,14 +18,15 @@ export class BranchesController {
   @WorkspaceAuth(Permission.BRANCH_CREATE)
   async create(
     @SchemaBody(CreateBranchBody) createDto: CreateBranchBody,
-    @CurrentUser() _user: User,
+    @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.branchesService.create(workspaceId, createDto);
+    return this.branchesService.create(workspaceId, user.id, createDto);
   }
 
   @Get()
   @WorkspaceAuth(Permission.BRANCH_VIEW)
+  @SchemaResponse(BranchList)
   async findAll(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.branchesService.findAll(workspaceId);
   }

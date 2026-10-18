@@ -14,6 +14,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import {
   type AddPayablePaymentInput,
+  type BookPayablePaymentInput,
   type MarkPayablePaidInput,
   type Payable,
   type PayablePayment,
@@ -27,6 +28,7 @@ import {
   CandidateList,
   CashFields,
   type CashState,
+  IN_HAND,
   PaymentLog,
   today,
 } from './MarkPaidFields';
@@ -40,7 +42,9 @@ type Mode = 'match' | 'cash' | 'plain';
  */
 export type MarkPaidResult =
   | { kind: 'full'; payload: MarkPayablePaidInput }
-  | { kind: 'payment'; payload: AddPayablePaymentInput };
+  | { kind: 'payment'; payload: AddPayablePaymentInput }
+  /** The money of a payment recorded without it: where it went. */
+  | { kind: 'book'; paymentId: string; payload: BookPayablePaymentInput };
 
 type MarkPaidDialogProps = {
   /** The bill being settled; the dialog is closed while null. */
@@ -138,10 +142,11 @@ function buildResult(
     if (!walletId) {
       return null;
     }
+    const source = cashSource(walletId);
     return settlesInFull
       ? {
           kind: 'full',
-          payload: { payFromWalletId: walletId, paidOn, categoryId: categoryId || undefined },
+          payload: { ...source, paidOn, categoryId: categoryId || undefined },
         }
       : {
           kind: 'payment',
@@ -149,7 +154,7 @@ function buildResult(
             amount,
             feeAmount: fee || undefined,
             paidOn,
-            payFromWalletId: walletId,
+            ...source,
             categoryId: categoryId || undefined,
           },
         };
@@ -157,6 +162,35 @@ function buildResult(
   return settlesInFull
     ? { kind: 'full', payload: {} }
     : { kind: 'payment', payload: { amount, feeAmount: fee || undefined } };
+}
+
+/** A wallet the cash went into, or cash in hand kept in none. */
+function cashSource(walletId: string): { payFromWalletId?: string; inHand?: boolean } {
+  return walletId === IN_HAND ? { inHand: true } : { payFromWalletId: walletId };
+}
+
+/** For a payment recorded without money: the bank row or the wallet it went into. */
+function buildBooking(
+  mode: Mode,
+  paymentId: string,
+  selected: { transactionId: string | null; cash: CashState },
+): MarkPaidResult | null {
+  if (mode === 'match') {
+    return selected.transactionId
+      ? { kind: 'book', paymentId, payload: { linkedTransactionId: selected.transactionId } }
+      : null;
+  }
+  if (mode === 'cash' && selected.cash.walletId) {
+    return {
+      kind: 'book',
+      paymentId,
+      payload: {
+        ...cashSource(selected.cash.walletId),
+        categoryId: selected.cash.categoryId || undefined,
+      },
+    };
+  }
+  return null;
 }
 
 function MarkPaidForm({
@@ -168,6 +202,7 @@ function MarkPaidForm({
   onRemovePayment,
 }: MarkPaidDialogProps & { payable: Payable }): React.JSX.Element {
   const t = useIntlayer('payableMarkPaid');
+  const unbookedText = useIntlayer('payablesUnbooked');
   const { locale } = useLocale();
   const options = usePaymentOptions(payable);
 
@@ -184,19 +219,34 @@ function MarkPaidForm({
 
   // Until the user picks, open on the bank match when there is one to pick,
   // with the first candidate and the first wallet preselected.
-  const mode: Mode = chosenMode ?? (options.candidates.length > 0 ? 'match' : 'plain');
-  const selectedCash = { ...cash, walletId: cash.walletId ?? options.wallets[0]?.id ?? null };
+  // Nothing left to pay, but a payment has no money in an account yet: the
+  // dialog asks where that money went instead of for another payment.
+  const unbooked =
+    outstanding <= 0.005 ? options.payments.find(payment => !payment.transactionId) : undefined;
+  const fallbackMode: Mode = options.candidates.length > 0 ? 'match' : unbooked ? 'cash' : 'plain';
+  const mode: Mode =
+    unbooked && chosenMode === 'plain' ? fallbackMode : (chosenMode ?? fallbackMode);
+  // No wallet in the bill's currency: cash in hand is what is left, and it is preselected.
+  const selectedCash = {
+    ...cash,
+    walletId: cash.walletId ?? options.wallets[0]?.id ?? (options.walletsLoading ? null : IN_HAND),
+  };
   // A bill already linked (paid, then marked unpaid) keeps its payment unless the user picks another.
   const defaultTransaction =
     options.candidates.find(candidate => candidate.id === payable.linkedTransactionId)?.id ??
     options.candidates[0]?.id ??
     null;
-  const result = buildResult(mode, {
-    transactionId: transactionId ?? defaultTransaction,
-    cash: selectedCash,
-    amount: amountState,
-    outstanding,
-  });
+  const result = unbooked
+    ? buildBooking(mode, unbooked.id, {
+        transactionId: transactionId ?? defaultTransaction,
+        cash: selectedCash,
+      })
+    : buildResult(mode, {
+        transactionId: transactionId ?? defaultTransaction,
+        cash: selectedCash,
+        amount: amountState,
+        outstanding,
+      });
 
   return (
     <ModalShell
@@ -231,14 +281,18 @@ function MarkPaidForm({
           onRemove={paymentId => onRemovePayment(payable, paymentId)}
         />
 
-        <AmountFields
-          currency={options.currency}
-          locale={locale}
-          paidSoFar={paidSoFar}
-          outstanding={outstanding}
-          value={amountState}
-          onChange={setAmount}
-        />
+        {unbooked ? (
+          <Alert severity="info">{unbookedText.bookIntro.value}</Alert>
+        ) : (
+          <AmountFields
+            currency={options.currency}
+            locale={locale}
+            paidSoFar={paidSoFar}
+            outstanding={outstanding}
+            value={amountState}
+            onChange={setAmount}
+          />
+        )}
 
         <ToggleButtonGroup
           exclusive
@@ -253,9 +307,11 @@ function MarkPaidForm({
           <ToggleButton value="cash" sx={{ textTransform: 'none' }}>
             {t.modeCash.value}
           </ToggleButton>
-          <ToggleButton value="plain" sx={{ textTransform: 'none' }}>
-            {t.modePlain.value}
-          </ToggleButton>
+          {!unbooked && (
+            <ToggleButton value="plain" sx={{ textTransform: 'none' }}>
+              {t.modePlain.value}
+            </ToggleButton>
+          )}
         </ToggleButtonGroup>
 
         {mode === 'match' && (
@@ -269,12 +325,11 @@ function MarkPaidForm({
         )}
         {mode === 'cash' && (
           <CashFields
-            currency={options.currency}
             wallets={options.wallets}
-            walletsLoading={options.walletsLoading}
             categories={options.categories}
             value={selectedCash}
             onChange={setCash}
+            hideDate={Boolean(unbooked)}
           />
         )}
         {mode === 'plain' && <Alert severity="warning">{t.plainHint.value}</Alert>}

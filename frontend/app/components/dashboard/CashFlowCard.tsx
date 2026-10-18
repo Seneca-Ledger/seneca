@@ -1,5 +1,6 @@
 'use client';
 
+import BarChartOutlined from '@mui/icons-material/BarChartOutlined';
 import Skeleton from '@mui/material/Skeleton';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
@@ -10,9 +11,9 @@ import {
   parseCashFlowRangeParam,
   withDashboardParams,
 } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
-import { ChartRangeFooter } from '@/app/components/charts/ChartParts';
-import { formatMonthLabel, formatSignedAmount } from '@/app/components/charts/chart-format';
+import { formatAxisAmount, formatMonthLabel } from '@/app/components/charts/chart-format';
 import { LazyCashFlowBars } from '@/app/components/charts/lazy-charts';
+import { TextTabs } from '@/app/components/ui/text-tabs';
 import {
   type DashboardCashFlowRange,
   type DashboardMonthlyCashFlow,
@@ -20,7 +21,7 @@ import {
   useDashboardCashFlow,
 } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { Chip, ChipGroup, DashboardCard } from './ui';
+import { CardEmpty, DashboardCard } from './ui';
 
 const RANGE_LABEL_KEY = {
   all: 'rangeAll',
@@ -70,6 +71,25 @@ function monthTotals(
   return { income: point?.income ?? 0, expense: point?.expense ?? 0, net: point?.net ?? 0 };
 }
 
+/**
+ * The months the chart shows: from the first one with money in or out (or the
+ * picked month, if earlier), so a range does not open on a row of empty months.
+ */
+export function chartedMonths(
+  points: DashboardMonthlyCashFlowPoint[],
+  activeMonth?: string,
+): DashboardMonthlyCashFlowPoint[] {
+  const first = points.findIndex(
+    point => point.income !== 0 || point.expense !== 0 || point.month === activeMonth,
+  );
+  return first < 0 ? points : points.slice(first);
+}
+
+/** The month's net: a gain needs no plus, a loss keeps its typographic minus. */
+function netFigure(value: number, formatAmount: (value: number) => string): string {
+  return value < 0 ? `−${formatAmount(Math.abs(value))}` : formatAmount(value);
+}
+
 export function CashFlowCard({
   formatAmount,
   activeMonth,
@@ -79,7 +99,7 @@ export function CashFlowCard({
   const { locale } = useLocale();
   const [range, setRange] = useCashFlowRangeParam();
   const { data, isPending, error } = useDashboardCashFlow(range, activeMonth);
-  const points = data?.points ?? [];
+  const points = chartedMonths(data?.points ?? [], activeMonth);
   const headline = data && (activeMonth ? monthTotals(points, activeMonth) : data.totals);
 
   return (
@@ -88,26 +108,27 @@ export function CashFlowCard({
       subtitle={activeMonth ? formatMonthLabel(activeMonth, locale) : undefined}
       className="lumio-dashboard__cashflow-card"
       action={
-        <ChipGroup size="sm" aria-label={t.title.value}>
-          {CASH_FLOW_RANGES.map(option => (
-            <Chip key={option} size="sm" active={range === option} onClick={() => setRange(option)}>
-              {t[RANGE_LABEL_KEY[option]]}
-            </Chip>
-          ))}
-        </ChipGroup>
+        <TextTabs
+          ariaLabel={t.title.value}
+          value={range}
+          onChange={setRange}
+          options={CASH_FLOW_RANGES.map(option => ({
+            value: option,
+            label: t[RANGE_LABEL_KEY[option]].value,
+          }))}
+        />
       }
     >
       <div className="lumio-chart__total">
-        {headline ? formatSignedAmount(headline.net, formatAmount) : '…'}
+        {headline ? netFigure(headline.net, formatAmount) : '…'}
       </div>
       <div className="lumio-chart__breakdown">
         {headline && (
           <>
-            <span className="lumio-chart__breakdown-income">
+            <span className="lumio-chart__breakdown-series lumio-chart__breakdown-series--income">
               {`${t.income.value} ${formatAmount(headline.income)}`}
             </span>
-            {' · '}
-            <span className="lumio-chart__breakdown-expense">
+            <span className="lumio-chart__breakdown-series lumio-chart__breakdown-series--expense">
               {`${t.expense.value} ${formatAmount(headline.expense)}`}
             </span>
           </>
@@ -115,25 +136,25 @@ export function CashFlowCard({
       </div>
       <div className="lumio-chart__box">
         <CashFlowChartBody
-          data={data}
+          data={data && { ...data, points }}
           isPending={isPending}
           error={error}
           emptyLabel={t.empty}
           chart={{
             locale,
-            labels: { income: t.income.value, expense: t.expense.value, net: t.net.value },
+            labels: {
+              income: t.income.value,
+              expense: t.expense.value,
+              net: t.net.value,
+              noData: t.noData.value,
+            },
             formatAmount,
+            formatTick: value => formatAxisAmount(value, locale),
             activeMonth,
             onSelectMonth,
           }}
         />
       </div>
-      {points.length > 1 && (
-        <ChartRangeFooter
-          start={formatMonthLabel(points[0].month, locale)}
-          end={formatMonthLabel(points[points.length - 1].month, locale)}
-        />
-      )}
     </DashboardCard>
   );
 }
@@ -158,7 +179,11 @@ function CashFlowChartBody({
     return <div className="lumio-chart__empty lumio-dashboard__amount--negative">{error}</div>;
   }
   if (!data?.points.length) {
-    return <div className="lumio-chart__empty">{emptyLabel}</div>;
+    return (
+      <CardEmpty icon={BarChartOutlined} fill>
+        {emptyLabel}
+      </CardEmpty>
+    );
   }
   return <LazyCashFlowBars points={data.points} {...chart} />;
 }

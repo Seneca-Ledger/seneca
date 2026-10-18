@@ -164,10 +164,13 @@ export class TransactionSearchService {
   }
 
   private async findPending(workspaceId: string, take: number): Promise<Transaction[]> {
-    return this.pendingQuery(workspaceId)
-      .orderBy('transaction.transaction_date', 'DESC')
-      .take(take)
-      .getMany();
+    return (
+      this.pendingQuery(workspaceId)
+        // The property, not the column: with take() and a join TypeORM resolves it by metadata.
+        .orderBy('transaction.transactionDate', 'DESC')
+        .take(take)
+        .getMany()
+    );
   }
 
   private async countPending(workspaceId: string): Promise<number> {

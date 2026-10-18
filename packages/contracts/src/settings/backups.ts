@@ -39,3 +39,21 @@ export type BackupRun = Wire<typeof BackupRun>;
 
 export const BackupRunList = Schema.Array(BackupRun);
 export type BackupRunList = Wire<typeof BackupRunList>;
+
+/** `POST /backups/import/preview`: what an archive holds, before anything is restored. */
+export const BackupImportPreview = Schema.Struct({
+  importId: Schema.String,
+  /** Null when the archive's workspace has no readable name. */
+  workspaceName: Schema.NullOr(Schema.String),
+  createdAt: Schema.String,
+  collections: Schema.Record(Schema.String, Schema.Number),
+  fileCount: Schema.Number,
+});
+export type BackupImportPreview = Wire<typeof BackupImportPreview>;
+
+/** `POST /backups/imports/:id/restore`: the workspace the archive became. */
+export const BackupRestoreResult = Schema.Struct({
+  workspaceId: Schema.String,
+  workspaceName: Schema.String,
+});
+export type BackupRestoreResult = Wire<typeof BackupRestoreResult>;

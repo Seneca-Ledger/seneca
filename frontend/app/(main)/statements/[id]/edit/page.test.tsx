@@ -11,6 +11,7 @@ const apiDelete = vi.hoisted(() => vi.fn());
 
 const push = vi.hoisted(() => vi.fn());
 const back = vi.hoisted(() => vi.fn());
+const replace = vi.hoisted(() => vi.fn());
 const authUser = vi.hoisted(() => ({ id: 'user-1' }));
 
 vi.mock('@/app/lib/api', () => ({
@@ -146,7 +147,7 @@ vi.mock('@/app/(main)/custom-tables/labels', () => ({
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'statement-1' }),
-  useRouter: () => ({ push, back }),
+  useRouter: () => ({ push, back, replace }),
 }));
 
 vi.mock('react-hot-toast', () => ({
@@ -202,6 +203,7 @@ describe('EditStatementPage locale', () => {
     apiDelete.mockReset();
     push.mockReset();
     back.mockReset();
+    replace.mockReset();
 
     apiGet.mockImplementation((url: string) => {
       if (url === '/statements/statement-1') {
@@ -237,6 +239,15 @@ describe('EditStatementPage locale', () => {
             // as strings, `date` columns as YYYY-MM-DD, absent values as null.
             {
               id: 'tx-1',
+              statementId: null,
+              cryptoWalletId: null,
+              ownerMemberId: null,
+              isPrivate: false,
+              privateCategoryId: null,
+              transferPairId: null,
+              transferPairSource: null,
+              transferPairKind: null,
+              reimbursementOfId: null,
               transactionDate: '2026-03-17',
               transactionType: 'expense',
               isVerified: false,
@@ -291,6 +302,45 @@ describe('EditStatementPage locale', () => {
       root.unmount();
     });
     container.remove();
+  });
+
+  it('sends a scan’s statement on to its receipt instead of opening the editor', async () => {
+    const { receiptRecord } = await import('@/app/test/fixtures/contracts');
+    const base = apiGet.getMockImplementation() as (url: string) => Promise<unknown>;
+    apiGet.mockImplementation(async (url: string, config?: { params?: unknown }) => {
+      if (url === '/statements/statement-1') {
+        const response = (await base(url)) as { data: Record<string, unknown> };
+        return { data: { ...response.data, parsingDetails: { detectedBy: 'receipt-scan' } } };
+      }
+      if (url === '/receipts') {
+        expect(config?.params).toEqual({ statementId: 'statement-1', limit: 1 });
+        return {
+          data: {
+            data: [receiptRecord({ id: 'rc-1', statementId: 'statement-1' })],
+            total: 1,
+            page: 1,
+            limit: 1,
+          },
+        };
+      }
+      return base(url);
+    });
+    const { default: EditStatementPage } = await import('./page');
+
+    await act(async () => {
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
+    });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    expect(replace).toHaveBeenCalledWith('/storage/receipts/rc-1');
+    // The editor itself never shows.
+    expect(container.textContent).not.toContain('Counterparty');
   });
 
   it('renders transaction table headers in English when locale is en', async () => {

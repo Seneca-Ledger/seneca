@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
-import { getQueryClient } from '@/app/lib/query-client';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { checkContract } from '@/app/lib/query-fn-schema';
 
 type ConfirmLabels = { done: string; uncategorized: string; failed: string };
@@ -32,9 +32,8 @@ export function useConfirmStatement(
       if (uncategorized > 0) {
         toast.error(labels.uncategorized.replace('{count}', String(uncategorized)));
       }
-      const queryClient = getQueryClient();
-      void queryClient.invalidateQueries({ queryKey: ['review-inbox'] });
-      void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      // Confirmed rows start counting in every figure.
+      invalidateFinancialData();
       await reload();
     } catch (error) {
       console.error('Failed to confirm statement rows', error);

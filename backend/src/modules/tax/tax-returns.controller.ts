@@ -3,9 +3,17 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { TaxReturnPeriodBody } from '../../contracts';
+import {
+  TaxReturnPeriodBody,
+  TaxReturnPeriodQuery,
+  TaxReturnPreview,
+  TaxReturnRecord,
+  UstvaResult,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { TaxReturnsService } from './tax-returns.service';
@@ -27,6 +35,7 @@ export class TaxReturnsController {
   /** Draft for a period, recomputed on every read until it is filed. */
   @Get('period')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(TaxReturnRecord)
   async getForPeriod(
     @WorkspaceId() workspaceId: string,
     @Query('periodStart') periodStart: string,
@@ -38,10 +47,10 @@ export class TaxReturnsController {
   /** The lines behind a period, without persisting anything. */
   @Get('preview')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(TaxReturnPreview)
   async preview(
     @WorkspaceId() workspaceId: string,
-    @Query('periodStart') periodStart: string,
-    @Query('periodEnd') periodEnd: string,
+    @SchemaQuery(TaxReturnPeriodQuery) { periodStart, periodEnd }: TaxReturnPeriodQuery,
   ) {
     return this.taxReturnsService.computeTotals(workspaceId, periodStart, periodEnd);
   }
@@ -52,6 +61,7 @@ export class TaxReturnsController {
    */
   @Get('ustva')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(UstvaResult)
   async ustva(
     @WorkspaceId() workspaceId: string,
     @Query('periodStart') periodStart: string,

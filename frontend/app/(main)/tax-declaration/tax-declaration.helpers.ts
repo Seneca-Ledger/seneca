@@ -22,14 +22,6 @@ export function parseTaxYear(value: string | null, now: Date = new Date()): numb
   return taxYearOptions(now).includes(year) ? year : now.getFullYear() - 1;
 }
 
-export type CompletenessTone = 'success' | 'warning' | 'error';
-
-export function completenessTone(score: number): CompletenessTone {
-  if (score >= 85) return 'success';
-  if (score >= 60) return 'warning';
-  return 'error';
-}
-
 export type IssueTarget = { kind: 'route'; href: string } | { kind: 'step'; step: StepKey } | null;
 
 /** Where the user goes to fix an issue; NULL when there is nothing to click through to. */

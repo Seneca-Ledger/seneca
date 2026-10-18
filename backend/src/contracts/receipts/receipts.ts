@@ -109,7 +109,7 @@ export const ReceiptRecord = Schema.Struct({
   id: Schema.String,
   statementId: Schema.NullOr(Schema.String),
   transactionId: Schema.NullOr(Schema.String),
-  source: Schema.Literals(['gmail', 'upload', 'telegram', 'scan', 'imap']),
+  source: Schema.Literals(['gmail', 'upload', 'telegram', 'scan', 'imap', 'peppol']),
   subject: Schema.String,
   sender: Schema.String,
   receivedAt: Timestamp,
@@ -137,7 +137,14 @@ export const ReceiptRecord = Schema.Struct({
   locationAccuracyM: Schema.NullOr(Schema.Number),
   locationUpdatedAt: Schema.NullOr(Timestamp),
   /** The category `parsedData.categoryId` names, looked up for display. */
-  category: Schema.NullOr(Schema.Struct({ id: Schema.String, name: Schema.String })),
+  category: Schema.NullOr(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      color: Schema.NullOr(Schema.String),
+      icon: Schema.NullOr(Schema.String),
+    }),
+  ),
   /** The transaction it documents is split by its items (single-receipt reads only). */
   transactionSplit: Schema.optional(Schema.Boolean),
   createdAt: Timestamp,
@@ -145,13 +152,17 @@ export const ReceiptRecord = Schema.Struct({
 export type ReceiptRecord = Wire<typeof ReceiptRecord>;
 
 /**
- * A receipt as its updates answer (`PATCH /receipts/:id/location`, `DELETE` of
- * it): the stored row, without the category looked up for display.
+ * A receipt as its writes answer (`PATCH /receipts/:id`, its location, a scan,
+ * an upload): the stored row, without the category looked up for display.
  */
 export const ReceiptRecordUpdate = ReceiptRecord.mapFields(
   Struct.omit(['category', 'transactionSplit']),
 );
 export type ReceiptRecordUpdate = Wire<typeof ReceiptRecordUpdate>;
+
+/** `POST /receipts/upload`. */
+export const ReceiptUploadResult = Schema.Struct({ receipts: Schema.Array(ReceiptRecordUpdate) });
+export type ReceiptUploadResult = Wire<typeof ReceiptUploadResult>;
 
 /** `GET /receipts`. */
 export const ReceiptListPage = Schema.Struct({

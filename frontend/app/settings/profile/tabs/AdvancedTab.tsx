@@ -14,6 +14,7 @@ import { ChangelogSection } from '@/app/settings/profile/components/ChangelogSec
 import { ExperimentalSection } from '@/app/settings/profile/components/ExperimentalSection';
 import { SettingsAccordion } from '@/app/settings/profile/components/SettingsAccordion';
 import { SettingsElsewhereLinks } from '@/app/settings/profile/components/SettingsElsewhereLinks';
+import { UpdateSection } from '@/app/settings/profile/components/UpdateSection';
 import { useChangelog } from '@/app/settings/profile/hooks/useChangelog';
 import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
 
@@ -55,14 +56,17 @@ export function AdvancedTab({ user }: SettingsTabProps): React.JSX.Element {
         icon={Clock}
         defaultExpanded
       >
-        <ChangelogSection
-          tx={tx}
-          locale={locale}
-          changelogEntries={changelogEntries}
-          changelogLoading={changelogLoading}
-          changelogSelectedEntry={changelogSelectedEntry}
-          setChangelogSelectedEntry={setChangelogSelectedEntry}
-        />
+        <Stack spacing={2}>
+          <UpdateSection isAdmin={user.role === 'admin'} />
+          <ChangelogSection
+            tx={tx}
+            locale={locale}
+            changelogEntries={changelogEntries}
+            changelogLoading={changelogLoading}
+            changelogSelectedEntry={changelogSelectedEntry}
+            setChangelogSelectedEntry={setChangelogSelectedEntry}
+          />
+        </Stack>
       </SettingsAccordion>
 
       <Card variant="outlined">

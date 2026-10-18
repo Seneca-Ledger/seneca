@@ -14,9 +14,11 @@ export class BranchesService extends WorkspaceCrudBaseService<Branch> {
     super(repository, 'Branch');
   }
 
-  async create(workspaceId: string, createDto: CreateBranchBody): Promise<Branch> {
+  async create(workspaceId: string, userId: string, createDto: CreateBranchBody): Promise<Branch> {
+    // branches.user_id is NOT NULL: without it every create failed with a 500.
     const branch = this.repository.create({
       workspaceId,
+      userId,
       ...createDto,
       isActive: true,
     });

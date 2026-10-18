@@ -1,21 +1,23 @@
 'use client';
 
+import Button from '@mui/material/Button';
 import Link from 'next/link';
 import type React from 'react';
-import { resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
-import { ChevronRight } from '@/app/components/icons';
+import { fillTemplate, resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
+import { ChevronRight, FileUp } from '@/app/components/icons';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { reviewHref } from '@/app/lib/review-links';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-import { actionIcoClass, actionIcon, resolveActionPriority } from './action-items';
 import {
   buildDataHealthMetrics,
-  buildDataHealthQuickLinks,
-  type DataHealthQuickLink,
+  type DataHealthMetric,
+  type DataHealthMetricKey,
   getRelativeTime,
 } from './data-health-model';
 import { DATA_HEALTH_HISTORY_METRICS, MonthlyHistoryCard } from './MonthlyHistoryCard';
-import { Chip, ChipGroup, DashboardCard, KpiCard, SectionHeader } from './ui';
+import { DashboardCard, ListRow } from './ui';
+import { useMonthLabel } from './use-month-label';
 
 interface DataHealthTabProps {
   data: DashboardData;
@@ -25,9 +27,54 @@ interface DataHealthTabProps {
 }
 
 type Health = DashboardData['dataHealth'];
+type DataHealthDictionary = ReturnType<typeof useIntlayer<'dataHealthTab'>>;
+type FinanceOpsDictionary = ReturnType<typeof useIntlayer<'financeOpsTab'>>;
 
-function fillCount(template: string, count: number): string {
-  return template.split('{count}').join(String(count));
+const METRIC_LABEL: Record<
+  DataHealthMetricKey,
+  | 'uncategorizedLabel'
+  | 'statementErrorsLabel'
+  | 'pendingReviewLabel'
+  | 'receiptsPendingLabel'
+  | 'parsingWarningsLabel'
+> = {
+  uncategorizedTransactions: 'uncategorizedLabel',
+  statementsWithErrors: 'statementErrorsLabel',
+  statementsPendingReview: 'pendingReviewLabel',
+  receiptsPendingReview: 'receiptsPendingLabel',
+  parsingWarnings: 'parsingWarningsLabel',
+};
+
+/** The verb on each open check, in the words the Finance ops list uses. */
+const METRIC_ACTION: Record<
+  DataHealthMetricKey,
+  'actionCategorize' | 'actionReview' | 'actionMatch' | 'attentionOpen'
+> = {
+  uncategorizedTransactions: 'actionCategorize',
+  statementsWithErrors: 'attentionOpen',
+  statementsPendingReview: 'actionReview',
+  receiptsPendingReview: 'actionMatch',
+  parsingWarnings: 'attentionOpen',
+};
+
+const capitalize = (text: string): string => text.charAt(0).toLocaleUpperCase() + text.slice(1);
+
+/** A reference fact: a label, a figure of moderate size and one line under it. */
+function FactCard({
+  label,
+  value,
+  caption,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  caption?: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <DashboardCard title={label}>
+      <div className="lumio-fact__value">{value}</div>
+      {caption && <div className="lumio-fact__caption">{caption}</div>}
+    </DashboardCard>
+  );
 }
 
 function LastUploadCard({ health }: { health: Health }): React.JSX.Element {
@@ -35,10 +82,15 @@ function LastUploadCard({ health }: { health: Health }): React.JSX.Element {
   const { locale } = useLocale();
   if (!health.lastUploadDate) {
     return (
-      <KpiCard
-        label={t.lastUpload.value}
+      <FactCard
+        label={t.lastUpload}
         value={t.noDataYet}
-        caption={<Link href="/statements/submit">{t.uploadFirstStatement}</Link>}
+        caption={
+          <Link href="/statements/submit" className="lumio-close-step__action">
+            {t.uploadFirstStatement.value}
+            <ChevronRight size={14} aria-hidden="true" />
+          </Link>
+        }
       />
     );
   }
@@ -56,54 +108,81 @@ function LastUploadCard({ health }: { health: Health }): React.JSX.Element {
     { year: 'numeric', month: 'short', day: 'numeric' },
     resolveLocale(locale),
   );
-  return <KpiCard label={t.lastUpload.value} value={relative} caption={exact} />;
+  return <FactCard label={t.lastUpload} value={relative} caption={exact} />;
 }
 
-function UnapprovedCashCard({
+/** The money in rows Review still asks about: left out of every figure until confirmed. */
+function NotCountedCard({
   health,
   formatAmount,
+  displayMonth,
 }: {
   health: Health;
   formatAmount: (value: number) => string;
+  displayMonth: Date;
 }): React.JSX.Element {
   const t = useIntlayer('dataHealthTab');
-  const pending = health.unapprovedCash > 0;
+  const ops = useIntlayer('financeOpsTab');
+  // Whether anything waits is a matter of rows, not of the sum: unconfirmed
+  // spending makes it negative, and rows can cancel out to zero.
+  const pending = health.statementsPendingReview > 0;
+  const amount = health.unapprovedCash;
   return (
-    <KpiCard
-      label={t.unapprovedCash.value}
-      value={pending ? formatAmount(health.unapprovedCash) : t.allCashApproved}
-      tone={pending ? 'warning' : 'positive'}
-      caption={pending ? <Link href="/review">{t.reviewApproveCash}</Link> : undefined}
+    <FactCard
+      label={t.notCountedLabel}
+      value={amount < 0 ? `−${formatAmount(Math.abs(amount))}` : formatAmount(amount)}
+      caption={
+        pending ? (
+          <>
+            {t.notCountedHint.value}{' '}
+            <Link href={reviewHref(displayMonth)} className="lumio-close-step__action">
+              {ops.actionReview.value}
+              <ChevronRight size={14} aria-hidden="true" />
+            </Link>
+          </>
+        ) : (
+          t.allConfirmed.value
+        )
+      }
     />
   );
 }
 
-function ActionRequiredCard({ links }: { links: DataHealthQuickLink[] }): React.JSX.Element {
-  const t = useIntlayer('dataHealthTab');
+function ActionRequiredCard({
+  open,
+  t,
+  ops,
+}: {
+  open: DataHealthMetric[];
+  t: DataHealthDictionary;
+  ops: FinanceOpsDictionary;
+}): React.JSX.Element {
   return (
     <DashboardCard title={t.actionRequired}>
-      <div className="lumio-dashboard__action-list">
-        {links.map(link => {
-          const Icon = actionIcon(link.type);
-          return (
-            <Link key={link.id} href={link.href} className="lumio-dashboard__action-row">
-              <div
-                className={`lumio-dashboard__action-ico ${actionIcoClass(resolveActionPriority(link.type))}`}
-              >
-                <Icon size={15} />
-              </div>
-              <div className="lumio-dashboard__action-body">
-                <div className="lumio-dashboard__action-title">{link.label}</div>
-              </div>
-              <ChevronRight size={14} className="lumio-dashboard__action-chevron" />
-            </Link>
-          );
-        })}
+      <div className="lumio-dashboard__list">
+        {open.map(metric => (
+          <ListRow
+            key={metric.key}
+            className="lumio-close-step"
+            leading={<span className="lumio-close-step__open" aria-hidden="true" />}
+            primary={`${t[METRIC_LABEL[metric.key]].value}: ${metric.value}`}
+            trailing={
+              <Link href={metric.href} className="lumio-close-step__action">
+                {ops[METRIC_ACTION[metric.key]].value}
+                <ChevronRight size={14} aria-hidden="true" />
+              </Link>
+            }
+          />
+        ))}
       </div>
     </DashboardCard>
   );
 }
 
+/**
+ * Data quality for the picked month: one line of how it stands, the checks
+ * that need work (each once, with where to do it), and the year by month.
+ */
 export function DataHealthTab({
   data,
   formatAmount,
@@ -111,46 +190,42 @@ export function DataHealthTab({
   onSelectMonth,
 }: DataHealthTabProps): React.JSX.Element {
   const t = useIntlayer('dataHealthTab');
+  const ops = useIntlayer('financeOpsTab');
+  const month = capitalize(useMonthLabel(displayMonth));
   const health = data.dataHealth;
-  const labels = {
-    uncategorized: t.uncategorizedLabel.value,
-    statementErrors: t.statementErrorsLabel.value,
-    pendingReview: t.pendingReviewLabel.value,
-    receiptsPending: t.receiptsPendingLabel.value,
-    parsingWarnings: t.parsingWarningsLabel.value,
-    quickLinkUncategorized: t.quickLinkUncategorized.value,
-    quickLinkStatementErrors: t.quickLinkStatementErrors.value,
-    quickLinkPendingStatements: t.quickLinkPendingStatements.value,
-    quickLinkReceipts: t.quickLinkReceipts.value,
-  };
-  const metrics = buildDataHealthMetrics(health, labels);
-  const quickLinks = buildDataHealthQuickLinks(health, labels);
+  const metrics = buildDataHealthMetrics(health, displayMonth);
+  const open = metrics.filter(metric => metric.value > 0);
+  const clear = metrics.filter(metric => metric.value === 0);
 
   return (
     <div className="lumio-dashboard__tab">
-      <ChipGroup wrap>
-        <Chip href="/statements">{t.uploadParse}</Chip>
-        <Chip href="/review">{fillCount(t.reviewQueue.value, health.statementsPendingReview)}</Chip>
-      </ChipGroup>
-      <section>
-        <SectionHeader title={t.dataQualityMetrics} />
-        <div className="lumio-dashboard__stat-grid lumio-dashboard__stat-grid--auto">
-          {metrics.map(metric => (
-            <KpiCard
-              key={metric.key}
-              label={metric.label}
-              value={metric.value}
-              tone={metric.tone}
-              href={metric.href}
-              caption={
-                metric.value === 0
-                  ? t.allGood.value
-                  : t.metricNeedsAttention.value.split('{value}').join(String(metric.value))
-              }
-            />
-          ))}
+      <header className="lumio-close-head">
+        <div>
+          <h2 className="lumio-close-head__title">
+            {open.length > 0
+              ? fillTemplate(t.summaryAttention.value, {
+                  month,
+                  count: String(open.length),
+                  total: String(metrics.length),
+                })
+              : fillTemplate(t.summaryClear.value, { month })}
+          </h2>
+          {open.length > 0 && clear.length > 0 && (
+            <p className="lumio-close-head__note">
+              {`${t.allGood.value}: ${clear.map(metric => t[METRIC_LABEL[metric.key]].value).join(' · ')}`}
+            </p>
+          )}
         </div>
-      </section>
+        <Button
+          component={Link}
+          href="/statements?openExpenseDrawer=scan"
+          variant="contained"
+          size="small"
+          startIcon={<FileUp size={16} />}
+        >
+          {ops.upload.value}
+        </Button>
+      </header>
       <MonthlyHistoryCard
         displayMonth={displayMonth}
         metrics={DATA_HEALTH_HISTORY_METRICS}
@@ -158,9 +233,9 @@ export function DataHealthTab({
       />
       <div className="lumio-dashboard__grid lumio-dashboard__grid--pair">
         <LastUploadCard health={health} />
-        <UnapprovedCashCard health={health} formatAmount={formatAmount} />
+        <NotCountedCard health={health} formatAmount={formatAmount} displayMonth={displayMonth} />
       </div>
-      {quickLinks.length > 0 && <ActionRequiredCard links={quickLinks} />}
+      {open.length > 0 && <ActionRequiredCard open={open} t={t} ops={ops} />}
     </div>
   );
 }

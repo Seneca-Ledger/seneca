@@ -11,22 +11,41 @@
     padding: var(--lumio-page-top, #{$lumio-space-3}) $lumio-space-3 $lumio-space-5;
   }
 
+  // A table page: the grid runs to the bottom edge of the window.
+  &--fill {
+    padding-bottom: 0;
+  }
+
   // ---- header -------------------------------------------------------------
+  // One band above the grid: back arrow, title with its meta line, and the
+  // toolbar on the right. Narrow screens drop the toolbar to its own line.
   &__header {
     display: flex;
-    flex-direction: column;
-    gap: $lumio-space-2;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $lumio-space-2 $lumio-space-3;
   }
 
   &__back {
-    align-self: flex-start;
+    flex: none;
     margin-left: -$lumio-space-2;
   }
 
   &__title-row {
     display: flex;
+    flex: 1 1 240px;
     flex-direction: column;
     gap: $lumio-space-1;
+    min-width: 0;
+  }
+
+  &__header > &__toolbar {
+    flex: 0 1 auto;
+    margin-left: auto;
+
+    @include respond-to('md') {
+      flex-basis: 100%;
+    }
   }
 
   &__title {
@@ -44,9 +63,18 @@
     }
   }
 
+  // The pencil shows up only where the pointer or keyboard already is.
   &__title-edit {
     display: inline-flex;
     padding: 4px;
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    .lumio-ct__title:hover &,
+    &:focus-visible {
+      opacity: 1;
+    }
+
     border: 0;
     border-radius: $lumio-radius-xs;
     background: none;
@@ -89,13 +117,18 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: $lumio-space-3;
+    gap: $lumio-space-2;
     margin: 0;
     font-size: $lumio-font-size-sm;
     color: $lumio-color-ink-500;
 
     @include dark {
       color: $lumio-color-ink-500-dk;
+    }
+
+    > span + span::before {
+      content: '·';
+      margin-right: $lumio-space-2;
     }
   }
 
@@ -150,22 +183,6 @@
     gap: $lumio-space-2;
   }
 
-  &__search {
-    position: relative;
-    display: flex;
-    align-items: center;
-    flex: 1 1 240px;
-    max-width: 360px;
-  }
-
-  &__search-icon {
-    position: absolute;
-    left: 12px;
-    color: $lumio-color-ink-400;
-    pointer-events: none;
-  }
-
-  &__search-input,
   &__input,
   &__filter-input {
     width: 100%;
@@ -188,10 +205,6 @@
       outline: 2px solid var(--primary);
       outline-offset: -1px;
     }
-  }
-
-  &__search-input {
-    padding-left: 36px;
   }
 
   &__input--mono {
@@ -245,6 +258,27 @@
 
   &__toolbar > &__actions {
     margin-left: auto;
+    gap: $lumio-space-1;
+  }
+
+  // Every toolbar control matches the Search button (TOOLBAR_BUTTON_STYLE, 40px).
+  // The theme pins small buttons to 32px (app/theme.ts), so set height itself.
+  &__toolbar .MuiButton-root {
+    height: 40px;
+  }
+
+  &__toolbar .MuiIconButton-root {
+    width: 40px;
+    height: 40px;
+  }
+
+  &__toolbar .MuiButton-text,
+  &__toolbar .MuiIconButton-root {
+    color: $lumio-color-ink-600;
+
+    @include dark {
+      color: $lumio-color-ink-700-dk;
+    }
   }
 
   &__filter-chip {
@@ -398,26 +432,64 @@
   &__chip {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     max-width: 100%;
-    padding: 2px 8px;
-    border-radius: $lumio-radius-full;
-    background-color: $lumio-color-ink-100;
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-medium;
-    line-height: 1.5;
+    font-size: $lumio-font-size-sm;
+    color: $lumio-color-text-primary;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 
     @include dark {
-      background-color: $lumio-color-ink-100-dk;
+      color: $lumio-color-text-primary-dk;
     }
+  }
+
+  &__chip-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: $lumio-radius-full;
+  }
+
+  &__chip-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__row-number {
     font-size: $lumio-font-size-xs;
     font-variant-numeric: tabular-nums;
     color: $lumio-color-ink-400;
+  }
+
+  // Row number at rest; the checkbox takes its place on hover, on keyboard
+  // focus, on a selected row and on every row while anything is selected.
+  // visibility (not display) keeps the checkbox reachable with Tab.
+  &__row-select {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+
+    > * {
+      grid-area: 1 / 1;
+    }
+  }
+
+  &__row-checkbox {
+    opacity: 0;
+  }
+
+  .lumio-grid__tr:hover &__row-select,
+  .lumio-grid__th:hover &__row-select,
+  &__row-select:focus-within,
+  .lumio-grid__tr--selected &__row-select,
+  &__grid--selecting &__row-select {
+    .lumio-ct__row-number {
+      visibility: hidden;
+    }
+
+    .lumio-ct__row-checkbox {
+      opacity: 1;
+    }
   }
 
   &__col-header {
@@ -461,6 +533,17 @@
     justify-content: flex-end;
     gap: 6px;
     min-width: 0;
+  }
+
+  // "No total" stays out of sight until the footer cell is pointed at.
+  &__footer--unset {
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    .lumio-grid__tf:hover &,
+    &:focus-within {
+      opacity: 1;
+    }
   }
 
   &__footer-select {
@@ -625,12 +708,11 @@
     gap: $lumio-space-4;
   }
 
+  // Field labels sit above their fields in sentence case, in the readable grey.
   &__label {
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-semibold;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: $lumio-color-ink-500;
+    font-size: 13px;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--text-muted);
   }
 
   &__options {
@@ -882,13 +964,19 @@
     }
   }
 
+  // Six starts as a 3×2 grid; two columns on a phone.
   &__templates {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: $lumio-space-2;
+
+    @media (max-width: 560px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   &__template {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -907,17 +995,26 @@
 
     &[aria-checked='true'] {
       border-color: var(--primary);
-      background-color: var(--primary-50);
-
-      @include dark {
-        background-color: $lumio-color-primary-50-dk;
-      }
+      background-color: var(--surface-soft);
     }
   }
 
-  // Card illustration: large enough to be what the eye lands on first. The green
-  // reads as the accent of the dialog in both themes (--primary is the button
-  // green in light, the dark-theme accent in dark).
+  // The picked card says so with a small sage check in its corner, not only a border.
+  &__template-check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: $lumio-radius-full;
+    background: var(--primary);
+    color: #fff;
+  }
+
+  // One line icon per card, sage, the size of the other line icons on the quiet screens.
   &__template-icon {
     display: flex;
     margin-bottom: $lumio-space-2;
@@ -925,30 +1022,40 @@
 
     svg {
       display: block;
-      width: 56px;
-      height: 56px;
+      width: 30px;
+      height: 30px;
     }
   }
 
   &__template-name {
-    font-weight: $lumio-font-weight-semibold;
+    font-weight: $lumio-font-weight-medium;
   }
 
-  &__template-desc,
+  &__template-desc {
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--text-muted);
+  }
+
   &__template-count {
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__start-hint {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  &__field-note {
+    font-size: 13px;
+    color: var(--attention);
   }
 }
 
 // "Start from" switcher and the app data source panel of the create dialog.
 .lumio-ct {
-  &__label--quiet {
-    font-weight: $lumio-font-weight-medium;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
   &__section-head {
     display: flex;
     flex-wrap: wrap;
@@ -973,41 +1080,6 @@
     margin-top: $lumio-space-2;
   }
 
-  &__mode-tabs {
-    display: inline-flex;
-    gap: 2px;
-    padding: 2px;
-    border-radius: $lumio-radius-full;
-    background: $lumio-color-surface-muted;
-
-    @include dark {
-      background: $lumio-color-surface-muted-dk;
-    }
-  }
-
-  &__mode-tab {
-    padding: 4px 12px;
-    border: 0;
-    border-radius: $lumio-radius-full;
-    background: none;
-    font: inherit;
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-semibold;
-    color: $lumio-color-ink-500;
-    cursor: pointer;
-
-    &[aria-selected='true'] {
-      background: $lumio-color-surface;
-      color: $lumio-color-text-primary;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-
-      @include dark {
-        background: $lumio-color-surface-dk;
-        color: $lumio-color-ink-100;
-      }
-    }
-  }
-
   // Flatter cards: a hairline instead of a box, so the grid reads as options, not panels.
   &__template {
     border-color: $lumio-color-ink-150;
@@ -1026,22 +1098,84 @@
     }
   }
 
-  &__source-panel {
-    display: flex;
-    flex-direction: column;
-    gap: $lumio-space-3;
+  // New table from app data: the form on the left, what it will create on the
+  // right, held in view while the dialog scrolls so a filter change shows at once.
+  &__create {
+    display: block;
+
+    &--split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      gap: $lumio-space-6;
+      align-items: start;
+
+      @media (max-width: 860px) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
   }
 
+  &__create-side {
+    position: sticky;
+    top: 0;
+    min-width: 0;
+
+    @media (max-width: 860px) {
+      position: static;
+    }
+  }
+
+  // Source cards beside the preview: three small cards a row (two rows for
+  // five), icon above the name and column count, no description.
+  &__templates--compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    .lumio-ct__template {
+      gap: 2px;
+      padding: 10px 12px;
+    }
+
+    .lumio-ct__template-icon {
+      margin-bottom: 6px;
+
+      svg {
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    .lumio-ct__template-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lumio-ct__template-desc {
+      display: none;
+    }
+
+    .lumio-ct__template-check {
+      top: 8px;
+      right: 8px;
+    }
+  }
+
+  // Filters and preview are plain blocks on the dialog's white, not grey cards.
   &__source-section {
     display: flex;
     flex-direction: column;
     gap: $lumio-space-3;
-    padding: $lumio-space-3 $lumio-space-4;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-surface-muted;
+    padding-top: $lumio-space-3;
+    border-top: 1px solid $lumio-color-hairline;
 
     @include dark {
-      background: $lumio-color-surface-muted-dk;
+      border-top-color: $lumio-color-ink-150-dk;
+    }
+
+    .lumio-ct__section-title {
+      font-size: 15px;
+      font-weight: $lumio-font-weight-medium;
+      color: var(--foreground);
     }
   }
 
@@ -1049,64 +1183,170 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: $lumio-space-3;
+
+    // Every filter field one look: white, a warm border, 8px corners.
+    .MuiOutlinedInput-root {
+      border-radius: $lumio-radius-sm;
+      background-color: $lumio-color-surface;
+
+      @include dark {
+        background-color: $lumio-color-surface-dk;
+      }
+    }
+
+    .MuiOutlinedInput-notchedOutline {
+      border-color: $lumio-color-slot-border;
+
+      @include dark {
+        border-color: $lumio-color-ink-200-dk;
+      }
+    }
+  }
+
+  &__text-button {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--primary);
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__preview-pane {
+    display: flex;
+    flex-direction: column;
+    gap: $lumio-space-3;
+  }
+
+  &__preview-source {
+    margin: 0;
+    padding-bottom: $lumio-space-2;
+    border-bottom: 1px solid $lumio-color-hairline;
+    font-size: 13px;
+    font-weight: $lumio-font-weight-medium;
+    color: var(--text-muted);
+
+    @include dark {
+      border-bottom-color: $lumio-color-ink-150-dk;
+    }
+  }
+
+  &__preview-existing {
+    display: flex;
+    align-items: baseline;
+    gap: $lumio-space-2;
+    margin: 0;
+    font-size: 14px;
+    color: var(--foreground);
+
+    a {
+      color: var(--primary);
+      font-weight: $lumio-font-weight-medium;
+    }
+  }
+
+  &__preview-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: $lumio-radius-full;
+    background: var(--attention);
+    transform: translateY(-2px);
+  }
+
+  &__preview-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $lumio-space-2;
   }
 
   &__preview-count {
-    font-size: $lumio-font-size-sm;
-    color: $lumio-color-ink-600;
+    font-size: 15px;
+    font-weight: $lumio-font-weight-medium;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+    transition: opacity 120ms ease;
 
-    @include dark {
-      color: $lumio-color-ink-300;
+    &[data-loading] {
+      opacity: 0.55;
     }
   }
 
+  // What a refresh does to edits: in view above the table, but quieter than the count.
   &__preview-note {
     margin: 0;
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--text-muted);
   }
 
-  &__preview-scroll {
-    overflow: auto;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-sm;
-    background: $lumio-color-surface;
-
-    @include dark {
-      border-color: $lumio-color-ink-150-dk;
-      background: $lumio-color-surface-dk;
-    }
+  &__preview-caption {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
   }
 
+  // A few columns that fit: no frame, no inner scroll, long text ends in "…".
   &__preview-table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
-    font-size: $lumio-font-size-xs;
+    font-size: 14px;
 
     th,
     td {
-      padding: 8px 12px;
+      padding: 8px 8px;
+      overflow: hidden;
       text-align: left;
+      text-overflow: ellipsis;
       white-space: nowrap;
-      border-bottom: 1px solid $lumio-color-ink-100;
+      border-bottom: 1px solid $lumio-color-hairline;
 
       @include dark {
         border-bottom-color: $lumio-color-ink-150-dk;
       }
+
+      &:first-child {
+        padding-left: 0;
+      }
+
+      &:last-child {
+        padding-right: 0;
+      }
     }
 
     th {
+      font-size: 13px;
       font-weight: $lumio-font-weight-medium;
-      color: $lumio-color-ink-500;
-    }
-
-    tr:last-child td {
-      border-bottom: 0;
+      color: var(--text-muted);
     }
   }
 
+  // Dates, money and short enum values take what they need; names get the rest.
+  &__preview-col--date {
+    width: 112px;
+  }
+
+  &__preview-col--money {
+    width: 104px;
+  }
+
+  &__preview-col--enum {
+    width: 92px;
+  }
+
   &__preview-cell--numeric {
-    text-align: right;
+    text-align: right !important;
+    font-weight: $lumio-font-weight-medium;
     font-variant-numeric: tabular-nums;
   }
 }
@@ -1186,6 +1426,7 @@
     flex-direction: column;
     gap: $lumio-space-2;
     margin-top: $lumio-space-3;
+    margin-bottom: $lumio-space-6;
   }
 
   &__summary-list {
@@ -1228,6 +1469,13 @@
 
   &__summary-actions {
     display: inline-flex;
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    .lumio-ct__summary:hover &,
+    &:focus-within {
+      opacity: 1;
+    }
   }
 }
 
@@ -1268,3 +1516,10 @@
     color: $lumio-color-primary-dk;
   }
 }
+
+// A destructive entry in a toolbar menu (Restore to default). The menu is
+// portaled out of the page, so the rule stands on its own.
+.lumio-ct__menu-item--danger {
+  color: $lumio-color-danger;
+}
+

@@ -3,6 +3,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { checkContract } from '@/app/lib/query-fn-schema';
 
 export interface BackgroundSearchResult {
   id: string;
@@ -45,10 +46,10 @@ export function useBackgroundSearch(): UseBackgroundSearchState {
 
   const mutation = useMutation({
     mutationFn: async (request: { term: string; page: number }) => {
-      const response = await apiClient.get<BackgroundSearchPage>('/workspaces/backgrounds/search', {
+      const response = await apiClient.get('/workspaces/backgrounds/search', {
         params: { q: request.term, page: request.page },
       });
-      return response.data;
+      return checkContract('BackgroundSearchPage', response.data, '/workspaces/backgrounds/search');
     },
     onSuccess: (result, request) => {
       setResults(previous =>

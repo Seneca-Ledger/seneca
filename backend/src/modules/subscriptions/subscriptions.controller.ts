@@ -15,17 +15,24 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   AssignSubscriptionOwnerBody,
+  ChargeCalendarQuery,
   CreateSubscriptionBody,
   RecordSubscriptionDecisionBody,
+  SubscriptionChargeCalendar,
+  SubscriptionDetail,
+  SubscriptionDuplicateGroups,
+  SubscriptionList,
+  SubscriptionSummary,
   UpdateSubscriptionBody,
 } from '../../contracts';
 import { SubscriptionStatus } from '../../entities/subscription.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ChargeCalendarQueryDto } from './dto/charge-calendar-query.dto';
 import { SubscriptionsService } from './subscriptions.service';
 
 @Controller('subscriptions')
@@ -34,21 +41,24 @@ export class SubscriptionsController {
 
   @Get()
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
+  @SchemaResponse(SubscriptionList)
   async findAll(@WorkspaceId() workspaceId: string, @Query('status') status?: SubscriptionStatus) {
     return this.subscriptionsService.findAll(workspaceId, status);
   }
 
   @Get('summary')
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
+  @SchemaResponse(SubscriptionSummary)
   async getSummary(@WorkspaceId() workspaceId: string) {
     return this.subscriptionsService.getSummary(workspaceId);
   }
 
   @Get('charge-calendar')
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
+  @SchemaResponse(SubscriptionChargeCalendar)
   async getChargeCalendar(
     @WorkspaceId() workspaceId: string,
-    @Query() query: ChargeCalendarQueryDto,
+    @SchemaQuery(ChargeCalendarQuery) query: ChargeCalendarQuery,
   ) {
     return this.subscriptionsService.getChargeCalendar(workspaceId, query.months);
   }
@@ -103,6 +113,7 @@ export class SubscriptionsController {
 
   @Get('duplicates')
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
+  @SchemaResponse(SubscriptionDuplicateGroups)
   async duplicates(@WorkspaceId() workspaceId: string) {
     return this.subscriptionsService.getDuplicates(workspaceId);
   }
@@ -133,6 +144,7 @@ export class SubscriptionsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
+  @SchemaResponse(SubscriptionDetail)
   async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     return this.subscriptionsService.getDetails(id, workspaceId);
   }

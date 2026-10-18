@@ -20,6 +20,7 @@ import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
@@ -28,12 +29,18 @@ import type { BulkUpdateItemInput } from '../../contracts';
 import {
   BulkUpdateRequestBody,
   DetectTransfersBody,
+  DuplicateGroups,
+  DuplicatesMarked,
   LinkReimbursementBody,
   LinkTransferBody,
   MarkDuplicatesBody,
   MergeDuplicatesBody,
   SetTransactionTagsBody,
   SplitTransactionBody,
+  StorageTagList,
+  TransactionAttachmentList,
+  TransactionCandidates,
+  TransactionListPage,
   UpdateTransactionBody,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
@@ -68,6 +75,7 @@ export class TransactionsController {
 
   @Get()
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionListPage)
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -214,6 +222,7 @@ export class TransactionsController {
 
   @Get('duplicates/detect')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(DuplicateGroups)
   async detectDuplicates(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -256,6 +265,7 @@ export class TransactionsController {
   @Post('duplicates/mark')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(DuplicatesMarked)
   async markDuplicates(
     @SchemaBody(MarkDuplicatesBody) body: MarkDuplicatesBody,
     @CurrentUser() _user: User,
@@ -333,6 +343,7 @@ export class TransactionsController {
 
   @Get(':id/transfer-candidates')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionCandidates)
   async transferCandidates(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() _user: User,
@@ -369,6 +380,7 @@ export class TransactionsController {
 
   @Get(':id/reimbursement-candidates')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionCandidates)
   async reimbursementCandidates(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() _user: User,
@@ -404,6 +416,7 @@ export class TransactionsController {
 
   @Get(':id/tags')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(StorageTagList)
   async getTags(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
     return this.transactionTagsService.getTags(id, workspaceId);
   }
@@ -411,6 +424,7 @@ export class TransactionsController {
   @Put(':id/tags')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   @Audit({ entityType: EntityType.TRANSACTION, includeDiff: true })
+  @SchemaResponse(StorageTagList)
   async setTags(
     @Param('id', new ParseUUIDPipe()) id: string,
     @SchemaBody(SetTransactionTagsBody) dto: SetTransactionTagsBody,
@@ -421,6 +435,7 @@ export class TransactionsController {
 
   @Get(':id/attachments')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionAttachmentList)
   async listAttachments(
     @Param('id', new ParseUUIDPipe()) id: string,
     @WorkspaceId() workspaceId: string,

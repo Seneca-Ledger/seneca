@@ -14,7 +14,9 @@ import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module
 import { PayablesController } from './payables.controller';
 import { PayablesScheduler } from './payables.scheduler';
 import { PayablesService } from './payables.service';
+import { PayablesEventsListener } from './payables-events.listener';
 import { PayablesExportService } from './payables-export.service';
+import { UnbookedPaymentsService } from './unbooked-payments.service';
 
 @Module({
   imports: [
@@ -33,7 +35,13 @@ import { PayablesExportService } from './payables-export.service';
     WorkspaceCurrencyModule,
   ],
   controllers: [PayablesController],
-  providers: [PayablesService, PayablesExportService, PayablesScheduler],
+  providers: [
+    PayablesService,
+    PayablesExportService,
+    PayablesScheduler,
+    UnbookedPaymentsService,
+    PayablesEventsListener,
+  ],
   exports: [PayablesService],
 })
 export class PayablesModule {}

@@ -17,6 +17,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { useCategoryName } from '@/app/lib/use-category-name';
 
 const EMPTY_CELL = '—';
 
@@ -34,6 +35,7 @@ export function StatementTransactionsPanel({
 }): React.JSX.Element {
   const workspaceId = useWorkspaceId();
   const { locale } = useLocale();
+  const categoryName = useCategoryName();
   const tTable = useIntlayer('transactionsTable');
   const tPage = useIntlayer('transactionsPageView');
   const bulkUpdateCategory = useBulkUpdateCategory();
@@ -49,9 +51,12 @@ export function StatementTransactionsPanel({
         signal,
         contract: 'StorageFileDetails',
       });
-      return details.transactions.map(tx =>
-        mapApiRecordToTransaction(fromStatementTransaction(tx)),
-      );
+      return {
+        statement: details.statement,
+        rows: details.transactions.map(tx =>
+          mapApiRecordToTransaction(fromStatementTransaction(tx)),
+        ),
+      };
     },
   });
   const categoriesQuery = useQuery({
@@ -85,7 +90,23 @@ export function StatementTransactionsPanel({
     );
   };
 
-  const rows = rowsQuery.data ?? [];
+  const rows = rowsQuery.data?.rows ?? [];
+  const statement = rowsQuery.data?.statement;
+  // The drawer names the document the row came from and opens it.
+  const source = statement
+    ? {
+        href: `/statements/${statement.id}/edit`,
+        name: statement.fileName,
+        // Only the last four digits of an account number are ever shown.
+        account:
+          [
+            statement.bankName,
+            statement.accountNumber && `••••${statement.accountNumber.slice(-4)}`,
+          ]
+            .filter(Boolean)
+            .join(' · ') || null,
+      }
+    : undefined;
 
   return (
     <div className="lumio-stmt-tx-panel">
@@ -121,7 +142,7 @@ export function StatementTransactionsPanel({
                       icon={icon}
                       size={18}
                     />
-                    <span>{tx.category.name}</span>
+                    <span>{categoryName(tx.category.name)}</span>
                   </>
                 ) : (
                   <NoCategoryBadge size={18} />
@@ -144,6 +165,11 @@ export function StatementTransactionsPanel({
         onClose={closeDrawer}
         onUpdateCategory={updateCategory}
         onSplitDone={async () => {
+          closeDrawer();
+          void rowsQuery.refetch();
+        }}
+        source={source}
+        onChanged={() => {
           closeDrawer();
           void rowsQuery.refetch();
         }}

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, type QueryRunner, Repository } from 'typeorm';
@@ -795,6 +795,8 @@ export class ImportSessionService {
           actorName: await this.resolveActorName(session.userId),
           statementId: session.statementId || undefined,
           transactionCount: summary.newCount + summary.matchedCount,
+          transactionIds: savedTransactions.map(transaction => transaction.id),
+          source: 'import_session',
         } satisfies ImportCommittedEvent);
       }
 
@@ -912,7 +914,7 @@ export class ImportSessionService {
    *
    * @param sessionId Import session ID
    * @returns Import session
-   * @throws ImportValidationError if session not found
+   * @throws NotFoundException if session not found (the caller answers 404)
    */
   async getSession(sessionId: string): Promise<ImportSession> {
     const session = await this.importSessionRepository.findOne({
@@ -920,7 +922,7 @@ export class ImportSessionService {
     });
 
     if (!session) {
-      throw new ImportValidationError(`Import session not found: ${sessionId}`, { sessionId });
+      throw new NotFoundException('Import session not found');
     }
 
     return session;

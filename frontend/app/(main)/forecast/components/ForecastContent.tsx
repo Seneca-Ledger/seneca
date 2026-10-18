@@ -4,12 +4,11 @@ import Box from '@mui/material/Box';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Skeleton from '@mui/material/Skeleton';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
@@ -43,6 +42,7 @@ function Kpi({
   label: string;
   value: string;
   note?: string;
+  /** Colour only for a real signal: money that runs out, or room to spend. */
   tone?: 'success' | 'error';
 }) {
   return (
@@ -55,21 +55,23 @@ function Kpi({
         p: 2,
       }}
     >
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
+      <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{label}</Typography>
       <Typography
         variant="h6"
-        fontWeight={700}
-        sx={{ color: tone ? `${tone}.main` : 'text.primary' }}
+        fontWeight={600}
+        sx={{
+          fontVariantNumeric: 'tabular-nums',
+          color:
+            tone === 'success'
+              ? 'var(--money-up)'
+              : tone === 'error'
+                ? 'var(--money-down)'
+                : 'text.primary',
+        }}
       >
         {value}
       </Typography>
-      {note && (
-        <Typography variant="caption" color="text.secondary">
-          {note}
-        </Typography>
-      )}
+      {note && <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{note}</Typography>}
     </Box>
   );
 }
@@ -99,7 +101,11 @@ export function ForecastContent() {
   }
 
   const currency = data?.currency ?? 'KZT';
-  const formatAmount = (value: number) => formatMoney(value, currency, locale);
+  // Whole sums without ".00" (−€850, not −€850.00); cents only where there are some.
+  const formatAmount = (value: number) =>
+    formatMoney(value, currency, locale, Number.isInteger(value) ? { fractionDigits: 0 } : {});
+  const formatTick = (value: number) =>
+    formatMoney(value, currency, locale, { notation: 'compact' });
   const listed: ForecastEvent[] = data
     ? [
         ...data.events,
@@ -110,6 +116,9 @@ export function ForecastContent() {
           .filter((event): event is ForecastEvent => Boolean(event)),
       ].sort((a, b) => a.date.localeCompare(b.date))
     : [];
+  const signedWhole = (value: number) =>
+    `${value >= 0 ? '+' : '−'}${formatMoney(Math.abs(value), currency, locale, { fractionDigits: 0 })}`;
+  const hasOverdue = listed.some(event => event.isOverdue);
   const isEmpty =
     data !== null &&
     data.events.length === 0 &&
@@ -117,38 +126,27 @@ export function ForecastContent() {
     data.openingBalance === 0;
 
   return (
-    <Box sx={{ px: { xs: 2, md: 4 }, py: 3, width: '100%' }}>
+    <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}>
       <Box
         sx={{
           display: 'flex',
           flexWrap: 'wrap',
           gap: 2,
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          mb: 3,
+          // No page title, as on every other page: the sidebar already names it.
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          mb: 2,
         }}
       >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            {t.title}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {t.subtitle}
-          </Typography>
-        </Box>
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={horizon}
-          onChange={(_event, next: ForecastHorizon | null) => next && setHorizon(next)}
-          aria-label={t.title.value}
-        >
-          {FORECAST_HORIZONS.map(option => (
-            <ToggleButton key={option} value={option} sx={{ px: 1.5, textTransform: 'none' }}>
-              {option}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+        <TextTabs<`${ForecastHorizon}`>
+          value={`${horizon}`}
+          onChange={next => setHorizon(Number(next) as ForecastHorizon)}
+          options={FORECAST_HORIZONS.map(option => ({
+            value: `${option}` as `${ForecastHorizon}`,
+            label: option,
+          }))}
+          ariaLabel={t.title.value}
+        />
       </Box>
 
       <UnconfirmedNotice style={{ marginBottom: 16 }} />
@@ -186,6 +184,8 @@ export function ForecastContent() {
             }}
           >
             {data.profile === 'business' ? (
+              // A growing balance has no runway in months; it gets the period's change
+              // as its figure, and stands in for an empty "no shortfall" card too.
               <Kpi
                 label={t.runway.value}
                 value={
@@ -196,6 +196,14 @@ export function ForecastContent() {
                           data.runwayMonths,
                         ),
                       })
+                }
+                note={
+                  data.runwayMonths === null
+                    ? fill(t.changeOverDays.value, {
+                        amount: signedWhole(data.closingBalance - data.openingBalance),
+                        days: String(data.horizonDays),
+                      })
+                    : undefined
                 }
                 tone={data.runwayMonths !== null && data.runwayMonths < 3 ? 'error' : undefined}
               />
@@ -223,15 +231,16 @@ export function ForecastContent() {
               note={fill(t.onDate.value, { date: formatDate(data.lowestBalanceDate) })}
               tone={data.lowestBalance < 0 ? 'error' : undefined}
             />
-            <Kpi
-              label={t.shortfall.value}
-              value={
-                data.shortfallDate
-                  ? fill(t.shortfallOn.value, { date: formatDate(data.shortfallDate) })
-                  : t.noShortfall.value
-              }
-              tone={data.shortfallDate ? 'error' : 'success'}
-            />
+            {/* No shortfall is the normal case, not news: said once, in neutral. */}
+            {data.shortfallDate ? (
+              <Kpi
+                label={t.shortfall.value}
+                value={fill(t.shortfallOn.value, { date: formatDate(data.shortfallDate) })}
+                tone="error"
+              />
+            ) : data.profile === 'business' && data.runwayMonths === null ? null : (
+              <Kpi label={t.shortfall.value} value={t.noShortfall.value} />
+            )}
             <Kpi
               label={fill(t.closingBalance.value, { days: String(data.horizonDays) })}
               value={formatAmount(data.closingBalance)}
@@ -247,83 +256,99 @@ export function ForecastContent() {
               p: 3,
             }}
           >
-            <ForecastChart days={data.days} formatValue={formatAmount} />
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              {fill(t.everydayNote.value, {
-                amount: formatAmount(data.everydayMonthly),
-                months: String(data.monthsObserved),
-              })}
-              {data.irregularIncomeMonthly > 0 &&
-                ` · ${fill(t.irregularIncomeNote.value, { amount: formatAmount(data.irregularIncomeMonthly) })}`}
-              {data.unscheduledCommitted > 0 &&
-                ` · ${fill(t.unscheduled.value, { amount: formatAmount(data.unscheduledCommitted) })}`}
-            </Typography>
+            {/* What the curve assumes, above it and in two quiet lines: spending,
+                then income and the overdue bills it treats as paid today. */}
+            <Box sx={{ mb: 2, display: 'grid', gap: 0.25 }}>
+              <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+                {fill(t.everydayNote.value, {
+                  amount: formatAmount(data.everydayMonthly),
+                  months: String(data.monthsObserved),
+                })}
+              </Typography>
+              {(data.irregularIncomeMonthly > 0 || data.unscheduledCommitted > 0 || hasOverdue) && (
+                <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+                  {[
+                    data.irregularIncomeMonthly > 0 &&
+                      fill(t.irregularIncomeNote.value, {
+                        amount: formatAmount(data.irregularIncomeMonthly),
+                      }),
+                    data.unscheduledCommitted > 0 &&
+                      fill(t.unscheduled.value, {
+                        amount: formatAmount(data.unscheduledCommitted),
+                      }),
+                    hasOverdue && t.overdueAssumed.value,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Typography>
+              )}
+            </Box>
+            <ForecastChart
+              days={data.days}
+              events={data.events}
+              lowest={{ date: data.lowestBalanceDate, value: data.lowestBalance }}
+              formatValue={formatAmount}
+              formatTick={formatTick}
+            />
           </Box>
 
           <Box
             sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' },
-              gap: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: tokens.radius.md,
+              bgcolor: 'background.paper',
+              p: 3,
             }}
           >
+            {/* The scenario is a narrow strip over the list it acts on, not a half-empty column. */}
             <Box
               sx={{
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: tokens.radius.md,
-                bgcolor: 'background.paper',
-                p: 3,
-                display: 'grid',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: 2,
-                alignContent: 'start',
               }}
             >
               <Typography variant="subtitle1" fontWeight={600}>
-                {t.scenarios}
+                {t.upcoming}
               </Typography>
-              {(['incomeFactor', 'expenseFactor'] as const).map(key => (
-                <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Typography variant="body2" sx={{ flex: 1 }}>
-                    {t[key]}
-                  </Typography>
+              <Box
+                sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}
+                aria-label={t.scenarios.value}
+                role="group"
+              >
+                {(['incomeFactor', 'expenseFactor'] as const).map(key => (
                   <Select
+                    key={key}
                     size="small"
                     value={scenario[key]}
                     onChange={event => setFactor(key, Number(event.target.value))}
                     inputProps={{ 'aria-label': t[key].value }}
+                    sx={{ fontSize: 14 }}
                   >
                     {FACTORS.map(factor => (
                       <MenuItem key={factor} value={factor}>
-                        {Math.round(factor * 100)}%
+                        {fill(t.factorOption.value, {
+                          name: t[key].value,
+                          percent: String(Math.round(factor * 100)),
+                        })}
                       </MenuItem>
                     ))}
                   </Select>
-                </Box>
-              ))}
-              <Typography variant="caption" color="text.secondary">
-                {t.excludeHint}
-              </Typography>
+                ))}
+              </Box>
             </Box>
-            <Box
-              sx={{
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: tokens.radius.md,
-                bgcolor: 'background.paper',
-                p: 3,
-              }}
-            >
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
-                {t.upcoming}
-              </Typography>
-              <ForecastEvents
-                events={listed}
-                excluded={scenario.exclude}
-                onToggle={toggleExcluded}
-                formatAmount={formatAmount}
-              />
-            </Box>
+            <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 1, mb: 2 }}>
+              {t.excludeHint}
+            </Typography>
+            <ForecastEvents
+              events={listed}
+              excluded={scenario.exclude}
+              onToggle={toggleExcluded}
+              formatAmount={formatAmount}
+            />
           </Box>
         </Box>
       )}

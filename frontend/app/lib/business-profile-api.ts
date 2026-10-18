@@ -1,5 +1,5 @@
 import apiClient from '@/app/lib/api';
-import type { BusinessProfileResponse } from '@/app/lib/contracts';
+import type { BusinessProfileLogo, BusinessProfileResponse } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 /**
@@ -23,15 +23,13 @@ export const businessProfileApi = {
     return checkContract('BusinessProfileResponse', data, '/business-profile');
   },
 
-  async uploadLogo(file: File): Promise<{ logoFile: string; logoUrl: string }> {
+  async uploadLogo(file: File): Promise<BusinessProfileLogo> {
     const body = new FormData();
     body.append('logo', file);
-    const { data } = await apiClient.post<{ logoFile: string; logoUrl: string }>(
-      '/business-profile/logo',
-      body,
-      { headers: { 'Content-Type': 'multipart/form-data' } },
-    );
-    return data;
+    const { data } = await apiClient.post('/business-profile/logo', body, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return checkContract('BusinessProfileLogo', data, '/business-profile/logo');
   },
 
   async removeLogo(): Promise<void> {

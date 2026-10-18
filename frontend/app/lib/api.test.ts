@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import apiClient from './api';
+import apiClient, { VERSION_READ_ONLY_TOAST_ID } from './api';
+
+const toastMock = vi.hoisted(() => vi.fn());
+vi.mock('react-hot-toast', () => ({ default: toastMock }));
 
 interface MockRequestConfig {
   url?: string;
@@ -185,5 +188,71 @@ describe('api workspace header', () => {
     await apiClient.get('/statements', { headers: { 'X-Workspace-Id': 'ws-other' } });
 
     expect(sent).toEqual(['ws-other']);
+  });
+});
+
+describe('api inside a past version', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: { href: '/dashboard', pathname: '/dashboard' } as Location,
+    });
+  });
+
+  afterEach(() => {
+    apiClient.defaults.adapter = originalAdapter;
+    localStorage.clear();
+    toastMock.mockReset();
+  });
+
+  it('explains a refused write with one quiet note and keeps the workspace', async () => {
+    localStorage.setItem('currentWorkspaceId', 'ver-ws');
+    apiClient.defaults.adapter = (config =>
+      Promise.reject({
+        config,
+        isAxiosError: true,
+        response: {
+          status: 403,
+          data: {
+            error: {
+              code: 'VERSION_READ_ONLY',
+              // Even a message naming the workspace must not read as lost access.
+              message: 'This workspace is a past version and can only be viewed',
+            },
+          },
+        },
+      })) as typeof apiClient.defaults.adapter;
+
+    const settled = await Promise.allSettled([
+      apiClient.post('/budgets', {}),
+      apiClient.patch('/goals/1', {}),
+    ]);
+
+    expect(settled.every(result => result.status === 'rejected')).toBe(true);
+    expect(toastMock).toHaveBeenCalledTimes(2);
+    // One id for every refusal: react-hot-toast replaces the note instead of stacking it.
+    for (const [message, options] of toastMock.mock.calls) {
+      expect(message).toBe('This is a past version — it can only be viewed');
+      expect(options).toEqual({ id: VERSION_READ_ONLY_TOAST_ID });
+    }
+    expect(localStorage.getItem('currentWorkspaceId')).toBe('ver-ws');
+    expect(window.location.href).toBe('/dashboard');
+  });
+
+  it('still resets the workspace when access to it is really gone', async () => {
+    localStorage.setItem('currentWorkspaceId', 'gone');
+    apiClient.defaults.adapter = (config =>
+      Promise.reject({
+        config,
+        isAxiosError: true,
+        response: { status: 403, data: { message: 'You are not a member of this workspace' } },
+      })) as typeof apiClient.defaults.adapter;
+
+    await expect(apiClient.get('/dashboard')).rejects.toBeDefined();
+
+    expect(toastMock).not.toHaveBeenCalled();
+    expect(localStorage.getItem('currentWorkspaceId')).toBeNull();
+    expect(window.location.href).toBe('/workspaces');
   });
 });

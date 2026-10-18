@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, type Repository } from 'typeorm';
 import { getAuditActor } from '../../common/audit-actor.context';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import { ACCOUNT_KEYS, recordWithoutKeys } from '../../common/utils/sensitive-keys.util';
 import {
   ActorType,
   AuditAction,
@@ -32,6 +33,21 @@ import {
 } from './workspace-activity';
 
 const AUDIT_RETENTION_YEARS = 1;
+
+/**
+ * A before/after snapshot as the trail keeps it: entity rows come with their
+ * relations, and a joined account (Google and Telegram ids, last login, token
+ * version) or a file's path and bytes are not what an audit reader may see.
+ * Rollback restores only the keys a snapshot has, so nothing it needs is lost.
+ */
+function snapshotForTrail(diff: AuditEventDiff | null | undefined): AuditEventDiff | null {
+  if (!diff) return null;
+  if (Array.isArray(diff)) return diff;
+  return {
+    before: diff.before === null ? null : recordWithoutKeys(diff.before, ACCOUNT_KEYS),
+    after: diff.after === null ? null : recordWithoutKeys(diff.after, ACCOUNT_KEYS),
+  };
+}
 
 @Injectable()
 export class AuditService {
@@ -96,7 +112,7 @@ export class AuditService {
       entityId: dto.entityId,
       action: dto.action,
       description,
-      diff: dto.diff ?? null,
+      diff: snapshotForTrail(dto.diff),
       meta,
       batchId: dto.batchId ?? null,
       severity: dto.severity ?? Severity.INFO,

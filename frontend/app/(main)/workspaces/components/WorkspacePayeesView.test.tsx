@@ -11,11 +11,14 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), custom: vi.f
 vi.mock('@/app/lib/api', () => ({ default: api }));
 vi.mock('react-hot-toast', () => ({ default: toast }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+// "filesAs" keeps its placeholder so the test can see which category name went in.
+const label = vi.hoisted(() => (key: string) => (key === 'filesAs' ? 'filesAs {{category}}' : key));
 vi.mock('@/app/i18n', () => ({
   // Every string is its own key, so the test reads which text was meant.
   useIntlayer: () =>
-    new Proxy({}, { get: (_target, key) => ({ value: String(key), toString: () => String(key) }) }),
-  useLocale: () => ({ locale: 'en' }),
+    new Proxy({}, { get: (_target, key) => ({ value: label(String(key)), toString: () => label(String(key)) }) }),
+  useLocale: () => ({ locale: appLocale.current }),
 }));
 
 import WorkspacePayeesView from './WorkspacePayeesView';
@@ -54,6 +57,7 @@ const LIDL = {
 describe('WorkspacePayeesView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    appLocale.current = 'en';
     api.get.mockImplementation((url: string) =>
       Promise.resolve({
         data:
@@ -77,6 +81,28 @@ describe('WorkspacePayeesView', () => {
     expect(rows[0]).toHaveTextContent('REWE SAGT DANKE');
     expect(rows[0]).toHaveTextContent('filesAs');
     expect(rows[1]).toHaveTextContent('noDefault');
+  });
+
+  it("names the category a payee files as in the reader's language", async () => {
+    appLocale.current = 'ru';
+    api.get.mockImplementation((url: string) =>
+      Promise.resolve({
+        data:
+          url === '/categories'
+            ? []
+            : {
+                data: [{ ...REWE, defaultCategory: { id: 'cat-ads', name: 'Advertising', source: 'history' } }],
+                total: 1,
+                page: 1,
+                limit: 50,
+              },
+      }),
+    );
+    renderWithQuery(<WorkspacePayeesView />);
+
+    const [row] = await screen.findAllByTestId('payee-row');
+    expect(row).toHaveTextContent('filesAs Реклама');
+    expect(row).not.toHaveTextContent('Advertising');
   });
 
   it('renames a payee', async () => {
@@ -241,7 +267,8 @@ describe('WorkspacePayeesView', () => {
     it('marks an invalid number and checks it again on request', async () => {
       listWith({ vatIdStatus: 'invalid', vatIdName: null, vatIdCheckedAt: '2026-10-11' });
       api.post.mockResolvedValue({
-        data: { ...LIDL, vatIdStatus: 'valid', vatIdCheckedAt: '2026-10-12' },
+        // The write answers the stored payee (PayeeRecord), with its category id.
+        data: { ...LIDL, categoryId: null, vatIdStatus: 'valid', vatIdCheckedAt: '2026-10-12' },
       });
       renderWithQuery(<WorkspacePayeesView />);
       const rows = await screen.findAllByTestId('payee-row');
@@ -255,7 +282,14 @@ describe('WorkspacePayeesView', () => {
 
     it('says what VIES made of a number just saved', async () => {
       api.patch.mockResolvedValue({
-        data: { ...REWE, countryCode: 'PL', vatId: 'PL555', vatIdStatus: 'invalid', vatIdCheckedAt: '2026-10-11' },
+        data: {
+          ...REWE,
+          categoryId: null,
+          countryCode: 'PL',
+          vatId: 'PL555',
+          vatIdStatus: 'invalid',
+          vatIdCheckedAt: '2026-10-11',
+        },
       });
       renderWithQuery(<WorkspacePayeesView />);
       const [rewe] = await screen.findAllByTestId('payee-row');

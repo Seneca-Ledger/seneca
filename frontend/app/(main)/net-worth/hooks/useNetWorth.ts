@@ -64,20 +64,28 @@ function applyPatch(
   };
 }
 
-export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState {
+/** `to` (`YYYY-MM-DD`) ends the window on that day instead of today. */
+export function useNetWorth(
+  initialRange: NetWorthRange = '90d',
+  to: string | null = null,
+): NetWorthState {
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<NetWorthRange>(initialRange);
   const [denominate, setDenominate] = useState<'XAU' | null>(null);
 
-  const queryKey = queryKeys.netWorth({ workspaceId, range, denominate });
+  const queryKey = queryKeys.netWorth({ workspaceId, range, denominate, to });
 
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         url: '/reports/net-worth',
-        params: denominate ? { range, denominate } : { range },
+        params: {
+          range,
+          ...(denominate ? { denominate } : {}),
+          ...(to ? { to } : {}),
+        } satisfies ContractInput<'NetWorthQuery'>,
         signal,
         contract: 'NetWorthResponse',
       }),
@@ -88,11 +96,12 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
   });
 
   const classifyMutation = useMutation({
-    mutationFn: (variables: { accountId: string; patch: ClassificationPatch }) =>
-      apiClient.patch(
+    mutationFn: async (variables: { accountId: string; patch: ClassificationPatch }) => {
+      await apiClient.patch(
         `/reports/balance/accounts/${variables.accountId}/classification`,
         variables.patch satisfies ContractInput<'UpdateAccountClassificationBody'>,
-      ),
+      );
+    },
     // Выбор в селекте применяется сразу, иначе он «откатывается» на время
     // запроса; проценты и сводки пересчитывает сервер — их ждём.
     onMutate: (variables: { accountId: string; patch: ClassificationPatch }) => {

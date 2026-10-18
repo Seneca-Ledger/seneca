@@ -77,6 +77,7 @@ import { PublicInvoicesService } from './public-invoices.service';
     InvoiceDeliveryService,
     InvoiceRemindersService,
     InvoiceSettingsService,
+    InvoiceXRechnungService,
     ClientsService,
   ],
 })

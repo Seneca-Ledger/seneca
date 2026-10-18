@@ -17,11 +17,9 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
-import { Briefcase, Building2, User } from '@/app/components/icons';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -75,10 +73,32 @@ function QuickValues({
   );
 }
 
-const TAXPAYER_ICONS: Record<TaxpayerType, typeof User> = {
-  self_employed: Briefcase,
-  employee: User,
-  company: Building2,
+/** The value a profile field holds: medium weight, not a heading. */
+const VALUE_SX = { fontSize: 18, fontWeight: 500 } as const;
+
+/** A footnote that belongs to the form: a quiet panel, not a blue alert. */
+function Note({ children }: { children: React.ReactNode }): React.ReactElement {
+  return (
+    <Box
+      sx={{
+        bgcolor: 'var(--surface-soft)',
+        borderRadius: 1.5,
+        px: 1.75,
+        py: 1.25,
+        fontSize: 13,
+        color: 'var(--text-muted)',
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
+
+/** The form a Polish freelancer files follows from the taxation method chosen. */
+const PL_REGIME_FORMS: Record<string, string> = {
+  liniowy: 'PIT-36L',
+  ryczalt: 'PIT-28',
+  skala: 'PIT-36',
 };
 
 /** Label above a plain-value input, instead of MUI's floating notch label. */
@@ -199,11 +219,27 @@ export function ProfileStep({
   // Only the German pack shows money here, and its currency is always EUR.
   const currency = profile.currency ?? 'EUR';
 
+  // Once a Polish freelancer has picked a method, only its form is shown up front.
+  const regime = typeof details.regime === 'string' ? details.regime : null;
+  const chosenForm =
+    isPlSelfEmployed && regime && PL_REGIME_FORMS[regime]
+      ? {
+          code: PL_REGIME_FORMS[regime],
+          label: {
+            liniowy: t.plRegimeLiniowy,
+            ryczalt: t.plRegimeRyczalt,
+            skala: t.plRegimeSkala,
+          }[regime] as React.ReactNode,
+        }
+      : undefined;
+
   const sidePanel =
     isDe || profile.filingInfo ? (
       <Stack spacing={3} sx={{ position: { lg: 'sticky' }, top: { lg: 16 } }}>
         {isDe ? <DeductionPreview allowance={allowance} currency={currency} /> : null}
-        {profile.filingInfo ? <FilingInfoCard info={profile.filingInfo} /> : null}
+        {profile.filingInfo ? (
+          <FilingInfoCard info={profile.filingInfo} chosenForm={chosenForm} />
+        ) : null}
       </Stack>
     ) : null;
 
@@ -215,7 +251,7 @@ export function ProfileStep({
         display: 'grid',
         gap: 3,
         alignItems: 'start',
-        gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 720px) minmax(300px, 400px)' },
+        gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(300px, 380px)' },
       }}
     >
       <Stack spacing={3}>
@@ -229,7 +265,7 @@ export function ProfileStep({
                 <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
                   {t.countryLabel}
                 </Typography>
-                <Typography sx={{ fontSize: 16, fontWeight: 600 }}>
+                <Typography sx={VALUE_SX}>
                   {profile.country.name} ({profile.country.code}) · {profile.currency}
                 </Typography>
               </Box>
@@ -244,13 +280,14 @@ export function ProfileStep({
                   sx={{
                     alignSelf: 'flex-start',
                     flexWrap: 'wrap',
-                    // A neutral track: action.hover is brand green in this theme.
-                    bgcolor: theme => alpha(theme.palette.text.primary, 0.06),
+                    // A soft neutral track; the picked option is a white chip with a
+                    // hairline, no shadow and no icons.
+                    bgcolor: 'var(--surface-soft)',
                     borderRadius: 999,
                     p: 0.5,
                     gap: 0.5,
                     '& .MuiToggleButtonGroup-grouped': {
-                      border: 0,
+                      border: '1px solid transparent',
                       borderRadius: 999,
                     },
                   }}
@@ -261,32 +298,27 @@ export function ProfileStep({
                       ['employee', t.typeEmployee],
                       ['company', t.typeCompany],
                     ] as const
-                  ).map(([value, label]) => {
-                    const Icon = TAXPAYER_ICONS[value];
-                    return (
-                      <ToggleButton
-                        key={value}
-                        value={value}
-                        sx={{
-                          textTransform: 'none',
-                          px: 2,
-                          gap: 1,
-                          borderRadius: '999px !important',
-                          color: 'text.secondary',
-                          '&.Mui-selected, &.Mui-selected:hover': {
-                            color: 'text.primary',
-                            bgcolor: 'background.paper',
-                            boxShadow: theme =>
-                              `0 1px 2px ${alpha(theme.palette.common.black, 0.25)}, inset 0 0 0 1px ${alpha(theme.palette.primary.main, 0.45)}`,
-                          },
-                          '&.Mui-selected svg': { color: 'primary.main' },
-                        }}
-                      >
-                        <Icon size={16} aria-hidden />
-                        {label}
-                      </ToggleButton>
-                    );
-                  })}
+                  ).map(([value, label]) => (
+                    <ToggleButton
+                      key={value}
+                      value={value}
+                      sx={{
+                        textTransform: 'none',
+                        px: 2,
+                        fontWeight: 500,
+                        borderRadius: '999px !important',
+                        color: 'var(--text-muted)',
+                        '&.Mui-selected, &.Mui-selected:hover': {
+                          color: 'text.primary',
+                          bgcolor: 'background.paper',
+                          borderColor: 'divider',
+                          boxShadow: 'none',
+                        },
+                      }}
+                    >
+                      {label}
+                    </ToggleButton>
+                  ))}
                 </ToggleButtonGroup>
               </FormControl>
 
@@ -296,9 +328,9 @@ export function ProfileStep({
                     <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
                       {t.formLabel}
                     </Typography>
-                    <Typography sx={{ fontSize: 16, fontWeight: 600 }}>{pack.name}</Typography>
+                    <Typography sx={VALUE_SX}>{pack.name}</Typography>
                   </Box>
-                  {pack.isGeneric ? <Alert severity="info">{t.genericNotice}</Alert> : null}
+                  {pack.isGeneric ? <Note>{t.genericNotice}</Note> : null}
                   {showEdition ? (
                     <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
                       {t.editionNotice} {pack.formEditionYear}
@@ -451,6 +483,8 @@ export function ProfileStep({
                     <TextField
                       select
                       label={t.plRegimeLabel.value}
+                      helperText={t.plRegimeHint.value}
+                      slotProps={{ inputLabel: { shrink: true } }}
                       value={typeof details.regime === 'string' ? details.regime : ''}
                       onChange={event => setDetail('regime', event.target.value)}
                     >
@@ -495,19 +529,20 @@ export function ProfileStep({
         ) : null}
 
         <Stack direction="row" spacing={1}>
+          {/* Next is the step's way forward; Save only matters once something changed. */}
           <Button
-            variant="contained"
+            variant="outlined"
             disabled={!dirty || saving}
             onClick={() => onSave(taxpayerType, details)}
-            sx={{ textTransform: 'none', fontWeight: 600 }}
+            sx={{ textTransform: 'none', fontWeight: 500 }}
           >
             {t.save}
           </Button>
           <Button
-            variant="outlined"
+            variant="contained"
             disabled={dirty}
             onClick={onNext}
-            sx={{ textTransform: 'none', fontWeight: 600 }}
+            sx={{ textTransform: 'none', fontWeight: 500 }}
           >
             {t.next}
           </Button>

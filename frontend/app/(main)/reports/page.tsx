@@ -7,18 +7,27 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { BarChart3, CalendarDays, DollarSign, List, PieChart, Scale } from '@/app/components/icons';
+import {
+  BarChart3,
+  Briefcase,
+  CalendarDays,
+  DollarSign,
+  List,
+  PieChart,
+  PiggyBank,
+  Scale,
+  Table2,
+} from '@/app/components/icons';
 import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { blobOf } from '@/app/lib/blob-of';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import BalanceSheet from './components/BalanceSheet';
-import { CashFlowTab } from './components/cash-flow/CashFlowTab';
 import { CashFlowView } from './components/cash-flow/CashFlowView';
 import { type ReportGenerateParams, ReportGenerator } from './components/ReportGenerator';
 import { ReportHistory } from './components/ReportHistory';
@@ -43,10 +52,7 @@ export default function ReportsPage(): React.JSX.Element {
   const taxSettings = useQuery({
     queryKey: queryKeys.taxSettings(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<{ vatStatus: 'registered' | 'small_business' | 'not_registered' }>({
-        url: '/tax/settings',
-        signal,
-      }),
+      apiQueryDecoded({ url: '/tax/settings', signal, contract: 'WorkspaceTaxSettings' }),
     enabled: Boolean(workspaceId),
   });
   const chargesVat = taxSettings.data?.vatStatus === 'registered';
@@ -73,6 +79,9 @@ export default function ReportsPage(): React.JSX.Element {
       icon: Scale,
       category: 'financial',
       formats: ['pdf', 'excel'],
+      // A snapshot of accounts, not a transaction query, and it has its own view.
+      scopeFilters: false,
+      preview: false,
     },
     {
       id: 'cash-flow',
@@ -81,6 +90,7 @@ export default function ReportsPage(): React.JSX.Element {
       icon: BarChart3,
       category: 'financial',
       formats: ['pdf', 'excel', 'csv'],
+      groupBy: true,
     },
     {
       id: 'expense-by-category',
@@ -114,6 +124,49 @@ export default function ReportsPage(): React.JSX.Element {
       icon: CalendarDays,
       category: 'financial',
       formats: ['pdf', 'excel', 'csv'],
+    },
+    {
+      id: 'category-by-month',
+      name: text('templateCategoryByMonthName', 'Categories by Month'),
+      description: text(
+        'templateCategoryByMonthDescription',
+        'Income and spending per category, a column per month, with totals and averages',
+      ),
+      hint: text(
+        'categoryByMonthHint',
+        'A PDF page fits up to 12 months; choose Excel or CSV for longer periods (up to 36).',
+      ),
+      icon: Table2,
+      category: 'operational',
+      formats: ['pdf', 'excel', 'csv'],
+    },
+    {
+      id: 'budget-vs-actual',
+      name: text('templateBudgetVsActualName', 'Budget vs Actual'),
+      description: text(
+        'templateBudgetVsActualDescription',
+        'What each budget allowed against what was spent, plus spending no budget covers',
+      ),
+      icon: PiggyBank,
+      category: 'operational',
+      formats: ['pdf', 'excel', 'csv'],
+    },
+    {
+      id: 'investment-holdings',
+      name: text('templateInvestmentHoldingsName', 'Investment Holdings'),
+      description: text(
+        'templateInvestmentHoldingsDescription',
+        'Securities, precious metals and crypto valued today, in one list',
+      ),
+      hint: text(
+        'holdingsSnapshotHint',
+        "A snapshot of today's holdings: the period does not apply.",
+      ),
+      icon: Briefcase,
+      category: 'financial',
+      formats: ['pdf', 'excel', 'csv'],
+      period: 'none',
+      scopeFilters: false,
     },
   ];
 
@@ -150,7 +203,7 @@ export default function ReportsPage(): React.JSX.Element {
         responseType: 'blob',
       },
     );
-    const blob = new Blob([response.data]);
+    const blob = new Blob([blobOf(response)]);
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -233,10 +286,8 @@ export default function ReportsPage(): React.JSX.Element {
         {tab === 'tax' && <TaxReturnView />}
         {tab === 'tax-year' && <TaxYearView />}
         {tab === 'cash-flow' && (
-          <>
-            <CashFlowView />
-            <CashFlowTab focusId={focusId} />
-          </>
+          // The leaderboards sit inside the view: they take its period.
+          <CashFlowView focusId={focusId} />
         )}
         {tab === 'templates' && (
           <>
@@ -267,7 +318,13 @@ export default function ReportsPage(): React.JSX.Element {
           </>
         )}
         {tab === 'schedules' && (
-          <ReportSchedules templates={templates.map(tmpl => ({ id: tmpl.id, name: tmpl.name }))} />
+          <ReportSchedules
+            templates={templates.map(tmpl => ({
+              id: tmpl.id,
+              name: tmpl.name,
+              formats: tmpl.formats,
+            }))}
+          />
         )}
         {tab === 'history' && <ReportHistory />}
       </Box>

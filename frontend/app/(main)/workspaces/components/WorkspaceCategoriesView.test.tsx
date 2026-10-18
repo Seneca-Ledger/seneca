@@ -191,6 +191,8 @@ describe('WorkspaceCategoriesView', () => {
 
     expect(screen.getByText('Зарплаты сотрудникам')).toBeInTheDocument();
     expect(screen.queryByText('Аренда')).not.toBeInTheDocument();
+    // The selection checkbox is named the way the row reads.
+    expect(screen.getByRole('checkbox', { name: 'Rent' })).toBeInTheDocument();
     expect(screen.queryByText('Payroll expenses')).not.toBeInTheDocument();
   });
 

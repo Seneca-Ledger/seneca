@@ -44,3 +44,18 @@ export type PayeesPage = Wire<typeof PayeesPage>;
 /** `GET /payees/:id/pending-review`: the payee's rows still waiting for a category. */
 export const PayeePendingReview = Schema.Struct({ transactionIds: Schema.Array(Schema.String) });
 export type PayeePendingReview = Wire<typeof PayeePendingReview>;
+
+/** `PATCH /payees/:id` and `POST /payees/:id/vat-check`: the payee row as stored. */
+export const PayeeRecord = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  mode: PayeeMode,
+  categoryId: Schema.NullOr(Schema.String),
+  countryCode: Schema.NullOr(Schema.String),
+  vatId: Schema.NullOr(Schema.String),
+  vatIdStatus: Schema.NullOr(Schema.Literals(['valid', 'invalid'])),
+  vatIdName: Schema.NullOr(Schema.String),
+  vatIdCheckedAt: Schema.NullOr(Schema.String),
+  supplyType: Schema.NullOr(Schema.Literals(['goods', 'services'])),
+});
+export type PayeeRecord = Wire<typeof PayeeRecord>;

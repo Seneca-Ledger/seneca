@@ -9,10 +9,12 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { type DataSource, In, IsNull, LessThan, Not, Or, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type {
   MergePayeesBody,
   PayeePendingReview,
   PayeesPage,
+  PayeesQuery,
   SetTransactionPayeeBody,
   UpdatePayeeBody,
 } from '../../contracts';
@@ -25,7 +27,6 @@ import { hasDecidedCategory } from '../classification/engine/category-decision';
 import { ClassificationService } from '../classification/services/classification.service';
 import { ViesService } from '../reference-data/vies.service';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
-import type { PayeesQueryDto } from './dto/payees.dto';
 
 type CategoryRef = { id: string; name: string };
 
@@ -84,7 +85,7 @@ export class PayeesService {
 
   private readonly logger = new Logger(PayeesService.name);
 
-  async list(workspaceId: string, query: PayeesQueryDto): Promise<PayeesPage> {
+  async list(workspaceId: string, query: PayeesQuery): Promise<PayeesPage> {
     const page = query.page ?? 1;
     const limit = query.limit ?? DEFAULT_LIMIT;
     const search = query.search?.trim() ?? '';
@@ -324,6 +325,8 @@ export class PayeesService {
         countryCode: Not(IsNull()),
         vatIdStatus: IsNull(),
         vatIdCheckedAt: Or(IsNull(), LessThan(new Date(now.getTime() - VIES_RETRY_AFTER_MS))),
+        // A past version keeps the answers it was copied with.
+        workspace: STANDARD_WORKSPACE,
       },
       order: { vatIdCheckedAt: { direction: 'ASC', nulls: 'FIRST' } },
       take: VIES_RETRY_BATCH,

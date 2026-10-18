@@ -146,7 +146,7 @@ export function useSubscriptionsPage() {
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         url: '/subscriptions/charge-calendar',
-        params: { months: CALENDAR_MONTHS },
+        params: { months: CALENDAR_MONTHS } satisfies ContractInput<'ChargeCalendarQuery'>,
         signal,
         contract: 'SubscriptionChargeCalendar',
       }),

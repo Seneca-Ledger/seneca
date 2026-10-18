@@ -23,6 +23,13 @@ export const ERR = {
   SOURCE_TOO_MANY_ROWS: 'Too many records match the filters (limit {{limit}}); narrow them down',
   SOURCE_FILTER_INVALID: 'Invalid data source filter value',
   SOURCE_COLUMNS_NOT_FOUND: 'The table has no columns linked to its data source',
+  SOURCE_FIELD_READ_ONLY: 'This value comes from the app and cannot be edited in the table',
+  SOURCE_RECORD_NOT_FOUND: 'The app record behind this row no longer exists',
+  SOURCE_EDIT_FORBIDDEN: 'Not enough permissions to change this record in the app',
+  INVALID_CELL_VALUE: 'This value does not fit this column',
+  PAYABLE_STATUS_FROM_PAYMENTS:
+    'The status of a paid bill follows its payments; remove the payment in Payables instead',
+  CELL_LINKED_TO_APP_RECORD: 'This cell shows an app record; undo the change on the record itself',
   // ── entity imports (spreadsheet → app records) ──────────────────────────
   IMPORT_TARGET_UNKNOWN: 'Unknown import target',
   IMPORT_MAPPING_INCOMPLETE: 'Required columns are not mapped: {{fields}}',
@@ -125,6 +132,10 @@ export const ERR = {
   WORKSPACE_NOT_FOUND: 'Workspace not found',
   WORKSPACE_OWNER_NOT_FOUND: 'Workspace owner not found',
   WORKSPACE_NOT_A_MEMBER: 'You are not a member of this workspace',
+  // A past version: the message must not say "workspace" — the client reads
+  // any 403 that does as "you lost access" and switches workspaces.
+  VERSION_READ_ONLY: 'This is a past version and can only be viewed',
+  VERSION_OWNER_ONLY: 'Only the owner can open past versions',
   WORKSPACE_ONLY_OWNER_CAN_DELETE: 'Only the owner can delete the workspace',
   WORKSPACE_ONLY_OWNER_CAN_MANAGE_ADMINS: 'Only the owner can manage administrators',
   WORKSPACE_ONLY_OWNER_CAN_MANAGE_ADMINS_AND_OWNER:
@@ -134,6 +145,7 @@ export const ERR = {
   WORKSPACE_ADMIN_REQUIRED_TO_EDIT_SETTINGS:
     'Only the owner or an administrator can change settings',
   WORKSPACE_TRANSFER_OWNERSHIP_FIRST: 'Transfer ownership to another member first',
+  PLUGIN_DISABLED: 'The {{plugin}} plugin is turned off for this workspace',
   MEMBER_NOT_FOUND: 'Member not found',
   MEMBER_ALREADY_IN_WORKSPACE: 'User is already in the workspace',
   MEMBER_CANNOT_REMOVE_OWNER: 'The workspace owner cannot be removed',
@@ -221,6 +233,11 @@ export const ERR = {
   PAYABLE_WALLET_CURRENCY_MISMATCH:
     'The wallet holds {{walletCurrency}}; the bill is in {{currency}}',
   PAYABLE_ALREADY_LINKED: 'This bill is already linked to a transaction',
+  PAYABLE_PAID_THROUGH_PAYMENT:
+    'Mark it paid instead: choose the wallet or the bank transaction the money went through',
+  PAYABLE_BOOK_NEEDS_SOURCE: 'Choose the bank transaction or the wallet the money went into',
+  PAYABLE_PAYMENT_SHORT:
+    'That transaction is less than what is still owed; record it as a partial payment',
   PAYABLE_CATEGORY_NOT_FOUND: 'Category not found in this workspace',
 
   // ── invoices ─────────────────────────────────────────────────────────────
@@ -233,6 +250,26 @@ export const ERR = {
     'Fill in your business details before sending an invoice (missing: {{fields}})',
   INVOICE_NOT_SENT_YET: 'Issue the invoice before emailing it',
   INVOICE_NO_RECIPIENT: 'This client has no email address, and none was given',
+
+  // ── Peppol ───────────────────────────────────────────────────────────────
+  PEPPOL_NOT_CONNECTED: 'Connect a Peppol access point under Integrations first',
+  PEPPOL_AUTH_FAILED: 'The access point did not accept this API key and secret',
+  PEPPOL_COMPANY_REQUIRED:
+    'Your access point account has several companies; enter the id of the one to send as ({{companies}})',
+  PEPPOL_COMPANY_NOT_FOUND: 'The access point account has no company with this id',
+  PEPPOL_COMPANY_MISSING: 'Create and verify your company in the access point account first',
+  PEPPOL_ID_INVALID:
+    'A Peppol id is a four-digit scheme, a colon and the number, e.g. 9930:DE123456789',
+  PEPPOL_UNAVAILABLE: 'The access point could not be reached; try again later',
+  PEPPOL_REJECTED: 'The access point refused the document: {{reason}}',
+  PEPPOL_DOCUMENT_INCOMPLETE: 'The document lacks what Peppol requires',
+  PEPPOL_RECIPIENT_UNKNOWN: '{{recipient}} is not registered on the Peppol network',
+  PEPPOL_RECIPIENT_FORMAT:
+    '{{recipient}} accepts none of the formats Lumio writes (Peppol BIS 3.0, XRechnung CII)',
+  PEPPOL_LEITWEG_MISMATCH:
+    'An authority addressed by Leitweg-ID {{leitweg}} needs that id as the buyer reference',
+  PEPPOL_ALREADY_SENT: 'This document was already sent over Peppol',
+  PEPPOL_NOT_ISSUED: 'Only an issued document can be sent over Peppol',
 
   // ── credit notes ─────────────────────────────────────────────────────────
   CREDIT_NOTE_INVOICE_NOT_CREDITABLE: 'Only an issued invoice can be credited',
@@ -248,6 +285,17 @@ export const ERR = {
     'Transactions on a filed tax return: {{count}}. Reopen the return before deleting or changing them.',
   TAX_RETURN_MISSING_RATES:
     'Transactions without an exchange rate for their date: {{count}} ({{currencies}}). Add the rates before filing.',
+
+  // ── system update ───────────────────────────────────────────────────────
+  SYSTEM_UPDATE_ADMIN_ONLY: 'Only an instance administrator can update Lumio',
+  SYSTEM_UPDATER_UNAVAILABLE:
+    'The updater is not running. Add COMPOSE_PROFILES=updater to .env and run docker compose up -d, or run make upgrade on the server.',
+  SYSTEM_UPDATE_IN_PROGRESS: 'An update is already running',
+  SYSTEM_UPDATE_NOT_AVAILABLE: 'This instance already runs the newest release',
+  // ── versions ──────────────────────────────────────────────────────────────
+  VERSION_SNAPSHOT_RUNNING: 'A snapshot is being taken right now; try again in a moment',
+  VERSION_LIST_OWNER_ONLY: 'Only the owner can see and take snapshots',
+  VERSION_NOT_FOUND: 'This version is not available',
 } as const;
 
 export type ErrorCode = keyof typeof ERR;

@@ -19,9 +19,16 @@ import { diskStorage } from 'multer';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
-import { MetalSettingsBody, SellMetalLotBody, UpsertMetalLotBody } from '../../contracts';
+import {
+  MetalReceiptList,
+  MetalSettingsBody,
+  MetalsSummary,
+  SellMetalLotBody,
+  UpsertMetalLotBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { MetalsService, PHOTO_DIRECTORY } from './metals.service';
@@ -48,6 +55,7 @@ export class MetalsController {
 
   @Get()
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(MetalsSummary)
   async summary(@WorkspaceId() workspaceId: string) {
     return this.metalsService.getSummary(workspaceId);
   }
@@ -87,6 +95,7 @@ export class MetalsController {
   /** Receipts the workspace could attach to a lot, newest first. */
   @Get('receipt-options')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(MetalReceiptList)
   async receiptOptions(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
     return this.metalsService.listReceiptOptions(workspaceId, Number(limit) || 50);
   }

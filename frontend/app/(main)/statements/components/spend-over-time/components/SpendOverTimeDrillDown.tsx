@@ -1,6 +1,8 @@
 'use client';
 
 import Modal from '@mui/material/Modal';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AnalyticsSourceBadge } from '@/app/(main)/statements/components/analytics/AnalyticsSourceBadge';
 import type {
   SpendOverTimePoint,
@@ -63,6 +65,7 @@ function DrillDownTable({
   labels,
 }: TableProps): React.JSX.Element {
   const spendT = useIntlayer('statementsSpendOverTime');
+  const router = useRouter();
   const visible = records.slice(0, 120);
   return (
     <>
@@ -78,7 +81,13 @@ function DrillDownTable({
         </thead>
         <tbody>
           {visible.map(record => (
-            <tr key={record.id}>
+            // The merchant is the link (keyboard, middle-click); the rest of the
+            // row is a wider target for the mouse.
+            <tr
+              key={record.id}
+              className={record.href ? 'lumio-spend-drill__row--link' : undefined}
+              onClick={record.href ? () => router.push(record.href as string) : undefined}
+            >
               <td style={{ color: 'var(--text-secondary)' }}>
                 {formatDateValue(record.dateValue)}
               </td>
@@ -89,7 +98,19 @@ function DrillDownTable({
                 />
               </td>
               <td style={{ color: 'var(--text-secondary)' }}>{record.workspaceName ?? '-'}</td>
-              <td style={{ color: 'var(--text-secondary)' }}>{getRecordMerchant(record)}</td>
+              <td style={{ color: 'var(--text-secondary)' }}>
+                {record.href ? (
+                  <Link
+                    href={record.href}
+                    className="lumio-spend-drill__link"
+                    onClick={event => event.stopPropagation()}
+                  >
+                    {getRecordMerchant(record)}
+                  </Link>
+                ) : (
+                  getRecordMerchant(record)
+                )}
+              </td>
               <td style={{ textAlign: 'right', fontWeight: 500, color: 'var(--foreground)' }}>
                 {formatMoney(record.amount, record.currencyValue || currency)}
               </td>
@@ -99,21 +120,34 @@ function DrillDownTable({
       </table>
       {/* Phones: five columns do not fit, so each operation is a two-line row. */}
       <ul className="lumio-spend-drill__list">
-        {visible.map(record => (
-          <li key={record.id} className="lumio-spend-drill__item">
-            <span className="lumio-spend-drill__merchant">{getRecordMerchant(record)}</span>
-            <span className="lumio-spend-drill__amount">
-              {formatMoney(record.amount, record.currencyValue || currency)}
-            </span>
-            <span className="lumio-spend-drill__meta">
-              <AnalyticsSourceBadge
-                sourceChannel={record.sourceChannel as SpendOverTimeSourceChannel}
-                labels={sourceLabels}
-              />
-              <span>{formatDateValue(record.dateValue)}</span>
-            </span>
-          </li>
-        ))}
+        {visible.map(record => {
+          const content = (
+            <>
+              <span className="lumio-spend-drill__merchant">{getRecordMerchant(record)}</span>
+              <span className="lumio-spend-drill__amount">
+                {formatMoney(record.amount, record.currencyValue || currency)}
+              </span>
+              <span className="lumio-spend-drill__meta">
+                <AnalyticsSourceBadge
+                  sourceChannel={record.sourceChannel as SpendOverTimeSourceChannel}
+                  labels={sourceLabels}
+                />
+                <span>{formatDateValue(record.dateValue)}</span>
+              </span>
+            </>
+          );
+          return (
+            <li key={record.id}>
+              {record.href ? (
+                <Link href={record.href} className="lumio-spend-drill__item">
+                  {content}
+                </Link>
+              ) : (
+                <div className="lumio-spend-drill__item">{content}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </>
   );

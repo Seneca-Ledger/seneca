@@ -21,6 +21,7 @@ import { CheckCircle2, ChevronDown } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { AuditEvent } from '@/lib/api/audit';
 import type {
@@ -115,6 +116,7 @@ export function GmailReceiptDetails({
   setShowPreview,
 }: GmailReceiptDetailsProps): React.ReactElement {
   const t = useIntlayer('gmailReceiptPage');
+  const categoryName = useCategoryName();
   return (
     <>
       <Accordion
@@ -193,7 +195,7 @@ export function GmailReceiptDetails({
               <MenuItem value="">{t.details.selectCategory}</MenuItem>
               {enabledCategories.map(cat => (
                 <MenuItem key={cat.id} value={cat.id}>
-                  {cat.name}
+                  {categoryName(cat.name)}
                 </MenuItem>
               ))}
             </TextField>

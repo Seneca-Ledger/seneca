@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, type Repository } from 'typeorm';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import { Statement } from '../../entities';
 import { StatementsService } from '../statements/statements.service';
 
@@ -27,7 +28,8 @@ export class StorageTrashScheduler {
 
     const cutoff = new Date(Date.now() - ttlDays * MS_PER_DAY);
     const expired = await this.statementRepository.find({
-      where: { deletedAt: LessThanOrEqual(cutoff) },
+      // A past version's trash is part of the copy and stays as it was.
+      where: { deletedAt: LessThanOrEqual(cutoff), workspace: STANDARD_WORKSPACE },
       select: ['id', 'userId', 'workspaceId', 'fileName', 'deletedAt'],
     });
 

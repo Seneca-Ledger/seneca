@@ -41,6 +41,7 @@ export function Sparkline({
   if (points.length < 2) {
     return null;
   }
+  const flat = Math.max(...points) === Math.min(...points);
   const d = linePath(points, w, h);
   const fillD = `${d} L ${w} ${h} L 0 ${h} Z`;
   return (
@@ -51,7 +52,8 @@ export function Sparkline({
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      {fill && <path d={fillD} fill={color} opacity="0.08" />}
+      {/* A flat series gets no fill: under a mid-height line it is only a murky band. */}
+      {fill && !flat && <path d={fillD} fill={color} opacity="0.08" />}
       <path
         d={d}
         fill="none"

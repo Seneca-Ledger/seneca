@@ -64,7 +64,7 @@ describe('ForecastService history', () => {
 
     const [history, earliest] = queries;
     expect(history.conditions).toContain('t.isVerified = true');
-    expect(history.conditions).toContain('s.workspaceId = :workspaceId');
+    expect(history.conditions).toContain('t.workspaceId = :workspaceId');
     expect(earliest.conditions).toContain('t.isVerified = true');
   });
 
@@ -74,6 +74,6 @@ describe('ForecastService history', () => {
     await (service as any).incomeHistory('ws-1', new Date('2026-10-04'));
 
     expect(queries[0].conditions).toContain('t.isVerified = true');
-    expect(queries[0].conditions).toContain('s.workspaceId = :workspaceId');
+    expect(queries[0].conditions).toContain('t.workspaceId = :workspaceId');
   });
 });

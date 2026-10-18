@@ -42,28 +42,34 @@ vi.mock('@/app/i18n', async () => {
   return {
     useIntlayer: () =>
       autoDictionary({
-        uploadParse: value('Upload / Parse'),
-        reviewQueue: value('Review Queue ({count})'),
-        dataQualityMetrics: value('Data quality metrics'),
+        summaryAttention: value('{month}: {count} of {total} need attention'),
+        summaryClear: value('{month}: all clear'),
         uncategorizedLabel: value('Uncategorized'),
         statementErrorsLabel: value('Statement errors'),
-        pendingReviewLabel: value('Pending review'),
-        receiptsPendingLabel: value('Receipts pending'),
+        pendingReviewLabel: value('Records to review'),
+        receiptsPendingLabel: value('Receipts to check'),
         parsingWarningsLabel: value('Parsing warnings'),
-        allGood: value('All good'),
-        metricNeedsAttention: value('{value} need attention'),
-        lastUpload: value('Last upload'),
-        unapprovedCash: value('Unapproved cash'),
-        allCashApproved: value('All cash approved'),
-        reviewApproveCash: value('Review & approve cash'),
-        actionRequired: value('Action required'),
-        quickLinkUncategorized: value('Review {count} uncategorized transactions'),
-        quickLinkStatementErrors: value('Fix {count} statement errors'),
-        quickLinkPendingStatements: value('Review {count} pending statements'),
-        quickLinkReceipts: value('Review {count} receipts'),
+        allGood: value('All clear'),
+        notCountedHint: value('Income less spending in records still in review'),
+        allConfirmed: value('Every record is confirmed'),
+        actionReview: value('Review'),
+        actionCategorize: value('Categorize'),
+        actionMatch: value('Match'),
       }),
     useLocale: () => ({ locale: 'en' }),
   };
+});
+
+const health = (fields: Partial<DataHealthTabData['dataHealth']> = {}) => ({
+  uncategorizedTransactions: 0,
+  statementsWithErrors: 0,
+  statementsPendingReview: 0,
+  statementsPendingSubmit: 0,
+  receiptsPendingReview: 0,
+  unapprovedCash: 0,
+  lastUploadDate: '2025-05-31T00:00:00.000Z',
+  parsingWarnings: 0,
+  ...fields,
 });
 
 function renderTab(dataHealth: DataHealthTabData['dataHealth']): void {
@@ -80,16 +86,7 @@ function renderTab(dataHealth: DataHealthTabData['dataHealth']): void {
 describe('DataHealthTab', () => {
   it('shows the by-month history for the picked month with the data-quality metrics', async () => {
     const { DATA_HEALTH_HISTORY_METRICS } = await import('../MonthlyHistoryCard');
-    renderTab({
-      uncategorizedTransactions: 0,
-      statementsWithErrors: 0,
-      statementsPendingReview: 0,
-      statementsPendingSubmit: 0,
-      receiptsPendingReview: 0,
-      unapprovedCash: 0,
-      lastUploadDate: '2025-05-31T00:00:00.000Z',
-      parsingWarnings: 0,
-    });
+    renderTab(health());
 
     expect(screen.getByTestId('monthly-history')).toBeInTheDocument();
     expect(historyProps).toHaveBeenLastCalledWith({
@@ -99,71 +96,55 @@ describe('DataHealthTab', () => {
     });
   });
 
-  it('renders each metric as a linked KPI card with a severity tone', () => {
-    renderTab({
-      uncategorizedTransactions: 2,
-      statementsWithErrors: 1,
-      statementsPendingReview: 0,
-      statementsPendingSubmit: 0,
-      receiptsPendingReview: 0,
-      unapprovedCash: 0,
-      lastUploadDate: '2025-05-31T00:00:00.000Z',
-      parsingWarnings: 0,
-    });
+  it('sums the month up in one line and names the checks that are clear', () => {
+    renderTab(health({ uncategorizedTransactions: 6, statementsPendingReview: 2 }));
 
-    const uncategorized = screen.getByRole('link', { name: /Uncategorized/ });
-    expect(uncategorized.getAttribute('href')).toBe('/statements/submit?categoryId=uncategorized');
-    expect(uncategorized.querySelector('.lumio-dashboard__stat-value--warning')).not.toBeNull();
-
-    const errors = screen.getByRole('link', { name: /Statement errors/ });
-    expect(errors.querySelector('.lumio-dashboard__stat-value--negative')).not.toBeNull();
-
-    const pending = screen.getByRole('link', { name: /Pending review/ });
-    expect(pending.querySelector('.lumio-dashboard__stat-value--positive')).not.toBeNull();
-    expect(pending.textContent).toContain('All good');
-
-    expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Review Queue (0)' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'July 2026: 2 of 5 need attention' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('All clear: Statement errors · Receipts to check · Parsing warnings'),
+    ).toBeInTheDocument();
   });
 
-  it('renders receipts pending metric and action link', () => {
-    renderTab({
-      uncategorizedTransactions: 0,
-      statementsWithErrors: 0,
-      statementsPendingReview: 0,
-      statementsPendingSubmit: 0,
-      receiptsPendingReview: 2,
-      unapprovedCash: 0,
-      lastUploadDate: '2025-05-31T00:00:00.000Z',
-      parsingWarnings: 0,
-    });
+  it('lists each open check once, with where to do it', () => {
+    renderTab(health({ uncategorizedTransactions: 6, receiptsPendingReview: 2 }));
 
-    expect(screen.getByText(/receipts pending/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Review 2 receipts/i })).toBeInTheDocument();
+    expect(screen.getByText('Uncategorized: 6')).toBeInTheDocument();
+    // Each count is Review's list for the month, so each link opens that list.
+    expect(screen.getByRole('link', { name: /Categorize/ })).toHaveAttribute(
+      'href',
+      '/review?uncategorized=true&month=2026-07',
+    );
+    expect(screen.getByRole('link', { name: /Match/ })).toHaveAttribute(
+      'href',
+      '/review?kind=receipt&month=2026-07',
+    );
+    expect(screen.queryByText('Statement errors: 0')).toBeNull();
     expect(screen.getByText('May 31, 2025')).toBeInTheDocument();
   });
 
-  it('shows unapproved cash as a warning with a review link, and the empty-upload CTA', () => {
-    renderTab({
-      uncategorizedTransactions: 0,
-      statementsWithErrors: 0,
-      statementsPendingReview: 0,
-      statementsPendingSubmit: 0,
-      receiptsPendingReview: 0,
-      unapprovedCash: 1500,
-      lastUploadDate: null,
-      parsingWarnings: 0,
-    });
+  it('shows the money not counted yet while Review has rows, even when it is spending', () => {
+    renderTab(health({ statementsPendingReview: 2, unapprovedCash: -19.63, lastUploadDate: null }));
 
-    expect(screen.getByText('$1500').className).toContain('lumio-dashboard__stat-value--warning');
-    expect(screen.getByRole('link', { name: /Review & approve cash/ })).toHaveAttribute(
-      'href',
-      '/review',
-    );
+    expect(screen.getByText('−$19.63')).toBeInTheDocument();
+    expect(screen.getByText(/Income less spending in records still in review/)).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole('link', { name: /Review/ })
+        .every(link => link.getAttribute('href') === '/review?month=2026-07'),
+    ).toBe(true);
     expect(screen.getByRole('link', { name: 'uploadFirstStatement' })).toHaveAttribute(
       'href',
       '/statements/submit',
     );
-    expect(screen.queryByText('Action required')).not.toBeInTheDocument();
+  });
+
+  it('says every record is confirmed and the month is clear when nothing waits', () => {
+    renderTab(health());
+
+    expect(screen.getByRole('heading', { name: 'July 2026: all clear' })).toBeInTheDocument();
+    expect(screen.getByText('Every record is confirmed')).toBeInTheDocument();
+    expect(screen.queryByText('actionRequired')).toBeNull();
   });
 });

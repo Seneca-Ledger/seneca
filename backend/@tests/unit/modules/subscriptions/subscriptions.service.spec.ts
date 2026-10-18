@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { SubscriptionFrequency, SubscriptionStatus } from '@/entities/subscription.entity';
 import { SubscriptionsService } from '@/modules/subscriptions/subscriptions.service';
@@ -40,6 +41,9 @@ describe('SubscriptionsService', () => {
   const auditService = {
     createEvent: jest.fn(),
   };
+  const categoryRepository = {
+    findOne: jest.fn(),
+  };
 
   let service: SubscriptionsService;
 
@@ -55,6 +59,7 @@ describe('SubscriptionsService', () => {
       workspaceRepository as any,
       exchangeRatesService as any,
       auditService as any,
+      categoryRepository as any,
     );
   });
 
@@ -338,6 +343,27 @@ describe('SubscriptionsService', () => {
       expectEvent(AuditAction.CREATE, { actorId: 'user-1', meta: { name: 'Netflix' } });
     });
 
+    it('refuses a category of another workspace, on create and on update', async () => {
+      categoryRepository.findOne.mockResolvedValue(null);
+      const theirs = { categoryId: '7d1f0a52-5b1e-4f5e-9d55-2f4f5d6c7b8a' };
+
+      await expect(
+        service.create('workspace-1', 'user-1', {
+          vendorName: 'Netflix',
+          amount: 15.99,
+          frequency: SubscriptionFrequency.MONTHLY,
+          ...theirs,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.update('subscription-1', 'workspace-1', 'user-1', theirs),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(categoryRepository.findOne).toHaveBeenCalledWith({
+        where: { id: theirs.categoryId, workspaceId: 'workspace-1' },
+      });
+      expect(subscriptionRepository.save).not.toHaveBeenCalled();
+    });
+
     it('records an update without flagging untouched decimals and dates as changed', async () => {
       await service.update('subscription-1', 'workspace-1', 'user-1', { amount: 17.99 });
 
@@ -409,6 +435,67 @@ describe('SubscriptionsService', () => {
 
       await expect(service.remove('subscription-1', 'workspace-1', 'user-1')).resolves.toBeUndefined();
       expect(subscriptionRepository.remove).toHaveBeenCalled();
+    });
+  });
+
+  describe('checkUpcomingCharges', () => {
+    const soon = (days: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + days);
+      return date.toISOString().slice(0, 10);
+    };
+
+    it('keeps one running notification per workspace, keyed by the charges it lists', async () => {
+      subscriptionRepository.find.mockResolvedValue([
+        {
+          id: 'sub-adobe',
+          workspaceId: 'ws-1',
+          vendorName: 'Adobe Creative Cloud',
+          amount: '66.45',
+          currency: 'EUR',
+          nextChargeDate: soon(2),
+        },
+        {
+          id: 'sub-dropbox',
+          workspaceId: 'ws-1',
+          vendorName: 'Dropbox',
+          amount: '11.99',
+          currency: 'EUR',
+          nextChargeDate: soon(1),
+        },
+      ]);
+
+      await service.checkUpcomingCharges();
+
+      expect(notificationsService.createForWorkspaceMembers).toHaveBeenCalledTimes(1);
+      const payload = notificationsService.createForWorkspaceMembers.mock.calls[0][0];
+      expect(payload.messageKey).toBe('subscription.upcoming');
+      expect(payload.messageParams.charges.items).toEqual([
+        { name: 'Adobe Creative Cloud', amount: 66.45, currency: 'EUR' },
+        { name: 'Dropbox', amount: 11.99, currency: 'EUR' },
+      ]);
+      expect(payload.fingerprint).toBe(
+        `sub-adobe:66.45:EUR:${soon(2)}|sub-dropbox:11.99:EUR:${soon(1)}`,
+      );
+    });
+
+    it('uses the singular wording for a single charge', async () => {
+      subscriptionRepository.find.mockResolvedValue([
+        {
+          id: 'sub-dropbox',
+          workspaceId: 'ws-1',
+          vendorName: 'Dropbox',
+          amount: '11.99',
+          currency: 'EUR',
+          nextChargeDate: soon(1),
+        },
+      ]);
+
+      await service.checkUpcomingCharges();
+
+      expect(notificationsService.createForWorkspaceMembers.mock.calls[0][0].messageKey).toBe(
+        'subscription.upcoming.one',
+      );
     });
   });
 });

@@ -15,8 +15,9 @@ import type {
   CryptoWallet,
   SupportedChainId,
 } from '@/app/lib/contracts';
+import { unwrapEnvelope } from '@/app/lib/query-fn';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export type {
@@ -101,6 +102,8 @@ interface UseCryptoState {
   syncWallet: (id: string) => void;
   removeWallet: (id: string) => void;
   history: CryptoHistory | null;
+  historyDays: CryptoHistoryDays;
+  setHistoryDays: (days: CryptoHistoryDays) => void;
   savingHolding: boolean;
   saveHolding: (holding: ManualHoldingInput) => Promise<boolean>;
   removeHolding: (asset: string) => void;
@@ -129,6 +132,10 @@ function resolveBusyWalletId(
   return null;
 }
 
+/** The chart's periods: a month, a quarter, a year. */
+export const CRYPTO_HISTORY_DAYS = [30, 90, 365] as const;
+export type CryptoHistoryDays = (typeof CRYPTO_HISTORY_DAYS)[number];
+
 export function useCrypto(): UseCryptoState {
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
@@ -151,10 +158,19 @@ export function useCrypto(): UseCryptoState {
       apiQueryDecoded({ url: '/crypto/transactions', signal, contract: 'CryptoTransactionList' }),
   });
 
+  // The period goes into the key under the shared prefix, so invalidating the
+  // history still reaches every period.
+  const [historyDays, setHistoryDays] = useState<CryptoHistoryDays>(90);
   const historyQuery = useQuery({
-    queryKey: queryKeys.cryptoHistory(workspaceId),
+    queryKey: [...queryKeys.cryptoHistory(workspaceId), historyDays],
     queryFn: ({ signal }) =>
-      apiQueryDecoded({ url: '/crypto/history', signal, contract: 'CryptoHistory' }),
+      apiQueryDecoded({
+        url: `/crypto/history?days=${historyDays}`,
+        signal,
+        contract: 'CryptoHistory',
+      }),
+    // The line stays on screen while another period loads.
+    placeholderData: previous => previous,
   });
 
   // Год приходит в ключ запроса: смена года — другой запрос, а не ручная перезагрузка.
@@ -184,22 +200,31 @@ export function useCrypto(): UseCryptoState {
   }, [queryClient]);
 
   const connectMutation = useMutation({
-    mutationFn: (variables: { address: string; label?: string; chainIds?: SupportedChainId[] }) =>
-      apiClient.post('/crypto/wallets', {
+    mutationFn: async (variables: {
+      address: string;
+      label?: string;
+      chainIds?: SupportedChainId[];
+    }) => {
+      await apiClient.post('/crypto/wallets', {
         address: variables.address,
         chainIds: variables.chainIds,
         label: variables.label?.trim() ? variables.label.trim() : undefined,
-      } satisfies ContractInput<'ConnectCryptoWalletBody'>),
+      } satisfies ContractInput<'ConnectCryptoWalletBody'>);
+    },
     onSuccess: invalidateCrypto,
   });
 
   const syncMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/crypto/wallets/${id}/sync`),
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/crypto/wallets/${id}/sync`);
+    },
     onSuccess: invalidateCrypto,
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/crypto/wallets/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/crypto/wallets/${id}`);
+    },
     onSuccess: invalidateCrypto,
   });
 
@@ -208,19 +233,25 @@ export function useCrypto(): UseCryptoState {
       const form = new FormData();
       form.append('file', file);
       const response = await apiClient.post('/crypto/import', form);
-      return (response.data?.data ?? response.data) as ExchangeImportResult;
+      return checkContract('ExchangeImportResult', unwrapEnvelope(response.data), '/crypto/import');
     },
     onSuccess: invalidateCrypto,
   });
 
   const saveHoldingMutation = useMutation({
-    mutationFn: (holding: ManualHoldingInput) =>
-      apiClient.post('/crypto/holdings', holding satisfies ContractInput<'ManualHoldingBody'>),
+    mutationFn: async (holding: ManualHoldingInput) => {
+      await apiClient.post(
+        '/crypto/holdings',
+        holding satisfies ContractInput<'ManualHoldingBody'>,
+      );
+    },
     onSuccess: invalidateCrypto,
   });
 
   const removeHoldingMutation = useMutation({
-    mutationFn: (asset: string) => apiClient.delete(`/crypto/holdings/${asset}`),
+    mutationFn: async (asset: string) => {
+      await apiClient.delete(`/crypto/holdings/${asset}`);
+    },
     onSuccess: invalidateCrypto,
   });
 
@@ -312,6 +343,8 @@ export function useCrypto(): UseCryptoState {
     syncWallet,
     removeWallet,
     history: historyQuery.data ?? null,
+    historyDays,
+    setHistoryDays,
     savingHolding: saveHoldingMutation.isPending,
     saveHolding,
     removeHolding,

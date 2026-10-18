@@ -18,6 +18,8 @@ export interface ReportPreviewData {
     rows: PreviewCell[][];
     total?: PreviewCell[];
   }>;
+  /** Caveats about the figures, e.g. amounts left out for want of a rate. */
+  notes?: string[];
   footer?: PreviewCell[][];
   /** Some section had more rows than the preview shows. */
   truncated: boolean;
@@ -101,6 +103,16 @@ export function ReportPreview({
       <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
         {data.subtitle}
       </Typography>
+
+      {(data.notes ?? []).map(note => (
+        <Typography
+          key={note}
+          variant="caption"
+          sx={{ display: 'block', color: 'var(--color-warning-soft-text)' }}
+        >
+          {note}
+        </Typography>
+      ))}
 
       {isEmpty ? (
         <Typography variant="body2" sx={{ mt: 1, color: 'var(--muted-foreground)' }}>

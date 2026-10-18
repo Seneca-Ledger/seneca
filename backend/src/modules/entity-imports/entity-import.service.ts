@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, type Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
@@ -29,6 +30,7 @@ import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { ClassificationService } from '../classification/services/classification.service';
 import { MetalsService } from '../investments/metals.service';
+import type { TransactionsImportedEvent } from '../notifications/events/notification-events';
 import { nameKey } from './helpers/import-values';
 import { type ImportTargetKind, TARGET_FIELDS } from './target-aliases';
 import { BudgetsTarget } from './targets/budgets.target';
@@ -69,7 +71,32 @@ export class EntityImportService {
     private readonly auditService: AuditService,
     @Optional() private readonly classificationService?: ClassificationService,
     @Optional() private readonly metalsService?: MetalsService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
+
+  /** One `transactions.imported` per statement the import created, after the commit. */
+  private async announceImportedTransactions(
+    workspaceId: string,
+    created: ImportCreatedRef[],
+  ): Promise<void> {
+    if (!this.eventEmitter) {
+      return;
+    }
+    for (const ref of created.filter(item => item.kind === 'statement')) {
+      const rows = await this.dataSource.getRepository(Transaction).find({
+        select: { id: true },
+        where: { workspaceId, statementId: ref.id },
+      });
+      if (rows.length > 0) {
+        this.eventEmitter.emit('transactions.imported', {
+          workspaceId,
+          source: 'entity_import',
+          statementId: ref.id,
+          transactionIds: rows.map(row => row.id),
+        } satisfies TransactionsImportedEvent);
+      }
+    }
+  }
 
   private async ensurePermission(userId: string, workspaceId: string, target: ImportTargetKind) {
     // Transactions land in statements; everything else is plain data entry.
@@ -226,6 +253,9 @@ export class EntityImportService {
       });
       if (dto.target === 'transactions' && ctx.categorize) {
         await this.categorize(userId, workspaceId, ctx.created);
+      }
+      if (dto.target === 'transactions') {
+        await this.announceImportedTransactions(workspaceId, ctx.created);
       }
       // Imported lots land without a price; one pass quotes them all.
       if (dto.target === 'metals' && this.metalsService) {

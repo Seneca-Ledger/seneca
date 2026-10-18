@@ -231,10 +231,49 @@ export function buildCashFlowMap(
   };
 }
 
-/** The same length of time right before `from`. */
+/**
+ * The period to compare with, as a person would pick it:
+ * - whole calendar months → the same number of months just before
+ *   (September against August, a quarter against the quarter before);
+ * - the start of a month up to a day in it → the same days of the month before
+ *   (October 1–15 against September 1–15);
+ * - January 1 up to a day further into the year → the same dates a year back
+ *   (year to date against last year to the same date);
+ * - anything else → the same number of days right before.
+ */
 export function previousPeriod(from: string, to: string): { from: string; to: string } {
   const start = parse(from);
   const end = parse(to);
+  const lastDayOf = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const startsMonth = start.getDate() === 1 && end > start;
+  if (startsMonth && end.getDate() === lastDayOf(end)) {
+    const months =
+      (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth() + 1;
+    return {
+      from: format(new Date(start.getFullYear(), start.getMonth() - months, 1)),
+      to: format(new Date(start.getFullYear(), start.getMonth(), 0)),
+    };
+  }
+  if (
+    startsMonth &&
+    end.getFullYear() === start.getFullYear() &&
+    end.getMonth() === start.getMonth()
+  ) {
+    const monthBefore = new Date(start.getFullYear(), start.getMonth() - 1, 1);
+    const day = Math.min(end.getDate(), lastDayOf(monthBefore));
+    return {
+      from: format(monthBefore),
+      to: format(new Date(monthBefore.getFullYear(), monthBefore.getMonth(), day)),
+    };
+  }
+  if (startsMonth && start.getMonth() === 0 && end.getFullYear() === start.getFullYear()) {
+    const yearBefore = start.getFullYear() - 1;
+    const lastDay = new Date(yearBefore, end.getMonth() + 1, 0).getDate();
+    return {
+      from: format(new Date(yearBefore, 0, 1)),
+      to: format(new Date(yearBefore, end.getMonth(), Math.min(end.getDate(), lastDay))),
+    };
+  }
   const days = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
   const prevEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1);
   const prevStart = new Date(

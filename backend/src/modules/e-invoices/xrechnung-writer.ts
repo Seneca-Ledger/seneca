@@ -12,6 +12,8 @@
  * a valid XRechnung gets the list of what is missing, never a broken file.
  */
 
+import { parsePeppolId } from './peppol-id';
+
 /** UNCL 5305 categories a Lumio invoice line can be. */
 export type XRechnungCategory = 'S' | 'Z' | 'E' | 'AE' | 'K';
 
@@ -23,6 +25,11 @@ export interface XRechnungParty {
   countryCode: string | null;
   vatId: string | null;
   email: string | null;
+  /**
+   * The party's Peppol participant id, `scheme:value` (e.g. `9930:DE123456789`).
+   * When set it is the electronic address (BT-34/BT-49) instead of the e-mail.
+   */
+  peppolId?: string | null;
 }
 
 export interface XRechnungInput {
@@ -92,15 +99,15 @@ export type XRechnungMissing =
 
 export const XRECHNUNG_SPECIFICATION =
   'urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0';
-const PEPPOL_BILLING = 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0';
+export const PEPPOL_BILLING = 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0';
 
 /** VATEX codes for the exemption reasons EN 16931 knows by code. */
-const EXEMPTION_CODES: Partial<Record<XRechnungCategory, string>> = {
+export const EXEMPTION_CODES: Partial<Record<XRechnungCategory, string>> = {
   AE: 'VATEX-EU-AE',
   K: 'VATEX-EU-IC',
 };
 
-const blank = (value: string | null | undefined) => !value?.trim();
+export const blank = (value: string | null | undefined) => !value?.trim();
 
 /** What the invoice still needs before it can be written; empty when nothing. */
 export function missingForXRechnung(input: XRechnungInput): XRechnungMissing[] {
@@ -132,14 +139,14 @@ export function missingForXRechnung(input: XRechnungInput): XRechnungMissing[] {
     ['buyer_postal_code', blank(buyer.postalCode)],
     ['buyer_city', blank(buyer.city)],
     ['buyer_country', blank(buyer.countryCode)],
-    // XRechnung 3.0: the buyer's electronic address (BT-49).
-    ['buyer_email', blank(buyer.email)],
+    // XRechnung 3.0: the buyer's electronic address (BT-49): e-mail or Peppol id.
+    ['buyer_email', blank(buyer.email) && !parsePeppolId(buyer.peppolId)],
     ['lines', input.lines.length === 0],
   ];
   return checks.filter(([, missing]) => missing).map(([field]) => field);
 }
 
-const escapeXml = (value: string) =>
+export const escapeXml = (value: string) =>
   value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -147,12 +154,12 @@ const escapeXml = (value: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 
-const cents = (value: number) => Math.round(value * 100);
-const money = (centsValue: number) => (centsValue / 100).toFixed(2);
+export const cents = (value: number) => Math.round(value * 100);
+export const money = (centsValue: number) => (centsValue / 100).toFixed(2);
 const date102 = (value: string) => value.slice(0, 10).replace(/-/g, '');
 /** Quantities and unit prices keep up to four decimals, without trailing zeros. */
-const decimal = (value: number) => String(Number(value.toFixed(4)));
-const percent = (value: number) => String(Number(value.toFixed(2)));
+export const decimal = (value: number) => String(Number(value.toFixed(4)));
+export const percent = (value: number) => String(Number(value.toFixed(2)));
 
 function element(name: string, value: string | null | undefined, attributes = ''): string {
   return value === null || value === undefined || value.trim() === ''
@@ -175,9 +182,14 @@ function address(party: XRechnungParty): string {
   ].join('');
 }
 
-function electronicAddress(email: string | null): string {
-  return email
-    ? `<ram:URIUniversalCommunication>${element('ram:URIID', email, ' schemeID="EM"')}</ram:URIUniversalCommunication>`
+/** BT-34/BT-49: the Peppol participant id when the party has one, else the e-mail. */
+function electronicAddress(party: XRechnungParty): string {
+  const peppol = parsePeppolId(party.peppolId);
+  if (peppol) {
+    return `<ram:URIUniversalCommunication>${element('ram:URIID', peppol.value, ` schemeID="${peppol.scheme}"`)}</ram:URIUniversalCommunication>`;
+  }
+  return party.email
+    ? `<ram:URIUniversalCommunication>${element('ram:URIID', party.email, ' schemeID="EM"')}</ram:URIUniversalCommunication>`
     : '';
 }
 
@@ -192,7 +204,7 @@ function taxRegistrations(vatId: string | null, taxNumber: string | null): strin
   ].join('');
 }
 
-interface Breakdown {
+export interface Breakdown {
   category: XRechnungCategory;
   rate: number;
   baseCents: number;
@@ -300,7 +312,7 @@ function delivery(input: XRechnungInput, breakdown: Breakdown[]): string {
     : '<ram:ApplicableHeaderTradeDelivery/>';
 }
 
-function paymentTermsText(input: XRechnungInput): string {
+export function paymentTermsText(input: XRechnungInput): string {
   if (input.typeCode === '381') {
     return 'Der Betrag wird gutgeschrieben bzw. erstattet.';
   }
@@ -368,13 +380,13 @@ export function writeXRechnung(input: XRechnungInput): string {
     `<ram:EmailURIUniversalCommunication>${element('ram:URIID', seller.email)}</ram:EmailURIUniversalCommunication>`,
     '</ram:DefinedTradeContact>',
     address(seller),
-    electronicAddress(seller.email),
+    electronicAddress(seller),
     taxRegistrations(seller.vatId, seller.taxNumber),
     '</ram:SellerTradeParty>',
     '<ram:BuyerTradeParty>',
     element('ram:Name', buyer.name),
     address(buyer),
-    electronicAddress(buyer.email),
+    electronicAddress(buyer),
     taxRegistrations(buyer.vatId, null),
     '</ram:BuyerTradeParty>',
     '</ram:ApplicableHeaderTradeAgreement>',

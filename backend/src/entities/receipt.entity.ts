@@ -31,6 +31,8 @@ export enum ReceiptSource {
   TELEGRAM = 'telegram',
   SCAN = 'scan',
   IMAP = 'imap',
+  /** An e-invoice received over the Peppol network. */
+  PEPPOL = 'peppol',
 }
 
 /** Where a receipt's point on the map came from, in the order auto-detection trusts them. */

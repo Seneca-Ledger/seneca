@@ -23,11 +23,11 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { BalanceAccountNode } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import apiClient from '../../../lib/api';
+import { blobOf } from '../../../lib/blob-of';
 
 type BalanceExportFormat = 'excel' | 'pdf';
 
@@ -147,7 +147,11 @@ function BalanceSheet(): React.JSX.Element {
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         url: '/reports/balance/sheet',
-        params: { ...(effectiveDate ? { date: effectiveDate } : {}), locale },
+        // The report speaks three languages; any other UI locale gets English.
+        params: {
+          ...(effectiveDate ? { date: effectiveDate } : {}),
+          locale: reportLocaleOf(locale),
+        } satisfies ContractInput<'BalanceQuery'>,
         signal,
         contract: 'BalanceSheetResponse',
       }),
@@ -270,7 +274,7 @@ function BalanceSheet(): React.JSX.Element {
         const fileName =
           parseContentDispositionFileName(response.headers['content-disposition']) || fallbackName;
 
-        const blob = new Blob([response.data], {
+        const blob = new Blob([blobOf(response)], {
           type:
             (response.headers['content-type'] as string | undefined) || 'application/octet-stream',
         });

@@ -1,9 +1,13 @@
 'use client';
 
+import EventAvailableOutlined from '@mui/icons-material/EventAvailableOutlined';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type React from 'react';
-import { CardLink, DashboardCard, ListRow } from '@/app/components/dashboard/ui';
+import { NetWorthChart } from '@/app/(main)/net-worth/components/NetWorthChart';
+import { useTodayNote } from '@/app/components/dashboard/overview-month';
+import { useIsWideSection } from '@/app/components/dashboard/section-span';
+import { CardEmpty, CardLink, DashboardCard, ListRow } from '@/app/components/dashboard/ui';
 import { AlertTriangle } from '@/app/components/icons';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
@@ -16,6 +20,8 @@ type Commitments = DashboardCommitmentsResponse;
 
 const HORIZON_DAYS = 60;
 const VISIBLE_ITEMS = 5;
+/** With the row to itself the card has room for the balance line and a longer list. */
+const WIDE_VISIBLE_ITEMS = 10;
 
 type CashRunwayWidgetProps = {
   formatAmount: (value: number) => string;
@@ -47,6 +53,8 @@ function RunwayBody({
   formatAmount: (value: number) => string;
 }): React.JSX.Element {
   const t = useIntlayer('cashRunwayWidget');
+  const wideText = useIntlayer('dashboardWideView');
+  const wide = useIsWideSection();
   const hasShortfall = data.shortfallDate !== null;
   const summary = hasShortfall
     ? fillTemplate(text(t.shortfallSummary), {
@@ -57,6 +65,24 @@ function RunwayBody({
         amount: formatAmount(data.lowestBalance),
         days: String(data.horizonDays),
       });
+  const items = (limit: number): React.JSX.Element => (
+    <div className="lumio-dashboard__list">
+      {data.items.slice(0, limit).map(item => (
+        <ListRow
+          key={`${item.source}-${item.sourceId}-${item.date}`}
+          primary={item.label}
+          secondary={
+            item.isOverdue ? (
+              <span className="lumio-dashboard__amount--negative">{t.overdue}</span>
+            ) : (
+              item.date
+            )
+          }
+          trailing={formatAmount(item.amount)}
+        />
+      ))}
+    </div>
+  );
   return (
     <>
       <p
@@ -68,22 +94,24 @@ function RunwayBody({
         {hasShortfall && <AlertTriangle size={15} />}
         <span>{summary}</span>
       </p>
-      <div className="lumio-dashboard__list">
-        {data.items.slice(0, VISIBLE_ITEMS).map(item => (
-          <ListRow
-            key={`${item.source}-${item.sourceId}-${item.date}`}
-            primary={item.label}
-            secondary={
-              item.isOverdue ? (
-                <span className="lumio-dashboard__amount--negative">{t.overdue}</span>
-              ) : (
-                item.date
-              )
-            }
-            trailing={formatAmount(item.amount)}
-          />
-        ))}
-      </div>
+      {wide && data.days.length > 1 ? (
+        // With room: the projected balance day by day, beside what pulls it down.
+        <div className="lumio-dashboard__chart-aside">
+          <figure
+            className="lumio-dashboard__chart-aside-main"
+            aria-label={wideText.balanceByDay.value}
+          >
+            <NetWorthChart
+              points={data.days.map(day => ({ date: day.date, value: day.balance }))}
+              positive={!hasShortfall}
+              formatValue={formatAmount}
+            />
+          </figure>
+          {items(WIDE_VISIBLE_ITEMS)}
+        </div>
+      ) : (
+        items(VISIBLE_ITEMS)
+      )}{' '}
       {data.unscheduledCommitted > 0 && (
         <p className="lumio-dashboard__card-note lumio-dashboard__card-note--footer">
           {fillTemplate(text(t.unscheduled), { amount: formatAmount(data.unscheduledCommitted) })}
@@ -97,6 +125,7 @@ export function CashRunwayWidget({
   formatAmount,
 }: CashRunwayWidgetProps): React.JSX.Element | null {
   const t = useIntlayer('cashRunwayWidget');
+  const today = useTodayNote();
   const { data, loaded } = useCommitments();
 
   if (!loaded) {
@@ -105,9 +134,13 @@ export function CashRunwayWidget({
 
   const isEmpty = !data || (data.items.length === 0 && data.unscheduledCommitted === 0);
   return (
-    <DashboardCard title={t.title} action={<CardLink href="/forecast">{t.openForecast}</CardLink>}>
+    <DashboardCard
+      title={t.title}
+      subtitle={today}
+      action={<CardLink href="/forecast">{t.openForecast}</CardLink>}
+    >
       {isEmpty ? (
-        <div className="lumio-dashboard__card-empty">{t.emptyDescription}</div>
+        <CardEmpty icon={EventAvailableOutlined}>{t.emptyDescription}</CardEmpty>
       ) : (
         <RunwayBody data={data} formatAmount={formatAmount} />
       )}

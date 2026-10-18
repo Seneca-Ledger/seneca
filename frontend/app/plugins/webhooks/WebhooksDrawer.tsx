@@ -1,21 +1,22 @@
 'use client';
 
-import { Box, Checkbox, FormControlLabel, TextField, Typography } from '@mui/material';
+import { Box, TextField, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Copy, Trash2 } from '@/app/components/icons';
+import { Copy, Plus, Trash2 } from '@/app/components/icons';
 import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
+import { apiBaseUrl } from '@/app/lib/api';
 import { tokens } from '@/lib/theme-tokens';
+import { PluginOffBanner } from '../components/PluginOffBanner';
+import { type EndpointDefaults, EndpointDefaultsFields } from './EndpointDefaultsFields';
 import { useWebhookEndpoints, useWebhookSubscriptions, type WebhookEventName } from './useWebhooks';
-
-const EVENTS = [
-  { value: 'transaction.created', labelKey: 'transactionCreated' },
-  { value: 'statement.processed', labelKey: 'statementProcessed' },
-  { value: 'receipt.approved', labelKey: 'receiptApproved' },
-] as const;
+import { WebhookDeliveryLog } from './WebhookDeliveryLog';
+import { WebhookEventPicker } from './WebhookEventPicker';
+import { EVENT_LABEL_KEY, isWebhookEventName } from './webhook-events';
+import { inboundWebhookUrls } from './webhook-urls';
 
 interface WebhooksDrawerProps {
   isOpen: boolean;
@@ -36,6 +37,10 @@ const tabBtnStyle = (active: boolean) => ({
   cursor: 'pointer',
   transition: 'background 0.15s, color 0.15s',
 });
+
+const ICON_BTN_LAYOUT = { display: 'inline-flex', alignItems: 'center', gap: 4 };
+
+const NO_DEFAULTS: EndpointDefaults = { defaultWalletId: null, defaultBranchId: null };
 
 const actionBtnStyle = (variant: 'danger' | 'default' | 'primary') => ({
   padding: '5px 12px',
@@ -60,6 +65,7 @@ const actionBtnStyle = (variant: 'danger' | 'default' | 'primary') => ({
 
 export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDrawerProps) {
   const t = useIntlayer('webhooksDrawer');
+  const pluginsText = useIntlayer('pluginsPage');
   const [activeTab, setActiveTab] = useState<'inbound' | 'outbound'>('inbound');
 
   const {
@@ -83,6 +89,15 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
   // Inbound form state
   const [showEndpointForm, setShowEndpointForm] = useState(false);
   const [endpointName, setEndpointName] = useState('');
+  const [endpointDefaults, setEndpointDefaults] = useState<EndpointDefaults>(NO_DEFAULTS);
+  const [openDeliveries, setOpenDeliveries] = useState<string | null>(null);
+  const newTokenUrls = useMemo(
+    () =>
+      newToken && typeof window !== 'undefined'
+        ? inboundWebhookUrls(apiBaseUrl, window.location.origin, newToken)
+        : null,
+    [newToken],
+  );
 
   // Outbound form state
   const [showSubForm, setShowSubForm] = useState(false);
@@ -93,8 +108,9 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
 
   const handleCreateEndpoint = async () => {
     if (!endpointName.trim()) return;
-    await createEndpoint(endpointName.trim());
+    await createEndpoint({ name: endpointName.trim(), ...endpointDefaults });
     setEndpointName('');
+    setEndpointDefaults(NO_DEFAULTS);
     setShowEndpointForm(false);
   };
 
@@ -118,6 +134,9 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
     void navigator.clipboard.writeText(token).then(() => toast.success(t.toasts.tokenCopied.value));
   };
 
+  const eventLabel = (event: string) =>
+    isWebhookEventName(event) ? t.events[EVENT_LABEL_KEY[event]].value : event;
+
   const toggleEvent = (value: WebhookEventName) => {
     setSubEvents(prev => (prev.includes(value) ? prev.filter(e => e !== value) : [...prev, value]));
   };
@@ -132,6 +151,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
       zIndex={zIndex}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+        <PluginOffBanner plugin="webhooks" message={pluginsText.offBanner.webhooks} />
         {/* Tab switcher */}
         <Box
           sx={{
@@ -139,7 +159,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
             gap: 0.5,
             p: 0.5,
             borderRadius: tokens.radius.md,
-            border: '1px solid var(--border-color, #e5e7eb)',
+            border: '1px solid var(--border-color)',
             alignSelf: 'flex-start',
           }}
         >
@@ -206,6 +226,45 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                     {t.dismiss}
                   </button>
                 </Box>
+                {newTokenUrls ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1.5 }}>
+                    {(
+                      [
+                        [t.statementsUrl, newTokenUrls.statements],
+                        [t.receiptsUrl, newTokenUrls.receipts],
+                      ] as const
+                    ).map(([label, url]) => (
+                      <Box key={url}>
+                        <Typography
+                          sx={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}
+                        >
+                          {label}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography
+                            sx={{
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              color: 'var(--text-primary)',
+                              wordBreak: 'break-all',
+                              flex: 1,
+                            }}
+                          >
+                            {url}
+                          </Typography>
+                          <button
+                            type="button"
+                            style={actionBtnStyle('default')}
+                            aria-label={label.value}
+                            onClick={() => handleCopyToken(url)}
+                          >
+                            <Copy size={14} />
+                          </button>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : null}
               </Box>
             )}
 
@@ -226,8 +285,8 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                     sx={{
                       p: 1.5,
                       borderRadius: tokens.radius.md,
-                      border: '1px solid var(--border-color, #e5e7eb)',
-                      background: 'var(--card-bg, #fff)',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--card-bg)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 1.5,
@@ -256,7 +315,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                         borderRadius: tokens.radius.full,
                         background: ep.isActive
                           ? alpha(theme.palette.success.main, 0.1)
-                          : 'rgba(0,0,0,0.06)',
+                          : theme.palette.action.hover,
                         color: ep.isActive ? 'success.main' : 'var(--text-secondary)',
                         fontSize: 11,
                         fontWeight: 600,
@@ -287,7 +346,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                   gap: 1.5,
                   p: 1.5,
                   borderRadius: tokens.radius.md,
-                  border: '1px solid var(--border-color, #e5e7eb)',
+                  border: '1px solid var(--border-color)',
                 }}
               >
                 <TextField
@@ -300,12 +359,14 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                   }}
                   autoFocus
                 />
+                <EndpointDefaultsFields value={endpointDefaults} onChange={setEndpointDefaults} />
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <button
                     type="button"
-                    style={actionBtnStyle('primary')}
+                    style={{ ...actionBtnStyle('primary'), ...ICON_BTN_LAYOUT }}
                     onClick={() => void handleCreateEndpoint()}
                   >
+                    <Plus size={14} aria-hidden />
                     {t.create}
                   </button>
                   <button
@@ -314,6 +375,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                     onClick={() => {
                       setShowEndpointForm(false);
                       setEndpointName('');
+                      setEndpointDefaults(NO_DEFAULTS);
                     }}
                   >
                     {t.cancel}
@@ -362,8 +424,8 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                     sx={{
                       p: 1.5,
                       borderRadius: tokens.radius.md,
-                      border: '1px solid var(--border-color, #e5e7eb)',
-                      background: 'var(--card-bg, #fff)',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--card-bg)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 1,
@@ -417,10 +479,23 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                             fontWeight: 600,
                           })}
                         >
-                          {evt}
+                          {eventLabel(evt)}
                         </Box>
                       ))}
                     </Box>
+                    <Box>
+                      <button
+                        type="button"
+                        style={actionBtnStyle('default')}
+                        aria-expanded={openDeliveries === sub.id}
+                        onClick={() => setOpenDeliveries(open => (open === sub.id ? null : sub.id))}
+                      >
+                        {t.deliveries}
+                      </button>
+                    </Box>
+                    {openDeliveries === sub.id ? (
+                      <WebhookDeliveryLog subscriptionId={sub.id} />
+                    ) : null}
                   </Box>
                 ))}
               </Box>
@@ -435,7 +510,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                   gap: 1.5,
                   p: 1.5,
                   borderRadius: tokens.radius.md,
-                  border: '1px solid var(--border-color, #e5e7eb)',
+                  border: '1px solid var(--border-color)',
                 }}
               >
                 <TextField
@@ -465,26 +540,12 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                   >
                     {t.eventsLabel}
                   </Typography>
-                  {EVENTS.map(evt => (
-                    <FormControlLabel
-                      key={evt.value}
-                      control={
-                        <Checkbox
-                          size="small"
-                          checked={subEvents.includes(evt.value)}
-                          onChange={() => toggleEvent(evt.value)}
-                        />
-                      }
-                      label={
-                        <Typography sx={{ fontSize: 13 }}>{t.events[evt.labelKey]}</Typography>
-                      }
-                    />
-                  ))}
+                  <WebhookEventPicker selected={subEvents} onToggle={toggleEvent} />
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <button
                     type="button"
-                    style={actionBtnStyle('primary')}
+                    style={{ ...actionBtnStyle('primary'), ...ICON_BTN_LAYOUT }}
                     onClick={() => void handleCreateSubscription()}
                     disabled={
                       !(subName.trim() && subUrl.trim()) ||
@@ -492,6 +553,7 @@ export function WebhooksDrawer({ isOpen, onClose, onBack, zIndex }: WebhooksDraw
                       subEvents.length === 0
                     }
                   >
+                    <Plus size={14} aria-hidden />
                     {t.create}
                   </button>
                   <button

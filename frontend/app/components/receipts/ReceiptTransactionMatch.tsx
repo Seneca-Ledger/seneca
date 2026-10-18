@@ -14,6 +14,7 @@ import apiClient, {
   type ReceiptSplitSuggestion,
   receiptsApi,
 } from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
 import { groupSplitItems } from './helpers/receipt-split-groups';
@@ -120,6 +121,7 @@ export function ReceiptTransactionMatch({
         toast.success(t.splitDone.value);
         setSuggestion(null);
         setSplit(true);
+        invalidateFinancialData();
         await onChanged();
       })
       .catch(() => toast.error(t.splitFailed.value));
@@ -134,6 +136,7 @@ export function ReceiptTransactionMatch({
       .then(async () => {
         toast.success(t.splitUndone.value);
         setSplit(false);
+        invalidateFinancialData();
         await onChanged();
       })
       .catch(() => toast.error(t.splitFailed.value));

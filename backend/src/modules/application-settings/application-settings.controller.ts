@@ -13,14 +13,17 @@ import { memoryStorage } from 'multer';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import {
+  LocalCategorizationStatus,
   SaveAiSettingsBody,
   SaveAppSettingsBody,
   SaveLocalCategorizationBody,
   SaveSmtpSettingsBody,
   SaveTelegramSettingsBody,
+  TelegramBotStatus,
   TestLocalCategorizationBody,
 } from '../../contracts';
 import { User, WorkspaceServiceSettingsKey } from '../../entities';
@@ -91,6 +94,7 @@ export class ApplicationSettingsController {
 
   @Get('local-categorization')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(LocalCategorizationStatus)
   getLocalCategorization(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.getLocalCategorizationStatus(user, workspaceId);
   }
@@ -159,6 +163,7 @@ export class ApplicationSettingsController {
 
   @Get('notifications/telegram')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(TelegramBotStatus)
   getTelegram(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.getTelegramStatus(user, workspaceId);
   }

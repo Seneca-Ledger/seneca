@@ -12,7 +12,8 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { DuplicateGroups } from '@/app/lib/contracts';
-import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import DuplicateGroupCard from './components/DuplicateGroupCard';
 
 type DuplicateGroup = DuplicateGroups['groups'][number];
@@ -143,8 +144,15 @@ export default function TransactionDuplicatesPage() {
         groups: groupsToMark,
       } satisfies ContractInput<'MarkDuplicatesBody'>);
 
-      setSuccess(t.markSuccess.value.replace('{count}', String(response.data.markedCount)));
+      const { markedCount } = await checkContract(
+        'DuplicatesMarked',
+        response.data,
+        '/transactions/duplicates/mark',
+      );
+      setSuccess(t.markSuccess.value.replace('{count}', String(markedCount)));
       setSelectedGroups(new Set());
+      // A row marked as a duplicate stops counting in every figure.
+      invalidateFinancialData();
       await loadDuplicates(); // Reload to update the list
     })()
       .catch(async (error: unknown) => {

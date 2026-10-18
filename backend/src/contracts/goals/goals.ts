@@ -55,7 +55,10 @@ export type GoalDetail = Wire<typeof GoalDetail>;
 export const GoalList = Schema.Array(GoalWithProgress);
 export type GoalList = Wire<typeof GoalList>;
 
-/** `GET /goals?month=`: the goals moved forward that month, with what they received in it. */
+/**
+ * `GET /goals?month=`: the goals moved forward that month, with what they
+ * received in it; their progress is as it stood when that month ended.
+ */
 export const MonthGoal = Schema.Struct({
   ...GoalWithProgress.fields,
   contributedInMonth: Schema.Number,
@@ -64,6 +67,10 @@ export type MonthGoal = Wire<typeof MonthGoal>;
 
 export const MonthGoalList = Schema.Array(MonthGoal);
 export type MonthGoalList = Wire<typeof MonthGoalList>;
+
+/** `GET /goals`: the whole list, or with `?month=` the goals moved forward that month. */
+export const GoalListAnswer = Schema.Union([GoalList, MonthGoalList]);
+export type GoalListAnswer = Wire<typeof GoalListAnswer>;
 
 export const GoalFlowNodeKind = Schema.Literals([
   'goal',

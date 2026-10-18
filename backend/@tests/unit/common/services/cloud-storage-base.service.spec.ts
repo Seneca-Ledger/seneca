@@ -5,6 +5,7 @@ import type { DropboxSettings } from '@/entities/dropbox-settings.entity';
 import { IntegrationProvider, IntegrationStatus, type Integration } from '@/entities/integration.entity';
 import type { IntegrationToken } from '@/entities/integration-token.entity';
 import type { User } from '@/entities/user.entity';
+import { WorkspaceKind } from '@/entities/workspace.entity';
 import type { WorkspaceMember } from '@/entities/workspace-member.entity';
 import {
   CloudStorageBaseService,
@@ -340,6 +341,12 @@ describe('CloudStorageBaseService', () => {
     expect(service.syncIntegrationMock).toHaveBeenCalledTimes(1);
     expect(service.syncIntegrationMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'due' }),
+    );
+    // A past version files nothing new, so its copied connection is never picked up.
+    expect(integrationRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ workspace: { kind: WorkspaceKind.STANDARD } }),
+      }),
     );
 
     jest.useRealTimers();

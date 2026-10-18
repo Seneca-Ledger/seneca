@@ -2,7 +2,8 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
+import { notInVersionWorkspace } from '../../common/workspaces/version-workspaces';
 import {
   ActorType,
   AuditAction,
@@ -14,7 +15,10 @@ import {
   ReceiptStatus,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
-import type { ReceiptUncategorizedEvent } from '../notifications/events/notification-events';
+import type {
+  ReceiptNeedsReviewEvent,
+  ReceiptUncategorizedEvent,
+} from '../notifications/events/notification-events';
 import { ReceiptMatchService } from '../receipts/services/receipt-match.service';
 import type { GmailApi } from './gmail-api.types';
 import { GmailService } from './services/gmail.service';
@@ -68,14 +72,21 @@ export class GmailReceiptProcessor {
       const now = new Date();
       const lockTimeout = new Date(now.getTime() - JOB_LOCK_TIMEOUT_MS);
 
-      // Find pending jobs or stale locked jobs
+      // Find pending jobs or stale locked jobs. A past version takes no mail in;
+      // its jobs are left out here rather than failed, so they never block the queue.
       const job = await this.jobRepository
         .createQueryBuilder('job')
-        .where('job.status = :status', { status: ReceiptJobStatus.PENDING })
-        .orWhere('job.status = :processing AND job.lockedAt < :lockTimeout', {
-          processing: ReceiptJobStatus.PROCESSING,
-          lockTimeout,
-        })
+        .where(
+          new Brackets(status =>
+            status
+              .where('job.status = :status', { status: ReceiptJobStatus.PENDING })
+              .orWhere('job.status = :processing AND job.lockedAt < :lockTimeout', {
+                processing: ReceiptJobStatus.PROCESSING,
+                lockTimeout,
+              }),
+          ),
+        )
+        .andWhere(notInVersionWorkspace('job.workspaceId'))
         .orderBy('job.createdAt', 'ASC')
         .limit(1)
         .getOne();
@@ -345,6 +356,17 @@ export class GmailReceiptProcessor {
 
       // Save final receipt state
       await this.receiptRepository.save(savedReceipt);
+
+      if (savedReceipt.status === ReceiptStatus.NEEDS_REVIEW) {
+        this.eventEmitter?.emit('receipt.needs_review', {
+          workspaceId,
+          receiptId: savedReceipt.id,
+          source: savedReceipt.source,
+          reasons: savedReceipt.metadata?.potentialDuplicates?.length
+            ? ['possible_duplicate']
+            : ['missing_amount'],
+        } satisfies ReceiptNeedsReviewEvent);
+      }
 
       // Mark job as completed
       job.status = ReceiptJobStatus.COMPLETED;

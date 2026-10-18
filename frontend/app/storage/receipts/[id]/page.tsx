@@ -9,7 +9,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { ArrowLeft } from '@/app/components/icons';
+import { ArrowLeft, CheckCircle } from '@/app/components/icons';
 import { EInvoicePanel } from '@/app/components/receipts/EInvoicePanel';
 import { ReceiptLocationSection } from '@/app/components/receipts/location/ReceiptLocationSection';
 import { ReceiptParsedDataForm } from '@/app/components/receipts/ReceiptParsedDataForm';
@@ -837,15 +837,35 @@ export default function ReceiptDocumentPage() {
             >
               {t.exportToTable}
             </DetailActionButton>
-            <DetailActionButton
-              variant="default"
-              type="button"
-              onClick={() => void handleApprove()}
-              disabled={saving}
-            >
-              {saving ? <Spinner className="size-[18px] mr-2" /> : null}
-              {t.approve}
-            </DetailActionButton>
+            {/* Approving again books nothing new, so an approved receipt says so instead. */}
+            {receipt.status === 'approved' ? (
+              <Box
+                role="status"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  px: 1.5,
+                  height: 32,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'var(--primary)',
+                }}
+              >
+                <CheckCircle size={18} />
+                {t.approvedState}
+              </Box>
+            ) : (
+              <DetailActionButton
+                variant="default"
+                type="button"
+                onClick={() => void handleApprove()}
+                disabled={saving}
+              >
+                {saving ? <Spinner className="size-[18px] mr-2" /> : null}
+                {t.approve}
+              </DetailActionButton>
+            )}
           </Box>
         </Box>
 

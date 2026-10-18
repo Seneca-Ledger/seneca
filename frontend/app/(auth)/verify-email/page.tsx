@@ -1,21 +1,23 @@
 'use client';
 
-import { Alert, Box, CircularProgress, Typography } from '@mui/material';
-import MuiLink from '@mui/material/Link';
+import { CircularProgress, Typography } from '@mui/material';
 import NextLink from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import React, { Suspense, useEffect, useState } from 'react';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { Check } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { AuthHero } from '../AuthHero';
 import AuthLayout from '../AuthLayout';
 
 type Status = 'checking' | 'confirmed' | 'failed';
 
 function VerifyEmailContent(): React.JSX.Element {
   const t = useIntlayer('verifyEmailPage');
+  const tl = useIntlayer('loginPage');
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -40,54 +42,40 @@ function VerifyEmailContent(): React.JSX.Element {
       });
   }, [token, t.missingToken.value, t.genericError.value]);
 
-  const sideContent = (
-    <Box sx={{ color: 'white' }}>
-      <Typography
-        variant="h2"
-        fontWeight="bold"
-        gutterBottom
-        sx={{
-          fontFamily: 'var(--font-nunito), "Nunito", sans-serif',
-          textShadow: '0 4px 20px rgba(0,0,0,0.3)',
-        }}
-      >
-        Lumio
-      </Typography>
-    </Box>
-  );
+  const sideContent = <AuthHero tagline={tl.rightTagline} />;
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
-      <Typography variant="h4" fontWeight="bold" align="center" sx={{ mb: 4 }}>
+      <div className="lumio-auth-logo" role="img" aria-label="Lumio" />
+      <Typography component="h1" className="lumio-auth-title">
         {t.title}
       </Typography>
 
       {status === 'checking' && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-          <CircularProgress size={20} />
-          <Typography variant="body1" color="text.secondary">
-            {t.checking}
-          </Typography>
-        </Box>
+        <p role="status" className="lumio-auth-notice lumio-auth-notice--plain">
+          <CircularProgress size={16} color="inherit" />
+          <span>{t.checking}</span>
+        </p>
       )}
 
       {status === 'confirmed' && (
-        <Alert severity="success" sx={{ mb: 3, width: '100%' }}>
-          {t.success}
-        </Alert>
+        <p role="status" className="lumio-auth-notice">
+          <Check size={18} aria-hidden />
+          <span>{t.success}</span>
+        </p>
       )}
 
       {status === 'failed' && (
-        <Alert severity="error" sx={{ mb: 3, width: '100%' }}>
+        <p role="alert" className="lumio-auth-error lumio-auth-error--block">
           {error}
-        </Alert>
+        </p>
       )}
 
-      <Typography variant="body2" align="center">
-        <MuiLink component={NextLink} href="/login" underline="hover">
+      <p className="lumio-auth-footnote">
+        <NextLink href="/login" className="lumio-auth-link lumio-auth-link--accent">
           {t.backToLogin}
-        </MuiLink>
-      </Typography>
+        </NextLink>
+      </p>
     </AuthLayout>
   );
 }

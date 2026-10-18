@@ -130,14 +130,40 @@ describe('OverviewTab', () => {
     expect(screen.getByText('No transactions this period')).toBeInTheDocument();
   });
 
-  it('colours net and savings rate by sign', () => {
+  it('marks net and savings rate by sign with a dot, keeping the figure ink', () => {
     renderTab({
       ...baseData,
       snapshot: { ...baseData.snapshot, income30d: 1000, expense30d: 1500 },
     });
 
-    expect(screen.getByText('−500').className).toContain('lumio-dashboard__stat-value--negative');
-    expect(screen.getByText('-50%').className).toContain('lumio-dashboard__stat-value--negative');
+    expect(
+      screen.getByText('−500').closest('.lumio-dashboard__stat')?.querySelector(
+        '.lumio-dashboard__stat-dot--negative',
+      ),
+    ).not.toBeNull();
+    expect(
+      screen.getByText('-50%').closest('.lumio-dashboard__stat')?.querySelector(
+        '.lumio-dashboard__stat-dot--negative',
+      ),
+    ).not.toBeNull();
+  });
+
+  it('leaves zero figures neutral', () => {
+    renderTab({
+      ...baseData,
+      snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
+    });
+
+    expect(document.querySelector('.lumio-dashboard__stat-dot')).toBeNull();
+  });
+
+  it('shows a 0% savings rate when there is no income', () => {
+    renderTab({
+      ...baseData,
+      snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
+    });
+
+    expect(screen.getByText('0%').className).toBe('lumio-dashboard__stat-value');
   });
 
   it('no longer hosts cash flow, quick actions or the upload zone', () => {
@@ -212,7 +238,12 @@ describe('OverviewTab', () => {
       expect(screen.getByText('Marketing')).toBeInTheDocument();
       expect(screen.getByText('Office rent')).toBeInTheDocument();
     });
-    expect(screen.getByText('90%').className).toContain('lumio-dashboard__stat-value--warning');
+    // The figure stays neutral; a budget in its last tenth marks its bar instead.
+    expect(screen.getByText('90%').className).toBe('lumio-dashboard__budget-pct');
+    expect(
+      screen.getByText('90%').closest('.lumio-dashboard__budget-row')?.querySelector('[data-tone]')
+        ?.getAttribute('data-tone'),
+    ).toBe('near');
   });
 });
 

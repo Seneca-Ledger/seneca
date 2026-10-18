@@ -1,7 +1,9 @@
 import { Controller, Get, Header, Param, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import { PublicInvoiceView } from '../../contracts';
 import { Public } from '../auth/decorators/public.decorator';
 import { PublicInvoicesService } from './public-invoices.service';
 
@@ -21,6 +23,7 @@ export class PublicInvoicesController {
   @Get(':token')
   @Header('X-Robots-Tag', 'noindex, nofollow')
   @Header('Cache-Control', 'no-store')
+  @SchemaResponse(PublicInvoiceView)
   async view(@Param('token') token: string) {
     return this.publicInvoicesService.view(token);
   }

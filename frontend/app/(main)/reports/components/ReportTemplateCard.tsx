@@ -14,6 +14,16 @@ export interface ReportTemplate {
   icon: LucideIcon;
   category: 'financial' | 'operational' | 'tax';
   formats: Array<'pdf' | 'excel' | 'csv'>;
+  /** 'none' for a snapshot of today, where a date range means nothing. Defaults to 'range'. */
+  period?: 'range' | 'none';
+  /** Wallet and category filters; off for documents that are not a transaction query. */
+  scopeFilters?: boolean;
+  /** The day / week / month bucket picker. */
+  groupBy?: boolean;
+  /** Whether the on-screen preview is offered. Defaults to true. */
+  preview?: boolean;
+  /** A line under the description, e.g. a limit on the period. */
+  hint?: string;
 }
 
 interface ReportTemplateCardProps {

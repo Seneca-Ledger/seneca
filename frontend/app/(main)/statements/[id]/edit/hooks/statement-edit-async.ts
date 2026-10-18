@@ -1,13 +1,14 @@
 import { toast } from 'react-hot-toast';
-import apiClient from '@/app/lib/api';
+import { isReceiptDerivedStatement } from '@/app/(main)/statements/components/StatementsListView.utils';
+import apiClient, { type UncheckedResponse } from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
+import { unwrapEnvelope } from '@/app/lib/query-fn';
 import { type ContractInput, checkBody, checkContract } from '@/app/lib/query-fn-schema';
 import type {
   BranchOption,
   CategoryOption,
   Statement,
-  StatementParsingDetails,
   Transaction,
   WalletOption,
 } from '../editHelpers';
@@ -26,14 +27,13 @@ type MetaForm = {
   statementDateTo: string;
 };
 
-function extractApiData<T>(res: { data?: { data?: T } | T }): T {
-  const d = res.data as { data?: T } | undefined;
-  return (d?.data ?? res.data) as T;
-}
+/** Some answers come wrapped in `{ data }`; the caller's contract checks what is inside. */
+const payloadOf = (response: UncheckedResponse): unknown => unwrapEnvelope(response.data);
 
-function extractListData<T>(res: { data?: { data?: T[] } | T[] }): T[] {
-  const d = res.data as { data?: T[] } | undefined;
-  return (d?.data ?? res.data ?? []) as T[];
+/** The statement as the editor reads it. */
+async function readStatement(statementId: string): Promise<Statement> {
+  const response = await apiClient.get(`/statements/${statementId}`);
+  return checkContract('StatementDetail', payloadOf(response), '/statements/:id');
 }
 
 function extractMeta(statementData: Statement | null): Record<string, unknown> {
@@ -74,6 +74,8 @@ type LoadSetters = {
   setWallets: (v: WalletOption[]) => void;
   setMetadataForm: (v: MetaForm) => void;
   setError: (v: string) => void;
+  /** Leaves the editor for another page instead of showing it. */
+  redirect: (href: string) => void;
 };
 type LoadMessages = { loadDataError: string };
 
@@ -82,39 +84,49 @@ export async function loadStatementData(
   messages: LoadMessages,
   set: LoadSetters,
 ): Promise<void> {
+  // While leaving for the receipt the editor keeps its loader, so it never flashes empty.
+  let redirected = false;
   try {
     set.setLoading(true);
     set.setOptionsLoading(true);
     const transactionsUrl = `/transactions?statement_id=${statementId}&limit=1000`;
-    const [sRes, tRes, cRes, bRes, wRes] = await Promise.all([
-      apiClient.get(`/statements/${statementId}`),
+    const [statementData, tRes, cRes, bRes, wRes] = await Promise.all([
+      readStatement(statementId),
       apiClient.get(transactionsUrl),
       apiClient.get('/categories'),
       apiClient.get('/branches'),
       apiClient.get('/wallets'),
     ]);
-    const detail = await checkContract(
-      'StatementDetail',
-      extractApiData(sRes),
-      `/statements/${statementId}`,
-    );
-    // The parser's blob: the editor reads it through its own lenient type.
-    const statementData: Statement = {
-      ...detail,
-      parsingDetails: detail.parsingDetails as StatementParsingDetails | null,
-    };
+    // A scan's statement is the receipt's internal twin, hidden in every list:
+    // its page is the receipt's. Any link that still lands here goes on there.
+    if (isReceiptDerivedStatement(statementData)) {
+      const rRes = await apiClient.get('/receipts', { params: { statementId, limit: 1 } });
+      const page = await checkContract('ReceiptListPage', rRes.data, '/receipts');
+      const receipt = page.data[0];
+      if (receipt) {
+        redirected = true;
+        set.redirect(
+          receipt.source === 'gmail'
+            ? `/storage/gmail-receipts/${receipt.id}`
+            : `/storage/receipts/${receipt.id}`,
+        );
+        return;
+      }
+    }
     set.setStatement(statementData);
-    const rows = await checkContract('TransactionList', extractApiData(tRes), transactionsUrl);
+    const rows = await checkContract('TransactionList', payloadOf(tRes), transactionsUrl);
     set.setTransactions(rows.map(toEditableTransaction));
-    set.setCategories(await checkContract('CategoryList', extractListData(cRes), '/categories'));
-    set.setBranches(extractListData<BranchOption>(bRes));
-    set.setWallets(await checkContract('WalletList', extractListData(wRes), '/wallets'));
+    set.setCategories(await checkContract('CategoryList', payloadOf(cRes), '/categories'));
+    set.setBranches(await checkContract('BranchList', payloadOf(bRes), '/branches'));
+    set.setWallets(await checkContract('WalletList', payloadOf(wRes), '/wallets'));
     set.setMetadataForm(buildMetadataForm(statementData, extractMeta(statementData)));
   } catch (err: unknown) {
     set.setError(getApiErrorMessage(err, messages.loadDataError));
   } finally {
-    set.setLoading(false);
-    set.setOptionsLoading(false);
+    if (!redirected) {
+      set.setLoading(false);
+      set.setOptionsLoading(false);
+    }
   }
 }
 
@@ -186,35 +198,12 @@ export async function exportToCustomTable({
   }
 }
 
-type SampleResult = {
-  statement?: Statement;
-  data?: { statement?: Statement; transaction?: Transaction };
-  transaction?: Transaction;
-};
-function resolveUpdatedStatement(data: SampleResult): Statement | undefined {
-  return data?.statement ?? data?.data?.statement;
-}
-function resolveCreatedTransaction(data: SampleResult): Transaction | undefined {
-  return data?.transaction ?? data?.data?.transaction;
-}
-function extractDroppedSampleResult(data: SampleResult): {
-  updatedStatement?: Statement;
-  createdTransaction?: Transaction;
-} {
-  return {
-    updatedStatement: resolveUpdatedStatement(data),
-    createdTransaction: resolveCreatedTransaction(data),
-  };
-}
-
 type ConvertArgs = {
   statementId: string;
   sample: { transaction?: unknown };
   index: number;
   warning?: string;
   loadData: () => Promise<void>;
-  setStatement: (v: Statement | null) => void;
-  setTransactions: (fn: (prev: Transaction[]) => Transaction[]) => void;
   setSuccess: (v: boolean) => void;
 };
 
@@ -224,8 +213,6 @@ export async function convertDroppedSampleAction({
   index,
   warning,
   loadData,
-  setStatement,
-  setTransactions,
   setSuccess,
 }: ConvertArgs): Promise<void> {
   // The sample is the parser's own record, typed only as unknown here.
@@ -234,28 +221,11 @@ export async function convertDroppedSampleAction({
     { index, warning, transaction: sample.transaction },
     '/statements/:id/convert-dropped-sample',
   );
-  const response = await apiClient.post(`/statements/${statementId}/convert-dropped-sample`, body);
-  const { updatedStatement, createdTransaction } = extractDroppedSampleResult(response.data);
-  if (updatedStatement) {
-    setStatement(updatedStatement);
-  }
-  if (createdTransaction) {
-    setTransactions(prev => [createdTransaction, ...prev]);
-  } else {
-    await loadData();
-  }
+  await apiClient.post(`/statements/${statementId}/convert-dropped-sample`, body);
+  // The answer is the raw rows; reading them back goes through the editor's contracts.
+  await loadData();
   setSuccess(true);
   setTimeout(() => setSuccess(false), 3000);
-}
-
-function resolveSelectedCategory(
-  responseCategory: unknown,
-  flatCategories: { id: string; name: string }[],
-  categoryId: string,
-): Statement['category'] {
-  return (responseCategory ??
-    flatCategories.find(c => c.id === categoryId) ??
-    null) as Statement['category'];
 }
 
 function canUpdateCategory(statement: Statement | null, saving: boolean): statement is Statement {
@@ -265,7 +235,6 @@ function canUpdateCategory(statement: Statement | null, saving: boolean): statem
 type CategoryArgs = {
   statement: Statement | null;
   categoryId: string;
-  flatCategories: { id: string; name: string }[];
   messages: { categoryUpdated: string; categoryUpdateFailed: string };
   statementCategorySaving: boolean;
   setStatementCategorySaving: (v: boolean) => void;
@@ -276,7 +245,6 @@ type CategoryArgs = {
 export async function updateStatementCategoryAction({
   statement,
   categoryId,
-  flatCategories,
   messages,
   statementCategorySaving,
   setStatementCategorySaving,
@@ -291,19 +259,13 @@ export async function updateStatementCategoryAction({
     const response = await apiClient.patch(`/storage/files/${statement.id}/category`, {
       categoryId: categoryId || null,
     } satisfies ContractInput<'UpdateFileCategoryBody'>);
-    const selectedCategory = resolveSelectedCategory(
-      response.data?.category,
-      flatCategories,
-      categoryId,
+    const updated = await checkContract(
+      'FileCategoryUpdate',
+      response.data,
+      '/storage/files/:id/category',
     );
     setStatement(prev =>
-      prev
-        ? {
-            ...prev,
-            categoryId: response.data?.categoryId ?? (categoryId || null),
-            category: selectedCategory,
-          }
-        : prev,
+      prev ? { ...prev, categoryId: updated.categoryId, category: updated.category } : prev,
     );
     invalidateDocumentLists();
     toast.success(messages.categoryUpdated);
@@ -332,12 +294,11 @@ export async function metadataAutoSave({
       statementDateFrom: formData.statementDateFrom || null,
       statementDateTo: formData.statementDateTo || null,
     };
-    const response = await apiClient.patch(
+    await apiClient.patch(
       `/statements/${statementId}`,
       payload satisfies ContractInput<'UpdateStatementBody'>,
     );
-    const updatedStatement = response.data?.data || response.data;
-    setStatement(updatedStatement as Statement);
+    setStatement(await readStatement(statementId));
     invalidateDocumentLists();
   } catch (err) {
     console.error('Metadata autosave failed:', err);

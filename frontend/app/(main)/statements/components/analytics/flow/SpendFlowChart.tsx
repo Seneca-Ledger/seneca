@@ -15,17 +15,18 @@ import {
   useSpendFlow,
 } from '@/app/(main)/statements/components/analytics/flow/useSpendFlow';
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
-import { formatMoney } from '@/app/lib/analytics-common';
+import { useLocale } from '@/app/i18n';
+import { formatMoney } from '@/app/lib/format-money';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 
 /** Below this width the third column has no room for its labels. */
 const COMPACT_WIDTH = 640;
 
 /**
- * Two blinks of the band a deep link points at, each one the hover state the
- * reader would have produced themselves (`emphasis.focus: 'adjacency'` dims the
- * rest), then back to normal. Offsets from the chart being ready, in ms: the
- * first pause lets the grow-in animation finish, so the blink is not lost in it.
+ * Two blinks of the band a deep link points at, its node and the link into it,
+ * then back to normal. Offsets from the chart being ready, in ms: the first
+ * pause lets the grow-in animation finish, so the blink is not lost in it.
  */
 const FLASH_SEQUENCE: Array<[delay: number, action: 'highlight' | 'downplay']> = [
   [700, 'highlight'],
@@ -33,8 +34,19 @@ const FLASH_SEQUENCE: Array<[delay: number, action: 'highlight' | 'downplay']> =
   [1650, 'highlight'],
   [2250, 'downplay'],
 ];
+/** When the blinks are over and hovering dims the rest again. */
+const FLASH_END_MS = 2300;
 
-type EChartsLike = { dispatchAction: (payload: { type: string; [key: string]: unknown }) => void };
+/** The node's own tooltip names the band for the whole blink. */
+const FLASH_TOOLTIP: Array<[delay: number, action: 'showTip' | 'hideTip']> = [
+  [700, 'showTip'],
+  [3200, 'hideTip'],
+];
+
+type EChartsLike = {
+  dispatchAction: (payload: { type: string; [key: string]: unknown }) => void;
+  setOption: (option: Record<string, unknown>) => void;
+};
 
 type Props = {
   groupBy: SpendFlowGroupBy;
@@ -46,6 +58,8 @@ type Props = {
   chartLabels: SpendFlowChartLabels;
   emptyLabels: { emptyMonthSpend: string; emptyMonthIncome: string; emptyMonthHint: string };
   errorLabel: string;
+  /** False where the section above already names the chart: no second title in the card. */
+  heading?: boolean;
   /**
    * A second-column label (a category, a merchant) to blink twice once the
    * chart is drawn — how a `?focus=` deep link points something out here, the
@@ -100,9 +114,12 @@ export function SpendFlowChart({
   chartLabels,
   emptyLabels,
   errorLabel,
+  heading = true,
   flashNodeName = null,
 }: Props): React.JSX.Element {
   const query = useSpendFlow(groupBy, type, month);
+  const { locale } = useLocale();
+  const categoryName = useCategoryName();
   // Fetch the echarts chunk alongside the data: otherwise LazyECharts' own
   // plain skeleton replaces the sankey-shaped one for a moment after the data lands.
   useEffect(() => {
@@ -116,17 +133,32 @@ export function SpendFlowChart({
     if (!data) {
       return null;
     }
-    const formatAmount = (value: number): string => formatMoney(value, data.currency);
+    // The app's money format: symbol first, cents only under 100.
+    const formatAmount = (value: number): string =>
+      formatMoney(value, data.currency, locale, {
+        fractionDigits: Math.abs(value) >= 100 || Number.isInteger(value) ? 0 : 2,
+      });
     return buildSpendFlowSankey(data, resolvedTheme, chartLabels, formatAmount, {
       compact,
       isIncome: type === 'income',
+      categoryName,
     });
-  }, [data, resolvedTheme, chartLabels, compact, type]);
+  }, [data, resolvedTheme, chartLabels, compact, type, locale, categoryName]);
 
-  const flashNodeId = useMemo(
-    () => (data ? findSpendFlowNodeId(visibleSpendFlow(data, compact), flashNodeName) : null),
-    [data, compact, flashNodeName],
-  );
+  const flashNode = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+    const visible = visibleSpendFlow(data, compact);
+    const id = findSpendFlowNodeId(visible, flashNodeName);
+    // The series draws the visible nodes and links in this order.
+    return id
+      ? {
+          index: visible.nodes.findIndex(node => node.id === id),
+          edgeIndex: visible.links.findIndex(link => link.source === 'total' && link.target === id),
+        }
+      : null;
+  }, [data, compact, flashNodeName]);
   const flashTimersRef = useRef<number[]>([]);
   useEffect(
     () => () => {
@@ -141,17 +173,50 @@ export function SpendFlowChart({
   // the chart is remounted (keyed by flow and month) whenever its data changes.
   const handleChartReady = useCallback(
     (instance: EChartsLike) => {
-      if (!flashNodeId) {
+      if (!flashNode) {
         return;
       }
-      flashTimersRef.current = FLASH_SEQUENCE.map(([delay, action]) =>
+      // The hover look (`focus: 'adjacency'`) dims every other band, so blinking
+      // a thin one made the largest band flicker instead, and that read as the
+      // pick. While blinking, only the target's node and link light up.
+      instance.setOption({ series: [{ emphasis: { focus: 'none' } }] });
+      const blink = (type: 'highlight' | 'downplay'): void => {
+        instance.dispatchAction({
+          type,
+          seriesIndex: 0,
+          dataType: 'node',
+          dataIndex: flashNode.index,
+        });
+        if (flashNode.edgeIndex >= 0) {
+          instance.dispatchAction({
+            type,
+            seriesIndex: 0,
+            dataType: 'edge',
+            dataIndex: flashNode.edgeIndex,
+          });
+        }
+      };
+      flashTimersRef.current = [
+        ...FLASH_SEQUENCE.map(([delay, action]) => window.setTimeout(() => blink(action), delay)),
         window.setTimeout(
-          () => instance.dispatchAction({ type: action, seriesIndex: 0, name: flashNodeId }),
-          delay,
+          () => instance.setOption({ series: [{ emphasis: { focus: 'adjacency' } }] }),
+          FLASH_END_MS,
         ),
-      );
+        ...FLASH_TOOLTIP.map(([delay, action]) =>
+          window.setTimeout(
+            () =>
+              instance.dispatchAction({
+                type: action,
+                seriesIndex: 0,
+                dataIndex: flashNode.index,
+                dataType: 'node',
+              }),
+            delay,
+          ),
+        ),
+      ];
     },
-    [flashNodeId],
+    [flashNode],
   );
 
   const renderBody = (): React.JSX.Element => {
@@ -193,10 +258,12 @@ export function SpendFlowChart({
         minWidth: 0,
       }}
     >
-      <div style={{ marginBottom: 12 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{title}</h3>
-        <p style={{ marginTop: 2, fontSize: 12, color: 'var(--muted-foreground)' }}>{subtitle}</p>
-      </div>
+      {heading ? (
+        <div style={{ marginBottom: 12 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}>{title}</h3>
+          <p style={{ marginTop: 2, fontSize: 14, color: 'var(--text-muted)' }}>{subtitle}</p>
+        </div>
+      ) : null}
       {renderBody()}
     </section>
   );

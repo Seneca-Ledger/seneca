@@ -2,9 +2,16 @@ import { Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { CreateCategoryBody, UpdateCategoryBody } from '../../contracts';
+import {
+  CategoryList,
+  CategoryUsageCount,
+  CategoryUsageCounts,
+  CreateCategoryBody,
+  UpdateCategoryBody,
+} from '../../contracts';
 import type { CategoryType } from '../../entities/category.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -26,6 +33,7 @@ export class CategoriesController {
 
   @Get()
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategoryList)
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -36,12 +44,14 @@ export class CategoriesController {
 
   @Get('usage/counts')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategoryUsageCounts)
   async getWorkspaceUsageCounts(@WorkspaceId() workspaceId: string) {
     return this.categoriesService.getWorkspaceCategoryUsageCounts(workspaceId);
   }
 
   @Get(':id/usage-count')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategoryUsageCount)
   async getUsageCount(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     return this.categoriesService.getCategoryUsageCount(id, workspaceId);
   }

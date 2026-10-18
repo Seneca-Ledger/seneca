@@ -16,6 +16,7 @@ import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import type { PayablePayment, PaymentCandidate } from '@/app/lib/payables-api';
+import { useCategoryName } from '@/app/lib/use-category-name';
 
 export type WalletOption = { id: string; name: string; currency: string; isActive?: boolean };
 
@@ -86,53 +87,59 @@ function CandidateLabel(props: { candidate: PaymentCandidate; locale: string }):
 
 export type CashState = { walletId: string | null; paidOn: string; categoryId: string };
 
+/** The "wallet" of cash handed over in person and kept nowhere: booked with no wallet. */
+export const IN_HAND = 'in-hand';
+
 /** Where and when a cash payment was made; the server records it as a transaction. */
 export function CashFields(props: {
-  currency: string;
   wallets: WalletOption[];
-  walletsLoading: boolean;
   categories: Category[];
   value: CashState;
   onChange: (next: CashState) => void;
+  /** Booking a payment already recorded: its own day stands, so none is asked for. */
+  hideDate?: boolean;
 }): React.JSX.Element {
   const t = useIntlayer('payableMarkPaid');
+  const unbookedText = useIntlayer('payablesUnbooked');
+  const categoryName = useCategoryName();
   const { value, onChange } = props;
-  const noWallet = props.wallets.length === 0 && !props.walletsLoading;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      {noWallet ? (
-        <Alert severity="info">{t.noWallets.value.replace('{currency}', props.currency)}</Alert>
-      ) : (
+      {/* Cash in hand is always an option: a sale paid in person needs no wallet. */}
+      <Box>
+        <Typography
+          component="label"
+          id="mark-paid-wallet-label"
+          htmlFor="mark-paid-wallet"
+          variant="caption"
+        >
+          {t.wallet.value}
+        </Typography>
+        <Select
+          id="mark-paid-wallet"
+          labelId="mark-paid-wallet-label"
+          value={value.walletId ?? ''}
+          options={[
+            ...props.wallets.map(wallet => ({ value: wallet.id, label: wallet.name })),
+            { value: IN_HAND, label: unbookedText.inHand.value },
+          ]}
+          onChange={walletId => onChange({ ...value, walletId })}
+        />
+      </Box>
+      {!props.hideDate && (
         <Box>
-          <Typography
-            component="label"
-            id="mark-paid-wallet-label"
-            htmlFor="mark-paid-wallet"
-            variant="caption"
-          >
-            {t.wallet.value}
+          <Typography component="label" htmlFor="mark-paid-date" variant="caption">
+            {t.paidOn.value}
           </Typography>
-          <Select
-            id="mark-paid-wallet"
-            labelId="mark-paid-wallet-label"
-            value={value.walletId ?? ''}
-            options={props.wallets.map(wallet => ({ value: wallet.id, label: wallet.name }))}
-            onChange={walletId => onChange({ ...value, walletId })}
+          <CustomDatePicker
+            id="mark-paid-date"
+            large
+            value={value.paidOn}
+            maxDate={today()}
+            onChange={paidOn => onChange({ ...value, paidOn })}
           />
         </Box>
       )}
-      <Box>
-        <Typography component="label" htmlFor="mark-paid-date" variant="caption">
-          {t.paidOn.value}
-        </Typography>
-        <CustomDatePicker
-          id="mark-paid-date"
-          large
-          value={value.paidOn}
-          maxDate={today()}
-          onChange={paidOn => onChange({ ...value, paidOn })}
-        />
-      </Box>
       <Box>
         <Typography
           component="label"
@@ -148,12 +155,17 @@ export function CashFields(props: {
           value={value.categoryId}
           options={[
             { value: '', label: t.noCategory.value },
-            ...props.categories.map(category => ({ value: category.id, label: category.name })),
+            ...props.categories.map(category => ({
+              value: category.id,
+              label: categoryName(category.name),
+            })),
           ]}
           onChange={categoryId => onChange({ ...value, categoryId })}
         />
       </Box>
-      <Alert severity="info">{t.cashHint.value}</Alert>
+      <Alert severity="info">
+        {value.walletId === IN_HAND ? unbookedText.inHandHint.value : t.cashHint.value}
+      </Alert>
     </Box>
   );
 }
@@ -226,6 +238,7 @@ export function PaymentLog(props: {
   onRemove: (paymentId: string) => void;
 }): React.JSX.Element | null {
   const t = useIntlayer('payableMarkPaid');
+  const unbookedText = useIntlayer('payablesUnbooked');
   if (props.payments.length === 0) {
     return null;
   }
@@ -246,6 +259,13 @@ export function PaymentLog(props: {
                 {' '}
                 ({String(t.feeAmount.value)}{' '}
                 {formatMoney(Number(payment.feeAmount), props.currency, props.locale)})
+              </Typography>
+            )}
+            {/* Recorded without money: it counts once its bank row or wallet is known. */}
+            {!payment.transactionId && (
+              <Typography component="span" variant="caption" sx={{ color: 'var(--attention)' }}>
+                {' · '}
+                {unbookedText.notInAccount.value}
               </Typography>
             )}
           </Typography>

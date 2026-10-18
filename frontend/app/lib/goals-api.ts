@@ -1,3 +1,4 @@
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import type { GoalFlowResponse, GoalItemsResponse, GoalPlanResponse } from './contracts';
 import { apiQueryDecoded } from './query-fn-schema';
 
@@ -23,7 +24,7 @@ export function fetchGoalFlow(
 ): Promise<GoalFlowResponse> {
   return apiQueryDecoded({
     url: `/goals/${goalId}/flow`,
-    params: { month },
+    params: { month } satisfies ContractInput<'GoalMonthQuery'>,
     signal,
     contract: 'GoalFlowResponse',
   });

@@ -3,6 +3,13 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
+
 const get = vi.fn();
 const post = vi.fn();
 const del = vi.fn();
@@ -22,6 +29,7 @@ import { TaxRulesSection } from './TaxRulesSection';
 const CATEGORIES = [
   categoryItem({ id: 'cat-rent', name: 'Аренда' }),
   categoryItem({ id: 'cat-food', name: 'Материалы' }),
+  categoryItem({ id: 'cat-ads', name: 'Advertising' }),
 ];
 
 // The wire format (packages/contracts TaxRateItem).
@@ -56,6 +64,7 @@ function mockApi({ rules = [] as unknown[], rates = RATES } = {}) {
 describe('TaxRulesSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    appLocale.current = 'en';
     post.mockResolvedValue({ data: {} });
     del.mockResolvedValue({ data: {} });
   });
@@ -101,8 +110,46 @@ describe('TaxRulesSection', () => {
     });
     render(<TaxRulesSection />);
 
-    expect(await screen.findByText('Аренда')).toBeInTheDocument();
+    // A system category stored under its Russian name reads in the reader's language.
+    expect(await screen.findByText('Rent')).toBeInTheDocument();
     expect(screen.getByText('KZ_ZERO')).toBeInTheDocument();
+  });
+
+  it("names categories in the reader's language and saves the chosen one by id", async () => {
+    appLocale.current = 'ru';
+    mockApi({
+      rules: [
+        {
+          id: 'rule-1',
+          categoryId: 'cat-ads',
+          taxRateCode: 'KZ_ZERO',
+          priority: 0,
+          direction: 'expense',
+          isEnabled: true,
+        },
+      ],
+    });
+    render(<TaxRulesSection />);
+
+    const list = within(await screen.findByRole('list', { name: 'Tax rules' }));
+    expect(list.getByText('Реклама')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delete rule for Реклама/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText('Category'));
+    const options = within(await screen.findByRole('listbox'));
+    expect(options.queryByText('Advertising')).not.toBeInTheDocument();
+    await userEvent.click(options.getByText('Реклама'));
+    await userEvent.click(screen.getByLabelText('Rate'));
+    await userEvent.click(within(await screen.findByRole('listbox')).getByText('НДС 0%'));
+    await userEvent.click(screen.getByRole('button', { name: 'Add rule' }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith('/tax/rules', {
+        categoryId: 'cat-ads',
+        taxRateCode: 'KZ_ZERO',
+        direction: 'both',
+      }),
+    );
   });
 
   it('describes a catch-all rule as covering any category', async () => {
@@ -180,7 +227,7 @@ describe('TaxRulesSection', () => {
     });
     render(<TaxRulesSection />);
 
-    await userEvent.click(await screen.findByRole('button', { name: /Delete rule for Аренда/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Delete rule for Rent/ }));
 
     await waitFor(() => expect(del).toHaveBeenCalledWith('/tax/rules/rule-1'));
   });

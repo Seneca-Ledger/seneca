@@ -1,35 +1,38 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Put,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import * as fs from 'fs';
+import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
   AddPayablePaymentBody,
   AllocateTransactionBody,
+  AllocationSuggestion,
+  BookPayablePaymentBody,
   CreatePayableBody,
   FilterPayablesBody,
   MarkPayablePaidBody,
+  Payable,
+  PayableList,
+  PayableListPage,
+  PayablePaymentList,
+  PayablesQuery,
+  PayablesSummary,
+  PaymentCandidateList,
   UpdatePayableBody,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
+import { PayableDirection } from '../../entities/payable.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { FilterPayablesDto } from './dto/filter-payables.dto';
 import { PayablesService } from './payables.service';
 
 @Controller('payables')
@@ -39,6 +42,7 @@ export class PayablesController {
   @Post()
   @WorkspaceAuth(Permission.PAYABLE_CREATE)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Payable)
   async create(
     @SchemaBody(CreatePayableBody) createDto: CreatePayableBody,
     @CurrentUser() user: User,
@@ -49,24 +53,34 @@ export class PayablesController {
 
   @Get()
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
-  async findAll(@WorkspaceId() workspaceId: string, @Query() query: FilterPayablesDto) {
+  @SchemaResponse(PayableListPage)
+  async findAll(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(PayablesQuery) query: PayablesQuery,
+  ) {
     return this.payablesService.findAll(workspaceId, query);
   }
 
   @Get('summary')
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
-  async getSummary(@WorkspaceId() workspaceId: string, @Query() query: FilterPayablesDto) {
-    return this.payablesService.getSummary(workspaceId, query.direction);
+  @SchemaResponse(PayablesSummary)
+  async getSummary(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(PayablesQuery) query: PayablesQuery,
+  ) {
+    return this.payablesService.getSummary(workspaceId, toEnum(PayableDirection, query.direction));
   }
 
   @Get(':id')
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
+  @SchemaResponse(Payable)
   async findOne(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
     return this.payablesService.findOne(id, workspaceId);
   }
 
   @Get(':id/payment-candidates')
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
+  @SchemaResponse(PaymentCandidateList)
   async findPaymentCandidates(
     @Param('id', new ParseUUIDPipe()) id: string,
     @WorkspaceId() workspaceId: string,
@@ -76,6 +90,7 @@ export class PayablesController {
 
   @Get(':id/payments')
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
+  @SchemaResponse(PayablePaymentList)
   async listPayments(
     @Param('id', new ParseUUIDPipe()) id: string,
     @WorkspaceId() workspaceId: string,
@@ -86,6 +101,7 @@ export class PayablesController {
   @Post(':id/payments')
   @WorkspaceAuth(Permission.PAYABLE_EDIT)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Payable)
   async addPayment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @SchemaBody(AddPayablePaymentBody) dto: AddPayablePaymentBody,
@@ -95,9 +111,24 @@ export class PayablesController {
     return this.payablesService.addPayment(id, workspaceId, user.id, dto);
   }
 
+  /** Where the money of a payment marked without it went: a bank row, or a wallet. */
+  @Post(':id/payments/:paymentId/book')
+  @WorkspaceAuth(Permission.PAYABLE_EDIT)
+  @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  async bookPayment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
+    @SchemaBody(BookPayablePaymentBody) dto: BookPayablePaymentBody,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payablesService.bookPayment(id, paymentId, workspaceId, user.id, dto);
+  }
+
   @Delete(':id/payments/:paymentId')
   @WorkspaceAuth(Permission.PAYABLE_EDIT)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Payable)
   async removePayment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
@@ -109,6 +140,7 @@ export class PayablesController {
   /** Which bills one transaction probably covers; writes nothing. */
   @Get('allocation-suggestion/:transactionId')
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
+  @SchemaResponse(AllocationSuggestion)
   async suggestAllocation(
     @Param('transactionId', new ParseUUIDPipe()) transactionId: string,
     @WorkspaceId() workspaceId: string,
@@ -120,6 +152,7 @@ export class PayablesController {
   @Post('allocate')
   @WorkspaceAuth(Permission.PAYABLE_EDIT)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: false, isUndoable: false })
+  @SchemaResponse(PayableList)
   async allocate(
     @SchemaBody(AllocateTransactionBody) dto: AllocateTransactionBody,
     @CurrentUser() user: User,
@@ -131,6 +164,7 @@ export class PayablesController {
   @Put(':id')
   @WorkspaceAuth(Permission.PAYABLE_EDIT)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Payable)
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @SchemaBody(UpdatePayableBody) updateDto: UpdatePayableBody,
@@ -143,6 +177,7 @@ export class PayablesController {
   @Put(':id/mark-paid')
   @WorkspaceAuth(Permission.PAYABLE_EDIT)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Payable)
   async markAsPaid(
     @Param('id', new ParseUUIDPipe()) id: string,
     @SchemaBody(MarkPayablePaidBody) body: MarkPayablePaidBody,
@@ -155,6 +190,7 @@ export class PayablesController {
   @Put(':id/archive')
   @WorkspaceAuth(Permission.PAYABLE_EDIT)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Payable)
   async archive(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: User,
@@ -176,6 +212,8 @@ export class PayablesController {
   }
 
   @Post('export')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
   async export(
     @SchemaBody(FilterPayablesBody) body: FilterPayablesBody,

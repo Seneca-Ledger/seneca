@@ -1,4 +1,4 @@
-import { countedSql } from '@/common/utils/counted-transactions.util';
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { BudgetPeriodType } from '@/entities/budget.entity';
 import { StoicClass } from '@/entities/category.entity';
 import { StoicLedgerService } from '@/modules/budgets/stoic/stoic-ledger.service';
@@ -43,7 +43,7 @@ function budget(overrides: Record<string, unknown>) {
 
 /** 1 USD = 0.5 EUR, to make conversion visible. */
 const exchangeRates = {
-  getRate: jest.fn(async (from: string) => (from === 'USD' ? 0.5 : 1)),
+  getRateOrNull: jest.fn(async (from: string) => (from === 'USD' ? 0.5 : 1)),
 };
 
 function service(budgets: unknown[], rows: SpendingRow[]) {
@@ -165,7 +165,7 @@ describe('StoicLedgerService', () => {
       workspaceId: 'ws-1',
     });
     expect(transactions.qb.andWhere).toHaveBeenCalledWith('t.is_duplicate = false');
-    expect(transactions.qb.andWhere).toHaveBeenCalledWith(countedSql('t'));
+    expect(transactions.qb.andWhere).toHaveBeenCalledWith(flowsSql('t'));
   });
 
   it('converts spending and limits into the workspace currency', async () => {

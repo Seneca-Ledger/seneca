@@ -33,6 +33,7 @@ import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import type {
   ConvertDroppedSampleBody,
   CreateManualExpenseBody,
+  StatementsQuery,
   UpdateStatementBody,
 } from '../../contracts';
 import { Category, Wallet, WorkspaceMember, WorkspaceRole } from '../../entities';
@@ -47,15 +48,16 @@ import {
 } from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
 import { AuditService } from '../audit/audit.service';
-import type {
-  DataDeletedEvent,
-  StatementUploadedEvent,
+import {
+  type DataDeletedEvent,
+  type StatementUploadedEvent,
+  transactionCreatedEvent,
 } from '../notifications/events/notification-events';
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
+import { reviewHoldsStatementRows } from '../review-inbox/review-queue.queries';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import type { FilterStatementsDto } from './dto/filter-statements.dto';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { buildStatementSearchClause } from './statement-search.util';
 
@@ -87,12 +89,6 @@ const APPROVED_STATUSES = [
   StatementStatus.VALIDATED,
   StatementStatus.COMPLETED,
   StatementStatus.PARSED,
-];
-const NOT_APPROVED_STATUSES = [
-  StatementStatus.UPLOADED,
-  StatementStatus.PROCESSING,
-  StatementStatus.ERROR,
-  StatementStatus.NEEDS_REVIEW,
 ];
 
 const toDateOnlyString = (value: Date) => {
@@ -480,6 +476,7 @@ export class StatementsService {
     // Проверка дубликата и обе вставки — в одной транзакции под advisory-lock:
     // иначе double-submit формы проходил check-then-act дважды и создавал два
     // одинаковых расхода (тот же паттерн, что в create() для выписок).
+    let createdTransaction: Transaction | null = null;
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
         `manual-expense:${workspaceId}:${payload.date}:${merchant}:${amountValue}:${currency}`,
@@ -572,7 +569,7 @@ export class StatementsService {
         isVerified: true,
       });
 
-      await manager.getRepository(Transaction).save(transaction);
+      createdTransaction = await manager.getRepository(Transaction).save(transaction);
       return created;
     });
 
@@ -604,6 +601,14 @@ export class StatementsService {
       severity: Severity.INFO,
       isUndoable: false,
     });
+
+    // After the commit: a listener must never see a row that rolled back.
+    if (createdTransaction) {
+      this.eventEmitter?.emit(
+        'transaction.created',
+        transactionCreatedEvent(createdTransaction, 'manual_expense'),
+      );
+    }
 
     return savedStatement;
   }
@@ -747,6 +752,10 @@ export class StatementsService {
       severity: Severity.INFO,
       isUndoable: false,
     });
+    this.eventEmitter?.emit(
+      'transaction.created',
+      transactionCreatedEvent(savedTransaction, 'dropped_sample'),
+    );
 
     return {
       statement: savedStatement,
@@ -886,7 +895,7 @@ export class StatementsService {
 
   async findAll(
     workspaceId: string,
-    filters: FilterStatementsDto = {},
+    filters: StatementsQuery = {},
   ): Promise<{
     data: Statement[];
     total: number;
@@ -934,15 +943,13 @@ export class StatementsService {
     }
 
     if (typeof filters.approved === 'boolean') {
-      if (filters.approved) {
-        qb.andWhere('statement.status IN (:...approvedStatuses)', {
-          approvedStatuses: APPROVED_STATUSES,
-        });
-      } else {
-        qb.andWhere('statement.status IN (:...notApprovedStatuses)', {
-          notApprovedStatuses: NOT_APPROVED_STATUSES,
-        });
-      }
+      // As the Approved column says it: parsed, and Review holds none of its rows.
+      const review = reviewHoldsStatementRows(this.transactionRepository, workspaceId, 'statement');
+      const approved = `(statement.status IN (:...approvedStatuses) AND NOT ${review.clause})`;
+      qb.andWhere(filters.approved ? approved : `NOT ${approved}`, {
+        approvedStatuses: APPROVED_STATUSES,
+        ...review.params,
+      });
     }
 
     if (typeof filters.billable === 'boolean') {

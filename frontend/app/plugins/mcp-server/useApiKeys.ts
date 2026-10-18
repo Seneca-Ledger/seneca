@@ -46,7 +46,9 @@ export function useApiKeys() {
   });
 
   const revokeMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api-keys/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/api-keys/${id}`);
+    },
     onSuccess: (_response, id) => {
       queryClient.setQueryData<ApiKeyItem[]>(queryKeys.apiKeys(workspaceId), previous =>
         (previous ?? []).filter(k => k.id !== id),

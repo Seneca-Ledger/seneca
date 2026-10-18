@@ -6,7 +6,6 @@ import {
   AccordionSummary,
   Box,
   Button,
-  Chip,
   Container,
   Dialog,
   DialogActions,
@@ -29,16 +28,7 @@ import Skeleton from '@mui/material/Skeleton';
 import { useParams, useRouter } from 'next/navigation';
 import { buildSourceColumnTitles } from '@/app/(main)/custom-tables/labels';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
-import {
-  ArrowLeft,
-  CheckCircle2,
-  ChevronDown,
-  Layers,
-  Receipt,
-  Save,
-  Trash2,
-  TriangleAlert,
-} from '@/app/components/icons';
+import { ArrowLeft, CheckCircle2, ChevronDown, Layers, Save, Trash2 } from '@/app/components/icons';
 import { NotesPanel } from '@/app/components/notes/NotesPanel';
 import { DetailActionButton } from '@/app/components/ui/detail-action-button';
 import { Spinner } from '@/app/components/ui/spinner';
@@ -369,6 +359,27 @@ export default function EditStatementPage(): React.JSX.Element {
 
   const readinessInlineText = `${readinessTitle}: ${readinessMessage}`;
 
+  const statementCurrency =
+    transactions.find(transaction => transaction.currency)?.currency ??
+    statement?.parsingDetails?.metadataExtracted?.headerDisplay?.currencyDisplay ??
+    null;
+  const toAmount = (value: unknown): number | null =>
+    value === null || value === undefined || value === '' || Number.isNaN(Number(value))
+      ? null
+      : Number(value);
+  const openingBalance = toAmount(statement?.balanceStart);
+  const safeExpense = !Number.isNaN(totalExpense) && totalExpense >= 0 ? totalExpense : 0;
+  const safeIncome = !Number.isNaN(totalIncome) && totalIncome >= 0 ? totalIncome : 0;
+  const closingBalance =
+    openingBalance === null
+      ? null
+      : Math.round((openingBalance - safeExpense + safeIncome) * 100) / 100;
+  const bankClosing = toAmount(statement?.balanceEnd);
+  const closingMatches =
+    closingBalance !== null &&
+    bankClosing !== null &&
+    Math.abs(closingBalance - bankClosing) < 0.01;
+
   return (
     <Container
       maxWidth={false}
@@ -403,54 +414,29 @@ export default function EditStatementPage(): React.JSX.Element {
               variant="h4"
               component="h1"
               sx={{
-                fontWeight: 600,
-                mb: 1,
+                fontWeight: 500,
+                mb: 0.5,
                 color: 'text.primary',
                 letterSpacing: '-0.02em',
               }}
             >
               {statement?.fileName}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Chip
-                icon={<Receipt />}
-                label={`${statement?.totalTransactions} ${t.labels.transactionsCount.value || 'transactions'}`}
-                size="small"
-                data-testid="statement-transactions-chip"
-                style={{
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--muted)',
-                  color: 'var(--muted-foreground)',
-                }}
-                sx={{
-                  fontWeight: 500,
-                  '& .MuiChip-icon': { color: 'text.secondary' },
-                }}
-              />
-              {missingCategoryCount > 0 && (
-                <Chip
-                  icon={<TriangleAlert size={18} />}
-                  label={t.labels.requireCategory.value.replace(
-                    '{{count}}',
-                    String(missingCategoryCount),
-                  )}
-                  size="small"
-                  sx={{
-                    bgcolor: 'error.50',
-                    color: 'error.800',
-                    border: '1px solid',
-                    borderColor: 'error.200',
-                    fontWeight: 600,
-                    '& .MuiChip-icon': { color: 'error.700' },
-                  }}
-                />
-              )}
-            </Box>
-            {missingCategoryCount > 0 ? (
-              <Typography sx={{ mt: 1, color: 'error.main', fontSize: '0.75rem', fontWeight: 500 }}>
-                {t.labels.selectCategoryHint.value}
-              </Typography>
-            ) : null}
+            {/* Period, size and currency in one quiet line: no chip, no fourth card. */}
+            <Typography
+              data-testid="statement-transactions-chip"
+              sx={{ fontSize: 14, color: 'var(--text-muted)' }}
+            >
+              {[
+                statement?.statementDateFrom && statement?.statementDateTo
+                  ? `${formatStoredDate(statement.statementDateFrom)} – ${formatStoredDate(statement.statementDateTo)}`
+                  : null,
+                `${statement?.totalTransactions} ${t.labels.transactionsCount.value || 'transactions'}`,
+                statementCurrency,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* A missing category is already called out by the readiness card and the
@@ -465,20 +451,13 @@ export default function EditStatementPage(): React.JSX.Element {
                 maxWidth: 280,
                 justifyContent: 'flex-start',
                 padding: '8px 16px',
-                fontWeight: 700,
+                fontWeight: 500,
               }}
             >
               {statementCategorySaving ? (
                 <Spinner size={18} />
               ) : (
-                <Layers
-                  size={18}
-                  style={
-                    hasStatementCategory && !hasDisabledStatementCategory
-                      ? undefined
-                      : { color: 'var(--destructive)' }
-                  }
-                />
+                <Layers size={18} style={{ color: 'var(--text-muted)' }} />
               )}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {hasDisabledStatementCategory
@@ -493,8 +472,9 @@ export default function EditStatementPage(): React.JSX.Element {
               {exportingToTable ? <Spinner size={18} /> : null}
               {t.labels.exportButton.value}
             </DetailActionButton>
+            {/* The page's main action: outlined until it can be pressed, then filled. */}
             <DetailActionButton
-              variant="default"
+              variant={confirming || !hasUnconfirmedRows ? 'outline' : 'default'}
               onClick={() => void confirmAll()}
               disabled={confirming || !hasUnconfirmedRows}
             >
@@ -505,47 +485,64 @@ export default function EditStatementPage(): React.JSX.Element {
         </Box>
       </Box>
 
-      <Alert
-        severity={readinessSeverity}
-        sx={{
-          mb: 3,
-          px: 2,
-          py: 0.75,
-          minHeight: 42,
-          alignItems: 'center',
-          border: '1px solid',
-          borderColor: `var(--color-${readinessSeverity}-soft-border)`,
-          bgcolor: `var(--color-${readinessSeverity}-soft-bg)`,
-          color: 'text.primary',
-          '& .MuiAlert-message': {
-            width: '100%',
-            py: 0,
-            overflow: 'hidden',
-          },
-          '& .MuiAlert-icon': {
-            py: 0,
-            mr: 1.25,
-            alignItems: 'center',
-          },
-        }}
-      >
-        <Typography
-          variant="body2"
+      {/* What is left before this statement can go in: a quiet panel with an
+          ochre dot, and the fix right in it. Not an error banner: a missing
+          category blocks nothing yet. */}
+      {readinessSeverity !== 'success' ? (
+        <Box
+          role="status"
           sx={{
-            width: '100%',
-            lineHeight: 1.35,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
+            mb: 3,
+            px: 2,
+            py: 1,
+            minHeight: 42,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            borderRadius: 1.5,
+            bgcolor: 'var(--surface-soft)',
           }}
-          title={readinessInlineText}
         >
-          <Box component="span" sx={{ fontWeight: 600 }}>
-            {readinessTitle}
-          </Box>
-          {`: ${readinessMessage}`}
-        </Typography>
-      </Alert>
+          <Box
+            aria-hidden
+            sx={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              bgcolor: 'var(--attention)',
+              flexShrink: 0,
+            }}
+          />
+          <Typography
+            variant="body2"
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              lineHeight: 1.35,
+              color: 'var(--foreground)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+            title={readinessInlineText}
+          >
+            <Box component="span" sx={{ fontWeight: 500 }}>
+              {readinessTitle}
+            </Box>
+            {`: ${readinessMessage}`}
+          </Typography>
+          {!hasStatementCategory || hasDisabledStatementCategory ? (
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => setStatementCategoryDrawerOpen(true)}
+              sx={{ flexShrink: 0, textTransform: 'none', fontWeight: 500 }}
+            >
+              {labels.chooseCategory?.value || 'Choose category'}
+            </Button>
+          ) : null}
+        </Box>
+      ) : null}
 
       {statement && (
         <BalanceReviewAlert
@@ -582,53 +579,87 @@ export default function EditStatementPage(): React.JSX.Element {
         </Alert>
       )}
 
-      {/* Summary Metrics */}
+      {/* Summary: the figures in ink, the currency beside them, and the closing
+          balance they add up to, checked against the one the bank printed —
+          the plainest sign the statement was read right. */}
       <Box
         sx={{
-          mb: 3,
+          mb: 2,
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' },
           gap: 2,
         }}
       >
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', p: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {labels.period?.value || 'Period'}
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
-            {statement?.statementDateFrom && statement?.statementDateTo
-              ? `${formatStoredDate(statement.statementDateFrom)} - ${formatStoredDate(statement.statementDateTo)}`
-              : labels.notSpecified?.value || 'Not specified'}
-          </Typography>
-        </Paper>
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', p: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {labels.balanceStart?.value || 'Opening balance'}
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
-            {statement?.balanceStart !== null &&
-            statement?.balanceStart !== undefined &&
-            statement?.balanceStart !== ''
-              ? formatNumber(Number(statement.balanceStart))
-              : labels.notSpecified?.value || 'Not specified'}
-          </Typography>
-        </Paper>
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', p: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {labels.expenses?.value || 'Expenses'}
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5, color: 'error.main' }}>
-            {!Number.isNaN(totalExpense) && totalExpense >= 0 ? formatNumber(totalExpense) : '0.00'}
-          </Typography>
-        </Paper>
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', p: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {labels.income?.value || 'Income'}
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5, color: 'success.main' }}>
-            {!Number.isNaN(totalIncome) && totalIncome >= 0 ? formatNumber(totalIncome) : '0.00'}
-          </Typography>
-        </Paper>
+        {[
+          {
+            key: 'start',
+            label: labels.balanceStart?.value || 'Opening balance',
+            value: openingBalance,
+          },
+          { key: 'expense', label: labels.expenses?.value || 'Expenses', value: safeExpense },
+          { key: 'income', label: labels.income?.value || 'Income', value: safeIncome },
+          {
+            key: 'end',
+            label: labels.closingBalance?.value || 'Closing balance',
+            value: closingBalance,
+          },
+        ].map(card => (
+          <Paper
+            key={card.key}
+            elevation={0}
+            sx={{ border: '1px solid', borderColor: 'divider', p: 2 }}
+          >
+            <Typography sx={{ fontSize: 13, color: 'var(--text-muted)' }}>{card.label}</Typography>
+            <Typography
+              sx={{ fontSize: 16, fontWeight: 500, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}
+            >
+              {card.value === null ? (
+                labels.notSpecified?.value || 'Not specified'
+              ) : (
+                <>
+                  {formatNumber(card.value)}
+                  {statementCurrency ? (
+                    <Box
+                      component="span"
+                      sx={{ fontSize: 13, fontWeight: 400, color: 'var(--muted-foreground)' }}
+                    >
+                      {' '}
+                      {statementCurrency}
+                    </Box>
+                  ) : null}
+                </>
+              )}
+            </Typography>
+            {card.key === 'end' && closingBalance !== null && bankClosing !== null ? (
+              <Typography
+                sx={{
+                  mt: 0.5,
+                  fontSize: 13,
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                }}
+              >
+                <Box
+                  aria-hidden
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    bgcolor: closingMatches ? 'var(--money-up)' : 'var(--attention)',
+                  }}
+                />
+                {closingMatches
+                  ? labels.closingMatches?.value || 'Matches the bank statement'
+                  : (labels.closingBankSays?.value || 'Bank statement says {amount}').replace(
+                      '{amount}',
+                      formatNumber(bankClosing),
+                    )}
+              </Typography>
+            ) : null}
+          </Paper>
+        ))}
       </Box>
 
       {/* Editing & Parsing Details Accordion */}
@@ -642,21 +673,26 @@ export default function EditStatementPage(): React.JSX.Element {
         // eslint-disable-next-line max-params
         onChange={(_, expanded) => setParsingDetailsExpanded(expanded)}
         elevation={0}
+        disableGutters
         sx={{
           mb: 4,
-          border: '1px solid',
-          borderColor: 'divider',
+          bgcolor: 'transparent',
           '&:before': { display: 'none' },
           overflow: 'hidden',
         }}
       >
+        {/* A text link that opens the details, not a full-width card of its own. */}
         <AccordionSummary
-          expandIcon={<ChevronDown size={20} />}
+          expandIcon={<ChevronDown size={16} />}
           sx={{
-            bgcolor: theme => (theme.palette.mode === 'dark' ? '#18222d' : theme.palette.grey[50]),
+            px: 0,
+            minHeight: 0,
+            justifyContent: 'flex-start',
+            '& .MuiAccordionSummary-content': { flexGrow: 0, my: 0.5 },
+            '& .MuiAccordionSummary-expandIconWrapper': { color: 'var(--primary)', ml: 0.5 },
           }}
         >
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 500, color: 'var(--primary)' }}>
             {t.labels.parsingDetails?.value || 'Parsing details'}
           </Typography>
         </AccordionSummary>
@@ -929,9 +965,7 @@ export default function EditStatementPage(): React.JSX.Element {
         categories={enabledStatementCategories}
         selectedCategoryId={statement?.categoryId || ''}
         selecting={statementCategorySaving}
-        onSelect={categoryId =>
-          handleStatementCategorySelect(categoryId, flattenedStatementCategories)
-        }
+        onSelect={categoryId => handleStatementCategorySelect(categoryId)}
         labels={{
           title: labels.categoryDrawerTitle?.value || 'Category',
           searchPlaceholder: labels.categorySearchPlaceholder?.value || 'Search',

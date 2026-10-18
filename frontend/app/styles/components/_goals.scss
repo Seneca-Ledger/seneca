@@ -1,0 +1,92 @@
+// app/styles/components/_goals.scss
+@use '../abstracts' as *;
+
+// A goal cover: a flat tile in one of the earthy chart tones with a 1.5px line
+// icon. The icon takes the card colour (white in light, graphite in dark, where
+// the tones are lighter); on the two pale tones it is ink in the light theme.
+.lumio-goal-cover {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--card);
+
+  &[data-tone='1'] { background: var(--cat-tone-1); }
+  &[data-tone='2'] { background: var(--cat-tone-2); }
+  &[data-tone='3'] { background: var(--cat-tone-3); }
+  &[data-tone='4'] { background: var(--cat-tone-4); }
+  &[data-tone='5'] { background: var(--cat-tone-5); }
+  &[data-tone='stone'] { background: var(--cat-tone-other); }
+
+  &[data-tone='3'],
+  &[data-tone='stone'] {
+    color: var(--foreground);
+
+    @include dark {
+      color: var(--card);
+    }
+  }
+
+  // No cover chosen yet: the neutral badge, so an unset cover does not look like a choice.
+  &[data-tone='none'] {
+    background: var(--icon-badge-bg);
+    color: var(--text-muted);
+  }
+}
+
+// The picker's tiles: the cover itself as a button, picked = sage ring and a tick.
+.lumio-goal-cover-grid {
+  display: grid;
+  // Narrower tiles below the breakpoint: on a 360px phone the 96px floor only
+  // fits two per row, which leaves the grid looking like a list.
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 12px;
+  padding: 4px;
+
+  @media (min-width: 600px) {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  }
+}
+
+.lumio-goal-cover-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+
+  > .lumio-goal-cover {
+    width: 100%;
+    height: 100%;
+  }
+
+  &:hover > .lumio-goal-cover {
+    filter: brightness(0.96);
+  }
+
+  &[aria-pressed='true'] {
+    box-shadow:
+      0 0 0 2px var(--card),
+      0 0 0 4px var(--primary);
+  }
+
+  &__tick {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+}
+
+// Long lists scroll in the panel with a thin bar.
+.lumio-goal-cover-scroll {
+  scrollbar-width: thin;
+}

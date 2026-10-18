@@ -2,6 +2,9 @@ jest.mock('franc', () => ({
   franc: () => 'und',
 }));
 
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path, { join } from 'node:path';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Schema } from 'effect';
@@ -9,8 +12,10 @@ import { generateSync } from 'otplib';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { encryptText } from '../../src/common/utils/encryption.util';
 import { BackupRun, BackupRunStatus, BackupRunTrigger } from '../../src/entities/backup-run.entity';
 import { Receipt, ReceiptSource, ReceiptStatus } from '../../src/entities/receipt.entity';
+import { PEPPOL_DOCTYPES } from '../../src/modules/e-invoices/peppol-ubl-writer';
 import { Transaction, TransactionType } from '../../src/entities/transaction.entity';
 import {
   Subscription,
@@ -117,6 +122,8 @@ import {
   PayeePendingReview,
   PayeesPage,
   PaymentCandidateList,
+  PeppolLookup,
+  PeppolTransmissionList,
   PublicInvoiceView,
   PushPublicKey,
   ReceiptApproval,
@@ -158,6 +165,7 @@ import {
   SubscriptionDuplicateGroups,
   SubscriptionList,
   SubscriptionSummary,
+  SystemUpdateStatus,
   TaxJurisdictionList,
   TaxRateItem,
   TaxRateList,
@@ -175,6 +183,7 @@ import {
   TwoFactorSetup,
   TwoFactorStatus,
   UnreadCount,
+  UpcomingSubscriptionList,
   UserPermissions,
   UserSessionList,
   UserUpdateResponse,
@@ -187,6 +196,48 @@ import {
   WorkspaceOverview,
   WorkspaceSummary,
   WorkspaceTaxSettings,
+  DatevMapping,
+  DatevPreview,
+  DatevSettings,
+  OfficialRatesCheck,
+  TaxDeadlineList,
+  TaxReassessment,
+  TaxReserve,
+  TaxReserveSettings,
+  TaxYearReport,
+  UstvaResult,
+  VatFilingSettings,
+  VatStatusChange,
+  AuditEventList,
+  AuditEventPage,
+  AuditRollbackResult,
+  BackupImportPreview,
+  BackupRestoreResult,
+  BranchList,
+  BusinessProfileLogo,
+  CategoryUsageCounts,
+  CustomTableRowBatch,
+  CustomTablesReport,
+  CustomTablesReportDrillDown,
+  DuplicatesMarked,
+  FileCategoryUpdate,
+  IntegrationConnection,
+  InvitationAccepted,
+  InvoiceCreated,
+  MessageResult,
+  PayeeRecord,
+  PlaceSuggestions,
+  ReceiptUploadResult,
+  RevaluationResult,
+  SetupProgress,
+  StatementListPage,
+  TransactionListPage,
+  TransactionPayeeResult,
+  UploadedIcon,
+  ViewPreferenceState,
+  WelcomeTutorialSeen,
+  WorkspaceFavorite,
+  XRechnungCheck,
 } from '../../src/contracts';
 import {
   deleteUserByEmail,
@@ -218,6 +269,8 @@ describe('API contracts (e2e)', () => {
     })(body);
 
   beforeAll(async () => {
+    // Read once when the backups module starts: where a local backup run writes.
+    process.env.BACKUP_LOCAL_ROOT ??= mkdtempSync(join(tmpdir(), 'lumio-contracts-backups-'));
     const moduleFixture: TestingModule = await e2eTestingModule({
       imports: [AppModule],
     }).compile();
@@ -508,6 +561,12 @@ describe('API contracts (e2e)', () => {
       matches(SubscriptionDuplicateGroups, duplicates.body);
       expect(duplicates.body).toHaveLength(1);
     });
+
+    it('GET /subscriptions/upcoming', async () => {
+      const upcoming = await get('/subscriptions/upcoming?days=30');
+      matches(UpcomingSubscriptionList, upcoming.body);
+      expect(upcoming.body).toHaveLength(2);
+    });
   });
 
   describe('review inbox and payees', () => {
@@ -568,6 +627,7 @@ describe('API contracts (e2e)', () => {
         name: 'Acme GmbH',
         email: 'billing@acme.example',
         currency: 'USD',
+        peppolId: '0208:0428643097',
       }).expect(201);
       clientId = client.body.id;
       const invoice = await send('post', '/invoices', {
@@ -610,6 +670,48 @@ describe('API contracts (e2e)', () => {
       const notes = await get(`/invoices/${invoiceId}/credit-notes`);
       matches(CreditNoteList, notes.body);
       expect(notes.body).toHaveLength(1);
+    });
+
+    it('GET /invoices/:id/peppol and POST /peppol/lookup', async () => {
+      await dataSource.query(
+        `INSERT INTO peppol_connections (workspace_id, api_key_id, api_secret, company_id, sender_peppol_id)
+         VALUES ($1, 'key_c', $2, 'c_1', '9930:DE123456789')`,
+        [owner.workspaceId, encryptText('secret_c')],
+      );
+      await dataSource.query(
+        `INSERT INTO peppol_transmissions
+           (workspace_id, invoice_id, recipient, format, doc_type_id, provider_document_id, document_xml, status, failure)
+         VALUES ($1, $2, '0208:0428643097', 'peppol_bis', 'urn:x', 'doc_1', '<Invoice/>', 'failed', 'Receiver rejected')`,
+        [owner.workspaceId, invoiceId],
+      );
+      const log = await get(`/invoices/${invoiceId}/peppol`);
+      matches(PeppolTransmissionList, log.body);
+      expect(log.body).toHaveLength(1);
+
+      const fetchSpy = jest.spyOn(globalThis, 'fetch').mockImplementation(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: true,
+              isValid: true,
+              companyName: 'Klant NV',
+              supportedDocuments: [{ docTypeId: PEPPOL_DOCTYPES.bisInvoice, name: 'Invoice' }],
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+      );
+      try {
+        const lookup = await request(app.getHttpServer())
+          .post('/peppol/lookup')
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send({ peppolId: '0208:0428643097' })
+          .expect(201);
+        matches(PeppolLookup, lookup.body);
+        expect(lookup.body).toEqual({ registered: true, companyName: 'Klant NV', formats: ['peppol_bis'] });
+      } finally {
+        fetchSpy.mockRestore();
+      }
     });
   });
 
@@ -727,6 +829,53 @@ describe('API contracts (e2e)', () => {
       expect(users.body.length).toBeGreaterThan(0);
       matches(UserPermissions, (await get(`/users/${users.body[0].id}/permissions`)).body);
       matches(DisclaimerStatus, (await get('/users/me/disclaimer')).body);
+    });
+
+    it('GET /system/update, with a release and an updater run', async () => {
+      await dataSource.query('UPDATE users SET role = $1 WHERE id = $2', ['admin', owner.userId]);
+      const dir = path.join(process.cwd(), 'update');
+      const created = !existsSync(dir);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, 'heartbeat'), '');
+      writeFileSync(
+        path.join(dir, 'status.json'),
+        JSON.stringify({
+          state: 'failed',
+          tag: 'v1.3.0',
+          step: 'pull',
+          message: 'manifest unknown',
+          backup: 'backup_20261016_100000.sql',
+          startedAt: '2026-10-16T10:00:00Z',
+          finishedAt: '2026-10-16T10:01:00Z',
+        }),
+      );
+      const originalFetch = global.fetch;
+      const originalVersion = process.env.APP_VERSION;
+      process.env.APP_VERSION = 'v1.2.0';
+      global.fetch = (async () =>
+        new Response(
+          JSON.stringify({
+            tag_name: 'v1.3.0',
+            html_url: 'https://github.com/symonbaikov/lumio/releases/tag/v1.3.0',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )) as typeof fetch;
+      try {
+        const status = await get('/system/update');
+        matches(SystemUpdateStatus, status.body);
+        expect(status.body).toMatchObject({
+          currentVersion: 'v1.2.0',
+          latestVersion: 'v1.3.0',
+          updateAvailable: true,
+          updaterAvailable: true,
+          run: { state: 'failed', step: 'pull' },
+        });
+      } finally {
+        global.fetch = originalFetch;
+        process.env.APP_VERSION = originalVersion;
+        if (created) rmSync(dir, { recursive: true, force: true });
+        else for (const file of ['heartbeat', 'status.json']) rmSync(path.join(dir, file), { force: true });
+      }
     });
 
     it('GET /workspaces/invitations/:token', async () => {
@@ -1000,6 +1149,85 @@ describe('API contracts (e2e)', () => {
       matches(TaxThresholdStatus, threshold.body);
       await send('put', '/tax/settings/vat-status', { status: 'registered' }).expect(200);
       matches(TaxRuleList, (await get('/tax/rules')).body);
+    });
+
+    it('GET and PUT the VAT filing, the reserve, the deadlines, the year report, UStVA and DATEV', async () => {
+      const year = new Date().getFullYear();
+      matches(VatFilingSettings, (await get('/tax/settings/vat-filing')).body);
+      const filing = await send('put', '/tax/settings/vat-filing', {
+        frequency: 'monthly',
+        extension: true,
+      }).expect(200);
+      matches(VatFilingSettings, filing.body);
+      expect(filing.body).toEqual(expect.objectContaining({ frequency: 'monthly', extension: true }));
+      await send('put', '/tax/settings/vat-filing', { frequency: null, extension: false }).expect(
+        200,
+      );
+
+      const categories = await get('/categories?type=expense');
+      const reserve = await send('put', '/tax/settings/reserve', {
+        percent: 25,
+        paymentsCategoryId: categories.body[0].id,
+      }).expect(200);
+      matches(TaxReserveSettings, reserve.body);
+      matches(TaxReserveSettings, (await get('/tax/settings/reserve')).body);
+      const amount = await get('/tax/settings/reserve/amount');
+      matches(TaxReserve, amount.body);
+      expect(amount.body.incomeTax).not.toBeNull();
+
+      const deadlines = await get('/tax/deadlines');
+      matches(TaxDeadlineList, deadlines.body);
+      const vatReturn = deadlines.body.find((row: { kind: string }) => row.kind === 'vat_return');
+      expect(vatReturn).toBeDefined();
+      const filed = await send('put', '/tax/deadlines/filed-elsewhere', {
+        kind: 'vat_return',
+        periodEnd: vatReturn.periodEnd,
+        filed: true,
+      }).expect(200);
+      matches(TaxDeadlineList, filed.body);
+      await send('put', '/tax/deadlines/filed-elsewhere', {
+        kind: 'vat_return',
+        periodEnd: vatReturn.periodEnd,
+        filed: false,
+      }).expect(200);
+
+      // Marked tax-relevant, a category's rows are in the year report.
+      await send('put', `/categories/${categories.body[0].id}`, { taxRelevant: true }).expect(200);
+      matches(TaxYearReport, (await get(`/tax/year-report?year=${year}`)).body);
+
+      matches(TaxReassessment, (await send('post', '/tax/settings/reassess', {}).expect(201)).body);
+      const status = await send('put', '/tax/settings/vat-status', { status: 'registered' }).expect(
+        200,
+      );
+      matches(VatStatusChange, status.body);
+      const ustva = await get(`/tax/returns/ustva?periodStart=${year}-01-01&periodEnd=${year}-03-31`);
+      matches(UstvaResult, ustva.body);
+      expect(ustva.body.unsupported).not.toBe('not_germany');
+      matches(OfficialRatesCheck, (await get('/tax/settings/official-rates')).body);
+
+      matches(DatevSettings, (await get('/tax/datev/settings')).body);
+      const datev = await send('put', '/tax/datev/settings', {
+        chart: '03',
+        consultantNumber: 1001,
+        clientNumber: 1,
+        bankAccount: '1200',
+      }).expect(200);
+      matches(DatevSettings, datev.body);
+      // A row of its own: earlier tests pair the shared expense, which DATEV leaves out.
+      await request(app.getHttpServer())
+        .post('/statements/manual-expense')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .field('amount', '19.00')
+        .field('currency', 'EUR')
+        .field('merchant', 'DATEV Supplies')
+        .field('categoryId', categories.body[0].id)
+        .field('date', new Date().toISOString().slice(0, 10))
+        .expect(201);
+      const mapping = await get(`/tax/datev/mapping?year=${year}`);
+      matches(DatevMapping, mapping.body);
+      expect(mapping.body.categories.length).toBeGreaterThan(0);
+      matches(DatevPreview, (await get(`/tax/datev/preview?from=${year}-01-01&to=${year}-12-31`)).body);
     });
 
     it('GET /tax/returns/preview and /tax/returns/period', async () => {
@@ -1459,6 +1687,28 @@ describe('API contracts (e2e)', () => {
           }).expect(succeeded)
         ).body,
       );
+      // The three newer templates go through other builders, so each is read
+      // through the contract too, in a language other than English.
+      for (const templateId of ['category-by-month', 'budget-vs-actual', 'investment-holdings']) {
+        matches(
+          ReportPreview,
+          (
+            await call('post', '/reports/preview', {
+              templateId,
+              dateFrom: '2026-01-01',
+              dateTo: '2026-12-31',
+              format: 'pdf',
+              locale: 'de',
+            }).expect(succeeded)
+          ).body,
+        );
+        await call('post', '/reports/generate', {
+          templateId,
+          dateFrom: '2026-01-01',
+          dateTo: '2026-12-31',
+          format: 'pdf',
+        }).expect(succeeded);
+      }
       matches(
         SourcePreview,
         (await call('post', '/custom-tables/source-preview', { kind: 'transactions' }).expect(succeeded)).body,
@@ -1563,11 +1813,342 @@ describe('API contracts (e2e)', () => {
             dueDate: '2026-10-31',
             lineItems: [{ description: 'Consulting', quantity: 1, unitPrice: 100 }],
           }).expect(succeeded);
-      expect(invoice.body.id).toEqual(expect.any(String));
+      matches(InvoiceCreated, invoice.body);
+      matches(XRechnungCheck, (await get(`/invoices/${invoice.body.id}/xrechnung/check`)).body);
       matches(
         TransactionSearchResult,
         (await call('post', '/ai-analysis/search', { query: 'coffee' }).expect(succeeded)).body,
       );
+    });
+  });
+
+  describe('answers the strict api client reads', () => {
+    // Actions answer 200 or 201 by their own convention: any success will do.
+    const succeeded = (res: request.Response) => {
+      if (res.status >= 300) {
+        throw new Error(`${res.status} ${JSON.stringify(res.body)}`);
+      }
+    };
+    const call = (method: 'post' | 'patch' | 'put', url: string, body?: object) => {
+      const req = request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId);
+      return body ? req.send(body) : req;
+    };
+    // A 1x1 transparent PNG.
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      'base64',
+    );
+
+    it('GET /statements and /transactions as pages, with the parser notes typed', async () => {
+      const statements = await get('/statements?page=1&limit=50');
+      matches(StatementListPage, statements.body);
+      expect(statements.body.data.length).toBeGreaterThan(0);
+      const manual = statements.body.data.find(
+        (row: { parsingDetails: { importPreview?: { source?: string } } | null }) =>
+          row.parsingDetails?.importPreview?.source === 'manual-expense',
+      );
+      expect(manual).toBeDefined();
+      const transactions = await get('/transactions?page=1&limit=50');
+      matches(TransactionListPage, transactions.body);
+      expect(transactions.body.data[0]).toHaveProperty('statementId');
+    });
+
+    it("never hands out server paths or other members' account rows", async () => {
+      const internal = ['filePath', 'fileHash'];
+      const account = ['tokenVersion', 'googleId', 'telegramChatId', 'lastLogin', 'isActive'];
+      const statements = await get('/statements?page=1&limit=50');
+      for (const row of statements.body.data) {
+        for (const key of internal) expect(row).not.toHaveProperty(key);
+        for (const key of account) expect(row.user ?? {}).not.toHaveProperty(key);
+      }
+      const statementId = statements.body.data[0].id;
+      const one = await get(`/statements/${statementId}`);
+      for (const key of internal) expect(one.body).not.toHaveProperty(key);
+      const files = await get('/storage/files');
+      for (const row of files.body) {
+        for (const key of internal) expect(row).not.toHaveProperty(key);
+      }
+      const details = await get(`/storage/files/${files.body[0].id}`);
+      for (const key of internal) expect(details.body.statement).not.toHaveProperty(key);
+      for (const permission of details.body.permissions) {
+        for (const key of account) expect(permission.user).not.toHaveProperty(key);
+      }
+      const audit = await get('/audit-events?limit=50');
+      expect(audit.body.data.length).toBeGreaterThan(0);
+      // The trail names its actor by id and label; the account row stays home.
+      for (const event of audit.body.data) {
+        expect(event).not.toHaveProperty('actor');
+      }
+      const history = await get('/reports/history');
+      for (const row of history.body) {
+        for (const key of internal) expect(row).not.toHaveProperty(key);
+      }
+      // The link the storage block above made, with its password.
+      const [link] = await dataSource.query(
+        "SELECT token FROM shared_links WHERE status = 'active' LIMIT 1",
+      );
+      const shared = await request(app.getHttpServer())
+        .get(`/storage/shared/${link.token}`)
+        .set('x-share-password', 'contract-share')
+        .expect(200);
+      expect(Object.keys(shared.body.statement).sort()).toEqual([
+        'accountNumber',
+        'bankName',
+        'fileName',
+        'fileSize',
+      ]);
+    });
+
+    it('decodes query strings as the DTOs did', async () => {
+      const status = (url: string) =>
+        request(app.getHttpServer())
+          .get(url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .then(res => res.status);
+      // An empty value is absent; numbers, booleans and lists arrive as strings.
+      expect(await status('/statements?page=&limit=5&approved=true&statuses=completed,error')).toBe(200);
+      expect(await status('/statements?statuses=completed&statuses=error')).toBe(200);
+      // Unknown keys and values out of range are refused, as forbidNonWhitelisted had it.
+      expect(await status('/statements?sortBy=date')).toBe(400);
+      expect(await status('/payees?limit=500')).toBe(400);
+      expect(await status('/review-inbox?kind=nonsense')).toBe(400);
+      expect(await status('/view-preferences/nonsense')).toBe(400);
+    });
+
+    it('the setup progress, view preferences and the welcome tutorial', async () => {
+      matches(SetupProgress, (await get('/dashboard/setup-progress')).body);
+      matches(ViewPreferenceState, (await get('/view-preferences/transactions')).body);
+      await call('put', '/view-preferences/transactions', { state: { owner: 'me' } }).expect(
+        succeeded,
+      );
+      const saved = await get('/view-preferences/transactions');
+      matches(ViewPreferenceState, saved.body);
+      expect(saved.body.state).toEqual({ owner: 'me' });
+      const seen = await call('post', '/users/me/welcome-tutorial').expect(succeeded);
+      matches(WelcomeTutorialSeen, seen.body);
+      expect(seen.body.welcomeTutorialSeenAt).toEqual(expect.any(String));
+    });
+
+    it('branches, category usage, an uploaded icon and a file category', async () => {
+      matches(BranchList, (await get('/branches')).body);
+      matches(CategoryUsageCounts, (await get('/categories/usage/counts')).body);
+      const icon = await request(app.getHttpServer())
+        .post('/data-entry/custom-fields/icon')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .attach('icon', png, { filename: 'icon.png', contentType: 'image/png' })
+        .expect(succeeded);
+      matches(UploadedIcon, icon.body);
+      const statementId = (await get('/storage/files')).body[0].id;
+      const categories = await get('/categories?type=expense');
+      const moved = await call('patch', `/storage/files/${statementId}/category`, {
+        categoryId: categories.body[0].id,
+      }).expect(succeeded);
+      matches(FileCategoryUpdate, moved.body);
+      expect(moved.body.category.id).toBe(categories.body[0].id);
+      expect(moved.body).not.toHaveProperty('filePath');
+    });
+
+    it('the business logo, a workspace favourite and the custom-tables report', async () => {
+      const logo = await request(app.getHttpServer())
+        .post('/business-profile/logo')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .attach('logo', png, { filename: 'logo.png', contentType: 'image/png' })
+        .expect(succeeded);
+      matches(BusinessProfileLogo, logo.body);
+      matches(
+        WorkspaceFavorite,
+        (await call('patch', `/workspaces/${owner.workspaceId}/favorite`).expect(succeeded)).body,
+      );
+      const report = await call('post', '/reports/custom-tables/report', { days: 365 }).expect(
+        succeeded,
+      );
+      matches(CustomTablesReport, report.body);
+      matches(
+        CustomTablesReportDrillDown,
+        (
+          await call('post', '/reports/custom-tables/report/drill-down', {
+            counterparty: 'Contract Coffee',
+            days: 365,
+          }).expect(succeeded)
+        ).body,
+      );
+    });
+
+    it('rows added in a batch, an integration status and the ledger revaluation', async () => {
+      const tables = await get('/custom-tables');
+      const tableId = tables.body.items[0].id;
+      const batch = await call('post', `/custom-tables/${tableId}/rows/batch`, {
+        rows: [{ data: {} }, { data: {} }],
+      }).expect(succeeded);
+      matches(CustomTableRowBatch, batch.body);
+      expect(batch.body.rows).toHaveLength(2);
+      matches(IntegrationConnection, (await get('/integrations/imap/status')).body);
+      // The rows booked above reach the ledger in the background; a revaluation waits for them.
+      for (let attempt = 0; attempt < 60; attempt++) {
+        if ((await get('/ledger/integrity')).body.upToDate) break;
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      matches(
+        RevaluationResult,
+        (await call('post', '/ledger/revaluations', { date: today }).expect(succeeded)).body,
+      );
+    }, 60_000);
+
+    it('a payee renamed, set on a transaction, and the duplicates marked', async () => {
+      const rows = (await get('/transactions')).body.data;
+      const transactionId = rows[0].id;
+      const set = await call('put', `/transactions/${transactionId}/payee`, {
+        name: 'Contract Payee',
+      }).expect(succeeded);
+      matches(TransactionPayeeResult, set.body);
+      const renamed = await call('patch', `/payees/${set.body.payee.id}`, {
+        name: 'Contract Payee Renamed',
+      }).expect(succeeded);
+      matches(PayeeRecord, renamed.body);
+      const marked = await call('post', '/transactions/duplicates/mark', {
+        groups: [{ masterId: transactionId, duplicateIds: [rows[1].id] }],
+      }).expect(succeeded);
+      matches(DuplicatesMarked, marked.body);
+    });
+
+    it('a receipt edited, its place settled, and an upload', async () => {
+      const [receipt] = await dataSource.query(
+        'SELECT id FROM receipts WHERE workspace_id = $1 LIMIT 1',
+        [owner.workspaceId],
+      );
+      const statementId = (await get('/storage/files')).body[0].id;
+      const edited = await call('patch', `/receipts/${receipt.id}`, {
+        parsedData: { vendor: 'Contract Market' },
+      }).expect(succeeded);
+      matches(ReceiptRecordUpdate, edited.body);
+      // A place the user picked is settled: no lookup, and nothing to ask.
+      await dataSource.query(
+        "UPDATE receipts SET statement_id = $2, location_source = 'manual', location_lat = 52.52, location_lng = 13.4 WHERE id = $1",
+        [receipt.id, statementId],
+      );
+      const suggestions = await call('post', '/receipts/place-suggestions', {
+        statementId,
+        latitude: 52.52,
+        longitude: 13.4,
+        accuracy: 20,
+      }).expect(succeeded);
+      matches(PlaceSuggestions, suggestions.body);
+      expect(suggestions.body).toEqual({ needed: false });
+      const upload = await request(app.getHttpServer())
+        .post('/receipts/upload')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .attach('files', png, { filename: 'receipt.png', contentType: 'image/png' })
+        .expect(succeeded);
+      matches(ReceiptUploadResult, upload.body);
+    }, 60_000);
+
+    it('the audit trail of an edited category, and its rollback', async () => {
+      const created = await call('post', '/categories', {
+        name: 'Audited',
+        type: 'expense',
+      }).expect(succeeded);
+      await call('put', `/categories/${created.body.id}`, { name: 'Audited again' });
+      const page = await get('/audit-events?limit=20');
+      matches(AuditEventPage, page.body);
+      const history = await get(`/audit-events/entity/category/${created.body.id}`);
+      matches(AuditEventList, history.body);
+      expect(history.body.length).toBeGreaterThan(0);
+      const rollback = await call('post', `/audit-events/${history.body[0].id}/rollback`).expect(
+        succeeded,
+      );
+      matches(AuditRollbackResult, rollback.body);
+    });
+
+    it('a backup downloaded, previewed and restored', async () => {
+      const run = await call('post', '/backups/runs').expect(succeeded);
+      const archive = await request(app.getHttpServer())
+        .get(`/backups/runs/${run.body.id}/download`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .buffer(true)
+        .parse((res, done) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => done(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+      const upload = (url: string) =>
+        request(app.getHttpServer())
+          .post(url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .field('password', 'contract-backup-pass')
+          .attach('file', archive.body as Buffer, { filename: 'backup.lumio' });
+      const preview = await upload('/backups/import/preview').expect(succeeded);
+      matches(BackupImportPreview, preview.body);
+      const restored = await upload(`/backups/imports/${preview.body.importId}/restore`).expect(
+        succeeded,
+      );
+      matches(BackupRestoreResult, restored.body);
+      // Rows with no workspace column of their own come back with their parents.
+      const counts = async (workspaceId: string) => {
+        const [row] = await dataSource.query(
+          `SELECT
+                   (SELECT count(*) FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id
+                     WHERE e.workspace_id = $1 AND e.status <> 'draft')::int AS "bookedLines",
+                   (SELECT count(*) FROM invoice_line_items l JOIN invoices i ON i.id = l.invoice_id
+                     WHERE i.workspace_id = $1)::int AS "invoiceLines",
+                   (SELECT count(*) FROM transaction_tags l JOIN transactions t ON t.id = l.transaction_id
+                     WHERE t.workspace_id = $1)::int AS "transactionTags"`,
+          [workspaceId],
+        );
+        return row;
+      };
+      const source = await counts(owner.workspaceId);
+      expect(source.bookedLines).toBeGreaterThan(0);
+      expect(source.invoiceLines).toBeGreaterThan(0);
+      expect(await counts(restored.body.workspaceId)).toEqual(source);
+    }, 120_000);
+
+    it('an invitation accepted, and the email and password changes', async () => {
+      const inviteeEmail = `contracts-joiner-${Date.now()}@example.com`;
+      const invitee = await registerAccount(app, inviteeEmail, 'Joiner');
+      const invite = await call('post', `/workspaces/${owner.workspaceId}/invitations`, {
+        email: inviteeEmail,
+        role: 'member',
+      }).expect(succeeded);
+      const accepted = await request(app.getHttpServer())
+        .post(`/workspaces/invitations/${invite.body.invitation.token}/accept`)
+        .set('Authorization', `Bearer ${invitee.token}`)
+        .expect(succeeded);
+      matches(InvitationAccepted, accepted.body);
+      const as = (url: string, body: object) =>
+        request(app.getHttpServer())
+          .patch(url)
+          .set('Authorization', `Bearer ${invitee.token}`)
+          .send(body);
+      matches(
+        MessageResult,
+        (
+          await as('/users/me/email', {
+            email: `contracts-moved-${Date.now()}@example.com`,
+            currentPassword: 'Test123!@#',
+          }).expect(succeeded)
+        ).body,
+      );
+      matches(
+        MessageResult,
+        (
+          await as('/users/me/password', {
+            currentPassword: 'Test123!@#',
+            newPassword: 'Test456!@#x',
+          }).expect(succeeded)
+        ).body,
+      );
+      await deleteUserByEmail(dataSource, inviteeEmail);
     });
   });
 });

@@ -57,7 +57,7 @@ describe('BranchesService', () => {
       jest.spyOn(branchRepository, 'create').mockReturnValue(mockBranch as Branch);
       jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
-      const result = await service.create('ws-1', createDto);
+      const result = await service.create('ws-1', 'u1', createDto);
 
       expect(result).toEqual(mockBranch);
       expect(branchRepository.save).toHaveBeenCalled();
@@ -69,11 +69,12 @@ describe('BranchesService', () => {
         .mockReturnValue(mockBranch as Branch);
       jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
-      await service.create('ws-1', createDto);
+      await service.create('ws-1', 'u1', createDto);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           isActive: true,
+          userId: 'u1',
         }),
       );
     });
@@ -84,7 +85,7 @@ describe('BranchesService', () => {
         .mockReturnValue(mockBranch as Branch);
       jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
-      await service.create('ws-1', createDto);
+      await service.create('ws-1', 'u1', createDto);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -99,7 +100,7 @@ describe('BranchesService', () => {
         .mockReturnValue(mockBranch as Branch);
       jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
-      await service.create('ws-1', createDto);
+      await service.create('ws-1', 'u1', createDto);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({

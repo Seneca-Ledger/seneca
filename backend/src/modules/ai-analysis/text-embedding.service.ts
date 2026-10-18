@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { env, pipeline } from '@huggingface/transformers';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 
 type FeatureExtractor = (
   text: string,
@@ -32,7 +32,11 @@ export class TextEmbeddingService {
     await this.initialize();
 
     if (!this.extractor) {
-      throw this.loadError ?? new Error('Embedding model is not available');
+      // Not installed on this server: a state of the deployment, not a failed request.
+      this.logger.warn(
+        `Embedding model is not available: ${this.loadError?.message ?? 'not loaded'}`,
+      );
+      throw new ServiceUnavailableException('The local embedding model is not installed');
     }
 
     const vectors: Float32Array[] = [];

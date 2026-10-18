@@ -22,16 +22,14 @@ export function useReceiptUpload() {
       formData.append('language', language);
     }
 
-    return await (async () => {
-      const response = await apiClient.post('/receipts/upload', formData, {
+    await (async () => {
+      await apiClient.post('/receipts/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: event => {
           const total = event.total ?? 1;
           setProgress(Math.round((event.loaded * 100) / total));
         },
       });
-
-      return response.data;
     })()
       .catch(async uploadError => {
         const message = getApiErrorMessage(uploadError, 'Upload failed');

@@ -2,6 +2,8 @@
 
 import { useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
 import { createDraftRow, isDraftReadyToSave, isDraftRowId } from '../helpers/draftRowHelpers';
 import {
   applyRowDataPatch,
@@ -19,6 +21,7 @@ interface UseRowMutationsMessages {
   addRowLoading: string;
   addRowSuccess: string;
   addRowFailed: string;
+  cellSaveFailed: string;
 }
 
 export interface UseRowMutationsParams {
@@ -103,13 +106,28 @@ export function useRowMutations({
       }
       // A cell the import kept as text stops being an issue once someone edits it.
       const clearIssue = Boolean(rows.find(r => r.id === rowId)?.styles?.[columnKey]?.importIssue);
-      // The reply carries recomputed formulas, so it wins over the local patch.
-      const serverData = await updateRowPatchRequest(
-        tableId,
-        rowId,
-        { [columnKey]: value },
-        clearIssue ? { [columnKey]: {} } : undefined,
-      );
+      // The reply carries recomputed formulas, and — in a table filled from app
+      // data — every value the record now has (a new type flips the amount's sign),
+      // so it wins over the local patch. Nothing changes locally before it: when
+      // the app refuses the edit, the cell simply keeps its value and says why.
+      let serverData: Awaited<ReturnType<typeof updateRowPatchRequest>>;
+      try {
+        serverData = await updateRowPatchRequest(
+          tableId,
+          rowId,
+          { [columnKey]: value },
+          clearIssue ? { [columnKey]: {} } : undefined,
+        );
+      } catch (error) {
+        console.error('Failed to save cell:', error);
+        toast.error(getApiErrorMessage(error, messages.cellSaveFailed));
+        return;
+      }
+      // The row shows an app record: the change reached it, so the lists that
+      // show documents and their categories must not keep the old one cached.
+      if (rows.find(r => r.id === rowId)?.sourceKey) {
+        invalidateDocumentLists();
+      }
       setRows(prev =>
         applyRowDataPatch(prev, rowId, { [columnKey]: value, ...serverData }).map(row =>
           clearIssue && row.id === rowId
@@ -119,7 +137,7 @@ export function useRowMutations({
       );
       onRowsChanged();
     },
-    [tableId, rows, setRows, onRowsChanged, promoteDraftRow],
+    [tableId, rows, setRows, onRowsChanged, promoteDraftRow, messages.cellSaveFailed],
   );
 
   return { createRow, updateCell };

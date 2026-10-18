@@ -1,7 +1,8 @@
-import { countedSql } from '@/common/utils/counted-transactions.util';
+import { countedSql, flowsSql } from '@/common/utils/counted-transactions.util';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { BudgetPeriodType, BudgetRolloverMode } from '@/entities/budget.entity';
+import { WorkspaceKind } from '@/entities/workspace.entity';
 import { BudgetsService } from '@/modules/budgets/budgets.service';
 import { IsNull } from 'typeorm';
 import { workspaceCurrencyStub } from '../../../helpers/workspace-currency-stub';
@@ -15,17 +16,22 @@ const createRepoMock = () => ({
   createQueryBuilder: jest.fn(),
 });
 
+// The period's spending, summed per day and currency; no currency reads as the budget's own.
 const createQueryBuilderMock = (total: string) => ({
   select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
   andWhere: jest.fn().mockReturnThis(),
-  getRawOne: jest.fn().mockResolvedValue({ total }),
+  groupBy: jest.fn().mockReturnThis(),
+  addGroupBy: jest.fn().mockReturnThis(),
+  getRawMany: jest.fn().mockResolvedValue([{ date: '2026-05-01', currency: null, amount: total }]),
 });
 
 describe('BudgetsService', () => {
   const budgetRepository = createRepoMock();
   const transactionRepository = createRepoMock();
   const goalRepository = createRepoMock();
+  const categoryRepository = createRepoMock();
   const notificationsService = {
     createForWorkspaceMembers: jest.fn(),
   };
@@ -41,6 +47,8 @@ describe('BudgetsService', () => {
     // now reads the saved entity back to record it in the audit trail.
     budgetRepository.create.mockImplementation((data: unknown) => data);
     budgetRepository.save.mockImplementation(async (data: unknown) => data);
+    categoryRepository.findOne.mockResolvedValue({ id: 'category-1' });
+    categoryRepository.find.mockResolvedValue([]);
     jest.useFakeTimers().setSystemTime(new Date('2026-05-08T12:00:00.000Z'));
     service = new BudgetsService(
       budgetRepository as any,
@@ -49,6 +57,7 @@ describe('BudgetsService', () => {
       notificationsService as any,
       auditService as any,
       workspaceCurrencyStub() as never,
+      categoryRepository as any,
     );
   });
 
@@ -85,6 +94,31 @@ describe('BudgetsService', () => {
     );
   });
 
+  it('measures the period of the day asked for, not today', async () => {
+    budgetRepository.find.mockResolvedValue([
+      {
+        id: 'budget-1',
+        workspaceId: 'workspace-1',
+        categoryId: 'category-1',
+        name: 'Cloud tools',
+        limitAmount: 100,
+        currency: 'USD',
+        periodType: BudgetPeriodType.MONTHLY,
+        currentPeriodStart: new Date('2026-05-01T00:00:00.000Z'),
+      },
+    ]);
+    const query = createQueryBuilderMock('80');
+    transactionRepository.createQueryBuilder.mockReturnValue(query);
+
+    const [budget] = await service.findAll('workspace-1', new Date(2026, 2, 31));
+
+    const start = query.andWhere.mock.calls.find(([sql]) => String(sql).includes(':start'));
+    const end = query.andWhere.mock.calls.find(([sql]) => String(sql).includes(':end'));
+    expect(start?.[1].start).toEqual(new Date(2026, 2, 1));
+    expect(end?.[1].end.getMonth()).toBe(2);
+    expect(budget).toEqual(expect.objectContaining({ spentAmount: 80, percentUsed: 80 }));
+  });
+
   it('creates a budget with correct fields', async () => {
     budgetRepository.findOne.mockResolvedValue(null);
 
@@ -105,6 +139,24 @@ describe('BudgetsService', () => {
         periodType: BudgetPeriodType.MONTHLY,
       }),
     );
+  });
+
+  it('refuses a category of another workspace', async () => {
+    budgetRepository.findOne.mockResolvedValue(null);
+    categoryRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.create('workspace-1', 'user-1', {
+        name: 'Theirs',
+        categoryId: 'category-of-another-workspace',
+        limitAmount: 10,
+        periodType: BudgetPeriodType.MONTHLY,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(categoryRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'category-of-another-workspace', workspaceId: 'workspace-1' },
+    });
+    expect(budgetRepository.save).not.toHaveBeenCalled();
   });
 
   it('accepts fields on update via Object.assign', async () => {
@@ -444,7 +496,7 @@ describe('BudgetsService', () => {
         categoryIds: ['food', 'groceries', 'restaurants'],
       });
       // Only what the user confirmed counts against a budget.
-      expect(builder.andWhere).toHaveBeenCalledWith(countedSql('t'));
+      expect(builder.andWhere).toHaveBeenCalledWith(flowsSql('t'));
     });
 
     it('carries the leftover of earlier periods into the current one', async () => {
@@ -456,6 +508,8 @@ describe('BudgetsService', () => {
         addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        addGroupBy: jest.fn().mockReturnThis(),
         // February (budget created on the 10th), March, April: 100 − 30, 100 − 0, 100 − 120.
         getRawMany: jest.fn().mockResolvedValue([
           { date: '2026-02-20', amount: '30' },
@@ -476,7 +530,7 @@ describe('BudgetsService', () => {
       expect(history.andWhere).toHaveBeenCalledWith('t.transaction_date >= :start', {
         start: new Date(2026, 1, 1),
       });
-      expect(history.andWhere).toHaveBeenCalledWith(countedSql('t'));
+      expect(history.andWhere).toHaveBeenCalledWith(flowsSql('t'));
     });
 
     it('tells what an expense would do to the budgets up the category tree and to the account', async () => {
@@ -599,6 +653,20 @@ describe('BudgetsService', () => {
 
       await expect(service.remove('budget-1', 'workspace-1', 'user-1')).resolves.toBeUndefined();
       expect(budgetRepository.remove).toHaveBeenCalled();
+    });
+  });
+
+  it('resets alert flags of ordinary workspaces only, leaving a past version as it was copied', async () => {
+    budgetRepository.find.mockResolvedValue([]);
+
+    await service.resetPeriodAlertFlags();
+
+    const standard = { kind: WorkspaceKind.STANDARD };
+    expect(budgetRepository.find).toHaveBeenCalledWith({
+      where: [
+        { alertAt80Sent: true, workspace: standard },
+        { alertAt100Sent: true, workspace: standard },
+      ],
     });
   });
 });

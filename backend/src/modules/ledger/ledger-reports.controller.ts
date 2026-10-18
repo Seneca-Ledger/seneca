@@ -1,12 +1,16 @@
-import { BadRequestException, Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
-  AccountLedgerQueryDto,
-  LedgerDateQueryDto,
-  LedgerPeriodQueryDto,
-} from './dto/ledger-report-query.dto';
+  AccountLedger as AccountLedgerContract,
+  AccountLedgerQuery,
+  LedgerDateQuery,
+  LedgerPeriodQuery,
+  TrialBalance as TrialBalanceContract,
+} from '../../contracts';
 import {
   type AccountLedger,
   type BalanceSheet,
@@ -15,7 +19,7 @@ import {
   type TrialBalance,
 } from './ledger-reports.service';
 
-function assertPeriod(query: LedgerPeriodQueryDto): void {
+function assertPeriod(query: LedgerPeriodQuery): void {
   if (query.dateFrom && query.dateTo && query.dateFrom > query.dateTo) {
     throw new BadRequestException('dateFrom must not be after dateTo');
   }
@@ -31,9 +35,10 @@ export class LedgerReportsController {
 
   @Get('trial-balance')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(TrialBalanceContract)
   async trialBalance(
     @WorkspaceId() workspaceId: string,
-    @Query() query: LedgerPeriodQueryDto,
+    @SchemaQuery(LedgerPeriodQuery) query: LedgerPeriodQuery,
   ): Promise<TrialBalance> {
     assertPeriod(query);
     return this.reportsService.trialBalance(workspaceId, query, query);
@@ -43,7 +48,7 @@ export class LedgerReportsController {
   @WorkspaceAuth(Permission.LEDGER_VIEW)
   async profitAndLoss(
     @WorkspaceId() workspaceId: string,
-    @Query() query: LedgerPeriodQueryDto,
+    @SchemaQuery(LedgerPeriodQuery) query: LedgerPeriodQuery,
   ): Promise<ProfitAndLoss> {
     assertPeriod(query);
     return this.reportsService.profitAndLoss(workspaceId, query, query);
@@ -53,7 +58,7 @@ export class LedgerReportsController {
   @WorkspaceAuth(Permission.LEDGER_VIEW)
   async balanceSheet(
     @WorkspaceId() workspaceId: string,
-    @Query() query: LedgerDateQueryDto,
+    @SchemaQuery(LedgerDateQuery) query: LedgerDateQuery,
   ): Promise<BalanceSheet> {
     return this.reportsService.balanceSheet(workspaceId, query, query);
   }
@@ -61,10 +66,11 @@ export class LedgerReportsController {
   /** The account card: every line in the period with a running balance. */
   @Get('accounts/:id')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(AccountLedgerContract)
   async accountLedger(
     @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Query() query: AccountLedgerQueryDto,
+    @SchemaQuery(AccountLedgerQuery) query: AccountLedgerQuery,
   ): Promise<AccountLedger> {
     assertPeriod(query);
     return this.reportsService.accountLedger(workspaceId, id, query, query);
