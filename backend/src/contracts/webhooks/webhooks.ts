@@ -71,3 +71,20 @@ export const CreatedWebhookEndpoint = Schema.Struct({
   createdAt: Timestamp,
 });
 export type CreatedWebhookEndpoint = Wire<typeof CreatedWebhookEndpoint>;
+
+/** `GET /webhook-subscriptions/:id/deliveries`: the last 100 deliveries, newest first. */
+export const WebhookDeliveryList = Schema.Array(
+  Schema.Struct({
+    id: Schema.String,
+    event: Schema.String,
+    status: Schema.Literals(['pending', 'processing', 'success', 'failed', 'exhausted']),
+    attemptCount: Schema.Number,
+    maxAttempts: Schema.Number,
+    lastAttemptedAt: Schema.NullOr(Timestamp),
+    nextAttemptAt: Schema.NullOr(Timestamp),
+    lastResponseCode: Schema.NullOr(Schema.Number),
+    lastError: Schema.NullOr(Schema.String),
+    createdAt: Timestamp,
+  }),
+);
+export type WebhookDeliveryList = Wire<typeof WebhookDeliveryList>;
