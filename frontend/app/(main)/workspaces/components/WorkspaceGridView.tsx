@@ -114,6 +114,7 @@ export function WorkspaceGridView({
   }
   return (
     <Box
+      data-tour-shot="workspaces-list"
       sx={{
         display: 'grid',
         gridTemplateColumns: {

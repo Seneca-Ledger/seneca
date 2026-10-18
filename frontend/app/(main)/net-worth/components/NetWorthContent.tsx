@@ -187,6 +187,7 @@ export function NetWorthContent() {
           }}
         >
           <Box
+            data-tour-shot="net-worth-chart"
             sx={{
               border: '1px solid',
               borderColor: 'divider',

@@ -55,6 +55,7 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
   return (
     <Box
       data-attention={`budget:${budget.categoryId}`}
+      data-tour-shot={`budgets-${tone}`}
       sx={{
         p: 2.5,
         borderRadius: tokens.radius.lg,

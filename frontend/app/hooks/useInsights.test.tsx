@@ -111,7 +111,7 @@ describe('useInsights', () => {
     refresh.result.current.mutate('de');
 
     await waitFor(() =>
-      expect(apiMocks.post).toHaveBeenCalledWith('/insights/refresh', null, {
+      expect(apiMocks.post).toHaveBeenCalledWith('/insights/refresh', undefined, {
         params: { locale: 'de' },
       }),
     );
