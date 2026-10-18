@@ -6,6 +6,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { Check, ChevronDown, ChevronRight } from '@/app/components/icons';
 import { useViewPreference } from '@/app/components/transactions/hooks/useViewPreference';
+import { greetingName } from '@/app/components/welcome-window/greeting-name';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import { DashboardCard } from './ui';
@@ -133,7 +134,7 @@ export function GettingStartedCard(): React.JSX.Element | null {
   const steps = STEPS.map(step => ({ ...step, done: progress[step.doneWhen] }));
   const completed = steps.filter(step => step.done);
   const open = steps.filter(step => !step.done);
-  const firstName = user?.name?.trim().split(/\s+/)[0];
+  const firstName = greetingName(user?.name);
   // A function, so a `$` in the name is not read as a replacement pattern.
   const subtitle = firstName
     ? t.subtitle.value.replace('{{name}}', () => firstName)
