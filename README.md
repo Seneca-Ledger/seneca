@@ -25,21 +25,27 @@
 
 <div align="center">
 
-<img src="https://github.com/user-attachments/assets/818f6af4-13a8-45aa-b66a-e9ea97a16f52" alt="screenshot-2026-09-15_16-57-51" width="100%" />
+<img width="1890" height="887" alt="screenshot-2026-10-19_12-58-12" src="https://github.com/user-attachments/assets/2f7fec9e-83da-4ebd-b80d-c6f2c8ae3c46" />
+
 
 <br /><br />
 
 <table>
 <tr>
-<td width="50%"><img src="https://github.com/user-attachments/assets/fb81c17a-e181-4524-aacf-37251f9d3281" alt="screenshot-2026-09-15_16-58-01" /></td>
-<td width="50%"><img src="https://github.com/user-attachments/assets/c10b025c-a4a6-4ab2-83f0-44d94418de82" alt="screenshot-2026-09-15_16-59-05" /></td>
+<td width="50%"><img width="1892" height="886" alt="screenshot-2026-10-19_13-01-57" src="https://github.com/user-attachments/assets/256ae873-93b5-47e8-bdbc-eb2f53f0799e" />
+</td>
+<td width="50%"><img width="1889" height="888" alt="screenshot-2026-10-19_12-56-23" src="https://github.com/user-attachments/assets/6d1130c6-b33e-4326-ac12-1eaf7408230c" />
+</td>
 </tr>
 <tr>
-<td width="50%"><img src="https://github.com/user-attachments/assets/2ba01cb1-e628-41d0-91c5-74e35dc6d0ec" alt="screenshot-2026-09-15_17-00-02" /></td>
-<td width="50%"><img src="https://github.com/user-attachments/assets/ea7e9ab7-9731-4ee2-b9a6-7b97c6e4b80c" alt="screenshot-2026-09-15_17-00-18" /></td>
+<td width="50%"><img width="1891" height="882" alt="screenshot-2026-10-19_12-57-21" src="https://github.com/user-attachments/assets/b655215b-989f-483d-91bc-72ac457658c9" />
+</td>
+<td width="50%"><img width="1887" height="884" alt="image" src="https://github.com/user-attachments/assets/746cca0a-4c0e-43c5-8003-10cf251d13b2" />
+</td>
 </tr>
 <tr>
-<td colspan="2" align="center"><img src="https://github.com/user-attachments/assets/92c1ede2-f6a0-4813-aea1-2136bb2bf7e3" alt="screenshot-2026-09-15_17-00-30" width="50%" /></td>
+<td colspan="2" align="center"><img width="1894" height="888" alt="image" src="https://github.com/user-attachments/assets/f1290df0-fa3b-4109-91f5-824c6faa2be5" />
+</td>
 </tr>
 </table>
 
@@ -48,8 +54,8 @@
 
 ---
 
-[![Maintainability](https://qlty.sh/gh/symonbaikov/projects/lumio/maintainability.svg)](https://qlty.sh/gh/symonbaikov/projects/lumio)
-[![Code Coverage](https://qlty.sh/gh/symonbaikov/projects/lumio/coverage.svg)](https://qlty.sh/gh/symonbaikov/projects/lumio)
+[![Maintainability](https://qlty.sh/gh/symonbaikov/projects/lumio/maintainability.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
+[![Code Coverage](https://qlty.sh/gh/symonbaikov/projects/lumio/coverage.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
 [![GitHub Stars](https://img.shields.io/github/stars/symonbaikov/lumio?style=flat-square&logo=github)](https://github.com/symonbaikov/lumio/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/symonbaikov/lumio?style=flat-square&logo=github)](https://github.com/symonbaikov/lumio/network/members)
 [![GitHub Issues](https://img.shields.io/github/issues/symonbaikov/lumio?style=flat-square&logo=github)](https://github.com/symonbaikov/lumio/issues)
