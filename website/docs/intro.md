@@ -35,7 +35,7 @@ exports into reliable, queryable financial data.
   webhooks, and API keys
 - Optional: self-hosted map tiles (tileserver-gl) and geocoding (Nominatim)
 - Observability: Prometheus-format metrics at `/api/v1/metrics` and structured JSON logs
-- Also in the repository: an MCP server (`mcp-server/`)
+- AI agents: an MCP endpoint (`/api/v1/mcp`) behind scoped API keys
 
 ## Where to start
 
