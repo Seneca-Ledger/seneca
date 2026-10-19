@@ -8,6 +8,8 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, type Repository } from 'typeorm';
+import { assertApiKeyScopes, type PermissionSubject } from '../../common/authz/request-permissions';
+import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import type { RunEntityImportBody } from '../../contracts';
@@ -40,6 +42,19 @@ import { PayablesTarget } from './targets/payables.target';
 import { SubscriptionsTarget } from './targets/subscriptions.target';
 import type { ImportContext, ImportTarget, RowResult } from './targets/target.types';
 import { TransactionsTarget } from './targets/transactions.target';
+
+/**
+ * The scope an API key needs to import (or undo) each target: the permission
+ * the matching create route asks for. Roles are checked by the toggles below.
+ */
+const IMPORT_SCOPES: Record<ImportTargetKind, Permission> = {
+  transactions: Permission.STATEMENT_UPLOAD,
+  payables: Permission.PAYABLE_CREATE,
+  subscriptions: Permission.SUBSCRIPTION_CREATE,
+  invoices: Permission.INVOICE_CREATE,
+  budgets: Permission.BUDGET_CREATE,
+  metals: Permission.WALLET_CREATE,
+};
 
 export interface EntityImportResult {
   batchId: string | null;
@@ -98,7 +113,13 @@ export class EntityImportService {
     }
   }
 
-  private async ensurePermission(userId: string, workspaceId: string, target: ImportTargetKind) {
+  private async ensurePermission(
+    userId: string,
+    workspaceId: string,
+    target: ImportTargetKind,
+    apiKey: PermissionSubject['apiKey'],
+  ) {
+    assertApiKeyScopes([IMPORT_SCOPES[target]], apiKey);
     // Transactions land in statements; everything else is plain data entry.
     if (target === 'transactions') {
       await ensureCanEdit(
@@ -140,12 +161,13 @@ export class EntityImportService {
     userId: string,
     workspaceId: string,
     dto: RunEntityImportBody,
+    apiKey?: PermissionSubject['apiKey'],
   ): Promise<EntityImportResult> {
     const target = this.targets[dto.target];
     if (!target) {
       throw new BadRequestException(appError('IMPORT_TARGET_UNKNOWN'));
     }
-    await this.ensurePermission(userId, workspaceId, dto.target);
+    await this.ensurePermission(userId, workspaceId, dto.target, apiKey);
     const rows = dto.rows.map(row =>
       Array.isArray(row) ? row.map(cell => String(cell ?? '')) : [],
     );
@@ -326,6 +348,7 @@ export class EntityImportService {
     userId: string,
     workspaceId: string,
     batchId: string,
+    apiKey?: PermissionSubject['apiKey'],
   ): Promise<{ undone: true; removed: number; restored: number }> {
     const batch = await this.batchRepository.findOne({ where: { id: batchId, workspaceId } });
     if (!batch) {
@@ -334,7 +357,7 @@ export class EntityImportService {
     if (batch.undoneAt) {
       throw new BadRequestException(appError('IMPORT_BATCH_ALREADY_UNDONE'));
     }
-    await this.ensurePermission(userId, workspaceId, batch.target as ImportTargetKind);
+    await this.ensurePermission(userId, workspaceId, batch.target as ImportTargetKind, apiKey);
     const removed = await this.dataSource.transaction(async manager => {
       let count = 0;
       const byKind = (kind: ImportCreatedRef['kind']) =>

@@ -36,9 +36,9 @@ const userPermissions = (user: PermissionSubject['user']): Permission[] =>
 /** The required permissions a scoped API key does not carry; empty for unscoped keys. */
 const missingScopes = (
   required: readonly Permission[],
-  subject: PermissionSubject,
+  apiKey: PermissionSubject['apiKey'],
 ): Permission[] => {
-  const scopes = subject.apiKey?.scopes;
+  const scopes = apiKey?.scopes;
   return scopes && scopes.length > 0 ? required.filter(p => !scopes.includes(p)) : [];
 };
 
@@ -72,12 +72,23 @@ export function assertPermissions(
   if (required.length === 0) {
     return;
   }
-  const missing = missingScopes(required, subject);
-  if (missing.length > 0) {
-    throw new ForbiddenException(`API key scope missing: ${missing.join(', ')}`);
-  }
+  assertApiKeyScopes(required, subject.apiKey);
   if (!roleAllows(required, subject)) {
     throw new ForbiddenException(`Insufficient permissions. Required: ${required.join(', ')}`);
+  }
+}
+
+/**
+ * The API-key half of `assertPermissions`, for routes whose role rule lives in
+ * the service (a per-target toggle) and so cannot sit behind `PermissionsGuard`.
+ */
+export function assertApiKeyScopes(
+  required: readonly Permission[],
+  apiKey: PermissionSubject['apiKey'],
+): void {
+  const missing = missingScopes(required, apiKey);
+  if (missing.length > 0) {
+    throw new ForbiddenException(`API key scope missing: ${missing.join(', ')}`);
   }
 }
 
@@ -85,5 +96,5 @@ export function hasPermissions(
   required: readonly Permission[],
   subject: PermissionSubject,
 ): boolean {
-  return missingScopes(required, subject).length === 0 && roleAllows(required, subject);
+  return missingScopes(required, subject.apiKey).length === 0 && roleAllows(required, subject);
 }
