@@ -279,7 +279,11 @@ export const gmailReceiptsApi = {
     apiClient.post('/integrations/gmail/receipts/bulk-approve', { receiptIds, categoryId }),
 
   exportReceiptsToXlsx: (receiptIds: string[]): Promise<AxiosResponse> =>
-    apiClient.post('/integrations/gmail/receipts/export-xlsx', { receiptIds }),
+    apiClient.post(
+      '/integrations/gmail/receipts/export-xlsx',
+      { receiptIds },
+      { responseType: 'blob' },
+    ),
 
   exportReceiptToDraft: (receiptId: string): Promise<AxiosResponse> =>
     apiClient.post(`/integrations/gmail/receipts/${receiptId}/export-draft`),

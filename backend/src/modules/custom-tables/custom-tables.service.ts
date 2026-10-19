@@ -3730,11 +3730,15 @@ export class CustomTablesService {
       const computed = await this.getSummaries(table.workspaceId, table.id);
       for (const item of computed.items) {
         lastRow += 1;
-        worksheet[`A${lastRow}`] = { t: 's', v: item.title };
+        // Summary titles are editor input, like column titles.
+        worksheet[`A${lastRow}`] = { t: 's', v: neutralizeSpreadsheetFormulaCell(item.title) };
         worksheet[`B${lastRow}`] =
           typeof item.value === 'number'
             ? { t: 'n', v: item.value }
-            : { t: 's', v: item.value === null ? '' : String(item.value) };
+            : {
+                t: 's',
+                v: neutralizeSpreadsheetFormulaCell(item.value === null ? '' : String(item.value)),
+              };
       }
     }
     if (lastRow > rowCount + 1) {
@@ -3743,6 +3747,11 @@ export class CustomTablesService {
         e: { r: lastRow - 1, c: Math.max(columns.length - 1, 1) },
       });
     }
+  }
+
+  /** A column title is editor input: it must not open as a formula in the header row. */
+  private exportHeader(col: CustomTableColumn): string {
+    return neutralizeSpreadsheetFormulaCell(col.title || col.key);
   }
 
   private exportCellValue(raw: unknown, columnType: CustomTableColumnType): unknown {
@@ -4073,7 +4082,7 @@ export class CustomTablesService {
         const labels = (row as CustomTableRow & { relationLabels?: Record<string, string> })
           .relationLabels;
         for (const col of columns) {
-          const header = col.title || col.key;
+          const header = this.exportHeader(col);
           // В выгрузку идёт подпись связанной строки: идентификатор в отчёте
           // человеку ничего не говорит.
           record[header] =
@@ -4085,7 +4094,7 @@ export class CustomTablesService {
       }
     }
 
-    const headers = columns.map(col => col.title || col.key);
+    const headers = columns.map(col => this.exportHeader(col));
     const worksheet = xlsx.utils.json_to_sheet(records, { header: headers });
     await this.appendExportTotals(worksheet, table, columns, records.length);
 

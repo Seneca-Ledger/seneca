@@ -27,6 +27,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { Permission } from '../../common/enums/permissions.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
 import { resolveInUploadsDir, resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
@@ -698,15 +699,26 @@ export class GmailController {
   @AllowInVersion()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @ApiOperation({ summary: 'Export receipts to an Excel (.xlsx) file' })
-  async exportToXlsx(@WorkspaceId() workspaceId: string, @Body() dto: ExportXlsxDto) {
+  async exportToXlsx(
+    @WorkspaceId() workspaceId: string,
+    @Body() dto: ExportXlsxDto,
+    @Res() res: Response,
+  ) {
+    let result: { fileName: string; buffer: Buffer };
     try {
-      const result = await this.exportService.exportToXlsx(workspaceId, dto.receiptIds);
-      return result;
+      result = await this.exportService.exportToXlsx(workspaceId, dto.receiptIds);
     } catch (error) {
       throw new BadRequestException(
         `Failed to export to xlsx: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', buildContentDisposition('attachment', result.fileName));
+    res.setHeader('Content-Length', String(result.buffer.length));
+    res.end(result.buffer);
   }
 
   @Post('receipts/:id/export-draft')

@@ -6,7 +6,7 @@ import { In, Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
 import { APP_NAME } from '../../../common/brand';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
-import { resolveUploadsDir } from '../../../common/utils/uploads.util';
+import { neutralizeSpreadsheetFormulaCell } from '../../../common/utils/spreadsheet-formula.util';
 import { Category, Receipt } from '../../../entities';
 import { GmailOAuthService } from './gmail-oauth.service';
 
@@ -43,7 +43,7 @@ export class GmailReceiptExportService {
   async exportToXlsx(
     workspaceId: string,
     receiptIds: string[],
-  ): Promise<{ fileName: string; url: string }> {
+  ): Promise<{ fileName: string; buffer: Buffer }> {
     try {
       // Fetch receipts with parsed data
       const receipts = await this.receiptRepository.find({
@@ -77,24 +77,21 @@ export class GmailReceiptExportService {
       // Prepare data rows
       const rows: ReceiptRow[] = [headers];
       for (const receipt of receipts) {
-        rows.push(this.formatReceiptRow(receipt));
+        // Merchant and category come from e-mail and OCR: no cell may start a formula.
+        rows.push(this.formatReceiptRow(receipt).map(neutralizeSpreadsheetFormulaCell));
       }
 
+      // Sent in the response: a file under uploads/exports was never served
+      // (no route or mount), so the old link was dead and files piled up.
       const fileName = `receipts-${Date.now()}.xlsx`;
-      const exportsDir = path.join(resolveUploadsDir(), 'exports');
-      await fs.promises.mkdir(exportsDir, { recursive: true });
       const workbook = xlsx.utils.book_new();
       const worksheet = xlsx.utils.aoa_to_sheet(rows);
       xlsx.utils.book_append_sheet(workbook, worksheet, 'Receipts');
-      const filePath = path.join(exportsDir, fileName);
-      xlsx.writeFile(workbook, filePath);
+      const buffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'buffer' }) as Buffer;
 
       this.logger.log(`Exported ${receipts.length} receipts to ${fileName}`);
 
-      return {
-        fileName,
-        url: `/uploads/exports/${fileName}`,
-      };
+      return { fileName, buffer };
     } catch (error) {
       this.logger.error('Failed to export receipts to xlsx', error);
       throw error;

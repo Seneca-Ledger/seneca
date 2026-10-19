@@ -2,6 +2,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
+import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { In, MoreThanOrEqual, type Repository, type SelectQueryBuilder } from 'typeorm';
@@ -12,7 +13,7 @@ import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { formatMoney } from '../../common/utils/format-money.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import { applyOwnerFilter, parseOwnerFilter } from '../../common/utils/transaction-owner.util';
-import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { resolveInUploadsDir, resolveUploadsDir } from '../../common/utils/uploads.util';
 import type {
   CustomReportBody,
   CustomTablesReportBody,
@@ -1684,21 +1685,14 @@ export class ReportsService {
    * Export report to Excel or CSV
    */
   async exportReport(
-    _workspaceId: string,
+    workspaceId: string,
     dto: ExportReportBody,
     reportData: DailyReport | MonthlyReport | CustomReport,
     locale?: string,
   ): Promise<{ filePath: string; fileName: string }> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `report-${timestamp}.${dto.format === ExportFormat.EXCEL ? 'xlsx' : 'csv'}`;
-    const uploadsBaseDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
-    const filePath = path.join(uploadsBaseDir, 'reports', fileName);
-
-    // Ensure directory exists
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    const filePath = path.join(this.resolveReportsDir(workspaceId), `${randomUUID()}-${fileName}`);
 
     if (dto.format === ExportFormat.EXCEL) {
       await this.exportToExcel(reportData, filePath, locale);
@@ -1745,7 +1739,7 @@ export class ReportsService {
     };
     const normalizedFormat = format || WorkspaceExportFormat.EXCEL;
     const fileName = `workspace-transactions-${timestamp}.${extensionMap[normalizedFormat]}`;
-    const filePath = path.join(this.resolveReportsDir(), fileName);
+    const filePath = path.join(this.resolveReportsDir(workspaceId), `${randomUUID()}-${fileName}`);
 
     if (normalizedFormat === WorkspaceExportFormat.EXCEL) {
       await this.generateWorkspaceExcel(transactions, filePath);
@@ -2856,9 +2850,16 @@ export class ReportsService {
   /**
    * Generated reports live under uploads/ rather than the OS temp dir, because
    * report history rows keep pointing at them long after the download stream ends.
+   * One directory per workspace, and every writer adds a random prefix to the
+   * file: a name built from a template id and dates alone was shared by every
+   * workspace, so one workspace's run overwrote the file another's history served.
    */
-  private resolveReportsDir(): string {
-    const dir = path.join(resolveUploadsDir(), 'reports');
+  private reportsDirOf(workspaceId: string): string {
+    return path.join(resolveUploadsDir(), 'reports', workspaceId);
+  }
+
+  private resolveReportsDir(workspaceId: string): string {
+    const dir = this.reportsDirOf(workspaceId);
     fs.mkdirSync(dir, { recursive: true });
     return dir;
   }
@@ -2879,7 +2880,7 @@ export class ReportsService {
             await this.buildTemplateDocument(workspaceId, dto),
             dto.format as ReportFileFormat,
             baseName,
-            this.resolveReportsDir(),
+            this.resolveReportsDir(workspaceId),
           );
 
     await this.reportHistoryRepo.save({
@@ -2946,7 +2947,7 @@ export class ReportsService {
     );
 
     const fileName = `${baseName}.${dto.format === 'pdf' ? 'pdf' : 'xlsx'}`;
-    const filePath = path.join(this.resolveReportsDir(), fileName);
+    const filePath = path.join(this.resolveReportsDir(workspaceId), `${randomUUID()}-${fileName}`);
     fs.writeFileSync(filePath, payload.buffer);
 
     return { filePath, fileName, contentType: payload.contentType };
@@ -3562,7 +3563,13 @@ export class ReportsService {
       where: { id: reportId, workspaceId },
     });
 
-    if (!(report?.filePath && report.fileName && fs.existsSync(report.filePath))) {
+    // Only a file in this workspace's own directory is served. Rows written
+    // before reports moved there point at a shared path that another workspace
+    // may have overwritten since, so they read as missing.
+    const filePath =
+      report?.filePath &&
+      resolveInUploadsDir(report.filePath, path.resolve(this.reportsDirOf(workspaceId)));
+    if (!(filePath && report.fileName && fs.existsSync(filePath))) {
       throw new NotFoundException('Report file not found');
     }
 
@@ -3575,7 +3582,7 @@ export class ReportsService {
           : 'application/pdf';
 
     return {
-      filePath: report.filePath,
+      filePath,
       fileName: report.fileName,
       contentType,
     };

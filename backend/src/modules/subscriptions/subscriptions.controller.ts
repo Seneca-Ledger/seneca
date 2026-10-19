@@ -18,6 +18,7 @@ import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import {
   AssignSubscriptionOwnerBody,
   ChargeCalendarQuery,
@@ -83,7 +84,9 @@ export class SubscriptionsController {
     }
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="business-subscriptions.csv"');
-    const cell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    // Vendor and owner names are user text: a leading = + - @ must not run as a formula.
+    const cell = (value: unknown) =>
+      `"${String(neutralizeSpreadsheetFormulaCell(value ?? '')).replace(/"/g, '""')}"`;
     const header = [
       'vendor',
       'owner',

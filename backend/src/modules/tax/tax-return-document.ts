@@ -1,6 +1,7 @@
 import * as xlsx from 'xlsx';
 import { APP_NAME } from '../../common/brand';
 import { toCsv } from '../../common/utils/csv.util';
+import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import type { TaxReturnSnapshotLine } from '../../entities/tax-return.entity';
 
 /**
@@ -118,9 +119,16 @@ export function buildTaxReturnXlsx(input: TaxReturnDocumentInput): Buffer {
   // aoa_to_sheet for the empty case: json_to_sheet on [] produces a sheet with
   // no header row at all, which reads as a broken export rather than an empty
   // period.
+  // The counterparty is bank text: a leading = + - @ must not become a formula
+  // once edited. Neutralised here, not in lineRows, so the PDF shows it as is.
   const lines =
     rows.length > 0
-      ? xlsx.utils.json_to_sheet(rows)
+      ? xlsx.utils.json_to_sheet(
+          rows.map(row => ({
+            ...row,
+            Counterparty: neutralizeSpreadsheetFormulaCell(row.Counterparty),
+          })),
+        )
       : xlsx.utils.aoa_to_sheet([['No taxed transactions in this period']]);
   xlsx.utils.book_append_sheet(workbook, lines, 'Lines');
 
