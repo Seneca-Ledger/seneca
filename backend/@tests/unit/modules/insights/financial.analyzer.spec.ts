@@ -192,6 +192,60 @@ describe('FinancialAnalyzer', () => {
     expect(results.some(item => item.type === InsightType.SPENDING_TREND_UP)).toBe(false);
   });
 
+  it('ignores a big percent rise that is small in money', async () => {
+    const analyzer = new FinancialAnalyzer(
+      createTransactionRepository({
+        categoryRows: [
+          // The real case: 6.61 now against an average of 2.88 is +129%, but 3.73 USD.
+          categoryRow('cat-ads', 'Advertising', 0, 6.61),
+          categoryRow('cat-ads', 'Advertising', 1, 2.88),
+          categoryRow('cat-ads', 'Advertising', 2, 2.88),
+          categoryRow('cat-ads', 'Advertising', 3, 2.88),
+        ],
+      }),
+      createBudgetRepository(['cat-ads']),
+      createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
+    );
+
+    const results = await analyzer.analyze(CONTEXT);
+
+    expect(results.some(item => item.type === InsightType.SPENDING_TREND_UP)).toBe(false);
+  });
+
+  it('sets the money floor in the workspace currency', async () => {
+    // 1 USD = 500 KZT, so the floor is 25 000 KZT.
+    const rates = { getRateOrNull: jest.fn(async (from: string) => (from === 'USD' ? 500 : null)) };
+    const workspaces = { findOne: jest.fn(async () => ({ id: 'workspace-1', currency: 'KZT' })) };
+    const analyzer = new FinancialAnalyzer(
+      createTransactionRepository({
+        categoryRows: [
+          // +20 000 KZT (+100%): about 40 USD, under the floor.
+          categoryRow('cat-1', 'Кафе', 0, 40_000, 'KZT'),
+          categoryRow('cat-1', 'Кафе', 1, 20_000, 'KZT'),
+          categoryRow('cat-1', 'Кафе', 2, 20_000, 'KZT'),
+          categoryRow('cat-1', 'Кафе', 3, 20_000, 'KZT'),
+          // +30 000 KZT (+50%): about 60 USD, over it.
+          categoryRow('cat-2', 'Такси', 0, 90_000, 'KZT'),
+          categoryRow('cat-2', 'Такси', 1, 60_000, 'KZT'),
+          categoryRow('cat-2', 'Такси', 2, 60_000, 'KZT'),
+          categoryRow('cat-2', 'Такси', 3, 60_000, 'KZT'),
+        ],
+      }),
+      createBudgetRepository(['cat-1', 'cat-2']),
+      createNetWorthService(),
+      rates as any,
+      workspaces as any,
+    );
+
+    const results = await analyzer.analyze(CONTEXT);
+    const rising = results.filter(item => item.type === InsightType.SPENDING_TREND_UP);
+
+    expect(rising).toHaveLength(1);
+    expect(rising[0].messageParams).toMatchObject({ category: 'Такси', percent: 50 });
+  });
+
   it('ignores a category with no history instead of reporting an infinite jump', async () => {
     const analyzer = new FinancialAnalyzer(
       createTransactionRepository({

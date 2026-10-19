@@ -3,6 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { type Repository, type SelectQueryBuilder } from 'typeorm';
 import { InsightCategory, InsightSeverity, InsightType, Transaction } from '../../../entities';
 import { UNCATEGORIZED_CATEGORY_NAME } from '../../categories/uncategorized-category';
+import {
+  reviewDuplicatesQuery,
+  uncategorizedRowsQuery,
+  unconfirmedRowsQuery,
+} from '../../review-inbox/review-queue.queries';
 import type { AnalysisContext, InsightAnalyzer, InsightCandidate } from './analyzer.interface';
 
 const UNCATEGORIZED_CATEGORY_NAMES = [UNCATEGORIZED_CATEGORY_NAME];
@@ -105,13 +110,22 @@ export class OperationalAnalyzer implements InsightAnalyzer {
       .where('statement.userId = :userId', { userId: context.userId });
   }
 
+  // With a workspace, each count is the Review queue's own query: the strip above
+  // the pages links to Review, so its number is what Review lists (no rows of a
+  // trashed statement, no transfers). Without one, the older per-person count.
   private async countUnapproved(context: AnalysisContext): Promise<number> {
+    if (context.workspaceId) {
+      return unconfirmedRowsQuery(this.transactionRepository, context.workspaceId).getCount();
+    }
     const queryBuilder = this.transactionRepository.createQueryBuilder('transaction');
     this.applyBaseScope(queryBuilder, context).andWhere('transaction.isVerified = false');
     return queryBuilder.getCount();
   }
 
   private async countUncategorized(context: AnalysisContext): Promise<number> {
+    if (context.workspaceId) {
+      return uncategorizedRowsQuery(this.transactionRepository, context.workspaceId).getCount();
+    }
     const queryBuilder = this.transactionRepository.createQueryBuilder('transaction');
     this.applyBaseScope(queryBuilder, context)
       .leftJoin('transaction.category', 'category')
@@ -125,6 +139,9 @@ export class OperationalAnalyzer implements InsightAnalyzer {
   }
 
   private async countDuplicates(context: AnalysisContext): Promise<number> {
+    if (context.workspaceId) {
+      return reviewDuplicatesQuery(this.transactionRepository, context.workspaceId).getCount();
+    }
     const queryBuilder = this.transactionRepository.createQueryBuilder('transaction');
     this.applyBaseScope(queryBuilder, context)
       .andWhere('transaction.isDuplicate = true')

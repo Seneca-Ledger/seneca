@@ -45,6 +45,7 @@ vi.mock('@/app/i18n', async () => {
         spentLabel: value('Spent'),
         netLabel: value('Net'),
         savingsRateLabel: value('Savings rate'),
+        monthInProgress: value('Month in progress'),
         topCategoriesTitle: value('Spending by category'),
         viewAll: value('View all'),
         title: value('Recent transactions'),
@@ -90,13 +91,14 @@ const baseData: DashboardData = {
 function renderTab(
   data: DashboardData,
   formatAmount: (value: number) => string = value => String(value),
+  displayMonth: Date = new Date(2026, 1, 15),
 ): ReturnType<typeof render> {
   return renderWithQuery(
     <OverviewTab
       data={data}
       formatAmount={formatAmount}
       isLoading={false}
-      displayMonth={new Date(2026, 1, 15)}
+      displayMonth={displayMonth}
     />,
   );
 }
@@ -164,6 +166,25 @@ describe('OverviewTab', () => {
     });
 
     expect(screen.getByText('0%').className).toBe('lumio-dashboard__stat-value');
+  });
+
+  it('says under the savings rate that the current month is not over yet', () => {
+    const now = new Date();
+    renderTab(
+      { ...baseData, snapshot: { ...baseData.snapshot, income30d: 1941, expense30d: 18 } },
+      undefined,
+      new Date(now.getFullYear(), now.getMonth(), 1),
+    );
+
+    const note = screen.getByText('Month in progress');
+    expect(note.className).toBe('lumio-dashboard__stat-note');
+    expect(note.closest('.lumio-dashboard__stat')?.textContent).toContain('Savings rate');
+  });
+
+  it('leaves a past month without the in-progress note', () => {
+    renderTab(baseData);
+
+    expect(screen.queryByText('Month in progress')).not.toBeInTheDocument();
   });
 
   it('no longer hosts cash flow, quick actions or the upload zone', () => {
