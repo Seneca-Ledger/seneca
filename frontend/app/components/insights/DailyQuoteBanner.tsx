@@ -9,10 +9,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Quote, X } from '@/app/components/icons';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useDailyQuote } from '@/app/hooks/useDailyQuote';
-import { useInsights } from '@/app/hooks/useInsights';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
+import { useAttentionItems } from './useAttentionItems';
 
 /** Pages whose own content fills the screen; the quote stays off there. */
 const HIDDEN_ON = new Set(['/reports']);
@@ -85,9 +85,9 @@ export function DailyQuoteBanner(): React.JSX.Element | null {
   const enabled = user?.showDailyQuote !== false && !HIDDEN_ON.has(pathname ?? '');
   const { quote } = useDailyQuote({ enabled });
   const [dismissedDate, setDismissedDate] = useState(() => readDismissed(workspaceId));
-  // One strip above the page at a time: while AlertBanner shows an urgent
-  // insight the quote waits (same query, so no extra request).
-  const urgent = useInsights({ severities: ['warn', 'critical'] });
+  // One strip above the page at a time: while AlertBanner shows something left
+  // to do the quote waits (same query, so no extra request).
+  const urgent = useAttentionItems();
 
   const hidden =
     !(enabled && quote) ||
