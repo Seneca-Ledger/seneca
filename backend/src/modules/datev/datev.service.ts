@@ -4,7 +4,11 @@ import { In, Repository } from 'typeorm';
 import { APP_NAME } from '../../common/brand';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { toMinor } from '../../common/utils/money.util';
-import { canReadPrivate } from '../../common/utils/transaction-privacy.util';
+import {
+  canReadPrivate,
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../common/utils/transaction-privacy.util';
 import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util';
 import { Category } from '../../entities/category.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
@@ -188,7 +192,11 @@ export class DatevService {
   }
 
   /** Every category the year booked to, its account if mapped, and a suggestion if not. */
-  async getMapping(workspaceId: string, year: number): Promise<DatevMapping> {
+  async getMapping(
+    workspaceId: string,
+    year: number,
+    viewerMemberId: string | null = null,
+  ): Promise<DatevMapping> {
     const [settings, workspace] = await Promise.all([
       this.getSettings(workspaceId),
       this.loadWorkspace(workspaceId),
@@ -201,6 +209,9 @@ export class DatevService {
         .where('t.workspaceId = :workspaceId', { workspaceId })
         .andWhere('t.categoryId IS NOT NULL')
         .andWhere('t.transferPairId IS NULL')
+        // Counts what the export would book for this viewer, which leaves
+        // other members' private rows out.
+        .andWhere(readablePrivateSql('t'), { [PRIVACY_VIEWER_PARAM]: viewerMemberId })
         .andWhere('t.transactionDate BETWEEN :from AND :to', {
           from: `${year}-01-01`,
           to: `${year}-12-31`,
@@ -218,6 +229,7 @@ export class DatevService {
         .where('t.workspaceId = :workspaceId', { workspaceId })
         .andWhere("COALESCE(s.accountNumber, '') <> ''")
         .andWhere('t.transferPairId IS NULL')
+        .andWhere(readablePrivateSql('t'), { [PRIVACY_VIEWER_PARAM]: viewerMemberId })
         .andWhere('t.transactionDate BETWEEN :from AND :to', {
           from: `${year}-01-01`,
           to: `${year}-12-31`,

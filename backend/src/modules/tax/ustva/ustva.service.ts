@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, IsNull, Not, Repository } from 'typeorm';
 import { countedWhere } from '../../../common/utils/counted-transactions.util';
+import { canReadPrivate } from '../../../common/utils/transaction-privacy.util';
 import { TaxFilingPeriod } from '../../../entities/tax-jurisdiction.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 import { VatStatus, Workspace } from '../../../entities/workspace.entity';
@@ -158,6 +159,9 @@ function rowOf(
 ): UstvaRow {
   const reverseCharge = transaction.taxReverseCharge === true;
   const tax = Number((reverseCharge ? transaction.taxNotionalAmount : transaction.taxAmount) ?? 0);
+  // Like the VAT return, the form is the workspace's: a private row still lands
+  // on its Kennzahl (the supply type decides which), but without its payee.
+  const named = canReadPrivate(transaction, null);
   return {
     transactionId: transaction.id,
     direction: transaction.transactionType === TransactionType.INCOME ? 'income' : 'expense',
@@ -165,8 +169,8 @@ function rowOf(
     ratePercent: Number(transaction.taxRate?.rate ?? 0),
     net: Math.round(Number(transaction.taxNetAmount ?? 0) * rate * 100) / 100,
     tax: Math.round(tax * rate * 100) / 100,
-    payeeId: payee?.id ?? null,
-    payeeName: payee?.name ?? null,
+    payeeId: named ? (payee?.id ?? null) : null,
+    payeeName: named ? (payee?.name ?? null) : null,
     supplyType: payee?.supply_type ?? null,
   };
 }

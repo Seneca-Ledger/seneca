@@ -51,9 +51,10 @@ export class DatevController {
   @SchemaResponse(DatevMapping)
   async mapping(
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
     @SchemaQuery(DatevMappingQuery) query: DatevMappingQuery,
   ) {
-    return this.datevService.getMapping(workspaceId, query.year);
+    return this.datevService.getMapping(workspaceId, query.year, selfMemberId);
   }
 
   /** What the file for a period would hold, and what it would leave out and why. */
