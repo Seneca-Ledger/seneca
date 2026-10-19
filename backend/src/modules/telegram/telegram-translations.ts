@@ -26,10 +26,10 @@ export type TelegramMessageKey =
   | 'start_greeting'
   | 'unknown_command'
   | 'telegram_id_unknown'
-  | 'user_not_connected'
+  | 'not_connected'
+  | 'link_expired'
   | 'report_failed'
   | 'document_telegram_id_unknown'
-  | 'document_user_not_connected'
   | 'document_pdf_only'
   | 'document_received'
   | 'document_processed'
@@ -79,24 +79,23 @@ const ru: TranslationMap = {
   inbound_help:
     'Также можно:\n• прислать фото или картинку чека — я распознаю сумму и положу чек в разбор\n• написать расход текстом: «кофе 4.50», «такси 1500 тг»\n• прислать PDF выписки — она уйдёт на импорт',
   connected: '✅ Telegram подключен. Мы будем отправлять отчёты в этот чат.',
+  link_expired: '⚠️ Ссылка устарела или уже использована. Нажмите «Подключить» в Lumio ещё раз.',
   start_greeting:
-    '👋 Привет! Твой Telegram ID: {{telegramId}}. Добавь его в настройках профиля, чтобы получать отчёты.',
+    '👋 Привет! Я бот Lumio. Чтобы подключить этот чат, откройте в Lumio Настройки → Уведомления и нажмите «Подключить» у Telegram.',
   unknown_command: 'Неизвестная команда. Используйте /help для списка команд.',
   telegram_id_unknown: 'Не удалось определить ваш Telegram ID. Попробуйте позже.',
-  user_not_connected:
-    'Пользователь с Telegram ID {{telegramId}} не подключён. Укажите этот ID в настройках аккаунта.',
+  not_connected:
+    'Этот чат ещё не подключён к аккаунту Lumio. Откройте в Lumio Настройки → Уведомления и нажмите «Подключить» у Telegram.',
   report_failed: 'Не удалось отправить отчёт. Попробуйте позже.',
   document_telegram_id_unknown:
     '⚠️ Не удалось определить ваш Telegram ID. Отправьте /start и повторите.',
-  document_user_not_connected:
-    'Пользователь с Telegram ID {{telegramId}} не подключён. Укажите ID и chatId в настройках или вызовите /start, чтобы увидеть свой ID.',
   document_pdf_only: 'Поддерживаются только PDF-файлы выписок.',
   document_received: '📥 Файл получен, начинаем обработку...',
   document_processed:
     '✅ Файл принят и отправлен в обработку. Статус: {{status}}. Проверить результат можно в веб-интерфейсе Lumio.',
   document_failed:
     'Не удалось обработать файл. Попробуйте позже или загрузите через веб-интерфейс.',
-  help: 'Доступные команды:\n/start — показать ваш Telegram ID и приветствие\n/help — эта подсказка\n/report — ежедневный отчёт за сегодня\n/report YYYY-MM-DD — отчёт за указанную дату\n/report monthly — отчёт за текущий месяц\n/goals — прогресс по целям накоплений\n/networth — текущие чистые активы',
+  help: 'Доступные команды:\n/start — как подключить этот чат к Lumio\n/help — эта подсказка\n/report — ежедневный отчёт за сегодня\n/report YYYY-MM-DD — отчёт за указанную дату\n/report monthly — отчёт за текущий месяц\n/goals — прогресс по целям накоплений\n/networth — текущие чистые активы',
   daily_header: '📅 Ежедневный отчёт — {{date}}',
   income_line: '➕ Приход: {{amount}} ({{count}})',
   expense_line: '➖ Расход: {{amount}} ({{count}})',
@@ -142,24 +141,23 @@ const en: TranslationMap = {
   inbound_help:
     'You can also:\n• send a photo or image of a receipt — I read the amount and put it in the review inbox\n• type an expense: “coffee 4.50”, “taxi 15 EUR”\n• send a PDF statement — it goes to import',
   connected: "✅ Telegram connected. We'll send reports to this chat.",
+  link_expired: '⚠️ This link has expired or was already used. Press Connect in Lumio again.',
   start_greeting:
-    '👋 Hi! Your Telegram ID: {{telegramId}}. Add it in your profile settings to start receiving reports.',
+    "👋 Hi! I'm the Lumio bot. To connect this chat, open Settings → Notifications in Lumio and press Connect next to Telegram.",
   unknown_command: 'Unknown command. Use /help to see the list of commands.',
   telegram_id_unknown: 'Could not determine your Telegram ID. Please try again later.',
-  user_not_connected:
-    'No account is connected to Telegram ID {{telegramId}}. Add this ID in your account settings.',
+  not_connected:
+    "This chat isn't connected to a Lumio account yet. Open Settings → Notifications in Lumio and press Connect next to Telegram.",
   report_failed: 'Could not send the report. Please try again later.',
   document_telegram_id_unknown:
     '⚠️ Could not determine your Telegram ID. Send /start and try again.',
-  document_user_not_connected:
-    'No account is connected to Telegram ID {{telegramId}}. Add the ID and chat ID in your settings, or send /start to see your ID.',
   document_pdf_only: 'Only PDF statement files are supported.',
   document_received: '📥 File received, processing has started...',
   document_processed:
     '✅ File accepted and queued for processing. Status: {{status}}. Check the result in the Lumio web app.',
   document_failed:
     'Could not process the file. Please try again later or upload it through the web app.',
-  help: "Available commands:\n/start — show your Telegram ID and a welcome message\n/help — this help message\n/report — today's daily report\n/report YYYY-MM-DD — report for a specific date\n/report monthly — report for the current month\n/goals — progress on your savings goals\n/networth — your current net worth",
+  help: "Available commands:\n/start — how to connect this chat to Lumio\n/help — this help message\n/report — today's daily report\n/report YYYY-MM-DD — report for a specific date\n/report monthly — report for the current month\n/goals — progress on your savings goals\n/networth — your current net worth",
   daily_header: '📅 Daily report — {{date}}',
   income_line: '➕ Income: {{amount}} ({{count}})',
   expense_line: '➖ Expense: {{amount}} ({{count}})',
@@ -203,24 +201,24 @@ const kk: TranslationMap = {
   inbound_help:
     'Сондай-ақ:\n• чектің фотосын жіберіңіз — соманы оқып, чекті қарауға қоямын\n• шығынды мәтінмен жазыңыз: «кофе 4.50», «такси 1500 тг»\n• PDF үзінді көшірме жіберіңіз — ол импортқа кетеді',
   connected: '✅ Telegram қосылды. Осы чатқа есептер жібереміз.',
+  link_expired:
+    '⚠️ Сілтеменің мерзімі өтті немесе ол бұрын пайдаланылған. Lumio-да «Қосу» түймесін қайта басыңыз.',
   start_greeting:
-    '👋 Сәлем! Telegram ID-ің: {{telegramId}}. Есептерді алу үшін оны профиль баптауларында көрсет.',
+    '👋 Сәлем! Мен Lumio ботымын. Осы чатты қосу үшін Lumio-да Баптаулар → Хабарландырулар бөлімін ашып, Telegram жанындағы «Қосу» түймесін басыңыз.',
   unknown_command: 'Белгісіз команда. Командалар тізімі үшін /help пайдаланыңыз.',
   telegram_id_unknown: 'Telegram ID-іңізді анықтау мүмкін болмады. Кейінірек қайталап көріңіз.',
-  user_not_connected:
-    'Telegram ID {{telegramId}} қосылған пайдаланушы жоқ. Бұл ID-ды тіркелгі баптауларында көрсетіңіз.',
+  not_connected:
+    'Бұл чат әлі Lumio аккаунтына қосылмаған. Lumio-да Баптаулар → Хабарландырулар бөлімін ашып, Telegram жанындағы «Қосу» түймесін басыңыз.',
   report_failed: 'Есепті жіберу мүмкін болмады. Кейінірек қайталап көріңіз.',
   document_telegram_id_unknown:
     '⚠️ Telegram ID-іңізді анықтау мүмкін болмады. /start жіберіп, қайталаңыз.',
-  document_user_not_connected:
-    'Telegram ID {{telegramId}} қосылған пайдаланушы жоқ. ID мен chatId-ды баптауларда көрсетіңіз немесе /start жіберіп ID-ыңызды көріңіз.',
   document_pdf_only: 'Тек PDF үзінді файлдары қолдау көрсетіледі.',
   document_received: '📥 Файл алынды, өңдеу басталды...',
   document_processed:
     '✅ Файл қабылданды және өңдеуге жіберілді. Күйі: {{status}}. Нәтижені Lumio веб-нұсқасында тексеруге болады.',
   document_failed:
     'Файлды өңдеу мүмкін болмады. Кейінірек қайталаңыз немесе веб-нұсқа арқылы жүктеңіз.',
-  help: 'Қолжетімді командалар:\n/start — Telegram ID-іңізді және сәлемдесуді көрсету\n/help — осы анықтама\n/report — бүгінгі күндік есеп\n/report YYYY-MM-DD — көрсетілген күнгі есеп\n/report monthly — ағымдағы айдың есебі\n/goals — жинақтау мақсаттары бойынша прогресс\n/networth — ағымдағы таза активтер',
+  help: 'Қолжетімді командалар:\n/start — осы чатты Lumio-ға қалай қосу керек\n/help — осы анықтама\n/report — бүгінгі күндік есеп\n/report YYYY-MM-DD — көрсетілген күнгі есеп\n/report monthly — ағымдағы айдың есебі\n/goals — жинақтау мақсаттары бойынша прогресс\n/networth — ағымдағы таза активтер',
   daily_header: '📅 Күндік есеп — {{date}}',
   income_line: '➕ Кіріс: {{amount}} ({{count}})',
   expense_line: '➖ Шығыс: {{amount}} ({{count}})',
@@ -267,25 +265,25 @@ const de: TranslationMap = {
   inbound_help:
     'Außerdem:\n• Foto oder Bild eines Belegs senden — ich lese den Betrag und lege ihn in den Prüf-Posteingang\n• Ausgabe als Text: „Kaffee 4,50“, „Taxi 15 EUR“\n• PDF-Kontoauszug senden — er geht in den Import',
   connected: '✅ Telegram verbunden. Wir senden Berichte an diesen Chat.',
+  link_expired:
+    '⚠️ Dieser Link ist abgelaufen oder wurde bereits verwendet. Klicken Sie in Lumio erneut auf „Verbinden“.',
   start_greeting:
-    '👋 Hallo! Deine Telegram-ID: {{telegramId}}. Trage sie in den Profileinstellungen ein, um Berichte zu erhalten.',
+    '👋 Hallo! Ich bin der Lumio-Bot. Um diesen Chat zu verbinden, öffnen Sie in Lumio Einstellungen → Benachrichtigungen und klicken Sie bei Telegram auf „Verbinden“.',
   unknown_command: 'Unbekannter Befehl. Verwende /help für die Befehlsliste.',
   telegram_id_unknown:
     'Deine Telegram-ID konnte nicht ermittelt werden. Bitte versuche es später erneut.',
-  user_not_connected:
-    'Kein Konto mit der Telegram-ID {{telegramId}} verbunden. Trage diese ID in den Kontoeinstellungen ein.',
+  not_connected:
+    'Dieser Chat ist noch mit keinem Lumio-Konto verbunden. Öffnen Sie in Lumio Einstellungen → Benachrichtigungen und klicken Sie bei Telegram auf „Verbinden“.',
   report_failed: 'Der Bericht konnte nicht gesendet werden. Bitte versuche es später erneut.',
   document_telegram_id_unknown:
     '⚠️ Deine Telegram-ID konnte nicht ermittelt werden. Sende /start und versuche es erneut.',
-  document_user_not_connected:
-    'Kein Konto mit der Telegram-ID {{telegramId}} verbunden. Trage ID und Chat-ID in den Einstellungen ein oder sende /start, um deine ID zu sehen.',
   document_pdf_only: 'Es werden nur PDF-Kontoauszüge unterstützt.',
   document_received: '📥 Datei empfangen, Verarbeitung hat begonnen...',
   document_processed:
     '✅ Datei akzeptiert und zur Verarbeitung eingereiht. Status: {{status}}. Das Ergebnis siehst du in der Lumio-Web-App.',
   document_failed:
     'Die Datei konnte nicht verarbeitet werden. Versuche es später erneut oder lade sie über die Web-App hoch.',
-  help: 'Verfügbare Befehle:\n/start — zeigt deine Telegram-ID und eine Begrüßung\n/help — diese Hilfe\n/report — Tagesbericht für heute\n/report YYYY-MM-DD — Bericht für ein bestimmtes Datum\n/report monthly — Bericht für den aktuellen Monat\n/goals — Fortschritt deiner Sparziele\n/networth — dein aktuelles Nettovermögen',
+  help: 'Verfügbare Befehle:\n/start — so verbinden Sie diesen Chat mit Lumio\n/help — diese Hilfe\n/report — Tagesbericht für heute\n/report YYYY-MM-DD — Bericht für ein bestimmtes Datum\n/report monthly — Bericht für den aktuellen Monat\n/goals — Fortschritt deiner Sparziele\n/networth — dein aktuelles Nettovermögen',
   daily_header: '📅 Tagesbericht — {{date}}',
   income_line: '➕ Eingang: {{amount}} ({{count}})',
   expense_line: '➖ Ausgang: {{amount}} ({{count}})',
@@ -331,24 +329,24 @@ const fr: TranslationMap = {
   inbound_help:
     'Vous pouvez aussi :\n• envoyer une photo d’un reçu — je lis le montant et le place dans la boîte de revue\n• écrire une dépense : « café 4.50 », « taxi 15 EUR »\n• envoyer un relevé PDF — il part à l’import',
   connected: '✅ Telegram connecté. Nous enverrons les rapports dans ce chat.',
+  link_expired:
+    '⚠️ Ce lien a expiré ou a déjà été utilisé. Cliquez de nouveau sur « Connecter » dans Lumio.',
   start_greeting:
-    '👋 Salut ! Votre ID Telegram : {{telegramId}}. Ajoutez-le dans les paramètres du profil pour recevoir des rapports.',
+    '👋 Bonjour ! Je suis le bot Lumio. Pour connecter ce chat, ouvrez Paramètres → Notifications dans Lumio et cliquez sur « Connecter » à côté de Telegram.',
   unknown_command: 'Commande inconnue. Utilisez /help pour voir la liste des commandes.',
   telegram_id_unknown: 'Impossible de déterminer votre ID Telegram. Réessayez plus tard.',
-  user_not_connected:
-    "Aucun compte n'est lié à l'ID Telegram {{telegramId}}. Ajoutez cet ID dans les paramètres du compte.",
+  not_connected:
+    "Ce chat n'est encore lié à aucun compte Lumio. Ouvrez Paramètres → Notifications dans Lumio et cliquez sur « Connecter » à côté de Telegram.",
   report_failed: "Impossible d'envoyer le rapport. Réessayez plus tard.",
   document_telegram_id_unknown:
     '⚠️ Impossible de déterminer votre ID Telegram. Envoyez /start et réessayez.',
-  document_user_not_connected:
-    "Aucun compte n'est lié à l'ID Telegram {{telegramId}}. Ajoutez l'ID et le chat ID dans les paramètres, ou envoyez /start pour voir votre ID.",
   document_pdf_only: 'Seuls les fichiers de relevé PDF sont pris en charge.',
   document_received: '📥 Fichier reçu, le traitement a commencé...',
   document_processed:
     "✅ Fichier accepté et mis en file d'attente. Statut : {{status}}. Consultez le résultat dans l'application web Lumio.",
   document_failed:
     "Impossible de traiter le fichier. Réessayez plus tard ou téléversez-le via l'application web.",
-  help: "Commandes disponibles :\n/start — affiche votre ID Telegram et un message de bienvenue\n/help — cette aide\n/report — rapport quotidien du jour\n/report YYYY-MM-DD — rapport pour une date précise\n/report monthly — rapport du mois en cours\n/goals — progression de vos objectifs d'épargne\n/networth — votre valeur nette actuelle",
+  help: "Commandes disponibles :\n/start — comment connecter ce chat à Lumio\n/help — cette aide\n/report — rapport quotidien du jour\n/report YYYY-MM-DD — rapport pour une date précise\n/report monthly — rapport du mois en cours\n/goals — progression de vos objectifs d'épargne\n/networth — votre valeur nette actuelle",
   daily_header: '📅 Rapport quotidien — {{date}}',
   income_line: '➕ Entrées : {{amount}} ({{count}})',
   expense_line: '➖ Sorties : {{amount}} ({{count}})',
@@ -394,24 +392,23 @@ const es: TranslationMap = {
   inbound_help:
     'También puedes:\n• enviar una foto de un recibo: leo el importe y lo pongo en la bandeja de revisión\n• escribir un gasto: «café 4.50», «taxi 15 EUR»\n• enviar un extracto PDF: va a importación',
   connected: '✅ Telegram conectado. Enviaremos los informes a este chat.',
+  link_expired: '⚠️ Este enlace ha caducado o ya se ha usado. Pulsa «Conectar» en Lumio otra vez.',
   start_greeting:
-    '👋 ¡Hola! Tu ID de Telegram: {{telegramId}}. Añádelo en la configuración del perfil para recibir informes.',
+    '👋 ¡Hola! Soy el bot de Lumio. Para conectar este chat, abre Configuración → Notificaciones en Lumio y pulsa «Conectar» junto a Telegram.',
   unknown_command: 'Comando desconocido. Usa /help para ver la lista de comandos.',
   telegram_id_unknown: 'No se pudo determinar tu ID de Telegram. Inténtalo de nuevo más tarde.',
-  user_not_connected:
-    'Ninguna cuenta está conectada al ID de Telegram {{telegramId}}. Añade este ID en la configuración de la cuenta.',
+  not_connected:
+    'Este chat aún no está conectado a una cuenta de Lumio. Abre Configuración → Notificaciones en Lumio y pulsa «Conectar» junto a Telegram.',
   report_failed: 'No se pudo enviar el informe. Inténtalo de nuevo más tarde.',
   document_telegram_id_unknown:
     '⚠️ No se pudo determinar tu ID de Telegram. Envía /start e inténtalo de nuevo.',
-  document_user_not_connected:
-    'Ninguna cuenta está conectada al ID de Telegram {{telegramId}}. Añade el ID y el chat ID en la configuración, o envía /start para ver tu ID.',
   document_pdf_only: 'Solo se admiten archivos de extracto en PDF.',
   document_received: '📥 Archivo recibido, el procesamiento ha comenzado...',
   document_processed:
     '✅ Archivo aceptado y en cola de procesamiento. Estado: {{status}}. Revisa el resultado en la aplicación web de Lumio.',
   document_failed:
     'No se pudo procesar el archivo. Inténtalo de nuevo más tarde o súbelo desde la aplicación web.',
-  help: 'Comandos disponibles:\n/start — muestra tu ID de Telegram y un mensaje de bienvenida\n/help — esta ayuda\n/report — informe diario de hoy\n/report YYYY-MM-DD — informe de una fecha concreta\n/report monthly — informe del mes actual\n/goals — progreso de tus metas de ahorro\n/networth — tu patrimonio neto actual',
+  help: 'Comandos disponibles:\n/start — cómo conectar este chat a Lumio\n/help — esta ayuda\n/report — informe diario de hoy\n/report YYYY-MM-DD — informe de una fecha concreta\n/report monthly — informe del mes actual\n/goals — progreso de tus metas de ahorro\n/networth — tu patrimonio neto actual',
   daily_header: '📅 Informe diario — {{date}}',
   income_line: '➕ Ingresos: {{amount}} ({{count}})',
   expense_line: '➖ Gastos: {{amount}} ({{count}})',
@@ -457,25 +454,24 @@ const pt: TranslationMap = {
   inbound_help:
     'Também pode:\n• enviar uma foto de um recibo — leio o valor e coloco-o na caixa de revisão\n• escrever uma despesa: «café 4.50», «táxi 15 EUR»\n• enviar um extrato PDF — vai para importação',
   connected: '✅ Telegram conectado. Enviaremos os relatórios para este chat.',
+  link_expired: '⚠️ Este link expirou ou já foi usado. Toque em «Conectar» no Lumio novamente.',
   start_greeting:
-    '👋 Olá! O seu ID do Telegram: {{telegramId}}. Adicione-o nas definições do perfil para receber relatórios.',
+    '👋 Olá! Sou o bot do Lumio. Para conectar este chat, abra Configurações → Notificações no Lumio e toque em «Conectar» ao lado do Telegram.',
   unknown_command: 'Comando desconhecido. Use /help para ver a lista de comandos.',
   telegram_id_unknown:
     'Não foi possível determinar o seu ID do Telegram. Tente novamente mais tarde.',
-  user_not_connected:
-    'Nenhuma conta está ligada ao ID do Telegram {{telegramId}}. Adicione este ID nas definições da conta.',
+  not_connected:
+    'Este chat ainda não está conectado a uma conta do Lumio. Abra Configurações → Notificações no Lumio e toque em «Conectar» ao lado do Telegram.',
   report_failed: 'Não foi possível enviar o relatório. Tente novamente mais tarde.',
   document_telegram_id_unknown:
     '⚠️ Não foi possível determinar o seu ID do Telegram. Envie /start e tente novamente.',
-  document_user_not_connected:
-    'Nenhuma conta está ligada ao ID do Telegram {{telegramId}}. Adicione o ID e o chat ID nas definições, ou envie /start para ver o seu ID.',
   document_pdf_only: 'Apenas ficheiros PDF de extrato são suportados.',
   document_received: '📥 Ficheiro recebido, o processamento começou...',
   document_processed:
     '✅ Ficheiro aceite e na fila de processamento. Estado: {{status}}. Verifique o resultado na aplicação web do Lumio.',
   document_failed:
     'Não foi possível processar o ficheiro. Tente novamente mais tarde ou carregue-o através da aplicação web.',
-  help: 'Comandos disponíveis:\n/start — mostra o seu ID do Telegram e uma mensagem de boas-vindas\n/help — esta ajuda\n/report — relatório diário de hoje\n/report YYYY-MM-DD — relatório de uma data específica\n/report monthly — relatório do mês atual\n/goals — progresso das suas metas de poupança\n/networth — o seu património líquido atual',
+  help: 'Comandos disponíveis:\n/start — como conectar este chat ao Lumio\n/help — esta ajuda\n/report — relatório diário de hoje\n/report YYYY-MM-DD — relatório de uma data específica\n/report monthly — relatório do mês atual\n/goals — progresso das suas metas de poupança\n/networth — o seu património líquido atual',
   daily_header: '📅 Relatório diário — {{date}}',
   income_line: '➕ Receitas: {{amount}} ({{count}})',
   expense_line: '➖ Despesas: {{amount}} ({{count}})',
@@ -520,23 +516,23 @@ const tr: TranslationMap = {
   inbound_help:
     'Ayrıca:\n• bir fişin fotoğrafını gönderin — tutarı okuyup inceleme gelen kutusuna koyarım\n• harcamayı yazın: “kahve 4.50”, “taksi 15 EUR”\n• PDF ekstre gönderin — içe aktarmaya gider',
   connected: '✅ Telegram bağlandı. Raporları bu sohbete göndereceğiz.',
+  link_expired:
+    "⚠️ Bu bağlantının süresi doldu veya zaten kullanıldı. Lumio'da «Bağla»ya yeniden basın.",
   start_greeting:
-    "👋 Merhaba! Telegram ID'niz: {{telegramId}}. Rapor almak için bunu profil ayarlarına ekleyin.",
+    "👋 Merhaba! Ben Lumio botuyum. Bu sohbeti bağlamak için Lumio'da Ayarlar → Bildirimler'i açın ve Telegram'ın yanındaki «Bağla»ya basın.",
   unknown_command: 'Bilinmeyen komut. Komut listesi için /help kullanın.',
   telegram_id_unknown: "Telegram ID'niz belirlenemedi. Lütfen daha sonra tekrar deneyin.",
-  user_not_connected:
-    "Telegram ID {{telegramId}} ile bağlı bir hesap yok. Bu ID'yi hesap ayarlarına ekleyin.",
+  not_connected:
+    "Bu sohbet henüz bir Lumio hesabına bağlı değil. Lumio'da Ayarlar → Bildirimler'i açın ve Telegram'ın yanındaki «Bağla»ya basın.",
   report_failed: 'Rapor gönderilemedi. Lütfen daha sonra tekrar deneyin.',
   document_telegram_id_unknown: "⚠️ Telegram ID'niz belirlenemedi. /start gönderip tekrar deneyin.",
-  document_user_not_connected:
-    "Telegram ID {{telegramId}} ile bağlı bir hesap yok. ID ve sohbet ID'sini ayarlara ekleyin veya ID'nizi görmek için /start gönderin.",
   document_pdf_only: 'Yalnızca PDF ekstre dosyaları desteklenir.',
   document_received: '📥 Dosya alındı, işleme başladı...',
   document_processed:
     '✅ Dosya kabul edildi ve işleme alındı. Durum: {{status}}. Sonucu Lumio web uygulamasında kontrol edebilirsiniz.',
   document_failed:
     'Dosya işlenemedi. Lütfen daha sonra tekrar deneyin veya web uygulamasından yükleyin.',
-  help: "Kullanılabilir komutlar:\n/start — Telegram ID'nizi ve bir karşılama mesajı gösterir\n/help — bu yardım\n/report — bugünün günlük raporu\n/report YYYY-MM-DD — belirli bir tarihin raporu\n/report monthly — geçerli ayın raporu\n/goals — birikim hedeflerinizdeki ilerleme\n/networth — güncel net değeriniz",
+  help: "Kullanılabilir komutlar:\n/start — bu sohbet Lumio'ya nasıl bağlanır\n/help — bu yardım\n/report — bugünün günlük raporu\n/report YYYY-MM-DD — belirli bir tarihin raporu\n/report monthly — geçerli ayın raporu\n/goals — birikim hedeflerinizdeki ilerleme\n/networth — güncel net değeriniz",
   daily_header: '📅 Günlük rapor — {{date}}',
   income_line: '➕ Gelir: {{amount}} ({{count}})',
   expense_line: '➖ Gider: {{amount}} ({{count}})',
@@ -581,23 +577,22 @@ const uk: TranslationMap = {
   inbound_help:
     'Також можна:\n• надіслати фото чека — я розпізнаю суму й покладу чек у розбір\n• написати витрату текстом: «кава 4.50», «таксі 15 EUR»\n• надіслати PDF виписки — вона піде на імпорт',
   connected: '✅ Telegram підключено. Надсилатимемо звіти в цей чат.',
+  link_expired: '⚠️ Посилання застаріло або вже використане. Натисніть «Підключити» в Lumio ще раз.',
   start_greeting:
-    '👋 Привіт! Твій Telegram ID: {{telegramId}}. Додай його в налаштуваннях профілю, щоб отримувати звіти.',
+    '👋 Привіт! Я бот Lumio. Щоб підключити цей чат, відкрийте в Lumio Налаштування → Сповіщення й натисніть «Підключити» біля Telegram.',
   unknown_command: 'Невідома команда. Використайте /help для списку команд.',
   telegram_id_unknown: 'Не вдалося визначити ваш Telegram ID. Спробуйте пізніше.',
-  user_not_connected:
-    'Немає акаунта, підключеного до Telegram ID {{telegramId}}. Додайте цей ID у налаштуваннях акаунта.',
+  not_connected:
+    'Цей чат ще не підключено до облікового запису Lumio. Відкрийте в Lumio Налаштування → Сповіщення й натисніть «Підключити» біля Telegram.',
   report_failed: 'Не вдалося надіслати звіт. Спробуйте пізніше.',
   document_telegram_id_unknown:
     '⚠️ Не вдалося визначити ваш Telegram ID. Надішліть /start і спробуйте ще раз.',
-  document_user_not_connected:
-    'Немає акаунта, підключеного до Telegram ID {{telegramId}}. Додайте ID і chatId у налаштуваннях або надішліть /start, щоб побачити свій ID.',
   document_pdf_only: 'Підтримуються лише PDF-файли виписок.',
   document_received: '📥 Файл отримано, обробку розпочато...',
   document_processed:
     '✅ Файл прийнято та надіслано на обробку. Статус: {{status}}. Перевірити результат можна у веб-додатку Lumio.',
   document_failed: 'Не вдалося обробити файл. Спробуйте пізніше або завантажте через веб-додаток.',
-  help: 'Доступні команди:\n/start — показати ваш Telegram ID і привітання\n/help — ця довідка\n/report — щоденний звіт за сьогодні\n/report YYYY-MM-DD — звіт за вказану дату\n/report monthly — звіт за поточний місяць\n/goals — прогрес за цілями накопичень\n/networth — поточні чисті активи',
+  help: 'Доступні команди:\n/start — як підключити цей чат до Lumio\n/help — ця довідка\n/report — щоденний звіт за сьогодні\n/report YYYY-MM-DD — звіт за вказану дату\n/report monthly — звіт за поточний місяць\n/goals — прогрес за цілями накопичень\n/networth — поточні чисті активи',
   daily_header: '📅 Щоденний звіт — {{date}}',
   income_line: '➕ Надходження: {{amount}} ({{count}})',
   expense_line: '➖ Витрати: {{amount}} ({{count}})',
@@ -640,20 +635,21 @@ const zh: TranslationMap = {
   inbound_help:
     '您还可以：\n• 发送收据照片 — 我会识别金额并放入审核收件箱\n• 用文字记录支出：“咖啡 4.50”、“出租车 15 EUR”\n• 发送 PDF 对账单 — 将进入导入',
   connected: '✅ Telegram 已连接。我们会将报告发送到此聊天。',
-  start_greeting: '👋 你好！你的 Telegram ID：{{telegramId}}。请在个人资料设置中添加它以接收报告。',
+  link_expired: '⚠️ 此链接已过期或已被使用。请在 Lumio 中再次点击“连接”。',
+  start_greeting:
+    '👋 你好！我是 Lumio 机器人。要连接此聊天，请在 Lumio 中打开 设置 → 通知，然后点击 Telegram 旁的“连接”。',
   unknown_command: '未知命令。使用 /help 查看命令列表。',
   telegram_id_unknown: '无法确定你的 Telegram ID。请稍后再试。',
-  user_not_connected: '没有账号关联到 Telegram ID {{telegramId}}。请在账号设置中添加此 ID。',
+  not_connected:
+    '此聊天尚未连接到 Lumio 账户。请在 Lumio 中打开 设置 → 通知，然后点击 Telegram 旁的“连接”。',
   report_failed: '无法发送报告。请稍后再试。',
   document_telegram_id_unknown: '⚠️ 无法确定你的 Telegram ID。请发送 /start 后重试。',
-  document_user_not_connected:
-    '没有账号关联到 Telegram ID {{telegramId}}。请在设置中添加 ID 和 chat ID，或发送 /start 查看你的 ID。',
   document_pdf_only: '仅支持 PDF 格式的对账单文件。',
   document_received: '📥 已收到文件，正在开始处理……',
   document_processed:
     '✅ 文件已接受并加入处理队列。状态：{{status}}。可在 Lumio 网页应用中查看结果。',
   document_failed: '无法处理该文件。请稍后重试，或通过网页应用上传。',
-  help: '可用命令：\n/start — 显示你的 Telegram ID 和欢迎语\n/help — 本帮助信息\n/report — 今日的每日报告\n/report YYYY-MM-DD — 指定日期的报告\n/report monthly — 本月报告\n/goals — 储蓄目标进度\n/networth — 当前净资产',
+  help: '可用命令：\n/start — 如何将此聊天连接到 Lumio\n/help — 本帮助信息\n/report — 今日的每日报告\n/report YYYY-MM-DD — 指定日期的报告\n/report monthly — 本月报告\n/goals — 储蓄目标进度\n/networth — 当前净资产',
   daily_header: '📅 每日报告 — {{date}}',
   income_line: '➕ 收入：{{amount}}（{{count}}）',
   expense_line: '➖ 支出：{{amount}}（{{count}}）',
@@ -698,24 +694,23 @@ const pl: TranslationMap = {
   inbound_help:
     'Możesz też:\n• wysłać zdjęcie paragonu — odczytam kwotę i umieszczę go w skrzynce przeglądu\n• wpisać wydatek: „kawa 4.50”, „taxi 15 EUR”\n• wysłać wyciąg PDF — trafi do importu',
   connected: '✅ Telegram połączony. Będziemy wysyłać raporty na ten czat.',
+  link_expired: '⚠️ Ten link wygasł lub został już użyty. Kliknij ponownie „Połącz” w Lumio.',
   start_greeting:
-    '👋 Cześć! Twój Telegram ID: {{telegramId}}. Dodaj go w ustawieniach profilu, aby otrzymywać raporty.',
+    '👋 Cześć! Jestem botem Lumio. Aby połączyć ten czat, otwórz w Lumio Ustawienia → Powiadomienia i kliknij „Połącz” przy Telegramie.',
   unknown_command: 'Nieznane polecenie. Użyj /help, aby zobaczyć listę poleceń.',
   telegram_id_unknown: 'Nie udało się ustalić Twojego Telegram ID. Spróbuj ponownie później.',
-  user_not_connected:
-    'Żadne konto nie jest połączone z Telegram ID {{telegramId}}. Dodaj ten ID w ustawieniach konta.',
+  not_connected:
+    'Ten czat nie jest jeszcze połączony z kontem Lumio. Otwórz w Lumio Ustawienia → Powiadomienia i kliknij „Połącz” przy Telegramie.',
   report_failed: 'Nie udało się wysłać raportu. Spróbuj ponownie później.',
   document_telegram_id_unknown:
     '⚠️ Nie udało się ustalić Twojego Telegram ID. Wyślij /start i spróbuj ponownie.',
-  document_user_not_connected:
-    'Żadne konto nie jest połączone z Telegram ID {{telegramId}}. Dodaj ID i chat ID w ustawieniach lub wyślij /start, aby zobaczyć swój ID.',
   document_pdf_only: 'Obsługiwane są tylko pliki wyciągów w formacie PDF.',
   document_received: '📥 Plik otrzymany, rozpoczęto przetwarzanie...',
   document_processed:
     '✅ Plik zaakceptowany i skierowany do przetwarzania. Status: {{status}}. Wynik sprawdzisz w aplikacji webowej Lumio.',
   document_failed:
     'Nie udało się przetworzyć pliku. Spróbuj ponownie później lub prześlij go przez aplikację webową.',
-  help: 'Dostępne polecenia:\n/start — pokaż Twój Telegram ID i powitanie\n/help — ta pomoc\n/report — dzienny raport na dziś\n/report YYYY-MM-DD — raport za wskazaną datę\n/report monthly — raport za bieżący miesiąc\n/goals — postęp celów oszczędnościowych\n/networth — Twoja aktualna wartość netto',
+  help: 'Dostępne polecenia:\n/start — jak połączyć ten czat z Lumio\n/help — ta pomoc\n/report — dzienny raport na dziś\n/report YYYY-MM-DD — raport za wskazaną datę\n/report monthly — raport za bieżący miesiąc\n/goals — postęp celów oszczędnościowych\n/networth — Twoja aktualna wartość netto',
   daily_header: '📅 Raport dzienny — {{date}}',
   income_line: '➕ Przychód: {{amount}} ({{count}})',
   expense_line: '➖ Wydatki: {{amount}} ({{count}})',
@@ -760,24 +755,23 @@ const it: TranslationMap = {
   inbound_help:
     'Puoi anche:\n• inviare la foto di uno scontrino — leggo l’importo e lo metto nella posta di revisione\n• scrivere una spesa: “caffè 4.50”, “taxi 15 EUR”\n• inviare un estratto PDF — va all’importazione',
   connected: '✅ Telegram collegato. Invieremo i report in questa chat.',
+  link_expired: '⚠️ Questo link è scaduto o è già stato usato. Premi di nuovo «Collega» in Lumio.',
   start_greeting:
-    '👋 Ciao! Il tuo ID Telegram: {{telegramId}}. Aggiungilo nelle impostazioni del profilo per ricevere i report.',
+    '👋 Ciao! Sono il bot di Lumio. Per collegare questa chat, apri Impostazioni → Notifiche in Lumio e premi «Collega» accanto a Telegram.',
   unknown_command: "Comando sconosciuto. Usa /help per l'elenco dei comandi.",
   telegram_id_unknown: 'Impossibile determinare il tuo ID Telegram. Riprova più tardi.',
-  user_not_connected:
-    "Nessun account è collegato all'ID Telegram {{telegramId}}. Aggiungi questo ID nelle impostazioni dell'account.",
+  not_connected:
+    'Questa chat non è ancora collegata a un account Lumio. Apri Impostazioni → Notifiche in Lumio e premi «Collega» accanto a Telegram.',
   report_failed: 'Impossibile inviare il report. Riprova più tardi.',
   document_telegram_id_unknown:
     '⚠️ Impossibile determinare il tuo ID Telegram. Invia /start e riprova.',
-  document_user_not_connected:
-    "Nessun account è collegato all'ID Telegram {{telegramId}}. Aggiungi ID e chat ID nelle impostazioni, oppure invia /start per vedere il tuo ID.",
   document_pdf_only: 'Sono supportati solo i file PDF degli estratti conto.',
   document_received: '📥 File ricevuto, elaborazione avviata...',
   document_processed:
     "✅ File accettato e messo in coda per l'elaborazione. Stato: {{status}}. Controlla il risultato nell'app web di Lumio.",
   document_failed:
     "Impossibile elaborare il file. Riprova più tardi oppure caricalo tramite l'app web.",
-  help: 'Comandi disponibili:\n/start — mostra il tuo ID Telegram e un messaggio di benvenuto\n/help — questo aiuto\n/report — report giornaliero di oggi\n/report YYYY-MM-DD — report per una data specifica\n/report monthly — report del mese corrente\n/goals — avanzamento dei tuoi obiettivi di risparmio\n/networth — il tuo patrimonio netto attuale',
+  help: 'Comandi disponibili:\n/start — come collegare questa chat a Lumio\n/help — questo aiuto\n/report — report giornaliero di oggi\n/report YYYY-MM-DD — report per una data specifica\n/report monthly — report del mese corrente\n/goals — avanzamento dei tuoi obiettivi di risparmio\n/networth — il tuo patrimonio netto attuale',
   daily_header: '📅 Report giornaliero — {{date}}',
   income_line: '➕ Entrate: {{amount}} ({{count}})',
   expense_line: '➖ Uscite: {{amount}} ({{count}})',
@@ -823,24 +817,24 @@ const sk: TranslationMap = {
   inbound_help:
     'Môžete tiež:\n• poslať fotku účtenky — prečítam sumu a dám ju do schránky na kontrolu\n• napísať výdavok: „káva 4.50“, „taxi 15 EUR“\n• poslať PDF výpis — pôjde na import',
   connected: '✅ Telegram pripojený. Správy budeme posielať do tohto chatu.',
+  link_expired:
+    '⚠️ Platnosť odkazu vypršala alebo už bol použitý. Kliknite v Lumio znova na „Pripojiť“.',
   start_greeting:
-    '👋 Ahoj! Tvoje Telegram ID: {{telegramId}}. Pridaj ho v nastaveniach profilu, aby si dostával správy.',
+    '👋 Ahoj! Som bot Lumio. Ak chcete pripojiť tento čet, otvorte v Lumio Nastavenia → Upozornenia a kliknite na „Pripojiť“ pri Telegrame.',
   unknown_command: 'Neznámy príkaz. Použi /help pre zoznam príkazov.',
   telegram_id_unknown: 'Nepodarilo sa zistiť tvoje Telegram ID. Skús to neskôr.',
-  user_not_connected:
-    'Žiadny účet nie je prepojený s Telegram ID {{telegramId}}. Pridaj toto ID v nastaveniach účtu.',
+  not_connected:
+    'Tento čet ešte nie je pripojený k účtu Lumio. Otvorte v Lumio Nastavenia → Upozornenia a kliknite na „Pripojiť“ pri Telegrame.',
   report_failed: 'Správu sa nepodarilo odoslať. Skús to neskôr.',
   document_telegram_id_unknown:
     '⚠️ Nepodarilo sa zistiť tvoje Telegram ID. Pošli /start a skús znova.',
-  document_user_not_connected:
-    'Žiadny účet nie je prepojený s Telegram ID {{telegramId}}. Pridaj ID a chat ID v nastaveniach, alebo pošli /start pre zobrazenie svojho ID.',
   document_pdf_only: 'Podporované sú iba PDF súbory výpisov.',
   document_received: '📥 Súbor prijatý, spracovanie sa začalo...',
   document_processed:
     '✅ Súbor prijatý a zaradený na spracovanie. Stav: {{status}}. Výsledok skontroluješ vo webovej aplikácii Lumio.',
   document_failed:
     'Súbor sa nepodarilo spracovať. Skús to neskôr, alebo ho nahraj cez webovú aplikáciu.',
-  help: 'Dostupné príkazy:\n/start — zobrazí tvoje Telegram ID a uvítanie\n/help — táto pomoc\n/report — denná správa za dnešok\n/report YYYY-MM-DD — správa za zadaný dátum\n/report monthly — správa za aktuálny mesiac\n/goals — pokrok v sporiacich cieľoch\n/networth — tvoje aktuálne čisté imanie',
+  help: 'Dostupné príkazy:\n/start — ako pripojiť tento čet k Lumio\n/help — táto pomoc\n/report — denná správa za dnešok\n/report YYYY-MM-DD — správa za zadaný dátum\n/report monthly — správa za aktuálny mesiac\n/goals — pokrok v sporiacich cieľoch\n/networth — tvoje aktuálne čisté imanie',
   daily_header: '📅 Denná správa — {{date}}',
   income_line: '➕ Príjem: {{amount}} ({{count}})',
   expense_line: '➖ Výdavok: {{amount}} ({{count}})',
@@ -887,25 +881,25 @@ const ja: TranslationMap = {
   inbound_help:
     'ほかにもできること：\n• レシートの写真を送る — 金額を読み取って確認用受信箱に入れます\n• 支出をテキストで送る：「コーヒー 4.50」「タクシー 15 EUR」\n• PDF の明細を送る — インポートに回します',
   connected: '✅ Telegramが接続されました。このチャットにレポートを送信します。',
+  link_expired:
+    '⚠️ このリンクは期限切れか、すでに使用されています。Lumio でもう一度「接続」を押してください。',
   start_greeting:
-    '👋 こんにちは！あなたのTelegram ID：{{telegramId}}。レポートを受け取るにはプロフィール設定に追加してください。',
+    '👋 こんにちは！Lumio ボットです。このチャットを接続するには、Lumio で 設定 → 通知 を開き、Telegram の横の「接続」を押してください。',
   unknown_command: '不明なコマンドです。コマンド一覧は/helpをご利用ください。',
   telegram_id_unknown:
     'Telegram IDを確認できませんでした。しばらくしてからもう一度お試しください。',
-  user_not_connected:
-    'Telegram ID {{telegramId}} に紐づくアカウントがありません。アカウント設定でこのIDを追加してください。',
+  not_connected:
+    'このチャットはまだ Lumio アカウントに接続されていません。Lumio で 設定 → 通知 を開き、Telegram の横の「接続」を押してください。',
   report_failed: 'レポートを送信できませんでした。しばらくしてからもう一度お試しください。',
   document_telegram_id_unknown:
     '⚠️ Telegram IDを確認できませんでした。/start を送信してからもう一度お試しください。',
-  document_user_not_connected:
-    'Telegram ID {{telegramId}} に紐づくアカウントがありません。設定でIDとチャットIDを追加するか、/start を送信してIDを確認してください。',
   document_pdf_only: '対応しているのはPDF形式の明細書ファイルのみです。',
   document_received: '📥 ファイルを受信しました。処理を開始しています…',
   document_processed:
     '✅ ファイルを受け付け、処理キューに追加しました。ステータス：{{status}}。結果はLumioのWebアプリでご確認ください。',
   document_failed:
     'ファイルを処理できませんでした。しばらくしてから再試行するか、Webアプリからアップロードしてください。',
-  help: '利用可能なコマンド:\n/start — あなたのTelegram IDと挨拶を表示\n/help — このヘルプ\n/report — 本日の日次レポート\n/report YYYY-MM-DD — 指定日のレポート\n/report monthly — 今月のレポート\n/goals — 貯蓄目標の進捗\n/networth — 現在の純資産',
+  help: '利用可能なコマンド:\n/start — このチャットを Lumio に接続する方法\n/help — このヘルプ\n/report — 本日の日次レポート\n/report YYYY-MM-DD — 指定日のレポート\n/report monthly — 今月のレポート\n/goals — 貯蓄目標の進捗\n/networth — 現在の純資産',
   daily_header: '📅 日次レポート — {{date}}',
   income_line: '➕ 収入：{{amount}}（{{count}}件）',
   expense_line: '➖ 支出：{{amount}}（{{count}}件）',
@@ -950,24 +944,23 @@ const ko: TranslationMap = {
   inbound_help:
     '이 외에도:\n• 영수증 사진 보내기 — 금액을 읽어 검토함에 넣습니다\n• 지출을 글로 보내기: “커피 4.50”, “택시 15 EUR”\n• PDF 명세서 보내기 — 가져오기로 넘어갑니다',
   connected: '✅ Telegram이 연결되었습니다. 이 채팅으로 리포트를 보내드립니다.',
+  link_expired: '⚠️ 이 링크는 만료되었거나 이미 사용되었습니다. Lumio에서 "연결"을 다시 누르세요.',
   start_greeting:
-    '👋 안녕하세요! 회원님의 Telegram ID: {{telegramId}}. 리포트를 받으려면 프로필 설정에 추가하세요.',
+    '👋 안녕하세요! Lumio 봇입니다. 이 채팅을 연결하려면 Lumio에서 설정 → 알림을 열고 Telegram 옆의 "연결"을 누르세요.',
   unknown_command: '알 수 없는 명령입니다. 명령 목록은 /help를 사용하세요.',
   telegram_id_unknown: 'Telegram ID를 확인할 수 없습니다. 나중에 다시 시도해 주세요.',
-  user_not_connected:
-    'Telegram ID {{telegramId}}에 연결된 계정이 없습니다. 계정 설정에서 이 ID를 추가하세요.',
+  not_connected:
+    '이 채팅은 아직 Lumio 계정에 연결되지 않았습니다. Lumio에서 설정 → 알림을 열고 Telegram 옆의 "연결"을 누르세요.',
   report_failed: '리포트를 보낼 수 없습니다. 나중에 다시 시도해 주세요.',
   document_telegram_id_unknown:
     '⚠️ Telegram ID를 확인할 수 없습니다. /start를 보낸 후 다시 시도해 주세요.',
-  document_user_not_connected:
-    'Telegram ID {{telegramId}}에 연결된 계정이 없습니다. 설정에서 ID와 채팅 ID를 추가하거나 /start를 보내 ID를 확인하세요.',
   document_pdf_only: 'PDF 명세서 파일만 지원됩니다.',
   document_received: '📥 파일을 받았습니다. 처리를 시작합니다...',
   document_processed:
     '✅ 파일이 접수되어 처리 대기열에 추가되었습니다. 상태: {{status}}. 결과는 Lumio 웹 앱에서 확인하세요.',
   document_failed:
     '파일을 처리할 수 없습니다. 나중에 다시 시도하거나 웹 앱을 통해 업로드해 주세요.',
-  help: '사용 가능한 명령:\n/start — Telegram ID와 환영 메시지 표시\n/help — 이 도움말\n/report — 오늘의 일일 리포트\n/report YYYY-MM-DD — 지정한 날짜의 리포트\n/report monthly — 이번 달 리포트\n/goals — 저축 목표 진행 상황\n/networth — 현재 순자산',
+  help: '사용 가능한 명령:\n/start — 이 채팅을 Lumio에 연결하는 방법\n/help — 이 도움말\n/report — 오늘의 일일 리포트\n/report YYYY-MM-DD — 지정한 날짜의 리포트\n/report monthly — 이번 달 리포트\n/goals — 저축 목표 진행 상황\n/networth — 현재 순자산',
   daily_header: '📅 일일 리포트 — {{date}}',
   income_line: '➕ 수입: {{amount}} ({{count}}건)',
   expense_line: '➖ 지출: {{amount}} ({{count}}건)',
@@ -1010,21 +1003,21 @@ const hi: TranslationMap = {
   inbound_help:
     'आप यह भी कर सकते हैं:\n• रसीद की फ़ोटो भेजें — मैं राशि पढ़कर उसे समीक्षा इनबॉक्स में रखूँगा\n• खर्च लिखकर भेजें: “coffee 4.50”, “taxi 15 EUR”\n• PDF स्टेटमेंट भेजें — वह आयात में जाएगा',
   connected: '✅ Telegram जुड़ गया। हम इस चैट में रिपोर्ट भेजेंगे।',
+  link_expired: '⚠️ यह लिंक समाप्त हो गया है या पहले ही इस्तेमाल हो चुका है। Lumio में फिर से "कनेक्ट करें" दबाएँ।',
   start_greeting:
-    '👋 नमस्ते! आपका Telegram ID: {{telegramId}}. रिपोर्ट पाने के लिए इसे प्रोफ़ाइल सेटिंग्स में जोड़ें।',
+    '👋 नमस्ते! मैं Lumio बॉट हूँ। इस चैट को जोड़ने के लिए Lumio में सेटिंग → सूचनाएं खोलें और Telegram के आगे "कनेक्ट करें" दबाएँ।',
   unknown_command: 'अज्ञात कमांड। कमांड सूची के लिए /help का उपयोग करें।',
   telegram_id_unknown: 'आपका Telegram ID पता नहीं चल सका। बाद में पुनः प्रयास करें।',
-  user_not_connected: 'Telegram ID {{telegramId}} से कोई खाता जुड़ा नहीं है। इसे खाता सेटिंग्स में जोड़ें।',
+  not_connected:
+    'यह चैट अभी किसी Lumio खाते से नहीं जुड़ी है। Lumio में सेटिंग → सूचनाएं खोलें और Telegram के आगे "कनेक्ट करें" दबाएँ।',
   report_failed: 'रिपोर्ट भेजी नहीं जा सकी। बाद में पुनः प्रयास करें।',
   document_telegram_id_unknown: '⚠️ आपका Telegram ID पता नहीं चल सका। /start भेजें और पुनः प्रयास करें।',
-  document_user_not_connected:
-    'Telegram ID {{telegramId}} से कोई खाता जुड़ा नहीं है। सेटिंग्स में ID और chatId जोड़ें, या अपना ID देखने के लिए /start भेजें।',
   document_pdf_only: 'केवल PDF स्टेटमेंट फ़ाइलें समर्थित हैं।',
   document_received: '📥 फ़ाइल प्राप्त हुई, प्रोसेसिंग शुरू हो गई है...',
   document_processed:
     '✅ फ़ाइल स्वीकार कर ली गई और प्रोसेसिंग में डाल दी गई। स्थिति: {{status}}। परिणाम Lumio वेब ऐप में देखें।',
   document_failed: 'फ़ाइल प्रोसेस नहीं हो सकी। बाद में पुनः प्रयास करें या वेब ऐप से अपलोड करें।',
-  help: 'उपलब्ध कमांड:\n/start — आपका Telegram ID और स्वागत संदेश दिखाएँ\n/help — यह सहायता\n/report — आज की दैनिक रिपोर्ट\n/report YYYY-MM-DD — निर्दिष्ट तिथि की रिपोर्ट\n/report monthly — चालू माह की रिपोर्ट\n/goals — बचत लक्ष्यों की प्रगति\n/networth — आपकी वर्तमान निवल संपत्ति',
+  help: 'उपलब्ध कमांड:\n/start — इस चैट को Lumio से कैसे जोड़ें\n/help — यह सहायता\n/report — आज की दैनिक रिपोर्ट\n/report YYYY-MM-DD — निर्दिष्ट तिथि की रिपोर्ट\n/report monthly — चालू माह की रिपोर्ट\n/goals — बचत लक्ष्यों की प्रगति\n/networth — आपकी वर्तमान निवल संपत्ति',
   daily_header: '📅 दैनिक रिपोर्ट — {{date}}',
   income_line: '➕ आय: {{amount}} ({{count}})',
   expense_line: '➖ व्यय: {{amount}} ({{count}})',
@@ -1069,24 +1062,23 @@ const nl: TranslationMap = {
   inbound_help:
     'Je kunt ook:\n• een foto van een bon sturen — ik lees het bedrag en zet hem in het beoordelingspostvak\n• een uitgave typen: “koffie 4.50”, “taxi 15 EUR”\n• een PDF-afschrift sturen — dat gaat naar import',
   connected: '✅ Telegram verbonden. We sturen rapporten naar deze chat.',
+  link_expired: '⚠️ Deze link is verlopen of al gebruikt. Klik in Lumio opnieuw op ‘Verbinden’.',
   start_greeting:
-    '👋 Hoi! Je Telegram-ID: {{telegramId}}. Voeg dit toe in je profielinstellingen om rapporten te ontvangen.',
+    '👋 Hallo! Ik ben de Lumio-bot. Open in Lumio Instellingen → Meldingen en klik bij Telegram op ‘Verbinden’ om deze chat te koppelen.',
   unknown_command: "Onbekend commando. Gebruik /help voor de lijst met commando's.",
   telegram_id_unknown: 'Kon je Telegram-ID niet vaststellen. Probeer het later opnieuw.',
-  user_not_connected:
-    'Er is geen account gekoppeld aan Telegram-ID {{telegramId}}. Voeg deze ID toe in je accountinstellingen.',
+  not_connected:
+    'Deze chat is nog niet aan een Lumio-account gekoppeld. Open in Lumio Instellingen → Meldingen en klik bij Telegram op ‘Verbinden’.',
   report_failed: 'Kon het rapport niet versturen. Probeer het later opnieuw.',
   document_telegram_id_unknown:
     '⚠️ Kon je Telegram-ID niet vaststellen. Stuur /start en probeer het opnieuw.',
-  document_user_not_connected:
-    'Er is geen account gekoppeld aan Telegram-ID {{telegramId}}. Voeg de ID en chat-ID toe in je instellingen, of stuur /start om je ID te zien.',
   document_pdf_only: 'Alleen PDF-afschriften worden ondersteund.',
   document_received: '📥 Bestand ontvangen, verwerking is gestart...',
   document_processed:
     '✅ Bestand geaccepteerd en in de wachtrij voor verwerking gezet. Status: {{status}}. Bekijk het resultaat in de Lumio-webapp.',
   document_failed:
     'Kon het bestand niet verwerken. Probeer het later opnieuw of upload het via de webapp.',
-  help: "Beschikbare commando's:\n/start — toont je Telegram-ID en een welkomstbericht\n/help — deze hulp\n/report — dagrapport van vandaag\n/report YYYY-MM-DD — rapport voor een specifieke datum\n/report monthly — rapport van de huidige maand\n/goals — voortgang van je spaardoelen\n/networth — je huidige nettovermogen",
+  help: "Beschikbare commando's:\n/start — hoe je deze chat aan Lumio koppelt\n/help — deze hulp\n/report — dagrapport van vandaag\n/report YYYY-MM-DD — rapport voor een specifieke datum\n/report monthly — rapport van de huidige maand\n/goals — voortgang van je spaardoelen\n/networth — je huidige nettovermogen",
   daily_header: '📅 Dagrapport — {{date}}',
   income_line: '➕ Inkomsten: {{amount}} ({{count}})',
   expense_line: '➖ Uitgaven: {{amount}} ({{count}})',
@@ -1131,24 +1123,23 @@ const sv: TranslationMap = {
   inbound_help:
     'Du kan också:\n• skicka ett foto på ett kvitto — jag läser beloppet och lägger det i granskningsinkorgen\n• skriva en utgift: ”kaffe 4.50”, ”taxi 15 EUR”\n• skicka ett PDF-kontoutdrag — det går till import',
   connected: '✅ Telegram anslutet. Vi skickar rapporter till den här chatten.',
+  link_expired: '⚠️ Länken har gått ut eller redan använts. Tryck på ”Anslut” i Lumio igen.',
   start_greeting:
-    '👋 Hej! Ditt Telegram-ID: {{telegramId}}. Lägg till det i profilinställningarna för att få rapporter.',
+    '👋 Hej! Jag är Lumio-boten. För att ansluta den här chatten öppnar du Inställningar → Aviseringar i Lumio och trycker på ”Anslut” bredvid Telegram.',
   unknown_command: 'Okänt kommando. Använd /help för listan över kommandon.',
   telegram_id_unknown: 'Kunde inte fastställa ditt Telegram-ID. Försök igen senare.',
-  user_not_connected:
-    'Inget konto är kopplat till Telegram-ID {{telegramId}}. Lägg till detta ID i kontoinställningarna.',
+  not_connected:
+    'Den här chatten är inte ansluten till något Lumio-konto än. Öppna Inställningar → Aviseringar i Lumio och tryck på ”Anslut” bredvid Telegram.',
   report_failed: 'Kunde inte skicka rapporten. Försök igen senare.',
   document_telegram_id_unknown:
     '⚠️ Kunde inte fastställa ditt Telegram-ID. Skicka /start och försök igen.',
-  document_user_not_connected:
-    'Inget konto är kopplat till Telegram-ID {{telegramId}}. Lägg till ID och chatt-ID i inställningarna, eller skicka /start för att se ditt ID.',
   document_pdf_only: 'Endast PDF-kontoutdrag stöds.',
   document_received: '📥 Fil mottagen, bearbetning har startat...',
   document_processed:
     '✅ Filen har accepterats och köats för bearbetning. Status: {{status}}. Se resultatet i Lumios webbapp.',
   document_failed:
     'Kunde inte bearbeta filen. Försök igen senare eller ladda upp den via webbappen.',
-  help: 'Tillgängliga kommandon:\n/start — visar ditt Telegram-ID och ett välkomstmeddelande\n/help — den här hjälpen\n/report — dagens rapport\n/report YYYY-MM-DD — rapport för ett visst datum\n/report monthly — rapport för aktuell månad\n/goals — framsteg för dina sparmål\n/networth — din aktuella nettoförmögenhet',
+  help: 'Tillgängliga kommandon:\n/start — hur du ansluter den här chatten till Lumio\n/help — den här hjälpen\n/report — dagens rapport\n/report YYYY-MM-DD — rapport för ett visst datum\n/report monthly — rapport för aktuell månad\n/goals — framsteg för dina sparmål\n/networth — din aktuella nettoförmögenhet',
   daily_header: '📅 Dagsrapport — {{date}}',
   income_line: '➕ Inkomst: {{amount}} ({{count}})',
   expense_line: '➖ Utgift: {{amount}} ({{count}})',
@@ -1193,22 +1184,22 @@ const vi: TranslationMap = {
   inbound_help:
     'Bạn cũng có thể:\n• gửi ảnh hóa đơn — tôi đọc số tiền và đưa vào hộp thư xem xét\n• nhập khoản chi: “cà phê 4.50”, “taxi 15 EUR”\n• gửi sao kê PDF — sẽ được đưa vào nhập dữ liệu',
   connected: '✅ Đã kết nối Telegram. Chúng tôi sẽ gửi báo cáo vào cuộc trò chuyện này.',
+  link_expired:
+    '⚠️ Liên kết này đã hết hạn hoặc đã được sử dụng. Hãy nhấn "Kết nối" trong Lumio một lần nữa.',
   start_greeting:
-    '👋 Chào bạn! ID Telegram của bạn: {{telegramId}}. Thêm ID này vào cài đặt hồ sơ để nhận báo cáo.',
+    '👋 Xin chào! Tôi là bot Lumio. Để kết nối cuộc trò chuyện này, hãy mở Cài đặt → Thông báo trong Lumio và nhấn "Kết nối" bên cạnh Telegram.',
   unknown_command: 'Lệnh không xác định. Dùng /help để xem danh sách lệnh.',
   telegram_id_unknown: 'Không thể xác định ID Telegram của bạn. Vui lòng thử lại sau.',
-  user_not_connected:
-    'Không có tài khoản nào được liên kết với ID Telegram {{telegramId}}. Hãy thêm ID này trong cài đặt tài khoản.',
+  not_connected:
+    'Cuộc trò chuyện này chưa được kết nối với tài khoản Lumio. Hãy mở Cài đặt → Thông báo trong Lumio và nhấn "Kết nối" bên cạnh Telegram.',
   report_failed: 'Không thể gửi báo cáo. Vui lòng thử lại sau.',
   document_telegram_id_unknown: '⚠️ Không thể xác định ID Telegram của bạn. Gửi /start rồi thử lại.',
-  document_user_not_connected:
-    'Không có tài khoản nào được liên kết với ID Telegram {{telegramId}}. Thêm ID và chat ID trong cài đặt, hoặc gửi /start để xem ID của bạn.',
   document_pdf_only: 'Chỉ hỗ trợ tệp sao kê định dạng PDF.',
   document_received: '📥 Đã nhận tệp, bắt đầu xử lý...',
   document_processed:
     '✅ Đã nhận tệp và đưa vào hàng đợi xử lý. Trạng thái: {{status}}. Xem kết quả trong ứng dụng web Lumio.',
   document_failed: 'Không thể xử lý tệp. Vui lòng thử lại sau hoặc tải lên qua ứng dụng web.',
-  help: 'Các lệnh khả dụng:\n/start — hiển thị ID Telegram và lời chào\n/help — trợ giúp này\n/report — báo cáo hằng ngày của hôm nay\n/report YYYY-MM-DD — báo cáo cho một ngày cụ thể\n/report monthly — báo cáo của tháng hiện tại\n/goals — tiến độ mục tiêu tiết kiệm\n/networth — giá trị ròng hiện tại của bạn',
+  help: 'Các lệnh khả dụng:\n/start — cách kết nối cuộc trò chuyện này với Lumio\n/help — trợ giúp này\n/report — báo cáo hằng ngày của hôm nay\n/report YYYY-MM-DD — báo cáo cho một ngày cụ thể\n/report monthly — báo cáo của tháng hiện tại\n/goals — tiến độ mục tiêu tiết kiệm\n/networth — giá trị ròng hiện tại của bạn',
   daily_header: '📅 Báo cáo hằng ngày — {{date}}',
   income_line: '➕ Thu: {{amount}} ({{count}})',
   expense_line: '➖ Chi: {{amount}} ({{count}})',
@@ -1253,23 +1244,23 @@ const id: TranslationMap = {
   inbound_help:
     'Anda juga bisa:\n• mengirim foto struk — saya membaca jumlahnya dan menaruhnya di kotak masuk peninjauan\n• menulis pengeluaran: “kopi 4.50”, “taksi 15 EUR”\n• mengirim laporan PDF — akan masuk ke impor',
   connected: '✅ Telegram terhubung. Kami akan mengirim laporan ke chat ini.',
+  link_expired:
+    '⚠️ Tautan ini sudah kedaluwarsa atau sudah dipakai. Tekan "Hubungkan" di Lumio lagi.',
   start_greeting:
-    '👋 Hai! ID Telegram Anda: {{telegramId}}. Tambahkan di pengaturan profil untuk mulai menerima laporan.',
+    '👋 Halo! Saya bot Lumio. Untuk menghubungkan obrolan ini, buka Pengaturan → Notifikasi di Lumio lalu tekan "Hubungkan" di samping Telegram.',
   unknown_command: 'Perintah tidak dikenal. Gunakan /help untuk melihat daftar perintah.',
   telegram_id_unknown: 'Tidak dapat menentukan ID Telegram Anda. Coba lagi nanti.',
-  user_not_connected:
-    'Tidak ada akun yang terhubung ke ID Telegram {{telegramId}}. Tambahkan ID ini di pengaturan akun.',
+  not_connected:
+    'Obrolan ini belum terhubung ke akun Lumio. Buka Pengaturan → Notifikasi di Lumio lalu tekan "Hubungkan" di samping Telegram.',
   report_failed: 'Tidak dapat mengirim laporan. Coba lagi nanti.',
   document_telegram_id_unknown:
     '⚠️ Tidak dapat menentukan ID Telegram Anda. Kirim /start lalu coba lagi.',
-  document_user_not_connected:
-    'Tidak ada akun yang terhubung ke ID Telegram {{telegramId}}. Tambahkan ID dan chat ID di pengaturan, atau kirim /start untuk melihat ID Anda.',
   document_pdf_only: 'Hanya file laporan PDF yang didukung.',
   document_received: '📥 File diterima, pemrosesan dimulai...',
   document_processed:
     '✅ File diterima dan masuk antrean pemrosesan. Status: {{status}}. Periksa hasilnya di aplikasi web Lumio.',
   document_failed: 'Tidak dapat memproses file. Coba lagi nanti atau unggah melalui aplikasi web.',
-  help: 'Perintah yang tersedia:\n/start — menampilkan ID Telegram Anda dan pesan sambutan\n/help — bantuan ini\n/report — laporan harian hari ini\n/report YYYY-MM-DD — laporan untuk tanggal tertentu\n/report monthly — laporan bulan berjalan\n/goals — progres target tabungan Anda\n/networth — kekayaan bersih Anda saat ini',
+  help: 'Perintah yang tersedia:\n/start — cara menghubungkan obrolan ini ke Lumio\n/help — bantuan ini\n/report — laporan harian hari ini\n/report YYYY-MM-DD — laporan untuk tanggal tertentu\n/report monthly — laporan bulan berjalan\n/goals — progres target tabungan Anda\n/networth — kekayaan bersih Anda saat ini',
   daily_header: '📅 Laporan harian — {{date}}',
   income_line: '➕ Pemasukan: {{amount}} ({{count}})',
   expense_line: '➖ Pengeluaran: {{amount}} ({{count}})',
@@ -1299,22 +1290,21 @@ const id: TranslationMap = {
 
 const da: TranslationMap = {
   connected: '✅ Telegram forbundet. Vi sender rapporter til denne chat.',
+  link_expired: '⚠️ Linket er udløbet eller allerede brugt. Tryk på »Forbind« i Lumio igen.',
   start_greeting:
-    '👋 Hej! Dit Telegram-id: {{telegramId}}. Tilføj det i dine profilindstillinger for at begynde at modtage rapporter.',
+    '👋 Hej! Jeg er Lumio-botten. For at forbinde denne chat skal du åbne Indstillinger → Notifikationer i Lumio og trykke på »Forbind« ud for Telegram.',
   unknown_command: 'Ukendt kommando. Brug /help for at se listen over kommandoer.',
   telegram_id_unknown: 'Dit Telegram-id kunne ikke bestemmes. Prøv igen senere.',
-  user_not_connected:
-    'Ingen konto er forbundet til Telegram-id {{telegramId}}. Tilføj dette id i dine kontoindstillinger.',
+  not_connected:
+    'Denne chat er endnu ikke forbundet til en Lumio-konto. Åbn Indstillinger → Notifikationer i Lumio og tryk på »Forbind« ud for Telegram.',
   report_failed: 'Rapporten kunne ikke sendes. Prøv igen senere.',
   document_telegram_id_unknown: '⚠️ Dit Telegram-id kunne ikke bestemmes. Send /start og prøv igen.',
-  document_user_not_connected:
-    'Ingen konto er forbundet til Telegram-id {{telegramId}}. Tilføj id og chat-id i dine indstillinger, eller send /start for at se dit id.',
   document_pdf_only: 'Kun PDF-kontoudtog understøttes.',
   document_received: '📥 Fil modtaget, behandlingen er begyndt...',
   document_processed:
     '✅ Filen er accepteret og sat i kø til behandling. Status: {{status}}. Se resultatet i Lumio-webappen.',
   document_failed: 'Filen kunne ikke behandles. Prøv igen senere, eller upload den via webappen.',
-  help: 'Tilgængelige kommandoer:\n/start — vis dit Telegram-id og en velkomstbesked\n/help — denne hjælp\n/report — dagens rapport\n/report ÅÅÅÅ-MM-DD — rapport for en bestemt dato\n/report monthly — rapport for den aktuelle måned\n/goals — fremgang på dine opsparingsmål\n/networth — din aktuelle formue',
+  help: 'Tilgængelige kommandoer:\n/start — sådan forbinder du denne chat med Lumio\n/help — denne hjælp\n/report — dagens rapport\n/report ÅÅÅÅ-MM-DD — rapport for en bestemt dato\n/report monthly — rapport for den aktuelle måned\n/goals — fremgang på dine opsparingsmål\n/networth — din aktuelle formue',
   daily_header: '📅 Daglig rapport — {{date}}',
   income_line: '➕ Indtægter: {{amount}} ({{count}})',
   expense_line: '➖ Udgifter: {{amount}} ({{count}})',
@@ -1359,22 +1349,21 @@ const da: TranslationMap = {
 
 const nb: TranslationMap = {
   connected: '✅ Telegram tilkoblet. Vi sender rapporter til denne chatten.',
+  link_expired: '⚠️ Lenken er utløpt eller allerede brukt. Trykk «Koble til» i Lumio på nytt.',
   start_greeting:
-    '👋 Hei! Din Telegram-ID: {{telegramId}}. Legg den inn i profilinnstillingene for å begynne å motta rapporter.',
+    '👋 Hei! Jeg er Lumio-boten. For å koble til denne chatten, åpne Innstillinger → Varsler i Lumio og trykk «Koble til» ved Telegram.',
   unknown_command: 'Ukjent kommando. Bruk /help for å se listen over kommandoer.',
   telegram_id_unknown: 'Kunne ikke fastslå din Telegram-ID. Prøv igjen senere.',
-  user_not_connected:
-    'Ingen konto er koblet til Telegram-ID {{telegramId}}. Legg inn denne ID-en i kontoinnstillingene.',
+  not_connected:
+    'Denne chatten er ikke koblet til en Lumio-konto ennå. Åpne Innstillinger → Varsler i Lumio og trykk «Koble til» ved Telegram.',
   report_failed: 'Kunne ikke sende rapporten. Prøv igjen senere.',
   document_telegram_id_unknown: '⚠️ Kunne ikke fastslå din Telegram-ID. Send /start og prøv igjen.',
-  document_user_not_connected:
-    'Ingen konto er koblet til Telegram-ID {{telegramId}}. Legg inn ID og chat-ID i innstillingene, eller send /start for å se ID-en din.',
   document_pdf_only: 'Bare PDF-kontoutskrifter støttes.',
   document_received: '📥 Fil mottatt, behandlingen har startet...',
   document_processed:
     '✅ Filen er godtatt og lagt i kø for behandling. Status: {{status}}. Se resultatet i Lumio-webappen.',
   document_failed: 'Kunne ikke behandle filen. Prøv igjen senere, eller last den opp via webappen.',
-  help: 'Tilgjengelige kommandoer:\n/start — vis din Telegram-ID og en velkomstmelding\n/help — denne hjelpen\n/report — dagens rapport\n/report ÅÅÅÅ-MM-DD — rapport for en bestemt dato\n/report monthly — rapport for inneværende måned\n/goals — framgang på sparemålene dine\n/networth — din nåværende nettoformue',
+  help: 'Tilgjengelige kommandoer:\n/start — slik kobler du denne chatten til Lumio\n/help — denne hjelpen\n/report — dagens rapport\n/report ÅÅÅÅ-MM-DD — rapport for en bestemt dato\n/report monthly — rapport for inneværende måned\n/goals — framgang på sparemålene dine\n/networth — din nåværende nettoformue',
   daily_header: '📅 Daglig rapport — {{date}}',
   income_line: '➕ Inntekter: {{amount}} ({{count}})',
   expense_line: '➖ Kostnader: {{amount}} ({{count}})',
@@ -1420,23 +1409,22 @@ const nb: TranslationMap = {
 
 const nn: TranslationMap = {
   connected: '✅ Telegram tilkopla. Vi sender rapportar til denne chatten.',
+  link_expired: '⚠️ Lenkja har gått ut eller er alt brukt. Trykk «Kople til» i Lumio på nytt.',
   start_greeting:
-    '👋 Hei! Din Telegram-ID: {{telegramId}}. Legg han inn i profilinnstillingane for å byrje å motta rapportar.',
+    '👋 Hei! Eg er Lumio-boten. For å kople til denne chatten, opne Innstillingar → Varsel i Lumio og trykk «Kople til» ved Telegram.',
   unknown_command: 'Ukjend kommando. Bruk /help for å sjå lista over kommandoar.',
   telegram_id_unknown: 'Kunne ikkje fastslå din Telegram-ID. Prøv igjen seinare.',
-  user_not_connected:
-    'Ingen konto er kopla til Telegram-ID {{telegramId}}. Legg inn denne ID-en i kontoinnstillingane.',
+  not_connected:
+    'Denne chatten er ikkje kopla til ein Lumio-konto enno. Opne Innstillingar → Varsel i Lumio og trykk «Kople til» ved Telegram.',
   report_failed: 'Kunne ikkje sende rapporten. Prøv igjen seinare.',
   document_telegram_id_unknown: '⚠️ Kunne ikkje fastslå din Telegram-ID. Send /start og prøv igjen.',
-  document_user_not_connected:
-    'Ingen konto er kopla til Telegram-ID {{telegramId}}. Legg inn ID og chat-ID i innstillingane, eller send /start for å sjå ID-en din.',
   document_pdf_only: 'Berre PDF-kontoutskrifter er støtta.',
   document_received: '📥 Fil motteken, handsaminga har starta...',
   document_processed:
     '✅ Fila er godteken og lagd i kø for handsaming. Status: {{status}}. Sjå resultatet i Lumio-webappen.',
   document_failed:
     'Kunne ikkje handsame fila. Prøv igjen seinare, eller last henne opp via webappen.',
-  help: 'Tilgjengelege kommandoar:\n/start — vis din Telegram-ID og ei velkomstmelding\n/help — denne hjelpa\n/report — rapporten for i dag\n/report ÅÅÅÅ-MM-DD — rapport for ein bestemt dato\n/report monthly — rapport for denne månaden\n/goals — framgang på sparemåla dine\n/networth — din noverande nettoformue',
+  help: 'Tilgjengelege kommandoar:\n/start — korleis du koplar denne chatten til Lumio\n/help — denne hjelpa\n/report — rapporten for i dag\n/report ÅÅÅÅ-MM-DD — rapport for ein bestemt dato\n/report monthly — rapport for denne månaden\n/goals — framgang på sparemåla dine\n/networth — din noverande nettoformue',
   daily_header: '📅 Dagleg rapport — {{date}}',
   income_line: '➕ Inntekter: {{amount}} ({{count}})',
   expense_line: '➖ Kostnader: {{amount}} ({{count}})',
@@ -1482,24 +1470,23 @@ const nn: TranslationMap = {
 
 const fi: TranslationMap = {
   connected: '✅ Telegram yhdistetty. Lähetämme raportit tähän keskusteluun.',
+  link_expired: '⚠️ Linkki on vanhentunut tai jo käytetty. Paina Lumiossa uudelleen ”Yhdistä”.',
   start_greeting:
-    '👋 Hei! Telegram-tunnuksesi: {{telegramId}}. Lisää se profiiliasetuksiin, niin alat saada raportteja.',
+    '👋 Hei! Olen Lumio-botti. Yhdistä tämä keskustelu avaamalla Lumiossa Asetukset → Ilmoitukset ja painamalla Telegramin kohdalla ”Yhdistä”.',
   unknown_command: 'Tuntematon komento. Käytä /help nähdäksesi komentojen luettelon.',
   telegram_id_unknown: 'Telegram-tunnustasi ei voitu määrittää. Yritä myöhemmin uudelleen.',
-  user_not_connected:
-    'Telegram-tunnukseen {{telegramId}} ei ole liitetty tiliä. Lisää tämä tunnus tilisi asetuksiin.',
+  not_connected:
+    'Tätä keskustelua ei ole vielä yhdistetty Lumio-tiliin. Avaa Lumiossa Asetukset → Ilmoitukset ja paina Telegramin kohdalla ”Yhdistä”.',
   report_failed: 'Raporttia ei voitu lähettää. Yritä myöhemmin uudelleen.',
   document_telegram_id_unknown:
     '⚠️ Telegram-tunnustasi ei voitu määrittää. Lähetä /start ja yritä uudelleen.',
-  document_user_not_connected:
-    'Telegram-tunnukseen {{telegramId}} ei ole liitetty tiliä. Lisää tunnus ja keskustelun tunnus asetuksiin tai lähetä /start nähdäksesi tunnuksesi.',
   document_pdf_only: 'Vain PDF-muotoiset tiliotteet ovat tuettuja.',
   document_received: '📥 Tiedosto vastaanotettu, käsittely on aloitettu...',
   document_processed:
     '✅ Tiedosto hyväksyttiin ja asetettiin käsittelyjonoon. Tila: {{status}}. Katso tulos Lumion verkkosovelluksesta.',
   document_failed:
     'Tiedostoa ei voitu käsitellä. Yritä myöhemmin uudelleen tai lataa se verkkosovelluksessa.',
-  help: 'Käytettävissä olevat komennot:\n/start — näytä Telegram-tunnuksesi ja tervetuloviesti\n/help — tämä ohje\n/report — tämän päivän raportti\n/report VVVV-KK-PP — raportti tietyltä päivältä\n/report monthly — kuluvan kuukauden raportti\n/goals — säästötavoitteidesi edistyminen\n/networth — nykyinen nettovarallisuutesi',
+  help: 'Käytettävissä olevat komennot:\n/start — näin yhdistät tämän keskustelun Lumioon\n/help — tämä ohje\n/report — tämän päivän raportti\n/report VVVV-KK-PP — raportti tietyltä päivältä\n/report monthly — kuluvan kuukauden raportti\n/goals — säästötavoitteidesi edistyminen\n/networth — nykyinen nettovarallisuutesi',
   daily_header: '📅 Päivän raportti — {{date}}',
   income_line: '➕ Tulot: {{amount}} ({{count}})',
   expense_line: '➖ Menot: {{amount}} ({{count}})',
@@ -1545,24 +1532,24 @@ const fi: TranslationMap = {
 
 const is: TranslationMap = {
   connected: '✅ Telegram tengt. Við sendum skýrslur í þetta samtal.',
+  link_expired:
+    '⚠️ Þessi tengill er útrunninn eða hefur þegar verið notaður. Ýttu aftur á „Tengja“ í Lumio.',
   start_greeting:
-    '👋 Hæ! Telegram-kennið þitt: {{telegramId}}. Bættu því við í prófílstillingum til að byrja að fá skýrslur.',
+    '👋 Hæ! Ég er Lumio-þjarkinn. Til að tengja þetta samtal skaltu opna Stillingar → Tilkynningar í Lumio og ýta á „Tengja“ við Telegram.',
   unknown_command: 'Óþekkt skipun. Notaðu /help til að sjá lista yfir skipanir.',
   telegram_id_unknown: 'Ekki var unnt að greina Telegram-kennið þitt. Reyndu aftur síðar.',
-  user_not_connected:
-    'Enginn reikningur er tengdur Telegram-kenninu {{telegramId}}. Bættu þessu kenni við í stillingum reikningsins.',
+  not_connected:
+    'Þetta samtal er ekki enn tengt Lumio-aðgangi. Opnaðu Stillingar → Tilkynningar í Lumio og ýttu á „Tengja“ við Telegram.',
   report_failed: 'Ekki var unnt að senda skýrsluna. Reyndu aftur síðar.',
   document_telegram_id_unknown:
     '⚠️ Ekki var unnt að greina Telegram-kennið þitt. Sendu /start og reyndu aftur.',
-  document_user_not_connected:
-    'Enginn reikningur er tengdur Telegram-kenninu {{telegramId}}. Bættu kenninu og samtalskenninu við í stillingum, eða sendu /start til að sjá kennið þitt.',
   document_pdf_only: 'Aðeins PDF-yfirlit eru studd.',
   document_received: '📥 Skrá móttekin, vinnsla er byrjuð...',
   document_processed:
     '✅ Skráin var tekin við og sett í vinnsluröð. Staða: {{status}}. Sjáðu útkomuna í Lumio-vefappinu.',
   document_failed:
     'Ekki var unnt að vinna úr skránni. Reyndu aftur síðar eða hlaðið henni upp í vefappinu.',
-  help: 'Tiltækar skipanir:\n/start — sýna Telegram-kennið þitt og kveðju\n/help — þessi hjálp\n/report — skýrsla dagsins\n/report ÁÁÁÁ-MM-DD — skýrsla fyrir tiltekna dagsetningu\n/report monthly — skýrsla fyrir yfirstandandi mánuð\n/goals — framgangur sparnaðarmarkmiða\n/networth — núverandi hrein eign',
+  help: 'Tiltækar skipanir:\n/start — hvernig á að tengja þetta samtal við Lumio\n/help — þessi hjálp\n/report — skýrsla dagsins\n/report ÁÁÁÁ-MM-DD — skýrsla fyrir tiltekna dagsetningu\n/report monthly — skýrsla fyrir yfirstandandi mánuð\n/goals — framgangur sparnaðarmarkmiða\n/networth — núverandi hrein eign',
   daily_header: '📅 Dagsskýrsla — {{date}}',
   income_line: '➕ Tekjur: {{amount}} ({{count}})',
   expense_line: '➖ Gjöld: {{amount}} ({{count}})',
@@ -1608,23 +1595,22 @@ const is: TranslationMap = {
 
 const fo: TranslationMap = {
   connected: '✅ Telegram knýtt. Vit senda frágreiðingar til hetta kjak.',
+  link_expired: '⚠️ Hetta leinkið er útgingið ella longu brúkt. Trýst aftur á „Knýt“ í Lumio.',
   start_greeting:
-    '👋 Hey! Títt Telegram-ID: {{telegramId}}. Legg tað inn í vangamyndarinnstillingarnar fyri at fara at móttaka frágreiðingar.',
+    '👋 Hey! Eg eri Lumio-bottin. Fyri at knýta hetta kjakið, lat upp Innstillingar → Fráboðanir í Lumio og trýst á „Knýt“ við Telegram.',
   unknown_command: 'Ókend stýriboð. Brúka /help fyri at síggja listan av stýriboðum.',
   telegram_id_unknown: 'Fekk ikki staðfest títt Telegram-ID. Royn aftur seinni.',
-  user_not_connected:
-    'Ongin konta er knýtt at Telegram-ID {{telegramId}}. Legg hetta ID inn í kontuinnstillingarnar.',
+  not_connected:
+    'Hetta kjakið er enn ikki knýtt at einari Lumio-konto. Lat upp Innstillingar → Fráboðanir í Lumio og trýst á „Knýt“ við Telegram.',
   report_failed: 'Fekk ikki sent frágreiðingina. Royn aftur seinni.',
   document_telegram_id_unknown: '⚠️ Fekk ikki staðfest títt Telegram-ID. Send /start og royn aftur.',
-  document_user_not_connected:
-    'Ongin konta er knýtt at Telegram-ID {{telegramId}}. Legg ID og kjak-ID inn í innstillingarnar, ella send /start fyri at síggja títt ID.',
   document_pdf_only: 'Bert PDF-kontoúrtøk eru stuðlað.',
   document_received: '📥 Fíla móttikin, viðgerðin er byrjað...',
   document_processed:
     '✅ Fílan er góðkend og sett í bíðirøð til viðgerð. Støða: {{status}}. Síggj úrslitið í Lumio-vevappinum.',
   document_failed:
     'Fekk ikki viðgjørt fíluna. Royn aftur seinni, ella legg hana upp gjøgnum vevappin.',
-  help: 'Tøk stýriboð:\n/start — vís títt Telegram-ID og eina vælkomuboð\n/help — henda hjálp\n/report — frágreiðing fyri í dag\n/report ÁÁÁÁ-MM-DD — frágreiðing fyri ein ávísan dag\n/report monthly — frágreiðing fyri henda mánaðin\n/goals — framgongd á sparimálunum tínum\n/networth — tín verandi nettoogn',
+  help: 'Tøk stýriboð:\n/start — soleiðis knýtir tú hetta kjakið at Lumio\n/help — henda hjálp\n/report — frágreiðing fyri í dag\n/report ÁÁÁÁ-MM-DD — frágreiðing fyri ein ávísan dag\n/report monthly — frágreiðing fyri henda mánaðin\n/goals — framgongd á sparimálunum tínum\n/networth — tín verandi nettoogn',
   daily_header: '📅 Daglig frágreiðing — {{date}}',
   income_line: '➕ Inntøkur: {{amount}} ({{count}})',
   expense_line: '➖ Útgjøld: {{amount}} ({{count}})',
@@ -1669,24 +1655,24 @@ const fo: TranslationMap = {
 
 const cs: TranslationMap = {
   connected: '✅ Telegram připojen. Reporty budeme posílat do tohoto chatu.',
+  link_expired:
+    '⚠️ Platnost odkazu vypršela nebo už byl použit. Klikněte v Lumio znovu na „Připojit“.',
   start_greeting:
-    '👋 Ahoj! Vaše Telegram ID: {{telegramId}}. Přidejte je v nastavení profilu, abyste začali dostávat reporty.',
+    '👋 Ahoj! Jsem bot Lumio. Chcete-li připojit tento chat, otevřete v Lumio Nastavení → Oznámení a klikněte u Telegramu na „Připojit“.',
   unknown_command: 'Neznámý příkaz. Seznam příkazů zobrazíte pomocí /help.',
   telegram_id_unknown: 'Vaše Telegram ID se nepodařilo zjistit. Zkuste to později.',
-  user_not_connected:
-    'K Telegram ID {{telegramId}} není připojen žádný účet. Přidejte toto ID v nastavení účtu.',
+  not_connected:
+    'Tento chat zatím není připojen k účtu Lumio. Otevřete v Lumio Nastavení → Oznámení a klikněte u Telegramu na „Připojit“.',
   report_failed: 'Report se nepodařilo odeslat. Zkuste to později.',
   document_telegram_id_unknown:
     '⚠️ Vaše Telegram ID se nepodařilo zjistit. Pošlete /start a zkuste to znovu.',
-  document_user_not_connected:
-    'K Telegram ID {{telegramId}} není připojen žádný účet. Přidejte ID a chat ID v nastavení, nebo pošlete /start a zobrazte své ID.',
   document_pdf_only: 'Podporovány jsou pouze výpisy ve formátu PDF.',
   document_received: '📥 Soubor přijat, zpracování začalo...',
   document_processed:
     '✅ Soubor přijat a zařazen ke zpracování. Stav: {{status}}. Výsledek najdete ve webové aplikaci Lumio.',
   document_failed:
     'Soubor se nepodařilo zpracovat. Zkuste to později nebo jej nahrajte ve webové aplikaci.',
-  help: 'Dostupné příkazy:\n/start — zobrazí vaše Telegram ID a vítací zprávu\n/help — tato nápověda\n/report — dnešní denní report\n/report RRRR-MM-DD — report pro určité datum\n/report monthly — report za aktuální měsíc\n/goals — pokrok vašich spořicích cílů\n/networth — vaše aktuální čisté jmění',
+  help: 'Dostupné příkazy:\n/start — jak připojit tento chat k Lumio\n/help — tato nápověda\n/report — dnešní denní report\n/report RRRR-MM-DD — report pro určité datum\n/report monthly — report za aktuální měsíc\n/goals — pokrok vašich spořicích cílů\n/networth — vaše aktuální čisté jmění',
   daily_header: '📅 Denní report — {{date}}',
   income_line: '➕ Příjmy: {{amount}} ({{count}})',
   expense_line: '➖ Výdaje: {{amount}} ({{count}})',
@@ -1732,24 +1718,23 @@ const cs: TranslationMap = {
 
 const bg: TranslationMap = {
   connected: '✅ Telegram е свързан. Ще изпращаме отчети в този чат.',
+  link_expired: '⚠️ Връзката е изтекла или вече е използвана. Натиснете „Свързване“ в Lumio отново.',
   start_greeting:
-    '👋 Здравейте! Вашият Telegram ID: {{telegramId}}. Добавете го в настройките на профила, за да започнете да получавате отчети.',
+    '👋 Здравейте! Аз съм ботът на Lumio. За да свържете този чат, отворете Настройки → Известия в Lumio и натиснете „Свързване“ до Telegram.',
   unknown_command: 'Неизвестна команда. Използвайте /help, за да видите списъка с команди.',
   telegram_id_unknown: 'Вашият Telegram ID не можа да бъде определен. Опитайте по-късно.',
-  user_not_connected:
-    'Към Telegram ID {{telegramId}} няма свързан акаунт. Добавете този ID в настройките на акаунта си.',
+  not_connected:
+    'Този чат още не е свързан с акаунт в Lumio. Отворете Настройки → Известия в Lumio и натиснете „Свързване“ до Telegram.',
   report_failed: 'Отчетът не можа да бъде изпратен. Опитайте по-късно.',
   document_telegram_id_unknown:
     '⚠️ Вашият Telegram ID не можа да бъде определен. Изпратете /start и опитайте отново.',
-  document_user_not_connected:
-    'Към Telegram ID {{telegramId}} няма свързан акаунт. Добавете ID и chat ID в настройките или изпратете /start, за да видите своя ID.',
   document_pdf_only: 'Поддържат се само извлечения в PDF.',
   document_received: '📥 Файлът е получен, обработката започна...',
   document_processed:
     '✅ Файлът е приет и е в опашка за обработка. Статус: {{status}}. Вижте резултата в уеб приложението Lumio.',
   document_failed:
     'Файлът не можа да бъде обработен. Опитайте по-късно или го качете през уеб приложението.',
-  help: 'Налични команди:\n/start — показва вашия Telegram ID и приветствие\n/help — тази помощ\n/report — днешният дневен отчет\n/report ГГГГ-ММ-ДД — отчет за конкретна дата\n/report monthly — отчет за текущия месец\n/goals — напредък по вашите цели за спестяване\n/networth — вашата текуща нетна стойност',
+  help: 'Налични команди:\n/start — как да свържете този чат с Lumio\n/help — тази помощ\n/report — днешният дневен отчет\n/report ГГГГ-ММ-ДД — отчет за конкретна дата\n/report monthly — отчет за текущия месец\n/goals — напредък по вашите цели за спестяване\n/networth — вашата текуща нетна стойност',
   daily_header: '📅 Дневен отчет — {{date}}',
   income_line: '➕ Приходи: {{amount}} ({{count}})',
   expense_line: '➖ Разходи: {{amount}} ({{count}})',
@@ -1795,24 +1780,24 @@ const bg: TranslationMap = {
 
 const hr: TranslationMap = {
   connected: '✅ Telegram je povezan. Izvještaje ćemo slati u ovaj razgovor.',
+  link_expired:
+    '⚠️ Poveznica je istekla ili je već iskorištena. Ponovno pritisnite „Poveži” u Lumiju.',
   start_greeting:
-    '👋 Zdravo! Vaš Telegram ID: {{telegramId}}. Dodajte ga u postavke profila da počnete primati izvještaje.',
+    '👋 Bok! Ja sam Lumio bot. Da biste povezali ovaj razgovor, otvorite Postavke → Obavijesti u Lumiju i pritisnite „Poveži” pokraj Telegrama.',
   unknown_command: 'Nepoznata naredba. Koristite /help za popis naredbi.',
   telegram_id_unknown: 'Vaš Telegram ID nije bilo moguće odrediti. Pokušajte kasnije.',
-  user_not_connected:
-    'Uz Telegram ID {{telegramId}} nije povezan nijedan račun. Dodajte taj ID u postavke računa.',
+  not_connected:
+    'Ovaj razgovor još nije povezan s Lumio računom. Otvorite Postavke → Obavijesti u Lumiju i pritisnite „Poveži” pokraj Telegrama.',
   report_failed: 'Izvještaj nije bilo moguće poslati. Pokušajte kasnije.',
   document_telegram_id_unknown:
     '⚠️ Vaš Telegram ID nije bilo moguće odrediti. Pošaljite /start i pokušajte ponovno.',
-  document_user_not_connected:
-    'Uz Telegram ID {{telegramId}} nije povezan nijedan račun. Dodajte ID i chat ID u postavke ili pošaljite /start da vidite svoj ID.',
   document_pdf_only: 'Podržani su samo izvodi u PDF-u.',
   document_received: '📥 Datoteka primljena, obrada je počela...',
   document_processed:
     '✅ Datoteka je prihvaćena i u redu je za obradu. Status: {{status}}. Rezultat pogledajte u web aplikaciji Lumio.',
   document_failed:
     'Datoteku nije bilo moguće obraditi. Pokušajte kasnije ili je prenesite putem web aplikacije.',
-  help: 'Dostupne naredbe:\n/start — prikazuje vaš Telegram ID i poruku dobrodošlice\n/help — ova pomoć\n/report — današnji dnevni izvještaj\n/report GGGG-MM-DD — izvještaj za određeni datum\n/report monthly — izvještaj za tekući mjesec\n/goals — napredak vaših ciljeva štednje\n/networth — vaša trenutna neto vrijednost',
+  help: 'Dostupne naredbe:\n/start — kako povezati ovaj razgovor s Lumiom\n/help — ova pomoć\n/report — današnji dnevni izvještaj\n/report GGGG-MM-DD — izvještaj za određeni datum\n/report monthly — izvještaj za tekući mjesec\n/goals — napredak vaših ciljeva štednje\n/networth — vaša trenutna neto vrijednost',
   daily_header: '📅 Dnevni izvještaj — {{date}}',
   income_line: '➕ Prihodi: {{amount}} ({{count}})',
   expense_line: '➖ Troškovi: {{amount}} ({{count}})',
@@ -1858,24 +1843,23 @@ const hr: TranslationMap = {
 
 const sr: TranslationMap = {
   connected: '✅ Telegram је повезан. Извештаје ћемо слати у овај чет.',
+  link_expired: '⚠️ Веза је истекла или је већ искоришћена. Поново притисните „Повежи” у Lumio-у.',
   start_greeting:
-    '👋 Здраво! Ваш Telegram ID: {{telegramId}}. Додајте га у подешавања профила да почнете да примате извештаје.',
+    '👋 Здраво! Ја сам Lumio бот. Да бисте повезали овај чет, отворите Поставке → Обавештења у Lumio-у и притисните „Повежи” поред Telegram-а.',
   unknown_command: 'Непозната команда. Користите /help за списак команди.',
   telegram_id_unknown: 'Ваш Telegram ID није могуће одредити. Пробајте касније.',
-  user_not_connected:
-    'Уз Telegram ID {{telegramId}} није повезан ниједан рачун. Додајте тај ID у подешавања рачуна.',
+  not_connected:
+    'Овај чет још није повезан са Lumio налогом. Отворите Поставке → Обавештења у Lumio-у и притисните „Повежи” поред Telegram-а.',
   report_failed: 'Извештај није могуће послати. Пробајте касније.',
   document_telegram_id_unknown:
     '⚠️ Ваш Telegram ID није могуће одредити. Пошаљите /start и пробајте поново.',
-  document_user_not_connected:
-    'Уз Telegram ID {{telegramId}} није повезан ниједан рачун. Додајте ID и chat ID у подешавања или пошаљите /start да видите свој ID.',
   document_pdf_only: 'Подржани су само изводи у PDF-у.',
   document_received: '📥 Датотека примљена, обрада је почела...',
   document_processed:
     '✅ Датотека је прихваћена и у реду је за обраду. Статус: {{status}}. Резултат погледајте у веб апликацији Lumio.',
   document_failed:
     'Датотеку није могуће обрадити. Пробајте касније или је пренесите преко веб апликације.',
-  help: 'Доступне команде:\n/start — приказује ваш Telegram ID и поруку добродошлице\n/help — ова помоћ\n/report — данашњи дневни извештај\n/report ГГГГ-ММ-ДД — извештај за одређени датум\n/report monthly — извештај за текући месец\n/goals — напредак ваших циљева штедње\n/networth — ваша тренутна нето вредност',
+  help: 'Доступне команде:\n/start — како да повежете овај чет са Lumio-ом\n/help — ова помоћ\n/report — данашњи дневни извештај\n/report ГГГГ-ММ-ДД — извештај за одређени датум\n/report monthly — извештај за текући месец\n/goals — напредак ваших циљева штедње\n/networth — ваша тренутна нето вредност',
   daily_header: '📅 Дневни извештај — {{date}}',
   income_line: '➕ Приходи: {{amount}} ({{count}})',
   expense_line: '➖ Трошкови: {{amount}} ({{count}})',
@@ -1921,24 +1905,24 @@ const sr: TranslationMap = {
 
 const sl: TranslationMap = {
   connected: '✅ Telegram je povezan. Poročila bomo pošiljali v ta klepet.',
+  link_expired:
+    '⚠️ Povezava je potekla ali je bila že uporabljena. V Lumiu znova pritisnite »Poveži«.',
   start_greeting:
-    '👋 Živjo! Vaš Telegram ID: {{telegramId}}. Dodajte ga v nastavitve profila, da začnete prejemati poročila.',
+    '👋 Živjo! Sem bot Lumio. Če želite povezati ta klepet, v Lumiu odprite Nastavitve → Obvestila in pri Telegramu pritisnite »Poveži«.',
   unknown_command: 'Neznan ukaz. Seznam ukazov prikažete z /help.',
   telegram_id_unknown: 'Vašega Telegram ID ni bilo mogoče določiti. Poskusite pozneje.',
-  user_not_connected:
-    'S Telegram ID {{telegramId}} ni povezan noben račun. Dodajte ta ID v nastavitve računa.',
+  not_connected:
+    'Ta klepet še ni povezan z računom Lumio. V Lumiu odprite Nastavitve → Obvestila in pri Telegramu pritisnite »Poveži«.',
   report_failed: 'Poročila ni bilo mogoče poslati. Poskusite pozneje.',
   document_telegram_id_unknown:
     '⚠️ Vašega Telegram ID ni bilo mogoče določiti. Pošljite /start in poskusite znova.',
-  document_user_not_connected:
-    'S Telegram ID {{telegramId}} ni povezan noben račun. Dodajte ID in chat ID v nastavitve ali pošljite /start, da vidite svoj ID.',
   document_pdf_only: 'Podprti so samo izpiski v PDF.',
   document_received: '📥 Datoteka prejeta, obdelava se je začela...',
   document_processed:
     '✅ Datoteka je sprejeta in v vrsti za obdelavo. Stanje: {{status}}. Rezultat poglejte v spletni aplikaciji Lumio.',
   document_failed:
     'Datoteke ni bilo mogoče obdelati. Poskusite pozneje ali jo naložite v spletni aplikaciji.',
-  help: 'Razpoložljivi ukazi:\n/start — prikaže vaš Telegram ID in pozdravno sporočilo\n/help — ta pomoč\n/report — današnje dnevno poročilo\n/report LLLL-MM-DD — poročilo za določen datum\n/report monthly — poročilo za tekoči mesec\n/goals — napredek vaših ciljev varčevanja\n/networth — vaša trenutna neto vrednost',
+  help: 'Razpoložljivi ukazi:\n/start — kako povezati ta klepet z Lumiom\n/help — ta pomoč\n/report — današnje dnevno poročilo\n/report LLLL-MM-DD — poročilo za določen datum\n/report monthly — poročilo za tekoči mesec\n/goals — napredek vaših ciljev varčevanja\n/networth — vaša trenutna neto vrednost',
   daily_header: '📅 Dnevno poročilo — {{date}}',
   income_line: '➕ Prihodki: {{amount}} ({{count}})',
   expense_line: '➖ Stroški: {{amount}} ({{count}})',
@@ -1984,24 +1968,24 @@ const sl: TranslationMap = {
 
 const mk: TranslationMap = {
   connected: '✅ Telegram е поврзан. Извештаите ќе ги испраќаме во овој разговор.',
+  link_expired:
+    '⚠️ Врската е истечена или веќе е искористена. Притиснете „Поврзи“ во Lumio повторно.',
   start_greeting:
-    '👋 Здраво! Вашиот Telegram ID: {{telegramId}}. Додајте го во поставките на профилот за да почнете да добивате извештаи.',
+    '👋 Здраво! Јас сум ботот на Lumio. За да го поврзете овој разговор, отворете Поставки → Известувања во Lumio и притиснете „Поврзи“ до Telegram.',
   unknown_command: 'Непозната команда. Користете /help за список на команди.',
   telegram_id_unknown: 'Вашиот Telegram ID не можеше да се определи. Обидете се подоцна.',
-  user_not_connected:
-    'Со Telegram ID {{telegramId}} не е поврзана ниту една сметка. Додајте го овој ID во поставките на сметката.',
+  not_connected:
+    'Овој разговор сè уште не е поврзан со сметка во Lumio. Отворете Поставки → Известувања во Lumio и притиснете „Поврзи“ до Telegram.',
   report_failed: 'Извештајот не можеше да се испрати. Обидете се подоцна.',
   document_telegram_id_unknown:
     '⚠️ Вашиот Telegram ID не можеше да се определи. Испратете /start и обидете се повторно.',
-  document_user_not_connected:
-    'Со Telegram ID {{telegramId}} не е поврзана ниту една сметка. Додајте ID и chat ID во поставките или испратете /start за да го видите вашиот ID.',
   document_pdf_only: 'Поддржани се само изводи во PDF.',
   document_received: '📥 Датотеката е примена, обработката започна...',
   document_processed:
     '✅ Датотеката е примена и е во редица за обработка. Статус: {{status}}. Резултатот погледнете го во веб апликацијата Lumio.',
   document_failed:
     'Датотеката не можеше да се обработи. Обидете се подоцна или прикачете ја преку веб апликацијата.',
-  help: 'Достапни команди:\n/start — го прикажува вашиот Telegram ID и поздравна порака\n/help — оваа помош\n/report — денешниот дневен извештај\n/report ГГГГ-ММ-ДД — извештај за одреден датум\n/report monthly — извештај за тековниот месец\n/goals — напредок на вашите цели за штедење\n/networth — вашата тековна нето вредност',
+  help: 'Достапни команди:\n/start — како да го поврзете овој разговор со Lumio\n/help — оваа помош\n/report — денешниот дневен извештај\n/report ГГГГ-ММ-ДД — извештај за одреден датум\n/report monthly — извештај за тековниот месец\n/goals — напредок на вашите цели за штедење\n/networth — вашата тековна нето вредност',
   daily_header: '📅 Дневен извештај — {{date}}',
   income_line: '➕ Приходи: {{amount}} ({{count}})',
   expense_line: '➖ Трошоци: {{amount}} ({{count}})',
@@ -2047,24 +2031,24 @@ const mk: TranslationMap = {
 
 const be: TranslationMap = {
   connected: '✅ Telegram падключаны. Будзем дасылаць зветы ў гэты чат.',
+  link_expired:
+    '⚠️ Спасылка састарэла або ўжо выкарыстана. Націсніце «Падключыць» у Lumio яшчэ раз.',
   start_greeting:
-    '👋 Прывітанне! Ваш Telegram ID: {{telegramId}}. Дадайце яго ў наладах профілю, каб пачаць атрымліваць зветы.',
+    '👋 Прывітанне! Я бот Lumio. Каб падключыць гэты чат, адкрыйце ў Lumio Налады → Апавяшчэнні і націсніце «Падключыць» каля Telegram.',
   unknown_command: 'Невядомая каманда. Скарыстайце /help, каб убачыць спіс камандаў.',
   telegram_id_unknown: 'Не ўдалося вызначыць ваш Telegram ID. Паспрабуйце пазней.',
-  user_not_connected:
-    'З Telegram ID {{telegramId}} не звязаны ніводзін акаўнт. Дадайце гэты ID у наладах акаўнта.',
+  not_connected:
+    'Гэты чат яшчэ не падключаны да акаўнта Lumio. Адкрыйце ў Lumio Налады → Апавяшчэнні і націсніце «Падключыць» каля Telegram.',
   report_failed: 'Не ўдалося даслаць звет. Паспрабуйце пазней.',
   document_telegram_id_unknown:
     '⚠️ Не ўдалося вызначыць ваш Telegram ID. Дашліце /start і паспрабуйце зноў.',
-  document_user_not_connected:
-    'З Telegram ID {{telegramId}} не звязаны ніводзін акаўнт. Дадайце ID і chat ID у наладах або дашліце /start, каб убачыць свой ID.',
   document_pdf_only: 'Падтрымліваюцца толькі выпіскі ў PDF.',
   document_received: '📥 Файл атрыманы, апрацоўка пачалася...',
   document_processed:
     '✅ Файл прыняты і стаў у чаргу на апрацоўку. Стан: {{status}}. Вынік гляньце ў вэб-дадатку Lumio.',
   document_failed:
     'Не ўдалося апрацаваць файл. Паспрабуйце пазней або загрузіце яго праз вэб-дадатак.',
-  help: 'Даступныя каманды:\n/start — паказвае ваш Telegram ID і прывітальнае паведамленне\n/help — гэтая даведка\n/report — сённяшні дзённы звет\n/report ГГГГ-ММ-ДД — звет за пэўную дату\n/report monthly — звет за цяперашні месяц\n/goals — прагрэс вашых мэтаў заашчаджэння\n/networth — ваш цяперашні чысты капітал',
+  help: 'Даступныя каманды:\n/start — як падключыць гэты чат да Lumio\n/help — гэтая даведка\n/report — сённяшні дзённы звет\n/report ГГГГ-ММ-ДД — звет за пэўную дату\n/report monthly — звет за цяперашні месяц\n/goals — прагрэс вашых мэтаў заашчаджэння\n/networth — ваш цяперашні чысты капітал',
   daily_header: '📅 Дзённы звет — {{date}}',
   income_line: '➕ Прыбыткі: {{amount}} ({{count}})',
   expense_line: '➖ Выдаткі: {{amount}} ({{count}})',
@@ -2111,24 +2095,23 @@ const be: TranslationMap = {
 
 const bs: TranslationMap = {
   connected: '✅ Telegram je povezan. Izvještaje ćemo slati u ovaj razgovor.',
+  link_expired: '⚠️ Link je istekao ili je već iskorišten. Ponovo pritisnite „Poveži“ u Lumiju.',
   start_greeting:
-    '👋 Zdravo! Vaš Telegram ID: {{telegramId}}. Dodajte ga u postavke profila da počnete primati izvještaje.',
+    '👋 Zdravo! Ja sam Lumio bot. Da biste povezali ovaj razgovor, otvorite Postavke → Obavještenja u Lumiju i pritisnite „Poveži“ pored Telegrama.',
   unknown_command: 'Nepoznata komanda. Koristite /help za listu komandi.',
   telegram_id_unknown: 'Vaš Telegram ID nije moguće odrediti. Pokušajte kasnije.',
-  user_not_connected:
-    'Uz Telegram ID {{telegramId}} nije povezan nijedan račun. Dodajte taj ID u postavke računa.',
+  not_connected:
+    'Ovaj razgovor još nije povezan s Lumio računom. Otvorite Postavke → Obavještenja u Lumiju i pritisnite „Poveži“ pored Telegrama.',
   report_failed: 'Izvještaj nije moguće poslati. Pokušajte kasnije.',
   document_telegram_id_unknown:
     '⚠️ Vaš Telegram ID nije moguće odrediti. Pošaljite /start i pokušajte ponovo.',
-  document_user_not_connected:
-    'Uz Telegram ID {{telegramId}} nije povezan nijedan račun. Dodajte ID i chat ID u postavke ili pošaljite /start da vidite svoj ID.',
   document_pdf_only: 'Podržani su samo izvodi u PDF-u.',
   document_received: '📥 Datoteka primljena, obrada je počela...',
   document_processed:
     '✅ Datoteka je prihvaćena i u redu je za obradu. Status: {{status}}. Rezultat pogledajte u web aplikaciji Lumio.',
   document_failed:
     'Datoteku nije moguće obraditi. Pokušajte kasnije ili je prenesite putem web aplikacije.',
-  help: 'Dostupne komande:\n/start — prikazuje vaš Telegram ID i poruku dobrodošlice\n/help — ova pomoć\n/report — današnji dnevni izvještaj\n/report GGGG-MM-DD — izvještaj za određeni datum\n/report monthly — izvještaj za tekući mjesec\n/goals — napredak vaših ciljeva štednje\n/networth — vaša trenutna neto vrijednost',
+  help: 'Dostupne komande:\n/start — kako povezati ovaj razgovor s Lumiom\n/help — ova pomoć\n/report — današnji dnevni izvještaj\n/report GGGG-MM-DD — izvještaj za određeni datum\n/report monthly — izvještaj za tekući mjesec\n/goals — napredak vaših ciljeva štednje\n/networth — vaša trenutna neto vrijednost',
   daily_header: '📅 Dnevni izvještaj — {{date}}',
   income_line: '➕ Prihodi: {{amount}} ({{count}})',
   expense_line: '➖ Troškovi: {{amount}} ({{count}})',
@@ -2174,23 +2157,22 @@ const bs: TranslationMap = {
 
 const hsb: TranslationMap = {
   connected: '✅ Telegram je zwjazany. Rozprawy pósćelemy do tutoho chata.',
+  link_expired: '⚠️ Wotkaz je spadnjeny abo bu hižo wužity. Klikńće w Lumio hišće raz na „Zwjazać“.',
   start_greeting:
-    '👋 Witaj! Waš Telegram-ID: {{telegramId}}. Přidajće jón w nastajenjach profila, zo byšće rozprawy dóstawał.',
+    '👋 Witaj! Sym bot Lumio. Zo byšće tutón chat zwjazał, wočińće w Lumio Nastajenja → Zdźělenki a klikńće pola Telegrama na „Zwjazać“.',
   unknown_command: 'Njeznaty přikaz. Wužiwajće /help za lisćinu přikazow.',
   telegram_id_unknown: 'Waš Telegram-ID njeda so zwěsćić. Spytajće pozdźišo.',
-  user_not_connected:
-    'Z Telegram-ID {{telegramId}} njeje žane konto zwjazane. Přidajće tutón ID w nastajenjach konta.',
+  not_connected:
+    'Tutón chat hišće njeje z kontom Lumio zwjazany. Wočińće w Lumio Nastajenja → Zdźělenki a klikńće pola Telegrama na „Zwjazać“.',
   report_failed: 'Rozprawa njeda so pósłać. Spytajće pozdźišo.',
   document_telegram_id_unknown:
     '⚠️ Waš Telegram-ID njeda so zwěsćić. Pósćelće /start a spytajće hišće raz.',
-  document_user_not_connected:
-    'Z Telegram-ID {{telegramId}} njeje žane konto zwjazane. Přidajće ID a chat-ID w nastajenjach abo pósćelće /start, zo byšće swój ID widźał.',
   document_pdf_only: 'Podpěrane su jenož wupisy w PDF.',
   document_received: '📥 Dataja dóstata, předźěłanje je započało...',
   document_processed:
     '✅ Dataja je přiwzata a w rjedźe za předźěłanje. Status: {{status}}. Wuslědk sej wobhladajće we webappje Lumio.',
   document_failed: 'Dataja njeda so předźěłać. Spytajće pozdźišo abo nahrajće ju přez webapp.',
-  help: 'K dispoziciji stejace přikazy:\n/start — pokazuje waš Telegram-ID a powitanje\n/help — tuta pomoc\n/report — dźensniša dnjowa rozprawa\n/report LLLL-MM-DD — rozprawa za wěsty datum\n/report monthly — rozprawa za nětčiši měsac\n/goals — postup wašich lutowanskich cilow\n/networth — waša nětčiša netto-hódnota',
+  help: 'K dispoziciji stejace přikazy:\n/start — kak tutón chat z Lumio zwjazać\n/help — tuta pomoc\n/report — dźensniša dnjowa rozprawa\n/report LLLL-MM-DD — rozprawa za wěsty datum\n/report monthly — rozprawa za nětčiši měsac\n/goals — postup wašich lutowanskich cilow\n/networth — waša nětčiša netto-hódnota',
   daily_header: '📅 Dnjowa rozprawa — {{date}}',
   income_line: '➕ Dochody: {{amount}} ({{count}})',
   expense_line: '➖ Wudawki: {{amount}} ({{count}})',

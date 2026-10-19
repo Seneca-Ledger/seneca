@@ -76,6 +76,8 @@ const TABLES_WITHOUT_WORKSPACE: Record<string, string> = {
   reference_data: 'global reference data',
   tax_jurisdiction_rates: 'global reference data',
   tax_jurisdictions: 'global reference data',
+  // Instance-wide settings (the shared Telegram bot), owned by the server admin.
+  instance_settings: 'instance setting',
   // A person's sign-in, devices and preferences, not the workspace's books.
   auth_sessions: 'per user',
   email_change_tokens: 'per user',

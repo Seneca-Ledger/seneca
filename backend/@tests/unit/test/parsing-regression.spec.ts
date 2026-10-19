@@ -79,7 +79,6 @@ let xlsxDateTypedFixture: ReturnType<typeof buildXlsxWithDateTypedCells>;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'parsing-regression-'));
   factory = new ParserFactoryService();
-  process.env.AI_PARSING_ENABLED = '0';
 
   csvFixture = buildGenericCsv(tmpDir);
   cyrillicCsvFixture = buildCyrillicCsv(tmpDir);

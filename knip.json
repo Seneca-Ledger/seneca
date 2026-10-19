@@ -59,9 +59,6 @@
     "backend/src/modules/balance/balance-default-accounts.ts": [
       "types"
     ],
-    "backend/src/modules/classification/helpers/ai-category-classifier.helper.ts": [
-      "types"
-    ],
     "backend/src/modules/insights/analyzers/analyzer.interface.ts": [
       "types"
     ],
@@ -123,9 +120,6 @@
       "types"
     ],
     "backend/src/modules/parsing/services/universal-extractor.service.ts": [
-      "types"
-    ],
-    "backend/src/modules/gmail/helpers/ai-merchant-extractor.helper.ts": [
       "types"
     ],
     "backend/src/modules/gmail/services/gmail-merchant-reparse.service.ts": [

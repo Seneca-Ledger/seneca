@@ -124,11 +124,10 @@ describe('EntityImportService', () => {
 describe('EntityImportService categorising imported transactions', () => {
   const STATEMENT_ID = '44444444-4444-4444-8444-444444444444';
 
-  const setup = (classified: Array<Record<string, unknown>>, ai: Map<number, { categoryId: string }>) => {
+  const setup = (classified: Array<Record<string, unknown>>) => {
     const { dataSource } = build();
     const classification = {
       classifyTransaction: jest.fn(),
-      classifyTransactionsBatch: jest.fn(async () => ai),
     };
     for (const result of classified) {
       classification.classifyTransaction.mockResolvedValueOnce(result);
@@ -154,42 +153,21 @@ describe('EntityImportService categorising imported transactions', () => {
     return { run, classification, transactions };
   };
 
-  it('asks the model only about rows the payee history left uncategorised', async () => {
-    const { run, classification, transactions } = setup(
-      [
-        { categoryId: 'groceries', categorySource: 'history', categoryReason: 'REWE' },
-        { categoryId: 'uncategorized', categorySource: 'default', categoryReason: null },
-      ],
-      new Map([[1, { categoryId: 'shopping' }]]),
-    );
+  it('stores what the rules and payee history decided for each row', async () => {
+    const { run, transactions } = setup([
+      { categoryId: 'groceries', categorySource: 'history', categoryReason: 'REWE' },
+      { categoryId: 'uncategorized', categorySource: 'default', categoryReason: null },
+    ]);
 
     await run();
 
-    expect(classification.classifyTransactionsBatch).toHaveBeenCalledWith(
-      [expect.objectContaining({ index: 1, counterpartyName: 'New Shop' })],
-      WORKSPACE_ID,
-    );
     expect(transactions.update).toHaveBeenCalledWith(
       { id: 't-1', workspaceId: WORKSPACE_ID },
       { categoryId: 'groceries', categorySource: 'history', categoryReason: 'REWE' },
     );
     expect(transactions.update).toHaveBeenCalledWith(
       { id: 't-2', workspaceId: WORKSPACE_ID },
-      { categoryId: 'shopping', categorySource: 'ai', categoryReason: null },
+      { categoryId: 'uncategorized', categorySource: 'default', categoryReason: null },
     );
-  });
-
-  it('does not call the model when history categorised everything', async () => {
-    const { run, classification } = setup(
-      [
-        { categoryId: 'groceries', categorySource: 'history', categoryReason: 'REWE' },
-        { categoryId: 'dining', categorySource: 'rule', categoryReason: 'Cafes' },
-      ],
-      new Map(),
-    );
-
-    await run();
-
-    expect(classification.classifyTransactionsBatch).not.toHaveBeenCalled();
   });
 });

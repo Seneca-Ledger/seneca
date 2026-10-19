@@ -304,10 +304,6 @@ export async function seedWorkspace(
   await send('notification preferences', 'patch', '/notifications/preferences', {
     channels: { statementUploaded: { inApp: true } },
   });
-  await send('ai chat', 'post', '/ai-analysis/chats', {
-    modelId: 'local-model',
-    firstQuestion: `${marker} question?`,
-  });
   const config = await send('backup config', 'put', '/backups/config', {
     destinationKind: 'local',
     password: 'seed-backup-pass',

@@ -6,7 +6,6 @@ import type { PayeeAlias } from '@/entities/payee-alias.entity';
 import { type Transaction, TransactionType } from '@/entities/transaction.entity';
 import type { Wallet } from '@/entities/wallet.entity';
 import { AuditService } from '@/modules/audit/audit.service';
-import type { CategoriesService } from '@/modules/categories/categories.service';
 import { ClassificationService } from '@/modules/classification/services/classification.service';
 
 function createRepoMock<T>() {
@@ -30,7 +29,6 @@ describe('ClassificationService', () => {
   const categorizationRuleRepo = createRepoMock<CategorizationRule>();
   const cacheManager = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
   const auditService = { createEvent: jest.fn() } as AuditService;
-  const categoriesService = { findAll: jest.fn() } as unknown as CategoriesService;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -47,7 +45,6 @@ describe('ClassificationService', () => {
       { findOne: jest.fn(async () => null) } as any,
       cacheManager as any,
       auditService as any,
-      categoriesService,
     );
   });
 

@@ -6,7 +6,6 @@ import { getLocale } from 'next-intlayer/server';
 import { getIntlayer } from 'react-intlayer';
 import { IntlayerServerProvider } from 'react-intlayer/server';
 import { ThemeProvider } from '@/components/theme-provider';
-import { ChatModeRedirect } from './chat/ChatModeRedirect';
 import AppChrome from './components/AppChrome';
 import DynamicPageTitle from './components/DynamicPageTitle';
 import MobileBottomBar from './components/mobile/MobileBottomBar';
@@ -93,7 +92,6 @@ export default async function RootLayout({
             disableTransitionOnChange
           >
             <Providers initialLocale={resolvedLocale} initialPaletteMode={initialPaletteMode}>
-              <ChatModeRedirect />
               <DynamicPageTitle />
               <SidePanelProvider
                 defaultWidth="md"

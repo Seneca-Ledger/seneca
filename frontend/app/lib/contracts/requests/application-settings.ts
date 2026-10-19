@@ -15,15 +15,6 @@ import type { Wire } from '../common/wire';
  * boundary check those helpers never replaced — it rejects unknown properties
  * and returns a proper 400 instead of surfacing a coercion error later.
  */
-export const SaveAiSettingsBody = Schema.Struct({
-  enabled: optionalNullable(Schema.Boolean),
-  baseUrl: Schema.String,
-  model: Schema.String,
-  apiKey: optionalNullable(Schema.String),
-  timeoutMs: optionalNullable(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
-});
-export type SaveAiSettingsBody = Wire<typeof SaveAiSettingsBody>;
-
 export const SaveLocalCategorizationBody = Schema.Struct({
   enabled: optionalNullable(Schema.Boolean),
   modelId: optionalNullable(Schema.String),
@@ -63,6 +54,11 @@ export const SaveTelegramSettingsBody = Schema.Struct({
   timeoutMs: optionalNullable(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
 });
 export type SaveTelegramSettingsBody = Wire<typeof SaveTelegramSettingsBody>;
+
+export const SaveInstanceTelegramBotBody = Schema.Struct({
+  botToken: Schema.String.check(Schema.isMinLength(1)),
+});
+export type SaveInstanceTelegramBotBody = Wire<typeof SaveInstanceTelegramBotBody>;
 
 export const SaveAppSettingsBody = Schema.Struct({
   publicUrl: Schema.String,

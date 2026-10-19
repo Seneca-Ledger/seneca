@@ -39,7 +39,7 @@ PostgreSQL listens on `127.0.0.1:5434` and Redis on `127.0.0.1:6379`.
 ## Next steps
 
 - Upload a statement from the Statements page
-- Connect storage, mail or an AI endpoint under **Integrations** — see [Integrations](../guides/integrations)
+- Connect storage, mail or bank sync under **Integrations** — see [Integrations](../guides/integrations)
 - Read [Configuration](configuration) before exposing Lumio beyond localhost
 
 Next: [Local Development](local-development)

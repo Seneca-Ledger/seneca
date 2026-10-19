@@ -82,7 +82,6 @@ export interface ImportSuggestion {
   confidence: number;
   columns: Array<{ index: number; role: string | null }>;
   alternatives: Array<{ target: ImportTarget; confidence: number }>;
-  source: 'heuristic' | 'ai';
 }
 
 export type ImportRowStatus = 'created' | 'updated' | 'skipped' | 'error';

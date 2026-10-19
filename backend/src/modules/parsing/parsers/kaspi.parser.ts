@@ -1,7 +1,6 @@
 import { normalizeDate, normalizeNumber } from '../../../common/utils/number-normalizer.util';
 import { extractTablesFromPdf, extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
-import { AiTransactionExtractor } from '../helpers/ai-transaction-extractor.helper';
 import {
   mapPdfTableRowsToTransactions,
   pickReconciledTransactions,
@@ -10,8 +9,6 @@ import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-st
 import { BaseParser } from './base.parser';
 
 export class KaspiParser extends BaseParser {
-  private aiExtractor = new AiTransactionExtractor();
-
   async canParse(
     bankName: BankName,
     fileType: FileType,
@@ -247,17 +244,6 @@ export class KaspiParser extends BaseParser {
     }
 
     flushCurrent();
-
-    if (transactions.length === 0 && this.aiExtractor.isAvailable()) {
-      this.logger.debug('No transactions parsed, trying AI...');
-      try {
-        const aiTransactions = await this.aiExtractor.extractTransactions(text);
-        return aiTransactions;
-      } catch (error) {
-        this.logger.error('AI extraction failed:', error);
-        return [];
-      }
-    }
 
     return transactions;
   }

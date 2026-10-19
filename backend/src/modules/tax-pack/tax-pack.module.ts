@@ -17,5 +17,6 @@ import { TaxPackService } from './tax-pack.service';
   ],
   controllers: [TaxPackController],
   providers: [TaxPackService, FileStorageService],
+  exports: [TaxPackService],
 })
 export class TaxPackModule {}

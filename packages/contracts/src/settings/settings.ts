@@ -38,7 +38,7 @@ export const NotificationPreferences = Schema.Struct({
 });
 export type NotificationPreferences = Wire<typeof NotificationPreferences>;
 
-const SettingsSource = Schema.Literals(['workspace', 'env', 'disabled']);
+const SettingsSource = Schema.Literals(['workspace', 'instance', 'env', 'disabled']);
 
 /** `GET /settings/local-categorization`. */
 export const LocalCategorizationStatus = Schema.Struct({
@@ -72,9 +72,17 @@ export const TelegramBotStatus = Schema.Struct({
   settings: Schema.Struct({
     timeoutMs: Schema.Number,
     botTokenConfigured: Schema.Boolean,
+    /** A bot every workspace can use: saved by an instance admin, or TELEGRAM_BOT_TOKEN. */
+    sharedBot: Schema.Boolean,
   }),
 });
 export type TelegramBotStatus = Wire<typeof TelegramBotStatus>;
+
+/** `GET /settings/instance/telegram` (instance admins): where the shared bot comes from. */
+export const InstanceTelegramBotStatus = Schema.Struct({
+  source: Schema.Literals(['instance', 'env', 'disabled']),
+});
+export type InstanceTelegramBotStatus = Wire<typeof InstanceTelegramBotStatus>;
 
 export const TelegramReport = Schema.Struct({
   id: Schema.String,
@@ -96,6 +104,23 @@ export const TelegramReportPage = Schema.Struct({
   limit: Schema.Number,
 });
 export type TelegramReportPage = Wire<typeof TelegramReportPage>;
+
+/**
+ * `POST /telegram/link`: a t.me link that opens the bot with a one-time code.
+ * Pressing Start in Telegram sends the code back and connects the chat.
+ */
+export const TelegramLink = Schema.Struct({
+  url: Schema.String,
+  expiresAt: Timestamp,
+});
+export type TelegramLink = Wire<typeof TelegramLink>;
+
+/** `GET /telegram/connection`: whether the user's chat is connected, and to this workspace. */
+export const TelegramConnection = Schema.Struct({
+  connected: Schema.Boolean,
+  inThisWorkspace: Schema.Boolean,
+});
+export type TelegramConnection = Wire<typeof TelegramConnection>;
 
 /** `GET /push/public-key`: the VAPID key, or `enabled: false` without one. */
 export const PushPublicKey = Schema.Struct({

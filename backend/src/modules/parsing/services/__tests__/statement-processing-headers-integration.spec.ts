@@ -102,9 +102,6 @@ describe('StatementProcessingService - Headers Integration', () => {
       statementParsingErrorsTotal: {
         inc: jest.fn(),
       },
-      aiParsingCallsTotal: {
-        inc: jest.fn(),
-      },
     } as unknown as MetricsService;
 
     const module: TestingModule = await Test.createTestingModule({

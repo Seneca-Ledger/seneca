@@ -21,7 +21,6 @@ import { GmailController } from './gmail.controller';
 import { GmailScheduler } from './gmail.scheduler';
 import { GmailReceiptProcessor } from './gmail-receipt-processor';
 import { GmailWebhookController } from './gmail-webhook.controller';
-import { AiMerchantExtractor } from './helpers/ai-merchant-extractor.helper';
 import { GmailService } from './services/gmail.service';
 import { GmailMerchantReparseService } from './services/gmail-merchant-reparse.service';
 import { GmailOAuthService } from './services/gmail-oauth.service';
@@ -61,10 +60,6 @@ import { GmailWebhookService } from './services/gmail-webhook.service';
     GmailWatchService,
     GmailWebhookService,
     GmailSyncService,
-    {
-      provide: AiMerchantExtractor,
-      useFactory: () => new AiMerchantExtractor(process.env.AI_API_KEY),
-    },
     GmailReceiptParserService,
     GmailReceiptDuplicateService,
     GmailReceiptCategoryService,

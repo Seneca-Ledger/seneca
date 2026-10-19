@@ -18,7 +18,7 @@ banks** page (`/supported-banks`).
 - XLSX / XLS exports
 - DOCX tables
 - Images and scanned documents through OCR
-- Any other PDF through AI-assisted extraction (requires an OpenAI-compatible endpoint)
+- Any other PDF through the generic table parser, which reads transaction tables from the PDF text layer
 
 ## Adding a new bank
 

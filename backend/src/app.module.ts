@@ -69,7 +69,6 @@ import {
   WorkspaceMember,
   WorkspaceServiceSettings,
 } from './entities';
-import { AiAnalysisModule } from './modules/ai-analysis/ai-analysis.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { ApplicationSettingsModule } from './modules/application-settings/application-settings.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -101,6 +100,7 @@ import { InvestmentsModule } from './modules/investments/investments.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { MapsModule } from './modules/maps/maps.module';
+import { McpModule } from './modules/mcp/mcp.module';
 import { NetWorthModule } from './modules/net-worth/net-worth.module';
 import { NotesModule } from './modules/notes/notes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -237,7 +237,6 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     CommonModule,
     ApplicationSettingsModule,
     SystemUpdateModule,
-    AiAnalysisModule,
     BackupsModule,
     VersionsModule,
     AuthModule,
@@ -297,6 +296,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     CryptoModule,
     WebhooksModule,
     ApiKeysModule,
+    McpModule,
   ],
   controllers: [AppController],
   providers: [

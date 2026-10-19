@@ -9,7 +9,7 @@ The backend is a NestJS 11 application organized into 47 feature modules under `
 
 - Identity and tenancy: `auth`, `users`, `workspaces`, `api-keys`
 - Ingestion: `statements`, `parsing`, `import`, `transactions`, `receipts`, `data-entry`
-- Categorization and AI: `classification`, `categories`, `ai-analysis`, `insights`
+- Categorization: `classification`, `categories`, `insights`
 - Finance: `dashboard`, `reports`, `balance`, `ledger` (double-entry journal and its reports), `budgets`, `goals`, `net-worth`, `crypto`, `subscriptions`,
   `payables`, `wallets`, `branches`, `exchange-rates`
 - Tax: `tax` (VAT rates, rules, jurisdictions, returns) and `income-tax` (year-end income tax declaration drafts)

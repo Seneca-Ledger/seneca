@@ -1,5 +1,4 @@
 export * from './actions/answers';
-export * from './ai-analysis/ai-analysis';
 export * from './api-keys/api-keys';
 export * from './audit/activity';
 export * from './auth/current-user';
@@ -26,7 +25,6 @@ export * from './peppol/peppol';
 export * from './receipts/receipts';
 export * from './reference/reference';
 export * from './reports/reports';
-export * from './requests/ai-analysis';
 export * from './requests/api-keys';
 export * from './requests/application-settings';
 export * from './requests/auth';

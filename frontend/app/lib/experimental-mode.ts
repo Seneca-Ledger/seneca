@@ -3,7 +3,7 @@
 /**
  * Experimental mode: unfinished features stay hidden until the user opts in
  * from Settings → Experimental. Stored in localStorage — it is a per-device
- * UI preference, not user data, the same way the chat-mode preference is.
+ * UI preference, not user data.
  */
 import { useEffect, useState } from 'react';
 

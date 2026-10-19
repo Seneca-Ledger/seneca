@@ -9,7 +9,6 @@ import {
   PlayCircle,
   ScrollText,
   Shield,
-  Sparkles,
   Trash2,
   UserCircle,
 } from '@/app/components/icons';
@@ -90,12 +89,6 @@ export function SettingsElsewhereLinks({ tx }: { tx: Tx }) {
       key: 'trash',
       label: resolveLabel(userMenu.trash, 'Trash'),
       icon: Trash2,
-    },
-    {
-      href: '/ai-analysis',
-      key: 'aiAnalysis',
-      label: resolveLabel(nav.aiAnalysis, 'AI analysis'),
-      icon: Sparkles,
     },
     {
       href: '/admin',

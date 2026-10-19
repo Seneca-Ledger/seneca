@@ -7,6 +7,7 @@ import IconButton from '@mui/material/IconButton';
 import { alpha } from '@mui/material/styles';
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import { PLAIN_BACKGROUND } from '../constants';
 
@@ -33,6 +34,7 @@ interface WorkspaceCardProps {
 }
 
 export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: WorkspaceCardProps) {
+  const { roles } = useIntlayer('workspacesListView');
   const [isFavorite, setIsFavorite] = useState(workspace.isFavorite);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -67,8 +69,13 @@ export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: Workspac
       : `/workspace-backgrounds/${workspace.backgroundImage}`
     : '/workspace-backgrounds/vidar-nordli-mathisen-641pLhGEEyg-unsplash.jpg';
 
-  const roleLabel = workspace.memberRole
-    ? workspace.memberRole.charAt(0).toUpperCase() + workspace.memberRole.slice(1)
+  // The role in the reader's language; a role the dictionary lacks keeps its own name.
+  const role = workspace.memberRole;
+  const translatedRole = role
+    ? (roles as Record<string, { value: string } | undefined>)[role]
+    : null;
+  const roleLabel = role
+    ? (translatedRole?.value ?? role.charAt(0).toUpperCase() + role.slice(1))
     : null;
   const subtitle = [roleLabel, workspace.description].filter(Boolean).join(' · ');
 

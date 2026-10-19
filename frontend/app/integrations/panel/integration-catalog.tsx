@@ -6,16 +6,11 @@ import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined';
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import MarkEmailUnreadOutlinedIcon from '@mui/icons-material/MarkEmailUnreadOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
-import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import type React from 'react';
 import { useMemo } from 'react';
 import { useIntlayer } from '@/app/i18n';
-import type {
-  ConfigField,
-  ConfigPreset,
-  ProtocolIntegrationPageProps,
-} from '../open-protocol-page';
+import type { ProtocolIntegrationPageProps } from '../open-protocol-page';
 
 export type IntegrationCategoryKey =
   | 'ai'
@@ -35,7 +30,7 @@ type ProtocolConfig = Omit<ProtocolIntegrationPageProps, 'embedded' | 'onConnect
  * panel of its own for the one entry that is not a credentials form.
  */
 export type IntegrationDetail =
-  | { kind: 'protocol'; config: ProtocolConfig; secondary?: ProtocolConfig }
+  | { kind: 'protocol'; config: ProtocolConfig }
   | { kind: 'local-categorization' }
   | { kind: 'bank-sync' };
 
@@ -54,90 +49,14 @@ export type IntegrationEntry = {
 };
 
 /**
- * Every endpoint here is called as `<base URL>/v1/chat/completions`, except
- * api.anthropic.com which is routed through Anthropic's own protocol. Base URLs
- * carry no path of their own for that reason.
- */
-const AI_PRESETS: ConfigPreset[] = [
-  { label: 'OpenAI', values: { baseUrl: 'https://api.openai.com', model: 'gpt-4.1-mini' } },
-  {
-    label: 'Anthropic',
-    values: { baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet-5' },
-  },
-  {
-    label: 'OpenRouter',
-    values: { baseUrl: 'https://openrouter.ai/api', model: 'openai/gpt-4.1-mini' },
-  },
-];
-
-function buildAiFields(f: CatalogText['fields']): ConfigField[] {
-  return [
-    { name: 'enabled', label: f.enabled.value, type: 'checkbox' },
-    {
-      name: 'baseUrl',
-      label: f.baseUrl.value,
-      placeholder: 'https://api.openai.com',
-      required: true,
-    },
-    { name: 'model', label: f.model.value, placeholder: 'gpt-4.1-mini', required: true },
-    {
-      name: 'apiKey',
-      label: f.apiKey.value,
-      type: 'password',
-      placeholder: f.apiKeyPlaceholder.value,
-    },
-    { name: 'timeoutMs', label: f.timeoutMs.value, type: 'number', placeholder: '20000' },
-  ];
-}
-
-/**
  * The integrations offered in the panel, in list order. Each entry carries the
  * settings its second layer renders, so there is one place to add a service.
  */
 function buildIntegrationCatalog(t: CatalogText, peppol: PeppolText): IntegrationEntry[] {
   const f = t.fields;
   const e = t.entries;
-  const aiFields = buildAiFields(f);
 
   return [
-    {
-      key: 'ai-compatible',
-      name: e.aiCompatible.name.value,
-      description: e.aiCompatible.description.value,
-      badge: 'Open protocol',
-      category: 'ai',
-      recommended: true,
-      icon: <SmartToyOutlinedIcon sx={{ fontSize: 22 }} aria-hidden="true" />,
-      statusPath: '/settings/integrations/ai',
-      docsUrl: 'https://github.com/ollama/ollama/blob/main/docs/api.md',
-      detail: {
-        kind: 'protocol',
-        config: {
-          title: e.aiCompatible.name.value,
-          description: e.aiCompatible.detailDescription.value,
-          statusPath: '/settings/integrations/ai',
-          settingsPath: '/settings/integrations/ai',
-          settingsMethod: 'put',
-          disconnectPath: '/settings/integrations/ai',
-          icon: <SmartToyOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />,
-          workflow: e.aiCompatible.workflow.value,
-          fields: aiFields,
-          presets: AI_PRESETS,
-        },
-        secondary: {
-          title: e.aiPersonal.title.value,
-          description: e.aiPersonal.description.value,
-          statusPath: '/settings/integrations/ai/personal',
-          settingsPath: '/settings/integrations/ai/personal',
-          settingsMethod: 'put',
-          disconnectPath: '/settings/integrations/ai/personal',
-          icon: <SmartToyOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />,
-          workflow: e.aiPersonal.workflow.value,
-          fields: aiFields,
-          presets: AI_PRESETS,
-        },
-      },
-    },
     {
       key: 'local-categorization',
       name: e.localCategorization.name.value,

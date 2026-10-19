@@ -65,8 +65,6 @@ export const ERR = {
   COLUMN_FORMAT_INVALID: 'Number format must be "plain" or "percent"',
   COLUMN_OPTIONS_INVALID:
     'Select options must be unique non-empty values with optional #rrggbb colours',
-  COLUMN_NOT_AI: 'Column is not an AI column',
-  COLUMN_AI_PROMPT_MISSING: 'The AI column has no prompt',
   COLUMN_DISPLAY_INVALID: 'Invalid display column',
   COLUMN_DISPLAY_NOT_FOUND: 'Display column not found: {{column}}',
 
@@ -285,6 +283,8 @@ export const ERR = {
     'Transactions on a filed tax return: {{count}}. Reopen the return before deleting or changing them.',
   TAX_RETURN_MISSING_RATES:
     'Transactions without an exchange rate for their date: {{count}} ({{currencies}}). Add the rates before filing.',
+
+  INSTANCE_ADMIN_ONLY: 'Only an instance administrator can change this',
 
   // ── system update ───────────────────────────────────────────────────────
   SYSTEM_UPDATE_ADMIN_ONLY: 'Only an instance administrator can update Lumio',

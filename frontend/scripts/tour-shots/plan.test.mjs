@@ -75,10 +75,9 @@ describe('guide screenshot plan', () => {
     });
   });
 
-  it('saves no more pixels than one and a half times the drawn frame', () => {
-    expect(outputWidth('hero', 1480)).toBe(990);
-    expect(outputWidth('side', 1200)).toBe(690);
-    expect(outputWidth('pair', 600)).toBe(600);
+  it('saves no more pixels than twice the widest the picture is drawn', () => {
+    expect(outputWidth(1800)).toBe(1600);
+    expect(outputWidth(1560)).toBe(1560);
   });
 
   it('settles timestamps after the anchor and drops generated avatars', () => {
@@ -118,11 +117,14 @@ describe('guide screenshot plan', () => {
     expect(FRAME_ASPECT).toEqual(GUIDE_ASPECT);
   });
 
-  it('captures exactly the fragments the guide shows, in its frames', () => {
-    const steps = buildSteps({ month: '2026-09' });
+  it('captures the first fragment of every guide step, in its frame, and nothing else', () => {
+    const steps = buildSteps({ month: '2026-09', tableId: 'table' });
     const captured = Object.fromEntries(
-      steps.map(step => [step.id, step.fragments.map(({ id, frame }) => ({ id, frame }))]),
+      steps.map(({ id, fragment }) => [id, { id: fragment.id, frame: fragment.frame }]),
     );
-    expect(captured).toEqual(TUTORIAL_SCREENS);
+    const first = Object.fromEntries(
+      Object.entries(TUTORIAL_SCREENS).map(([step, fragments]) => [step, fragments[0]]),
+    );
+    expect(captured).toEqual(first);
   });
 });

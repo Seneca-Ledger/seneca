@@ -23,6 +23,7 @@ const ALLOWED = new Set([
   'modules/application-settings/application-settings.service.ts',
   // Chats connected before telegram_workspace_id was recorded.
   'modules/telegram/telegram.service.ts',
+  'modules/telegram/telegram-connection.util.ts',
   'common/utils/seed-demo.util.ts',
   // Account security events (password, 2FA, email, data export) belong to the
   // user rather than a workspace; the audit log files them under the home one.

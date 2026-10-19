@@ -61,7 +61,7 @@ const METHODS: Partial<Record<RequestMethod, HttpMethod>> = {
  * call outside services.
  */
 const EXCLUDED =
-  /^\/(auth|users\/me|maps|vendor-icons|public|metrics|health|telegram\/webhook|webhooks\/|gmail\/webhook|integrations\/)|^\/goals\/covers|^\/workspaces\/backgrounds|^\/ai-analysis\/(completions|model-proxy)/;
+  /^\/(auth|users\/me|maps|vendor-icons|public|metrics|health|telegram\/webhook|webhooks\/|gmail\/webhook|integrations\/)|^\/goals\/covers|^\/workspaces\/backgrounds/;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A body field that names a record: `id`, `categoryId`, `transactionIds`. */
@@ -408,7 +408,7 @@ describe('Workspace isolation sweep (e2e)', () => {
 
   it('seeds B with most kinds of record and finds the routes to aim at it', () => {
     // A kind of record that stops being seeded is a table the sweep no longer covers.
-    expect(new Set(bIds.values()).size).toBeGreaterThanOrEqual(70);
+    expect(new Set(bIds.values()).size).toBeGreaterThanOrEqual(69);
     expect(routes.filter(route => route.method === 'get').length).toBeGreaterThanOrEqual(220);
     expect(routes.filter(route => route.body).length).toBeGreaterThanOrEqual(200);
   });

@@ -12,6 +12,7 @@ const ALLOWED_PREFIXES = [
   'backend/src/',
   'frontend/app/',
   'frontend/lib/',
+  // The MCP package is gone; the committed graph still cites it until the next build.
   'mcp-server/src/',
   'docs/plans/',
 ];

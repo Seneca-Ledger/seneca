@@ -25,7 +25,7 @@ import { Invoice } from '../../entities/invoice.entity';
 import { Payable } from '../../entities/payable.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Subscription } from '../../entities/subscription.entity';
-import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
+import { Transaction } from '../../entities/transaction.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { ClassificationService } from '../classification/services/classification.service';
@@ -288,8 +288,7 @@ export class EntityImportService {
 
   /**
    * Rows without a category get one the same way an imported statement does:
-   * rules and what the user taught about the payee first, the model only for
-   * rows those leave uncategorised.
+   * rules first, then what the user taught about the payee.
    */
   private async categorize(userId: string, workspaceId: string, created: ImportCreatedRef[]) {
     const statementIds = created.filter(ref => ref.kind === 'statement').map(ref => ref.id);
@@ -303,40 +302,15 @@ export class EntityImportService {
       if (!uncategorized.length) {
         return;
       }
-      const classified: Partial<Transaction>[] = [];
       for (const tx of uncategorized) {
-        classified.push(await this.classificationService.classifyTransaction(tx, userId));
-      }
-      const fellThrough = uncategorized
-        .map((tx, index) => ({ tx, index }))
-        .filter(
-          ({ index }) =>
-            !classified[index].categoryId ||
-            classified[index].categorySource === TransactionCategorySource.DEFAULT,
-        );
-      const aiResults = fellThrough.length
-        ? await this.classificationService.classifyTransactionsBatch(
-            fellThrough.map(({ tx, index }) => ({
-              index,
-              counterpartyName: tx.counterpartyName ?? '',
-              paymentPurpose: tx.paymentPurpose ?? '',
-              transactionType: tx.transactionType,
-            })),
-            workspaceId,
-          )
-        : new Map<number, { categoryId: string }>();
-      for (const [index, tx] of uncategorized.entries()) {
-        const ai = aiResults.get(index);
-        const result = ai
-          ? { categoryId: ai.categoryId, categorySource: TransactionCategorySource.AI }
-          : classified[index];
+        const result = await this.classificationService.classifyTransaction(tx, userId);
         if (result.categoryId) {
           await repo.update(
             { id: tx.id, workspaceId },
             {
               categoryId: result.categoryId,
               categorySource: result.categorySource ?? null,
-              categoryReason: ai ? null : (classified[index].categoryReason ?? null),
+              categoryReason: result.categoryReason ?? null,
             },
           );
         }

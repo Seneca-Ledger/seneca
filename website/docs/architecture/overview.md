@@ -47,7 +47,7 @@ process; there are no separate worker services.
 5. A quality gate rates the result `ready`, `review`, or `blocked`.
 6. An import session previews the transactions and flags conflicts with existing ones; committing the import
    resolves each conflict.
-7. Categories are assigned from learning rules and, when configured, AI classification.
+7. Categories are assigned from your rules, then payee history.
 
 ## Observability
 

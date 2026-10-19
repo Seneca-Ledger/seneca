@@ -6,13 +6,12 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { ActorType } from '../../entities/audit-event.entity';
-import { AI_ACTOR_HEADER, type AuditActor, runWithAuditActor } from '../audit-actor.context';
+import { type AuditActor, runWithAuditActor } from '../audit-actor.context';
 import type { AuthenticatedRequest } from '../interfaces/authenticated-request.interface';
 
 /**
  * Signs the request with its real actor before any handler runs: an API key
- * becomes an `integration` actor named after the key, the in-app assistant
- * (header `x-lumio-actor: ai`) becomes an `ai` actor. Plain user sessions
+ * becomes an `integration` actor named after the key. Plain user sessions
  * carry no actor and audit as the user, as before.
  */
 @Injectable()
@@ -33,21 +32,12 @@ export class AuditActorInterceptor implements NestInterceptor {
 
 export function resolveAuditActor(request: {
   apiKey?: { id: string; name: string; prefix: string } | null;
-  headers?: Record<string, unknown>;
 }): AuditActor | null {
   if (request.apiKey) {
     return {
       actorType: ActorType.INTEGRATION,
       actorLabel: `API key "${request.apiKey.name}" (${request.apiKey.prefix})`,
       meta: { apiKeyId: request.apiKey.id, apiKeyPrefix: request.apiKey.prefix },
-    };
-  }
-  const header = String(request.headers?.[AI_ACTOR_HEADER] ?? '').toLowerCase();
-  if (header === 'ai' || header.startsWith('ai-')) {
-    return {
-      actorType: ActorType.AI,
-      actorLabel: header === 'ai-chat' ? 'AI assistant (chat)' : 'AI assistant',
-      meta: { aiSurface: header },
     };
   }
   return null;
