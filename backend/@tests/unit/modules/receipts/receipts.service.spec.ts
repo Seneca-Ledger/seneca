@@ -69,14 +69,20 @@ describe('ReceiptsService', () => {
       findOne: jest.fn().mockResolvedValue(null),
     };
     // approveOnce runs inside a DB transaction; the fake manager hands back the same mocks.
+    // Categories are looked up through it too; every one the tests name is the workspace's.
     Object.assign(receiptRepository, {
       manager: {
         transaction: jest.fn(async (work: (manager: unknown) => unknown) =>
           work({
             getRepository: (entity: unknown) =>
-              entity === Receipt ? receiptRepository : transactionRepository,
+              entity === Receipt
+                ? receiptRepository
+                : entity === Category
+                  ? categoryRepository
+                  : transactionRepository,
           }),
         ),
+        getRepository: () => categoryRepository,
       },
     });
 
@@ -90,13 +96,18 @@ describe('ReceiptsService', () => {
     Object.assign(transactionRepository, {
       manager: {
         getRepository: (entity: unknown) =>
-          entity === Statement ? statementRepository : transactionRepository,
+          entity === Statement
+            ? statementRepository
+            : entity === Category
+              ? categoryRepository
+              : transactionRepository,
       },
     });
 
     categoryRepository = {
       find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn().mockResolvedValue(null),
+      countBy: jest.fn(async ({ id }: any) => id.value.length),
     };
 
     processorService = {

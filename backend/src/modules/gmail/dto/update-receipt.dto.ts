@@ -1,6 +1,50 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 import { ReceiptStatus } from '../../../entities/receipt.entity';
+
+/**
+ * The parsed fields a person may correct. Everything else in `parsedData`
+ * (where a category came from, validation issues, line items, the e-invoice
+ * summary) is the server's, so an unknown key is rejected rather than merged.
+ */
+export class UpdateReceiptParsedDataDto {
+  @IsOptional()
+  @IsNumber()
+  amount?: number;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @IsOptional()
+  @IsString()
+  vendor?: string;
+
+  @IsOptional()
+  @IsString()
+  date?: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  confidence?: number;
+}
 
 export class UpdateReceiptDto {
   @ApiProperty({ enum: ReceiptStatus, description: 'Receipt status', required: false })
@@ -8,17 +52,16 @@ export class UpdateReceiptDto {
   @IsOptional()
   status?: ReceiptStatus;
 
-  @ApiProperty({ description: 'Parsed receipt data', required: false })
+  @ApiProperty({
+    description: 'Parsed receipt data',
+    required: false,
+    type: UpdateReceiptParsedDataDto,
+  })
   @IsObject()
+  @ValidateNested()
+  @Type(() => UpdateReceiptParsedDataDto)
   @IsOptional()
-  parsedData?: {
-    amount?: number;
-    currency?: string;
-    vendor?: string;
-    date?: string;
-    category?: string;
-    confidence?: number;
-  };
+  parsedData?: UpdateReceiptParsedDataDto;
 }
 
 export class ApproveReceiptDto {
@@ -36,7 +79,7 @@ export class ApproveReceiptDto {
   description: string;
 
   @ApiProperty({ description: 'Category ID', required: false })
-  @IsString()
+  @IsUUID()
   @IsOptional()
   categoryId?: string;
 
