@@ -1,7 +1,7 @@
 'use client';
 import { Box, Chip, Paper, Typography } from '@mui/material';
 
-import { Camera, FileImage, FileText, Mail, UploadCloud } from '@/app/components/icons';
+import { Camera, FileImage, FileText, UploadCloud } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import type { ReceiptRecord } from '@/app/lib/api';
 import { formatStoredDate } from '@/app/lib/user-format-store';
@@ -37,8 +37,6 @@ function getSourceIcon(source: string) {
   switch (source) {
     case 'scan':
       return <Camera style={{ width: 16, height: 16 }} />;
-    case 'gmail':
-      return <Mail style={{ width: 16, height: 16 }} />;
     case 'upload':
       return <UploadCloud style={{ width: 16, height: 16 }} />;
     default:

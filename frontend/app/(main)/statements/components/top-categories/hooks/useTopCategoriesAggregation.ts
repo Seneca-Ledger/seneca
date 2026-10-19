@@ -29,7 +29,7 @@ type Params = {
   workspaceCurrency: string;
   resolvedTheme: string | undefined;
   sourceStatementLabel: string;
-  sourceGmailLabel: string;
+  sourceReceiptLabel: string;
   totalIncomeLabel: string;
   totalSpendLabel: string;
 };
@@ -54,11 +54,11 @@ export type TopCategoriesAggregationReturn = {
 const buildTotals = (records: TopCategoryRecord[]): Totals => ({
   total:
     records.filter(r => r.sourceType === 'statement').reduce((s, r) => s + r.amount, 0) +
-    records.filter(r => r.sourceType === 'gmail').reduce((s, r) => s + r.amount, 0),
+    records.filter(r => r.sourceType === 'receipt').reduce((s, r) => s + r.amount, 0),
   statementTotal: records
     .filter(r => r.sourceType === 'statement')
     .reduce((s, r) => s + r.amount, 0),
-  receiptTotal: records.filter(r => r.sourceType === 'gmail').reduce((s, r) => s + r.amount, 0),
+  receiptTotal: records.filter(r => r.sourceType === 'receipt').reduce((s, r) => s + r.amount, 0),
   operations: records.length,
 });
 
@@ -107,7 +107,7 @@ export const useTopCategoriesAggregation = ({
   workspaceCurrency,
   resolvedTheme,
   sourceStatementLabel,
-  sourceGmailLabel,
+  sourceReceiptLabel,
   totalIncomeLabel,
   totalSpendLabel,
 }: Params): TopCategoriesAggregationReturn => {
@@ -160,9 +160,9 @@ export const useTopCategoriesAggregation = ({
     () =>
       buildTopCategoriesSourceChart(totals, {
         sourceStatement: sourceStatementLabel,
-        sourceGmail: sourceGmailLabel,
+        sourceReceipt: sourceReceiptLabel,
       }),
-    [totals, sourceStatementLabel, sourceGmailLabel],
+    [totals, sourceStatementLabel, sourceReceiptLabel],
   );
   const trendChart = useMemo(
     () =>

@@ -81,7 +81,6 @@ export function buildAnalyticsFilterOptions(
     { value: 'chat', label: labels.typeChat },
     { value: 'trip', label: labels.typeTrip },
     { value: 'task', label: labels.typeTask },
-    { value: 'gmail', label: 'Gmail' },
     { value: 'pdf', label: 'PDF' },
     { value: 'xlsx', label: 'Excel' },
     { value: 'csv', label: 'CSV' },

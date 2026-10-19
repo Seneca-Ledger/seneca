@@ -33,7 +33,6 @@ function row(overrides: Partial<TopCategoryAggregateRow>): TopCategoryAggregateR
 const sourceLabels = {
   sourceBank: 'Bank',
   sourceReceipt: 'Receipt',
-  sourceGmailInbox: 'Gmail',
   sourceCrypto: 'Crypto',
 };
 
@@ -81,7 +80,7 @@ describe('TopCategoriesLeaderboard', () => {
     // The hook takes the first match in document order.
     const { container } = renderLeaderboard([
       row({ id: 'big', total: 900 }),
-      row({ id: 'small', sourceChannel: 'gmail', total: 40 }),
+      row({ id: 'small', sourceChannel: 'receipt', total: 40 }),
     ]);
 
     const matches = container.querySelectorAll(

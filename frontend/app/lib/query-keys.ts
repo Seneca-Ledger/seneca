@@ -23,8 +23,8 @@ export const queryKeys = {
     ['dashboard', 'setup-progress', workspaceId] as const,
   statements: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['statements', o.workspaceId, o.params] as const,
-  gmailReceipts: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
-    ['gmail-receipts', o.workspaceId, o.params] as const,
+  receiptDocuments: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
+    ['receipt-documents', o.workspaceId, o.params] as const,
   transactions: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['transactions', o.workspaceId, o.params] as const,
   categories: (workspaceId: string | null) => ['categories', workspaceId] as const,
@@ -65,8 +65,6 @@ export const queryKeys = {
   // The date is part of the key: a new day is a new quote without waiting for staleness.
   dailyQuote: (workspaceId: string | null, date: string, locale: string) =>
     ['daily-quote', workspaceId, date, locale] as const,
-  integrationStatus: (o: { workspaceId: string | null; apiPath: string }) =>
-    ['integration-status', o.workspaceId, o.apiPath] as const,
   integrationCatalogStatuses: (workspaceId: string | null) =>
     ['integration-status', workspaceId, 'catalog'] as const,
   webhookEndpoints: (workspaceId: string | null) => ['webhook-endpoints', workspaceId] as const,

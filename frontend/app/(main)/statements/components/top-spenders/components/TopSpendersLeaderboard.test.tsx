@@ -9,7 +9,7 @@ vi.mock('@/app/lib/user-format-store', () => ({ formatStoredDate: (value: string
 const row: TopSpenderAggregateRow = {
   id: 'r1',
   company: 'Rewe',
-  sourceType: 'gmail',
+  sourceType: 'receipt',
   sourceChannel: 'receipt',
   flowType: 'spend',
   count: 4,
@@ -28,7 +28,7 @@ const renderWith = (sortKey: 'amount' | 'average' | 'operations') =>
       onRowClick={() => {}}
       title="List"
       currency="EUR"
-      sourceLabels={{ sourceBank: 'Bank', sourceReceipt: 'Receipt', sourceGmailInbox: 'Gmail', sourceCrypto: 'Crypto' }}
+      sourceLabels={{ sourceBank: 'Bank', sourceReceipt: 'Receipt', sourceCrypto: 'Crypto' }}
       sortLabels={{ sortByAmount: 'By amount', sortByAverage: 'By average', sortByOperations: 'By operations' }}
       columnLabels={{
         company: 'Company',

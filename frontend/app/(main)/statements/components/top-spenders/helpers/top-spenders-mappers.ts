@@ -7,9 +7,9 @@ import {
   type TopSpenderRecord,
   type TopSpenderSourceChannel,
 } from '@/app/(main)/statements/components/top-spenders/top-spenders.types';
-import type { GmailReceipt } from '@/app/(main)/statements/types/statement-types';
+import type { ReceiptDocument } from '@/app/(main)/statements/types/statement-types';
 import { resolveCurrencyCode } from '@/app/lib/analytics-common';
-import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
+import { resolveReceiptMerchantLabel } from '@/app/lib/receipt-merchant';
 
 /** Collapse an optional string to null rather than empty string. */
 const opt = (v: string | null | undefined): string | null => (v ? v : null);
@@ -19,9 +19,6 @@ export const getBankDisplayName = (bankName?: string | null): string => {
   if (!raw) {
     return 'Unknown';
   }
-  if (raw.toLowerCase() === 'gmail') {
-    return 'Gmail';
-  }
   const resolved = resolveBankLogo(raw);
   if (!resolved) {
     return raw;
@@ -29,14 +26,14 @@ export const getBankDisplayName = (bankName?: string | null): string => {
   return resolved.key !== 'other' ? resolved.displayName : raw;
 };
 
-const getGmailDate = (s: StatementFilterItem): string =>
+const getReceiptDate = (s: StatementFilterItem): string =>
   s.parsedData?.date ?? s.receivedAt ?? s.createdAt ?? '';
 
 const getStatDate = (s: StatementFilterItem): string =>
   s.statementDateTo ?? s.statementDateFrom ?? s.createdAt ?? '';
 
 const getStatementDate = (s: StatementFilterItem): string =>
-  s.source === 'gmail' ? getGmailDate(s) : getStatDate(s);
+  s.source === 'scan' ? getReceiptDate(s) : getStatDate(s);
 
 const extractMetaCurrency = (
   meta: Record<string, unknown> | null | undefined,
@@ -57,8 +54,8 @@ type StatementWithWorkspace = StatementFilterItem & {
   workspaceName?: string;
 };
 
-const resolveGmailCompany = (item: StatementFilterItem): string =>
-  resolveGmailMerchantLabel({
+const resolveReceiptCompany = (item: StatementFilterItem): string =>
+  resolveReceiptMerchantLabel({
     vendor: item.parsedData?.vendor ?? undefined,
     sender: item.sender ?? undefined,
     subject: item.subject ?? undefined,
@@ -77,7 +74,7 @@ const buildStatementParsedData = ({
   sourceType,
   dateValue,
 }: ParsedDataInput): { vendor: string | null; date: string } => ({
-  vendor: item.parsedData?.vendor ?? (sourceType === 'gmail' ? company : null),
+  vendor: item.parsedData?.vendor ?? (sourceType === 'receipt' ? company : null),
   date: item.parsedData?.date ?? dateValue,
 });
 
@@ -87,7 +84,7 @@ type StatementRecordInput = {
   amount: number;
   currency: string;
   dateValue: string;
-  sourceType: 'statement' | 'gmail';
+  sourceType: 'statement' | 'receipt';
   fileType: string | null;
   flow: ReturnType<typeof resolveSpenderFlow>;
 };
@@ -103,7 +100,7 @@ const buildStatementRecord = ({
   flow,
 }: StatementRecordInput): TopSpenderRecord => ({
   id: item.id,
-  source: sourceType,
+  source: sourceType === 'receipt' ? 'scan' : 'statement',
   fileName: company,
   subject: opt(item.subject),
   sender: opt(item.sender),
@@ -137,9 +134,9 @@ export const mapStatementToRecord = (
   item: StatementWithWorkspace,
   workspaceCurrency: string,
 ): TopSpenderRecord => {
-  const sourceType: 'statement' | 'gmail' = item.source === 'gmail' ? 'gmail' : 'statement';
+  const sourceType: 'statement' | 'receipt' = item.source === 'scan' ? 'receipt' : 'statement';
   const company =
-    sourceType === 'gmail' ? resolveGmailCompany(item) : getBankDisplayName(item.bankName);
+    sourceType === 'receipt' ? resolveReceiptCompany(item) : getBankDisplayName(item.bankName);
   const dateValue = getStatementDate(item);
   const flow = resolveSpenderFlow({
     sourceType,
@@ -162,7 +159,7 @@ export const mapStatementToRecord = (
 
 type ReceiptParsedFields = { vendor?: string; date?: string; currency?: string; amount?: number };
 
-const extractReceiptParsed = (receipt: GmailReceipt): ReceiptParsedFields => ({
+const extractReceiptParsed = (receipt: ReceiptDocument): ReceiptParsedFields => ({
   vendor: receipt.parsedData?.vendor,
   date: receipt.parsedData?.date,
   currency: receipt.parsedData?.currency,
@@ -170,7 +167,7 @@ const extractReceiptParsed = (receipt: GmailReceipt): ReceiptParsedFields => ({
 });
 
 type ReceiptRecordInput = {
-  receipt: GmailReceipt;
+  receipt: ReceiptDocument;
   company: string;
   currency: string;
   flow: ReturnType<typeof resolveSpenderFlow>;
@@ -190,19 +187,19 @@ const buildReceiptRecord = ({
   parsedDate,
   dateValue,
 }: ReceiptRecordInput): TopSpenderRecord => {
-  const isLocalReceipt = !!receipt.source && receipt.source !== 'gmail';
   return {
     id: receipt.id,
-    source: 'gmail',
+    source: 'scan',
+    receiptSource: receipt.source,
     fileName: company,
     subject: opt(receipt.subject),
     sender: opt(receipt.sender),
     status: opt(receipt.status),
-    fileType: isLocalReceipt ? 'receipt' : 'gmail',
+    fileType: 'receipt',
     createdAt: receivedAt,
     statementDateFrom: parsedDate ?? receivedAt,
     statementDateTo: null,
-    bankName: isLocalReceipt ? 'receipt' : 'gmail',
+    bankName: 'receipt',
     totalDebit: flow.amount,
     totalCredit: null,
     currency,
@@ -216,8 +213,8 @@ const buildReceiptRecord = ({
     amount: flow.amount,
     currencyValue: currency,
     dateValue,
-    sourceType: 'gmail',
-    sourceChannel: (isLocalReceipt ? 'receipt' : 'gmail') as TopSpenderSourceChannel,
+    sourceType: 'receipt',
+    sourceChannel: 'receipt',
     flowType: flow.flowType as TopSpenderFlowType,
     workspaceId: receipt.workspaceId,
     workspaceName: receipt.workspaceName,
@@ -225,7 +222,7 @@ const buildReceiptRecord = ({
 };
 
 export const mapReceiptToRecord = (
-  receipt: GmailReceipt,
+  receipt: ReceiptDocument,
   workspaceCurrency: string,
 ): TopSpenderRecord => {
   const {
@@ -234,14 +231,14 @@ export const mapReceiptToRecord = (
     currency: parsedCurrency,
     amount: parsedAmount,
   } = extractReceiptParsed(receipt);
-  const company = resolveGmailMerchantLabel({
+  const company = resolveReceiptMerchantLabel({
     vendor: parsedVendor,
     sender: receipt.sender,
     subject: receipt.subject,
-    fallback: 'Gmail receipt',
+    fallback: 'Receipt',
   });
   const currency = resolveCurrencyCode(parsedCurrency, workspaceCurrency);
-  const flow = resolveSpenderFlow({ sourceType: 'gmail', totalDebit: parsedAmount });
+  const flow = resolveSpenderFlow({ sourceType: 'receipt', totalDebit: parsedAmount });
   const receivedAt = opt(receipt.receivedAt);
   const dateValue = parsedDate ?? receivedAt ?? '';
   return buildReceiptRecord({

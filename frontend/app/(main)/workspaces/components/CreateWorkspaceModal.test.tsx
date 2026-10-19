@@ -97,17 +97,6 @@ vi.mock('@mui/material/TextField', () => ({
   ),
 }));
 
-vi.mock('./ServiceIntegrationSuggestions', () => ({
-  ServiceIntegrationSuggestions: ({ onSkip }: { onSkip: () => void }) => (
-    <div>
-      <h3>Connect Your Services</h3>
-      <button type="button" onClick={onSkip}>
-        Skip for now
-      </button>
-    </div>
-  ),
-}));
-
 describe('CreateWorkspaceModal', () => {
   beforeEach(() => {
     postMock.mockReset();
@@ -138,7 +127,7 @@ describe('CreateWorkspaceModal', () => {
     expect(screen.queryByLabelText('Close currency picker')).toBeNull();
   });
 
-  it('shows integrations step before closing or calling success on next from customization', async () => {
+  it('creates the workspace from the customization step', async () => {
     const { CreateWorkspaceModal } = await import('./CreateWorkspaceModal');
 
     render(<CreateWorkspaceModal isOpen onClose={onCloseMock} onSuccess={onSuccessMock} />);
@@ -147,16 +136,13 @@ describe('CreateWorkspaceModal', () => {
       target: { value: 'Demo workspace' },
     });
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /^next$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /create workspace/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Connect Your Services')).toBeTruthy();
+      expect(postMock).toHaveBeenCalledWith(
+        '/workspaces',
+        expect.objectContaining({ name: 'Demo workspace' }),
+      );
     });
-
-    expect(postMock).not.toHaveBeenCalled();
-    expect(switchWorkspaceMock).not.toHaveBeenCalled();
-    expect(refreshWorkspacesMock).not.toHaveBeenCalled();
-    expect(onCloseMock).not.toHaveBeenCalled();
-    expect(onSuccessMock).not.toHaveBeenCalled();
   });
 });

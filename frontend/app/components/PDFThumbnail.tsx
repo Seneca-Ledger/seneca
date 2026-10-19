@@ -10,7 +10,7 @@ import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 interface PdfThumbnailProps {
   fileId: string;
   fileName?: string;
-  source?: 'statement' | 'gmail' | 'receipt';
+  source?: 'statement' | 'receipt';
   size?: number;
   width?: number;
   thumbnailWidth?: number;
@@ -31,8 +31,7 @@ const MAX_THUMBNAIL_WIDTH = 1600;
 const thumbnailCache = new Map<string, string>();
 
 const SOURCE_THUMBNAIL_URLS: Record<string, (fileId: string, w: number) => string> = {
-  gmail: (id, w) => `${apiBaseUrl}/integrations/gmail/receipts/${id}/thumbnail?width=${w}`,
-  receipt: (id, w) => `${apiBaseUrl}/integrations/gmail/receipts/${id}/thumbnail?width=${w}`,
+  receipt: (id, w) => `${apiBaseUrl}/receipts/${id}/thumbnail?width=${w}`,
 };
 
 function buildThumbnailUrl(source: string, fileId: string, requestedWidth: number): string {

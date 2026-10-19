@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { GmailReceipt, Transaction } from '../types/statement-types';
+import type { ReceiptDocument, Transaction } from '../types/statement-types';
 import { keepConfirmed } from './confirmed-analytics';
 
 const transaction = (id: string, isVerified?: boolean): Transaction => ({ id, isVerified });
-const receipt = (id: string, status: string): GmailReceipt =>
-  ({ id, status, subject: id, sender: 's', receivedAt: '2026-09-01' }) as GmailReceipt;
+const receipt = (id: string, status: string): ReceiptDocument =>
+  ({ id, status, subject: id, sender: 's', receivedAt: '2026-09-01' }) as ReceiptDocument;
 
 describe('keepConfirmed', () => {
   it('keeps only confirmed transactions and approved receipts', () => {

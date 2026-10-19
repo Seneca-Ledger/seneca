@@ -19,7 +19,7 @@ type Props = {
   fileName: string;
   /** A receipt passes 'pdf': its thumbnail endpoint renders any receipt file. */
   fileType: string;
-  source: 'statement' | 'gmail' | 'receipt';
+  source: 'statement' | 'receipt';
   /** Click on the thumbnail: the full preview, not the row's own action. */
   onOpen: () => void;
   testId?: string;

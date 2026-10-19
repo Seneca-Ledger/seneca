@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { useStatementSelection } from './useStatementSelection';
 
 vi.mock('react-hot-toast', () => ({ default: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('@/app/lib/api', () => ({ default: {}, gmailReceiptsApi: {} }));
+vi.mock('@/app/lib/api', () => ({ default: {} }));
 
 const baseParams = {
   displayStatements: [],
@@ -12,7 +12,7 @@ const baseParams = {
   setDuplicateOverrides: vi.fn(),
   search: '',
   onRefreshStatements: async () => {},
-  onRefreshGmail: async () => {},
+  onRefreshReceipts: async () => {},
 };
 
 describe('useStatementSelection', () => {

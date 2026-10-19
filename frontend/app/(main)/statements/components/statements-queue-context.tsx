@@ -16,18 +16,13 @@ import {
   STATEMENTS_OPEN_EXPENSE_DRAWER_EVENT,
   type StatementExpenseMode,
 } from '@/app/lib/statement-expense-drawer';
-import {
-  type CloudImportProvider,
-  type ConnectedCloudProviders,
-} from '@/app/lib/statement-upload-actions';
 
 export type StatementsQueueValue = {
   payCount: number;
   payCountLoading: boolean;
-  providers: ConnectedCloudProviders;
+  inboxConnected: boolean;
   onScan: () => void;
-  onCloudImport: (provider: CloudImportProvider | null) => void;
-  onGmail: () => void;
+  onInboxSync: () => void;
   onLocalUpload: () => void;
 };
 
@@ -36,10 +31,9 @@ export type StatementsQueueValue = {
 const FALLBACK_VALUE: StatementsQueueValue = {
   payCount: 0,
   payCountLoading: false,
-  providers: { googleDriveConnected: false, dropboxConnected: false, gmailConnected: false },
+  inboxConnected: false,
   onScan: () => undefined,
-  onCloudImport: () => undefined,
-  onGmail: () => undefined,
+  onInboxSync: () => undefined,
   onLocalUpload: () => undefined,
 };
 
@@ -93,8 +87,8 @@ function usePayCount(
   return { payCount, loading };
 }
 
-function useCloudProviders(user: unknown): ConnectedCloudProviders {
-  const [providers, setProviders] = useState<ConnectedCloudProviders>(FALLBACK_VALUE.providers);
+function useInboxConnected(user: unknown): boolean {
+  const [inboxConnected, setInboxConnected] = useState(FALLBACK_VALUE.inboxConnected);
 
   useEffect(() => {
     let isMounted = true;
@@ -103,11 +97,7 @@ function useCloudProviders(user: unknown): ConnectedCloudProviders {
       return;
     }
 
-    void Promise.allSettled([
-      apiClient.get('/integrations/dropbox/status'),
-      apiClient.get('/integrations/google-drive/status'),
-      apiClient.get('/integrations/imap/status'),
-    ]).then(([dropbox, googleDrive, inbox]) => {
+    void Promise.allSettled([apiClient.get('/integrations/imap/status')]).then(([inbox]) => {
       const isConnected = (result: PromiseSettledResult<{ data?: unknown }>): boolean => {
         if (result.status !== 'fulfilled') {
           return false;
@@ -120,12 +110,8 @@ function useCloudProviders(user: unknown): ConnectedCloudProviders {
         return flag === true;
       };
 
-      if (isMounted) {
-        setProviders({
-          dropboxConnected: isConnected(dropbox),
-          googleDriveConnected: isConnected(googleDrive),
-          gmailConnected: isConnected(inbox),
-        });
+      if (isMounted && inbox) {
+        setInboxConnected(isConnected(inbox));
       }
     });
 
@@ -134,15 +120,12 @@ function useCloudProviders(user: unknown): ConnectedCloudProviders {
     };
   }, [user]);
 
-  return providers;
+  return inboxConnected;
 }
 
-type UploadActions = Pick<
-  StatementsQueueValue,
-  'onScan' | 'onCloudImport' | 'onGmail' | 'onLocalUpload'
->;
+type UploadActions = Pick<StatementsQueueValue, 'onScan' | 'onInboxSync' | 'onLocalUpload'>;
 
-function useUploadActions(gmailConnected: boolean): UploadActions {
+function useUploadActions(inboxConnected: boolean): UploadActions {
   const router = useRouter();
   const tSync = useIntlayer('statementsSidePanelSync');
 
@@ -163,39 +146,8 @@ function useUploadActions(gmailConnected: boolean): UploadActions {
     [router],
   );
 
-  const onCloudImport = useCallback(
-    (provider: CloudImportProvider | null): void => {
-      if (!provider) {
-        openAppPanel('integrations');
-        return;
-      }
-
-      const endpoint =
-        provider === 'dropbox' ? '/integrations/dropbox/sync' : '/integrations/google-drive/sync';
-
-      apiClient
-        .post(endpoint)
-        .then(() => {
-          toast.success(
-            provider === 'dropbox'
-              ? tSync.dropboxImportStarted.value
-              : tSync.googleDriveImportStarted.value,
-          );
-          navigateToSubmit();
-        })
-        .catch(() => {
-          toast.error(
-            provider === 'dropbox'
-              ? tSync.dropboxImportFailed.value
-              : tSync.googleDriveImportFailed.value,
-          );
-        });
-    },
-    [navigateToSubmit, tSync],
-  );
-
-  const onGmail = useCallback((): void => {
-    if (!gmailConnected) {
+  const onInboxSync = useCallback((): void => {
+    if (!inboxConnected) {
       openAppPanel('integrations', 'imap');
       return;
     }
@@ -230,18 +182,17 @@ function useUploadActions(gmailConnected: boolean): UploadActions {
       .catch(() => {
         toast.error(tSync.syncInboxFailed.value);
       });
-  }, [gmailConnected, navigateToSubmit, tSync]);
+  }, [inboxConnected, navigateToSubmit, tSync]);
 
   return {
     onScan: useCallback(() => navigateToSubmit('scan'), [navigateToSubmit]),
     onLocalUpload: useCallback(() => navigateToSubmit('manual'), [navigateToSubmit]),
-    onCloudImport,
-    onGmail,
+    onInboxSync,
   };
 }
 
 /**
- * The Pay count, connected cloud providers and the upload actions the statements tab
+ * The Pay count, the mailbox connection and the upload actions the statements tab
  * strip and its upload button need. Mounted once by the statements layout, so
  * switching tabs neither remounts it nor reloads the counts.
  */
@@ -253,12 +204,12 @@ export function StatementsQueueProvider({
   const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
   const { payCount, loading: payCountLoading } = usePayCount(user, currentWorkspace?.id);
-  const providers = useCloudProviders(user);
-  const actions = useUploadActions(providers.gmailConnected);
+  const inboxConnected = useInboxConnected(user);
+  const actions = useUploadActions(inboxConnected);
 
   const value = useMemo<StatementsQueueValue>(
-    () => ({ payCount, payCountLoading, providers, ...actions }),
-    [payCount, payCountLoading, providers, actions],
+    () => ({ payCount, payCountLoading, inboxConnected, ...actions }),
+    [payCount, payCountLoading, inboxConnected, actions],
   );
 
   return (

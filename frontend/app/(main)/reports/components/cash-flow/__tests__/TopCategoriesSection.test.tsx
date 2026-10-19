@@ -227,7 +227,7 @@ describe('TopCategoriesSection', () => {
         });
       }
 
-      if (url === '/integrations/gmail/receipts') {
+      if (url === '/receipts/documents') {
         return Promise.resolve({
           data: {
             receipts: [

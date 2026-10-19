@@ -36,7 +36,7 @@ type StatementsListItemProps = React.ComponentProps<typeof StatementsListItem>;
 
 type Statement = {
   id: string;
-  source?: 'statement' | 'gmail' | 'scan';
+  source?: 'statement' | 'scan';
   fileName: string;
   subject?: string;
   sender?: string;
@@ -75,14 +75,14 @@ describe('StatementsListItem', () => {
     container = null as unknown as HTMLDivElement;
   });
 
-  it('renders Gmail receipt using document layout', () => {
+  it('renders an emailed receipt using document layout', () => {
     const root = createRoot(container);
     const onView = vi.fn();
     const onIconClick = vi.fn();
 
     const statement: Statement = {
-      id: 'gmail-1',
-      source: 'gmail',
+      id: 'receipt-1',
+      source: 'scan',
       fileName: 'Receipt.pdf',
       subject: 'Receipt',
       sender: 'sender@example.com',
@@ -92,7 +92,7 @@ describe('StatementsListItem', () => {
       createdAt: '2026-02-01T00:00:00Z',
       statementDateFrom: null,
       statementDateTo: null,
-      bankName: 'gmail',
+      bankName: 'receipt',
       fileType: 'pdf',
       currency: 'KZT',
       receivedAt: '2026-02-01T00:00:00Z',
@@ -126,7 +126,6 @@ describe('StatementsListItem', () => {
     const viewIcon = container.querySelector('[data-testid="statement-view-icon"]');
     expect(viewIcon).toBeTruthy();
     // The thumbnail stands for the document; the type is a word beside the date.
-    expect(container.querySelector('img[alt="Gmail"]')).toBeNull();
     expect(container.textContent).toContain('02/01/2026 · PDF');
   });
 
@@ -510,7 +509,6 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.querySelector('img[alt="Gmail"]')).toBeNull();
     expect(container.querySelector('[data-testid="receipt-statement-type-icon"]')).toBeNull();
     expect(container.textContent).toContain('03/27/2026 · IMAGE');
     expect(

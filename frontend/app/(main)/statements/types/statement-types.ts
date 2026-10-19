@@ -56,13 +56,13 @@ export type Transaction = {
   } | null;
 };
 
-export type GmailReceipt = {
+export type ReceiptDocument = {
   id: string;
   subject: string;
   sender: string;
   receivedAt: string;
   status: string;
-  /** 'gmail' | 'upload' | 'telegram' | 'scan' | 'imap' — where the receipt originated. */
+  /** 'upload' | 'telegram' | 'scan' | 'imap' | 'peppol' — where the receipt originated. */
   source?: string;
   /** Present in category-aware views */
   transactionId?: string | null;
@@ -76,7 +76,6 @@ export type GmailReceipt = {
     categoryId?: string;
     transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
   };
-  gmailMessageId?: string;
   workspaceId?: string;
   workspaceName?: string;
 };

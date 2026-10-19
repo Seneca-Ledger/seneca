@@ -9,7 +9,7 @@ type Props = UseAnalyticsDataParams & { children: React.ReactNode };
 /**
  * Fetches the analytics data once for everything below it. Each `useAnalyticsData`
  * under this provider reads the result instead of paging through /statements,
- * /transactions and the Gmail receipts again, so a page that stacks several
+ * /transactions and the receipts again, so a page that stacks several
  * analytics views costs one load rather than one per view.
  *
  * Pass the superset the children need (`includeTransactions` when any of them

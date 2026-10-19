@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type {
-  GmailReceipt,
+  ReceiptDocument,
   StatementMeta,
   Transaction,
 } from '@/app/(main)/statements/types/statement-types';
 import {
-  mapGmailReceiptToSpendRecord,
+  mapReceiptToSpendRecord,
   mapTransactionToSpendRecord,
 } from './spend-over-time-mappers';
 
-const receipt = (source: string): GmailReceipt =>
+const receipt = (source: string): ReceiptDocument =>
   ({
     id: 'rc-1',
     source,
@@ -18,15 +18,15 @@ const receipt = (source: string): GmailReceipt =>
     status: 'approved',
     receivedAt: '2026-10-12T10:00:00.000Z',
     parsedData: { amount: 3.73, currency: 'USD', vendor: 'grizzlysms.com', date: '2026-10-12' },
-  }) as unknown as GmailReceipt;
+  }) as unknown as ReceiptDocument;
 
 describe('spend record links', () => {
-  it('opens a scanned receipt on its receipt page and a Gmail one on its own', () => {
-    expect(mapGmailReceiptToSpendRecord(receipt('scan'), 'USD')?.href).toBe(
+  it('opens a receipt of any source on its receipt page', () => {
+    expect(mapReceiptToSpendRecord(receipt('scan'), 'USD')?.href).toBe(
       '/storage/receipts/rc-1',
     );
-    expect(mapGmailReceiptToSpendRecord(receipt('gmail'), 'USD')?.href).toBe(
-      '/storage/gmail-receipts/rc-1',
+    expect(mapReceiptToSpendRecord(receipt('imap'), 'USD')?.href).toBe(
+      '/storage/receipts/rc-1',
     );
   });
 

@@ -7,7 +7,7 @@ import { getQueryClient } from './query-client';
  */
 export const FINANCIAL_QUERY_ROOTS = [
   'statements',
-  'gmail-receipts',
+  'receipt-documents',
   'review-inbox',
   'transactions',
   'dashboard',

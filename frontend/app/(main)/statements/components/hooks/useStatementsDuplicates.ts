@@ -4,14 +4,13 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useMemo, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
-import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
+import { resolveReceiptMerchantLabel } from '@/app/lib/receipt-merchant';
 import { getStatementDisplayMerchant, getStatementMerchantLabel } from '@/app/lib/statement-status';
 import {
   DUPLICATE_GROUP_TONES,
   formatStatementAmount,
   formatStatementDate,
   getBankDisplayName,
-  isGmailStatement,
   isReceiptProcessing,
   toDuplicateGroupLabel,
 } from '../StatementsListView.utils';
@@ -60,7 +59,7 @@ function buildDuplicateGroupsFromStatements(
   const isKnownStatement = new Set(displayStatements.map(s => s.id));
 
   for (const statement of displayStatements) {
-    const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
+    const isReceipt = statement.source === 'scan';
     const isProcessingReceipt = isReceiptProcessing(statement);
     const amountLabel = formatStatementAmount(statement);
     const override = duplicateOverrides[statement.id]?.state;
@@ -95,9 +94,8 @@ function buildDuplicateGroupsFromStatements(
 
 function buildResolvedName(isReceipt: boolean, statement: StatementForDuplicates): string {
   if (isReceipt) {
-    return resolveGmailMerchantLabel({
+    return resolveReceiptMerchantLabel({
       vendor: statement.parsedData?.vendor,
-      sender: isGmailStatement(statement) ? statement.sender : undefined,
       subject: statement.subject,
       fallback: statement.fileName,
     });

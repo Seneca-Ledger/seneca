@@ -14,7 +14,6 @@ function TopSpendersLeaderboardSection({ vm }: Props): React.JSX.Element {
   const sourceLabels = {
     sourceBank: labels.sourceBank,
     sourceReceipt: labels.sourceReceipt,
-    sourceGmailInbox: labels.sourceGmailInbox,
     sourceCrypto: labels.sourceCrypto,
   };
   const columnLabels = {

@@ -4,7 +4,7 @@ type ViewType = 'bar' | 'line' | 'stacked';
 
 type TrendChartRow = { label: string; income: number; expense: number };
 
-type SourceChartTotals = { statementAmount: number; gmailAmount: number };
+type SourceChartTotals = { statementAmount: number; receiptAmount: number };
 
 // eslint-disable-next-line max-lines-per-function, max-params, complexity
 export function buildSpendOverTimeTrendChart(
@@ -109,7 +109,7 @@ export function buildSpendOverTimeSourceChart(
         radius: ['35%', '72%'],
         data: [
           { name: labels.statementsAmount, value: Number(totals.statementAmount.toFixed(2)) },
-          { name: labels.receiptsAmount, value: Number(totals.gmailAmount.toFixed(2)) },
+          { name: labels.receiptsAmount, value: Number(totals.receiptAmount.toFixed(2)) },
         ],
       },
     ],

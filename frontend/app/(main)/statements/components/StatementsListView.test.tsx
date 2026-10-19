@@ -1,4 +1,3 @@
-import { STATEMENTS_GMAIL_SYNC_EVENT } from '@/app/lib/statement-upload-actions';
 // @vitest-environment jsdom
 import React from 'react';
 import { act } from 'react';
@@ -13,8 +12,8 @@ const apiMocks = vi.hoisted(() => ({
   mockListReceipts: vi.fn(),
 }));
 
-const gmailMappingMocks = vi.hoisted(() => ({
-  mockMapGmailReceiptsToStatements: vi.fn(),
+const receiptMappingMocks = vi.hoisted(() => ({
+  mockMapReceiptsToStatements: vi.fn(),
 }));
 
 const toastMocks = vi.hoisted(() => ({
@@ -32,7 +31,7 @@ vi.mock('@/app/lib/api', () => ({
     post: apiMocks.mockApiPost,
     delete: apiMocks.mockApiDelete,
   },
-  gmailReceiptsApi: {
+  receiptDocumentsApi: {
     listReceipts: apiMocks.mockListReceipts,
   },
 }));
@@ -271,18 +270,18 @@ vi.mock('@/app/(main)/statements/components/StatementsListItem', () => ({
   },
 }));
 
-vi.mock('@/app/(main)/statements/components/gmail-receipt-mapping', () => ({
-  hasGmailReceiptAmount: () => true,
-  mapGmailReceiptsToStatements: (...args: any[]) =>
-    gmailMappingMocks.mockMapGmailReceiptsToStatements(...args),
-  resolveGmailMerchantLabel: () => 'Merchant',
+vi.mock('@/app/(main)/statements/components/receipt-document-mapping', () => ({
+  hasReceiptAmount: () => true,
+  mapReceiptsToStatements: (...args: any[]) =>
+    receiptMappingMocks.mockMapReceiptsToStatements(...args),
+  resolveReceiptMerchantLabel: () => 'Merchant',
 }));
 
 vi.mock('@/app/components/ui/pagination', () => ({
   AppPagination: () => null,
 }));
 
-describe('StatementsListView Gmail sync skeleton', () => {
+describe('StatementsListView', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
 
@@ -296,8 +295,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockApiPost.mockReset();
     apiMocks.mockApiDelete.mockReset();
     apiMocks.mockListReceipts.mockReset();
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReset();
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([]);
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReset();
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([]);
     statementsListItemPropsSpy.mockReset();
     filtersDrawerPropsSpy.mockReset();
     routerPushMock.mockReset();
@@ -336,23 +335,6 @@ describe('StatementsListView Gmail sync skeleton', () => {
     });
     return Array.from(latestById.values());
   };
-
-  it('renders Gmail sync skeleton rows from storage count', () => {
-    act(() => {
-      root.render(<StatementsListView />);
-    });
-
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent(STATEMENTS_GMAIL_SYNC_EVENT, {
-          detail: { count: 3, timestamp: Date.now() },
-        }),
-      );
-    });
-
-    const skeletonRows = container.querySelectorAll('[data-testid="gmail-sync-skeleton-row"]');
-    expect(skeletonRows).toHaveLength(3);
-  });
 
   it('sorts statements by date when date header clicked', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
@@ -509,7 +491,6 @@ describe('StatementsListView Gmail sync skeleton', () => {
       { value: 'chat', label: 'Chat' },
       { value: 'trip', label: 'Trip' },
       { value: 'task', label: 'Task' },
-      { value: 'gmail', label: 'Gmail' },
       { value: 'pdf', label: 'PDF' },
       { value: 'xlsx', label: 'Excel' },
       { value: 'csv', label: 'CSV' },
@@ -517,7 +498,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
   });
 
-  it('applies the receipt type filter to local receipts without including gmail receipts', async () => {
+  it('applies the receipt type filter to receipts', async () => {
     apiMocks.mockApiGet.mockImplementation(
       (url: string, config?: { params?: Record<string, unknown> }) => {
         if (url === '/categories' || url === '/tax-rates') {
@@ -554,24 +535,11 @@ describe('StatementsListView Gmail sync skeleton', () => {
               vendor: 'Walmart',
             },
           },
-          {
-            id: 'gmail-1',
-            source: 'gmail',
-            subject: 'Receipt email',
-            sender: 'billing@example.com',
-            receivedAt: '2026-03-27T00:00:00.000Z',
-            status: 'draft',
-            parsedData: {
-              amount: 44.1,
-              currency: 'KZT',
-              vendor: 'Amazon',
-            },
-          },
         ],
       },
     });
 
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'scan-1',
         source: 'scan',
@@ -599,35 +567,6 @@ describe('StatementsListView Gmail sync skeleton', () => {
           amount: 90.32,
           currency: 'KZT',
           vendor: 'Walmart',
-        },
-      },
-      {
-        id: 'gmail-1',
-        source: 'gmail',
-        receiptSource: 'gmail',
-        fileName: 'Amazon',
-        subject: 'Receipt email',
-        sender: 'billing@example.com',
-        status: 'draft',
-        totalTransactions: 0,
-        totalDebit: 44.1,
-        totalCredit: null,
-        exported: null,
-        paid: null,
-        createdAt: '2026-03-27T00:00:00.000Z',
-        processedAt: undefined,
-        statementDateFrom: '2026-03-27T00:00:00.000Z',
-        statementDateTo: null,
-        bankName: 'gmail',
-        fileType: 'gmail',
-        currency: 'KZT',
-        user: null,
-        errorMessage: null,
-        receivedAt: '2026-03-27T00:00:00.000Z',
-        parsedData: {
-          amount: 44.1,
-          currency: 'KZT',
-          vendor: 'Amazon',
         },
       },
     ]);
@@ -939,7 +878,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     );
   });
 
-  it('does not render scanned receipts from gmail receipts feed as duplicate gmail items', async () => {
+  it('does not render scanned receipts from the receipts feed as duplicate items', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -1074,7 +1013,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
       },
     });
 
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'receipt-nosource-1',
         source: 'scan',
@@ -1152,7 +1091,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
         ],
       },
     });
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'scan-1',
         source: 'scan',
@@ -1519,7 +1458,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
         ],
       },
     });
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'scan-1',
         source: 'scan',
@@ -1537,8 +1476,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
         processedAt: undefined,
         statementDateFrom: '2026-03-27T00:00:00.000Z',
         statementDateTo: null,
-        bankName: 'gmail',
-        fileType: 'gmail',
+        bankName: 'receipt',
+        fileType: 'receipt',
         currency: 'KZT',
         user: null,
         errorMessage: null,
@@ -1622,7 +1561,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
         ],
       },
     });
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'scan-1',
         source: 'scan',
@@ -1640,8 +1579,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
         processedAt: undefined,
         statementDateFrom: '2026-03-27T00:00:00.000Z',
         statementDateTo: null,
-        bankName: 'gmail',
-        fileType: 'gmail',
+        bankName: 'receipt',
+        fileType: 'receipt',
         currency: 'KZT',
         user: null,
         errorMessage: null,
@@ -1687,107 +1626,5 @@ describe('StatementsListView Gmail sync skeleton', () => {
 
     expect(apiMocks.mockApiDelete).toHaveBeenCalledWith('/receipts/scan-1');
     expect(apiMocks.mockApiDelete).not.toHaveBeenCalledWith('/statements/scan-1');
-  });
-
-  it('shows one gmail-only bulk-action error and closes the menu', async () => {
-    apiMocks.mockApiGet.mockImplementation((url: string) => {
-      if (url === '/categories' || url === '/tax-rates') {
-        return Promise.resolve({ data: [] });
-      }
-
-      if (url === '/statements') {
-        return Promise.resolve({ data: { data: [], total: 0 } });
-      }
-
-      return Promise.resolve({ data: [] });
-    });
-    apiMocks.mockListReceipts.mockResolvedValue({
-      data: {
-        receipts: [
-          {
-            id: 'gmail-1',
-            source: 'gmail',
-            subject: 'Receipt email',
-            sender: 'billing@example.com',
-            receivedAt: '2026-03-27T00:00:00.000Z',
-            status: 'draft',
-            parsedData: {
-              amount: 90.32,
-              currency: 'KZT',
-              vendor: 'Walmart',
-            },
-          },
-        ],
-      },
-    });
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
-      {
-        id: 'gmail-1',
-        source: 'gmail',
-        receiptSource: 'gmail',
-        fileName: 'Walmart',
-        subject: 'Receipt email',
-        sender: 'billing@example.com',
-        status: 'draft',
-        totalTransactions: 0,
-        totalDebit: 90.32,
-        totalCredit: null,
-        exported: null,
-        paid: null,
-        createdAt: '2026-03-27T00:00:00.000Z',
-        processedAt: undefined,
-        statementDateFrom: '2026-03-27T00:00:00.000Z',
-        statementDateTo: null,
-        bankName: 'gmail',
-        fileType: 'gmail',
-        currency: 'KZT',
-        user: null,
-        errorMessage: null,
-        receivedAt: '2026-03-27T00:00:00.000Z',
-        parsedData: {
-          amount: 90.32,
-          currency: 'KZT',
-          vendor: 'Walmart',
-        },
-      },
-    ]);
-
-    await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    await act(async () => {
-      const currentProps = getLatestRenderedStatementProps();
-      currentProps[0]?.onToggleSelect?.();
-      await Promise.resolve();
-    });
-
-    const selectedActionsButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('selected'),
-    ) as HTMLButtonElement | undefined;
-
-    await act(async () => {
-      selectedActionsButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    expect(container.textContent).toContain('Export');
-
-    const exportButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('Export'),
-    ) as HTMLButtonElement | undefined;
-
-    await act(async () => {
-      exportButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    expect(toastMocks.error).toHaveBeenCalledTimes(1);
-    expect(toastMocks.error).toHaveBeenCalledWith(
-      'Selected receipts cannot be exported from this menu',
-    );
-    expect(container.textContent).not.toContain('Delete');
   });
 });

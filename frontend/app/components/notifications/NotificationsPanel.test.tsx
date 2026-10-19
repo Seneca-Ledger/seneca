@@ -189,7 +189,7 @@ describe('NotificationsPanel', () => {
       receiptNotification?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(routerMocks.push).toHaveBeenCalledWith('/storage/gmail-receipts/receipt-1');
+    expect(routerMocks.push).toHaveBeenCalledWith('/storage/receipts/receipt-1');
   });
 
   it('routes to statement edit for uncategorized transactions', async () => {

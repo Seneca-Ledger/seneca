@@ -14,7 +14,6 @@ function TopMerchantsLeaderboardSection({ vm, focusId }: Props): React.JSX.Eleme
   const sourceLabels = {
     sourceBank: labels.sourceBank,
     sourceReceipt: labels.sourceReceipt,
-    sourceGmailInbox: labels.sourceGmailInbox,
     sourceCrypto: labels.sourceCrypto,
   };
   const columnLabels = {

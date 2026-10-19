@@ -65,7 +65,7 @@ export const useTopMerchantsData = ({
   const {
     statements: rawStatements,
     transactions: rawTransactions,
-    gmailReceipts,
+    receipts,
     loading,
   } = useAnalyticsData({
     user,
@@ -83,7 +83,7 @@ export const useTopMerchantsData = ({
     useTopMerchantsRecords({
       statements: statements as Parameters<typeof useTopMerchantsRecords>[0]['statements'],
       transactions: transactions as Parameters<typeof useTopMerchantsRecords>[0]['transactions'],
-      gmailReceipts,
+      receipts,
       workspaceCurrency,
       appliedFilters: monthFilters,
       searchInput: state.searchInput,
@@ -98,7 +98,7 @@ export const useTopMerchantsData = ({
       workspaceCurrency,
       resolvedTheme,
       sourceStatementLabel: labels.sourceStatement,
-      sourceGmailLabel: labels.sourceGmail,
+      sourceReceiptLabel: labels.sourceReceipt,
       totalIncomeLabel: labels.totalIncome,
       totalSpendLabel: labels.totalSpend,
     });

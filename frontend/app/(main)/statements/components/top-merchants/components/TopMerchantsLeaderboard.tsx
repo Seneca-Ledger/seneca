@@ -20,7 +20,6 @@ import { tokens } from '@/lib/theme-tokens';
 type SourceLabels = {
   sourceBank: string;
   sourceReceipt: string;
-  sourceGmailInbox: string;
   sourceCrypto: string;
 };
 type SortLabels = { sortByAmount: string; sortByAverage: string; sortByOperations: string };

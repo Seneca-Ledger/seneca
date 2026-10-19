@@ -56,7 +56,7 @@ export const useSpendOverTimeData = ({
   const {
     statements: rawStatements,
     transactions: rawTransactions,
-    gmailReceipts,
+    receipts,
     loading,
   } = useAnalyticsData({
     user,
@@ -73,7 +73,7 @@ export const useSpendOverTimeData = ({
     useSpendOverTimeRecords({
       statements: statements as Parameters<typeof useSpendOverTimeRecords>[0]['statements'],
       transactions: transactions as Parameters<typeof useSpendOverTimeRecords>[0]['transactions'],
-      gmailReceipts,
+      receipts,
       workspaceCurrency,
       // The page is the calendar alone, with no controls: filters, flow,
       // workspace and view saved by its older versions must not apply invisibly.

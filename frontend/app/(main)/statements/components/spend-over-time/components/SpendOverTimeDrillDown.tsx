@@ -18,7 +18,6 @@ import { formatStoredDate } from '@/app/lib/user-format-store';
 type SourceLabels = {
   sourceBank: string;
   sourceReceipt: string;
-  sourceGmailInbox: string;
   sourceCrypto: string;
 };
 

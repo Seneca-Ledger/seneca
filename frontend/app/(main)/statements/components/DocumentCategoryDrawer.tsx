@@ -5,7 +5,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
-import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
+import apiClient from '@/app/lib/api';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
@@ -19,21 +19,13 @@ export interface CategoryTarget {
 
 /**
  * Each kind of document keeps its category where its own page saves it: a
- * statement on the stored file, a scan and a Gmail receipt in the receipt's
- * parsed data, each through its own endpoint.
+ * statement on the stored file, a receipt in the receipt's parsed data.
  */
 async function saveDocumentCategory(
   target: CategoryTarget,
   categoryId: string,
   categoryName: string | null,
 ): Promise<void> {
-  if (target.source === 'gmail') {
-    await gmailReceiptsApi.updateReceiptParsedData(target.id, {
-      categoryId,
-      category: categoryName,
-    });
-    return;
-  }
   if (target.source === 'scan') {
     await apiClient.patch(`/receipts/${target.id}`, {
       parsedData: { categoryId, category: categoryName },

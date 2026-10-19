@@ -28,7 +28,7 @@ describe('shared analytics utils', () => {
   });
 
   it('resolves source channel from source type and file type', () => {
-    expect(resolveSourceChannel({ sourceType: 'gmail', fileType: 'gmail' })).toBe('gmail');
+    expect(resolveSourceChannel({ sourceType: 'receipt', fileType: 'receipt' })).toBe('receipt');
     expect(resolveSourceChannel({ sourceType: 'statement', fileType: 'pdf' })).toBe('receipt');
     expect(resolveSourceChannel({ sourceType: 'statement', fileType: 'expense' })).toBe('bank');
   });
@@ -66,7 +66,7 @@ describe('shared analytics utils', () => {
     expect(getComparisonDelta(100, 0)).toEqual({ delta: 100, percentage: 100, trend: 'up' });
   });
 
-  it('resolves statement and gmail flow amounts with configurable expense labels', () => {
+  it('resolves statement and receipt flow amounts with configurable expense labels', () => {
     expect(
       resolveAmountFlow({
         sourceType: 'statement',
@@ -91,7 +91,7 @@ describe('shared analytics utils', () => {
 
     expect(
       resolveAmountFlow({
-        sourceType: 'gmail',
+        sourceType: 'receipt',
         amount: 95,
         transactionType: 'income',
         expenseFlowType: 'expense',
@@ -100,11 +100,11 @@ describe('shared analytics utils', () => {
 
     expect(
       resolveAmountFlow({
-        sourceType: 'gmail',
+        sourceType: 'receipt',
         amount: 40,
         transactionType: 'expense',
         expenseFlowType: 'spend',
-        gmailUsesTransactionType: false,
+        receiptUsesTransactionType: false,
       }),
     ).toEqual({ flowType: 'spend', amount: 40 });
   });

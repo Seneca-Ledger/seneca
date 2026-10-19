@@ -26,7 +26,7 @@ export function DocumentTypeIcon(props: {
   fileType?: string;
   fileName?: string;
   fileId?: string;
-  source?: 'statement' | 'gmail' | 'receipt';
+  source?: 'statement' | 'receipt';
   size?: number;
   className?: string;
   muted?: boolean;

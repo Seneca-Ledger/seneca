@@ -17,8 +17,7 @@ import {
   STATEMENTS_OPEN_EXPENSE_DRAWER_EVENT,
   type StatementExpenseMode,
 } from '@/app/lib/statement-expense-drawer';
-import { STATEMENTS_GMAIL_SYNC_STORAGE_KEY } from '@/app/lib/statement-upload-actions';
-import { mapGmailReceiptsToStatements } from '../gmail-receipt-mapping';
+import { mapReceiptsToStatements } from '../receipt-document-mapping';
 import {
   buildColumnLabels,
   buildCurrencyOptions,
@@ -210,10 +209,10 @@ export function useStatementsView({
   closePreview: ReturnType<typeof useStatementPreview>['closePreview'];
   // data
   isPending: boolean;
-  /** Placeholder rows above the list: local uploads first, then Gmail sync. */
+  /** Placeholder rows above the list for local uploads the server does not list yet. */
   listSkeletonKeys: string[];
   refetchStatements: ReturnType<typeof useStatementsListData>['refetchStatements'];
-  refetchGmailReceipts: ReturnType<typeof useStatementsListData>['refetchGmailReceipts'];
+  refetchReceipts: ReturnType<typeof useStatementsListData>['refetchReceipts'];
   refreshActiveStatements: ReturnType<typeof useStatementsListData>['refreshActiveStatements'];
   // derived
   displayStatements: Statement[];
@@ -336,13 +335,11 @@ export function useStatementsView({
 
   const {
     statements,
-    gmailReceipts,
+    receipts,
     isPending,
-    gmailIsPending,
-    gmailSyncSkeletonKeys,
-    setGmailSyncSkeletonKeys,
+    receiptsIsPending,
     refetchStatements,
-    refetchGmailReceipts,
+    refetchReceipts,
     refreshActiveStatements,
   } = useStatementsListData({
     appliedFilters: filterState.appliedFilters,
@@ -404,40 +401,23 @@ export function useStatementsView({
     router.replace(nextQuery ? `/statements/submit?${nextQuery}` : '/statements/submit');
   }, [searchParams, router]);
 
-  // Clear Gmail sync skeletons
-  useEffect(() => {
-    if (gmailSyncSkeletonKeys.length === 0) {
-      return;
-    }
-    if (gmailReceipts.length === 0) {
-      return;
-    }
-    setGmailSyncSkeletonKeys([]);
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem(STATEMENTS_GMAIL_SYNC_STORAGE_KEY);
-    }
-  }, [gmailReceipts.length, gmailSyncSkeletonKeys.length, setGmailSyncSkeletonKeys]);
-
-  // Gmail-чеки вливаются в тот же список, поэтому ждём оба запроса —
+  // Чеки вливаются в тот же список, поэтому ждём оба запроса —
   // иначе строки досыпаются в уже отрисованную таблицу.
-  const listIsPending = isPending || gmailIsPending;
+  const listIsPending = isPending || receiptsIsPending;
   const statementReviewCounts = useStatementReviewCounts(Boolean(user));
 
   const receiptStatements = useMemo<Statement[]>(
-    () => mapGmailReceiptsToStatements(gmailReceipts),
-    [gmailReceipts],
+    () => mapReceiptsToStatements(receipts),
+    [receipts],
   );
 
   const uploadSkeletonKeys = useUploadSkeletonKeys({
     workspaceId,
-    receiptRows: gmailReceipts,
+    receiptRows: receipts,
     statements,
     limit: PAGE_SIZE,
   });
-  const listSkeletonKeys = useMemo(
-    () => [...uploadSkeletonKeys, ...gmailSyncSkeletonKeys],
-    [uploadSkeletonKeys, gmailSyncSkeletonKeys],
-  );
+  const listSkeletonKeys = uploadSkeletonKeys;
 
   const documentStatements = useMemo(
     () => buildDocumentStatements({ statements, search, receiptStatements }),
@@ -522,8 +502,8 @@ export function useStatementsView({
     onRefreshStatements: async () => {
       refetchStatements();
     },
-    onRefreshGmail: async () => {
-      refetchGmailReceipts();
+    onRefreshReceipts: async () => {
+      refetchReceipts();
     },
   });
 
@@ -676,7 +656,7 @@ export function useStatementsView({
     isPending: listIsPending,
     listSkeletonKeys,
     refetchStatements,
-    refetchGmailReceipts,
+    refetchReceipts,
     refreshActiveStatements,
     displayStatements,
     paginatedDisplayStatements,

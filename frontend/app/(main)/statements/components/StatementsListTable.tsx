@@ -8,7 +8,7 @@ import { AppPagination } from '@/app/components/ui/pagination';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
-import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
+import { resolveReceiptMerchantLabel } from '@/app/lib/receipt-merchant';
 import {
   getStatementDisplayMerchant,
   getStatementMerchantLabel,
@@ -22,18 +22,17 @@ import {
 } from './columns/statement-columns';
 import { type CategoryTarget, DocumentCategoryDrawer } from './DocumentCategoryDrawer';
 import type { DuplicateMeta } from './hooks/useStatementSelection';
-import { StatementsGmailSync } from './StatementsGmailSync';
 import { StatementsListItem } from './StatementsListItem';
 import {
   formatPaginationLabel,
   formatStatementAmount,
   formatStatementDate,
   getBankDisplayName,
-  isGmailStatement,
   isReceiptProcessing,
   isStatementParsingInProgress,
   resolvePendingReview,
 } from './StatementsListView.utils';
+import { StatementsUploadSkeletons } from './StatementsUploadSkeletons';
 import { StatementTransactionsPanel } from './StatementTransactionsPanel';
 
 interface StatementForTable {
@@ -101,7 +100,7 @@ interface Props {
   loading: boolean;
   displayStatements: StatementForTable[];
   paginatedStatements: StatementForTable[];
-  gmailSyncSkeletonKeys: string[];
+  skeletonKeys: string[];
   allVisibleSelected: boolean;
   selectedCount: number;
   selectedStatementIds: string[];
@@ -188,11 +187,10 @@ function resolveStatementRowData(
   statement: StatementForTable,
   scanningLabel: string,
 ): StatementRowData {
-  const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
+  const isReceipt = statement.source === 'scan';
   const resolvedName = isReceipt
-    ? resolveGmailMerchantLabel({
+    ? resolveReceiptMerchantLabel({
         vendor: statement.parsedData?.vendor,
-        sender: isGmailStatement(statement) ? statement.sender : undefined,
         subject: statement.subject,
         fallback: statement.fileName,
       })
@@ -327,7 +325,7 @@ export function StatementsListTable({
   loading,
   displayStatements,
   paginatedStatements,
-  gmailSyncSkeletonKeys,
+  skeletonKeys,
   allVisibleSelected,
   selectedCount,
   selectedStatementIds,
@@ -364,7 +362,7 @@ export function StatementsListTable({
       return next;
     });
   const shownColumns = withoutUniformFrom(columns, paginatedStatements);
-  if (loading && gmailSyncSkeletonKeys.length === 0) {
+  if (loading && skeletonKeys.length === 0) {
     return (
       <div className="seneca-stmt-list-view__table">
         {toolbar}
@@ -375,7 +373,7 @@ export function StatementsListTable({
     );
   }
 
-  if (displayStatements.length === 0 && gmailSyncSkeletonKeys.length === 0) {
+  if (displayStatements.length === 0 && skeletonKeys.length === 0) {
     return (
       <div className="seneca-stmt-list-view__table">
         {toolbar}
@@ -407,7 +405,7 @@ export function StatementsListTable({
             onToggleSelectAll={onToggleSelectAll}
             onToggleSortDirection={onToggleSortDirection}
           />
-          <StatementsGmailSync skeletonKeys={gmailSyncSkeletonKeys} />
+          <StatementsUploadSkeletons skeletonKeys={skeletonKeys} />
           {paginatedStatements.map((statement, index) => {
             const rowData = resolveStatementRowData(statement, labels.scanning);
             const duplicateMeta = duplicateMetaById.get(statement.id);

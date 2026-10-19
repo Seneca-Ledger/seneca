@@ -15,7 +15,6 @@ function TopCategoriesLeaderboardSection({ vm, focusId }: Props): React.JSX.Elem
   const sourceLabels = {
     sourceBank: labels.sourceBank,
     sourceReceipt: labels.sourceReceipt,
-    sourceGmailInbox: labels.sourceGmailInbox,
     sourceCrypto: labels.sourceCrypto,
   };
   const columnLabels = {
