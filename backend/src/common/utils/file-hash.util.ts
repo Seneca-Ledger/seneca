@@ -1,12 +1,12 @@
 import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveInUploadsDir, resolveUploadsDir } from './uploads.util';
+import { resolveUploadsDir } from './uploads.util';
 
 export function calculateFileHash(filePath: string): Promise<string> {
   const uploadsRoot = path.resolve(resolveUploadsDir());
-  const safePath = resolveInUploadsDir(filePath, uploadsRoot);
-  if (!safePath?.startsWith(`${uploadsRoot}${path.sep}`)) {
+  const safePath = path.resolve(filePath);
+  if (!safePath.startsWith(`${uploadsRoot}${path.sep}`)) {
     return Promise.reject(new Error('File is outside the uploads directory'));
   }
   return new Promise((resolve, reject) => {
