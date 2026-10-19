@@ -7,6 +7,10 @@ jest.mock('../../../../src/common/utils/egress-url.util', () => ({
   // Egress policy is covered by common/utils/egress-url.util.spec.ts; here the
   // provider hostnames are fixtures that no DNS server can resolve.
   assertPublicEgressHost: jest.fn().mockResolvedValue(undefined),
+  pinPublicEgressHost: jest.fn(async (host: string) => ({
+    host: '198.51.100.7',
+    servername: host,
+  })),
 }));
 
 const mockCategorize = jest.fn();
@@ -301,6 +305,82 @@ describe('ApplicationSettingsService', () => {
     expect(result.settings.passConfigured).toBe(true);
     expect(result.settings).not.toHaveProperty('pass');
     expect(assertPublicEgressHost).toHaveBeenCalledWith('mail.example.com');
+  });
+
+  it('tests a workspace SMTP server on the address that passed the egress check', async () => {
+    const nodemailer = require('nodemailer');
+    (nodemailer.createTransport as jest.Mock).mockClear();
+
+    await createService().saveSmtpSettings(user, {
+      host: 'mail.example.com',
+      port: 587,
+      from: `${APP_NAME} <noreply@example.com>`,
+    });
+
+    expect(nodemailer.createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ host: '198.51.100.7', servername: 'mail.example.com' }),
+    );
+  });
+
+  describe('SMTP server choice', () => {
+    const smtpRow = (workspaceId: string, host: string, updatedByUserId: string) => ({
+      workspaceId,
+      key: WorkspaceServiceSettingsKey.SMTP,
+      config: { host, port: 587, from: `noreply@${host}` },
+      encryptedSecrets: {},
+      updatedByUserId,
+    });
+    const rows = [
+      smtpRow('workspace-1', 'smtp.home.example', 'user-1'),
+      smtpRow('workspace-2', 'smtp.other.example', 'admin-2'),
+    ];
+
+    beforeEach(() => {
+      delete process.env.SMTP_HOST;
+      delete process.env.SMTP_FROM;
+      repository.findOne.mockImplementation(
+        ({ where }: { where: { workspaceId: string; key: string } }) =>
+          Promise.resolve(
+            rows.find(row => row.workspaceId === where.workspaceId && row.key === where.key) ??
+              null,
+          ),
+      );
+    });
+
+    it('uses the server of the workspace it is given', async () => {
+      const smtp = await createService().getSmtpSettings('workspace-2');
+
+      expect(smtp).toMatchObject({ host: 'smtp.other.example', source: 'workspace' });
+    });
+
+    it('falls back to the environment, never to a home workspace, without one', async () => {
+      process.env.SMTP_HOST = 'relay.internal';
+      process.env.SMTP_FROM = 'noreply@instance.example';
+
+      const smtp = await createService().getSmtpSettings(null);
+
+      expect(smtp).toMatchObject({ host: 'relay.internal', source: 'env' });
+    });
+
+    it('sends account mail through the home workspace server the user saved', async () => {
+      const smtp = await createService().getAccountSmtpSettings({
+        id: 'user-1',
+        workspaceId: 'workspace-1',
+      });
+
+      expect(smtp).toMatchObject({ host: 'smtp.home.example', source: 'workspace' });
+    });
+
+    // Another admin of the home workspace could point its SMTP at a server they
+    // read and collect the user's password-reset link.
+    it("does not send account mail through a server someone else saved", async () => {
+      const smtp = await createService().getAccountSmtpSettings({
+        id: 'user-1',
+        workspaceId: 'workspace-2',
+      });
+
+      expect(smtp).toMatchObject({ host: null, source: 'disabled' });
+    });
   });
 
   it('writes to the workspace of the request, not the one the user registered with', async () => {

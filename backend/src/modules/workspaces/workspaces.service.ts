@@ -42,7 +42,10 @@ import {
 } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { VatStatus, WorkspaceKind } from '../../entities/workspace.entity';
-import { ApplicationSettingsService } from '../application-settings/application-settings.service';
+import {
+  ApplicationSettingsService,
+  smtpConnectTarget,
+} from '../application-settings/application-settings.service';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { BalanceService } from '../balance/balance.service';
@@ -201,7 +204,7 @@ export class WorkspacesService {
         token: invite.token,
         expiresAt: invite.expiresAt,
         createdAt: invite.createdAt,
-        link: await this.buildInvitationLink(invite.token, requestAppOrigin, currentUser),
+        link: await this.buildInvitationLink(invite.token, workspace.id, requestAppOrigin),
       })),
     );
 
@@ -587,10 +590,11 @@ export class WorkspacesService {
       await this.auditInvitationCreated(workspaceId, currentUser.id, updated);
       const invitationLink = await this.buildInvitationLink(
         updated.token,
+        workspaceId,
         requestAppOrigin,
-        currentUser,
       );
       await this.sendInvitationEmail({
+        workspaceId,
         email,
         workspaceName: workspace.name,
         invitationLink,
@@ -625,10 +629,11 @@ export class WorkspacesService {
     await this.auditInvitationCreated(workspaceId, currentUser.id, savedInvitation);
     const invitationLink = await this.buildInvitationLink(
       savedInvitation.token,
+      workspaceId,
       requestAppOrigin,
-      currentUser,
     );
     await this.sendInvitationEmail({
+      workspaceId,
       email,
       workspaceName: workspace.name,
       invitationLink,
@@ -653,9 +658,10 @@ export class WorkspacesService {
     return this.inviteMember(workspace.id, currentUser, dto, requestAppOrigin);
   }
 
-  private async buildInvitationLink(token: string, requestAppOrigin?: string, user?: User) {
+  /** The link is to `workspaceId`, so its public URL is the one that counts. */
+  private async buildInvitationLink(token: string, workspaceId: string, requestAppOrigin?: string) {
     const settingsOrigin = this.normalizeToOrigin(
-      (await this.applicationSettingsService?.getAppSettings(user))?.publicUrl,
+      (await this.applicationSettingsService?.getAppSettings(workspaceId))?.publicUrl,
     );
     const envOrigin = this.normalizeToOrigin(process.env.APP_URL || process.env.FRONTEND_URL);
     const requestOrigin = this.normalizeToOrigin(requestAppOrigin);
@@ -1249,6 +1255,8 @@ export class WorkspacesService {
   }
 
   private async sendInvitationEmail(params: {
+    /** The workspace invited to; its SMTP server sends the mail. */
+    workspaceId: string;
     email: string;
     workspaceName: string;
     invitationLink: string;
@@ -1256,7 +1264,7 @@ export class WorkspacesService {
     role?: WorkspaceRole | null;
     user?: User;
   }) {
-    const smtp = await this.applicationSettingsService?.getSmtpSettings(params.user);
+    const smtp = await this.applicationSettingsService?.getSmtpSettings(params.workspaceId);
     // The invitee usually has no account yet, so the inviter's locale is the
     // only signal we have for which language to write in.
     const locale = params.user?.locale ?? 'en';
@@ -1283,20 +1291,20 @@ export class WorkspacesService {
       locale,
     });
 
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: Number.isFinite(smtpPort) ? smtpPort : 587,
-      secure: smtp?.secure ?? process.env.SMTP_SECURE === 'true',
-      auth:
-        (smtp?.user && smtp?.pass) || (process.env.SMTP_USER && process.env.SMTP_PASS)
-          ? {
-              user: smtp?.user || process.env.SMTP_USER,
-              pass: smtp?.pass || process.env.SMTP_PASS,
-            }
-          : undefined,
-    });
-
     try {
+      // Inside the try: a host that no longer resolves publicly is a failed mail.
+      const transporter = nodemailer.createTransport({
+        ...(await smtpConnectTarget(smtp, smtpHost)),
+        port: Number.isFinite(smtpPort) ? smtpPort : 587,
+        secure: smtp?.secure ?? process.env.SMTP_SECURE === 'true',
+        auth:
+          (smtp?.user && smtp?.pass) || (process.env.SMTP_USER && process.env.SMTP_PASS)
+            ? {
+                user: smtp?.user || process.env.SMTP_USER,
+                pass: smtp?.pass || process.env.SMTP_PASS,
+              }
+            : undefined,
+      });
       const html = await render(emailReact);
       const timeoutMs =
         smtp?.timeoutMs || Number.parseInt(process.env.SMTP_TIMEOUT_MS || '10000', 10);

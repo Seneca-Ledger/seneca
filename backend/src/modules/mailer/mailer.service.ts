@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import nodemailer from 'nodemailer';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import type { User } from '../../entities/user.entity';
-import { ApplicationSettingsService } from '../application-settings/application-settings.service';
+import {
+  ApplicationSettingsService,
+  smtpConnectTarget,
+} from '../application-settings/application-settings.service';
 
 export interface MailAttachment {
   filename: string;
@@ -10,20 +13,29 @@ export interface MailAttachment {
   contentType: string;
 }
 
-export interface SendMailParams {
+interface MailContent {
   to: string;
   subject: string;
   text: string;
   html?: string;
-  /** Whose workspace SMTP settings to use; falls back to the SMTP_* env vars. */
-  user?: User | null;
-  /**
-   * Which workspace's SMTP settings to use. Without it the user's *home*
-   * workspace decides, which is the wrong server for mail about another one.
-   */
-  workspaceId?: string;
   attachments?: MailAttachment[];
 }
+
+/**
+ * Whose SMTP server sends the mail; without workspace SMTP settings the SMTP_*
+ * env vars do. Required, so no caller can fall back to someone's home workspace.
+ */
+export type SendMailParams = MailContent &
+  (
+    | {
+        /** The workspace the mail is about. */
+        workspaceId: string;
+      }
+    | {
+        /** Mail about the account itself: password reset, e-mail change. */
+        accountOf: Pick<User, 'id' | 'workspaceId'>;
+      }
+  );
 
 /**
  * Thin wrapper over the workspace SMTP settings so callers do not each rebuild a
@@ -36,16 +48,13 @@ export class MailerService {
 
   constructor(private readonly applicationSettingsService: ApplicationSettingsService) {}
 
-  async isConfigured(user?: User | null, workspaceId?: string): Promise<boolean> {
-    const smtp = await this.applicationSettingsService.getSmtpSettings(user, workspaceId);
+  async isConfigured(workspaceId: string): Promise<boolean> {
+    const smtp = await this.applicationSettingsService.getSmtpSettings(workspaceId);
     return Boolean((smtp?.host || process.env.SMTP_HOST) && (smtp?.from || process.env.SMTP_FROM));
   }
 
   async send(params: SendMailParams): Promise<boolean> {
-    const smtp = await this.applicationSettingsService.getSmtpSettings(
-      params.user,
-      params.workspaceId,
-    );
+    const smtp = await this.smtpFor(params);
     const host = smtp?.host || process.env.SMTP_HOST;
     const from = smtp?.from || process.env.SMTP_FROM;
 
@@ -61,7 +70,7 @@ export class MailerService {
       smtp?.timeoutMs || Number.parseInt(process.env.SMTP_TIMEOUT_MS || '10000', 10);
 
     const transporter = nodemailer.createTransport({
-      host,
+      ...(await smtpConnectTarget(smtp, host)),
       port: Number.isFinite(port) ? port : 587,
       secure: smtp?.secure ?? process.env.SMTP_SECURE === 'true',
       auth: user && pass ? { user, pass } : undefined,
@@ -88,5 +97,11 @@ export class MailerService {
     );
 
     return true;
+  }
+
+  private smtpFor(params: SendMailParams) {
+    return 'accountOf' in params
+      ? this.applicationSettingsService.getAccountSmtpSettings(params.accountOf)
+      : this.applicationSettingsService.getSmtpSettings(params.workspaceId);
   }
 }

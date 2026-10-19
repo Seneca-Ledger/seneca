@@ -8,7 +8,10 @@ import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { CreateReportScheduleBody, GenerateReportBody } from '../../contracts';
 import { ReportSchedule, ReportScheduleCadence } from '../../entities/report-schedule.entity';
 import { User } from '../../entities/user.entity';
-import { ApplicationSettingsService } from '../application-settings/application-settings.service';
+import {
+  ApplicationSettingsService,
+  smtpConnectTarget,
+} from '../application-settings/application-settings.service';
 import { renderTemplateLabels, templateTitle } from './report-template.translations';
 import { ReportsService } from './reports.service';
 
@@ -298,14 +301,15 @@ export class ReportSchedulesService {
     period: SchedulePeriod,
   ): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id: schedule.userId } });
-    const smtp = await this.applicationSettings.getSmtpSettings(user);
+    // The schedule's workspace sends its report, whatever the owner's home workspace is.
+    const smtp = await this.applicationSettings.getSmtpSettings(schedule.workspaceId);
 
     if (smtp.source === 'disabled' || !(smtp.host && smtp.from)) {
       throw new Error('SMTP is not configured for this workspace');
     }
 
     const transporter = nodemailer.createTransport({
-      host: smtp.host,
+      ...(await smtpConnectTarget(smtp, smtp.host)),
       port: smtp.port,
       secure: smtp.secure,
       auth: smtp.user && smtp.pass ? { user: smtp.user, pass: smtp.pass } : undefined,
