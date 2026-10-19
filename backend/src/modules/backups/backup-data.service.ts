@@ -6,7 +6,7 @@ import { type DataSource, type EntityMetadata, In } from 'typeorm';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import type { Statement } from '../../entities';
 
-const EXCLUDED_TABLES = new Set([
+export const EXCLUDED_TABLES = new Set([
   'api_keys',
   'auth_sessions',
   'backup_configurations',
@@ -41,7 +41,7 @@ const EXCLUDED_TABLES = new Set([
   'custom_table_shares',
 ]);
 
-const SENSITIVE_PROPERTIES = new Set([
+export const SENSITIVE_PROPERTIES = new Set([
   'accessToken',
   'encryptedSecrets',
   'passwordHash',
@@ -62,6 +62,30 @@ const HIDDEN_COLUMNS_IN_BACKUP: Record<string, string[]> = {
   credit_notes: ['fileData'],
 };
 
+/**
+ * Rows without a workspace column of their own, collected by their parent
+ * row: `column` of `table` holds the id of a row of `parent`. In order, since
+ * a parent can be a related collection itself. Without them a restored
+ * invoice has no lines and a journal entry is refused for having none. Join
+ * tables name their columns as in the database.
+ */
+export const RELATED_COLLECTIONS: ReadonlyArray<{ table: string; column: string; parent: string }> =
+  [
+    { table: 'custom_table_columns', column: 'tableId', parent: 'custom_tables' },
+    { table: 'custom_table_rows', column: 'tableId', parent: 'custom_tables' },
+    { table: 'custom_table_column_styles', column: 'tableId', parent: 'custom_tables' },
+    { table: 'custom_table_cell_styles', column: 'rowId', parent: 'custom_table_rows' },
+    { table: 'file_versions', column: 'statementId', parent: 'statements' },
+    { table: 'invoice_line_items', column: 'invoiceId', parent: 'invoices' },
+    { table: 'credit_note_line_items', column: 'creditNoteId', parent: 'credit_notes' },
+    { table: 'journal_lines', column: 'entryId', parent: 'journal_entries' },
+    { table: 'statement_tags', column: 'statement_id', parent: 'statements' },
+    { table: 'transaction_tags', column: 'transaction_id', parent: 'transactions' },
+  ];
+
+export const isWorkspaceScoped = (metadata: EntityMetadata): boolean =>
+  metadata.columns.some(column => column.propertyName === 'workspaceId');
+
 type BackupSnapshotData = {
   collections: Record<string, unknown[]>;
   files: Array<{ path: string; contents: Buffer }>;
@@ -78,7 +102,7 @@ export class BackupDataService {
     const collections: Record<string, unknown[]> = {};
     const files: Array<{ path: string; contents: Buffer }> = [];
     for (const metadata of this.dataSource.entityMetadatas) {
-      if (!this.isWorkspaceScoped(metadata) || EXCLUDED_TABLES.has(metadata.tableName)) continue;
+      if (!isWorkspaceScoped(metadata) || EXCLUDED_TABLES.has(metadata.tableName)) continue;
       const repository = this.dataSource.getRepository(metadata.target);
       const rows = await repository.find({
         where: { workspaceId } as never,
@@ -120,10 +144,6 @@ export class BackupDataService {
     return Object.fromEntries(
       metadata.primaryColumns.map(column => [column.propertyName, 'ASC']),
     ) as never;
-  }
-
-  private isWorkspaceScoped(metadata: EntityMetadata): boolean {
-    return metadata.columns.some(column => column.propertyName === 'workspaceId');
   }
 
   private toBackupRecord(metadata: EntityMetadata, row: unknown): Record<string, unknown> {
@@ -186,60 +206,9 @@ export class BackupDataService {
   }
 
   private async collectRelatedCollections(collections: Record<string, unknown[]>): Promise<void> {
-    const customTableIds = this.ids(collections.custom_tables);
-    await this.collectByReference('custom_table_columns', 'tableId', customTableIds, collections);
-    await this.collectByReference('custom_table_rows', 'tableId', customTableIds, collections);
-    await this.collectByReference(
-      'custom_table_column_styles',
-      'tableId',
-      customTableIds,
-      collections,
-    );
-    await this.collectByReference(
-      'custom_table_cell_styles',
-      'rowId',
-      this.ids(collections.custom_table_rows),
-      collections,
-    );
-    await this.collectByReference(
-      'file_versions',
-      'statementId',
-      this.ids(collections.statements),
-      collections,
-    );
-    // Rows without a workspace column of their own: without them a restored
-    // invoice has no lines and a journal entry is refused for having none.
-    await this.collectByReference(
-      'invoice_line_items',
-      'invoiceId',
-      this.ids(collections.invoices),
-      collections,
-    );
-    await this.collectByReference(
-      'credit_note_line_items',
-      'creditNoteId',
-      this.ids(collections.credit_notes),
-      collections,
-    );
-    await this.collectByReference(
-      'journal_lines',
-      'entryId',
-      this.ids(collections.journal_entries),
-      collections,
-    );
-    // Join tables: their columns are named as in the database.
-    await this.collectByReference(
-      'statement_tags',
-      'statement_id',
-      this.ids(collections.statements),
-      collections,
-    );
-    await this.collectByReference(
-      'transaction_tags',
-      'transaction_id',
-      this.ids(collections.transactions),
-      collections,
-    );
+    for (const { table, column, parent } of RELATED_COLLECTIONS) {
+      await this.collectByReference(table, column, this.ids(collections[parent]), collections);
+    }
   }
 
   private async collectByReference(
