@@ -1,14 +1,129 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "900ff01cfeea4165e13b1ba98108480e626ede4f"
+      "main": "df376c1c673d982bd3eab59e41d52baa83000f58"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-19T18:05:17.347Z",
+    "lastGeneratedAt": "2026-10-19T21:12:36.546Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-19-df376c1",
+      "version": "main-df376c1",
+      "branch": "main",
+      "date": "2026-10-19T21:12:36.546Z",
+      "title": "Release update - October 19, 2026",
+      "summary": "This release includes 3 fixes.",
+      "markdown": "## Fixes\n- **deps**: Override shell-quote and Docusaurus tinypool/source-map-js to patched versions\n- **security**: Bound stored file paths to uploads, validate tax return queries\n- **security**: Inline the uploads bound in calculateFileHash so CodeQL sees it",
+      "commits": [
+        {
+          "sha": "43af3ca765a6e7f97ea64420ba8ca331c40548bc",
+          "shortSha": "43af3ca7",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T18:05:17Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "1e46b406088b36b97afe2f0d3f6f52327aa7514a",
+          "shortSha": "1e46b406",
+          "subject": "fix(deps): override shell-quote and Docusaurus tinypool/source-map-js to patched versions",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T22:58:22+03:00",
+          "files": [
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            "package-lock.json",
+            "package.json",
+            "website/package-lock.json",
+            "website/package.json"
+          ]
+        },
+        {
+          "sha": "aaa389e5cdf03d9838cf0c7224e03f12625c0da3",
+          "shortSha": "aaa389e5",
+          "subject": "fix(security): bound stored file paths to uploads, validate tax return queries",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T22:58:22+03:00",
+          "files": [
+            "backend/@tests/e2e/ustva.e2e-spec.ts",
+            "backend/@tests/unit/common/utils/uploads.util.spec.ts",
+            "backend/@tests/unit/modules/gmail/gmail-controller-thumbnail.spec.ts",
+            "backend/@tests/unit/modules/google-drive/google-drive.service.spec.ts",
+            "backend/@tests/unit/modules/mcp/mcp-tools.spec.ts",
+            "backend/scripts/create-admin.ts",
+            "backend/src/common/services/file-storage.service.ts",
+            "backend/src/common/utils/file-hash.util.ts",
+            "backend/src/common/utils/file-validator.util.ts",
+            "backend/src/common/utils/uploads.util.ts",
+            "backend/src/contracts/requests/queries.ts",
+            "backend/src/modules/crypto/crypto.controller.ts",
+            "backend/src/modules/e-invoices/zugferd.ts",
+            "backend/src/modules/gmail/gmail.controller.ts",
+            "backend/src/modules/google-drive/google-drive.service.ts",
+            "backend/src/modules/parsing/services/universal-amount-parser.service.ts",
+            "backend/src/modules/tax/tax-returns.controller.ts",
+            "frontend/app/lib/contracts/requests/queries.ts",
+            "packages/contracts/src/requests/queries.ts"
+          ]
+        },
+        {
+          "sha": "0ffdc1a0324860ead4d0d37fcec71bc8afae37cb",
+          "shortSha": "0ffdc1a0",
+          "subject": "chore: stop tracking Python bytecode from skill scripts",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T22:58:22+03:00",
+          "files": [
+            ".gitignore"
+          ]
+        },
+        {
+          "sha": "2d9b054f94a7ec7b244e21792dd89d6842250a64",
+          "shortSha": "2d9b054f",
+          "subject": "fix(security): inline the uploads bound in calculateFileHash so CodeQL sees it",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T23:04:07+03:00",
+          "files": [
+            "backend/src/common/utils/file-hash.util.ts"
+          ]
+        },
+        {
+          "sha": "df376c1c673d982bd3eab59e41d52baa83000f58",
+          "shortSha": "df376c1c",
+          "subject": "Merge pull request #352 from symonbaikov/fix/security-alerts",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T00:12:00+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-19-900ff01",
       "version": "main-900ff01",
