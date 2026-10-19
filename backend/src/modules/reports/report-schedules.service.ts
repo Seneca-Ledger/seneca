@@ -3,11 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import nodemailer from 'nodemailer';
 import { LessThanOrEqual, type Repository } from 'typeorm';
+import { workspaceRoleAllows } from '../../common/authz/workspace-permissions';
 import { toEnum } from '../../common/effect/to-enum';
+import { Permission } from '../../common/enums/permissions.enum';
 import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { CreateReportScheduleBody, GenerateReportBody } from '../../contracts';
 import { ReportSchedule, ReportScheduleCadence } from '../../entities/report-schedule.entity';
 import { User } from '../../entities/user.entity';
+import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
 import { renderTemplateLabels, templateTitle } from './report-template.translations';
 import { ReportsService } from './reports.service';
@@ -96,6 +99,8 @@ export class ReportSchedulesService {
     private readonly userRepository: Repository<User>,
     private readonly reportsService: ReportsService,
     private readonly applicationSettings: ApplicationSettingsService,
+    @InjectRepository(WorkspaceMember)
+    private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
   ) {}
 
   /**
@@ -238,7 +243,16 @@ export class ReportSchedulesService {
     });
 
     let failed = 0;
+    let ran = 0;
     for (const schedule of due) {
+      if (!(await this.creatorMayStillExport(schedule))) {
+        // Mailing on would hand the workspace's figures to someone it no longer trusts with them.
+        schedule.isActive = false;
+        schedule.lastError = 'Paused: whoever set this up can no longer export reports here';
+        await this.scheduleRepository.save(schedule);
+        continue;
+      }
+      ran += 1;
       const timeZone = await this.timeZoneOf(schedule.userId);
       try {
         await this.runSchedule(schedule, now, timeZone);
@@ -257,7 +271,16 @@ export class ReportSchedulesService {
       await this.scheduleRepository.save(schedule);
     }
 
-    return { ran: due.length, failed };
+    return { ran, failed };
+  }
+
+  /** The schedule's creator is still a member allowed to take the reports away. */
+  private async creatorMayStillExport(schedule: ReportSchedule): Promise<boolean> {
+    const membership = await this.workspaceMemberRepository.findOne({
+      where: { workspaceId: schedule.workspaceId, userId: schedule.userId },
+      select: ['role', 'permissions'],
+    });
+    return workspaceRoleAllows(Permission.REPORT_EXPORT, membership?.role, membership?.permissions);
   }
 
   private async runSchedule(schedule: ReportSchedule, now: Date, timeZone: string): Promise<void> {
