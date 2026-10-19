@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import * as os from 'node:os';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -199,7 +201,8 @@ export class ReceiptDocumentsService {
       return { kind: 'missing', error: 'No PDF attachment found' };
     }
 
-    const thumbnailPath = path.join('/tmp', `receipt-thumbnail-${id}-${Date.now()}.png`);
+    // Named by the server, not the request: nothing from the URL reaches the file system.
+    const thumbnailPath = path.join(os.tmpdir(), `receipt-thumbnail-${randomUUID()}.png`);
     try {
       const scriptPath = path.join(__dirname, '../../../../scripts/generate-thumbnail.py');
       await runExecutable('python3', [
