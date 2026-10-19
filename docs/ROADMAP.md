@@ -1,6 +1,6 @@
 # Roadmap
 
-What Lumio is working towards, in the order we intend to do it. Derived from the 2026 research
+What Seneca is working towards, in the order we intend to do it. Derived from the 2026 research
 into what people expect from a finance app (`docs/plans/2026-10-01-user-expectations-2026-research-plan.md`);
 that document has the evidence behind every line here. Dates are intentions, not promises.
 
@@ -49,7 +49,7 @@ that document has the evidence behind every line here. Dates are intentions, not
 - [x] Optional bank sync through the user's own provider account: SimpleFIN Bridge (open protocol,
       the user's own paid account, setup token → encrypted credential, pulls as OFX through the
       regular import, per-account switches and wallets, every 6 hours or on demand). README now says
-      "Lumio holds no bank integration of its own; you may connect your own provider account".
+      "Seneca holds no bank integration of its own; you may connect your own provider account".
       Enable Banking (EU/UK) is not wired: it needs an application registered with them.
 - [x] Mobile layer: service worker with an offline queue for manual entries and receipt photos, web
       push for alerts, home-screen shortcuts (2026-10-01).

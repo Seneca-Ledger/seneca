@@ -8,13 +8,13 @@
 #   scripts/validate-peppol.sh [file.xml ...]
 #
 # Needs docker. Downloads everything once into
-# ${XDG_CACHE_HOME:-~/.cache}/lumio-kosit/peppol. A fatal rule fails the run;
+# ${XDG_CACHE_HOME:-~/.cache}/seneca-kosit/peppol. A fatal rule fails the run;
 # warnings are printed.
 set -euo pipefail
 
 PEPPOL_RULES=v3.0.20
 CEN_RULES=1.3.17
-CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/lumio-kosit/peppol"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/seneca-kosit/peppol"
 JAVA="docker run --rm -v $CACHE:/c -w /c eclipse-temurin:21-jre java -cp saxon.jar net.sf.saxon.Transform"
 
 mkdir -p "$CACHE"

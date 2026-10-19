@@ -241,7 +241,7 @@ function TableDesktopHeader({
   const listText = useIntlayer('statementsListUi');
 
   return (
-    <div className="lumio-stmt-list-view__desktop-header">
+    <div className="seneca-stmt-list-view__desktop-header">
       <div
         style={{
           width: 16,
@@ -306,7 +306,7 @@ function TableDesktopHeader({
                   // Gives the column the width the rows' Review label takes.
                   <span
                     aria-hidden
-                    className="lumio-stmt-list-item__view-btn lumio-stmt-list-item__action-sizer"
+                    className="seneca-stmt-list-item__view-btn seneca-stmt-list-item__action-sizer"
                   >
                     {reviewLabel}
                   </span>
@@ -366,9 +366,9 @@ export function StatementsListTable({
   const shownColumns = withoutUniformFrom(columns, paginatedStatements);
   if (loading && gmailSyncSkeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__table">
+      <div className="seneca-stmt-list-view__table">
         {toolbar}
-        <div className="lumio-stmt-list-view__loading">
+        <div className="seneca-stmt-list-view__loading">
           <Spinner style={{ height: 80, width: 80, color: 'var(--primary)' }} />
         </div>
       </div>
@@ -377,9 +377,9 @@ export function StatementsListTable({
 
   if (displayStatements.length === 0 && gmailSyncSkeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__table">
+      <div className="seneca-stmt-list-view__table">
         {toolbar}
-        <div className="lumio-stmt-list-view__empty">
+        <div className="seneca-stmt-list-view__empty">
           <EmptyStateIllustration name="statements" size="lg" />
           <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--foreground)' }}>
             {labels.emptyTitle}
@@ -394,8 +394,8 @@ export function StatementsListTable({
 
   return (
     <>
-      <div className="lumio-stmt-list-view__table-scroll">
-        <div className="lumio-stmt-list-view__table">
+      <div className="seneca-stmt-list-view__table-scroll">
+        <div className="seneca-stmt-list-view__table">
           {toolbar}
           <TableDesktopHeader
             allVisibleSelected={allVisibleSelected}
@@ -470,7 +470,7 @@ export function StatementsListTable({
         </div>
       </div>
       <DocumentCategoryDrawer target={categoryTarget} onClose={() => setCategoryTarget(null)} />
-      <div className="lumio-stmt-list-view__pagination" style={{ marginTop: 24 }}>
+      <div className="seneca-stmt-list-view__pagination" style={{ marginTop: 24 }}>
         <div style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
           {formatPaginationLabel(labels.paginationShown, {
             from: rangeStart,

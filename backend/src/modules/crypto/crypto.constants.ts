@@ -22,7 +22,7 @@ export const ARBITRUM_CHAIN_ID = 42161;
  */
 export const TRON_CHAIN_ID = 728126428;
 /**
- * Bitcoin and Solana have no EVM chain id. These are Lumio's own, parked in a range
+ * Bitcoin and Solana have no EVM chain id. These are Seneca's own, parked in a range
  * no live EVM chain uses so they can share the `chain_id` column. Never send them
  * to anything that expects a real EVM chain id.
  */
@@ -30,7 +30,7 @@ export const BITCOIN_CHAIN_ID = 2_000_000_000;
 export const SOLANA_CHAIN_ID = 2_000_000_501;
 
 /**
- * Every chain Lumio syncs and the provider it syncs from (see crypto-sync.service.ts).
+ * Every chain Seneca syncs and the provider it syncs from (see crypto-sync.service.ts).
  * Adding a chain here is NOT enough on its own: an EVM chain needs its own explorer
  * host, and any other family needs a reader of its own, or the sync would pull
  * another chain's transactions into it.

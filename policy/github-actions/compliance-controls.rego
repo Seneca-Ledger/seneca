@@ -13,7 +13,7 @@ required_ci_jobs := {
   "typecheck",
 }
 
-# Lumio is self-hosted: CD builds, signs and publishes images and stops there.
+# Seneca is self-hosted: CD builds, signs and publishes images and stops there.
 # There is no deployment environment to gate and nothing deployed to smoke-test.
 required_cd_jobs := {
   "build-and-publish",

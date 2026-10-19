@@ -70,7 +70,7 @@ const errorCode = (error: unknown): string => {
 };
 
 /**
- * Writes cells of a table filled from Lumio data back to the app records they
+ * Writes cells of a table filled from Seneca data back to the app records they
  * show — through each record's own service, so permissions, tax locks, audit
  * and side effects are the app's — and puts them back on "Restore to default".
  *

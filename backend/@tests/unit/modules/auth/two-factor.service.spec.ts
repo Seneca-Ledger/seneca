@@ -9,6 +9,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { generateSync } from 'otplib';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../../../src/common/brand';
 
 describe('TwoFactorService', () => {
   let service: TwoFactorService;
@@ -68,7 +69,7 @@ describe('TwoFactorService', () => {
   it('stores the secret encrypted and stays disabled until a code is confirmed', async () => {
     const { secret, otpauthUrl } = await service.setup('u1', 'correct-password');
 
-    expect(otpauthUrl).toContain('otpauth://totp/Lumio');
+    expect(otpauthUrl).toContain(`otpauth://totp/${APP_NAME}`);
     expect(stored.twoFactorSecret).toMatch(/^enc:/);
     expect(stored.twoFactorSecret).not.toContain(secret);
     await expect(service.getStatus('u1')).resolves.toMatchObject({

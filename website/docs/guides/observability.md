@@ -3,7 +3,7 @@ title: Observability
 description: Metrics, logs, and health checks
 ---
 
-Lumio exposes metrics, logs and health endpoints. Which collector, dashboards and alerting you run is
+Seneca exposes metrics, logs and health endpoints. Which collector, dashboards and alerting you run is
 up to you — no monitoring stack ships with the repository.
 
 ## Metrics
@@ -16,7 +16,7 @@ up to you — no monitoring stack ships with the repository.
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: lumio
+  - job_name: seneca
     metrics_path: /api/v1/metrics
     authorization:
       credentials: <METRICS_AUTH_TOKEN>

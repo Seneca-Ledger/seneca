@@ -136,7 +136,7 @@ describe('SafeToSpendTile', () => {
     );
 
     await screen.findByText('430 €');
-    expect(container.querySelector('.lumio-dashboard__stat-spark svg')).not.toBeNull();
+    expect(container.querySelector('.seneca-dashboard__stat-spark svg')).not.toBeNull();
   });
 
   it('draws the forecast page chart in place of the sparkline with room', async () => {
@@ -156,7 +156,7 @@ describe('SafeToSpendTile', () => {
     );
 
     expect(await screen.findByTestId('forecast-chart')).toBeInTheDocument();
-    expect(container.querySelector('.lumio-dashboard__stat-spark')).toBeNull();
+    expect(container.querySelector('.seneca-dashboard__stat-spark')).toBeNull();
   });
 
   it('says it is today\'s figure while the Overview shows another month', async () => {
@@ -374,7 +374,7 @@ describe('AdviceCard', () => {
     renderWithQuery(<AdviceCard />);
 
     await screen.findByText('Stoic reading');
-    const titles = [...document.querySelectorAll('.lumio-dashboard__row-primary')].map(
+    const titles = [...document.querySelectorAll('.seneca-dashboard__row-primary')].map(
       node => node.textContent,
     );
     expect(titles).toEqual(['Stoic reading', 'First observation', 'Second observation']);

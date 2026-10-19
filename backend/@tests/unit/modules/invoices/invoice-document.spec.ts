@@ -7,17 +7,18 @@ import {
   type InvoiceDocumentInput,
   type InvoiceDocumentLine,
 } from '@/modules/invoices/invoice-document';
+import { APP_NAME } from '../../../../src/common/brand';
 
 const profile = {
   workspaceId: 'ws-1',
-  legalName: 'Lumio Software OÜ',
+  legalName: `${APP_NAME} Software OÜ`,
   registrationId: '16123456',
   taxId: 'EE102345678',
   addressLines: 'Tartu mnt 67\n10115 Tallinn',
   countryCode: 'EE',
-  email: 'billing@lumio.test',
+  email: 'billing@seneca.test',
   phone: '+372 5555 0100',
-  website: 'lumio.test',
+  website: 'seneca.test',
   bankName: 'LHV Pank',
   bankAccount: 'EE471000001020145685',
   bankCode: 'LHVBEE22',
@@ -82,12 +83,12 @@ describe('buildInvoicePdf', () => {
   it('prints who is billing: name, address, tax ids and contacts', async () => {
     const text = await textOf();
 
-    expect(text).toContain('Lumio Software OÜ');
+    expect(text).toContain(`${APP_NAME} Software OÜ`);
     expect(text).toContain('Tartu mnt 67');
     expect(text).toContain('10115 Tallinn');
     expect(text).toContain('16123456');
     expect(text).toContain('EE102345678');
-    expect(text).toContain('billing@lumio.test');
+    expect(text).toContain('billing@seneca.test');
   });
 
   it('prints how to pay it', async () => {

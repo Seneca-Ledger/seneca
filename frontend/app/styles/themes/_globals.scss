@@ -4,7 +4,7 @@
 @use '../abstracts' as *;
 
 // ── CSS custom properties (consumed by Tailwind/generic styling layer) ────────
-// These are the non-lumio CSS vars used throughout JSX inline styles and
+// These are the non-seneca CSS vars used throughout JSX inline styles and
 // Tailwind utilities. SCSS variables are the source of truth; we emit CSS vars
 // here for runtime consumption by components that haven't been migrated to tokens.
 
@@ -18,14 +18,14 @@
   // block below.
   --primary-fill:       #{$color-primary};
   --primary-fill-hover: #{$color-primary-hover};
-  --primary-foreground: #{$lumio-color-primary-contrast};
-  --primary-light:      #{$lumio-color-primary-100};
+  --primary-foreground: #{$seneca-color-primary-contrast};
+  --primary-light:      #{$seneca-color-primary-100};
   // Tints and the darker hover green, as vars so styles switch with the theme
-  // instead of baking in the light-mode $lumio-color-primary-* values.
-  --primary-50:         #{$lumio-color-primary-50};
-  --primary-100:        #{$lumio-color-primary-100};
-  --primary-200:        #{$lumio-color-primary-200};
-  --primary-strong:     #{$lumio-color-primary-dark};
+  // instead of baking in the light-mode $seneca-color-primary-* values.
+  --primary-50:         #{$seneca-color-primary-50};
+  --primary-100:        #{$seneca-color-primary-100};
+  --primary-200:        #{$seneca-color-primary-200};
+  --primary-strong:     #{$seneca-color-primary-dark};
   --primary-rgb:        91, 123, 106;
   --color-primary:      #{$color-primary};
   --color-primary-rgb:  91, 123, 106;
@@ -45,19 +45,19 @@
   --destructive-foreground: #{$color-destructive-foreground};
   --surface-glow:         #{$color-surface-glow};
   --surface-success-glow: #{$color-surface-success-glow};
-  --text-primary:       #{$lumio-color-text-primary};
-  --text-secondary:     #{$lumio-color-text-secondary};
-  --icon-badge-bg:      #{$lumio-color-icon-badge-bg};
+  --text-primary:       #{$seneca-color-text-primary};
+  --text-secondary:     #{$seneca-color-text-secondary};
+  --icon-badge-bg:      #{$seneca-color-icon-badge-bg};
   // A soft panel inside a card (Stoic class cards); neutral, unlike MUI's
   // action.hover, which this app tints green.
-  --surface-soft:       #{$lumio-color-slot-bg};
+  --surface-soft:       #{$seneca-color-slot-bg};
   // Money going up or down: deep sage and terracotta, not neon.
   // Grey text that has to be read; --muted-foreground stays for captions.
-  --text-muted:         #{$lumio-color-text-muted};
+  --text-muted:         #{$seneca-color-text-muted};
   // Ochre: something needs doing (overdue, incomplete). Not an error.
-  --attention:          #{$lumio-color-attention};
-  --money-up:           #{$lumio-color-money-up};
-  --money-down:         #{$lumio-color-money-down};
+  --attention:          #{$seneca-color-attention};
+  --money-up:           #{$seneca-color-money-up};
+  --money-down:         #{$seneca-color-money-down};
   // Category tones for charts: sage, terracotta, sand, dusty blue, clay; stone for "Other".
   --cat-tone-1:         #6f8f7b;
   --cat-tone-2:         #b8665a;
@@ -65,14 +65,14 @@
   --cat-tone-4:         #7c93a8;
   --cat-tone-5:         #a98b76;
   --cat-tone-other:     #a7ada3;
-  --radius:             #{$lumio-radius-md};
-  --radius-sm:          #{$lumio-radius-sm};
-  --radius-md:          #{$lumio-radius-md};
-  --radius-lg:          #{$lumio-radius-lg};
-  --radius-xl:          #{$lumio-radius-xl};
-  --radius-2xl:         #{$lumio-radius-xl};
-  --radius-3xl:         #{$lumio-radius-xl};
-  --radius-full:        #{$lumio-radius-full};
+  --radius:             #{$seneca-radius-md};
+  --radius-sm:          #{$seneca-radius-sm};
+  --radius-md:          #{$seneca-radius-md};
+  --radius-lg:          #{$seneca-radius-lg};
+  --radius-xl:          #{$seneca-radius-xl};
+  --radius-2xl:         #{$seneca-radius-xl};
+  --radius-3xl:         #{$seneca-radius-xl};
+  --radius-full:        #{$seneca-radius-full};
 
   /* Dashboard palette */
   --ff-dash-primary:       #{$ff-dash-primary};
@@ -89,8 +89,8 @@
   --ff-dashboard-card:            #{$ff-dash-surface};
   --ff-dashboard-card-border:     #{$ff-dash-border};
   --ff-dashboard-card-foreground: #{$ff-dash-foreground};
-  --font-dashboard-sans: #{$lumio-font-family};
-  --font-dashboard-mono: #{$lumio-font-family-mono};
+  --font-dashboard-sans: #{$seneca-font-family};
+  --font-dashboard-mono: #{$seneca-font-family-mono};
   --global-nav-height: #{$global-nav-height};
 
   /* ── Semantic soft status palette (light) ── */
@@ -111,47 +111,47 @@
   color-scheme: dark;
   --background:         #{$color-background-dk};
   --foreground:         #{$color-foreground-dk};
-  --primary:            #{$lumio-color-primary-dk};
-  --primary-hover:      #{$lumio-color-primary-hover-dk};
+  --primary:            #{$seneca-color-primary-dk};
+  --primary-hover:      #{$seneca-color-primary-hover-dk};
   // Not --primary: the accent green under white text is 2.2:1. See the note
   // in abstracts/_variables-dark.scss.
-  --primary-fill:       #{$lumio-color-primary-fill-dk};
-  --primary-fill-hover: #{$lumio-color-primary-fill-hover-dk};
+  --primary-fill:       #{$seneca-color-primary-fill-dk};
+  --primary-fill-hover: #{$seneca-color-primary-fill-hover-dk};
   // Warm off-white on the deep sage fill, not pure white.
   --primary-foreground: #ece7de;
-  --primary-light:      #{$lumio-color-primary-100-dk};
-  --primary-50:         #{$lumio-color-primary-50-dk};
-  --primary-100:        #{$lumio-color-primary-100-dk};
-  --primary-200:        #{$lumio-color-primary-200-dk};
+  --primary-light:      #{$seneca-color-primary-100-dk};
+  --primary-50:         #{$seneca-color-primary-50-dk};
+  --primary-100:        #{$seneca-color-primary-100-dk};
+  --primary-200:        #{$seneca-color-primary-200-dk};
   // A darker green would sink into the dark page; the hover accent reads instead.
-  --primary-strong:     #{$lumio-color-primary-hover-dk};
+  --primary-strong:     #{$seneca-color-primary-hover-dk};
   --primary-rgb:        143, 179, 159;
-  --color-primary:      #{$lumio-color-primary-dk};
+  --color-primary:      #{$seneca-color-primary-dk};
   --color-primary-rgb:  143, 179, 159;
-  --secondary:          #{$lumio-color-ink-200-dk};
-  --secondary-foreground: #{$lumio-color-ink-900-dk};
-  --muted:              #{$lumio-color-ink-100-dk};
-  --muted-foreground:   #{$lumio-color-ink-500-dk};
+  --secondary:          #{$seneca-color-ink-200-dk};
+  --secondary-foreground: #{$seneca-color-ink-900-dk};
+  --muted:              #{$seneca-color-ink-100-dk};
+  --muted-foreground:   #{$seneca-color-ink-500-dk};
   --muted-rgb:          38, 37, 35;
-  --card:               #{$lumio-color-surface-dk};
-  --card-bg:            #{$lumio-color-surface-dk};
-  --card-foreground:    #{$lumio-color-ink-900-dk};
-  --border:             #{$lumio-color-border-dk};
-  --border-color:       #{$lumio-color-border-dk};
-  --input:              #{$lumio-color-border-dk};
-  --ring:               #{$lumio-color-primary-dk};
-  --destructive:        #{$lumio-color-danger-dk};
+  --card:               #{$seneca-color-surface-dk};
+  --card-bg:            #{$seneca-color-surface-dk};
+  --card-foreground:    #{$seneca-color-ink-900-dk};
+  --border:             #{$seneca-color-border-dk};
+  --border-color:       #{$seneca-color-border-dk};
+  --input:              #{$seneca-color-border-dk};
+  --ring:               #{$seneca-color-primary-dk};
+  --destructive:        #{$seneca-color-danger-dk};
   --destructive-foreground: #ffffff;
   --surface-glow:         rgba(143, 179, 159, 0.24);
   --surface-success-glow: rgba(143, 179, 159, 0.2);
-  --text-primary:       #{$lumio-color-text-primary-dk};
-  --text-secondary:     #{$lumio-color-text-secondary-dk};
-  --icon-badge-bg:      #{$lumio-color-ink-100-dk};
-  --surface-soft:       #{$lumio-color-ink-100-dk};
-  --text-muted:         #{$lumio-color-ink-500-dk};
-  --attention:          #{$lumio-color-warning-dk};
-  --money-up:           #{$lumio-color-success-dk};
-  --money-down:         #{$lumio-color-danger-dk};
+  --text-primary:       #{$seneca-color-text-primary-dk};
+  --text-secondary:     #{$seneca-color-text-secondary-dk};
+  --icon-badge-bg:      #{$seneca-color-ink-100-dk};
+  --surface-soft:       #{$seneca-color-ink-100-dk};
+  --text-muted:         #{$seneca-color-ink-500-dk};
+  --attention:          #{$seneca-color-warning-dk};
+  --money-up:           #{$seneca-color-success-dk};
+  --money-down:         #{$seneca-color-danger-dk};
   // The same five tones, lighter, so the donut does not sink into the dark card.
   --cat-tone-1:         #8fb39f;
   --cat-tone-2:         #d9806f;
@@ -159,14 +159,14 @@
   --cat-tone-4:         #93a9bd;
   --cat-tone-5:         #bfa18b;
   --cat-tone-other:     #7d8279;
-  --radius:             #{$lumio-radius-md};
-  --radius-sm:          #{$lumio-radius-sm};
-  --radius-md:          #{$lumio-radius-md};
-  --radius-lg:          #{$lumio-radius-lg};
-  --radius-xl:          #{$lumio-radius-xl};
-  --radius-2xl:         #{$lumio-radius-xl};
-  --radius-3xl:         #{$lumio-radius-xl};
-  --radius-full:        #{$lumio-radius-full};
+  --radius:             #{$seneca-radius-md};
+  --radius-sm:          #{$seneca-radius-sm};
+  --radius-md:          #{$seneca-radius-md};
+  --radius-lg:          #{$seneca-radius-lg};
+  --radius-xl:          #{$seneca-radius-xl};
+  --radius-2xl:         #{$seneca-radius-xl};
+  --radius-3xl:         #{$seneca-radius-xl};
+  --radius-full:        #{$seneca-radius-full};
 
   /* ── Semantic soft status palette (dark) ── */
   --color-warning-soft-bg:     rgba(212, 169, 79, 0.12);
@@ -182,26 +182,26 @@
   --color-info-soft-text:      #8fa5b8;
 
   /* Dashboard palette (dark) */
-  --ff-dash-primary:       #{$lumio-color-primary-dk};
-  --ff-dash-primary-soft:  #{$lumio-color-primary-dark-dk};
-  --ff-dash-cta:           #{$lumio-color-primary-hover-dk};
-  --ff-dash-surface:       #{$lumio-color-surface-dk};
-  --ff-dash-foreground:    #{$lumio-color-ink-900-dk};
-  --ff-dash-muted:         #{$lumio-color-ink-100-dk};
-  --ff-dash-border:        #{$lumio-color-border-dk};
-  --ff-dash-critical:      #{$lumio-color-danger-dk};
-  --ff-dash-warning:       #{$lumio-color-warning-dk};
-  --ff-dash-info:          #{$lumio-color-info-dk};
-  --ff-dash-success:       #{$lumio-color-success-dk};
-  --ff-dashboard-card:            #{$lumio-color-surface-dk};
-  --ff-dashboard-card-border:     #{$lumio-color-border-dk};
-  --ff-dashboard-card-foreground: #{$lumio-color-ink-900-dk};
+  --ff-dash-primary:       #{$seneca-color-primary-dk};
+  --ff-dash-primary-soft:  #{$seneca-color-primary-dark-dk};
+  --ff-dash-cta:           #{$seneca-color-primary-hover-dk};
+  --ff-dash-surface:       #{$seneca-color-surface-dk};
+  --ff-dash-foreground:    #{$seneca-color-ink-900-dk};
+  --ff-dash-muted:         #{$seneca-color-ink-100-dk};
+  --ff-dash-border:        #{$seneca-color-border-dk};
+  --ff-dash-critical:      #{$seneca-color-danger-dk};
+  --ff-dash-warning:       #{$seneca-color-warning-dk};
+  --ff-dash-info:          #{$seneca-color-info-dk};
+  --ff-dash-success:       #{$seneca-color-success-dk};
+  --ff-dashboard-card:            #{$seneca-color-surface-dk};
+  --ff-dashboard-card-border:     #{$seneca-color-border-dk};
+  --ff-dashboard-card-foreground: #{$seneca-color-ink-900-dk};
 }
 
 body {
   background-color: $color-background;
   color: $color-foreground;
-  font-family: $lumio-font-family;
+  font-family: $seneca-font-family;
   font-feature-settings: "ss01", "cv11";
   margin: 0;
   padding: 0;
@@ -236,7 +236,7 @@ input[type='checkbox']:not(.PrivateSwitchBase-input) {
     vertical-align: middle;
     background: #f5f5f5;
     border: none;
-    border-radius: $lumio-radius-xs;
+    border-radius: $seneca-radius-xs;
 
     @include dark {
       background: rgba(232, 232, 240, 0.18);
@@ -261,8 +261,8 @@ input[type='checkbox']:not(.PrivateSwitchBase-input) {
 }
 
 // ── Font helper classes ───────────────────────────────────────
-.ff-dashboard-sans { font-family: $lumio-font-family; }
-.ff-dashboard-mono { font-family: $lumio-font-family-mono; }
+.ff-dashboard-sans { font-family: $seneca-font-family; }
+.ff-dashboard-mono { font-family: $seneca-font-family-mono; }
 
 .ff-logo {
   font-family: var(--font-nunito), "Nunito", sans-serif;
@@ -287,7 +287,7 @@ button,
 select,
 textarea,
 input:not([type='checkbox']):not([type='radio']) {
-  border-radius: $lumio-radius-md;
+  border-radius: $seneca-radius-md;
 }
 
 .rounded,
@@ -297,16 +297,16 @@ input:not([type='checkbox']):not([type='radio']) {
 .rounded-xl,
 .rounded-2xl,
 .rounded-3xl {
-  border-radius: $lumio-radius-md !important;
+  border-radius: $seneca-radius-md !important;
 }
 
 button[data-statements-fab-interactive="true"] {
-  border-radius: $lumio-radius-full !important;
+  border-radius: $seneca-radius-full !important;
 }
 
-.lumio-bottom-bar__fab,
-.lumio-bottom-bar__fab-action {
-  border-radius: $lumio-radius-full !important;
+.seneca-bottom-bar__fab,
+.seneca-bottom-bar__fab-action {
+  border-radius: $seneca-radius-full !important;
 }
 
 // ── Body state classes ────────────────────────────────────────
@@ -318,11 +318,11 @@ body.body-scroll-locked {
 body.ff-table-fullscreen {
   overflow: hidden;
 
-  .lumio-topbar { display: none; }
+  .seneca-topbar { display: none; }
 
-  .lumio-shell__sidebar { display: none; }
+  .seneca-shell__sidebar { display: none; }
 
-  .lumio-shell__content > main {
+  .seneca-shell__content > main {
     height: 100vh;
     overflow: hidden;
   }
@@ -330,7 +330,7 @@ body.ff-table-fullscreen {
   &.ff-table-columns-scroll {
     overflow: auto;
 
-    .lumio-shell__content > main {
+    .seneca-shell__content > main {
       height: auto;
       overflow: visible;
     }

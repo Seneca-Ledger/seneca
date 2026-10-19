@@ -51,7 +51,7 @@ describe('AdvicePage', () => {
     ]);
     expect(within(attention as HTMLElement).getByText('Figma now costs 25% more')).toBeTruthy();
     expect(within(info as HTMLElement).getByText('Savings rate is up')).toBeTruthy();
-    expect(container.querySelectorAll('.lumio-advice__dot')).toHaveLength(1);
+    expect(container.querySelectorAll('.seneca-advice__dot')).toHaveLength(1);
     expect(screen.getAllByText('2 days ago')).toHaveLength(3);
   });
 

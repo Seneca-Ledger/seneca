@@ -28,10 +28,10 @@ function buildCardClass({
   hasErrors?: boolean;
   hasWarnings?: boolean;
 }): string {
-  if (isSelected) return 'lumio-tx-card lumio-tx-card--selected';
-  if (hasErrors) return 'lumio-tx-card lumio-tx-card--error';
-  if (hasWarnings) return 'lumio-tx-card lumio-tx-card--warning';
-  return 'lumio-tx-card';
+  if (isSelected) return 'seneca-tx-card seneca-tx-card--selected';
+  if (hasErrors) return 'seneca-tx-card seneca-tx-card--error';
+  if (hasWarnings) return 'seneca-tx-card seneca-tx-card--warning';
+  return 'seneca-tx-card';
 }
 
 function MobileAmounts({
@@ -49,7 +49,7 @@ function MobileAmounts({
       formatters.resolveDisplayCurrency(tx),
     );
   return (
-    <div className="lumio-tx-card__amounts">
+    <div className="seneca-tx-card__amounts">
       {debit > 0 && (
         <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>{fmtAmt(debit)}</p>
       )}
@@ -76,7 +76,7 @@ function MobileExpandedDetails({
 }): React.ReactElement {
   const t = useIntlayer('transactionsTable');
   return (
-    <div className="lumio-tx-card__expanded">
+    <div className="seneca-tx-card__expanded">
       <div>
         <span
           style={{
@@ -156,8 +156,8 @@ export function TransactionMobileCard({
         hasWarnings: tx.hasWarnings,
       })}
     >
-      <div className="lumio-tx-card__body">
-        <div className="lumio-tx-card__checkbox">
+      <div className="seneca-tx-card__body">
+        <div className="seneca-tx-card__checkbox">
           <Checkbox
             checked={isSelected}
             onCheckedChange={handlers.onSelectRow(tx.id)}
@@ -165,14 +165,14 @@ export function TransactionMobileCard({
             aria-label={t.selectTransaction.value.replace('{name}', tx.counterpartyName)}
           />
         </div>
-        <div className="lumio-tx-card__content">
+        <div className="seneca-tx-card__content">
           <button
             type="button"
             onClick={() => handlers.onRowClick(tx)}
-            className="lumio-tx-card__clickable"
+            className="seneca-tx-card__clickable"
           >
-            <div className="lumio-tx-card__header">
-              <div className="lumio-tx-card__name">
+            <div className="seneca-tx-card__header">
+              <div className="seneca-tx-card__name">
                 <p>
                   {tx.counterpartyName}
                   {tx.isVerified === false ? (
@@ -193,9 +193,9 @@ export function TransactionMobileCard({
               </div>
               <MobileAmounts tx={tx} formatters={formatters} />
             </div>
-            <p className="lumio-tx-card__purpose">{tx.paymentPurpose || '—'}</p>
+            <p className="seneca-tx-card__purpose">{tx.paymentPurpose || '—'}</p>
           </button>
-          <div className="lumio-tx-card__footer">
+          <div className="seneca-tx-card__footer">
             <div style={{ minWidth: 0 }}>
               <CategoryDropdown
                 tx={tx}
@@ -210,7 +210,7 @@ export function TransactionMobileCard({
               onClick={handlers.onToggleExpansion(tx.id)}
               aria-expanded={isExpanded}
               aria-label={isExpanded ? t.collapseRow.value : t.expandRow.value}
-              className="lumio-tx-card__expand-btn"
+              className="seneca-tx-card__expand-btn"
             >
               {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>

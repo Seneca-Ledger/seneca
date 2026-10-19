@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Behaviour-first code reviewer for Lumio. Use after a change is implemented (a diff, a branch, a worktree or a list of files) to check that the code actually does what it claims — it runs the existing tests, writes throwaway probe tests for risky claims, and mutation-checks the tests that matter. Reports findings backed by command output, not opinions. Read-only on source code.
+description: Behaviour-first code reviewer for Seneca. Use after a change is implemented (a diff, a branch, a worktree or a list of files) to check that the code actually does what it claims — it runs the existing tests, writes throwaway probe tests for risky claims, and mutation-checks the tests that matter. Reports findings backed by command output, not opinions. Read-only on source code.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -35,7 +35,7 @@ file there, `chmod 600` — it holds secrets, never print it):
 docker exec finflow-backend env | grep -vE '^(PATH|HOSTNAME|HOME|NODE_VERSION|YARN_VERSION|PWD|SHLVL|TERM)=' > "$SCRATCH/backend.env"
 docker run --rm --network lumio_finflow-network --env-file "$SCRATCH/backend.env" \
   -v "<checkout>/backend":/app -v lumio_backend_node_modules:/app/node_modules:ro -w /app \
-  --entrypoint sh lumio-backend:dev -c 'node node_modules/.bin/jest --config jest.unit.config.ts <pattern>'
+  --entrypoint sh seneca-backend:dev -c 'node node_modules/.bin/jest --config jest.unit.config.ts <pattern>'
 ```
 
 - Use `node node_modules/.bin/<tool>`, not `npx` (npx is broken in that image). Without the env file,
@@ -44,7 +44,7 @@ docker run --rm --network lumio_finflow-network --env-file "$SCRATCH/backend.env
 - Backend lint: mount the whole checkout (`-v <checkout>:/repo -v lumio_backend_node_modules:/repo/backend/node_modules:ro -w /repo/backend`)
   and run `node_modules/.bin/biome check --config-path=.. <files>`.
 - Frontend: tests are Vitest (`vitest run <file>`); lint is **both** Biome and ESLint — check both.
-  Use the `lumio-frontend:dev` image with the `lumio_frontend_node_modules` volume the same way.
+  Use the `seneca-frontend:dev` image with the `lumio_frontend_node_modules` volume the same way.
 - Known environment-only failures, not regressions: `@tests/integration/hapoalim-parser-test.spec.ts`
   (fixtures live outside `backend/`), `@tests/unit/electron/external-url-policy.spec.ts`,
   `@tests/unit/modules/auth/auth.controller.spec.ts` (`FRONTEND_URL` differs in the container).

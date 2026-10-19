@@ -150,9 +150,9 @@ describe('TrendsTab', () => {
   it('names the month on every card and keeps the figures without signs or dots', () => {
     renderTab();
 
-    const net = screen.getByText('$60').closest('.lumio-dashboard__stat');
+    const net = screen.getByText('$60').closest('.seneca-dashboard__stat');
     expect(net?.textContent).toContain('March 2026');
-    expect(net?.querySelector('.lumio-dashboard__stat-dot')).toBeNull();
+    expect(net?.querySelector('.seneca-dashboard__stat-dot')).toBeNull();
     expect(screen.getByText('Expense $40 · March 2026')).toBeInTheDocument();
   });
 
@@ -162,7 +162,7 @@ describe('TrendsTab', () => {
     expect(screen.getByText('Office')).toBeInTheDocument();
     expect(screen.getByText('Rent')).toBeInTheDocument();
     expect(chartProps.mock.calls.some(([props]) => 'slices' in props)).toBe(false);
-    const bars = document.querySelectorAll<HTMLElement>('.lumio-dashboard__share-bar > span');
+    const bars = document.querySelectorAll<HTMLElement>('.seneca-dashboard__share-bar > span');
     expect([...bars].map(bar => bar.style.width)).toEqual([`${(40 / 65) * 100}%`, `${(25 / 65) * 100}%`]);
   });
 
@@ -178,7 +178,7 @@ describe('TrendsTab', () => {
     renderTab();
 
     expect(chartProps.mock.calls.some(([props]) => 'slices' in props)).toBe(true);
-    expect(document.querySelector('.lumio-dashboard__share-bar')).toBeNull();
+    expect(document.querySelector('.seneca-dashboard__share-bar')).toBeNull();
   });
 
   it('highlights the picked month on the cash flow chart and switches month from a bar', () => {

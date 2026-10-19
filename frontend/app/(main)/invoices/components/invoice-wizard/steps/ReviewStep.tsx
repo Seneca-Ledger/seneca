@@ -22,14 +22,14 @@ function ReviewRow({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <section className="lumio-invoice-wizard__review-row">
-      <div className="lumio-invoice-wizard__review-head">
+    <section className="seneca-invoice-wizard__review-row">
+      <div className="seneca-invoice-wizard__review-head">
         <h3>{title}</h3>
         <Button variant="ghost" size="sm" onClick={onEdit} aria-label={`${editLabel}: ${title}`}>
           {editLabel}
         </Button>
       </div>
-      <div className="lumio-invoice-wizard__review-body">{children}</div>
+      <div className="seneca-invoice-wizard__review-body">{children}</div>
     </section>
   );
 }
@@ -73,13 +73,13 @@ export function ReviewStep({
       </ReviewRow>
 
       <ReviewRow title={t.review.items.value} editLabel={editLabel} onEdit={() => onEdit('items')}>
-        <ul className="lumio-invoice-wizard__review-lines">
+        <ul className="seneca-invoice-wizard__review-lines">
           {form.lineItems.map((line, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: rows have no stable id before saving
             <li key={index}>
               <span>
                 {line.description || '—'}{' '}
-                <span className="lumio-invoice-wizard__muted">
+                <span className="seneca-invoice-wizard__muted">
                   {line.quantity} × {formatMoney(Number(line.unitPrice || 0), currency, locale)}
                   {line.adjustmentPercent
                     ? ` ${line.adjustmentPercent > 0 ? '+' : ''}${line.adjustmentPercent}%`
@@ -109,7 +109,7 @@ export function ReviewStep({
         editLabel={editLabel}
         onEdit={() => onEdit('extras')}
       >
-        <dl className="lumio-invoice-wizard__review-extras">
+        <dl className="seneca-invoice-wizard__review-extras">
           <div>
             <dt>{page.detail.currency.value}</dt>
             <dd>{currency}</dd>
@@ -137,7 +137,7 @@ export function ReviewStep({
           {form.notes ? (
             <div>
               <dt>{page.detail.notes.value}</dt>
-              <dd className="lumio-invoice-wizard__review-notes">{form.notes}</dd>
+              <dd className="seneca-invoice-wizard__review-notes">{form.notes}</dd>
             </div>
           ) : null}
         </dl>

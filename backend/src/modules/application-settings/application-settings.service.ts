@@ -329,7 +329,7 @@ export class ApplicationSettingsService {
     const modelId = existing.modelId || DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID;
     const modelRoot = this.getLocalCategorizationModelRoot();
     const targetDir = this.resolveLocalModelDirectory(modelRoot, modelId);
-    const stagingDir = path.join(os.tmpdir(), `lumio-model-${randomUUID()}`);
+    const stagingDir = path.join(os.tmpdir(), `seneca-model-${randomUUID()}`);
 
     try {
       await fs.mkdir(stagingDir, { recursive: true });

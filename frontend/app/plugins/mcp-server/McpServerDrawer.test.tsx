@@ -40,7 +40,7 @@ describe('McpServerDrawer', () => {
 
     const text = document.body.textContent ?? '';
     expect(text).toMatch(/https?:\/\/[^\s"]+\/api\/v1\/mcp/);
-    expect(text).toContain('claude mcp add --transport http lumio');
+    expect(text).toContain('claude mcp add --transport http seneca');
     expect(text).toContain('"X-Api-Key": "lum_<your-api-key>"');
     expect(text).not.toMatch(/npm run build|LUMIO_WORKSPACE_ID/);
   });

@@ -64,7 +64,7 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 
 ---
 
-## Project Context (Lumio)
+## Project Context (Seneca)
 
 Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, api-standards, clean-architecture, frontend-perf, observability, best-practices, effect, design-tokens). Read those before changes in those domains.
 
@@ -100,5 +100,6 @@ npm run migration:generate -- src/migrations/<Name>
 - Docker dev: `node_modules` and `.next` are named volumes; `scripts/dev-entrypoint.sh` in each app re-runs `npm ci` only when `package-lock.json` changed. Dev images never compile source (bind mount).
 - TypeORM SQL logging is off unless `DB_QUERY_LOGGING=true`.
 - Always run migrations via the npm scripts, not raw `typeorm` — `migration:run` acquires a lock to prevent concurrent runs in deployment.
+- Product name comes from `APP_NAME` (root `.env`): never write the name into UI text, e-mails or bot replies — use `APP_NAME`/`APP_SLUG` from `frontend/app/lib/brand.ts` or `backend/src/common/brand.ts` (in `*.content.ts` as a template literal). Seneca inside the Stoic quotes is the philosopher, not the product.
 - Tenant isolation: every backend query must filter by `workspaceId`. See `.claude/rules/security.md`.
 - API schemas live in `packages/contracts/src`; `backend/src/contracts` and `frontend/app/lib/contracts` are generated copies. Edit the source, then `npm run contracts:sync` (pre-commit and CI run `contracts:check`). See `.claude/rules/effect.md`.

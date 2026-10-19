@@ -11,6 +11,7 @@ import { Spinner } from '@/app/components/ui/spinner';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { APP_NAME } from '@/app/lib/brand';
 import { formatDateTime } from '@/app/lib/format-datetime';
 import { tokens } from '@/lib/theme-tokens';
 import { IntegrationStatusCard } from '../components/IntegrationStatusCard';
@@ -158,7 +159,7 @@ function GmailSettingsPanel({
               {t.settings.labelName.value}
             </Typography>
             <Typography style={{ fontWeight: 500, color: c.ink900 }}>
-              {status.settings?.labelName || 'Lumio/Receipts'}
+              {status.settings?.labelName || `${APP_NAME}/Receipts`}
             </Typography>
           </Stack>
           <Stack spacing={0.5}>
@@ -368,7 +369,7 @@ export default function GmailIntegrationPage(): React.JSX.Element {
   if (!user) return <GmailNotLoggedInView t={t} />;
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--lumio-page-top, 40px)', pb: 5 }}>
+    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--seneca-page-top, 40px)', pb: 5 }}>
       {loading && (
         <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           <CircularProgress size={16} />

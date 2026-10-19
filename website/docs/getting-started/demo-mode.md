@@ -1,9 +1,9 @@
 ---
 title: Demo Mode
-description: Explore Lumio with a demo account
+description: Explore Seneca with a demo account
 ---
 
-Lumio ships a demo account so you can log in and explore right away.
+Seneca ships a demo account so you can log in and explore right away.
 
 ## Create the demo account
 
@@ -19,7 +19,7 @@ and reports fill in. Running it again resets the demo password.
 
 ## Demo credentials
 
-- Email: `demo@lumio.dev`
+- Email: `demo@seneca.dev`
 - Password: `demo123`
 
 ## What to try

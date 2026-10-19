@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
     unsupported: 'Location is not available in this browser.',
     browserBlocked: 'Your browser blocks location for this site.',
     placePromptLabel: 'Ask for the shop when there was no GPS',
-    placePromptHelp: 'Lumio asks which shop it was once GPS is back.',
+    placePromptHelp: 'Seneca asks which shop it was once GPS is back.',
   } as Record<string, string>,
 }));
 

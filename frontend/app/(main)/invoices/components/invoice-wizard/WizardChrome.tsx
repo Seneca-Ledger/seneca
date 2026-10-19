@@ -18,21 +18,21 @@ export function WizardProgress({
   progressLabel: string;
 }): React.ReactElement {
   return (
-    <div className="lumio-invoice-wizard__progress">
+    <div className="seneca-invoice-wizard__progress">
       {/* "Step 2 of 6 · Items": the number and the name of the step. */}
-      <span className="lumio-invoice-wizard__progress-label">
+      <span className="seneca-invoice-wizard__progress-label">
         {progressLabel}
         {labels[current] ? ` · ${labels[current]}` : ''}
       </span>
-      <ol className="lumio-invoice-wizard__segments">
+      <ol className="seneca-invoice-wizard__segments">
         {labels.map((label, index) => (
           <li
             key={label}
             aria-current={index === current ? 'step' : undefined}
             className={
               index <= current
-                ? 'lumio-invoice-wizard__segment lumio-invoice-wizard__segment--done'
-                : 'lumio-invoice-wizard__segment'
+                ? 'seneca-invoice-wizard__segment seneca-invoice-wizard__segment--done'
+                : 'seneca-invoice-wizard__segment'
             }
           >
             <span style={visuallyHidden}>{label}</span>
@@ -60,7 +60,7 @@ export function WizardHeading({
     ref.current?.focus({ preventScroll: true });
   }, []);
   return (
-    <div className="lumio-invoice-wizard__heading">
+    <div className="seneca-invoice-wizard__heading">
       <h2 ref={ref} tabIndex={-1}>
         {title}
       </h2>
@@ -82,16 +82,16 @@ export function WizardField({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="lumio-payable-drawer__field-group">
+    <div className="seneca-payable-drawer__field-group">
       {htmlFor ? (
-        <label className="lumio-payable-drawer__field-label" htmlFor={htmlFor}>
+        <label className="seneca-payable-drawer__field-label" htmlFor={htmlFor}>
           {label}
         </label>
       ) : (
-        <span className="lumio-payable-drawer__field-label">{label}</span>
+        <span className="seneca-payable-drawer__field-label">{label}</span>
       )}
       {children}
-      {hint ? <p className="lumio-invoice-wizard__hint">{hint}</p> : null}
+      {hint ? <p className="seneca-invoice-wizard__hint">{hint}</p> : null}
     </div>
   );
 }
@@ -108,7 +108,7 @@ export function WizardTotals({ form }: { form: InvoiceForm }): React.ReactElemen
       ? form.taxRates.find(rate => rate.id === [...lineRates][0])?.rate
       : undefined;
   return (
-    <dl className="lumio-invoice-wizard__totals">
+    <dl className="seneca-invoice-wizard__totals">
       <div>
         <dt>{t.detail.subtotal.value}</dt>
         <dd>{formatMoney(totals.subtotal, currency, locale)}</dd>
@@ -120,7 +120,7 @@ export function WizardTotals({ form }: { form: InvoiceForm }): React.ReactElemen
         </dt>
         <dd>{formatMoney(totals.taxTotal, currency, locale)}</dd>
       </div>
-      <div className="lumio-invoice-wizard__total">
+      <div className="seneca-invoice-wizard__total">
         <dt>{t.columns.total.value}</dt>
         <dd>{formatMoney(totals.total, currency, locale)}</dd>
       </div>

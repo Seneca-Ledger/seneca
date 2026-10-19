@@ -27,7 +27,7 @@ const idleRun: SystemUpdateStatus['run'] = {
 const statusOf = (overrides: Partial<SystemUpdateStatus> = {}): SystemUpdateStatus => ({
   currentVersion: 'v1.2.0',
   latestVersion: 'v1.3.0',
-  releaseUrl: 'https://github.com/symonbaikov/lumio/releases/tag/v1.3.0',
+  releaseUrl: 'https://github.com/symonbaikov/seneca/releases/tag/v1.3.0',
   updateAvailable: true,
   updaterAvailable: true,
   run: idleRun,

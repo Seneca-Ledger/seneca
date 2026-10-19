@@ -61,7 +61,7 @@ vi.mock('react-intlayer', () => ({
 
 vi.mock('@/app/lib/theme-preference', () => ({
   DEFAULT_THEME_PREFERENCE: 'light',
-  THEME_STORAGE_EVENT: 'lumio-theme-change',
+  THEME_STORAGE_EVENT: 'seneca-theme-change',
   getStoredThemePreference: () => 'light',
   persistPaletteModeCookie: themeMocks.persistPaletteModeCookie,
   resolveThemePreference: (value: string) => value,

@@ -29,7 +29,7 @@ export function OnboardingLayout({ header, footer, aside, children }: Onboarding
       }}
     >
       <Box
-        className="lumio-auth-form-panel"
+        className="seneca-auth-form-panel"
         sx={{
           display: 'flex',
           flexDirection: 'column',

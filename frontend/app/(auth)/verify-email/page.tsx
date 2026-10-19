@@ -5,6 +5,7 @@ import NextLink from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import React, { Suspense, useEffect, useState } from 'react';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { BrandLockup } from '@/app/components/BrandLockup';
 import { Check } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -46,33 +47,33 @@ function VerifyEmailContent(): React.JSX.Element {
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
-      <div className="lumio-auth-logo" role="img" aria-label="Lumio" />
-      <Typography component="h1" className="lumio-auth-title">
+      <BrandLockup className="seneca-auth-logo" />
+      <Typography component="h1" className="seneca-auth-title">
         {t.title}
       </Typography>
 
       {status === 'checking' && (
-        <p role="status" className="lumio-auth-notice lumio-auth-notice--plain">
+        <p role="status" className="seneca-auth-notice seneca-auth-notice--plain">
           <CircularProgress size={16} color="inherit" />
           <span>{t.checking}</span>
         </p>
       )}
 
       {status === 'confirmed' && (
-        <p role="status" className="lumio-auth-notice">
+        <p role="status" className="seneca-auth-notice">
           <Check size={18} aria-hidden />
           <span>{t.success}</span>
         </p>
       )}
 
       {status === 'failed' && (
-        <p role="alert" className="lumio-auth-error lumio-auth-error--block">
+        <p role="alert" className="seneca-auth-error seneca-auth-error--block">
           {error}
         </p>
       )}
 
-      <p className="lumio-auth-footnote">
-        <NextLink href="/login" className="lumio-auth-link lumio-auth-link--accent">
+      <p className="seneca-auth-footnote">
+        <NextLink href="/login" className="seneca-auth-link seneca-auth-link--accent">
           {t.backToLogin}
         </NextLink>
       </p>

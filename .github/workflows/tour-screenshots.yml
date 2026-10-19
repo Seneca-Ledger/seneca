@@ -56,9 +56,9 @@ jobs:
       - name: Write the stack's .env
         run: |
           {
-            echo "POSTGRES_USER=lumio"
+            echo "POSTGRES_USER=seneca"
             echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
-            echo "POSTGRES_DB=lumio"
+            echo "POSTGRES_DB=seneca"
             echo "JWT_SECRET=$(openssl rand -base64 32)"
             echo "JWT_REFRESH_SECRET=$(openssl rand -base64 32)"
             echo "INTEGRATIONS_ENCRYPTION_KEY=$(openssl rand -base64 32)"

@@ -5,6 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import NextLink from 'next/link';
 import React, { useState } from 'react';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { BrandLockup } from '@/app/components/BrandLockup';
 import { Check } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -41,19 +42,19 @@ export default function ForgotPasswordPage(): React.JSX.Element {
       });
   };
 
-  // The same right half as sign-in: what Lumio is for, not this form's text again.
+  // The same right half as sign-in: what Seneca is for, not this form's text again.
   const sideContent = <AuthHero tagline={tl.rightTagline} />;
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
-      <div className="lumio-auth-logo" role="img" aria-label="Lumio" />
-      <Typography component="h1" className="lumio-auth-title lumio-auth-title--with-lead">
+      <BrandLockup className="seneca-auth-logo" />
+      <Typography component="h1" className="seneca-auth-title seneca-auth-title--with-lead">
         {t.title}
       </Typography>
-      <p className="lumio-auth-lead">{t.subtitle}</p>
+      <p className="seneca-auth-lead">{t.subtitle}</p>
 
       {sent ? (
-        <p role="status" className="lumio-auth-notice">
+        <p role="status" className="seneca-auth-notice">
           <Check size={18} aria-hidden />
           <span>{t.sent}</span>
         </p>
@@ -61,11 +62,11 @@ export default function ForgotPasswordPage(): React.JSX.Element {
         <Box
           component="form"
           onSubmit={handleSubmit}
-          className="lumio-auth-form"
+          className="seneca-auth-form"
           sx={{ width: '100%' }}
         >
-          <div className="lumio-auth-field">
-            <label htmlFor="email" className="lumio-auth-field__label">
+          <div className="seneca-auth-field">
+            <label htmlFor="email" className="seneca-auth-field__label">
               {t.emailLabel}
             </label>
             <TextField
@@ -82,7 +83,7 @@ export default function ForgotPasswordPage(): React.JSX.Element {
               slotProps={{ htmlInput: { 'aria-describedby': error ? 'forgot-error' : undefined } }}
             />
             {error ? (
-              <p id="forgot-error" role="alert" className="lumio-auth-error">
+              <p id="forgot-error" role="alert" className="seneca-auth-error">
                 {error}
               </p>
             ) : null}
@@ -92,7 +93,7 @@ export default function ForgotPasswordPage(): React.JSX.Element {
             fullWidth
             variant="contained"
             size="large"
-            className="lumio-auth-submit"
+            className="seneca-auth-submit"
             disabled={loading}
           >
             {loading ? (
@@ -107,8 +108,8 @@ export default function ForgotPasswordPage(): React.JSX.Element {
         </Box>
       )}
 
-      <p className="lumio-auth-footnote">
-        <NextLink href="/login" className="lumio-auth-link lumio-auth-link--accent">
+      <p className="seneca-auth-footnote">
+        <NextLink href="/login" className="seneca-auth-link seneca-auth-link--accent">
           {t.backToLogin}
         </NextLink>
       </p>

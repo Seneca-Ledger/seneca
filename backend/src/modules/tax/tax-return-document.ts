@@ -1,4 +1,5 @@
 import * as xlsx from 'xlsx';
+import { APP_NAME } from '../../common/brand';
 import { toCsv } from '../../common/utils/csv.util';
 import type { TaxReturnSnapshotLine } from '../../entities/tax-return.entity';
 
@@ -98,7 +99,7 @@ function summaryRows(input: TaxReturnDocumentInput): Array<[string, string]> {
  * printed draft from being mistaken for what was submitted.
  */
 const DISCLAIMER =
-  'Produced by Lumio from your own data using rates we maintain. Not a substitute for advice ' +
+  `Produced by ${APP_NAME} from your own data using rates we maintain. Not a substitute for advice ` +
   'from an accountant — check these figures before submitting anything.';
 
 export function buildTaxReturnXlsx(input: TaxReturnDocumentInput): Buffer {

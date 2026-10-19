@@ -168,10 +168,10 @@ describe('StatementsListItem', () => {
 
     // CSS shows one or the other at 768px; the phone row must carry who, how much and when.
     const mobile = container.querySelector('[data-testid="statement-item-mobile-statement-1"]');
-    expect(mobile?.querySelector('.lumio-stmt-list-item__mobile-merchant')?.textContent).toBe(
+    expect(mobile?.querySelector('.seneca-stmt-list-item__mobile-merchant')?.textContent).toBe(
       'Kaspi',
     );
-    expect(mobile?.querySelector('.lumio-stmt-list-item__mobile-amount')?.textContent).toBe(
+    expect(mobile?.querySelector('.seneca-stmt-list-item__mobile-amount')?.textContent).toBe(
       '1,200 KZT',
     );
     expect(mobile?.textContent).toContain('01/31/2026');
@@ -406,7 +406,7 @@ describe('StatementsListItem', () => {
     expect(onView).toHaveBeenCalledTimes(1);
 
     const overlayButton = container.querySelector(
-      '.lumio-stmt-list-item__desktop-overlay',
+      '.seneca-stmt-list-item__desktop-overlay',
     ) as HTMLButtonElement | null;
     expect(overlayButton).toBeTruthy();
 
@@ -554,9 +554,9 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.querySelector('.lumio-stmt-badge--review')).toBeTruthy();
+    expect(container.querySelector('.seneca-stmt-badge--review')).toBeTruthy();
     // Must not read as done: the statement is excluded from analytics until confirmed.
-    expect(container.querySelector('.lumio-stmt-badge--completed')).toBeNull();
+    expect(container.querySelector('.seneca-stmt-badge--completed')).toBeNull();
     expect(container.textContent).toContain('Needs review');
   });
 
@@ -599,7 +599,7 @@ describe('StatementsListItem', () => {
     });
 
     const overlayButton = container.querySelector(
-      '.lumio-stmt-list-item__desktop-overlay',
+      '.seneca-stmt-list-item__desktop-overlay',
     ) as HTMLButtonElement | null;
     expect(overlayButton).toBeTruthy();
 
@@ -700,9 +700,9 @@ describe('StatementsListItem', () => {
     const desktop = container.querySelector(
       '[data-testid="statement-item-desktop-statement-dark-amount"]',
     ) as HTMLElement;
-    const amount = desktop.querySelector('.lumio-stmt-list-item__amount');
+    const amount = desktop.querySelector('.seneca-stmt-list-item__amount');
     expect(amount?.textContent).toBe('702,799.13 KZT');
-    expect(amount?.querySelector('.lumio-stmt-list-item__currency')?.textContent?.trim()).toBe(
+    expect(amount?.querySelector('.seneca-stmt-list-item__currency')?.textContent?.trim()).toBe(
       'KZT',
     );
   });
@@ -755,13 +755,13 @@ describe('StatementsListItem', () => {
     expect(container.textContent).not.toContain('PRIMARY');
     const review = container.querySelector('[data-testid="statement-view-icon"]');
     expect(review?.textContent).toBe('Review');
-    expect(review?.className).toContain('lumio-stmt-list-item__view-btn--link');
-    const duplicateRow = container.querySelector('.lumio-stmt-list-item') as HTMLElement | null;
+    expect(review?.className).toContain('seneca-stmt-list-item__view-btn--link');
+    const duplicateRow = container.querySelector('.seneca-stmt-list-item') as HTMLElement | null;
     expect(duplicateRow?.style.boxShadow).toBe('');
     // A lone duplicate both starts and ends its group's line.
-    const accent = container.querySelector('.lumio-stmt-list-item__accent');
-    expect(accent?.className).toContain('lumio-stmt-list-item__accent--start');
-    expect(accent?.className).toContain('lumio-stmt-list-item__accent--end');
+    const accent = container.querySelector('.seneca-stmt-list-item__accent');
+    expect(accent?.className).toContain('seneca-stmt-list-item__accent--start');
+    expect(accent?.className).toContain('seneca-stmt-list-item__accent--end');
   });
 
   it('runs the duplicate line through the middle of a group', () => {
@@ -802,8 +802,8 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.querySelector('.lumio-stmt-list-item__accent')?.className).toBe(
-      'lumio-stmt-list-item__accent',
+    expect(container.querySelector('.seneca-stmt-list-item__accent')?.className).toBe(
+      'seneca-stmt-list-item__accent',
     );
   });
 
@@ -856,7 +856,7 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.querySelector('[data-testid="statement-view-icon"]')).toBeNull();
 
     const desktopOverlay = container.querySelector(
-      '.lumio-stmt-list-item__desktop-overlay',
+      '.seneca-stmt-list-item__desktop-overlay',
     ) as HTMLButtonElement | null;
     expect(desktopOverlay).toBeTruthy();
 
@@ -1191,7 +1191,7 @@ describe('StatementsListItem', () => {
       );
     });
 
-    const link = container.querySelector('a.lumio-stmt-category-link') as HTMLAnchorElement | null;
+    const link = container.querySelector('a.seneca-stmt-category-link') as HTMLAnchorElement | null;
     // The statement's own month, so the leaderboard opens where the row is.
     expect(link?.getAttribute('href')).toBe(
       '/reports?tab=cash-flow&month=2026-03&focus=category%3Ameals+and+entertainment',
@@ -1235,7 +1235,7 @@ describe('StatementsListItem', () => {
       );
     });
 
-    const link = container.querySelector('a.lumio-stmt-category-link') as HTMLAnchorElement | null;
+    const link = container.querySelector('a.seneca-stmt-category-link') as HTMLAnchorElement | null;
     // jsdom would try to follow the href and log "navigation not implemented".
     container.addEventListener('click', event => event.preventDefault(), true);
 
@@ -1251,7 +1251,7 @@ describe('StatementsListItem', () => {
     act(() => {
       link?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     });
-    expect(link?.className).toContain('lumio-stmt-category-link--lit');
+    expect(link?.className).toContain('seneca-stmt-category-link--lit');
 
     act(() => {
       link?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -1295,11 +1295,11 @@ describe('StatementsListItem', () => {
       });
 
     render(1, false);
-    expect(container.querySelector('.lumio-stmt-list-item__rows-toggle')).toBeNull();
+    expect(container.querySelector('.seneca-stmt-list-item__rows-toggle')).toBeNull();
 
     render(3, false);
     const toggle = container.querySelector(
-      '[data-testid="statement-item-desktop-statement-rows"] .lumio-stmt-list-item__rows-toggle',
+      '[data-testid="statement-item-desktop-statement-rows"] .seneca-stmt-list-item__rows-toggle',
     ) as HTMLButtonElement | null;
     expect(toggle?.textContent).toContain('3');
     expect(toggle?.getAttribute('aria-expanded')).toBe('false');
@@ -1313,7 +1313,7 @@ describe('StatementsListItem', () => {
     render(3, true);
     expect(
       container
-        .querySelector('.lumio-stmt-list-item__rows-toggle')
+        .querySelector('.seneca-stmt-list-item__rows-toggle')
         ?.getAttribute('aria-expanded'),
     ).toBe('true');
   });
@@ -1393,7 +1393,7 @@ describe('StatementsListItem', () => {
       );
     });
 
-    const link = container.querySelector('.lumio-stmt-category-link') as HTMLAnchorElement;
+    const link = container.querySelector('.seneca-stmt-category-link') as HTMLAnchorElement;
     expect(link.textContent).toContain('Реклама');
     expect(link.textContent).not.toContain('Advertising');
     expect(link.getAttribute('href')).toContain('focus=category%3Aadvertising');

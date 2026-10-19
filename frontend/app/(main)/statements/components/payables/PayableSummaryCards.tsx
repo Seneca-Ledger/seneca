@@ -48,23 +48,23 @@ function PayableSummaryCards({
     });
 
   return (
-    <div className="lumio-payable-summary-wrap">
-      <div className="lumio-payable-summary">
+    <div className="seneca-payable-summary-wrap">
+      <div className="seneca-payable-summary">
         {items.map(item => (
           <Card
             key={item.key}
             style={{ border: '1px solid var(--border-color)', boxShadow: 'none' }}
           >
             {/* One shape for every card: label, figure, count — so the row does not jump. */}
-            <div className="lumio-payable-summary__card-content">
-              <div className="lumio-payable-summary__label">{item.label}</div>
-              <div className="lumio-payable-summary__value">
+            <div className="seneca-payable-summary__card-content">
+              <div className="seneca-payable-summary__label">{item.label}</div>
+              <div className="seneca-payable-summary__value">
                 {item.value === 0 ? EMPTY : money(item.value)}
               </div>
-              <div className="lumio-payable-summary__count">
+              <div className="seneca-payable-summary__count">
                 {item.count} {labels.itemsSuffix}
                 {item.key === 'paidTotal' && unbooked > 0 && (
-                  <span className="lumio-payable-summary__unbooked">
+                  <span className="seneca-payable-summary__unbooked">
                     {' · '}
                     {unbookedText.notInAccountTotal.value.replace('{amount}', money(unbooked))}
                   </span>
@@ -75,7 +75,7 @@ function PayableSummaryCards({
         ))}
       </div>
       {converted.length > 0 && (
-        <p className="lumio-payable-summary__note">
+        <p className="seneca-payable-summary__note">
           {labels.convertedNote
             .replace('{currency}', currency)
             .replace('{currencies}', converted.join(', '))}

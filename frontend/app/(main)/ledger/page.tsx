@@ -199,7 +199,7 @@ function LedgerContent(): React.ReactElement {
       component="main"
       sx={{
         px: { xs: 2, md: 4 },
-        pt: 'var(--lumio-page-top, 24px)',
+        pt: 'var(--seneca-page-top, 24px)',
         pb: 3,
         width: '100%',
       }}

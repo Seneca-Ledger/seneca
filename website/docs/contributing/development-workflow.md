@@ -3,7 +3,7 @@ title: Development Workflow
 description: Branches, PRs, and CI expectations
 ---
 
-Lumio uses Conventional Commits, CI checks, and a detailed PR template to keep changes stable.
+Seneca uses Conventional Commits, CI checks, and a detailed PR template to keep changes stable.
 
 ## Branching
 

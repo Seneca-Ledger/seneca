@@ -9,10 +9,10 @@ type TIntl = Record<string, { value: string }>;
 type LoadingProps = { t: TIntl };
 function PDFLoadingOverlay({ t }: LoadingProps): React.JSX.Element {
   return (
-    <div className="lumio-pdf-preview-modal__loading-overlay">
-      <div className="lumio-pdf-preview-modal__loading-body">
+    <div className="seneca-pdf-preview-modal__loading-overlay">
+      <div className="seneca-pdf-preview-modal__loading-body">
         <Spinner size={40} sx={{ display: 'block', mx: 'auto', mb: 2 }} />
-        <p className="lumio-pdf-preview-modal__loading-text">{t.loading.value}</p>
+        <p className="seneca-pdf-preview-modal__loading-text">{t.loading.value}</p>
       </div>
     </div>
   );
@@ -35,23 +35,23 @@ function PDFErrorAttachActions({
   onAttachFile,
 }: ErrorActionsProps): React.JSX.Element {
   return (
-    <div className="lumio-pdf-preview-modal__error-actions">
+    <div className="seneca-pdf-preview-modal__error-actions">
       <input
         ref={attachInputRef}
         type="file"
         accept="application/pdf,image/*,.csv,.xlsx,.xls,.docx,.ofx,.qfx,.qif,.xml,.mt940,.sta,.940"
         onChange={onAttachFile}
-        className="lumio-pdf-preview-modal__hidden-input"
+        className="seneca-pdf-preview-modal__hidden-input"
       />
       <button
         type="button"
         onClick={onAttachClick}
         disabled={attachingFile}
-        className="lumio-pdf-preview-modal__btn-primary"
+        className="seneca-pdf-preview-modal__btn-primary"
       >
         {attachingFile ? t.uploading.value : t.uploadFile.value}
       </button>
-      <button type="button" onClick={onClose} className="lumio-pdf-preview-modal__btn-secondary">
+      <button type="button" onClick={onClose} className="seneca-pdf-preview-modal__btn-secondary">
         {t.close.value}
       </button>
     </div>
@@ -79,15 +79,15 @@ function PdfErrorView({
   onAttachFile,
 }: ErrorViewProps): React.JSX.Element {
   return (
-    <div className="lumio-pdf-preview-modal__error-overlay">
-      <div className="lumio-pdf-preview-modal__error-body">
-        <div className="lumio-pdf-preview-modal__error-icon-wrapper">
+    <div className="seneca-pdf-preview-modal__error-overlay">
+      <div className="seneca-pdf-preview-modal__error-body">
+        <div className="seneca-pdf-preview-modal__error-icon-wrapper">
           <X size={24} style={{ color: 'var(--destructive)' }} strokeWidth={1.5} />
         </div>
-        <h3 className="lumio-pdf-preview-modal__error-title">
+        <h3 className="seneca-pdf-preview-modal__error-title">
           {showAttachFallback ? t.fileNotAttached.value : t.loadError.value}
         </h3>
-        <p className="lumio-pdf-preview-modal__error-message">
+        <p className="seneca-pdf-preview-modal__error-message">
           {showAttachFallback ? t.uploadFileHint.value : error}
         </p>
         {showAttachFallback ? (
@@ -100,7 +100,7 @@ function PdfErrorView({
             onAttachFile={onAttachFile}
           />
         ) : (
-          <button type="button" onClick={onClose} className="lumio-pdf-preview-modal__btn-primary">
+          <button type="button" onClick={onClose} className="seneca-pdf-preview-modal__btn-primary">
             {t.close.value}
           </button>
         )}
@@ -122,18 +122,18 @@ function PDFParsePrompt({
   onConfirm,
 }: ParsePromptProps): React.JSX.Element {
   return (
-    <div className="lumio-pdf-preview-modal__parse-prompt-overlay">
-      <div className="lumio-pdf-preview-modal__parse-prompt-card">
-        <h3 className="lumio-pdf-preview-modal__parse-prompt-title">{t.startParsing.value}</h3>
-        <p className="lumio-pdf-preview-modal__parse-prompt-desc">
+    <div className="seneca-pdf-preview-modal__parse-prompt-overlay">
+      <div className="seneca-pdf-preview-modal__parse-prompt-card">
+        <h3 className="seneca-pdf-preview-modal__parse-prompt-title">{t.startParsing.value}</h3>
+        <p className="seneca-pdf-preview-modal__parse-prompt-desc">
           {t.startParsingDescription.value}
         </p>
-        <div className="lumio-pdf-preview-modal__parse-prompt-actions">
+        <div className="seneca-pdf-preview-modal__parse-prompt-actions">
           <button
             type="button"
             onClick={onDecline}
             disabled={startingParsing}
-            className="lumio-pdf-preview-modal__btn-secondary"
+            className="seneca-pdf-preview-modal__btn-secondary"
           >
             {t.decline.value}
           </button>
@@ -141,7 +141,7 @@ function PDFParsePrompt({
             type="button"
             onClick={onConfirm}
             disabled={startingParsing}
-            className="lumio-pdf-preview-modal__btn-accent"
+            className="seneca-pdf-preview-modal__btn-accent"
           >
             {startingParsing ? t.startingParsing.value : t.startParsingButton.value}
           </button>
@@ -221,11 +221,11 @@ function PDFImageView({
   isReceiptImage,
 }: ImageViewProps): React.JSX.Element {
   const cls = isReceiptImage
-    ? 'lumio-pdf-preview-modal__image-preview lumio-pdf-preview-modal__image-preview--receipt'
-    : 'lumio-pdf-preview-modal__image-preview';
+    ? 'seneca-pdf-preview-modal__image-preview seneca-pdf-preview-modal__image-preview--receipt'
+    : 'seneca-pdf-preview-modal__image-preview';
   return (
-    <div ref={viewportRef} className="lumio-pdf-preview-modal__viewport">
-      <div className="lumio-pdf-preview-modal__page-wrapper">
+    <div ref={viewportRef} className="seneca-pdf-preview-modal__viewport">
+      <div className="seneca-pdf-preview-modal__page-wrapper">
         <img src={pdfObjectUrl} alt={fileName} className={cls} />
       </div>
     </div>
@@ -253,8 +253,8 @@ function PDFPagesView({
   onPdfError,
 }: PdfPagesViewProps): React.JSX.Element {
   return (
-    <div ref={viewportRef} className="lumio-pdf-preview-modal__viewport">
-      <div className="lumio-pdf-preview-modal__pdf-wrapper">
+    <div ref={viewportRef} className="seneca-pdf-preview-modal__viewport">
+      <div className="seneca-pdf-preview-modal__pdf-wrapper">
         <DocumentComponent
           file={pdfObjectUrl}
           loading={null}
@@ -263,13 +263,13 @@ function PDFPagesView({
           style={{ width: '100%' }}
         >
           {[...Array(numPages).keys()].map(i => (
-            <div key={`page_${i + 1}`} className="lumio-pdf-preview-modal__pdf-page-wrap">
+            <div key={`page_${i + 1}`} className="seneca-pdf-preview-modal__pdf-page-wrap">
               <PageComponent
                 pageNumber={i + 1}
                 width={pageWidth}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
-                className="lumio-pdf-preview-modal__pdf-page"
+                className="seneca-pdf-preview-modal__pdf-page"
               />
             </div>
           ))}
@@ -389,7 +389,7 @@ export function PDFPreviewContent({
   const showImage = !error && Boolean(pdfObjectUrl) && isImagePreview;
   const showPdf = !error && Boolean(pdfObjectUrl) && !isImagePreview;
   return (
-    <div className="lumio-pdf-preview-modal__content">
+    <div className="seneca-pdf-preview-modal__content">
       <PDFOverlays
         loading={loading}
         error={error}

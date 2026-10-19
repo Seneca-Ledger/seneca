@@ -18,7 +18,7 @@ vi.mock('@/app/hooks/useAuth', () => ({
 describe('MobileBottomBar', () => {
   it('keeps the quick actions out of the Tab order until the FAB opens them', () => {
     const { container } = render(<MobileBottomBar />);
-    const menu = container.querySelector('.lumio-bottom-bar__fab-menu');
+    const menu = container.querySelector('.seneca-bottom-bar__fab-menu');
 
     expect(menu).toHaveAttribute('inert');
 

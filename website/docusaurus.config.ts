@@ -2,14 +2,14 @@ import type { Config } from '@docusaurus/types';
 import { themes as prismThemes } from 'prism-react-renderer';
 
 const config: Config = {
-  title: 'Lumio Docs',
+  title: 'Seneca Docs',
   tagline: 'Open-source financial data platform for bank statements',
   favicon: 'img/favicon.png',
 
   url: 'https://symonbaikov.github.io',
-  baseUrl: '/lumio/',
+  baseUrl: '/seneca/',
   organizationName: 'symonbaikov',
-  projectName: 'lumio',
+  projectName: 'seneca',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -28,7 +28,7 @@ const config: Config = {
           path: 'docs',
           routeBasePath: 'docs',
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/symonbaikov/lumio/tree/main/website/',
+          editUrl: 'https://github.com/symonbaikov/seneca/tree/main/website/',
         },
         blog: false,
         theme: {
@@ -41,9 +41,9 @@ const config: Config = {
   themeConfig: {
     image: 'img/screenshots/dashboard-overview.png',
     navbar: {
-      title: 'Lumio',
+      title: 'Seneca',
       logo: {
-        alt: 'Lumio logo',
+        alt: 'Seneca logo',
         src: 'img/logo.png',
       },
       items: [
@@ -69,7 +69,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://github.com/symonbaikov/lumio',
+          href: 'https://github.com/symonbaikov/seneca',
           label: 'GitHub',
           position: 'right',
         },
@@ -91,7 +91,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub Issues',
-              href: 'https://github.com/symonbaikov/lumio/issues',
+              href: 'https://github.com/symonbaikov/seneca/issues',
             },
             {
               label: 'Contributing',
@@ -99,19 +99,19 @@ const config: Config = {
             },
             {
               label: 'Security',
-              href: 'https://github.com/symonbaikov/lumio/security',
+              href: 'https://github.com/symonbaikov/seneca/security',
             },
           ],
         },
         {
           title: 'More',
           items: [
-            { label: 'Changelog', href: 'https://github.com/symonbaikov/lumio/releases' },
-            { label: 'License (MIT)', href: 'https://github.com/symonbaikov/lumio/blob/main/LICENSE' },
+            { label: 'Changelog', href: 'https://github.com/symonbaikov/seneca/releases' },
+            { label: 'License (MIT)', href: 'https://github.com/symonbaikov/seneca/blob/main/LICENSE' },
           ],
         },
       ],
-      copyright: `Copyright (c) ${new Date().getFullYear()} Lumio Contributors`,
+      copyright: `Copyright (c) ${new Date().getFullYear()} Seneca Contributors`,
     },
     prism: {
       theme: prismThemes.github,

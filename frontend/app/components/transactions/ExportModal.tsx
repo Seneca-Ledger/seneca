@@ -37,13 +37,13 @@ export default function ExportModal({ open, onClose, onExport }: ExportModalProp
         />
       }
     >
-      <div className="lumio-export-modal">
+      <div className="seneca-export-modal">
         <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{t.description.value}</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Export to Table */}
           <label
-            className={`lumio-export-modal__option${selectedType === 'table' ? ' lumio-export-modal__option--selected' : ' lumio-export-modal__option--unselected'}`}
+            className={`seneca-export-modal__option${selectedType === 'table' ? ' seneca-export-modal__option--selected' : ' seneca-export-modal__option--unselected'}`}
           >
             <input
               type="radio"
@@ -59,21 +59,21 @@ export default function ExportModal({ open, onClose, onExport }: ExportModalProp
               checked={selectedType === 'table'}
               onChange={() => setSelectedType('table')}
             />
-            <span className="lumio-export-modal__option-content">
-              <span className="lumio-export-modal__option-title">
+            <span className="seneca-export-modal__option-content">
+              <span className="seneca-export-modal__option-title">
                 <Table size={16} color="var(--primary)" />
                 {t.exportToTable.value}
               </span>
-              <span className="lumio-export-modal__option-desc">
+              <span className="seneca-export-modal__option-desc">
                 {t.exportToTableDescription.value}
               </span>
             </span>
             <span
-              className={`lumio-export-modal__radio${selectedType === 'table' ? ' lumio-export-modal__radio--selected' : ''}`}
+              className={`seneca-export-modal__radio${selectedType === 'table' ? ' seneca-export-modal__radio--selected' : ''}`}
             >
               {selectedType === 'table' && (
-                <span className="lumio-export-modal__radio-dot">
-                  <span className="lumio-export-modal__radio-inner" />
+                <span className="seneca-export-modal__radio-dot">
+                  <span className="seneca-export-modal__radio-inner" />
                 </span>
               )}
             </span>
@@ -81,7 +81,7 @@ export default function ExportModal({ open, onClose, onExport }: ExportModalProp
 
           {/* Export to Excel */}
           <label
-            className={`lumio-export-modal__option${selectedType === 'excel' ? ' lumio-export-modal__option--selected' : ' lumio-export-modal__option--unselected'}`}
+            className={`seneca-export-modal__option${selectedType === 'excel' ? ' seneca-export-modal__option--selected' : ' seneca-export-modal__option--unselected'}`}
           >
             <input
               type="radio"
@@ -97,19 +97,19 @@ export default function ExportModal({ open, onClose, onExport }: ExportModalProp
               checked={selectedType === 'excel'}
               onChange={() => setSelectedType('excel')}
             />
-            <span className="lumio-export-modal__option-content">
-              <span className="lumio-export-modal__option-title">
+            <span className="seneca-export-modal__option-content">
+              <span className="seneca-export-modal__option-title">
                 <FileSpreadsheet size={16} color="#16a34a" />
                 Excel / CSV
               </span>
-              <span className="lumio-export-modal__option-desc">{t.downloadFile.value}</span>
+              <span className="seneca-export-modal__option-desc">{t.downloadFile.value}</span>
             </span>
             <span
-              className={`lumio-export-modal__radio${selectedType === 'excel' ? ' lumio-export-modal__radio--selected' : ''}`}
+              className={`seneca-export-modal__radio${selectedType === 'excel' ? ' seneca-export-modal__radio--selected' : ''}`}
             >
               {selectedType === 'excel' && (
-                <span className="lumio-export-modal__radio-dot">
-                  <span className="lumio-export-modal__radio-inner" />
+                <span className="seneca-export-modal__radio-dot">
+                  <span className="seneca-export-modal__radio-inner" />
                 </span>
               )}
             </span>

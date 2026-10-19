@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { In, Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
+import { APP_NAME } from '../../../common/brand';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { Category, Receipt } from '../../../entities';
@@ -169,7 +170,7 @@ export class GmailReceiptExportService {
         : '',
       '</table>',
       gmailLink ? `<p>Original email: <a href="${gmailLink}">View in Gmail</a></p>` : '',
-      '<p><em>Exported from Lumio</em></p>',
+      `<p><em>Exported from ${APP_NAME}</em></p>`,
     ]
       .filter(Boolean)
       .join('\n');

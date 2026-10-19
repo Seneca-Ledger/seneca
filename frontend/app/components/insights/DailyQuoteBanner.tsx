@@ -55,7 +55,7 @@ function useOneLineFit(text: string | null): React.RefObject<HTMLQuoteElement | 
   return ref;
 }
 
-const storageKey = (workspaceId: string | null) => `lumio:daily-quote-dismissed:${workspaceId}`;
+const storageKey = (workspaceId: string | null) => `seneca:daily-quote-dismissed:${workspaceId}`;
 
 function readDismissed(workspaceId: string | null): string | null {
   try {

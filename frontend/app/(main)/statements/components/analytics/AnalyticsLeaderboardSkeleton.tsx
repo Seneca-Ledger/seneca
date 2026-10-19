@@ -8,7 +8,7 @@ const ROW_KEYS = ['row-0', 'row-1', 'row-2', 'row-3', 'row-4', 'row-5', 'row-6',
 
 function StatCardSkeleton(): React.JSX.Element {
   return (
-    <div className="lumio-view-page__stat-card">
+    <div className="seneca-view-page__stat-card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Skeleton variant="text" width="50%" height={12} />
         <Skeleton variant="rounded" width={16} height={16} />
@@ -49,7 +49,7 @@ function LeaderboardRowSkeleton(): React.JSX.Element {
 export function AnalyticsLeaderboardSkeleton(): React.JSX.Element {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
-      <div className="lumio-stat-tiles">
+      <div className="seneca-stat-tiles">
         {STAT_CARD_KEYS.map(key => (
           <StatCardSkeleton key={key} />
         ))}

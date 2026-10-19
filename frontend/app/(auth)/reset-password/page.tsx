@@ -6,6 +6,7 @@ import NextLink from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import React, { Suspense, useState } from 'react';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { BrandLockup } from '@/app/components/BrandLockup';
 import { Check, Eye, EyeOff } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -73,7 +74,7 @@ function ResetPasswordContent(): React.JSX.Element {
   const sideContent = <AuthHero tagline={tl.rightTagline} />;
   const fieldError = (field: 'password' | 'confirm') =>
     error && errorField === field ? (
-      <p id={`${field}-error`} role="alert" className="lumio-auth-error">
+      <p id={`${field}-error`} role="alert" className="seneca-auth-error">
         {error}
       </p>
     ) : null;
@@ -93,14 +94,14 @@ function ResetPasswordContent(): React.JSX.Element {
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
-      <div className="lumio-auth-logo" role="img" aria-label="Lumio" />
-      <Typography component="h1" className="lumio-auth-title lumio-auth-title--with-lead">
+      <BrandLockup className="seneca-auth-logo" />
+      <Typography component="h1" className="seneca-auth-title seneca-auth-title--with-lead">
         {t.title}
       </Typography>
-      <p className="lumio-auth-lead">{t.subtitle}</p>
+      <p className="seneca-auth-lead">{t.subtitle}</p>
 
       {done ? (
-        <p role="status" className="lumio-auth-notice">
+        <p role="status" className="seneca-auth-notice">
           <Check size={18} aria-hidden />
           <span>{t.success}</span>
         </p>
@@ -108,11 +109,11 @@ function ResetPasswordContent(): React.JSX.Element {
         <Box
           component="form"
           onSubmit={handleSubmit}
-          className="lumio-auth-form"
+          className="seneca-auth-form"
           sx={{ width: '100%' }}
         >
-          <div className="lumio-auth-field">
-            <label htmlFor="password" className="lumio-auth-field__label">
+          <div className="seneca-auth-field">
+            <label htmlFor="password" className="seneca-auth-field__label">
               {t.passwordLabel}
             </label>
             <TextField
@@ -135,8 +136,8 @@ function ResetPasswordContent(): React.JSX.Element {
             />
             {fieldError('password')}
           </div>
-          <div className="lumio-auth-field">
-            <label htmlFor="confirmPassword" className="lumio-auth-field__label">
+          <div className="seneca-auth-field">
+            <label htmlFor="confirmPassword" className="seneca-auth-field__label">
               {t.confirmLabel}
             </label>
             <TextField
@@ -158,7 +159,7 @@ function ResetPasswordContent(): React.JSX.Element {
             {fieldError('confirm')}
           </div>
           {error && errorField === null ? (
-            <p role="alert" className="lumio-auth-error">
+            <p role="alert" className="seneca-auth-error">
               {error}
             </p>
           ) : null}
@@ -167,7 +168,7 @@ function ResetPasswordContent(): React.JSX.Element {
             fullWidth
             variant="contained"
             size="large"
-            className="lumio-auth-submit"
+            className="seneca-auth-submit"
             disabled={loading}
           >
             {loading ? (
@@ -182,8 +183,8 @@ function ResetPasswordContent(): React.JSX.Element {
         </Box>
       )}
 
-      <p className="lumio-auth-footnote">
-        <NextLink href="/login" className="lumio-auth-link lumio-auth-link--accent">
+      <p className="seneca-auth-footnote">
+        <NextLink href="/login" className="seneca-auth-link seneca-auth-link--accent">
           {t.backToLogin}
         </NextLink>
       </p>

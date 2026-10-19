@@ -50,7 +50,7 @@ export function ClientStep({ form }: { form: InvoiceForm }): React.ReactElement 
           />
         </WizardField>
       ) : (
-        <p className="lumio-invoice-wizard__note">{t.client.empty.value}</p>
+        <p className="seneca-invoice-wizard__note">{t.client.empty.value}</p>
       )}
       <div>
         <Button variant="outline" onClick={() => setDrawerOpen(true)}>

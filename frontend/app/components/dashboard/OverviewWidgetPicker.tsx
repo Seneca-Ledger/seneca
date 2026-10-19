@@ -69,7 +69,7 @@ export function OverviewWidgetPicker({
     <>
       <button
         type="button"
-        className="lumio-overview__widgets"
+        className="seneca-overview__widgets"
         aria-haspopup="menu"
         aria-expanded={anchor ? true : undefined}
         onClick={event => setAnchor(event.currentTarget)}

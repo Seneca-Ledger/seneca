@@ -47,25 +47,25 @@ export function KpiCard({
   const line = chart ? undefined : roomy && wideSpark ? wideSpark : spark;
   const body = (
     <>
-      <div className="lumio-dashboard__stat-label">
+      <div className="seneca-dashboard__stat-label">
         {/* The figure stays ink; the tone shows only as this dot and the sparkline. */}
         {tone !== 'neutral' && (
           <span
-            className={`lumio-dashboard__stat-dot lumio-dashboard__stat-dot--${tone}`}
+            className={`seneca-dashboard__stat-dot seneca-dashboard__stat-dot--${tone}`}
             aria-hidden="true"
           />
         )}
         {label}
       </div>
-      <div className="lumio-dashboard__stat-value">{value}</div>
+      <div className="seneca-dashboard__stat-value">{value}</div>
       {caption && (
-        <div className="lumio-dashboard__stat-row">
-          <span className="lumio-dashboard__stat-sub">{caption}</span>
+        <div className="seneca-dashboard__stat-row">
+          <span className="seneca-dashboard__stat-sub">{caption}</span>
         </div>
       )}
-      {note && <div className="lumio-dashboard__stat-note">{note}</div>}
+      {note && <div className="seneca-dashboard__stat-note">{note}</div>}
       {roomy && details && details.length > 0 && (
-        <dl className="lumio-dashboard__stat-details">
+        <dl className="seneca-dashboard__stat-details">
           {details.map(detail => (
             <div key={detail.label}>
               <dt>{detail.label}</dt>
@@ -74,12 +74,12 @@ export function KpiCard({
           ))}
         </dl>
       )}
-      {chart && <div className="lumio-dashboard__stat-chart">{chart}</div>}
+      {chart && <div className="seneca-dashboard__stat-chart">{chart}</div>}
       {line && line.points.length >= 2 && (
         <div
           className={clsx(
-            'lumio-dashboard__stat-spark',
-            tone !== 'neutral' && `lumio-dashboard__stat-spark--${tone}`,
+            'seneca-dashboard__stat-spark',
+            tone !== 'neutral' && `seneca-dashboard__stat-spark--${tone}`,
           )}
           aria-hidden="true"
         >
@@ -92,7 +92,7 @@ export function KpiCard({
     return (
       <Link
         href={href}
-        className="lumio-dashboard__stat lumio-dashboard__stat--link"
+        className="seneca-dashboard__stat seneca-dashboard__stat--link"
         data-attention={attentionId}
       >
         {body}
@@ -100,7 +100,7 @@ export function KpiCard({
     );
   }
   return (
-    <div className="lumio-dashboard__stat" data-attention={attentionId}>
+    <div className="seneca-dashboard__stat" data-attention={attentionId}>
       {body}
     </div>
   );

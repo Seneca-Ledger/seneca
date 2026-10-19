@@ -9,6 +9,7 @@ import {
   headerLine,
   textField,
 } from '@/modules/datev/datev-format';
+import { APP_NAME } from '../../../../src/common/brand';
 
 /**
  * DATEV's own rules for the fields we fill, from its format check program's
@@ -56,7 +57,7 @@ const HEADER: DatevHeader = {
   accountLength: 4,
   from: '2026-01-01',
   to: '2026-03-31',
-  label: 'Lumio 2026-01-01 – 2026-03-31',
+  label: `${APP_NAME} 2026-01-01 – 2026-03-31`,
   chart: '03',
 };
 
@@ -157,6 +158,6 @@ describe('DATEV Buchungsstapel format', () => {
   it('leaves no character outside Windows-1252 in the file', () => {
     const bytes = encodeWindows1252(content);
     expect(bytes.length).toBe([...content].length);
-    expect(headerLine(HEADER)).toContain('"Lumio"');
+    expect(headerLine(HEADER)).toContain(`"${APP_NAME}"`);
   });
 });

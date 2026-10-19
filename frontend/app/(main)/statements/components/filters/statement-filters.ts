@@ -117,7 +117,7 @@ export const resetSingleStatementFilter = <K extends keyof StatementFilters>(
   [key]: cloneFilterValue(DEFAULT_STATEMENT_FILTERS[key]),
 });
 
-export const STATEMENT_FILTERS_STORAGE_KEY = 'lumio-statement-filters';
+export const STATEMENT_FILTERS_STORAGE_KEY = 'seneca-statement-filters';
 
 export const loadStatementFilters = (): StatementFilters => {
   if (typeof window === 'undefined') {

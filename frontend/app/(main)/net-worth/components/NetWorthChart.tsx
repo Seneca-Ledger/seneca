@@ -20,7 +20,7 @@ export function NetWorthChart({ points, positive, formatValue, formatTick }: Net
 
   return (
     <>
-      <div className="lumio-chart__box">
+      <div className="seneca-chart__box">
         <LazyNetWorthArea
           points={points}
           positive={positive}

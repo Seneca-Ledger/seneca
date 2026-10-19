@@ -1,7 +1,7 @@
 import { IsNull } from 'typeorm';
 
 /**
- * Which transactions count in any number Lumio shows (balances, totals,
+ * Which transactions count in any number Seneca shows (balances, totals,
  * budgets, goals, forecasts, reports, tax, insights): rows a person confirmed
  * (an imported, synced or scanned row waits in Review until approved), that
  * are not suspected duplicates and are not on a statement in the trash.

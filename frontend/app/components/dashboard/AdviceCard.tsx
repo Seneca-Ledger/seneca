@@ -34,7 +34,7 @@ export function AdviceCard(): React.JSX.Element | null {
       subtitle={today}
       action={<CardLink href="/advice">{t.allAdvice}</CardLink>}
     >
-      <div className="lumio-dashboard__list">
+      <div className="seneca-dashboard__list">
         {top.map(item => (
           <ListRow
             key={item.id}

@@ -63,9 +63,9 @@ export function InvoiceEmailDrawer({
 
   return (
     <DrawerShell isOpen={open} onClose={onClose} title={labels.title}>
-      <div className="lumio-payable-drawer__body">
-        <div className="lumio-payable-drawer__field-group">
-          <label className="lumio-payable-drawer__field-label" htmlFor="invoice-email-to">
+      <div className="seneca-payable-drawer__body">
+        <div className="seneca-payable-drawer__field-group">
+          <label className="seneca-payable-drawer__field-label" htmlFor="invoice-email-to">
             {labels.recipient}
           </label>
           <Input
@@ -76,8 +76,8 @@ export function InvoiceEmailDrawer({
           />
         </div>
 
-        <div className="lumio-payable-drawer__field-group">
-          <label className="lumio-payable-drawer__field-label" htmlFor="invoice-email-subject">
+        <div className="seneca-payable-drawer__field-group">
+          <label className="seneca-payable-drawer__field-label" htmlFor="invoice-email-subject">
             {labels.subject}
           </label>
           <Input
@@ -87,13 +87,13 @@ export function InvoiceEmailDrawer({
           />
         </div>
 
-        <div className="lumio-payable-drawer__field-group">
-          <label className="lumio-payable-drawer__field-label" htmlFor="invoice-email-message">
+        <div className="seneca-payable-drawer__field-group">
+          <label className="seneca-payable-drawer__field-label" htmlFor="invoice-email-message">
             {labels.message}
           </label>
           <textarea
             id="invoice-email-message"
-            className="lumio-payable-drawer__textarea"
+            className="seneca-payable-drawer__textarea"
             rows={4}
             value={message}
             onChange={event => setMessage(event.target.value)}
@@ -102,7 +102,7 @@ export function InvoiceEmailDrawer({
 
         <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{labels.hint}</p>
 
-        <div className="lumio-payable-drawer__actions">
+        <div className="seneca-payable-drawer__actions">
           <Button variant="outline" onClick={onClose} disabled={sending}>
             {labels.cancel}
           </Button>

@@ -67,17 +67,17 @@ export function CryptoPortfolioCard({
 
   const overview = (
     <div>
-      <div className="lumio-dashboard__card-sub">{t.portfolio}</div>
-      <div className="lumio-dashboard__stat-value" style={VALUE_STYLE}>
+      <div className="seneca-dashboard__card-sub">{t.portfolio}</div>
+      <div className="seneca-dashboard__stat-value" style={VALUE_STYLE}>
         {formatAmount(summary.portfolioValue)}
       </div>
       {change !== null && (
-        <div className="lumio-dashboard__card-sub">
+        <div className="seneca-dashboard__card-sub">
           <span
             className={
               change >= 0
-                ? 'lumio-dashboard__amount--positive'
-                : 'lumio-dashboard__amount--negative'
+                ? 'seneca-dashboard__amount--positive'
+                : 'seneca-dashboard__amount--negative'
             }
           >
             {percent(change)}
@@ -85,10 +85,11 @@ export function CryptoPortfolioCard({
           {t.sinceYesterday}
         </div>
       )}
-      <div className="lumio-dashboard__card-sub">
+      <div className="seneca-dashboard__card-sub">
         {monthLabel} ·{' '}
-        <span className="lumio-dashboard__amount--positive">+{formatAmount(summary.income)}</span> ·{' '}
-        <span className="lumio-dashboard__amount--negative">−{formatAmount(summary.expense)}</span>
+        <span className="seneca-dashboard__amount--positive">+{formatAmount(summary.income)}</span>{' '}
+        ·{' '}
+        <span className="seneca-dashboard__amount--negative">−{formatAmount(summary.expense)}</span>
       </div>
     </div>
   );
@@ -98,8 +99,8 @@ export function CryptoPortfolioCard({
     <table
       className={
         wide
-          ? 'lumio-dashboard__holdings'
-          : 'lumio-dashboard__holdings lumio-dashboard__holdings--stacked'
+          ? 'seneca-dashboard__holdings'
+          : 'seneca-dashboard__holdings seneca-dashboard__holdings--stacked'
       }
     >
       <thead>
@@ -114,7 +115,7 @@ export function CryptoPortfolioCard({
         {holdings.map(holding => (
           <tr key={holding.asset}>
             <td>
-              <span className="lumio-dashboard__holdings-asset">
+              <span className="seneca-dashboard__holdings-asset">
                 <TokenIcon asset={holding.asset} size={16} />
                 {holding.asset}
               </span>
@@ -126,8 +127,8 @@ export function CryptoPortfolioCard({
                 holding.unrealizedPercent === null
                   ? undefined
                   : holding.unrealizedPercent >= 0
-                    ? 'lumio-dashboard__amount--positive'
-                    : 'lumio-dashboard__amount--negative'
+                    ? 'seneca-dashboard__amount--positive'
+                    : 'seneca-dashboard__amount--negative'
               }
             >
               {holding.unrealizedPercent === null ? '—' : percent(holding.unrealizedPercent)}
@@ -142,7 +143,7 @@ export function CryptoPortfolioCard({
   // goes underneath, so the card fills the height its neighbour gives it.
   if (!wide) {
     return (
-      <Link href="/crypto" className="lumio-dashboard__card" style={STACKED_CARD_STYLE}>
+      <Link href="/crypto" className="seneca-dashboard__card" style={STACKED_CARD_STYLE}>
         <div style={HEAD_STYLE}>
           {overview}
           <ChevronRight size={18} />
@@ -153,7 +154,7 @@ export function CryptoPortfolioCard({
   }
 
   return (
-    <Link href="/crypto" className="lumio-dashboard__card" style={CARD_STYLE}>
+    <Link href="/crypto" className="seneca-dashboard__card" style={CARD_STYLE}>
       {overview}
       {table}
       <ChevronRight size={18} />

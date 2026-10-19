@@ -136,7 +136,7 @@ describe('GoalFlowSankey', () => {
 
     const chart = container.querySelector('[data-testid="mock-echarts"]');
     expect(chart).not.toBeNull();
-    expect(container.querySelector('.lumio-dashboard__chart')).toBeNull();
+    expect(container.querySelector('.seneca-dashboard__chart')).toBeNull();
   });
 
   it("labels a system category node in the reader's language, keyed by its id", () => {

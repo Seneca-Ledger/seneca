@@ -7,7 +7,7 @@ description: Year-end income tax drafts for the self-employed
 the annual income tax return. It is separate from the VAT engine.
 
 :::caution
-Lumio does not file anything with a tax authority, and a draft is not tax advice. Check every figure
+Seneca does not file anything with a tax authority, and a draft is not tax advice. Check every figure
 before you file.
 :::
 
@@ -22,7 +22,7 @@ Before the first use, each user accepts a disclaimer. The wizard then has five s
    transactions, unmapped categories, missing exchange rates, gaps in statement coverage, statements
    with errors or awaiting review, receipts awaiting review, stale uploads and irregular tracking.
    The score is a heuristic, not a guarantee.
-3. **Mapping** — assign categories to form lines. Lumio suggests lines for the default categories,
+3. **Mapping** — assign categories to form lines. Seneca suggests lines for the default categories,
    but **only mappings you confirm count**; suggestions never reach the draft.
 4. **Draft** — the figures per line, with the transactions behind each one, warnings and, where the
    form supports it, a tax estimate.

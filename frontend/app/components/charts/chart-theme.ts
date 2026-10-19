@@ -1,6 +1,6 @@
 /*
  * Chart design adapted from Aurum by ZProger (https://github.com/ZProger/Aurum).
- * Reimplemented for Lumio; no Aurum source code was copied.
+ * Reimplemented for Seneca; no Aurum source code was copied.
  *
  * Colours are CSS variables written straight into SVG attributes, so the `.dark` theme switch
  * repaints charts without a React re-render.

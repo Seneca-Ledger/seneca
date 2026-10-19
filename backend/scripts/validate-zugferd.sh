@@ -7,11 +7,11 @@
 #   scripts/validate-zugferd.sh [file.pdf ...]
 #
 # Needs docker. Downloads the Mustang CLI once into
-# ${XDG_CACHE_HOME:-~/.cache}/lumio-kosit.
+# ${XDG_CACHE_HOME:-~/.cache}/seneca-kosit.
 set -euo pipefail
 
 MUSTANG_VERSION=2.26.0
-CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/lumio-kosit"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/seneca-kosit"
 
 mkdir -p "$CACHE"
 if [ ! -f "$CACHE/mustang-${MUSTANG_VERSION}.jar" ]; then

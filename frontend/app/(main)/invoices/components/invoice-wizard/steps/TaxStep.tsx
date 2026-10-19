@@ -53,7 +53,7 @@ export function TaxStep({ form }: { form: InvoiceForm }): React.ReactElement {
       />
 
       {taxRates.length === 0 ? (
-        <p className="lumio-invoice-wizard__note">{t.tax.noRates.value}</p>
+        <p className="seneca-invoice-wizard__note">{t.tax.noRates.value}</p>
       ) : perLine ? (
         <>
           {lineItems.map((line, index) => (

@@ -1,6 +1,6 @@
 /*
  * Chart design adapted from Aurum by ZProger (https://github.com/ZProger/Aurum).
- * Reimplemented for Lumio; no Aurum source code was copied.
+ * Reimplemented for Seneca; no Aurum source code was copied.
  */
 
 /**

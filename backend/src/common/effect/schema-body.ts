@@ -53,7 +53,7 @@ const RequestBody = createParamDecorator(
 );
 
 /** Where `SchemaBody` leaves a handler's body schema, for tools that build valid requests from it. */
-export const SCHEMA_BODY_METADATA = 'lumio:schema-body';
+export const SCHEMA_BODY_METADATA = 'seneca:schema-body';
 
 /** `@Body()` decoded by a schema from packages/contracts and documented in Swagger from it. */
 export function SchemaBody<S extends Schema.Top>(

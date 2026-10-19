@@ -41,7 +41,7 @@ export function RecentTransactionsCard({
       {transactions.length === 0 ? (
         <CardEmpty icon={ReceiptLongOutlined}>{t.empty}</CardEmpty>
       ) : (
-        <div className="lumio-dashboard__list">
+        <div className="seneca-dashboard__list">
           {shown.map(tx => {
             const isPositive = tx.amount >= 0;
             const categoryLabel = tx.categoryName
@@ -72,14 +72,14 @@ export function RecentTransactionsCard({
                     {/* With room, category and account get columns of their own. */}
                     {wide && (
                       <>
-                        <span className="lumio-dashboard__recent-col">{categoryLabel}</span>
-                        <span className="lumio-dashboard__recent-col">{tx.account}</span>
+                        <span className="seneca-dashboard__recent-col">{categoryLabel}</span>
+                        <span className="seneca-dashboard__recent-col">{tx.account}</span>
                       </>
                     )}
                     <span
                       className={clsx(
-                        'lumio-dashboard__recent-amount',
-                        isPositive && 'lumio-dashboard__amount--positive',
+                        'seneca-dashboard__recent-amount',
+                        isPositive && 'seneca-dashboard__amount--positive',
                       )}
                     >
                       {isPositive ? '+' : ''}

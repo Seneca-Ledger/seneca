@@ -1,6 +1,6 @@
 @use '../abstracts' as *;
 
-/* lumio-statements.scss — BEM styles for statements list, trash, views, and payables */
+/* seneca-statements.scss — BEM styles for statements list, trash, views, and payables */
 
 /* Mobile-only helper (replaces lg:hidden) */
 [data-mobile-only="true"] {
@@ -18,7 +18,7 @@
    still overflowed the wrapper's overflow:hidden by AlertBanner's height.
    A flex column here lets the last child (the page view) shrink to fill
    exactly what AlertBanner didn't take, regardless of how tall it is. */
-.lumio-statements-shell {
+.seneca-statements-shell {
   display: flex;
   flex-direction: column;
 
@@ -35,18 +35,18 @@
 }
 
 /* ── Statement list item ──────────────────────────────── */
-.lumio-stmt-item {
+.seneca-stmt-item {
   position: relative;
   overflow: hidden;
-  border-radius: $lumio-radius-lg;
+  border-radius: $seneca-radius-lg;
   border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
+  background: $seneca-color-surface;
   padding: 12px;
   transition: border-color 0.15s;
 
   @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
+    border-color: $seneca-color-border-dk;
+    background: $seneca-color-surface-dk;
   }
 
   &:hover {
@@ -57,7 +57,7 @@
     border-left: 3px solid #f59e0b;
 
     @include dark {
-      border-left-color: $lumio-color-warning-dk;
+      border-left-color: $seneca-color-warning-dk;
     }
   }
 
@@ -65,7 +65,7 @@
     border-left: 3px solid #d1d5db;
 
     @include dark {
-      border-left-color: $lumio-color-ink-300-dk;
+      border-left-color: $seneca-color-ink-300-dk;
     }
   }
 
@@ -75,7 +75,7 @@
     top: 8px;
     bottom: 8px;
     width: 2px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
   }
 
   &__mobile {
@@ -135,7 +135,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -146,7 +146,7 @@
     margin-top: 2px;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -172,14 +172,14 @@
     color: #030712;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &--error {
       color: #dc2626;
 
       @include dark {
-        color: $lumio-color-danger-dk;
+        color: $seneca-color-danger-dk;
       }
     }
   }
@@ -195,7 +195,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     padding: 4px 10px;
     font-size: 10px;
     font-weight: 700;
@@ -207,7 +207,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     padding: 2px 6px;
     font-size: 10px;
     font-weight: 700;
@@ -217,35 +217,35 @@
 }
 
 /* ── Status chips ──────────────────────────────── */
-.lumio-status-chip {
+.seneca-status-chip {
   display: inline-flex;
   align-items: center;
-  border-radius: $lumio-radius-full;
+  border-radius: $seneca-radius-full;
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 
   &--error {
-    background-color: $lumio-color-surface-error;
+    background-color: $seneca-color-surface-error;
     color: #b91c1c;
     box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.2) inset;
 
     @include dark {
-      background-color: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      background-color: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
       box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.3) inset;
     }
   }
 
   &--processing {
-    background-color: $lumio-color-surface-muted;
+    background-color: $seneca-color-surface-muted;
     color: #92400e;
     box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3) inset;
 
     @include dark {
-      background-color: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      background-color: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
       box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4) inset;
     }
   }
@@ -256,22 +256,22 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 }
 
 /* ── Statement view ──────────────────────────────── */
-.lumio-stmt-view {
+.seneca-stmt-view {
   &__back-btn,
   &__back-btn-primary {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-surface;
-    color: $lumio-color-ink-700;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-md;
+    background: $seneca-color-surface;
+    color: $seneca-color-ink-700;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
@@ -279,9 +279,9 @@
     transition: border-color 150ms, color 150ms, background-color 150ms;
 
     @include dark {
-      border-color: $lumio-color-ink-150-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-ink-150-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
@@ -300,35 +300,35 @@
   }
 
   &__error-box {
-    border: 1px solid rgba($lumio-color-danger, 0.35);
-    border-radius: $lumio-radius-lg;
-    background: $lumio-color-surface-error;
-    color: $lumio-color-danger;
+    border: 1px solid rgba($seneca-color-danger, 0.35);
+    border-radius: $seneca-radius-lg;
+    background: $seneca-color-surface-error;
+    color: $seneca-color-danger;
     padding: 16px;
 
     @include dark {
-      border-color: rgba($lumio-color-danger-dk, 0.4);
-      background: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      border-color: rgba($seneca-color-danger-dk, 0.4);
+      background: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
     }
   }
 }
 
 /* ── Statements list view ──────────────────────────────── */
-.lumio-stmt-list {
+.seneca-stmt-list {
   display: flex;
   flex-direction: column;
   height: calc(100vh - $global-nav-height);
   min-height: 0;
   overflow: hidden;
-  padding: var(--lumio-page-top, 24px) 16px 24px;
+  padding: var(--seneca-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: var(--lumio-page-top, 24px) 24px 24px;
+    padding: var(--seneca-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: var(--lumio-page-top, 24px) 32px 24px;
+    padding: var(--seneca-page-top, 24px) 32px 24px;
   }
 
   &__header {
@@ -365,24 +365,24 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px 16px 12px 44px;
     font-size: 14px;
     color: #111827;
     transition: border-color 0.15s, box-shadow 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &:focus {
@@ -406,9 +406,9 @@
     align-items: center;
     gap: 6px;
     white-space: nowrap;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 10px;
     font-size: 13px;
     font-weight: 500;
@@ -416,9 +416,9 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
@@ -439,7 +439,7 @@
     width: 20px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background: color-mix(in srgb, var(--primary) 10%, transparent);
     font-size: 12px;
     font-weight: 600;
@@ -452,9 +452,9 @@
     align-items: center;
     gap: 6px;
     white-space: nowrap;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #fde68a;
-    background: $lumio-color-surface-muted;
+    background: $seneca-color-surface-muted;
     padding: 6px 10px;
     font-size: 13px;
     font-weight: 500;
@@ -463,9 +463,9 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-warning-dk;
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      border-color: $seneca-color-warning-dk;
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
     }
 
     &:hover {
@@ -473,8 +473,8 @@
       background: #fef3c7;
 
       @include dark {
-        border-color: $lumio-color-warning-dk;
-        background: $lumio-color-warning-soft-dk;
+        border-color: $seneca-color-warning-dk;
+        background: $seneca-color-warning-soft-dk;
       }
     }
   }
@@ -485,16 +485,16 @@
     min-width: 20px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-surface;
+    border-radius: $seneca-radius-md;
+    background: $seneca-color-surface;
     padding: 0 4px;
     font-size: 11px;
     font-weight: 600;
     color: #92400e;
 
     @include dark {
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-warning-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-warning-dk;
     }
   }
 
@@ -508,14 +508,14 @@
   &__skeleton {
     position: relative;
     overflow: hidden;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px 16px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -531,14 +531,14 @@
     color: #d1d5db;
     margin-bottom: 16px;
     background: #f9fafb;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     display: flex;
     align-items: center;
     justify-content: center;
 
     @include dark {
-      color: $lumio-color-ink-300-dk;
-      background: $lumio-color-surface-muted-dk;
+      color: $seneca-color-ink-300-dk;
+      background: $seneca-color-surface-muted-dk;
     }
   }
 
@@ -557,7 +557,7 @@
       color: #6b7280;
 
       @include dark {
-        color: $lumio-color-ink-500-dk;
+        color: $seneca-color-ink-500-dk;
       }
     }
   }
@@ -577,7 +577,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -590,7 +590,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -601,7 +601,7 @@
     padding-right: 4px;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -611,7 +611,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -634,7 +634,7 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -646,7 +646,7 @@
 }
 
 /* ── Selected actions bar ──────────────────────────────── */
-.lumio-stmt-selected-actions {
+.seneca-stmt-selected-actions {
   position: fixed;
   inset-inline: 16px;
   bottom: calc(0.75rem + env(safe-area-inset-bottom));
@@ -655,15 +655,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-radius: $lumio-radius-md;
+  border-radius: $seneca-radius-md;
   border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
+  background: $seneca-color-surface;
   padding: 8px 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 
   @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
+    border-color: $seneca-color-border-dk;
+    background: $seneca-color-surface-dk;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   }
 
@@ -676,7 +676,7 @@
     min-height: 40px;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid;
     padding: 4px 10px;
     font-size: 12px;
@@ -699,8 +699,8 @@
       color: #374151;
 
       @include dark {
-        border-color: $lumio-color-border-dk;
-        color: $lumio-color-ink-700-dk;
+        border-color: $seneca-color-border-dk;
+        color: $seneca-color-ink-700-dk;
       }
 
       &:hover {
@@ -714,8 +714,8 @@
       color: #374151;
 
       @include dark {
-        border-color: $lumio-color-border-dk;
-        color: $lumio-color-ink-700-dk;
+        border-color: $seneca-color-border-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
 
@@ -724,8 +724,8 @@
       color: #dc2626;
 
       @include dark {
-        border-color: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
+        border-color: $seneca-color-danger-soft-dk;
+        color: $seneca-color-danger-dk;
       }
 
       &:hover {
@@ -733,8 +733,8 @@
         color: #b91c1c;
 
         @include dark {
-          border-color: $lumio-color-danger-dk;
-          color: $lumio-color-danger-dk;
+          border-color: $seneca-color-danger-dk;
+          color: $seneca-color-danger-dk;
         }
       }
     }
@@ -742,7 +742,7 @@
 }
 
 /* Desktop selected actions dropdown */
-.lumio-stmt-desktop-actions {
+.seneca-stmt-desktop-actions {
   position: relative;
   display: none;
 
@@ -754,7 +754,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background: var(--primary-fill);
     padding: 6px 10px;
     font-size: 13px;
@@ -776,15 +776,15 @@
     z-index: 20;
     width: 280px;
     max-width: calc(100vw - 64px);
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #dedad2;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px;
     box-shadow: 0 10px 20px rgba(17, 24, 39, 0.1);
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
     }
   }
@@ -794,7 +794,7 @@
     width: 100%;
     align-items: center;
     justify-content: space-between;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 10px 12px;
     text-align: left;
     cursor: pointer;
@@ -806,15 +806,15 @@
       background: #f8fbff;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
     &--danger:hover {
-      background: $lumio-color-surface-error;
+      background: $seneca-color-surface-error;
 
       @include dark {
-        background: $lumio-color-danger-soft-dk;
+        background: $seneca-color-danger-soft-dk;
       }
     }
   }
@@ -831,23 +831,23 @@
     margin: 4px 0;
 
     @include dark {
-      background: $lumio-color-border-dk;
+      background: $seneca-color-border-dk;
     }
   }
 }
 
 /* ── Trash list ──────────────────────────────── */
-.lumio-trash-item {
+.seneca-trash-item {
   position: relative;
-  border-radius: $lumio-radius-lg;
+  border-radius: $seneca-radius-lg;
   border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
+  background: $seneca-color-surface;
   padding: 16px;
   transition: border-color 0.15s;
 
   @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
+    border-color: $seneca-color-border-dk;
+    background: $seneca-color-surface-dk;
   }
 
   &:hover {
@@ -888,7 +888,7 @@
     color: #374151;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
   }
 
@@ -900,7 +900,7 @@
     color: #4b5563;
 
     @include dark {
-      color: $lumio-color-ink-600-dk;
+      color: $seneca-color-ink-600-dk;
     }
 
     @media (min-width: 640px) {
@@ -921,7 +921,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -935,7 +935,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -955,7 +955,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #a7f3d0;
     padding: 4px 10px;
     font-size: 12px;
@@ -966,8 +966,8 @@
     background: none;
 
     @include dark {
-      border-color: $lumio-color-success-dk;
-      color: $lumio-color-success-dk;
+      border-color: $seneca-color-success-dk;
+      color: $seneca-color-success-dk;
     }
 
     &:hover {
@@ -975,8 +975,8 @@
       background: #ecfdf5;
 
       @include dark {
-        border-color: $lumio-color-success-dk;
-        background: $lumio-color-success-soft-dk;
+        border-color: $seneca-color-success-dk;
+        background: $seneca-color-success-soft-dk;
       }
     }
   }
@@ -985,7 +985,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #fecaca;
     padding: 6px;
     color: #f87171;
@@ -994,26 +994,26 @@
     background: none;
 
     @include dark {
-      border-color: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      border-color: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
     }
 
     &:hover {
       border-color: #f87171;
-      background: $lumio-color-surface-muted;
+      background: $seneca-color-surface-muted;
       color: #dc2626;
 
       @include dark {
-        border-color: $lumio-color-danger-dk;
-        background: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
+        border-color: $seneca-color-danger-dk;
+        background: $seneca-color-danger-soft-dk;
+        color: $seneca-color-danger-dk;
       }
     }
   }
 }
 
 /* ── Statement Category Drawer ──────────────────────────── */
-.lumio-cat-drawer {
+.seneca-cat-drawer {
   display: flex;
   height: 100%;
   flex-direction: column;
@@ -1023,7 +1023,7 @@
     padding-bottom: 16px;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
@@ -1041,14 +1041,14 @@
     color: $color-muted-foreground;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
   &__search-input {
     height: 56px;
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
     background: $color-card-bg;
     padding: 0 16px 0 48px;
@@ -1057,9 +1057,9 @@
     transition: border-color 0.15s, box-shadow 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:focus {
@@ -1075,7 +1075,7 @@
     border-top: 1px solid $color-border;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
   }
 
@@ -1101,14 +1101,14 @@
     color: $color-foreground;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:hover {
       background: $color-muted;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
@@ -1124,19 +1124,19 @@
     color: $color-muted-foreground;
 
     @include dark {
-      color: $lumio-color-text-secondary-dk;
+      color: $seneca-color-text-secondary-dk;
     }
   }
 }
 
 /* ── Columns Drawer ──────────────────────────────────────── */
-.lumio-col-drawer {
+.seneca-col-drawer {
   display: flex;
   height: 100%;
   flex-direction: column;
 
   &__back-btn {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 8px;
     color: $color-muted-foreground;
     transition: all 0.15s;
@@ -1145,7 +1145,7 @@
     cursor: pointer;
 
     @include dark {
-      color: $lumio-color-text-secondary-dk;
+      color: $seneca-color-text-secondary-dk;
     }
 
     &:hover {
@@ -1153,8 +1153,8 @@
       color: $color-foreground;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-text-primary-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-text-primary-dk;
       }
     }
   }
@@ -1179,7 +1179,7 @@
     transition: background-color 0.15s;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
 
     &:last-child {
@@ -1190,7 +1190,7 @@
       background: $color-muted;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
@@ -1200,7 +1200,7 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
       @include dark {
-        background: $lumio-color-surface-dk;
+        background: $seneca-color-surface-dk;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
       }
     }
@@ -1210,7 +1210,7 @@
     margin-left: -4px;
     cursor: grab;
     touch-action: none;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 4px;
     color: color-mix(in srgb, $color-muted-foreground 70%, transparent);
     transition: color 0.15s;
@@ -1218,14 +1218,14 @@
     border: none;
 
     @include dark {
-      color: color-mix(in srgb, $lumio-color-ink-400-dk 70%, transparent);
+      color: color-mix(in srgb, $seneca-color-ink-400-dk 70%, transparent);
     }
 
     &:hover {
       color: $color-foreground;
 
       @include dark {
-        color: $lumio-color-text-primary-dk;
+        color: $seneca-color-text-primary-dk;
       }
     }
 
@@ -1240,14 +1240,14 @@
     color: $color-foreground;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &--hidden {
       color: $color-muted-foreground;
 
       @include dark {
-        color: $lumio-color-text-secondary-dk;
+        color: $seneca-color-text-secondary-dk;
       }
     }
   }
@@ -1259,20 +1259,20 @@
     padding: 16px 0 8px;
 
     @include dark {
-      background: $lumio-color-surface-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 }
 
 /* ── Payables ──────────────────────────────────────────── */
-.lumio-payable-list {
-  border-radius: $lumio-radius-lg;
+.seneca-payable-list {
+  border-radius: $seneca-radius-lg;
   border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
+  background: $seneca-color-surface;
 
   @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
+    border-color: $seneca-color-border-dk;
+    background: $seneca-color-surface-dk;
   }
 
   &__empty {
@@ -1293,7 +1293,7 @@
     border-bottom: 1px solid #f3f4f6;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
 
     &:last-child {
@@ -1347,7 +1347,7 @@
     vertical-align: middle;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
   }
 
@@ -1365,7 +1365,7 @@
     justify-content: space-between;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
 
     @media (min-width: 640px) {
@@ -1467,7 +1467,7 @@
 
 // A status is a word with a small dot. Only overdue gets a colour beyond the dot:
 // how long it has been, in terracotta, the one accent of its row.
-.lumio-payable-status {
+.seneca-payable-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1508,13 +1508,13 @@
   }
 }
 
-.lumio-payable-summary-wrap {
+.seneca-payable-summary-wrap {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.lumio-payable-summary {
+.seneca-payable-summary {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
@@ -1565,20 +1565,20 @@
 }
 
 /* ── Invoice line-item editor ────────────────────────────── */
-/* Its own table skin: `lumio-payable-list__table` is sized for compact
+/* Its own table skin: `seneca-payable-list__table` is sized for compact
    read-only rows, not for hosting 48px-tall form inputs — reusing it left
    the header cells and the fixed-width input cells out of step. */
-// Unlike .lumio-stmt-list this page has no inner scroller, so it must not cap
+// Unlike .seneca-stmt-list this page has no inner scroller, so it must not cap
 // its own height — the form flows and the shell's main area scrolls.
-.lumio-invoice-detail {
-  padding: var(--lumio-page-top, 24px) 16px 24px;
+.seneca-invoice-detail {
+  padding: var(--seneca-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: var(--lumio-page-top, 24px) 24px 24px;
+    padding: var(--seneca-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: var(--lumio-page-top, 24px) 32px 24px;
+    padding: var(--seneca-page-top, 24px) 32px 24px;
   }
 
   &__header {
@@ -1604,7 +1604,7 @@
 
 /* ── New / draft invoice wizard ───────────────────────────── */
 // One question per step in a narrow column, the onboarding's rhythm inside the app.
-.lumio-invoice-wizard {
+.seneca-invoice-wizard {
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -1696,11 +1696,11 @@
     }
   }
 
-  .lumio-payable-drawer__field-group {
+  .seneca-payable-drawer__field-group {
     gap: 6px;
   }
 
-  .lumio-payable-drawer__field-label {
+  .seneca-payable-drawer__field-label {
     font-size: 13px;
     font-weight: 500;
     color: var(--text-muted);
@@ -1789,7 +1789,7 @@
     flex-direction: column;
     gap: 16px;
     padding: 20px;
-    border: 1px solid $lumio-color-hairline;
+    border: 1px solid $seneca-color-hairline;
     border-radius: 12px;
 
     @include dark { border-color: var(--border); }
@@ -1852,7 +1852,7 @@
 
   &__total {
     padding-top: 6px;
-    border-top: 1px solid $lumio-color-hairline;
+    border-top: 1px solid $seneca-color-hairline;
     font-size: 16px;
     font-weight: 500;
     color: var(--foreground);
@@ -1930,7 +1930,7 @@
   }
 }
 
-.lumio-invoice-lines {
+.seneca-invoice-lines {
   &__table {
     width: 100%;
     table-layout: fixed;
@@ -1946,7 +1946,7 @@
     color: #334155;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:first-child {
@@ -1962,7 +1962,7 @@
     border-top: 1px solid #f3f4f6;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
   }
 
@@ -2016,7 +2016,7 @@
         color: #334155;
 
         @include dark {
-          color: $lumio-color-ink-700-dk;
+          color: $seneca-color-ink-700-dk;
         }
       }
     }
@@ -2040,9 +2040,9 @@
 }
 
 /* ── Payable drawer back button ──────────────────────────── */
-.lumio-payable-drawer {
+.seneca-payable-drawer {
   &__back-btn {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 8px;
     color: #6b7280;
     transition: all 0.15s;
@@ -2051,7 +2051,7 @@
     cursor: pointer;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &:hover {
@@ -2059,8 +2059,8 @@
       color: #374151;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-ink-700-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
   }
@@ -2089,7 +2089,7 @@
     color: #334155;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
   }
 
@@ -2109,9 +2109,9 @@
     // Same as FORM_CONTROL_SX, so it lines up with the Amount input beside it.
     height: 48px;
     align-items: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 0 14px;
     color: $color-foreground;
     font-size: 16px;
@@ -2120,9 +2120,9 @@
     outline: none;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:focus-visible {
@@ -2133,9 +2133,9 @@
 
   &__textarea {
     min-height: 120px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 12px;
     font-size: 14px;
     color: $color-foreground;
@@ -2144,9 +2144,9 @@
     resize: vertical;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:focus {
@@ -2164,7 +2164,7 @@
 
 /* ── SpendOverTime / TopCategories / TopMerchants ─────────── */
 /* ── Reports → Cash flow: the three leaderboards as stacked sections ── */
-.lumio-cash-flow {
+.seneca-cash-flow {
   display: flex;
   flex-direction: column;
   gap: 40px;
@@ -2195,10 +2195,10 @@
   }
 }
 
-.lumio-view-page {
+.seneca-view-page {
   display: flex;
   flex-direction: column;
-  // See .lumio-stmt-list-view below: fill the parent's already-capped
+  // See .seneca-stmt-list-view below: fill the parent's already-capped
   // height instead of recomputing it, or a sibling like AlertBanner clips
   // the bottom.
   height: 100%;
@@ -2236,7 +2236,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -2245,25 +2245,25 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__period-tabs {
     display: inline-flex;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 4px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
   &__period-tab {
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 500;
@@ -2274,7 +2274,7 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &--active {
@@ -2307,24 +2307,24 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px 16px 12px 44px;
     font-size: 14px;
     color: #111827;
     transition: border-color 0.15s, box-shadow 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &:focus {
@@ -2347,7 +2347,7 @@
     width: 20px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background: color-mix(in srgb, var(--primary) 10%, transparent);
     font-size: 12px;
     font-weight: 600;
@@ -2401,14 +2401,14 @@
   }
 
   &__stat-card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 16px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -2425,7 +2425,7 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -2444,7 +2444,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 6px 8px;
     font-size: 13px;
     font-weight: 500;
@@ -2461,7 +2461,7 @@
     color: #4b5563;
 
     @include dark {
-      color: $lumio-color-ink-600-dk;
+      color: $seneca-color-ink-600-dk;
     }
   }
 
@@ -2476,25 +2476,25 @@
   }
 
   &__chart-card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 20px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
 
     &--wide {
-      border-radius: $lumio-radius-lg;
+      border-radius: $seneca-radius-lg;
       border: 1px solid #e5e7eb;
-      background: $lumio-color-surface;
+      background: $seneca-color-surface;
       padding: 20px;
 
       @include dark {
-        border-color: $lumio-color-border-dk;
-        background: $lumio-color-surface-dk;
+        border-color: $seneca-color-border-dk;
+        background: $seneca-color-surface-dk;
       }
 
       @media (min-width: 1024px) {
@@ -2516,19 +2516,19 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
   &__leaderboard-card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 20px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -2553,7 +2553,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -2562,25 +2562,25 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__sort-tabs {
     display: inline-flex;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
     background: #f9fafb;
     padding: 4px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-muted-dk;
     }
   }
 
   &__sort-btn {
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     padding: 4px 10px;
     font-size: 12px;
     font-weight: 500;
@@ -2590,17 +2590,17 @@
     cursor: pointer;
 
     @include dark {
-      color: $lumio-color-ink-600-dk;
+      color: $seneca-color-ink-600-dk;
     }
 
     &--active {
-      background: $lumio-color-surface;
+      background: $seneca-color-surface;
       color: #111827;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 
       @include dark {
-        background: $lumio-color-surface-dk;
-        color: $lumio-color-ink-900-dk;
+        background: $seneca-color-surface-dk;
+        color: $seneca-color-ink-900-dk;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
       }
     }
@@ -2623,7 +2623,7 @@
       color: #6b7280;
 
       @include dark {
-        color: $lumio-color-ink-500-dk;
+        color: $seneca-color-ink-500-dk;
       }
     }
 
@@ -2640,7 +2640,7 @@
       border-top: 1px solid #f3f4f6;
 
       @include dark {
-        border-top-color: $lumio-color-border-dk;
+        border-top-color: $seneca-color-border-dk;
       }
     }
 
@@ -2649,8 +2649,8 @@
       color: #374151;
 
       @include dark {
-        border-bottom-color: $lumio-color-border-dk;
-        color: $lumio-color-ink-700-dk;
+        border-bottom-color: $seneca-color-border-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
 
@@ -2698,13 +2698,13 @@
     width: 100%;
     max-width: 896px;
     overflow: hidden;
-    border-radius: $lumio-radius-xl;
+    border-radius: $seneca-radius-xl;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -2716,7 +2716,7 @@
     padding: 12px 20px;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
@@ -2726,7 +2726,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -2735,12 +2735,12 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__drill-close {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 6px;
     color: #6b7280;
     background: none;
@@ -2748,7 +2748,7 @@
     cursor: pointer;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &:hover {
@@ -2756,8 +2756,8 @@
       color: #374151;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-ink-700-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
   }
@@ -2769,7 +2769,7 @@
   }
 
   &__drill-empty {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px dashed #d1d5db;
     padding: 32px;
     text-align: center;
@@ -2777,15 +2777,15 @@
     color: #6b7280;
 
     @include dark {
-      border-color: $lumio-color-ink-300-dk;
-      color: $lumio-color-ink-500-dk;
+      border-color: $seneca-color-ink-300-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__empty-cta-primary {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background: var(--primary-fill);
     padding: 8px 16px;
     font-size: 14px;
@@ -2803,7 +2803,7 @@
   &__empty-cta-secondary {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid var(--primary);
     padding: 8px 16px;
     font-size: 14px;
@@ -2820,7 +2820,7 @@
 }
 
 /* ── ParsingWarningsPanel ──────────────────────────────── */
-.lumio-warnings {
+.seneca-warnings {
   display: flex;
   flex-direction: column;
   height: calc(100vh - $global-nav-height);
@@ -2848,14 +2848,14 @@
   }
 
   &__card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     overflow: hidden;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -2877,9 +2877,9 @@
     border-bottom: 1px solid #f3f4f6;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
-      background: $lumio-color-surface-muted-dk;
-      border-bottom-color: $lumio-color-border-dk;
+      color: $seneca-color-ink-500-dk;
+      background: $seneca-color-surface-muted-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
@@ -2889,49 +2889,49 @@
     border-bottom: 1px solid #f9fafb;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
   &__badge {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     padding: 2px 8px;
     font-size: 12px;
     font-weight: 600;
 
     &--warning {
-      background: $lumio-color-surface-warning;
+      background: $seneca-color-surface-warning;
       color: #92400e;
 
       @include dark {
-        background: $lumio-color-warning-soft-dk;
-        color: $lumio-color-warning-dk;
+        background: $seneca-color-warning-soft-dk;
+        color: $seneca-color-warning-dk;
       }
     }
 
     &--error {
-      background: $lumio-color-surface-error;
+      background: $seneca-color-surface-error;
       color: #991b1b;
 
       @include dark {
-        background: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
+        background: $seneca-color-danger-soft-dk;
+        color: $seneca-color-danger-dk;
       }
     }
   }
 }
 
 /* ── Statement view page nav button ─────────────────────── */
-.lumio-stmt-view {
+.seneca-stmt-view {
   &__back-btn {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 16px;
     font-size: 14px;
     font-weight: 500;
@@ -2940,32 +2940,32 @@
     transition: background-color 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
       background: $color-muted;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
   }
 
   &__error-box {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #fecaca;
-    background: $lumio-color-surface-error;
+    background: $seneca-color-surface-error;
     padding: 16px;
     color: #dc2626;
     margin-bottom: 16px;
 
     @include dark {
-      border-color: $lumio-color-danger-soft-dk;
-      background: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      border-color: $seneca-color-danger-soft-dk;
+      background: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
     }
   }
 
@@ -2973,7 +2973,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background: var(--primary-fill);
     padding: 8px 16px;
     font-size: 14px;
@@ -2990,23 +2990,23 @@
 }
 
 /* ── TrashListView ───────────────────────────────────────── */
-.lumio-trash-list {
+.seneca-trash-list {
   display: flex;
   flex-direction: column;
-  // See .lumio-stmt-list-view below: fill the parent's already-capped
+  // See .seneca-stmt-list-view below: fill the parent's already-capped
   // height instead of recomputing it, or a sibling like AlertBanner clips
   // the bottom.
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: var(--lumio-page-top, 24px) 16px 24px;
+  padding: var(--seneca-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: var(--lumio-page-top, 24px) 24px 24px;
+    padding: var(--seneca-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: var(--lumio-page-top, 24px) 32px 24px;
+    padding: var(--seneca-page-top, 24px) 32px 24px;
   }
 
   &__header {
@@ -3035,25 +3035,25 @@
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px 16px 12px 44px;
     font-size: 14px;
     color: #111827;
     transition: border-color 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &::placeholder {
       color: #9ca3af;
 
       @include dark {
-        color: $lumio-color-ink-400-dk;
+        color: $seneca-color-ink-400-dk;
       }
     }
 
@@ -3073,7 +3073,7 @@
     pointer-events: none;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -3088,7 +3088,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #a7f3d0;
     padding: 6px 10px;
     font-size: 13px;
@@ -3099,8 +3099,8 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-success-dk;
-      color: $lumio-color-success-dk;
+      border-color: $seneca-color-success-dk;
+      color: $seneca-color-success-dk;
     }
 
     &:hover:not(:disabled) {
@@ -3108,8 +3108,8 @@
       background: #ecfdf5;
 
       @include dark {
-        border-color: $lumio-color-success-dk;
-        background: $lumio-color-success-soft-dk;
+        border-color: $seneca-color-success-dk;
+        background: $seneca-color-success-soft-dk;
       }
     }
 
@@ -3123,7 +3123,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #fecaca;
     padding: 6px 10px;
     font-size: 13px;
@@ -3134,17 +3134,17 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      border-color: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
     }
 
     &:hover:not(:disabled) {
       border-color: #f87171;
-      background: $lumio-color-surface-muted;
+      background: $seneca-color-surface-muted;
 
       @include dark {
-        border-color: $lumio-color-danger-dk;
-        background: $lumio-color-danger-soft-dk;
+        border-color: $seneca-color-danger-dk;
+        background: $seneca-color-danger-soft-dk;
       }
     }
 
@@ -3158,7 +3158,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
     padding: 6px 10px;
     font-size: 13px;
@@ -3169,8 +3169,8 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover:not(:disabled) {
@@ -3210,13 +3210,13 @@
     width: 64px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background: #f9fafb;
     color: #d1d5db;
 
     @include dark {
-      background: $lumio-color-surface-muted-dk;
-      color: $lumio-color-ink-300-dk;
+      background: $seneca-color-surface-muted-dk;
+      color: $seneca-color-ink-300-dk;
     }
   }
 
@@ -3249,7 +3249,7 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     @media (min-width: 768px) {
@@ -3278,23 +3278,23 @@
 }
 
 /* ── Statement status badges ─────────────────────────────── */
-.lumio-stmt-badge {
+.seneca-stmt-badge {
   display: inline-flex;
   align-items: center;
-  border-radius: $lumio-radius-full;
+  border-radius: $seneca-radius-full;
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 
   &--error {
-    background: $lumio-color-surface-error;
+    background: $seneca-color-surface-error;
     color: #b91c1c;
     box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.2);
 
     @include dark {
-      background: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      background: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
       box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.3);
     }
   }
@@ -3306,8 +3306,8 @@
     animation: pulse 1.5s infinite;
 
     @include dark {
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
       box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.4);
     }
   }
@@ -3320,8 +3320,8 @@
     box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.3);
 
     @include dark {
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
       box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.4);
     }
   }
@@ -3333,7 +3333,7 @@
     white-space: nowrap;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 }
@@ -3341,7 +3341,7 @@
 // Review: a row's own "Approve as is" is a sage text link that only shows on
 // the row under the pointer or the keyboard cursor, or when tabbed to. It keeps
 // its room while hidden, so the amounts stay in one column.
-.lumio-review-row-approve {
+.seneca-review-row-approve {
   border: 0;
   background: none;
   padding: 4px 0;
@@ -3354,9 +3354,9 @@
   opacity: 0;
   transition: opacity 0.15s;
 
-  .lumio-stmt-list-item:hover &,
-  .lumio-stmt-list-item:focus-within &,
-  .lumio-stmt-list-item[data-cursor='true'] & {
+  .seneca-stmt-list-item:hover &,
+  .seneca-stmt-list-item:focus-within &,
+  .seneca-stmt-list-item[data-cursor='true'] & {
     opacity: 1;
   }
 
@@ -3371,20 +3371,20 @@
 }
 
 // Review tab counts: "Receipts 0", the zero greyed out so only real work stands out.
-.lumio-review-tab-count {
+.seneca-review-tab-count {
   font-variant-numeric: tabular-nums;
 
   &--zero {
-    color: $lumio-color-tab-count-zero;
+    color: $seneca-color-tab-count-zero;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 }
 
 // "To review": the one status a row shows, as a dot and a word, no fill.
-.lumio-stmt-flag {
+.seneca-stmt-flag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -3398,10 +3398,10 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: $lumio-color-attention;
+    background: $seneca-color-attention;
 
     @include dark {
-      background: $lumio-color-warning-dk;
+      background: $seneca-color-warning-dk;
     }
   }
 }
@@ -3417,17 +3417,17 @@
 }
 
 /* ── StatementsListItem ──────────────────────────────────── */
-.lumio-stmt-list-item {
+.seneca-stmt-list-item {
   // A flat row: one hairline underneath, no card of its own. The list block
-  // (.lumio-stmt-list-view__table) is the only surface.
+  // (.seneca-stmt-list-view__table) is the only surface.
   position: relative;
   overflow: hidden;
-  border-bottom: 1px solid $lumio-color-hairline;
+  border-bottom: 1px solid $seneca-color-hairline;
   padding: 12px;
   transition: background-color 0.15s;
 
   @include dark {
-    border-bottom-color: $lumio-color-ink-150-dk;
+    border-bottom-color: $seneca-color-ink-150-dk;
   }
 
   &:last-child {
@@ -3435,10 +3435,10 @@
   }
 
   &:hover {
-    background: $lumio-color-ink-50;
+    background: $seneca-color-ink-50;
 
     @include dark {
-      background: $lumio-color-ink-50-dk;
+      background: $seneca-color-ink-50-dk;
     }
   }
 
@@ -3472,14 +3472,14 @@
 
     &--start {
       top: 8px;
-      border-top-left-radius: $lumio-radius-md;
-      border-top-right-radius: $lumio-radius-md;
+      border-top-left-radius: $seneca-radius-md;
+      border-top-right-radius: $seneca-radius-md;
     }
 
     &--end {
       bottom: 8px;
-      border-bottom-left-radius: $lumio-radius-md;
-      border-bottom-right-radius: $lumio-radius-md;
+      border-bottom-left-radius: $seneca-radius-md;
+      border-bottom-right-radius: $seneca-radius-md;
     }
   }
 
@@ -3505,7 +3505,7 @@
   &__currency {
     font-size: 12px;
     font-weight: 400;
-    color: $lumio-color-slot-text;
+    color: $seneca-color-slot-text;
 
     @include dark {
       color: var(--muted-foreground);
@@ -3516,7 +3516,7 @@
     position: absolute;
     inset: 0;
     display: block;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     z-index: 0;
     cursor: pointer;
     background: transparent;
@@ -3603,10 +3603,10 @@
     white-space: nowrap;
     font-size: 15px;
     font-weight: 600;
-    color: $lumio-color-ink-900;
+    color: $seneca-color-ink-900;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -3616,10 +3616,10 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-    color: $lumio-color-ink-900;
+    color: $seneca-color-ink-900;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -3627,10 +3627,10 @@
     flex-wrap: wrap;
     row-gap: 2px;
     font-size: 12px;
-    color: $lumio-color-ink-400;
+    color: $seneca-color-ink-400;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -3649,9 +3649,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 600;
@@ -3661,9 +3661,9 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-600-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-600-dk;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     }
 
@@ -3673,9 +3673,9 @@
       color: #111827;
 
       @include dark {
-        border-color: $lumio-color-ink-300-dk;
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-ink-900-dk;
+        border-color: $seneca-color-ink-300-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-ink-900-dk;
       }
     }
 
@@ -3690,7 +3690,7 @@
       background: none;
       box-shadow: none;
       padding: 4px;
-      color: $lumio-color-ink-400;
+      color: $seneca-color-ink-400;
       opacity: 0;
       transition: opacity 0.15s, color 0.15s;
 
@@ -3698,18 +3698,18 @@
         border: 0;
         background: none;
         box-shadow: none;
-        color: $lumio-color-ink-600-dk;
+        color: $seneca-color-ink-600-dk;
       }
 
       &:hover:not(:disabled) {
         border: 0;
         background: none;
-        color: $lumio-color-ink-900;
+        color: $seneca-color-ink-900;
 
         @include dark {
           border: 0;
           background: none;
-          color: $lumio-color-ink-900-dk;
+          color: $seneca-color-ink-900-dk;
         }
       }
     }
@@ -3772,7 +3772,7 @@
 // circle where the icon would be and grey words — that only shows it can be
 // clicked on hover. The padding is taken back by the margin so the circle sits
 // where a chosen category's icon does.
-.lumio-no-category {
+.seneca-no-category {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -3780,9 +3780,9 @@
   margin: -4px 0 -4px -4px;
   padding: 3px 10px 3px 3px;
   border: 1px solid transparent;
-  border-radius: $lumio-radius-full;
+  border-radius: $seneca-radius-full;
   font-weight: 400;
-  color: $lumio-color-text-muted;
+  color: $seneca-color-text-muted;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 
   @include dark {
@@ -3790,14 +3790,14 @@
   }
 
   &:hover {
-    border-color: $lumio-color-slot-border;
-    background: $lumio-color-slot-bg;
-    color: $lumio-color-figure;
+    border-color: $seneca-color-slot-border;
+    background: $seneca-color-slot-bg;
+    color: $seneca-color-figure;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-ink-100-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-ink-100-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -3809,9 +3809,9 @@
     pointer-events: auto;
 
     &:focus-visible {
-      border-color: $lumio-color-slot-border;
-      background: $lumio-color-slot-bg;
-      color: $lumio-color-figure;
+      border-color: $seneca-color-slot-border;
+      background: $seneca-color-slot-bg;
+      color: $seneca-color-figure;
     }
   }
 
@@ -3820,11 +3820,11 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    border: 1px dashed $lumio-color-slot-dash;
+    border: 1px dashed $seneca-color-slot-dash;
     border-radius: 50%;
 
     @include dark {
-      border-color: $lumio-color-ink-300-dk;
+      border-color: $seneca-color-ink-300-dk;
     }
   }
 
@@ -3835,7 +3835,7 @@
   }
 }
 
-.lumio-stmt-category-link {
+.seneca-stmt-category-link {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3900,7 +3900,7 @@
     opacity: 1;
 
     @media (prefers-reduced-motion: no-preference) {
-      animation: lumio-category-link-shimmer 2.4s linear infinite;
+      animation: seneca-category-link-shimmer 2.4s linear infinite;
     }
   }
 
@@ -3909,25 +3909,25 @@
     color: var(--primary);
 
     @media (prefers-reduced-motion: no-preference) {
-      animation: lumio-category-link-pulse 2.4s ease-in-out infinite;
+      animation: seneca-category-link-pulse 2.4s ease-in-out infinite;
     }
   }
 }
 
-@keyframes lumio-category-link-shimmer {
+@keyframes seneca-category-link-shimmer {
   to { background-position: -300% 0; }
 }
 
-@keyframes lumio-category-link-pulse {
+@keyframes seneca-category-link-pulse {
   50% { background-color: color-mix(in srgb, var(--primary) 38%, transparent); }
 }
 
 // On the flat white list the app's filled grey checkbox read as one more
 // tile under every row; here an unchecked box is just an outline.
-.lumio-stmt-list-item,
-.lumio-stmt-list-view__desktop-header,
-.lumio-stmt-edit-table,
-.lumio-categories-list {
+.seneca-stmt-list-item,
+.seneca-stmt-list-view__desktop-header,
+.seneca-stmt-edit-table,
+.seneca-categories-list {
   .MuiCheckbox-root:not(.Mui-checked):not(.MuiCheckbox-indeterminate) .MuiSvgIcon-root rect {
     x: 1px;
     y: 1px;
@@ -3935,11 +3935,11 @@
     height: 22px;
     fill: transparent;
     // ink-400 keeps the outline at 3:1 against white, the minimum for a control.
-    stroke: $lumio-color-ink-400;
+    stroke: $seneca-color-ink-400;
     stroke-width: 2;
 
     @include dark {
-      stroke: $lumio-color-ink-600-dk;
+      stroke: $seneca-color-ink-600-dk;
     }
   }
 }
@@ -3947,22 +3947,22 @@
 // Statement edit table: edit/delete stay out of sight until their row is
 // hovered or holds focus, so 15+ rows don't repeat two icons down the edge.
 // Touch screens have no hover, so there they stay visible.
-.lumio-stmt-edit-table {
+.seneca-stmt-edit-table {
   @media (hover: hover) {
-    .lumio-stmt-edit-table__row-actions {
+    .seneca-stmt-edit-table__row-actions {
       opacity: 0;
       transition: opacity 0.15s;
     }
 
-    .MuiTableRow-root:hover .lumio-stmt-edit-table__row-actions,
-    .lumio-stmt-edit-table__row-actions:focus-within {
+    .MuiTableRow-root:hover .seneca-stmt-edit-table__row-actions,
+    .seneca-stmt-edit-table__row-actions:focus-within {
       opacity: 1;
     }
   }
 
   // The category reads as text; on the row under the pointer it gets a light
   // frame, the sign it can be changed.
-  .MuiTableRow-root:hover .lumio-stmt-edit-table__category {
+  .MuiTableRow-root:hover .seneca-stmt-edit-table__category {
     border-color: var(--border);
     background: var(--card-bg);
   }
@@ -3970,7 +3970,7 @@
 
 // "Transactions: 24 ▾" beside the date of a multi-row statement. Sits above the
 // row's click overlay so it opens the rows instead of the statement.
-.lumio-stmt-list-item__rows-toggle {
+.seneca-stmt-list-item__rows-toggle {
   position: relative;
   z-index: 11;
   display: inline-flex;
@@ -3979,7 +3979,7 @@
   margin-left: 8px;
   padding: 0 4px;
   border: 0;
-  border-radius: $lumio-radius-xs;
+  border-radius: $seneca-radius-xs;
   background: transparent;
   font: inherit;
   color: var(--primary);
@@ -3997,14 +3997,14 @@
 
 // A statement's own rows, opened under its line in Documents: a quiet inset
 // list under the hairline, lined up with the merchant column.
-.lumio-stmt-tx-panel {
-  border-bottom: 1px solid $lumio-color-ink-150;
-  background: $lumio-color-ink-50;
+.seneca-stmt-tx-panel {
+  border-bottom: 1px solid $seneca-color-ink-150;
+  background: $seneca-color-ink-50;
   padding: 4px 16px 8px 48px;
 
   @include dark {
-    border-bottom-color: $lumio-color-ink-150-dk;
-    background: $lumio-color-ink-50-dk;
+    border-bottom-color: $seneca-color-ink-150-dk;
+    background: $seneca-color-ink-50-dk;
   }
 
   @media (max-width: 767px) {
@@ -4028,7 +4028,7 @@
     width: 100%;
     padding: 8px;
     border: 0;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background: transparent;
     font-size: 13px;
     text-align: left;
@@ -4094,7 +4094,7 @@
 /* ── StatementsListView ──────────────────────────────────── */
 /* Queue tabs and the list's actions on one line; on a phone the tabs take a
    line of their own (otherwise they shrink to nothing) and the actions wrap. */
-.lumio-stmt-toolbar {
+.seneca-stmt-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -4141,7 +4141,7 @@
   }
 }
 
-.lumio-stmt-list-view {
+.seneca-stmt-list-view {
   display: flex;
   flex-direction: column;
   // The parent MainSidePanelLayout wrapper already caps height to
@@ -4151,14 +4151,14 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: var(--lumio-page-top, 16px) 16px 16px;
+  padding: var(--seneca-page-top, 16px) 16px 16px;
 
   @media (min-width: 640px) {
-    padding: var(--lumio-page-top, 16px) 24px 16px;
+    padding: var(--seneca-page-top, 16px) 24px 16px;
   }
 
   @media (min-width: 1024px) {
-    padding: var(--lumio-page-top, 16px) 32px 16px;
+    padding: var(--seneca-page-top, 16px) 32px 16px;
   }
 
   &__header {
@@ -4182,25 +4182,25 @@
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 16px 8px 40px;
     font-size: 14px;
     color: #111827;
     transition: border-color 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &::placeholder {
       color: #9ca3af;
 
       @include dark {
-        color: $lumio-color-ink-400-dk;
+        color: $seneca-color-ink-400-dk;
       }
     }
 
@@ -4220,7 +4220,7 @@
     pointer-events: none;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -4245,10 +4245,10 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px 16px;
-    border-bottom: 1px solid $lumio-color-ink-150;
+    border-bottom: 1px solid $seneca-color-ink-150;
 
     @include dark {
-      border-bottom-color: $lumio-color-ink-150-dk;
+      border-bottom-color: $seneca-color-ink-150-dk;
     }
   }
 
@@ -4258,14 +4258,14 @@
     display: flex;
     width: 100%;
     flex-direction: column;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-lg;
-    background: $lumio-color-surface;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-lg;
+    background: $seneca-color-surface;
     overflow: hidden;
 
     @include dark {
-      border-color: $lumio-color-ink-150-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-ink-150-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -4285,15 +4285,15 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 12px;
     font-size: 14px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -4301,7 +4301,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid transparent;
     padding: 4px 12px;
     font-size: 13px;
@@ -4312,7 +4312,7 @@
     color: #374151;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
@@ -4320,8 +4320,8 @@
       border-color: #e5e7eb;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        border-color: $lumio-color-border-dk;
+        background: $seneca-color-surface-muted-dk;
+        border-color: $seneca-color-border-dk;
       }
     }
 
@@ -4329,16 +4329,16 @@
       color: #dc2626;
 
       @include dark {
-        color: $lumio-color-danger-dk;
+        color: $seneca-color-danger-dk;
       }
 
       &:hover {
-        background: $lumio-color-surface-error;
+        background: $seneca-color-surface-error;
         border-color: #fecaca;
 
         @include dark {
-          background: $lumio-color-danger-soft-dk;
-          border-color: $lumio-color-danger-soft-dk;
+          background: $seneca-color-danger-soft-dk;
+          border-color: $seneca-color-danger-soft-dk;
         }
       }
     }
@@ -4348,9 +4348,9 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 10px;
     font-size: 12px;
     font-weight: 500;
@@ -4359,9 +4359,9 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-500-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &:hover {
@@ -4369,8 +4369,8 @@
       color: #374151;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-ink-700-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
 
@@ -4380,9 +4380,9 @@
       border-color: color-mix(in srgb, var(--primary) 30%, transparent);
 
       @include dark {
-        background: color-mix(in srgb, $lumio-color-primary-dk 10%, transparent);
-        color: $lumio-color-primary-dk;
-        border-color: color-mix(in srgb, $lumio-color-primary-dk 30%, transparent);
+        background: color-mix(in srgb, $seneca-color-primary-dk 10%, transparent);
+        color: $seneca-color-primary-dk;
+        border-color: color-mix(in srgb, $seneca-color-primary-dk 30%, transparent);
       }
     }
   }
@@ -4409,7 +4409,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -4418,14 +4418,14 @@
     align-items: center;
     gap: 16px;
     padding: 12px 16px;
-    border-bottom: 1px solid $lumio-color-hairline;
+    border-bottom: 1px solid $seneca-color-hairline;
     font-size: 13px;
     font-weight: 400;
     color: var(--muted-foreground);
 
     @include dark {
-      border-bottom-color: $lumio-color-ink-150-dk;
-      color: $lumio-color-ink-400-dk;
+      border-bottom-color: $seneca-color-ink-150-dk;
+      color: $seneca-color-ink-400-dk;
     }
 
     // Phones: rows are stacked, so column titles would label nothing; keep
@@ -4448,9 +4448,9 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 500;
@@ -4459,9 +4459,9 @@
     color: #4b5563;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-600-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-600-dk;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
 
@@ -4485,7 +4485,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background: var(--primary-fill);
     padding: 6px 10px;
     font-size: 13px;
@@ -4507,15 +4507,15 @@
     z-index: 20;
     width: 280px;
     max-width: calc(100vw - 64px);
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #dedad2;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px;
     box-shadow: 0 10px 20px rgba(17, 24, 39, 0.1);
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
     }
   }
@@ -4525,7 +4525,7 @@
     width: 100%;
     align-items: center;
     justify-content: space-between;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 10px 12px;
     text-align: left;
     cursor: pointer;
@@ -4535,22 +4535,22 @@
     color: #374151;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
       background: #f9fafb;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
     &--danger:hover {
-      background: $lumio-color-surface-error;
+      background: $seneca-color-surface-error;
 
       @include dark {
-        background: $lumio-color-danger-soft-dk;
+        background: $seneca-color-danger-soft-dk;
       }
     }
   }
@@ -4561,7 +4561,7 @@
     background: #ece9e2;
 
     @include dark {
-      background: $lumio-color-border-dk;
+      background: $seneca-color-border-dk;
     }
   }
 
@@ -4575,14 +4575,14 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 12px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
 
     @media (min-width: 768px) {
@@ -4602,7 +4602,7 @@
     min-height: 40px;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
     padding: 4px 10px;
     font-size: 12px;
@@ -4613,8 +4613,8 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &--primary {
@@ -4649,8 +4649,8 @@
       color: #dc2626;
 
       @include dark {
-        border-color: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
+        border-color: $seneca-color-danger-soft-dk;
+        color: $seneca-color-danger-dk;
       }
 
       &:hover {
@@ -4658,8 +4658,8 @@
         color: #b91c1c;
 
         @include dark {
-          border-color: $lumio-color-danger-dk;
-          color: $lumio-color-danger-dk;
+          border-color: $seneca-color-danger-dk;
+          color: $seneca-color-danger-dk;
         }
       }
     }
@@ -4670,7 +4670,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid transparent;
     background: none;
     padding: 6px 10px;
@@ -4695,14 +4695,14 @@
   &__skeleton-row {
     position: relative;
     overflow: hidden;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
 
     @media (min-width: 768px) {
@@ -4730,7 +4730,7 @@
 }
 
 /* ── CreateExpenseDrawer ─────────────────────────────────── */
-.lumio-expense-drawer {
+.seneca-expense-drawer {
   display: flex;
   height: 100%;
   flex-direction: column;
@@ -4941,20 +4941,20 @@
 }
 
 /* ── UnapprovedCashView ──────────────────────────────────── */
-.lumio-unapproved {
+.seneca-unapproved {
   display: flex;
   flex-direction: column;
   height: calc(100vh - $global-nav-height);
   min-height: 0;
   overflow: hidden;
-  padding: var(--lumio-page-top, 24px) 16px 24px;
+  padding: var(--seneca-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: var(--lumio-page-top, 24px) 24px 24px;
+    padding: var(--seneca-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: var(--lumio-page-top, 24px) 32px 24px;
+    padding: var(--seneca-page-top, 24px) 32px 24px;
   }
 
   &__body {
@@ -4967,7 +4967,7 @@
   &__badge {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid;
     padding: 2px 8px;
     font-size: 12px;
@@ -4977,7 +4977,7 @@
   &__source-badge {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid;
     padding: 2px 8px;
     font-size: 11px;
@@ -4985,17 +4985,17 @@
   }
 
   &__card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
 
     &--approved {
@@ -5003,8 +5003,8 @@
       background: #f0fdf4;
 
       @include dark {
-        border-color: $lumio-color-success-dk;
-        background: $lumio-color-success-soft-dk;
+        border-color: $seneca-color-success-dk;
+        background: $seneca-color-success-soft-dk;
       }
     }
 
@@ -5015,7 +5015,7 @@
 }
 
 /* ── TablesReportsView ───────────────────────────────────── */
-.lumio-tables-report {
+.seneca-tables-report {
   display: flex;
   flex-direction: column;
   height: calc(100vh - $global-nav-height);
@@ -5055,18 +5055,18 @@
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 16px 8px 40px;
     font-size: 14px;
     color: #111827;
     transition: border-color 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &:focus {
@@ -5085,25 +5085,25 @@
     pointer-events: none;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
   &__period-tabs {
     display: inline-flex;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
     background: #f9fafb;
     padding: 4px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-muted-dk;
     }
   }
 
   &__period-tab {
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     padding: 6px 10px;
     font-size: 12px;
     font-weight: 500;
@@ -5114,17 +5114,17 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &--active {
-      background: $lumio-color-surface;
+      background: $seneca-color-surface;
       color: #111827;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 
       @include dark {
-        background: $lumio-color-surface-dk;
-        color: $lumio-color-ink-900-dk;
+        background: $seneca-color-surface-dk;
+        color: $seneca-color-ink-900-dk;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
       }
     }
@@ -5132,19 +5132,19 @@
 
   &__sort-tabs {
     display: inline-flex;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
     background: #f9fafb;
     padding: 4px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-muted-dk;
     }
   }
 
   &__sort-tab {
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     padding: 4px 10px;
     font-size: 12px;
     font-weight: 500;
@@ -5155,31 +5155,31 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &--active {
-      background: $lumio-color-surface;
+      background: $seneca-color-surface;
       color: #111827;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 
       @include dark {
-        background: $lumio-color-surface-dk;
-        color: $lumio-color-ink-900-dk;
+        background: $seneca-color-surface-dk;
+        color: $seneca-color-ink-900-dk;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
       }
     }
   }
 
   &__card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 20px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -5203,7 +5203,7 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &--right {
@@ -5217,7 +5217,7 @@
     border-top: 1px solid #f3f4f6;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
   }
 
@@ -5228,7 +5228,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -5240,9 +5240,9 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 12px;
     font-size: 14px;
     color: #374151;
@@ -5250,16 +5250,16 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
       background: #f9fafb;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
   }
@@ -5270,15 +5270,15 @@
     left: 0;
     z-index: 50;
     min-width: 200px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     }
   }
@@ -5289,7 +5289,7 @@
     gap: 8px;
     width: 100%;
     padding: 8px 12px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     font-size: 14px;
     cursor: pointer;
     background: none;
@@ -5299,14 +5299,14 @@
     transition: background-color 0.15s;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
       background: #f9fafb;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
@@ -5315,8 +5315,8 @@
       color: var(--primary);
 
       @include dark {
-        background: color-mix(in srgb, $lumio-color-primary-dk 10%, transparent);
-        color: $lumio-color-primary-dk;
+        background: color-mix(in srgb, $seneca-color-primary-dk 10%, transparent);
+        color: $seneca-color-primary-dk;
       }
     }
   }
@@ -5326,7 +5326,7 @@
    Four tiles per row. A fixed `repeat(4, 1fr)` kept every track at its own
    content width, so on phones the row grew past the screen and the last
    tiles were cut off; two tracks that may shrink to zero fit instead. */
-.lumio-stat-tiles {
+.seneca-stat-tiles {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5341,7 +5341,7 @@
    and then two on narrower screens, where seven inputs could not fit. */
 /* ── Spend-over-time drill-down ───────────────────────────
    The table on wider screens, a two-line list per operation on phones. */
-.lumio-spend-drill {
+.seneca-spend-drill {
   &__list {
     display: none;
   }
@@ -5426,7 +5426,7 @@
    Phones: a card needs ~100px for a merchant, seven of those do not fit, so
    the grid shrinks to day numbers with a short total and the month's days
    with spending are listed under it instead. */
-.lumio-spend-calendar {
+.seneca-spend-calendar {
   &__grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -5468,24 +5468,24 @@
 
     &--active {
       cursor: pointer;
-      background: color-mix(in srgb, #{$lumio-color-empty-icon} 8%, transparent);
+      background: color-mix(in srgb, #{$seneca-color-empty-icon} 8%, transparent);
 
       &:hover {
-        border-color: color-mix(in srgb, #{$lumio-color-empty-icon} 45%, transparent);
+        border-color: color-mix(in srgb, #{$seneca-color-empty-icon} 45%, transparent);
       }
     }
 
-    &[data-heat='1'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 8%, transparent); }
-    &[data-heat='2'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 16%, transparent); }
-    &[data-heat='3'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 24%, transparent); }
-    &[data-heat='4'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 34%, transparent); }
-    &[data-heat='5'] { background: color-mix(in srgb, #{$lumio-color-empty-icon} 45%, transparent); }
+    &[data-heat='1'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 8%, transparent); }
+    &[data-heat='2'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 16%, transparent); }
+    &[data-heat='3'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 24%, transparent); }
+    &[data-heat='4'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 34%, transparent); }
+    &[data-heat='5'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 45%, transparent); }
 
     // Another currency: a hairline instead of a shade, and a small mark.
     &--foreign {
       position: relative;
       background: transparent;
-      border-color: $lumio-color-hairline;
+      border-color: $seneca-color-hairline;
 
       &::after {
         content: '';
@@ -5681,7 +5681,7 @@
 }
 
 /* ── Tax rate drawer (inside CreateExpenseDrawer) ────────── */
-.lumio-tax-drawer {
+.seneca-tax-drawer {
   display: flex;
   height: 100%;
   flex-direction: column;
@@ -5803,7 +5803,7 @@
 }
 
 // Offline strip above the page: a status line, not a modal.
-.lumio-offline-banner {
+.seneca-offline-banner {
   position: sticky;
   top: 0;
   z-index: 1200;
@@ -5833,7 +5833,7 @@
 }
 
 // Rows counted at face value because a rate is missing: a warning line above the dashboard tabs.
-.lumio-dashboard__rates-banner {
+.seneca-dashboard__rates-banner {
   margin: 0 16px 12px;
   padding: 8px 12px;
   border-radius: 8px;

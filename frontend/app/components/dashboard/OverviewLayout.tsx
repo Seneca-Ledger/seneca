@@ -133,17 +133,17 @@ function OverviewSection({
       data-overview-section={id}
       style={{ '--overview-span': span } as React.CSSProperties}
       className={clsx(
-        'lumio-overview__section',
-        isTile(id) && 'lumio-overview__section--tile',
-        unpaired && 'lumio-overview__section--unpaired',
-        drag.isDragging && 'lumio-overview__section--dragging',
-        drop && `lumio-overview__section--drop-${drop}`,
+        'seneca-overview__section',
+        isTile(id) && 'seneca-overview__section--tile',
+        unpaired && 'seneca-overview__section--unpaired',
+        drag.isDragging && 'seneca-overview__section--dragging',
+        drop && `seneca-overview__section--drop-${drop}`,
       )}
     >
       <button
         type="button"
         ref={drag.setActivatorNodeRef}
-        className="lumio-overview__handle"
+        className="seneca-overview__handle"
         {...drag.attributes}
         {...drag.listeners}
         aria-label={handleLabel}
@@ -178,7 +178,7 @@ function SectionGhost({ id }: { id: string }): React.JSX.Element {
     clone.removeAttribute('data-overview-section');
     // A picture, not a second set of controls.
     clone.setAttribute('inert', '');
-    clone.className = 'lumio-overview__section';
+    clone.className = 'seneca-overview__section';
     clone.style.width = `${width}px`;
     host.replaceChildren(clone);
     setScale(Math.min(1, GHOST_MAX_WIDTH_PX / width));
@@ -187,7 +187,7 @@ function SectionGhost({ id }: { id: string }): React.JSX.Element {
   return (
     <div
       ref={hostRef}
-      className="lumio-overview__ghost"
+      className="seneca-overview__ghost"
       style={{ transform: `scale(${scale})` }}
       aria-hidden
     />
@@ -323,9 +323,9 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
       onDragEnd={handleDragEnd}
       onDragCancel={stopTracking}
     >
-      <div className="lumio-dashboard__tab lumio-overview">
-        <div className="lumio-overview__body">
-          <div className="lumio-overview__grid">
+      <div className="seneca-dashboard__tab seneca-overview">
+        <div className="seneca-overview__body">
+          <div className="seneca-overview__grid">
             {/* One flat list, not a wrapper per row: a moved card keeps its place
               in the tree, so it is not remounted and keeps its own state. */}
             {rows.flatMap(row => {
@@ -354,12 +354,12 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
             })}
           </div>
         </div>
-        <div className="lumio-overview__footer">
+        <div className="seneca-overview__footer">
           <OverviewWidgetPicker shown={shown} onToggle={toggleSection} />
           {!isDefaultLayout(rows) && (
             <button
               type="button"
-              className="lumio-overview__reset"
+              className="seneca-overview__reset"
               onClick={() => save({ overviewRows: DEFAULT_OVERVIEW_ROWS, hiddenSections: [] })}
             >
               {t.layoutReset}

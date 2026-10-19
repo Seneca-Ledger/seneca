@@ -174,11 +174,11 @@ export function CreatePayableDrawer({
           '@media (min-width:600px)': { maxWidth: 512 },
         }}
         title={
-          <div className="lumio-payable-drawer__title-wrap">
+          <div className="seneca-payable-drawer__title-wrap">
             <button
               type="button"
               onClick={onClose}
-              className="lumio-payable-drawer__back-btn"
+              className="seneca-payable-drawer__back-btn"
               aria-label={labels.cancel}
             >
               <ChevronLeft size={20} />
@@ -189,10 +189,10 @@ export function CreatePayableDrawer({
           </div>
         }
       >
-        <div className="lumio-payable-drawer__body">
+        <div className="seneca-payable-drawer__body">
           <div style={{ display: 'grid', gap: 16 }}>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="payable-vendor">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="payable-vendor">
                 {labels.vendor}
               </label>
               <Input
@@ -202,9 +202,9 @@ export function CreatePayableDrawer({
               />
             </div>
 
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-amount">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-amount">
                   {labels.amount}
                 </label>
                 <Input
@@ -216,14 +216,14 @@ export function CreatePayableDrawer({
                   onChange={event => setForm(prev => ({ ...prev, amount: event.target.value }))}
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-currency">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-currency">
                   {labels.currency}
                 </label>
                 <button
                   id="payable-currency"
                   type="button"
-                  className="lumio-payable-drawer__currency-trigger"
+                  className="seneca-payable-drawer__currency-trigger"
                   onClick={() => setCurrencyDrawerOpen(true)}
                   aria-label={labels.currency}
                 >
@@ -232,9 +232,9 @@ export function CreatePayableDrawer({
               </div>
             </div>
 
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-due-date">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-due-date">
                   {labels.dueDate}
                 </label>
                 <CustomDatePicker
@@ -244,8 +244,8 @@ export function CreatePayableDrawer({
                   onChange={value => setForm(prev => ({ ...prev, dueDate: value }))}
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-source">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-source">
                   {labels.source}
                 </label>
                 <Select
@@ -262,8 +262,8 @@ export function CreatePayableDrawer({
               </div>
             </div>
 
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="payable-status">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="payable-status">
                 {labels.status}
               </label>
               <Select
@@ -280,20 +280,20 @@ export function CreatePayableDrawer({
               />
             </div>
 
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="payable-comment">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="payable-comment">
                 {labels.comment}
               </label>
               <textarea
                 id="payable-comment"
                 value={form.comment}
                 onChange={event => setForm(prev => ({ ...prev, comment: event.target.value }))}
-                className="lumio-payable-drawer__textarea"
+                className="seneca-payable-drawer__textarea"
               />
             </div>
           </div>
 
-          <div className="lumio-payable-drawer__footer">
+          <div className="seneca-payable-drawer__footer">
             <MuiButton variant="outlined" sx={{ flex: 1 }} onClick={onClose}>
               {labels.cancel}
             </MuiButton>

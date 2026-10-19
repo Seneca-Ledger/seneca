@@ -1,6 +1,7 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { isBackupFileName } from './backup-archive.service';
 
 export class LocalBackupDestinationService {
   constructor(private readonly rootPath: string) {}
@@ -32,7 +33,7 @@ export class LocalBackupDestinationService {
       throw error;
     }
     return entries
-      .filter(entry => entry.endsWith('.lumio-backup'))
+      .filter(isBackupFileName)
       .sort()
       .map(entry => path.posix.join(directory, entry));
   }
@@ -65,7 +66,7 @@ export class LocalBackupDestinationService {
   }
 
   private assertFileName(fileName: string): string {
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.lumio-backup$/.test(fileName)) {
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.(seneca|lumio)-backup$/.test(fileName)) {
       throw new Error('invalid backup file name');
     }
     return fileName;

@@ -7,9 +7,9 @@
  */
 import { useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'lumio-experimental-mode';
+const STORAGE_KEY = 'seneca-experimental-mode';
 
-export const EXPERIMENTAL_MODE_EVENT = 'lumio-experimental-mode-change';
+export const EXPERIMENTAL_MODE_EVENT = 'seneca-experimental-mode-change';
 
 export function isExperimentalModeEnabled(): boolean {
   if (typeof window === 'undefined') {

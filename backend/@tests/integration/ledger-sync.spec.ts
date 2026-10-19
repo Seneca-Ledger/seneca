@@ -38,7 +38,7 @@ import { LedgerSyncQueue } from '../../src/modules/ledger/queue/ledger-sync.queu
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_ledger_sync_${process.pid}`;
+const SCRATCH_DB = `seneca_ledger_sync_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);

@@ -18,14 +18,14 @@ export function TextTabs<T extends string>({
   ariaLabel: string;
 }): React.JSX.Element {
   return (
-    <div role="tablist" aria-label={ariaLabel} className="lumio-text-tabs">
+    <div role="tablist" aria-label={ariaLabel} className="seneca-text-tabs">
       {options.map(option => (
         <button
           key={option.value}
           type="button"
           role="tab"
           aria-selected={option.value === value}
-          className="lumio-text-tabs__tab"
+          className="seneca-text-tabs__tab"
           onClick={() => onChange(option.value)}
         >
           {option.label}

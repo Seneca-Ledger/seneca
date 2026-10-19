@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { IntlayerProviderContent } from 'react-intlayer';
 import { useAppearancePreferences } from '@/app/lib/appearance-preferences';
+import { migrateLegacyStorageKeys } from '@/app/lib/legacy-storage-keys';
 import {
   type AppLocale,
   isSupportedLocale,
@@ -35,6 +36,15 @@ import { useWorkspace, WorkspaceProvider } from './contexts/WorkspaceContext';
 import { useAutoTheme } from './hooks/useAutoTheme';
 import { useHTMLLanguage } from './hooks/useHTMLLanguage';
 import { createAppTheme } from './theme';
+
+// Before anything below reads its saved preferences.
+if (typeof window !== 'undefined') {
+  try {
+    migrateLegacyStorageKeys(window.localStorage);
+  } catch {
+    // Storage blocked (private mode, disabled cookies): nothing to move.
+  }
+}
 
 const TOASTER_OPTS = {
   duration: 3000,

@@ -12,6 +12,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { generateSecret, generateURI, verifySync } from 'otplib';
 import * as qrCode from 'qrcode';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import { requireSecret } from '../../common/utils/required-secret.util';
 import { User } from '../../entities';
@@ -19,7 +20,7 @@ import { AuditAction, EntityType, Severity } from '../../entities/audit-event.en
 import { AuditService } from '../audit/audit.service';
 import { recordSecurityEvent } from './security-audit.util';
 
-const ISSUER = 'Lumio';
+const ISSUER = APP_NAME;
 const RECOVERY_CODE_COUNT = 10;
 /** Accept the neighbouring 30s steps so a slow phone clock still works. */
 const EPOCH_TOLERANCE_SECONDS = 30;

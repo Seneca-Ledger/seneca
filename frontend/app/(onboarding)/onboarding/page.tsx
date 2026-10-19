@@ -9,6 +9,7 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { APP_NAME } from '@/app/lib/brand';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import { type AppLocale, normalizeLocale, syncLocaleFromUser } from '@/app/lib/locale';
 import { DisclaimerGate, useDisclaimerAcceptance } from './components/DisclaimerGate';
@@ -297,7 +298,7 @@ export default function OnboardingPage() {
         title={text(['disclaimer', 'title'], 'Before you start')}
         intro={text(
           ['disclaimer', 'intro'],
-          'Lumio helps you track and analyse your finances, but it does not replace an accountant, a tax adviser or a financial adviser.',
+          `${APP_NAME} helps you track and analyse your finances, but it does not replace an accountant, a tax adviser or a financial adviser.`,
         )}
         points={[
           text(

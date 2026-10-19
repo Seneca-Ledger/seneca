@@ -63,8 +63,8 @@ export function PeppolIdField({
     .join(', ');
 
   return (
-    <div className="lumio-payable-drawer__field-group">
-      <label className="lumio-payable-drawer__field-label" htmlFor="client-peppol-id">
+    <div className="seneca-payable-drawer__field-group">
+      <label className="seneca-payable-drawer__field-label" htmlFor="client-peppol-id">
         {t.clientPeppolId.value}
       </label>
       <div style={{ display: 'flex', gap: 8 }}>

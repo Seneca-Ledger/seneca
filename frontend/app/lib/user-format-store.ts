@@ -6,7 +6,7 @@ import type { UserFormatPreferences } from '@/app/lib/user-format';
 import { formatDate, formatDateTime, formatDateWithOptions } from '@/app/lib/user-format';
 
 /** Fired whenever the persisted user changes, so open views re-render dates. */
-export const USER_FORMAT_EVENT = 'lumio:user-format-changed';
+export const USER_FORMAT_EVENT = 'seneca:user-format-changed';
 
 const EMPTY: UserFormatPreferences = {};
 

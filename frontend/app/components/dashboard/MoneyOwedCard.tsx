@@ -54,7 +54,7 @@ export function MoneyOwedCard({
 
   const overdueLine = (amount: string | null) =>
     amount ? (
-      <span className="lumio-dashboard__amount--negative">
+      <span className="seneca-dashboard__amount--negative">
         {fill(t.overdueAmount.value, { amount })}
       </span>
     ) : (
@@ -64,7 +64,7 @@ export function MoneyOwedCard({
 
   return (
     <DashboardCard title={t.sections.moneyOwed} subtitle={today}>
-      <div className="lumio-dashboard__list">
+      <div className="seneca-dashboard__list">
         {receivables.map(total => {
           const money = (value: number) => formatMoney(value, total.currency, locale);
           const overdue = total.total - total.current;

@@ -33,7 +33,7 @@ export function RoiProjectionChart({
       : compactFormatter.format(value);
 
   return (
-    <div className="lumio-chart__box">
+    <div className="seneca-chart__box">
       <LazyRoiLines
         points={points}
         labels={{ compound: compoundLabel, simple: simpleLabel, year: t.yearColumn.value }}

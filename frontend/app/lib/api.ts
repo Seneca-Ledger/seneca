@@ -129,7 +129,7 @@ async function requestNewAccessToken(): Promise<void> {
  * presents the cookie the first has just received. Where the API is missing,
  * the in-tab single flight below still holds.
  */
-const REFRESH_LOCK_NAME = 'lumio-auth-refresh';
+const REFRESH_LOCK_NAME = 'seneca-auth-refresh';
 
 function refreshAcrossTabs(): Promise<void> {
   const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;

@@ -14,7 +14,7 @@
 
 import { parsePeppolId } from './peppol-id';
 
-/** UNCL 5305 categories a Lumio invoice line can be. */
+/** UNCL 5305 categories a Seneca invoice line can be. */
 export type XRechnungCategory = 'S' | 'Z' | 'E' | 'AE' | 'K';
 
 export interface XRechnungParty {

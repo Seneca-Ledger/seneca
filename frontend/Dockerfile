@@ -40,6 +40,10 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+
+# Product name (APP_NAME in the root .env); the UI and its translations bake it in
+ARG NEXT_PUBLIC_APP_NAME
+ENV NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
 # rewrites() in next.config.js are resolved at build time
 ARG API_PROXY_TARGET
 ENV API_PROXY_TARGET=${API_PROXY_TARGET}

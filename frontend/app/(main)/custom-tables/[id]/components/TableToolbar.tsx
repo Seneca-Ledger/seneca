@@ -95,11 +95,11 @@ function ViewMenu({
         <Button variant="ghost" size="sm" type="button">
           <SlidersHorizontal size={16} aria-hidden />
           {labels.view}
-          {changes ? <span className="lumio-grid__menu-count">{changes}</span> : null}
+          {changes ? <span className="seneca-grid__menu-count">{changes}</span> : null}
         </Button>
       </DropdownMenuTrigger>
       {/* MUI Menu walks its children for focus; a Fragment hides them, so give it arrays. */}
-      <DropdownMenuContent align="end" className="lumio-ct__view-menu">
+      <DropdownMenuContent align="end" className="seneca-ct__view-menu">
         <DropdownMenuLabel>{labels.groupBy}</DropdownMenuLabel>
         {[{ key: '', title: labels.groupNone }, ...groupable].map(column => (
           <DropdownMenuCheckboxItem
@@ -191,7 +191,7 @@ function MoreMenu({
               <DropdownMenuSeparator key="restore-separator" />,
               <DropdownMenuItem
                 key="restore"
-                className="lumio-ct__menu-item--danger"
+                className="seneca-ct__menu-item--danger"
                 onClick={onRestoreDefault}
               >
                 {labels.restoreDefault}
@@ -221,7 +221,7 @@ export function TableToolbar(props: TableToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
-    <div className="lumio-ct__toolbar">
+    <div className="seneca-ct__toolbar">
       <StatementsSearchPopover
         value={searchQuery}
         onApply={props.onSearchChange}
@@ -246,7 +246,7 @@ export function TableToolbar(props: TableToolbarProps) {
         }}
       />
       {selectedCount > 0 ? (
-        <div className="lumio-ct__actions">
+        <div className="seneca-ct__actions">
           <Button variant="destructive" size="sm" type="button" onClick={props.onDeleteSelected}>
             <Trash2 size={14} aria-hidden />
             {fill(labels.deleteSelected, selectedCount)}
@@ -262,7 +262,7 @@ export function TableToolbar(props: TableToolbarProps) {
           </Button>
         </div>
       ) : (
-        <div className="lumio-ct__actions">
+        <div className="seneca-ct__actions">
           <ViewMenu
             columns={props.columns}
             columnVisibility={props.columnVisibility}

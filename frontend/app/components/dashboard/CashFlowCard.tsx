@@ -106,7 +106,7 @@ export function CashFlowCard({
     <DashboardCard
       title={t.title}
       subtitle={activeMonth ? formatMonthLabel(activeMonth, locale) : undefined}
-      className="lumio-dashboard__cashflow-card"
+      className="seneca-dashboard__cashflow-card"
       action={
         <TextTabs
           ariaLabel={t.title.value}
@@ -119,22 +119,22 @@ export function CashFlowCard({
         />
       }
     >
-      <div className="lumio-chart__total">
+      <div className="seneca-chart__total">
         {headline ? netFigure(headline.net, formatAmount) : '…'}
       </div>
-      <div className="lumio-chart__breakdown">
+      <div className="seneca-chart__breakdown">
         {headline && (
           <>
-            <span className="lumio-chart__breakdown-series lumio-chart__breakdown-series--income">
+            <span className="seneca-chart__breakdown-series seneca-chart__breakdown-series--income">
               {`${t.income.value} ${formatAmount(headline.income)}`}
             </span>
-            <span className="lumio-chart__breakdown-series lumio-chart__breakdown-series--expense">
+            <span className="seneca-chart__breakdown-series seneca-chart__breakdown-series--expense">
               {`${t.expense.value} ${formatAmount(headline.expense)}`}
             </span>
           </>
         )}
       </div>
-      <div className="lumio-chart__box">
+      <div className="seneca-chart__box">
         <CashFlowChartBody
           data={data && { ...data, points }}
           isPending={isPending}
@@ -176,7 +176,7 @@ function CashFlowChartBody({
     return <Skeleton variant="rounded" width="100%" height="100%" />;
   }
   if (error) {
-    return <div className="lumio-chart__empty lumio-dashboard__amount--negative">{error}</div>;
+    return <div className="seneca-chart__empty seneca-dashboard__amount--negative">{error}</div>;
   }
   if (!data?.points.length) {
     return (

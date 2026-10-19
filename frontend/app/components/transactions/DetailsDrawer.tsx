@@ -67,7 +67,7 @@ function TransactionSummary({
             // A status is text with a small dot; ochre only where attention is due.
             value: (
               <span
-                className={`lumio-tx-summary__status${transaction.isVerified ? '' : ' lumio-tx-summary__status--pending'}`}
+                className={`seneca-tx-summary__status${transaction.isVerified ? '' : ' seneca-tx-summary__status--pending'}`}
               >
                 {transaction.isVerified ? t.sheet.confirmed.value : t.sheet.unconfirmed.value}
               </span>
@@ -77,16 +77,16 @@ function TransactionSummary({
   ];
 
   return (
-    <div className="lumio-tx-summary">
-      <div className="lumio-tx-summary__merchant">
+    <div className="seneca-tx-summary">
+      <div className="seneca-tx-summary__merchant">
         {transaction.isPrivate ? EMPTY : transaction.counterpartyName || EMPTY}
       </div>
       {/* Ink, like every figure: spending is not an alarm. The sign says which way it went. */}
-      <div className="lumio-tx-summary__amount">
+      <div className="seneca-tx-summary__amount">
         {isIncome ? '+' : '−'}
         {formatMoney(amount, transaction.currency ?? FALLBACK_CURRENCY, locale)}
       </div>
-      <dl className="lumio-tx-summary__facts">
+      <dl className="seneca-tx-summary__facts">
         {facts.map(fact => (
           <div key={fact.label}>
             <dt>{fact.label}</dt>
@@ -123,11 +123,11 @@ function TransactionFooter({
   // Deleting is final, so it asks once more, in place, rather than in a blocking dialog.
   if (askingDelete) {
     return (
-      <div className="lumio-tx-footer">
-        <span className="lumio-tx-footer__question">{t.sheet.deleteQuestion}</span>
+      <div className="seneca-tx-footer">
+        <span className="seneca-tx-footer__question">{t.sheet.deleteQuestion}</span>
         <button
           type="button"
-          className="lumio-tx-footer__text-btn"
+          className="seneca-tx-footer__text-btn"
           onClick={() => setAskingDelete(false)}
           disabled={busy}
         >
@@ -135,7 +135,7 @@ function TransactionFooter({
         </button>
         <button
           type="button"
-          className="lumio-tx-footer__danger-btn"
+          className="seneca-tx-footer__danger-btn"
           onClick={() => remove(transaction.id)}
           disabled={busy}
         >
@@ -146,16 +146,16 @@ function TransactionFooter({
   }
 
   return (
-    <div className="lumio-tx-footer">
+    <div className="seneca-tx-footer">
       {source && (
-        <Link href={source.href} className="lumio-tx-footer__text-btn">
+        <Link href={source.href} className="seneca-tx-footer__text-btn">
           <FileText size={15} />
           {t.sheet.openDocument}
         </Link>
       )}
       <button
         type="button"
-        className="lumio-tx-footer__text-btn lumio-tx-footer__text-btn--muted"
+        className="seneca-tx-footer__text-btn seneca-tx-footer__text-btn--muted"
         onClick={() => setAskingDelete(true)}
         disabled={busy}
       >
@@ -164,7 +164,7 @@ function TransactionFooter({
       {transaction.isVerified === false && (
         <button
           type="button"
-          className="lumio-tx-footer__primary-btn"
+          className="seneca-tx-footer__primary-btn"
           onClick={() => confirm(transaction.id)}
           disabled={busy}
         >
@@ -215,7 +215,7 @@ export default function DetailsDrawer({
     <DrawerShell
       isOpen={open}
       onClose={onClose}
-      title={<span className="lumio-tx-drawer__title">{t.title.value}</span>}
+      title={<span className="seneca-tx-drawer__title">{t.title.value}</span>}
       position="right"
       width="md"
       lockScroll={false}
@@ -225,10 +225,10 @@ export default function DetailsDrawer({
         ) : undefined
       }
     >
-      <div className="lumio-tx-drawer">
+      <div className="seneca-tx-drawer">
         <TransactionSummary transaction={transaction} source={source} />
 
-        <div className="lumio-tx-drawer__tabs">
+        <div className="seneca-tx-drawer__tabs">
           <TextTabs<TabId>
             value={activeTab}
             onChange={setActiveTab}

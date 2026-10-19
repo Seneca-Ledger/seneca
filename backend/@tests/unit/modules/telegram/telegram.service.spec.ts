@@ -2,6 +2,7 @@ import { InsightCategory, InsightSeverity, InsightType } from '@/entities/insigh
 import { ReportStatus } from '@/entities/telegram-report.entity';
 import type { User } from '@/entities/user.entity';
 import { TelegramService } from '@/modules/telegram/telegram.service';
+import { APP_NAME } from '../../../../src/common/brand';
 
 function createConfigMock() {
   return { get: jest.fn().mockReturnValue('test-bot-token') } as any;
@@ -218,7 +219,7 @@ describe('TelegramService /goals', () => {
       message: { chat: { id: 'chat-1' }, text: '/goals', from: { id: 'tg-9' } },
     });
 
-    expect(calls[0].text).toBe('No goals yet. Create one in the Lumio web app.');
+    expect(calls[0].text).toBe(`No goals yet. Create one in the ${APP_NAME} web app.`);
   });
 
   it('lists each goal with its progress', async () => {
@@ -246,7 +247,7 @@ describe('TelegramService /goals', () => {
       message: { chat: { id: 'chat-1' }, text: '/goals', from: { id: 'tg-unknown', language_code: 'en' } },
     });
 
-    expect(calls[0].text).toContain("This chat isn't connected to a Lumio account yet");
+    expect(calls[0].text).toContain(`This chat isn't connected to a ${APP_NAME} account yet`);
   });
 });
 
@@ -341,7 +342,7 @@ describe('TelegramService.pushInsightDigest', () => {
     ]);
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].text).toContain('New Lumio alert');
+    expect(calls[0].text).toContain(`New ${APP_NAME} alert`);
     expect(calls[0].text).toContain('Too much capital at risk');
   });
 
@@ -383,7 +384,7 @@ describe('TelegramService workspace', () => {
     });
 
     expect(goalsService.findAll).not.toHaveBeenCalled();
-    expect(calls[0].text).toContain("This chat isn't connected to a Lumio account yet");
+    expect(calls[0].text).toContain(`This chat isn't connected to a ${APP_NAME} account yet`);
   });
 
   it('builds reports for the workspace, not for the user id', async () => {

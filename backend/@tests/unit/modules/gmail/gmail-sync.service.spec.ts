@@ -12,6 +12,7 @@ import {
 } from '../../../../src/entities';
 import { GmailSyncService } from '../../../../src/modules/gmail/services/gmail-sync.service';
 import { GmailService } from '../../../../src/modules/gmail/services/gmail.service';
+import { APP_NAME } from '../../../../src/common/brand';
 
 describe('GmailSyncService', () => {
   let service: GmailSyncService;
@@ -31,7 +32,7 @@ describe('GmailSyncService', () => {
       id: 'settings-123',
       integrationId: 'int-123',
       labelId: 'Label_123',
-      labelName: 'Lumio/Receipts',
+      labelName: `${APP_NAME}/Receipts`,
       filterEnabled: true,
       filterConfig: {
         hasAttachment: true,

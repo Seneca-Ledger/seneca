@@ -78,10 +78,10 @@ export interface PeppolLookup {
   formats: PeppolFormat[];
 }
 
-/** Recommand's document types (on an incoming document) Lumio takes in as a receipt. */
+/** Recommand's document types (on an incoming document) Seneca takes in as a receipt. */
 const RECEIVABLE_TYPES = new Set(['invoice', 'creditNote']);
 
-/** The formats Lumio writes, by the document type id a recipient registers. */
+/** The formats Seneca writes, by the document type id a recipient registers. */
 function formatsOf(docTypeIds: readonly string[], kind: PeppolDocumentKind): PeppolFormat[] {
   const formats: PeppolFormat[] = [];
   if (
@@ -103,11 +103,11 @@ function formatsOf(docTypeIds: readonly string[], kind: PeppolDocumentKind): Pep
  *
  * Sending: the recipient is looked up first and the document is written in
  * a format it registered — XRechnung (CII) preferred for a German seller,
- * since that is the German e-invoice, Peppol BIS 3.0 (UBL) otherwise. Lumio
+ * since that is the German e-invoice, Peppol BIS 3.0 (UBL) otherwise. Seneca
  * writes and validates the XML itself and the access point only carries it,
  * so what was sent is stored with the transmission.
  *
- * Receiving: the access point's inbox is polled (a self-hosted Lumio often
+ * Receiving: the access point's inbox is polled (a self-hosted Seneca often
  * has no public address for webhooks); each e-invoice becomes a receipt
  * through the same reader as an uploaded XRechnung.
  */
@@ -258,7 +258,7 @@ export class PeppolService {
 
   // ── Recipients ───────────────────────────────────────────────────────────
 
-  /** Whether a Peppol id is on the network, and which of Lumio's formats it takes. */
+  /** Whether a Peppol id is on the network, and which of Seneca's formats it takes. */
   async lookup(workspaceId: string, peppolId: string): Promise<PeppolLookup> {
     const id = parsePeppolId(peppolId);
     if (!id) {
@@ -330,7 +330,7 @@ export class PeppolService {
     return viewOf(transmission);
   }
 
-  /** The document types a recipient registered, as the formats Lumio writes. */
+  /** The document types a recipient registered, as the formats Seneca writes. */
   private async acceptedFormats(
     credentials: RecommandCredentials,
     recipient: string,
@@ -377,7 +377,7 @@ export class PeppolService {
   }
 
   /**
-   * The document in the first format the recipient takes that Lumio can
+   * The document in the first format the recipient takes that Seneca can
    * write for it; an error that names what is missing when it takes one but
    * the document lacks something, or none at all.
    */

@@ -56,7 +56,7 @@ export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
     <>
       {/* Backdrop */}
       <div
-        className={`lumio-mobile-drawer__backdrop${open ? ' lumio-mobile-drawer__backdrop--visible' : ''}`}
+        className={`seneca-mobile-drawer__backdrop${open ? ' seneca-mobile-drawer__backdrop--visible' : ''}`}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -65,16 +65,16 @@ export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
           and returns to the trigger on close. */}
       <FocusTrap open={open}>
         <aside
-          className={`lumio-mobile-drawer${open ? ' lumio-mobile-drawer--open' : ''}`}
+          className={`seneca-mobile-drawer${open ? ' seneca-mobile-drawer--open' : ''}`}
           aria-label={shell.menu.value}
           inert={!open}
           tabIndex={-1}
         >
-          <div className="lumio-mobile-drawer__header">
-            <span className="lumio-mobile-drawer__title">{shell.menu}</span>
+          <div className="seneca-mobile-drawer__header">
+            <span className="seneca-mobile-drawer__title">{shell.menu}</span>
             <button
               type="button"
-              className="lumio-mobile-drawer__close"
+              className="seneca-mobile-drawer__close"
               onClick={onClose}
               aria-label={shell.closeMenu.value}
             >
@@ -82,24 +82,24 @@ export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
             </button>
           </div>
 
-          <nav className="lumio-mobile-drawer__nav">
+          <nav className="seneca-mobile-drawer__nav">
             {visibleNavItems.map(item => {
               const active = isNavItemActive(pathname ?? '', item.path);
               return (
                 <Link
                   key={item.path}
                   href={item.path}
-                  className={`lumio-mobile-drawer__item${active ? ' lumio-mobile-drawer__item--active' : ''}`}
+                  className={`seneca-mobile-drawer__item${active ? ' seneca-mobile-drawer__item--active' : ''}`}
                   onClick={onClose}
                 >
-                  <span className="lumio-mobile-drawer__item-icon">{item.icon}</span>
+                  <span className="seneca-mobile-drawer__item-icon">{item.icon}</span>
                   <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="lumio-mobile-drawer__footer">
+          <div className="seneca-mobile-drawer__footer">
             <AccountMenu variant="mobile" onAction={onClose} />
           </div>
         </aside>

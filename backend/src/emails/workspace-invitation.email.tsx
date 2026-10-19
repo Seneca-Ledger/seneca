@@ -10,6 +10,7 @@ import {
   Section,
   Text,
 } from '@react-email/components';
+import { APP_NAME } from '../common/brand';
 import { renderInvitation } from './workspace-invitation.translations';
 
 export type WorkspaceInvitationEmailProps = {
@@ -39,7 +40,7 @@ export function WorkspaceInvitationEmail({
       <Body style={styles.main}>
         <Container style={styles.container}>
           <Section style={styles.card}>
-            <Text style={styles.brand}>Lumio</Text>
+            <Text style={styles.brand}>{APP_NAME}</Text>
             <Heading style={styles.h1}>{t('heading')}</Heading>
             <Text style={styles.text}>
               {invitedBy ? (

@@ -38,7 +38,7 @@ function CategoryMenuItems({
   onUpdateCategory,
 }: CategoryMenuItemsProps): React.ReactElement {
   return (
-    <div className="lumio-tx-cat-menu">
+    <div className="seneca-tx-cat-menu">
       {categories
         .filter(cat => !isPrivateCategory(cat) && cat.isEnabled !== false)
         .map(cat => (
@@ -76,7 +76,7 @@ export function CategoryDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="lumio-tx-cat-dropdown" style={style}>
+        <button type="button" className="seneca-tx-cat-dropdown" style={style}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {triggerLabel}
           </span>

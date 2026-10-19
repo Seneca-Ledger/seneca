@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Script to start Lumio in Docker
+# Script to start Seneca in Docker
 
 set -e
 
-echo "🐳 Lumio - Docker Startup Script"
+echo "🐳 Seneca - Docker Startup Script"
 echo ""
 
 # Check if .env exists
@@ -46,14 +46,14 @@ echo ""
 echo "🔍 Checking service health..."
 
 # Check PostgreSQL
-if docker exec lumio-postgres pg_isready -U lumio > /dev/null 2>&1; then
+if docker exec seneca-postgres pg_isready -U seneca > /dev/null 2>&1; then
   echo "✅ PostgreSQL is ready"
 else
   echo "❌ PostgreSQL is not ready"
 fi
 
 # Check Redis
-if docker exec lumio-redis redis-cli ping > /dev/null 2>&1; then
+if docker exec seneca-redis redis-cli ping > /dev/null 2>&1; then
   echo "✅ Redis is ready"
 else
   echo "❌ Redis is not ready"

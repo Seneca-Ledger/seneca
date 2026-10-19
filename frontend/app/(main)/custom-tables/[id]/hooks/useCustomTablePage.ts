@@ -67,7 +67,7 @@ export function useCustomTablePage(tableId: string) {
   );
 
   const filters = useRowFilters();
-  // A table filled from Lumio opens newest first and without the columns that
+  // A table filled from Seneca opens newest first and without the columns that
   // repeat the row (type, statement, a single currency). These defaults are
   // derived during render, never set in an effect after the rows arrive: that
   // re-sorted an already drawn table, emptied it and drew it again, so the old

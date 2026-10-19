@@ -37,7 +37,7 @@ export interface TaxDeadline {
   daysLeft: number;
   /** Filed (VAT) or finalized (income tax) in the app, or marked as filed outside it. */
   done: boolean;
-  /** The user said this return was filed outside Lumio. */
+  /** The user said this return was filed outside Seneca. */
   filedElsewhere: boolean;
   returnName: string;
   /**
@@ -76,7 +76,7 @@ function daysBetween(from: string, to: string): number {
  * gets no VAT reminders, and income-tax dates come from the verified filing
  * calendar. "Done" means filed (VAT) or finalized (income tax) here; a return
  * filed elsewhere is unknown to the app, so the reminders stop once it is
- * filed in Lumio too, or once the return falls out of the look-back window.
+ * filed in Seneca too, or once the return falls out of the look-back window.
  */
 @Injectable()
 export class TaxDeadlinesService {
@@ -130,7 +130,7 @@ export class TaxDeadlinesService {
   }
 
   /**
-   * Marks a return as filed outside Lumio, or takes the mark back. It stops
+   * Marks a return as filed outside Seneca, or takes the mark back. It stops
    * the reminders and the banner without locking anything: the rows were not
    * filed from here, so nothing here is frozen.
    */

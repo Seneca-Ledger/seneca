@@ -122,15 +122,15 @@ function SearchBar({
   onSearchChange: (v: string) => void;
 }): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__search" data-tour-id="search-bar">
-      <Search className="lumio-stmt-list-view__search-icon" size={16} />
+    <div className="seneca-stmt-list-view__search" data-tour-id="search-bar">
+      <Search className="seneca-stmt-list-view__search-icon" size={16} />
       <input
         type="text"
         value={searchInput}
         onChange={e => onSearchChange(e.target.value)}
         placeholder={searchPlaceholder}
         aria-label={searchPlaceholder}
-        className="lumio-stmt-list-view__search-input"
+        className="seneca-stmt-list-view__search-input"
       />
     </div>
   );
@@ -442,7 +442,7 @@ export function StatementsListHeader({
 }: StatementsListHeaderProps): React.JSX.Element {
   return (
     <div
-      className="lumio-stmt-list-view__header"
+      className="seneca-stmt-list-view__header"
       style={{
         marginBottom: 24,
         flexShrink: 0,

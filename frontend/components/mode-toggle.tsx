@@ -124,12 +124,12 @@ export function ModeToggle({
   return (
     <div className={cn('space-y-4', className)}>
       <div
-        className="lumio-theme-toggle"
+        className="seneca-theme-toggle"
         role="group"
         aria-label={copy.active}
         style={{ '--theme-toggle-index': activeIndex } as React.CSSProperties}
       >
-        <span className="lumio-theme-toggle__thumb" aria-hidden="true" />
+        <span className="seneca-theme-toggle__thumb" aria-hidden="true" />
         {options.map(option => {
           const Icon = option.icon;
           const active = selectedTheme === option.key;
@@ -140,12 +140,12 @@ export function ModeToggle({
               onClick={() => handleChange(option.key)}
               aria-pressed={active}
               className={cn(
-                'lumio-theme-toggle__option',
-                `lumio-theme-toggle__option--${option.key}`,
-                active && 'lumio-theme-toggle__option--active',
+                'seneca-theme-toggle__option',
+                `seneca-theme-toggle__option--${option.key}`,
+                active && 'seneca-theme-toggle__option--active',
               )}
             >
-              <span className="lumio-theme-toggle__icon">
+              <span className="seneca-theme-toggle__icon">
                 <Icon />
               </span>
               <span>{option.label}</span>

@@ -127,7 +127,7 @@ export const DismissOfficialRateBody = Schema.Struct({
 });
 export type DismissOfficialRateBody = Wire<typeof DismissOfficialRateBody>;
 
-/** `PUT /tax/deadlines/filed-elsewhere`: a return filed outside Lumio, or not after all. */
+/** `PUT /tax/deadlines/filed-elsewhere`: a return filed outside Seneca, or not after all. */
 export const FiledElsewhereBody = Schema.Struct({
   kind: Schema.Literals(['vat_return', 'income_tax']),
   periodEnd: IsoDateString,

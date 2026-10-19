@@ -1,4 +1,4 @@
-// A minimal client for the Lumio API, shared by the guide screenshot scripts. It keeps the
+// A minimal client for the Seneca API, shared by the guide screenshot scripts. It keeps the
 // session cookies the server sets and echoes the CSRF cookie in the x-csrf-token header on
 // every unsafe request, the way the app's own client does (backend csrf.guard.ts).
 

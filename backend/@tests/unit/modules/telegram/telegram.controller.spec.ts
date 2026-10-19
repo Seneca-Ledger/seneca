@@ -14,7 +14,7 @@ describe('TelegramController', () => {
   });
 
   it('issues the Connect link for the workspace that is open', async () => {
-    const link = { url: 'https://t.me/lumio_bot?start=x', expiresAt: '2026-10-18T10:00:00.000Z' };
+    const link = { url: 'https://t.me/seneca_bot?start=x', expiresAt: '2026-10-18T10:00:00.000Z' };
     const telegramBots = { createLink: jest.fn(async () => link) };
     const controller = new TelegramController({} as any, telegramBots as any);
 

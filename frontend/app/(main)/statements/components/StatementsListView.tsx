@@ -128,14 +128,14 @@ function PullToRefreshIndicator({
 }: PullIndicatorProps): React.JSX.Element | null {
   const listText = useIntlayer('statementsListUi');
   if (!isMobile || (pullDistance <= 0 && !pullRefreshing)) return null;
-  const badgeClass = `lumio-stmt-list-view__pull-badge${isReadyToRefresh || pullRefreshing ? ' lumio-stmt-list-view__pull-badge--ready' : ''}`;
+  const badgeClass = `seneca-stmt-list-view__pull-badge${isReadyToRefresh || pullRefreshing ? ' seneca-stmt-list-view__pull-badge--ready' : ''}`;
   const label = pullRefreshing
     ? listText.refreshing
     : isReadyToRefresh
       ? listText.releaseToRefresh
       : listText.pullToRefresh;
   return (
-    <div className="lumio-stmt-list-view__pull-indicator">
+    <div className="seneca-stmt-list-view__pull-indicator">
       <div className={badgeClass}>
         <RefreshCcw
           size={14}
@@ -345,7 +345,7 @@ export default function StatementsListView(): React.JSX.Element {
   const viewLabel = resolveLabel(v.t.actions?.view, 'View');
 
   return (
-    <div className="container-shared lumio-stmt-list-view" {...v.pullToRefreshHandlers}>
+    <div className="container-shared seneca-stmt-list-view" {...v.pullToRefreshHandlers}>
       <PullToRefreshIndicator
         isMobile={v.isMobile}
         pullDistance={v.pullDistance}
@@ -415,7 +415,7 @@ export default function StatementsListView(): React.JSX.Element {
       <div
         ref={listScrollRef}
         data-tour-id="statements-table"
-        className="lumio-stmt-list-view__body"
+        className="seneca-stmt-list-view__body"
         style={{ paddingBottom: v.selectedCount > 0 ? 96 : 0 }}
       >
         <NoteCountsProvider

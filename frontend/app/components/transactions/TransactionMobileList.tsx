@@ -47,9 +47,9 @@ export function TransactionMobileList({
 }: TransactionMobileListProps): React.ReactElement {
   const t = useIntlayer('transactionsTable');
   return (
-    <div className="lumio-tx-mobile">
-      <div className="lumio-tx-mobile__header">
-        <div className="lumio-tx-mobile__header-left">
+    <div className="seneca-tx-mobile">
+      <div className="seneca-tx-mobile__header">
+        <div className="seneca-tx-mobile__header-left">
           <Checkbox
             checked={allSelected}
             indeterminate={someSelected && !allSelected}
@@ -64,14 +64,14 @@ export function TransactionMobileList({
         <button
           type="button"
           onClick={() => onToggleSort('date')}
-          className="lumio-tx-mobile__header-sort"
+          className="seneca-tx-mobile__header-sort"
         >
           {columnDateSortLabel}
         </button>
       </div>
-      <div className="lumio-tx-mobile__list">
+      <div className="seneca-tx-mobile__list">
         {transactions.length === 0 ? (
-          <div className="lumio-tx-mobile__empty">
+          <div className="seneca-tx-mobile__empty">
             <EmptyStateIllustration name="transactions" size="md" />
             {noResultsLabel}
           </div>

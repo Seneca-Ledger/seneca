@@ -19,7 +19,7 @@ export class TaxDeadlinesController {
     return this.deadlinesService.getUpcoming(workspaceId);
   }
 
-  /** "I filed this one outside Lumio": stops its reminders. */
+  /** "I filed this one outside Seneca": stops its reminders. */
   @Put('deadlines/filed-elsewhere')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   @SchemaResponse(TaxDeadlineList)

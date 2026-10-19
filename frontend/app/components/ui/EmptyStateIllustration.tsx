@@ -81,7 +81,7 @@ export function EmptyStateIllustration({
   return (
     <span
       aria-hidden="true"
-      className={['lumio-empty-state__icon', `lumio-empty-state__icon--${size}`, className]
+      className={['seneca-empty-state__icon', `seneca-empty-state__icon--${size}`, className]
         .filter(Boolean)
         .join(' ')}
     >

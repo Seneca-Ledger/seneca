@@ -28,19 +28,19 @@ export function DashboardCard({
   return (
     <Tag
       className={clsx(
-        'lumio-dashboard__card',
-        variant === 'shell' && 'lumio-dashboard__card--shell',
+        'seneca-dashboard__card',
+        variant === 'shell' && 'seneca-dashboard__card--shell',
         className,
       )}
     >
-      <div className="lumio-dashboard__card-head">
-        <div className="lumio-dashboard__card-heading">
-          <div className="lumio-dashboard__card-title">{title}</div>
-          {subtitle && <div className="lumio-dashboard__card-sub">{subtitle}</div>}
+      <div className="seneca-dashboard__card-head">
+        <div className="seneca-dashboard__card-heading">
+          <div className="seneca-dashboard__card-title">{title}</div>
+          {subtitle && <div className="seneca-dashboard__card-sub">{subtitle}</div>}
         </div>
-        {action && <div className="lumio-dashboard__card-head-actions">{action}</div>}
+        {action && <div className="seneca-dashboard__card-head-actions">{action}</div>}
       </div>
-      <div className="lumio-dashboard__card-body">{children}</div>
+      <div className="seneca-dashboard__card-body">{children}</div>
     </Tag>
   );
 }
@@ -52,7 +52,7 @@ export interface CardLinkProps {
 
 export function CardLink({ href, children }: CardLinkProps): React.JSX.Element {
   return (
-    <Link href={href} className="lumio-dashboard__card-link-btn">
+    <Link href={href} className="seneca-dashboard__card-link-btn">
       {children} <ArrowRight size={13} />
     </Link>
   );

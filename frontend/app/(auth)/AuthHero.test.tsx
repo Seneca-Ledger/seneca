@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthHero } from './AuthHero';
+import { APP_NAME } from '@/app/lib/brand';
 
 const reduced = vi.hoisted(() => ({ value: false }));
 
@@ -38,7 +39,7 @@ describe('AuthHero', () => {
   });
 
   it('shows three promises at a time and rotates to the next three', async () => {
-    render(<AuthHero title="Lumio" tagline="Tagline" />);
+    render(<AuthHero title={APP_NAME} tagline="Tagline" />);
     expect(shown()).toEqual(['F1', 'F2', 'F3']);
 
     await act(async () => {
@@ -52,7 +53,7 @@ describe('AuthHero', () => {
 
   it('stays on the first three when the system asks for reduced motion', async () => {
     reduced.value = true;
-    render(<AuthHero title="Lumio" tagline="Tagline" />);
+    render(<AuthHero title={APP_NAME} tagline="Tagline" />);
     await act(async () => {
       vi.advanceTimersByTime(12000);
     });

@@ -23,7 +23,7 @@ vi.mock('@/app/lib/device-location', () => ({
   requestLocationAccess: () => locationAccessMock.request(),
 }));
 
-const CAPTURE_KEY = 'lumio-receipt-location-capture';
+const CAPTURE_KEY = 'seneca-receipt-location-capture';
 
 vi.mock('@mui/x-date-pickers/DatePicker', () => ({
   DatePicker: () => <input aria-label="Date" readOnly />,
@@ -187,7 +187,7 @@ describe('CreateExpenseDrawer mobile uploads', () => {
       );
     });
 
-    const drawerSurface = document.querySelector('.lumio-expense-drawer');
+    const drawerSurface = document.querySelector('.seneca-expense-drawer');
     const lightSurface = Array.from(document.querySelectorAll('[class]')).find(
       node =>
         typeof node.className === 'string' &&

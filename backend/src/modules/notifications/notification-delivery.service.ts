@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { Notification } from '../../entities/notification.entity';
 import {
   NotificationChannel,
@@ -216,7 +217,7 @@ export class NotificationDeliveryService {
     preference: NotificationPreference,
   ): Promise<void> {
     const channels = [...new Set(pending.flatMap(item => item.pendingChannels ?? []))];
-    const subject = `Lumio: ${pending.length}`;
+    const subject = `${APP_NAME}: ${pending.length}`;
     const body = pending.map(item => `• ${item.title}\n  ${item.message}`).join('\n\n');
 
     let delivered = true;

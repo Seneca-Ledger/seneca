@@ -66,14 +66,14 @@ function RunwayBody({
         days: String(data.horizonDays),
       });
   const items = (limit: number): React.JSX.Element => (
-    <div className="lumio-dashboard__list">
+    <div className="seneca-dashboard__list">
       {data.items.slice(0, limit).map(item => (
         <ListRow
           key={`${item.source}-${item.sourceId}-${item.date}`}
           primary={item.label}
           secondary={
             item.isOverdue ? (
-              <span className="lumio-dashboard__amount--negative">{t.overdue}</span>
+              <span className="seneca-dashboard__amount--negative">{t.overdue}</span>
             ) : (
               item.date
             )
@@ -87,8 +87,8 @@ function RunwayBody({
     <>
       <p
         className={clsx(
-          'lumio-dashboard__card-note',
-          hasShortfall && 'lumio-dashboard__card-note--danger',
+          'seneca-dashboard__card-note',
+          hasShortfall && 'seneca-dashboard__card-note--danger',
         )}
       >
         {hasShortfall && <AlertTriangle size={15} />}
@@ -96,9 +96,9 @@ function RunwayBody({
       </p>
       {wide && data.days.length > 1 ? (
         // With room: the projected balance day by day, beside what pulls it down.
-        <div className="lumio-dashboard__chart-aside">
+        <div className="seneca-dashboard__chart-aside">
           <figure
-            className="lumio-dashboard__chart-aside-main"
+            className="seneca-dashboard__chart-aside-main"
             aria-label={wideText.balanceByDay.value}
           >
             <NetWorthChart
@@ -113,7 +113,7 @@ function RunwayBody({
         items(VISIBLE_ITEMS)
       )}{' '}
       {data.unscheduledCommitted > 0 && (
-        <p className="lumio-dashboard__card-note lumio-dashboard__card-note--footer">
+        <p className="seneca-dashboard__card-note seneca-dashboard__card-note--footer">
           {fillTemplate(text(t.unscheduled), { amount: formatAmount(data.unscheduledCommitted) })}
         </p>
       )}

@@ -3,25 +3,25 @@
 
 ::-webkit-scrollbar           { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb     {
-  background: $lumio-color-ink-200;
-  border-radius: $lumio-radius-md;
+  background: $seneca-color-ink-200;
+  border-radius: $seneca-radius-md;
   border: 2px solid transparent;
   background-clip: padding-box;
 
-  @include dark { background: $lumio-color-ink-300-dk; }
+  @include dark { background: $seneca-color-ink-300-dk; }
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: $lumio-color-ink-300;
+  background: $seneca-color-ink-300;
   background-clip: padding-box;
   border: 2px solid transparent;
 
-  @include dark { background: $lumio-color-ink-400-dk; }
+  @include dark { background: $seneca-color-ink-400-dk; }
 }
 ::-webkit-scrollbar-track     { background: transparent; }
 
 // A panel's own scroll: a 6px thumb that shows only while the pointer is over
 // the panel or it scrolls, not a wide grey rail beside the content.
-.lumio-thin-scroll {
+.seneca-thin-scroll {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   transition: scrollbar-color 0.2s;

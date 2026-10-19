@@ -7,13 +7,13 @@
 #   scripts/validate-xrechnung.sh [file.xml ...]
 #
 # Needs docker. Downloads the validator and its configuration once into
-# ${XDG_CACHE_HOME:-~/.cache}/lumio-kosit.
+# ${XDG_CACHE_HOME:-~/.cache}/seneca-kosit.
 set -euo pipefail
 
 VALIDATOR_VERSION=1.6.3
 CONFIG_RELEASE=v2026-08-31
 CONFIG_ASSET=xrechnung-3.0.2-validator-configuration-2026-08-31.zip
-CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/lumio-kosit"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/seneca-kosit"
 
 mkdir -p "$CACHE"
 if [ ! -f "$CACHE/validator.jar" ]; then

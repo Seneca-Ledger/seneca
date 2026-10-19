@@ -7,12 +7,13 @@ import {
 } from '@nestjs/common';
 import { Data, Effect, Schema } from 'effect';
 import { HttpClientResponse } from 'effect/http';
+import { APP_NAME } from '../brand';
 import type { AppServices, EffectRuntime } from '../effect/effect-runtime';
 import { contentTypeOf, getWith } from '../effect/http-json';
 
 /**
  * Openverse: the one image search that answers without an API key, so a
- * self-hosted Lumio can search photos out of the box. Anonymous callers get
+ * self-hosted Seneca can search photos out of the box. Anonymous callers get
  * 20 searches a minute and 200 a day per IP, and a separate 1000 thumbnails a
  * day. A deployment that outgrows that registers a free client with Openverse.
  */
@@ -28,7 +29,7 @@ export const OPENVERSE_CONTENT_TYPES: Record<string, string> = {
   'image/webp': '.webp',
 };
 
-/** The shape an Openverse result has, narrowed to the fields Lumio reads. */
+/** The shape an Openverse result has, narrowed to the fields Seneca reads. */
 export interface OpenverseResult {
   id?: unknown;
   title?: unknown;
@@ -113,7 +114,7 @@ function toException(
     case 'missing':
       return new NotFoundException('That picture is no longer available');
     case 'format':
-      return new BadGatewayException('That picture is in a format Lumio does not store');
+      return new BadGatewayException(`That picture is in a format ${APP_NAME} does not store`);
     case 'size':
       return new BadGatewayException('That picture is too large to store');
   }

@@ -16,7 +16,7 @@ services:
       - redis_dev_data:/data
 
   backend:
-    image: lumio-backend:dev
+    image: seneca-backend:dev
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -38,7 +38,7 @@ services:
     command: sh scripts/dev-entrypoint.sh npm run start:dev
 
   frontend:
-    image: lumio-frontend:dev
+    image: seneca-frontend:dev
     build:
       context: ./frontend
       dockerfile: Dockerfile

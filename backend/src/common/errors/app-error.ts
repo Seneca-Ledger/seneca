@@ -1,3 +1,5 @@
+import { APP_NAME } from '../brand';
+
 /**
  * Catalogue of domain error codes and their English messages.
  *
@@ -262,8 +264,7 @@ export const ERR = {
   PEPPOL_REJECTED: 'The access point refused the document: {{reason}}',
   PEPPOL_DOCUMENT_INCOMPLETE: 'The document lacks what Peppol requires',
   PEPPOL_RECIPIENT_UNKNOWN: '{{recipient}} is not registered on the Peppol network',
-  PEPPOL_RECIPIENT_FORMAT:
-    '{{recipient}} accepts none of the formats Lumio writes (Peppol BIS 3.0, XRechnung CII)',
+  PEPPOL_RECIPIENT_FORMAT: `{{recipient}} accepts none of the formats ${APP_NAME} writes (Peppol BIS 3.0, XRechnung CII)`,
   PEPPOL_LEITWEG_MISMATCH:
     'An authority addressed by Leitweg-ID {{leitweg}} needs that id as the buyer reference',
   PEPPOL_ALREADY_SENT: 'This document was already sent over Peppol',
@@ -287,7 +288,7 @@ export const ERR = {
   INSTANCE_ADMIN_ONLY: 'Only an instance administrator can change this',
 
   // ── system update ───────────────────────────────────────────────────────
-  SYSTEM_UPDATE_ADMIN_ONLY: 'Only an instance administrator can update Lumio',
+  SYSTEM_UPDATE_ADMIN_ONLY: `Only an instance administrator can update ${APP_NAME}`,
   SYSTEM_UPDATER_UNAVAILABLE:
     'The updater is not running. Add COMPOSE_PROFILES=updater to .env and run docker compose up -d, or run make upgrade on the server.',
   SYSTEM_UPDATE_IN_PROGRESS: 'An update is already running',

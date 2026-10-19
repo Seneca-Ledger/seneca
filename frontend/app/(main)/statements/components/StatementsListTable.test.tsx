@@ -131,8 +131,8 @@ describe('StatementsListTable columns', () => {
       { id: 'action', label: 'Action', visible: true, order: 3 },
     ]);
 
-    const header = container.querySelector('.lumio-stmt-list-view__desktop-header');
-    const scroller = container.querySelector('.lumio-stmt-list-view__table-scroll');
+    const header = container.querySelector('.seneca-stmt-list-view__desktop-header');
+    const scroller = container.querySelector('.seneca-stmt-list-view__table-scroll');
     expect(header?.textContent).toContain('Merchant');
     expect(header?.textContent).toContain('Category');
     expect(header?.textContent).not.toContain('Amount');

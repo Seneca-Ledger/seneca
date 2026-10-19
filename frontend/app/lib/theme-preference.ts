@@ -3,7 +3,7 @@ export type ResolvedAppTheme = 'light' | 'dark';
 
 export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'auto';
 
-export const THEME_STORAGE_EVENT = 'lumio-theme-preference-change';
+export const THEME_STORAGE_EVENT = 'seneca-theme-preference-change';
 
 export const resolveThemePreference = (value: unknown): ThemePreference => {
   if (value === 'light' || value === 'dark' || value === 'auto') {
@@ -18,7 +18,7 @@ export const resolveThemePreference = (value: unknown): ThemePreference => {
  * logging out removes that record, and the sign-in page then fell back to the
  * time-of-day schedule — a user who picked light got a dark sign-in at night.
  */
-const LAST_THEME_PREFERENCE_KEY = 'lumio-last-theme-preference';
+const LAST_THEME_PREFERENCE_KEY = 'seneca-last-theme-preference';
 
 const readLastThemePreference = (): ThemePreference => {
   try {
@@ -119,7 +119,7 @@ export const getScheduledTheme = (timeZone: string | null): ResolvedAppTheme => 
  * Without it the SSR markup (and everything until hydration) uses the light
  * palette on a dark page: white cards, white skeletons.
  */
-export const PALETTE_MODE_COOKIE = 'lumio-palette-mode';
+export const PALETTE_MODE_COOKIE = 'seneca-palette-mode';
 
 export const parsePaletteModeCookie = (value: string | undefined): ResolvedAppTheme =>
   value === 'dark' ? 'dark' : 'light';

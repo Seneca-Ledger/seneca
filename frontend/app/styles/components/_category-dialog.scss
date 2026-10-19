@@ -1,7 +1,7 @@
 @use '../abstracts' as *;
 
 /* Create / edit category (CategoryFormDialog.tsx): name, type and a line icon. */
-.lumio-category-dialog {
+.seneca-category-dialog {
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -27,7 +27,7 @@
 
   &__label {
     font-size: 13px;
-    font-weight: $lumio-font-weight-medium;
+    font-weight: $seneca-font-weight-medium;
     color: var(--text-muted);
   }
 
@@ -37,12 +37,12 @@
     gap: 8px;
     height: 40px;
     padding: 0 12px;
-    border: 1px solid $lumio-color-slot-border;
-    border-radius: $lumio-radius-sm;
+    border: 1px solid $seneca-color-slot-border;
+    border-radius: $seneca-radius-sm;
     background: var(--card);
     transition: border-color 120ms ease, box-shadow 120ms ease;
 
-    @include dark { border-color: $lumio-color-ink-200-dk; }
+    @include dark { border-color: $seneca-color-ink-200-dk; }
 
     &:focus-within {
       border-color: var(--primary);
@@ -88,7 +88,7 @@
     gap: 2px;
     height: 40px;
     padding: 3px;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     background: var(--surface-soft);
 
     button {
@@ -98,16 +98,16 @@
       background: none;
       font: inherit;
       font-size: 14px;
-      font-weight: $lumio-font-weight-medium;
+      font-weight: $seneca-font-weight-medium;
       color: var(--text-muted);
       cursor: pointer;
 
       &[aria-checked='true'] {
-        border-color: $lumio-color-slot-border;
+        border-color: $seneca-color-slot-border;
         background: var(--card);
         color: var(--foreground);
 
-        @include dark { border-color: $lumio-color-ink-200-dk; }
+        @include dark { border-color: $seneca-color-ink-200-dk; }
       }
 
       &:focus-visible {
@@ -134,7 +134,7 @@
       height: 44px;
       padding: 0;
       border: 1.5px solid transparent;
-      border-radius: $lumio-radius-sm;
+      border-radius: $seneca-radius-sm;
       background: none;
       color: var(--text-muted);
       cursor: pointer;

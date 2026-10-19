@@ -19,7 +19,7 @@ export function AnalyticsSourceBadge({ sourceChannel, labels }: Props): React.JS
 
   if (sourceChannel === 'gmail') {
     return (
-      <span className="lumio-view-page__source-chip">
+      <span className="seneca-view-page__source-chip">
         <Mail size={14} />
         {label}
       </span>
@@ -28,7 +28,7 @@ export function AnalyticsSourceBadge({ sourceChannel, labels }: Props): React.JS
 
   if (sourceChannel === 'crypto') {
     return (
-      <span className="lumio-view-page__source-chip">
+      <span className="seneca-view-page__source-chip">
         <Bitcoin size={14} />
         {label}
       </span>
@@ -37,7 +37,7 @@ export function AnalyticsSourceBadge({ sourceChannel, labels }: Props): React.JS
 
   if (sourceChannel === 'receipt') {
     return (
-      <span className="lumio-view-page__source-chip">
+      <span className="seneca-view-page__source-chip">
         <Receipt size={14} />
         {label}
       </span>
@@ -45,7 +45,7 @@ export function AnalyticsSourceBadge({ sourceChannel, labels }: Props): React.JS
   }
 
   return (
-    <span className="lumio-view-page__source-chip">
+    <span className="seneca-view-page__source-chip">
       <Landmark size={14} />
       {label}
     </span>

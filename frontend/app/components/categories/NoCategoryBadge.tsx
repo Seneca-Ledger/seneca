@@ -32,10 +32,10 @@ export function NoCategoryBadge({
   const hint = resolveLabel(getNestedValue(t, ['hint']), label);
   const content = (
     <>
-      <span aria-hidden className="lumio-no-category__slot" style={{ width: size, height: size }}>
+      <span aria-hidden className="seneca-no-category__slot" style={{ width: size, height: size }}>
         <Plus size={Math.round(size * 0.6)} />
       </span>
-      <span className="lumio-no-category__text">{label}</span>
+      <span className="seneca-no-category__text">{label}</span>
     </>
   );
   if (onClick) {
@@ -43,7 +43,7 @@ export function NoCategoryBadge({
       <button
         type="button"
         data-testid="no-category-badge"
-        className="lumio-no-category lumio-no-category--button"
+        className="seneca-no-category seneca-no-category--button"
         onClick={event => {
           // The row behind it opens the document; this opens the category drawer instead.
           event.stopPropagation();
@@ -55,7 +55,7 @@ export function NoCategoryBadge({
     );
   }
   return (
-    <span data-testid="no-category-badge" title={hint} className="lumio-no-category">
+    <span data-testid="no-category-badge" title={hint} className="seneca-no-category">
       {content}
     </span>
   );

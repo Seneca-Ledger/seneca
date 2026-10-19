@@ -21,7 +21,7 @@ interface CategoryCellEditorProps {
 
 /**
  * Category cells: the app's category drawer opens at once. The cell stores the
- * category name, as tables filled from Lumio data do. "Create category" opens
+ * category name, as tables filled from Seneca data do. "Create category" opens
  * the same dialog as the workspace Categories tab and puts the new name in the cell.
  */
 export function CategoryCellEditor({

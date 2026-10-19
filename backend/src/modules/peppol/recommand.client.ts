@@ -12,8 +12,8 @@ import { EffectRuntime } from '../../common/effect/effect-runtime';
 /**
  * Recommand's Peppol API (https://docs.recommand.eu, OpenAPI at
  * https://app.recommand.eu/openapi): a certified Peppol access point the
- * user signs up with, so each Lumio install sends with its own key and
- * secret (HTTP Basic). Only the calls Lumio makes, and only the fields it
+ * user signs up with, so each Seneca install sends with its own key and
+ * secret (HTTP Basic). Only the calls Seneca makes, and only the fields it
  * reads, are described here.
  */
 export const RECOMMAND_API_URL = 'https://app.recommand.eu';
@@ -182,7 +182,7 @@ export class RecommandClient {
     });
   }
 
-  /** Sends a document Lumio wrote as it is (`documentType: "xml"`), in the format named by `doctypeId`. */
+  /** Sends a document Seneca wrote as it is (`documentType: "xml"`), in the format named by `doctypeId`. */
   async sendXml(
     credentials: RecommandCredentials,
     companyId: string,

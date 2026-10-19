@@ -42,9 +42,10 @@ import { NotificationsService } from '../../src/modules/notifications/notificati
 import { PayablesService } from '../../src/modules/payables/payables.service';
 import { PayablesExportService } from '../../src/modules/payables/payables-export.service';
 import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace-currency.service';
+import { APP_NAME } from '../../src/common/brand';
 
 const BASE_URL = process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_credit_notes_${process.pid}`;
+const SCRATCH_DB = `seneca_credit_notes_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -208,7 +209,7 @@ describe('credit notes (real Postgres)', () => {
     ).id;
     profiles = moduleRef.get(BusinessProfileService);
     await profiles.update(workspaceId, {
-      legalName: 'Lumio Software OÜ',
+      legalName: `${APP_NAME} Software OÜ`,
       addressLines: 'Tartu mnt 67\n10115 Tallinn',
       registrationId: '16123456',
       taxId: 'EE102345678',
@@ -494,7 +495,7 @@ describe('credit notes (real Postgres)', () => {
       .save({ workspaceId: plain.id, name: 'Delta', currency: 'EUR', locale: 'en' });
     // The issuer's details are per workspace, and a send refuses without them.
     await profiles.update(plain.id, {
-      legalName: 'Lumio Software OÜ',
+      legalName: `${APP_NAME} Software OÜ`,
       addressLines: 'Tartu mnt 67\n10115 Tallinn',
       registrationId: '16123456',
       taxId: 'EE102345678',

@@ -421,7 +421,7 @@ describe('PayablesView', () => {
     expect(screen.getByRole('button', { name: 'Add receivable' })).toBeInTheDocument();
     expect(screen.getByText('To Receive')).toBeInTheDocument();
     // Empty states draw a line icon in a circle now, not a picture.
-    expect(container.querySelector('.lumio-empty-state__icon svg')).not.toBeNull();
+    expect(container.querySelector('.seneca-empty-state__icon svg')).not.toBeNull();
     expect(apiMocks.getSummary).toHaveBeenCalledWith('receivable');
   });
 

@@ -76,13 +76,13 @@ export default function SummaryBar({
   }, [transactions]);
 
   return (
-    <div className="lumio-tx-summary">
-      <div className="lumio-tx-summary__grid">
+    <div className="seneca-tx-summary">
+      <div className="seneca-tx-summary__grid">
         {/* Left section: File metadata and parsing status */}
-        <div className="lumio-tx-summary__meta">
-          <div className="lumio-tx-summary__file-row">
-            <div className="lumio-tx-summary__file-info">
-              <div className="lumio-tx-summary__file-name">
+        <div className="seneca-tx-summary__meta">
+          <div className="seneca-tx-summary__file-row">
+            <div className="seneca-tx-summary__file-info">
+              <div className="seneca-tx-summary__file-name">
                 <FileText size={16} />
                 <span style={{ fontWeight: 600 }}>{getBankDisplayName(statement.bankName)}</span>
                 {statement.metadata?.accountNumber && (
@@ -92,33 +92,33 @@ export default function SummaryBar({
                   </>
                 )}
               </div>
-              <div className="lumio-tx-summary__upload-date">
+              <div className="seneca-tx-summary__upload-date">
                 {t.uploadedAt.value}: {formatDate(statement.createdAt, locale)}
               </div>
             </div>
           </div>
 
           {/* Parsing status */}
-          <div className="lumio-tx-summary__badges">
-            <div className="lumio-tx-summary__badge lumio-tx-summary__badge--parsed">
-              <span className="lumio-tx-summary__badge-dot" />
+          <div className="seneca-tx-summary__badges">
+            <div className="seneca-tx-summary__badge seneca-tx-summary__badge--parsed">
+              <span className="seneca-tx-summary__badge-dot" />
               {t.parsed.value}: {stats.totalParsed}
             </div>
             {stats.totalWarnings > 0 && (
-              <div className="lumio-tx-summary__badge lumio-tx-summary__badge--warnings">
-                <span className="lumio-tx-summary__badge-dot" />
+              <div className="seneca-tx-summary__badge seneca-tx-summary__badge--warnings">
+                <span className="seneca-tx-summary__badge-dot" />
                 {t.warnings.value}: {stats.totalWarnings}
               </div>
             )}
             {stats.totalErrors > 0 && (
-              <div className="lumio-tx-summary__badge lumio-tx-summary__badge--errors">
-                <span className="lumio-tx-summary__badge-dot" />
+              <div className="seneca-tx-summary__badge seneca-tx-summary__badge--errors">
+                <span className="seneca-tx-summary__badge-dot" />
                 {t.errors.value}: {stats.totalErrors}
               </div>
             )}
             {stats.uncategorized > 0 && (
-              <div className="lumio-tx-summary__badge lumio-tx-summary__badge--uncategorized">
-                <span className="lumio-tx-summary__badge-dot" />
+              <div className="seneca-tx-summary__badge seneca-tx-summary__badge--uncategorized">
+                <span className="seneca-tx-summary__badge-dot" />
                 {t.uncategorized.value}: {stats.uncategorized}
               </div>
             )}
@@ -127,32 +127,32 @@ export default function SummaryBar({
 
         {/* Right section: Financial totals and actions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="lumio-tx-summary__totals-grid">
+          <div className="seneca-tx-summary__totals-grid">
             {/* Debit Total */}
-            <div className="lumio-tx-summary__total-card lumio-tx-summary__total-card--debit">
-              <div className="lumio-tx-summary__total-label lumio-tx-summary__total-label--debit">
+            <div className="seneca-tx-summary__total-card seneca-tx-summary__total-card--debit">
+              <div className="seneca-tx-summary__total-label seneca-tx-summary__total-label--debit">
                 <TrendingDown size={16} />
                 {t.debitTotal.value}
               </div>
-              <div className="lumio-tx-summary__total-amount lumio-tx-summary__total-amount--debit">
+              <div className="seneca-tx-summary__total-amount seneca-tx-summary__total-amount--debit">
                 {formatAmount(stats.debitTotal, stats.currency, locale)}
               </div>
             </div>
 
             {/* Credit Total */}
-            <div className="lumio-tx-summary__total-card lumio-tx-summary__total-card--credit">
-              <div className="lumio-tx-summary__total-label lumio-tx-summary__total-label--credit">
+            <div className="seneca-tx-summary__total-card seneca-tx-summary__total-card--credit">
+              <div className="seneca-tx-summary__total-label seneca-tx-summary__total-label--credit">
                 <TrendingUp size={16} />
                 {t.creditTotal.value}
               </div>
-              <div className="lumio-tx-summary__total-amount lumio-tx-summary__total-amount--credit">
+              <div className="seneca-tx-summary__total-amount seneca-tx-summary__total-amount--credit">
                 {formatAmount(stats.creditTotal, stats.currency, locale)}
               </div>
             </div>
           </div>
 
           {/* Action buttons */}
-          <div className="lumio-tx-summary__actions">
+          <div className="seneca-tx-summary__actions">
             {(stats.totalErrors > 0 || stats.uncategorized > 0) && (
               <Button
                 variant={stats.totalErrors > 0 ? 'destructive' : 'secondary'}

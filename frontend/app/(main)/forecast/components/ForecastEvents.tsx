@@ -117,7 +117,7 @@ export function ForecastEvents({
                 >
                   <Checkbox
                     size="small"
-                    className="lumio-forecast-check"
+                    className="seneca-forecast-check"
                     checked={included}
                     onChange={() => onToggle(event.sourceId)}
                     disabled={event.kind === 'scenario'}
@@ -134,7 +134,7 @@ export function ForecastEvents({
                       {event.isOverdue ? (
                         <>
                           {' · '}
-                          <span className="lumio-forecast-overdue">{t.overdue}</span>
+                          <span className="seneca-forecast-overdue">{t.overdue}</span>
                         </>
                       ) : null}
                     </Typography>

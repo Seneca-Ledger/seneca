@@ -267,7 +267,7 @@ export class CryptoHoldingsService {
    * Every sale in a period, against the purchases it consumed — what a capital
    * gains return is made of. The holding period is stated rather than judged:
    * whether a year makes a gain tax-free, or a sale short-term, is a question for
-   * the user's own tax authority, and Lumio does not answer it for them.
+   * the user's own tax authority, and Seneca does not answer it for them.
    */
   async realizedGains(
     workspaceId: string,

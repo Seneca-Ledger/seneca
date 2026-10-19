@@ -25,7 +25,7 @@ export function useFillViewport<T extends HTMLElement>() {
     if (!element) {
       return;
     }
-    const page = element.closest<HTMLElement>('.lumio-ct');
+    const page = element.closest<HTMLElement>('.seneca-ct');
     const measure = () => {
       const top = element.getBoundingClientRect().top + window.scrollY;
       const bottom = page ? Number.parseFloat(getComputedStyle(page).paddingBottom) || 0 : 0;

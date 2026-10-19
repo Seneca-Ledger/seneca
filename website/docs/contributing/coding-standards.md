@@ -3,7 +3,7 @@ title: Coding Standards
 description: TypeScript conventions and formatting
 ---
 
-Lumio uses Biome for linting and formatting in both apps. The frontend also runs ESLint, and its SCSS is checked
+Seneca uses Biome for linting and formatting in both apps. The frontend also runs ESLint, and its SCSS is checked
 with stylelint. Follow the conventions of the surrounding code.
 
 ## Language and formatting

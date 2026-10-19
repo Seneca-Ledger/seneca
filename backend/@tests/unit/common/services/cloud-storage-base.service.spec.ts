@@ -11,6 +11,7 @@ import {
   CloudStorageBaseService,
   type CloudStorageSettingsLike,
 } from '@/common/services/cloud-storage-base.service';
+import { APP_NAME } from '../../../../src/common/brand';
 
 function createRepoMock<T>() {
   return {
@@ -220,8 +221,8 @@ describe('CloudStorageBaseService', () => {
       status: IntegrationStatus.CONNECTED,
       token: { accessToken: null, refreshToken: 'encrypted-refresh' },
       dropboxSettings: {
-        folderId: '/lumio',
-        folderName: 'Lumio',
+        folderId: '/seneca',
+        folderName: APP_NAME,
         syncEnabled: true,
         syncTime: '03:00',
         timeZone: 'UTC',
@@ -233,8 +234,8 @@ describe('CloudStorageBaseService', () => {
       connected: false,
       status: IntegrationStatus.NEEDS_REAUTH,
       settings: {
-        folderId: '/lumio',
-        folderName: 'Lumio',
+        folderId: '/seneca',
+        folderName: APP_NAME,
         syncEnabled: true,
         syncTime: '03:00',
         timeZone: 'UTC',
@@ -407,7 +408,7 @@ describe('CloudStorageBaseService', () => {
 
   it('persists an imported file through the shared helper', async () => {
     const importFile = jest.fn().mockResolvedValue(undefined);
-    const uploadsDir = `/tmp/lumio-test-${Date.now()}`;
+    const uploadsDir = `/tmp/seneca-test-${Date.now()}`;
     fs.mkdirSync(uploadsDir, { recursive: true });
 
     await service.exposePersistImportedFile({
@@ -550,8 +551,8 @@ describe('CloudStorageBaseService', () => {
     const createAuditEvent = jest.fn().mockResolvedValue(undefined);
     const settings = {
       integrationId: 'integration-1',
-      folderId: '/lumio',
-      folderName: 'Lumio',
+      folderId: '/seneca',
+      folderName: APP_NAME,
       syncEnabled: true,
       syncTime: '03:00',
       timeZone: 'UTC',

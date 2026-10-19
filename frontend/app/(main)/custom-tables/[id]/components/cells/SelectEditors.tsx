@@ -9,15 +9,15 @@ import type { SelectOptionDef } from '../../utils/types';
 /** Status label: a dot in the option colour before neutral text. */
 export function OptionChip({ option }: { option: SelectOptionDef }) {
   return (
-    <span className="lumio-ct__chip" data-option-value={option.value}>
+    <span className="seneca-ct__chip" data-option-value={option.value}>
       {option.color ? (
         <span
-          className="lumio-ct__chip-dot"
+          className="seneca-ct__chip-dot"
           style={{ backgroundColor: option.color }}
           aria-hidden
         />
       ) : null}
-      <span className="lumio-ct__chip-text">{option.label ?? option.value}</span>
+      <span className="seneca-ct__chip-text">{option.label ?? option.value}</span>
     </span>
   );
 }
@@ -57,7 +57,7 @@ export function SelectEditor({
     onClose();
   };
   return (
-    <span ref={anchorRef} className="lumio-ct__cell">
+    <span ref={anchorRef} className="seneca-ct__cell">
       <Menu open={Boolean(anchor)} anchorEl={anchor} onClose={onClose}>
         {options.map(option => (
           <MenuItem
@@ -96,7 +96,7 @@ export function MultiSelectEditor({
       prev.includes(optionValue) ? prev.filter(v => v !== optionValue) : [...prev, optionValue],
     );
   return (
-    <span ref={anchorRef} className="lumio-ct__cell">
+    <span ref={anchorRef} className="seneca-ct__cell">
       <Menu open={Boolean(anchor)} anchorEl={anchor} onClose={commit}>
         {options.map(option => (
           <MenuItem key={option.value} onClick={() => toggle(option.value)}>

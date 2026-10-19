@@ -1,7 +1,7 @@
 @use '../abstracts' as *;
 
 // Only visible on mobile (<1024px)
-.lumio-bottom-bar {
+.seneca-bottom-bar {
   display: none;
 
   @media (max-width: 1023px) {
@@ -15,17 +15,17 @@
     height: calc(56px + env(safe-area-inset-bottom, 0px));
     // Room for the tabs' focus rings: the bar sits on the viewport edges, and the raised
     // FAB would paint over a neighbour's ring without the gap.
-    gap: $lumio-focus-ring-reach;
-    padding: $lumio-focus-ring-reach $lumio-focus-ring-reach
-      calc(env(safe-area-inset-bottom, 0px) + #{$lumio-focus-ring-reach});
-    background: $lumio-color-surface;
-    border-top: 1px solid $lumio-color-border;
+    gap: $seneca-focus-ring-reach;
+    padding: $seneca-focus-ring-reach $seneca-focus-ring-reach
+      calc(env(safe-area-inset-bottom, 0px) + #{$seneca-focus-ring-reach});
+    background: $seneca-color-surface;
+    border-top: 1px solid $seneca-color-border;
     z-index: 40;
     isolation: isolate;
 
     @include dark {
-      background: $lumio-color-surface-dk;
-      border-top-color: $lumio-color-border-dk;
+      background: $seneca-color-surface-dk;
+      border-top-color: $seneca-color-border-dk;
     }
   }
 
@@ -52,7 +52,7 @@
     justify-content: center;
     flex: 1;
     height: 100%;
-    color: $lumio-color-ink-400;
+    color: $seneca-color-ink-400;
     background: transparent;
     border: none;
     cursor: pointer;
@@ -63,14 +63,14 @@
     z-index: 0;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
 
     &--active {
       color: var(--primary);
 
       @include dark {
-        color: $lumio-color-primary-dk;
+        color: $seneca-color-primary-dk;
       }
     }
   }
@@ -96,7 +96,7 @@
     z-index: 2;
 
     @include dark {
-      background: $lumio-color-primary-fill-dk;
+      background: $seneca-color-primary-fill-dk;
     }
 
     &:active {
@@ -133,7 +133,7 @@
       z-index: 41;
       pointer-events: none;
 
-      .lumio-bottom-bar__fab-action {
+      .seneca-bottom-bar__fab-action {
         opacity: 0;
         transform: translateY(20px) scale(0.8);
         pointer-events: none;
@@ -146,7 +146,7 @@
       &--open {
         pointer-events: auto;
 
-        .lumio-bottom-bar__fab-action {
+        .seneca-bottom-bar__fab-action {
           opacity: 1;
           transform: translateY(0) scale(1);
           pointer-events: auto;
@@ -160,10 +160,10 @@
     align-items: center;
     gap: 10px;
     padding: 8px 16px 8px 10px;
-    border-radius: $lumio-radius-full;
-    border: 1px solid $lumio-color-border;
-    background: $lumio-color-surface;
-    color: $lumio-color-text-primary;
+    border-radius: $seneca-radius-full;
+    border: 1px solid $seneca-color-border;
+    background: $seneca-color-surface;
+    color: $seneca-color-text-primary;
     font-size: 13px;
     font-weight: 600;
     font-family: inherit;
@@ -174,16 +174,16 @@
     -webkit-tap-highlight-color: transparent;
 
     @include dark {
-      background: $lumio-color-surface-dk;
-      border-color: $lumio-color-border-dk;
-      color: $lumio-color-text-primary-dk;
+      background: $seneca-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:active {
-      background: $lumio-color-ink-50;
+      background: $seneca-color-ink-50;
 
       @include dark {
-        background: $lumio-color-ink-100-dk;
+        background: $seneca-color-ink-100-dk;
       }
     }
 
@@ -199,8 +199,8 @@
       flex-shrink: 0;
 
       @include dark {
-        background: rgba($lumio-color-primary-dk, 0.18);
-        color: $lumio-color-primary-dk;
+        background: rgba($seneca-color-primary-dk, 0.18);
+        color: $seneca-color-primary-dk;
       }
     }
 

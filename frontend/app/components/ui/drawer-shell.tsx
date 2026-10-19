@@ -44,7 +44,7 @@ export interface DrawerShellProps {
 }
 
 /** Set on an overlay while a sidebar opened after it sits on top; styled in `_drawer-stack.scss`. */
-const COVERED_ATTR = 'data-lumio-covered';
+const COVERED_ATTR = 'data-seneca-covered';
 /** Every overlay a sidebar can open over: other sidebars and centred dialogs, however they are built. */
 const OVERLAY_SELECTOR = '.MuiDrawer-root, .MuiDialog-root';
 

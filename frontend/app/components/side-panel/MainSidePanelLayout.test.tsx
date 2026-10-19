@@ -134,7 +134,7 @@ describe('MainSidePanelLayout mobile panel', () => {
 
     await act(async () => {
       window.dispatchEvent(
-        new CustomEvent('lumio-mobile-menu-visibility', { detail: { open: true } }),
+        new CustomEvent('seneca-mobile-menu-visibility', { detail: { open: true } }),
       );
     });
 

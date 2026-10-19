@@ -63,22 +63,22 @@ export function TablePageHeader({
   };
 
   return (
-    <header className="lumio-ct__header">
+    <header className="seneca-ct__header">
       <Button
         variant="ghost"
         size="icon"
         type="button"
         onClick={onBack}
-        className="lumio-ct__back"
+        className="seneca-ct__back"
         aria-label={labels.back}
         title={labels.back}
       >
         <ArrowLeft size={18} aria-hidden />
       </Button>
-      <div className="lumio-ct__title-row">
+      <div className="seneca-ct__title-row">
         {editing ? (
           <input
-            className="lumio-ct__title-input"
+            className="seneca-ct__title-input"
             value={name}
             aria-label={labels.rename}
             ref={inputRef}
@@ -94,11 +94,11 @@ export function TablePageHeader({
             }}
           />
         ) : (
-          <h1 className="lumio-ct__title">
+          <h1 className="seneca-ct__title">
             {table.name || labels.untitled}
             <button
               type="button"
-              className="lumio-ct__title-edit"
+              className="seneca-ct__title-edit"
               aria-label={labels.rename}
               onClick={() => {
                 setName(table.name);
@@ -109,7 +109,7 @@ export function TablePageHeader({
             </button>
           </h1>
         )}
-        <p className="lumio-ct__meta">
+        <p className="seneca-ct__meta">
           {/* "Transactions · 860 rows" under a table named Transactions says it twice. */}
           {source && source !== table.name ? <span>{source}</span> : null}
           {total !== null ? <span>{labels.rows.replace('{{count}}', String(total))}</span> : null}
@@ -118,7 +118,7 @@ export function TablePageHeader({
             <span>{labels.syncedAt.replace('{{date}}', formatStoredDate(new Date(syncedAt)))}</span>
           ) : null}
         </p>
-        {table.description ? <p className="lumio-ct__description">{table.description}</p> : null}
+        {table.description ? <p className="seneca-ct__description">{table.description}</p> : null}
       </div>
       {actions}
     </header>

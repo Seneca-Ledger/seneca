@@ -1,5 +1,5 @@
 /**
- * Which cells of a table filled from Lumio data write back to the app record
+ * Which cells of a table filled from Seneca data write back to the app record
  * (`write`) and which only show it (`read`): file names, derived totals and
  * values the app maintains itself. One map for both sides — the backend
  * refuses a write to a `read` field, the grid draws it as plain text.

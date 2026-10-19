@@ -99,11 +99,11 @@ export function GoalCoverPicker({
         '@media (min-width:600px)': { maxWidth: 512 },
       }}
       title={
-        <div className="lumio-payable-drawer__title-wrap">
+        <div className="seneca-payable-drawer__title-wrap">
           <button
             type="button"
             onClick={onClose}
-            className="lumio-payable-drawer__back-btn"
+            className="seneca-payable-drawer__back-btn"
             aria-label={labels.close}
           >
             <ChevronLeft size={20} />
@@ -114,9 +114,9 @@ export function GoalCoverPicker({
         </div>
       }
     >
-      <div className="lumio-payable-drawer__body">
+      <div className="seneca-payable-drawer__body">
         <Box
-          className="lumio-goal-cover-scroll"
+          className="seneca-goal-cover-scroll"
           sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: 2 }}
         >
           <Tabs
@@ -129,7 +129,7 @@ export function GoalCoverPicker({
           </Tabs>
 
           {tab === 'presets' && (
-            <div className="lumio-goal-cover-grid">
+            <div className="seneca-goal-cover-grid">
               {GOAL_COVER_PRESETS.map(preset => {
                 const isSelected = selection?.kind === 'preset' && selection.preset === preset.id;
                 const name = names[preset.id].value;
@@ -137,7 +137,7 @@ export function GoalCoverPicker({
                   <button
                     key={preset.id}
                     type="button"
-                    className="lumio-goal-cover-tile"
+                    className="seneca-goal-cover-tile"
                     title={name}
                     aria-label={name}
                     aria-pressed={isSelected}
@@ -145,7 +145,7 @@ export function GoalCoverPicker({
                   >
                     <GoalPresetTile preset={preset} />
                     {isSelected && (
-                      <span className="lumio-goal-cover-tile__tick" aria-hidden="true">
+                      <span className="seneca-goal-cover-tile__tick" aria-hidden="true">
                         <Check size={14} />
                       </span>
                     )}
@@ -212,7 +212,7 @@ export function GoalCoverPicker({
                           key={photo.id}
                           component="button"
                           type="button"
-                          className="lumio-goal-cover-tile"
+                          className="seneca-goal-cover-tile"
                           title={photo.attribution}
                           aria-label={photo.title}
                           aria-pressed={isSelected}
@@ -276,7 +276,7 @@ export function GoalCoverPicker({
         {/* A pick applies at once and closes the panel, so there is no Close button;
             the back arrow leaves without a change. Remove shows only with a cover. */}
         {selection && (
-          <div className="lumio-payable-drawer__footer">
+          <div className="seneca-payable-drawer__footer">
             <Button
               variant="text"
               sx={{ color: 'var(--text-muted)' }}

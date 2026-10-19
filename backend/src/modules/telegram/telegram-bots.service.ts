@@ -44,7 +44,7 @@ class TelegramBotApiError extends Error {
 
 /** Telegram sends this with every webhook call of the bot; only the token's holder can derive it. */
 export const webhookSecretOf = (botToken: string): string =>
-  createHash('sha256').update(`lumio-telegram-webhook:${botToken}`).digest('hex');
+  createHash('sha256').update(`seneca-telegram-webhook:${botToken}`).digest('hex');
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);

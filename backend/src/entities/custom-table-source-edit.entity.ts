@@ -13,7 +13,7 @@ import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 
 /**
- * One app record a table filled from Lumio data has changed. Keeps every
+ * One app record a table filled from Seneca data has changed. Keeps every
  * writable field as it was before the table's first edit, so "Restore to
  * default" can put them back — and as the table last left them, so the restore
  * leaves a field alone when someone has changed it in the app since.

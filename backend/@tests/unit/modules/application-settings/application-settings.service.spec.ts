@@ -31,6 +31,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { EffectRuntime } from '@/common/effect/effect-runtime';
 import { encryptText } from '@/common/utils/encryption.util';
+import { APP_NAME } from '../../../../src/common/brand';
 
 describe('ApplicationSettingsService', () => {
   const originalEnv = process.env;
@@ -284,17 +285,17 @@ describe('ApplicationSettingsService', () => {
     await createService().saveSmtpSettings(user, {
       host: 'mail.example.com',
       port: 587,
-      user: 'lumio@example.com',
+      user: 'seneca@example.com',
       pass: 'initial-secret',
-      from: 'Lumio <noreply@example.com>',
+      from: `${APP_NAME} <noreply@example.com>`,
     });
 
     const result = await createService().saveSmtpSettings(user, {
       host: 'mail.example.com',
       port: 587,
-      user: 'lumio@example.com',
+      user: 'seneca@example.com',
       pass: '',
-      from: 'Lumio <noreply@example.com>',
+      from: `${APP_NAME} <noreply@example.com>`,
     });
 
     expect(result.settings.passConfigured).toBe(true);
@@ -349,7 +350,7 @@ describe('ApplicationSettingsService', () => {
       enabled: true,
       modelId: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
       threshold: 0.35,
-      localModelPath: '/tmp/lumio-models',
+      localModelPath: '/tmp/seneca-models',
     });
     mockCategorize.mockResolvedValue('Продукты');
     mockGetModelLoadError.mockReturnValue(null);
@@ -370,14 +371,14 @@ describe('ApplicationSettingsService', () => {
         categories: ['Продукты', 'Транспорт'],
         threshold: 0.35,
         allowRemoteModels: false,
-        localModelPath: '/tmp/lumio-models',
+        localModelPath: '/tmp/seneca-models',
       }),
     );
   });
 
   it('installs a local categorization model archive into workspace storage', async () => {
     const AdmZip = require('adm-zip');
-    const tempRoot = mkdtempSync(path.join(tmpdir(), 'lumio-model-test-'));
+    const tempRoot = mkdtempSync(path.join(tmpdir(), 'seneca-model-test-'));
     process.env.LOCAL_CATEGORIZATION_MODEL_ROOT = tempRoot;
 
     const zip = new AdmZip();

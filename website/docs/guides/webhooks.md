@@ -1,6 +1,6 @@
 ---
 title: Webhooks
-description: Send statements and receipts into Lumio from other tools, and get told when something happens in a workspace
+description: Send statements and receipts into Seneca from other tools, and get told when something happens in a workspace
 ---
 
 Webhooks live in **Plugins → Webhooks** and work in two directions.
@@ -47,16 +47,16 @@ A large batch lists the first 500 ids and sets `truncated`; read the rest with
 
 | Header | Value |
 |---|---|
-| `X-Lumio-Event` | The event name |
-| `X-Lumio-Delivery` | The delivery id, the same on every retry: use it to ignore repeats |
-| `X-Lumio-Signature` | `sha256=` + hex HMAC-SHA256 of the raw body with the subscription's secret |
+| `X-Seneca-Event` | The event name |
+| `X-Seneca-Delivery` | The delivery id, the same on every retry: use it to ignore repeats |
+| `X-Seneca-Signature` | `sha256=` + hex HMAC-SHA256 of the raw body with the subscription's secret |
 
 Check the signature over the raw body before parsing it:
 
 ```js
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-function isFromLumio(rawBody, header, secret) {
+function isFromSeneca(rawBody, header, secret) {
   const expected = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
   return header.length === expected.length && timingSafeEqual(Buffer.from(header), Buffer.from(expected));
 }

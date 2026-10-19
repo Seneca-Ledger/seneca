@@ -204,25 +204,27 @@ function StatusBadge({
 }) {
   const listText = useIntlayer('statementsListUi');
   if (errorMessage || status === 'error') {
-    return <span className="lumio-stmt-badge lumio-stmt-badge--error">{listText.statusError}</span>;
+    return (
+      <span className="seneca-stmt-badge seneca-stmt-badge--error">{listText.statusError}</span>
+    );
   }
   if (isProcessing || status === 'processing' || status === 'uploaded') {
     return (
-      <span className="lumio-stmt-badge lumio-stmt-badge--pending">{listText.statusPending}</span>
+      <span className="seneca-stmt-badge seneca-stmt-badge--pending">{listText.statusPending}</span>
     );
   }
   // Parsed, but the balance did not reconcile: held out of analytics until a user
   // confirms it on the statement page.
   if (status === 'needs_review') {
     return (
-      <span className="lumio-stmt-badge lumio-stmt-badge--review">
+      <span className="seneca-stmt-badge seneca-stmt-badge--review">
         {listText.statusNeedsReview}
       </span>
     );
   }
   if (status === 'completed' || status === 'parsed' || status === 'validated') {
     return (
-      <span className="lumio-stmt-badge lumio-stmt-badge--completed">
+      <span className="seneca-stmt-badge seneca-stmt-badge--completed">
         {listText.statusCompleted}
       </span>
     );
@@ -430,7 +432,7 @@ export function StatementsListItem({
     return (
       <Link
         href={categoryHref(categoryLabel, statement)}
-        className={`lumio-stmt-category-link${categoryLit ? ' lumio-stmt-category-link--lit' : ''}`}
+        className={`seneca-stmt-category-link${categoryLit ? ' seneca-stmt-category-link--lit' : ''}`}
         onClick={handleCategoryClick}
         onMouseEnter={lightCategoryAfterDwell}
         onMouseLeave={unlightCategory}
@@ -440,7 +442,7 @@ export function StatementsListItem({
         onBlur={unlightCategory}
         title={listText.categoryLink.value.replace('{category}', categoryText ?? categoryLabel)}
       >
-        <span className="lumio-stmt-category-link__badge">
+        <span className="seneca-stmt-category-link__badge">
           <CategoryIconBadge
             name={categoryLabel}
             color={statement.category?.color}
@@ -449,7 +451,7 @@ export function StatementsListItem({
           />
         </span>
         <span
-          className="lumio-stmt-category-link__text"
+          className="seneca-stmt-category-link__text"
           data-label={categoryText}
           style={{ ...textCellStyle('category'), width: 'auto', minWidth: 0 }}
         >
@@ -487,7 +489,7 @@ export function StatementsListItem({
         </span>
 
         {pendingReview > 0 && !isProcessing ? (
-          <span className="lumio-stmt-flag" style={{ flexShrink: 0 }}>
+          <span className="seneca-stmt-flag" style={{ flexShrink: 0 }}>
             {listText.toReview}
             {isReceipt ? null : ` · ${pendingReview}`}
           </span>
@@ -503,7 +505,7 @@ export function StatementsListItem({
           />
         ) : null}
       </div>
-      <div className="lumio-stmt-list-item__meta">
+      <div className="seneca-stmt-list-item__meta">
         {[dateLabel, typeCaption].filter(Boolean).join(' · ')}
         {duplicateCaption ? (
           <MuiTooltip title={duplicateTooltipText} placement="top" enterDelay={150}>
@@ -521,7 +523,7 @@ export function StatementsListItem({
     onToggleExpand && transactionCount > 1 ? (
       <button
         type="button"
-        className="lumio-stmt-list-item__rows-toggle"
+        className="seneca-stmt-list-item__rows-toggle"
         aria-expanded={expanded}
         onClick={event => {
           event.stopPropagation();
@@ -548,7 +550,7 @@ export function StatementsListItem({
       }}
     >
       <span
-        className="lumio-stmt-list-item__amount"
+        className="seneca-stmt-list-item__amount"
         style={{
           color: isNegativeAmount || hasError || isMissingAmount ? c.danger : c.ink900,
         }}
@@ -559,7 +561,7 @@ export function StatementsListItem({
           <>
             {amountFigure}
             {amountCurrency ? (
-              <span className="lumio-stmt-list-item__currency"> {amountCurrency}</span>
+              <span className="seneca-stmt-list-item__currency"> {amountCurrency}</span>
             ) : null}
           </>
         )}
@@ -582,7 +584,7 @@ export function StatementsListItem({
           language, so the column lines up with the header and never clips it. */}
       <span
         aria-hidden
-        className="lumio-stmt-list-item__view-btn lumio-stmt-list-item__action-sizer"
+        className="seneca-stmt-list-item__view-btn seneca-stmt-list-item__action-sizer"
       >
         {reviewLabel}
       </span>
@@ -596,7 +598,7 @@ export function StatementsListItem({
         // The whole row already opens the statement, so a plain row gets a quiet
         // arrow instead of a "View" pill; a duplicate keeps its "Review" label,
         // which says something the row click does not.
-        className={`lumio-stmt-list-item__view-btn ${isPossibleDuplicate ? 'lumio-stmt-list-item__view-btn--link' : 'lumio-stmt-list-item__view-btn--arrow'}`}
+        className={`seneca-stmt-list-item__view-btn ${isPossibleDuplicate ? 'seneca-stmt-list-item__view-btn--link' : 'seneca-stmt-list-item__view-btn--arrow'}`}
         aria-label={actionLabel}
         disabled={viewDisabled}
       >
@@ -638,14 +640,14 @@ export function StatementsListItem({
     // biome-ignore lint/a11y/noStaticElementInteractions: whole-row click is a shortcut for the buttons rendered inside this row. Giving the row role=button would nest interactive elements inside an interactive role, which is worse than the current state.
     <div
       data-tour-id={dataTourId}
-      className={`lumio-stmt-list-item${selected ? ' lumio-stmt-list-item--selected' : ''}${hasError && !isPossibleDuplicate ? ' lumio-stmt-list-item--error' : ''}`}
+      className={`seneca-stmt-list-item${selected ? ' seneca-stmt-list-item--selected' : ''}${hasError && !isPossibleDuplicate ? ' seneca-stmt-list-item--error' : ''}`}
       style={{ ...rowStyle, cursor: viewDisabled ? 'default' : 'pointer' }}
       onClick={handleView}
     >
       {isPossibleDuplicate ? (
         <span
           aria-hidden
-          className={`lumio-stmt-list-item__accent${duplicateGroupStart ? ' lumio-stmt-list-item__accent--start' : ''}${duplicateGroupEnd ? ' lumio-stmt-list-item__accent--end' : ''}`}
+          className={`seneca-stmt-list-item__accent${duplicateGroupStart ? ' seneca-stmt-list-item__accent--start' : ''}${duplicateGroupEnd ? ' seneca-stmt-list-item__accent--end' : ''}`}
         />
       ) : null}
 
@@ -655,7 +657,7 @@ export function StatementsListItem({
           event.stopPropagation();
           handleView();
         }}
-        className="lumio-stmt-list-item__desktop-overlay"
+        className="seneca-stmt-list-item__desktop-overlay"
         aria-label={viewLabel}
         aria-disabled={viewDisabled}
       />
@@ -665,9 +667,9 @@ export function StatementsListItem({
           checkbox and icon fall through to the overlay button and open the row. */}
       <div
         data-testid={`statement-item-mobile-${statement.id}`}
-        className="lumio-stmt-list-item__mobile"
+        className="seneca-stmt-list-item__mobile"
       >
-        <div className="lumio-stmt-list-item__mobile-select">
+        <div className="seneca-stmt-list-item__mobile-select">
           {selectionDisabled ? null : (
             <Checkbox
               checked={selected}
@@ -679,7 +681,7 @@ export function StatementsListItem({
         </div>
         <button
           type="button"
-          className="lumio-stmt-list-item__mobile-icon"
+          className="seneca-stmt-list-item__mobile-icon"
           onClick={event => {
             event.stopPropagation();
             onIconClick();
@@ -695,14 +697,14 @@ export function StatementsListItem({
             muted
           />
         </button>
-        <div className="lumio-stmt-list-item__mobile-body">
-          <div className="lumio-stmt-list-item__mobile-line">
-            <span className="lumio-stmt-list-item__mobile-merchant">
+        <div className="seneca-stmt-list-item__mobile-body">
+          <div className="seneca-stmt-list-item__mobile-line">
+            <span className="seneca-stmt-list-item__mobile-merchant">
               {isProcessing ? listText.processing : merchantLabel}
             </span>
             {hasError ? <AlertCircle size={14} style={{ color: c.danger, flexShrink: 0 }} /> : null}
             <span
-              className="lumio-stmt-list-item__mobile-amount"
+              className="seneca-stmt-list-item__mobile-amount"
               style={{
                 color: isNegativeAmount || hasError || isMissingAmount ? c.danger : undefined,
               }}
@@ -714,8 +716,8 @@ export function StatementsListItem({
               )}
             </span>
           </div>
-          <div className="lumio-stmt-list-item__mobile-line lumio-stmt-list-item__mobile-meta">
-            <span className="lumio-stmt-list-item__mobile-meta-text">
+          <div className="seneca-stmt-list-item__mobile-line seneca-stmt-list-item__mobile-meta">
+            <span className="seneca-stmt-list-item__mobile-meta-text">
               {[dateLabel, isPossibleDuplicate ? duplicateCaption : categoryText || sourceLabel]
                 .filter(Boolean)
                 .join(' · ')}
@@ -733,7 +735,7 @@ export function StatementsListItem({
       {/* Desktop Layout */}
       <div
         data-testid={`statement-item-desktop-${statement.id}`}
-        className="lumio-stmt-list-item__desktop"
+        className="seneca-stmt-list-item__desktop"
         style={{ pointerEvents: 'none' }}
       >
         <div

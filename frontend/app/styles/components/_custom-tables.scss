@@ -1,14 +1,14 @@
-// lumio-ct — custom tables pages (list + table), built on the shared lumio-grid
+// seneca-ct — custom tables pages (list + table), built on the shared seneca-grid
 @use '../abstracts' as *;
 
-.lumio-ct {
+.seneca-ct {
   display: flex;
   flex-direction: column;
-  gap: $lumio-space-4;
-  padding: var(--lumio-page-top, #{$lumio-space-4}) $lumio-space-4 $lumio-space-6;
+  gap: $seneca-space-4;
+  padding: var(--seneca-page-top, #{$seneca-space-4}) $seneca-space-4 $seneca-space-6;
 
   @include respond-to('md') {
-    padding: var(--lumio-page-top, #{$lumio-space-3}) $lumio-space-3 $lumio-space-5;
+    padding: var(--seneca-page-top, #{$seneca-space-3}) $seneca-space-3 $seneca-space-5;
   }
 
   // A table page: the grid runs to the bottom edge of the window.
@@ -23,19 +23,19 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: $lumio-space-2 $lumio-space-3;
+    gap: $seneca-space-2 $seneca-space-3;
   }
 
   &__back {
     flex: none;
-    margin-left: -$lumio-space-2;
+    margin-left: -$seneca-space-2;
   }
 
   &__title-row {
     display: flex;
     flex: 1 1 240px;
     flex-direction: column;
-    gap: $lumio-space-1;
+    gap: $seneca-space-1;
     min-width: 0;
   }
 
@@ -51,15 +51,15 @@
   &__title {
     display: inline-flex;
     align-items: center;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
     margin: 0;
-    font-size: $lumio-font-size-xl;
-    font-weight: $lumio-font-weight-semibold;
-    line-height: $lumio-line-height-tight;
-    color: $lumio-color-text-primary;
+    font-size: $seneca-font-size-xl;
+    font-weight: $seneca-font-weight-semibold;
+    line-height: $seneca-line-height-tight;
+    color: $seneca-color-text-primary;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
   }
 
@@ -70,24 +70,24 @@
     opacity: 0;
     transition: opacity 120ms ease;
 
-    .lumio-ct__title:hover &,
+    .seneca-ct__title:hover &,
     &:focus-visible {
       opacity: 1;
     }
 
     border: 0;
-    border-radius: $lumio-radius-xs;
+    border-radius: $seneca-radius-xs;
     background: none;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     cursor: pointer;
 
     &:hover {
-      background-color: $lumio-color-ink-100;
-      color: $lumio-color-ink-800;
+      background-color: $seneca-color-ink-100;
+      color: $seneca-color-ink-800;
 
       @include dark {
-        background-color: $lumio-color-ink-100-dk;
-        color: $lumio-color-ink-800-dk;
+        background-color: $seneca-color-ink-100-dk;
+        color: $seneca-color-ink-800-dk;
       }
     }
   }
@@ -96,11 +96,11 @@
     width: min(100%, 480px);
     padding: 6px 10px;
     border: 1px solid var(--primary);
-    border-radius: $lumio-radius-sm;
-    background-color: $lumio-color-surface;
+    border-radius: $seneca-radius-sm;
+    background-color: $seneca-color-surface;
     font: inherit;
-    font-size: $lumio-font-size-xl;
-    font-weight: $lumio-font-weight-semibold;
+    font-size: $seneca-font-size-xl;
+    font-weight: $seneca-font-weight-semibold;
     color: inherit;
 
     &:focus-visible {
@@ -109,7 +109,7 @@
     }
 
     @include dark {
-      background-color: $lumio-color-surface-dk;
+      background-color: $seneca-color-surface-dk;
     }
   }
 
@@ -117,42 +117,42 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
     margin: 0;
-    font-size: $lumio-font-size-sm;
-    color: $lumio-color-ink-500;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     > span + span::before {
       content: '·';
-      margin-right: $lumio-space-2;
+      margin-right: $seneca-space-2;
     }
   }
 
   &__badge {
     padding: 2px 8px;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     background-color: var(--primary-50);
     color: var(--primary);
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-medium;
+    font-size: $seneca-font-size-xs;
+    font-weight: $seneca-font-weight-medium;
 
     @include dark {
-      background-color: $lumio-color-primary-50-dk;
-      color: $lumio-color-primary-dk;
+      background-color: $seneca-color-primary-50-dk;
+      color: $seneca-color-primary-dk;
     }
 
     // The default source (Manual) repeats on every row; colour is kept for rarer ones.
     &--neutral {
-      background-color: $lumio-color-ink-100;
-      color: $lumio-color-ink-600;
+      background-color: $seneca-color-ink-100;
+      color: $seneca-color-ink-600;
 
       @include dark {
-        background-color: $lumio-color-ink-150-dk;
-        color: $lumio-color-ink-700-dk;
+        background-color: $seneca-color-ink-150-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
   }
@@ -160,10 +160,10 @@
   &__description {
     margin: 0;
     max-width: 72ch;
-    color: $lumio-color-text-secondary;
+    color: $seneca-color-text-secondary;
 
     @include dark {
-      color: $lumio-color-text-secondary-dk;
+      color: $seneca-color-text-secondary-dk;
     }
   }
 
@@ -173,14 +173,14 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
   }
 
   &__actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
   }
 
   &__input,
@@ -188,17 +188,17 @@
     width: 100%;
     height: 36px;
     padding: 0 12px;
-    border: 1px solid $lumio-color-ink-200;
-    border-radius: $lumio-radius-sm;
-    background-color: $lumio-color-surface;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-sm;
+    background-color: $seneca-color-surface;
     font: inherit;
-    font-size: $lumio-font-size-sm;
-    color: $lumio-color-text-primary;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-text-primary;
 
     @include dark {
-      border-color: $lumio-color-ink-200-dk;
-      background-color: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
+      border-color: $seneca-color-ink-200-dk;
+      background-color: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:focus-visible {
@@ -208,14 +208,14 @@
   }
 
   &__input--mono {
-    font-family: $lumio-font-family-mono;
+    font-family: $seneca-font-family-mono;
   }
 
   &__input--compact {
     height: 32px;
   }
 
-  textarea.lumio-ct__input {
+  textarea.seneca-ct__input {
     height: auto;
     padding: 8px 12px;
     resize: vertical;
@@ -231,34 +231,34 @@
     flex: 1 1 auto;
     flex-wrap: wrap;
     align-items: center;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
   }
 
   // Secondary toolbar actions stay neutral so the one filled green button
   // (New table / Add row) is the only accent in the row.
   &__toolbar .MuiButton-outlined {
-    border-color: $lumio-color-ink-200;
-    color: $lumio-color-ink-700;
+    border-color: $seneca-color-ink-200;
+    color: $seneca-color-ink-700;
 
     &:hover {
-      border-color: $lumio-color-ink-300;
-      background-color: $lumio-color-ink-50;
+      border-color: $seneca-color-ink-300;
+      background-color: $seneca-color-ink-50;
     }
 
     @include dark {
-      border-color: $lumio-color-ink-200-dk;
-      color: $lumio-color-ink-800-dk;
+      border-color: $seneca-color-ink-200-dk;
+      color: $seneca-color-ink-800-dk;
 
       &:hover {
-        border-color: $lumio-color-ink-300-dk;
-        background-color: $lumio-color-ink-50-dk;
+        border-color: $seneca-color-ink-300-dk;
+        background-color: $seneca-color-ink-50-dk;
       }
     }
   }
 
   &__toolbar > &__actions {
     margin-left: auto;
-    gap: $lumio-space-1;
+    gap: $seneca-space-1;
   }
 
   // Every toolbar control matches the Search button (TOOLBAR_BUTTON_STYLE, 40px).
@@ -274,10 +274,10 @@
 
   &__toolbar .MuiButton-text,
   &__toolbar .MuiIconButton-root {
-    color: $lumio-color-ink-600;
+    color: $seneca-color-ink-600;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
   }
 
@@ -286,16 +286,16 @@
     align-items: center;
     gap: 6px;
     padding: 4px 6px 4px 10px;
-    border: 1px solid $lumio-color-ink-200;
-    border-radius: $lumio-radius-full;
-    background-color: $lumio-color-surface;
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-text-primary;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-full;
+    background-color: $seneca-color-surface;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-text-primary;
 
     @include dark {
-      border-color: $lumio-color-ink-200-dk;
-      background-color: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
+      border-color: $seneca-color-ink-200-dk;
+      background-color: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
     }
   }
 
@@ -303,35 +303,35 @@
     display: inline-flex;
     padding: 2px;
     border: 0;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     background: none;
     color: inherit;
     cursor: pointer;
 
     &:hover {
-      background-color: $lumio-color-ink-100;
+      background-color: $seneca-color-ink-100;
 
       @include dark {
-        background-color: $lumio-color-ink-100-dk;
+        background-color: $seneca-color-ink-100-dk;
       }
     }
   }
 
   &__filter-form {
     display: grid;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
     width: min(92vw, 320px);
-    padding: $lumio-space-3;
+    padding: $seneca-space-3;
   }
 
   // ---- grid cells ---------------------------------------------------------
   &__grid {
-    .lumio-grid__td {
+    .seneca-grid__td {
       padding: 0;
     }
 
     // Placeholder cells have no editor inside to supply the inset.
-    .lumio-grid__skeleton-row > .lumio-grid__td {
+    .seneca-grid__skeleton-row > .seneca-grid__td {
       padding: 0 12px;
     }
   }
@@ -350,13 +350,13 @@
     }
 
     &--required {
-      box-shadow: inset 0 0 0 1px $lumio-color-warning;
+      box-shadow: inset 0 0 0 1px $seneca-color-warning;
     }
 
     // Ячейка, которую импорт оставил текстом: видно до первой правки.
     &--issue {
-      background-color: $lumio-color-warning-soft;
-      box-shadow: inset 0 0 0 1px $lumio-color-warning;
+      background-color: $seneca-color-warning-soft;
+      box-shadow: inset 0 0 0 1px $seneca-color-warning;
 
       @include dark {
         background-color: rgba(245, 158, 11, 0.16);
@@ -373,10 +373,10 @@
     cursor: text;
 
     &:hover {
-      background-color: $lumio-color-ink-50;
+      background-color: $seneca-color-ink-50;
 
       @include dark {
-        background-color: $lumio-color-ink-50-dk;
+        background-color: $seneca-color-ink-50-dk;
       }
     }
 
@@ -392,10 +392,10 @@
     white-space: nowrap;
 
     &--empty {
-      color: $lumio-color-ink-300;
+      color: $seneca-color-ink-300;
 
       @include dark {
-        color: $lumio-color-ink-300-dk;
+        color: $seneca-color-ink-300-dk;
       }
     }
   }
@@ -406,14 +406,14 @@
     padding: 0 12px;
     border: 0;
     box-shadow: inset 0 0 0 2px var(--primary);
-    background-color: $lumio-color-surface;
+    background-color: $seneca-color-surface;
     font: inherit;
-    font-size: $lumio-font-size-sm;
+    font-size: $seneca-font-size-sm;
     color: inherit;
     outline: none;
 
     @include dark {
-      background-color: $lumio-color-surface-dk;
+      background-color: $seneca-color-surface-dk;
     }
 
     &--numeric {
@@ -434,12 +434,12 @@
     align-items: center;
     gap: 6px;
     max-width: 100%;
-    font-size: $lumio-font-size-sm;
-    color: $lumio-color-text-primary;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-text-primary;
     white-space: nowrap;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
   }
 
@@ -447,7 +447,7 @@
     flex: none;
     width: 8px;
     height: 8px;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
   }
 
   &__chip-text {
@@ -456,9 +456,9 @@
   }
 
   &__row-number {
-    font-size: $lumio-font-size-xs;
+    font-size: $seneca-font-size-xs;
     font-variant-numeric: tabular-nums;
-    color: $lumio-color-ink-400;
+    color: $seneca-color-ink-400;
   }
 
   // Row number at rest; the checkbox takes its place on hover, on keyboard
@@ -478,16 +478,16 @@
     opacity: 0;
   }
 
-  .lumio-grid__tr:hover &__row-select,
-  .lumio-grid__th:hover &__row-select,
+  .seneca-grid__tr:hover &__row-select,
+  .seneca-grid__th:hover &__row-select,
   &__row-select:focus-within,
-  .lumio-grid__tr--selected &__row-select,
+  .seneca-grid__tr--selected &__row-select,
   &__grid--selecting &__row-select {
-    .lumio-ct__row-number {
+    .seneca-ct__row-number {
       visibility: hidden;
     }
 
-    .lumio-ct__row-checkbox {
+    .seneca-ct__row-checkbox {
       opacity: 1;
     }
   }
@@ -506,7 +506,7 @@
 
   &__col-required {
     margin-left: 2px;
-    color: $lumio-color-danger;
+    color: $seneca-color-danger;
   }
 
   &__col-menu {
@@ -514,14 +514,14 @@
     flex: none;
     padding: 2px;
     border: 0;
-    border-radius: $lumio-radius-xs;
+    border-radius: $seneca-radius-xs;
     background: none;
     color: inherit;
     opacity: 0;
     cursor: pointer;
     transition: opacity 120ms ease;
 
-    .lumio-grid__th:hover &,
+    .seneca-grid__th:hover &,
     &:focus-visible {
       opacity: 1;
     }
@@ -540,15 +540,15 @@
     opacity: 0;
     transition: opacity 120ms ease;
 
-    .lumio-grid__tf:hover &,
+    .seneca-grid__tf:hover &,
     &:focus-within {
       opacity: 1;
     }
   }
 
   &__footer-select {
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
 
     // A slim totals strip under "+ Add row", not a second toolbar row.
     .MuiInputBase-input,
@@ -556,18 +556,18 @@
       min-height: 0;
       padding-top: 2px;
       padding-bottom: 2px;
-      font-size: $lumio-font-size-xs;
+      font-size: $seneca-font-size-xs;
       line-height: 1.4;
     }
   }
 
   &__footer-value {
     font-variant-numeric: tabular-nums;
-    font-weight: $lumio-font-weight-semibold;
-    color: $lumio-color-text-primary;
+    font-weight: $seneca-font-weight-semibold;
+    color: $seneca-color-text-primary;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
   }
 
@@ -586,17 +586,17 @@
     border: 0;
     background: none;
     font: inherit;
-    font-size: $lumio-font-size-sm;
-    color: $lumio-color-ink-500;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-ink-500;
     cursor: pointer;
 
     &:hover {
-      background-color: $lumio-color-ink-50;
+      background-color: $seneca-color-ink-50;
       color: var(--primary);
 
       @include dark {
-        background-color: $lumio-color-ink-50-dk;
-        color: $lumio-color-primary-dk;
+        background-color: $seneca-color-ink-50-dk;
+        color: $seneca-color-primary-dk;
       }
     }
   }
@@ -609,38 +609,38 @@
 
   // ---- groups -------------------------------------------------------------
   &__groups {
-    padding: $lumio-space-3;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-lg;
-    background-color: $lumio-color-surface;
+    padding: $seneca-space-3;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-lg;
+    background-color: $seneca-color-surface;
 
     @include dark {
-      border-color: $lumio-color-ink-150-dk;
-      background-color: $lumio-color-surface-dk;
+      border-color: $seneca-color-ink-150-dk;
+      background-color: $seneca-color-surface-dk;
     }
   }
 
   &__groups-title {
-    margin: 0 0 $lumio-space-2;
-    font-size: $lumio-font-size-sm;
-    font-weight: $lumio-font-weight-semibold;
+    margin: 0 0 $seneca-space-2;
+    font-size: $seneca-font-size-sm;
+    font-weight: $seneca-font-weight-semibold;
   }
 
   &__groups-hint,
   &__hint {
     margin: 0;
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__groups-list {
     display: flex;
     flex-wrap: wrap;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -652,16 +652,16 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    border: 1px solid $lumio-color-ink-200;
-    border-radius: $lumio-radius-sm;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-sm;
     background: none;
     font: inherit;
-    font-size: $lumio-font-size-sm;
+    font-size: $seneca-font-size-sm;
     color: inherit;
     cursor: pointer;
 
     @include dark {
-      border-color: $lumio-color-ink-200-dk;
+      border-color: $seneca-color-ink-200-dk;
     }
 
     &:hover {
@@ -670,13 +670,13 @@
   }
 
   &__group-key {
-    font-weight: $lumio-font-weight-medium;
+    font-weight: $seneca-font-weight-medium;
   }
 
   &__group-count,
   &__group-agg {
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
     font-variant-numeric: tabular-nums;
   }
 
@@ -684,7 +684,7 @@
   &__form {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: $lumio-space-3;
+    gap: $seneca-space-3;
 
     @include respond-to('sm') {
       grid-template-columns: 1fr;
@@ -705,13 +705,13 @@
   &__checks {
     flex-direction: row;
     flex-wrap: wrap;
-    gap: $lumio-space-4;
+    gap: $seneca-space-4;
   }
 
   // Field labels sit above their fields in sentence case, in the readable grey.
   &__label {
     font-size: 13px;
-    font-weight: $lumio-font-weight-medium;
+    font-weight: $seneca-font-weight-medium;
     color: var(--text-muted);
   }
 
@@ -740,14 +740,14 @@
     width: 16px;
     height: 16px;
     border: 2px solid transparent;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     cursor: pointer;
 
     &[aria-pressed='true'] {
-      border-color: $lumio-color-text-primary;
+      border-color: $seneca-color-text-primary;
 
       @include dark {
-        border-color: $lumio-color-text-primary-dk;
+        border-color: $seneca-color-text-primary-dk;
       }
     }
   }
@@ -757,26 +757,26 @@
     border: 0;
     background: none;
     font: inherit;
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
     cursor: pointer;
 
     &:hover {
-      color: $lumio-color-danger;
+      color: $seneca-color-danger;
     }
   }
 
   &__import {
     display: flex;
     flex-direction: column;
-    gap: $lumio-space-3;
+    gap: $seneca-space-3;
   }
 
   &__map-head,
   &__map-row {
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
     align-items: center;
   }
 
@@ -789,13 +789,13 @@
 
   &__map-chip {
     flex: none;
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
     white-space: nowrap;
     cursor: help;
 
     &--warning {
-      color: $lumio-color-warning;
+      color: $seneca-color-warning;
     }
   }
 
@@ -803,15 +803,15 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: $lumio-space-3;
+    gap: $seneca-space-3;
   }
 
   &__hint--warning {
-    color: $lumio-color-warning;
+    color: $seneca-color-warning;
   }
 
   &__preview-warning {
-    background-color: $lumio-color-warning-soft;
+    background-color: $seneca-color-warning-soft;
 
     @include dark {
       background-color: rgba(245, 158, 11, 0.16);
@@ -819,17 +819,17 @@
   }
 
   &__map-head {
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-semibold;
+    font-size: $seneca-font-size-xs;
+    font-weight: $seneca-font-weight-semibold;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
   }
 
   &__map {
     display: flex;
     flex-direction: column;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -839,47 +839,47 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: $lumio-font-size-sm;
+    font-size: $seneca-font-size-sm;
   }
 
   &__preview-scroll {
     max-height: 40vh;
     overflow: auto;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-sm;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-sm;
 
     @include dark {
-      border-color: $lumio-color-ink-150-dk;
+      border-color: $seneca-color-ink-150-dk;
     }
   }
 
   &__preview {
     width: 100%;
     border-collapse: collapse;
-    font-size: $lumio-font-size-sm;
+    font-size: $seneca-font-size-sm;
 
     th,
     td {
       padding: 6px 10px;
-      border-bottom: 1px solid $lumio-color-ink-100;
+      border-bottom: 1px solid $seneca-color-ink-100;
       text-align: left;
       white-space: nowrap;
 
       @include dark {
-        border-bottom-color: $lumio-color-ink-100-dk;
+        border-bottom-color: $seneca-color-ink-100-dk;
       }
     }
 
     th {
       position: sticky;
       top: 0;
-      background-color: $lumio-color-ink-50;
-      font-size: $lumio-font-size-xs;
-      font-weight: $lumio-font-weight-semibold;
-      color: $lumio-color-ink-500;
+      background-color: $seneca-color-ink-50;
+      font-size: $seneca-font-size-xs;
+      font-weight: $seneca-font-weight-semibold;
+      color: $seneca-color-ink-500;
 
       @include dark {
-        background-color: $lumio-color-ink-50-dk;
+        background-color: $seneca-color-ink-50-dk;
       }
     }
   }
@@ -895,47 +895,47 @@
   }
 
   &__preview-error {
-    background-color: $lumio-color-danger-soft;
-    color: $lumio-color-danger;
+    background-color: $seneca-color-danger-soft;
+    color: $seneca-color-danger;
   }
 
   &__error {
     margin: 0;
-    font-size: $lumio-font-size-sm;
-    color: $lumio-color-danger;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-danger;
   }
 
   &__center {
     display: flex;
     justify-content: center;
-    padding: $lumio-space-6;
+    padding: $seneca-space-6;
   }
 
   &__convert p {
-    margin: 0 0 $lumio-space-2;
+    margin: 0 0 $seneca-space-2;
   }
 
   &__warnings {
     margin: 0;
-    padding-left: $lumio-space-4;
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    padding-left: $seneca-space-4;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
   }
 
   // ---- list page ----------------------------------------------------------
   &__list-name {
-    font-weight: $lumio-font-weight-medium;
-    color: $lumio-color-text-primary;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-text-primary;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
   }
 
   &__list-sub {
     display: block;
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -946,20 +946,20 @@
 
     // Muted until the row is hovered or focused, so the list reads cleaner.
     > button {
-      color: $lumio-color-ink-400;
+      color: $seneca-color-ink-400;
       transition: color 120ms ease;
 
       @include dark {
-        color: $lumio-color-ink-600-dk;
+        color: $seneca-color-ink-600-dk;
       }
     }
 
-    .lumio-grid__tr:hover & > button,
-    .lumio-grid__tr:focus-within & > button {
-      color: $lumio-color-ink-700;
+    .seneca-grid__tr:hover & > button,
+    .seneca-grid__tr:focus-within & > button {
+      color: $seneca-color-ink-700;
 
       @include dark {
-        color: $lumio-color-ink-900-dk;
+        color: $seneca-color-ink-900-dk;
       }
     }
   }
@@ -968,7 +968,7 @@
   &__templates {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
 
     @media (max-width: 560px) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -980,9 +980,9 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: $lumio-space-3;
-    border: 1px solid $lumio-color-ink-200;
-    border-radius: $lumio-radius-md;
+    padding: $seneca-space-3;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-md;
     background: none;
     font: inherit;
     text-align: left;
@@ -990,7 +990,7 @@
     cursor: pointer;
 
     @include dark {
-      border-color: $lumio-color-ink-200-dk;
+      border-color: $seneca-color-ink-200-dk;
     }
 
     &[aria-checked='true'] {
@@ -1009,7 +1009,7 @@
     justify-content: center;
     width: 20px;
     height: 20px;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     background: var(--primary);
     color: #fff;
   }
@@ -1017,7 +1017,7 @@
   // One line icon per card, sage, the size of the other line icons on the quiet screens.
   &__template-icon {
     display: flex;
-    margin-bottom: $lumio-space-2;
+    margin-bottom: $seneca-space-2;
     color: var(--primary);
 
     svg {
@@ -1028,7 +1028,7 @@
   }
 
   &__template-name {
-    font-weight: $lumio-font-weight-medium;
+    font-weight: $seneca-font-weight-medium;
   }
 
   &__template-desc {
@@ -1055,45 +1055,45 @@
 }
 
 // "Start from" switcher and the app data source panel of the create dialog.
-.lumio-ct {
+.seneca-ct {
   &__section-head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: $lumio-space-2 $lumio-space-3;
+    gap: $seneca-space-2 $seneca-space-3;
   }
 
   &__section-title {
     margin: 0;
-    font-size: $lumio-font-size-sm;
-    font-weight: $lumio-font-weight-semibold;
-    color: $lumio-color-ink-600;
+    font-size: $seneca-font-size-sm;
+    font-weight: $seneca-font-weight-semibold;
+    color: $seneca-color-ink-600;
 
     @include dark {
-      color: $lumio-color-ink-300;
+      color: $seneca-color-ink-300;
     }
   }
 
   &__start {
-    gap: $lumio-space-3;
-    margin-top: $lumio-space-2;
+    gap: $seneca-space-3;
+    margin-top: $seneca-space-2;
   }
 
   // Flatter cards: a hairline instead of a box, so the grid reads as options, not panels.
   &__template {
-    border-color: $lumio-color-ink-150;
+    border-color: $seneca-color-ink-150;
     transition: border-color 120ms ease;
 
     @include dark {
-      border-color: $lumio-color-ink-150-dk;
+      border-color: $seneca-color-ink-150-dk;
     }
 
     &:hover {
-      border-color: $lumio-color-ink-300;
+      border-color: $seneca-color-ink-300;
 
       @include dark {
-        border-color: $lumio-color-ink-200-dk;
+        border-color: $seneca-color-ink-200-dk;
       }
     }
   }
@@ -1106,7 +1106,7 @@
     &--split {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-      gap: $lumio-space-6;
+      gap: $seneca-space-6;
       align-items: start;
 
       @media (max-width: 860px) {
@@ -1130,12 +1130,12 @@
   &__templates--compact {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 
-    .lumio-ct__template {
+    .seneca-ct__template {
       gap: 2px;
       padding: 10px 12px;
     }
 
-    .lumio-ct__template-icon {
+    .seneca-ct__template-icon {
       margin-bottom: 6px;
 
       svg {
@@ -1144,17 +1144,17 @@
       }
     }
 
-    .lumio-ct__template-name {
+    .seneca-ct__template-name {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .lumio-ct__template-desc {
+    .seneca-ct__template-desc {
       display: none;
     }
 
-    .lumio-ct__template-check {
+    .seneca-ct__template-check {
       top: 8px;
       right: 8px;
     }
@@ -1164,17 +1164,17 @@
   &__source-section {
     display: flex;
     flex-direction: column;
-    gap: $lumio-space-3;
-    padding-top: $lumio-space-3;
-    border-top: 1px solid $lumio-color-hairline;
+    gap: $seneca-space-3;
+    padding-top: $seneca-space-3;
+    border-top: 1px solid $seneca-color-hairline;
 
     @include dark {
-      border-top-color: $lumio-color-ink-150-dk;
+      border-top-color: $seneca-color-ink-150-dk;
     }
 
-    .lumio-ct__section-title {
+    .seneca-ct__section-title {
       font-size: 15px;
-      font-weight: $lumio-font-weight-medium;
+      font-weight: $seneca-font-weight-medium;
       color: var(--foreground);
     }
   }
@@ -1182,23 +1182,23 @@
   &__source-filters {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: $lumio-space-3;
+    gap: $seneca-space-3;
 
     // Every filter field one look: white, a warm border, 8px corners.
     .MuiOutlinedInput-root {
-      border-radius: $lumio-radius-sm;
-      background-color: $lumio-color-surface;
+      border-radius: $seneca-radius-sm;
+      background-color: $seneca-color-surface;
 
       @include dark {
-        background-color: $lumio-color-surface-dk;
+        background-color: $seneca-color-surface-dk;
       }
     }
 
     .MuiOutlinedInput-notchedOutline {
-      border-color: $lumio-color-slot-border;
+      border-color: $seneca-color-slot-border;
 
       @include dark {
-        border-color: $lumio-color-ink-200-dk;
+        border-color: $seneca-color-ink-200-dk;
       }
     }
   }
@@ -1209,7 +1209,7 @@
     background: none;
     font: inherit;
     font-size: 13px;
-    font-weight: $lumio-font-weight-medium;
+    font-weight: $seneca-font-weight-medium;
     color: var(--primary);
     cursor: pointer;
 
@@ -1221,33 +1221,33 @@
   &__preview-pane {
     display: flex;
     flex-direction: column;
-    gap: $lumio-space-3;
+    gap: $seneca-space-3;
   }
 
   &__preview-source {
     margin: 0;
-    padding-bottom: $lumio-space-2;
-    border-bottom: 1px solid $lumio-color-hairline;
+    padding-bottom: $seneca-space-2;
+    border-bottom: 1px solid $seneca-color-hairline;
     font-size: 13px;
-    font-weight: $lumio-font-weight-medium;
+    font-weight: $seneca-font-weight-medium;
     color: var(--text-muted);
 
     @include dark {
-      border-bottom-color: $lumio-color-ink-150-dk;
+      border-bottom-color: $seneca-color-ink-150-dk;
     }
   }
 
   &__preview-existing {
     display: flex;
     align-items: baseline;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
     margin: 0;
     font-size: 14px;
     color: var(--foreground);
 
     a {
       color: var(--primary);
-      font-weight: $lumio-font-weight-medium;
+      font-weight: $seneca-font-weight-medium;
     }
   }
 
@@ -1255,7 +1255,7 @@
     flex-shrink: 0;
     width: 6px;
     height: 6px;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     background: var(--attention);
     transform: translateY(-2px);
   }
@@ -1265,12 +1265,12 @@
     flex-wrap: wrap;
     align-items: baseline;
     justify-content: space-between;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
   }
 
   &__preview-count {
     font-size: 15px;
-    font-weight: $lumio-font-weight-medium;
+    font-weight: $seneca-font-weight-medium;
     font-variant-numeric: tabular-nums;
     color: var(--foreground);
     transition: opacity 120ms ease;
@@ -1309,10 +1309,10 @@
       text-align: left;
       text-overflow: ellipsis;
       white-space: nowrap;
-      border-bottom: 1px solid $lumio-color-hairline;
+      border-bottom: 1px solid $seneca-color-hairline;
 
       @include dark {
-        border-bottom-color: $lumio-color-ink-150-dk;
+        border-bottom-color: $seneca-color-ink-150-dk;
       }
 
       &:first-child {
@@ -1326,7 +1326,7 @@
 
     th {
       font-size: 13px;
-      font-weight: $lumio-font-weight-medium;
+      font-weight: $seneca-font-weight-medium;
       color: var(--text-muted);
     }
   }
@@ -1346,13 +1346,13 @@
 
   &__preview-cell--numeric {
     text-align: right !important;
-    font-weight: $lumio-font-weight-medium;
+    font-weight: $seneca-font-weight-medium;
     font-variant-numeric: tabular-nums;
   }
 }
 
 // Formula editor: autocomplete list under the input and the live example line.
-.lumio-ct {
+.seneca-ct {
   &__formula {
     position: relative;
   }
@@ -1368,71 +1368,71 @@
     padding: 4px;
     overflow: auto;
     list-style: none;
-    border: 1px solid $lumio-color-ink-200;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-surface;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-md;
+    background: $seneca-color-surface;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 
     @include dark {
-      border-color: $lumio-color-ink-200-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-ink-200-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
   &__formula-option {
     display: flex;
     justify-content: space-between;
-    gap: $lumio-space-3;
+    gap: $seneca-space-3;
     width: 100%;
     padding: 6px 10px;
     border: 0;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     background: none;
     font: inherit;
-    font-size: $lumio-font-size-sm;
+    font-size: $seneca-font-size-sm;
     color: inherit;
     text-align: left;
     cursor: pointer;
 
     &:hover,
     &:focus-visible {
-      background: $lumio-color-ink-50;
+      background: $seneca-color-ink-50;
 
       @include dark {
-        background: $lumio-color-ink-50-dk;
+        background: $seneca-color-ink-50-dk;
       }
     }
   }
 
   &__formula-hint {
-    font-family: $lumio-font-family-mono;
-    font-size: $lumio-font-size-xs;
-    color: $lumio-color-ink-500;
+    font-family: $seneca-font-family-mono;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
   }
 
   &__formula-preview {
-    font-family: $lumio-font-family-mono;
+    font-family: $seneca-font-family-mono;
   }
 
   &__hint--error {
-    color: $lumio-color-danger;
+    color: $seneca-color-danger;
   }
 }
 
 // Summaries under the grid: whole-table formulas as small labelled values.
-.lumio-ct {
+.seneca-ct {
   &__summaries {
     display: flex;
     flex-direction: column;
-    gap: $lumio-space-2;
-    margin-top: $lumio-space-3;
-    margin-bottom: $lumio-space-6;
+    gap: $seneca-space-2;
+    margin-top: $seneca-space-3;
+    margin-bottom: $seneca-space-6;
   }
 
   &__summary-list {
     display: flex;
     flex-wrap: wrap;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -1441,29 +1441,29 @@
   &__summary {
     display: inline-flex;
     align-items: center;
-    gap: $lumio-space-2;
+    gap: $seneca-space-2;
     padding: 4px 6px 4px 12px;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-full;
-    background: $lumio-color-surface-muted;
-    font-size: $lumio-font-size-sm;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-full;
+    background: $seneca-color-surface-muted;
+    font-size: $seneca-font-size-sm;
 
     @include dark {
-      border-color: $lumio-color-ink-150-dk;
-      background: $lumio-color-surface-muted-dk;
+      border-color: $seneca-color-ink-150-dk;
+      background: $seneca-color-surface-muted-dk;
     }
 
     &--error &-value {
-      color: $lumio-color-danger;
+      color: $seneca-color-danger;
     }
   }
 
   &__summary-title {
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
   }
 
   &__summary-value {
-    font-weight: $lumio-font-weight-semibold;
+    font-weight: $seneca-font-weight-semibold;
     font-variant-numeric: tabular-nums;
   }
 
@@ -1472,30 +1472,30 @@
     opacity: 0;
     transition: opacity 120ms ease;
 
-    .lumio-ct__summary:hover &,
+    .seneca-ct__summary:hover &,
     &:focus-within {
       opacity: 1;
     }
   }
 }
 
-.lumio-ct__toast {
+.seneca-ct__toast {
   display: flex;
   align-items: center;
-  gap: $lumio-space-3;
+  gap: $seneca-space-3;
   padding: 10px 14px;
-  border: 1px solid $lumio-color-ink-150;
-  border-radius: $lumio-radius-md;
-  background-color: $lumio-color-surface;
-  box-shadow: $lumio-shadow-md;
-  font-size: $lumio-font-size-sm;
-  color: $lumio-color-text-primary;
+  border: 1px solid $seneca-color-ink-150;
+  border-radius: $seneca-radius-md;
+  background-color: $seneca-color-surface;
+  box-shadow: $seneca-shadow-md;
+  font-size: $seneca-font-size-sm;
+  color: $seneca-color-text-primary;
   transition: opacity 150ms ease;
 
   @include dark {
-    border-color: $lumio-color-ink-150-dk;
-    background-color: $lumio-color-surface-dk;
-    color: $lumio-color-text-primary-dk;
+    border-color: $seneca-color-ink-150-dk;
+    background-color: $seneca-color-surface-dk;
+    color: $seneca-color-text-primary-dk;
   }
 
   &--hidden {
@@ -1503,23 +1503,23 @@
   }
 }
 
-.lumio-ct__toast-undo {
+.seneca-ct__toast-undo {
   padding: 0;
   border: 0;
   background: none;
   font: inherit;
-  font-weight: $lumio-font-weight-semibold;
+  font-weight: $seneca-font-weight-semibold;
   color: var(--primary);
   cursor: pointer;
 
   @include dark {
-    color: $lumio-color-primary-dk;
+    color: $seneca-color-primary-dk;
   }
 }
 
 // A destructive entry in a toolbar menu (Restore to default). The menu is
 // portaled out of the page, so the rule stands on its own.
-.lumio-ct__menu-item--danger {
-  color: $lumio-color-danger;
+.seneca-ct__menu-item--danger {
+  color: $seneca-color-danger;
 }
 

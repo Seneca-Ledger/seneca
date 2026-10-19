@@ -75,13 +75,13 @@ function DetailField({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="lumio-expense-drawer__field">
-      <label id={`${id}-label`} htmlFor={id} className="lumio-expense-drawer__label">
+    <div className="seneca-expense-drawer__field">
+      <label id={`${id}-label`} htmlFor={id} className="seneca-expense-drawer__label">
         {label}
       </label>
       {children}
       {error ? (
-        <p id={`${id}-error`} className="lumio-expense-drawer__error">
+        <p id={`${id}-error`} className="seneca-expense-drawer__error">
           {error}
         </p>
       ) : null}
@@ -96,9 +96,9 @@ function formatTaxPercent(rate: number | string | null | undefined): string {
 
 function controlClass(invalid: boolean, button = false): string {
   return [
-    'lumio-expense-drawer__control',
-    button ? 'lumio-expense-drawer__control--button' : '',
-    invalid ? 'lumio-expense-drawer__control--invalid' : '',
+    'seneca-expense-drawer__control',
+    button ? 'seneca-expense-drawer__control--button' : '',
+    invalid ? 'seneca-expense-drawer__control--invalid' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -121,9 +121,9 @@ function PickerButton({
   children: React.ReactNode;
 }): React.ReactElement {
   const valueClass = [
-    'lumio-expense-drawer__value',
-    placeholder ? 'lumio-expense-drawer__value--placeholder' : '',
-    amount ? 'lumio-expense-drawer__value--amount' : '',
+    'seneca-expense-drawer__value',
+    placeholder ? 'seneca-expense-drawer__value--placeholder' : '',
+    amount ? 'seneca-expense-drawer__value--amount' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -366,11 +366,11 @@ export default function CreateExpenseDrawer({
         width="lg"
         showCloseButton={false}
         title={
-          <div className="lumio-payable-drawer__title-wrap">
+          <div className="seneca-payable-drawer__title-wrap">
             <button
               type="button"
               onClick={handleBackClick}
-              className="lumio-col-drawer__back-btn"
+              className="seneca-col-drawer__back-btn"
               aria-label={t.closeDrawer.value}
             >
               <ChevronLeft size={20} />
@@ -381,8 +381,8 @@ export default function CreateExpenseDrawer({
           </div>
         }
       >
-        <div className="lumio-expense-drawer">
-          <div className="lumio-expense-drawer__tabs">
+        <div className="seneca-expense-drawer">
+          <div className="seneca-expense-drawer__tabs">
             <button
               type="button"
               onClick={() => {
@@ -390,7 +390,7 @@ export default function CreateExpenseDrawer({
                 setManualStep('amount');
                 setCurrencyPickerOpen(false);
               }}
-              className={`lumio-expense-drawer__tab${mode === 'manual' ? ' lumio-expense-drawer__tab--active' : ''}`}
+              className={`seneca-expense-drawer__tab${mode === 'manual' ? ' seneca-expense-drawer__tab--active' : ''}`}
             >
               <PencilLine size={16} />
               {t.manualTab}
@@ -401,14 +401,14 @@ export default function CreateExpenseDrawer({
                 setMode('scan');
                 setCurrencyPickerOpen(false);
               }}
-              className={`lumio-expense-drawer__tab${mode === 'scan' ? ' lumio-expense-drawer__tab--active' : ''}`}
+              className={`seneca-expense-drawer__tab${mode === 'scan' ? ' seneca-expense-drawer__tab--active' : ''}`}
             >
               <ScanLine size={16} />
               {t.scanTab}
             </button>
           </div>
 
-          <div className="lumio-expense-drawer__content">
+          <div className="seneca-expense-drawer__content">
             {mode === 'scan' ? (
               isMobile ? (
                 <div
@@ -652,21 +652,21 @@ export default function CreateExpenseDrawer({
               </div>
             ) : (
               <>
-                <label className="lumio-expense-drawer__attach">
+                <label className="seneca-expense-drawer__attach">
                   <FileText size={18} style={{ flexShrink: 0, color: 'var(--muted-foreground)' }} />
                   <span>{t.attachFile}</span>
-                  <span className="lumio-expense-drawer__attach-hint">{t.attachFileHint}</span>
+                  <span className="seneca-expense-drawer__attach-hint">{t.attachFileHint}</span>
                   <input
                     type="file"
                     accept="image/*,.pdf,.csv,.xlsx,.xls,.ofx,.qfx,.qif,.xml,.mt940,.sta,.940"
                     capture="environment"
-                    className="lumio-expense-drawer__attach-input"
+                    className="seneca-expense-drawer__attach-input"
                     multiple
                     onChange={event => handleFilesSelected(event.target.files)}
                   />
                 </label>
 
-                <div className="lumio-expense-drawer__fields">
+                <div className="seneca-expense-drawer__fields">
                   <DetailField id="expense-manual-amount-edit" label={t.amount.value}>
                     <PickerButton
                       id="expense-manual-amount-edit"
@@ -933,11 +933,11 @@ export default function CreateExpenseDrawer({
         width="lg"
         showCloseButton={false}
         title={
-          <div className="lumio-payable-drawer__title-wrap">
+          <div className="seneca-payable-drawer__title-wrap">
             <button
               type="button"
               onClick={() => setTaxRateDrawerOpen(false)}
-              className="lumio-col-drawer__back-btn"
+              className="seneca-col-drawer__back-btn"
               aria-label={t.closeTaxRateDrawer.value}
             >
               <ChevronLeft size={20} />
@@ -948,9 +948,9 @@ export default function CreateExpenseDrawer({
           </div>
         }
       >
-        <div className="lumio-tax-drawer">
-          <div className="lumio-tax-drawer__form">
-            <div className="lumio-tax-drawer__form-row">
+        <div className="seneca-tax-drawer">
+          <div className="seneca-tax-drawer__form">
+            <div className="seneca-tax-drawer__form-row">
               <DetailField id="expense-tax-rate-name" label={t.taxRateName.value}>
                 <input
                   id="expense-tax-rate-name"
@@ -968,15 +968,15 @@ export default function CreateExpenseDrawer({
                     onChange={event => setTaxRateValue(event.target.value)}
                     inputMode="decimal"
                     placeholder="12"
-                    className="lumio-tax-drawer__percent-input"
+                    className="seneca-tax-drawer__percent-input"
                   />
-                  <span aria-hidden className="lumio-tax-drawer__percent-sign">
+                  <span aria-hidden className="seneca-tax-drawer__percent-sign">
                     %
                   </span>
                 </div>
               </DetailField>
             </div>
-            {taxRateError ? <p className="lumio-expense-drawer__error">{taxRateError}</p> : null}
+            {taxRateError ? <p className="seneca-expense-drawer__error">{taxRateError}</p> : null}
             <Button
               type="button"
               variant="outline"
@@ -987,7 +987,7 @@ export default function CreateExpenseDrawer({
               {taxRateSaving ? t.saving : t.saveTaxRate}
             </Button>
           </div>
-          <div className="lumio-tax-drawer__list">
+          <div className="seneca-tax-drawer__list">
             {enabledTaxRates.map(taxRate => {
               const isSelected = manualDraft.taxRateId
                 ? manualDraft.taxRateId === taxRate.id
@@ -1005,23 +1005,23 @@ export default function CreateExpenseDrawer({
                     }));
                     setTaxRateDrawerOpen(false);
                   }}
-                  className={`lumio-tax-drawer__option${isSelected ? ' lumio-tax-drawer__option--selected' : ''}`}
+                  className={`seneca-tax-drawer__option${isSelected ? ' seneca-tax-drawer__option--selected' : ''}`}
                 >
-                  <span className="lumio-tax-drawer__option-name">{taxRate.name}</span>
+                  <span className="seneca-tax-drawer__option-name">{taxRate.name}</span>
                   {taxRate.isDefault ? (
-                    <span className="lumio-tax-drawer__tag">{t.defaultTag}</span>
+                    <span className="seneca-tax-drawer__tag">{t.defaultTag}</span>
                   ) : null}
-                  <span className="lumio-tax-drawer__option-rate">
+                  <span className="seneca-tax-drawer__option-rate">
                     {formatTaxPercent(taxRate.rate)}
                   </span>
-                  <span className="lumio-tax-drawer__option-check">
+                  <span className="seneca-tax-drawer__option-check">
                     {isSelected ? <Check size={18} /> : null}
                   </span>
                 </button>
               );
             })}
             {enabledTaxRates.length === 0 ? (
-              <div className="lumio-tax-drawer__empty">{t.noTaxRates}</div>
+              <div className="seneca-tax-drawer__empty">{t.noTaxRates}</div>
             ) : null}
           </div>
         </div>

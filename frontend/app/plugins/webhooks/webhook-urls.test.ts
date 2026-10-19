@@ -3,9 +3,9 @@ import { inboundWebhookUrls } from './webhook-urls';
 
 describe('inboundWebhookUrls', () => {
   it('builds absolute upload URLs from a relative API base behind a proxy', () => {
-    expect(inboundWebhookUrls('/api/v1', 'https://lumio.example.com', 'tok123')).toEqual({
-      statements: 'https://lumio.example.com/api/v1/webhooks/tok123/statements',
-      receipts: 'https://lumio.example.com/api/v1/webhooks/tok123/receipts',
+    expect(inboundWebhookUrls('/api/v1', 'https://seneca.example.com', 'tok123')).toEqual({
+      statements: 'https://seneca.example.com/api/v1/webhooks/tok123/statements',
+      receipts: 'https://seneca.example.com/api/v1/webhooks/tok123/receipts',
     });
   });
 

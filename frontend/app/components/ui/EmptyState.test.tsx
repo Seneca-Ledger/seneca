@@ -14,8 +14,8 @@ describe('EmptyState', () => {
       />,
     );
     expect(container.querySelector('img')).toBeNull();
-    expect(container.querySelector('.lumio-empty-state__icon svg')).not.toBeNull();
-    expect(container.firstElementChild?.className).toContain('lumio-empty-state--icon');
+    expect(container.querySelector('.seneca-empty-state__icon svg')).not.toBeNull();
+    expect(container.firstElementChild?.className).toContain('seneca-empty-state--icon');
     expect(screen.getByRole('heading', { name: 'Nothing yet' })).toBeInTheDocument();
     expect(screen.getByText('Add data to see a chart')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
@@ -23,16 +23,16 @@ describe('EmptyState', () => {
 
   it('applies the compact modifier and a smaller circle', () => {
     const { container } = render(<EmptyState illustration="no-data" size="sm" compact />);
-    expect(container.firstElementChild?.className).toContain('lumio-empty-state--compact');
-    expect(container.querySelector('.lumio-empty-state__icon--sm')).not.toBeNull();
+    expect(container.firstElementChild?.className).toContain('seneca-empty-state--compact');
+    expect(container.querySelector('.seneca-empty-state__icon--sm')).not.toBeNull();
   });
 
   it('draws a line icon in a circle instead of a picture', () => {
     const { container } = render(
       <EmptyState icon={<svg data-testid="line-icon" />} title="No subscriptions yet" />,
     );
-    expect(container.querySelector('.lumio-empty-state__icon [data-testid="line-icon"]')).not.toBeNull();
-    expect(container.firstElementChild?.className).toContain('lumio-empty-state--icon');
+    expect(container.querySelector('.seneca-empty-state__icon [data-testid="line-icon"]')).not.toBeNull();
+    expect(container.firstElementChild?.className).toContain('seneca-empty-state--icon');
   });
 
   it('adds a grey hint under the action and centres a whole-page empty state', () => {
@@ -46,12 +46,12 @@ describe('EmptyState', () => {
       />,
     );
     const hint = screen.getByText('Examples: emergency fund, trip, new laptop');
-    expect(hint.className).toBe('lumio-empty-state__hint');
+    expect(hint.className).toBe('seneca-empty-state__hint');
     // The hint follows the button, not the other way round.
     expect(
       screen.getByRole('button', { name: 'Create a goal' }).compareDocumentPosition(hint) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(container.firstElementChild?.className).toContain('lumio-empty-state--fill');
+    expect(container.firstElementChild?.className).toContain('seneca-empty-state--fill');
   });
 });

@@ -2,7 +2,7 @@
 @use 'variables' as *;
 
 // Dark mode mixin — wraps content with .dark ancestor selector.
-// Usage: @include dark { color: $lumio-color-text-primary-dk; }
+// Usage: @include dark { color: $seneca-color-text-primary-dk; }
 @mixin dark {
   .dark & {
     @content;
@@ -53,16 +53,16 @@
 // $axis: both | inline | block.
 @mixin focus-room($axis: both) {
   @if $axis == inline {
-    padding-inline: $lumio-focus-ring-reach;
-    margin-inline: -$lumio-focus-ring-reach;
-    scroll-padding-inline: $lumio-focus-ring-reach;
+    padding-inline: $seneca-focus-ring-reach;
+    margin-inline: -$seneca-focus-ring-reach;
+    scroll-padding-inline: $seneca-focus-ring-reach;
   } @else if $axis == block {
-    padding-block: $lumio-focus-ring-reach;
-    margin-block: -$lumio-focus-ring-reach;
-    scroll-padding-block: $lumio-focus-ring-reach;
+    padding-block: $seneca-focus-ring-reach;
+    margin-block: -$seneca-focus-ring-reach;
+    scroll-padding-block: $seneca-focus-ring-reach;
   } @else {
-    padding: $lumio-focus-ring-reach;
-    margin: -$lumio-focus-ring-reach;
-    scroll-padding: $lumio-focus-ring-reach;
+    padding: $seneca-focus-ring-reach;
+    margin: -$seneca-focus-ring-reach;
+    scroll-padding: $seneca-focus-ring-reach;
   }
 }

@@ -83,7 +83,7 @@ export function TaxesCard(): React.JSX.Element | null {
 
   return (
     <DashboardCard title={t.sections.taxes} subtitle={today}>
-      <div className="lumio-dashboard__list">
+      <div className="seneca-dashboard__list">
         {held && (
           <ListRow
             href="/reports?tab=tax-year"
@@ -102,7 +102,7 @@ export function TaxesCard(): React.JSX.Element | null {
             trailing={
               <span
                 className={
-                  status.percentUsed >= 80 ? 'lumio-dashboard__amount--negative' : undefined
+                  status.percentUsed >= 80 ? 'seneca-dashboard__amount--negative' : undefined
                 }
               >
                 {Math.round(status.percentUsed)}%
@@ -121,7 +121,9 @@ export function TaxesCard(): React.JSX.Element | null {
               year: 'numeric',
             })}
             trailing={
-              <span className={item.daysLeft < 0 ? 'lumio-dashboard__amount--negative' : undefined}>
+              <span
+                className={item.daysLeft < 0 ? 'seneca-dashboard__amount--negative' : undefined}
+              >
                 {relative.format(item.daysLeft, 'day')}
               </span>
             }

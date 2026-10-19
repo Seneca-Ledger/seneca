@@ -1,6 +1,6 @@
 name: CD
 
-# Lumio is self-hosted: this pipeline builds, scans, signs and publishes the
+# Seneca is self-hosted: this pipeline builds, scans, signs and publishes the
 # images, and stops there. Where a given instance runs is the operator's
 # business, so there are no deployment environments and nothing to smoke-test
 # after the fact.
@@ -146,7 +146,7 @@ jobs:
           - { arch: amd64, runner: ubuntu-latest }
           - { arch: arm64, runner: ubuntu-24.04-arm }
         # The combined image (root Dockerfile) plus the per-service images
-        # docker-compose.yml pulls (lumio-backend, lumio-frontend).
+        # docker-compose.yml pulls (seneca-backend, seneca-frontend).
         image:
           - { name: combined, context: ., suffix: "" }
           - { name: backend, context: ./backend, suffix: -backend }

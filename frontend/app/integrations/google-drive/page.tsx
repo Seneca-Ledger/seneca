@@ -304,7 +304,7 @@ export default function GoogleDriveIntegrationPage(): React.JSX.Element {
   if (!user) return <DriveNotLoggedInView t={t} />;
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--lumio-page-top, 40px)', pb: 5 }}>
+    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--seneca-page-top, 40px)', pb: 5 }}>
       {loading && (
         <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           <CircularProgress size={16} />

@@ -350,18 +350,18 @@ export function PDFPreviewModal({
       onClose={onClose}
       size="full"
       showCloseButton={false}
-      className="lumio-pdf-preview-modal__shell"
+      className="seneca-pdf-preview-modal__shell"
       contentSx={{ height: '100%', padding: 0 }}
     >
-      <div className="lumio-pdf-preview-modal__body">
-        <div className="lumio-pdf-preview-modal__header" ref={menuRef}>
-          <h2 className="lumio-pdf-preview-modal__title">{t.receiptTitle}</h2>
+      <div className="seneca-pdf-preview-modal__body">
+        <div className="seneca-pdf-preview-modal__header" ref={menuRef}>
+          <h2 className="seneca-pdf-preview-modal__title">{t.receiptTitle}</h2>
 
-          <div className="lumio-pdf-preview-modal__header-actions">
+          <div className="seneca-pdf-preview-modal__header-actions">
             <button
               type="button"
               onClick={() => setMenuOpen(prev => !prev)}
-              className="lumio-pdf-preview-modal__menu-btn"
+              className="seneca-pdf-preview-modal__menu-btn"
               aria-label={t.openFileMenu.value}
             >
               <MoreVertical size={24} strokeWidth={2.4} />
@@ -369,7 +369,7 @@ export function PDFPreviewModal({
             <button
               type="button"
               onClick={onClose}
-              className="lumio-pdf-preview-modal__close-btn"
+              className="seneca-pdf-preview-modal__close-btn"
               aria-label={t.closePreview.value}
             >
               <X size={33} strokeWidth={2.4} />
@@ -377,63 +377,63 @@ export function PDFPreviewModal({
           </div>
 
           {menuOpen && (
-            <div className="lumio-pdf-preview-modal__dropdown-menu">
+            <div className="seneca-pdf-preview-modal__dropdown-menu">
               <button
                 type="button"
                 onClick={handleDownloadFromMenu}
-                className="lumio-pdf-preview-modal__dropdown-item"
+                className="seneca-pdf-preview-modal__dropdown-item"
               >
-                <Download className="lumio-pdf-preview-modal__dropdown-icon" strokeWidth={2.3} />
-                <span className="lumio-pdf-preview-modal__dropdown-label">{t.download}</span>
+                <Download className="seneca-pdf-preview-modal__dropdown-icon" strokeWidth={2.3} />
+                <span className="seneca-pdf-preview-modal__dropdown-label">{t.download}</span>
               </button>
             </div>
           )}
         </div>
 
-        <div className="lumio-pdf-preview-modal__content">
+        <div className="seneca-pdf-preview-modal__content">
           {loading && (
-            <div className="lumio-pdf-preview-modal__loading-overlay">
-              <div className="lumio-pdf-preview-modal__loading-body">
+            <div className="seneca-pdf-preview-modal__loading-overlay">
+              <div className="seneca-pdf-preview-modal__loading-body">
                 <Spinner size={40} sx={{ display: 'block', mx: 'auto', mb: 2 }} />
-                <p className="lumio-pdf-preview-modal__loading-text">{t.loading.value}</p>
+                <p className="seneca-pdf-preview-modal__loading-text">{t.loading.value}</p>
               </div>
             </div>
           )}
 
           {error && (
-            <div className="lumio-pdf-preview-modal__error-overlay">
-              <div className="lumio-pdf-preview-modal__error-body">
-                <div className="lumio-pdf-preview-modal__error-icon-wrapper">
+            <div className="seneca-pdf-preview-modal__error-overlay">
+              <div className="seneca-pdf-preview-modal__error-body">
+                <div className="seneca-pdf-preview-modal__error-icon-wrapper">
                   <X size={24} style={{ color: 'var(--destructive)' }} strokeWidth={1.5} />
                 </div>
-                <h3 className="lumio-pdf-preview-modal__error-title">
+                <h3 className="seneca-pdf-preview-modal__error-title">
                   {showAttachFallback ? t.fileNotAttached.value : t.loadError.value}
                 </h3>
-                <p className="lumio-pdf-preview-modal__error-message">
+                <p className="seneca-pdf-preview-modal__error-message">
                   {showAttachFallback ? t.uploadFileHint.value : error}
                 </p>
 
                 {showAttachFallback ? (
-                  <div className="lumio-pdf-preview-modal__error-actions">
+                  <div className="seneca-pdf-preview-modal__error-actions">
                     <input
                       ref={attachInputRef}
                       type="file"
                       accept="application/pdf,image/*,.csv,.xlsx,.xls,.docx,.ofx,.qfx,.qif,.xml,.mt940,.sta,.940"
                       onChange={handleAttachFile}
-                      className="lumio-pdf-preview-modal__hidden-input"
+                      className="seneca-pdf-preview-modal__hidden-input"
                     />
                     <button
                       type="button"
                       onClick={handleAttachClick}
                       disabled={attachingFile}
-                      className="lumio-pdf-preview-modal__btn-primary"
+                      className="seneca-pdf-preview-modal__btn-primary"
                     >
                       {attachingFile ? t.uploading.value : t.uploadFile.value}
                     </button>
                     <button
                       type="button"
                       onClick={onClose}
-                      className="lumio-pdf-preview-modal__btn-secondary"
+                      className="seneca-pdf-preview-modal__btn-secondary"
                     >
                       {t.close.value}
                     </button>
@@ -442,7 +442,7 @@ export function PDFPreviewModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="lumio-pdf-preview-modal__btn-primary"
+                    className="seneca-pdf-preview-modal__btn-primary"
                   >
                     {t.close.value}
                   </button>
@@ -452,20 +452,20 @@ export function PDFPreviewModal({
           )}
 
           {showParsePrompt && (
-            <div className="lumio-pdf-preview-modal__parse-prompt-overlay">
-              <div className="lumio-pdf-preview-modal__parse-prompt-card">
-                <h3 className="lumio-pdf-preview-modal__parse-prompt-title">
+            <div className="seneca-pdf-preview-modal__parse-prompt-overlay">
+              <div className="seneca-pdf-preview-modal__parse-prompt-card">
+                <h3 className="seneca-pdf-preview-modal__parse-prompt-title">
                   {t.startParsing.value}
                 </h3>
-                <p className="lumio-pdf-preview-modal__parse-prompt-desc">
+                <p className="seneca-pdf-preview-modal__parse-prompt-desc">
                   {t.startParsingDescription.value}
                 </p>
-                <div className="lumio-pdf-preview-modal__parse-prompt-actions">
+                <div className="seneca-pdf-preview-modal__parse-prompt-actions">
                   <button
                     type="button"
                     onClick={() => setShowParsePrompt(false)}
                     disabled={startingParsing}
-                    className="lumio-pdf-preview-modal__btn-secondary"
+                    className="seneca-pdf-preview-modal__btn-secondary"
                   >
                     {t.decline.value}
                   </button>
@@ -473,7 +473,7 @@ export function PDFPreviewModal({
                     type="button"
                     onClick={handleStartReplaceParsing}
                     disabled={startingParsing}
-                    className="lumio-pdf-preview-modal__btn-accent"
+                    className="seneca-pdf-preview-modal__btn-accent"
                   >
                     {startingParsing ? t.startingParsing.value : t.startParsingButton.value}
                   </button>
@@ -483,15 +483,15 @@ export function PDFPreviewModal({
           )}
 
           {!error && pdfObjectUrl && isImagePreview && (
-            <div ref={viewportRef} className="lumio-pdf-preview-modal__viewport">
-              <div className="lumio-pdf-preview-modal__page-wrapper">
+            <div ref={viewportRef} className="seneca-pdf-preview-modal__viewport">
+              <div className="seneca-pdf-preview-modal__page-wrapper">
                 <img
                   src={pdfObjectUrl}
                   alt={fileName}
                   className={
                     isStoreReceiptImagePreview
-                      ? 'lumio-pdf-preview-modal__image-preview lumio-pdf-preview-modal__image-preview--receipt'
-                      : 'lumio-pdf-preview-modal__image-preview'
+                      ? 'seneca-pdf-preview-modal__image-preview seneca-pdf-preview-modal__image-preview--receipt'
+                      : 'seneca-pdf-preview-modal__image-preview'
                   }
                 />
               </div>
@@ -499,8 +499,8 @@ export function PDFPreviewModal({
           )}
 
           {!error && pdfObjectUrl && !isImagePreview && DocumentComponent && PageComponent && (
-            <div ref={viewportRef} className="lumio-pdf-preview-modal__viewport">
-              <div className="lumio-pdf-preview-modal__pdf-wrapper">
+            <div ref={viewportRef} className="seneca-pdf-preview-modal__viewport">
+              <div className="seneca-pdf-preview-modal__pdf-wrapper">
                 <DocumentComponent
                   file={pdfObjectUrl}
                   loading={null}
@@ -513,14 +513,14 @@ export function PDFPreviewModal({
                   {Array.from({ length: numPages }, (_, index) => (
                     <div
                       key={`page_${index + 1}`}
-                      className="lumio-pdf-preview-modal__pdf-page-wrap"
+                      className="seneca-pdf-preview-modal__pdf-page-wrap"
                     >
                       <PageComponent
                         pageNumber={index + 1}
                         width={pageWidth}
                         renderTextLayer={false}
                         renderAnnotationLayer={false}
-                        className="lumio-pdf-preview-modal__pdf-page"
+                        className="seneca-pdf-preview-modal__pdf-page"
                       />
                     </div>
                   ))}

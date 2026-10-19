@@ -12,7 +12,7 @@ import { useIntlayer } from '@/app/i18n';
 import { SidePanel, useCurrentSidePanelConfig, useSidePanel } from './index';
 
 type ClonableProps = Record<string, unknown>;
-const MOBILE_MENU_VISIBILITY_EVENT = 'lumio-mobile-menu-visibility';
+const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
 const SIDEPANEL_ACTIVE_BODY_ATTRIBUTE = 'data-side-panel-active';
 
 function useMountAnimation(
@@ -264,7 +264,7 @@ function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
       }}
     >
       <div
-        className={isStatementsPage ? 'lumio-statements-shell' : undefined}
+        className={isStatementsPage ? 'seneca-statements-shell' : undefined}
         style={{
           flex: 1,
           // A flex item defaults to min-width:auto; without this, wide nowrap

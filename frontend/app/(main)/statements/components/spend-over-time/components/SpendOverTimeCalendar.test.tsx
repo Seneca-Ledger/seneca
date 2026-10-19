@@ -73,7 +73,7 @@ describe('SpendOverTimeCalendar', () => {
     });
 
     const day = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('.lumio-spend-calendar__day--active'),
+      container.querySelectorAll<HTMLButtonElement>('.seneca-spend-calendar__day--active'),
     );
     expect(day).toHaveLength(1);
     expect(day[0].textContent).toContain('8');
@@ -98,7 +98,7 @@ describe('SpendOverTimeCalendar', () => {
     });
 
     expect(container.textContent).toContain('Empty month');
-    expect(container.querySelectorAll('.lumio-spend-calendar__day--active')).toHaveLength(0);
+    expect(container.querySelectorAll('.seneca-spend-calendar__day--active')).toHaveLength(0);
   });
 
   it('shades a month by rank, a heat scale one big day cannot flatten', () => {
@@ -125,7 +125,7 @@ describe('SpendOverTimeCalendar', () => {
     );
     expect(heat).toEqual(['1', '2', '4', '5']);
     // Another currency is marked and left off the scale.
-    const foreign = container.querySelector('.lumio-spend-calendar__day--foreign');
+    const foreign = container.querySelector('.seneca-spend-calendar__day--foreign');
     expect(foreign?.getAttribute('title')).toBe('USD');
     expect(foreign?.hasAttribute('data-heat')).toBe(false);
   });

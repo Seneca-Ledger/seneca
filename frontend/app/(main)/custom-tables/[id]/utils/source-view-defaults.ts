@@ -1,14 +1,14 @@
 import type { SortingState } from '@tanstack/react-table';
 import type { CustomTableColumn, CustomTableGridRow } from './types';
 
-/** Columns a table filled from Lumio carries for completeness, not for reading. */
+/** Columns a table filled from Seneca carries for completeness, not for reading. */
 const SECONDARY_SOURCE_FIELDS = new Set(['type', 'statement']);
 
 const sourceField = (column: CustomTableColumn): unknown =>
   (column.config?.source as { field?: unknown } | undefined)?.field;
 
 /**
- * How a table filled from Lumio opens until the user changes it: newest first,
+ * How a table filled from Seneca opens until the user changes it: newest first,
  * and without the columns that only repeat what the row already says. The type
  * repeats the amount's sign (and drifts from it once either is edited), the
  * statement is a long file name, the currency is the same on every row.

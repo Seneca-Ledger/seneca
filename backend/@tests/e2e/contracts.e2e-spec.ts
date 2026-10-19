@@ -266,7 +266,7 @@ describe('API contracts (e2e)', () => {
 
   beforeAll(async () => {
     // Read once when the backups module starts: where a local backup run writes.
-    process.env.BACKUP_LOCAL_ROOT ??= mkdtempSync(join(tmpdir(), 'lumio-contracts-backups-'));
+    process.env.BACKUP_LOCAL_ROOT ??= mkdtempSync(join(tmpdir(), 'seneca-contracts-backups-'));
     const moduleFixture: TestingModule = await e2eTestingModule({
       imports: [AppModule],
     }).compile();
@@ -852,7 +852,7 @@ describe('API contracts (e2e)', () => {
         new Response(
           JSON.stringify({
             tag_name: 'v1.3.0',
-            html_url: 'https://github.com/symonbaikov/lumio/releases/tag/v1.3.0',
+            html_url: 'https://github.com/symonbaikov/seneca/releases/tag/v1.3.0',
           }),
           { status: 200, headers: { 'content-type': 'application/json' } },
         )) as typeof fetch;
@@ -1323,7 +1323,7 @@ describe('API contracts (e2e)', () => {
       await send('post', '/webhook-endpoints', { name: 'Contract inbound' }).expect(201);
       await send('post', '/webhook-subscriptions', {
         name: 'Contract outbound',
-        url: 'https://example.com/hooks/lumio',
+        url: 'https://example.com/hooks/seneca',
         secret: 'contract-signing-secret',
         events: ['transaction.created'],
       }).expect(201);
@@ -2061,7 +2061,7 @@ describe('API contracts (e2e)', () => {
           .set('Authorization', `Bearer ${owner.token}`)
           .set('x-workspace-id', owner.workspaceId)
           .field('password', 'contract-backup-pass')
-          .attach('file', archive.body as Buffer, { filename: 'backup.lumio' });
+          .attach('file', archive.body as Buffer, { filename: 'backup.seneca' });
       const preview = await upload('/backups/import/preview').expect(succeeded);
       matches(BackupImportPreview, preview.body);
       const restored = await upload(`/backups/imports/${preview.body.importId}/restore`).expect(

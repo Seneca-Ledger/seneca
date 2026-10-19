@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as path from 'path';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { CloudStorageBaseService } from '../../common/services/cloud-storage-base.service';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { requireSecret } from '../../common/utils/required-secret.util';
@@ -394,7 +395,7 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
         this.requireAccessToken(client),
         'files/create_folder_v2',
         {
-          path: '/Lumio',
+          path: `/${APP_NAME}`,
           autorename: false,
         },
       );
@@ -408,8 +409,8 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
       }
     } catch (error) {
       if (this.getDropboxErrorMessage(error).includes('path/conflict/folder')) {
-        settings.folderId = '/lumio';
-        settings.folderName = 'Lumio';
+        settings.folderId = `/${APP_NAME}`.toLowerCase();
+        settings.folderName = APP_NAME;
         return this.dropboxSettingsRepository.save(settings);
       }
       throw error;

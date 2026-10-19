@@ -66,11 +66,11 @@ function ProgressRing({
   label: string;
 }): React.JSX.Element {
   return (
-    <div className="lumio-getting-started__ring" role="img" aria-label={label}>
+    <div className="seneca-getting-started__ring" role="img" aria-label={label}>
       <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
-        <circle className="lumio-getting-started__ring-track" cx="20" cy="20" r={RING_RADIUS} />
+        <circle className="seneca-getting-started__ring-track" cx="20" cy="20" r={RING_RADIUS} />
         <circle
-          className="lumio-getting-started__ring-fill"
+          className="seneca-getting-started__ring-fill"
           cx="20"
           cy="20"
           r={RING_RADIUS}
@@ -103,22 +103,22 @@ function StepRow({ step, isNext }: StepRowProps): React.JSX.Element {
     <Link
       href={step.href}
       className={clsx(
-        'lumio-getting-started__step',
-        step.done && 'lumio-getting-started__step--done',
+        'seneca-getting-started__step',
+        step.done && 'seneca-getting-started__step--done',
       )}
     >
-      <span className="lumio-getting-started__check" aria-hidden="true">
+      <span className="seneca-getting-started__check" aria-hidden="true">
         {step.done && <Check size={12} />}
       </span>
-      <span className="lumio-getting-started__step-body">
-        <span className="lumio-getting-started__step-title">
+      <span className="seneca-getting-started__step-body">
+        <span className="seneca-getting-started__step-title">
           {text[step.id].title}
           <span aria-hidden="true">{step.emoji}</span>
-          {isNext && <span className="lumio-getting-started__next">{t.next}</span>}
+          {isNext && <span className="seneca-getting-started__next">{t.next}</span>}
         </span>
-        <span className="lumio-getting-started__step-sub">{text[step.id].subtitle}</span>
+        <span className="seneca-getting-started__step-sub">{text[step.id].subtitle}</span>
       </span>
-      <ChevronRight size={16} className="lumio-dashboard__action-chevron" />
+      <ChevronRight size={16} className="seneca-dashboard__action-chevron" />
     </Link>
   );
 }
@@ -167,13 +167,13 @@ export function GettingStartedCard(): React.JSX.Element | null {
       title={t.title}
       subtitle={subtitle}
       action={<ProgressRing done={completed.length} total={steps.length} label={progressLabel} />}
-      className="lumio-getting-started"
+      className="seneca-getting-started"
     >
       {completed.length > 0 && (
         <>
           <button
             type="button"
-            className="lumio-getting-started__toggle"
+            className="seneca-getting-started__toggle"
             aria-expanded={showCompleted}
             onClick={() => setShowCompleted(value => !value)}
           >
@@ -181,8 +181,8 @@ export function GettingStartedCard(): React.JSX.Element | null {
             <ChevronDown
               size={14}
               className={clsx(
-                'lumio-getting-started__toggle-icon',
-                showCompleted && 'lumio-getting-started__toggle-icon--open',
+                'seneca-getting-started__toggle-icon',
+                showCompleted && 'seneca-getting-started__toggle-icon--open',
               )}
             />
           </button>
@@ -193,10 +193,10 @@ export function GettingStartedCard(): React.JSX.Element | null {
       {open.map((step, index) => (
         <StepRow key={step.id} step={step} isNext={index === 0} />
       ))}
-      <div className="lumio-getting-started__footer">
+      <div className="seneca-getting-started__footer">
         <button
           type="button"
-          className="lumio-getting-started__dismiss"
+          className="seneca-getting-started__dismiss"
           onClick={() => save({ ...state, gettingStartedDismissedAt: new Date().toISOString() })}
         >
           {t.exploreOnMyOwn}

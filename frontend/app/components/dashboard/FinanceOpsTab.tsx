@@ -49,19 +49,19 @@ function StepRow({ step, t }: { step: CloseStep; t: Dictionary }): React.JSX.Ele
   const left = fillTemplate(t[STEP_LEFT[step.id]].value, { count: String(step.count) });
   return (
     <ListRow
-      className="lumio-close-step"
+      className="seneca-close-step"
       leading={
         step.done ? (
-          <Check size={16} className="lumio-close-step__done" aria-hidden="true" />
+          <Check size={16} className="seneca-close-step__done" aria-hidden="true" />
         ) : (
-          <span className="lumio-close-step__open" aria-hidden="true" />
+          <span className="seneca-close-step__open" aria-hidden="true" />
         )
       }
       primary={t.checklist[STEP_LABEL[step.id]].value}
       secondary={step.done ? undefined : left}
       trailing={
         step.done ? undefined : (
-          <Link href={step.href} className="lumio-close-step__action">
+          <Link href={step.href} className="seneca-close-step__action">
             {t[STEP_ACTION[step.id]].value}
             <ChevronRight size={14} aria-hidden="true" />
           </Link>
@@ -107,9 +107,9 @@ export function FinanceOpsTab({
   const total = model.steps.length;
 
   return (
-    <div className="lumio-dashboard__tab">
-      <header className="lumio-close-head">
-        <h2 className="lumio-close-head__title">
+    <div className="seneca-dashboard__tab">
+      <header className="seneca-close-head">
+        <h2 className="seneca-close-head__title">
           {model.done === total
             ? fillTemplate(t.headlineDone.value, { month })
             : fillTemplate(t.headline.value, {
@@ -129,7 +129,7 @@ export function FinanceOpsTab({
         </Button>
       </header>
       <DashboardCard title={t.remainingTitle}>
-        <div className="lumio-dashboard__list">
+        <div className="seneca-dashboard__list">
           {model.steps.map(step => (
             <StepRow key={step.id} step={step} t={t} />
           ))}
@@ -137,15 +137,15 @@ export function FinanceOpsTab({
       </DashboardCard>
       {model.attention.length > 0 && (
         <DashboardCard title={t.attentionTitle}>
-          <div className="lumio-dashboard__list">
+          <div className="seneca-dashboard__list">
             {model.attention.map(item => (
               <ListRow
                 key={item.id}
-                className="lumio-close-step"
-                leading={<span className="lumio-close-step__open" aria-hidden="true" />}
+                className="seneca-close-step"
+                leading={<span className="seneca-close-step__open" aria-hidden="true" />}
                 primary={attentionText(item, t, formatAmount)}
                 trailing={
-                  <Link href={item.href} className="lumio-close-step__action">
+                  <Link href={item.href} className="seneca-close-step__action">
                     {t.attentionOpen.value}
                     <ChevronRight size={14} aria-hidden="true" />
                   </Link>

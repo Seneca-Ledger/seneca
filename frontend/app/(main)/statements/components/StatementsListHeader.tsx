@@ -240,13 +240,13 @@ export function StatementsListHeader({
 
   return (
     <div
-      className="lumio-stmt-list-view__header"
+      className="seneca-stmt-list-view__header"
       style={{ marginBottom: 24, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}
     >
       {/* The tab strip scrolls inside its own column, so the actions stay in the corner.
           Search, Date and Filters ride here; every other filter lives inside the Filters drawer. */}
-      <div className="lumio-stmt-toolbar">
-        <div className="lumio-stmt-toolbar__tabs">
+      <div className="seneca-stmt-toolbar">
+        <div className="seneca-stmt-toolbar__tabs">
           <StatementsQueueTabs />
         </div>
         <StatementsSearchPopover
@@ -298,7 +298,7 @@ export function StatementsListHeader({
           ) : null}
         </StatementsToolbarButton>
         {/* Keeps the primary action from reading as one more filter button. */}
-        <span aria-hidden className="lumio-stmt-toolbar__divider" />
+        <span aria-hidden className="seneca-stmt-toolbar__divider" />
         <StatementsUploadButton />
       </div>
 

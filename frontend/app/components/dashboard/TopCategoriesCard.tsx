@@ -80,11 +80,11 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
   }
 
   return (
-    <div className="lumio-dashboard__categories">
-      <div className="lumio-dashboard__donut">
+    <div className="seneca-dashboard__categories">
+      <div className="seneca-dashboard__donut">
         <LazyCategoryDonut slices={slices} formatAmount={formatAmount} />
       </div>
-      <div className={clsx('lumio-dashboard__list', wide && 'lumio-dashboard__list--columns')}>
+      <div className={clsx('seneca-dashboard__list', wide && 'seneca-dashboard__list--columns')}>
         {categories.map((cat, rank) => (
           <ListRow
             key={categoryKey(cat)}
@@ -101,7 +101,7 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
             primary={
               <>
                 <span
-                  className="lumio-dashboard__legend-dot"
+                  className="seneca-dashboard__legend-dot"
                   style={{ background: slices[rank].color }}
                   aria-hidden="true"
                 />
@@ -115,7 +115,7 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
             }
             trailing={
               <>
-                <span className="lumio-dashboard__muted">{cat.percent}%</span>
+                <span className="seneca-dashboard__muted">{cat.percent}%</span>
                 <span>{formatAmount(cat.amount)}</span>
               </>
             }

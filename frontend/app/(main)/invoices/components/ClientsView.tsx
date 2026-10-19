@@ -87,7 +87,7 @@ export function ClientsView(): React.JSX.Element {
   }
 
   return (
-    <div className="container-shared lumio-stmt-list">
+    <div className="container-shared seneca-stmt-list">
       <div
         style={{
           marginBottom: 24,
@@ -123,29 +123,29 @@ export function ClientsView(): React.JSX.Element {
           action={<Button onClick={openNewClient}>{t.clients.newClient}</Button>}
         />
       ) : (
-        <div className="lumio-payable-list">
-          <div className="lumio-payable-list__table-wrap">
-            <table className="lumio-payable-list__table">
-              <thead className="lumio-payable-list__thead">
+        <div className="seneca-payable-list">
+          <div className="seneca-payable-list__table-wrap">
+            <table className="seneca-payable-list__table">
+              <thead className="seneca-payable-list__thead">
                 <tr>
-                  <th className="lumio-payable-list__th">{t.clients.name.value}</th>
-                  <th className="lumio-payable-list__th">{t.clients.email.value}</th>
-                  <th className="lumio-payable-list__th">{t.detail.currency.value}</th>
-                  <th className="lumio-payable-list__th lumio-payable-list__th--right">
+                  <th className="seneca-payable-list__th">{t.clients.name.value}</th>
+                  <th className="seneca-payable-list__th">{t.clients.email.value}</th>
+                  <th className="seneca-payable-list__th">{t.detail.currency.value}</th>
+                  <th className="seneca-payable-list__th seneca-payable-list__th--right">
                     {t.columns.actions.value}
                   </th>
                 </tr>
               </thead>
-              <tbody className="lumio-payable-list__tbody">
+              <tbody className="seneca-payable-list__tbody">
                 {clients.map(client => (
                   <tr key={client.id}>
-                    <td className="lumio-payable-list__td" style={{ fontWeight: 500 }}>
+                    <td className="seneca-payable-list__td" style={{ fontWeight: 500 }}>
                       {client.name}
                     </td>
-                    <td className="lumio-payable-list__td">{client.email || '—'}</td>
-                    <td className="lumio-payable-list__td">{client.currency}</td>
-                    <td className="lumio-payable-list__td">
-                      <div className="lumio-payable-list__actions">
+                    <td className="seneca-payable-list__td">{client.email || '—'}</td>
+                    <td className="seneca-payable-list__td">{client.currency}</td>
+                    <td className="seneca-payable-list__td">
+                      <div className="seneca-payable-list__actions">
                         <Button
                           size="sm"
                           variant="ghost"

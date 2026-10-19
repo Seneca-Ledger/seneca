@@ -1,3 +1,5 @@
+import { APP_NAME } from '../../common/brand';
+
 /**
  * The DATEV-Format "Buchungsstapel" (EXTF, header version 700, data category
  * 21, format version 13), as DATEV documents it on developer.datev.de and in
@@ -210,7 +212,7 @@ export function headerLine(header: DatevHeader): string {
     timestamp(header.createdAt),
     '',
     '"RE"',
-    textField('Lumio', 25),
+    textField(APP_NAME, 25),
     '""',
     String(header.consultantNumber),
     String(header.clientNumber),

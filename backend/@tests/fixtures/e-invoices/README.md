@@ -1,6 +1,6 @@
 # E-invoice fixtures
 
-Unchanged copies of public test material, used to check that Lumio reads
+Unchanged copies of public test material, used to check that Seneca reads
 e-invoices the way the standard defines them.
 
 - `xrechnung/`: business cases from the KoSIT XRechnung test suite

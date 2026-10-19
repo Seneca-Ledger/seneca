@@ -129,4 +129,4 @@ export function buildAnalyticsFilterOptions(
   return { typeOptions, statusOptions, datePresets, dateModes, groupByOptions, hasOptions };
 }
 
-export const filterLinkClassName = 'lumio-view-page__filter-link';
+export const filterLinkClassName = 'seneca-view-page__filter-link';

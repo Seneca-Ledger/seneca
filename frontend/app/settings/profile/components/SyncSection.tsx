@@ -12,6 +12,7 @@ import { Cloud, Download, Folder } from '@/app/components/icons';
 import { Alert } from '@/app/components/ui/alert';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
+import { APP_SLUG } from '@/app/lib/brand';
 import { BackupSection } from '@/app/settings/profile/components/BackupSection';
 import type { BankStat } from '@/app/settings/profile/hooks/useSync';
 import { tokens } from '@/lib/theme-tokens';
@@ -89,7 +90,7 @@ export function SyncSection({
               </Box>
             ) : (
               <Stack spacing={0.25}>
-                <span>lumio-export.zip</span>
+                <span>{APP_SLUG}-export.zip</span>
                 {bankStats.map(({ bank, count }) => (
                   <Box key={bank} sx={{ pl: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

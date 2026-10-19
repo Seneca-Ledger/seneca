@@ -35,9 +35,9 @@ services:
 
   backend:
     # Prebuilt images are published by CD for every release (`latest` tracks
-    # the newest v* tag; set LUMIO_IMAGE_TAG to pin one). `docker compose pull`
+    # the newest v* tag; set IMAGE_TAG to pin one). `docker compose pull`
     # then starts the stack without building anything locally.
-    image: ghcr.io/symonbaikov/lumio-backend:${LUMIO_IMAGE_TAG:-latest}
+    image: ghcr.io/symonbaikov/seneca-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -53,6 +53,7 @@ services:
       - PORT=3001
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - APP_URL=${APP_URL:-http://localhost:3000}
+      - APP_NAME=${APP_NAME:-Seneca}
       - DATABASE_URL=postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-finflow}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -79,13 +80,14 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/symonbaikov/lumio-frontend:${LUMIO_IMAGE_TAG:-latest}
+    image: ghcr.io/symonbaikov/seneca-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-Seneca}
         API_PROXY_TARGET: http://backend:3001
     container_name: finflow-frontend
     ports:
@@ -94,6 +96,7 @@ services:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - NEXT_PUBLIC_APP_NAME=${APP_NAME:-Seneca}
       - NEXT_PUBLIC_ENV=production
       - API_PROXY_TARGET=http://backend:3001
     depends_on:
@@ -180,10 +183,10 @@ services:
       NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-nominatim}
     shm_size: 1gb
     # Imports the special phrases that let the backend search by kind of place.
-    command: ["/lumio/start.sh"]
+    command: ["/seneca/start.sh"]
     volumes:
       - nominatim_data:/var/lib/postgresql/16/main
-      - ./infra/nominatim:/lumio:ro
+      - ./infra/nominatim:/seneca:ro
     networks:
       finflow-network:
         aliases: [nominatim]

@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 async function createAdmin() {
   const client = new Client({
     connectionString:
-      process.env.DATABASE_URL || 'postgresql://lumio:lumio@lumio-postgres:5432/lumio',
+      process.env.DATABASE_URL || 'postgresql://seneca:seneca@seneca-postgres:5432/seneca',
   });
 
   try {

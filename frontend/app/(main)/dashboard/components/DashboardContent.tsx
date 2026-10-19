@@ -114,7 +114,7 @@ export function DashboardContent({
         labels={headerLabels}
       />
       <MissingRatesBanner currencies={data.snapshot?.missingRates ?? []} />
-      <UnconfirmedNotice className="lumio-dashboard__unconfirmed" />
+      <UnconfirmedNotice className="seneca-dashboard__unconfirmed" />
       <DashboardTabContent
         activeTab={activeTab}
         data={data}

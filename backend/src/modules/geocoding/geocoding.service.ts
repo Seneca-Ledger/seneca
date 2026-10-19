@@ -4,6 +4,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Cache } from 'cache-manager';
 import { Effect } from 'effect';
+import { APP_NAME } from '../../common/brand';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { getWith } from '../../common/effect/http-json';
 import { isValidCoordinatePair } from '../../common/utils/capture-location.util';
@@ -218,7 +219,10 @@ export class GeocodingService {
     return this.effects.run<unknown[] | 'error', never>(
       getWith(
         `${this.baseUrl}/search?${query.toString()}`,
-        { timeout: this.timeoutMs, headers: { Accept: 'application/json', 'User-Agent': 'Lumio' } },
+        {
+          timeout: this.timeoutMs,
+          headers: { Accept: 'application/json', 'User-Agent': APP_NAME },
+        },
         response =>
           Effect.gen(function* () {
             if (response.status < 200 || response.status >= 300) {

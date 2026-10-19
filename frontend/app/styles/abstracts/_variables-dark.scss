@@ -12,64 +12,64 @@
 // `primary-fill-dk` is the background of a filled or selected control, with
 // warm off-white (#ece7de) text on it — about 5.8:1. The accent itself under
 // light text would be far below 4.5:1. Never swap the two.
-$lumio-color-primary-dk:       #8fb39f;
-$lumio-color-primary-hover-dk: #a3c2b0;
-$lumio-color-primary-dark-dk:  #3f5e4e;
-$lumio-color-primary-fill-dk:       #3f5e4e;
-$lumio-color-primary-fill-hover-dk: #4a6b5a;
-$lumio-color-primary-50-dk:    rgba(143, 179, 159, 0.1);
-$lumio-color-primary-100-dk:   rgba(143, 179, 159, 0.2);
-$lumio-color-primary-200-dk:   rgba(143, 179, 159, 0.35);
+$seneca-color-primary-dk:       #8fb39f;
+$seneca-color-primary-hover-dk: #a3c2b0;
+$seneca-color-primary-dark-dk:  #3f5e4e;
+$seneca-color-primary-fill-dk:       #3f5e4e;
+$seneca-color-primary-fill-hover-dk: #4a6b5a;
+$seneca-color-primary-50-dk:    rgba(143, 179, 159, 0.1);
+$seneca-color-primary-100-dk:   rgba(143, 179, 159, 0.2);
+$seneca-color-primary-200-dk:   rgba(143, 179, 159, 0.35);
 
 // ── Ink neutrals (inverted for dark) ─────────────────────────
-$lumio-color-ink-900-dk: #ece7de;
-$lumio-color-ink-800-dk: #d6d0c5;
-$lumio-color-ink-700-dk: #bdb6aa;
+$seneca-color-ink-900-dk: #ece7de;
+$seneca-color-ink-800-dk: #d6d0c5;
+$seneca-color-ink-700-dk: #bdb6aa;
 // Warm greys, lightest to darkest. 500 is the readable secondary text
 // (#a8a196, about 6:1 on a card); 100/50 are the soft fills on a card.
-$lumio-color-ink-600-dk: #b0a99d;
-$lumio-color-ink-500-dk: #a8a196;
-$lumio-color-ink-400-dk: #857f75;
-$lumio-color-ink-300-dk: #5f5a53;
-$lumio-color-ink-200-dk: #3a3733;
-$lumio-color-ink-150-dk: #2e2c29;
-$lumio-color-ink-100-dk: #2b2926;
-$lumio-color-ink-50-dk:  #262523;
-$lumio-color-white-dk:   #2e2c29;
+$seneca-color-ink-600-dk: #b0a99d;
+$seneca-color-ink-500-dk: #a8a196;
+$seneca-color-ink-400-dk: #857f75;
+$seneca-color-ink-300-dk: #5f5a53;
+$seneca-color-ink-200-dk: #3a3733;
+$seneca-color-ink-150-dk: #2e2c29;
+$seneca-color-ink-100-dk: #2b2926;
+$seneca-color-ink-50-dk:  #262523;
+$seneca-color-white-dk:   #2e2c29;
 
 // ── Semantic ─────────────────────────────────────────────────
-$lumio-color-success-dk:       #8fb39f;
-$lumio-color-success-soft-dk:  rgba(143, 179, 159, 0.12);
-$lumio-color-warning-dk:       #d4a94f;
-$lumio-color-warning-soft-dk:  rgba(212, 169, 79, 0.12);
-$lumio-color-danger-dk:        #d9806f;
-$lumio-color-danger-soft-dk:   rgba(217, 128, 111, 0.12);
-$lumio-color-info-dk:          #8fa5b8;
-$lumio-color-info-soft-dk:     rgba(143, 165, 184, 0.12);
+$seneca-color-success-dk:       #8fb39f;
+$seneca-color-success-soft-dk:  rgba(143, 179, 159, 0.12);
+$seneca-color-warning-dk:       #d4a94f;
+$seneca-color-warning-soft-dk:  rgba(212, 169, 79, 0.12);
+$seneca-color-danger-dk:        #d9806f;
+$seneca-color-danger-soft-dk:   rgba(217, 128, 111, 0.12);
+$seneca-color-info-dk:          #8fa5b8;
+$seneca-color-info-soft-dk:     rgba(143, 165, 184, 0.12);
 
 // ── Surface / background ──────────────────────────────────────
 // Warm graphite, not night blue: the page a step darker than the cards it
 // holds, so cards read as raised layers.
-$lumio-color-bg-dk:              #1b1a18;
-$lumio-color-surface-dk:         #232220;
-$lumio-color-surface-muted-dk:   #1f1e1c;
-$lumio-color-surface-warning-dk: rgba(212, 169, 79, 0.12);
-$lumio-color-surface-error-dk:   rgba(217, 128, 111, 0.12);
+$seneca-color-bg-dk:              #1b1a18;
+$seneca-color-surface-dk:         #232220;
+$seneca-color-surface-muted-dk:   #1f1e1c;
+$seneca-color-surface-warning-dk: rgba(212, 169, 79, 0.12);
+$seneca-color-surface-error-dk:   rgba(217, 128, 111, 0.12);
 
 // ── Text ──────────────────────────────────────────────────────
-$lumio-color-text-primary-dk:   #ece7de;
-$lumio-color-text-secondary-dk: #a8a196;
+$seneca-color-text-primary-dk:   #ece7de;
+$seneca-color-text-secondary-dk: #a8a196;
 
 // ── Borders ───────────────────────────────────────────────────
 // Warm solid hairlines, one step above the card.
-$lumio-color-border-dk:        #2e2c29;
-$lumio-color-border-strong-dk: #3a3733;
+$seneca-color-border-dk:        #2e2c29;
+$seneca-color-border-strong-dk: #3a3733;
 
 // ── Shadows (more visible on dark bg) ────────────────────────
-$lumio-shadow-xs-dk: 0 1px 0 0 rgba(0, 0, 0, 0.2);
-$lumio-shadow-sm-dk: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-$lumio-shadow-md-dk: 0 4px 16px -4px rgba(0, 0, 0, 0.4);
-$lumio-shadow-lg-dk: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
+$seneca-shadow-xs-dk: 0 1px 0 0 rgba(0, 0, 0, 0.2);
+$seneca-shadow-sm-dk: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+$seneca-shadow-md-dk: 0 4px 16px -4px rgba(0, 0, 0, 0.4);
+$seneca-shadow-lg-dk: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
 
 // ── Theme tokens (dark) ───────────────────────────────────────
 $color-background-dk:            #1b1a18;

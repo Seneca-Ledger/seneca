@@ -85,7 +85,7 @@ describe('BackupDataService', () => {
   });
 
   it('includes receipt attachments and replaces machine-specific attachment paths', async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'lumio-receipt-'));
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'seneca-receipt-'));
     const attachment = path.join(directory, 'receipt.jpg');
     await fs.writeFile(attachment, 'receipt image');
     const receipts = {

@@ -482,29 +482,29 @@ export default function TrashListView() {
   );
 
   return (
-    <div className="container-shared lumio-trash-list">
-      <div className="lumio-trash-list__header">
-        <div className="lumio-trash-list__search-row">
-          <div className="lumio-trash-list__search">
-            <Search className="lumio-trash-list__search-icon" size={16} />
+    <div className="container-shared seneca-trash-list">
+      <div className="seneca-trash-list__header">
+        <div className="seneca-trash-list__search-row">
+          <div className="seneca-trash-list__search">
+            <Search className="seneca-trash-list__search-icon" size={16} />
             <input
               type="text"
               value={searchInput}
               onChange={event => setSearchInput(event.target.value)}
               placeholder={labels.searchPlaceholder}
               aria-label={labels.searchPlaceholder}
-              className="lumio-trash-list__search-input"
+              className="seneca-trash-list__search-input"
             />
           </div>
         </div>
 
-        <div className="lumio-trash-list__actions-row">
+        <div className="seneca-trash-list__actions-row">
           <span style={{ fontSize: 12, fontWeight: 500, color: c.ink500 }}>{selectedLabel}</span>
           <button
             type="button"
             onClick={() => void handleBulkRestore()}
             disabled={selectedCount === 0}
-            className="lumio-trash-list__restore-btn"
+            className="seneca-trash-list__restore-btn"
           >
             <RotateCcw size={14} />
             {labels.restore}
@@ -514,7 +514,7 @@ export default function TrashListView() {
             type="button"
             onClick={() => openDeleteConfirm(selectedIds)}
             disabled={selectedCount === 0}
-            className="lumio-trash-list__delete-btn"
+            className="seneca-trash-list__delete-btn"
           >
             <Trash2 size={14} />
             {labels.delete}
@@ -524,7 +524,7 @@ export default function TrashListView() {
             type="button"
             onClick={() => setEmptyConfirmOpen(true)}
             disabled={files.length === 0}
-            className="lumio-trash-list__empty-btn"
+            className="seneca-trash-list__empty-btn"
           >
             <Trash2 size={14} />
             {labels.emptyTrash}
@@ -532,23 +532,23 @@ export default function TrashListView() {
         </div>
       </div>
 
-      <div className="lumio-trash-list__body">
+      <div className="seneca-trash-list__body">
         {loading ? (
-          <div className="lumio-trash-list__items">
+          <div className="seneca-trash-list__items">
             {TRASH_ROW_SKELETON_KEYS.map(key => (
               <TrashListRowSkeleton key={key} />
             ))}
           </div>
         ) : filteredFiles.length === 0 ? (
-          <div className="lumio-trash-list__empty-state">
+          <div className="seneca-trash-list__empty-state">
             <EmptyStateIllustration name="trash" size="lg" />
             <h3 style={{ fontSize: 18, fontWeight: 500, color: c.ink900 }}>{labels.emptyTitle}</h3>
             <p style={{ marginTop: 4, color: c.ink500 }}>{labels.emptyDescription}</p>
           </div>
         ) : (
           <>
-            <div className="lumio-trash-list__items">
-              <div className="lumio-trash-list__select-all-mobile">
+            <div className="seneca-trash-list__items">
+              <div className="seneca-trash-list__select-all-mobile">
                 <Checkbox
                   checked={allVisibleSelected}
                   indeterminate={selectedIds.length > 0 && !allVisibleSelected}
@@ -563,7 +563,7 @@ export default function TrashListView() {
                 </span>
               </div>
 
-              <div className="lumio-trash-list__thead">
+              <div className="seneca-trash-list__thead">
                 <div style={{ width: 16 }}>
                   <Checkbox
                     checked={allVisibleSelected}
@@ -621,9 +621,9 @@ export default function TrashListView() {
               })}
             </div>
 
-            <div className="lumio-trash-list__pagination">
+            <div className="seneca-trash-list__pagination">
               <div style={{ fontSize: 14, color: c.ink500 }}>{shownLabel}</div>
-              <div className="lumio-trash-list__pagination-info">
+              <div className="seneca-trash-list__pagination-info">
                 <span style={{ fontSize: 14, color: c.ink700, minWidth: 120, textAlign: 'center' }}>
                   {pageOfLabel}
                 </span>

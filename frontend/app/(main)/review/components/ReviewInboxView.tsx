@@ -265,7 +265,7 @@ export function ReviewInboxView({ state }: Props) {
       return (
         <button
           type="button"
-          className="lumio-review-row-approve"
+          className="seneca-review-row-approve"
           disabled={busy}
           onClick={() => approveWithCategory([item.id])}
         >
@@ -480,7 +480,7 @@ export function ReviewInboxView({ state }: Props) {
           setCursor(index);
           if (href) router.push(href);
         }}
-        className={`lumio-stmt-list-item${isSelected ? ' lumio-stmt-list-item--selected' : ''}`}
+        className={`seneca-stmt-list-item${isSelected ? ' seneca-stmt-list-item--selected' : ''}`}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -520,11 +520,11 @@ export function ReviewInboxView({ state }: Props) {
             <div style={columnStyle('category')}>{renderCategory(item)}</div>
           ) : null}
           <div style={isMobile ? { flex: '0 0 auto' } : columnStyle('amount')}>
-            <span className="lumio-stmt-list-item__amount" style={{ color: 'var(--foreground)' }}>
+            <span className="seneca-stmt-list-item__amount" style={{ color: 'var(--foreground)' }}>
               {amount ? (
                 <>
                   {amount.figure}
-                  <span className="lumio-stmt-list-item__currency"> {amount.currency}</span>
+                  <span className="seneca-stmt-list-item__currency"> {amount.currency}</span>
                 </>
               ) : (
                 '—'
@@ -564,7 +564,7 @@ export function ReviewInboxView({ state }: Props) {
   const allSelected = items.length > 0 && items.every(item => selected.has(item.id));
   // Column titles over the rows, on the same widths, as on Documents.
   const header = (
-    <div className="lumio-stmt-list-view__desktop-header">
+    <div className="seneca-stmt-list-view__desktop-header">
       <Box sx={{ ...SELECT_CELL_SX, mr: 2 }}>
         <Checkbox
           checked={allSelected}
@@ -609,7 +609,7 @@ export function ReviewInboxView({ state }: Props) {
 
   const listBody = state.isPending ? (
     ['a', 'b', 'c'].map(key => (
-      <Box key={key} className="lumio-stmt-list-item">
+      <Box key={key} className="seneca-stmt-list-item">
         <Skeleton variant="rounded" height={40} />
       </Box>
     ))
@@ -654,8 +654,8 @@ export function ReviewInboxView({ state }: Props) {
   // Laid out like the statements list: tabs with the page's controls on one
   // row, then a single white block whose first row is the list's own toolbar.
   return (
-    <div className="container-shared lumio-stmt-list-view">
-      <div className="lumio-stmt-list-view__header">
+    <div className="container-shared seneca-stmt-list-view">
+      <div className="seneca-stmt-list-view__header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Tabs
@@ -682,7 +682,7 @@ export function ReviewInboxView({ state }: Props) {
                         <span>
                           {tabLabels[entry]}{' '}
                           <span
-                            className={`lumio-review-tab-count${count === 0 ? ' lumio-review-tab-count--zero' : ''}`}
+                            className={`seneca-review-tab-count${count === 0 ? ' seneca-review-tab-count--zero' : ''}`}
                           >
                             {count}
                           </span>
@@ -762,8 +762,8 @@ export function ReviewInboxView({ state }: Props) {
         {state.error ? <Alert variant="error">{state.error}</Alert> : null}
       </div>
 
-      <div className="lumio-stmt-list-view__table">
-        <div className="lumio-stmt-list-view__table-toolbar" style={{ flexWrap: 'wrap' }}>
+      <div className="seneca-stmt-list-view__table">
+        <div className="seneca-stmt-list-view__table-toolbar" style={{ flexWrap: 'wrap' }}>
           <Box
             sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, minWidth: 0 }}
           >

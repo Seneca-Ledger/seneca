@@ -245,7 +245,7 @@ export default function ReportsPage(): React.JSX.Element {
     <Box>
       <Box
         sx={{
-          mt: 'var(--lumio-page-top, 16px)',
+          mt: 'var(--seneca-page-top, 16px)',
           borderBottom: '1px solid var(--border)',
           px: { xs: 2, sm: 4 },
         }}

@@ -5,7 +5,7 @@ paths:
 
 # Design tokens: every style follows the light and dark theme tokens
 
-Lumio's look is a calm Scandinavian palette: warm off-white and warm graphite,
+Seneca's look is a calm Scandinavian palette: warm off-white and warm graphite,
 sage as the one accent, earthy tones for data. Every colour, and every
 text size and weight below, comes from the tokens. Nothing is styled outside them.
 
@@ -45,10 +45,10 @@ A new or changed token goes into all of these, in both themes.
 | Soft fill (tracks, selected tile, segment) | `#F4F1EB` | `#2B2926` | `--surface-soft` |
 | Neutral circle / icon badge / progress track | `#EFEBE4` | `#2B2926` | `--icon-badge-bg` |
 | Hairline / border | `#EDE9E2` | `#2E2C29` | `--border` |
-| Field border | `#E3DED5` | `#3A3733` | `$lumio-color-slot-border` |
+| Field border | `#E3DED5` | `#3A3733` | `$seneca-color-slot-border` |
 | Main text, figures | `#24211E` | `#ECE7DE` | `--foreground` |
 | Readable secondary text | `#6B665D` | `#A8A196` | `--text-muted` |
-| Decorative captions only | `#8A857C` | — | `$lumio-color-slot-text` |
+| Decorative captions only | `#8A857C` | — | `$seneca-color-slot-text` |
 | Accent (links, active, icons) | `#5B7B6A` | `#8FB39F` | `--primary` |
 | Filled / selected control | `#5B7B6A` (button `#4F6F5E`) | `#3F5E4E` + `#ECE7DE` text | `--primary-fill` / `--primary-foreground` |
 | Selected tile background | `#EEF3EF` | `--primary-50` | `--primary-50` |

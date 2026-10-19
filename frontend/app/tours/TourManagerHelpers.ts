@@ -4,7 +4,7 @@
 
 import type { AllowedButtons } from 'driver.js';
 
-export const TOUR_STORAGE_KEY = 'lumio_tour_state';
+export const TOUR_STORAGE_KEY = 'seneca_tour_state';
 export const TOUR_STATE_VERSION = '1.0.0';
 
 export interface AnalyticsTracker {

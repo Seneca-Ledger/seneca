@@ -98,7 +98,7 @@ function TextEditor({ column, row, onUpdate, done }: EditorProps) {
   return (
     <input
       ref={inputRef}
-      className={`lumio-ct__cell-input${numeric ? ' lumio-ct__cell-input--numeric' : ''}`}
+      className={`seneca-ct__cell-input${numeric ? ' seneca-ct__cell-input--numeric' : ''}`}
       value={value}
       inputMode={numeric ? 'decimal' : undefined}
       onChange={event => setValue(event.target.value)}
@@ -139,7 +139,7 @@ function DateEditor({ column, row, onUpdate, done }: EditorProps) {
           fullWidth: true,
           size: 'small',
           variant: 'standard',
-          className: 'lumio-ct__cell-input',
+          className: 'seneca-ct__cell-input',
           slotProps: { input: { disableUnderline: true } },
         },
         actionBar: { actions: ['clear', 'today'] },
@@ -177,7 +177,7 @@ function CellDisplay({ column, row, fallbackCurrency, labels }: EditableCellProp
     const options = selectedOptions(column, row.data?.[column.key] ?? null);
     if (options.length) {
       return (
-        <span className="lumio-ct__chips">
+        <span className="seneca-ct__chips">
           {options.map(option => (
             <OptionChip key={option.value} option={option} />
           ))}
@@ -189,7 +189,7 @@ function CellDisplay({ column, row, fallbackCurrency, labels }: EditableCellProp
   const empty = text === EMPTY_CELL;
   return (
     <span
-      className={`lumio-ct__cell-text${empty ? ' lumio-ct__cell-text--empty' : ''}`}
+      className={`seneca-ct__cell-text${empty ? ' seneca-ct__cell-text--empty' : ''}`}
       title={text}
     >
       {text}
@@ -203,10 +203,10 @@ const cellClassName = (
   editable: boolean,
   issue: boolean,
 ) =>
-  `lumio-ct__cell${editable ? ' lumio-ct__cell--editable' : ''}${
-    missingRequired ? ' lumio-ct__cell--required' : ''
-  }${issue ? ' lumio-ct__cell--issue' : ''}${
-    isNumericColumn(column) ? ' lumio-ct__cell--numeric' : ''
+  `seneca-ct__cell${editable ? ' seneca-ct__cell--editable' : ''}${
+    missingRequired ? ' seneca-ct__cell--required' : ''
+  }${issue ? ' seneca-ct__cell--issue' : ''}${
+    isNumericColumn(column) ? ' seneca-ct__cell--numeric' : ''
   }`;
 
 /**
@@ -284,7 +284,7 @@ export function EditableCell(props: EditableCellProps) {
   return (
     <button
       type="button"
-      className={`${className} lumio-ct__cell-button`}
+      className={`${className} seneca-ct__cell-button`}
       aria-label={`${labels.edit}: ${column.title}`}
       onClick={() => setEditing(true)}
     >

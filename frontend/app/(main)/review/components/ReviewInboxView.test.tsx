@@ -92,9 +92,9 @@ describe('ReviewInboxView', () => {
 
   it('sets the currency code apart from the figure', () => {
     const { container } = renderWithQuery(<ReviewInboxView state={state()} />);
-    const amount = container.querySelector('[data-testid="review-row"] .lumio-stmt-list-item__amount');
+    const amount = container.querySelector('[data-testid="review-row"] .seneca-stmt-list-item__amount');
     expect(amount?.textContent).toBe('289.00 ILS');
-    expect(amount?.querySelector('.lumio-stmt-list-item__currency')?.textContent?.trim()).toBe(
+    expect(amount?.querySelector('.seneca-stmt-list-item__currency')?.textContent?.trim()).toBe(
       'ILS',
     );
   });
@@ -107,17 +107,17 @@ describe('ReviewInboxView', () => {
 
   it('gives each row a quiet approve link instead of an outlined button', () => {
     const { container } = renderWithQuery(<ReviewInboxView state={state()} />);
-    const links = container.querySelectorAll('[data-testid="review-row"] .lumio-review-row-approve');
+    const links = container.querySelectorAll('[data-testid="review-row"] .seneca-review-row-approve');
     expect(links).toHaveLength(2);
     expect(container.querySelector('[data-testid="review-row"] .MuiButton-root')).toBeNull();
   });
 
   it('greys out empty tab counts and drops the brackets', () => {
     const { container } = renderWithQuery(<ReviewInboxView state={state()} />);
-    const counts = [...container.querySelectorAll('.lumio-review-tab-count')];
+    const counts = [...container.querySelectorAll('.seneca-review-tab-count')];
     expect(counts.map(count => count.textContent)).toEqual(['2', '0', '0', '0']);
     expect(counts[0].className).not.toContain('--zero');
-    expect(counts[1].className).toContain('lumio-review-tab-count--zero');
+    expect(counts[1].className).toContain('seneca-review-tab-count--zero');
     expect(container.textContent).not.toContain('(0)');
   });
 
@@ -134,7 +134,7 @@ describe('ReviewInboxView', () => {
         })}
       />,
     );
-    const counts = [...container.querySelectorAll('.lumio-review-tab-count')];
+    const counts = [...container.querySelectorAll('.seneca-review-tab-count')];
     expect(counts[0].textContent).toBe('4');
 
     screen.getByRole('button', { name: /filterUncategorized|No category/ }).click();

@@ -50,40 +50,40 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
   ] as const;
 
   return (
-    <div className="lumio-payable-list" style={{ marginBottom: 24 }}>
+    <div className="seneca-payable-list" style={{ marginBottom: 24 }}>
       <div style={{ padding: '12px 16px 0', fontSize: 15, fontWeight: 600 }}>
         {t.detail.ageingTitle}
       </div>
 
-      <div className="lumio-payable-list__table-wrap">
-        <table className="lumio-payable-list__table">
-          <thead className="lumio-payable-list__thead">
+      <div className="seneca-payable-list__table-wrap">
+        <table className="seneca-payable-list__table">
+          <thead className="seneca-payable-list__thead">
             <tr>
-              <th className="lumio-payable-list__th">{t.columns.client.value}</th>
+              <th className="seneca-payable-list__th">{t.columns.client.value}</th>
               {buckets.map(bucket => (
                 <th
                   key={bucket.key}
-                  className="lumio-payable-list__th lumio-payable-list__th--right"
+                  className="seneca-payable-list__th seneca-payable-list__th--right"
                 >
                   {bucket.label}
                 </th>
               ))}
-              <th className="lumio-payable-list__th lumio-payable-list__th--right">
+              <th className="seneca-payable-list__th seneca-payable-list__th--right">
                 {t.columns.total.value}
               </th>
             </tr>
           </thead>
-          <tbody className="lumio-payable-list__tbody">
+          <tbody className="seneca-payable-list__tbody">
             {report.rows.map(row => (
               <tr key={`${row.clientId}-${row.currency}`}>
-                <td className="lumio-payable-list__td">
+                <td className="seneca-payable-list__td">
                   {row.clientName}
                   <span style={{ color: 'var(--text-secondary)' }}> · {row.currency}</span>
                 </td>
                 {buckets.map(bucket => (
                   <td
                     key={bucket.key}
-                    className="lumio-payable-list__td"
+                    className="seneca-payable-list__td"
                     style={{ textAlign: 'right' }}
                   >
                     {row[bucket.key] === 0
@@ -92,7 +92,7 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
                   </td>
                 ))}
                 <td
-                  className="lumio-payable-list__td"
+                  className="seneca-payable-list__td"
                   style={{ textAlign: 'right', fontWeight: 600 }}
                 >
                   {formatMoney(row.total, row.currency, locale)}
@@ -101,11 +101,11 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
             ))}
             {report.totals.map(total => (
               <tr key={`total-${total.currency}`} style={{ fontWeight: 600 }}>
-                <td className="lumio-payable-list__td">{total.currency}</td>
+                <td className="seneca-payable-list__td">{total.currency}</td>
                 {buckets.map(bucket => (
                   <td
                     key={bucket.key}
-                    className="lumio-payable-list__td"
+                    className="seneca-payable-list__td"
                     style={{ textAlign: 'right' }}
                   >
                     {total[bucket.key] === 0
@@ -113,7 +113,7 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
                       : formatMoney(total[bucket.key], total.currency, locale)}
                   </td>
                 ))}
-                <td className="lumio-payable-list__td" style={{ textAlign: 'right' }}>
+                <td className="seneca-payable-list__td" style={{ textAlign: 'right' }}>
                   {formatMoney(total.total, total.currency, locale)}
                 </td>
               </tr>

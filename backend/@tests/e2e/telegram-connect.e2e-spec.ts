@@ -53,7 +53,7 @@ describe('Telegram Connect (e2e)', () => {
     process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN;
     delete process.env.TELEGRAM_WEBHOOK_SECRET;
     // A public https address: the bot gets a webhook, so no poller runs in the test.
-    process.env.APP_URL = 'https://lumio.example';
+    process.env.APP_URL = 'https://seneca.example';
     global.fetch = (async (input: unknown, init?: RequestInit) => {
       const method = String(input).split('/').pop();
       const body = init?.body ? JSON.parse(String(init.body)) : {};
@@ -61,7 +61,7 @@ describe('Telegram Connect (e2e)', () => {
       if (method === 'sendMessage') {
         sent.push(body);
       }
-      const result = method === 'getMe' ? { username: 'lumio_e2e_bot' } : method === 'sendMessage' ? { message_id: 1 } : true;
+      const result = method === 'getMe' ? { username: 'seneca_e2e_bot' } : method === 'sendMessage' ? { message_id: 1 } : true;
       return new Response(JSON.stringify({ ok: true, result }), {
         headers: { 'content-type': 'application/json' },
       });
@@ -94,7 +94,7 @@ describe('Telegram Connect (e2e)', () => {
 
     const link = await as('post', '/telegram/link').expect(201);
     decodes(TelegramLink, link.body);
-    expect(link.body.url).toMatch(/^https:\/\/t\.me\/lumio_e2e_bot\?start=[\w-]{32}$/);
+    expect(link.body.url).toMatch(/^https:\/\/t\.me\/seneca_e2e_bot\?start=[\w-]{32}$/);
     const code = codeOf(link.body.url);
 
     await telegramSends(start(code, 1)).expect(200);
@@ -160,7 +160,7 @@ describe('Telegram Connect (e2e)', () => {
         ]),
       );
       expect(botCalls.find(call => call.url.endsWith('/setWebhook'))?.body.url).toBe(
-        'https://lumio.example/api/v1/telegram/webhook/555',
+        'https://seneca.example/api/v1/telegram/webhook/555',
       );
 
       const cleared = await as('delete', '/settings/instance/telegram').expect(200);

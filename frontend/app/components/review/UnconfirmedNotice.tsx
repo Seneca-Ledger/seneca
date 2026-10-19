@@ -9,7 +9,7 @@ import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { useReviewInboxTotal } from './useReviewInboxTotal';
 
 /**
- * Only confirmed rows count in Lumio's numbers. Where numbers are shown, say
+ * Only confirmed rows count in Seneca's numbers. Where numbers are shown, say
  * how much is still waiting in Review, so a total is never silently partial.
  */
 export function UnconfirmedNotice({
@@ -37,12 +37,12 @@ export function UnconfirmedNotice({
     <div
       role="status"
       data-testid="unconfirmed-notice"
-      className={clsx('lumio-unconfirmed', className)}
+      className={clsx('seneca-unconfirmed', className)}
       style={style}
     >
-      <span className="lumio-unconfirmed__dot" aria-hidden="true" />
-      <span className="lumio-unconfirmed__text">{message}</span>
-      <Link href="/review" className="lumio-unconfirmed__action">
+      <span className="seneca-unconfirmed__dot" aria-hidden="true" />
+      <span className="seneca-unconfirmed__text">{message}</span>
+      <Link href="/review" className="seneca-unconfirmed__action">
         {resolveLabel(t?.action, 'Review')}
         <ChevronRight size={14} aria-hidden="true" />
       </Link>

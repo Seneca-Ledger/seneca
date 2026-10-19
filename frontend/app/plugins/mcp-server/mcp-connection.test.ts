@@ -3,8 +3,8 @@ import { claudeCodeCommand, mcpEndpointUrl, mcpJsonConfig } from './mcp-connecti
 
 describe('MCP connection snippets', () => {
   it('builds an absolute endpoint from a relative API base behind a proxy', () => {
-    expect(mcpEndpointUrl('/api/v1', 'https://lumio.example.com')).toBe(
-      'https://lumio.example.com/api/v1/mcp',
+    expect(mcpEndpointUrl('/api/v1', 'https://seneca.example.com')).toBe(
+      'https://seneca.example.com/api/v1/mcp',
     );
   });
 
@@ -16,14 +16,14 @@ describe('MCP connection snippets', () => {
 
   it('gives Claude Code the HTTP transport and the key header', () => {
     expect(claudeCodeCommand('https://x/api/v1/mcp', 'lum_abc')).toBe(
-      'claude mcp add --transport http lumio https://x/api/v1/mcp --header "X-Api-Key: lum_abc"',
+      'claude mcp add --transport http seneca https://x/api/v1/mcp --header "X-Api-Key: lum_abc"',
     );
   });
 
   it('writes a JSON config other clients read', () => {
     expect(JSON.parse(mcpJsonConfig('https://x/api/v1/mcp', 'lum_abc'))).toEqual({
       mcpServers: {
-        lumio: { type: 'http', url: 'https://x/api/v1/mcp', headers: { 'X-Api-Key': 'lum_abc' } },
+        seneca: { type: 'http', url: 'https://x/api/v1/mcp', headers: { 'X-Api-Key': 'lum_abc' } },
       },
     });
   });

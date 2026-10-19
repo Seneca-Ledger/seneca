@@ -70,7 +70,7 @@ export function buildSteps(demo) {
         id: 'calendar',
         frame: 'hero',
         prepare: page => page.locator('button[value="matrix"]').click(),
-        target: page => page.locator('.lumio-charge-calendar'),
+        target: page => page.locator('.seneca-charge-calendar'),
         width: 600,
       },
     },
@@ -118,7 +118,7 @@ export function buildSteps(demo) {
       // should not carry, so that line is left out. The list above it is hidden: its rows
       // come back in any order, and their summed heights moved this one by a pixel; the
       // margin keeps the strip over the page out of the picture.
-      css: `${narrow(500)} .lumio-advice__main > div > p:last-child { display: none; } ${MAIN} section:first-of-type { display: none; } ${MAIN} section { margin-top: 32px; }`,
+      css: `${narrow(500)} .seneca-advice__main > div > p:last-child { display: none; } ${MAIN} section:first-of-type { display: none; } ${MAIN} section { margin-top: 32px; }`,
       fragment: {
         id: 'info',
         frame: 'pair',

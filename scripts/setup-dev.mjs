@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const composeFiles = ['-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml'];
-const demoEmail = 'demo@lumio.dev';
+const demoEmail = 'demo@seneca.dev';
 const demoPassword = 'demo123';
 
 export function parseEnv(content) {
@@ -441,7 +441,7 @@ async function runNativeMode() {
 
 function printReady() {
   console.log('');
-  console.log('Lumio is ready:');
+  console.log('Seneca is ready:');
   console.log('  Frontend: http://localhost:3000');
   console.log('  Backend:  http://localhost:3001/api/v1');
   console.log('  Swagger:  http://localhost:3001/api/docs');

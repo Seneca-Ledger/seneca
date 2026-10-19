@@ -97,7 +97,7 @@ export function InvoiceWizard({
     key === 'review' ? t.saveDraft.value : fromReview ? t.backToReview.value : t.next.value;
 
   return (
-    <div className="lumio-invoice-wizard">
+    <div className="seneca-invoice-wizard">
       <WizardProgress
         current={step}
         labels={STEPS.map(entry => t.stepNames[entry].value)}
@@ -106,9 +106,9 @@ export function InvoiceWizard({
           .replace('{total}', String(STEPS.length))}
       />
       {/* Keyed by step: each one mounts fresh and its heading takes focus. */}
-      <div key={key} className="lumio-invoice-wizard__step">
+      <div key={key} className="seneca-invoice-wizard__step">
         <WizardHeading title={headings[key].title} subtitle={headings[key].subtitle} />
-        <div className="lumio-invoice-wizard__body">
+        <div className="seneca-invoice-wizard__body">
           {key === 'review' ? (
             <ReviewStep form={form} onEdit={handleEdit} />
           ) : (

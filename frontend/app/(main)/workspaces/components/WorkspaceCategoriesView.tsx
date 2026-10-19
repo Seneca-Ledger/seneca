@@ -494,7 +494,7 @@ export default function WorkspaceCategoriesView() {
         ) : null}
 
         {/* Category list: flat rows on the page, no outer frame. */}
-        <Box className="lumio-categories-list" data-tour-id="categories-list">
+        <Box className="seneca-categories-list" data-tour-id="categories-list">
           <Box
             sx={{
               display: 'flex',

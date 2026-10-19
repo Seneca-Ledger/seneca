@@ -341,7 +341,7 @@ describe('SpendCalendarCard', () => {
     expect(container.textContent).toContain('January 2026');
     // Compact cells: the days with spend carry their total, not merchant names.
     const activeDays = Array.from(
-      container.querySelectorAll('.lumio-spend-calendar__day--active'),
+      container.querySelectorAll('.seneca-spend-calendar__day--active'),
     ).map(day => day.textContent);
     expect(activeDays).toHaveLength(2);
     expect(activeDays.join(' ')).toContain('320');
@@ -397,7 +397,7 @@ describe('SpendCalendarCard', () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector('.lumio-spend-calendar__grid')).toBeTruthy();
+    expect(container.querySelector('.seneca-spend-calendar__grid')).toBeTruthy();
     expect(container.textContent).not.toContain('Reset filters');
   });
 });

@@ -81,22 +81,22 @@ function PayablesSummaryCardSkeleton(): React.JSX.Element {
 function PayablesRowSkeleton(): React.JSX.Element {
   return (
     <tr>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="text" width="70%" height={18} />
       </td>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="text" width="60%" height={16} />
       </td>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="text" width="60%" height={16} />
       </td>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="rounded" width={72} height={22} />
       </td>
-      <td className="lumio-payable-list__td" style={{ textAlign: 'right' }}>
+      <td className="seneca-payable-list__td" style={{ textAlign: 'right' }}>
         <Skeleton variant="text" width={80} height={18} style={{ marginLeft: 'auto' }} />
       </td>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="rounded" width={120} height={28} style={{ marginLeft: 'auto' }} />
       </td>
     </tr>
@@ -105,8 +105,8 @@ function PayablesRowSkeleton(): React.JSX.Element {
 
 function PayablesViewSkeleton(): React.JSX.Element {
   return (
-    <div className="container-shared lumio-stmt-list">
-      <div className="lumio-stat-tiles">
+    <div className="container-shared seneca-stmt-list">
+      <div className="seneca-stat-tiles">
         {SUMMARY_CARD_KEYS.map(key => (
           <PayablesSummaryCardSkeleton key={key} />
         ))}
@@ -665,7 +665,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
 
   return (
     <>
-      <div className="container-shared lumio-stmt-list">
+      <div className="container-shared seneca-stmt-list">
         <div
           style={{
             marginBottom: 24,
@@ -684,11 +684,11 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
               alignItems: 'flex-start',
             }}
           >
-            <div className="lumio-stmt-toolbar" style={{ width: '100%' }}>
-              <div className="lumio-stmt-toolbar__tabs">
+            <div className="seneca-stmt-toolbar" style={{ width: '100%' }}>
+              <div className="seneca-stmt-toolbar__tabs">
                 <StatementsQueueTabs />
               </div>
-              <div className="lumio-stmt-toolbar__group">
+              <div className="seneca-stmt-toolbar__group">
                 <PayableFiltersBar
                   value={filters}
                   onChange={handleFiltersChange}
@@ -696,7 +696,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
                   labels={labels.filters}
                 />
                 {/* Keeps the primary actions from reading as more filter buttons. */}
-                <span aria-hidden className="lumio-stmt-toolbar__divider" />
+                <span aria-hidden className="seneca-stmt-toolbar__divider" />
                 {/* One primary action per page; the bank check is secondary. */}
                 <Button variant="ghost" onClick={() => router.push('/statements/reconcile')}>
                   {tx(['payables', 'reconcile'], 'Reconcile with the bank')}

@@ -32,11 +32,11 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         header: labels.columns.name,
         size: 320,
         cell: ({ row }) => (
-          <span className="lumio-ct__cell">
-            <span className="lumio-ct__cell-text">
-              <span className="lumio-ct__list-name">{row.original.name}</span>
+          <span className="seneca-ct__cell">
+            <span className="seneca-ct__cell-text">
+              <span className="seneca-ct__list-name">{row.original.name}</span>
               {row.original.description ? (
-                <span className="lumio-ct__list-sub">{row.original.description}</span>
+                <span className="seneca-ct__list-sub">{row.original.description}</span>
               ) : null}
             </span>
           </span>
@@ -55,7 +55,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
           } else if (row.original.source === 'manual') {
             label = labels.actions.sourceManual;
           }
-          return <span className="lumio-ct__badge lumio-ct__badge--neutral">{label}</span>;
+          return <span className="seneca-ct__badge seneca-ct__badge--neutral">{label}</span>;
         },
       },
       {
@@ -71,7 +71,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         header: labels.columns.rows,
         size: 90,
         sortFn: 'basic',
-        meta: { align: 'end', className: 'lumio-grid__cell--numeric' },
+        meta: { align: 'end', className: 'seneca-grid__cell--numeric' },
         cell: ({ row }) => (row.original.rowsCount === undefined ? '…' : row.original.rowsCount),
       },
       {
@@ -90,7 +90,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         enableHiding: false,
         meta: { align: 'end', label: labels.actions.rowActions },
         cell: ({ row }) => (
-          <span className="lumio-ct__list-actions">
+          <span className="seneca-ct__list-actions">
             <Button
               variant="ghost"
               size="icon"
@@ -157,7 +157,7 @@ export default function CustomTablesPage() {
 
   if (authLoading || (list.loading && !list.items.length)) {
     return (
-      <div className="lumio-ct" aria-busy>
+      <div className="seneca-ct" aria-busy>
         <Skeleton variant="text" width={200} height={36} />
         <Skeleton variant="rounded" height={40} />
         <Skeleton variant="rounded" height={320} />
@@ -166,8 +166,8 @@ export default function CustomTablesPage() {
   }
 
   return (
-    <div className="lumio-ct">
-      <div className="lumio-ct__toolbar">
+    <div className="seneca-ct">
+      <div className="seneca-ct__toolbar">
         <span data-tour-id="search-bar">
           <StatementsSearchPopover
             value={list.searchQuery}
@@ -176,7 +176,7 @@ export default function CustomTablesPage() {
             hint={labels.actions.searchHint}
           />
         </span>
-        <div className="lumio-ct__actions">
+        <div className="seneca-ct__actions">
           <Select
             data-tour-id="custom-tables-source-filter"
             inputProps={{ 'aria-label': labels.columns.source }}

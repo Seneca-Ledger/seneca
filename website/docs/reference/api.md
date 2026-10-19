@@ -3,7 +3,7 @@ title: API Overview
 description: REST API structure and authentication
 ---
 
-The Lumio API is served from the backend at `/api/v1`.
+The Seneca API is served from the backend at `/api/v1`.
 
 ## Base URLs
 

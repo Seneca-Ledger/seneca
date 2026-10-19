@@ -38,7 +38,7 @@ export function ColumnVisibilityMenu<TData extends RowData>({
         <Button variant="outline" size="sm" type="button">
           <Columns2 aria-hidden />
           {labels.columns}
-          {hiddenCount ? <span className="lumio-grid__menu-count">{hiddenCount}</span> : null}
+          {hiddenCount ? <span className="seneca-grid__menu-count">{hiddenCount}</span> : null}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

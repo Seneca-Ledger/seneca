@@ -172,16 +172,16 @@ export function SpendOverTimeCalendar({
   const monthDaysWithItems = days.filter(day => day.inCurrentMonth && day.records.length > 0);
 
   return (
-    <section className="lumio-spend-calendar">
-      <div className="lumio-spend-calendar__grid lumio-spend-calendar__grid--weekdays">
+    <section className="seneca-spend-calendar">
+      <div className="seneca-spend-calendar__grid seneca-spend-calendar__grid--weekdays">
         {weekdayLabels.map(label => (
-          <div key={label} className="lumio-spend-calendar__weekday">
+          <div key={label} className="seneca-spend-calendar__weekday">
             {label}
           </div>
         ))}
       </div>
 
-      <div className="lumio-spend-calendar__grid">
+      <div className="seneca-spend-calendar__grid">
         {days.map(day => {
           // Days of the neighbouring months are only a number: their spending
           // belongs to another month's calendar.
@@ -203,23 +203,23 @@ export function SpendOverTimeCalendar({
               data-heat={level || undefined}
               title={foreign ? day.currencies.join(', ') : undefined}
               className={[
-                'lumio-spend-calendar__day',
-                hasItems ? 'lumio-spend-calendar__day--active' : '',
-                foreign ? 'lumio-spend-calendar__day--foreign' : '',
-                day.inCurrentMonth ? '' : 'lumio-spend-calendar__day--outside',
-                day.iso === todayIso ? 'lumio-spend-calendar__day--today' : '',
+                'seneca-spend-calendar__day',
+                hasItems ? 'seneca-spend-calendar__day--active' : '',
+                foreign ? 'seneca-spend-calendar__day--foreign' : '',
+                day.inCurrentMonth ? '' : 'seneca-spend-calendar__day--outside',
+                day.iso === todayIso ? 'seneca-spend-calendar__day--today' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
             >
-              <span className="lumio-spend-calendar__day-number">{day.dayNumber}</span>
+              <span className="seneca-spend-calendar__day-number">{day.dayNumber}</span>
               {hasItems ? (
-                <span className="lumio-spend-calendar__day-total">{totalLabel}</span>
+                <span className="seneca-spend-calendar__day-total">{totalLabel}</span>
               ) : null}
 
               {/* Phones: the cell is too narrow even for the plain total. */}
               {hasItems ? (
-                <span className="lumio-spend-calendar__day-compact">
+                <span className="seneca-spend-calendar__day-compact">
                   {singleCurrency
                     ? compactFormatter(singleCurrency).format(day.total)
                     : day.records.length}
@@ -232,24 +232,24 @@ export function SpendOverTimeCalendar({
 
       {/* Phones: the month's days with spending as a list under the grid. */}
       {monthDaysWithItems.length > 0 ? (
-        <ul className="lumio-spend-calendar__agenda">
+        <ul className="seneca-spend-calendar__agenda">
           {monthDaysWithItems.map(day => (
             <li key={day.iso}>
               <button
                 type="button"
-                className="lumio-spend-calendar__agenda-row"
+                className="seneca-spend-calendar__agenda-row"
                 onClick={() => onDayClick(day.iso)}
               >
-                <span className="lumio-spend-calendar__agenda-date">
-                  <span className="lumio-spend-calendar__agenda-day">{day.dayNumber}</span>
-                  <span className="lumio-spend-calendar__agenda-weekday">
+                <span className="seneca-spend-calendar__agenda-date">
+                  <span className="seneca-spend-calendar__agenda-day">{day.dayNumber}</span>
+                  <span className="seneca-spend-calendar__agenda-weekday">
                     {agendaWeekdayFormatter.format(parseIso(day.iso))}
                   </span>
                 </span>
-                <span className="lumio-spend-calendar__agenda-merchants">
+                <span className="seneca-spend-calendar__agenda-merchants">
                   {day.records.map(record => record.merchant || record.fileName).join(', ')}
                 </span>
-                <span className="lumio-spend-calendar__agenda-total">
+                <span className="seneca-spend-calendar__agenda-total">
                   {day.currencies.length === 1
                     ? money(day.total, day.currencies[0] || currency)
                     : `${day.records.length} ${labels.operations}`}
@@ -261,7 +261,7 @@ export function SpendOverTimeCalendar({
       ) : null}
 
       {!hasRecordsInMonth ? (
-        <div className="lumio-spend-calendar__empty">{labels.emptyMonth}</div>
+        <div className="seneca-spend-calendar__empty">{labels.emptyMonth}</div>
       ) : null}
     </section>
   );

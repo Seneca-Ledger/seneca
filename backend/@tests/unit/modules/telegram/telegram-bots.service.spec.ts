@@ -18,7 +18,7 @@ function mockBotApi(options: { updates?: unknown[][]; getUpdatesError?: number }
     const answer = (payload: unknown) => new Response(JSON.stringify(payload));
     switch (method) {
       case 'getMe':
-        return answer({ ok: true, result: { username: 'lumio_bot' } });
+        return answer({ ok: true, result: { username: 'seneca_bot' } });
       case 'getUpdates': {
         if (options.getUpdatesError) {
           return answer({ ok: false, error_code: options.getUpdatesError, description: 'Unauthorized' });
@@ -85,12 +85,12 @@ describe('TelegramBotsService', () => {
 
   it('links to the bot with a one-time code for the user and workspace', async () => {
     mockBotApi();
-    const { service, linkCodes } = make([{ botToken: TOKEN, publicUrl: 'https://lumio.example' }]);
+    const { service, linkCodes } = make([{ botToken: TOKEN, publicUrl: 'https://seneca.example' }]);
 
     const link = await service.createLink({ id: 'user-1' } as any, 'ws-open');
 
     expect(link).toEqual({
-      url: `https://t.me/lumio_bot?start=${'c'.repeat(32)}`,
+      url: `https://t.me/seneca_bot?start=${'c'.repeat(32)}`,
       expiresAt: '2026-10-18T10:10:00.000Z',
     });
     expect(linkCodes.issue).toHaveBeenCalledWith({ userId: 'user-1', workspaceId: 'ws-open', botId: '123' });
@@ -98,7 +98,7 @@ describe('TelegramBotsService', () => {
 
   it('starts listening to a bot saved a moment ago before handing out its link', async () => {
     const calls = mockBotApi();
-    const { service } = make([{ botToken: TOKEN, publicUrl: 'https://lumio.example' }]);
+    const { service } = make([{ botToken: TOKEN, publicUrl: 'https://seneca.example' }]);
 
     await service.createLink({ id: 'user-1' } as any, 'ws-open');
 
@@ -117,7 +117,7 @@ describe('TelegramBotsService', () => {
 
   it('sets a webhook with a per-bot secret when the app has a public https address', async () => {
     const calls = mockBotApi();
-    const { service } = make([{ botToken: TOKEN, publicUrl: 'https://lumio.example' }]);
+    const { service } = make([{ botToken: TOKEN, publicUrl: 'https://seneca.example' }]);
 
     await service.sync();
 
@@ -125,7 +125,7 @@ describe('TelegramBotsService', () => {
       {
         method: 'setWebhook',
         body: {
-          url: 'https://lumio.example/api/v1/telegram/webhook/123',
+          url: 'https://seneca.example/api/v1/telegram/webhook/123',
           secret_token: webhookSecretOf(TOKEN),
           allowed_updates: ['message', 'callback_query'],
         },
@@ -178,7 +178,7 @@ describe('TelegramBotsService', () => {
     process.env.TELEGRAM_BOT_TOKEN = TOKEN;
     process.env.TELEGRAM_WEBHOOK_SECRET = 'manual';
     const calls = mockBotApi();
-    const { service } = make([{ botToken: TOKEN, publicUrl: 'https://lumio.example' }]);
+    const { service } = make([{ botToken: TOKEN, publicUrl: 'https://seneca.example' }]);
 
     await service.sync();
 
@@ -188,7 +188,7 @@ describe('TelegramBotsService', () => {
 
   it('forgets a bot removed from the settings', async () => {
     mockBotApi();
-    const bots: Bot[] = [{ botToken: TOKEN, publicUrl: 'https://lumio.example' }];
+    const bots: Bot[] = [{ botToken: TOKEN, publicUrl: 'https://seneca.example' }];
     const { service } = make(bots);
 
     await service.sync();
@@ -201,7 +201,7 @@ describe('TelegramBotsService', () => {
   it('tries setWebhook again on the next sync after it failed', async () => {
     const calls = mockBotApi();
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('network down'));
-    const { service } = make([{ botToken: TOKEN, publicUrl: 'https://lumio.example' }]);
+    const { service } = make([{ botToken: TOKEN, publicUrl: 'https://seneca.example' }]);
 
     await service.sync();
     expect(service.tokenOf('123')).toBeNull();

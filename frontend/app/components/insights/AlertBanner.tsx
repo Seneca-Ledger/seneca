@@ -67,9 +67,9 @@ const rowSx = {
   bgcolor: 'var(--surface-soft)',
   fontSize: 14,
   // The close button shows on hover or keyboard focus; a touch screen has no hover.
-  '& .lumio-attention__snooze': { opacity: 0 },
-  '&:hover .lumio-attention__snooze, &:focus-within .lumio-attention__snooze': { opacity: 1 },
-  '@media (hover: none)': { '& .lumio-attention__snooze': { opacity: 1 } },
+  '& .seneca-attention__snooze': { opacity: 0 },
+  '&:hover .seneca-attention__snooze, &:focus-within .seneca-attention__snooze': { opacity: 1 },
+  '@media (hover: none)': { '& .seneca-attention__snooze': { opacity: 1 } },
 } satisfies SxProps<Theme>;
 
 function dotSx(critical: boolean): SxProps<Theme> {
@@ -129,7 +129,7 @@ function AttentionRow({ item, t, locale, onSnooze }: RowProps): React.JSX.Elemen
       )}
       <IconButton
         size="small"
-        className="lumio-attention__snooze"
+        className="seneca-attention__snooze"
         aria-label={t.snooze.value}
         title={t.snooze.value}
         onClick={onSnooze}

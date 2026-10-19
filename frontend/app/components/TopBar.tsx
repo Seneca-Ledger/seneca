@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import { AUTH_ROUTE_PREFIXES } from '@/app/lib/auth-routes';
+import { BrandLockup } from './BrandLockup';
 
 const HIDDEN_PATHS = ['/onboarding', ...AUTH_ROUTE_PREFIXES, '/shared', '/invite'];
 
@@ -24,9 +25,9 @@ export default function TopBar() {
   }
 
   return (
-    <header className="lumio-topbar">
-      <Link href="/dashboard" className="lumio-topbar__mobile-logo" aria-label={shell.home.value}>
-        <span className="lumio-topbar__mobile-logo-mark" />
+    <header className="seneca-topbar">
+      <Link href="/dashboard" className="seneca-topbar__mobile-logo" aria-label={shell.home.value}>
+        <BrandLockup className="seneca-topbar__mobile-logo-mark" />
       </Link>
     </header>
   );

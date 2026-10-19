@@ -1,10 +1,10 @@
 @use '../abstracts' as *;
 
-/* BEM block: lumio-notification-panel — the drawer the account menu opens.
+/* BEM block: seneca-notification-panel — the drawer the account menu opens.
    A short to-do list rather than a feed of alerts: rows on the card, hairlines
    between them, one dot of state on the left, no icons and no fills. */
 
-.lumio-notification-panel {
+.seneca-notification-panel {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -64,10 +64,10 @@
     padding: 12px 16px 6px;
     font-size: 12px;
     font-weight: 500;
-    color: $lumio-color-text-muted;
+    color: $seneca-color-text-muted;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -76,18 +76,18 @@
     align-items: flex-start;
     gap: 10px;
     padding: 14px 16px;
-    border-top: 1px solid $lumio-color-hairline;
+    border-top: 1px solid $seneca-color-hairline;
     transition: background-color 150ms;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
 
     &:hover {
-      background: $lumio-color-slot-bg;
+      background: $seneca-color-slot-bg;
 
       @include dark {
-        background: $lumio-color-ink-100-dk;
+        background: $seneca-color-ink-100-dk;
       }
     }
   }
@@ -101,22 +101,22 @@
     border-radius: 50%;
 
     &--unread {
-      background: $lumio-color-empty-icon;
+      background: $seneca-color-empty-icon;
     }
 
     &--attention {
-      background: $lumio-color-attention;
+      background: $seneca-color-attention;
 
       @include dark {
-        background: $lumio-color-warning-dk;
+        background: $seneca-color-warning-dk;
       }
     }
 
     &--error {
-      background: $lumio-color-money-down;
+      background: $seneca-color-money-down;
 
       @include dark {
-        background: $lumio-color-danger-dk;
+        background: $seneca-color-danger-dk;
       }
     }
   }
@@ -142,7 +142,7 @@
     display: block;
     font-size: 14px;
     font-weight: 400;
-    color: $lumio-color-figure;
+    color: $seneca-color-figure;
 
     @include dark {
       color: $color-foreground-dk;
@@ -159,23 +159,23 @@
     margin-top: 2px;
     font-size: 13px;
     line-height: 1.45;
-    color: $lumio-color-text-muted;
+    color: $seneca-color-text-muted;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__item-meta {
     margin: 6px 0 0;
     font-size: 12px;
-    color: $lumio-color-text-muted;
+    color: $seneca-color-text-muted;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 

@@ -47,7 +47,7 @@ export interface CreateTableDialogLabels {
   templates: Record<TableTemplateId, { name: string; description: string }>;
   groupTemplates: string;
   groupSources: string;
-  /** The line under 'Fill from Lumio' saying what it does. */
+  /** The line under 'Fill from Seneca' saying what it does. */
   sourcesHint: string;
   nameTaken: string;
   sources: Record<SourceKind, { name: string; description: string }>;
@@ -94,19 +94,19 @@ function StartCard({
       type="button"
       role="radio"
       aria-checked={checked}
-      className="lumio-ct__template"
+      className="seneca-ct__template"
       onClick={onClick}
     >
       {checked ? (
-        <span className="lumio-ct__template-check" aria-hidden="true">
+        <span className="seneca-ct__template-check" aria-hidden="true">
           <Check size={14} />
         </span>
       ) : null}
-      <span className="lumio-ct__template-icon">{icon}</span>
-      <span className="lumio-ct__template-name">{name}</span>
-      <span className="lumio-ct__template-desc">{description}</span>
+      <span className="seneca-ct__template-icon">{icon}</span>
+      <span className="seneca-ct__template-name">{name}</span>
+      <span className="seneca-ct__template-desc">{description}</span>
       {columnCount ? (
-        <span className="lumio-ct__template-count">
+        <span className="seneca-ct__template-count">
           {columnsCountLabel.replace('{{count}}', String(columnCount))}
         </span>
       ) : null}
@@ -183,8 +183,8 @@ function StartFromPicker({
     })),
   ];
   return (
-    <div className="lumio-ct__field lumio-ct__field--wide lumio-ct__start">
-      <span className="lumio-ct__label">{labels.templateLabel}</span>
+    <div className="seneca-ct__field seneca-ct__field--wide seneca-ct__start">
+      <span className="seneca-ct__label">{labels.templateLabel}</span>
       <TextTabs
         value={mode}
         onChange={switchMode}
@@ -194,9 +194,9 @@ function StartFromPicker({
           { value: 'source', label: labels.groupSources },
         ]}
       />
-      {mode === 'source' ? <p className="lumio-ct__start-hint">{labels.sourcesHint}</p> : null}
+      {mode === 'source' ? <p className="seneca-ct__start-hint">{labels.sourcesHint}</p> : null}
       {mode === 'template' ? (
-        <div className="lumio-ct__templates" role="radiogroup" aria-label={labels.groupTemplates}>
+        <div className="seneca-ct__templates" role="radiogroup" aria-label={labels.groupTemplates}>
           {templateCards.map(card => (
             <StartCard
               key={card.id ?? 'blank'}
@@ -212,7 +212,7 @@ function StartFromPicker({
         </div>
       ) : (
         <div
-          className="lumio-ct__templates lumio-ct__templates--compact"
+          className="seneca-ct__templates seneca-ct__templates--compact"
           role="radiogroup"
           aria-label={labels.groupSources}
         >
@@ -292,17 +292,17 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
       }
     >
       <form
-        className={source ? 'lumio-ct__create lumio-ct__create--split' : 'lumio-ct__create'}
+        className={source ? 'seneca-ct__create seneca-ct__create--split' : 'seneca-ct__create'}
         onSubmit={event => {
           event.preventDefault();
           onSubmit();
         }}
       >
-        <div className="lumio-ct__form">
-          <label className="lumio-ct__field lumio-ct__field--wide">
-            <span className="lumio-ct__label">{labels.name}</span>
+        <div className="seneca-ct__form">
+          <label className="seneca-ct__field seneca-ct__field--wide">
+            <span className="seneca-ct__label">{labels.name}</span>
             <input
-              className="lumio-ct__input"
+              className="seneca-ct__input"
               value={form.name}
               placeholder={labels.namePlaceholder}
               ref={nameRef}
@@ -311,22 +311,22 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
               onChange={event => setForm(prev => ({ ...prev, name: event.target.value }))}
             />
             {nameTaken ? (
-              <span id="ct-name-taken" className="lumio-ct__field-note">
+              <span id="ct-name-taken" className="seneca-ct__field-note">
                 {labels.nameTaken}
               </span>
             ) : null}
           </label>
-          <label className="lumio-ct__field lumio-ct__field--wide">
-            <span className="lumio-ct__label">{labels.description}</span>
+          <label className="seneca-ct__field seneca-ct__field--wide">
+            <span className="seneca-ct__label">{labels.description}</span>
             <input
-              className="lumio-ct__input"
+              className="seneca-ct__input"
               value={form.description}
               placeholder={labels.descriptionPlaceholder}
               onChange={event => setForm(prev => ({ ...prev, description: event.target.value }))}
             />
           </label>
-          <div className="lumio-ct__field lumio-ct__field--wide">
-            <span className="lumio-ct__label">{labels.category}</span>
+          <div className="seneca-ct__field seneca-ct__field--wide">
+            <span className="seneca-ct__label">{labels.category}</span>
             <Select
               size="small"
               value={form.categoryId}
@@ -347,7 +347,7 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
             existingNames={existingNames}
           />
           {source ? (
-            <div className="lumio-ct__field lumio-ct__field--wide">
+            <div className="seneca-ct__field seneca-ct__field--wide">
               <SourceFilterFields
                 source={source}
                 filters={form.sourceFilters}
@@ -362,7 +362,7 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
           ) : null}
         </div>
         {source ? (
-          <aside className="lumio-ct__create-side">
+          <aside className="seneca-ct__create-side">
             <SourcePreviewPanel
               source={source}
               sourceName={labels.sources[source.id]?.name ?? source.name}

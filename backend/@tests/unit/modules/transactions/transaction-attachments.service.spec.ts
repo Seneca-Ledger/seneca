@@ -35,7 +35,7 @@ describe('TransactionAttachmentsService', () => {
     attachmentRepo.save.mockImplementation(async (entity: unknown) => entity);
     transactionRepo.exist.mockResolvedValue(true);
 
-    uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lumio-attachments-test-'));
+    uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seneca-attachments-test-'));
     process.env.UPLOADS_DIR = uploadsDir;
 
     service = new TransactionAttachmentsService(attachmentRepo, transactionRepo);

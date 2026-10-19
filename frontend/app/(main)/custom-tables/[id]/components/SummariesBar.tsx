@@ -108,16 +108,16 @@ export function SummariesBar({
     >
       {draft ? (
         <form
-          className="lumio-ct__form"
+          className="seneca-ct__form"
           onSubmit={event => {
             event.preventDefault();
             void submit();
           }}
         >
-          <label className="lumio-ct__field lumio-ct__field--wide">
-            <span className="lumio-ct__label">{labels.name}</span>
+          <label className="seneca-ct__field seneca-ct__field--wide">
+            <span className="seneca-ct__label">{labels.name}</span>
             <input
-              className="lumio-ct__input"
+              className="seneca-ct__input"
               value={draft.title}
               placeholder={labels.namePlaceholder}
               onChange={event => setDraft({ ...draft, title: event.target.value })}
@@ -142,19 +142,19 @@ export function SummariesBar({
   }
 
   return (
-    <section className="lumio-ct__summaries" aria-label={labels.title}>
-      <h3 className="lumio-ct__section-title">{labels.title}</h3>
-      <ul className="lumio-ct__summary-list">
+    <section className="seneca-ct__summaries" aria-label={labels.title}>
+      <h3 className="seneca-ct__section-title">{labels.title}</h3>
+      <ul className="seneca-ct__summary-list">
         {items.map(item => (
           <li
             key={item.id}
-            className={`lumio-ct__summary${item.error ? ' lumio-ct__summary--error' : ''}`}
+            className={`seneca-ct__summary${item.error ? ' seneca-ct__summary--error' : ''}`}
           >
-            <span className="lumio-ct__summary-title">{item.title}</span>
-            <span className="lumio-ct__summary-value" title={item.expression}>
+            <span className="seneca-ct__summary-title">{item.title}</span>
+            <span className="seneca-ct__summary-value" title={item.expression}>
               {formatValue(item)}
             </span>
-            <span className="lumio-ct__summary-actions">
+            <span className="seneca-ct__summary-actions">
               <Button
                 variant="ghost"
                 size="icon"

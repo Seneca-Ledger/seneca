@@ -71,7 +71,7 @@ import { TaxDeadlinesService } from '../../src/modules/tax-reminders/tax-deadlin
 import { TelegramService } from '../../src/modules/telegram/telegram.service';
 
 const BASE_URL = process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_version_crons_${process.pid}`;
+const SCRATCH_DB = `seneca_version_crons_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);

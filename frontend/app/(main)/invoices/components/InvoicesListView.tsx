@@ -139,7 +139,7 @@ export function InvoicesListView(): React.JSX.Element {
 
   if (authLoading || workspaceLoading || loading) {
     return (
-      <div className="container-shared lumio-stmt-list" style={{ padding: '40px 16px' }}>
+      <div className="container-shared seneca-stmt-list" style={{ padding: '40px 16px' }}>
         —
       </div>
     );
@@ -148,7 +148,7 @@ export function InvoicesListView(): React.JSX.Element {
   const noInvoices = items.length === 0 && status === 'all';
 
   return (
-    <div className="container-shared lumio-stmt-list">
+    <div className="container-shared seneca-stmt-list">
       <div
         style={{
           marginBottom: 24,
@@ -253,44 +253,44 @@ export function InvoicesListView(): React.JSX.Element {
           }
         />
       ) : (
-        <div className="lumio-payable-list">
-          <div className="lumio-payable-list__table-wrap">
-            <table className="lumio-payable-list__table">
-              <thead className="lumio-payable-list__thead">
+        <div className="seneca-payable-list">
+          <div className="seneca-payable-list__table-wrap">
+            <table className="seneca-payable-list__table">
+              <thead className="seneca-payable-list__thead">
                 <tr>
-                  <th className="lumio-payable-list__th">{t.columns.number.value}</th>
-                  <th className="lumio-payable-list__th">{t.columns.client.value}</th>
-                  <th className="lumio-payable-list__th">{t.columns.issueDate.value}</th>
-                  <th className="lumio-payable-list__th">{t.columns.dueDate.value}</th>
-                  <th className="lumio-payable-list__th">{t.columns.status.value}</th>
-                  <th className="lumio-payable-list__th lumio-payable-list__th--right">
+                  <th className="seneca-payable-list__th">{t.columns.number.value}</th>
+                  <th className="seneca-payable-list__th">{t.columns.client.value}</th>
+                  <th className="seneca-payable-list__th">{t.columns.issueDate.value}</th>
+                  <th className="seneca-payable-list__th">{t.columns.dueDate.value}</th>
+                  <th className="seneca-payable-list__th">{t.columns.status.value}</th>
+                  <th className="seneca-payable-list__th seneca-payable-list__th--right">
                     {t.columns.total.value}
                   </th>
-                  <th className="lumio-payable-list__th lumio-payable-list__th--right">
+                  <th className="seneca-payable-list__th seneca-payable-list__th--right">
                     {t.columns.actions.value}
                   </th>
                 </tr>
               </thead>
-              <tbody className="lumio-payable-list__tbody">
+              <tbody className="seneca-payable-list__tbody">
                 {items.map(invoice => (
                   <tr key={invoice.id}>
-                    <td className="lumio-payable-list__td" style={{ fontWeight: 500 }}>
+                    <td className="seneca-payable-list__td" style={{ fontWeight: 500 }}>
                       {invoice.invoiceNumber ?? t.statusLabels.draft.value}
                     </td>
-                    <td className="lumio-payable-list__td">{invoice.client?.name ?? '—'}</td>
-                    <td className="lumio-payable-list__td">
+                    <td className="seneca-payable-list__td">{invoice.client?.name ?? '—'}</td>
+                    <td className="seneca-payable-list__td">
                       {formatInvoiceDate(invoice.issueDate, locale)}
                     </td>
-                    <td className="lumio-payable-list__td">
+                    <td className="seneca-payable-list__td">
                       {formatInvoiceDate(invoice.dueDate, locale)}
                     </td>
-                    <td className="lumio-payable-list__td">
+                    <td className="seneca-payable-list__td">
                       <Badge variant={getInvoiceStatusVariant(invoice.status)}>
                         {statusLabels[invoice.status] ?? invoice.status}
                       </Badge>
                     </td>
                     <td
-                      className="lumio-payable-list__td"
+                      className="seneca-payable-list__td"
                       style={{ textAlign: 'right', fontWeight: 600 }}
                     >
                       {formatMoney(Number(invoice.total), invoice.currency, locale)}
@@ -309,8 +309,8 @@ export function InvoicesListView(): React.JSX.Element {
                           </div>
                         )}
                     </td>
-                    <td className="lumio-payable-list__td">
-                      <div className="lumio-payable-list__actions">
+                    <td className="seneca-payable-list__td">
+                      <div className="seneca-payable-list__actions">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -365,7 +365,7 @@ export function InvoicesListView(): React.JSX.Element {
             </table>
           </div>
 
-          <div className="lumio-payable-list__pagination-row">
+          <div className="seneca-payable-list__pagination-row">
             <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{total}</div>
             <AppPagination page={page} total={totalPages} onChange={setPage} />
           </div>

@@ -59,7 +59,7 @@ function buildService(schedule?: Record<string, unknown>) {
 }
 
 describe('CustomTableExportSchedulesService', () => {
-  const tmp = path.join(os.tmpdir(), `lumio-sched-${Date.now()}`);
+  const tmp = path.join(os.tmpdir(), `seneca-sched-${Date.now()}`);
 
   beforeAll(() => {
     process.env.UPLOADS_DIR = tmp;

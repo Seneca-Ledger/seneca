@@ -45,7 +45,7 @@ write_status() { # state tag step message finishedAt
 
 compose() { docker compose -p "$PROJECT" "$@"; }
 
-env_pin() { grep -E '^LUMIO_IMAGE_TAG=' .env 2>/dev/null | tail -n1 | cut -d= -f2; }
+env_pin() { grep -E '^IMAGE_TAG=' .env 2>/dev/null | tail -n1 | cut -d= -f2; }
 
 run_upgrade() {
   tag="$1"
@@ -71,17 +71,17 @@ run_upgrade() {
 
   BACKUP="$backup"
   write_status running "$tag" pull "" ""
-  if ! LUMIO_IMAGE_TAG="$image_tag" compose pull backend frontend >/dev/null 2>"$UPDATE_DIR/last-error"; then
+  if ! IMAGE_TAG="$image_tag" compose pull backend frontend >/dev/null 2>"$UPDATE_DIR/last-error"; then
     write_status failed "$tag" pull "$(tail -n 3 "$UPDATE_DIR/last-error")" "$(now)"
     return
   fi
 
   if [ -n "$(env_pin)" ]; then
-    sed -i "s/^LUMIO_IMAGE_TAG=.*/LUMIO_IMAGE_TAG=$tag/" .env
+    sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$tag/" .env
   fi
 
   write_status running "$tag" restart "" ""
-  if ! LUMIO_IMAGE_TAG="$image_tag" compose up -d --no-build --no-deps backend frontend >/dev/null 2>"$UPDATE_DIR/last-error"; then
+  if ! IMAGE_TAG="$image_tag" compose up -d --no-build --no-deps backend frontend >/dev/null 2>"$UPDATE_DIR/last-error"; then
     write_status failed "$tag" restart "$(tail -n 3 "$UPDATE_DIR/last-error")" "$(now)"
     return
   fi

@@ -81,12 +81,12 @@ function AggregateFooter({
   const value =
     typeof raw === 'number' ? formatCellNumber(raw, fn === 'count' ? {} : format) : (raw ?? '');
   return (
-    <span className={`lumio-ct__footer${fn ? '' : ' lumio-ct__footer--unset'}`}>
+    <span className={`seneca-ct__footer${fn ? '' : ' seneca-ct__footer--unset'}`}>
       <Select
         size="small"
         variant="standard"
         disableUnderline
-        className="lumio-ct__footer-select"
+        className="seneca-ct__footer-select"
         inputProps={{ 'aria-label': `${labels.noTotal}: ${column.title}` }}
         value={fn}
         onChange={next => onAggregateChange(column.key, (next || null) as AggregateFn | null)}
@@ -95,7 +95,7 @@ function AggregateFooter({
           ...AGGREGATE_FNS.map(item => ({ value: item, label: labels.aggregates[item] })),
         ]}
       />
-      {fn ? <span className="lumio-ct__footer-value">{value}</span> : null}
+      {fn ? <span className="seneca-ct__footer-value">{value}</span> : null}
     </span>
   );
 }
@@ -112,12 +112,12 @@ const useGridColumns = (props: TableGridProps): GridColumnDef<CustomTableGridRow
       enableSorting: false,
       enableHiding: false,
       header: ({ table }) => (
-        <span className="lumio-ct__row-select">
-          <span className="lumio-ct__row-number" aria-hidden>
+        <span className="seneca-ct__row-select">
+          <span className="seneca-ct__row-number" aria-hidden>
             #
           </span>
           <Checkbox
-            className="lumio-ct__row-checkbox"
+            className="seneca-ct__row-checkbox"
             aria-label={labels.selectAll}
             checked={table.getIsAllRowsSelected()}
             indeterminate={!table.getIsAllRowsSelected() && table.getIsSomeRowsSelected()}
@@ -125,12 +125,12 @@ const useGridColumns = (props: TableGridProps): GridColumnDef<CustomTableGridRow
           />
         </span>
       ),
-      meta: { align: 'center', className: 'lumio-ct__row-number-cell', label: labels.rowNumber },
+      meta: { align: 'center', className: 'seneca-ct__row-number-cell', label: labels.rowNumber },
       cell: ({ row }) => (
-        <span className="lumio-ct__row-select">
-          <span className="lumio-ct__row-number">{row.original.rowNumber}</span>
+        <span className="seneca-ct__row-select">
+          <span className="seneca-ct__row-number">{row.original.rowNumber}</span>
           <Checkbox
-            className="lumio-ct__row-checkbox"
+            className="seneca-ct__row-checkbox"
             aria-label={labels.selectRow}
             checked={row.getIsSelected()}
             onCheckedChange={value => row.toggleSelected(value)}
@@ -144,14 +144,14 @@ const useGridColumns = (props: TableGridProps): GridColumnDef<CustomTableGridRow
       accessorFn: row => row.data?.[column.key],
       size: column.width ?? (isNumericColumn(column) ? 140 : 200),
       header: () => (
-        <span className="lumio-ct__col-title" title={column.title}>
+        <span className="seneca-ct__col-title" title={column.title}>
           {column.title}
-          {column.isRequired ? <span className="lumio-ct__col-required">*</span> : null}
+          {column.isRequired ? <span className="seneca-ct__col-required">*</span> : null}
         </span>
       ),
       meta: {
         align: isNumericColumn(column) ? 'end' : 'start',
-        className: isNumericColumn(column) ? 'lumio-grid__cell--numeric' : undefined,
+        className: isNumericColumn(column) ? 'seneca-grid__cell--numeric' : undefined,
         label: column.title,
         headerActions: (
           <ColumnMenu
@@ -240,7 +240,7 @@ export function TableGrid(props: TableGridProps) {
   // A new row lands at the end of the loaded rows, usually far below the fold.
   // Scroll there, then focus its first cell once the virtualizer has drawn it.
   useEffect(() => {
-    const scroller = frame.current?.querySelector<HTMLElement>('.lumio-grid__scroll');
+    const scroller = frame.current?.querySelector<HTMLElement>('.seneca-grid__scroll');
     if (!(revealReady && scroller)) {
       return;
     }
@@ -248,7 +248,7 @@ export function TableGrid(props: TableGridProps) {
     let frameId = requestAnimationFrame(() => {
       frameId = requestAnimationFrame(() => {
         frame.current
-          ?.querySelector<HTMLElement>('.lumio-ct__row--new .lumio-ct__cell-button')
+          ?.querySelector<HTMLElement>('.seneca-ct__row--new .seneca-ct__cell-button')
           ?.focus();
       });
     });
@@ -267,22 +267,22 @@ export function TableGrid(props: TableGridProps) {
         caption={labels.caption}
         loading={loading}
         skeletonRows={props.skeletonRows}
-        className={`lumio-ct__grid${selecting ? ' lumio-ct__grid--selecting' : ''}`}
+        className={`seneca-ct__grid${selecting ? ' seneca-ct__grid--selecting' : ''}`}
         maxHeight={fillHeight ?? 'calc(100vh - var(--global-nav-height, 0px) - 232px)'}
         virtualization={{ rowHeight: ROW_HEIGHT }}
-        rowClassName={row => (row.id === revealRowId ? 'lumio-ct__row--new' : undefined)}
+        rowClassName={row => (row.id === revealRowId ? 'seneca-ct__row--new' : undefined)}
         onEndReached={hasMore && !loading ? props.onLoadMore : undefined}
         showFooter={hasTotals}
         emptyState={
-          <div className="lumio-ct__empty">
+          <div className="seneca-ct__empty">
             <strong>{labels.emptyTitle}</strong>
             <span>{labels.emptySubtitle}</span>
           </div>
         }
         trailing={
-          <tr className="lumio-ct__add-row">
+          <tr className="seneca-ct__add-row">
             <td colSpan={table.getVisibleLeafColumns().length}>
-              <button type="button" className="lumio-ct__add-row-btn" onClick={props.onAddRow}>
+              <button type="button" className="seneca-ct__add-row-btn" onClick={props.onAddRow}>
                 <Plus size={14} aria-hidden />
                 {labels.addRow}
               </button>

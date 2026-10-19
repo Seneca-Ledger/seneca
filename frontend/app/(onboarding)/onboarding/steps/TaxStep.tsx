@@ -11,6 +11,7 @@ import { FORM_CONTROL_SX } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer } from '@/app/i18n';
+import { APP_NAME } from '@/app/lib/brand';
 import { FlagIcon } from '../components/FlagIcon';
 import { FieldLabel } from '../components/OnboardingField';
 import { StepHeading } from '../components/StepHeading';
@@ -78,7 +79,7 @@ export function TaxStep({
         title={text(['tax', 'title'], 'Where do you pay tax?')}
         subtitle={text(
           ['tax', 'subtitle'],
-          'Lumio uses it for VAT rates and the income tax declaration in this workspace.',
+          `${APP_NAME} uses it for VAT rates and the income tax declaration in this workspace.`,
         )}
       />
 

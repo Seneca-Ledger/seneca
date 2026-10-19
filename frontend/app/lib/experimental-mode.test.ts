@@ -19,6 +19,6 @@ describe('experimental mode', () => {
     setExperimentalModeEnabled(false);
 
     expect(isExperimentalModeEnabled()).toBe(false);
-    expect(window.localStorage.getItem('lumio-experimental-mode')).toBeNull();
+    expect(window.localStorage.getItem('seneca-experimental-mode')).toBeNull();
   });
 });

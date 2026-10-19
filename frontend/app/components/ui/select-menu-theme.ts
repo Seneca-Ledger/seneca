@@ -1,7 +1,7 @@
 import type { Components, Theme } from '@mui/material/styles';
 
 /** Marks the paper of a Select's menu, so its items may wrap. */
-export const SELECT_MENU_CLASS = 'lumio-select-menu';
+export const SELECT_MENU_CLASS = 'seneca-select-menu';
 
 /** Below this a field is a chip in a toolbar; its menu may grow past it rather than wrap every option. */
 const MIN_PINNED_MENU_WIDTH = 200;

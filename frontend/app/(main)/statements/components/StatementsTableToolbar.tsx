@@ -54,7 +54,7 @@ export function StatementsTableToolbar({
   onColumnsOpen,
 }: Props): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__table-toolbar">
+    <div className="seneca-stmt-list-view__table-toolbar">
       <div
         style={{
           display: 'flex',
@@ -89,12 +89,12 @@ export function StatementsTableToolbar({
         {!loading && duplicateStatementIds.length > 0 ? (
           <button
             type="button"
-            className="lumio-stmt-list-view__duplicate-chip"
+            className="seneca-stmt-list-view__duplicate-chip"
             onClick={onSelectDetectedDuplicates}
           >
             <Copy size={14} />
             {labels.selectDuplicates}
-            <span className="lumio-stmt-list-view__duplicate-count">
+            <span className="seneca-stmt-list-view__duplicate-count">
               ({duplicateStatementIds.length})
             </span>
           </button>

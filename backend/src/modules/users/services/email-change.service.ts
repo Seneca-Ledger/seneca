@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger } from '@nes
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, type Repository } from 'typeorm';
+import { APP_NAME } from '../../../common/brand';
 import { requireSecret } from '../../../common/utils/required-secret.util';
 import {
   createVerificationToken,
@@ -82,11 +83,11 @@ export class EmailChangeService {
     try {
       const sent = await this.mailerService.send({
         to: normalized,
-        subject: 'Confirm your new Lumio email address',
+        subject: `Confirm your new ${APP_NAME} email address`,
         text: [
           `Hello${user.name ? ` ${user.name}` : ''},`,
           '',
-          `A request was made to change the Lumio account email to ${normalized}.`,
+          `A request was made to change the ${APP_NAME} account email to ${normalized}.`,
           `Open this link to confirm it (valid for 24 hours): ${confirmUrl}`,
           '',
           'If this was not you, you can ignore this email — the account keeps its current address.',

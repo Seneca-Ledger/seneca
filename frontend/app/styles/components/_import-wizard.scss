@@ -1,5 +1,5 @@
 // Spreadsheet → app records wizard (app/components/import-wizard).
-.lumio-iw {
+.seneca-iw {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -130,14 +130,14 @@
 
 }
 
-.lumio-iw__banner {
+.seneca-iw__banner {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 8px;
   align-items: baseline;
 }
 
-.lumio-iw__banner-action {
+.seneca-iw__banner-action {
   background: none;
   border: none;
   padding: 0;

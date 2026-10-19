@@ -1,9 +1,9 @@
 ---
 title: Quick Start
-description: Run Lumio locally with Docker in minutes
+description: Run Seneca locally with Docker in minutes
 ---
 
-This guide gets you from zero to a running Lumio stack using Docker Compose.
+This guide gets you from zero to a running Seneca stack using Docker Compose.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ Database migrations run automatically when the backend starts.
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:3001/api/v1
 - Swagger: http://localhost:3001/api/docs (not served when `NODE_ENV=production`)
-- Demo credentials: `demo@lumio.dev` / `demo123`
+- Demo credentials: `demo@seneca.dev` / `demo123`
 
 PostgreSQL listens on `127.0.0.1:5434` and Redis on `127.0.0.1:6379`.
 
@@ -40,6 +40,6 @@ PostgreSQL listens on `127.0.0.1:5434` and Redis on `127.0.0.1:6379`.
 
 - Upload a statement from the Statements page
 - Connect storage, mail or bank sync under **Integrations** — see [Integrations](../guides/integrations)
-- Read [Configuration](configuration) before exposing Lumio beyond localhost
+- Read [Configuration](configuration) before exposing Seneca beyond localhost
 
 Next: [Local Development](local-development)

@@ -81,7 +81,7 @@ export default async function RootLayout({
       {process.env.NODE_ENV === 'development' ? <ReactScan /> : null}
       <body className={FONT_CLASS_NAMES} style={BODY_STYLE} suppressHydrationWarning>
         {/* First Tab stop: jumps past the sidebar and top bar; shown only while focused. */}
-        <a href="#main-content" className="lumio-skip-link">
+        <a href="#main-content" className="seneca-skip-link">
           {t.skipToContent.value}
         </a>
         <IntlayerServerProvider>
@@ -98,11 +98,11 @@ export default async function RootLayout({
                 defaultPosition="left"
                 defaultCollapsed={false}
                 persistState={true}
-                storageKey="lumio-side-panel"
+                storageKey="seneca-side-panel"
               >
-                <div className="lumio-shell">
+                <div className="seneca-shell">
                   <AppChrome />
-                  <div className="lumio-shell__content">
+                  <div className="seneca-shell__content">
                     <TopBar />
                     <main id="main-content" tabIndex={-1}>
                       {children}

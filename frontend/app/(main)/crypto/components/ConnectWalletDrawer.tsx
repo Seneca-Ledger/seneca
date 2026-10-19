@@ -143,11 +143,11 @@ export function ConnectWalletDrawer({
         '@media (min-width:600px)': { maxWidth: 512 },
       }}
       title={
-        <div className="lumio-payable-drawer__title-wrap">
+        <div className="seneca-payable-drawer__title-wrap">
           <button
             type="button"
             onClick={close}
-            className="lumio-payable-drawer__back-btn"
+            className="seneca-payable-drawer__back-btn"
             aria-label={labels.cancel}
           >
             <ChevronLeft size={20} />
@@ -158,7 +158,7 @@ export function ConnectWalletDrawer({
         </div>
       }
     >
-      <div className="lumio-payable-drawer__body">
+      <div className="seneca-payable-drawer__body">
         <div style={{ display: 'grid', gap: 16 }}>
           <Box component="fieldset" sx={{ border: 0, m: 0, p: 0 }}>
             <Typography component="legend" variant="body2" fontWeight={600} sx={{ mb: 1 }}>
@@ -317,7 +317,7 @@ export function ConnectWalletDrawer({
           </Typography>
         </div>
 
-        <div className="lumio-payable-drawer__footer">
+        <div className="seneca-payable-drawer__footer">
           <Button variant="outlined" sx={{ flex: 1 }} onClick={close} disabled={saving}>
             {labels.cancel}
           </Button>
