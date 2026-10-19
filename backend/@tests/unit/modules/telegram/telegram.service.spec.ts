@@ -496,6 +496,76 @@ describe('TelegramService bot choice', () => {
   });
 });
 
+describe('TelegramService inbound bot', () => {
+  const goals = { message: { chat: { id: 'chat-1' }, text: '/goals', from: { id: 'tg-9' } } };
+
+  it('answers a chat only on the bot of the workspace it was connected in', async () => {
+    const calls = mockFetchOk();
+    const { service, goalsService } = createService({
+      users: [user({ locale: 'en', telegramId: 'tg-9', telegramWorkspaceId: 'ws-open' })],
+      workspaceBotToken: '456:ws',
+    });
+
+    // Another workspace's bot, whose token its admin knows: every field of the update is theirs.
+    await service.handleUpdate(goals, '999:attacker');
+    expect(goalsService.findAll).not.toHaveBeenCalled();
+    expect(calls[0].text).toContain(`This chat isn't connected to a ${APP_NAME} account yet`);
+    expect(calls[0].url).toContain('/bot999:attacker/sendMessage');
+
+    await service.handleUpdate(goals, '456:ws');
+    expect(goalsService.findAll).toHaveBeenCalledWith('ws-open');
+  });
+
+  it('serves a workspace without its own bot only through the shared bot', async () => {
+    mockFetchOk();
+    const { service, goalsService } = createService({
+      users: [user({ locale: 'en', telegramId: 'tg-9', telegramWorkspaceId: 'ws-open' })],
+    });
+
+    await service.handleUpdate(goals, '999:attacker');
+    expect(goalsService.findAll).not.toHaveBeenCalled();
+
+    await service.handleUpdate(goals);
+    expect(goalsService.findAll).toHaveBeenCalledWith('ws-open');
+  });
+
+  it('finds the account by the chat, and by the sender only for a chat never recorded', async () => {
+    mockFetchOk();
+    const { service, userRepository } = createService({ users: [user({ locale: 'en' })] });
+    const queryBuilder = userRepository.createQueryBuilder();
+    userRepository.createQueryBuilder.mockClear();
+    queryBuilder.andWhere.mockClear();
+    queryBuilder.getOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+    await service.handleUpdate(goals);
+
+    expect(queryBuilder.andWhere.mock.calls).toEqual(
+      expect.arrayContaining([
+        ['user.telegramChatId = :chatId', { chatId: 'chat-1' }],
+        ['user.telegramId = :telegramId', { telegramId: 'tg-9' }],
+        ['user.telegramChatId IS NULL'],
+      ]),
+    );
+    expect(queryBuilder.andWhere.mock.calls).not.toContainEqual([
+      expect.stringContaining(' OR '),
+      expect.anything(),
+    ]);
+  });
+});
+
+describe('TelegramService send-report', () => {
+  it('refuses to send to a chat other than the caller’s own', async () => {
+    const calls = mockFetchOk();
+    const { service, reportsService } = createService();
+
+    await expect(
+      service.sendReport(user(), { reportType: 'daily' as any, chatId: 'someone-else' }, 'ws-open'),
+    ).rejects.toThrow('chatId must be your connected Telegram chat');
+    expect(reportsService.generateDailyReport).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe('TelegramService connection', () => {
   it('reports whether the bot answers for the workspace being viewed', () => {
     const { service } = createService();
