@@ -47,7 +47,18 @@ describe('transaction tools', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('updates one transaction as the caller, seeing it as their member', async () => {
-    await tool(tools, 'update_transaction').run(ctx, { id: 't1', comments: 'lunch', categoryId: null });
+    transactions.update.mockResolvedValue({
+      id: 't1',
+      isPrivate: true,
+      ownerMemberId: 'member-2',
+      counterpartyName: 'Jeweller',
+    });
+
+    const result = await tool(tools, 'update_transaction').run(ctx, {
+      id: 't1',
+      comments: 'lunch',
+      categoryId: null,
+    });
 
     expect(transactions.update).toHaveBeenCalledWith(
       't1',
@@ -57,6 +68,8 @@ describe('transaction tools', () => {
       null,
       'member-1',
     );
+    // Someone else's private row comes back as the list shows it.
+    expect(result).toMatchObject({ id: 't1', counterpartyName: '—' });
   });
 
   it('puts many transactions into one category and answers how many changed', async () => {

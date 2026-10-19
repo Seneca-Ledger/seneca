@@ -13,6 +13,8 @@ const REDACTED_FIELDS = [
   'counterpartyBank',
   'counterpartyVatId',
   'vendorNormalized',
+  // The normalised merchant the payee is keyed on: the merchant, lower-cased.
+  'payeeKey',
   'categoryHint',
   'article',
   'comments',
@@ -68,4 +70,35 @@ export function redactPrivateRows<T extends Pick<Transaction, 'isPrivate' | 'own
     redactPrivate(row, viewerMemberId);
   }
   return rows;
+}
+
+/**
+ * The parameter the SQL helpers below read the viewer's member id from. Bind
+ * it to `null` for output nobody in particular reads (a scheduled run, a
+ * filing): then every private row counts as somebody else's.
+ */
+export const PRIVACY_VIEWER_PARAM = 'privacyViewerId';
+
+/**
+ * `canReadPrivate` as SQL over the `transactions` row aliased `alias`, for a
+ * WHERE clause or a CASE. Uses column names, so it works in raw SQL and in a
+ * query builder alike; `param` is how that query spells the viewer's id
+ * (`:privacyViewerId` by default, or a positional `$n`).
+ */
+export function readablePrivateSql(alias: string, param = `:${PRIVACY_VIEWER_PARAM}`): string {
+  return `(${alias}.is_private = false OR ${alias}.owner_member_id = ${param})`;
+}
+
+/**
+ * `expr` for a row the viewer may read, the placeholder for anybody else's
+ * private row — for aggregates that name the merchant or the purpose. The row
+ * itself still counts, under the placeholder, so the totals do not change
+ * with who is asking.
+ */
+export function redactedSql(
+  alias: string,
+  expr: string,
+  param = `:${PRIVACY_VIEWER_PARAM}`,
+): string {
+  return `(CASE WHEN ${readablePrivateSql(alias, param)} THEN ${expr} ELSE '${PRIVATE_PLACEHOLDER}' END)`;
 }

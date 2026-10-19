@@ -10,10 +10,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { redactPrivate } from '../../common/utils/transaction-privacy.util';
 import { ClassifyBulkBody } from '../../contracts';
 import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
@@ -35,6 +36,7 @@ export class ClassificationController {
     @Param('id') id: string,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     const transaction = await this.transactionRepository.findOne({
       where: { id, workspaceId },
@@ -52,7 +54,7 @@ export class ClassificationController {
     Object.assign(transaction, classification);
     await this.transactionRepository.save(transaction);
 
-    return transaction;
+    return redactPrivate(transaction, selfMemberId);
   }
 
   @Post('bulk')
