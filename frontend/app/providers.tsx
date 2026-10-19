@@ -15,6 +15,7 @@ import {
   persistLocaleToCookie,
   readLocaleFromCookie,
 } from '@/app/lib/locale';
+import { usePickerLocale } from '@/app/lib/picker-locale';
 import { getQueryClient } from '@/app/lib/query-client';
 import {
   getStoredThemePreference,
@@ -122,6 +123,8 @@ export function Providers({
   const { resolvedTheme } = useNextTheme();
   const [mounted, setMounted] = useState(false);
   const [locale, setLocale] = useState<AppLocale>(() => readLocaleFromCookie() ?? initialLocale);
+  // Without it every date picker spoke English: month names, placeholders, labels.
+  const pickerLocale = usePickerLocale(locale);
   // Before mount, the server's guess from the cookie, so hydration matches the SSR markup.
   const paletteMode: ResolvedAppTheme =
     mounted && resolvedTheme ? (resolvedTheme === 'dark' ? 'dark' : 'light') : initialPaletteMode;
@@ -152,7 +155,11 @@ export function Providers({
       <HtmlLanguageSync />
       <ThemePreferenceSync />
       <ThemeProvider theme={muiTheme}>
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <LocalizationProvider
+          dateAdapter={AdapterDateFns}
+          adapterLocale={pickerLocale?.dateLocale}
+          localeText={pickerLocale?.localeText}
+        >
           {/* Выше AuthProvider и WorkspaceProvider: их собственные запросы —
               следующие цели миграции, а NotificationProvider внутри
               WorkspaceScopedProviders уже использует кэш. Строго вне
