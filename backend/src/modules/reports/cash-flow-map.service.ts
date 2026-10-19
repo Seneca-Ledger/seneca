@@ -7,6 +7,7 @@ import {
   type OwnerFilter,
   parseOwnerFilter,
 } from '../../common/utils/transaction-owner.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
 import type { CashFlowMapQuery } from '../../contracts';
 import { Category } from '../../entities/category.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
@@ -100,6 +101,7 @@ export class CashFlowMapService {
       includeTransfers,
       allowed,
       owner,
+      selfMemberId,
     );
     const previousRows = previous
       ? await this.loadRows(
@@ -110,6 +112,7 @@ export class CashFlowMapService {
           includeTransfers,
           allowed,
           owner,
+          selfMemberId,
         )
       : null;
 
@@ -153,6 +156,7 @@ export class CashFlowMapService {
     includeTransfers: boolean,
     allowed: Set<string> | null,
     owner: OwnerFilter,
+    selfMemberId: string | null,
   ): Promise<CashFlowRow[]> {
     const qb = this.transactionRepository
       .createQueryBuilder('t')
@@ -162,13 +166,15 @@ export class CashFlowMapService {
         't.credit AS credit',
         't.debit AS debit',
         't.categoryId AS "categoryId"',
-        't.counterpartyName AS "counterpartyName"',
+        // Another member's private rows count under the placeholder, not their merchant.
+        `${redactedSql('t', 't.counterparty_name')} AS "counterpartyName"`,
         't.transferPairId AS "transferPairId"',
       ])
       .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.isDuplicate = false')
       .andWhere('t.transactionDate >= :from', { from })
-      .andWhere('t.transactionDate <= :to', { to });
+      .andWhere('t.transactionDate <= :to', { to })
+      .setParameter(PRIVACY_VIEWER_PARAM, selfMemberId);
     onlyFlows(qb, 't');
     applyOwnerFilter(qb, 't', owner);
     if (!includeTransfers) {

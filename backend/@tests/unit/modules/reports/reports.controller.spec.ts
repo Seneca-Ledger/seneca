@@ -33,7 +33,7 @@ describe('ReportsController', () => {
     const result = await controller.getDailyReport({ id: 'u1' } as any, workspaceId, 'latest');
 
     expect(result).toEqual({ day: 'ok' });
-    expect(reportsService.generateDailyReport).toHaveBeenCalledWith(workspaceId, '2025-01-02');
+    expect(reportsService.generateDailyReport).toHaveBeenCalledWith(workspaceId, '2025-01-02', null);
   });
 
   it('exportReport sets headers and schedules cleanup', async () => {
@@ -194,6 +194,7 @@ describe('ReportsController', () => {
     expect(reportsService.exportWorkspaceTransactions).toHaveBeenCalledWith(
       'ws-1',
       WorkspaceExportFormat.DOCX,
+      null,
     );
     expect(res.setHeader).toHaveBeenCalledWith(
       'Content-Type',

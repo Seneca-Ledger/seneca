@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { flowsSql, onlyFlows } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
 import type {
   DashboardActionItem,
   DashboardCashFlowPoint,
@@ -144,6 +145,7 @@ export class DashboardService {
     workspaceId: string,
     range: '7d' | '30d' | '90d' | 'month' = '30d',
     endDateParam?: string,
+    viewerMemberId: string | null = null,
   ): Promise<DashboardResponse> {
     const isMonth = range === 'month';
     const days = range === '7d' ? 7 : range === '90d' ? 90 : 30;
@@ -189,9 +191,19 @@ export class DashboardService {
     const [cashFlow, topMerchants, topCategories, recentTransactions, actions, dataHealth] =
       await Promise.all([
         this.getCashFlow(workspaceId, effectiveWindow.since, effectiveWindow.endDate, bucketDays),
-        this.getTopMerchants(workspaceId, effectiveWindow.since, effectiveWindow.endDate),
+        this.getTopMerchants(
+          workspaceId,
+          effectiveWindow.since,
+          effectiveWindow.endDate,
+          viewerMemberId,
+        ),
         this.getTopCategories(workspaceId, effectiveWindow.since, effectiveWindow.endDate),
-        this.getRecentTransactions(workspaceId, effectiveWindow.since, effectiveWindow.endDate),
+        this.getRecentTransactions(
+          workspaceId,
+          effectiveWindow.since,
+          effectiveWindow.endDate,
+          viewerMemberId,
+        ),
         this.getActions(userId, workspaceId, queueWindow),
         this.getDataHealth(workspaceId, queueWindow),
       ]);
@@ -617,23 +629,27 @@ export class DashboardService {
     workspaceId: string,
     since: Date,
     endDate: Date,
+    viewerMemberId: string | null,
   ): Promise<DashboardTopMerchant[]> {
     const targetCurrency = await this.getWorkspaceCurrency(workspaceId);
     const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
 
     this.applyActiveStatementTransactionFilters(query, workspaceId, since, endDate);
 
+    // Another member's private rows count under the placeholder, not their merchant.
+    const name = redactedSql('t', 't.counterparty_name');
     const result = await query
-      .select('t.counterpartyName', 'name')
+      .select(name, 'name')
       .addSelect('t.currency', 'currency')
       .addSelect('COALESCE(SUM(t.debit), 0)', 'amount')
       .addSelect('COUNT(t.id)', 'count')
       .andWhere('t.transactionType = :expense', { expense: TransactionType.EXPENSE })
       .andWhere('t.counterpartyName IS NOT NULL')
       .andWhere("t.counterpartyName != ''")
-      .groupBy('t.counterpartyName')
+      .groupBy(name)
       .addGroupBy('t.currency')
       .orderBy('amount', 'DESC')
+      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
       .getRawMany<{ name: string; currency: string; amount: string; count: string }>();
 
     const rows = new Map<string, DashboardTopMerchant>();
@@ -755,6 +771,7 @@ export class DashboardService {
     workspaceId: string,
     since: Date,
     endDate: Date,
+    viewerMemberId: string | null,
   ): Promise<DashboardRecentTransaction[]> {
     const targetCurrency = await this.getWorkspaceCurrency(workspaceId);
     const query = this.transactionRepo
@@ -766,7 +783,7 @@ export class DashboardService {
 
     const rows = await query
       .select('t.id', 'id')
-      .addSelect('t.counterpartyName', 'description')
+      .addSelect(redactedSql('t', 't.counterparty_name'), 'description')
       .addSelect('t.debit', 'debit')
       .addSelect('t.credit', 'credit')
       .addSelect('t.transactionType', 'transactionType')
@@ -784,6 +801,7 @@ export class DashboardService {
       .orderBy('t.transactionDate', 'DESC')
       .addOrderBy('t.createdAt', 'DESC')
       .limit(RECENT_TRANSACTIONS_LIMIT)
+      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
       .getRawMany<{
         id: string;
         description: string;
@@ -1198,10 +1216,11 @@ export class DashboardService {
     workspaceId: string,
     days = 30,
     month?: string,
+    viewerMemberId: string | null = null,
   ): Promise<DashboardTrendsResponse> {
     const monthWindow = parseMonthWindow(month);
     if (monthWindow) {
-      return this.getMonthTrends(workspaceId, monthWindow);
+      return this.getMonthTrends(workspaceId, monthWindow, viewerMemberId);
     }
 
     const requestedWindow = getWindowBounds(days, new Date());
@@ -1211,6 +1230,7 @@ export class DashboardService {
       requestedWindow.since,
       requestedWindow.endDate,
       days,
+      viewerMemberId,
     );
     let autoShifted = false;
 
@@ -1224,6 +1244,7 @@ export class DashboardService {
           effectiveWindow.since,
           effectiveWindow.endDate,
           days,
+          viewerMemberId,
         );
         autoShifted = true;
       }
@@ -1248,6 +1269,7 @@ export class DashboardService {
   private async getMonthTrends(
     workspaceId: string,
     month: DashboardWindow,
+    viewerMemberId: string | null,
   ): Promise<DashboardTrendsResponse> {
     const now = new Date();
     const isCurrentMonth = month.since <= now && now <= month.endDate;
@@ -1256,7 +1278,13 @@ export class DashboardService {
     const window = isCurrentMonth ? { since: month.since, endDate: endOfToday } : month;
     const days = daysInMonth(month.since);
 
-    const trendData = await this.getTrendData(workspaceId, window.since, window.endDate, days);
+    const trendData = await this.getTrendData(
+      workspaceId,
+      window.since,
+      window.endDate,
+      days,
+      viewerMemberId,
+    );
     const dailyTrend = this.toDailyTrend(trendData, window, days);
     const forecast = isCurrentMonth
       ? await this.computeForecast(workspaceId, dailyTrend, window, days)
@@ -1591,10 +1619,13 @@ export class DashboardService {
     since: Date,
     endDate: Date,
     days: number,
+    viewerMemberId: string | null,
   ): Promise<TrendRows> {
     const currency = await this.getWorkspaceCurrency(workspaceId);
     const convert = (amount: string, from: string) =>
       this.convertDashboardAmount(amount, from, currency, workspaceId);
+    // Another member's private income counts under the placeholder, not its payer.
+    const incomeSource = redactedSql('t', 't.counterparty_name');
 
     const [daily, categoryRows, counterpartyRows, countRow] = await Promise.all([
       this.sumCashFlowByBucket(
@@ -1625,15 +1656,16 @@ export class DashboardService {
           count: string;
         }>(),
       this.createTrendBaseQuery(workspaceId, since, endDate)
-        .select('t.counterpartyName', 'name')
+        .select(incomeSource, 'name')
         .addSelect('t.currency', 'currency')
         .addSelect('COALESCE(SUM(t.credit), 0)', 'amount')
         .addSelect('COUNT(t.id)', 'count')
         .andWhere('t.transactionType = :income', { income: TransactionType.INCOME })
         .andWhere('t.counterpartyName IS NOT NULL')
         .andWhere("t.counterpartyName != ''")
-        .groupBy('t.counterpartyName')
+        .groupBy(incomeSource)
         .addGroupBy('t.currency')
+        .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
         .getRawMany<{ name: string; currency: string; amount: string; count: string }>(),
       this.createTrendBaseQuery(workspaceId, since, endDate)
         .select('COUNT(DISTINCT t.id)', 'rows')
