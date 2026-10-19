@@ -29,5 +29,6 @@ import { TaxDeadlinesService } from './tax-deadlines.service';
   ],
   controllers: [TaxDeadlinesController],
   providers: [TaxDeadlinesService],
+  exports: [TaxDeadlinesService],
 })
 export class TaxRemindersModule {}

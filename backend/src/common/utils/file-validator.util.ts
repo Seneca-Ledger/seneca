@@ -273,6 +273,27 @@ export function validateFile(
   }
 }
 
+/** What a receipt may be: a photo or scan, a PDF, or a structured e-invoice. */
+const SUPPORTED_RECEIPT_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/bmp',
+  'image/tiff',
+  'application/pdf',
+  // A structured e-invoice (XRechnung) sent as the XML itself.
+  'application/xml',
+  'text/xml',
+]);
+
+/** Refuses a receipt upload that is not an image, a PDF or an e-invoice XML. */
+export function assertReceiptFileSupported(file: Express.Multer.File): void {
+  const isXml = file.mimetype === 'application/xml' || file.mimetype === 'text/xml';
+  if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype) || (isXml && !isEInvoiceXml(file))) {
+    throw new BadRequestException('Only image, PDF and e-invoice XML receipt files are supported');
+  }
+}
+
 // Avatars are the one upload that is served back from a @Public() route, so
 // they get their own image-only allowlist: `validateFile` above accepts PDF
 // and Office documents too, which must never be reachable through that route.
