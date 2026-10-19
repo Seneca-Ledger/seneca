@@ -49,6 +49,10 @@ interface UploadedPhoto {
   filename: string;
 }
 
+/**
+ * Reading the metals book is a report; changing it changes what the workspace owns, so the
+ * writes take the wallet permissions, like crypto holdings (owner and admins).
+ */
 @Controller('metals')
 export class MetalsController {
   constructor(private readonly metalsService: MetalsService) {}
@@ -61,7 +65,7 @@ export class MetalsController {
   }
 
   @Post('lots')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_CREATE)
   async addLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -71,7 +75,7 @@ export class MetalsController {
   }
 
   @Patch('lots/:id')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   async updateLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -83,7 +87,7 @@ export class MetalsController {
 
   @Delete('lots/:id')
   @HttpCode(204)
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_DELETE)
   async deleteLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -102,7 +106,7 @@ export class MetalsController {
 
   /** Sells a lot, whole or in part; proceeds of zero record a gift. */
   @Post('lots/:id/sell')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   async sellLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -114,7 +118,7 @@ export class MetalsController {
 
   /** What a dealer pays below spot, per metal. */
   @Patch('settings')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   async saveSettings(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -125,7 +129,7 @@ export class MetalsController {
   }
 
   @Post('lots/:id/photo')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   @UseInterceptors(
     FileInterceptor('photo', {
       storage: diskStorage({
@@ -165,7 +169,7 @@ export class MetalsController {
   }
 
   @Delete('lots/:id/photo')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   async removePhoto(@WorkspaceId() workspaceId: string, @Param('id') id: string) {
     return this.metalsService.removePhoto(workspaceId, id);
   }
@@ -173,7 +177,7 @@ export class MetalsController {
   /** Re-quotes every lot whose price was not hand-entered. */
   @Post('refresh-prices')
   @HttpCode(200)
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   async refreshPrices(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const updated = await this.metalsService.refreshPrices(user.id, workspaceId);
     return { updated };
