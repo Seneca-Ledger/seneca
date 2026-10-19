@@ -1,10 +1,11 @@
 'use client';
 
+import { Box, IconButton, Modal, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
 import { X, ZoomIn, ZoomOut } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 import { gmailReceiptsApi } from '@/app/lib/api';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, IconButton, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
 
 interface ReceiptPreviewModalProps {
   receiptId: string;
@@ -28,6 +29,7 @@ export function ReceiptPreviewModal({
   receiptId,
   onClose,
 }: ReceiptPreviewModalProps): React.JSX.Element {
+  const t = useIntlayer('receiptPreviewModal');
   const [preview, setPreview] = useState<ReceiptPreviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(100);
@@ -36,22 +38,24 @@ export function ReceiptPreviewModal({
     let active = true;
 
     const loadPreview = async (): Promise<void> => {
-      try {
+      await (async () => {
         setLoading(true);
         const response = await gmailReceiptsApi.getReceiptPreview(receiptId);
         if (active) {
           setPreview(response.data);
         }
-      } catch (error) {
-        console.error('Failed to load preview', error);
-        if (active) {
-          setPreview(null);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
+      })()
+        .catch(async error => {
+          console.error('Failed to load preview', error);
+          if (active) {
+            setPreview(null);
+          }
+        })
+        .finally(async () => {
+          if (active) {
+            setLoading(false);
+          }
+        });
     };
 
     void loadPreview();
@@ -76,7 +80,7 @@ export function ReceiptPreviewModal({
         <Box
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}
         >
-          <Typography style={{ color: 'var(--muted-foreground)' }}>Loading preview...</Typography>
+          <Typography style={{ color: 'var(--muted-foreground)' }}>{t.loading}</Typography>
         </Box>
       );
     }
@@ -86,9 +90,7 @@ export function ReceiptPreviewModal({
         <Box
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}
         >
-          <Typography style={{ color: 'var(--muted-foreground)' }}>
-            Failed to load preview
-          </Typography>
+          <Typography style={{ color: 'var(--muted-foreground)' }}>{t.loadFailed}</Typography>
         </Box>
       );
     }
@@ -144,7 +146,7 @@ export function ReceiptPreviewModal({
                     />
                   ) : (
                     <Box sx={{ textAlign: 'center', color: 'var(--muted-foreground)', py: 4 }}>
-                      <Typography>Preview not available for this file type</Typography>
+                      <Typography>{t.unsupportedType}</Typography>
                       <Typography style={{ fontSize: 14, marginTop: 8 }}>
                         {attachment.mimeType}
                       </Typography>
@@ -169,7 +171,7 @@ export function ReceiptPreviewModal({
           }}
         >
           <iframe
-            title="Receipt email preview"
+            title={t.emailPreview.value}
             style={{ width: '100%', height: 600, border: 'none' }}
             sandbox="allow-same-origin"
             srcDoc={preview.emailBody}
@@ -180,7 +182,7 @@ export function ReceiptPreviewModal({
 
     return (
       <Box sx={{ textAlign: 'center', color: 'var(--muted-foreground)', py: 4 }}>
-        <Typography>No preview available</Typography>
+        <Typography>{t.noPreview}</Typography>
         {preview.snippet ? (
           <Typography style={{ marginTop: 8, fontSize: 14 }}>{preview.snippet}</Typography>
         ) : null}
@@ -188,84 +190,82 @@ export function ReceiptPreviewModal({
     );
   };
 
+  // Modal traps focus inside, closes on Escape and restores focus on unmount.
   return (
-    <>
-      <Box
-        sx={{
-          position: 'fixed',
-          inset: 0,
-          bgcolor: 'rgba(0,0,0,0.75)',
-          zIndex: 50,
-        }}
-        role="button"
-        tabIndex={0}
-        onClick={onClose}
-        onKeyDown={event => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onClose();
-          }
-        }}
-        aria-label="Close receipt preview"
-      />
-      <Box
-        sx={{
-          position: 'fixed',
-          inset: 16,
-          bgcolor: 'background.paper',
-          borderRadius: tokens.radius.xl,
-          zIndex: 50,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+    <Modal open onClose={onClose} hideBackdrop>
+      <Box tabIndex={-1} sx={{ outline: 'none' }}>
         <Box
           sx={{
+            position: 'fixed',
+            inset: 0,
+            bgcolor: 'rgba(0,0,0,0.75)',
+            zIndex: 50,
+          }}
+          aria-hidden="true"
+          onClick={onClose}
+        />
+        <Box
+          role="dialog"
+          aria-modal="true"
+          aria-label={t.title.value}
+          sx={{
+            position: 'fixed',
+            inset: 16,
+            bgcolor: 'background.paper',
+            borderRadius: tokens.radius.xl,
+            zIndex: 50,
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            p: 2,
-            borderBottom: '1px solid var(--border-color)',
+            flexDirection: 'column',
           }}
         >
-          <Typography style={{ fontSize: 18, fontWeight: 700 }}>Receipt Preview</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton
-              size="small"
-              onClick={handleZoomOut}
-              title="Zoom Out"
-              sx={{ borderRadius: tokens.radius.sm }}
-            >
-              <ZoomOut style={{ width: 20, height: 20 }} />
-            </IconButton>
-            <Typography style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-              {zoom}%
-            </Typography>
-            <IconButton
-              size="small"
-              onClick={handleZoomIn}
-              title="Zoom In"
-              sx={{ borderRadius: tokens.radius.sm }}
-            >
-              <ZoomIn style={{ width: 20, height: 20 }} />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={onClose}
-              title="Close"
-              sx={{ ml: 2, borderRadius: tokens.radius.sm }}
-            >
-              <X style={{ width: 20, height: 20 }} />
-            </IconButton>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              p: 2,
+              borderBottom: '1px solid var(--border-color)',
+            }}
+          >
+            <Typography style={{ fontSize: 18, fontWeight: 700 }}>{t.title}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton
+                size="small"
+                onClick={handleZoomOut}
+                title={t.zoomOut.value}
+                sx={{ borderRadius: tokens.radius.sm }}
+              >
+                <ZoomOut style={{ width: 20, height: 20 }} />
+              </IconButton>
+              <Typography style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                {zoom}%
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={handleZoomIn}
+                title={t.zoomIn.value}
+                sx={{ borderRadius: tokens.radius.sm }}
+              >
+                <ZoomIn style={{ width: 20, height: 20 }} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={onClose}
+                title={t.close.value}
+                sx={{ ml: 2, borderRadius: tokens.radius.sm }}
+              >
+                <X style={{ width: 20, height: 20 }} />
+              </IconButton>
+            </Box>
+          </Box>
+
+          <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+            <div style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}>
+              {renderPreviewContent()}
+            </div>
           </Box>
         </Box>
-
-        <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-          <div style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}>
-            {renderPreviewContent()}
-          </div>
-        </Box>
       </Box>
-    </>
+    </Modal>
   );
 }

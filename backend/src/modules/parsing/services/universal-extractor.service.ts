@@ -1,23 +1,20 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
+import { findDocumentDate } from '../../../common/utils/document-date.util';
+import { parsePdf } from '../../../common/utils/pdf-text.util';
 import {
-  DEFAULT_RECEIPT_SYMBOL_TO_CURRENCY,
   createReceiptAmountHelpers,
+  DEFAULT_RECEIPT_SYMBOL_TO_CURRENCY,
   extractCurrency as detectCurrency,
   extractAmountWithCurrency as extractSharedAmountWithCurrency,
 } from '../../../common/utils/receipt-amount.util';
 import {
   buildCurrencyTokenPattern,
   extractLineItemsFromLines,
+  extractMerchantAddress,
   extractAmountFragments as extractSharedAmountFragments,
-  isAddressLike as isSharedAddressLike,
-  isDateRangeLike as isSharedDateRangeLike,
-  isLikelySentence as isSharedLikelySentence,
-  isYearLikeAmount as isSharedYearLikeAmount,
+  lineItemsReconcile,
 } from '../../../common/utils/receipt-extraction.util';
-import {
-  AiDocumentExtractor,
-  type AiExtractionResult,
-} from '../helpers/ai-document-extractor.helper';
 import type {
   DocumentType,
   LineItem,
@@ -42,12 +39,14 @@ type AmountCandidate = {
   score: number;
 };
 
+// Letter/digit lookarounds instead of \b: JS \b is ASCII-only, so it never matched the Cyrillic keywords.
 const TOTAL_KEYWORD_REGEX =
-  /\b(grand\s*total|total\s*amount|amount\s*(due|charged|paid|to\s*pay)|total|итого|сумма|всего|к\s*оплате|оплата|celkem)\b/i;
+  /(?<![\p{L}\p{N}_])(grand\s*total|total\s*amount|amount\s*(due|charged|paid|to\s*pay)|total|итого|сумма|всего|к\s*оплате|оплата|celkem)(?![\p{L}\p{N}_])/iu;
 
 const NUMBER_PATTERN = '-?\\d{1,3}(?:[\\s.,]\\d{3})*(?:[.,]\\d{1,2})?|-?\\d+(?:[.,]\\d{1,2})?';
 
-const DATE_PATTERNS = [/\d{2}[-/.]\d{2}[-/.]\d{4}/, /\d{4}[-/.]\d{2}[-/.]\d{2}/];
+// Where "07/08/2026" means July 8: a document in dollars or with a US address.
+const US_DOCUMENT_PATTERN = /\b(?:united\s+states|usa)\b/i;
 
 const TAX_PATTERNS = [
   /tax[:\s]+(\d+[\s,.]?\d*)/i,
@@ -73,9 +72,6 @@ export class UniversalExtractorService {
     private readonly typeDetector: TransactionTypeDetectorService,
     private readonly classifier: DocumentClassifierService,
     private readonly ocrService: OcrService,
-    @Optional()
-    @Inject('AI_DOCUMENT_EXTRACTOR')
-    private readonly aiExtractor?: AiDocumentExtractor,
   ) {}
 
   async extractFromText(text: string, context: ExtractorContext = {}): Promise<ParsedDocument> {
@@ -88,19 +84,12 @@ export class UniversalExtractorService {
     });
 
     const regexResult = await this.extractWithRegex(text, classification.documentType, context);
-
-    const aiResult =
-      this.aiExtractor?.isAvailable() && regexResult.confidence < 0.6
-        ? await this.aiExtractor.extractFromText(text)
-        : null;
-
-    const merged = this.mergeResults(regexResult, aiResult);
-    return this.validate(merged);
+    return this.validate(regexResult);
   }
 
   async extractFromImage(
     imageBuffer: Buffer,
-    mimeType: string,
+    _mimeType: string,
     context: ExtractorContext = {},
   ): Promise<ParsedDocument> {
     const ocrResult = await this.ocrService.extractTextFromImage(imageBuffer, {
@@ -112,23 +101,12 @@ export class UniversalExtractorService {
     fromText.extractionMethod = 'ocr_regex';
     fromText.confidence = Math.round(fromText.confidence * ocrResult.confidence * 100) / 100;
     fromText.language = ocrResult.language;
-
-    if (!this.aiExtractor?.isAvailable()) {
-      return fromText;
-    }
-
-    const aiFromImage = await this.aiExtractor.extractFromImage(imageBuffer, mimeType);
-    const merged = this.mergeResults(fromText, aiFromImage);
-    merged.extractionMethod = 'ocr_hybrid';
-    merged.language = ocrResult.language;
-    return this.validate(merged);
+    return fromText;
   }
 
   async extractFromPdf(pdfBuffer: Buffer, context: ExtractorContext = {}): Promise<ParsedDocument> {
     try {
-      const pdfParseModule = await import('pdf-parse');
-      const pdfParse = pdfParseModule.default ?? pdfParseModule;
-      const data = await (pdfParse as (buf: Buffer) => Promise<{ text: string }>)(pdfBuffer);
+      const data = await parsePdf(pdfBuffer);
       const text = (data.text || '').replace(/\0/g, '').trim();
 
       if (text.length > 50) {
@@ -165,9 +143,15 @@ export class UniversalExtractorService {
       .filter(Boolean);
 
     const amount = await this.extractAmountWithCurrency(lines, text);
-    const currency = amount?.currency || this.extractCurrency(text) || 'KZT';
-    const date = this.extractDate(text);
+    const statedCurrency = amount?.currency || this.extractCurrency(text);
+    const currency = statedCurrency || appDefaultCurrency();
+    const documentDate = findDocumentDate(text, {
+      // The currency the page states, not the fallback: that says nothing about the document.
+      monthFirst: statedCurrency === 'USD' || US_DOCUMENT_PATTERN.test(text),
+    });
+    const date = documentDate?.date;
     const vendor = this.extractVendor(lines, context.sender, text);
+    const merchantAddress = extractMerchantAddress(lines);
     const tax = this.extractNumberByPatterns(text, TAX_PATTERNS);
     const subtotal = this.extractNumberByPatterns(text, SUBTOTAL_PATTERNS);
     const lineItems = await this.extractLineItems(lines);
@@ -188,7 +172,8 @@ export class UniversalExtractorService {
     const fieldConfidence = {
       totalAmount: amount ? 0.85 : 0,
       transactionType: transactionType.confidence,
-      date: date ? 0.8 : 0,
+      // Day and month that could be either way round are worth a second look.
+      date: documentDate ? (documentDate.ambiguous ? 0.5 : 0.8) : 0,
       vendor: vendor ? 0.75 : 0,
       currency: currency ? 0.85 : 0,
       tax: tax ? 0.75 : 0,
@@ -202,6 +187,7 @@ export class UniversalExtractorService {
       currency,
       date,
       vendor,
+      merchantAddress,
       tax,
       taxRate,
       subtotal,
@@ -235,33 +221,6 @@ export class UniversalExtractorService {
     return detectCurrency(text, this.amountParser, DEFAULT_RECEIPT_SYMBOL_TO_CURRENCY);
   }
 
-  private extractDate(text: string): Date | undefined {
-    for (const pattern of DATE_PATTERNS) {
-      const match = text.match(pattern);
-      if (!match?.[0]) {
-        continue;
-      }
-
-      const candidate = match[0];
-      if (/^\d{4}/.test(candidate)) {
-        const date = new Date(candidate.replace(/[/.]/g, '-'));
-        if (!Number.isNaN(date.getTime())) {
-          return date;
-        }
-      }
-
-      const [left, middle, right] = candidate.split(/[./-]/).map(part => Number(part));
-      if (left > 0 && middle > 0 && right > 0) {
-        const date = new Date(right, middle - 1, left);
-        if (!Number.isNaN(date.getTime())) {
-          return date;
-        }
-      }
-    }
-
-    return undefined;
-  }
-
   private static readonly BANK_PATTERNS: { regex: RegExp; name: string }[] = [
     { regex: /\b(kaspi\s+bank|kaspi\.kz|каспи\s+банк|каспи)\b/i, name: 'Kaspi Bank' },
     { regex: /\b(bereke\s+bank|bereke\s+business|береке\s+банк|береке)\b/i, name: 'Bereke Bank' },
@@ -275,6 +234,9 @@ export class UniversalExtractorService {
   private static readonly BANKING_LABEL_PATTERN =
     /\b(лицевой\s+счет|номер\s+счета|расчетный\s+счет|текущий\s+счет|банковский\s+счет|выписка|statement\s+of\s+account|account\s+number|account\s+statement)\b/i;
 
+  private static readonly COLUMN_HEADER_PATTERN =
+    /^(?:(?:description|item|unit\s*price|price|duration|qty|quantity|amount|total|rate|tax|vat|date)\s*){2,}$/i;
+
   private detectBankName(text: string): string | undefined {
     for (const { regex, name } of UniversalExtractorService.BANK_PATTERNS) {
       if (regex.test(text)) {
@@ -282,6 +244,67 @@ export class UniversalExtractorService {
       }
     }
     return undefined;
+  }
+
+  private static readonly SELLER_LABEL_PATTERN =
+    /^(?:from|seller|supplier|vendor|sold\s+by|issued\s+by|bill\s+from|verk(?:ä|a)ufer|rechnungssteller|lieferant|продавец|поставщик|исполнитель)(?=$|[\s:-])\s*[:-]?\s*(.*)$/i;
+
+  private static readonly BUYER_LABEL_PATTERN =
+    /^(?:bill(?:ed)?\s+to|ship\s+to|sold\s+to|customer|buyer|rechnungsempf(?:ä|a)nger|kunde|покупатель|заказчик|плательщик)(?=$|[\s:-])/i;
+
+  /**
+   * "Invoice number2955 6044", "Receipt No. 12", "Order #A-17": a label and its
+   * value, not a name. pdf-parse glues the two, so the value may start right
+   * after the label ("Invoice numberWQH2831A"); a digit somewhere is what tells
+   * it from a name that merely starts the same way.
+   */
+  private static readonly DOCUMENT_REFERENCE_PATTERN =
+    /^(?:invoice|receipt|order|bill|document|reference|ref|account|customer|rechnung|beleg|счет|счёт|чек|заказ)\s*(?:no\.?|nr\.?|number|num|id|#|№)(?=.*\d)/i;
+
+  /** The line as a vendor name, or undefined when it is anything else. */
+  private vendorNameOf(raw: string): string | undefined {
+    // Stripe-style headers glue the account handle on: "Anthropic, PBC@anthropic".
+    const line = raw
+      .trim()
+      .replace(/@[\p{L}\p{N}_-]+$/u, '')
+      .trim();
+
+    if (line.length <= 2 || line.length > 50) {
+      return undefined;
+    }
+
+    if (/^(page\s+\d+|receipt|invoice|чек|квитанция)$/i.test(line)) {
+      return undefined;
+    }
+
+    if (UniversalExtractorService.DOCUMENT_REFERENCE_PATTERN.test(line)) {
+      return undefined;
+    }
+
+    // Page counters ("1 / 4", "Page 2 of 3") and table column headers, which
+    // pdf-parse may glue together ("DESCRIPTIONPRICEDURATIONQTYAMOUNT").
+    if (/^(page\s+)?\d+\s*(\/|of|из)\s*\d+$/i.test(line)) {
+      return undefined;
+    }
+
+    if (UniversalExtractorService.COLUMN_HEADER_PATTERN.test(line)) {
+      return undefined;
+    }
+
+    if (/\b(total|итого|tax|vat|ндс|date|дата|amount)\b/i.test(line)) {
+      return undefined;
+    }
+
+    if (UniversalExtractorService.BANKING_LABEL_PATTERN.test(line)) {
+      return undefined;
+    }
+
+    // An email address or a phone number is contact detail, not the name.
+    if (/\S+@\S+\.\S+/.test(line) || /^[+\d\s()./-]+$/.test(line)) {
+      return undefined;
+    }
+
+    return line.slice(0, 100);
   }
 
   private extractVendor(lines: string[], sender?: string, fullText?: string): string | undefined {
@@ -292,32 +315,33 @@ export class UniversalExtractorService {
       return detectedBank;
     }
 
-    for (const line of lines.slice(0, 8)) {
-      if (line.length <= 2 || line.length > 50) {
+    // Who issued the document. An explicit label ("From:", "Seller") settles it;
+    // otherwise the first line that is a name, read only up to where the buyer's
+    // block starts: in an invoice the "Bill to" party is the user themselves.
+    const firstLines = lines.slice(0, 25);
+    const buyerAt = firstLines.findIndex(line =>
+      UniversalExtractorService.BUYER_LABEL_PATTERN.test(line),
+    );
+    const head = buyerAt === -1 ? firstLines : firstLines.slice(0, buyerAt);
+
+    for (const [index, line] of head.entries()) {
+      const labelled = UniversalExtractorService.SELLER_LABEL_PATTERN.exec(line);
+      if (!labelled) {
         continue;
       }
-
-      if (/^(page\s+\d+|receipt|invoice|чек|квитанция)$/i.test(line)) {
-        continue;
+      const named = [labelled[1], head[index + 1]]
+        .map(candidate => this.vendorNameOf(candidate ?? ''))
+        .find(Boolean);
+      if (named) {
+        return named;
       }
+    }
 
-      if (/\b(total|итого|tax|vat|ндс|date|дата|amount)\b/i.test(line)) {
-        continue;
+    for (const line of head) {
+      const named = this.vendorNameOf(line);
+      if (named) {
+        return named;
       }
-
-      if (UniversalExtractorService.BANKING_LABEL_PATTERN.test(line)) {
-        continue;
-      }
-
-      if (/^\d+$/.test(line)) {
-        continue;
-      }
-
-      if (/^[\d.,\s]+$/.test(line)) {
-        continue;
-      }
-
-      return line.slice(0, 100);
     }
 
     if (!sender) {
@@ -362,49 +386,6 @@ export class UniversalExtractorService {
     });
   }
 
-  private mergeResults(
-    primary: ParsedDocument,
-    aiResult: AiExtractionResult | null,
-  ): ParsedDocument {
-    if (!aiResult) {
-      return primary;
-    }
-
-    const merged: ParsedDocument = {
-      ...primary,
-      totalAmount: primary.totalAmount ?? aiResult.totalAmount,
-      transactionType:
-        primary.transactionType !== 'unknown'
-          ? primary.transactionType
-          : aiResult.transactionType || 'unknown',
-      currency: primary.currency || aiResult.currency,
-      date: primary.date || (aiResult.date ? new Date(aiResult.date) : undefined),
-      vendor: primary.vendor || aiResult.vendor,
-      tax: primary.tax ?? aiResult.tax,
-      taxRate: primary.taxRate ?? aiResult.taxRate,
-      subtotal: primary.subtotal ?? aiResult.subtotal,
-      lineItems: primary.lineItems.length ? primary.lineItems : aiResult.lineItems || [],
-      categoryHint: primary.categoryHint || aiResult.categoryHint,
-      paymentMethod: primary.paymentMethod || aiResult.paymentMethod,
-      documentNumber: primary.documentNumber || aiResult.documentNumber,
-      extractionMethod: 'hybrid',
-      fieldConfidence: {
-        ...primary.fieldConfidence,
-        totalAmount: primary.fieldConfidence.totalAmount || (aiResult.totalAmount ? 0.75 : 0),
-        transactionType:
-          primary.fieldConfidence.transactionType || (aiResult.transactionType ? 0.7 : 0),
-        date: primary.fieldConfidence.date || (aiResult.date ? 0.7 : 0),
-        vendor: primary.fieldConfidence.vendor || (aiResult.vendor ? 0.7 : 0),
-        currency: primary.fieldConfidence.currency || (aiResult.currency ? 0.7 : 0),
-        tax: primary.fieldConfidence.tax || (aiResult.tax ? 0.65 : 0),
-        lineItems: primary.fieldConfidence.lineItems || (aiResult.lineItems?.length ? 0.65 : 0),
-      },
-    };
-
-    merged.confidence = this.calculateOverallConfidence(merged.fieldConfidence);
-    return merged;
-  }
-
   private validate(doc: ParsedDocument): ParsedDocument {
     const validationIssues: string[] = [...doc.validationIssues];
 
@@ -417,14 +398,21 @@ export class UniversalExtractorService {
       }
     }
 
-    if (doc.lineItems.length > 0 && doc.totalAmount) {
+    // Items that do not add up to the document are page numbers, dates and
+    // postcodes read as prices: worse than none, so they are dropped, not kept
+    // with a warning.
+    if (doc.lineItems.length > 0 && !lineItemsReconcile(doc.lineItems, doc)) {
       const lineItemsSum = doc.lineItems.reduce((sum, item) => sum + item.amount, 0);
-      const compareTo = doc.subtotal || doc.totalAmount;
-      if (Math.abs(lineItemsSum - compareTo) > compareTo * 0.05) {
-        validationIssues.push(
-          `Line items sum (${lineItemsSum.toFixed(2)}) does not match total (${compareTo.toFixed(2)})`,
-        );
-      }
+      validationIssues.push(
+        `Line items sum (${lineItemsSum.toFixed(2)}) does not match the total; line items dropped`,
+      );
+      return {
+        ...doc,
+        lineItems: [],
+        fieldConfidence: { ...doc.fieldConfidence, lineItems: 0 },
+        validationIssues,
+        language: doc.language,
+      };
     }
 
     return {
@@ -485,21 +473,5 @@ export class UniversalExtractorService {
       validationIssues: [],
       language: undefined,
     };
-  }
-
-  private isLikelySentence(value: string): boolean {
-    return isSharedLikelySentence(value);
-  }
-
-  private isDateRangeLike(value: string): boolean {
-    return isSharedDateRangeLike(value);
-  }
-
-  private isAddressLike(value: string): boolean {
-    return isSharedAddressLike(value);
-  }
-
-  private isYearLikeAmount(amount: number, hasExplicitCurrency: boolean): boolean {
-    return isSharedYearLikeAmount(amount, hasExplicitCurrency);
   }
 }

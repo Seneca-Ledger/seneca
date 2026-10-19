@@ -1,16 +1,16 @@
 'use client';
 
-import { Clock3, MoonStar, Sparkles, Sun } from '@/app/components/icons';
-import {
-  type ThemePreference,
-  getScheduledTheme,
-  getStoredThemePreference,
-  getStoredThemeTimeZone,
-} from '@/app/lib/theme-preference';
-import { cn } from '@/app/lib/utils';
 import { useTheme } from 'next-themes';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { Clock3, MoonStar, Sparkles, Sun } from '@/app/components/icons';
+import {
+  getScheduledTheme,
+  getStoredThemePreference,
+  getStoredThemeTimeZone,
+  type ThemePreference,
+} from '@/app/lib/theme-preference';
+import { cn } from '@/app/lib/utils';
 
 type ModeToggleProps = {
   className?: string;
@@ -110,31 +110,26 @@ export function ModeToggle({
 
   const options = useMemo(
     () => [
-      {
-        key: 'light' as const,
-        label: copy.light,
-        icon: Sun,
-      },
-      {
-        key: 'dark' as const,
-        label: copy.dark,
-        icon: MoonStar,
-      },
-      {
-        key: 'auto' as const,
-        label: copy.auto,
-        icon: Clock3,
-      },
+      { key: 'light' as const, label: copy.light, icon: Sun },
+      { key: 'dark' as const, label: copy.dark, icon: MoonStar },
+      { key: 'auto' as const, label: copy.auto, icon: Clock3 },
     ],
     [copy.auto, copy.dark, copy.light],
+  );
+  const activeIndex = Math.max(
+    0,
+    options.findIndex(option => option.key === selectedTheme),
   );
 
   return (
     <div className={cn('space-y-4', className)}>
       <div
-        className="grid grid-cols-3 gap-2 rounded-2xl border border-border bg-muted/70 p-1.5"
+        className="seneca-theme-toggle"
+        role="group"
         aria-label={copy.active}
+        style={{ '--theme-toggle-index': activeIndex } as React.CSSProperties}
       >
+        <span className="seneca-theme-toggle__thumb" aria-hidden="true" />
         {options.map(option => {
           const Icon = option.icon;
           const active = selectedTheme === option.key;
@@ -145,13 +140,14 @@ export function ModeToggle({
               onClick={() => handleChange(option.key)}
               aria-pressed={active}
               className={cn(
-                'flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition-all duration-200',
-                active
-                  ? 'border-primary bg-primary/12 text-primary'
-                  : 'border-transparent text-muted-foreground hover:border-border hover:bg-card hover:text-foreground',
+                'seneca-theme-toggle__option',
+                `seneca-theme-toggle__option--${option.key}`,
+                active && 'seneca-theme-toggle__option--active',
               )}
             >
-              <Icon className="h-4 w-4" />
+              <span className="seneca-theme-toggle__icon">
+                <Icon />
+              </span>
               <span>{option.label}</span>
             </button>
           );

@@ -1,21 +1,25 @@
 /* eslint-disable max-lines */
+
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
+import { useIntlayer } from '@/app/i18n';
 import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
+import { blobOf } from '@/app/lib/blob-of';
 import {
   areAllVisibleSelected,
   toggleSelectAllVisible,
   toggleStatementSelection,
 } from '@/app/lib/statement-selection';
-import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
 import {
   DUPLICATE_GROUP_TONES,
   type DuplicateGroupTone,
-  type StatementLike,
   getDeleteEndpoint,
   getExportEndpoint,
   isGmailStatement,
+  isScanReceiptStatement,
+  type StatementLike,
 } from '../StatementsListView.utils';
 
 // ---------------------------------------------------------------------------
@@ -53,6 +57,7 @@ export type DuplicateOverride = {
 
 type ClassifyResult = {
   statementsToDelete: Set<string>;
+  receiptsToDelete: Set<string>;
   gmailToMark: Map<string, string>;
   skippedGmailCount: number;
 };
@@ -64,6 +69,7 @@ function classifyDuplicatesForMerge(
 ): ClassifyResult {
   const statementById = new Map(allStatements.map(s => [s.id, s]));
   const statementsToDelete = new Set<string>();
+  const receiptsToDelete = new Set<string>();
   const gmailToMark = new Map<string, string>();
   let skippedGmailCount = 0;
 
@@ -83,10 +89,15 @@ function classifyDuplicatesForMerge(
       continue;
     }
 
+    if (isScanReceiptStatement(statement)) {
+      receiptsToDelete.add(statement.id);
+      continue;
+    }
+
     statementsToDelete.add(statement.id);
   }
 
-  return { statementsToDelete, gmailToMark, skippedGmailCount };
+  return { statementsToDelete, receiptsToDelete, gmailToMark, skippedGmailCount };
 }
 
 function tabulateDeleteResults(
@@ -134,6 +145,17 @@ function tabulateMarkResults(
   return { succeeded, failed };
 }
 
+/** Pending merge, awaiting user confirmation in the merge-duplicates modal. */
+export type MergeDuplicatesPlan = {
+  /** Bank statements to move to trash. */
+  statementIds: string[];
+  /** Scanned receipts to move to trash. */
+  receiptIds: string[];
+  /** Gmail receipts to mark as duplicate, as `[duplicateId, primaryId]`. */
+  gmailEntries: [string, string][];
+  skippedGmailCount: number;
+};
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -147,7 +169,6 @@ interface UseStatementSelectionParams {
   duplicateMetaById: Map<string, DuplicateMeta>;
   setDuplicateOverrides: React.Dispatch<React.SetStateAction<Record<string, DuplicateOverride>>>;
   search: string;
-  stage: string;
   onRefreshStatements: (opts?: {
     silent?: boolean;
     showErrorToast?: boolean;
@@ -174,7 +195,11 @@ export interface UseStatementSelectionResult {
   handleMarkSelectedAsDuplicate: () => void;
   handleDismissSelectedDuplicates: () => void;
   handleSelectDetectedDuplicates: () => void;
-  handleMergeSelectedDuplicates: () => Promise<void>;
+  handleMergeSelectedDuplicates: () => void;
+  mergePlan: MergeDuplicatesPlan | null;
+  mergeRunning: boolean;
+  confirmMergeSelectedDuplicates: () => Promise<void>;
+  cancelMergeSelectedDuplicates: () => void;
 }
 
 // eslint-disable-next-line max-lines-per-function
@@ -184,12 +209,14 @@ export function useStatementSelection({
   duplicateMetaById,
   setDuplicateOverrides,
   search,
-  stage,
   onRefreshStatements,
   onRefreshGmail,
 }: UseStatementSelectionParams): UseStatementSelectionResult {
+  const selectionText = useIntlayer('statementsSelection');
   const [selectedStatementIds, setSelectedStatementIds] = useState<string[]>([]);
   const [selectedActionsOpen, setSelectedActionsOpen] = useState(false);
+  const [mergePlan, setMergePlan] = useState<MergeDuplicatesPlan | null>(null);
+  const [mergeRunning, setMergeRunning] = useState(false);
   const selectedActionsRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCount = selectedStatementIds.length;
@@ -200,10 +227,14 @@ export function useStatementSelection({
   ).length;
   const hasSelectedDuplicates = selectedDuplicateCount > 0;
 
-  // Deselect statements that scroll off-page / get filtered out
+  // Deselect statements that scroll off-page / get filtered out. Returning `prev`
+  // when nothing left the page keeps state unchanged, so a new-but-equal ids
+  // array from the parent cannot turn this effect into a render loop.
   useEffect(() => {
     const visibleSet = new Set(visibleStatementIds);
-    setSelectedStatementIds(prev => prev.filter(id => visibleSet.has(id)));
+    setSelectedStatementIds(prev =>
+      prev.every(id => visibleSet.has(id)) ? prev : prev.filter(id => visibleSet.has(id)),
+    );
   }, [visibleStatementIds]);
 
   // Close bulk-action menu when selection empties
@@ -243,11 +274,11 @@ export function useStatementSelection({
   };
 
   const triggerDownload = async (statement: StatementLike): Promise<boolean> => {
-    try {
+    return await (async () => {
       const response = await apiClient.get(getExportEndpoint(statement), {
         responseType: 'blob',
       });
-      const blob = response.data as Blob;
+      const blob = blobOf(response);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -257,19 +288,18 @@ export function useStatementSelection({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       return true;
-    } catch (error) {
+    })().catch(async error => {
       console.error(`Failed to export statement ${statement.id}:`, error);
       return false;
-    }
+    });
   };
 
-  // eslint-disable-next-line complexity
   const handleExportSelected = async (): Promise<void> => {
     if (selectedStatementIds.length === 0) {
       return;
     }
 
-    try {
+    return await (async () => {
       const exportableStatements = displayStatements.filter(statement =>
         selectedStatementIds.includes(statement.id),
       );
@@ -285,20 +315,20 @@ export function useStatementSelection({
       const failedCount = results.length - exportedCount;
 
       if (exportedCount === 0) {
-        toast.error('Failed to export selected statements');
+        toast.error(selectionText.exportFailed.value);
         return;
       }
 
       toast.success(
-        failedCount > 0
-          ? `Exported ${exportedCount} statement(s), ${failedCount} failed`
-          : `Exported ${exportedCount} statement(s)`,
+        (failedCount > 0 ? selectionText.exportedPartial.value : selectionText.exported.value)
+          .replace('{count}', String(exportedCount))
+          .replace('{failed}', String(failedCount)),
       );
       setSelectedActionsOpen(false);
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to export selected statements:', error);
-      toast.error('Failed to export selected statements');
-    }
+      toast.error(selectionText.exportFailed.value);
+    });
   };
 
   const handleDeleteSelected = async () => {
@@ -315,13 +345,13 @@ export function useStatementSelection({
     }
 
     const confirmed = window.confirm(
-      `Move ${deletableStatements.length} selected item(s) to trash?`,
+      selectionText.confirmDelete.value.replace('{count}', String(deletableStatements.length)),
     );
     if (!confirmed) {
       return;
     }
 
-    try {
+    return await (async () => {
       const results = await Promise.allSettled(
         deletableStatements.map(statement => apiClient.delete(getDeleteEndpoint(statement))),
       );
@@ -346,23 +376,29 @@ export function useStatementSelection({
       });
 
       if (deletedIds.length === 0) {
-        toast.error('Failed to delete selected statements');
+        toast.error(selectionText.deleteFailed.value);
         return;
       }
 
       setSelectedStatementIds(prev => prev.filter(id => !deletedIds.includes(id)));
       setSelectedActionsOpen(false);
-      await onRefreshStatements({ search, showErrorToast: false });
+      // Scanned and emailed documents come from the receipts list, not /statements.
+      await Promise.all([
+        onRefreshStatements({ search, showErrorToast: false }),
+        onRefreshGmail({ silent: true, showErrorToast: false }),
+      ]);
 
       toast.success(
         failedIds.length > 0
-          ? `Moved ${deletedIds.length} statement(s) to trash, ${failedIds.length} failed`
-          : 'Selected statements moved to trash',
+          ? selectionText.deletedPartial.value
+              .replace('{count}', String(deletedIds.length))
+              .replace('{failed}', String(failedIds.length))
+          : selectionText.deleted.value,
       );
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to delete selected statements:', error);
-      toast.error('Failed to delete selected statements');
-    }
+      toast.error(selectionText.deleteFailed.value);
+    });
   };
 
   const handleMarkSelectedAsDuplicate = () => {
@@ -376,7 +412,10 @@ export function useStatementSelection({
         override.groupKey?.startsWith('manual-group:'),
       ).length;
       const groupKey = `manual-group:${Date.now()}:${manualGroupIndex}`;
-      const groupLabel = `Group Manual ${manualGroupIndex + 1}`;
+      const groupLabel = selectionText.groupManualNumbered.value.replace(
+        '{n}',
+        String(manualGroupIndex + 1),
+      );
       const groupTone = DUPLICATE_GROUP_TONES[manualGroupIndex % DUPLICATE_GROUP_TONES.length];
       const primaryId = selectedStatementIds[0];
       const total = selectedStatementIds.length;
@@ -395,7 +434,9 @@ export function useStatementSelection({
       return next;
     });
 
-    toast.success(`Marked ${selectedStatementIds.length} item(s) as duplicate`);
+    toast.success(
+      selectionText.markedDuplicate.value.replace('{count}', String(selectedStatementIds.length)),
+    );
     setSelectedActionsOpen(false);
   };
 
@@ -412,23 +453,33 @@ export function useStatementSelection({
       return next;
     });
 
-    toast.success(`Dismissed duplicate flags for ${selectedStatementIds.length} item(s)`);
+    toast.success(
+      selectionText.dismissedDuplicates.value.replace(
+        '{count}',
+        String(selectedStatementIds.length),
+      ),
+    );
     setSelectedActionsOpen(false);
   };
 
   const handleSelectDetectedDuplicates = () => {
     if (duplicateStatementIds.length === 0) {
-      toast.error('No duplicates detected in current list');
+      toast.error(selectionText.noDuplicates.value);
       return;
     }
 
     setSelectedStatementIds(prev => Array.from(new Set([...prev, ...duplicateStatementIds])));
-    toast.success(`Selected ${duplicateStatementIds.length} duplicate item(s)`);
+    toast.success(
+      selectionText.selectedDuplicates.value.replace(
+        '{count}',
+        String(duplicateStatementIds.length),
+      ),
+    );
   };
 
-  const handleMergeSelectedDuplicates = async () => {
+  const handleMergeSelectedDuplicates = (): void => {
     if (selectedStatementIds.length < 2) {
-      toast.error('Select at least 2 items to merge duplicates');
+      toast.error(selectionText.mergeMinItems.value);
       return;
     }
 
@@ -440,81 +491,104 @@ export function useStatementSelection({
     );
 
     if (selectedDuplicateStatements.length < 2) {
-      toast.error('Select at least 2 detected duplicates to merge');
+      toast.error(selectionText.mergeMinDuplicates.value);
       return;
     }
 
-    const { statementsToDelete, gmailToMark, skippedGmailCount } = classifyDuplicatesForMerge(
-      selectedDuplicateStatements,
-      displayStatements,
-      duplicateMetaById,
-    );
+    const { statementsToDelete, receiptsToDelete, gmailToMark, skippedGmailCount } =
+      classifyDuplicatesForMerge(selectedDuplicateStatements, displayStatements, duplicateMetaById);
 
-    if (statementsToDelete.size === 0 && gmailToMark.size === 0) {
-      toast.error('No mergeable duplicates found in selected items');
+    if (statementsToDelete.size === 0 && receiptsToDelete.size === 0 && gmailToMark.size === 0) {
+      toast.error(selectionText.noMergeable.value);
       return;
     }
 
-    const confirmMessage = `Merge selected duplicates? Keep primary records, merge ${gmailToMark.size} receipt(s) and move ${statementsToDelete.size} statement(s) to trash.`;
-    if (!window.confirm(confirmMessage)) {
+    setSelectedActionsOpen(false);
+    setMergePlan({
+      statementIds: Array.from(statementsToDelete),
+      receiptIds: Array.from(receiptsToDelete),
+      gmailEntries: Array.from(gmailToMark.entries()),
+      skippedGmailCount,
+    });
+  };
+
+  const cancelMergeSelectedDuplicates = (): void => {
+    if (mergeRunning) {
       return;
     }
+    setMergePlan(null);
+  };
 
-    try {
-      const statementIdsToDelete = Array.from(statementsToDelete);
-      const gmailEntriesToMark = Array.from(gmailToMark.entries());
+  const runMerge = async (plan: MergeDuplicatesPlan): Promise<void> => {
+    const deletions: { id: string; endpoint: string }[] = [
+      ...plan.statementIds.map(id => ({ id, endpoint: `/statements/${id}` })),
+      ...plan.receiptIds.map(id => ({ id, endpoint: `/receipts/${id}` })),
+    ];
 
-      const [statementDeleteResults, gmailMarkResults] = await Promise.all([
-        Promise.allSettled(statementIdsToDelete.map(id => apiClient.delete(`/statements/${id}`))),
-        Promise.allSettled(
-          gmailEntriesToMark.map(([receiptId, originalId]) =>
-            gmailReceiptsApi.markDuplicate(receiptId, originalId),
-          ),
+    const [deleteResults, gmailMarkResults] = await Promise.all([
+      Promise.allSettled(deletions.map(item => apiClient.delete(item.endpoint))),
+      Promise.allSettled(
+        plan.gmailEntries.map(([receiptId, originalId]) =>
+          gmailReceiptsApi.markDuplicate(receiptId, originalId),
         ),
-      ]);
+      ),
+    ]);
 
-      const deleteOutcome = tabulateDeleteResults(statementDeleteResults, statementIdsToDelete);
-      const markOutcome = tabulateMarkResults(gmailMarkResults, gmailEntriesToMark);
-      const deletedStatementIds = deleteOutcome.succeeded;
-      const markedGmailIds = markOutcome.succeeded;
-      const failedStatements = deleteOutcome.failed;
-      const failedGmail = markOutcome.failed;
+    const deleteOutcome = tabulateDeleteResults(
+      deleteResults,
+      deletions.map(item => item.id),
+    );
+    const markOutcome = tabulateMarkResults(gmailMarkResults, plan.gmailEntries);
+    const deletedIds = deleteOutcome.succeeded;
+    const markedGmailIds = markOutcome.succeeded;
 
-      if (deletedStatementIds.length === 0 && markedGmailIds.length === 0) {
-        toast.error('Failed to merge selected duplicates');
-        return;
-      }
+    if (deletedIds.length === 0 && markedGmailIds.length === 0) {
+      toast.error(selectionText.mergeFailed.value);
+      return;
+    }
 
-      setDuplicateOverrides(prev => {
-        const next = { ...prev };
-        markedGmailIds.forEach(receiptId => {
-          next[receiptId] = { state: 'duplicate' };
-        });
-        return next;
+    setDuplicateOverrides(prev => {
+      const next = { ...prev };
+      markedGmailIds.forEach(receiptId => {
+        next[receiptId] = { state: 'duplicate' };
       });
+      return next;
+    });
 
-      const processedIds = new Set([...deletedStatementIds, ...markedGmailIds]);
-      setSelectedStatementIds(prev => prev.filter(id => !processedIds.has(id)));
-      setSelectedActionsOpen(false);
+    const processedIds = new Set([...deletedIds, ...markedGmailIds]);
+    setSelectedStatementIds(prev => prev.filter(id => !processedIds.has(id)));
 
-      await onRefreshStatements({ silent: true, search, showErrorToast: false });
-      if (stage === 'submit') {
-        await onRefreshGmail({ silent: true, showErrorToast: false });
-      }
+    await onRefreshStatements({ silent: true, search, showErrorToast: false });
+    await onRefreshGmail({ silent: true, showErrorToast: false });
 
-      const skipHint = skippedGmailCount
-        ? ` ${skippedGmailCount} Gmail item(s) skipped because primary record is not Gmail.`
+    const skipHint = plan.skippedGmailCount
+      ? ` ${selectionText.mergeSkipHint.value.replace('{count}', String(plan.skippedGmailCount))}`
+      : '';
+    const failureHint =
+      deleteOutcome.failed || markOutcome.failed
+        ? ` ${selectionText.mergeFailureHint.value
+            .replace('{receipts}', String(markOutcome.failed))
+            .replace('{items}', String(deleteOutcome.failed))}`
         : '';
-      const failureHint =
-        failedStatements || failedGmail
-          ? ` ${failedGmail} receipt(s) and ${failedStatements} statement(s) failed.`
-          : '';
-      toast.success(
-        `Merged duplicates: ${markedGmailIds.length} receipt(s), ${deletedStatementIds.length} statement(s).${skipHint}${failureHint}`,
-      );
+    const mergedMessage = selectionText.merged.value
+      .replace('{receipts}', String(markedGmailIds.length))
+      .replace('{items}', String(deletedIds.length));
+    toast.success(`${mergedMessage}${skipHint}${failureHint}`);
+  };
+
+  const confirmMergeSelectedDuplicates = async (): Promise<void> => {
+    if (!mergePlan || mergeRunning) {
+      return;
+    }
+    setMergeRunning(true);
+    try {
+      await runMerge(mergePlan);
     } catch (error) {
       console.error('Failed to merge selected duplicates:', error);
-      toast.error('Failed to merge selected duplicates');
+      toast.error(selectionText.mergeFailed.value);
+    } finally {
+      setMergeRunning(false);
+      setMergePlan(null);
     }
   };
 
@@ -537,5 +611,9 @@ export function useStatementSelection({
     handleDismissSelectedDuplicates,
     handleSelectDetectedDuplicates,
     handleMergeSelectedDuplicates,
+    mergePlan,
+    mergeRunning,
+    confirmMergeSelectedDuplicates,
+    cancelMergeSelectedDuplicates,
   };
 }

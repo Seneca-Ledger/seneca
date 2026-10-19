@@ -6,14 +6,12 @@ import type { IdempotencyService } from '@/common/services/idempotency.service';
 import { buildContentDisposition } from '@/common/utils/http-file.util';
 import { StatementStatus } from '@/entities/statement.entity';
 import type { User } from '@/entities/user.entity';
-import type { ConvertDroppedSampleDto } from '@/modules/statements/dto/convert-dropped-sample.dto';
-import { FilterStatementsDto } from '@/modules/statements/dto/filter-statements.dto';
-import type { UploadReceiptScanDto } from '@/modules/statements/dto/upload-receipt-scan.dto';
-import type { UploadStatementDto } from '@/modules/statements/dto/upload-statement.dto';
+import type { StatementsQuery } from '@/contracts';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
 import { StatementsController } from '@/modules/statements/statements.controller';
 import type { StatementsService } from '@/modules/statements/statements.service';
 import type { Response } from 'express';
+import type { ConvertDroppedSampleBody, UploadReceiptScanBody, UploadStatementBody } from '../../../../src/contracts';
 
 type MockResponse = {
   headersSent: boolean;
@@ -72,7 +70,7 @@ describe('StatementsController', () => {
 
     const result = await controller.upload(
       [file as Express.Multer.File],
-      {} as UploadStatementDto,
+      {} as UploadStatementBody,
       currentUser,
       'ws-1',
     );
@@ -132,7 +130,7 @@ describe('StatementsController', () => {
       categoryId: 'cat-1',
       type: 'pdf',
       statuses: ['processing', 'error'],
-    } as FilterStatementsDto;
+    } as StatementsQuery;
     const currentUser = { id: 'user-1' } as User;
 
     const result = await controller.findAll(currentUser, 'ws-1', filters);
@@ -152,7 +150,7 @@ describe('StatementsController', () => {
       statement: { id: 'stmt-1' },
       transaction: { id: 'tx-1' },
     };
-    const payload: ConvertDroppedSampleDto = {
+    const payload: ConvertDroppedSampleBody = {
       index: 0,
       transaction: {
         transactionDate: '2026-03-17',
@@ -191,7 +189,7 @@ describe('StatementsController', () => {
 
     const result = await controller.uploadReceipt(
       [file as Express.Multer.File],
-      { language: 'ru' } as UploadReceiptScanDto,
+      { language: 'ru' } as UploadReceiptScanBody,
       currentUser,
       'ws-1',
     );
@@ -219,7 +217,7 @@ describe('StatementsController', () => {
 
     const result = await controller.uploadReceipt(
       [file as Express.Multer.File],
-      {} as UploadReceiptScanDto,
+      {} as UploadReceiptScanBody,
       currentUser,
       'ws-1',
     );

@@ -1,5 +1,9 @@
+import { alpha, createTheme, type ThemeOptions } from '@mui/material/styles';
+import { createSvgIcon } from '@mui/material/utils';
+import { createElement } from 'react';
+import { APP_NAME } from '@/app/lib/brand';
 import { tokens } from '@/lib/theme-tokens';
-import { type ThemeOptions, alpha, createTheme } from '@mui/material/styles';
+import { selectMenuComponents } from './components/ui/select-menu-theme';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -8,17 +12,56 @@ type AppSurfaceTokens = {
 };
 
 const SURFACE_TOKENS: Record<ThemeMode, AppSurfaceTokens> = {
-  light: { primary: '#168118' },
-  dark: { primary: '#5cc462' },
+  light: { primary: '#5b7b6a' },
+  dark: { primary: '#8fb39f' },
 };
 
 /**
  * Background of a filled control on a dark surface. Mirrors
- * `$lumio-color-primary-fill-dk` in styles/abstracts/_variables-dark.scss —
+ * `$seneca-color-primary-fill-dk` in styles/abstracts/_variables-dark.scss —
  * keep the two in step.
  */
-const DARK_PRIMARY_FILL = '#168118';
-const DARK_PRIMARY_FILL_HOVER = '#1c9c22';
+const DARK_PRIMARY_FILL = '#3f5e4e';
+const DARK_PRIMARY_FILL_HOVER = '#4a6b5a';
+
+// Checkbox glyphs matching the filter option indicator (FilterOptionRow): a filled
+// rounded 24px square, with the 16px Material check drawn in white when selected.
+const CHECKBOX_BOX = { width: 24, height: 24, rx: 6, fill: 'currentColor' };
+const CHECKBOX_MARK_COLOR = tokens.color.primaryContrast;
+
+const CheckboxBlankIcon = createSvgIcon(
+  createElement('rect', CHECKBOX_BOX),
+  `${APP_NAME}CheckboxBlank`,
+);
+
+const CheckboxCheckedIcon = createSvgIcon(
+  [
+    createElement('rect', { key: 'box', ...CHECKBOX_BOX }),
+    createElement('path', {
+      key: 'mark',
+      d: 'M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
+      fill: CHECKBOX_MARK_COLOR,
+      transform: 'translate(4 4) scale(0.6667)',
+    }),
+  ],
+  `${APP_NAME}CheckboxChecked`,
+);
+
+const CheckboxIndeterminateIcon = createSvgIcon(
+  [
+    createElement('rect', { key: 'box', ...CHECKBOX_BOX }),
+    createElement('rect', {
+      key: 'mark',
+      x: 7,
+      y: 11,
+      width: 10,
+      height: 2,
+      rx: 1,
+      fill: CHECKBOX_MARK_COLOR,
+    }),
+  ],
+  `${APP_NAME}CheckboxIndeterminate`,
+);
 
 const getSharedOptions = (
   mode: ThemeMode,
@@ -41,7 +84,8 @@ const getSharedOptions = (
       MuiButton: {
         styleOverrides: {
           root: {
-            borderRadius: tokens.radius.full,
+            // Square-ish, the same corner the toolbar controls use — not a pill.
+            borderRadius: tokens.radius.md,
             padding: '8px 18px',
             height: 40,
             fontSize: '14px',
@@ -85,6 +129,18 @@ const getSharedOptions = (
           outlined: {
             boxShadow: 'none',
           },
+          // A secondary action is a white button with dark text, not green-on-
+          // transparent: the accent is reserved for the one primary action on a
+          // screen. Error and other colours keep their own outlined look.
+          outlinedPrimary: {
+            backgroundColor: c.surface,
+            borderColor: c.ink150,
+            color: c.ink900,
+            '&:hover': {
+              backgroundColor: c.ink50,
+              borderColor: c.ink300,
+            },
+          },
         },
       },
       MuiIconButton: {
@@ -96,15 +152,46 @@ const getSharedOptions = (
         },
       },
       MuiCheckbox: {
+        defaultProps: {
+          icon: createElement(CheckboxBlankIcon),
+          checkedIcon: createElement(CheckboxCheckedIcon),
+          indeterminateIcon: createElement(CheckboxIndeterminateIcon),
+        },
         styleOverrides: {
           root: {
-            borderRadius: 0,
+            borderRadius: tokens.radius.xs,
             padding: 0,
-            '& .MuiSvgIcon-root': {
-              fontSize: 20,
+            color: mode === 'dark' ? 'rgba(236, 231, 222, 0.18)' : '#f5f5f5',
+            // The deep fill in both themes: dark mode's primary is the light sage accent.
+            '&.Mui-checked, &.MuiCheckbox-indeterminate': {
+              color: c.primaryFill,
             },
-            '&.MuiCheckbox-sizeSmall .MuiSvgIcon-root': {
-              fontSize: 16,
+            '&.Mui-disabled': {
+              opacity: 0.55,
+            },
+            '& .MuiSvgIcon-root, &.MuiCheckbox-sizeSmall .MuiSvgIcon-root': {
+              fontSize: 24,
+            },
+            // Let clicks just outside the box still toggle it, without growing the layout.
+            '& .PrivateSwitchBase-input': {
+              top: -6,
+              left: -6,
+              width: 'calc(100% + 12px)',
+              height: 'calc(100% + 12px)',
+            },
+          },
+        },
+      },
+      // MUI spaces a label from its control with the control's own 9px padding
+      // and a -11px margin that cancels it. The checkbox above has no padding,
+      // so that pair glued every checkbox label to its box and pulled the box
+      // out past the column's edge. Radios keep their padding and default.
+      MuiFormControlLabel: {
+        styleOverrides: {
+          root: {
+            '&:has(> .MuiCheckbox-root)': {
+              marginLeft: 0,
+              gap: 10,
             },
           },
         },
@@ -187,6 +274,7 @@ const getSharedOptions = (
           },
         },
       },
+      ...selectMenuComponents,
       MuiMenu: {
         styleOverrides: {
           paper: {
@@ -194,6 +282,8 @@ const getSharedOptions = (
             boxShadow: '0 4px 16px -4px rgba(12, 12, 20, 0.08), 0 1px 2px rgba(12, 12, 20, 0.04)',
             border: `1px solid ${c.ink150}`,
           },
+          // The paper clips overflow; full-width items need room for their focus ring.
+          list: { paddingInline: tokens.focusRing.reach },
         },
       },
       MuiPopover: {
@@ -218,13 +308,48 @@ const getSharedOptions = (
       MuiTableContainer: {
         styleOverrides: { root: { borderRadius: tokens.radius.lg } },
       },
-      MuiTab: {
+      // Every bar on the neutral warm track, never a pale tint of its own colour.
+      MuiLinearProgress: {
         styleOverrides: {
           root: {
+            borderRadius: 3,
+            backgroundColor: 'var(--icon-badge-bg)',
+          },
+          bar: { borderRadius: 3 },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          // As the text tabs elsewhere: the open tab in ink over its sage underline,
+          // the others in the readable grey, so the two never look alike.
+          root: {
             fontSize: '14px',
-            fontWeight: 600,
+            fontWeight: 500,
             textTransform: 'none',
             minHeight: 44,
+            color: 'var(--text-muted)',
+            '&.Mui-selected': { color: 'var(--foreground)' },
+            '&:hover:not(.Mui-selected)': { color: 'var(--foreground)' },
+          },
+        },
+      },
+      // Tabs clip their strip. A fixed strip doesn't need to; a scrollable one must, so it
+      // gets inner room for the focus ring, taken back with a negative margin on the root.
+      MuiTabs: {
+        styleOverrides: {
+          root: {
+            '&:has(> .MuiTabs-fixed)': { overflow: 'visible' },
+            '&:has(> .MuiTabs-scrollableX)': { margin: -tokens.focusRing.reach },
+          },
+          scroller: {
+            '&.MuiTabs-fixed': { overflow: 'visible' },
+            '&.MuiTabs-scrollableX': {
+              padding: tokens.focusRing.reach,
+              scrollPaddingInline: tokens.focusRing.reach,
+            },
+          },
+          indicator: {
+            '.MuiTabs-scrollableX > &': { bottom: tokens.focusRing.reach },
           },
         },
       },
@@ -237,9 +362,9 @@ const paletteByMode: Record<ThemeMode, ThemeOptions['palette']> = {
   light: {
     mode: 'light',
     primary: {
-      main: '#168118',
-      light: '#3e9c35',
-      dark: '#036704',
+      main: '#5b7b6a',
+      light: '#7a9787',
+      dark: '#3f574a',
       contrastText: '#ffffff',
     },
     secondary: {
@@ -260,10 +385,11 @@ const paletteByMode: Record<ThemeMode, ThemeOptions['palette']> = {
       dark: '#d97706',
       contrastText: '#ffffff',
     },
+    // Our money green, not emerald: success marks (ticks, "paid", bars) sit in the warm palette.
     success: {
-      main: '#10b981',
-      light: '#34d399',
-      dark: '#059669',
+      main: '#3f7d5c',
+      light: '#6f8f7b',
+      dark: '#2f5e45',
       contrastText: '#ffffff',
     },
     info: {
@@ -273,7 +399,7 @@ const paletteByMode: Record<ThemeMode, ThemeOptions['palette']> = {
       contrastText: '#ffffff',
     },
     background: {
-      default: '#f7f8f7',
+      default: '#faf8f5',
       paper: '#ffffff',
     },
     text: {
@@ -285,50 +411,50 @@ const paletteByMode: Record<ThemeMode, ThemeOptions['palette']> = {
   dark: {
     mode: 'dark',
     primary: {
-      main: '#5cc462',
-      light: '#7dd687',
-      dark: '#168118',
-      contrastText: '#ffffff',
+      main: '#8fb39f',
+      light: '#a3c2b0',
+      dark: '#3f5e4e',
+      contrastText: '#ece7de',
     },
     secondary: {
-      main: '#252b26',
-      light: '#333b34',
-      dark: '#1c211d',
-      contrastText: '#e8e8f0',
+      main: '#2e2c29',
+      light: '#3a3733',
+      dark: '#1f1e1c',
+      contrastText: '#ece7de',
     },
     error: {
-      main: '#fb7185',
-      light: '#fda4af',
-      dark: '#e11d48',
+      main: '#d9806f',
+      light: '#e29a8b',
+      dark: '#b9634f',
       contrastText: '#ffffff',
     },
     warning: {
-      main: '#fbbf24',
-      light: '#fcd34d',
-      dark: '#f59e0b',
+      main: '#d4a94f',
+      light: '#ddb96a',
+      dark: '#b88f3c',
       contrastText: '#0b0b10',
     },
     success: {
-      main: '#34d399',
-      light: '#6ee7b7',
-      dark: '#10b981',
+      main: '#8fb39f',
+      light: '#a3c2b0',
+      dark: '#a3c2b0',
       contrastText: '#0b0b10',
     },
     info: {
-      main: '#38bdf8',
-      light: '#7dd3fc',
-      dark: '#0ea5e9',
+      main: '#8fa5b8',
+      light: '#a8bacb',
+      dark: '#6f8aa1',
       contrastText: '#0b0b10',
     },
     background: {
-      default: '#0f1210',
-      paper: '#161b17',
+      default: '#1b1a18',
+      paper: '#232220',
     },
     text: {
-      primary: '#e8e8f0',
-      secondary: '#a0a0b4',
+      primary: '#ece7de',
+      secondary: '#a8a196',
     },
-    divider: '#252b26',
+    divider: '#2e2c29',
   },
 };
 

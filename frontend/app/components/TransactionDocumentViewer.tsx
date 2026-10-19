@@ -1,8 +1,6 @@
 'use client';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-
-import { Calendar, Landmark, Receipt, TrendingDown, TrendingUp } from '@/app/components/icons';
 import {
+  alpha,
   Box,
   Chip,
   Divider,
@@ -15,10 +13,12 @@ import {
   TableHead,
   TableRow,
   Typography,
-  alpha,
 } from '@mui/material';
 
+import { Calendar, Landmark, Receipt, TrendingDown, TrendingUp } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 
 export interface Transaction {
@@ -89,7 +89,7 @@ export default function TransactionDocumentViewer({
 }: TransactionDocumentViewerProps) {
   const t = useIntlayer('transactionDocumentViewer');
 
-  const formatNumber = (value: number | undefined | null, currency = 'KZT') => {
+  const formatNumber = (value: number | undefined | null, currency = FALLBACK_CURRENCY) => {
     if (value === undefined || value === null) {
       return '—';
     }
@@ -712,7 +712,7 @@ export default function TransactionDocumentViewer({
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary" fontFamily="monospace">
-                        {transaction.currency || 'KZT'}
+                        {transaction.currency || FALLBACK_CURRENCY}
                       </Typography>
                     </TableCell>
                   </TableRow>

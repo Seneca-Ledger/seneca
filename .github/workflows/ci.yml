@@ -6,7 +6,6 @@ name: CI
     branches:
       - main
       - develop
-      - staging
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -101,7 +100,7 @@ jobs:
             -w /project \
             openpolicyagent/conftest:v0.56.0 \
             test -p policy/docker-compose \
-            docker-compose.yml docker-compose.dev.yml docker-compose.observability.yml
+            docker-compose.yml docker-compose.dev.yml
 
       - name: Conftest (GitHub workflows)
         run: |
@@ -111,15 +110,6 @@ jobs:
             openpolicyagent/conftest:v0.56.0 \
             test -p policy/github-actions \
             .github/workflows/*.yml
-
-      - name: Conftest (Railway)
-        run: |
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE":/project \
-            -w /project \
-            openpolicyagent/conftest:v0.56.0 \
-            test -p policy/railway \
-            railway.json
 
   shellcheck:
     runs-on: ubuntu-latest
@@ -136,7 +126,7 @@ jobs:
             -w /mnt \
             koalaman/shellcheck:stable \
             --format=gcc \
-            scripts/*.sh backend/scripts/*.sh
+            scripts/*.sh backend/scripts/*.sh infra/updater/*.sh
 
   hadolint:
     runs-on: ubuntu-latest
@@ -156,9 +146,7 @@ jobs:
             --config .hadolint.yaml \
             Dockerfile \
             backend/Dockerfile \
-            frontend/Dockerfile \
-            observability/grafana/Dockerfile \
-            observability/prometheus/Dockerfile
+            frontend/Dockerfile
 
   trivy-config:
     runs-on: ubuntu-latest
@@ -180,7 +168,6 @@ jobs:
             config . \
             --severity HIGH,CRITICAL \
             --exit-code 1 \
-            --ignorefile .trivyignore.yaml \
             --skip-dirs '**/node_modules' \
             --skip-dirs '**/dist' \
             --skip-dirs '**/.next' \
@@ -199,7 +186,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -218,9 +205,17 @@ jobs:
       - name: Frontend lint (check-only)
         run: npm --prefix frontend run lint:check
 
+      - name: API contracts in sync
+        run: |
+          node scripts/sync-contracts.mjs --check
+          node --test scripts/sync-contracts.test.mjs
+
+  # Deliberately not behind `lint`. Everything downstream used to wait on it, so a
+  # single misformatted line skipped typecheck, tests and build and reported one
+  # failure while real type errors reached main unseen.
   typecheck:
     runs-on: ubuntu-latest
-    needs: [lint, shellcheck, hadolint, trivy-config]
+    needs: [shellcheck, hadolint, trivy-config]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -230,7 +225,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -251,7 +246,7 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [typecheck]
     services:
       postgres:
         image: postgres:16
@@ -300,7 +295,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -350,28 +345,38 @@ jobs:
   sonarcloud:
     runs-on: ubuntu-latest
     needs: [tests]
+    # Secrets cannot gate a job, so the steps check the token: without one the
+    # scan is skipped instead of failing every run (and with it the release).
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
+      - name: No SONAR_TOKEN, scan skipped
+        if: env.SONAR_TOKEN == ''
+        run: echo "::notice::SONAR_TOKEN is not set; SonarCloud scan skipped."
+
       - name: Checkout
+        if: env.SONAR_TOKEN != ''
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Download coverage
+        if: env.SONAR_TOKEN != ''
         uses: actions/download-artifact@v4
         with:
           name: backend-coverage
           path: backend/coverage
 
       - name: SonarCloud Scan
+        if: env.SONAR_TOKEN != ''
         uses: SonarSource/sonarcloud-github-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   build:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, tests]
+    needs: [typecheck, tests]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -381,7 +386,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -402,7 +407,7 @@ jobs:
 
   dependency-scan:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [typecheck]
     env:
       ALLOWED_LICENSES: >-
         MIT;MIT*;MIT-0;Apache-2.0;ISC;BSD;BSD*;BSD-2-Clause;BSD-3-Clause;0BSD;Unlicense;
@@ -420,12 +425,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: |
             package-lock.json
             backend/package-lock.json
-            electron/package-lock.json
             frontend/package-lock.json
             website/package-lock.json
 
@@ -435,29 +439,38 @@ jobs:
       - name: Install backend deps (no scripts)
         run: npm ci --prefix backend --ignore-scripts
 
-      - name: Install electron deps (no scripts)
-        run: npm ci --prefix electron --ignore-scripts
-
       - name: Install frontend deps (no scripts)
         run: npm ci --prefix frontend --ignore-scripts
 
       - name: Install website deps (no scripts)
         run: npm ci --prefix website --ignore-scripts
 
-      - name: Backend audit (high/critical)
-        run: npx audit-ci@7.1.0 --config backend/audit-ci.json --package-manager npm --path backend
+      # --directory, not --path: audit-ci silently ignores unknown flags, and
+      # `--path backend` made this step audit the repo root instead.
+      - name: Backend audit (moderate and above)
+        run: npx audit-ci@7.1.0 --config backend/audit-ci.json --package-manager npm --directory backend
 
+      # audit-ci for the allowlist in frontend/audit-ci.json: findings that only
+      # a major intlayer upgrade fixes, in its build-time CLI.
       - name: Frontend audit (high/critical)
-        run: npm audit --audit-level=high --prefix frontend
+        run: npx audit-ci@7.1.0 --config frontend/audit-ci.json --package-manager npm --directory frontend
+
+      # Phase 1 of the Dependabot cleanup covers root/backend/frontend only.
+      # These still carry known findings, so they report without failing
+      # the build; flip continue-on-error off as each phase lands.
+      - name: Root audit (high/critical)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+      - name: Website audit (high/critical)
+        continue-on-error: true
+        run: npm audit --audit-level=high --prefix website
 
       - name: Root license compliance
         run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start .
 
       - name: Backend license compliance
         run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start backend
-
-      - name: Electron license compliance
-        run: npx license-checker@25.0.1 --excludePackages lumio-desktop@1.0.0 --onlyAllow "$ALLOWED_LICENSES" --start electron
 
       - name: Frontend license compliance
         run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start frontend
@@ -502,7 +515,7 @@ jobs:
           load: true
 
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: parse-ledger:ci
           severity: HIGH,CRITICAL

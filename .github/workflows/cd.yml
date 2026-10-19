@@ -1,21 +1,14 @@
 name: CD
 
+# Seneca is self-hosted: this pipeline builds, scans, signs and publishes the
+# images, and stops there. Where a given instance runs is the operator's
+# business, so there are no deployment environments and nothing to smoke-test
+# after the fact.
 "on":
   push:
-    branches:
-      - staging
     tags:
       - "v*.*.*"
   workflow_dispatch:
-    inputs:
-      environment:
-        description: "Target environment"
-        required: true
-        default: staging
-        type: choice
-        options:
-          - staging
-          - production
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -45,7 +38,7 @@ jobs:
             -w /project \
             openpolicyagent/conftest:v0.56.0 \
             test -p policy/docker-compose \
-            docker-compose.yml docker-compose.dev.yml docker-compose.observability.yml
+            docker-compose.yml docker-compose.dev.yml
 
       - name: Conftest (GitHub workflows)
         run: |
@@ -56,50 +49,23 @@ jobs:
             test -p policy/github-actions \
             .github/workflows/*.yml
 
-      - name: Conftest (Railway)
-        run: |
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE":/project \
-            -w /project \
-            openpolicyagent/conftest:v0.56.0 \
-            test -p policy/railway \
-            railway.json
-
-  build-and-publish:
-    name: Build & publish hardened image
+  # Tags and the CI gate, once for every image and architecture below.
+  prepare:
     runs-on: ubuntu-latest
     needs: policy-as-code
-    environment:
-      name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/staging' && 'staging' || 'production') }}
     permissions:
-      contents: write
-      packages: write
-      id-token: write
-      attestations: write
+      actions: read
+      contents: read
     outputs:
-      target_env: ${{ steps.env.outputs.target_env }}
+      image_name: ${{ steps.image.outputs.image_name }}
+      suffixes: ${{ steps.image.outputs.suffixes }}
       primary_tag: ${{ steps.image.outputs.primary_tag }}
+      version: ${{ steps.image.outputs.version }}
     steps:
       - name: Harden runner (audit egress)
         uses: step-security/harden-runner@v2
         with:
           egress-policy: audit
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Derive target environment
-        id: env
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            echo "target_env=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
-          elif [[ "${GITHUB_REF}" == "refs/heads/staging" ]]; then
-            echo "target_env=staging" >> "$GITHUB_OUTPUT"
-          else
-            echo "target_env=production" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Wait for CI to succeed
         uses: actions/github-script@v7
@@ -146,31 +112,55 @@ jobs:
         id: image
         run: |
           IMAGE_NAME=$(echo "ghcr.io/${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          TAGS="${IMAGE_NAME}:sha-${GITHUB_SHA::7}"
-          PRIMARY_TAG="${IMAGE_NAME}:sha-${GITHUB_SHA::7}"
+          SUFFIXES="sha-${GITHUB_SHA::7}"
+          PRIMARY_SUFFIX="sha-${GITHUB_SHA::7}"
 
-          if [[ "${GITHUB_REF}" == "refs/heads/staging" ]]; then
-            TAGS="${TAGS}\n${IMAGE_NAME}:staging\n${IMAGE_NAME}:staging-${GITHUB_SHA::7}"
-            PRIMARY_TAG="${IMAGE_NAME}:staging-${GITHUB_SHA::7}"
-          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+          # A tagged release additionally publishes the version and `latest`;
+          # a manual run publishes only the commit-sha tag.
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             REF_NAME="${GITHUB_REF#refs/tags/}"
-            TAGS="${TAGS}\n${IMAGE_NAME}:${REF_NAME}\n${IMAGE_NAME}:latest"
-            PRIMARY_TAG="${IMAGE_NAME}:${REF_NAME}"
-          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ github.event.inputs.environment }}" == "staging" ]]; then
-            TAGS="${TAGS}\n${IMAGE_NAME}:staging\n${IMAGE_NAME}:staging-${GITHUB_SHA::7}"
-            PRIMARY_TAG="${IMAGE_NAME}:staging-${GITHUB_SHA::7}"
+            SUFFIXES="${SUFFIXES} ${REF_NAME} latest"
+            PRIMARY_SUFFIX="${REF_NAME}"
           fi
 
-          echo "image_name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "primary_tag=${PRIMARY_TAG}" >> "$GITHUB_OUTPUT"
-          echo "tags<<'EOF'" >> "$GITHUB_OUTPUT"
-          echo "$TAGS" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "image_name=${IMAGE_NAME}"
+            echo "suffixes=${SUFFIXES}"
+            echo "primary_tag=${IMAGE_NAME}:${PRIMARY_SUFFIX}"
+            echo "version=${PRIMARY_SUFFIX}"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Set up QEMU (multi-arch)
-        uses: docker/setup-qemu-action@v3
+  # Every image on a native runner per architecture: arm64 under QEMU took hours.
+  # Each build pushes by digest; build-and-publish joins them under the tags.
+  build:
+    name: Build ${{ matrix.image.name }} (${{ matrix.platform.arch }})
+    runs-on: ${{ matrix.platform.runner }}
+    needs: prepare
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        platform:
+          - { arch: amd64, runner: ubuntu-latest }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+        # The combined image (root Dockerfile) plus the per-service images
+        # docker-compose.yml pulls (seneca-backend, seneca-frontend).
+        image:
+          - { name: combined, context: ., suffix: "" }
+          - { name: backend, context: ./backend, suffix: -backend }
+          - { name: frontend, context: ./frontend, suffix: -frontend }
+    steps:
+      - name: Harden runner (audit egress)
+        uses: step-security/harden-runner@v2
         with:
-          platforms: arm64
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -182,27 +172,103 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      # The frontend proxies /api/v1 to the backend through Next rewrites, which
+      # are resolved at build time, so both the API URL and the target are baked.
+      - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: .
-          push: true
-          tags: ${{ steps.image.outputs.tags }}
-          platforms: linux/amd64,linux/arm64
-          provenance: true
+          context: ${{ matrix.image.context }}
+          platforms: linux/${{ matrix.platform.arch }}
+          outputs: type=image,"name=${{ needs.prepare.outputs.image_name }}${{ matrix.image.suffix }}",push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+          build-args: |
+            ${{ matrix.image.name == 'backend' && format('APP_VERSION={0}', needs.prepare.outputs.version) || '' }}
+            ${{ matrix.image.name == 'frontend' && 'NEXT_PUBLIC_API_URL=/api/v1' || '' }}
+            ${{ matrix.image.name == 'frontend' && 'API_PROXY_TARGET=http://backend:3001' || '' }}
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "${RUNNER_TEMP}/digests"
+          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build-and-publish:
+    name: Build & publish hardened image
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE_NAME: ${{ needs.prepare.outputs.image_name }}
+      SUFFIXES: ${{ needs.prepare.outputs.suffixes }}
+      PRIMARY_TAG: ${{ needs.prepare.outputs.primary_tag }}
+    steps:
+      - name: Harden runner (audit egress)
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # One multi-arch manifest per image, under every tag of this run.
+      - name: Publish multi-arch manifests
+        id: build
+        run: |
+          publish() {
+            local image="$1" name="$2" suffix tags=() refs=() file
+            for suffix in ${SUFFIXES}; do tags+=(-t "${name}:${suffix}"); done
+            for file in "${RUNNER_TEMP}/digests/digests-${image}-"*/*; do
+              refs+=("${name}@sha256:$(basename "${file}")")
+            done
+            [ "${#refs[@]}" -eq 2 ] || { echo "::error::expected 2 digests for ${image}, got ${#refs[@]}"; exit 1; }
+            docker buildx imagetools create "${tags[@]}" "${refs[@]}"
+          }
+          publish combined "${IMAGE_NAME}"
+          publish backend "${IMAGE_NAME}-backend"
+          publish frontend "${IMAGE_NAME}-frontend"
+          digest=$(docker buildx imagetools inspect "${PRIMARY_TAG}" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       - name: SLSA provenance attestation
         uses: actions/attest-build-provenance@v1
         with:
-          subject-name: ${{ steps.image.outputs.image_name }}
+          subject-name: ${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
       - name: Scan pushed image
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ steps.image.outputs.primary_tag }}
+          image-ref: ${{ env.PRIMARY_TAG }}
           severity: HIGH,CRITICAL
           vuln-type: "os,library"
           exit-code: 1
@@ -212,24 +278,24 @@ jobs:
         id: sbom
         uses: anchore/sbom-action@v0.24.0
         with:
-          image: ${{ steps.image.outputs.primary_tag }}
+          image: ${{ env.PRIMARY_TAG }}
           format: spdx-json
-          output-file: sbom-${{ steps.env.outputs.target_env }}.spdx.json
+          output-file: sbom-${{ github.sha }}.spdx.json
           upload-artifact: false
 
       - name: SLSA SBOM attestation
         uses: actions/attest-sbom@v1
         with:
-          subject-name: ${{ steps.image.outputs.image_name }}
+          subject-name: ${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
-          sbom-path: sbom-${{ steps.env.outputs.target_env }}.spdx.json
+          sbom-path: sbom-${{ github.sha }}.spdx.json
           push-to-registry: true
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ steps.env.outputs.target_env }}
-          path: sbom-${{ steps.env.outputs.target_env }}.spdx.json
+          name: sbom-${{ github.sha }}
+          path: sbom-${{ github.sha }}.spdx.json
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
@@ -237,72 +303,16 @@ jobs:
       - name: Sign container image
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign --yes --recursive ${{ steps.image.outputs.primary_tag }}
+        run: cosign sign --yes --recursive ${{ env.PRIMARY_TAG }}
 
       - name: Attest SBOM
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign attest --yes --predicate sbom-${{ steps.env.outputs.target_env }}.spdx.json --type spdxjson ${{ steps.image.outputs.primary_tag }}
+        run: cosign attest --yes --predicate sbom-${{ github.sha }}.spdx.json --type spdxjson ${{ env.PRIMARY_TAG }}
 
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: sbom-${{ steps.env.outputs.target_env }}.spdx.json
+          files: sbom-${{ github.sha }}.spdx.json
           generate_release_notes: true
-
-  smoke:
-    name: Post-deploy smoke check
-    runs-on: ubuntu-latest
-    needs: build-and-publish
-    if: needs.build-and-publish.outputs.target_env == 'staging' || needs.build-and-publish.outputs.target_env == 'production'
-    permissions:
-      id-token: write
-    environment:
-      name: ${{ needs.build-and-publish.outputs.target_env == 'production' && 'production' || 'staging' }}
-    # The secrets context is not available in `if:`, so the Vault settings are
-    # surfaced as env vars the conditional can read.
-    env:
-      VAULT_URL: ${{ secrets.VAULT_URL }}
-      VAULT_JWT_ROLE: ${{ secrets.VAULT_JWT_ROLE }}
-    steps:
-      - name: Harden runner (audit egress)
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
-
-      - name: Import smoke URL from Vault (OIDC, optional)
-        if: ${{ env.VAULT_URL != '' && env.VAULT_JWT_ROLE != '' }}
-        uses: hashicorp/vault-action@v3.0.0
-        with:
-          url: ${{ secrets.VAULT_URL }}
-          caCertificate: ${{ secrets.VAULT_CA_CERT }}
-          method: jwt
-          role: ${{ secrets.VAULT_JWT_ROLE }}
-          jwtGithubAudience: sigstore
-          secrets: |
-            secret/data/lumio/${{ needs.build-and-publish.outputs.target_env }} healthcheck_url | SMOKE_URL ;
-
-      - name: Run smoke check
-        env:
-          SMOKE_URL: >-
-            ${{ env.SMOKE_URL != '' && env.SMOKE_URL ||
-            (needs.build-and-publish.outputs.target_env == 'production' && secrets.PROD_HEALTHCHECK_URL || secrets.STAGING_HEALTHCHECK_URL) }}
-        run: |
-          if [ -z "$SMOKE_URL" ]; then
-            echo "No smoke URL configured; skipping smoke verification."
-            exit 0
-          fi
-
-          echo "Hitting $SMOKE_URL..."
-          for attempt in $(seq 1 10); do
-            if curl -fsS "$SMOKE_URL"; then
-              echo "Smoke check passed"
-              exit 0
-            fi
-            echo "Attempt ${attempt}/10 failed, retrying..."
-            sleep 6
-          done
-
-          echo "Smoke check failed after retries"
-          exit 1

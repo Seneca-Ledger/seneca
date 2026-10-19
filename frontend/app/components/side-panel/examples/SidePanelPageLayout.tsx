@@ -1,9 +1,9 @@
 'use client';
 
-import { cn } from '@/app/lib/utils';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import React, { useMemo, useState } from 'react';
+import { cn } from '@/app/lib/utils';
 import { createBasicSidePanelConfig } from '../configs';
 import { SidePanel, SidePanelProvider } from '../index';
 import type { SidePanelPageConfig, SidePanelPosition, SidePanelWidth } from '../types';

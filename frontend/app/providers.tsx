@@ -1,41 +1,51 @@
 'use client';
 
+import { ThemeProvider } from '@mui/material/styles';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { useTheme as useNextTheme } from 'next-themes';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Toaster } from 'react-hot-toast';
+import { IntlayerProviderContent } from 'react-intlayer';
 import { useAppearancePreferences } from '@/app/lib/appearance-preferences';
+import { migrateLegacyStorageKeys } from '@/app/lib/legacy-storage-keys';
 import {
   type AppLocale,
   isSupportedLocale,
   persistLocaleToCookie,
   readLocaleFromCookie,
 } from '@/app/lib/locale';
+import { usePickerLocale } from '@/app/lib/picker-locale';
+import { getQueryClient } from '@/app/lib/query-client';
 import {
-  THEME_STORAGE_EVENT,
   getStoredThemePreference,
+  persistPaletteModeCookie,
+  type ResolvedAppTheme,
   resolveThemePreference,
+  THEME_STORAGE_EVENT,
 } from '@/app/lib/theme-preference';
-import { ThemeProvider } from '@mui/material/styles';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { useTheme as useNextTheme } from 'next-themes';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Toaster } from 'react-hot-toast';
-import { IntlayerProviderContent } from 'react-intlayer';
 import { KeyboardShortcutsProvider } from './components/keyboard-shortcuts-provider';
-import { SidePanelProvider } from './components/side-panel';
+import { OfflineBanner } from './components/pwa/OfflineBanner';
+import { ServiceWorkerRegistrar } from './components/pwa/ServiceWorkerRegistrar';
+import { VersionBanner } from './components/versions/VersionBanner';
+import { AuthProvider } from './contexts/AuthContext';
 import { CurrencyDisplayProvider } from './contexts/CurrencyDisplayContext';
 import { NotificationProvider } from './contexts/NotificationContext';
-import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext';
+import { useWorkspace, WorkspaceProvider } from './contexts/WorkspaceContext';
 import { useAutoTheme } from './hooks/useAutoTheme';
 import { useHTMLLanguage } from './hooks/useHTMLLanguage';
 import { createAppTheme } from './theme';
-import { TourAutoStarter } from './tours/components/TourAutoStarter';
 
-const SIDE_PANEL_PROPS = {
-  defaultWidth: 'md' as const,
-  defaultPosition: 'left' as const,
-  defaultCollapsed: false,
-  persistState: true,
-  storageKey: 'lumio-side-panel',
-};
+// Before anything below reads its saved preferences.
+if (typeof window !== 'undefined') {
+  try {
+    migrateLegacyStorageKeys(window.localStorage);
+  } catch {
+    // Storage blocked (private mode, disabled cookies): nothing to move.
+  }
+}
+
 const TOASTER_OPTS = {
   duration: 3000,
   style: {
@@ -76,32 +86,58 @@ function ThemePreferenceSync(): null {
 function WorkspaceScopedProviders({
   children,
   mounted,
-}: { children: React.ReactNode; mounted: boolean }): React.JSX.Element {
+}: {
+  children: React.ReactNode;
+  mounted: boolean;
+}): React.JSX.Element {
   const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id ?? null;
+  // Page hooks mostly do not refetch on workspace change, so a real switch
+  // between two loaded workspaces remounts the page tree. The initial
+  // null -> id transition on every page load must NOT remount: it would throw
+  // away all page state and redo every request just after the first render.
+  const [initialWorkspaceId, setInitialWorkspaceId] = useState(workspaceId);
+  if (initialWorkspaceId === null && workspaceId !== null) {
+    setInitialWorkspaceId(workspaceId);
+  }
+  const scopeKey =
+    workspaceId === null || workspaceId === initialWorkspaceId ? 'initial' : workspaceId;
   return (
-    <React.Fragment key={currentWorkspace?.id ?? 'no-workspace'}>
-      <CurrencyDisplayProvider>
-        <NotificationProvider>
-          <SidePanelProvider {...SIDE_PANEL_PROPS}>
-            <KeyboardShortcutsProvider>
-              {mounted ? <Toaster position="top-center" toastOptions={TOASTER_OPTS} /> : null}
-              {children}
-            </KeyboardShortcutsProvider>
-          </SidePanelProvider>
-        </NotificationProvider>
-      </CurrencyDisplayProvider>
-    </React.Fragment>
+    <CurrencyDisplayProvider>
+      <NotificationProvider>
+        <KeyboardShortcutsProvider>
+          {mounted ? <Toaster position="top-center" toastOptions={TOASTER_OPTS} /> : null}
+          {mounted ? (
+            <>
+              <ServiceWorkerRegistrar />
+              <OfflineBanner />
+              <VersionBanner />
+            </>
+          ) : null}
+          <React.Fragment key={scopeKey}>{children}</React.Fragment>
+        </KeyboardShortcutsProvider>
+      </NotificationProvider>
+    </CurrencyDisplayProvider>
   );
 }
 
 export function Providers({
   children,
   initialLocale,
-}: { children: React.ReactNode; initialLocale: AppLocale }): React.JSX.Element {
+  initialPaletteMode = 'light',
+}: {
+  children: React.ReactNode;
+  initialLocale: AppLocale;
+  initialPaletteMode?: ResolvedAppTheme;
+}): React.JSX.Element {
   const { resolvedTheme } = useNextTheme();
   const [mounted, setMounted] = useState(false);
   const [locale, setLocale] = useState<AppLocale>(() => readLocaleFromCookie() ?? initialLocale);
-  const paletteMode = mounted && resolvedTheme === 'dark' ? 'dark' : 'light';
+  // Without it every date picker spoke English: month names, placeholders, labels.
+  const pickerLocale = usePickerLocale(locale);
+  // Before mount, the server's guess from the cookie, so hydration matches the SSR markup.
+  const paletteMode: ResolvedAppTheme =
+    mounted && resolvedTheme ? (resolvedTheme === 'dark' ? 'dark' : 'light') : initialPaletteMode;
   const { density, reduceMotion } = useAppearancePreferences();
   const muiTheme = useMemo(
     () => createAppTheme(paletteMode, { density, reduceMotion }),
@@ -111,26 +147,41 @@ export function Providers({
     setMounted(true);
   }, []);
   useEffect(() => {
+    if (mounted && resolvedTheme) persistPaletteModeCookie(paletteMode);
+  }, [mounted, resolvedTheme, paletteMode]);
+  useEffect(() => {
     setLocale(readLocaleFromCookie() ?? initialLocale);
   }, [initialLocale]);
   useEffect(() => {
     persistLocaleToCookie(locale);
   }, [locale]);
-  const handleLocaleChange = (nextLocale: string): void => {
+  const handleLocaleChange = useCallback((nextLocale: string): void => {
     if (!isSupportedLocale(nextLocale)) return;
     persistLocaleToCookie(nextLocale);
     setLocale(nextLocale);
-  };
+  }, []);
   return (
     <IntlayerProviderContent locale={locale} setLocale={handleLocaleChange}>
       <HtmlLanguageSync />
       <ThemePreferenceSync />
-      <TourAutoStarter />
       <ThemeProvider theme={muiTheme}>
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
-          <WorkspaceProvider>
-            <WorkspaceScopedProviders mounted={mounted}>{children}</WorkspaceScopedProviders>
-          </WorkspaceProvider>
+        <LocalizationProvider
+          dateAdapter={AdapterDateFns}
+          adapterLocale={pickerLocale?.dateLocale}
+          localeText={pickerLocale?.localeText}
+        >
+          {/* Выше AuthProvider и WorkspaceProvider: их собственные запросы —
+              следующие цели миграции, а NotificationProvider внутри
+              WorkspaceScopedProviders уже использует кэш. Строго вне
+              WorkspaceScopedProviders: внутри время жизни кэша привязалось бы к
+              идентичности воркспейса вместо сегмента workspaceId в ключе. */}
+          <QueryClientProvider client={getQueryClient()}>
+            <AuthProvider>
+              <WorkspaceProvider>
+                <WorkspaceScopedProviders mounted={mounted}>{children}</WorkspaceScopedProviders>
+              </WorkspaceProvider>
+            </AuthProvider>
+          </QueryClientProvider>
         </LocalizationProvider>
       </ThemeProvider>
     </IntlayerProviderContent>

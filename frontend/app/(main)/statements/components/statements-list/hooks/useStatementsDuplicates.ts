@@ -1,5 +1,10 @@
 'use client';
 
+import { useMemo, useState } from 'react';
+import type {
+  DuplicateMeta,
+  DuplicateOverride,
+} from '@/app/(main)/statements/components/hooks/useStatementSelection';
 import {
   DUPLICATE_GROUP_TONES,
   formatStatementAmount,
@@ -8,13 +13,8 @@ import {
   isGmailStatement,
   toDuplicateGroupLabel,
 } from '@/app/(main)/statements/components/StatementsListView.utils';
-import type {
-  DuplicateMeta,
-  DuplicateOverride,
-} from '@/app/(main)/statements/components/hooks/useStatementSelection';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
 import { getStatementDisplayMerchant, getStatementMerchantLabel } from '@/app/lib/statement-status';
-import { useMemo, useState } from 'react';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,6 +1,6 @@
-import { TriangleAlert } from '@/app/components/icons';
 import { Box, Button, List, ListItem, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
+import { TriangleAlert } from '@/app/components/icons';
 
 interface EditableWarningEntry {
   key: string;

@@ -2,13 +2,17 @@ jest.mock('franc', () => ({
   franc: () => 'und',
 }));
 
+import { ConflictException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { BankName, FileType, type Statement, StatementStatus } from '@/entities/statement.entity';
 import type { Transaction } from '@/entities/transaction.entity';
 import type { ParsedStatement } from '@/modules/parsing/interfaces/parsed-statement.interface';
-import { StatementProcessingService } from '@/modules/parsing/services/statement-processing.service';
+import {
+  StatementProcessingService,
+  StatementRejected,
+} from '@/modules/parsing/services/statement-processing.service';
 
 describe('StatementProcessingService', () => {
   const tempFilePath = path.join(os.tmpdir(), 'sample.pdf');
@@ -34,8 +38,6 @@ describe('StatementProcessingService', () => {
     totalDebit: 0,
     totalCredit: 0,
     currency: 'KZT',
-    googleSheet: null,
-    googleSheetId: null,
     transactions: [] as Transaction[],
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -51,6 +53,13 @@ describe('StatementProcessingService', () => {
       Object.assign(statement, entity);
       return statement;
     }),
+    // Mid-pipeline heartbeats use update(), not save() — same merge
+    // semantics here so assertions against the final `statement` object
+    // still see whatever the heartbeat wrote.
+    update: jest.fn(async (_id: string, entity: Partial<Statement>) => {
+      Object.assign(statement, entity);
+      return { affected: 1 };
+    }),
   };
 
   const transactionRepository = {
@@ -65,7 +74,6 @@ describe('StatementProcessingService', () => {
 
   const classificationService = {
     classifyTransaction: jest.fn(async () => ({ categoryId: 'cat-1' })),
-    classifyTransactionsBatch: jest.fn(async () => new Map()),
     determineMajorityCategory: jest.fn(async () => ({
       categoryId: 'cat-1',
       type: 'expense' as any,
@@ -188,12 +196,18 @@ describe('StatementProcessingService', () => {
       importSessionService as any,
       transactionFingerprintService as any,
       dataSource as any,
+      {
+        resolve: jest.fn(async () => ({
+          taxRateId: null,
+          taxRuleId: null,
+          taxSource: null,
+          taxAmount: null,
+          taxNetAmount: null,
+          taxReverseCharge: false,
+          taxNotionalAmount: null,
+        })),
+      } as any,
     );
-
-    // Disable AI reconciliation for deterministic tests
-    (service as any).aiValidator = {
-      isAvailable: () => false,
-    };
   });
 
   afterEach(() => {
@@ -207,26 +221,24 @@ describe('StatementProcessingService', () => {
   it('persists parsed transactions and marks statement completed', async () => {
     await service.processStatement(statement.id);
 
-    expect(classificationService.classifyTransactionsBatch).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          index: 0,
-          counterpartyName: 'Supplier LLC',
-          paymentPurpose: 'Invoice payment',
-        }),
-      ]),
-      'ws-1',
-      'user-1',
+    expect(classificationService.classifyTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        counterpartyName: 'Supplier LLC',
+        paymentPurpose: 'Invoice payment',
+      }),
+      statement.userId,
     );
 
-    expect(statement.accountNumber).toBe('KZACC123');
+    // No account number in parser metadata falls back to 'Unknown', never to
+    // a transaction's counterparty account (that belongs to the other party).
+    expect(statement.accountNumber).toBe('Unknown');
     expect(statement.statementDateFrom?.toISOString()).toContain('2024-01-05');
     expect(statement.statementDateTo?.toISOString()).toContain('2024-01-10');
     expect(statement.currency).toBe('USD');
     expect(statement.status).toBe(StatementStatus.COMPLETED);
 
     expect(statement.parsingDetails?.metadataExtracted).toMatchObject({
-      accountNumber: 'KZACC123',
+      accountNumber: 'Unknown',
       currency: 'USD',
     });
     expect(statement.parsingDetails?.transactionsFound).toBe(2);
@@ -264,7 +276,7 @@ describe('StatementProcessingService', () => {
 
     expect(transactionFingerprintService.generateFingerprint).toHaveBeenCalledWith(
       expect.objectContaining({ documentNumber: 'DOC-1' }),
-      'KZACC123',
+      'Unknown',
     );
     expect(savedTransactions.map(tx => tx.fingerprint)).toEqual(['fp-DOC-1', 'fp-DOC-2']);
   });
@@ -297,6 +309,45 @@ describe('StatementProcessingService', () => {
     expect(statement.parsingDetails?.transactionsFlaggedDuplicate).toBe(1);
   });
 
+  it('flags a row repeating one booked by hand, before anything is saved', async () => {
+    const manualRowDuplicates = {
+      flagRepeats: jest.fn(async (drafts: Transaction[]) => {
+        drafts[0].isDuplicate = true;
+        drafts[0].duplicateOfId = 'tx-receipt';
+        return 1;
+      }),
+    };
+    const withManualCheck = new StatementProcessingService(
+      statementRepository as any,
+      transactionRepository as any,
+      { findOne: jest.fn().mockResolvedValue({ name: 'User' }) } as any,
+      parserFactory as any,
+      classificationService as any,
+      metadataExtractionService as any,
+      importSessionService as any,
+      transactionFingerprintService as any,
+      dataSource as any,
+      { resolve: jest.fn(async () => ({ taxRateId: null, taxReverseCharge: false })) } as any,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      manualRowDuplicates as any,
+    );
+
+    await withManualCheck.processStatement(statement.id);
+
+    expect(manualRowDuplicates.flagRepeats).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ documentNumber: 'DOC-1' })]),
+      statement.workspaceId,
+    );
+    expect(savedTransactions[0]).toMatchObject({ isDuplicate: true, duplicateOfId: 'tx-receipt' });
+    // The statement's count includes these, next to any the fingerprint found.
+    expect(statement.parsingDetails?.transactionsFlaggedDuplicate).toBe(
+      savedTransactions.filter(row => row.isDuplicate).length,
+    );
+  });
+
   it('fails the whole statement when the write transaction fails', async () => {
     dataSource.transaction.mockRejectedValueOnce(new Error('deadlock detected'));
 
@@ -305,6 +356,47 @@ describe('StatementProcessingService', () => {
     expect(savedTransactions).toHaveLength(0);
     expect(statement.status).toBe(StatementStatus.ERROR);
     expect(statement.errorMessage).toBe('deadlock detected');
+  });
+
+  describe('failure notifications', () => {
+    let emit: jest.Mock;
+    beforeEach(() => {
+      emit = jest.fn();
+      (service as any).eventEmitter = { emit };
+    });
+    const parsingErrors = () => emit.mock.calls.filter(([name]) => name === 'parsing.error');
+
+    it('records a failure the queue will retry without telling the user yet', async () => {
+      dataSource.transaction.mockRejectedValueOnce(new Error('deadlock detected'));
+
+      await expect(
+        service.processStatement(statement.id, { finalAttempt: false }),
+      ).rejects.toThrow('deadlock detected');
+
+      expect(statement.status).toBe(StatementStatus.ERROR);
+      expect(parsingErrors()).toHaveLength(0);
+    });
+
+    it('tells the user once the last attempt fails', async () => {
+      dataSource.transaction.mockRejectedValueOnce(new Error('deadlock detected'));
+
+      await expect(
+        service.processStatement(statement.id, { finalAttempt: true }),
+      ).rejects.toThrow('deadlock detected');
+
+      expect(parsingErrors()).toHaveLength(1);
+    });
+
+    it('rejects a file no parser accepts, and tells the user on the first attempt', async () => {
+      parserFactory.getParser.mockResolvedValueOnce(null as never);
+
+      const failure = service.processStatement(statement.id, { finalAttempt: false });
+
+      await expect(failure).rejects.toBeInstanceOf(StatementRejected);
+      await expect(failure).rejects.toThrow('No parser found');
+      expect(statement.status).toBe(StatementStatus.ERROR);
+      expect(parsingErrors()).toHaveLength(1);
+    });
   });
 
   it('imports without a fingerprint rather than failing when generation throws', async () => {
@@ -364,25 +456,8 @@ describe('StatementProcessingService', () => {
     expect(statement.parsingDetails?.validation?.balanceCheck).toBeUndefined();
   });
 
-  it('uses AI batch category when transaction classification is missing', async () => {
-    classificationService.classifyTransaction
-      .mockResolvedValueOnce({} as any)
-      .mockResolvedValueOnce({ categoryId: 'cat-1' });
-    classificationService.classifyTransactionsBatch.mockResolvedValueOnce(
-      new Map([[0, { categoryId: 'cat-ai' }]]),
-    );
-
-    await service.processStatement(statement.id);
-
-    expect(savedTransactions[0]).toMatchObject({
-      documentNumber: 'DOC-1',
-      categoryId: 'cat-ai',
-    });
-  });
-
   it('does not assign one majority category to every uncategorized transaction', async () => {
     classificationService.classifyTransaction.mockResolvedValue({} as any);
-    classificationService.classifyTransactionsBatch.mockResolvedValue(new Map());
     classificationService.determineMajorityCategory.mockResolvedValue({
       categoryId: 'cat-majority',
       type: 'expense' as any,
@@ -401,9 +476,6 @@ describe('StatementProcessingService', () => {
     } as Statement['parsingDetails'];
     statement.categoryId = null;
     classificationService.classifyTransaction.mockResolvedValue({ categoryId: 'cat-1' });
-    classificationService.classifyTransactionsBatch.mockResolvedValue(
-      new Map([[0, { categoryId: 'cat-ai' }]]),
-    );
     classificationService.determineMajorityCategory.mockResolvedValue({
       categoryId: 'cat-majority',
       type: 'expense' as any,
@@ -422,7 +494,9 @@ describe('StatementProcessingService', () => {
       importCommit: { committed: 2 },
     } as Statement['parsingDetails'];
 
-    await expect(service.commitImport(statement.id)).resolves.toBe(statement);
+    await expect(service.commitImport(statement.id, statement.workspaceId)).resolves.toBe(
+      statement,
+    );
     expect(importSessionService.processImport).not.toHaveBeenCalled();
   });
 
@@ -432,7 +506,20 @@ describe('StatementProcessingService', () => {
     statement.parsingDetails = null;
     transactionRepository.count.mockResolvedValueOnce(2);
 
-    await expect(service.commitImport(statement.id)).resolves.toBe(statement);
+    await expect(service.commitImport(statement.id, statement.workspaceId)).resolves.toBe(
+      statement,
+    );
+    expect(importSessionService.processImport).not.toHaveBeenCalled();
+  });
+
+  it('answers 409 when there is nothing previewed to commit', async () => {
+    statement.status = StatementStatus.PARSED;
+    statement.parsingDetails = null;
+    transactionRepository.count.mockResolvedValueOnce(0);
+
+    await expect(service.commitImport(statement.id, statement.workspaceId)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
     expect(importSessionService.processImport).not.toHaveBeenCalled();
   });
 
@@ -457,8 +544,125 @@ describe('StatementProcessingService', () => {
 
     await service.processStatement(statement.id);
 
-    expect(statement.parsingDetails?.warnings).toHaveLength(12);
+    // 12 per-row "skipped" warnings from schema enforcement, plus one
+    // statement-level warning for the 100%-dropped batch (see below).
+    expect(statement.parsingDetails?.warnings).toHaveLength(13);
     expect(statement.parsingDetails?.droppedSamples).toHaveLength(12);
+    expect(statement.status).toBe(StatementStatus.NEEDS_REVIEW);
+  });
+
+  it('holds a statement for review when every parsed row is rejected by schema validation', async () => {
+    const allInvalidTransactions = Array.from({ length: 3 }, (_, index) => ({
+      transactionDate: new Date('2024-01-05'),
+      documentNumber: `DOC-${index + 1}`,
+      counterpartyName: `Counterparty ${index + 1}`,
+      paymentPurpose: `Purpose ${index + 1}`,
+      debit: 0,
+      credit: 0,
+      currency: 'KZT',
+    }));
+
+    parserFactory.getParser.mockResolvedValueOnce({
+      parse: jest.fn().mockResolvedValue({
+        metadata: parsedStatement.metadata,
+        transactions: allInvalidTransactions,
+      }),
+      constructor: { name: 'FakeParser' },
+    });
+
+    await service.processStatement(statement.id);
+
+    expect(statement.status).toBe(StatementStatus.NEEDS_REVIEW);
+    expect(statement.parsingDetails?.validation?.warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('zero transactions')]),
+    );
+    expect(savedTransactions).toHaveLength(0);
+  });
+
+  it('holds a statement for review when most parsed rows are rejected by schema validation', async () => {
+    const mostlyInvalidTransactions = [
+      ...Array.from({ length: 9 }, (_, index) => ({
+        transactionDate: new Date('2024-01-05'),
+        documentNumber: `BAD-${index + 1}`,
+        counterpartyName: `Counterparty ${index + 1}`,
+        paymentPurpose: `Purpose ${index + 1}`,
+        debit: 0,
+        credit: 0,
+        currency: 'KZT',
+      })),
+      ...parsedStatement.transactions,
+    ];
+
+    parserFactory.getParser.mockResolvedValueOnce({
+      parse: jest.fn().mockResolvedValue({
+        metadata: parsedStatement.metadata,
+        transactions: mostlyInvalidTransactions,
+      }),
+      constructor: { name: 'FakeParser' },
+    });
+
+    await service.processStatement(statement.id);
+
+    expect(statement.status).toBe(StatementStatus.NEEDS_REVIEW);
+    expect(statement.parsingDetails?.validation?.warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('9 of 11 parsed rows were rejected')]),
+    );
+    expect(savedTransactions).toHaveLength(2);
+  });
+
+  it('does not flag a legitimately empty statement that has no transactions but reconciled balances', async () => {
+    parserFactory.getParser.mockResolvedValueOnce({
+      parse: jest.fn().mockResolvedValue({
+        metadata: { ...parsedStatement.metadata, balanceStart: 500, balanceEnd: 500 },
+        transactions: [],
+      }),
+      constructor: { name: 'FakeParser' },
+    });
+
+    await service.processStatement(statement.id);
+
+    expect(statement.status).toBe(StatementStatus.COMPLETED);
+    expect(savedTransactions).toHaveLength(0);
+  });
+
+  it('holds a statement for review instead of comparing mixed-currency totals against a single balance', async () => {
+    parserFactory.getParser.mockResolvedValueOnce({
+      parse: jest.fn().mockResolvedValue({
+        metadata: { ...parsedStatement.metadata, balanceStart: 1000, balanceEnd: 1100 },
+        transactions: [
+          { ...parsedStatement.transactions[0], currency: 'USD', debit: 100, credit: undefined },
+          { ...parsedStatement.transactions[1], currency: 'EUR', debit: undefined, credit: 200 },
+        ],
+      }),
+      constructor: { name: 'FakeParser' },
+    });
+
+    await service.processStatement(statement.id);
+
+    expect(statement.status).toBe(StatementStatus.NEEDS_REVIEW);
+    expect(statement.parsingDetails?.validation?.balanceCheck).toBeUndefined();
+    expect(statement.parsingDetails?.validation?.warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('multiple currencies')]),
+    );
+    // Transactions are still persisted — only their visibility is withheld.
+    expect(savedTransactions).toHaveLength(2);
+  });
+
+  it('holds a statement for review when it has no transactions and only one balance was extracted', async () => {
+    parserFactory.getParser.mockResolvedValueOnce({
+      parse: jest.fn().mockResolvedValue({
+        metadata: { ...parsedStatement.metadata, balanceStart: 1000, balanceEnd: undefined },
+        transactions: [],
+      }),
+      constructor: { name: 'FakeParser' },
+    });
+
+    await service.processStatement(statement.id);
+
+    expect(statement.status).toBe(StatementStatus.NEEDS_REVIEW);
+    expect(statement.parsingDetails?.validation?.warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('No transactions or balances')]),
+    );
   });
 
   it('keeps parser metadata when enrichment only has fallback values', async () => {

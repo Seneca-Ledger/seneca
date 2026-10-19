@@ -3,33 +3,35 @@ title: Testing
 description: Unit, integration, and e2e test guidance
 ---
 
-Lumio uses Jest for the backend and Vitest for the frontend. CI also runs e2e tests against a Postgres
-service container.
+Seneca uses Jest for the backend and Vitest for the frontend. CI runs the backend unit and e2e suites against
+PostgreSQL 16 and Redis 7 service containers.
 
 ## Backend tests (Jest)
 
 ```bash
 cd backend
-npm run test
-npm run test:e2e
-npm run test:cov
+npm test               # unit tests: @tests/**/*.spec.ts
+npm run test:e2e       # e2e tests: @tests/e2e/**/*.e2e-spec.ts (needs PostgreSQL and Redis)
+npm run test:cov       # unit tests with coverage
+npm run test:ci        # unit (in band) + e2e, as in CI
+npm run test:golden    # parser golden tests
+npm run test:parsing   # parsing regression spec
 ```
 
-Tests live under:
-
-- `backend/@tests/unit`
-- `backend/@tests/e2e`
+Tests live under `backend/@tests`: `unit`, `integration`, `e2e`, `fixtures`, and `helpers`.
 
 ## Frontend tests (Vitest)
 
 ```bash
 cd frontend
-npm run test
+npm test
 ```
 
-## Coverage goals
+Run them from `frontend/`. Tests sit next to the code as `*.test.ts` / `*.test.tsx`. CI does not run them.
 
-- Backend: 80%+
-- Frontend: 70%+
+## Coverage
+
+The backend unit config enforces a global floor of 8% statements, 5% branches, 8% functions, and 8% lines; the
+frontend has no threshold. Cover the code you change.
 
 Next: [Coding Standards](coding-standards)

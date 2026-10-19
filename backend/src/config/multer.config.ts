@@ -16,6 +16,11 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   'image/tiff': '.tiff',
   'image/bmp': '.bmp',
   'image/webp': '.webp',
+  'application/x-ofx': '.ofx',
+  'application/qif': '.qif',
+  'application/xml': '.xml',
+  'text/xml': '.xml',
+  'text/plain': '.txt',
 };
 
 export const resolveSafeUploadExtension = (file: {

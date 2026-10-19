@@ -1,11 +1,14 @@
 'use client';
 
-import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
-import { isLowConfidenceDocument, normalizeReceiptLineItems } from '@/app/lib/financial-document';
-import type { AuditEvent } from '@/lib/api/audit';
-import { fetchEntityHistory } from '@/lib/api/audit';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { useIntlayer } from '@/app/i18n';
+import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { isLowConfidenceDocument, normalizeReceiptLineItems } from '@/app/lib/financial-document';
+import { checkContract } from '@/app/lib/query-fn-schema';
+import type { AuditEvent } from '@/lib/api/audit';
+import { fetchEntityHistory } from '@/lib/api/audit';
 
 export interface GmailReceipt {
   id: string;
@@ -125,6 +128,8 @@ export function useGmailReceiptData({
 }: {
   receiptId: string;
 }): UseGmailReceiptDataReturn {
+  const t = useIntlayer('gmailReceiptPage');
+  const loadFailedText = t.toasts.loadFailed.value;
   const [receipt, setReceipt] = useState<GmailReceipt | null>(null);
   const [potentialDuplicates, setPotentialDuplicates] = useState<GmailReceipt[]>([]);
   const [categories, setCategories] = useState<ReceiptCategoryOption[]>([]);
@@ -136,7 +141,7 @@ export function useGmailReceiptData({
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
 
   const loadData = useCallback(async (): Promise<void> => {
-    try {
+    await (async () => {
       setLoading(true);
       const [receiptResponse, categoriesResponse] = await Promise.all([
         gmailReceiptsApi.getReceipt(receiptId),
@@ -164,10 +169,10 @@ export function useGmailReceiptData({
 
       setReceipt(nextReceipt);
       setPotentialDuplicates(receiptResponse.data.potentialDuplicates || []);
-      setCategories(categoriesResponse.data || []);
+      setCategories(await checkContract('CategoryList', categoriesResponse.data, '/categories'));
       setEditedData({
         amount: parsedAmount || undefined,
-        currency: nextReceipt.parsedData?.currency || 'KZT',
+        currency: nextReceipt.parsedData?.currency || FALLBACK_CURRENCY,
         vendor: nextReceipt.parsedData?.vendor || '',
         date: nextReceipt.parsedData?.date || '',
         tax: nextReceipt.parsedData?.tax,
@@ -175,13 +180,15 @@ export function useGmailReceiptData({
         categoryId: nextReceipt.parsedData?.categoryId,
         lineItems: editableLineItems,
       });
-    } catch (error) {
-      console.error('Failed to load receipt details', error);
-      toast.error('Failed to load receipt');
-    } finally {
-      setLoading(false);
-    }
-  }, [receiptId]);
+    })()
+      .catch(async error => {
+        console.error('Failed to load receipt details', error);
+        toast.error(loadFailedText);
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
+  }, [receiptId, loadFailedText]);
 
   useEffect(() => {
     void loadData();
@@ -207,7 +214,7 @@ export function useGmailReceiptData({
   const hasDisabledCategory = selectedCategory?.isEnabled === false;
   const hasCategoryIssues = !hasCategory || hasDisabledCategory;
 
-  const currency = editedData.currency || receipt?.parsedData?.currency || 'KZT';
+  const currency = editedData.currency || receipt?.parsedData?.currency || FALLBACK_CURRENCY;
   const lineItemsTotal = editedData.lineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
   const amount =
     editedData.lineItems.length > 0
@@ -231,22 +238,23 @@ export function useGmailReceiptData({
       ? 'warning'
       : 'success';
 
+  const r = t.readiness;
   const readinessDetails = useMemo(() => {
     const segments: string[] = [];
     if (!hasCategory) {
-      segments.push('No category selected.');
+      segments.push(r.noCategory.value);
     }
     if (hasDisabledCategory) {
-      segments.push('Selected category is disabled. Choose an active one.');
+      segments.push(r.categoryDisabled.value);
     }
     if (isLowConfidence) {
-      segments.push(`Confidence is ${confidencePercent}%, review required.`);
+      segments.push(r.lowConfidence.value.replace('{percent}', String(confidencePercent)));
     }
     if (warningCount > 0) {
-      segments.push(`${warningCount} parsing warning(s) detected.`);
+      segments.push(r.warnings.value.replace('{count}', String(warningCount)));
     }
     if (lineItems.length === 0) {
-      segments.push('No line items. Add at least one line item.');
+      segments.push(r.noLineItems.value);
     }
     return segments;
   }, [
@@ -256,19 +264,18 @@ export function useGmailReceiptData({
     confidencePercent,
     warningCount,
     lineItems.length,
+    r,
   ]);
 
   const readinessTitle =
     readinessSeverity === 'error'
-      ? 'Needs attention before submit'
+      ? r.titleError.value
       : readinessSeverity === 'warning'
-        ? 'Review before submitting'
-        : 'Receipt is ready to submit';
+        ? r.titleWarning.value
+        : r.titleReady.value;
 
   const readinessMessage =
-    readinessDetails.length > 0
-      ? readinessDetails.join(' · ')
-      : 'All categories assigned. Data looks correct, ready to submit.';
+    readinessDetails.length > 0 ? readinessDetails.join(' · ') : r.allGood.value;
 
   const readinessInlineText = `${readinessTitle}: ${readinessMessage}`;
   const enabledCategories = categories.filter(c => c.isEnabled !== false);

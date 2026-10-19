@@ -16,6 +16,7 @@ export enum NotificationType {
   CATEGORY_CREATED = 'category.created',
   CATEGORY_UPDATED = 'category.updated',
   CATEGORY_DELETED = 'category.deleted',
+  NOTE_MENTIONED = 'note.mentioned',
   MEMBER_INVITED = 'member.invited',
   MEMBER_JOINED = 'member.joined',
   DATA_DELETED = 'data.deleted',
@@ -31,6 +32,12 @@ export enum NotificationType {
   BUDGET_EXCEEDED = 'budget.exceeded',
   SUBSCRIPTION_DETECTED = 'subscription.detected',
   SUBSCRIPTION_UPCOMING = 'subscription.upcoming',
+  SUBSCRIPTION_PRICE_CHANGED = 'subscription.price_changed',
+  TAX_THRESHOLD_WARNING = 'tax.threshold.warning',
+  TAX_THRESHOLD_REACHED = 'tax.threshold.reached',
+  TAX_DEADLINE_UPCOMING = 'tax.deadline.upcoming',
+  TAX_DEADLINE_OVERDUE = 'tax.deadline.overdue',
+  TAX_RATES_OFFICIAL_CHANGED = 'tax.rates.official_changed',
 }
 
 export enum NotificationCategory {

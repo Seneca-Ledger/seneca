@@ -1,9 +1,9 @@
 'use client';
 
-import ConfirmModal from '@/app/components/ConfirmModal';
-import { Checkbox } from '@/app/components/ui/checkbox';
 import { Box, Typography } from '@mui/material';
 import React from 'react';
+import ConfirmModal from '@/app/components/ConfirmModal';
+import { Checkbox } from '@/app/components/ui/checkbox';
 import type { FolderOption, StorageFile, TagOption } from '../storageHelpers';
 
 export interface StorageConfirmModalsProps {

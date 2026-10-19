@@ -1,7 +1,5 @@
 'use client';
 
-import { Check, Tag } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -12,10 +10,12 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
+import { alpha, useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { alpha, useTheme } from '@mui/material/styles';
 import React, { useRef } from 'react';
+import { Check, Tag } from '@/app/components/icons';
+import { tokens } from '@/lib/theme-tokens';
 import type { Category, CategoryFormData } from './hooks/useCategoryManagement';
 
 export const PREDEFINED_ICONS = [

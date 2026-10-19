@@ -1,7 +1,7 @@
 {
   "name": "parse-ledger",
   "version": "1.0.0",
-  "description": "Lumio - Bank statements processing system",
+  "description": "Seneca - Bank statements processing system",
   "main": "backend/dist/main.js",
   "scripts": {
     "prepare": "husky",
@@ -15,6 +15,9 @@
     "setup:dev:native": "node scripts/setup-dev.mjs --native",
     "setup:env": "node scripts/setup-dev.mjs --env-only",
     "test:setup-dev": "node --test scripts/setup-dev.test.mjs",
+    "contracts:sync": "node scripts/sync-contracts.mjs",
+    "contracts:check": "node scripts/sync-contracts.mjs --check",
+    "test:sync-contracts": "node --test scripts/sync-contracts.test.mjs",
     "graphify:build": "node scripts/graphify-build.mjs",
     "graphify:validate": "node scripts/graphify-validate.mjs",
     "backend:build": "npm --prefix backend run build",
@@ -28,11 +31,6 @@
     "migration:generate": "npm --prefix backend run migration:generate",
     "create-admin": "npm --prefix backend run create-admin",
     "knip": "knip",
-    "electron:dev": "concurrently \"npm --prefix frontend run dev\" \"npm --prefix electron run dev\"",
-    "electron:build": "npm --prefix electron run build",
-    "electron:build:mac": "npm --prefix electron run build:mac",
-    "electron:build:win": "npm --prefix electron run build:win",
-    "electron:build:linux": "npm --prefix electron run build:linux",
     "test": "npm --prefix backend run test:unit && npm --prefix frontend run test",
     "test:backend": "npm --prefix backend run test:unit",
     "test:frontend": "npm --prefix frontend run test"

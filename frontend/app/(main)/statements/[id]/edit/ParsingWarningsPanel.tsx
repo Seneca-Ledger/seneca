@@ -2,9 +2,10 @@
 
 import { Alert, AlertTitle, Dialog, DialogTitle, Typography } from '@mui/material';
 import { useMemo } from 'react';
+import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
+import { useIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { DroppedSampleForm } from './DroppedSampleForm';
-import { WarningsList } from './WarningsList';
-import { CurrencyPickerDrawer } from './components/CurrencyPickerDrawer';
 import {
   extractTxKey,
   formatDroppedSampleText,
@@ -16,34 +17,19 @@ import {
   type EditableWarningEntry,
   useParsingWarningsPanel,
 } from './hooks/useParsingWarningsPanel';
+import { WarningsList } from './WarningsList';
 
 // ---------------------------------------------------------------------------
 // Core types
 // ---------------------------------------------------------------------------
 
-export interface ParsingDroppedSampleTransaction {
-  transactionDate?: string;
-  counterpartyName?: string;
-  paymentPurpose?: string;
-  debit?: number;
-  credit?: number;
-  currency?: string;
-  documentNumber?: string;
-  counterpartyBin?: string;
-  counterpartyAccount?: string;
-  counterpartyBank?: string;
-  article?: string;
-  comments?: string;
-  branchId?: string;
-  walletId?: string;
-  categoryId?: string;
-  [key: string]: unknown;
-}
+/** A parsed row the import left out, as the parser kept it. */
+export type ParsingDroppedSample = Exclude<
+  NonNullable<StatementParsingDetails['droppedSamples']>[number],
+  string
+>;
 
-export interface ParsingDroppedSample {
-  reason: string;
-  transaction?: ParsingDroppedSampleTransaction;
-}
+export type ParsingDroppedSampleTransaction = NonNullable<ParsingDroppedSample['transaction']>;
 
 export type ConvertDroppedSamplePayload = {
   sample: ParsingDroppedSample;
@@ -147,6 +133,7 @@ type ConvertDialogProps = {
 
 function ConvertDialog({ panel }: ConvertDialogProps): React.JSX.Element {
   const { isDialogOpen, selectedEntry, selectedDraft, selectedWarning } = panel;
+  const t = useIntlayer('statementDroppedSampleForm');
   return (
     <Dialog
       open={isDialogOpen}
@@ -154,7 +141,7 @@ function ConvertDialog({ panel }: ConvertDialogProps): React.JSX.Element {
       fullWidth
       maxWidth="md"
     >
-      <DialogTitle>Convert dropped row</DialogTitle>
+      <DialogTitle>{t.dialogTitle}</DialogTitle>
       {isDialogOpen &&
       selectedEntry !== null &&
       selectedDraft !== null &&
@@ -226,18 +213,20 @@ export function ParsingWarningsPanel({
         />
         <ConvertDialog panel={panel} />
       </Alert>
-      <CurrencyPickerDrawer
+      <CurrencyDrawer
         isOpen={
           panel.currencyPickerOpen && panel.selectedEntry !== null && panel.selectedDraft !== null
         }
         onClose={panel.handleCloseCurrencyPicker}
         currencySearch={panel.currencySearch}
-        onSearchChange={panel.setCurrencySearch}
+        setCurrencySearch={panel.setCurrencySearch}
         selectedCurrencyItem={panel.selectedCurrencyItem}
         selectedMatchesSearch={panel.selectedMatchesSearch}
+        currencyQuery={panel.currencyQuery}
         recentCurrencyItems={panel.recentCurrencyItems}
         allCurrencyItems={panel.allCurrencyItems}
-        onSelect={panel.handleSelectCurrency}
+        handleSelectCurrency={panel.handleSelectCurrency}
+        zIndex={1400}
       />
     </>
   );

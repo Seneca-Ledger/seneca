@@ -1,12 +1,12 @@
 'use client';
 
+import { useMemo } from 'react';
 import {
   getBankDisplayName,
   isGmailStatement,
   isStoreReceiptStatement,
   resolveStatementCurrency,
 } from '@/app/(main)/statements/components/StatementsListView.utils';
-import { useMemo } from 'react';
 
 interface StatementForOptions {
   id: string;

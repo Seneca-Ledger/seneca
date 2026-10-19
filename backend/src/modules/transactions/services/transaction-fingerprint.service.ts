@@ -161,25 +161,30 @@ export class TransactionFingerprintService {
       return [];
     }
 
-    return this.transactionRepository
-      .createQueryBuilder('transaction')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.transactionDate BETWEEN :start AND :end', {
-        start: dateRange.start,
-        end: dateRange.end,
-      })
-      .andWhere(
-        new Brackets(qb => {
-          amountRanges.forEach((range, i) => {
-            qb.orWhere(`transaction.amount BETWEEN :min${i} AND :max${i}`, {
-              [`min${i}`]: range.min,
-              [`max${i}`]: range.max,
+    return (
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId })
+        .andWhere('transaction.transactionDate BETWEEN :start AND :end', {
+          start: dateRange.start,
+          end: dateRange.end,
+        })
+        .andWhere(
+          new Brackets(qb => {
+            amountRanges.forEach((range, i) => {
+              qb.orWhere(`transaction.amount BETWEEN :min${i} AND :max${i}`, {
+                [`min${i}`]: range.min,
+                [`max${i}`]: range.max,
+              });
             });
-          });
-        }),
-      )
-      .take(limit)
-      .getMany();
+          }),
+        )
+        // Deterministic order: without it, which rows survive a `take(limit)`
+        // truncation is arbitrary and can vary between calls with identical input.
+        .orderBy('transaction.transactionDate', 'DESC')
+        .take(limit)
+        .getMany()
+    );
   }
 
   /**

@@ -51,19 +51,24 @@ export class Subscription {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @Column({ name: 'vendor_name', length: 255 })
   vendorName: string;
 
-  @Column({ name: 'vendor_raw', length: 255, nullable: true })
+  @Column({ type: 'varchar', name: 'vendor_raw', length: 255, nullable: true })
   vendorRaw: string | null;
+
+  // The vendor's website host, used to fetch a brand icon. Null falls back to
+  // initials; detected subscriptions start null until somebody reviews them.
+  @Column({ type: 'varchar', name: 'vendor_domain', length: 253, nullable: true })
+  vendorDomain: string | null;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount: number;
 
-  @Column({ default: 'USD' })
+  @Column()
   currency: string;
 
   @Column({ type: 'enum', enum: SubscriptionFrequency })
@@ -76,7 +81,7 @@ export class Subscription {
   @JoinColumn({ name: 'owner_id' })
   owner: User | null;
 
-  @Column({ name: 'owner_id', nullable: true })
+  @Column({ name: 'owner_id', type: 'uuid', nullable: true })
   ownerId: string | null;
 
   @Column({ name: 'review_at', type: 'date', nullable: true })
@@ -117,8 +122,22 @@ export class Subscription {
   @JoinColumn({ name: 'category_id' })
   category: Category | null;
 
-  @Column({ name: 'category_id', nullable: true })
+  @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
+
+  /** "I used it" taps; with `usageSince` they give a cost per use. */
+  @Column({ name: 'usage_count', type: 'int', default: 0 })
+  usageCount: number;
+
+  @Column({ name: 'usage_since', type: 'timestamptz', nullable: true })
+  usageSince: Date | null;
+
+  @Column({ name: 'last_used_at', type: 'timestamptz', nullable: true })
+  lastUsedAt: Date | null;
+
+  /** The savings goal that sets money aside for the next quarterly or annual charge. */
+  @Column({ name: 'sinking_goal_id', type: 'uuid', nullable: true })
+  sinkingGoalId: string | null;
 
   @Column({ name: 'detection_meta', type: 'jsonb', nullable: true })
   detectionMeta: Record<string, unknown> | null;
@@ -127,7 +146,7 @@ export class Subscription {
   @JoinColumn({ name: 'created_by_id' })
   createdBy: User | null;
 
-  @Column({ name: 'created_by_id', nullable: true })
+  @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

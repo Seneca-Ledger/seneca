@@ -15,7 +15,6 @@ import {
   ImportConflictError,
   ImportValidationError,
 } from '../../../../../src/modules/import/errors/import-errors';
-import { ImportRetryService } from '../../../../../src/modules/import/services/import-retry.service';
 import { ImportSessionService } from '../../../../../src/modules/import/services/import-session.service';
 import { ParsedTransaction } from '../../../../../src/modules/parsing/interfaces/parsed-statement.interface';
 import {
@@ -36,7 +35,6 @@ describe('ImportSessionService', () => {
   let dataSource: jest.Mocked<DataSource>;
   let fingerprintService: jest.Mocked<TransactionFingerprintService>;
   let deduplicationService: jest.Mocked<IntelligentDeduplicationService>;
-  let retryService: jest.Mocked<ImportRetryService>;
   let queryRunner: jest.Mocked<QueryRunner>;
 
   const mockWorkspace: Workspace = {
@@ -69,13 +67,17 @@ describe('ImportSessionService', () => {
   };
 
   beforeEach(async () => {
-    // Create separate mock repositories for each entity
+    // Create separate mock repositories for each entity. `update` defaults
+    // to a realistic UpdateResult (affected: 1) since processImport's
+    // commit-mode transition now branches on `.affected` — individual tests
+    // override this when they need to simulate a no-op update (e.g. a lost
+    // conditional-update race).
     const createMockRepository = () => ({
       findOne: jest.fn(),
       find: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
-      update: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     });
 
     // Create mock query runner
@@ -136,16 +138,6 @@ describe('ImportSessionService', () => {
           },
         },
         {
-          provide: ImportRetryService,
-          useValue: {
-            shouldRetry: jest.fn(),
-            canRetry: jest.fn(),
-            scheduleRetry: jest.fn(),
-            markAsPermanentlyFailed: jest.fn(),
-            getRetryMetadata: jest.fn(),
-          },
-        },
-        {
           provide: ImportConfigService,
           useValue: {
             getDedupDateToleranceDays: jest.fn().mockReturnValue(2),
@@ -170,7 +162,6 @@ describe('ImportSessionService', () => {
     dataSource = module.get(DataSource);
     fingerprintService = module.get(TransactionFingerprintService);
     deduplicationService = module.get(IntelligentDeduplicationService);
-    retryService = module.get(ImportRetryService);
   });
 
   afterEach(() => {
@@ -247,6 +238,42 @@ describe('ImportSessionService', () => {
 
       expect(result).toEqual(existingSession);
       expect(importSessionRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('should create a fresh session for the same file hash when the existing one failed', async () => {
+      workspaceRepository.findOne.mockResolvedValue(mockWorkspace);
+      userRepository.findOne.mockResolvedValue(mockUser);
+
+      const failedSession: ImportSession = {
+        id: 'failed-session-1',
+        workspaceId: 'workspace-1',
+        fileHash: 'abc123',
+        status: ImportSessionStatus.FAILED,
+      } as ImportSession;
+
+      importSessionRepository.findOne.mockResolvedValue(failedSession);
+
+      const newSession: ImportSession = {
+        id: 'retry-session-1',
+        workspaceId: 'workspace-1',
+        fileHash: 'abc123',
+        status: ImportSessionStatus.PENDING,
+      } as ImportSession;
+      importSessionRepository.create.mockReturnValue(newSession);
+      importSessionRepository.save.mockResolvedValue(newSession);
+
+      const result = await service.createSession(
+        'workspace-1',
+        'user-1',
+        null,
+        ImportSessionMode.PREVIEW,
+        'abc123',
+        'test.pdf',
+        1024,
+      );
+
+      expect(importSessionRepository.create).toHaveBeenCalled();
+      expect(result).toEqual(newSession);
     });
 
     it('should create session with default fileSize when not provided', async () => {
@@ -407,6 +434,39 @@ describe('ImportSessionService', () => {
       expect(result.summary.conflictedCount).toBe(0);
     });
 
+    it('flags the second of two same-batch rows that hash to the same fingerprint, rather than leaving both "new" (regression)', async () => {
+      // Two distinct rows (e.g. two separate same-day, same-amount purchases
+      // at the same merchant) can legitimately collide on fingerprint. Left
+      // unflagged, processCommit would insert both as plain 'new' rows and
+      // the second INSERT would violate the partial unique index
+      // (workspace_id, fingerprint) WHERE is_duplicate=false, rolling back
+      // the entire commit.
+      importSessionRepository.findOne.mockResolvedValue(mockSession);
+      fingerprintService.generateFingerprint.mockReturnValue('fingerprint-collision');
+      fingerprintService.findByFingerprints.mockResolvedValue([]);
+      fingerprintService.findCandidatesByWindow.mockResolvedValue([]);
+      deduplicationService.detectConflicts.mockResolvedValue([]);
+      importSessionRepository.update.mockResolvedValue(undefined as any);
+
+      const transactions = [mockParsedTransaction, { ...mockParsedTransaction }];
+      const result = await service.processImport(
+        'session-1',
+        transactions,
+        ImportSessionMode.PREVIEW,
+      );
+
+      // Both are still real, distinct "new" transactions — nothing is
+      // silently dropped from the count.
+      expect(result.summary.newCount).toBe(2);
+
+      const updateCall = importSessionRepository.update.mock.calls.find(
+        ([, entity]: any) => entity?.sessionMetadata?.previewData,
+      );
+      const classifications = updateCall?.[1].sessionMetadata.previewData.classifications;
+      expect(classifications[0].duplicateInBatch).toBeFalsy();
+      expect(classifications[1].duplicateInBatch).toBe(true);
+    });
+
     it('should detect conflicts using tolerant matching', async () => {
       const existingTransaction: Transaction = {
         id: 'existing-1',
@@ -519,7 +579,7 @@ describe('ImportSessionService', () => {
 
       queryRunner.manager.create.mockReturnValue(mockTransaction);
       queryRunner.manager.save.mockResolvedValue(mockTransaction);
-      importSessionRepository.update.mockResolvedValue(undefined as any);
+      importSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
 
       const transactions = [mockParsedTransaction];
       const result = await service.processImport(
@@ -532,6 +592,36 @@ describe('ImportSessionService', () => {
       expect(result.summary.newCount).toBe(1);
       expect(queryRunner.commitTransaction).toHaveBeenCalled();
       expect(queryRunner.release).toHaveBeenCalled();
+    });
+
+    it('persists a within-batch fingerprint collision as isDuplicate=true instead of a plain insert (regression)', async () => {
+      const sessionWithBatchDuplicate: ImportSession = {
+        ...mockSession,
+        sessionMetadata: {
+          ...mockSession.sessionMetadata,
+          previewData: {
+            classifications: [
+              { index: 0, status: 'new', fingerprint: 'fingerprint-1' },
+              { index: 1, status: 'new', fingerprint: 'fingerprint-1', duplicateInBatch: true },
+            ],
+          },
+        } as any,
+      } as ImportSession;
+
+      importSessionRepository.findOne.mockResolvedValue(sessionWithBatchDuplicate);
+      fingerprintService.generateFingerprint.mockReturnValue('fingerprint-1');
+
+      const mockTransaction = { id: 'tx-2', fingerprint: 'fingerprint-1', isDuplicate: false };
+      queryRunner.manager.create.mockReturnValue(mockTransaction);
+      queryRunner.manager.save.mockResolvedValue(mockTransaction);
+      importSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
+
+      const transactions = [mockParsedTransaction, { ...mockParsedTransaction }];
+      await service.processImport('session-1', transactions, ImportSessionMode.COMMIT);
+
+      expect(queryRunner.manager.save).toHaveBeenCalledWith(
+        expect.objectContaining({ isDuplicate: true }),
+      );
     });
 
     it('should skip matched transactions', async () => {
@@ -552,7 +642,7 @@ describe('ImportSessionService', () => {
       } as ImportSession;
 
       importSessionRepository.findOne.mockResolvedValue(sessionWithMatches);
-      importSessionRepository.update.mockResolvedValue(undefined as any);
+      importSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
 
       const transactions = [mockParsedTransaction];
       const result = await service.processImport(
@@ -610,7 +700,7 @@ describe('ImportSessionService', () => {
       } as ImportSession;
 
       importSessionRepository.findOne.mockResolvedValue(sessionWithResolution);
-      importSessionRepository.update.mockResolvedValue(undefined as any);
+      importSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
 
       const transactions = [mockParsedTransaction];
       const result = await service.processImport(
@@ -659,7 +749,7 @@ describe('ImportSessionService', () => {
 
       queryRunner.manager.create.mockReturnValue(mockTransaction);
       queryRunner.manager.save.mockResolvedValue(mockTransaction);
-      importSessionRepository.update.mockResolvedValue(undefined as any);
+      importSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
 
       const transactions = [mockParsedTransaction];
       const result = await service.processImport(
@@ -702,7 +792,7 @@ describe('ImportSessionService', () => {
 
       queryRunner.manager.create.mockReturnValue(mockTransaction);
       queryRunner.manager.save.mockResolvedValue(mockTransaction);
-      importSessionRepository.update.mockResolvedValue(undefined as any);
+      importSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
 
       const transactions = [mockParsedTransaction];
       const result = await service.processImport(
@@ -746,17 +836,47 @@ describe('ImportSessionService', () => {
       ).rejects.toThrow(ImportValidationError);
     });
 
-    it('should throw ImportValidationError if session not in PREVIEW status', async () => {
+    it('should throw ImportConflictError if session not in PREVIEW status', async () => {
       const sessionInWrongStatus: ImportSession = {
         ...mockSession,
         status: ImportSessionStatus.PENDING,
       } as ImportSession;
 
       importSessionRepository.findOne.mockResolvedValue(sessionInWrongStatus);
+      // The COMMIT-mode transition is `UPDATE ... WHERE status = PREVIEW`, a
+      // real DB WHERE clause a session already in PENDING would never match
+      // — simulate that here rather than the default affected:1.
+      importSessionRepository.update.mockResolvedValueOnce({ affected: 0 } as any);
 
       await expect(
         service.processImport('session-1', [mockParsedTransaction], ImportSessionMode.COMMIT),
-      ).rejects.toThrow(ImportValidationError);
+      ).rejects.toThrow(ImportConflictError);
+
+      // A losing/rejected transition made no changes to the session — must
+      // not overwrite its status (there's nothing to overwrite it FROM in
+      // this test, but in the concurrent-commit case this is what stops the
+      // loser from clobbering the winner's COMPLETED status back to FAILED).
+      expect(importSessionRepository.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not let a losing concurrent commit overwrite the winning commit\'s COMPLETED status', async () => {
+      // Simulates the actual race: another request already won the
+      // conditional transition (status is no longer PREVIEW by the time
+      // this request's own UPDATE runs), and has since completed.
+      importSessionRepository.findOne.mockResolvedValue(mockSession);
+      importSessionRepository.update.mockResolvedValueOnce({ affected: 0 } as any);
+
+      await expect(
+        service.processImport('session-1', [mockParsedTransaction], ImportSessionMode.COMMIT),
+      ).rejects.toThrow(ImportConflictError);
+
+      // Only the one failed conditional-update call — no FAILED-status
+      // write, since this request never took ownership of the session.
+      expect(importSessionRepository.update).toHaveBeenCalledTimes(1);
+      expect(importSessionRepository.update).not.toHaveBeenCalledWith(
+        { id: 'session-1' },
+        expect.objectContaining({ status: ImportSessionStatus.FAILED }),
+      );
     });
   });
 

@@ -1,10 +1,36 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
-import { Repository } from 'typeorm';
+import { Effect, type Schema } from 'effect';
+import { LessThanOrEqual, Repository } from 'typeorm';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { describeHttpFailure, getJson } from '../../common/effect/http-json';
 import { ExchangeRate } from '../../entities/exchange-rate.entity';
+import { Transaction } from '../../entities/transaction.entity';
+import { WorkspaceExchangeRate } from '../../entities/workspace-exchange-rate.entity';
+import { LatestRatesResponse, PublicRatesResponse } from './exchange-rates.http';
+
+/**
+ * A rate and the day it was quoted for. `stale` marks a rate borrowed from an
+ * earlier day because none was found for the requested one.
+ */
+export interface RateQuote {
+  rate: number;
+  rateDate: string;
+  stale: boolean;
+}
+
+export interface RateQuoteOptions {
+  /** Refuse a borrowed rate quoted more than this many days before the requested day. */
+  maxStaleDays?: number;
+  /** Whose hand-entered rates apply; without it only provider rates are used. */
+  workspaceId?: string;
+}
+
+const FALLBACK_CACHE_TTL_MS = 3600 * 1000;
+const DAY_MS = 24 * 3600 * 1000;
 
 export interface ConvertResult {
   converted: number;
@@ -24,19 +50,131 @@ export class ExchangeRatesService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly configService: ConfigService,
+    private readonly effects: EffectRuntime,
+    @Optional()
+    @InjectRepository(Transaction)
+    private readonly transactionRepository?: Repository<Transaction>,
+    @Optional()
+    @InjectRepository(WorkspaceExchangeRate)
+    private readonly workspaceRateRepository?: Repository<WorkspaceExchangeRate>,
   ) {
     this.apiKey = this.configService.get<string>('EXCHANGE_RATE_API_KEY');
   }
 
-  async getRate(from: string, to: string, date?: Date): Promise<number> {
-    const normalizedFrom = this.normalizeCurrencyCode(from);
-    const normalizedTo = this.normalizeCurrencyCode(to);
-
-    if (normalizedFrom === normalizedTo) {
+  async getRate(
+    from: string,
+    to: string,
+    date?: Date | string,
+    workspaceId?: string,
+  ): Promise<number> {
+    const rate = await this.getRateOrNull(from, to, date, workspaceId);
+    if (rate === null) {
+      this.logger.warn(
+        `No rate found for ${this.normalizeCurrencyCode(from)}→${this.normalizeCurrencyCode(to)}, returning 1`,
+      );
       return 1;
     }
+    return rate;
+  }
 
+  /**
+   * The same lookup chain as `getRate`, but NULL when no rate exists instead of 1.
+   *
+   * Tax figures need the difference: a silent 1 turns 1,000 USD into 1,000 EUR on
+   * a declaration, where a missing rate can at least be reported to the user.
+   */
+  async getRateOrNull(
+    from: string,
+    to: string,
+    date?: Date | string,
+    workspaceId?: string,
+  ): Promise<number | null> {
+    const quote = await this.getRateQuote(from, to, date, { workspaceId });
+    return quote ? quote.rate : null;
+  }
+
+  /**
+   * The rate for `date`, or failing that the latest rate quoted on or before it.
+   *
+   * A rate from after the requested day is never used: converting a March
+   * payment at a September rate would be silently wrong. `maxStaleDays` bounds
+   * how far back the borrowed rate may be.
+   */
+  async getRateQuote(
+    from: string,
+    to: string,
+    date?: Date | string,
+    options: RateQuoteOptions = {},
+  ): Promise<RateQuote | null> {
+    const normalizedFrom = this.normalizeCurrencyCode(from);
+    const normalizedTo = this.normalizeCurrencyCode(to);
     const rateDate = this.toDateOnly(date ?? new Date());
+
+    if (normalizedFrom === normalizedTo) {
+      return { rate: 1, rateDate, stale: false };
+    }
+
+    const manualWorkspace =
+      options.workspaceId && (await this.hasManualRates(options.workspaceId))
+        ? options.workspaceId
+        : null;
+    if (manualWorkspace) {
+      const manual = await this.lookupManualRate(
+        manualWorkspace,
+        normalizedFrom,
+        normalizedTo,
+        rateDate,
+      );
+      if (manual !== null) {
+        return { rate: manual, rateDate, stale: false };
+      }
+    }
+
+    const stored = await this.lookupStoredRate(normalizedFrom, normalizedTo, rateDate);
+    if (stored !== null) {
+      return { rate: stored, rateDate, stale: false };
+    }
+
+    // A day already known to be missing skips the network until the cache expires.
+    const cachedFallback = await this.lookupEarlierRateCached(
+      normalizedFrom,
+      normalizedTo,
+      rateDate,
+    );
+    const fetched = cachedFallback
+      ? null
+      : await this.fetchRate(normalizedFrom, normalizedTo, rateDate);
+    if (fetched !== null) {
+      return { rate: fetched, rateDate, stale: false };
+    }
+
+    const providerQuote =
+      cachedFallback ?? (await this.lookupEarlierRate(normalizedFrom, normalizedTo, rateDate));
+    const manualQuote = manualWorkspace
+      ? await this.findEarlierManualRate(manualWorkspace, normalizedFrom, normalizedTo, rateDate)
+      : null;
+    // The closer of the two to the requested day.
+    const quote =
+      [providerQuote, manualQuote]
+        .filter((item): item is RateQuote => item !== null)
+        .sort((a, b) => b.rateDate.localeCompare(a.rateDate))[0] ?? null;
+    if (!quote) {
+      return null;
+    }
+    const ageDays = Math.round(
+      (new Date(rateDate).getTime() - new Date(quote.rateDate).getTime()) / DAY_MS,
+    );
+    if (options.maxStaleDays !== undefined && ageDays > options.maxStaleDays) {
+      return null;
+    }
+    return quote;
+  }
+
+  private async lookupStoredRate(
+    normalizedFrom: string,
+    normalizedTo: string,
+    rateDate: string,
+  ): Promise<number | null> {
     const cacheKey = `exchange_rate:${normalizedFrom}:${normalizedTo}:${rateDate}`;
 
     // 1. Redis cache
@@ -73,6 +211,16 @@ export class ExchangeRatesService {
       return invertedRate;
     }
 
+    return null;
+  }
+
+  private async fetchRate(
+    normalizedFrom: string,
+    normalizedTo: string,
+    rateDate: string,
+  ): Promise<number | null> {
+    const cacheKey = `exchange_rate:${normalizedFrom}:${normalizedTo}:${rateDate}`;
+
     // 3. Try to compute via USD base (e.g., EUR→KZT = (1/USD→EUR) * USD→KZT)
     if (normalizedFrom !== 'USD' && normalizedTo !== 'USD') {
       const rateFromUsd = await this.getRateFromApi('USD', normalizedFrom, rateDate);
@@ -100,45 +248,288 @@ export class ExchangeRatesService {
       return publicApiRate;
     }
 
-    // 5. Fallback: most recent rate from DB
-    const latestRate = await this.exchangeRateRepository.findOne({
-      where: { baseCurrency: normalizedFrom, targetCurrency: normalizedTo },
-      order: { rateDate: 'DESC' },
-    });
-    if (latestRate) {
-      this.logger.warn(
-        `Using stale rate ${normalizedFrom}→${normalizedTo} from ${latestRate.rateDate}`,
-      );
-      return Number(latestRate.rate);
-    }
-
-    const latestReverseRate = await this.exchangeRateRepository.findOne({
-      where: { baseCurrency: normalizedTo, targetCurrency: normalizedFrom },
-      order: { rateDate: 'DESC' },
-    });
-    const latestReverseRateValue = Number(latestReverseRate?.rate);
-    if (Number.isFinite(latestReverseRateValue) && latestReverseRateValue > 0) {
-      this.logger.warn(
-        `Using stale inverse rate ${normalizedTo}→${normalizedFrom} from ${latestReverseRate?.rateDate}`,
-      );
-      return 1 / latestReverseRateValue;
-    }
-
-    this.logger.warn(`No rate found for ${normalizedFrom}→${normalizedTo}, returning 1`);
-    return 1;
+    return null;
   }
 
-  async convert(amount: number, from: string, to: string, date?: Date): Promise<ConvertResult> {
-    const rate = await this.getRate(from, to, date);
+  /**
+   * 5. Fallback: the most recent stored rate on or before `rateDate`. Cached
+   * briefly so a missing day does not repeat the network lookups on every call.
+   */
+  private async lookupEarlierRateCached(
+    normalizedFrom: string,
+    normalizedTo: string,
+    rateDate: string,
+  ): Promise<RateQuote | null> {
+    const cached = await this.cacheManager.get<RateQuote>(
+      this.fallbackCacheKey(normalizedFrom, normalizedTo, rateDate),
+    );
+    return cached ?? null;
+  }
+
+  private async lookupEarlierRate(
+    normalizedFrom: string,
+    normalizedTo: string,
+    rateDate: string,
+  ): Promise<RateQuote | null> {
+    const cacheKey = this.fallbackCacheKey(normalizedFrom, normalizedTo, rateDate);
+    const quote = await this.findEarlierStoredRate(normalizedFrom, normalizedTo, rateDate);
+    if (quote) {
+      this.logger.warn(
+        `Using stale rate ${normalizedFrom}→${normalizedTo} from ${quote.rateDate} for ${rateDate}`,
+      );
+      await this.cacheManager.set(cacheKey, quote, FALLBACK_CACHE_TTL_MS);
+    }
+    return quote;
+  }
+
+  private fallbackCacheKey(normalizedFrom: string, normalizedTo: string, rateDate: string): string {
+    return `exchange_rate_fallback:${normalizedFrom}:${normalizedTo}:${rateDate}`;
+  }
+
+  private async findEarlierStoredRate(
+    normalizedFrom: string,
+    normalizedTo: string,
+    rateDate: string,
+  ): Promise<RateQuote | null> {
+    const onOrBefore = LessThanOrEqual(new Date(rateDate));
+    const direct = await this.exchangeRateRepository.findOne({
+      where: { baseCurrency: normalizedFrom, targetCurrency: normalizedTo, rateDate: onOrBefore },
+      order: { rateDate: 'DESC' },
+    });
+    const reverse = await this.exchangeRateRepository.findOne({
+      where: { baseCurrency: normalizedTo, targetCurrency: normalizedFrom, rateDate: onOrBefore },
+      order: { rateDate: 'DESC' },
+    });
+
+    const candidates: RateQuote[] = [];
+    const directRate = Number(direct?.rate);
+    if (direct && Number.isFinite(directRate) && directRate > 0) {
+      candidates.push({
+        rate: directRate,
+        rateDate: this.toDateOnly(direct.rateDate),
+        stale: true,
+      });
+    }
+    const reverseRate = Number(reverse?.rate);
+    if (reverse && Number.isFinite(reverseRate) && reverseRate > 0) {
+      candidates.push({
+        rate: 1 / reverseRate,
+        rateDate: this.toDateOnly(reverse.rateDate),
+        stale: true,
+      });
+    }
+    // The closer of the two to the requested day.
+    candidates.sort((a, b) => b.rateDate.localeCompare(a.rateDate));
+    return candidates[0] ?? null;
+  }
+
+  /**
+   * A rate a workspace entered by hand for one day. It wins over the provider
+   * for that day and is lent to later days without a rate, in that workspace
+   * only. The same day entered for the reverse pair is replaced, so a pair has
+   * one hand-entered rate per day.
+   */
+  async setManualRate(
+    workspaceId: string,
+    from: string,
+    to: string,
+    rate: number,
+    date?: Date | string,
+  ): Promise<{ from: string; to: string; rate: number; rateDate: string }> {
+    if (!this.workspaceRateRepository) {
+      throw new Error('Workspace exchange rates are not available');
+    }
+    const normalizedFrom = this.normalizeCurrencyCode(from);
+    const normalizedTo = this.normalizeCurrencyCode(to);
+    const rateDate = this.toDateOnly(date ?? new Date());
+    await this.workspaceRateRepository.delete({
+      workspaceId,
+      baseCurrency: normalizedTo,
+      targetCurrency: normalizedFrom,
+      rateDate: new Date(rateDate),
+    });
+    await this.workspaceRateRepository.upsert(
+      {
+        workspaceId,
+        baseCurrency: normalizedFrom,
+        targetCurrency: normalizedTo,
+        rate,
+        rateDate: new Date(rateDate),
+      },
+      ['workspaceId', 'baseCurrency', 'targetCurrency', 'rateDate'],
+    );
+    await this.cacheManager.del(this.manualCountCacheKey(workspaceId));
+    return { from: normalizedFrom, to: normalizedTo, rate, rateDate };
+  }
+
+  private manualCountCacheKey(workspaceId: string): string {
+    return `exchange_rate_manual_count:${workspaceId}`;
+  }
+
+  /** Most workspaces never enter a rate; this keeps their lookups off the table. */
+  private async hasManualRates(workspaceId: string): Promise<boolean> {
+    if (!this.workspaceRateRepository) {
+      return false;
+    }
+    const key = this.manualCountCacheKey(workspaceId);
+    const cached = await this.cacheManager.get<number>(key);
+    if (cached !== null && cached !== undefined) {
+      return cached > 0;
+    }
+    const count = await this.workspaceRateRepository.count({ where: { workspaceId } });
+    await this.cacheManager.set(key, count, FALLBACK_CACHE_TTL_MS);
+    return count > 0;
+  }
+
+  private async lookupManualRate(
+    workspaceId: string,
+    normalizedFrom: string,
+    normalizedTo: string,
+    rateDate: string,
+  ): Promise<number | null> {
+    const repository = this.workspaceRateRepository as Repository<WorkspaceExchangeRate>;
+    const day = new Date(rateDate);
+    const direct = await repository.findOne({
+      where: {
+        workspaceId,
+        baseCurrency: normalizedFrom,
+        targetCurrency: normalizedTo,
+        rateDate: day,
+      },
+    });
+    const directRate = Number(direct?.rate);
+    if (direct && Number.isFinite(directRate) && directRate > 0) {
+      return directRate;
+    }
+    const reverse = await repository.findOne({
+      where: {
+        workspaceId,
+        baseCurrency: normalizedTo,
+        targetCurrency: normalizedFrom,
+        rateDate: day,
+      },
+    });
+    const reverseRate = Number(reverse?.rate);
+    return reverse && Number.isFinite(reverseRate) && reverseRate > 0 ? 1 / reverseRate : null;
+  }
+
+  private async findEarlierManualRate(
+    workspaceId: string,
+    normalizedFrom: string,
+    normalizedTo: string,
+    rateDate: string,
+  ): Promise<RateQuote | null> {
+    const repository = this.workspaceRateRepository as Repository<WorkspaceExchangeRate>;
+    const onOrBefore = LessThanOrEqual(new Date(rateDate));
+    const order = { rateDate: 'DESC' as const };
+    const direct = await repository.findOne({
+      where: {
+        workspaceId,
+        baseCurrency: normalizedFrom,
+        targetCurrency: normalizedTo,
+        rateDate: onOrBefore,
+      },
+      order,
+    });
+    const reverse = await repository.findOne({
+      where: {
+        workspaceId,
+        baseCurrency: normalizedTo,
+        targetCurrency: normalizedFrom,
+        rateDate: onOrBefore,
+      },
+      order,
+    });
+    const candidates: RateQuote[] = [];
+    const directRate = Number(direct?.rate);
+    if (direct && Number.isFinite(directRate) && directRate > 0) {
+      candidates.push({
+        rate: directRate,
+        rateDate: this.toDateOnly(direct.rateDate),
+        stale: true,
+      });
+    }
+    const reverseRate = Number(reverse?.rate);
+    if (reverse && Number.isFinite(reverseRate) && reverseRate > 0) {
+      candidates.push({
+        rate: 1 / reverseRate,
+        rateDate: this.toDateOnly(reverse.rateDate),
+        stale: true,
+      });
+    }
+    candidates.sort((a, b) => b.rateDate.localeCompare(a.rateDate));
+    return candidates[0] ?? null;
+  }
+
+  /**
+   * Every currency the workspace's rows carry, with whether a rate to the
+   * workspace currency exists. The dashboard and reports convert at 1.0 when
+   * none does; this is where that becomes visible instead of silent.
+   */
+  async coverageForWorkspace(
+    workspaceId: string,
+    workspaceCurrency: string,
+    sinceDays = 365,
+  ): Promise<
+    Array<{
+      currency: string;
+      rate: number | null;
+      rateDate: string | null;
+      stale: boolean;
+      rows: number;
+    }>
+  > {
+    if (!this.transactionRepository) return [];
+    const since = new Date();
+    since.setDate(since.getDate() - sinceDays);
+    const rows = await this.transactionRepository
+      .createQueryBuilder('t')
+      .select('UPPER(t.currency)', 'currency')
+      .addSelect('COUNT(*)', 'rows')
+      .where('t.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('t.transactionDate >= :since', { since })
+      .andWhere('t.currency IS NOT NULL')
+      .groupBy('UPPER(t.currency)')
+      .getRawMany<{ currency: string; rows: string }>();
+    const target = this.normalizeCurrencyCode(workspaceCurrency);
+    const result = [];
+    for (const row of rows) {
+      const currency = this.normalizeCurrencyCode(row.currency);
+      if (currency === target) continue;
+      const quote = await this.getRateQuote(currency, target, new Date(), { workspaceId });
+      result.push({
+        currency,
+        rate: quote?.rate ?? null,
+        rateDate: quote?.rateDate ?? null,
+        stale: quote?.stale ?? false,
+        rows: Number(row.rows),
+      });
+    }
+    return result.sort(
+      (a, b) => Number(a.rate !== null) - Number(b.rate !== null) || b.rows - a.rows,
+    );
+  }
+
+  async convert(
+    amount: number,
+    from: string,
+    to: string,
+    date?: Date | string,
+    workspaceId?: string,
+  ): Promise<ConvertResult> {
+    const rate = await this.getRate(from, to, date, workspaceId);
     return { converted: amount * rate, rate, source: 'exchange-rates-service' };
   }
 
   async bulkConvert(
-    items: Array<{ amount: number; currency: string; date?: Date }>,
+    items: Array<{ amount: number; currency: string; date?: Date | string }>,
     targetCurrency: string,
+    workspaceId?: string,
   ): Promise<ConvertResult[]> {
     return Promise.all(
-      items.map(item => this.convert(item.amount, item.currency, targetCurrency, item.date)),
+      items.map(item =>
+        this.convert(item.amount, item.currency, targetCurrency, item.date, workspaceId),
+      ),
     );
   }
 
@@ -149,17 +540,11 @@ export class ExchangeRatesService {
     }
 
     try {
-      const url = `${this.apiBaseUrl}/${this.apiKey}/latest/${baseCurrency.toUpperCase()}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        this.logger.warn(`Exchange rate API returned ${response.status}`);
+      const base = baseCurrency.toUpperCase();
+      const data = await this.fetchJson(this.latestRatesUrl(base), LatestRatesResponse);
+      if (!data) {
         return;
       }
-
-      const data = (await response.json()) as {
-        result: string;
-        conversion_rates: Record<string, number>;
-      };
 
       if (data.result !== 'success') {
         this.logger.warn('Exchange rate API response was not successful');
@@ -167,7 +552,6 @@ export class ExchangeRatesService {
       }
 
       const today = this.toDateOnly(new Date());
-      const base = baseCurrency.toUpperCase();
 
       for (const [target, rate] of Object.entries(data.conversion_rates)) {
         await this.saveRate(base, target, rate, today, 'exchangerate-api');
@@ -182,24 +566,16 @@ export class ExchangeRatesService {
   }
 
   private async getRateFromApi(from: string, to: string, rateDate: string): Promise<number | null> {
-    if (!this.apiKey) {
+    // Only the latest rates are on our tier (the historical endpoint needs a
+    // higher one), and storing them under a past date would fix a wrong rate
+    // there for good: saveRate never overwrites.
+    if (!(this.apiKey && this.isToday(rateDate))) {
       return null;
     }
 
     try {
-      // Use latest rates endpoint (historical endpoint requires higher tier)
-      const url = `${this.apiBaseUrl}/${this.apiKey}/latest/${from}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        return null;
-      }
-
-      const data = (await response.json()) as {
-        result: string;
-        conversion_rates: Record<string, number>;
-      };
-
-      if (data.result !== 'success' || !data.conversion_rates[to]) {
+      const data = await this.fetchJson(this.latestRatesUrl(from), LatestRatesResponse);
+      if (data?.result !== 'success' || !data.conversion_rates[to]) {
         return null;
       }
 
@@ -241,12 +617,11 @@ export class ExchangeRatesService {
 
   private async fetchPublicCurrencyRate(url: string, to: string): Promise<number | null> {
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
+      const data = await this.fetchJson(url, PublicRatesResponse);
+      if (!data) {
         return null;
       }
       const targetKey = to.toLowerCase();
-      const data = (await response.json()) as Record<string, unknown>;
       const baseKey = this.extractBaseCurrencyFromPublicCurrencyUrl(url);
       const rates = baseKey ? data[baseKey] : undefined;
       const rate =
@@ -257,6 +632,30 @@ export class ExchangeRatesService {
     } catch {
       return null;
     }
+  }
+
+  private latestRatesUrl(base: string): string {
+    return `${this.apiBaseUrl}/${this.apiKey}/latest/${base}`;
+  }
+
+  /**
+   * A provider's decoded answer, or null when there is none worth using. The
+   * reason is logged without the URL, which carries the API key.
+   */
+  private fetchJson<A>(url: string, schema: Schema.Codec<A, unknown>): Promise<A | null> {
+    const host = new URL(url).host;
+    return this.effects.run(
+      getJson(url, schema, { timeout: '5 seconds' }).pipe(
+        Effect.catch(error =>
+          Effect.sync(() => {
+            this.logger.warn(
+              `Exchange rate request to ${host} failed: ${describeHttpFailure(error)}`,
+            );
+            return null;
+          }),
+        ),
+      ),
+    );
   }
 
   private extractBaseCurrencyFromPublicCurrencyUrl(url: string): string | null {
@@ -287,7 +686,26 @@ export class ExchangeRatesService {
       .execute();
   }
 
-  private toDateOnly(date: Date): string {
+  /**
+   * Accepts a string as well as a Date.
+   *
+   * TypeORM hands back a plain 'YYYY-MM-DD' string for a `type: 'date'` column,
+   * never a Date — and Transaction.transactionDate is declared `Date`, so the
+   * annotation lies and TypeScript could not catch it. Calling .toISOString()
+   * on that string threw, and the whole transactions list came back 500 as soon
+   * as a currency conversion was requested.
+   */
+  private toDateOnly(date: Date | string): string {
+    if (typeof date === 'string') {
+      const dateOnly = /^\d{4}-\d{2}-\d{2}/.exec(date);
+      if (dateOnly) {
+        return dateOnly[0];
+      }
+      const parsed = new Date(date);
+      return Number.isNaN(parsed.getTime())
+        ? new Date().toISOString().split('T')[0]
+        : parsed.toISOString().split('T')[0];
+    }
     return date.toISOString().split('T')[0];
   }
 

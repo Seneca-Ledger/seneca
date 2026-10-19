@@ -1,5 +1,10 @@
 # Development docker-compose override
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Source directories are bind-mounted; node_modules and the Next.js cache live
+# in named volumes so they survive restarts. scripts/dev-entrypoint.sh in each
+# app refreshes node_modules automatically when package-lock.json changes.
+# `make clean` (compose down -v) drops the volumes for a from-scratch start.
 
 services:
   postgres:
@@ -11,6 +16,7 @@ services:
       - redis_dev_data:/data
 
   backend:
+    image: seneca-backend:dev
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -21,24 +27,34 @@ services:
       - JWT_REFRESH_SECRET=finflow-dev-jwt-refresh-secret-do-not-use-in-production-xyz789
     volumes:
       - ./backend:/app
-      - /app/node_modules
+      - backend_node_modules:/app/node_modules
       - backend_uploads:/app/uploads
-    command: sh -lc "NODE_OPTIONS=--max-old-space-size=2048 npm run migration:run:dev && NODE_OPTIONS=--max-old-space-size=2048 npm run start:dev"
+      # The Hapoalim parser suite reads real statement images from docs/,
+      # outside backend/. CI checks out the whole repo so it resolves there;
+      # without this mount it fails in the dev container for no real reason.
+      - ./docs:/docs:ro
+    # Migrations run inside the app on boot (TypeORM migrationsRun, see
+    # src/config/database.config.ts), so no separate migration step is needed.
+    command: sh scripts/dev-entrypoint.sh npm run start:dev
 
   frontend:
+    image: seneca-frontend:dev
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: builder
+      target: dev
     environment:
       - NODE_ENV=development
       - API_PROXY_TARGET=http://backend:3001
     volumes:
       - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
-    command: npm run dev
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
+    command: sh scripts/dev-entrypoint.sh npm run dev
 
 volumes:
   postgres_dev_data:
   redis_dev_data:
+  backend_node_modules:
+  frontend_node_modules:
+  frontend_next:

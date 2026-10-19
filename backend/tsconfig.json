@@ -1,27 +1,47 @@
 {
   "compilerOptions": {
     "module": "commonjs",
+    // effect 4 is ESM-only and publishes only an `exports` map, which the old
+    // node10 resolution cannot read. TS 6 allows bundler resolution with
+    // CommonJS emit; Node (>=20.19) loads the ESM package through require(esm).
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
     "jsx": "react-jsx",
-    "declaration": true,
+    "declaration": false,
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
     "target": "ES2021",
+    // Node 20 ships the ES2022 library (Object.hasOwn, Array.at, Error.cause)
+    // while emit stays at ES2021. Without this the compiler rejects APIs the
+    // runtime has — custom-tables.service.ts uses Object.hasOwn and was the
+    // one standing type error in the tree.
+    "lib": ["ES2022"],
     "sourceMap": true,
     "outDir": "./dist",
+    // TS 6 defaults: rootDir follows the tsconfig folder (dist/src/main.js) and
+    // `types` is empty. Pinned to keep the previous build.
+    "rootDir": "./src",
+    "types": ["*"],
+    "strict": true,
+    // Entities and DTOs are filled by TypeORM and class-transformer, not constructors.
+    "strictPropertyInitialization": false,
     "baseUrl": "./",
+    "ignoreDeprecations": "6.0",
     "incremental": true,
+    // With rootDir set, the default would land beside tsconfig.json, outside the
+    // dist/ that `nest build` wipes, and the next build would skip emitting.
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
-    "strictNullChecks": false,
-    "noImplicitAny": false,
-    "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "useDefineForClassFields": false,
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    // Editor diagnostics for Effect code (e.g. an Effect built but never run).
+    "plugins": [{ "name": "@effect/language-service" }]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

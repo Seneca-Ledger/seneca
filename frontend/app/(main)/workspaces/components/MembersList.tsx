@@ -1,8 +1,5 @@
 'use client';
 
-import { ChevronDown, MoreHorizontal } from '@/app/components/icons';
-import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
@@ -10,6 +7,9 @@ import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { ChevronDown, MoreHorizontal } from '@/app/components/icons';
+import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { tokens } from '@/lib/theme-tokens';
 import type { WorkspaceMember, WorkspaceRole } from './hooks/useMemberManagement';
 
 const ROLE_COLORS: Record<string, { bg: string; color: string; border: string }> = {

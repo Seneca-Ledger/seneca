@@ -1,31 +1,18 @@
 'use client';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-
-import { Calendar, DollarSign, User } from '@/app/components/icons';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { Calendar, DollarSign, User } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
+import type { DuplicateGroups } from '@/app/lib/contracts';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 
-interface DuplicateTransaction {
-  id: string;
-  date: string;
-  amount: number;
-  counterparty: string;
-  purpose: string;
-  statementId: string;
-  similarity?: number;
-  matchType?: string;
-  matchedFields?: string[];
-}
-
-interface DuplicateGroup {
-  master: DuplicateTransaction;
-  duplicates: DuplicateTransaction[];
-  confidence: number;
-}
+/** A group from `GET /transactions/duplicates/detect`: amounts are decimal strings. */
+type DuplicateGroup = DuplicateGroups['groups'][number];
 
 interface DuplicateGroupCardProps {
   group: DuplicateGroup;
@@ -35,6 +22,13 @@ interface DuplicateGroupCardProps {
 
 export default function DuplicateGroupCard({ group, selected, onToggle }: DuplicateGroupCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const t = useIntlayer('transactionDuplicatesPage');
+  const matchTypeLabels: Record<string, string> = {
+    exact: t.card.matchTypes.exact.value,
+    hybrid: t.card.matchTypes.hybrid.value,
+    fuzzy: t.card.matchTypes.fuzzy.value,
+    semantic: t.card.matchTypes.semantic.value,
+  };
 
   const formatDate = (dateString: string) => {
     return formatStoredDateWithOptions(
@@ -44,12 +38,15 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
     );
   };
 
-  const formatAmount = (amount: number) => {
+  const formatAmount = (amount: string | null) => {
+    if (amount === null) {
+      return '—';
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'KZT',
+      currency: FALLBACK_CURRENCY,
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(Number(amount));
   };
 
   const getConfidenceColor = (confidence: number): 'success' | 'warning' | 'error' => {
@@ -89,23 +86,38 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
         <Checkbox checked={selected} onChange={onToggle} sx={{ mt: 0.5, p: 0 }} />
 
-        <Box sx={{ flex: 1 }}>
+        {/* minWidth: 0 — without it this flex child keeps its content width and
+            pushes the card's inner boxes past the card on a phone. */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* Header */}
           <Box
-            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1,
+              mb: 2,
+            }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Chip
-                label={`${Math.round(group.confidence * 100)}% Match`}
+                label={t.card.match.value.replace(
+                  '{percent}',
+                  String(Math.round(group.confidence * 100)),
+                )}
                 size="small"
                 color={getConfidenceColor(group.confidence)}
               />
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {group.duplicates.length} duplicate{group.duplicates.length !== 1 ? 's' : ''}
+                {(group.duplicates.length === 1
+                  ? t.card.duplicatesOne.value
+                  : t.card.duplicatesOther.value
+                ).replace('{count}', String(group.duplicates.length))}
               </Typography>
             </Box>
             <Button variant="text" size="small" onClick={() => setExpanded(!expanded)}>
-              {expanded ? 'Hide' : 'Show'} Details
+              {expanded ? t.card.hideDetails : t.card.showDetails}
             </Button>
           </Box>
 
@@ -128,13 +140,13 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
                   textTransform: 'uppercase',
                 }}
               >
-                MASTER
+                {t.card.master}
               </Typography>
             </Box>
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' },
+                gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(4, minmax(0, 1fr))' },
                 gap: 2,
               }}
             >
@@ -148,7 +160,7 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
                   {formatAmount(group.master.amount)}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                 <User size={16} style={{ color: 'var(--muted-foreground)' }} />
                 <Typography
                   variant="body2"
@@ -193,11 +205,11 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
                       textTransform: 'uppercase',
                     }}
                   >
-                    DUPLICATE {index + 1}
+                    {t.card.duplicateN.value.replace('{n}', String(index + 1))}
                   </Typography>
                   {duplicate.matchType && (
                     <Chip
-                      label={duplicate.matchType}
+                      label={matchTypeLabels[duplicate.matchType] ?? duplicate.matchType}
                       size="small"
                       color={getMatchTypeColor(duplicate.matchType)}
                       variant={
@@ -210,14 +222,17 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
                   )}
                   {duplicate.similarity && (
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {Math.round(duplicate.similarity * 100)}% similar
+                      {t.card.similar.value.replace(
+                        '{percent}',
+                        String(Math.round(duplicate.similarity * 100)),
+                      )}
                     </Typography>
                   )}
                 </Box>
                 <Box
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' },
+                    gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(4, minmax(0, 1fr))' },
                     gap: 2,
                   }}
                 >
@@ -231,7 +246,7 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
                       {formatAmount(duplicate.amount)}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                     <User size={16} style={{ color: 'var(--muted-foreground)' }} />
                     <Typography
                       variant="body2"
@@ -262,7 +277,7 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
                     sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
                   >
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      Matched fields:
+                      {t.card.matchedFields}
                     </Typography>
                     {duplicate.matchedFields.map(field => (
                       <Chip key={field} label={field} size="small" variant="outlined" />
@@ -276,8 +291,10 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
                 variant="body2"
                 sx={{ textAlign: 'center', color: 'text.secondary', py: 1 }}
               >
-                +{group.duplicates.length - 2} more duplicate
-                {group.duplicates.length - 2 !== 1 ? 's' : ''}
+                {(group.duplicates.length - 2 === 1
+                  ? t.card.moreOne.value
+                  : t.card.moreOther.value
+                ).replace('{count}', String(group.duplicates.length - 2))}
               </Typography>
             )}
           </Box>

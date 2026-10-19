@@ -9,7 +9,7 @@ export function resolveDashboardEffectivePeriod(
   effectiveSince?: string | null,
   effectiveEndDate?: string | null,
 ): string | null {
-  if (!effectiveSince || !effectiveEndDate) {
+  if (!(effectiveSince && effectiveEndDate)) {
     return null;
   }
 

@@ -17,7 +17,15 @@ describe('UsersController public routes', () => {
     expect(isPublic('getAvatar')).toBe(true);
   });
 
-  it.each(['exportMyData', 'deleteMyAccount', 'getProfile', 'changePassword'] as const)(
+  it.each([
+    'exportMyData',
+    'deleteMyAccount',
+    'getProfile',
+    'changePassword',
+    'markWelcomeTutorialSeen',
+    'markPageHintsSeen',
+    'resetPageHints',
+  ] as const)(
     'requires authentication for %s',
     handlerName => {
       expect(isPublic(handlerName)).toBe(false);

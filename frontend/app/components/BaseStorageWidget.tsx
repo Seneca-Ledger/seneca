@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity */
 'use client';
 
+import Image from 'next/image';
+import Link from 'next/link';
+import { useTheme } from 'next-themes';
+import { useEffect, useEffectEvent, useState } from 'react';
+import toast from 'react-hot-toast';
 import { RefreshCcw, Settings, UploadCloud } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { formatDateTime } from '@/app/lib/format-datetime';
 import type { StorageStatus, StorageWidgetProvider } from '@/app/lib/storage-widget-types';
 import { tokens } from '@/lib/theme-tokens';
-import { useTheme } from 'next-themes';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
 
 const MIME_TYPES = [
   'application/pdf',
@@ -36,28 +36,34 @@ export function BaseStorageWidget({ provider, locale }: BaseStorageWidgetProps) 
   const [working, setWorking] = useState(false);
 
   const loadStatus = async (): Promise<void> => {
-    try {
+    await (async () => {
       setLoading(true);
       const res = await apiClient.get(`/integrations/${provider.apiPath}/status`);
-      setStatus(res.data);
-    } catch {
-      toast.error(
-        pt?.errors?.loadStatus?.value || `Failed to load ${provider.providerName} status`,
-      );
-    } finally {
-      setLoading(false);
-    }
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      setStatus(res.data as StorageStatus);
+    })()
+      .catch(async () => {
+        toast.error(
+          pt?.errors?.loadStatus?.value || `Failed to load ${provider.providerName} status`,
+        );
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
+  const loadStatusOnMount = useEffectEvent(() => {
     void loadStatus();
+  });
+  useEffect(() => {
+    loadStatusOnMount();
   }, []);
 
   const handleConnect = async (): Promise<void> => {
-    try {
+    return await (async () => {
       const res = await apiClient.get(`/integrations/${provider.apiPath}/connect`);
-      const url = res.data?.url;
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const url = (res.data as { url?: string } | null)?.url;
       if (!url) {
         toast.error(
           pt?.errors?.connectFailed?.value || `Failed to connect to ${provider.providerName}`,
@@ -65,24 +71,26 @@ export function BaseStorageWidget({ provider, locale }: BaseStorageWidgetProps) 
         return;
       }
       window.location.href = url;
-    } catch {
+    })().catch(async () => {
       toast.error(
         pt?.errors?.connectFailed?.value || `Failed to connect to ${provider.providerName}`,
       );
-    }
+    });
   };
 
   const handleSyncNow = async (): Promise<void> => {
-    try {
+    await (async () => {
       setWorking(true);
       await apiClient.post(`/integrations/${provider.apiPath}/sync`);
       toast.success(pt?.toasts?.syncStarted?.value || 'Sync started');
       void loadStatus();
-    } catch {
-      toast.error(pt?.errors?.syncFailed?.value || 'Sync failed');
-    } finally {
-      setWorking(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error(pt?.errors?.syncFailed?.value || 'Sync failed');
+      })
+      .finally(async () => {
+        setWorking(false);
+      });
   };
 
   // eslint-disable-next-line max-params
@@ -114,7 +122,8 @@ export function BaseStorageWidget({ provider, locale }: BaseStorageWidgetProps) 
       );
       return;
     }
-    try {
+
+    return await (async () => {
       setWorking(true);
       const docs = await provider.openPicker(MIME_TYPES);
       if (!docs.length) {
@@ -123,16 +132,20 @@ export function BaseStorageWidget({ provider, locale }: BaseStorageWidgetProps) 
       const importResp = await apiClient.post(`/integrations/${provider.apiPath}/import`, {
         fileIds: docs.map(d => d.id),
       });
-      processResults(Array.isArray(importResp.data?.results) ? importResp.data.results : [], docs);
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const imported = importResp.data as { results?: ImportResult[] } | null;
+      processResults(Array.isArray(imported?.results) ? imported.results : [], docs);
       void loadStatus();
-    } catch {
-      toast.error(
-        pt?.errors?.importFailed?.value?.replace('{files}', provider.providerName) ||
-          'Import failed',
-      );
-    } finally {
-      setWorking(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error(
+          pt?.errors?.importFailed?.value?.replace('{files}', provider.providerName) ||
+            'Import failed',
+        );
+      })
+      .finally(async () => {
+        setWorking(false);
+      });
   };
 
   const statusLabel = (() => {

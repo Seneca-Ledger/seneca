@@ -79,6 +79,33 @@ describe('AuditService', () => {
     expect(event).toBeDefined();
   });
 
+  it('createEvent never offers undo for an entity type rollback cannot restore', async () => {
+    await service.createEvent({
+      actorType: ActorType.USER,
+      actorId: 'u1',
+      actorLabel: 'user@example.com',
+      entityType: EntityType.PAYABLE,
+      entityId: 'p1',
+      action: AuditAction.UPDATE,
+      isUndoable: true,
+    });
+    await service.createEvent({
+      actorType: ActorType.USER,
+      actorId: 'u1',
+      actorLabel: 'user@example.com',
+      entityType: EntityType.CATEGORY,
+      entityId: 'c1',
+      action: AuditAction.UPDATE,
+    });
+
+    expect(auditEventRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ entityId: 'p1', isUndoable: false }),
+    );
+    expect(auditEventRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ entityId: 'c1', isUndoable: true }),
+    );
+  });
+
   it('createEvent generates a human-readable description when missing', async () => {
     userRepository.findOne = jest.fn(async () => ({
       id: 'u1',
@@ -93,13 +120,21 @@ describe('AuditService', () => {
       action: AuditAction.CREATE,
       diff: {
         before: null,
-        after: { id: 'table-1', name: 'Таблица продукции Fish Dream' },
+        after: { id: 'table-1', name: 'Fish Dream product table' },
       },
     });
 
+    // The stored column keeps an English rendering; the locale-independent
+    // descriptor rides along in meta for clients to translate.
     expect(auditEventRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
-        description: 'Создана таблица "Таблица продукции Fish Dream"',
+        description: 'Created: table "Fish Dream product table"',
+        meta: expect.objectContaining({
+          auditDescription: {
+            key: 'createNamed',
+            params: { entity: EntityType.CUSTOM_TABLE, name: 'Fish Dream product table' },
+          },
+        }),
       }),
     );
   });

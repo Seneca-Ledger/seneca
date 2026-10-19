@@ -4,12 +4,10 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ImportSession } from '../../../../src/entities/import-session.entity';
 import { ImportConfigService } from '../../../../src/modules/import/config/import.config';
-import { ImportRetryService } from '../../../../src/modules/import/services/import-retry.service';
 
 describe('ImportModule', () => {
   let module: TestingModule;
   let configService: ImportConfigService;
-  let retryService: ImportRetryService;
   let repository: Repository<ImportSession>;
 
   const mockRepository = {
@@ -23,7 +21,6 @@ describe('ImportModule', () => {
       imports: [ConfigModule.forRoot({ isGlobal: true })],
       providers: [
         ImportConfigService,
-        ImportRetryService,
         {
           provide: getRepositoryToken(ImportSession),
           useValue: mockRepository,
@@ -32,7 +29,6 @@ describe('ImportModule', () => {
     }).compile();
 
     configService = module.get<ImportConfigService>(ImportConfigService);
-    retryService = module.get<ImportRetryService>(ImportRetryService);
     repository = module.get<Repository<ImportSession>>(getRepositoryToken(ImportSession));
   });
 
@@ -51,34 +47,8 @@ describe('ImportModule', () => {
       expect(configService).toBeInstanceOf(ImportConfigService);
     });
 
-    it('should provide ImportRetryService', () => {
-      expect(retryService).toBeDefined();
-      expect(retryService).toBeInstanceOf(ImportRetryService);
-    });
-
     it('should provide ImportSession repository', () => {
       expect(repository).toBeDefined();
-    });
-  });
-
-  describe('Service Dependencies', () => {
-    it('should inject ImportConfigService into ImportRetryService', () => {
-      expect(configService.getMaxRetries()).toBe(3);
-      expect(configService.getRetryBackoffBaseMs()).toBe(30000);
-    });
-
-    it('should allow ImportRetryService to use repository', async () => {
-      const mockSession = {
-        id: 'test-id',
-        status: 'failed',
-        sessionMetadata: null,
-      };
-
-      (repository.findOne as jest.Mock).mockResolvedValue(mockSession);
-
-      await expect(retryService.scheduleRetry('test-id', 0)).resolves.not.toThrow();
-
-      expect(repository.findOne).toHaveBeenCalled();
     });
   });
 
@@ -88,7 +58,6 @@ describe('ImportModule', () => {
         imports: [ConfigModule.forRoot({ isGlobal: true })],
         providers: [
           ImportConfigService,
-          ImportRetryService,
           {
             provide: getRepositoryToken(ImportSession),
             useValue: {},
@@ -104,31 +73,6 @@ describe('ImportModule', () => {
       const testConsumer = consumerModule.get('TestConsumer');
       expect(testConsumer.config).toBeDefined();
       expect(testConsumer.config).toBeInstanceOf(ImportConfigService);
-
-      await consumerModule.close();
-    });
-
-    it('should export ImportRetryService for use in other modules', async () => {
-      const consumerModule = await Test.createTestingModule({
-        imports: [ConfigModule.forRoot({ isGlobal: true })],
-        providers: [
-          ImportConfigService,
-          ImportRetryService,
-          {
-            provide: getRepositoryToken(ImportSession),
-            useValue: {},
-          },
-          {
-            provide: 'TestConsumer',
-            useFactory: (retry: ImportRetryService) => ({ retry }),
-            inject: [ImportRetryService],
-          },
-        ],
-      }).compile();
-
-      const testConsumer = consumerModule.get('TestConsumer');
-      expect(testConsumer.retry).toBeDefined();
-      expect(testConsumer.retry).toBeInstanceOf(ImportRetryService);
 
       await consumerModule.close();
     });

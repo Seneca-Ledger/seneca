@@ -130,4 +130,47 @@ describe('formatAuditEvent', () => {
 
     expect(result.actionTone).toBe('warn');
   });
+
+  it('renders the locale-independent descriptor in preference to the stored English text', () => {
+    const mockEvent = {
+      id: 'evt-descriptor',
+      action: 'update',
+      entityType: 'workspace',
+      entityId: 'ws-1',
+      severity: 'info',
+      // The backend stores an English rendering and the raw descriptor beside it.
+      description: 'Changed: workspace background image',
+      diff: null,
+      meta: {
+        auditDescription: {
+          key: 'updateOneField',
+          params: { entity: 'workspace', field: 'backgroundImage' },
+        },
+      },
+    } as unknown as AuditEvent;
+
+    const result = formatAuditEvent(mockEvent);
+
+    // Rendered from the dictionary in the active locale, not the stored
+    // sentence — asserted language-agnostically so it survives a default flip.
+    expect(result.description).not.toBe(mockEvent.description);
+    expect(result.description).toContain('background image');
+  });
+
+  it('falls back to the stored description when the descriptor key is unknown', () => {
+    const mockEvent = {
+      id: 'evt-unknown-key',
+      action: 'export',
+      entityType: 'workspace',
+      entityId: 'ws-1',
+      severity: 'info',
+      description: 'Exported: workspace',
+      diff: null,
+      meta: {
+        auditDescription: { key: 'somethingTheDictionaryDoesNotKnow', params: {} },
+      },
+    } as unknown as AuditEvent;
+
+    expect(formatAuditEvent(mockEvent).description).toBe('Exported: workspace');
+  });
 });

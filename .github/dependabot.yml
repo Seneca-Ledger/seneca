@@ -15,6 +15,18 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+  - package-ecosystem: "npm"
+    directory: "/website"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+  # backend/requirements.txt is the source of truth for the Python deps baked
+  # into both production images (see Dockerfile and backend/Dockerfile).
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

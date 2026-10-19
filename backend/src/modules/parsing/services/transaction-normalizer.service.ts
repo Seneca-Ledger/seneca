@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { ColumnValidationResult, ColumnValidationService } from './column-validation.service';
 import { TextCleaningResult, TextCleaningService } from './text-cleaning.service';
@@ -38,7 +39,7 @@ export class TransactionNormalizer {
   ): Promise<NormalizedTransaction> {
     const {
       locale = 'en',
-      defaultCurrency = 'USD',
+      defaultCurrency = appDefaultCurrency(),
       strictMode = false,
       preserveOriginalValues = false,
     } = options;
@@ -151,13 +152,13 @@ export class TransactionNormalizer {
     transaction: ParsedTransaction,
     _locale?: string,
   ): Promise<{
-    debit?: AmountParseResult;
-    credit?: AmountParseResult;
+    debit?: AmountParseResult | null;
+    credit?: AmountParseResult | null;
     currency?: string;
   }> {
     const results: {
-      debit?: AmountParseResult;
-      credit?: AmountParseResult;
+      debit?: AmountParseResult | null;
+      credit?: AmountParseResult | null;
       currency?: string;
     } = {};
 
@@ -305,7 +306,8 @@ export class TransactionNormalizer {
         normalized.push(result);
       } catch (error) {
         this.logger.error(`Failed to normalize transaction at index ${i}`, error);
-        errors.push(`Transaction ${i}: ${error.message}`);
+        const message = error instanceof Error ? error.message : String(error);
+        errors.push(`Transaction ${i}: ${message}`);
 
         // Add original transaction with error metadata
         const fallback: NormalizedTransaction = {
@@ -313,7 +315,7 @@ export class TransactionNormalizer {
           _normalization: {
             confidence: 0.1,
             changes: [],
-            issues: [`Normalization failed: ${error.message}`],
+            issues: [`Normalization failed: ${message}`],
           },
         };
         normalized.push(fallback);

@@ -20,13 +20,13 @@ export class GmailWatchService {
     @InjectRepository(GmailSettings)
     private readonly gmailSettingsRepository: Repository<GmailSettings>,
     @InjectRepository(ReceiptProcessingJob)
-    private readonly jobRepository: Repository<ReceiptProcessingJob>,
+    jobRepository: Repository<ReceiptProcessingJob>,
     private readonly gmailOAuthService: GmailOAuthService,
   ) {}
 
-  async setupWatch(integration: Integration, userId: string): Promise<GmailWatchSubscription> {
+  async setupWatch(integration: Integration): Promise<GmailWatchSubscription> {
     try {
-      await this.gmailOAuthService.getGmailClient(userId);
+      await this.gmailOAuthService.getGmailClient(integration.workspaceId);
       const settings = await this.gmailSettingsRepository.findOne({
         where: { integrationId: integration.id },
       });
@@ -68,14 +68,14 @@ export class GmailWatchService {
     }
   }
 
-  async renewWatch(integration: Integration, userId: string): Promise<GmailWatchSubscription> {
+  async renewWatch(integration: Integration): Promise<GmailWatchSubscription> {
     this.logger.log(`Renewing Gmail watch for integration ${integration.id}`);
-    return this.setupWatch(integration, userId);
+    return this.setupWatch(integration);
   }
 
-  async stopWatch(integration: Integration, userId: string): Promise<void> {
+  async stopWatch(integration: Integration): Promise<void> {
     try {
-      await this.gmailOAuthService.getGmailClient(userId);
+      await this.gmailOAuthService.getGmailClient(integration.workspaceId);
 
       await this.watchSubscriptionRepository.update(
         { integrationId: integration.id },
@@ -94,11 +94,7 @@ export class GmailWatchService {
     }
   }
 
-  async processHistoryUpdate(
-    integration: Integration,
-    newHistoryId: string,
-    userId: string,
-  ): Promise<void> {
+  async processHistoryUpdate(integration: Integration, newHistoryId: string): Promise<void> {
     try {
       const settings = await this.gmailSettingsRepository.findOne({
         where: { integrationId: integration.id },
@@ -109,7 +105,7 @@ export class GmailWatchService {
         return;
       }
 
-      await this.gmailOAuthService.getGmailClient(userId);
+      await this.gmailOAuthService.getGmailClient(integration.workspaceId);
       settings.historyId = newHistoryId;
       settings.lastSyncAt = new Date();
       await this.gmailSettingsRepository.save(settings);

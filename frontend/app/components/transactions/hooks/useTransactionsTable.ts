@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildFilteredAndSorted } from '../helpers/transactionFilters';
 import type { FilterState, SortState, Transaction } from '../types';
 import { useTransactionExpansion } from './useTransactionExpansion';
@@ -56,12 +56,20 @@ export function useTransactionsTable(options: Options): TransactionsTableState {
     },
     [filteredAndSortedTransactions, onSelectRows],
   );
+  // Read the current selection through a ref so toggling one row does not
+  // hand every row a new callback (which re-rendered the whole table).
+  const selectedIdsRef = useRef(selectedIds);
+  useEffect(() => {
+    selectedIdsRef.current = selectedIds;
+  }, [selectedIds]);
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const handleSelectRow = useCallback(
     (txId: string) =>
       (checked: boolean): void => {
-        onSelectRows(checked ? [...selectedIds, txId] : selectedIds.filter(id => id !== txId));
+        const current = selectedIdsRef.current;
+        onSelectRows(checked ? [...current, txId] : current.filter(id => id !== txId));
       },
-    [selectedIds, onSelectRows],
+    [onSelectRows],
   );
   const toggleSort = useCallback((by: SortState['by']): void => {
     setSort(prev => ({ by, order: prev.by === by && prev.order === 'desc' ? 'asc' : 'desc' }));
@@ -73,9 +81,8 @@ export function useTransactionsTable(options: Options): TransactionsTableState {
   const totalPages = Math.max(1, Math.ceil(filteredAndSortedTransactions.length / rowsPerPage));
   const hasActiveFilters = Boolean(filters.search || filters.status !== 'all' || filters.category);
   const allSelected =
-    paginatedTransactions.length > 0 &&
-    paginatedTransactions.every(tx => selectedIds.includes(tx.id));
-  const someSelected = paginatedTransactions.some(tx => selectedIds.includes(tx.id));
+    paginatedTransactions.length > 0 && paginatedTransactions.every(tx => selectedIdSet.has(tx.id));
+  const someSelected = paginatedTransactions.some(tx => selectedIdSet.has(tx.id));
 
   return {
     page,

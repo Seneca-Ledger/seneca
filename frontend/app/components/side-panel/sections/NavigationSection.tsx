@@ -1,9 +1,9 @@
 'use client';
 
-import { ChevronRight } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import Link from 'next/link';
 import React from 'react';
+import { ChevronRight } from '@/app/components/icons';
+import { tokens } from '@/lib/theme-tokens';
 import { Spinner } from '../../ui/spinner';
 import type { NavigationItem, NavigationSection } from '../types';
 import { RenderIcon } from './components/RenderIcon';
@@ -48,11 +48,13 @@ function NavigationItemComponent({ item, depth = 0 }: { item: NavigationItem; de
               minWidth: 20,
               height: 20,
               padding: '0 6px',
-              fontSize: 10,
-              fontWeight: 600,
+              fontSize: 11,
+              // Counts stay quiet: grey, or a soft green tint (same as the row
+              // highlight above) for the current item — never a solid fill.
+              fontWeight: item.active ? 600 : 500,
               borderRadius: tokens.radius.full,
-              backgroundColor: 'var(--primary-fill)',
-              color: 'white',
+              backgroundColor: item.active ? 'rgba(var(--primary-rgb),0.15)' : 'transparent',
+              color: item.active ? 'var(--primary)' : 'var(--muted-foreground)',
             }}
           >
             {item.badge}
@@ -78,9 +80,8 @@ function NavigationItemComponent({ item, depth = 0 }: { item: NavigationItem; de
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    padding: '10px 16px',
-    margin: '2px 0',
-    fontSize: 14,
+    padding: '10px 10px',
+    fontSize: 13.5,
     textDecoration: 'none',
     transition: 'background-color 200ms',
     border: 'none',

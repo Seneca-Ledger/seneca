@@ -1,7 +1,8 @@
 'use client';
 
-import { ChevronDown, ChevronRight } from '@/app/components/icons';
 import React from 'react';
+import { ChevronDown, ChevronRight } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 import { Checkbox } from '../ui/checkbox';
 import { CategoryDropdown } from './CategoryDropdown';
 import { TransactionExpandedRow } from './TransactionExpandedRow';
@@ -64,11 +65,15 @@ function buildRowClass({
   isSelected,
   hasErrors,
   hasWarnings,
-}: { isSelected: boolean; hasErrors?: boolean; hasWarnings?: boolean }): string {
-  let cls = 'lumio-tx-table__row';
-  if (isSelected) cls += ' lumio-tx-table__row--selected';
-  else if (hasErrors) cls += ' lumio-tx-table__row--error';
-  else if (hasWarnings) cls += ' lumio-tx-table__row--warning';
+}: {
+  isSelected: boolean;
+  hasErrors?: boolean;
+  hasWarnings?: boolean;
+}): string {
+  let cls = 'seneca-tx-table__row';
+  if (isSelected) cls += ' seneca-tx-table__row--selected';
+  else if (hasErrors) cls += ' seneca-tx-table__row--error';
+  else if (hasWarnings) cls += ' seneca-tx-table__row--warning';
   return cls;
 }
 
@@ -83,6 +88,7 @@ export function TransactionRow({
   columnBinLabel,
   columnDateLabel,
 }: TransactionRowProps): React.ReactElement {
+  const t = useIntlayer('transactionsTable');
   const rowCls = buildRowClass({
     isSelected,
     hasErrors: tx.hasErrors,
@@ -100,19 +106,30 @@ export function TransactionRow({
         onClick={() => handlers.onRowClick(tx)}
         onKeyDown={handleKey}
         tabIndex={0}
-        aria-label={`Transaction from ${tx.counterpartyName}`}
+        aria-label={t.transactionFrom.value.replace('{name}', tx.counterpartyName)}
         className={rowCls}
       >
-        <td
-          className="lumio-tx-table__td--center"
-          onClick={handlers.onToggleExpansion(tx.id)}
-          aria-expanded={isExpanded}
-        >
-          <div className="lumio-tx-table__expand-btn">
+        <td className="seneca-tx-table__td--center">
+          <button
+            type="button"
+            className="seneca-tx-table__expand-btn"
+            onClick={handlers.onToggleExpansion(tx.id)}
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? t.collapseRow.value : t.expandRow.value}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+            }}
+          >
             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </div>
+          </button>
         </td>
-        <td className="lumio-tx-table__td" onClick={e => e.stopPropagation()}>
+        <td className="seneca-tx-table__td" onClick={e => e.stopPropagation()}>
           <Checkbox
             checked={isSelected}
             onCheckedChange={handlers.onSelectRow(tx.id)}
@@ -120,7 +137,7 @@ export function TransactionRow({
           />
         </td>
         <td
-          className="lumio-tx-table__td--nowrap"
+          className="seneca-tx-table__td--nowrap"
           style={{
             fontSize: 14,
             color: 'var(--muted-foreground)',
@@ -130,7 +147,7 @@ export function TransactionRow({
           {formatters.formatDate(tx.transactionDate)}
         </td>
         <td
-          className="lumio-tx-table__td"
+          className="seneca-tx-table__td"
           style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}
         >
           <div style={{ maxWidth: 200 }} title={tx.counterpartyName}>
@@ -147,13 +164,45 @@ export function TransactionRow({
                   whiteSpace: 'nowrap',
                 }}
               >
-                Split
+                {t.splitBadge}
+              </span>
+            )}
+            {tx.transferPairId && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  border: '1px solid var(--border-color)',
+                  padding: '1px 6px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'var(--muted-foreground)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {tx.transferPairKind === 'reimbursement' ? t.reimbursementBadge : t.transferBadge}
+              </span>
+            )}
+            {tx.isVerified === false && (
+              <span
+                data-testid="unconfirmed-badge"
+                style={{
+                  marginLeft: 8,
+                  border: '1px solid var(--color-warning-soft-border)',
+                  background: 'var(--color-warning-soft-bg)',
+                  padding: '1px 6px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'var(--color-warning-soft-text)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t.unconfirmedBadge}
               </span>
             )}
           </div>
         </td>
         <td
-          className="lumio-tx-table__td"
+          className="seneca-tx-table__td"
           style={{ fontSize: 14, color: 'var(--muted-foreground)' }}
         >
           <div
@@ -169,7 +218,7 @@ export function TransactionRow({
             {tx.paymentPurpose || '—'}
           </div>
         </td>
-        <td className="lumio-tx-table__td--nowrap-right" style={{ fontSize: 14 }}>
+        <td className="seneca-tx-table__td--nowrap-right" style={{ fontSize: 14 }}>
           <AmountCell
             amount={Number(tx.debit)}
             tx={tx}
@@ -177,10 +226,10 @@ export function TransactionRow({
             color="var(--foreground)"
           />
         </td>
-        <td className="lumio-tx-table__td--nowrap-right" style={{ fontSize: 14 }}>
+        <td className="seneca-tx-table__td--nowrap-right" style={{ fontSize: 14 }}>
           <AmountCell amount={Number(tx.credit)} tx={tx} formatters={formatters} color="#16a34a" />
         </td>
-        <td className="lumio-tx-table__td" onClick={e => e.stopPropagation()}>
+        <td className="seneca-tx-table__td" onClick={e => e.stopPropagation()}>
           <CategoryDropdown
             tx={tx}
             categories={categories}

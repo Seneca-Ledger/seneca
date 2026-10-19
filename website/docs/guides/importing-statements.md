@@ -3,37 +3,44 @@ title: Importing Statements
 description: Uploads, supported formats, and validation
 ---
 
-Lumio accepts multiple statement formats and standardizes them into a consistent transaction model.
+Seneca accepts multiple statement formats and standardizes them into a consistent transaction model.
 
 ## Supported inputs
 
-- Native PDFs (bank-specific parsers)
-- CSV and XLSX exports
-- Scanned PDFs via OCR
-- Gmail receipts (PDF or HTML attachments)
+- PDF — native parsers for supported banks, and a generic table parser for the rest
+- CSV, XLSX and XLS exports
+- DOCX files with statement tables
+- Images (JPG, PNG, TIFF, BMP, WEBP) via OCR
 
-See [Supported Banks](../reference/supported-banks) for the current list.
+Each file may be up to 10 MB, and one upload request takes up to 5 files. See
+[Supported Banks](../reference/supported-banks) for the native parsers.
+
+Files can also come in without a manual upload: S3-compatible and WebDAV storage sync, an IMAP inbox
+for receipts and invoice attachments. CSV and Excel files can also be imported into a custom table.
+See [Integrations](integrations).
 
 ## Import flow
 
-1. Upload a file from the Upload page.
-2. Lumio detects the format and selects a parser.
-3. Parsed transactions are shown in a review step.
-4. Deduplication flags any conflicts.
-5. Confirm to commit transactions to the workspace.
+1. Upload a file from the Statements page.
+2. Seneca checks the file hash, then parses the file in a background queue, picking a parser by
+   bank and file type.
+3. The import preview shows the parsed rows and any conflicts.
+4. Resolve each conflict — skip it, import it anyway, or mark it as a duplicate.
+5. Commit to write the transactions to the workspace.
 
 ## Validation and dedup
 
-- SHA-256 hashes identify duplicate statement files.
-- Dedup heuristics compare date, amount, and description similarity.
-- Conflicts are marked and can be resolved manually.
+- A SHA-256 hash identifies a statement file that was already uploaded.
+- Each transaction gets a fingerprint built from the account, date, amount, currency and direction;
+  rows that match existing transactions are flagged as conflicts.
+- Conflicts are resolved manually in the preview.
 
 ## Tips
 
 - Use the same export date range for consistent results.
 - Upload one account per file when possible.
-- If a bank is unsupported, use CSV/XLSX or OCR as a fallback.
+- If a bank is unsupported, use a CSV/XLSX export or let the generic PDF parser try.
 
-![Upload flow](/img/screenshots/upload.png)
+![Statements work queue with spend analytics and top categories](/img/screenshots/statements-top-categories.png)
 
 Next: [Workspaces and RBAC](workspaces-and-rbac)

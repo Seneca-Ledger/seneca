@@ -1,70 +1,75 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { TableToolbar, type TableToolbarProps } from './TableToolbar';
+import { TableToolbar, type TableToolbarLabels } from './TableToolbar';
 
-const baseProps: TableToolbarProps = {
-  t: {
-    actions: {
-      columns: { value: 'Columns' },
-      convertToStatement: { value: 'Convert to statement' },
-      convertingToStatement: { value: 'Converting...' },
-      delete: { value: 'Delete' },
-      markPaid: { value: 'Mark paid' },
-      markUnpaid: { value: 'Mark unpaid' },
-      print: { value: 'Print' },
-      searchPlaceholder: { value: 'Search' },
-    },
-    nav: { back: { value: 'Back' } },
-  },
-  isFullscreen: false,
-  isPrintMode: false,
-  quickTabs: [{ id: 'all', label: 'All' }],
-  normalizedActiveTabId: 'all',
-  columnsTabId: '__columns__',
-  setActiveTabId: vi.fn(),
-  handleBackNavigation: vi.fn(),
-  selectedRowIds: [],
-  bulkMarking: null,
-  markSelectedRowsPaid: vi.fn(),
-  convertingToStatement: false,
-  onConvertToStatement: vi.fn(),
-  handlePrintTable: vi.fn(),
-  openBulkDeleteModal: vi.fn(),
-  searchQuery: '',
-  setSearchQuery: vi.fn(),
-  columnOrder: [],
-  orderedColumns: [],
-  hiddenColumnKeys: [],
-  isColumnsDefault: true,
-  toggleColumnHidden: vi.fn(),
-  resetColumns: vi.fn(),
-  newColumnOpen: false,
-  setNewColumnOpen: vi.fn(),
-  newColumn: { title: '', type: 'text' },
-  setNewColumn: vi.fn(),
-  createColumn: vi.fn(),
-  columnTypes: [],
+vi.mock('@/app/i18n', () => ({
+  useIntlayer: () =>
+    new Proxy({}, { get: (_, key: string) => ({ value: key, toString: () => key }) }),
+}));
+
+const labels: TableToolbarLabels = {
+  addRow: 'Add row',
+  addColumn: 'Add column',
+  columns: 'Columns',
+  showAllColumns: 'Show all',
+  groupBy: 'Group by',
+  groupNone: 'No grouping',
+  importFile: 'Import file',
+  export: 'Export',
+  exportXlsx: 'Excel',
+  exportCsv: 'CSV',
+  sendToStatements: 'Send to statements',
+  refreshSource: 'Refresh from source',
+  deleteSelected: 'Delete {{count}}',
+  view: 'View',
+  more: 'More actions',
+  clearSelection: 'Clear selection',
+  searchHint: 'Hint',
+  apply: 'Apply',
+  addSummary: 'Add summary',
+  restoreDefault: 'Restore to default',
 };
 
-describe('TableToolbar convert action', () => {
-  it('renders convert to statement action and calls the handler', () => {
-    const onConvertToStatement = vi.fn();
+const renderToolbar = (onRestoreDefault?: () => void) =>
+  render(
+    <TableToolbar
+      columns={[]}
+      columnVisibility={{}}
+      onColumnVisibilityChange={vi.fn()}
+      searchQuery=""
+      onSearchChange={vi.fn()}
+      groupBy={null}
+      onGroupByChange={vi.fn()}
+      selectedCount={0}
+      exporting={false}
+      onAddRow={vi.fn()}
+      onAddColumn={vi.fn()}
+      onAddSummary={vi.fn()}
+      onImportFile={vi.fn()}
+      onExport={vi.fn()}
+      onSendToStatements={vi.fn()}
+      onDeleteSelected={vi.fn()}
+      onClearSelection={vi.fn()}
+      onRestoreDefault={onRestoreDefault}
+      labels={labels}
+    />,
+  );
 
-    render(
-      <TableToolbar
-        {...({
-          ...baseProps,
-          onConvertToStatement,
-          convertingToStatement: false,
-        } as TableToolbarProps & {
-          onConvertToStatement: () => void;
-          convertingToStatement: boolean;
-        })}
-      />,
-    );
+const openMore = () => fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Convert to statement' }));
+describe('TableToolbar restore to default', () => {
+  it('offers Restore to default for a table filled from app data and calls it', () => {
+    const onRestoreDefault = vi.fn();
+    renderToolbar(onRestoreDefault);
+    openMore();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Restore to default' }));
+    expect(onRestoreDefault).toHaveBeenCalledTimes(1);
+  });
 
-    expect(onConvertToStatement).toHaveBeenCalledTimes(1);
+  it('has no Restore to default for a table built by hand', () => {
+    renderToolbar(undefined);
+    openMore();
+    expect(screen.getByRole('menuitem', { name: 'Add column' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Restore to default' })).toBeNull();
   });
 });

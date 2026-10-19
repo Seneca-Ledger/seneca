@@ -1,39 +1,22 @@
 'use client';
 
-import { RefreshCw } from '@/app/components/icons';
-import { Spinner } from '@/app/components/ui/spinner';
-import apiClient from '@/app/lib/api';
-import { getApiErrorMessage } from '@/app/lib/api-error';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
+import { RefreshCw } from '@/app/components/icons';
+import { Spinner } from '@/app/components/ui/spinner';
+import { useIntlayer } from '@/app/i18n';
+import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { DuplicateGroups } from '@/app/lib/contracts';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import DuplicateGroupCard from './components/DuplicateGroupCard';
 
-interface DuplicateTransaction {
-  id: string;
-  date: string;
-  amount: number;
-  counterparty: string;
-  purpose: string;
-  statementId: string;
-  similarity?: number;
-  matchType?: string;
-  matchedFields?: string[];
-}
-
-interface DuplicateGroup {
-  master: DuplicateTransaction;
-  duplicates: DuplicateTransaction[];
-  confidence: number;
-}
-
-interface DuplicatesResponse {
-  totalGroups: number;
-  groups: DuplicateGroup[];
-}
+type DuplicateGroup = DuplicateGroups['groups'][number];
 
 function DuplicateGroupCardSkeleton() {
   return (
@@ -69,6 +52,7 @@ function DuplicateGroupsContent({
   selectedGroups: Set<string>;
   onToggleGroup: (masterId: string) => void;
 }) {
+  const t = useIntlayer('transactionDuplicatesPage');
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {loading ? (
@@ -78,7 +62,7 @@ function DuplicateGroupsContent({
         ))
       ) : duplicateGroups.length === 0 ? (
         <Typography variant="body2" sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          No duplicate groups found
+          {t.noGroups}
         </Typography>
       ) : (
         duplicateGroups.map(group => (
@@ -95,6 +79,7 @@ function DuplicateGroupsContent({
 }
 
 export default function TransactionDuplicatesPage() {
+  const t = useIntlayer('transactionDuplicatesPage');
   const [loading, setLoading] = useState(true);
   const [detecting, setDetecting] = useState(false);
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
@@ -104,20 +89,22 @@ export default function TransactionDuplicatesPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const loadDuplicates = async () => {
-    try {
+    await (async () => {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get<DuplicatesResponse>('/transactions/duplicates/detect', {
-        params: {
-          threshold: 0.85,
-        },
+      const response = await apiQueryDecoded({
+        url: '/transactions/duplicates/detect',
+        params: { threshold: 0.85 },
+        contract: 'DuplicateGroups',
       });
-      setDuplicateGroups(response.data.groups);
-    } catch (error: unknown) {
-      setError(getApiErrorMessage(error, 'Failed to load duplicates'));
-    } finally {
-      setLoading(false);
-    }
+      setDuplicateGroups(response.groups);
+    })()
+      .catch(async (error: unknown) => {
+        setError(getApiErrorMessage(error, t.loadFailed.value));
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
   };
 
   const handleDetect = async () => {
@@ -138,11 +125,11 @@ export default function TransactionDuplicatesPage() {
 
   const handleMarkDuplicates = async () => {
     if (selectedGroups.size === 0) {
-      setError('Please select at least one duplicate group to mark');
+      setError(t.selectAtLeastOne.value);
       return;
     }
 
-    try {
+    await (async () => {
       setMarking(true);
       setError(null);
 
@@ -155,16 +142,25 @@ export default function TransactionDuplicatesPage() {
 
       const response = await apiClient.post('/transactions/duplicates/mark', {
         groups: groupsToMark,
-      });
+      } satisfies ContractInput<'MarkDuplicatesBody'>);
 
-      setSuccess(`Successfully marked ${response.data.markedCount} transactions as duplicates`);
+      const { markedCount } = await checkContract(
+        'DuplicatesMarked',
+        response.data,
+        '/transactions/duplicates/mark',
+      );
+      setSuccess(t.markSuccess.value.replace('{count}', String(markedCount)));
       setSelectedGroups(new Set());
+      // A row marked as a duplicate stops counting in every figure.
+      invalidateFinancialData();
       await loadDuplicates(); // Reload to update the list
-    } catch (error: unknown) {
-      setError(getApiErrorMessage(error, 'Failed to mark duplicates'));
-    } finally {
-      setMarking(false);
-    }
+    })()
+      .catch(async (error: unknown) => {
+        setError(getApiErrorMessage(error, t.markFailed.value));
+      })
+      .finally(async () => {
+        setMarking(false);
+      });
   };
 
   const handleSelectAll = () => {
@@ -180,18 +176,10 @@ export default function TransactionDuplicatesPage() {
   }, []);
 
   return (
-    <Box sx={{ maxWidth: 1280, mx: 'auto', px: 2, py: 4 }}>
+    <Box sx={{ maxWidth: 1280, mx: 'auto', px: 2, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700 }}>
-              Duplicate Transactions
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-              Review and manage duplicate transactions detected across statements
-            </Typography>
-          </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 2 }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
               variant="outlined"
@@ -199,7 +187,7 @@ export default function TransactionDuplicatesPage() {
               disabled={detecting}
               startIcon={detecting ? <Spinner size={16} /> : <RefreshCw size={16} />}
             >
-              {detecting ? 'Detecting...' : 'Re-detect'}
+              {detecting ? t.detecting : t.redetect}
             </Button>
           </Box>
         </Box>
@@ -221,11 +209,21 @@ export default function TransactionDuplicatesPage() {
         <Box
           sx={{ border: '1px solid var(--border-color)', bgcolor: 'background.paper', p: 3, mb: 3 }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              // Counters and buttons in one unbreakable row made the whole page
+              // wider than a phone screen; they wrap onto their own lines now.
+              flexWrap: 'wrap',
+              gap: 2,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
               <Box>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Total Groups
+                  {t.totalGroups}
                 </Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>
                   {loading ? <Skeleton variant="text" width={32} /> : duplicateGroups.length}
@@ -233,7 +231,7 @@ export default function TransactionDuplicatesPage() {
               </Box>
               <Box>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Selected
+                  {t.selected}
                 </Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>
                   {loading ? <Skeleton variant="text" width={32} /> : selectedGroups.size}
@@ -241,7 +239,7 @@ export default function TransactionDuplicatesPage() {
               </Box>
               <Box>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Total Duplicates
+                  {t.totalDuplicates}
                 </Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>
                   {loading ? (
@@ -252,9 +250,9 @@ export default function TransactionDuplicatesPage() {
                 </Typography>
               </Box>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Button variant="outlined" onClick={handleSelectAll}>
-                {selectedGroups.size === duplicateGroups.length ? 'Deselect All' : 'Select All'}
+                {selectedGroups.size === duplicateGroups.length ? t.deselectAll : t.selectAll}
               </Button>
               <Button
                 variant="contained"
@@ -263,8 +261,11 @@ export default function TransactionDuplicatesPage() {
                 startIcon={marking ? <Spinner size={16} /> : undefined}
               >
                 {marking
-                  ? 'Marking...'
-                  : `Mark ${selectedGroups.size} Group${selectedGroups.size !== 1 ? 's' : ''} as Duplicate`}
+                  ? t.marking
+                  : (selectedGroups.size === 1
+                      ? t.markGroupsOne.value
+                      : t.markGroupsOther.value
+                    ).replace('{count}', String(selectedGroups.size))}
               </Button>
             </Box>
           </Box>

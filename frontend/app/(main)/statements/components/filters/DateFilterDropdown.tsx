@@ -1,12 +1,13 @@
 'use client';
 
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { format, isValid, parseISO } from 'date-fns';
 import { FilterActions } from '@/app/(main)/statements/components/filters/FilterActions';
 import { FilterDropdown } from '@/app/(main)/statements/components/filters/FilterDropdown';
 import { FilterOptionRow } from '@/app/(main)/statements/components/filters/FilterOptionRow';
 import { ChevronRight } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { format, isValid, parseISO } from 'date-fns';
 import { ActiveRouteFilter } from './ActiveRouteFilter';
 import type {
   StatementFilterDate,
@@ -75,6 +76,7 @@ export function DateFilterDropdown({
   routeFilterLabel,
   onResetRouteFilter,
 }: DateFilterDropdownProps) {
+  const t = useIntlayer('statementFilterControls');
   const current = ensureDate(value);
 
   const startValue: Date | null = toDateObj(current.date);
@@ -170,7 +172,7 @@ export function DateFilterDropdown({
               }}
             >
               <DatePicker
-                label="Start date"
+                label={t.startDate.value}
                 value={startValue}
                 onChange={(newVal: Date | null) => {
                   const dateStr = toIsoDate(newVal);
@@ -188,7 +190,7 @@ export function DateFilterDropdown({
               />
               {current.mode === 'on' && (
                 <DatePicker
-                  label="End date"
+                  label={t.endDate.value}
                   value={endValue}
                   onChange={(newVal: Date | null) => {
                     const dateStr = toIsoDate(newVal);

@@ -1,12 +1,12 @@
 'use client';
 
-import { Camera, ImageUp } from '@/app/components/icons';
-import { ModalShell } from '@/app/components/ui/modal-shell';
-import { receiptsApi } from '@/app/lib/api';
 import { Box, Typography } from '@mui/material';
 import MuiButton from '@mui/material/Button';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { Camera, ImageUp } from '@/app/components/icons';
+import { ModalShell } from '@/app/components/ui/modal-shell';
+import { receiptsApi } from '@/app/lib/api';
 import { useCamera } from './hooks/useCamera';
 
 export interface ReceiptCameraCaptureProps {
@@ -37,17 +37,19 @@ export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCam
   const handleBlobUpload = async (blob: Blob) => {
     setSubmitting(true);
 
-    try {
+    await (async () => {
       const file = new File([blob], 'receipt-scan.jpg', { type: blob.type || 'image/jpeg' });
       await receiptsApi.scanReceipt(file);
       toast.success('Receipt scan uploaded.');
       onCaptured?.();
       onClose();
-    } catch {
-      toast.error('Failed to upload receipt scan.');
-    } finally {
-      setSubmitting(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error('Failed to upload receipt scan.');
+      })
+      .finally(async () => {
+        setSubmitting(false);
+      });
   };
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

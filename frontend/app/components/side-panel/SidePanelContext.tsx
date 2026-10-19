@@ -32,7 +32,25 @@ interface PersistedState {
 // Provider Component
 // ============================================================================
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
+// localStorage access lives outside the provider: React Compiler skips any
+// component containing a try/catch with early returns.
+function readPersistedState(storageKey: string): PersistedState | null {
+  try {
+    const stored = localStorage.getItem(storageKey);
+    return stored ? (JSON.parse(stored) as PersistedState) : null;
+  } catch {
+    return null; // Ignore parse errors
+  }
+}
+
+function writePersistedState(storageKey: string, state: PersistedState): void {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  } catch {
+    // Ignore storage errors (e.g., quota exceeded)
+  }
+}
+
 export function SidePanelProvider({
   children,
   defaultWidth = 'md',
@@ -55,18 +73,12 @@ export function SidePanelProvider({
   useEffect(() => {
     if (typeof window === 'undefined' || !persistState) return;
 
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (!stored) return;
-
-      const parsed: PersistedState = JSON.parse(stored);
-      setIsCollapsed(parsed.isCollapsed ?? defaultCollapsed);
-      setWidth(parsed.width ?? defaultWidth);
-      setPosition(parsed.position ?? defaultPosition);
-      setCollapsedSections(new Set(parsed.collapsedSections ?? []));
-    } catch {
-      // Ignore parse errors
-    }
+    const parsed = readPersistedState(storageKey);
+    if (!parsed) return;
+    setIsCollapsed(parsed.isCollapsed ?? defaultCollapsed);
+    setWidth(parsed.width ?? defaultWidth);
+    setPosition(parsed.position ?? defaultPosition);
+    setCollapsedSections(new Set(parsed.collapsedSections ?? []));
   }, [defaultCollapsed, defaultPosition, defaultWidth, persistState, storageKey]);
 
   // Persist state to localStorage
@@ -80,11 +92,7 @@ export function SidePanelProvider({
       collapsedSections: Array.from(collapsedSections),
     };
 
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(state));
-    } catch {
-      // Ignore storage errors (e.g., quota exceeded)
-    }
+    writePersistedState(storageKey, state);
   }, [isCollapsed, width, position, collapsedSections, persistState, storageKey]);
 
   // Toggle collapsed state
@@ -120,7 +128,7 @@ export function SidePanelProvider({
   );
 
   // Memoize context value
-  // eslint-disable-next-line complexity
+
   const contextValue = useMemo<SidePanelContextState>(
     () => ({
       isCollapsed,

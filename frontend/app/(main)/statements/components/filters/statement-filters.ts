@@ -51,15 +51,7 @@ export type StatementFilterItem = {
   currency?: string | null;
   exported?: boolean | null;
   paid?: boolean | null;
-  parsingDetails?: {
-    logEntries?: Array<{ timestamp: string; level: string; message: string }>;
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: {
-        currencyDisplay?: string;
-      };
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
   user?: StatementFilterUser | null;
   errorMessage?: string | null;
   totalTransactions?: number | null;
@@ -70,6 +62,7 @@ export type StatementFilterItem = {
   } | null;
 };
 
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import {
   applyAmountRangeFilter,
   applyApprovedFilter,
@@ -124,7 +117,7 @@ export const resetSingleStatementFilter = <K extends keyof StatementFilters>(
   [key]: cloneFilterValue(DEFAULT_STATEMENT_FILTERS[key]),
 });
 
-export const STATEMENT_FILTERS_STORAGE_KEY = 'lumio-statement-filters';
+export const STATEMENT_FILTERS_STORAGE_KEY = 'seneca-statement-filters';
 
 export const loadStatementFilters = (): StatementFilters => {
   if (typeof window === 'undefined') {

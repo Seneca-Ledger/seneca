@@ -28,14 +28,14 @@ export class FilePermission {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'statement_id' })
+  @Column({ name: 'statement_id', type: 'uuid' })
   statementId: string;
 
   @ManyToOne(() => Statement, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'statement_id' })
   statement: Statement;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -43,7 +43,7 @@ export class FilePermission {
   user: User;
 
   // Granted by user (who shared the file)
-  @Column({ name: 'granted_by_id' })
+  @Column({ name: 'granted_by_id', type: 'uuid' })
   grantedById: string;
 
   @ManyToOne(() => User)

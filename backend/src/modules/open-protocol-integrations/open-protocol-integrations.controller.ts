@@ -1,6 +1,18 @@
-import { Body, Controller, Delete, Get, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
+import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import {
+  ImportFilesBody,
+  IntegrationConnection,
+  ListImapFoldersBody,
+  SaveImapSettingsBody,
+  SaveS3SettingsBody,
+  SaveWebdavSettingsBody,
+} from '../../contracts';
 import { IntegrationProvider } from '../../entities';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -11,14 +23,19 @@ export class OpenProtocolIntegrationsController {
   constructor(private readonly openProtocolIntegrationsService: OpenProtocolIntegrationsService) {}
 
   @Get('s3-compatible/status')
-  s3Status(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.s3Status(user);
+  @UseGuards(WorkspaceContextGuard)
+  s3Status(@WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.s3Status(workspaceId);
   }
 
   @Post('s3-compatible/settings')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  saveS3Settings(@CurrentUser() user: User, @Body() body: Record<string, unknown>) {
-    return this.openProtocolIntegrationsService.saveS3Settings(user, {
+  saveS3Settings(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SaveS3SettingsBody) body: SaveS3SettingsBody,
+  ) {
+    return this.openProtocolIntegrationsService.saveS3Settings(user, workspaceId, {
       endpoint: this.stringValue(body.endpoint),
       region: this.stringValue(body.region),
       bucket: this.stringValue(body.bucket),
@@ -31,37 +48,54 @@ export class OpenProtocolIntegrationsController {
   }
 
   @Get('s3-compatible/files')
-  listS3Files(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.listS3Files(user);
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  listS3Files(@WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.listS3Files(workspaceId);
   }
 
   @Post('s3-compatible/import')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  importS3Files(@CurrentUser() user: User, @Body() body: { fileIds?: string[] }) {
-    return this.openProtocolIntegrationsService.importS3Files(user, this.getFileIds(body));
+  importS3Files(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(ImportFilesBody) body: ImportFilesBody,
+  ) {
+    return this.openProtocolIntegrationsService.importS3Files(
+      user,
+      workspaceId,
+      this.getFileIds(body),
+    );
   }
 
   @Post('s3-compatible/sync')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  syncS3(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.syncS3(user);
+  syncS3(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.syncS3(user, workspaceId);
   }
 
   @Delete('s3-compatible')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  disconnectS3(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.disconnect(user, IntegrationProvider.S3_COMPATIBLE);
+  disconnectS3(@WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.disconnect(
+      workspaceId,
+      IntegrationProvider.S3_COMPATIBLE,
+    );
   }
 
   @Get('webdav/status')
-  webdavStatus(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.webdavStatus(user);
+  @UseGuards(WorkspaceContextGuard)
+  webdavStatus(@WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.webdavStatus(workspaceId);
   }
 
   @Post('webdav/settings')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  saveWebdavSettings(@CurrentUser() user: User, @Body() body: Record<string, unknown>) {
-    return this.openProtocolIntegrationsService.saveWebdavSettings(user, {
+  saveWebdavSettings(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SaveWebdavSettingsBody) body: SaveWebdavSettingsBody,
+  ) {
+    return this.openProtocolIntegrationsService.saveWebdavSettings(user, workspaceId, {
       url: this.stringValue(body.url),
       rootPath: this.stringValue(body.rootPath),
       username: this.stringValue(body.username),
@@ -70,37 +104,52 @@ export class OpenProtocolIntegrationsController {
   }
 
   @Get('webdav/files')
-  listWebdavFiles(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.listWebdavFiles(user);
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  listWebdavFiles(@WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.listWebdavFiles(workspaceId);
   }
 
   @Post('webdav/import')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  importWebdavFiles(@CurrentUser() user: User, @Body() body: { fileIds?: string[] }) {
-    return this.openProtocolIntegrationsService.importWebdavFiles(user, this.getFileIds(body));
+  importWebdavFiles(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(ImportFilesBody) body: ImportFilesBody,
+  ) {
+    return this.openProtocolIntegrationsService.importWebdavFiles(
+      user,
+      workspaceId,
+      this.getFileIds(body),
+    );
   }
 
   @Post('webdav/sync')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  syncWebdav(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.syncWebdav(user);
+  syncWebdav(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.syncWebdav(user, workspaceId);
   }
 
   @Delete('webdav')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  disconnectWebdav(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.disconnect(user, IntegrationProvider.WEBDAV);
+  disconnectWebdav(@WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.disconnect(workspaceId, IntegrationProvider.WEBDAV);
   }
 
   @Get('imap/status')
-  imapStatus(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.imapStatus(user);
+  @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(IntegrationConnection)
+  imapStatus(@WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.imapStatus(workspaceId);
   }
 
   @Post('imap/settings')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  saveImapSettings(@CurrentUser() user: User, @Body() body: Record<string, unknown>) {
-    return this.openProtocolIntegrationsService.saveImapSettings(user, {
+  saveImapSettings(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SaveImapSettingsBody) body: SaveImapSettingsBody,
+  ) {
+    return this.openProtocolIntegrationsService.saveImapSettings(user, workspaceId, {
       host: this.stringValue(body.host),
       port: this.numberValue(body.port),
       secure: this.booleanValue(body.secure),
@@ -112,7 +161,7 @@ export class OpenProtocolIntegrationsController {
 
   @Post('imap/folders')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  listImapFolders(@Body() body: Record<string, unknown>) {
+  listImapFolders(@SchemaBody(ListImapFoldersBody) body: ListImapFoldersBody) {
     return this.openProtocolIntegrationsService.listImapFolders({
       host: this.stringValue(body.host) ?? '',
       port: this.numberValue(body.port) ?? 993,
@@ -124,17 +173,17 @@ export class OpenProtocolIntegrationsController {
 
   @Post('imap/sync')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  syncImap(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.syncImap(user);
+  syncImap(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.syncImap(user, workspaceId);
   }
 
   @Delete('imap')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  disconnectImap(@CurrentUser() user: User) {
-    return this.openProtocolIntegrationsService.disconnect(user, IntegrationProvider.IMAP);
+  disconnectImap(@WorkspaceId() workspaceId: string) {
+    return this.openProtocolIntegrationsService.disconnect(workspaceId, IntegrationProvider.IMAP);
   }
 
-  private getFileIds(body: { fileIds?: string[] }): string[] {
+  private getFileIds(body: { fileIds?: string[] | null }): string[] {
     return Array.isArray(body?.fileIds) ? body.fileIds.filter(Boolean) : [];
   }
 

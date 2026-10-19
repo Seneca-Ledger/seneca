@@ -1,54 +1,90 @@
 // app/styles/utils/_focus.scss
-// Keyboard accessibility: ensure focus rings are visible everywhere.
-//
+// Keyboard accessibility: one visible focus ring for every focusable element.
 // This file loads AFTER all component styles (globals.scss import order:
 // base → themes → layout → components → vendors → utils), so its rules
 // win the CSS cascade.
-//
 // Specificity strategy:
-//   html :focus-visible        → 0,1,1 — beats single-class outline:none rules (0,1,0)
-//   .MuiButtonBase-root:focus-visible → 0,2,0 — beats MUI's own outline:0 (0,1,0)
-//     regardless of emotion injection order.
+//   html :focus-visible                  → 0,1,1 — beats single-class outline:none rules (0,1,0)
+//   .MuiButtonBase-root.Mui-focusVisible → 0,2,0 — beats MUI's own outline:0 (0,1,0) regardless
+//     of emotion injection order, and also rings Checkbox/Radio/Switch, whose focused element is
+//     a hidden input inside the root that MUI marks with .Mui-focusVisible.
+// The ring sits outside the element ($seneca-focus-ring-reach). Containers that clip overflow
+// leave that much room around their items (@mixin focus-room). No border-radius here: an
+// outline already follows the element's corners, and setting one would reshape the element.
 @use '../abstracts' as *;
+
+:root {
+  --focus-ring-color: #{var(--primary)};
+}
+
+.dark {
+  --focus-ring-color: #{$color-primary-dk};
+}
 
 // ── Universal keyboard focus ring ─────────────────────────────────────────────
 // Overrides component-level `outline: none` on inputs, selects, and other
 // interactive elements that only suppress the browser default without providing
 // an alternative focus indicator.
-html :focus-visible {
-  outline: 2px solid $color-primary;
-  outline-offset: 2px;
-  border-radius: $lumio-radius-xs;
-
-  @include dark { outline-color: $color-primary-dk; }
+html :focus-visible,
+.MuiButtonBase-root.Mui-focusVisible {
+  outline: $seneca-focus-ring-width solid var(--focus-ring-color);
+  outline-offset: $seneca-focus-ring-offset;
 }
 
-// ── MUI interactive elements ──────────────────────────────────────────────────
-// MUI ButtonBase (Checkbox, IconButton, Button, etc.) injects
-// `.MuiButtonBase-root { outline: 0 }` via emotion at runtime.
-// A class+pseudo selector (0,2,0) reliably beats that (0,1,0).
-.MuiButtonBase-root:focus-visible {
-  outline: 2px solid $color-primary;
-  outline-offset: 2px;
-  border-radius: $lumio-radius-xs;
-
-  @include dark { outline-color: $color-primary-dk; }
+// ── Sticky bars ───────────────────────────────────────────────────────────────
+// When focus scrolls an element into view, keep it clear of the sticky top bar
+// (.seneca-topbar, 52px) and, on mobile, of the fixed bottom bar (56px).
+html {
+  scroll-padding-top: 52px + 8px;
 }
 
-// ── Statement & transaction card rows ─────────────────────────────────────────
-// These cards have `overflow: hidden` which clips any outline on child buttons,
-// making focus rings appear as a blurry inner glow instead of a crisp ring.
-// Fix: suppress the outline on the child overlay button, and use :has(:focus-visible)
-// to show a clean outline on the parent card (which is not clipped).
-
-.lumio-stmt-list-item:has(.lumio-stmt-list-item__desktop-overlay:focus-visible) {
-  outline: 2px solid $color-primary;
-  outline-offset: 1px;
-  border-radius: $lumio-radius-lg;
-
-  @include dark { outline-color: $color-primary-dk; }
+@include respond-to('lg') {
+  html {
+    scroll-padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 8px);
+  }
 }
 
-.lumio-stmt-list-item__desktop-overlay:focus-visible {
+// ── Cards with a full-size button under overflow: hidden ──────────────────────
+// The card clips the button's ring, so the ring is drawn on the card instead.
+// Markup: .seneca-focus-proxy on the card, .seneca-focus-proxy__target on the button.
+.seneca-focus-proxy:has(.seneca-focus-proxy__target:focus-visible),
+.seneca-stmt-list-item:has(.seneca-stmt-list-item__desktop-overlay:focus-visible) {
+  outline: $seneca-focus-ring-width solid var(--focus-ring-color);
+  outline-offset: $seneca-focus-ring-offset;
+}
+
+.seneca-focus-proxy__target:focus-visible,
+.seneca-stmt-list-item__desktop-overlay:focus-visible {
+  outline: none;
+}
+
+// ── Skip link ─────────────────────────────────────────────────────────────────
+// First Tab stop on every page (app/layout.tsx); shown only while focused.
+.seneca-skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: $seneca-z-tooltip + 10;
+  padding: 8px 14px;
+  border-radius: $seneca-radius-sm;
+  background: $seneca-color-surface;
+  color: $seneca-color-text-primary;
+  box-shadow: $seneca-shadow-md;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+
+  @include dark {
+    background: $seneca-color-surface-dk;
+    color: $seneca-color-text-primary-dk;
+  }
+
+  &:not(:focus) {
+    @include visually-hidden;
+  }
+}
+
+// The skip link's target: focused programmatically, it needs no ring of its own.
+#main-content:focus {
   outline: none;
 }

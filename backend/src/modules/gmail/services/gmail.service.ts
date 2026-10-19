@@ -1,8 +1,9 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../../common/brand';
 import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { GmailSettings, Integration } from '../../../entities';
 import type { GmailApi } from '../gmail-api.types';
@@ -50,16 +51,18 @@ export class GmailService {
     return (await response.json()) as T;
   }
 
-  async setupGmailEnvironment(integration: Integration, userId: string): Promise<void> {
+  async setupGmailEnvironment(integration: Integration): Promise<void> {
     try {
-      const { accessToken } = await this.gmailOAuthService.getGmailClient(userId);
+      const { accessToken } = await this.gmailOAuthService.getGmailClient(integration.workspaceId);
 
       // Get or create label
       const labelsResponse = await this.gmailJson<GmailLabelsResponse>(
         accessToken,
         'users/me/labels',
       );
-      const existingLabel = labelsResponse.labels?.find(label => label.name === 'Lumio/Receipts');
+      const existingLabel = labelsResponse.labels?.find(
+        label => label.name === `${APP_NAME}/Receipts`,
+      );
 
       let labelId: string;
       if (existingLabel?.id) {
@@ -72,7 +75,7 @@ export class GmailService {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              name: 'Lumio/Receipts',
+              name: `${APP_NAME}/Receipts`,
               labelListVisibility: 'labelShow',
               messageListVisibility: 'show',
             }),
@@ -116,7 +119,7 @@ export class GmailService {
 
       if (settings) {
         settings.labelId = labelId;
-        settings.labelName = 'Lumio/Receipts';
+        settings.labelName = `${APP_NAME}/Receipts`;
         await this.gmailSettingsRepository.save(settings);
       }
 
@@ -128,14 +131,14 @@ export class GmailService {
   }
 
   async listMessages(
-    userId: string,
+    workspaceId: string,
     query?: string,
     options?: {
       includeLabelFilter?: boolean;
       maxMessages?: number;
     },
   ): Promise<GmailApi.Message[]> {
-    const { accessToken, integration } = await this.gmailOAuthService.getGmailClient(userId);
+    const { accessToken, integration } = await this.gmailOAuthService.getGmailClient(workspaceId);
 
     const settings = await this.gmailSettingsRepository.findOne({
       where: { integrationId: integration.id },
@@ -181,8 +184,8 @@ export class GmailService {
     return messages;
   }
 
-  async getMessage(userId: string, messageId: string): Promise<GmailApi.Message> {
-    const { accessToken } = await this.gmailOAuthService.getGmailClient(userId);
+  async getMessage(workspaceId: string, messageId: string): Promise<GmailApi.Message> {
+    const { accessToken } = await this.gmailOAuthService.getGmailClient(workspaceId);
 
     return this.gmailJson<GmailApi.Message>(
       accessToken,
@@ -191,12 +194,12 @@ export class GmailService {
   }
 
   async downloadAttachment(
-    userId: string,
+    workspaceId: string,
     messageId: string,
     attachmentId: string,
     filename: string,
   ): Promise<string> {
-    const { accessToken } = await this.gmailOAuthService.getGmailClient(userId);
+    const { accessToken } = await this.gmailOAuthService.getGmailClient(workspaceId);
 
     const response = await this.gmailJson<GmailAttachmentResponse>(
       accessToken,
@@ -229,11 +232,11 @@ export class GmailService {
   }
 
   async getAttachmentData(
-    userId: string,
+    workspaceId: string,
     messageId: string,
     attachmentId: string,
   ): Promise<string | null> {
-    const { accessToken } = await this.gmailOAuthService.getGmailClient(userId);
+    const { accessToken } = await this.gmailOAuthService.getGmailClient(workspaceId);
     const response = await this.gmailJson<GmailAttachmentResponse>(
       accessToken,
       `users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
@@ -242,12 +245,12 @@ export class GmailService {
   }
 
   async updateMessageLabels(
-    userId: string,
+    workspaceId: string,
     messageId: string,
     addLabelIds?: string[],
     removeLabelIds?: string[],
   ): Promise<void> {
-    const { accessToken } = await this.gmailOAuthService.getGmailClient(userId);
+    const { accessToken } = await this.gmailOAuthService.getGmailClient(workspaceId);
 
     await this.gmailJson(accessToken, `users/me/messages/${encodeURIComponent(messageId)}/modify`, {
       method: 'POST',

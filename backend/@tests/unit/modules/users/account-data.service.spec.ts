@@ -1,3 +1,4 @@
+import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { WorkspaceRole } from '@/entities/workspace-member.entity';
 import { AccountDataService } from '@/modules/users/services/account-data.service';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
@@ -19,6 +20,7 @@ describe('AccountDataService', () => {
   const preferenceRepo = createRepoMock();
   const notificationRepo = createRepoMock();
   const auditRepo = createRepoMock();
+  const auditService = { createEvent: jest.fn() };
 
   let service: AccountDataService;
 
@@ -30,6 +32,7 @@ describe('AccountDataService', () => {
     notificationRepo.find.mockResolvedValue([]);
     auditRepo.find.mockResolvedValue([]);
     preferenceRepo.findOne.mockResolvedValue(null);
+    auditService.createEvent.mockResolvedValue({});
     service = new AccountDataService(
       userRepo,
       memberRepo,
@@ -37,6 +40,7 @@ describe('AccountDataService', () => {
       preferenceRepo,
       notificationRepo,
       auditRepo,
+      auditService as never,
     );
   });
 
@@ -84,6 +88,7 @@ describe('AccountDataService', () => {
       );
       expect(userRepo.softDelete).not.toHaveBeenCalled();
       expect(sessionRepo.update).not.toHaveBeenCalled();
+      expect(auditService.createEvent).not.toHaveBeenCalled();
     });
 
     it('refuses to strand a workspace whose only owner is the caller', async () => {
@@ -115,6 +120,52 @@ describe('AccountDataService', () => {
       await service.deleteMyAccount('user-1', 'right-password');
 
       expect(sessionRepo.update).toHaveBeenCalled();
+      expect(userRepo.softDelete).toHaveBeenCalledWith('user-1');
+    });
+
+    it('logs the deletion as CRITICAL into the home workspace before deleting', async () => {
+      const passwordHash = await bcrypt.hash('right-password', 4);
+      userRepo.findOne.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@b.c',
+        workspaceId: 'ws-home',
+        passwordHash,
+      });
+      memberRepo.find.mockResolvedValue([]);
+      auditService.createEvent.mockImplementation(async () => {
+        expect(userRepo.softDelete).not.toHaveBeenCalled();
+        return {};
+      });
+
+      await service.deleteMyAccount('user-1', 'right-password');
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: 'ws-home',
+          actorId: 'user-1',
+          entityType: EntityType.USER,
+          entityId: 'user-1',
+          action: AuditAction.DELETE,
+          severity: Severity.CRITICAL,
+        }),
+      );
+      const payload = JSON.stringify(auditService.createEvent.mock.calls);
+      expect(payload).not.toContain(passwordHash);
+      expect(payload).not.toContain('right-password');
+      expect(userRepo.softDelete).toHaveBeenCalledWith('user-1');
+    });
+
+    it('still deletes the account when the audit write fails', async () => {
+      userRepo.findOne.mockResolvedValue({
+        id: 'user-1',
+        workspaceId: 'ws-home',
+        passwordHash: await bcrypt.hash('right-password', 4),
+      });
+      memberRepo.find.mockResolvedValue([]);
+      auditService.createEvent.mockRejectedValue(new Error('audit down'));
+
+      await service.deleteMyAccount('user-1', 'right-password');
+
       expect(userRepo.softDelete).toHaveBeenCalledWith('user-1');
     });
   });

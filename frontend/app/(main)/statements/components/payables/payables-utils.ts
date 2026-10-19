@@ -1,3 +1,4 @@
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type {
   Payable,
   PayableDirection,
@@ -5,6 +6,7 @@ import type {
   PayableStatus,
   PayablesSummary,
 } from '@/app/lib/payables-api';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 
 export type PayablesSortOption = 'dueDateAsc' | 'dueDateDesc' | 'amountDesc' | 'vendorAsc';
@@ -28,13 +30,7 @@ export const DEFAULT_PAYABLES_FILTERS: PayablesFiltersState = {
 };
 
 export const resolveLocale = (locale?: string): string => {
-  if (locale === 'ru') {
-    return 'ru-RU';
-  }
-  if (locale === 'kk') {
-    return 'kk-KZ';
-  }
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -64,7 +60,7 @@ export const toNumber = (value: number | string | null | undefined): number => {
 
 export const formatMoney = (
   value: number | string | null | undefined,
-  currency = 'KZT',
+  currency = FALLBACK_CURRENCY,
   locale = 'en',
 ): string =>
   new Intl.NumberFormat(resolveLocale(locale), {
@@ -81,6 +77,10 @@ export const formatPayableDate = (value?: string | null, locale = 'en'): string 
   }
   return formatStoredDate(date, resolveLocale(locale));
 };
+
+/** What is still owed on a bill: its amount less the payments recorded against it. */
+export const outstandingOf = (payable: Pick<Payable, 'amount' | 'paidAmount'>): number =>
+  Math.round((toNumber(payable.amount) - toNumber(payable.paidAmount)) * 100) / 100;
 
 export const isPayableOverdue = (payable: Pick<Payable, 'status' | 'dueDate'>): boolean => {
   if (!payable.dueDate) {
@@ -99,25 +99,6 @@ export const isPayableOverdue = (payable: Pick<Payable, 'status' | 'dueDate'>): 
   today.setHours(0, 0, 0, 0);
   dueDate.setHours(0, 0, 0, 0);
   return dueDate < today;
-};
-
-export const getPayableStatusVariant = (
-  status: PayableStatus,
-  overdue: boolean,
-): 'destructive' | 'success' | 'info' | 'outline' | 'warning' => {
-  if (overdue || status === 'overdue') {
-    return 'destructive' as const;
-  }
-  if (status === 'paid') {
-    return 'success' as const;
-  }
-  if (status === 'scheduled') {
-    return 'info' as const;
-  }
-  if (status === 'archived') {
-    return 'outline' as const;
-  }
-  return 'warning' as const;
 };
 
 type PayablesListParams = {
@@ -178,12 +159,21 @@ export const sortPayables = (payables: Payable[], sort: PayablesSortOption): Pay
   return copy;
 };
 
-type SummaryCardItem = { key: string; value: number; count?: number };
+type SummaryCardItem = { key: string; value: number; count: number };
 
+/**
+ * The four cards. The first is everything still open, overdue included: an
+ * overdue bill is still waiting to be paid, so leaving it out read as "nothing
+ * to pay" next to a card full of overdue ones. Overdue is then a part of it.
+ */
 export const getSummaryCardItems = (summary: PayablesSummary): readonly SummaryCardItem[] =>
   [
-    { key: 'toPay', value: summary.toPay, count: summary.toPayCount },
+    {
+      key: 'toPay',
+      value: summary.toPay + summary.overdue,
+      count: summary.toPayCount + summary.overdueCount,
+    },
     { key: 'overdue', value: summary.overdue, count: summary.overdueCount },
-    { key: 'dueThisWeek', value: summary.dueThisWeek },
+    { key: 'dueThisWeek', value: summary.dueThisWeek, count: summary.dueThisWeekCount ?? 0 },
     { key: 'paidTotal', value: summary.paidTotal, count: summary.paidTotalCount },
   ] as readonly SummaryCardItem[];

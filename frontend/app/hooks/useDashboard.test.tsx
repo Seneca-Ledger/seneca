@@ -1,5 +1,4 @@
-import { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiMocks = vi.hoisted(() => ({
@@ -24,23 +23,8 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
   }),
 }));
 
+import { createTestQueryClient, renderHookWithQuery } from '../test/query-wrapper';
 import { useDashboard, useDashboardTrends } from './useDashboard';
-
-type HookSnapshot = ReturnType<typeof useDashboard>;
-type TrendsHookSnapshot = ReturnType<typeof useDashboardTrends>;
-
-let latestHook: HookSnapshot | null = null;
-let latestTrendsHook: TrendsHookSnapshot | null = null;
-
-function HookProbe() {
-  latestHook = useDashboard('30d');
-  return <div data-testid="dashboard-hook-probe" />;
-}
-
-function TrendsHookProbe() {
-  latestTrendsHook = useDashboardTrends(30);
-  return <div data-testid="dashboard-trends-hook-probe" />;
-}
 
 function createDashboardPayload(balance: number) {
   return {
@@ -53,6 +37,7 @@ function createDashboardPayload(balance: number) {
       totalOverdue: 0,
       unapprovedCash: 0,
       currency: 'KZT',
+      missingRates: [],
     },
     actions: [],
     cashFlow: [],
@@ -74,41 +59,26 @@ function createDashboardPayload(balance: number) {
   };
 }
 
-function createDeferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-
 function createTrendsPayload(rows: number) {
   return {
     dailyTrend: [],
+    forecast: [],
     categories: [],
     counterparties: [],
-    sources: {
-      statements: {
-        income: 0,
-        expense: 0,
-        rows,
-      },
-    },
+    sources: { statements: { income: 0, expense: 0, rows } },
   };
 }
 
-async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(res => {
+    resolve = res;
+  });
+  return { promise, resolve };
 }
 
 describe('useDashboard', () => {
   beforeEach(() => {
-    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-    latestHook = null;
-    latestTrendsHook = null;
     apiMocks.get.mockReset();
     workspaceMocks.currentWorkspaceId = 'workspace-1';
   });
@@ -122,43 +92,52 @@ describe('useDashboard', () => {
       },
     });
 
-    const container = document.createElement('div');
-    const root = createRoot(container);
+    const { result } = renderHookWithQuery(() => useDashboard('30d'));
 
-    await act(async () => {
-      root.render(<HookProbe />);
-      await flushPromises();
-    });
-
+    await waitFor(() => expect(result.current.data).toBeDefined());
     expect(apiMocks.get).toHaveBeenCalledTimes(1);
-    expect(apiMocks.get).toHaveBeenCalledWith('/dashboard', { params: { range: '30d' } });
-    expect(latestHook?.data?.effectiveEndDate).toBe('2025-05-31');
-    expect(latestHook?.targetDate).toBeNull();
+    expect(apiMocks.get).toHaveBeenCalledWith(
+      '/dashboard',
+      expect.objectContaining({ params: { range: '30d' } }),
+    );
+    expect(result.current.data?.effectiveEndDate).toBe('2025-05-31');
+    expect(result.current.targetDate).toBeNull();
   });
 
   it('performs a single fetch when user changes target date', async () => {
     apiMocks.get.mockResolvedValue({ data: createDashboardPayload(100) });
 
-    const container = document.createElement('div');
-    const root = createRoot(container);
-
-    await act(async () => {
-      root.render(<HookProbe />);
-      await flushPromises();
-    });
-
+    const { result } = renderHookWithQuery(() => useDashboard('30d'));
+    await waitFor(() => expect(result.current.data).toBeDefined());
     apiMocks.get.mockClear();
 
-    await act(async () => {
-      latestHook?.changeTargetDate('2025-05-20');
-      await flushPromises();
-    });
+    result.current.changeTargetDate('2025-05-20');
 
-    expect(apiMocks.get).toHaveBeenCalledTimes(1);
-    expect(apiMocks.get).toHaveBeenCalledWith('/dashboard', {
-      params: { range: '30d', date: '2025-05-20' },
-    });
-    expect(latestHook?.targetDate).toBe('2025-05-20');
+    await waitFor(() => expect(result.current.targetDate).toBe('2025-05-20'));
+    await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(1));
+    expect(apiMocks.get).toHaveBeenCalledWith(
+      '/dashboard',
+      expect.objectContaining({ params: { range: '30d', date: '2025-05-20' } }),
+    );
+  });
+
+  it('keeps the previous month on screen while the next month loads', async () => {
+    const nextMonth = createDeferred<{ data: ReturnType<typeof createDashboardPayload> }>();
+    apiMocks.get
+      .mockResolvedValueOnce({ data: createDashboardPayload(100) })
+      .mockImplementationOnce(() => nextMonth.promise);
+
+    const { result } = renderHookWithQuery(() => useDashboard('30d'));
+    await waitFor(() => expect(result.current.data?.snapshot.totalBalance).toBe(100));
+
+    result.current.changeTargetDate('2025-05-20');
+
+    // Тот же воркспейс: графики остаются смонтированными вместо мигания скелетоном.
+    await waitFor(() => expect(result.current.isFetching).toBe(true));
+    expect(result.current.data?.snapshot.totalBalance).toBe(100);
+
+    nextMonth.resolve({ data: createDashboardPayload(200) });
+    await waitFor(() => expect(result.current.data?.snapshot.totalBalance).toBe(200));
   });
 
   it('ignores stale responses when a newer request resolves first', async () => {
@@ -169,30 +148,16 @@ describe('useDashboard', () => {
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
 
-    const container = document.createElement('div');
-    const root = createRoot(container);
+    const { result } = renderHookWithQuery(() => useDashboard('30d'));
 
-    await act(async () => {
-      root.render(<HookProbe />);
-      await Promise.resolve();
-    });
+    result.current.changeTargetDate('2025-05-20');
+    await waitFor(() => expect(result.current.targetDate).toBe('2025-05-20'));
 
-    await act(async () => {
-      latestHook?.changeTargetDate('2025-05-20');
-      await Promise.resolve();
-    });
+    second.resolve({ data: createDashboardPayload(200) });
+    await waitFor(() => expect(result.current.data?.snapshot.totalBalance).toBe(200));
 
-    await act(async () => {
-      second.resolve({ data: createDashboardPayload(200) });
-      await flushPromises();
-    });
-
-    await act(async () => {
-      first.resolve({ data: createDashboardPayload(100) });
-      await flushPromises();
-    });
-
-    expect(latestHook?.data?.snapshot.totalBalance).toBe(200);
+    first.resolve({ data: createDashboardPayload(100) });
+    await waitFor(() => expect(result.current.data?.snapshot.totalBalance).toBe(200));
   });
 
   it('refetches dashboard data when the active workspace changes', async () => {
@@ -200,61 +165,39 @@ describe('useDashboard', () => {
       .mockResolvedValueOnce({ data: createDashboardPayload(100) })
       .mockResolvedValueOnce({ data: createDashboardPayload(200) });
 
-    const container = document.createElement('div');
-    const root = createRoot(container);
-
-    await act(async () => {
-      root.render(<HookProbe />);
-      await flushPromises();
+    const { result, rerender } = renderHookWithQuery(() => useDashboard('30d'), {
+      client: createTestQueryClient(),
     });
 
+    await waitFor(() => expect(result.current.data?.snapshot.totalBalance).toBe(100));
     expect(apiMocks.get).toHaveBeenCalledTimes(1);
-    expect(latestHook?.data?.snapshot.totalBalance).toBe(100);
 
-    await act(async () => {
-      workspaceMocks.currentWorkspaceId = 'workspace-2';
-      root.render(<HookProbe />);
-      await flushPromises();
-    });
+    workspaceMocks.currentWorkspaceId = 'workspace-2';
+    rerender();
 
+    await waitFor(() => expect(result.current.data?.snapshot.totalBalance).toBe(200));
     expect(apiMocks.get).toHaveBeenCalledTimes(2);
-    expect(latestHook?.data?.snapshot.totalBalance).toBe(200);
   });
 
   it('clears previous dashboard data while loading the next workspace', async () => {
-    const nextWorkspaceResponse = createDeferred<{
-      data: ReturnType<typeof createDashboardPayload>;
-    }>();
+    const nextWorkspace = createDeferred<{ data: ReturnType<typeof createDashboardPayload> }>();
 
     apiMocks.get
       .mockResolvedValueOnce({ data: createDashboardPayload(100) })
-      .mockImplementationOnce(() => nextWorkspaceResponse.promise);
+      .mockImplementationOnce(() => nextWorkspace.promise);
 
-    const container = document.createElement('div');
-    const root = createRoot(container);
+    const { result, rerender } = renderHookWithQuery(() => useDashboard('30d'));
+    await waitFor(() => expect(result.current.data?.snapshot.totalBalance).toBe(100));
 
-    await act(async () => {
-      root.render(<HookProbe />);
-      await flushPromises();
-    });
+    workspaceMocks.currentWorkspaceId = 'workspace-2';
+    rerender();
 
-    expect(latestHook?.data?.snapshot.totalBalance).toBe(100);
+    // Чужие цифры не должны показываться ни на кадр.
+    await waitFor(() => expect(result.current.isPending).toBe(true));
+    expect(result.current.data).toBeUndefined();
 
-    await act(async () => {
-      workspaceMocks.currentWorkspaceId = 'workspace-2';
-      root.render(<HookProbe />);
-      await Promise.resolve();
-    });
-
-    expect(latestHook?.loading).toBe(true);
-    expect(latestHook?.data).toBeNull();
-
-    await act(async () => {
-      nextWorkspaceResponse.resolve({ data: createDashboardPayload(200) });
-      await flushPromises();
-    });
-
-    expect(latestHook?.data?.snapshot.totalBalance).toBe(200);
+    nextWorkspace.resolve({ data: createDashboardPayload(200) });
+    await waitFor(() => expect(result.current.data?.snapshot.totalBalance).toBe(200));
   });
 
   it('refetches trends data when the active workspace changes', async () => {
@@ -262,60 +205,47 @@ describe('useDashboard', () => {
       .mockResolvedValueOnce({ data: createTrendsPayload(10) })
       .mockResolvedValueOnce({ data: createTrendsPayload(20) });
 
-    const container = document.createElement('div');
-    const root = createRoot(container);
+    const { result, rerender } = renderHookWithQuery(() => useDashboardTrends({ days: 30 }));
 
-    await act(async () => {
-      root.render(<TrendsHookProbe />);
-      await flushPromises();
-    });
-
+    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(10));
     expect(apiMocks.get).toHaveBeenCalledTimes(1);
-    expect(latestTrendsHook?.data?.sources.statements.rows).toBe(10);
 
-    await act(async () => {
-      workspaceMocks.currentWorkspaceId = 'workspace-2';
-      root.render(<TrendsHookProbe />);
-      await flushPromises();
-    });
+    workspaceMocks.currentWorkspaceId = 'workspace-2';
+    rerender();
 
+    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(20));
     expect(apiMocks.get).toHaveBeenCalledTimes(2);
-    expect(latestTrendsHook?.data?.sources.statements.rows).toBe(20);
   });
 
   it('clears previous trends data while loading the next workspace', async () => {
-    const nextWorkspaceResponse = createDeferred<{
-      data: ReturnType<typeof createTrendsPayload>;
-    }>();
+    const nextWorkspace = createDeferred<{ data: ReturnType<typeof createTrendsPayload> }>();
 
     apiMocks.get
       .mockResolvedValueOnce({ data: createTrendsPayload(10) })
-      .mockImplementationOnce(() => nextWorkspaceResponse.promise);
+      .mockImplementationOnce(() => nextWorkspace.promise);
 
-    const container = document.createElement('div');
-    const root = createRoot(container);
+    const { result, rerender } = renderHookWithQuery(() => useDashboardTrends({ days: 30 }));
+    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(10));
 
-    await act(async () => {
-      root.render(<TrendsHookProbe />);
-      await flushPromises();
-    });
+    workspaceMocks.currentWorkspaceId = 'workspace-2';
+    rerender();
 
-    expect(latestTrendsHook?.data?.sources.statements.rows).toBe(10);
+    await waitFor(() => expect(result.current.isPending).toBe(true));
+    expect(result.current.data).toBeUndefined();
 
-    await act(async () => {
-      workspaceMocks.currentWorkspaceId = 'workspace-2';
-      root.render(<TrendsHookProbe />);
-      await Promise.resolve();
-    });
+    nextWorkspace.resolve({ data: createTrendsPayload(20) });
+    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(20));
+  });
 
-    expect(latestTrendsHook?.loading).toBe(true);
-    expect(latestTrendsHook?.data).toBeNull();
+  it('asks for a calendar month instead of a rolling window when a month is given', async () => {
+    apiMocks.get.mockResolvedValueOnce({ data: createTrendsPayload(7) });
 
-    await act(async () => {
-      nextWorkspaceResponse.resolve({ data: createTrendsPayload(20) });
-      await flushPromises();
-    });
+    const { result } = renderHookWithQuery(() => useDashboardTrends({ month: '2026-07' }));
 
-    expect(latestTrendsHook?.data?.sources.statements.rows).toBe(20);
+    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(7));
+    expect(apiMocks.get).toHaveBeenCalledWith(
+      '/dashboard/trends',
+      expect.objectContaining({ params: { month: '2026-07' } }),
+    );
   });
 });

@@ -1,6 +1,5 @@
 'use client';
 
-import { Checkbox } from '@/app/components/ui/checkbox';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -8,21 +7,21 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import { Checkbox } from '@/app/components/ui/checkbox';
 import type { BranchOption, CategoryOption, FieldChangeParams, Transaction } from '../editHelpers';
 import type { ColumnLabels } from '../helpers/transactionDisplayHelpers';
 import {
   getColumnLabels,
-  getEditTableLabels,
   getEditedTransaction,
+  getEditTableLabels,
 } from '../helpers/transactionDisplayHelpers';
 import { TransactionRow } from './TransactionRow';
 
+/** Sentence case, grey and small: column titles label, they do not shout. */
 const CELL_HEADER_SX = {
-  fontWeight: 600,
-  fontSize: '0.75rem',
-  color: 'text.secondary',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
+  fontWeight: 400,
+  fontSize: 13,
+  color: 'var(--text-muted)',
 } as const;
 
 type TableHeaderRowProps = {
@@ -39,13 +38,7 @@ function TableHeaderRow({
   onSelectAll,
 }: TableHeaderRowProps): React.ReactElement {
   return (
-    <TableRow
-      sx={{
-        bgcolor: theme => (theme.palette.mode === 'dark' ? '#18222d' : theme.palette.grey[50]),
-        borderBottom: '1px solid',
-        borderBottomColor: 'divider',
-      }}
-    >
+    <TableRow sx={{ borderBottom: '1px solid', borderBottomColor: 'divider' }}>
       <TableCell padding="checkbox">
         <Checkbox
           checked={selectedRows.size === transactions.length && transactions.length > 0}
@@ -56,14 +49,14 @@ function TableHeaderRow({
       <TableCell sx={CELL_HEADER_SX}>{colLabels.date}</TableCell>
       <TableCell sx={CELL_HEADER_SX}>{colLabels.counterparty}</TableCell>
       <TableCell sx={CELL_HEADER_SX}>{colLabels.paymentPurpose}</TableCell>
+      {/* One signed column instead of Expense and Income half-filled with dashes. */}
       <TableCell align="right" sx={CELL_HEADER_SX}>
-        {colLabels.expense}
-      </TableCell>
-      <TableCell align="right" sx={CELL_HEADER_SX}>
-        {colLabels.income}
+        {colLabels.amount}
       </TableCell>
       <TableCell sx={CELL_HEADER_SX}>{colLabels.category}</TableCell>
-      <TableCell sx={CELL_HEADER_SX}>{colLabels.actions}</TableCell>
+      <TableCell sx={CELL_HEADER_SX}>
+        <span className="u-visually-hidden">{colLabels.actions}</span>
+      </TableCell>
     </TableRow>
   );
 }
@@ -115,7 +108,10 @@ export function EditTransactionsTable({
     <TableContainer
       component={Paper}
       elevation={0}
-      sx={{ border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}
+      className="seneca-stmt-edit-table"
+      // `overflow: hidden` clipped the right-hand columns on phones; the
+      // container scrolls sideways again, the way TableContainer does by default.
+      sx={{ border: '1px solid', borderColor: 'divider', overflowX: 'auto' }}
     >
       <Table size="small">
         <TableHead>
@@ -140,6 +136,9 @@ export function EditTransactionsTable({
               locale={locale}
               formatNumber={formatNumber}
               confirmDeleteLabel={editLabels.confirmDelete}
+              deleteLabel={editLabels.deleteAction}
+              moreActionsLabel={editLabels.moreActions}
+              cancelLabel={editLabels.cancel}
               notSelectedLabel={editLabels.notSelected}
               noCategoryLabel={editLabels.noCategory}
               assignCategoryLabel={editLabels.assignCategory}

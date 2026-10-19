@@ -22,14 +22,14 @@ export class BalanceSnapshot {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => BalanceAccount, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'account_id' })
   account: BalanceAccount;
 
-  @Column({ name: 'account_id' })
+  @Column({ name: 'account_id', type: 'uuid' })
   accountId: string;
 
   @Column({ name: 'snapshot_date', type: 'date' })
@@ -38,14 +38,14 @@ export class BalanceSnapshot {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   amount: number;
 
-  @Column({ default: 'KZT' })
+  @Column()
   currency: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'created_by' })
   createdByUser: User | null;
 
-  @Column({ name: 'created_by', nullable: true })
+  @Column({ type: 'varchar', name: 'created_by', nullable: true })
   createdBy: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

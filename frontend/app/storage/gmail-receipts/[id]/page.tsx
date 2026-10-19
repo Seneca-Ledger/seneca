@@ -1,16 +1,17 @@
 'use client';
 
-import StatementCategoryDrawer from '@/app/(main)/statements/[id]/edit/StatementCategoryDrawer';
-import { CreatePayableDrawer } from '@/app/(main)/statements/components/payables/CreatePayableDrawer';
-import { ArrowLeft } from '@/app/components/icons';
-import {
-  getFinancialDocumentStatusLabel,
-  toFinancialDocumentStatus,
-} from '@/app/lib/financial-document';
 import { Box, Button, Container, Paper, Typography } from '@mui/material';
 import Skeleton from '@mui/material/Skeleton';
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import StatementCategoryDrawer from '@/app/(main)/statements/[id]/edit/StatementCategoryDrawer';
+import { CreatePayableDrawer } from '@/app/(main)/statements/components/payables/CreatePayableDrawer';
+import { ArrowLeft } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
+import {
+  getFinancialDocumentStatusLabel,
+  toFinancialDocumentStatus,
+} from '@/app/lib/financial-document';
 import { ReceiptPreviewModal } from '../components/ReceiptPreviewModal';
 import { GmailReceiptDetails } from './components/GmailReceiptDuplicates';
 import { GmailReceiptHeader } from './components/GmailReceiptHeader';
@@ -20,10 +21,9 @@ import {
   type UseGmailReceiptActionsReturn,
   useGmailReceiptActions,
 } from './hooks/useGmailReceiptActions';
+import type { GmailReceipt } from './hooks/useGmailReceiptData';
 import { type UseGmailReceiptDataReturn, useGmailReceiptData } from './hooks/useGmailReceiptData';
 import { buildPayablePrefillFromReceipt } from './payable-prefill';
-
-import type { GmailReceipt } from './hooks/useGmailReceiptData';
 
 interface PageContentProps {
   data: Omit<UseGmailReceiptDataReturn, 'receipt'> & { receipt: GmailReceipt };
@@ -46,6 +46,7 @@ function ReceiptModals({
 }: PageContentProps & {
   payablePrefill: ReturnType<typeof buildPayablePrefillFromReceipt>;
 }): React.JSX.Element {
+  const t = useIntlayer('gmailReceiptPage');
   return (
     <>
       <StatementCategoryDrawer
@@ -56,10 +57,10 @@ function ReceiptModals({
         selecting={actions.categorySaving}
         onSelect={actions.handleCategorySelect}
         labels={{
-          title: 'Category',
-          searchPlaceholder: 'Search categories',
-          allOption: 'Not selected',
-          noResults: 'No categories found',
+          title: t.categoryDrawer.title.value,
+          searchPlaceholder: t.categoryDrawer.searchPlaceholder.value,
+          allOption: t.categoryDrawer.notSelected.value,
+          noResults: t.categoryDrawer.noResults.value,
         }}
         width="sm"
         showAllOption
@@ -72,25 +73,29 @@ function ReceiptModals({
         onClose={() => actions.setPayableDrawerOpen(false)}
         onSubmit={actions.handleCreatePayable}
         labels={{
-          createTitle: 'Create payable',
-          editTitle: 'Edit payable',
-          vendor: 'Vendor',
-          amount: 'Amount',
-          currency: 'Currency',
-          dueDate: 'Due date',
-          source: 'Source',
-          status: 'Status',
-          comment: 'Comment',
-          save: 'Continue',
-          saving: 'Saving...',
-          cancel: 'Cancel',
-          sourceOptions: { manual: 'Manual', invoice: 'Invoice', statement: 'Statement' },
+          createTitle: t.payable.createTitle.value,
+          editTitle: t.payable.editTitle.value,
+          vendor: t.payable.vendor.value,
+          amount: t.payable.amount.value,
+          currency: t.payable.currency.value,
+          dueDate: t.payable.dueDate.value,
+          source: t.payable.source.value,
+          status: t.payable.status.value,
+          comment: t.payable.comment.value,
+          save: t.payable.continue.value,
+          saving: t.payable.saving.value,
+          cancel: t.payable.cancel.value,
+          sourceOptions: {
+            manual: t.payable.sourceManual.value,
+            invoice: t.payable.sourceInvoice.value,
+            statement: t.payable.sourceStatement.value,
+          },
           statusOptions: {
-            to_pay: 'To pay',
-            scheduled: 'Scheduled',
-            paid: 'Paid',
-            overdue: 'Overdue',
-            archived: 'Archived',
+            to_pay: t.payable.statusToPay.value,
+            scheduled: t.payable.statusScheduled.value,
+            paid: t.payable.statusPaid.value,
+            overdue: t.payable.statusOverdue.value,
+            archived: t.payable.statusArchived.value,
           },
         }}
       />
@@ -155,7 +160,7 @@ function ReceiptPageContent({
         onSubmit={actions.handleSubmitDocument}
         onOpenPayable={handleOpenPayable}
         onExportToGmailDraft={actions.handleExportToGmailDraft}
-        onExportToSheets={actions.handleExportToSheets}
+        onExportToXlsx={actions.handleExportToXlsx}
       />
       <SummaryMetrics
         editedData={data.editedData}
@@ -271,6 +276,7 @@ export default function GmailReceiptDocumentPage(): React.JSX.Element {
   const router = useRouter();
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkId, setBulkId] = useState('');
+  const t = useIntlayer('gmailReceiptPage');
 
   const data = useGmailReceiptData({ receiptId });
   const actions = useGmailReceiptActions({
@@ -291,14 +297,14 @@ export default function GmailReceiptDocumentPage(): React.JSX.Element {
       <Container maxWidth="xl" sx={{ mt: 4 }}>
         <Paper elevation={0} sx={{ p: 6, border: '1px solid', borderColor: 'grey.200' }}>
           <Typography variant="body1" fontWeight={600}>
-            Receipt not found
+            {t.page.notFound}
           </Typography>
           <Button
             startIcon={<ArrowLeft size={18} />}
             onClick={() => router.push('/statements')}
             sx={{ mt: 2, textTransform: 'none' }}
           >
-            Back to receipts
+            {t.page.backToReceipts}
           </Button>
         </Paper>
       </Container>

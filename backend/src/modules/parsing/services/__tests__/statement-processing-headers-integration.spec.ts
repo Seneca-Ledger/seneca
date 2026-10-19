@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { Repository } from 'typeorm';
+import { type ObjectLiteral, Repository } from 'typeorm';
 import {
   BankName,
   FileType,
@@ -10,7 +10,6 @@ import {
 } from '../../../../entities/statement.entity';
 import { Transaction } from '../../../../entities/transaction.entity';
 import { ClassificationService } from '../../../classification/services/classification.service';
-import { GoogleSheetsService } from '../../../google-sheets/google-sheets.service';
 import { MetricsService } from '../../../observability/metrics.service';
 import { ExtractedMetadata, MetadataExtractionService } from '../metadata-extraction.service';
 import { ParserFactoryService } from '../parser-factory.service';
@@ -96,18 +95,11 @@ describe('StatementProcessingService - Headers Integration', () => {
       convertToParsedStatementMetadata: jest.fn(),
     };
 
-    const mockGoogleSheetsService: Pick<GoogleSheetsService, 'syncStatementTransactions'> = {
-      syncStatementTransactions: jest.fn(),
-    };
-
     const mockMetricsService = {
       statementParsingDurationSeconds: {
         observe: jest.fn(),
       },
       statementParsingErrorsTotal: {
-        inc: jest.fn(),
-      },
-      aiParsingCallsTotal: {
         inc: jest.fn(),
       },
     } as unknown as MetricsService;
@@ -134,10 +126,6 @@ describe('StatementProcessingService - Headers Integration', () => {
         {
           provide: MetadataExtractionService,
           useValue: mockMetadataExtractionService,
-        },
-        {
-          provide: GoogleSheetsService,
-          useValue: mockGoogleSheetsService,
         },
         {
           provide: MetricsService,
@@ -374,7 +362,7 @@ describe('StatementProcessingService - Headers Integration', () => {
 });
 
 // Helper function to create mocks
-function createMockRepository<T>(): Partial<Repository<T>> {
+function createMockRepository<T extends ObjectLiteral>(): Partial<Repository<T>> {
   return {
     findOne: jest.fn(),
     find: jest.fn(),

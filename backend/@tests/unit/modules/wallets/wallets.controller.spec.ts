@@ -24,7 +24,7 @@ describe('WalletsController', () => {
       message: 'Wallet deleted successfully',
     });
 
-    expect(walletsService.create).toHaveBeenCalledWith(workspaceId, { name: 'A' });
+    expect(walletsService.create).toHaveBeenCalledWith(workspaceId, 'u1', { name: 'A' });
     expect(walletsService.findAll).toHaveBeenCalledWith(workspaceId);
     expect(walletsService.findOne).toHaveBeenCalledWith('w1', workspaceId);
     expect(walletsService.update).toHaveBeenCalledWith('w1', workspaceId, { name: 'X' });

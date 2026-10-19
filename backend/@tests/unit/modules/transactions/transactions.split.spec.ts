@@ -87,10 +87,11 @@ describe('TransactionsService.split', () => {
       {} as any,
       { findOne: jest.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
       { findOne: jest.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
+      { findOne: jest.fn(async () => null), create: jest.fn(x => x), save: jest.fn(async x => x) } as any,
       cacheManager as any,
       auditService as any,
-      { learnFromCorrection: jest.fn() } as any,
       { bulkConvert: jest.fn() } as any,
+      { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } as any,
     );
     // ensureCanEditStatements is a private permission check with its own coverage;
     // stub it so these tests stay focused on split arithmetic.
@@ -391,7 +392,7 @@ describe('TransactionsService.split', () => {
       parts: [{ amount: 8000 }, { amount: 4000 }],
     });
 
-    expect(cacheManager.set).toHaveBeenCalledWith('reports:version:u-1', expect.any(String), 0);
+    expect(cacheManager.set).toHaveBeenCalledWith('reports:version:ws-1', expect.any(String), 0);
     expect(auditService.createEvent).toHaveBeenCalledTimes(1);
     expect(auditService.createEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -550,10 +551,11 @@ describe('TransactionsService.unsplit', () => {
       {} as any,
       { findOne: jest.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
       { findOne: jest.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
+      { findOne: jest.fn(async () => null), create: jest.fn(x => x), save: jest.fn(async x => x) } as any,
       cacheManager as any,
       auditService as any,
-      { learnFromCorrection: jest.fn() } as any,
       { bulkConvert: jest.fn() } as any,
+      { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } as any,
     );
     (service as any).ensureCanEditStatements = jest.fn();
   });
@@ -675,7 +677,7 @@ describe('TransactionsService.unsplit', () => {
   it('records an audit event with the pre-merge parts and invalidates the reports cache', async () => {
     await service.unsplit('tx-1', 'ws-1', 'u-1');
 
-    expect(cacheManager.set).toHaveBeenCalledWith('reports:version:u-1', expect.any(String), 0);
+    expect(cacheManager.set).toHaveBeenCalledWith('reports:version:ws-1', expect.any(String), 0);
     expect(auditService.createEvent).toHaveBeenCalledTimes(1);
     const event = auditService.createEvent.mock.calls[0][0];
     expect(event).toEqual(
@@ -698,7 +700,7 @@ describe('TransactionsService.unsplit', () => {
   it('checks edit permission before merging', async () => {
     await service.unsplit('tx-1', 'ws-1', 'u-1');
 
-    expect((service as any).ensureCanEditStatements).toHaveBeenCalledWith('u-1');
+    expect((service as any).ensureCanEditStatements).toHaveBeenCalledWith('u-1', 'ws-1');
   });
 
   it('merges into part 0 even when called with a non-part-0 id', async () => {
@@ -844,8 +846,8 @@ describe('TransactionsService.getSplitParts', () => {
       { findOne: jest.fn() } as any,
       { set: jest.fn() } as any,
       { createEvent: jest.fn() } as any,
-      { learnFromCorrection: jest.fn() } as any,
       { bulkConvert: jest.fn() } as any,
+      { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } as any,
     );
   });
 

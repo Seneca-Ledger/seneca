@@ -1,14 +1,5 @@
 'use client';
 
-import { Alert } from '@/app/components/ui/alert';
-import { Spinner } from '@/app/components/ui/spinner';
-import {
-  PasswordPrompt,
-  RecoveryCodesPanel,
-  SetupPanel,
-  type Tx,
-} from '@/app/settings/profile/components/TwoFactorPanels';
-import type { UseTwoFactorReturn } from '@/app/settings/profile/hooks/useTwoFactor';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -16,6 +7,17 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { Alert } from '@/app/components/ui/alert';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { Spinner } from '@/app/components/ui/spinner';
+import type { UserFormatPreferences } from '@/app/lib/user-format';
+import {
+  PasswordPrompt,
+  RecoveryCodesPanel,
+  SetupPanel,
+  type Tx,
+} from '@/app/settings/profile/components/TwoFactorPanels';
+import type { UseTwoFactorReturn } from '@/app/settings/profile/hooks/useTwoFactor';
 
 type EnabledPanelProps = {
   tx: Tx;
@@ -77,11 +79,16 @@ function DisabledPanel({
   tx,
   busy,
   onStart,
-}: { tx: Tx; busy: boolean; onStart: (password: string) => void }) {
+}: {
+  tx: Tx;
+  busy: boolean;
+  onStart: (password: string) => void;
+}) {
   return (
     <Card variant="outlined">
       {/* The section header already carries the description — no need to repeat it here. */}
       <CardContent sx={{ display: 'grid', gap: 1.5 }}>
+        <EmptyStateIllustration name="security" size="sm" />
         <PasswordPrompt
           tx={tx}
           busy={busy}
@@ -93,9 +100,14 @@ function DisabledPanel({
   );
 }
 
-type Props = { tx: Tx; twoFactor: UseTwoFactorReturn };
+type Props = {
+  tx: Tx;
+  twoFactor: UseTwoFactorReturn;
+  email: string;
+  formatPreferences: UserFormatPreferences;
+};
 
-export function TwoFactorSection({ tx, twoFactor }: Props) {
+export function TwoFactorSection({ tx, twoFactor, email, formatPreferences }: Props) {
   const { status, setup, recoveryCodes, loading, busy, error, message } = twoFactor;
 
   return (
@@ -104,7 +116,13 @@ export function TwoFactorSection({ tx, twoFactor }: Props) {
       {error ? <Alert variant="error">{error}</Alert> : null}
 
       {recoveryCodes ? (
-        <RecoveryCodesPanel tx={tx} codes={recoveryCodes} onDone={twoFactor.dismissRecoveryCodes} />
+        <RecoveryCodesPanel
+          tx={tx}
+          codes={recoveryCodes}
+          email={email}
+          formatPreferences={formatPreferences}
+          onDone={twoFactor.dismissRecoveryCodes}
+        />
       ) : null}
 
       {loading && !status ? <Spinner size={20} /> : null}

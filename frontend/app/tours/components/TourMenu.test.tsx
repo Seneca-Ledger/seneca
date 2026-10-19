@@ -36,6 +36,7 @@ vi.mock('@/app/i18n', () => ({
           progressText: { value: '{{current}} / {{total}}' },
           menuLabel: { value: 'Tours' },
         },
+        shell: { toursNotFound: { value: 'No tours found' } },
       };
     }
 
@@ -80,22 +81,6 @@ vi.mock('../categories-tour', () => ({
 vi.mock('../integrations-tour', () => ({
   createIntegrationsTour: () =>
     createTour('integrations-tour', 'Integrations Tour', '/integrations'),
-}));
-vi.mock('../google-sheets-import-tour', () => ({
-  createGoogleSheetsImportTour: () =>
-    createTour(
-      'google-sheets-import-tour',
-      'Google Sheets Import Tour',
-      '/custom-tables/import/google-sheets',
-    ),
-}));
-vi.mock('../google-sheets-integration-tour', () => ({
-  createGoogleSheetsIntegrationTour: () =>
-    createTour(
-      'google-sheets-integration-tour',
-      'Google Sheets Integration Tour',
-      '/integrations/google-sheets',
-    ),
 }));
 vi.mock('../settings-tour', () => ({
   createSettingsTour: () => createTour('settings-tour', 'Workspace Tour', '/workspaces/overview'),

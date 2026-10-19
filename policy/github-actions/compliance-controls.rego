@@ -13,10 +13,11 @@ required_ci_jobs := {
   "typecheck",
 }
 
+# Seneca is self-hosted: CD builds, signs and publishes images and stops there.
+# There is no deployment environment to gate and nothing deployed to smoke-test.
 required_cd_jobs := {
   "build-and-publish",
   "policy-as-code",
-  "smoke",
 }
 
 deny[msg] {
@@ -37,13 +38,6 @@ deny[msg] {
   job := required_cd_jobs[_]
   not input.jobs[job]
   msg := sprintf("compliance(CD): missing required job %q", [job])
-}
-
-deny[msg] {
-  input.name == "CD"
-  build := input.jobs["build-and-publish"]
-  not has_environment(build)
-  msg := "compliance(CD): build-and-publish job must set environment"
 }
 
 deny[msg] {
@@ -99,17 +93,6 @@ has_pull_request_trigger(wf) {
   triggers := wf[true]
   is_array(triggers)
   triggers[_] == "pull_request"
-}
-
-has_environment(job) {
-  env := object.get(job, "environment", null)
-  is_string(env)
-  env != ""
-} else {
-  env := object.get(job, "environment", {})
-  is_object(env)
-  name := object.get(env, "name", "")
-  name != ""
 }
 
 job_uses(job, prefix) {

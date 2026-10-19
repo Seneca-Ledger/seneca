@@ -1,3 +1,5 @@
+import { useTheme } from 'next-themes';
+import { useMemo, useState } from 'react';
 import {
   buildSpendOverTimeLabels,
   createTx,
@@ -21,14 +23,17 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import { resolveCurrencyCode } from '@/app/lib/analytics-common';
-import { useTheme } from 'next-themes';
-import { useMemo, useState } from 'react';
 
 type WorkspaceLike = { id: string; name?: string | null };
 type SortKey = 'amount' | 'average' | 'operations';
-type SourceLabels = { sourceBank: string; sourceReceipt: string; sourceGmailInbox: string };
+type SourceLabels = {
+  sourceBank: string;
+  sourceReceipt: string;
+  sourceGmailInbox: string;
+  sourceCrypto: string;
+};
 
-const STORAGE_KEY = 'lumio-spend-over-time-filters-v3';
+const STORAGE_KEY = 'seneca-spend-over-time-filters-v3';
 
 export type SpendOverTimeViewModelReturn = UseSpendOverTimeStateReturn &
   SpendOverTimeDataReturn & {
@@ -61,6 +66,7 @@ export const useSpendOverTimeViewModel = (): SpendOverTimeViewModelReturn => {
   const [searchInput, setSearchInput] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const t = useIntlayer('statementsPage');
+  const spendT = useIntlayer('statementsSpendOverTime');
   const tx = useMemo(() => createTx(t), [t]);
   const labels = useMemo(() => buildSpendOverTimeLabels(tx), [tx]);
   const filterOptionLabels = useMemo(() => buildAnalyticsFilterLabels(tx), [tx]);
@@ -85,27 +91,28 @@ export const useSpendOverTimeViewModel = (): SpendOverTimeViewModelReturn => {
       sourceBank: labels.sourceBank,
       sourceReceipt: labels.sourceReceipt,
       sourceGmailInbox: labels.sourceGmailInbox,
+      sourceCrypto: labels.sourceCrypto,
     }),
     [labels],
   );
   const groupByOptions = useMemo(
     () => [
-      { value: 'day', label: 'Day' },
-      { value: 'week', label: 'Week' },
-      { value: 'month', label: 'Month' },
-      { value: 'quarter', label: 'Quarter' },
-      { value: 'year', label: 'Year' },
+      { value: 'day', label: spendT.groupByDay.value },
+      { value: 'week', label: spendT.groupByWeek.value },
+      { value: 'month', label: spendT.groupByMonth.value },
+      { value: 'quarter', label: spendT.groupByQuarter.value },
+      { value: 'year', label: spendT.groupByYear.value },
     ],
-    [],
+    [spendT],
   );
   const viewOptions = useMemo(
     () => [
-      { value: 'calendar', label: 'Calendar' },
-      { value: 'line', label: 'Line' },
-      { value: 'bar', label: 'Bar' },
-      { value: 'stacked', label: 'Stacked' },
+      { value: 'calendar', label: spendT.viewCalendar.value },
+      { value: 'line', label: spendT.viewLine.value },
+      { value: 'bar', label: spendT.viewBar.value },
+      { value: 'stacked', label: spendT.viewStacked.value },
     ],
-    [],
+    [spendT],
   );
   return {
     ...state,

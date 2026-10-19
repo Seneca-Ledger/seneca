@@ -1,9 +1,10 @@
+import { resolveBankLogo } from '@bank-logos';
 import type { StatementFilterItem } from '@/app/(main)/statements/components/filters/statement-filters';
+import type { TopMerchantRecord } from '@/app/(main)/statements/components/top-merchants/top-merchants.types';
 import {
   resolveMerchantFlow,
   resolveSourceChannel,
 } from '@/app/(main)/statements/components/top-merchants.utils';
-import type { TopMerchantRecord } from '@/app/(main)/statements/components/top-merchants/top-merchants.types';
 import type {
   GmailReceipt,
   StatementMeta,
@@ -16,7 +17,6 @@ import {
   resolveCurrencyCode,
 } from '@/app/lib/analytics-common';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
-import { resolveBankLogo } from '@bank-logos';
 
 const opt = (v: string | null | undefined): string | null => (v ? v : null);
 
@@ -125,7 +125,11 @@ const buildTransactionRecord = ({
     dateValue,
     paymentPurpose: item.paymentPurpose,
     sourceType: 'statement',
-    sourceChannel: resolveSourceChannel({ sourceType: 'statement', fileType }),
+    sourceChannel: resolveSourceChannel({
+      sourceType: 'statement',
+      fileType,
+      isCrypto: Boolean(item.cryptoWalletId),
+    }),
     flowType: flow.flowType,
     workspaceId: ws.workspaceId,
     workspaceName: ws.workspaceName,

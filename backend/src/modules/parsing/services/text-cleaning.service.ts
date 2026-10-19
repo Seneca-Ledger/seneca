@@ -132,7 +132,7 @@ export class TextCleaningService {
   ];
 
   // Language-specific stop words
-  private readonly stopWords = {
+  private readonly stopWords: Record<string, string[]> = {
     en: [
       'the',
       'and',

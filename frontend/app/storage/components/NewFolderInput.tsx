@@ -1,9 +1,9 @@
 'use client';
 
-import { Plus } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import { Box, IconButton, TextField, Typography } from '@mui/material';
 import React from 'react';
+import { Plus } from '@/app/components/icons';
+import { tokens } from '@/lib/theme-tokens';
 import type { StorageFile } from '../storageHelpers';
 
 export interface NewFolderInputProps {
@@ -30,7 +30,11 @@ function AddFolderButton({
   disabled,
   onClick,
   title,
-}: { disabled: boolean; onClick: () => void; title: string }): React.JSX.Element {
+}: {
+  disabled: boolean;
+  onClick: () => void;
+  title: string;
+}): React.JSX.Element {
   return (
     <IconButton onClick={onClick} disabled={disabled} title={title} sx={addBtnSx}>
       <Plus size={18} />

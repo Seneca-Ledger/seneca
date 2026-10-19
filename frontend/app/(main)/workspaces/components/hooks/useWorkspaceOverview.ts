@@ -1,14 +1,14 @@
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
-import apiClient from '@/app/lib/api';
-import {
-  type CurrencySearchItem,
-  buildCurrencySearchIndex,
-} from '@/app/lib/statement-expense-drawer';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-
-const DEFAULT_RECENT_CURRENCIES = ['KZT', 'USD', 'EUR', 'RUB'] as const;
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import apiClient from '@/app/lib/api';
+import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import {
+  buildCurrencySearchIndex,
+  type CurrencySearchItem,
+} from '@/app/lib/statement-expense-drawer';
 
 export type WorkspaceInfo = {
   id: string;
@@ -159,37 +159,49 @@ function useWorkspaceActions(
     name,
     description,
     currency,
-  }: { name: string; description: string; currency: string }): Promise<void> => {
+  }: {
+    name: string;
+    description: string;
+    currency: string;
+  }): Promise<void> => {
     if (!(workspaceId && name.trim())) {
       return;
     }
     setSaving(true);
-    try {
+
+    await (async () => {
       await apiClient.patch(`/workspaces/${workspaceId}`, {
         name: name.trim(),
         description: description.trim() || undefined,
         currency: currency || undefined,
-      });
+      } satisfies ContractInput<'UpdateWorkspaceBody'>);
       await refreshWorkspaces();
       toast.success('Workspace updated');
-    } catch (err) {
-      console.error('Failed to update workspace:', err);
-      toast.error('Failed to update workspace');
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async err => {
+        console.error('Failed to update workspace:', err);
+        toast.error('Failed to update workspace');
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleDelete = async ({
     confirmName,
     workspaceName,
     onSuccess,
-  }: { confirmName: string; workspaceName: string; onSuccess: () => void }): Promise<void> => {
+  }: {
+    confirmName: string;
+    workspaceName: string;
+    onSuccess: () => void;
+  }): Promise<void> => {
     if (!workspaceId || confirmName.trim() !== workspaceName) {
       return;
     }
     setDeleting(true);
-    try {
+
+    await (async () => {
       await apiClient.delete(`/workspaces/${workspaceId}`);
       clearWorkspace();
       await refreshWorkspaces();
@@ -197,12 +209,14 @@ function useWorkspaceActions(
       setDeleteModalOpen(false);
       setDeleteConfirmationName('');
       onSuccess();
-    } catch (err) {
-      console.error('Failed to delete workspace:', err);
-      toast.error('Failed to delete workspace');
-    } finally {
-      setDeleting(false);
-    }
+    })()
+      .catch(async err => {
+        console.error('Failed to delete workspace:', err);
+        toast.error('Failed to delete workspace');
+      })
+      .finally(async () => {
+        setDeleting(false);
+      });
   };
 
   return {
@@ -264,18 +278,21 @@ export function useWorkspaceOverview(): WorkspaceOverviewState | null {
       return;
     }
     setSavingBackground(true);
-    try {
+
+    await (async () => {
       await updateWorkspaceBackground({
         workspaceId: currentWorkspace.id,
         backgroundImage: background,
       });
       toast.success('Background updated');
       setShowBackgroundPicker(false);
-    } catch {
-      toast.error('Failed to update background');
-    } finally {
-      setSavingBackground(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error('Failed to update background');
+      })
+      .finally(async () => {
+        setSavingBackground(false);
+      });
   };
 
   if (!currentWorkspace) {

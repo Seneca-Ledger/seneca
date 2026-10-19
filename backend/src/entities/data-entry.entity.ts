@@ -30,14 +30,14 @@ export class DataEntry {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @Column({
@@ -55,7 +55,7 @@ export class DataEntry {
   @Column({ type: 'text', nullable: true })
   note: string | null;
 
-  @Column({ type: 'varchar', length: 10, default: 'KZT' })
+  @Column({ type: 'varchar', length: 10 })
   currency: string;
 
   @Column({ name: 'custom_field_name', type: 'varchar', length: 120, nullable: true })

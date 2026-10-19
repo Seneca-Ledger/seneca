@@ -28,14 +28,14 @@ export class BackupRun {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'configuration_id' })
+  @Column({ name: 'configuration_id', type: 'uuid' })
   configurationId: string;
 
   @ManyToOne(

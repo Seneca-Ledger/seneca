@@ -10,7 +10,6 @@ export function createIntegrationsTour(texts: {
     welcome: { title: string; description: string };
     search?: { title: string; description: string };
     available?: { title: string; description: string };
-    googleSheets: { title: string; description: string };
     completed: { title: string; description: string };
   };
 }): TourConfig {
@@ -45,13 +44,6 @@ export function createIntegrationsTour(texts: {
         selector: '[data-tour-id="integrations-available"]',
         side: 'top',
         align: 'center',
-      },
-      {
-        title: texts.steps.googleSheets.title,
-        description: texts.steps.googleSheets.description,
-        selector: '[data-tour-id="integration-card-google-sheets"]',
-        side: 'right',
-        align: 'start',
       },
       {
         title: texts.steps.completed.title,

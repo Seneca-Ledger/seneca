@@ -1,7 +1,6 @@
 ---
 paths:
   - "frontend/**"
-  - "electron/**"
 ---
 
 # Frontend Performance & State Management

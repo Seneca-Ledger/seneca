@@ -1,3 +1,10 @@
+import { useMemo } from 'react';
+import type {
+  AggregateSortKey,
+  TopMerchantAggregateRow,
+  TopMerchantFlowType,
+  TopMerchantRecord,
+} from '@/app/(main)/statements/components/top-merchants/top-merchants.types';
 import {
   buildTopMerchantsBarChart,
   buildTopMerchantsSourceChart,
@@ -8,15 +15,8 @@ import {
   getComparisonDelta,
   sortAggregateRows,
 } from '@/app/(main)/statements/components/top-merchants.utils';
-import type {
-  AggregateSortKey,
-  TopMerchantAggregateRow,
-  TopMerchantFlowType,
-  TopMerchantRecord,
-} from '@/app/(main)/statements/components/top-merchants/top-merchants.types';
 import { getRecordDate, resolveCurrencyCode } from '@/app/lib/analytics-common';
 import { useCurrencyConversion } from '@/app/lib/useCurrencyConversion';
-import { useMemo } from 'react';
 
 type Params = {
   flowFilteredRecords: TopMerchantRecord[];

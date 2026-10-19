@@ -5,9 +5,11 @@ export class AuthResponseDto {
     name: string;
     role: string;
     workspaceId?: string | null;
+    lastWorkspaceId?: string | null;
     locale?: string;
     timeZone?: string | null;
     themePreference?: string;
+    mapStylePreference?: string | null;
     avatarUrl?: string | null;
     onboardingCompletedAt?: string | null;
   };

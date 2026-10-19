@@ -1,9 +1,10 @@
 // Computation helpers extracted from StoragePageContent
 
-import { formatStoredDate } from '@/app/lib/user-format-store';
-import { tokens } from '@/lib/theme-tokens';
 import { Box, Chip } from '@mui/material';
 import React from 'react';
+import { resolveLocaleTag } from '@/app/lib/user-format';
+import { formatStoredDate } from '@/app/lib/user-format-store';
+import { tokens } from '@/lib/theme-tokens';
 import {
   DEFAULT_TRASH_TTL_DAYS,
   type FileAvailability,
@@ -73,7 +74,7 @@ export function buildFilteredFiles({
     const matchesSearch =
       file.fileName.toLowerCase().includes(q) ||
       (file.bankName || '').toLowerCase().includes(q) ||
-      (file.metadata?.accountNumber || '').toLowerCase().includes(q) ||
+      (file.accountNumber || '').toLowerCase().includes(q) ||
       (file.category?.name || '').toLowerCase().includes(q) ||
       (file.tags || [])
         .map(t => t.name.toLowerCase())
@@ -230,13 +231,7 @@ interface RenderFunctionParams {
 }
 
 function resolveLocale(locale: string): string {
-  if (locale === 'kk') {
-    return 'kk-KZ';
-  }
-  if (locale === 'ru') {
-    return 'ru-RU';
-  }
-  return 'en-US';
+  return resolveLocaleTag(locale);
 }
 
 function buildRenderTrashExpiryBadge({

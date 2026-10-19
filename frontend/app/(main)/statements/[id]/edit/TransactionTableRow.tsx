@@ -1,10 +1,5 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function */
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import { CheckCircle2, Pencil, Trash2, TriangleAlert, XCircle } from '@/app/components/icons';
-import { Checkbox } from '@/app/components/ui/checkbox';
-import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import {
   Box,
   Chip,
@@ -16,6 +11,11 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+
+import { CheckCircle2, Pencil, Trash2, TriangleAlert, XCircle } from '@/app/components/icons';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { getCategoryDisplayName } from '@/app/lib/statement-categories';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { Transaction } from './editHelpers';
 import { isIdEmpty, resolveLocale } from './editHelpers';
 

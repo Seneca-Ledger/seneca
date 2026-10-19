@@ -4,8 +4,8 @@
 
 'use client';
 
-import { PlayCircle } from '@/app/components/icons';
 import { Button } from '@mui/material';
+import { PlayCircle } from '@/app/components/icons';
 import { useTour } from '../../hooks/useTour';
 
 interface TourButtonProps {
@@ -18,12 +18,15 @@ interface TourButtonProps {
   className?: string;
 }
 
+// Hoisted: a JSX default parameter keeps React Compiler from compiling the component.
+const DEFAULT_ICON = <PlayCircle size={16} />;
+
 export function TourButton({
   tourId,
   variant = 'outlined',
   size = 'small',
   label = 'Show tour',
-  icon = <PlayCircle size={16} />,
+  icon = DEFAULT_ICON,
   disabled = false,
   className = '',
 }: TourButtonProps) {

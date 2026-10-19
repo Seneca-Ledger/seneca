@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildProjection, calculateRoi, splitPayback } from './roi-model';
+import { buildProjection, calculateRoi, parseAmount, splitPayback } from './roi-model';
 
 describe('calculateRoi', () => {
   it('turns monthly income into an annual return on the outlay', () => {
@@ -68,5 +68,22 @@ describe('splitPayback', () => {
     expect(splitPayback(2.5)).toEqual({ years: 2, months: 6 });
     expect(splitPayback(0.25)).toEqual({ years: 0, months: 3 });
     expect(splitPayback(10)).toEqual({ years: 10, months: 0 });
+  });
+});
+
+describe('parseAmount', () => {
+  it('reads amounts typed with either decimal mark and thousands grouped', () => {
+    expect(parseAmount('10000')).toBe(10000);
+    expect(parseAmount('10,000')).toBe(10000);
+    expect(parseAmount('10,000.50')).toBe(10000.5);
+    expect(parseAmount('10 000,50')).toBe(10000.5);
+    expect(parseAmount('10.000,5')).toBe(10000.5);
+    expect(parseAmount("10'000")).toBe(10000);
+  });
+
+  it('has nothing to say about an empty or unreadable field', () => {
+    expect(parseAmount('')).toBeNull();
+    expect(parseAmount('  ')).toBeNull();
+    expect(parseAmount('abc')).toBeNull();
   });
 });

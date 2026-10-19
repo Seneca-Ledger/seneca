@@ -1,10 +1,11 @@
 'use client';
 
-import { Download } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import { useTheme } from 'next-themes';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { Download } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
+import { tokens } from '@/lib/theme-tokens';
 import { AuditEventDrawer } from './components/AuditEventDrawer';
 import { AuditFilterBar } from './components/AuditFilterBar';
 import { AuditRollbackModal } from './components/AuditRollbackModal';
@@ -13,6 +14,7 @@ import { useAuditLoader } from './hooks/useAuditLoader';
 import { useAuditRollback } from './hooks/useAuditRollback';
 
 export default function AuditPage() {
+  const t = useIntlayer('auditUi');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   const loader = useAuditLoader();
@@ -40,16 +42,9 @@ export default function AuditPage() {
     <div className="audit-page">
       {/* Header */}
       <div className="audit-page__head">
-        <div>
-          <h1 className="audit-page__title">Activity log</h1>
-          <p className="audit-page__subtitle">
-            Complete trail of what happened in your workspace. One-click rollback for supported
-            operations.
-          </p>
-        </div>
         <button
           type="button"
-          onClick={() => toast('Export coming soon')}
+          onClick={() => toast(t.exportComingSoon.value)}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -68,7 +63,7 @@ export default function AuditPage() {
           }}
         >
           <Download size={14} />
-          Export log
+          {t.exportLog}
         </button>
       </div>
 
@@ -93,8 +88,11 @@ export default function AuditPage() {
       )}
 
       {/* Timeline */}
-      <div className="audit-timeline-card">
-        {loader.loading ? (
+      <div
+        className="audit-timeline-card"
+        style={{ opacity: loader.isFetching ? 0.6 : 1, transition: 'opacity 150ms ease' }}
+      >
+        {loader.isPending ? (
           <AuditTimelineSkeleton />
         ) : (
           <AuditTimeline

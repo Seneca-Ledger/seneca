@@ -17,9 +17,18 @@ import { Workspace } from './workspace.entity';
 
 type JsonObject = Record<string, unknown>;
 
+/** Where a table was filled from and how to refresh it; null for hand-made tables. */
+export interface CustomTableSourceBinding {
+  kind: string;
+  filters: JsonObject;
+  syncedAt: string | null;
+}
+
 export enum CustomTableSource {
   MANUAL = 'manual',
-  GOOGLE_SHEETS_IMPORT = 'google_sheets_import',
+  // 'google_sheets_import' still exists in the Postgres enum type
+  // custom_table_source_enum: removing an enum value needs a full type rebuild,
+  // and RemoveGoogleSheets moved every such row to 'manual' instead.
 }
 
 @Entity('custom_tables')
@@ -31,14 +40,14 @@ export class CustomTable {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @Column({ name: 'name', type: 'varchar' })
@@ -89,6 +98,9 @@ export class CustomTable {
 
   @Column({ name: 'data_entry_synced_at', type: 'timestamp', nullable: true })
   dataEntrySyncedAt: Date | null;
+
+  @Column({ name: 'source_binding', type: 'jsonb', nullable: true })
+  sourceBinding: CustomTableSourceBinding | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

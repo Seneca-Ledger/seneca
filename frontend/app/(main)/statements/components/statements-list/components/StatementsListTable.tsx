@@ -1,5 +1,6 @@
 'use client';
 
+import type { DuplicateMeta } from '@/app/(main)/statements/components/hooks/useStatementSelection';
 import { StatementsListItem } from '@/app/(main)/statements/components/StatementsListItem';
 import {
   formatPaginationLabel,
@@ -10,12 +11,12 @@ import {
   isReceiptProcessing,
   isStatementParsingInProgress,
 } from '@/app/(main)/statements/components/StatementsListView.utils';
-import type { DuplicateMeta } from '@/app/(main)/statements/components/hooks/useStatementSelection';
 import { ArrowDown } from '@/app/components/icons';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Spinner } from '@/app/components/ui/spinner';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
 import {
   getStatementDisplayMerchant,
@@ -44,9 +45,7 @@ export interface StatementForTable {
     currency?: string;
     date?: string;
   };
-  parsingDetails?: {
-    importPreview?: { source?: string; attachments?: number };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 interface ListHeaderLabels {
@@ -152,7 +151,7 @@ function EmptyState({
   hasGmailReceipts: boolean;
 }): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__empty">
+    <div className="seneca-stmt-list-view__empty">
       <EmptyStateIllustration name="statements" size="lg" />
       <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--foreground)' }}>
         {emptyLabels.title}
@@ -183,7 +182,7 @@ function TableHeader({
   onSortDate: () => void;
 }): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__desktop-header">
+    <div className="seneca-stmt-list-view__desktop-header">
       <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -300,7 +299,7 @@ function PaginationBar({
   onPageChange: (page: number) => void;
 }): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__pagination" style={{ marginTop: 24 }}>
+    <div className="seneca-stmt-list-view__pagination" style={{ marginTop: 24 }}>
       <div style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
         {formatPaginationLabel(paginationLabels.shown, {
           from: rangeStart,
@@ -379,7 +378,6 @@ function StatementRow({
       duplicateGroupSize={duplicateMeta?.total}
       duplicateRole={duplicateMeta?.role}
       duplicateGroupLabel={duplicateMeta?.groupLabel}
-      duplicateGroupTone={duplicateMeta?.groupTone}
       duplicateReason={duplicateMeta?.reason}
       duplicateActionLabel={reviewDuplicateLabel}
       typeLabel={isReceipt ? 'Receipt' : statement.fileType}
@@ -428,7 +426,7 @@ export function StatementsListTable({
 }: StatementsListTableProps): React.JSX.Element {
   if (loading && gmailSyncSkeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__loading">
+      <div className="seneca-stmt-list-view__loading">
         <Spinner style={{ height: 80, width: 80, color: 'var(--primary)' }} />
       </div>
     );

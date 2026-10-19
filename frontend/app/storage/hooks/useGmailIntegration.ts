@@ -19,20 +19,23 @@ export function useGmailIntegration(): GmailIntegrationState {
   useEffect(() => {
     let mounted = true;
     const load = async (): Promise<void> => {
-      try {
+      return await (async () => {
         setGmailLoading(true);
         const resp = await api.get('/integrations/gmail/status');
         if (!mounted) {
           return;
         }
+        // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
         setGmailStatus((resp.data as GmailStatus) || null);
-      } catch {
-        // ignore
-      } finally {
-        if (mounted) {
-          setGmailLoading(false);
-        }
-      }
+      })()
+        .catch(async () => {
+          // ignore
+        })
+        .finally(async () => {
+          if (mounted) {
+            setGmailLoading(false);
+          }
+        });
     };
     void load();
     return () => {

@@ -3,9 +3,14 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Receipt } from './receipt.entity';
+import { User } from './user.entity';
+import { Workspace } from './workspace.entity';
 
 type ReceiptJobResult = Record<string, unknown> | null;
 
@@ -23,8 +28,25 @@ export class ReceiptProcessingJob {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
+
+  // Nullable: старые записи созданы до появления скоупинга; новые всегда пишут его.
+  @ManyToOne(() => Workspace, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'workspace_id' })
+  workspace: Workspace | null;
+
+  @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
+  @Index()
+  workspaceId: string | null;
+
+  @ManyToOne(() => Receipt, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'receipt_id' })
+  receipt: Receipt | null;
 
   @Column({ name: 'receipt_id', type: 'uuid', nullable: true })
   receiptId: string | null;
@@ -55,7 +77,7 @@ export class ReceiptProcessingJob {
   @Column({ name: 'locked_at', type: 'timestamp', nullable: true })
   lockedAt: Date | null;
 
-  @Column({ name: 'locked_by', nullable: true })
+  @Column({ type: 'varchar', name: 'locked_by', nullable: true })
   lockedBy: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

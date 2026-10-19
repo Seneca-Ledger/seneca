@@ -1,16 +1,21 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
-import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { EntityType } from '../../entities/audit-event.entity';
+import {
+  CategoryList,
+  CategoryUsageCount,
+  CategoryUsageCounts,
+  CreateCategoryBody,
+  UpdateCategoryBody,
+} from '../../contracts';
 import type { CategoryType } from '../../entities/category.entity';
 import type { User } from '../../entities/user.entity';
-import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CategoriesService } from './categories.service';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Controller('categories')
 export class CategoriesController {
@@ -18,9 +23,8 @@ export class CategoriesController {
 
   @Post()
   @WorkspaceAuth(Permission.CATEGORY_CREATE)
-  @Audit({ entityType: EntityType.CATEGORY, includeDiff: true, isUndoable: true })
   async create(
-    @Body() createDto: CreateCategoryDto,
+    @SchemaBody(CreateCategoryBody) createDto: CreateCategoryBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -29,6 +33,7 @@ export class CategoriesController {
 
   @Get()
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategoryList)
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -39,12 +44,14 @@ export class CategoriesController {
 
   @Get('usage/counts')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategoryUsageCounts)
   async getWorkspaceUsageCounts(@WorkspaceId() workspaceId: string) {
     return this.categoriesService.getWorkspaceCategoryUsageCounts(workspaceId);
   }
 
   @Get(':id/usage-count')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategoryUsageCount)
   async getUsageCount(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     return this.categoriesService.getCategoryUsageCount(id, workspaceId);
   }
@@ -61,10 +68,9 @@ export class CategoriesController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
-  @Audit({ entityType: EntityType.CATEGORY, includeDiff: true, isUndoable: true })
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateCategoryDto,
+    @SchemaBody(UpdateCategoryBody) updateDto: UpdateCategoryBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -73,7 +79,6 @@ export class CategoriesController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.CATEGORY_DELETE)
-  @Audit({ entityType: EntityType.CATEGORY, includeDiff: true, isUndoable: true })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: User,

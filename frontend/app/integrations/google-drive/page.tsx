@@ -1,6 +1,10 @@
 /* eslint-disable max-lines */
 'use client';
 
+import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+import { useTheme } from 'next-themes';
+import { useMemo } from 'react';
+import toast from 'react-hot-toast';
 import { AlertCircle } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
@@ -10,11 +14,6 @@ import apiClient from '@/app/lib/api';
 import { formatDateTime } from '@/app/lib/format-datetime';
 import { getPickerDocName, pickDriveFolder } from '@/app/lib/googleDrivePicker';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
-import { useTheme } from 'next-themes';
-import Image from 'next/image';
-import { useMemo } from 'react';
-import toast from 'react-hot-toast';
 import { IntegrationStatusCard } from '../components/IntegrationStatusCard';
 import { useIntegrationStatus } from '../hooks/useIntegrationStatus';
 
@@ -263,13 +262,13 @@ export default function GoogleDriveIntegrationPage(): React.JSX.Element {
   const status = baseStatus as DriveStatus | null;
 
   const updateSettings = async (payload: Partial<DriveSettings>): Promise<void> => {
-    try {
+    await (async () => {
       await apiClient.post('/integrations/google-drive/settings', payload);
       toast.success(t.toasts.settingsSaved.value);
       await loadStatus();
-    } catch {
+    })().catch(async () => {
       toast.error(t.errors.connectFailed.value);
-    }
+    });
   };
 
   const handlePickFolder = async (): Promise<void> => {
@@ -277,9 +276,11 @@ export default function GoogleDriveIntegrationPage(): React.JSX.Element {
       toast.error(t.errors.pickerUnavailable.value);
       return;
     }
-    try {
+
+    return await (async () => {
       const tokenResp = await apiClient.get('/integrations/google-drive/picker-token');
-      const accessToken = tokenResp.data?.accessToken as string | undefined;
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const accessToken = (tokenResp.data as { accessToken?: string } | null)?.accessToken;
       if (!accessToken) {
         toast.error(t.errors.pickerUnavailable.value);
         return;
@@ -287,9 +288,9 @@ export default function GoogleDriveIntegrationPage(): React.JSX.Element {
       const folder = await pickDriveFolder({ accessToken, apiKey });
       if (!folder) return;
       await updateSettings({ folderId: folder.id, folderName: getPickerDocName(folder) });
-    } catch {
+    })().catch(async () => {
       toast.error(t.errors.pickerUnavailable.value);
-    }
+    });
   };
 
   const statusLabel = useMemo(() => {
@@ -303,26 +304,7 @@ export default function GoogleDriveIntegrationPage(): React.JSX.Element {
   if (!user) return <DriveNotLoggedInView t={t} />;
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: 5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 3 }}>
-        <Box
-          sx={{
-            p: 1,
-            borderRadius: tokens.radius.full,
-            bgcolor: 'rgba(var(--color-primary-rgb), 0.1)',
-            display: 'flex',
-          }}
-        >
-          <Image src="/icons/google-drive-icon.png" alt="Google Drive" width={24} height={24} />
-        </Box>
-        <Box>
-          <Typography variant="h4" style={{ fontWeight: 700, color: c.ink900 }}>
-            {t.header.title}
-          </Typography>
-          <Typography style={{ color: c.ink500, marginTop: 4 }}>{t.header.subtitle}</Typography>
-        </Box>
-      </Box>
-
+    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--seneca-page-top, 40px)', pb: 5 }}>
       {loading && (
         <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           <CircularProgress size={16} />

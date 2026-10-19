@@ -86,36 +86,36 @@ describe('CategoriesService', () => {
 
   it('createSystemCategories skips existing entries from new defaults', async () => {
     categoryRepository.findOne = jest.fn(async ({ where }: any) =>
-      where?.name === 'Продажи' ? ({ id: 'exists' } as any) : null,
+      where?.name === 'Sales' ? ({ id: 'exists' } as any) : null,
     );
 
     await service.createSystemCategories('w1');
 
     expect(categoryRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Продажи' } }),
+      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Sales' } }),
     );
     expect(categoryRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Коммунальные услуги' } }),
+      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Utilities' } }),
     );
     expect(categoryRepository.save).toHaveBeenCalled();
     expect(categoryRepository.save).not.toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Продажи' }),
+      expect.objectContaining({ name: 'Sales' }),
     );
   });
 
-  it('createSystemCategories seeds localized default names', async () => {
+  it('createSystemCategories seeds English default names that clients localise by slug', async () => {
     categoryRepository.findOne = jest.fn(async () => null);
 
     await service.createSystemCategories('w1');
 
     expect(categoryRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Продажи' } }),
+      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Sales' } }),
     );
     expect(categoryRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Коммунальные услуги' } }),
+      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Utilities' } }),
     );
     expect(categoryRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Продажи', isSystem: true }),
+      expect.objectContaining({ name: 'Sales', isSystem: true }),
     );
   });
 

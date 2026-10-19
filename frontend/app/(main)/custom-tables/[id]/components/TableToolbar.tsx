@@ -1,430 +1,294 @@
 'use client';
 
+import { useRef } from 'react';
+import { StatementsSearchPopover } from '@/app/(main)/statements/components/filters/StatementsSearchPopover';
+import { MoreHorizontal, Plus, SlidersHorizontal, Trash2, X } from '@/app/components/icons';
+import { Button } from '@/app/components/ui/button';
 import {
-  ArrowLeft as ArrowBackIcon,
-  CheckCircle,
-  Printer,
-  Receipt,
-  Search,
-  Trash2,
-  XCircle,
-} from '@/app/components/icons';
-import { Box } from '@mui/material';
-import type { SxProps, Theme } from '@mui/material/styles';
-import type React from 'react';
-import type { QuickTab } from '../utils/quickTabs';
-import type { ColumnType } from '../utils/stylingUtils';
-import { tx } from '../utils/tableHelpers';
-import type { CustomTablePageColumn } from '../utils/tableTypes';
-import { AddColumnModal } from './AddColumnModal';
-import { ColumnsVisibilityPanel } from './ColumnsVisibilityPanel';
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/app/components/ui/dropdown-menu';
+import { TABULAR_FILE_ACCEPT } from '../utils/tabularFileReader';
+import type { CustomTableColumn } from '../utils/types';
 
-interface ColumnTypeOption {
-  value: ColumnType;
-  label: string;
+export interface TableToolbarLabels {
+  searchHint: string;
+  apply: string;
+  addRow: string;
+  addColumn: string;
+  columns: string;
+  showAllColumns: string;
+  groupBy: string;
+  groupNone: string;
+  importFile: string;
+  export: string;
+  exportXlsx: string;
+  exportCsv: string;
+  sendToStatements: string;
+  refreshSource: string;
+  deleteSelected: string;
+  view: string;
+  more: string;
+  clearSelection: string;
+  addSummary: string;
+  restoreDefault: string;
 }
 
-export interface TableToolbarProps {
-  t: unknown;
-  isFullscreen: boolean;
-  isPrintMode: boolean;
-  quickTabs: QuickTab[];
-  normalizedActiveTabId: string;
-  columnsTabId: string;
-  setActiveTabId: (id: string) => void;
-  handleBackNavigation: () => void;
-  selectedRowIds: string[];
-  bulkMarking: string | null;
-  markSelectedRowsPaid: (paid: boolean) => void | Promise<void>;
-  convertingToStatement: boolean;
-  onConvertToStatement: () => void | Promise<void>;
-  handlePrintTable: () => void;
-  openBulkDeleteModal: (ids: string[]) => void;
+interface TableToolbarProps {
+  columns: CustomTableColumn[];
+  columnVisibility: Record<string, boolean>;
+  onColumnVisibilityChange: (next: Record<string, boolean>) => void;
   searchQuery: string;
-  setSearchQuery: (q: string) => void;
-  columnOrder: string[];
-  orderedColumns: CustomTablePageColumn[];
-  hiddenColumnKeys: string[];
-  isColumnsDefault: boolean;
-  toggleColumnHidden: (key: string) => void;
-  resetColumns: () => void;
-  newColumnOpen: boolean;
-  setNewColumnOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  newColumn: { title: string; type: ColumnType };
-  setNewColumn: React.Dispatch<React.SetStateAction<{ title: string; type: ColumnType }>>;
-  createColumn: () => Promise<void>;
-  columnTypes: ColumnTypeOption[];
+  onSearchChange: (value: string) => void;
+  groupBy: string | null;
+  onGroupByChange: (key: string | null) => void;
+  selectedCount: number;
+  exporting: boolean;
+  onAddRow: () => void;
+  onAddColumn: () => void;
+  onAddSummary: () => void;
+  /** Only for tables filled from app data: undo the table's app changes and rebuild it. */
+  onRestoreDefault?: () => void;
+  onImportFile: (file: File) => void;
+  onExport: (format: 'xlsx' | 'csv') => void;
+  onSendToStatements: () => void;
+  /** Only for tables filled from app data. */
+  onRefreshSource?: () => void;
+  refreshing?: boolean;
+  onDeleteSelected: () => void;
+  onClearSelection: () => void;
+  /** Filter button and chips, rendered next to the search box. */
+  filters?: React.ReactNode;
+  labels: TableToolbarLabels;
 }
 
-type P = TableToolbarProps;
+const fill = (template: string, count: number) => template.replace('{{count}}', String(count));
 
-const BTN_BASE_SX = {
-  display: 'inline-flex',
-  flexShrink: 0,
-  alignItems: 'center',
-  gap: { xs: 0.75, sm: 1 },
-  whiteSpace: 'nowrap',
-  border: '1px solid var(--border-color)',
-  px: { xs: 1.25, sm: 2 },
-  py: { xs: 0.5, sm: 0.75 },
-  fontSize: { xs: 11, sm: 12 },
+/** Grouping and column visibility, behind one quiet "View" button. */
+function ViewMenu({
+  columns,
+  columnVisibility,
+  onColumnVisibilityChange,
+  groupBy,
+  onGroupByChange,
+  labels,
+}: Pick<
+  TableToolbarProps,
+  | 'columns'
+  | 'columnVisibility'
+  | 'onColumnVisibilityChange'
+  | 'groupBy'
+  | 'onGroupByChange'
+  | 'labels'
+>) {
+  const hidden = columns.filter(column => columnVisibility[column.key] === false);
+  const groupable = columns.filter(column => column.type !== 'formula' && column.type !== 'ai');
+  const changes = hidden.length + (groupBy ? 1 : 0);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" type="button">
+          <SlidersHorizontal size={16} aria-hidden />
+          {labels.view}
+          {changes ? <span className="seneca-grid__menu-count">{changes}</span> : null}
+        </Button>
+      </DropdownMenuTrigger>
+      {/* MUI Menu walks its children for focus; a Fragment hides them, so give it arrays. */}
+      <DropdownMenuContent align="end" className="seneca-ct__view-menu">
+        <DropdownMenuLabel>{labels.groupBy}</DropdownMenuLabel>
+        {[{ key: '', title: labels.groupNone }, ...groupable].map(column => (
+          <DropdownMenuCheckboxItem
+            key={`group-${column.key}`}
+            checked={(groupBy ?? '') === column.key}
+            onCheckedChange={() => onGroupByChange(column.key || null)}
+          >
+            {column.title}
+          </DropdownMenuCheckboxItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>{labels.columns}</DropdownMenuLabel>
+        {columns.map(column => (
+          <DropdownMenuCheckboxItem
+            key={column.key}
+            checked={columnVisibility[column.key] !== false}
+            onCheckedChange={visible =>
+              onColumnVisibilityChange({ ...columnVisibility, [column.key]: visible })
+            }
+          >
+            {column.title}
+          </DropdownMenuCheckboxItem>
+        ))}
+        {hidden.length
+          ? [
+              <DropdownMenuSeparator key="separator" />,
+              <DropdownMenuItem key="show-all" onClick={() => onColumnVisibilityChange({})}>
+                {labels.showAllColumns}
+              </DropdownMenuItem>,
+            ]
+          : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Rarely used actions: import, export, sync and schema changes. */
+function MoreMenu({
+  exporting,
+  refreshing,
+  onImport,
+  onExport,
+  onRefreshSource,
+  onSendToStatements,
+  onAddColumn,
+  onAddSummary,
+  onRestoreDefault,
+  labels,
+}: Pick<
+  TableToolbarProps,
+  | 'exporting'
+  | 'refreshing'
+  | 'onExport'
+  | 'onRefreshSource'
+  | 'onSendToStatements'
+  | 'onAddColumn'
+  | 'onAddSummary'
+  | 'onRestoreDefault'
+  | 'labels'
+> & { onImport: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" type="button" aria-label={labels.more}>
+          <MoreHorizontal size={18} aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onImport}>{labels.importFile}</DropdownMenuItem>
+        {onRefreshSource ? (
+          <DropdownMenuItem disabled={refreshing} onClick={onRefreshSource}>
+            {labels.refreshSource}
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onClick={onSendToStatements}>{labels.sendToStatements}</DropdownMenuItem>
+        <DropdownMenuItem onClick={onAddColumn}>{labels.addColumn}</DropdownMenuItem>
+        <DropdownMenuItem onClick={onAddSummary}>{labels.addSummary}</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>{labels.export}</DropdownMenuLabel>
+        <DropdownMenuItem disabled={exporting} onClick={() => onExport('xlsx')}>
+          {labels.exportXlsx}
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={exporting} onClick={() => onExport('csv')}>
+          {labels.exportCsv}
+        </DropdownMenuItem>
+        {/* MUI Menu walks its children for focus; a Fragment hides them, so give it an array. */}
+        {onRestoreDefault
+          ? [
+              <DropdownMenuSeparator key="restore-separator" />,
+              <DropdownMenuItem
+                key="restore"
+                className="seneca-ct__menu-item--danger"
+                onClick={onRestoreDefault}
+              >
+                {labels.restoreDefault}
+              </DropdownMenuItem>,
+            ]
+          : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * Single-row toolbar: the search button and filters on the left, View, the "···" menu and
+ * Add row on the right. With rows selected the right side turns into the
+ * selection actions.
+ */
+const GHOST_TOOLBAR_BUTTON: React.CSSProperties = {
+  border: '1px solid transparent',
+  background: 'transparent',
   fontWeight: 500,
-  bgcolor: 'transparent',
-  cursor: 'pointer',
-  '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
+  minHeight: 32,
+  padding: '4px 10px',
 };
 
-interface BulkMarkParams {
-  selectedIds: string[];
-  bulkMarking: string | null;
-}
-function canBulkMarkRows({ selectedIds, bulkMarking }: BulkMarkParams): boolean {
-  return selectedIds.length > 0 && bulkMarking === null;
-}
+export function TableToolbar(props: TableToolbarProps) {
+  const { searchQuery, selectedCount, labels } = props;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-interface QuickTabButtonProps {
-  tab: QuickTab;
-  isActive: boolean;
-  setActiveTabId: (id: string) => void;
-}
-function QuickTabButton({ tab, isActive, setActiveTabId }: QuickTabButtonProps): React.JSX.Element {
-  const color = isActive ? 'primary.main' : 'var(--muted-foreground)';
-  const countBg = isActive ? 'rgba(22,129,24,0.1)' : 'var(--muted)';
   return (
-    <Box
-      component="button"
-      onClick={() => {
-        if (!isActive) setActiveTabId(tab.id);
-      }}
-      sx={{
-        position: 'relative',
-        flexShrink: 0,
-        whiteSpace: 'nowrap',
-        pb: 1.5,
-        fontSize: 14,
-        fontWeight: 500,
-        bgcolor: 'transparent',
-        border: 'none',
-        cursor: 'pointer',
-        color,
-        '&:hover': { color: isActive ? 'primary.main' : 'var(--foreground)' },
-      }}
-    >
-      {tab.label}
-      {typeof tab.count === 'number' && (
-        <Box
-          component="span"
-          sx={{ ml: 0.75, fontSize: 12, py: 0.25, px: 1, bgcolor: countBg, color }}
-        >
-          {tab.count}
-        </Box>
-      )}
-      {isActive && (
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 2,
-            bgcolor: 'primary.main',
-          }}
-        />
-      )}
-    </Box>
-  );
-}
-
-function TabsRow(p: P): React.JSX.Element {
-  const colTabActive = p.normalizedActiveTabId === p.columnsTabId;
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        width: '100%',
-        alignItems: 'flex-end',
-        justifyContent: 'space-between',
-        gap: 1.5,
-        borderBottom: '1px solid var(--muted)',
-        px: 1,
-      }}
-    >
-      <Box
-        component="button"
-        type="button"
-        onClick={p.handleBackNavigation}
-        sx={{
-          display: 'inline-flex',
-          flexShrink: 0,
-          alignItems: 'center',
-          gap: 0.75,
-          pb: 1.5,
-          fontSize: 14,
-          fontWeight: 500,
-          color: 'var(--text-secondary)',
-          bgcolor: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          '&:hover': { color: 'var(--foreground)' },
-        }}
-      >
-        <ArrowBackIcon size={16} />
-        <span>{tx(p.t, ['nav', 'back'], 'Back')}</span>
-      </Box>
-      <Box
-        sx={{
-          display: 'flex',
-          minWidth: 0,
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          gap: 2.5,
-          overflowX: 'auto',
-        }}
-      >
-        {p.quickTabs.map(tab => (
-          <QuickTabButton
-            key={tab.id}
-            tab={tab}
-            isActive={p.normalizedActiveTabId === tab.id}
-            setActiveTabId={p.setActiveTabId}
-          />
-        ))}
-        <Box
-          component="button"
-          type="button"
-          onClick={() => {
-            if (colTabActive) return;
-            p.setActiveTabId(p.columnsTabId);
-          }}
-          sx={{
-            position: 'relative',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-            pb: 1.5,
-            fontSize: 14,
-            fontWeight: 500,
-            bgcolor: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: colTabActive ? 'primary.main' : 'var(--muted-foreground)',
-            '&:hover': { color: colTabActive ? 'primary.main' : 'var(--foreground)' },
-          }}
-        >
-          {tx(p.t, ['actions', 'columns'], 'Columns')}
-          {colTabActive && (
-            <Box
-              sx={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: 2,
-                bgcolor: 'primary.main',
-              }}
-            />
-          )}
-        </Box>
-      </Box>
-    </Box>
-  );
-}
-
-interface SearchBoxProps {
-  t: unknown;
-  searchQuery: string;
-  setSearchQuery: (q: string) => void;
-}
-function SearchBox({ t, searchQuery, setSearchQuery }: SearchBoxProps): React.JSX.Element {
-  return (
-    <Box sx={{ position: 'relative' }}>
-      <Search
-        style={{
-          position: 'absolute',
-          left: 12,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          width: 16,
-          height: 16,
-          color: 'var(--muted-foreground)',
-        }}
-      />
-      <input
-        placeholder={tx(t, ['actions', 'searchPlaceholder'], 'Search')}
+    <div className="seneca-ct__toolbar">
+      <StatementsSearchPopover
         value={searchQuery}
-        onChange={e => setSearchQuery(e.target.value)}
-        style={{
-          paddingLeft: 36,
-          paddingRight: 16,
-          paddingTop: 8,
-          paddingBottom: 8,
-          fontSize: 14,
-          width: 192,
-          border: '1px solid var(--border-color)',
-          background: 'var(--card-bg)',
+        onApply={props.onSearchChange}
+        applyLabel={labels.apply}
+        hint={labels.searchHint}
+        // Ghost, like Filter, View and "…" beside it: only Add row is filled.
+        buttonStyle={GHOST_TOOLBAR_BUTTON}
+      />
+      {props.filters}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={TABULAR_FILE_ACCEPT}
+        hidden
+        data-testid="ct-import-input"
+        onChange={event => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) {
+            props.onImportFile(file);
+          }
         }}
       />
-    </Box>
-  );
-}
-
-function BulkActionsRow(p: P): React.JSX.Element {
-  const can = canBulkMarkRows({ selectedIds: p.selectedRowIds, bulkMarking: p.bulkMarking });
-  const paidColor = can ? '#22c55e' : 'rgba(34,197,94,0.5)';
-  const unpaidColor = can ? '#ef4444' : 'rgba(239,68,68,0.5)';
-  const btnColor = can ? '#4b5563' : 'var(--muted-foreground)';
-  const markPaidLabel =
-    p.bulkMarking === 'paid'
-      ? tx(p.t, ['actions', 'markingPaid'], 'Marking paid')
-      : tx(p.t, ['actions', 'markPaid'], 'Mark paid');
-  const markUnpaidLabel =
-    p.bulkMarking === 'unpaid'
-      ? tx(p.t, ['actions', 'markingUnpaid'], 'Marking unpaid')
-      : tx(p.t, ['actions', 'markUnpaid'], 'Mark unpaid');
-  return (
-    <Box sx={{ mt: 1.5, width: '100%', px: 1, pb: 1.5 }}>
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1,
-          overflowX: 'auto',
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            minWidth: 0,
-            flexWrap: 'nowrap',
-            alignItems: 'center',
-            gap: { xs: 0.75, sm: 1 },
-          }}
-        >
-          <Box
-            component="button"
+      {selectedCount > 0 ? (
+        <div className="seneca-ct__actions">
+          <Button variant="destructive" size="sm" type="button" onClick={props.onDeleteSelected}>
+            <Trash2 size={14} aria-hidden />
+            {fill(labels.deleteSelected, selectedCount)}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             type="button"
-            onClick={() => p.markSelectedRowsPaid(true)}
-            disabled={!can}
-            sx={{ ...BTN_BASE_SX, color: btnColor, '&:hover': { bgcolor: 'var(--muted)' } }}
+            aria-label={labels.clearSelection}
+            onClick={props.onClearSelection}
           >
-            <CheckCircle style={{ width: 14, height: 14, color: paidColor }} />
-            <span>{markPaidLabel}</span>
-          </Box>
-          <Box
-            component="button"
-            type="button"
-            onClick={() => p.markSelectedRowsPaid(false)}
-            disabled={!can}
-            sx={{ ...BTN_BASE_SX, color: btnColor, '&:hover': { bgcolor: 'var(--muted)' } }}
-          >
-            <XCircle style={{ width: 14, height: 14, color: unpaidColor }} />
-            <span>{markUnpaidLabel}</span>
-          </Box>
-          <Box
-            component="button"
-            onClick={p.onConvertToStatement}
-            disabled={p.convertingToStatement}
-            sx={{
-              ...BTN_BASE_SX,
-              color: 'var(--text-secondary)',
-              '&:hover': { bgcolor: 'var(--muted)', color: 'var(--foreground)' },
-            }}
-          >
-            <Receipt className="h-3.5 w-3.5" />
-            <span>
-              {p.convertingToStatement
-                ? tx(p.t, ['actions', 'convertingToStatement'], 'Converting...')
-                : tx(p.t, ['actions', 'convertToStatement'], 'Convert to statement')}
-            </span>
-          </Box>
-          <Box
-            component="button"
-            onClick={p.handlePrintTable}
-            sx={{
-              ...BTN_BASE_SX,
-              color: 'var(--text-secondary)',
-              '&:hover': { bgcolor: 'var(--muted)', color: 'var(--foreground)' },
-            }}
-          >
-            <Printer className="h-3.5 w-3.5" />
-            <span>{tx(p.t, ['actions', 'print'], 'Print')}</span>
-          </Box>
-          <Box
-            component="button"
-            onClick={() => p.openBulkDeleteModal(p.selectedRowIds)}
-            disabled={p.selectedRowIds.length === 0}
-            sx={{
-              ...BTN_BASE_SX,
-              color: 'var(--text-secondary)',
-              '&:hover': {
-                borderColor: '#fecaca',
-                bgcolor: 'var(--color-error-soft-bg)',
-                color: 'var(--destructive)',
-              },
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            <span>{tx(p.t, ['actions', 'delete'], 'Delete')}</span>
-          </Box>
-        </Box>
-        <Box
-          sx={{
-            display: { xs: 'none', sm: 'flex' },
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            gap: 1,
-          }}
-        >
-          <SearchBox t={p.t} searchQuery={p.searchQuery} setSearchQuery={p.setSearchQuery} />
-        </Box>
-      </Box>
-    </Box>
-  );
-}
-
-export function TableToolbar(p: P): React.JSX.Element {
-  const isColTab = p.normalizedActiveTabId === p.columnsTabId;
-  const containerSx: SxProps<Theme> = p.isFullscreen
-    ? {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 50,
-        bgcolor: 'background.paper',
-        px: { xs: 2, sm: 3 },
-        pt: 2.5,
-        borderLeft: '1px solid var(--border-color)',
-        borderRight: '1px solid var(--border-color)',
-        borderTop: '1px solid var(--border-color)',
-        ...(isColTab ? { bottom: 0, overflowY: 'auto', pb: 3 } : { pb: 0 }),
-      }
-    : { mb: 0, display: 'flex', flexDirection: 'column', gap: 0 };
-  return (
-    <Box sx={containerSx} className={p.isPrintMode ? 'custom-table-print-controls' : undefined}>
-      <TabsRow {...p} />
-      {!isColTab && <BulkActionsRow {...p} />}
-      {isColTab && (
-        <ColumnsVisibilityPanel
-          t={p.t}
-          columnOrder={p.columnOrder}
-          orderedColumns={p.orderedColumns}
-          hiddenColumnKeys={p.hiddenColumnKeys}
-          isColumnsDefault={p.isColumnsDefault}
-          toggleColumnHidden={p.toggleColumnHidden}
-          resetColumns={p.resetColumns}
-        />
+            <X size={16} aria-hidden />
+          </Button>
+        </div>
+      ) : (
+        <div className="seneca-ct__actions">
+          <ViewMenu
+            columns={props.columns}
+            columnVisibility={props.columnVisibility}
+            onColumnVisibilityChange={props.onColumnVisibilityChange}
+            groupBy={props.groupBy}
+            onGroupByChange={props.onGroupByChange}
+            labels={labels}
+          />
+          <MoreMenu
+            exporting={props.exporting}
+            refreshing={props.refreshing}
+            onImport={() => fileInputRef.current?.click()}
+            onExport={props.onExport}
+            onRefreshSource={props.onRefreshSource}
+            onSendToStatements={props.onSendToStatements}
+            onAddColumn={props.onAddColumn}
+            onAddSummary={props.onAddSummary}
+            onRestoreDefault={props.onRestoreDefault}
+            labels={labels}
+          />
+          <Button size="sm" type="button" onClick={props.onAddRow}>
+            <Plus size={18} aria-hidden />
+            {labels.addRow}
+          </Button>
+        </div>
       )}
-      <AddColumnModal
-        t={p.t}
-        isOpen={p.newColumnOpen}
-        onClose={() => p.setNewColumnOpen(false)}
-        newColumn={p.newColumn}
-        setNewColumn={p.setNewColumn}
-        createColumn={p.createColumn}
-        columnTypes={p.columnTypes}
-      />
-    </Box>
+    </div>
   );
 }

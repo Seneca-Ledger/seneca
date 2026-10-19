@@ -1,17 +1,17 @@
 import type React from 'react';
+import type { EditableWarningEntry, SelectedWarning } from '../hooks/useParsingWarningsPanel';
 import type {
   ConvertDroppedSamplePayload,
   ParsingDroppedSample,
   ResolveWarningPayload,
 } from '../ParsingWarningsPanel';
-import type { EditableWarningEntry, SelectedWarning } from '../hooks/useParsingWarningsPanel';
+import type { DroppedSampleDraft } from './warning-formatters';
 import {
   canConvertDraft,
   normalizeCurrencyCode,
   parsePositiveNumber,
   toDraft,
 } from './warning-formatters';
-import type { DroppedSampleDraft } from './warning-formatters';
 
 type BuildNextArgs = { entry: EditableWarningEntry; draft: DroppedSampleDraft };
 
@@ -63,7 +63,10 @@ export function buildWarningHandlers(p: HandlerParams): WarningHandlers {
   const updateDraft = ({
     field,
     value,
-  }: { field: keyof DroppedSampleDraft; value: string }): void => {
+  }: {
+    field: keyof DroppedSampleDraft;
+    value: string;
+  }): void => {
     if (!p.selectedWarning) {
       return;
     }
@@ -109,7 +112,10 @@ export function buildWarningHandlers(p: HandlerParams): WarningHandlers {
   const handleResolve = ({
     warning,
     warningIndex,
-  }: { warning: string; warningIndex: number }): void => {
+  }: {
+    warning: string;
+    warningIndex: number;
+  }): void => {
     p.onResolveWarning?.({ warning, index: warningIndex });
   };
   const handleSelectCurrency = (currencyCode: string): void => {
@@ -136,7 +142,11 @@ export function buildWarningHandlers(p: HandlerParams): WarningHandlers {
     entryKey,
     warning,
     warningIndex,
-  }: { entryKey: string; warning: string; warningIndex: number }): void => {
+  }: {
+    entryKey: string;
+    warning: string;
+    warningIndex: number;
+  }): void => {
     p.setSelectedWarning({ entryKey, warning, warningIndex });
   };
   return {

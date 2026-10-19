@@ -18,12 +18,12 @@ import {
 } from '@/entities';
 import { MetricsService } from '@/modules/observability/metrics.service';
 import { StatementsService } from '@/modules/statements/statements.service';
-import type { CreateSharedLinkDto } from '@/modules/storage/dto/create-shared-link.dto';
 import { StorageService } from '@/modules/storage/storage.service';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import type { CreateSharedLinkBody } from '../../../../src/contracts';
 
 describe('StorageService', () => {
   let testingModule: TestingModule;
@@ -237,16 +237,30 @@ describe('StorageService', () => {
     });
 
     it('should return all files for user', async () => {
-      const result = await service.getStorageFiles('1');
+      const result = await service.getStorageFiles('1', 'ws-open');
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
     });
 
-    it('should include workspace files', async () => {
-      await service.getStorageFiles('1');
+    it('lists the files of the workspace the caller has open', async () => {
+      await service.getStorageFiles('1', 'ws-open');
 
-      expect(statementRepository.createQueryBuilder).toHaveBeenCalled();
+      const queryBuilder = (statementRepository.createQueryBuilder as jest.Mock).mock.results[0]
+        .value;
+      expect(queryBuilder.where).toHaveBeenCalledWith('statement.workspaceId = :workspaceId', {
+        workspaceId: 'ws-open',
+      });
+    });
+
+    it('leaves out files shared from other workspaces', async () => {
+      jest.spyOn(filePermissionRepository, 'find').mockResolvedValue([
+        { statement: { ...mockStatement, id: 'elsewhere', workspaceId: 'ws-other' } },
+      ] as any);
+
+      const result = await service.getStorageFiles('1', 'ws-open');
+
+      expect(result.map(file => file.id)).not.toContain('elsewhere');
     });
 
     it('should include file metadata', async () => {
@@ -256,7 +270,7 @@ describe('StorageService', () => {
         status: 'both',
       });
 
-      const result = await service.getStorageFiles('1');
+      const result = await service.getStorageFiles('1', 'ws-open');
 
       expect(result).toBeDefined();
     });
@@ -275,7 +289,7 @@ describe('StorageService', () => {
   });
 
   describe('createSharedLink', () => {
-    const createDto: CreateSharedLinkDto = {
+    const createDto: CreateSharedLinkBody = {
       permission: SharePermissionLevel.VIEW,
       expiresAt: new Date(Date.now() + 86400000).toISOString(),
     };
@@ -364,7 +378,21 @@ describe('StorageService', () => {
       jest.spyOn(userRepository, 'findOne').mockResolvedValue({
         id: '2',
       } as User);
+      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+        userId: '2',
+        workspaceId: mockStatement.workspaceId,
+      } as WorkspaceMember);
       jest.spyOn(service as any, 'checkFileAccess').mockResolvedValue(undefined);
+    });
+
+    it('refuses to share with a user outside the file\'s workspace', async () => {
+      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
+      const saveSpy = jest.spyOn(filePermissionRepository, 'save');
+
+      await expect(service.grantPermission('1', '1', grantDto)).rejects.toThrow(
+        'User not found in this workspace',
+      );
+      expect(saveSpy).not.toHaveBeenCalled();
     });
 
     it('should grant permission to user', async () => {
@@ -374,6 +402,21 @@ describe('StorageService', () => {
       await service.grantPermission('1', '1', grantDto);
 
       expect(filePermissionRepository.save).toHaveBeenCalled();
+    });
+
+    it('shares with a member found by the email they sign in with', async () => {
+      const findMember = jest.spyOn(workspaceMemberRepository, 'findOne');
+      jest.spyOn(filePermissionRepository, 'create').mockImplementation(value => value as FilePermission);
+      const saveSpy = jest
+        .spyOn(filePermissionRepository, 'save')
+        .mockImplementation(async value => value as FilePermission);
+
+      await service.grantPermission('1', '1', { ...grantDto, userId: ' Member@Example.com ' });
+
+      expect(findMember).toHaveBeenCalledWith({
+        where: { workspaceId: mockStatement.workspaceId, user: { email: 'member@example.com' } },
+      });
+      expect(saveSpy).toHaveBeenCalledWith(expect.objectContaining({ userId: '2' }));
     });
 
     it('should verify resource ownership', async () => {
@@ -454,13 +497,14 @@ describe('StorageService', () => {
       } as StorageView);
 
       await service.createTag({ name: 'A' } as any, 'ws-1');
-      await service.createView({ name: 'View', filters: {} } as any, 'ws-1');
+      await service.createView({ name: 'View', filters: {} } as any, 'user-1', 'ws-1');
 
       expect(tagRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ workspaceId: 'ws-1' }),
       );
+      // user_id is NOT NULL: a view without its author never saved.
       expect(viewRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ workspaceId: 'ws-1' }),
+        expect.objectContaining({ userId: 'user-1', workspaceId: 'ws-1' }),
       );
     });
   });

@@ -13,6 +13,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
 
 jest.mock('@/common/utils/file-hash.util');
 jest.mock('@/common/utils/file-validator.util');
@@ -47,6 +48,8 @@ describe('ReceiptStatementService', () => {
             create: jest.fn(),
             save: jest.fn(),
             update: jest.fn(),
+            findOne: jest.fn(),
+            manager: { transaction: jest.fn() },
           },
         },
         {
@@ -74,6 +77,7 @@ describe('ReceiptStatementService', () => {
             findOne: jest.fn(),
           },
         },
+        { provide: TaxAssignmentService, useValue: { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } },
         {
           provide: AuditService,
           useValue: {
@@ -85,6 +89,7 @@ describe('ReceiptStatementService', () => {
           useValue: {
             createFromScan: jest.fn(),
             update: jest.fn(),
+            delete: jest.fn(),
           },
         },
       ],
@@ -125,6 +130,12 @@ describe('ReceiptStatementService', () => {
       name: 'VAT',
       rate: 12,
     } as TaxRate);
+
+    jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
+    (statementRepository.manager.transaction as jest.Mock).mockImplementation(
+      async (work: (manager: unknown) => unknown) =>
+        work({ query: jest.fn(), getRepository: () => statementRepository }),
+    );
 
     const { calculateFileHash } = require('@/common/utils/file-hash.util');
     calculateFileHash.mockResolvedValue('abc123');
@@ -213,6 +224,56 @@ describe('ReceiptStatementService', () => {
     expect(result).toEqual([expect.objectContaining({ id: 'stmt-ocr-1' })]);
   });
 
+  it('leaves the scan uncategorised when the receipt names no category', async () => {
+    const file = {
+      path: '/tmp/receipt.jpg',
+      originalname: 'receipt.jpg',
+      mimetype: 'image/jpeg',
+      size: 1024,
+    } as Express.Multer.File;
+
+    jest.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
+    jest
+      .spyOn(statementRepository, 'save')
+      .mockImplementation(async (input: any) => ({ id: 'stmt-nocat-1', ...input }));
+    jest.spyOn(statementRepository, 'update').mockResolvedValue({ affected: 1 } as any);
+    jest.spyOn(transactionRepository, 'create').mockImplementation((input: any) => input);
+    jest
+      .spyOn(transactionRepository, 'save')
+      .mockImplementation(async (input: any) => ({ id: 'tx-nocat-1', ...input }));
+    jest.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
+      id: 'receipt-3',
+      status: ReceiptStatus.DRAFT,
+      subject: 'receipt.jpg',
+      parsedData: {
+        amount: 1463,
+        currency: 'USD',
+        vendor: 'Invoice 295560440015',
+        date: '2026-10-04',
+        validationIssues: [],
+        transactionType: 'expense',
+      },
+      extractionMethod: 'ocr_hybrid',
+      metadata: {},
+    } as any);
+
+    await service.createFromReceiptScan({
+      user: mockUser as User,
+      workspaceId: 'ws-1',
+      files: [file],
+    });
+
+    // No guess: an arbitrary enabled expense category used to land here and
+    // showed up in Review as though someone had picked it.
+    expect(categoryRepository.findOne).not.toHaveBeenCalled();
+    expect(statementRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: null }),
+    );
+    expect(transactionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: null }),
+    );
+  });
+
   it('creates an uploaded statement without transaction when amount is missing', async () => {
     const file = {
       path: '/tmp/receipt.pdf',
@@ -284,5 +345,59 @@ describe('ReceiptStatementService', () => {
         files: [file],
       }),
     ).rejects.toThrow(new BadRequestException('OCR engine timeout'));
+  });
+  describe('the same file again', () => {
+    const file = {
+      path: '/tmp/invoice.pdf',
+      originalname: 'invoice.pdf',
+      mimetype: 'application/pdf',
+      size: 2048,
+    } as Express.Multer.File;
+    const filed = { id: 'stmt-filed', fileHash: 'abc123' } as Statement;
+
+    it('hands back the document already filed instead of booking it again', async () => {
+      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(filed);
+      const unlink = jest.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined);
+
+      const result = await service.createFromReceiptScan({
+        user: mockUser as User,
+        workspaceId: 'ws-1',
+        files: [file],
+      });
+
+      expect(result).toEqual([filed]);
+      expect(statementRepository.findOne).toHaveBeenCalledWith({
+        where: { workspaceId: 'ws-1', fileHash: 'abc123', deletedAt: expect.anything() },
+      });
+      expect(receiptsService.createFromScan).not.toHaveBeenCalled();
+      expect(transactionRepository.create).not.toHaveBeenCalled();
+      expect(unlink).toHaveBeenCalledWith('/tmp/invoice.pdf');
+    });
+
+    it('drops its own copy when the same file was filed while it was being read', async () => {
+      jest
+        .spyOn(statementRepository, 'findOne')
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(filed);
+      jest.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
+      jest.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
+        id: 'receipt-raced',
+        status: ReceiptStatus.DRAFT,
+        subject: 'invoice.pdf',
+        parsedData: { amount: 5, currency: 'USD', vendor: 'Anomaly', validationIssues: [] },
+        metadata: {},
+      } as any);
+
+      const result = await service.createFromReceiptScan({
+        user: mockUser as User,
+        workspaceId: 'ws-1',
+        files: [file],
+      });
+
+      expect(result).toEqual([filed]);
+      expect(statementRepository.save).not.toHaveBeenCalled();
+      expect(transactionRepository.create).not.toHaveBeenCalled();
+      expect(receiptsService.delete).toHaveBeenCalledWith('receipt-raced', 'ws-1', '1');
+    });
   });
 });

@@ -1,5 +1,7 @@
 'use client';
 
+import { useTheme } from 'next-themes';
+import { useMemo } from 'react';
 import {
   type AnalyticsFilterOptionLabels,
   buildAnalyticsFilterLabels,
@@ -9,11 +11,14 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import { resolveCurrencyCode } from '@/app/lib/analytics-common';
-import { useTheme } from 'next-themes';
-import { useMemo } from 'react';
 
 type WorkspaceLike = { id: string; name?: string | null };
-type SourceLabels = { sourceBank: string; sourceReceipt: string; sourceGmailInbox: string };
+type SourceLabels = {
+  sourceBank: string;
+  sourceReceipt: string;
+  sourceGmailInbox: string;
+  sourceCrypto: string;
+};
 type DrillLabels = {
   drillDown: string;
   close: string;
@@ -34,6 +39,8 @@ type DataParams<TState> = {
   resolvedTheme: string | undefined;
   labels: Record<string, string>;
   state: TState;
+  /** The month this view is showing; its own header owns it. */
+  month: Date;
 };
 
 export type TopAnalyticsViewModelConfig<TState, TData> = {
@@ -55,8 +62,10 @@ export type TopAnalyticsViewModelReturn<TState, TData> = TState &
     drillLabels: DrillLabels;
   };
 
+// eslint-disable-next-line max-params
 export function useTopAnalyticsViewModel<TState, TData>(
   config: TopAnalyticsViewModelConfig<TState, TData>,
+  month: Date,
 ): TopAnalyticsViewModelReturn<TState, TData> {
   const { user } = useAuth();
   const { currentWorkspace, workspaces } = useWorkspace();
@@ -79,12 +88,14 @@ export function useTopAnalyticsViewModel<TState, TData>(
     resolvedTheme,
     labels,
     state,
+    month,
   });
   const sourceLabels = useMemo(
     () => ({
       sourceBank: labels.sourceBank,
       sourceReceipt: labels.sourceReceipt,
       sourceGmailInbox: labels.sourceGmailInbox,
+      sourceCrypto: labels.sourceCrypto,
     }),
     [labels],
   );

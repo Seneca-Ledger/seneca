@@ -1,6 +1,5 @@
 import { normalizeDate } from '@/common/utils/number-normalizer.util';
 import { BankName, FileType } from '@/entities/statement.entity';
-import { AiHapoalimExtractor } from '@/modules/parsing/helpers/ai-hapoalim-extractor.helper';
 import { HapoalimParser } from '@/modules/parsing/parsers/hapoalim.parser';
 import { OcrService } from '@/modules/parsing/services/ocr.service';
 
@@ -16,8 +15,6 @@ jest.mock('@/common/utils/advanced-language-detector.util', () => ({
 }));
 
 describe('HapoalimParser', () => {
-  let aiAvailableSpy: jest.SpyInstance;
-
   const expectDateParts = (date: Date | null | undefined, expected: string) => {
     expect(date).toBeInstanceOf(Date);
     if (!date) return;
@@ -29,13 +26,6 @@ describe('HapoalimParser', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    aiAvailableSpy = jest
-      .spyOn(AiHapoalimExtractor.prototype, 'isAvailable')
-      .mockReturnValue(false);
-  });
-
-  afterEach(() => {
-    aiAvailableSpy.mockRestore();
   });
 
   describe('canParse', () => {
@@ -132,6 +122,39 @@ describe('HapoalimParser', () => {
     });
   });
 
+  describe('parseForeignTransactionLine exchange rate', () => {
+    it('parses a 3-fractional-digit exchange rate without thousands-grouping corruption', () => {
+      const parser = new HapoalimParser();
+      const line = '13/12/25  RAILWAY SAN FRANCISCO  5.00 $  14/12/25  3.182  16.24';
+
+      const tx = (parser as any).parseForeignTransactionLine(line);
+
+      expect(tx.exchangeRate).toBe(3.182);
+    });
+  });
+
+  describe('parseDomesticTransactionLine sign handling', () => {
+    it('parses a positive amount as a debit', () => {
+      const parser = new HapoalimParser();
+      const line = '09/12/25  מייקס מרקט חולון  סכולות/סופר  17.00  17.00';
+
+      const tx = (parser as any).parseDomesticTransactionLine(line);
+
+      expect(tx.debit).toBe(17.0);
+      expect(tx.credit).toBeUndefined();
+    });
+
+    it('parses a negative trailing amount (refund) as a credit, not a debit', () => {
+      const parser = new HapoalimParser();
+      const line = '15/03/25  ZARA REFUND  ביגוד  -120.00  -120.00';
+
+      const tx = (parser as any).parseDomesticTransactionLine(line);
+
+      expect(tx.credit).toBe(120.0);
+      expect(tx.debit).toBeUndefined();
+    });
+  });
+
   describe('parse with cachedText', () => {
     const SAMPLE_FOREIGN_TEXT = `בנק הפועלים
 www.isracard.co.il
@@ -157,6 +180,26 @@ www.isracard.co.il
       expect(result.metadata.currency).toBe('ILS');
       expect(result.metadata.institution).toBe('Bank Hapoalim');
       expect(result.metadata.locale).toBe('he-IL');
+    });
+
+    it('skips OCR text parsing when the caller reports low OCR confidence', async () => {
+      const parser = new HapoalimParser();
+      // Below MIN_OCR_CONFIDENCE (0.4): must not trust this text for
+      // regex-based parsing, even though it's the same real cachedText a
+      // high-confidence call would parse successfully (see the previous
+      // test). Without threading ocrConfidence through, this defaulted to
+      // 1.0 whenever the caller had already run OCR — the exact live-pipeline
+      // path this parser is normally used on.
+      const result = await parser.parse('/tmp/mock.jpg', SAMPLE_FOREIGN_TEXT, 0.1);
+
+      expect(result.transactions).toHaveLength(0);
+    });
+
+    it('parses OCR text normally when confidence is not provided (PDF/manual text has no OCR uncertainty)', async () => {
+      const parser = new HapoalimParser();
+      const result = await parser.parse('/tmp/mock.jpg', SAMPLE_FOREIGN_TEXT);
+
+      expect(result.transactions.length).toBeGreaterThan(0);
     });
 
     it('parses foreign transactions', async () => {

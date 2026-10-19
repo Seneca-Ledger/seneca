@@ -1,12 +1,13 @@
 'use client';
 
-import { X } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
 import * as React from 'react';
+import { X } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
+import { tokens } from '@/lib/theme-tokens';
 
 export type DrawerPosition = 'left' | 'right';
 export type DrawerWidth = 'sm' | 'md' | 'lg' | 'xl';
@@ -38,6 +39,76 @@ export interface DrawerShellProps {
   sx?: SxProps<Theme>;
   /** Override z-index for the drawer modal (useful when rendering above MUI Dialog) */
   zIndex?: number;
+  /** Pinned under the content, which then scrolls on its own: the drawer's main actions. */
+  footer?: React.ReactNode;
+}
+
+/** Set on an overlay while a sidebar opened after it sits on top; styled in `_drawer-stack.scss`. */
+const COVERED_ATTR = 'data-seneca-covered';
+/** Every overlay a sidebar can open over: other sidebars and centred dialogs, however they are built. */
+const OVERLAY_SELECTOR = '.MuiDrawer-root, .MuiDialog-root';
+
+/**
+ * While this drawer is open, the overlays that were already on screen fade out so
+ * two panels never overlap; they fade back in when it closes. A counter rather than
+ * a flag, because several drawers can stack over the same overlay.
+ */
+function useHideOverlaysBelow(
+  isOpen: boolean,
+  ownRoot: React.RefObject<HTMLDivElement | null>,
+): void {
+  React.useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const below = [...document.querySelectorAll<HTMLElement>(OVERLAY_SELECTOR)].filter(
+      el => el !== ownRoot.current && !el.contains(ownRoot.current),
+    );
+    for (const el of below) {
+      el.setAttribute(COVERED_ATTR, String(Number(el.getAttribute(COVERED_ATTR) ?? 0) + 1));
+    }
+    return () => {
+      for (const el of below) {
+        const left = Number(el.getAttribute(COVERED_ATTR) ?? 1) - 1;
+        if (left > 0) {
+          el.setAttribute(COVERED_ATTR, String(left));
+        } else {
+          el.removeAttribute(COVERED_ATTR);
+        }
+      }
+    };
+  }, [isOpen, ownRoot]);
+}
+
+/** The close handlers of the drawers on screen, so a shortcut can clear them before it navigates. */
+const openDrawerClosers = new Set<() => void>();
+
+/**
+ * Closes every open drawer the way Escape would (one that ignores Escape stays).
+ * Called before a shortcut or palette jump: a drawer outside the page, or on the
+ * page being navigated to, would otherwise stay on top of where the user went.
+ */
+export function closeAllDrawers(): void {
+  for (const close of [...openDrawerClosers]) {
+    close();
+  }
+}
+
+function useRegisterOpenDrawer(isOpen: boolean, closeOnEscape: boolean, onClose: () => void): void {
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+  React.useEffect(() => {
+    if (!(isOpen && closeOnEscape)) {
+      return;
+    }
+    const close = (): void => onCloseRef.current();
+    openDrawerClosers.add(close);
+    return () => {
+      openDrawerClosers.delete(close);
+    };
+  }, [isOpen, closeOnEscape]);
 }
 
 const widthMap: Record<DrawerWidth, number | string> = {
@@ -71,7 +142,9 @@ export function DrawerShell({
   lockScroll: LockScroll = true,
   sx,
   zIndex,
+  footer,
 }: DrawerShellProps) {
+  const t = useIntlayer('uiShell');
   // eslint-disable-next-line max-params
   const handleClose = (_event: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
     if (reason === 'backdropClick' && !closeOnBackdropClick) {
@@ -84,6 +157,9 @@ export function DrawerShell({
   };
 
   const drawerWidth = widthMap[width];
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  useHideOverlaysBelow(isOpen, rootRef);
+  useRegisterOpenDrawer(isOpen, closeOnEscape, onClose);
 
   return (
     <Drawer
@@ -91,8 +167,11 @@ export function DrawerShell({
       onClose={handleClose}
       anchor={position}
       className={className}
+      ref={rootRef}
       sx={zIndex !== undefined ? { zIndex } : undefined}
       PaperProps={{
+        role: 'dialog',
+        'aria-labelledby': title ? 'drawer-title' : undefined,
         sx: [
           {
             width: drawerWidth,
@@ -115,7 +194,6 @@ export function DrawerShell({
             borderBottom: '1px solid',
             borderColor: 'rgba(0,0,0,0.12)',
           }}
-          aria-labelledby={title ? 'drawer-title' : undefined}
         >
           {title && (
             <Typography id="drawer-title" variant="h6" fontWeight={700}>
@@ -126,7 +204,7 @@ export function DrawerShell({
             <IconButton
               type="button"
               onClick={onClose}
-              aria-label="Close drawer"
+              aria-label={t.closeDrawer.value}
               size="small"
               sx={{ ml: 'auto' }}
             >
@@ -135,9 +213,21 @@ export function DrawerShell({
           )}
         </div>
       )}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 24, minHeight: 0 }}>
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 24,
+          minHeight: 0,
+          overflowY: footer ? 'auto' : undefined,
+        }}
+      >
         {children}
       </div>
+      {footer && (
+        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)' }}>{footer}</div>
+      )}
     </Drawer>
   );
 }

@@ -1,3 +1,5 @@
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +8,8 @@ import GmailReceiptDocumentPage from './page';
 const apiMocks = vi.hoisted(() => ({
   mockApiGet: vi.fn(),
   mockGetReceipt: vi.fn(),
+  mockExportReceiptsToXlsx: vi.fn(),
+  mockApproveReceipt: vi.fn(),
 }));
 
 const routerMocks = vi.hoisted(() => ({
@@ -19,8 +23,8 @@ vi.mock('@/app/lib/api', () => ({
   gmailReceiptsApi: {
     getReceipt: apiMocks.mockGetReceipt,
     updateReceiptParsedData: vi.fn(),
-    approveReceipt: vi.fn(),
-    exportReceiptsToSheets: vi.fn(),
+    approveReceipt: apiMocks.mockApproveReceipt,
+    exportReceiptsToXlsx: apiMocks.mockExportReceiptsToXlsx,
     markDuplicate: vi.fn(),
     unmarkDuplicate: vi.fn(),
   },
@@ -66,6 +70,7 @@ vi.mock('react-hot-toast', () => ({
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'receipt-1' }),
   useRouter: () => ({ push: routerMocks.push }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe('GmailReceiptDocumentPage', () => {
@@ -113,7 +118,11 @@ describe('GmailReceiptDocumentPage', () => {
     const root = createRoot(container);
 
     await act(async () => {
-      root.render(<GmailReceiptDocumentPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <GmailReceiptDocumentPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {
@@ -131,6 +140,124 @@ describe('GmailReceiptDocumentPage', () => {
     });
 
     expect(routerMocks.push).toHaveBeenCalledWith('/statements');
+  });
+
+  it('returns to the documents list after submitting the receipt', async () => {
+    apiMocks.mockGetReceipt.mockResolvedValue({
+      data: {
+        receipt: {
+          id: 'receipt-1',
+          subject: 'GitHub Receipt',
+          sender: 'GitHub <noreply@github.com>',
+          receivedAt: '2026-02-27T00:00:00Z',
+          status: 'needs_review',
+          isDuplicate: false,
+          parsedData: {
+            amount: 17.61,
+            currency: 'USD',
+            date: '2026-02-27',
+            vendor: 'GitHub',
+            confidence: 0.85,
+            lineItems: [],
+          },
+          metadata: {},
+        },
+        potentialDuplicates: [],
+      },
+    });
+    apiMocks.mockApiGet.mockResolvedValue({ data: [] });
+    apiMocks.mockApproveReceipt.mockResolvedValue({ data: {} });
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <GmailReceiptDocumentPage />
+        </LocalizationProvider>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const submitButton = Array.from(container.querySelectorAll('button')).find(
+      button => button.textContent?.trim() === 'Submit',
+    );
+    await act(async () => {
+      submitButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(apiMocks.mockApproveReceipt).toHaveBeenCalledWith(
+      'receipt-1',
+      expect.objectContaining({ amount: 17.61 }),
+    );
+    expect(routerMocks.push).toHaveBeenCalledWith('/statements/submit');
+  });
+
+  it('exports the receipt to an Excel file from the export menu', async () => {
+    apiMocks.mockGetReceipt.mockResolvedValue({
+      data: {
+        receipt: {
+          id: 'receipt-1',
+          subject: 'GitHub Receipt',
+          sender: 'GitHub <noreply@github.com>',
+          receivedAt: '2026-02-27T00:00:00Z',
+          status: 'needs_review',
+          isDuplicate: false,
+          parsedData: {
+            amount: 17.61,
+            currency: 'USD',
+            date: '2026-02-27',
+            vendor: 'GitHub',
+            confidence: 0.85,
+            lineItems: [],
+          },
+          metadata: {},
+        },
+        potentialDuplicates: [],
+      },
+    });
+    apiMocks.mockApiGet.mockResolvedValue({ data: [] });
+    apiMocks.mockExportReceiptsToXlsx.mockResolvedValue({
+      data: { fileName: 'receipts.xlsx', url: '/files/receipts.xlsx' },
+    });
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <GmailReceiptDocumentPage />
+        </LocalizationProvider>,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const exportButton = Array.from(container.querySelectorAll('button')).find(
+      button => button.textContent?.trim() === 'Export',
+    );
+    const menuToggle = exportButton?.nextElementSibling as HTMLButtonElement | null;
+
+    await act(async () => {
+      menuToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const excelItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find(
+      item => item.textContent?.trim() === 'Export to Excel',
+    );
+    expect(excelItem).toBeTruthy();
+
+    await act(async () => {
+      excelItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(apiMocks.mockExportReceiptsToXlsx).toHaveBeenCalledWith(['receipt-1']);
+    expect(openSpy).toHaveBeenCalledWith('/files/receipts.xlsx', '_blank');
+    openSpy.mockRestore();
   });
 
   it('opens the category drawer from the Category button', async () => {
@@ -164,7 +291,11 @@ describe('GmailReceiptDocumentPage', () => {
     const root = createRoot(container);
 
     await act(async () => {
-      root.render(<GmailReceiptDocumentPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <GmailReceiptDocumentPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {
@@ -218,7 +349,11 @@ describe('GmailReceiptDocumentPage', () => {
     const root = createRoot(container);
 
     await act(async () => {
-      root.render(<GmailReceiptDocumentPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <GmailReceiptDocumentPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {
@@ -266,7 +401,11 @@ describe('GmailReceiptDocumentPage', () => {
     const root = createRoot(container);
 
     await act(async () => {
-      root.render(<GmailReceiptDocumentPage />);
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <GmailReceiptDocumentPage />
+        </LocalizationProvider>,
+      );
     });
 
     await act(async () => {

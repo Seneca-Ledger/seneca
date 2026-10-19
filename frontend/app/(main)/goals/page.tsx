@@ -1,16 +1,19 @@
 'use client';
 
-import { Plus } from '@/app/components/icons';
-import { useIntlayer, useLocale } from '@/app/i18n';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { ContributionDialog } from './components/ContributionDialog';
+import { Plus } from '@/app/components/icons';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { FlagLineIcon } from '@/app/components/ui/empty-state-icons';
+import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { tokens } from '@/lib/theme-tokens';
+import { ContributionDrawer } from './components/ContributionDrawer';
 import { GoalCard } from './components/GoalCard';
-import { GoalFormDialog } from './components/GoalFormDialog';
+import { GoalFormDrawer } from './components/GoalFormDrawer';
 import { EMPTY_GOAL_FORM, type Goal, type GoalFormData, useGoals } from './hooks/useGoals';
 
 function GoalCardSkeleton(): React.JSX.Element {
@@ -47,8 +50,17 @@ function GoalCardSkeleton(): React.JSX.Element {
 export default function GoalsPage() {
   const t = useIntlayer('goalsPage');
   const { locale } = useLocale();
-  const { goals, loading, error, saving, createGoal, updateGoal, deleteGoal, addContribution } =
-    useGoals();
+  const {
+    goals,
+    isPending,
+    isFetching,
+    error,
+    saving,
+    createGoal,
+    updateGoal,
+    deleteGoal,
+    addContribution,
+  } = useGoals();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Goal | null>(null);
@@ -97,32 +109,35 @@ export default function GoalsPage() {
     }
   };
 
+  const noGoals = !(isPending || error) && goals.length === 0;
+
   return (
-    <Box component="main" sx={{ p: 3, maxWidth: 800, mx: 'auto', width: '100%' }}>
+    <Box
+      component="main"
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
+    >
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           alignItems: 'flex-start',
           gap: 2,
           mb: 3,
           flexWrap: 'wrap',
         }}
       >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            {t.title}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {t.subtitle}
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>
-          {t.newGoal}
-        </Button>
+        {/* With no goals the empty state's own button is the one action on the page. */}
+        {noGoals ? null : (
+          <ReadOnlyHint>
+            <Button variant="contained" onClick={openCreate}>
+              <Plus size={18} aria-hidden />
+              {t.newGoal}
+            </Button>
+          </ReadOnlyHint>
+        )}
       </Box>
 
-      {loading && (
+      {isPending && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {Array.from({ length: 4 }).map((_, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
@@ -131,56 +146,99 @@ export default function GoalsPage() {
         </Box>
       )}
 
-      {error && !loading && (
+      {error && !isPending && (
         <Typography color="error" sx={{ py: 6, textAlign: 'center' }}>
           {t.error}
         </Typography>
       )}
 
-      {!loading && !error && goals.length === 0 && (
-        <Typography sx={{ color: 'text.secondary', py: 6, textAlign: 'center' }}>
-          {t.empty}
-        </Typography>
+      {noGoals && (
+        <EmptyState
+          fill
+          icon={<FlagLineIcon />}
+          title={t.emptyTitle}
+          description={t.emptyHint}
+          action={
+            <ReadOnlyHint>
+              <Button variant="contained" onClick={openCreate}>
+                {t.createGoal}
+              </Button>
+            </ReadOnlyHint>
+          }
+          hint={t.emptyExamples}
+        />
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box
+        data-tour-shot="goals-list"
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          // Список остаётся на экране, пока мутация перезагружает цели.
+          opacity: isFetching ? 0.6 : 1,
+          transition: 'opacity 150ms ease',
+        }}
+      >
         {goals.map(goal => (
           <GoalCard
             key={goal.id}
             goal={goal}
             locale={locale}
             labels={{
-              addContribution: t.addContribution.value,
-              edit: t.edit.value,
-              remove: t.remove.value,
               reached: t.reached.value,
               remaining: t.remaining.value,
             }}
-            onContribute={openContribution}
-            onEdit={openEdit}
-            onDelete={item => void deleteGoal(item.id)}
+            actions={
+              <>
+                <Button size="small" variant="outlined" onClick={() => openContribution(goal)}>
+                  {t.addContribution}
+                </Button>
+                <Button size="small" onClick={() => openEdit(goal)}>
+                  {t.edit}
+                </Button>
+                <Button size="small" color="error" onClick={() => void deleteGoal(goal.id)}>
+                  {t.remove}
+                </Button>
+              </>
+            }
           />
         ))}
       </Box>
 
-      <GoalFormDialog
+      <GoalFormDrawer
         open={formOpen}
         title={editing ? t.edit.value : t.newGoal.value}
         form={form}
         saving={saving}
+        currentCover={editing?.cover ?? null}
         labels={{
           name: t.nameLabel.value,
           target: t.targetLabel.value,
           date: t.dateLabel.value,
           save: t.save.value,
           cancel: t.cancel.value,
+          cover: t.coverLabel.value,
+          chooseCover: t.chooseCover.value,
+          picker: {
+            title: t.coverPickerTitle.value,
+            presets: t.coverPresets.value,
+            photos: t.coverPhotos.value,
+            searchPlaceholder: t.coverSearchPlaceholder.value,
+            search: t.coverSearch.value,
+            noResults: t.coverNoResults.value,
+            searchHint: t.coverSearchHint.value,
+            licenceNote: t.coverLicenceNote.value,
+            remove: t.coverRemove.value,
+            close: t.close.value,
+          },
         }}
         onChange={setForm}
         onClose={() => setFormOpen(false)}
         onSave={() => void saveGoal()}
       />
 
-      <ContributionDialog
+      <ContributionDrawer
         open={contributing !== null}
         title={contributing?.name ?? ''}
         amount={amount}

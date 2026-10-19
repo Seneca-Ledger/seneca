@@ -3,10 +3,11 @@ jest.mock('franc', () => ({
 }));
 
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test, type TestingModule } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { accessTokenOf, deleteUserByEmail, e2eTestingModule } from './helpers/e2e-app';
 
 describe('Statements manual expense (e2e)', () => {
   let app: INestApplication;
@@ -22,7 +23,7 @@ describe('Statements manual expense (e2e)', () => {
   };
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    const moduleFixture: TestingModule = await e2eTestingModule({
       imports: [AppModule],
     }).compile();
 
@@ -46,7 +47,7 @@ describe('Statements manual expense (e2e)', () => {
       password: testUser.password,
     });
 
-    accessToken = loginRes.body.accessToken;
+    accessToken = accessTokenOf(loginRes);
     workspaceId = loginRes.body.user.workspaceId;
   });
 
@@ -57,13 +58,21 @@ describe('Statements manual expense (e2e)', () => {
         [userId],
       );
       await dataSource.query('DELETE FROM statements WHERE user_id = $1', [userId]);
-      await dataSource.query('DELETE FROM users WHERE id = $1', [userId]);
+      await deleteUserByEmail(dataSource, testUser.email);
     }
 
     await app.close();
   });
 
   it('creates manual expense and stores related transaction', async () => {
+    // A manual expense needs a category; registration seeds the workspace's defaults.
+    const categories = await request(app.getHttpServer())
+      .get('/categories?type=expense')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .set('x-workspace-id', workspaceId)
+      .expect(200);
+    const categoryId: string = categories.body[0].id;
+
     const response = await request(app.getHttpServer())
       .post('/statements/manual-expense')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -73,6 +82,7 @@ describe('Statements manual expense (e2e)', () => {
       .field('merchant', 'adad')
       .field('description', 'ada')
       .field('date', '2026-02-20')
+      .field('categoryId', categoryId)
       .expect(201);
 
     expect(response.body).toHaveProperty('id');

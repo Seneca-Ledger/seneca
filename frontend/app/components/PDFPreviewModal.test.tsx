@@ -4,7 +4,12 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/app/lib/workspace-headers', () => ({
-  getWorkspaceHeaders: () => ({ Authorization: 'Bearer test-token' }),
+  getWorkspaceHeaders: () => ({ 'X-CSRF-Token': 'test-csrf' }),
+}));
+
+vi.mock('@/app/lib/csrf', () => ({
+  hasSessionCookie: () => true,
+  getCsrfHeaders: () => ({ 'X-CSRF-Token': 'test-csrf' }),
 }));
 
 vi.mock('@/app/i18n', () => ({
@@ -32,6 +37,10 @@ vi.mock('@/app/i18n', () => ({
     decline: { value: 'Позже' },
     startingParsing: { value: 'Запуск...' },
     startParsingButton: { value: 'Запустить парсинг' },
+    receiptTitle: 'Receipt',
+    openFileMenu: { value: 'Open file menu' },
+    closePreview: { value: 'Close preview' },
+    download: 'Download',
   }),
 }));
 
@@ -272,7 +281,7 @@ describe('PDFPreviewModal manual attach flow', () => {
 
     expect(storeReceiptImage).toBeTruthy();
     expect(storeReceiptImage.className).toContain(
-      'lumio-pdf-preview-modal__image-preview--receipt',
+      'seneca-pdf-preview-modal__image-preview--receipt',
     );
     expect(storeReceiptImage.className).not.toContain('max-h-[78vh]');
 
@@ -294,9 +303,9 @@ describe('PDFPreviewModal manual attach flow', () => {
     ) as HTMLImageElement;
 
     expect(gmailReceiptImage).toBeTruthy();
-    expect(gmailReceiptImage.className).toContain('lumio-pdf-preview-modal__image-preview');
+    expect(gmailReceiptImage.className).toContain('seneca-pdf-preview-modal__image-preview');
     expect(gmailReceiptImage.className).not.toContain(
-      'lumio-pdf-preview-modal__image-preview--receipt',
+      'seneca-pdf-preview-modal__image-preview--receipt',
     );
   });
 
@@ -322,10 +331,10 @@ describe('PDFPreviewModal manual attach flow', () => {
     });
 
     const previewShell = Array.from(container.querySelectorAll('div')).find(node =>
-      node.className.includes('lumio-pdf-preview-modal__body'),
+      node.className.includes('seneca-pdf-preview-modal__body'),
     );
     const previewCanvas = Array.from(container.querySelectorAll('div')).find(node =>
-      node.className.includes('lumio-pdf-preview-modal__content'),
+      node.className.includes('seneca-pdf-preview-modal__content'),
     );
 
     expect(previewShell).toBeTruthy();

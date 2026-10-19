@@ -1,30 +1,19 @@
 'use client';
 
-import apiClient from '@/app/lib/api';
-import { tokens } from '@/lib/theme-tokens';
-import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
-import ExtensionOutlinedIcon from '@mui/icons-material/ExtensionOutlined';
 import { Box, Stack, Typography } from '@mui/material';
 import { useTheme } from 'next-themes';
-import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { Select } from '@/app/components/ui/select';
+import { useIntlayer } from '@/app/i18n';
+import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { IntegrationConnection, ProtocolFileList } from '@/app/lib/contracts';
+import { checkContract } from '@/app/lib/query-fn-schema';
+import { tokens } from '@/lib/theme-tokens';
 
-type ProtocolStatus = {
-  connected: boolean;
-  status: 'connected' | 'disconnected' | 'needs_reauth';
-  source?: 'workspace' | 'env' | 'disabled';
-  settings?: Record<string, string | number | boolean | null | undefined>;
-};
-
-type ProtocolFile = {
-  id: string;
-  name: string;
-  path: string;
-  size: number;
-  mimeType: string;
-  modifiedAt: string | null;
-};
+type ProtocolStatus = IntegrationConnection;
+type ProtocolFile = ProtocolFileList['files'][number];
 
 export type ProtocolIntegrationPageProps = {
   title: string;
@@ -57,15 +46,12 @@ export type ConfigField = {
 };
 
 export function ProtocolIntegrationPage({
-  title,
-  description,
   statusPath,
   settingsPath,
   settingsMethod = 'post',
   disconnectPath,
   fields,
   workflow,
-  icon,
   filesPath,
   importPath,
   syncPath,
@@ -74,6 +60,7 @@ export function ProtocolIntegrationPage({
 }: ProtocolIntegrationPageProps): React.JSX.Element {
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
+  const t = useIntlayer('protocolIntegrationPage');
   const [status, setStatus] = useState<ProtocolStatus | null>(null);
   const [files, setFiles] = useState<ProtocolFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -87,12 +74,13 @@ export function ProtocolIntegrationPage({
     let mounted = true;
 
     apiClient
-      .get<ProtocolStatus>(statusPath)
-      .then(response => {
+      .get(statusPath)
+      .then(response => checkContract('IntegrationConnection', response.data, statusPath))
+      .then(next => {
         if (mounted) {
-          setStatus(response.data);
-          setForm(buildInitialForm(fields, response.data.settings || {}));
-          void onConnectionStatusChange?.(Boolean(response.data.connected));
+          setStatus(next);
+          setForm(buildInitialForm(fields, next.settings ?? {}));
+          void onConnectionStatusChange?.(next.connected);
         }
       })
       .catch(() => {
@@ -113,87 +101,108 @@ export function ProtocolIntegrationPage({
   const saveSettings = async (): Promise<void> => {
     setSaving(true);
     setActionMessage(null);
-    try {
+
+    await (async () => {
       const response =
         settingsMethod === 'put'
-          ? await apiClient.put<ProtocolStatus>(settingsPath, form)
-          : await apiClient.post<ProtocolStatus>(settingsPath, form);
-      setStatus(response.data);
-      setForm(buildInitialForm(fields, response.data.settings || {}));
-      void onConnectionStatusChange?.(Boolean(response.data.connected));
-      setActionMessage('Connected');
-    } catch {
-      setActionMessage('Connection failed. Check the fields and try again.');
-    } finally {
-      setSaving(false);
-    }
+          ? await apiClient.put(settingsPath, form)
+          : await apiClient.post(settingsPath, form);
+      const next = await checkContract('IntegrationConnection', response.data, settingsPath);
+      setStatus(next);
+      setForm(buildInitialForm(fields, next.settings ?? {}));
+      void onConnectionStatusChange?.(next.connected);
+      setActionMessage(t.messages.connected.value);
+    })()
+      // The backend's reason (translated by its code) says what to fix: a
+      // refused key, a missing company id.
+      .catch(async (error: unknown) => {
+        setActionMessage(getApiErrorMessage(error, t.messages.connectionFailed.value));
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const disconnect = async (): Promise<void> => {
     setSaving(true);
     setActionMessage(null);
-    try {
+
+    await (async () => {
       await apiClient.delete(disconnectPath);
-      const response = await apiClient.get<ProtocolStatus>(statusPath);
-      setStatus(response.data);
-      void onConnectionStatusChange?.(Boolean(response.data.connected));
-      setActionMessage('Disconnected');
-    } catch {
-      setActionMessage('Unable to disconnect');
-    } finally {
-      setSaving(false);
-    }
+      const response = await apiClient.get(statusPath);
+      const next = await checkContract('IntegrationConnection', response.data, statusPath);
+      setStatus(next);
+      void onConnectionStatusChange?.(next.connected);
+      setActionMessage(t.messages.disconnected.value);
+    })()
+      .catch(async () => {
+        setActionMessage(t.messages.disconnectFailed.value);
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const loadFiles = async (): Promise<void> => {
     if (!filesPath) return;
     setLoadingFiles(true);
     setActionMessage(null);
-    try {
-      const response = await apiClient.get<{ files: ProtocolFile[] }>(filesPath);
-      setFiles(response.data.files || []);
-    } catch {
-      setActionMessage('Unable to load files');
-    } finally {
-      setLoadingFiles(false);
-    }
+
+    await (async () => {
+      const response = await apiClient.get(filesPath);
+      setFiles((await checkContract('ProtocolFileList', response.data, filesPath)).files);
+    })()
+      .catch(async () => {
+        setActionMessage(t.messages.loadFilesFailed.value);
+      })
+      .finally(async () => {
+        setLoadingFiles(false);
+      });
   };
 
   const importFile = async (file: ProtocolFile): Promise<void> => {
     if (!importPath) return;
     setActionMessage(null);
-    try {
+
+    await (async () => {
       await apiClient.post(importPath, { fileIds: [file.id] });
-      setActionMessage(`Imported ${file.name}`);
-    } catch {
-      setActionMessage(`Unable to import ${file.name}`);
-    }
+      setActionMessage(t.messages.imported.value.replace('{name}', file.name));
+    })().catch(async () => {
+      setActionMessage(t.messages.importFailed.value.replace('{name}', file.name));
+    });
   };
 
   const browseField = async (field: ConfigField): Promise<void> => {
-    if (!field.browseAction) return;
+    const browseAction = field.browseAction;
+    if (!browseAction) return;
     setBrowsing(field.name);
-    try {
-      const body = Object.fromEntries(field.browseAction.dependsOn.map(key => [key, form[key]]));
-      const response = await apiClient.post<string[]>(field.browseAction.endpoint, body);
-      setBrowseOptions(prev => ({ ...prev, [field.name]: response.data }));
-    } catch {
-      setActionMessage('Could not load options. Check the credentials above.');
-    } finally {
-      setBrowsing(null);
-    }
+
+    await (async () => {
+      const body = Object.fromEntries(browseAction.dependsOn.map(key => [key, form[key]]));
+      const response = await apiClient.post(browseAction.endpoint, body);
+      const options = await checkContract('BrowseOptionList', response.data, browseAction.endpoint);
+      setBrowseOptions(prev => ({ ...prev, [field.name]: [...options] }));
+    })()
+      .catch(async () => {
+        setActionMessage(t.messages.browseFailed.value);
+      })
+      .finally(async () => {
+        setBrowsing(null);
+      });
   };
 
   const syncNow = async (): Promise<void> => {
     if (!syncPath) return;
     setActionMessage(null);
-    try {
-      const response = await apiClient.post<{ uploaded?: number; imported?: number }>(syncPath);
-      const count = response.data.uploaded ?? response.data.imported ?? 0;
-      setActionMessage(`Sync complete: ${count}`);
-    } catch {
-      setActionMessage('Sync failed');
-    }
+
+    await (async () => {
+      const response = await apiClient.post(syncPath);
+      const result = await checkContract('ProtocolSyncResult', response.data, syncPath);
+      const count = result.uploaded ?? result.imported ?? 0;
+      setActionMessage(t.messages.syncComplete.value.replace('{count}', String(count)));
+    })().catch(async () => {
+      setActionMessage(t.messages.syncFailed.value);
+    });
   };
 
   return (
@@ -206,44 +215,6 @@ export function ProtocolIntegrationPage({
       }}
     >
       <Stack spacing={3}>
-        {!embedded ? (
-          <Link
-            href="/integrations"
-            style={{ color: c.ink600, fontSize: 14, textDecoration: 'none' }}
-          >
-            Back to integrations
-          </Link>
-        ) : null}
-
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-          <Box
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: tokens.radius.md,
-              bgcolor: connected ? c.successSoft : c.ink100,
-              color: connected ? c.success : c.ink600,
-              display: 'grid',
-              placeItems: 'center',
-              flexShrink: 0,
-            }}
-          >
-            {connected ? (
-              <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />
-            ) : (
-              (icon ?? <ExtensionOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />)
-            )}
-          </Box>
-          <Stack spacing={0.75}>
-            <Typography component="h1" sx={{ color: c.ink900, fontSize: 28, fontWeight: 700 }}>
-              {title}
-            </Typography>
-            <Typography sx={{ color: c.ink600, fontSize: 15, lineHeight: 1.6 }}>
-              {description}
-            </Typography>
-          </Stack>
-        </Box>
-
         <Box
           sx={{
             border: `1px solid ${c.ink150}`,
@@ -255,7 +226,7 @@ export function ProtocolIntegrationPage({
           <Stack spacing={2}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography sx={{ color: c.ink900, fontSize: 18, fontWeight: 650 }}>
-                Status
+                {t.status}
               </Typography>
               <Typography
                 sx={{
@@ -265,7 +236,7 @@ export function ProtocolIntegrationPage({
                   textTransform: 'uppercase',
                 }}
               >
-                {connected ? 'Configured' : 'Not configured'}
+                {connected ? t.configured : t.notConfigured}
               </Typography>
             </Box>
             <Typography sx={{ color: c.ink600, fontSize: 14, lineHeight: 1.6 }}>
@@ -293,7 +264,7 @@ export function ProtocolIntegrationPage({
               }}
             >
               <Typography sx={{ color: c.ink900, fontSize: 18, fontWeight: 650 }}>
-                Connection
+                {t.connection}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <button
@@ -302,7 +273,7 @@ export function ProtocolIntegrationPage({
                   disabled={saving}
                   style={buttonStyle(c.primary, c.surface)}
                 >
-                  {saving ? 'Checking...' : connected ? 'Update connection' : 'Connect'}
+                  {saving ? t.checking : connected ? t.updateConnection : t.connect}
                 </button>
                 {canDisconnect && (
                   <button
@@ -311,7 +282,7 @@ export function ProtocolIntegrationPage({
                     disabled={saving}
                     style={buttonStyle(c.ink800, c.surface, c.ink150)}
                   >
-                    Disconnect
+                    {t.disconnect}
                   </button>
                 )}
               </Box>
@@ -338,19 +309,15 @@ export function ProtocolIntegrationPage({
                   ) : field.browseAction ? (
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       {browseOptions[field.name]?.length ? (
-                        <select
+                        <Select
                           value={String(form[field.name] ?? '')}
-                          onChange={event =>
-                            setForm(prev => ({ ...prev, [field.name]: event.target.value }))
-                          }
-                          style={{ ...inputStyle(c), flex: 1 }}
-                        >
-                          {browseOptions[field.name].map(opt => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={value => setForm(prev => ({ ...prev, [field.name]: value }))}
+                          options={browseOptions[field.name].map(opt => ({
+                            value: opt,
+                            label: opt,
+                          }))}
+                          sx={{ flex: 1, backgroundColor: c.surface, color: c.ink900 }}
+                        />
                       ) : (
                         <input
                           type="text"
@@ -418,7 +385,7 @@ export function ProtocolIntegrationPage({
                 }}
               >
                 <Typography sx={{ color: c.ink900, fontSize: 18, fontWeight: 650 }}>
-                  Actions
+                  {t.actions}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   {filesPath && (
@@ -428,7 +395,7 @@ export function ProtocolIntegrationPage({
                       disabled={!connected || loadingFiles}
                       style={buttonStyle(c.primary, c.surface)}
                     >
-                      {loadingFiles ? 'Loading...' : 'Browse files'}
+                      {loadingFiles ? t.loading : t.browseFiles}
                     </button>
                   )}
                   {syncPath && (
@@ -438,7 +405,7 @@ export function ProtocolIntegrationPage({
                       disabled={!connected}
                       style={buttonStyle(c.ink800, c.surface, c.ink150)}
                     >
-                      Sync now
+                      {t.syncNow}
                     </button>
                   )}
                 </Box>
@@ -474,7 +441,7 @@ export function ProtocolIntegrationPage({
                           onClick={() => void importFile(file)}
                           style={buttonStyle(c.primary, c.surface)}
                         >
-                          Import
+                          {t.import}
                         </button>
                       )}
                     </Box>
@@ -491,7 +458,7 @@ export function ProtocolIntegrationPage({
 
 function buildInitialForm(
   fields: ConfigField[],
-  settings: Record<string, string | number | boolean | null | undefined>,
+  settings: Readonly<Record<string, unknown>>,
 ): Record<string, string | number | boolean> {
   const next: Record<string, string | number | boolean> = {};
   for (const field of fields) {
@@ -501,7 +468,8 @@ function buildInitialForm(
     } else if (field.type === 'password') {
       next[field.name] = '';
     } else {
-      next[field.name] = value ?? '';
+      // Only a scalar fills a field; a list or object belongs to another view.
+      next[field.name] = typeof value === 'string' || typeof value === 'number' ? value : '';
     }
   }
   return next;

@@ -1,12 +1,12 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/app/components/ui/dropdown-menu';
 import { cn } from '@/app/lib/utils';
-import type { ReactNode } from 'react';
 
 type FilterDropdownProps = {
   open: boolean;

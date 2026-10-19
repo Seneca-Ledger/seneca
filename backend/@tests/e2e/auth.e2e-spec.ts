@@ -1,8 +1,23 @@
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
+import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { REFRESH_TOKEN_COOKIE } from '../../src/modules/auth/auth-cookies';
+import {
+  accessTokenOf,
+  deleteUserByEmail,
+  e2eTestingModule,
+  responseCookie,
+} from './helpers/e2e-app';
+
+const validationPipe = () =>
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  });
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
@@ -16,19 +31,22 @@ describe('AuthController (e2e)', () => {
     name: 'Test User',
   };
 
+  /** Tokens are issued as HttpOnly cookies only; the body carries the user. */
+  const rememberSession = (res: request.Response) => {
+    accessToken = accessTokenOf(res);
+    refreshToken = responseCookie(res, REFRESH_TOKEN_COOKIE) as string;
+    expect(refreshToken).toBeDefined();
+    expect(res.body).not.toHaveProperty('accessToken');
+    expect(res.body).not.toHaveProperty('refreshToken');
+  };
+
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    const moduleFixture: TestingModule = await e2eTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
+    app.useGlobalPipes(validationPipe());
 
     await app.init();
 
@@ -38,7 +56,7 @@ describe('AuthController (e2e)', () => {
   afterAll(async () => {
     // Cleanup test data
     if (dataSource) {
-      await dataSource.query('DELETE FROM users WHERE email = $1', [testUser.email]);
+      await deleteUserByEmail(dataSource, testUser.email);
     }
     await app.close();
   });
@@ -53,10 +71,7 @@ describe('AuthController (e2e)', () => {
           expect(res.body).toHaveProperty('user');
           expect(res.body.user.email).toBe(testUser.email.toLowerCase());
           expect(res.body.user).not.toHaveProperty('passwordHash');
-          expect(res.body).toHaveProperty('accessToken');
-          expect(res.body).toHaveProperty('refreshToken');
-          accessToken = res.body.accessToken;
-          refreshToken = res.body.refreshToken;
+          rememberSession(res);
         });
     });
 
@@ -66,7 +81,7 @@ describe('AuthController (e2e)', () => {
         .send(testUser)
         .expect(409)
         .expect(res => {
-          expect(res.body.message).toContain('already exists');
+          expect(res.body.error.message).toContain('already exists');
         });
     });
 
@@ -124,10 +139,7 @@ describe('AuthController (e2e)', () => {
         .expect(200)
         .expect(res => {
           expect(res.body).toHaveProperty('user');
-          expect(res.body).toHaveProperty('accessToken');
-          expect(res.body).toHaveProperty('refreshToken');
-          accessToken = res.body.accessToken;
-          refreshToken = res.body.refreshToken;
+          rememberSession(res);
         });
     });
 
@@ -171,10 +183,10 @@ describe('AuthController (e2e)', () => {
     });
   });
 
-  describe('/auth/profile (GET)', () => {
+  describe('/auth/me (GET)', () => {
     it('should get user profile with valid token', () => {
       return request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200)
         .expect(res => {
@@ -186,19 +198,19 @@ describe('AuthController (e2e)', () => {
     });
 
     it('should reject request without token', () => {
-      return request(app.getHttpServer()).get('/auth/profile').expect(401);
+      return request(app.getHttpServer()).get('/auth/me').expect(401);
     });
 
     it('should reject invalid token', () => {
       return request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .set('Authorization', 'Bearer invalid.token.here')
         .expect(401);
     });
 
     it('should reject malformed authorization header', () => {
       return request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .set('Authorization', 'InvalidFormat')
         .expect(401);
     });
@@ -211,11 +223,7 @@ describe('AuthController (e2e)', () => {
         .set('Authorization', `Bearer ${refreshToken}`)
         .expect(200)
         .expect(res => {
-          expect(res.body).toHaveProperty('accessToken');
-          expect(res.body).toHaveProperty('refreshToken');
-          expect(res.body.accessToken).not.toBe(accessToken);
-          accessToken = res.body.accessToken;
-          refreshToken = res.body.refreshToken;
+          rememberSession(res);
         });
     });
 
@@ -256,32 +264,48 @@ describe('AuthController (e2e)', () => {
       return request(app.getHttpServer()).post('/auth/logout').expect(401);
     });
 
-    it('should still succeed with already logged out token', () => {
+    // Logging out revokes the session, so its access token stops working at once.
+    it('should reject the token of a session that has logged out', () => {
       return request(app.getHttpServer())
         .post('/auth/logout')
         .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200);
+        .expect(401);
     });
   });
 
   describe('Rate Limiting', () => {
-    it('should rate limit login attempts', async () => {
-      const promises = [];
+    let limitedApp: INestApplication;
 
-      // Attempt multiple logins rapidly
-      for (let i = 0; i < 15; i++) {
-        promises.push(
-          request(app.getHttpServer()).post('/auth/login').send({
-            email: 'ratelimit@example.com',
-            password: 'wrongpassword',
-          }),
-        );
+    // Its own app with a real in-memory store: the shared helper counts nothing,
+    // and a Redis store would carry hits over from other suites.
+    beforeAll(async () => {
+      const moduleFixture = await Test.createTestingModule({ imports: [AppModule] })
+        .overrideProvider(ThrottlerStorage)
+        .useValue(new ThrottlerStorageService())
+        .compile();
+      limitedApp = moduleFixture.createNestApplication();
+      limitedApp.useGlobalPipes(validationPipe());
+      await limitedApp.init();
+    });
+
+    afterAll(async () => {
+      await limitedApp.close();
+    });
+
+    it('should rate limit login attempts', async () => {
+      const statuses: number[] = [];
+
+      // One after another: a parallel burst against the unlistened test server
+      // resets connections before the limiter is ever reached. The limit is 5/min.
+      for (let i = 0; i < 7; i++) {
+        const res = await request(limitedApp.getHttpServer()).post('/auth/login').send({
+          email: 'ratelimit@example.com',
+          password: 'wrongpassword',
+        });
+        statuses.push(res.status);
       }
 
-      const results = await Promise.all(promises);
-      const rateLimited = results.some(res => res.status === 429);
-
-      expect(rateLimited).toBe(true);
+      expect(statuses).toContain(429);
     });
   });
 
@@ -313,7 +337,7 @@ describe('AuthController (e2e)', () => {
   describe('Token Validation', () => {
     it('should validate token structure', () => {
       return request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .set('Authorization', 'Bearer not.a.valid.jwt.structure')
         .expect(401);
     });
@@ -323,7 +347,7 @@ describe('AuthController (e2e)', () => {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
 
       return request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .set('Authorization', `Bearer ${fakeToken}`)
         .expect(401);
     });

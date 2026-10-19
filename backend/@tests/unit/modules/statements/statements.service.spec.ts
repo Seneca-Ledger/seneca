@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import { FileStorageService } from '@/common/services/file-storage.service';
 import { Category } from '@/entities/category.entity';
+import { Wallet } from '@/entities/wallet.entity';
 import { ReceiptStatus } from '@/entities/receipt.entity';
 import { BankName, FileType, Statement, StatementStatus } from '@/entities/statement.entity';
 import { TaxRate } from '@/entities/tax-rate.entity';
@@ -10,7 +11,7 @@ import { WorkspaceMember, WorkspaceRole } from '@/entities/workspace-member.enti
 import { AuditService } from '@/modules/audit/audit.service';
 import { StatementParsingQueue } from '@/modules/parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '@/modules/parsing/services/statement-processing.service';
-import { FilterStatementsDto } from '@/modules/statements/dto/filter-statements.dto';
+import type { StatementsQuery } from '@/contracts';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
 import { StatementsService } from '@/modules/statements/statements.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -24,11 +25,40 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 jest.mock('@/common/utils/file-hash.util');
 jest.mock('@/common/utils/file-validator.util');
 jest.mock('@/common/utils/filename.util');
 
 describe('StatementsService', () => {
+  // create() оборачивает проверку дубликатов и вставку в транзакцию с advisory-lock;
+  // менеджер прокидывает вызовы в тот же мок-репозиторий, чтобы ассерты не менялись.
+  const statementRepositoryMock: Record<string, unknown> = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    delete: jest.fn(),
+    count: jest.fn(),
+    createQueryBuilder: jest.fn(() => ({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    })),
+  };
+  const statementManagerMock = {
+    query: jest.fn(),
+    getRepository: jest.fn(() => statementRepositoryMock),
+    transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(statementManagerMock)),
+  };
+  statementRepositoryMock.manager = statementManagerMock;
+
   let testingModule: TestingModule;
   let service: StatementsService;
   let statementRepository: Repository<Statement>;
@@ -76,26 +106,10 @@ describe('StatementsService', () => {
     testingModule = await Test.createTestingModule({
       providers: [
         StatementsService,
+        workspaceCurrencyProvider(),
         {
           provide: getRepositoryToken(Statement),
-          useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            remove: jest.fn(),
-            delete: jest.fn(),
-            count: jest.fn(),
-            createQueryBuilder: jest.fn(() => ({
-              where: jest.fn().mockReturnThis(),
-              andWhere: jest.fn().mockReturnThis(),
-              orderBy: jest.fn().mockReturnThis(),
-              getMany: jest.fn().mockResolvedValue([]),
-              leftJoinAndSelect: jest.fn().mockReturnThis(),
-              getOne: jest.fn().mockResolvedValue(null),
-            })),
-          },
+          useValue: statementRepositoryMock,
         },
         {
           provide: getRepositoryToken(Transaction),
@@ -115,6 +129,10 @@ describe('StatementsService', () => {
             delete: jest.fn(),
             count: jest.fn(),
           },
+        },
+        {
+          provide: TaxAssignmentService,
+          useValue: { resolve: jest.fn(async () => ({})) },
         },
         {
           provide: AuditService,
@@ -141,6 +159,10 @@ describe('StatementsService', () => {
             find: jest.fn(),
             findOne: jest.fn(),
           },
+        },
+        {
+          provide: getRepositoryToken(Wallet),
+          useValue: { findOne: jest.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
@@ -329,22 +351,6 @@ describe('StatementsService', () => {
       expect(statementRepository.save).toHaveBeenCalled();
     });
 
-    it('should handle optional googleSheetId', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
-      const createSpy = jest
-        .spyOn(statementRepository, 'create')
-        .mockReturnValue(mockStatement as Statement);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
-
-      await service.create(mockUser as User, mockUser.workspaceId as string, mockFile, 'sheet-123');
-
-      expect(createSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          googleSheetId: 'sheet-123',
-        }),
-      );
-    });
-
     it('should cleanup temp file after upload', async () => {
       jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
       jest.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
@@ -386,6 +392,7 @@ describe('StatementsService', () => {
     ) => {
       const qb = {
         select: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getQuery: jest
@@ -437,9 +444,10 @@ describe('StatementsService', () => {
 
       expect(qb.skip).toHaveBeenCalledWith(10);
       expect(qb.take).toHaveBeenCalledWith(10);
-      expect(qb.andWhere).toHaveBeenCalledWith('statement.fileName ILIKE :search', {
-        search: '%abc%',
-      });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('statement.fileName ILIKE :search'),
+        { search: '%abc%' },
+      );
     });
 
     it('applies extended filters without pagination when page is omitted', async () => {
@@ -467,12 +475,12 @@ describe('StatementsService', () => {
         has: ['errors', 'transactions'],
         categoryId: 'cat-1',
         groupBy: 'amount',
-      } satisfies FilterStatementsDto);
+      } satisfies StatementsQuery);
 
       expect(qb.skip).not.toHaveBeenCalled();
       expect(qb.take).toHaveBeenCalledWith(15);
       expect(qb.andWhere).toHaveBeenCalledWith('statement.fileType = :type', { type: 'pdf' });
-      expect(qb.andWhere).toHaveBeenCalledWith('LOWER(statement.status) IN (:...statuses)', {
+      expect(qb.andWhere).toHaveBeenCalledWith('CAST(statement.status AS text) IN (:...statuses)', {
         statuses: ['processing', 'error'],
       });
       expect(qb.andWhere).toHaveBeenCalledWith(
@@ -489,9 +497,13 @@ describe('StatementsService', () => {
         ),
         expect.objectContaining({ amountMin: 100, amountMax: 500 }),
       );
-      expect(qb.andWhere).toHaveBeenCalledWith('statement.status IN (:...approvedStatuses)', {
-        approvedStatuses: ['validated', 'completed', 'parsed'],
-      });
+      // Approved = parsed and nothing of it left in Review (rows checked in a subquery).
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /^\(statement\.status IN \(:\.\.\.approvedStatuses\) AND NOT \(EXISTS \(.+\) OR EXISTS \(.+\)\)\)$/,
+        ),
+        expect.objectContaining({ approvedStatuses: ['validated', 'completed', 'parsed'] }),
+      );
       expect(qb.andWhere).toHaveBeenCalledWith(
         'GREATEST(COALESCE(statement.totalDebit, 0), COALESCE(statement.totalCredit, 0)) <= 0',
       );
@@ -537,7 +549,7 @@ describe('StatementsService', () => {
       await service.findAll('ws-1', {
         from: ['bank:receipt', 'bank:gmail', 'bank:kaspi'],
         to: ['bank:receipt', 'bank:other'],
-      } satisfies FilterStatementsDto);
+      } satisfies StatementsQuery);
 
       expect(qb.andWhere).toHaveBeenCalledWith(
         expect.stringContaining('statement.bankName IN (:...fromBankNames)'),

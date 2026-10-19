@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, type QueryRunner, Repository } from 'typeorm';
+import { currencyCodeOrDefault } from '../../../common/utils/currency.util';
 import { readProcessingSettings } from '../../../common/utils/workspace-processing.util';
 import {
   type ImportConflictResolution,
@@ -26,14 +27,7 @@ import {
 } from '../../parsing/services/intelligent-deduplication.service';
 import { TransactionFingerprintService } from '../../transactions/services/transaction-fingerprint.service';
 import { ImportConfigService } from '../config/import.config';
-import {
-  ImportConflictError,
-  ImportFatalError,
-  ImportTransientError,
-  ImportValidationError,
-  classifyError,
-} from '../errors/import-errors';
-import { ImportRetryService } from './import-retry.service';
+import { classifyError, ImportConflictError, ImportValidationError } from '../errors/import-errors';
 
 /**
  * Result returned from processImport operation
@@ -79,6 +73,7 @@ interface TransactionClassification {
   existingTransaction?: Transaction;
   conflict?: ConflictGroup;
   error?: string;
+  duplicateInBatch?: boolean;
 }
 
 type PreviewClassification = ImportSessionPreviewClassification;
@@ -104,7 +99,7 @@ export class ImportSessionService {
     @InjectRepository(ImportSession)
     private readonly importSessionRepository: Repository<ImportSession>,
     @InjectRepository(Transaction)
-    private readonly transactionRepository: Repository<Transaction>,
+    transactionRepository: Repository<Transaction>,
     @InjectRepository(Statement)
     private readonly statementRepository: Repository<Statement>,
     @InjectRepository(Workspace)
@@ -115,7 +110,6 @@ export class ImportSessionService {
     private readonly fingerprintService: TransactionFingerprintService,
     private readonly deduplicationService: IntelligentDeduplicationService,
     private readonly importConfigService: ImportConfigService,
-    private readonly retryService: ImportRetryService,
     private readonly eventEmitter?: EventEmitter2,
   ) {}
 
@@ -195,7 +189,15 @@ export class ImportSessionService {
       order: { createdAt: 'DESC' },
     });
 
-    if (existingSession && existingSession.status !== ImportSessionStatus.CANCELLED) {
+    // FAILED (like CANCELLED) does not short-circuit: nothing ever re-runs a
+    // failed session in place (see the now-removed automatic retry scheduler
+    // in ImportRetryService), so treating it as "already handled" here would
+    // permanently block the only real retry path — re-uploading the same file.
+    if (
+      existingSession &&
+      existingSession.status !== ImportSessionStatus.CANCELLED &&
+      existingSession.status !== ImportSessionStatus.FAILED
+    ) {
       this.logger.warn(
         `Import session already exists for file hash ${fileHash}, returning existing session`,
       );
@@ -267,20 +269,32 @@ export class ImportSessionService {
       throw new ImportValidationError(`Import session not found: ${sessionId}`, { sessionId });
     }
 
-    // Validate session state
-    if (mode === ImportSessionMode.COMMIT && session.status !== ImportSessionStatus.PREVIEW) {
-      throw new ImportValidationError(
-        `Cannot commit session in status ${session.status}. Must be in PREVIEW status first.`,
-        { sessionId, currentStatus: session.status },
-      );
-    }
-
     try {
-      // Update session status
-      await this.importSessionRepository.update(
-        { id: sessionId },
-        { status: ImportSessionStatus.PROCESSING },
-      );
+      if (mode === ImportSessionMode.COMMIT) {
+        // Conditional UPDATE ... WHERE status = PREVIEW, not a separate
+        // read-then-write check: two concurrent (or client-retried) commit
+        // calls can both read status=PREVIEW before either writes, and both
+        // would otherwise proceed into processCommit() and race to insert
+        // the same transactions. Only the request whose UPDATE actually
+        // matches a row gets to proceed; the other sees affected=0 and fails
+        // closed immediately, before ever touching processCommit's inserts.
+        const transition = await this.importSessionRepository.update(
+          { id: sessionId, status: ImportSessionStatus.PREVIEW },
+          { status: ImportSessionStatus.PROCESSING },
+        );
+        if (transition.affected === 0) {
+          throw new ImportConflictError(
+            `Cannot commit session in status ${session.status}. Must be in PREVIEW status first.`,
+            'session_status',
+            { sessionId, currentStatus: session.status },
+          );
+        }
+      } else {
+        await this.importSessionRepository.update(
+          { id: sessionId },
+          { status: ImportSessionStatus.PROCESSING },
+        );
+      }
 
       let result: ImportSessionResult;
 
@@ -304,6 +318,19 @@ export class ImportSessionService {
         classified.stack,
       );
 
+      // This request never actually transitioned the session into
+      // PROCESSING (its conditional UPDATE affected 0 rows — another
+      // request already owns this commit), so it made zero changes to the
+      // session's state and must not touch it now either. Unconditionally
+      // writing FAILED here would clobber whatever status the OTHER request
+      // has since progressed to, including a legitimate COMPLETED.
+      if (
+        classified instanceof ImportConflictError &&
+        classified.conflictType === 'session_status'
+      ) {
+        throw classified;
+      }
+
       // Store error in session metadata
       const metadata = session.sessionMetadata || this.createEmptyMetadata();
       metadata.errors.push(`${classified.code}: ${classified.message}`);
@@ -321,32 +348,18 @@ export class ImportSessionService {
         this.eventEmitter?.emit('import.failed', {
           workspaceId: session.workspaceId,
           userId: session.userId,
-          statementId: session.statementId,
+          statementId: session.statementId ?? undefined,
           statementName: session.statement?.fileName,
           errorMessage: classified.message,
         } satisfies ImportFailedEvent);
       }
 
-      // Handle retryable errors
-      if (this.retryService.shouldRetry(classified)) {
-        const retryMetadata = this.retryService.getRetryMetadata(session);
-        const attempt = retryMetadata?.retryCount || 0;
-
-        if (this.retryService.canRetry(session)) {
-          await this.retryService.scheduleRetry(sessionId, attempt);
-          throw new ImportTransientError(
-            `Import session ${sessionId} failed transiently and will be retried`,
-            classified,
-          );
-        }
-        await this.retryService.markAsPermanentlyFailed(sessionId, classified);
-        throw new ImportFatalError(
-          `Import session ${sessionId} exceeded maximum retry attempts`,
-          classified,
-        );
-      }
-
-      // Re-throw for controller to handle
+      // Re-throw for the controller to handle. Nothing auto-retries a failed
+      // session in place (no scheduler ever consumed the old retry-metadata
+      // bookkeeping here); createSession's file-hash idempotency now excludes
+      // FAILED sessions, so re-uploading the same file is the real retry
+      // path. `classified` is already an ImportTransientError for
+      // transient failures, so callers can still branch on error type.
       throw classified;
     }
   }
@@ -376,7 +389,7 @@ export class ImportSessionService {
             ...tx,
             workspaceId: session.workspaceId,
             amount: tx.debit || tx.credit || null,
-            currency: tx.currency || session.statement?.currency || 'KZT',
+            currency: currencyCodeOrDefault(tx.currency || session.statement?.currency),
           },
           accountNumber,
         );
@@ -414,6 +427,7 @@ export class ImportSessionService {
     }
 
     // Step 3: Classify transactions as exact matches
+    const seenFingerprintsInBatch = new Set<string>();
     for (const classification of classifications) {
       if (classification.status === 'failed') {
         continue;
@@ -426,6 +440,20 @@ export class ImportSessionService {
       if (existing) {
         classification.status = 'matched';
         classification.existingTransaction = existing;
+        continue;
+      }
+
+      // Two distinct rows in the SAME batch can legitimately hash to the
+      // same fingerprint (e.g. two separate same-day, same-amount purchases
+      // at the same merchant) — the fingerprint alone can't tell them
+      // apart. Without this check both stay classified 'new' and
+      // processCommit's per-row insert loop throws a unique-constraint
+      // violation on the second one, rolling back the entire commit instead
+      // of just that one ambiguous row.
+      if (seenFingerprintsInBatch.has(classification.fingerprint)) {
+        classification.duplicateInBatch = true;
+      } else {
+        seenFingerprintsInBatch.add(classification.fingerprint);
       }
     }
 
@@ -465,11 +493,18 @@ export class ImportSessionService {
       }
     }
 
+    const candidateWindowLimit = 1000;
     const candidateExisting = await this.fingerprintService.findCandidatesByWindow(
       session.workspaceId,
       { start: minDate, end: maxDate },
       Array.from(amountRangesMap.values()),
+      candidateWindowLimit,
     );
+    if (candidateExisting.length === candidateWindowLimit) {
+      this.logger.warn(
+        `Duplicate-candidate search for session ${session.id} hit the ${candidateWindowLimit}-row cap — some existing transactions in range were not checked for conflicts`,
+      );
+    }
 
     const conflicts = await this.deduplicationService.detectConflicts(
       unmatchedTransactions,
@@ -516,6 +551,7 @@ export class ImportSessionService {
           conflictMatchType: c.conflict?.matchType,
           conflictRecommendedAction: c.conflict?.recommendedAction,
           error: c.error,
+          duplicateInBatch: c.duplicateInBatch,
         })),
       },
     };
@@ -598,12 +634,12 @@ export class ImportSessionService {
           return existingById.get(id);
         }
         const existing = await queryRunner.manager.findOne(Transaction, {
-          where: { id },
+          where: { id, workspaceId: session.workspaceId },
         });
         if (existing) {
           existingById.set(id, existing);
         }
-        return existing;
+        return existing ?? undefined;
       };
 
       for (let i = 0; i < transactions.length; i++) {
@@ -655,7 +691,7 @@ export class ImportSessionService {
               newTransaction.walletId = existing.walletId;
             }
             newTransaction.isDuplicate = true;
-            newTransaction.duplicateOfId = previewData.existingTransactionId;
+            newTransaction.duplicateOfId = previewData.existingTransactionId ?? null;
             newTransaction.duplicateConfidence = previewData.conflictConfidence || null;
             newTransaction.duplicateMatchType = previewData.conflictMatchType || null;
 
@@ -700,6 +736,14 @@ export class ImportSessionService {
             accountNumber,
             queryRunner,
           );
+          if (previewData.duplicateInBatch) {
+            // Flagged in preview: this row's fingerprint collides with an
+            // earlier row in this same batch. Still persisted — nothing is
+            // silently dropped — but isDuplicate=true keeps it out of the
+            // partial unique index (workspace_id, fingerprint) WHERE
+            // is_duplicate = false, which the earlier row already occupies.
+            newTransaction.isDuplicate = true;
+          }
           const saved = await queryRunner.manager.save(newTransaction);
           savedTransactions.push(saved);
 
@@ -751,6 +795,8 @@ export class ImportSessionService {
           actorName: await this.resolveActorName(session.userId),
           statementId: session.statementId || undefined,
           transactionCount: summary.newCount + summary.matchedCount,
+          transactionIds: savedTransactions.map(transaction => transaction.id),
+          source: 'import_session',
         } satisfies ImportCommittedEvent);
       }
 
@@ -782,7 +828,7 @@ export class ImportSessionService {
         ...parsed,
         workspaceId: session.workspaceId,
         amount: parsed.debit || parsed.credit || null,
-        currency: parsed.currency || session.statement?.currency || 'KZT',
+        currency: currencyCodeOrDefault(parsed.currency || session.statement?.currency),
       },
       accountNumber,
     );
@@ -803,7 +849,7 @@ export class ImportSessionService {
       debit: parsed.debit || null,
       credit: parsed.credit || null,
       amount: parsed.debit || parsed.credit || null,
-      currency: parsed.currency || 'KZT',
+      currency: currencyCodeOrDefault(parsed.currency || session.statement?.currency),
       exchangeRate: parsed.exchangeRate || null,
       amountForeign: parsed.amountForeign || null,
       paymentPurpose: parsed.paymentPurpose,
@@ -868,7 +914,7 @@ export class ImportSessionService {
    *
    * @param sessionId Import session ID
    * @returns Import session
-   * @throws ImportValidationError if session not found
+   * @throws NotFoundException if session not found (the caller answers 404)
    */
   async getSession(sessionId: string): Promise<ImportSession> {
     const session = await this.importSessionRepository.findOne({
@@ -876,7 +922,7 @@ export class ImportSessionService {
     });
 
     if (!session) {
-      throw new ImportValidationError(`Import session not found: ${sessionId}`, { sessionId });
+      throw new NotFoundException('Import session not found');
     }
 
     return session;

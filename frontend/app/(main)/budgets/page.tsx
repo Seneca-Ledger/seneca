@@ -1,11 +1,14 @@
 'use client';
 
 import Box from '@mui/material/Box';
+import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { BudgetsContent } from './components/BudgetsContent';
 import { useBudgetsPage } from './hooks/useBudgetsPage';
 
 export default function BudgetsPage() {
   const state = useBudgetsPage();
+  // Stoic advice links here with ?focus=stoic:<class> or category:<id>.
+  useAttentionFocus();
 
   return (
     <Box

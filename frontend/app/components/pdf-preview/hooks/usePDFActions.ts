@@ -1,5 +1,6 @@
-import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { type ChangeEvent, type RefObject, useRef, useState } from 'react';
+import { hasSessionCookie } from '@/app/lib/csrf';
+import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { apiBaseUrl, getFileEndpoint } from '../helpers/pdf-endpoints';
 
 type DownloadParams = {
@@ -19,7 +20,7 @@ async function downloadPdfFile({
   downloadAlertFailed,
 }: DownloadParams): Promise<void> {
   const headers = getWorkspaceHeaders();
-  if (!headers.Authorization) {
+  if (!hasSessionCookie()) {
     alert(authRequired);
     return;
   }
@@ -57,7 +58,7 @@ async function attachPdfFile({
   uploadFailed,
 }: AttachParams): Promise<void> {
   const headers = getWorkspaceHeaders();
-  if (!headers.Authorization) throw new Error(authRequired);
+  if (!hasSessionCookie()) throw new Error(authRequired);
   const res = await fetch(`${apiBaseUrl}/statements/${fileId}/attach-file`, {
     method: 'POST',
     headers,
@@ -74,7 +75,7 @@ async function startReplaceParsing({
   parsingFailed,
 }: ParseParams): Promise<void> {
   const headers = getWorkspaceHeaders();
-  if (!headers.Authorization) throw new Error(authRequired);
+  if (!hasSessionCookie()) throw new Error(authRequired);
   const res = await fetch(`${apiBaseUrl}/statements/${fileId}/reprocess?mode=replace`, {
     method: 'POST',
     headers,

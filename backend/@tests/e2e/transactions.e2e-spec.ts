@@ -1,515 +1,213 @@
+jest.mock('franc', () => ({
+  franc: () => 'und',
+}));
+
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test, type TestingModule } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+import { Schema } from 'effect';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { TransactionList } from '../../src/contracts';
+import {
+  deleteUserByEmail,
+  type E2eAccount,
+  e2eTestingModule,
+  registerAccount,
+} from './helpers/e2e-app';
 
+interface ListedTransaction {
+  id: string;
+  statementId: string;
+  transactionDate: string;
+}
+
+/**
+ * Transactions end to end: listing and filtering within a workspace, editing
+ * and deleting, and that another workspace can neither see nor touch them.
+ * The fixtures are manual expenses, each of which books one transaction.
+ */
 describe('Transactions (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  let accessToken: string;
-  let workspaceId: string;
-  let statementId: string;
-  let transactionId: string;
+  const stamp = Date.now();
+  const emails = {
+    owner: `tx-owner-${stamp}@example.com`,
+    other: `tx-other-${stamp}@example.com`,
+  };
+  let owner: E2eAccount;
+  let other: E2eAccount;
+  const statementIds: string[] = [];
+  const transactionIds: string[] = [];
+
+  const as = (account: E2eAccount, req: request.Test, workspaceId = account.workspaceId) =>
+    req.set('Authorization', `Bearer ${account.token}`).set('x-workspace-id', workspaceId);
+  const server = () => app.getHttpServer();
+
+  async function bookExpense(categoryId: string, amount: string, merchant: string, date: string) {
+    const statement = await as(owner, request(server()).post('/statements/manual-expense'))
+      .field('amount', amount)
+      .field('currency', 'KZT')
+      .field('merchant', merchant)
+      .field('categoryId', categoryId)
+      .field('date', date)
+      .expect(201);
+    statementIds.push(statement.body.id);
+
+    const listed = await as(
+      owner,
+      request(server()).get(`/transactions?statementId=${statement.body.id}`),
+    ).expect(200);
+    expect(listed.body.data).toHaveLength(1);
+    transactionIds.push(listed.body.data[0].id);
+  }
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    const moduleFixture: TestingModule = await e2eTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true }));
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
-
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
-    // Register and login
-    const registerRes = await request(app.getHttpServer()).post('/auth/register').send({
-      email: 'transaction-test@example.com',
-      password: 'Test123!@#',
-      firstName: 'Transaction',
-      lastName: 'Test',
-    });
+    owner = await registerAccount(app, emails.owner, 'Transactions Owner');
+    other = await registerAccount(app, emails.other, 'Transactions Other');
 
-    const loginRes = await request(app.getHttpServer()).post('/auth/login').send({
-      email: 'transaction-test@example.com',
-      password: 'Test123!@#',
-    });
+    const categories = await as(owner, request(server()).get('/categories?type=expense')).expect(
+      200,
+    );
+    const categoryId: string = categories.body[0].id;
 
-    accessToken = loginRes.body.accessToken;
-    workspaceId = loginRes.body.user.workspaceId;
-
-    // Create a statement with transactions
-    const statementRes = await request(app.getHttpServer())
-      .post('/statements')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .attach('file', Buffer.from('mock PDF content'), 'test.pdf')
-      .field('bankName', 'Kaspi Bank')
-      .field('accountNumber', '1234567890');
-
-    statementId = statementRes.body.id;
-
-    // Get the first transaction
-    const transactionsRes = await request(app.getHttpServer())
-      .get(`/transactions?statementId=${statementId}`)
-      .set('Authorization', `Bearer ${accessToken}`);
-
-    if (transactionsRes.body.items?.length > 0) {
-      transactionId = transactionsRes.body.items[0].id;
-    }
+    await bookExpense(categoryId, '100', 'Coffee shop', '2026-01-10');
+    await bookExpense(categoryId, '250', 'Book store', '2026-02-15');
+    await bookExpense(categoryId, '900', 'Hardware store', '2026-03-20');
   });
 
   afterAll(async () => {
-    await dataSource.dropDatabase();
+    if (dataSource) {
+      for (const email of Object.values(emails)) {
+        await deleteUserByEmail(dataSource, email);
+      }
+    }
     await app.close();
   });
 
   describe('GET /transactions', () => {
-    it('should return paginated transactions', () => {
-      return request(app.getHttpServer())
-        .get('/transactions')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body).toHaveProperty('items');
-          expect(res.body).toHaveProperty('total');
-          expect(res.body).toHaveProperty('page');
-          expect(res.body).toHaveProperty('limit');
-          expect(Array.isArray(res.body.items)).toBe(true);
-        });
+    it('lists the workspace transactions with paging details', async () => {
+      const res = await as(owner, request(server()).get('/transactions')).expect(200);
+      expect(res.body.total).toBe(3);
+      expect(res.body.data).toHaveLength(3);
+      expect(res.body.items).toEqual(res.body.data);
+      expect(res.body).toMatchObject({ page: 1, limit: 50 });
+      // The statement edit page checks the rows against the same contract in dev.
+      Schema.decodeUnknownSync(TransactionList)(res.body.data);
     });
 
-    it('should filter transactions by date range', () => {
-      const startDate = new Date('2024-01-01').toISOString();
-      const endDate = new Date('2024-12-31').toISOString();
-
-      return request(app.getHttpServer())
-        .get(`/transactions?startDate=${startDate}&endDate=${endDate}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body.items).toBeDefined();
-        });
+    it('filters by statement', async () => {
+      const res = await as(
+        owner,
+        request(server()).get(`/transactions?statementId=${statementIds[1]}`),
+      ).expect(200);
+      expect(res.body.data.map((tx: ListedTransaction) => tx.id)).toEqual([transactionIds[1]]);
     });
 
-    it('should filter transactions by type', () => {
-      return request(app.getHttpServer())
-        .get('/transactions?type=DEBIT')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          const debits = res.body.items.filter(t => t.type === 'DEBIT');
-          expect(debits.length).toBeLessThanOrEqual(res.body.items.length);
-        });
+    it('filters by date range', async () => {
+      const res = await as(
+        owner,
+        request(server()).get('/transactions?startDate=2026-02-01&endDate=2026-02-28'),
+      ).expect(200);
+      expect(res.body.data.map((tx: ListedTransaction) => tx.id)).toEqual([transactionIds[1]]);
     });
 
-    it('should filter transactions by category', async () => {
-      // Create a category first
-      const categoryRes = await request(app.getHttpServer())
-        .post('/categories')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          name: 'Groceries',
-          type: 'EXPENSE',
-          keywords: ['food', 'grocery'],
-        });
-
-      return request(app.getHttpServer())
-        .get(`/transactions?categoryId=${categoryRes.body.id}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200);
+    it('paginates', async () => {
+      const res = await as(owner, request(server()).get('/transactions?limit=2&page=2')).expect(
+        200,
+      );
+      expect(res.body).toMatchObject({ total: 3, page: 2, limit: 2 });
+      expect(res.body.data).toHaveLength(1);
     });
 
-    it('should filter transactions by statement', () => {
-      return request(app.getHttpServer())
-        .get(`/transactions?statementId=${statementId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          res.body.items.forEach(transaction => {
-            expect(transaction.statementId).toBe(statementId);
-          });
-        });
+    it('requires authentication', () => {
+      return request(server()).get('/transactions').expect(401);
     });
 
-    it('should filter transactions by amount range', () => {
-      return request(app.getHttpServer())
-        .get('/transactions?minAmount=100&maxAmount=1000')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          res.body.items.forEach(transaction => {
-            expect(transaction.amount).toBeGreaterThanOrEqual(100);
-            expect(transaction.amount).toBeLessThanOrEqual(1000);
-          });
-        });
+    it('shows another workspace none of them', async () => {
+      const res = await as(other, request(server()).get('/transactions')).expect(200);
+      const ids = res.body.data.map((tx: ListedTransaction) => tx.id);
+      expect(ids).not.toEqual(expect.arrayContaining([transactionIds[0]]));
     });
 
-    it('should search transactions by description', () => {
-      return request(app.getHttpServer())
-        .get('/transactions?search=payment')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200);
-    });
-
-    it('should sort transactions', () => {
-      return request(app.getHttpServer())
-        .get('/transactions?sortBy=amount&sortOrder=DESC')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          if (res.body.items.length > 1) {
-            expect(res.body.items[0].amount).toBeGreaterThanOrEqual(res.body.items[1].amount);
-          }
-        });
-    });
-
-    it('should paginate transactions', () => {
-      return request(app.getHttpServer())
-        .get('/transactions?page=1&limit=10')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body.page).toBe(1);
-          expect(res.body.limit).toBe(10);
-          expect(res.body.items.length).toBeLessThanOrEqual(10);
-        });
-    });
-
-    it('should require authentication', () => {
-      return request(app.getHttpServer()).get('/transactions').expect(401);
-    });
-
-    it('should isolate transactions by workspace', async () => {
-      // Create another user
-      await request(app.getHttpServer()).post('/auth/register').send({
-        email: 'other-user@example.com',
-        password: 'Test123!@#',
-        firstName: 'Other',
-        lastName: 'User',
-      });
-
-      const otherLogin = await request(app.getHttpServer()).post('/auth/login').send({
-        email: 'other-user@example.com',
-        password: 'Test123!@#',
-      });
-
-      return request(app.getHttpServer())
-        .get('/transactions')
-        .set('Authorization', `Bearer ${otherLogin.body.accessToken}`)
-        .expect(200)
-        .expect(res => {
-          // Should not see first user's transactions
-          const hasFirstUserTransaction = res.body.items.some(t => t.statementId === statementId);
-          expect(hasFirstUserTransaction).toBe(false);
-        });
+    it('refuses a workspace the caller is not a member of', () => {
+      return as(other, request(server()).get('/transactions'), owner.workspaceId).expect(403);
     });
   });
 
   describe('GET /transactions/:id', () => {
-    it('should return transaction by id', () => {
-      if (!transactionId) return;
-
-      return request(app.getHttpServer())
-        .get(`/transactions/${transactionId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body.id).toBe(transactionId);
-          expect(res.body).toHaveProperty('amount');
-          expect(res.body).toHaveProperty('date');
-          expect(res.body).toHaveProperty('description');
-        });
+    it('returns the transaction', async () => {
+      const res = await as(
+        owner,
+        request(server()).get(`/transactions/${transactionIds[0]}`),
+      ).expect(200);
+      expect(res.body).toMatchObject({ id: transactionIds[0], statementId: statementIds[0] });
     });
 
-    it('should return 404 for non-existent transaction', () => {
-      return request(app.getHttpServer())
-        .get('/transactions/99999')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(404);
-    });
-
-    it('should not allow accessing other workspace transactions', async () => {
-      const otherLogin = await request(app.getHttpServer()).post('/auth/login').send({
-        email: 'other-user@example.com',
-        password: 'Test123!@#',
-      });
-
-      if (!transactionId) return;
-
-      return request(app.getHttpServer())
-        .get(`/transactions/${transactionId}`)
-        .set('Authorization', `Bearer ${otherLogin.body.accessToken}`)
-        .expect(404);
+    it('does not find it from another workspace', () => {
+      return as(other, request(server()).get(`/transactions/${transactionIds[0]}`)).expect(404);
     });
   });
 
-  describe('PATCH /transactions/:id', () => {
-    it('should update transaction', () => {
-      if (!transactionId) return;
-
-      return request(app.getHttpServer())
-        .patch(`/transactions/${transactionId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          description: 'Updated description',
-        })
-        .expect(200)
-        .expect(res => {
-          expect(res.body.description).toBe('Updated description');
-        });
+  describe('PUT /transactions/:id', () => {
+    it('updates the transaction', async () => {
+      const res = await as(owner, request(server()).put(`/transactions/${transactionIds[0]}`))
+        .send({ counterpartyName: 'Corner coffee' })
+        .expect(200);
+      expect(res.body.counterpartyName).toBe('Corner coffee');
     });
 
-    it('should update transaction category', async () => {
-      if (!transactionId) return;
-
-      const categoryRes = await request(app.getHttpServer())
-        .post('/categories')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          name: 'Transport',
-          type: 'EXPENSE',
-        });
-
-      return request(app.getHttpServer())
-        .patch(`/transactions/${transactionId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          categoryId: categoryRes.body.id,
-        })
-        .expect(200)
-        .expect(res => {
-          expect(res.body.categoryId).toBe(categoryRes.body.id);
-        });
-    });
-
-    it('should validate update data', () => {
-      if (!transactionId) return;
-
-      return request(app.getHttpServer())
-        .patch(`/transactions/${transactionId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          amount: 'invalid', // Should be number
-        })
+    it('rejects invalid data', () => {
+      return as(owner, request(server()).put(`/transactions/${transactionIds[0]}`))
+        .send({ debit: 'not-a-number' })
         .expect(400);
     });
 
-    it('should not allow updating other workspace transactions', async () => {
-      if (!transactionId) return;
-
-      const otherLogin = await request(app.getHttpServer()).post('/auth/login').send({
-        email: 'other-user@example.com',
-        password: 'Test123!@#',
-      });
-
-      return request(app.getHttpServer())
-        .patch(`/transactions/${transactionId}`)
-        .set('Authorization', `Bearer ${otherLogin.body.accessToken}`)
-        .send({
-          description: 'Hacked!',
-        })
+    it('does not let another workspace change it', () => {
+      return as(other, request(server()).put(`/transactions/${transactionIds[0]}`))
+        .send({ counterpartyName: 'Tampered' })
         .expect(404);
     });
   });
 
   describe('POST /transactions/bulk-update', () => {
-    it('should bulk update transactions', async () => {
-      const transactions = await request(app.getHttpServer())
-        .get('/transactions?limit=5')
-        .set('Authorization', `Bearer ${accessToken}`);
-
-      const ids = transactions.body.items.map(t => t.id);
-
-      return request(app.getHttpServer())
-        .post('/transactions/bulk-update')
-        .set('Authorization', `Bearer ${accessToken}`)
+    it('updates several transactions at once', async () => {
+      const res = await as(owner, request(server()).post('/transactions/bulk-update'))
         .send({
-          ids,
-          updates: {
-            description: 'Bulk updated',
-          },
+          items: [
+            { id: transactionIds[0], updates: { counterpartyName: 'Bulk A' } },
+            { id: transactionIds[1], updates: { counterpartyName: 'Bulk B' } },
+          ],
         })
         .expect(200);
+      expect(res.body.map((tx: { counterpartyName: string }) => tx.counterpartyName).sort()).toEqual([
+        'Bulk A',
+        'Bulk B',
+      ]);
     });
 
-    it('should bulk categorize transactions', async () => {
-      const categoryRes = await request(app.getHttpServer())
-        .post('/categories')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          name: 'Utilities',
-          type: 'EXPENSE',
-        });
-
-      const transactions = await request(app.getHttpServer())
-        .get('/transactions?limit=3')
-        .set('Authorization', `Bearer ${accessToken}`);
-
-      const ids = transactions.body.items.map(t => t.id);
-
-      return request(app.getHttpServer())
-        .post('/transactions/bulk-update')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          ids,
-          updates: {
-            categoryId: categoryRes.body.id,
-          },
-        })
-        .expect(200);
-    });
-
-    it('should validate bulk update data', () => {
-      return request(app.getHttpServer())
-        .post('/transactions/bulk-update')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          ids: [], // Empty array
-          updates: {},
-        })
-        .expect(400);
+    it('rejects a body in neither supported shape', () => {
+      return as(owner, request(server()).post('/transactions/bulk-update')).send({}).expect(400);
     });
   });
 
   describe('DELETE /transactions/:id', () => {
-    it('should delete transaction', async () => {
-      // Create a new statement to have a transaction to delete
-      const stmt = await request(app.getHttpServer())
-        .post('/statements')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .attach('file', Buffer.from('test'), 'delete-test.pdf');
-
-      const trans = await request(app.getHttpServer())
-        .get(`/transactions?statementId=${stmt.body.id}`)
-        .set('Authorization', `Bearer ${accessToken}`);
-
-      if (trans.body.items.length > 0) {
-        const toDelete = trans.body.items[0].id;
-
-        await request(app.getHttpServer())
-          .delete(`/transactions/${toDelete}`)
-          .set('Authorization', `Bearer ${accessToken}`)
-          .expect(200);
-
-        return request(app.getHttpServer())
-          .get(`/transactions/${toDelete}`)
-          .set('Authorization', `Bearer ${accessToken}`)
-          .expect(404);
-      }
+    it('does not let another workspace delete it', () => {
+      return as(other, request(server()).delete(`/transactions/${transactionIds[2]}`)).expect(404);
     });
 
-    it('should not allow deleting other workspace transactions', async () => {
-      if (!transactionId) return;
-
-      const otherLogin = await request(app.getHttpServer()).post('/auth/login').send({
-        email: 'other-user@example.com',
-        password: 'Test123!@#',
-      });
-
-      return request(app.getHttpServer())
-        .delete(`/transactions/${transactionId}`)
-        .set('Authorization', `Bearer ${otherLogin.body.accessToken}`)
-        .expect(404);
-    });
-  });
-
-  describe('GET /transactions/statistics', () => {
-    it('should return transaction statistics', () => {
-      return request(app.getHttpServer())
-        .get('/transactions/statistics')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body).toHaveProperty('totalIncome');
-          expect(res.body).toHaveProperty('totalExpenses');
-          expect(res.body).toHaveProperty('balance');
-          expect(res.body).toHaveProperty('transactionCount');
-        });
-    });
-
-    it('should filter statistics by date range', () => {
-      const startDate = new Date('2024-01-01').toISOString();
-      const endDate = new Date('2024-12-31').toISOString();
-
-      return request(app.getHttpServer())
-        .get(`/transactions/statistics?startDate=${startDate}&endDate=${endDate}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200);
-    });
-
-    it('should group statistics by category', () => {
-      return request(app.getHttpServer())
-        .get('/transactions/statistics?groupBy=category')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body).toHaveProperty('byCategory');
-        });
-    });
-
-    it('should group statistics by month', () => {
-      return request(app.getHttpServer())
-        .get('/transactions/statistics?groupBy=month')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body).toHaveProperty('byMonth');
-        });
-    });
-  });
-
-  describe('POST /transactions/classify', () => {
-    it('should auto-classify transaction', () => {
-      if (!transactionId) return;
-
-      return request(app.getHttpServer())
-        .post(`/transactions/${transactionId}/classify`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body).toHaveProperty('categoryId');
-        });
-    });
-
-    it('should classify all uncategorized transactions', () => {
-      return request(app.getHttpServer())
-        .post('/transactions/classify-all')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body).toHaveProperty('classified');
-        });
-    });
-  });
-
-  describe('GET /transactions/export', () => {
-    it('should export transactions to CSV', () => {
-      return request(app.getHttpServer())
-        .get('/transactions/export?format=csv')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect('Content-Type', /csv/);
-    });
-
-    it('should export transactions to Excel', () => {
-      return request(app.getHttpServer())
-        .get('/transactions/export?format=xlsx')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200)
-        .expect(
-          'Content-Type',
-          /spreadsheet|vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/,
-        );
-    });
-
-    it('should filter exported transactions', () => {
-      const startDate = new Date('2024-01-01').toISOString();
-
-      return request(app.getHttpServer())
-        .get(`/transactions/export?format=csv&startDate=${startDate}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200);
+    it('deletes the transaction', async () => {
+      await as(owner, request(server()).delete(`/transactions/${transactionIds[2]}`)).expect(204);
+      await as(owner, request(server()).get(`/transactions/${transactionIds[2]}`)).expect(404);
     });
   });
 });

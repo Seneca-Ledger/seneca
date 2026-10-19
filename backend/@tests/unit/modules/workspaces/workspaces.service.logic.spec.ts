@@ -275,7 +275,7 @@ describe('WorkspacesService', () => {
       expect(invitationRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'inv-1', status: WorkspaceInvitationStatus.CANCELLED }),
       );
-      expect(result).toEqual({ message: 'Приглашение отозвано' });
+      expect(result).toEqual({ message: 'Invitation revoked' });
     });
   });
 
@@ -370,6 +370,45 @@ describe('WorkspacesService', () => {
         expect.objectContaining({ status: WorkspaceInvitationStatus.ACCEPTED }),
       );
       expect(result.workspaceId).toBe('w1');
+    });
+
+    it('does not repoint the home workspace of a user who already has one', async () => {
+      // The tenant-isolation bug: accepting an invitation used to overwrite the
+      // invitee's home workspace, carrying everything scoped through it into
+      // the inviting workspace. Membership alone must grant the access.
+      const currentUser = {
+        id: 'u2',
+        email: 'invited@example.com',
+        workspaceId: 'home-workspace',
+      } as User;
+      const invitation = {
+        id: 'inv-1',
+        workspaceId: 'w1',
+        email: 'invited@example.com',
+        role: WorkspaceRole.MEMBER,
+        permissions: null,
+        invitedById: 'u-owner',
+        status: WorkspaceInvitationStatus.PENDING,
+        token: 't1',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as any;
+
+      invitationRepository.findOne = jest.fn(async () => invitation);
+      workspaceRepository.findOne = jest.fn(
+        async () => ({ id: 'w1', name: 'W', ownerId: 'u-owner' }) as any,
+      );
+      workspaceMemberRepository.findOne = jest.fn(async () => null);
+      workspaceMemberRepository.save = jest.fn(async (m: any) => m);
+      invitationRepository.save = jest.fn(async (inv: any) => inv);
+
+      await service.acceptInvitation(currentUser, 't1');
+
+      // Membership is still created — the user does gain access to w1.
+      expect(workspaceMemberRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: 'w1', userId: 'u2' }),
+      );
+      // ...but their home workspace is left alone.
+      expect(userRepository.update).not.toHaveBeenCalled();
     });
   });
 });

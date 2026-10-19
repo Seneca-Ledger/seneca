@@ -1,10 +1,10 @@
 'use client';
 
-import { Folder, MoreVertical } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import { Box, IconButton, Typography } from '@mui/material';
 import React from 'react';
 import toast from 'react-hot-toast';
+import { Folder, MoreVertical } from '@/app/components/icons';
+import { tokens } from '@/lib/theme-tokens';
 import type { FolderOption } from '../storageHelpers';
 
 export interface FolderViewRowProps {
@@ -48,8 +48,9 @@ const dragBtnSx = {
   bgcolor: 'transparent',
   cursor: 'pointer',
   opacity: 0,
-  '.group:hover &': { opacity: 1 },
-  '&:hover': { color: 'primary.main', bgcolor: 'rgba(22,129,24,0.05)' },
+  // Revealed on row hover and on keyboard focus (the row wrapper is role="button").
+  '[role="button"]:hover &, &:focus-visible': { opacity: 1 },
+  '&:hover': { color: 'primary.main', bgcolor: 'rgba(var(--primary-rgb),0.05)' },
 };
 const menuBtnSx = {
   color: 'var(--muted-foreground)',

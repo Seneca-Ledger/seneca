@@ -1,23 +1,17 @@
 'use client';
-import { formatStoredDateTime } from '@/app/lib/user-format-store';
-
-import { ChevronDown, ChevronRight, Cpu, Plug, User } from '@/app/components/icons';
-import { AppPagination } from '@/app/components/ui/pagination';
-import type { AuditEvent } from '@/lib/api/audit';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import {
-  type ColumnDef,
-  type SortingState,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
 import { useTheme } from 'next-themes';
 import { useMemo, useState } from 'react';
+import { type GridColumnDef, useDataGrid } from '@/app/components/data-grid';
+import { ChevronDown, ChevronRight, Cpu, Plug, User } from '@/app/components/icons';
+import { AppPagination } from '@/app/components/ui/pagination';
+import { useIntlayer } from '@/app/i18n';
+import { formatStoredDateTime } from '@/app/lib/user-format-store';
+import type { AuditEvent } from '@/lib/api/audit';
+import { tokens } from '@/lib/theme-tokens';
 import { formatAuditEvent } from '../utils/formatAuditEvent';
 
 interface AuditEventTableProps {
@@ -55,7 +49,7 @@ const actionToneColors: Record<string, { bg: string; color: string }> = {
   info: { bg: 'var(--color-info-soft-bg)', color: 'var(--color-info-soft-text)' },
   warn: { bg: '#fefce8', color: '#a16207' },
   critical: { bg: 'var(--color-error-soft-bg)', color: 'var(--destructive)' },
-  primary: { bg: 'var(--color-success-soft-bg)', color: '#157811' },
+  primary: { bg: 'var(--color-success-soft-bg)', color: 'var(--primary)' },
   success: { bg: 'var(--color-success-soft-bg)', color: 'var(--color-success-soft-text)' },
 };
 
@@ -67,6 +61,7 @@ export function AuditEventTable({
   total,
   onPageChange,
 }: AuditEventTableProps) {
+  const t = useIntlayer('auditUi');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
 
@@ -132,11 +127,11 @@ export function AuditEventTable({
     });
   };
 
-  const columns = useMemo<ColumnDef<AuditTableRow>[]>(
+  const columns = useMemo<GridColumnDef<AuditTableRow, unknown>[]>(
     () => [
       {
         id: 'action',
-        header: 'Action',
+        header: t.action.value,
         cell: ({ row }) => {
           const data = row.original;
           if (data.type === 'group') {
@@ -161,7 +156,7 @@ export function AuditEventTable({
                 ) : (
                   <ChevronRight size={16} />
                 )}
-                Batch {data.batchId.slice(0, 8)}
+                {t.batchId.value.replace('{id}', data.batchId.slice(0, 8))}
               </button>
             );
           }
@@ -185,13 +180,13 @@ export function AuditEventTable({
       },
       {
         id: 'object',
-        header: 'Object',
+        header: t.object.value,
         cell: ({ row }) => {
           const data = row.original;
           if (data.type === 'group') {
             return (
               <Typography variant="body2" style={{ color: c.ink500 }}>
-                {data.count} events
+                {t.eventsCount.value.replace('{count}', String(data.count))}
               </Typography>
             );
           }
@@ -205,7 +200,7 @@ export function AuditEventTable({
       },
       {
         id: 'description',
-        header: 'Description',
+        header: t.description.value,
         cell: ({ row }) => {
           const data = row.original;
           if (data.type === 'group') {
@@ -225,7 +220,7 @@ export function AuditEventTable({
       },
       {
         id: 'user',
-        header: 'User',
+        header: t.user.value,
         cell: ({ row }) => {
           const data = row.original;
           if (data.type === 'group') {
@@ -259,7 +254,7 @@ export function AuditEventTable({
       },
       {
         id: 'date',
-        header: 'Date',
+        header: t.date.value,
         cell: ({ row }) => {
           const data = row.original;
           return (
@@ -271,7 +266,7 @@ export function AuditEventTable({
       },
       {
         id: 'severity',
-        header: 'Severity',
+        header: t.severity.value,
         cell: ({ row }) => {
           const data = row.original;
           if (data.type === 'group') {
@@ -299,14 +294,13 @@ export function AuditEventTable({
         },
       },
     ],
-    [expandedBatches, c],
+    [expandedBatches, c, t],
   );
 
-  const table = useReactTable({
+  const table = useDataGrid<AuditTableRow>({
     data: groupedData,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    getRowId: row => row.id,
     state: { sorting },
     onSortingChange: setSorting,
   });
@@ -332,9 +326,7 @@ export function AuditEventTable({
                       borderBottom: `1px solid ${c.border}`,
                     }}
                   >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.isPlaceholder ? null : <table.FlexRender header={header} />}
                   </th>
                 ))}
               </tr>
@@ -370,7 +362,7 @@ export function AuditEventTable({
                 >
                   {row.getVisibleCells().map(cell => (
                     <td key={cell.id} style={{ padding: '12px 16px', verticalAlign: 'top' }}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      <table.FlexRender cell={cell} />
                     </td>
                   ))}
                 </tr>
@@ -387,7 +379,7 @@ export function AuditEventTable({
                     color: c.ink500,
                   }}
                 >
-                  No events found.
+                  {t.noEvents}
                 </td>
               </tr>
             )}
@@ -405,7 +397,7 @@ export function AuditEventTable({
         }}
       >
         <div>
-          Page {page} of {totalPages}
+          {t.pageOf.value.replace('{page}', String(page)).replace('{total}', String(totalPages))}
         </div>
         <AppPagination page={page} total={totalPages} onChange={onPageChange} />
       </Box>

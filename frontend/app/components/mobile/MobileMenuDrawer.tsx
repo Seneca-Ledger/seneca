@@ -1,11 +1,14 @@
 'use client';
 
-import { HelpCircle, Settings, X } from '@/app/components/icons';
-import { usePermissions } from '@/app/hooks/usePermissions';
-import { useIntlayer } from '@/app/i18n';
+import FocusTrap from '@mui/material/Unstable_TrapFocus';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { X } from '@/app/components/icons';
+import { usePermissions } from '@/app/hooks/usePermissions';
+import { useIntlayer } from '@/app/i18n';
+import { useExperimentalMode } from '@/app/lib/experimental-mode';
+import { AccountMenu } from '../navigation/AccountMenu';
 import { buildNavItems, isNavItemActive } from '../navigation/helpers/navigation-config';
 
 interface MobileMenuDrawerProps {
@@ -16,10 +19,13 @@ interface MobileMenuDrawerProps {
 export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
   const pathname = usePathname();
   const { hasPermission } = usePermissions();
-  const { nav } = useIntlayer('navigation');
+  const { nav, shell } = useIntlayer('navigation');
 
   const navItems = buildNavItems(nav as Parameters<typeof buildNavItems>[0]);
-  const visibleNavItems = navItems.filter(item => hasPermission(item.permission));
+  const experimentalMode = useExperimentalMode();
+  const visibleNavItems = navItems.filter(
+    item => hasPermission(item.permission) && (!item.experimental || experimentalMode),
+  );
 
   // Close on route change
   useEffect(() => {
@@ -50,68 +56,54 @@ export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
     <>
       {/* Backdrop */}
       <div
-        className={`lumio-mobile-drawer__backdrop${open ? ' lumio-mobile-drawer__backdrop--visible' : ''}`}
+        className={`seneca-mobile-drawer__backdrop${open ? ' seneca-mobile-drawer__backdrop--visible' : ''}`}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Drawer panel */}
-      <aside
-        className={`lumio-mobile-drawer${open ? ' lumio-mobile-drawer--open' : ''}`}
-        aria-label="Menu"
-      >
-        <div className="lumio-mobile-drawer__header">
-          <span className="lumio-mobile-drawer__title">Menu</span>
-          <button
-            type="button"
-            className="lumio-mobile-drawer__close"
-            onClick={onClose}
-            aria-label="Close menu"
-          >
-            <X size={20} />
-          </button>
-        </div>
+      {/* Drawer panel: inert while slid off-canvas; when open, focus moves in, stays inside
+          and returns to the trigger on close. */}
+      <FocusTrap open={open}>
+        <aside
+          className={`seneca-mobile-drawer${open ? ' seneca-mobile-drawer--open' : ''}`}
+          aria-label={shell.menu.value}
+          inert={!open}
+          tabIndex={-1}
+        >
+          <div className="seneca-mobile-drawer__header">
+            <span className="seneca-mobile-drawer__title">{shell.menu}</span>
+            <button
+              type="button"
+              className="seneca-mobile-drawer__close"
+              onClick={onClose}
+              aria-label={shell.closeMenu.value}
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-        <nav className="lumio-mobile-drawer__nav">
-          <div className="lumio-mobile-drawer__section-label">Workspace</div>
-          {visibleNavItems.map(item => {
-            const active = isNavItemActive(pathname ?? '', item.path);
-            return (
-              <Link
-                key={item.path}
-                href={item.path}
-                className={`lumio-mobile-drawer__item${active ? ' lumio-mobile-drawer__item--active' : ''}`}
-                onClick={onClose}
-              >
-                <span className="lumio-mobile-drawer__item-icon">{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+          <nav className="seneca-mobile-drawer__nav">
+            {visibleNavItems.map(item => {
+              const active = isNavItemActive(pathname ?? '', item.path);
+              return (
+                <Link
+                  key={item.path}
+                  href={item.path}
+                  className={`seneca-mobile-drawer__item${active ? ' seneca-mobile-drawer__item--active' : ''}`}
+                  onClick={onClose}
+                >
+                  <span className="seneca-mobile-drawer__item-icon">{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
 
-        <div className="lumio-mobile-drawer__footer">
-          <Link href="/settings/profile" className="lumio-mobile-drawer__item" onClick={onClose}>
-            <span className="lumio-mobile-drawer__item-icon">
-              <Settings size={18} />
-            </span>
-            <span>Settings</span>
-          </Link>
-          <button
-            type="button"
-            className="lumio-mobile-drawer__item"
-            onClick={() => {
-              window.open('https://symonbaikov.github.io/lumio/', '_blank', 'noopener,noreferrer');
-              onClose();
-            }}
-          >
-            <span className="lumio-mobile-drawer__item-icon">
-              <HelpCircle size={18} />
-            </span>
-            <span>Help</span>
-          </button>
-        </div>
-      </aside>
+          <div className="seneca-mobile-drawer__footer">
+            <AccountMenu variant="mobile" onAction={onClose} />
+          </div>
+        </aside>
+      </FocusTrap>
     </>
   );
 }

@@ -1,6 +1,6 @@
-# Contributing to Lumio
+# Contributing to Seneca
 
-First off, thank you for considering contributing to Lumio! It's people like you that make Lumio such a great tool.
+First off, thank you for considering contributing to Seneca! It's people like you that make Seneca such a great tool.
 
 ## Table of Contents
 
@@ -61,9 +61,9 @@ Unsure where to begin? You can start by looking through these issues:
 
 The process described here has several goals:
 
-- Maintain Lumio's quality
+- Maintain Seneca's quality
 - Fix problems that are important to users
-- Engage the community in working toward the best possible Lumio
+- Engage the community in working toward the best possible Seneca
 - Enable a sustainable system for maintainers to review contributions
 
 **Before submitting a pull request:**
@@ -73,9 +73,9 @@ The process described here has several goals:
 3. **Make your changes** and ensure they work
 4. **Add tests** if you've added code that should be tested
 5. **Update documentation** if you've changed APIs or added features
-6. **Ensure the test suite passes** (`npm test`)
-7. **Make sure your code lints** (`npm run lint`)
-8. **Format your code** (`npm run format`)
+6. **Ensure the test suite passes** (`npm test` at the root runs backend Jest and frontend Vitest)
+7. **Make sure your code lints and type-checks** (`npm --prefix backend run lint:check`, `npm --prefix frontend run lint:check`, `npm --prefix backend run typecheck`, `npm --prefix frontend run type-check`)
+8. **Format your code** (`make format`)
 
 **Pull Request Guidelines:**
 
@@ -143,6 +143,9 @@ chore(deps): update dependencies to latest versions
 - Separate subject from body with a blank line
 - Wrap the body at 72 characters
 
+commitlint checks every message in the `commit-msg` hook. The `pre-push` hook runs the backend unit
+tests when `backend/src` changed.
+
 ### TypeScript Style Guide
 
 We use Biome to enforce code style (linting, formatting, import sorting):
@@ -200,9 +203,9 @@ export class usrSvc { // bad naming
 npm --prefix backend run lint:check
 npm --prefix frontend run lint:check
 
-# Auto-fix linting errors
-npm --prefix backend run lint
-npm --prefix frontend run lint
+# Auto-fix linting errors (the frontend runs both Biome and ESLint)
+npm --prefix backend run lint:fix
+npm --prefix frontend run lint:fix
 
 # Format code explicitly (Biome also formats on lint --write)
 npm --prefix backend run format
@@ -224,8 +227,8 @@ npm --prefix frontend run format
 
 ### Prerequisites
 
-- Node.js 18+ and npm
-- Docker and Docker Compose (for local PostgreSQL/Redis)
+- Node.js 22.18+ and npm
+- Docker with Compose v2 (`docker compose`) for local PostgreSQL/Redis
 - Git
 - PostgreSQL 14+ (optional if you do not use Docker)
 - Redis 7+ (optional if you do not use Docker)
@@ -233,23 +236,24 @@ npm --prefix frontend run format
 ### Quick Start (Recommended)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/lumio.git
-cd lumio
-make quick-dev
+git clone https://github.com/YOUR_USERNAME/seneca.git
+cd seneca
+npm run setup:dev:docker   # or: make quick-dev
 ```
 
-Open http://localhost:3000 and login with `demo@lumio.dev` / `demo123`.
+Open http://localhost:3000 and login with `demo@seneca.dev` / `demo123`.
 
 ### Local Development (without backend/frontend containers)
 
 1. **Fork and clone the repository:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/lumio.git
-   cd lumio
+   git clone https://github.com/YOUR_USERNAME/seneca.git
+   cd seneca
    ```
 
-2. **Start database services only:**
+2. **Generate env files and start database services only:**
    ```bash
+   npm run setup:env   # writes ignored .env, backend/.env and frontend/.env.local
    make db-start
    ```
 
@@ -275,8 +279,9 @@ Open http://localhost:3000 and login with `demo@lumio.dev` / `demo123`.
     - Backend API: http://localhost:3001/api/v1
     - API Docs (Swagger): http://localhost:3001/api/docs
 
-No `.env` files are required for development mode. If needed, use `backend/.env.example` (minimal)
-or `backend/.env.all-options` (full reference) for local overrides.
+`npm run setup:dev:local` does steps 2–5 in one go. The generated env files keep any values you
+already set; use `backend/.env.example` (minimal) or `backend/.env.all-options` (full reference)
+for local overrides. Swagger is served only outside production.
 
 ### Hot Reload in Development
 
@@ -295,10 +300,12 @@ npm run build           # Build for production
 npm run test            # Run tests
 npm run test:watch      # Run tests in watch mode
 npm run test:cov        # Run tests with coverage
-npm run lint            # Lint and fix
+npm run lint:fix        # Lint and fix
 npm run lint:check      # Check linting
-npm run migration:generate -- MigrationName  # Generate migration
-npm run migration:run   # Run migrations
+npm run typecheck       # TypeScript type checking
+npm run migration:generate -- src/migrations/MigrationName  # Generate migration
+npm run migration:run:dev  # Run migrations (ts-node, no lock)
+npm run migration:run   # Run migrations the production way (build + lock)
 npm run migration:revert  # Revert last migration
 
 # Frontend
@@ -306,21 +313,22 @@ cd frontend
 npm run dev             # Start dev server
 npm run build           # Build for production
 npm run start           # Start production server
-npm run lint            # Lint code
+npm run lint:check      # Biome + ESLint
 npm run type-check      # TypeScript type checking
+npm test                # Vitest
 
 # Docker
-docker-compose up -d              # Start all services
-docker-compose down               # Stop all services
-docker-compose logs -f            # View logs
-docker-compose logs -f backend    # View backend logs
-docker-compose restart backend    # Restart backend
-docker exec -it lumio-backend bash  # Shell into backend
+docker compose up -d              # Start all services
+docker compose down               # Stop all services
+docker compose logs -f            # View logs
+docker compose logs -f backend    # View backend logs
+docker compose restart backend    # Restart backend
+docker exec -it finflow-backend sh  # Shell into backend
 ```
 
 ## Testing
 
-We use Jest for both backend and frontend testing.
+The backend uses Jest; the frontend uses Vitest.
 
 ### Running Tests
 
@@ -330,7 +338,8 @@ cd backend
 npm test                # Run all tests
 npm run test:watch      # Run in watch mode
 npm run test:cov        # With coverage
-npm run test:e2e        # Run e2e tests
+npm run test:e2e        # Run e2e tests (needs PostgreSQL and Redis)
+npm run test:golden     # Parser golden tests
 
 # Frontend tests
 cd frontend
@@ -380,20 +389,19 @@ describe('Button', () => {
 
 ### Test Coverage
 
-We aim for:
-- **Backend**: 80%+ coverage
-- **Frontend**: 70%+ coverage
+There is no project-wide coverage target yet — cover the code you change. The backend Jest config
+enforces only a low global floor.
 
-View coverage reports:
+View the backend coverage report:
 ```bash
-npm run test:cov
-# Open coverage/lcov-report/index.html
+npm --prefix backend run test:cov
+# Open backend/coverage/lcov-report/index.html
 ```
 
 ## Project Structure
 
 ```
-lumio/
+seneca/
 ├── backend/                    # NestJS backend
 │   ├── src/
 │   │   ├── modules/           # Feature modules
@@ -404,22 +412,24 @@ lumio/
 │   │   ├── entities/         # TypeORM entities
 │   │   ├── common/           # Shared utilities
 │   │   ├── config/           # Configuration
+│   │   ├── migrations/       # Database migrations
 │   │   └── main.ts           # Entry point
-│   ├── test/                 # Tests
-│   └── migrations/           # Database migrations
+│   └── @tests/               # Unit, integration and e2e tests
 │
 ├── frontend/                  # Next.js frontend
 │   ├── app/                  # App Router pages
 │   │   ├── (auth)/          # Auth pages
+│   │   ├── (main)/          # Signed-in app routes
 │   │   ├── admin/           # Admin dashboard
 │   │   ├── components/      # Shared components
+│   │   ├── lib/             # API client, CSRF helper, utilities
+│   │   ├── styles/          # Global SCSS
 │   │   └── ...
-│   ├── public/              # Static assets
-│   └── styles/              # Global styles
+│   └── public/              # Static assets
 │
-├── docs/                     # Documentation
-├── scripts/                  # Helper scripts
-└── observability/           # Monitoring configs
+├── docs/                     # Plans, CI and security notes
+├── website/                  # Docusaurus documentation site
+└── scripts/                  # Helper scripts
 ```
 
 ### Key Directories
@@ -448,11 +458,11 @@ lumio/
    ```
 
 3. **Add tests:**
-   - Backend: `my-feature.service.spec.ts`
-   - Frontend: `MyFeature.test.tsx`
+   - Backend: `backend/@tests/unit/.../my-feature.service.spec.ts`
+   - Frontend: `MyFeature.test.tsx` next to the component
 
 4. **Update documentation:**
-   - Add to relevant docs in `docs/`
+   - Add to relevant pages in `website/docs/`
    - Update API docs if adding endpoints
 
 ## Questions?
@@ -469,4 +479,4 @@ Contributors are recognized in:
 - GitHub contributors page
 - Special mentions for significant contributions
 
-Thank you for contributing to Lumio! 🎉
+Thank you for contributing to Seneca! 🎉

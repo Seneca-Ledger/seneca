@@ -1,11 +1,11 @@
 'use client';
 
-import type { LucideIcon } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import type { LucideIcon } from '@/app/components/icons';
+import { tokens } from '@/lib/theme-tokens';
 
 export interface ReportTemplate {
   id: string;
@@ -13,7 +13,17 @@ export interface ReportTemplate {
   description: string;
   icon: LucideIcon;
   category: 'financial' | 'operational' | 'tax';
-  formats: Array<'pdf' | 'excel' | 'csv' | 'google-sheets'>;
+  formats: Array<'pdf' | 'excel' | 'csv'>;
+  /** 'none' for a snapshot of today, where a date range means nothing. Defaults to 'range'. */
+  period?: 'range' | 'none';
+  /** Wallet and category filters; off for documents that are not a transaction query. */
+  scopeFilters?: boolean;
+  /** The day / week / month bucket picker. */
+  groupBy?: boolean;
+  /** Whether the on-screen preview is offered. Defaults to true. */
+  preview?: boolean;
+  /** A line under the description, e.g. a limit on the period. */
+  hint?: string;
 }
 
 interface ReportTemplateCardProps {

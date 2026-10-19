@@ -1,8 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import nodemailer from 'nodemailer';
-import { TimeoutError, retry, withTimeout } from '../../common/utils/async.util';
+import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import type { User } from '../../entities/user.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
+
+export interface MailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
 
 export interface SendMailParams {
   to: string;
@@ -11,6 +17,12 @@ export interface SendMailParams {
   html?: string;
   /** Whose workspace SMTP settings to use; falls back to the SMTP_* env vars. */
   user?: User | null;
+  /**
+   * Which workspace's SMTP settings to use. Without it the user's *home*
+   * workspace decides, which is the wrong server for mail about another one.
+   */
+  workspaceId?: string;
+  attachments?: MailAttachment[];
 }
 
 /**
@@ -24,13 +36,16 @@ export class MailerService {
 
   constructor(private readonly applicationSettingsService: ApplicationSettingsService) {}
 
-  async isConfigured(user?: User | null): Promise<boolean> {
-    const smtp = await this.applicationSettingsService.getSmtpSettings(user);
+  async isConfigured(user?: User | null, workspaceId?: string): Promise<boolean> {
+    const smtp = await this.applicationSettingsService.getSmtpSettings(user, workspaceId);
     return Boolean((smtp?.host || process.env.SMTP_HOST) && (smtp?.from || process.env.SMTP_FROM));
   }
 
   async send(params: SendMailParams): Promise<boolean> {
-    const smtp = await this.applicationSettingsService.getSmtpSettings(params.user);
+    const smtp = await this.applicationSettingsService.getSmtpSettings(
+      params.user,
+      params.workspaceId,
+    );
     const host = smtp?.host || process.env.SMTP_HOST;
     const from = smtp?.from || process.env.SMTP_FROM;
 
@@ -52,25 +67,23 @@ export class MailerService {
       auth: user && pass ? { user, pass } : undefined,
     });
 
-    await retry(
+    await attemptWithRetry(
       () =>
-        withTimeout(
-          transporter.sendMail({
-            from,
-            to: params.to,
-            subject: params.subject,
-            text: params.text,
-            html: params.html,
-            replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
-          }),
-          Number.isFinite(timeoutMs) ? timeoutMs : 10000,
-          'SMTP request timed out',
-        ),
+        transporter.sendMail({
+          from,
+          to: params.to,
+          subject: params.subject,
+          text: params.text,
+          html: params.html,
+          attachments: params.attachments,
+          replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
+        }),
       {
+        timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 10000,
+        timeoutMessage: 'SMTP request timed out',
         retries: 1,
         baseDelayMs: 300,
         maxDelayMs: 2000,
-        isRetryable: error => error instanceof TimeoutError,
       },
     );
 

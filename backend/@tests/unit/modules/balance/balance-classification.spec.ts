@@ -21,6 +21,7 @@ function createService(account: Record<string, unknown> | null) {
     {} as any,
     {} as any,
     auditService,
+    {} as any,
   );
 
   return { service, balanceAccountRepository, auditService };

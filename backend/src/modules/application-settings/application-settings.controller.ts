@@ -1,17 +1,30 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
   Post,
   Put,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import {
+  LocalCategorizationStatus,
+  SaveAppSettingsBody,
+  SaveLocalCategorizationBody,
+  SaveSmtpSettingsBody,
+  SaveTelegramSettingsBody,
+  TelegramBotStatus,
+  TestLocalCategorizationBody,
+} from '../../contracts';
 import { User, WorkspaceServiceSettingsKey } from '../../entities';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApplicationSettingsService } from './application-settings.service';
@@ -25,37 +38,31 @@ type UploadedModelArchive = {
 export class ApplicationSettingsController {
   constructor(private readonly applicationSettingsService: ApplicationSettingsService) {}
 
-  @Get('integrations/ai')
-  getAi(@CurrentUser() user: User) {
-    return this.applicationSettingsService.getAiStatus(user);
-  }
-
-  @Put('integrations/ai')
-  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  saveAi(@CurrentUser() user: User, @Body() body: Record<string, unknown>) {
-    return this.applicationSettingsService.saveAiSettings(user, body);
-  }
-
-  @Delete('integrations/ai')
-  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  disconnectAi(@CurrentUser() user: User) {
-    return this.applicationSettingsService.disconnect(user, WorkspaceServiceSettingsKey.AI);
-  }
-
   @Get('local-categorization')
-  getLocalCategorization(@CurrentUser() user: User) {
-    return this.applicationSettingsService.getLocalCategorizationStatus(user);
+  @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(LocalCategorizationStatus)
+  getLocalCategorization(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.applicationSettingsService.getLocalCategorizationStatus(user, workspaceId);
   }
 
   @Put('local-categorization')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  saveLocalCategorization(@CurrentUser() user: User, @Body() body: Record<string, unknown>) {
-    return this.applicationSettingsService.saveLocalCategorizationSettings(user, body);
+  saveLocalCategorization(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SaveLocalCategorizationBody) body: SaveLocalCategorizationBody,
+  ) {
+    return this.applicationSettingsService.saveLocalCategorizationSettings(user, body, workspaceId);
   }
 
   @Post('local-categorization/test')
-  testLocalCategorization(@CurrentUser() user: User, @Body() body: Record<string, unknown>) {
-    return this.applicationSettingsService.testLocalCategorization(user, body);
+  @UseGuards(WorkspaceContextGuard)
+  testLocalCategorization(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(TestLocalCategorizationBody) body: TestLocalCategorizationBody,
+  ) {
+    return this.applicationSettingsService.testLocalCategorization(user, body, workspaceId);
   }
 
   @Post('local-categorization/model')
@@ -68,59 +75,88 @@ export class ApplicationSettingsController {
   )
   uploadLocalCategorizationModel(
     @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
     @UploadedFile() file: UploadedModelArchive | undefined,
   ) {
-    return this.applicationSettingsService.installLocalCategorizationModel(user, file);
+    return this.applicationSettingsService.installLocalCategorizationModel(user, file, workspaceId);
   }
 
   @Get('email/smtp')
-  getSmtp(@CurrentUser() user: User) {
-    return this.applicationSettingsService.getSmtpStatus(user);
+  @UseGuards(WorkspaceContextGuard)
+  getSmtp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.applicationSettingsService.getSmtpStatus(user, workspaceId);
   }
 
   @Put('email/smtp')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  saveSmtp(@CurrentUser() user: User, @Body() body: Record<string, unknown>) {
-    return this.applicationSettingsService.saveSmtpSettings(user, body);
+  saveSmtp(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SaveSmtpSettingsBody) body: SaveSmtpSettingsBody,
+  ) {
+    return this.applicationSettingsService.saveSmtpSettings(user, body, workspaceId);
   }
 
   @Delete('email/smtp')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  disconnectSmtp(@CurrentUser() user: User) {
-    return this.applicationSettingsService.disconnect(user, WorkspaceServiceSettingsKey.SMTP);
+  disconnectSmtp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.applicationSettingsService.disconnect(
+      user,
+      WorkspaceServiceSettingsKey.SMTP,
+      workspaceId,
+    );
   }
 
   @Get('notifications/telegram')
-  getTelegram(@CurrentUser() user: User) {
-    return this.applicationSettingsService.getTelegramStatus(user);
+  @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(TelegramBotStatus)
+  getTelegram(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.applicationSettingsService.getTelegramStatus(user, workspaceId);
   }
 
   @Put('notifications/telegram')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  saveTelegram(@CurrentUser() user: User, @Body() body: Record<string, unknown>) {
-    return this.applicationSettingsService.saveTelegramSettings(user, body);
+  saveTelegram(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SaveTelegramSettingsBody) body: SaveTelegramSettingsBody,
+  ) {
+    return this.applicationSettingsService.saveTelegramSettings(user, body, workspaceId);
   }
 
   @Delete('notifications/telegram')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  disconnectTelegram(@CurrentUser() user: User) {
-    return this.applicationSettingsService.disconnect(user, WorkspaceServiceSettingsKey.TELEGRAM);
+  disconnectTelegram(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.applicationSettingsService.disconnect(
+      user,
+      WorkspaceServiceSettingsKey.TELEGRAM,
+      workspaceId,
+    );
   }
 
   @Get('app')
-  getApp(@CurrentUser() user: User) {
-    return this.applicationSettingsService.getAppStatus(user);
+  @UseGuards(WorkspaceContextGuard)
+  getApp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.applicationSettingsService.getAppStatus(user, workspaceId);
   }
 
   @Put('app')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  saveApp(@CurrentUser() user: User, @Body() body: Record<string, unknown>) {
-    return this.applicationSettingsService.saveAppSettings(user, body);
+  saveApp(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SaveAppSettingsBody) body: SaveAppSettingsBody,
+  ) {
+    return this.applicationSettingsService.saveAppSettings(user, body, workspaceId);
   }
 
   @Delete('app')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  disconnectApp(@CurrentUser() user: User) {
-    return this.applicationSettingsService.disconnect(user, WorkspaceServiceSettingsKey.APP);
+  disconnectApp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.applicationSettingsService.disconnect(
+      user,
+      WorkspaceServiceSettingsKey.APP,
+      workspaceId,
+    );
   }
 }

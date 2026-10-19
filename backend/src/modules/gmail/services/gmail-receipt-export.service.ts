@@ -1,9 +1,11 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
 import { In, Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
+import { APP_NAME } from '../../../common/brand';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { Category, Receipt } from '../../../entities';
 import { GmailOAuthService } from './gmail-oauth.service';
@@ -30,7 +32,7 @@ export class GmailReceiptExportService {
     @InjectRepository(Receipt)
     private readonly receiptRepository: Repository<Receipt>,
     @InjectRepository(Category)
-    private readonly categoryRepository: Repository<Category>,
+    categoryRepository: Repository<Category>,
     private readonly gmailOAuthService: GmailOAuthService,
   ) {}
 
@@ -38,17 +40,16 @@ export class GmailReceiptExportService {
     return (receipt.parsedData ?? {}) as ReceiptParsedData;
   }
 
-  async exportToSheets(
-    userId: string,
+  async exportToXlsx(
+    workspaceId: string,
     receiptIds: string[],
-    spreadsheetId?: string,
-  ): Promise<{ spreadsheetId: string; url: string }> {
+  ): Promise<{ fileName: string; url: string }> {
     try {
       // Fetch receipts with parsed data
       const receipts = await this.receiptRepository.find({
         where: {
           id: In(receiptIds),
-          userId,
+          workspaceId,
         },
         order: {
           receivedAt: 'DESC',
@@ -79,24 +80,23 @@ export class GmailReceiptExportService {
         rows.push(this.formatReceiptRow(receipt));
       }
 
-      const finalSpreadsheetId = spreadsheetId || `receipts-${Date.now()}`;
+      const fileName = `receipts-${Date.now()}.xlsx`;
       const exportsDir = path.join(resolveUploadsDir(), 'exports');
       await fs.promises.mkdir(exportsDir, { recursive: true });
       const workbook = xlsx.utils.book_new();
       const worksheet = xlsx.utils.aoa_to_sheet(rows);
       xlsx.utils.book_append_sheet(workbook, worksheet, 'Receipts');
-      const filePath = path.join(exportsDir, `${finalSpreadsheetId}.xlsx`);
+      const filePath = path.join(exportsDir, fileName);
       xlsx.writeFile(workbook, filePath);
-      const sheetUrl = `/uploads/exports/${path.basename(filePath)}`;
 
-      this.logger.log(`Exported ${receipts.length} receipts to spreadsheet ${finalSpreadsheetId}`);
+      this.logger.log(`Exported ${receipts.length} receipts to ${fileName}`);
 
       return {
-        spreadsheetId: finalSpreadsheetId,
-        url: sheetUrl,
+        fileName,
+        url: `/uploads/exports/${fileName}`,
       };
     } catch (error) {
-      this.logger.error('Failed to export receipts to sheets', error);
+      this.logger.error('Failed to export receipts to xlsx', error);
       throw error;
     }
   }
@@ -109,7 +109,7 @@ export class GmailReceiptExportService {
       parsedData.date || receipt.receivedAt.toISOString().split('T')[0],
       parsedData.vendor || receipt.sender,
       parsedData.amount || '',
-      parsedData.currency || 'KZT',
+      parsedData.currency || appDefaultCurrency(),
       parsedData.tax || '',
       parsedData.subtotal || '',
       parsedData.category || '',
@@ -119,19 +119,20 @@ export class GmailReceiptExportService {
     ];
   }
 
+  /** Drafted in the mailbox connected to the receipt's workspace. */
   async createGmailDraft(
-    userId: string,
+    workspaceId: string,
     receiptId: string,
   ): Promise<{ draftId: string; url: string }> {
     const receipt = await this.receiptRepository.findOne({
-      where: { id: receiptId, userId },
+      where: { id: receiptId, workspaceId },
     });
 
     if (!receipt) {
       throw new Error('Receipt not found');
     }
 
-    const { accessToken, integration } = await this.gmailOAuthService.getGmailClient(userId);
+    const { accessToken, integration } = await this.gmailOAuthService.getGmailClient(workspaceId);
 
     // Check for compose scope specifically for draft creation
     const scopes = Array.isArray(integration.scopes)
@@ -147,7 +148,7 @@ export class GmailReceiptExportService {
     const parsedData = this.getParsedData(receipt);
     const vendor = parsedData.vendor || receipt.sender || 'Unknown';
     const amount = parsedData.amount ?? '';
-    const currency = parsedData.currency || 'KZT';
+    const currency = parsedData.currency || appDefaultCurrency();
     const date = parsedData.date || receipt.receivedAt?.toISOString().split('T')[0] || '';
 
     const subject = amount
@@ -169,7 +170,7 @@ export class GmailReceiptExportService {
         : '',
       '</table>',
       gmailLink ? `<p>Original email: <a href="${gmailLink}">View in Gmail</a></p>` : '',
-      '<p><em>Exported from Lumio</em></p>',
+      `<p><em>Exported from ${APP_NAME}</em></p>`,
     ]
       .filter(Boolean)
       .join('\n');

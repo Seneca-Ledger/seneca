@@ -1,6 +1,7 @@
 /**
  * TypeScript types for transaction view components
  */
+import type { StatementCategorySource } from '@/app/lib/statement-categories';
 
 export interface Transaction {
   id: string;
@@ -17,9 +18,20 @@ export interface Transaction {
   exchangeRate?: number;
   article?: string;
   amountForeign?: number;
-  category?: { id: string; name: string; color?: string; isEnabled?: boolean };
+  category?: {
+    id: string;
+    name: string;
+    color?: string;
+    isEnabled?: boolean;
+    source?: StatementCategorySource;
+    isSystem?: boolean;
+  };
   branch?: { name: string };
   wallet?: { name: string };
+  /** Membership id of whoever this belongs to; null means the household shares it. */
+  ownerMemberId?: string | null;
+  /** Hidden from the rest of the household: merchant and purpose read as "—". */
+  isPrivate?: boolean;
   // Currency conversion (populated when convert_to query param is passed to the API)
   convertedAmount?: number;
   conversionRate?: number;
@@ -27,6 +39,28 @@ export interface Transaction {
   // Split transactions
   splitGroupId?: string | null;
   splitIndex?: number | null;
+  // Which classification step picked the category, and its "why"
+  categorySource?: 'manual' | 'rule' | 'keyword' | 'learned' | 'history' | 'ai' | 'default' | null;
+  categoryReason?: string | null;
+  /** Who the row is filed under; null when its descriptor names nobody. */
+  payee?: { id: string; name: string } | null;
+  // Transfer between the user's own accounts (both legs share the id)
+  transferPairId?: string | null;
+  transferPairSource?: 'auto' | 'manual' | 'rejected' | null;
+  transferPairKind?: 'transfer' | 'reimbursement' | 'investment' | null;
+  // The investment account an expense was moved into (a one-leg transfer of kind `investment`)
+  investmentAccountId?: string | null;
+  // Incoming row that pays back an expense (full repayments also become a pair)
+  reimbursementOfId?: string | null;
+  reimbursementOf?: {
+    id: string;
+    counterpartyName: string;
+    transactionDate: string;
+    debit?: number | null;
+    currency?: string;
+  } | null;
+  // Confirmed by a person in Review; only confirmed rows count in any figure
+  isVerified?: boolean;
   // Parsing metadata (optional, might not exist yet)
   parsingConfidence?: number;
   rawExtract?: string;
@@ -34,13 +68,16 @@ export interface Transaction {
   hasErrors?: boolean;
 }
 
+/** A category as the UI uses it: a row of `GET /categories` (contract CategoryItem) or less. */
 export interface Category {
   id: string;
   name: string;
   type: 'income' | 'expense';
-  color?: string;
-  icon?: string;
+  color?: string | null;
+  icon?: string | null;
   isEnabled?: boolean;
+  source?: StatementCategorySource;
+  isSystem?: boolean;
 }
 
 export interface FilterState {

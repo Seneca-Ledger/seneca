@@ -1,18 +1,11 @@
-import apiClient from '@/app/lib/api';
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import apiClient from '@/app/lib/api';
+import type { CategoryItem } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
-export type Category = {
-  id: string;
-  name: string;
-  type: 'income' | 'expense';
-  isSystem?: boolean;
-  source?: 'system' | 'user' | 'parsing';
-  isEnabled?: boolean;
-  color?: string;
-  icon?: string;
-  parentId?: string;
-};
+/** A row of `GET /categories`. */
+export type Category = CategoryItem;
 
 export type CategoryUsageCount = {
   transactions: number;
@@ -93,20 +86,24 @@ function useCategoryData(
   const [usageCounts, setUsageCounts] = useState<Record<string, CategoryUsageCount>>({});
 
   const loadCategories = useCallback(async (): Promise<void> => {
-    try {
+    await (async () => {
       setLoading(true);
       const [categoriesRes, usageRes] = await Promise.all([
         apiClient.get('/categories'),
         apiClient.get('/categories/usage/counts'),
       ]);
-      setCategories(categoriesRes.data);
-      setUsageCounts(usageRes.data);
-    } catch (err) {
-      console.error('Failed to load categories:', err);
-      toast.error(loadFailed);
-    } finally {
-      setLoading(false);
-    }
+      setCategories(await checkContract('CategoryList', categoriesRes.data, '/categories'));
+      setUsageCounts(
+        await checkContract('CategoryUsageCounts', usageRes.data, '/categories/usage/counts'),
+      );
+    })()
+      .catch(async err => {
+        console.error('Failed to load categories:', err);
+        toast.error(loadFailed);
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
   }, [loadFailed]);
 
   useEffect(() => {
@@ -138,7 +135,7 @@ function useCategoryForm(
   const [uploadingIcon, setUploadingIcon] = useState(false);
 
   const handleSave = async (): Promise<void> => {
-    try {
+    await (async () => {
       const { withoutIcon, ...restFormData } = formData;
       const data = {
         ...restFormData,
@@ -146,40 +143,50 @@ function useCategoryForm(
         parentId: restFormData.parentId || undefined,
       };
       if (editingCategory) {
-        await apiClient.put(`/categories/${editingCategory.id}`, data);
+        await apiClient.put(
+          `/categories/${editingCategory.id}`,
+          data satisfies ContractInput<'UpdateCategoryBody'>,
+        );
         toast.success(toastMessages.updated);
       } else {
-        await apiClient.post('/categories', data);
+        await apiClient.post('/categories', data satisfies ContractInput<'CreateCategoryBody'>);
         toast.success(toastMessages.created);
       }
       await loadCategories();
       setDialogOpen(false);
       setEditingCategory(null);
-    } catch (err) {
+    })().catch(async err => {
       console.error('Failed to save category:', err);
       toast.error(toastMessages.saveFailed);
-    }
+    });
   };
 
   const handleIconFileChange = async (file: File): Promise<void> => {
     const fd = new FormData();
     fd.append('icon', file);
     setUploadingIcon(true);
-    try {
+
+    await (async () => {
       const response = await apiClient.post('/data-entry/custom-fields/icon', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const url = response.data?.url || response.data;
+      const { url } = await checkContract(
+        'UploadedIcon',
+        response.data,
+        '/data-entry/custom-fields/icon',
+      );
       if (url) {
         setFormData(prev => ({ ...prev, icon: url, withoutIcon: false }));
         toast.success(toastMessages.iconUploaded);
       }
-    } catch (err) {
-      console.error('Failed to upload icon:', err);
-      toast.error(toastMessages.iconUploadFailed);
-    } finally {
-      setUploadingIcon(false);
-    }
+    })()
+      .catch(async err => {
+        console.error('Failed to upload icon:', err);
+        toast.error(toastMessages.iconUploadFailed);
+      })
+      .finally(async () => {
+        setUploadingIcon(false);
+      });
   };
 
   return {
@@ -217,23 +224,28 @@ function usePerformToggle(
   return async (category: Category, nextEnabled: boolean): Promise<void> => {
     setDisableConfirm(null);
     setTogglingIds(prev => new Set(prev).add(category.id));
-    try {
-      await apiClient.put(`/categories/${category.id}`, { isEnabled: nextEnabled });
+
+    await (async () => {
+      await apiClient.put(`/categories/${category.id}`, {
+        isEnabled: nextEnabled,
+      } satisfies ContractInput<'UpdateCategoryBody'>);
       setCategories(
         categories.map(item =>
           item.id === category.id ? { ...item, isEnabled: nextEnabled } : item,
         ),
       );
-    } catch (err) {
-      console.error('Failed to toggle:', err);
-      toast.error(toastMessages.saveFailed);
-    } finally {
-      setTogglingIds(prev => {
-        const next = new Set(prev);
-        next.delete(category.id);
-        return next;
+    })()
+      .catch(async err => {
+        console.error('Failed to toggle:', err);
+        toast.error(toastMessages.saveFailed);
+      })
+      .finally(async () => {
+        setTogglingIds(prev => {
+          const next = new Set(prev);
+          next.delete(category.id);
+          return next;
+        });
       });
-    }
   };
 }
 
@@ -271,41 +283,45 @@ function useCategoryToggle({
     }
     const nextEnabled = category.isEnabled === false;
     if (!nextEnabled) {
-      try {
-        const response = await apiClient.get(`/categories/${category.id}/usage-count`);
-        const usage = response.data as CategoryUsageCount;
-        if (usage.total > 0) {
-          setDisableConfirm({ category, usage });
-          return;
-        }
-      } catch (err) {
+      const usage = await apiQueryDecoded({
+        url: `/categories/${category.id}/usage-count`,
+        contract: 'CategoryUsageCount',
+      }).catch((err: unknown) => {
         console.error('Failed to get usage count:', err);
+        return null;
+      });
+      if (usage && usage.total > 0) {
+        setDisableConfirm({ category, usage });
+        return;
       }
     }
     await performToggle(category, nextEnabled);
   };
 
   const handleBulkEnable = async (enable: boolean): Promise<void> => {
-    try {
+    await (async () => {
       await Promise.all(
         Array.from(selectedIds).map(id =>
-          apiClient.put(`/categories/${id}`, { isEnabled: enable }),
+          apiClient.put(`/categories/${id}`, {
+            isEnabled: enable,
+          } satisfies ContractInput<'UpdateCategoryBody'>),
         ),
       );
       toast.success(enable ? 'Categories enabled' : 'Categories disabled');
       await loadCategories();
       setSelectedIds(new Set());
-    } catch (err) {
+    })().catch(async err => {
       console.error('Bulk toggle failed:', err);
       toast.error(toastMessages.saveFailed);
-    }
+    });
   };
 
   const handleBulkDelete = async (): Promise<void> => {
     if (!window.confirm('Are you sure you want to delete selected custom categories?')) {
       return;
     }
-    try {
+
+    await (async () => {
       const ids = Array.from(selectedIds).filter(
         id => !categories.find(c => c.id === id)?.isSystem,
       );
@@ -313,10 +329,10 @@ function useCategoryToggle({
       toast.success('Categories deleted');
       await loadCategories();
       setSelectedIds(new Set());
-    } catch (err) {
+    })().catch(async err => {
       console.error('Bulk delete failed:', err);
       toast.error('Failed to delete some categories');
-    }
+    });
   };
 
   return {

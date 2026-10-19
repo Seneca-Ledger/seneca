@@ -1,13 +1,15 @@
 'use client';
 
-import type { DashboardData, DashboardRange } from '@/app/hooks/useDashboard';
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import type React from 'react';
-import type { DashboardTabId } from '../hooks/useDashboardPage';
+import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
+import type { DashboardData } from '@/app/hooks/useDashboard';
+import type { DashboardTabId } from '../helpers/dashboard-url-state';
 import { DashboardErrorBanner } from './DashboardErrorBanner';
 import { DashboardHeader } from './DashboardHeader';
 import { DashboardTabContent } from './DashboardTabContent';
+import { MissingRatesBanner } from './MissingRatesBanner';
 
 function DashboardStatCardSkeleton(): React.JSX.Element {
   return (
@@ -68,16 +70,13 @@ type DashboardContentProps = {
   loading: boolean;
   data: DashboardData | null;
   onRefresh: () => void;
-  range: DashboardRange;
   activeTab: DashboardTabId;
   setActiveTab: (tab: DashboardTabId) => void;
   formatAmount: (value: number) => string;
-  statusHeading: string;
-  greetingSubtitle: string;
-  effectivePeriod: string | null;
+  periodBanner: string | null;
   displayMonth: Date;
   changeMonth: (year: number, month: number) => void;
-  exportMenu: unknown;
+  locale: string;
   headerLabels: React.ComponentProps<typeof DashboardHeader>['labels'];
 };
 
@@ -86,46 +85,43 @@ export function DashboardContent({
   loading,
   data,
   onRefresh,
-  range,
   activeTab,
   setActiveTab,
   formatAmount,
-  statusHeading,
-  greetingSubtitle,
-  effectivePeriod,
+  periodBanner,
   displayMonth,
   changeMonth,
-  exportMenu,
+  locale,
   headerLabels,
 }: DashboardContentProps): React.JSX.Element {
   if (error) {
     return <DashboardErrorBanner error={error} onRefresh={onRefresh} />;
   }
-  if (loading && !data) {
+  // Ошибка уже обработана выше, поэтому "не грузится / нет данных" — не пустой
+  // экран, а всё тот же скелетон.
+  if (loading || !data) {
     return <DashboardContentSkeleton />;
-  }
-  if (!data) {
-    return <></>;
   }
   return (
     <>
       <DashboardHeader
-        statusHeading={statusHeading}
-        greetingSubtitle={greetingSubtitle}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        exportMenu={exportMenu}
+        displayMonth={displayMonth}
+        changeMonth={changeMonth}
+        locale={locale}
+        periodBanner={periodBanner}
         labels={headerLabels}
       />
+      <MissingRatesBanner currencies={data.snapshot?.missingRates ?? []} />
+      <UnconfirmedNotice className="seneca-dashboard__unconfirmed" />
       <DashboardTabContent
         activeTab={activeTab}
         data={data}
         formatAmount={formatAmount}
-        range={range}
         isLoading={loading}
-        effectivePeriod={effectivePeriod}
         displayMonth={displayMonth}
-        changeMonth={changeMonth}
+        onSelectMonth={changeMonth}
       />
     </>
   );

@@ -1,6 +1,6 @@
+import { config } from 'dotenv';
 import { existsSync } from 'fs';
 import * as path from 'path';
-import { config } from 'dotenv';
 import { DataSource } from 'typeorm';
 
 // Load environment variables
@@ -27,8 +27,13 @@ const resolveCompiledGlob = (compiledDirName: string, sourceDirName: string) => 
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: databaseUrl,
-  entities: [resolveCompiledGlob('entities', 'entities')],
+  entities: [
+    resolveCompiledGlob('entities', 'entities'),
+    // ApiKey — единственная сущность вне src/entities; без неё migration:generate
+    // предложил бы удалить таблицу api_keys.
+    resolveCompiledGlob('modules/api-keys/entities', 'modules/api-keys/entities'),
+  ],
   migrations: [resolveCompiledGlob('migrations', 'migrations')],
   synchronize: false,
-  logging: process.env.NODE_ENV === 'development',
+  logging: process.env.DB_QUERY_LOGGING === 'true',
 });

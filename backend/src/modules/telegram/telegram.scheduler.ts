@@ -31,20 +31,28 @@ export class TelegramScheduler {
 
     for (const user of users) {
       try {
-        await this.telegramService.sendReport(user, {
-          reportType: ReportType.DAILY,
-          chatId: user.telegramChatId || undefined,
-          date,
-        });
+        const workspaceId = await this.telegramService.resolveWorkspaceId(user);
+        if (!workspaceId) {
+          continue;
+        }
+        await this.telegramService.sendReport(
+          user,
+          {
+            reportType: ReportType.DAILY,
+            chatId: user.telegramChatId || undefined,
+            date,
+          },
+          workspaceId,
+        );
         try {
           // Audit: record scheduled report exports via Telegram.
           await this.auditService.createEvent({
-            workspaceId: user.workspaceId ?? null,
+            workspaceId,
             actorType: ActorType.SYSTEM,
             actorId: null,
             actorLabel: 'Telegram Scheduler',
             entityType: EntityType.WORKSPACE,
-            entityId: user.workspaceId ?? user.id,
+            entityId: workspaceId,
             action: AuditAction.EXPORT,
             meta: {
               channel: 'telegram',
@@ -75,21 +83,29 @@ export class TelegramScheduler {
 
     for (const user of users) {
       try {
-        await this.telegramService.sendReport(user, {
-          reportType: ReportType.MONTHLY,
-          chatId: user.telegramChatId || undefined,
-          year,
-          month,
-        });
+        const workspaceId = await this.telegramService.resolveWorkspaceId(user);
+        if (!workspaceId) {
+          continue;
+        }
+        await this.telegramService.sendReport(
+          user,
+          {
+            reportType: ReportType.MONTHLY,
+            chatId: user.telegramChatId || undefined,
+            year,
+            month,
+          },
+          workspaceId,
+        );
         try {
           // Audit: record scheduled monthly report exports via Telegram.
           await this.auditService.createEvent({
-            workspaceId: user.workspaceId ?? null,
+            workspaceId,
             actorType: ActorType.SYSTEM,
             actorId: null,
             actorLabel: 'Telegram Scheduler',
             entityType: EntityType.WORKSPACE,
-            entityId: user.workspaceId ?? user.id,
+            entityId: workspaceId,
             action: AuditAction.EXPORT,
             meta: {
               channel: 'telegram',
@@ -126,12 +142,12 @@ export class TelegramScheduler {
     const users = await this.loadUsersWithTelegram();
 
     for (const user of users) {
-      if (!user.workspaceId) {
-        continue;
-      }
-
       try {
-        const { newInsights } = await this.insightsService.refresh(user.id, user.workspaceId);
+        const workspaceId = await this.telegramService.resolveWorkspaceId(user);
+        if (!workspaceId) {
+          continue;
+        }
+        const { newInsights } = await this.insightsService.refresh(user.id, workspaceId);
         const urgent = newInsights.filter(
           insight =>
             insight.severity === InsightSeverity.WARN ||

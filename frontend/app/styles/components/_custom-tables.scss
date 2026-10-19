@@ -1,0 +1,1525 @@
+// seneca-ct — custom tables pages (list + table), built on the shared seneca-grid
+@use '../abstracts' as *;
+
+.seneca-ct {
+  display: flex;
+  flex-direction: column;
+  gap: $seneca-space-4;
+  padding: var(--seneca-page-top, #{$seneca-space-4}) $seneca-space-4 $seneca-space-6;
+
+  @include respond-to('md') {
+    padding: var(--seneca-page-top, #{$seneca-space-3}) $seneca-space-3 $seneca-space-5;
+  }
+
+  // A table page: the grid runs to the bottom edge of the window.
+  &--fill {
+    padding-bottom: 0;
+  }
+
+  // ---- header -------------------------------------------------------------
+  // One band above the grid: back arrow, title with its meta line, and the
+  // toolbar on the right. Narrow screens drop the toolbar to its own line.
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $seneca-space-2 $seneca-space-3;
+  }
+
+  &__back {
+    flex: none;
+    margin-left: -$seneca-space-2;
+  }
+
+  &__title-row {
+    display: flex;
+    flex: 1 1 240px;
+    flex-direction: column;
+    gap: $seneca-space-1;
+    min-width: 0;
+  }
+
+  &__header > &__toolbar {
+    flex: 0 1 auto;
+    margin-left: auto;
+
+    @include respond-to('md') {
+      flex-basis: 100%;
+    }
+  }
+
+  &__title {
+    display: inline-flex;
+    align-items: center;
+    gap: $seneca-space-2;
+    margin: 0;
+    font-size: $seneca-font-size-xl;
+    font-weight: $seneca-font-weight-semibold;
+    line-height: $seneca-line-height-tight;
+    color: $seneca-color-text-primary;
+
+    @include dark {
+      color: $seneca-color-text-primary-dk;
+    }
+  }
+
+  // The pencil shows up only where the pointer or keyboard already is.
+  &__title-edit {
+    display: inline-flex;
+    padding: 4px;
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    .seneca-ct__title:hover &,
+    &:focus-visible {
+      opacity: 1;
+    }
+
+    border: 0;
+    border-radius: $seneca-radius-xs;
+    background: none;
+    color: $seneca-color-ink-500;
+    cursor: pointer;
+
+    &:hover {
+      background-color: $seneca-color-ink-100;
+      color: $seneca-color-ink-800;
+
+      @include dark {
+        background-color: $seneca-color-ink-100-dk;
+        color: $seneca-color-ink-800-dk;
+      }
+    }
+  }
+
+  &__title-input {
+    width: min(100%, 480px);
+    padding: 6px 10px;
+    border: 1px solid var(--primary);
+    border-radius: $seneca-radius-sm;
+    background-color: $seneca-color-surface;
+    font: inherit;
+    font-size: $seneca-font-size-xl;
+    font-weight: $seneca-font-weight-semibold;
+    color: inherit;
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: -1px;
+    }
+
+    @include dark {
+      background-color: $seneca-color-surface-dk;
+    }
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $seneca-space-2;
+    margin: 0;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-ink-500;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+
+    > span + span::before {
+      content: '·';
+      margin-right: $seneca-space-2;
+    }
+  }
+
+  &__badge {
+    padding: 2px 8px;
+    border-radius: $seneca-radius-full;
+    background-color: var(--primary-50);
+    color: var(--primary);
+    font-size: $seneca-font-size-xs;
+    font-weight: $seneca-font-weight-medium;
+
+    @include dark {
+      background-color: $seneca-color-primary-50-dk;
+      color: $seneca-color-primary-dk;
+    }
+
+    // The default source (Manual) repeats on every row; colour is kept for rarer ones.
+    &--neutral {
+      background-color: $seneca-color-ink-100;
+      color: $seneca-color-ink-600;
+
+      @include dark {
+        background-color: $seneca-color-ink-150-dk;
+        color: $seneca-color-ink-700-dk;
+      }
+    }
+  }
+
+  &__description {
+    margin: 0;
+    max-width: 72ch;
+    color: $seneca-color-text-secondary;
+
+    @include dark {
+      color: $seneca-color-text-secondary-dk;
+    }
+  }
+
+  // ---- toolbar ------------------------------------------------------------
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $seneca-space-2;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $seneca-space-2;
+  }
+
+  &__input,
+  &__filter-input {
+    width: 100%;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-sm;
+    background-color: $seneca-color-surface;
+    font: inherit;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-text-primary;
+
+    @include dark {
+      border-color: $seneca-color-ink-200-dk;
+      background-color: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: -1px;
+    }
+  }
+
+  &__input--mono {
+    font-family: $seneca-font-family-mono;
+  }
+
+  &__input--compact {
+    height: 32px;
+  }
+
+  textarea.seneca-ct__input {
+    height: auto;
+    padding: 8px 12px;
+    resize: vertical;
+  }
+
+  &__group-select {
+    min-width: 160px;
+  }
+
+  // ---- filters ------------------------------------------------------------
+  &__filters {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $seneca-space-2;
+  }
+
+  // Secondary toolbar actions stay neutral so the one filled green button
+  // (New table / Add row) is the only accent in the row.
+  &__toolbar .MuiButton-outlined {
+    border-color: $seneca-color-ink-200;
+    color: $seneca-color-ink-700;
+
+    &:hover {
+      border-color: $seneca-color-ink-300;
+      background-color: $seneca-color-ink-50;
+    }
+
+    @include dark {
+      border-color: $seneca-color-ink-200-dk;
+      color: $seneca-color-ink-800-dk;
+
+      &:hover {
+        border-color: $seneca-color-ink-300-dk;
+        background-color: $seneca-color-ink-50-dk;
+      }
+    }
+  }
+
+  &__toolbar > &__actions {
+    margin-left: auto;
+    gap: $seneca-space-1;
+  }
+
+  // Every toolbar control matches the Search button (TOOLBAR_BUTTON_STYLE, 40px).
+  // The theme pins small buttons to 32px (app/theme.ts), so set height itself.
+  &__toolbar .MuiButton-root {
+    height: 40px;
+  }
+
+  &__toolbar .MuiIconButton-root {
+    width: 40px;
+    height: 40px;
+  }
+
+  &__toolbar .MuiButton-text,
+  &__toolbar .MuiIconButton-root {
+    color: $seneca-color-ink-600;
+
+    @include dark {
+      color: $seneca-color-ink-700-dk;
+    }
+  }
+
+  &__filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px 4px 10px;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-full;
+    background-color: $seneca-color-surface;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-text-primary;
+
+    @include dark {
+      border-color: $seneca-color-ink-200-dk;
+      background-color: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
+    }
+  }
+
+  &__filter-chip-remove {
+    display: inline-flex;
+    padding: 2px;
+    border: 0;
+    border-radius: $seneca-radius-full;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background-color: $seneca-color-ink-100;
+
+      @include dark {
+        background-color: $seneca-color-ink-100-dk;
+      }
+    }
+  }
+
+  &__filter-form {
+    display: grid;
+    gap: $seneca-space-2;
+    width: min(92vw, 320px);
+    padding: $seneca-space-3;
+  }
+
+  // ---- grid cells ---------------------------------------------------------
+  &__grid {
+    .seneca-grid__td {
+      padding: 0;
+    }
+
+    // Placeholder cells have no editor inside to supply the inset.
+    .seneca-grid__skeleton-row > .seneca-grid__td {
+      padding: 0 12px;
+    }
+  }
+
+  &__cell {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    min-width: 0;
+
+    &--numeric {
+      justify-content: flex-end;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &--required {
+      box-shadow: inset 0 0 0 1px $seneca-color-warning;
+    }
+
+    // Ячейка, которую импорт оставил текстом: видно до первой правки.
+    &--issue {
+      background-color: $seneca-color-warning-soft;
+      box-shadow: inset 0 0 0 1px $seneca-color-warning;
+
+      @include dark {
+        background-color: rgba(245, 158, 11, 0.16);
+      }
+    }
+  }
+
+  &__cell-button {
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    cursor: text;
+
+    &:hover {
+      background-color: $seneca-color-ink-50;
+
+      @include dark {
+        background-color: $seneca-color-ink-50-dk;
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+    }
+  }
+
+  &__cell-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &--empty {
+      color: $seneca-color-ink-300;
+
+      @include dark {
+        color: $seneca-color-ink-300-dk;
+      }
+    }
+  }
+
+  &__cell-input {
+    width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    border: 0;
+    box-shadow: inset 0 0 0 2px var(--primary);
+    background-color: $seneca-color-surface;
+    font: inherit;
+    font-size: $seneca-font-size-sm;
+    color: inherit;
+    outline: none;
+
+    @include dark {
+      background-color: $seneca-color-surface-dk;
+    }
+
+    &--numeric {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__chips {
+    display: flex;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-text-primary;
+    white-space: nowrap;
+
+    @include dark {
+      color: $seneca-color-text-primary-dk;
+    }
+  }
+
+  &__chip-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: $seneca-radius-full;
+  }
+
+  &__chip-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__row-number {
+    font-size: $seneca-font-size-xs;
+    font-variant-numeric: tabular-nums;
+    color: $seneca-color-ink-400;
+  }
+
+  // Row number at rest; the checkbox takes its place on hover, on keyboard
+  // focus, on a selected row and on every row while anything is selected.
+  // visibility (not display) keeps the checkbox reachable with Tab.
+  &__row-select {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+
+    > * {
+      grid-area: 1 / 1;
+    }
+  }
+
+  &__row-checkbox {
+    opacity: 0;
+  }
+
+  .seneca-grid__tr:hover &__row-select,
+  .seneca-grid__th:hover &__row-select,
+  &__row-select:focus-within,
+  .seneca-grid__tr--selected &__row-select,
+  &__grid--selecting &__row-select {
+    .seneca-ct__row-number {
+      visibility: hidden;
+    }
+
+    .seneca-ct__row-checkbox {
+      opacity: 1;
+    }
+  }
+
+  &__col-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__col-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__col-required {
+    margin-left: 2px;
+    color: $seneca-color-danger;
+  }
+
+  &__col-menu {
+    display: inline-flex;
+    flex: none;
+    padding: 2px;
+    border: 0;
+    border-radius: $seneca-radius-xs;
+    background: none;
+    color: inherit;
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 120ms ease;
+
+    .seneca-grid__th:hover &,
+    &:focus-visible {
+      opacity: 1;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  // "No total" stays out of sight until the footer cell is pointed at.
+  &__footer--unset {
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    .seneca-grid__tf:hover &,
+    &:focus-within {
+      opacity: 1;
+    }
+  }
+
+  &__footer-select {
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
+
+    // A slim totals strip under "+ Add row", not a second toolbar row.
+    .MuiInputBase-input,
+    .MuiSelect-select {
+      min-height: 0;
+      padding-top: 2px;
+      padding-bottom: 2px;
+      font-size: $seneca-font-size-xs;
+      line-height: 1.4;
+    }
+  }
+
+  &__footer-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: $seneca-font-weight-semibold;
+    color: $seneca-color-text-primary;
+
+    @include dark {
+      color: $seneca-color-text-primary-dk;
+    }
+  }
+
+  &__add-row td {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  &__add-row-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-ink-500;
+    cursor: pointer;
+
+    &:hover {
+      background-color: $seneca-color-ink-50;
+      color: var(--primary);
+
+      @include dark {
+        background-color: $seneca-color-ink-50-dk;
+        color: $seneca-color-primary-dk;
+      }
+    }
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  // ---- groups -------------------------------------------------------------
+  &__groups {
+    padding: $seneca-space-3;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-lg;
+    background-color: $seneca-color-surface;
+
+    @include dark {
+      border-color: $seneca-color-ink-150-dk;
+      background-color: $seneca-color-surface-dk;
+    }
+  }
+
+  &__groups-title {
+    margin: 0 0 $seneca-space-2;
+    font-size: $seneca-font-size-sm;
+    font-weight: $seneca-font-weight-semibold;
+  }
+
+  &__groups-hint,
+  &__hint {
+    margin: 0;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__groups-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $seneca-space-2;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-sm;
+    background: none;
+    font: inherit;
+    font-size: $seneca-font-size-sm;
+    color: inherit;
+    cursor: pointer;
+
+    @include dark {
+      border-color: $seneca-color-ink-200-dk;
+    }
+
+    &:hover {
+      border-color: var(--primary);
+    }
+  }
+
+  &__group-key {
+    font-weight: $seneca-font-weight-medium;
+  }
+
+  &__group-count,
+  &__group-agg {
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // ---- dialogs ------------------------------------------------------------
+  &__form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $seneca-space-3;
+
+    @include respond-to('sm') {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+
+    &--wide {
+      grid-column: 1 / -1;
+    }
+  }
+
+  &__checks {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: $seneca-space-4;
+  }
+
+  // Field labels sit above their fields in sentence case, in the readable grey.
+  &__label {
+    font-size: 13px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--text-muted);
+  }
+
+  &__options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__option-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__swatches {
+    display: inline-flex;
+    gap: 4px;
+  }
+
+  &__swatch {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-radius: $seneca-radius-full;
+    cursor: pointer;
+
+    &[aria-pressed='true'] {
+      border-color: $seneca-color-text-primary;
+
+      @include dark {
+        border-color: $seneca-color-text-primary-dk;
+      }
+    }
+  }
+
+  &__link-btn {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
+    cursor: pointer;
+
+    &:hover {
+      color: $seneca-color-danger;
+    }
+  }
+
+  &__import {
+    display: flex;
+    flex-direction: column;
+    gap: $seneca-space-3;
+  }
+
+  &__map-head,
+  &__map-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: $seneca-space-2;
+    align-items: center;
+  }
+
+  &__map-type {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  &__map-chip {
+    flex: none;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
+    white-space: nowrap;
+    cursor: help;
+
+    &--warning {
+      color: $seneca-color-warning;
+    }
+  }
+
+  &__import-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $seneca-space-3;
+  }
+
+  &__hint--warning {
+    color: $seneca-color-warning;
+  }
+
+  &__preview-warning {
+    background-color: $seneca-color-warning-soft;
+
+    @include dark {
+      background-color: rgba(245, 158, 11, 0.16);
+    }
+  }
+
+  &__map-head {
+    font-size: $seneca-font-size-xs;
+    font-weight: $seneca-font-weight-semibold;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $seneca-color-ink-500;
+  }
+
+  &__map {
+    display: flex;
+    flex-direction: column;
+    gap: $seneca-space-2;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__map-source {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: $seneca-font-size-sm;
+  }
+
+  &__preview-scroll {
+    max-height: 40vh;
+    overflow: auto;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-sm;
+
+    @include dark {
+      border-color: $seneca-color-ink-150-dk;
+    }
+  }
+
+  &__preview {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $seneca-font-size-sm;
+
+    th,
+    td {
+      padding: 6px 10px;
+      border-bottom: 1px solid $seneca-color-ink-100;
+      text-align: left;
+      white-space: nowrap;
+
+      @include dark {
+        border-bottom-color: $seneca-color-ink-100-dk;
+      }
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background-color: $seneca-color-ink-50;
+      font-size: $seneca-font-size-xs;
+      font-weight: $seneca-font-weight-semibold;
+      color: $seneca-color-ink-500;
+
+      @include dark {
+        background-color: $seneca-color-ink-50-dk;
+      }
+    }
+  }
+
+  &__preview-input {
+    width: 100%;
+    min-width: 80px;
+    padding: 2px 4px;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+  }
+
+  &__preview-error {
+    background-color: $seneca-color-danger-soft;
+    color: $seneca-color-danger;
+  }
+
+  &__error {
+    margin: 0;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-danger;
+  }
+
+  &__center {
+    display: flex;
+    justify-content: center;
+    padding: $seneca-space-6;
+  }
+
+  &__convert p {
+    margin: 0 0 $seneca-space-2;
+  }
+
+  &__warnings {
+    margin: 0;
+    padding-left: $seneca-space-4;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
+  }
+
+  // ---- list page ----------------------------------------------------------
+  &__list-name {
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-text-primary;
+
+    @include dark {
+      color: $seneca-color-text-primary-dk;
+    }
+  }
+
+  &__list-sub {
+    display: block;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__list-actions {
+    display: inline-flex;
+    gap: 4px;
+
+    // Muted until the row is hovered or focused, so the list reads cleaner.
+    > button {
+      color: $seneca-color-ink-400;
+      transition: color 120ms ease;
+
+      @include dark {
+        color: $seneca-color-ink-600-dk;
+      }
+    }
+
+    .seneca-grid__tr:hover & > button,
+    .seneca-grid__tr:focus-within & > button {
+      color: $seneca-color-ink-700;
+
+      @include dark {
+        color: $seneca-color-ink-900-dk;
+      }
+    }
+  }
+
+  // Six starts as a 3×2 grid; two columns on a phone.
+  &__templates {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: $seneca-space-2;
+
+    @media (max-width: 560px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  &__template {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: $seneca-space-3;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-md;
+    background: none;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+
+    @include dark {
+      border-color: $seneca-color-ink-200-dk;
+    }
+
+    &[aria-checked='true'] {
+      border-color: var(--primary);
+      background-color: var(--surface-soft);
+    }
+  }
+
+  // The picked card says so with a small sage check in its corner, not only a border.
+  &__template-check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: $seneca-radius-full;
+    background: var(--primary);
+    color: #fff;
+  }
+
+  // One line icon per card, sage, the size of the other line icons on the quiet screens.
+  &__template-icon {
+    display: flex;
+    margin-bottom: $seneca-space-2;
+    color: var(--primary);
+
+    svg {
+      display: block;
+      width: 30px;
+      height: 30px;
+    }
+  }
+
+  &__template-name {
+    font-weight: $seneca-font-weight-medium;
+  }
+
+  &__template-desc {
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--text-muted);
+  }
+
+  &__template-count {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__start-hint {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  &__field-note {
+    font-size: 13px;
+    color: var(--attention);
+  }
+}
+
+// "Start from" switcher and the app data source panel of the create dialog.
+.seneca-ct {
+  &__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $seneca-space-2 $seneca-space-3;
+  }
+
+  &__section-title {
+    margin: 0;
+    font-size: $seneca-font-size-sm;
+    font-weight: $seneca-font-weight-semibold;
+    color: $seneca-color-ink-600;
+
+    @include dark {
+      color: $seneca-color-ink-300;
+    }
+  }
+
+  &__start {
+    gap: $seneca-space-3;
+    margin-top: $seneca-space-2;
+  }
+
+  // Flatter cards: a hairline instead of a box, so the grid reads as options, not panels.
+  &__template {
+    border-color: $seneca-color-ink-150;
+    transition: border-color 120ms ease;
+
+    @include dark {
+      border-color: $seneca-color-ink-150-dk;
+    }
+
+    &:hover {
+      border-color: $seneca-color-ink-300;
+
+      @include dark {
+        border-color: $seneca-color-ink-200-dk;
+      }
+    }
+  }
+
+  // New table from app data: the form on the left, what it will create on the
+  // right, held in view while the dialog scrolls so a filter change shows at once.
+  &__create {
+    display: block;
+
+    &--split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      gap: $seneca-space-6;
+      align-items: start;
+
+      @media (max-width: 860px) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  }
+
+  &__create-side {
+    position: sticky;
+    top: 0;
+    min-width: 0;
+
+    @media (max-width: 860px) {
+      position: static;
+    }
+  }
+
+  // Source cards beside the preview: three small cards a row (two rows for
+  // five), icon above the name and column count, no description.
+  &__templates--compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    .seneca-ct__template {
+      gap: 2px;
+      padding: 10px 12px;
+    }
+
+    .seneca-ct__template-icon {
+      margin-bottom: 6px;
+
+      svg {
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    .seneca-ct__template-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .seneca-ct__template-desc {
+      display: none;
+    }
+
+    .seneca-ct__template-check {
+      top: 8px;
+      right: 8px;
+    }
+  }
+
+  // Filters and preview are plain blocks on the dialog's white, not grey cards.
+  &__source-section {
+    display: flex;
+    flex-direction: column;
+    gap: $seneca-space-3;
+    padding-top: $seneca-space-3;
+    border-top: 1px solid $seneca-color-hairline;
+
+    @include dark {
+      border-top-color: $seneca-color-ink-150-dk;
+    }
+
+    .seneca-ct__section-title {
+      font-size: 15px;
+      font-weight: $seneca-font-weight-medium;
+      color: var(--foreground);
+    }
+  }
+
+  &__source-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: $seneca-space-3;
+
+    // Every filter field one look: white, a warm border, 8px corners.
+    .MuiOutlinedInput-root {
+      border-radius: $seneca-radius-sm;
+      background-color: $seneca-color-surface;
+
+      @include dark {
+        background-color: $seneca-color-surface-dk;
+      }
+    }
+
+    .MuiOutlinedInput-notchedOutline {
+      border-color: $seneca-color-slot-border;
+
+      @include dark {
+        border-color: $seneca-color-ink-200-dk;
+      }
+    }
+  }
+
+  &__text-button {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--primary);
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__preview-pane {
+    display: flex;
+    flex-direction: column;
+    gap: $seneca-space-3;
+  }
+
+  &__preview-source {
+    margin: 0;
+    padding-bottom: $seneca-space-2;
+    border-bottom: 1px solid $seneca-color-hairline;
+    font-size: 13px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--text-muted);
+
+    @include dark {
+      border-bottom-color: $seneca-color-ink-150-dk;
+    }
+  }
+
+  &__preview-existing {
+    display: flex;
+    align-items: baseline;
+    gap: $seneca-space-2;
+    margin: 0;
+    font-size: 14px;
+    color: var(--foreground);
+
+    a {
+      color: var(--primary);
+      font-weight: $seneca-font-weight-medium;
+    }
+  }
+
+  &__preview-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: $seneca-radius-full;
+    background: var(--attention);
+    transform: translateY(-2px);
+  }
+
+  &__preview-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $seneca-space-2;
+  }
+
+  &__preview-count {
+    font-size: 15px;
+    font-weight: $seneca-font-weight-medium;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+    transition: opacity 120ms ease;
+
+    &[data-loading] {
+      opacity: 0.55;
+    }
+  }
+
+  // What a refresh does to edits: in view above the table, but quieter than the count.
+  &__preview-note {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+
+  &__preview-caption {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  // A few columns that fit: no frame, no inner scroll, long text ends in "…".
+  &__preview-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 14px;
+
+    th,
+    td {
+      padding: 8px 8px;
+      overflow: hidden;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      border-bottom: 1px solid $seneca-color-hairline;
+
+      @include dark {
+        border-bottom-color: $seneca-color-ink-150-dk;
+      }
+
+      &:first-child {
+        padding-left: 0;
+      }
+
+      &:last-child {
+        padding-right: 0;
+      }
+    }
+
+    th {
+      font-size: 13px;
+      font-weight: $seneca-font-weight-medium;
+      color: var(--text-muted);
+    }
+  }
+
+  // Dates, money and short enum values take what they need; names get the rest.
+  &__preview-col--date {
+    width: 112px;
+  }
+
+  &__preview-col--money {
+    width: 104px;
+  }
+
+  &__preview-col--enum {
+    width: 92px;
+  }
+
+  &__preview-cell--numeric {
+    text-align: right !important;
+    font-weight: $seneca-font-weight-medium;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// Formula editor: autocomplete list under the input and the live example line.
+.seneca-ct {
+  &__formula {
+    position: relative;
+  }
+
+  &__formula-suggest {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 2;
+    width: min(100%, 360px);
+    max-height: 240px;
+    margin: 4px 0 0;
+    padding: 4px;
+    overflow: auto;
+    list-style: none;
+    border: 1px solid $seneca-color-ink-200;
+    border-radius: $seneca-radius-md;
+    background: $seneca-color-surface;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+    @include dark {
+      border-color: $seneca-color-ink-200-dk;
+      background: $seneca-color-surface-dk;
+    }
+  }
+
+  &__formula-option {
+    display: flex;
+    justify-content: space-between;
+    gap: $seneca-space-3;
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: $seneca-radius-sm;
+    background: none;
+    font: inherit;
+    font-size: $seneca-font-size-sm;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      background: $seneca-color-ink-50;
+
+      @include dark {
+        background: $seneca-color-ink-50-dk;
+      }
+    }
+  }
+
+  &__formula-hint {
+    font-family: $seneca-font-family-mono;
+    font-size: $seneca-font-size-xs;
+    color: $seneca-color-ink-500;
+  }
+
+  &__formula-preview {
+    font-family: $seneca-font-family-mono;
+  }
+
+  &__hint--error {
+    color: $seneca-color-danger;
+  }
+}
+
+// Summaries under the grid: whole-table formulas as small labelled values.
+.seneca-ct {
+  &__summaries {
+    display: flex;
+    flex-direction: column;
+    gap: $seneca-space-2;
+    margin-top: $seneca-space-3;
+    margin-bottom: $seneca-space-6;
+  }
+
+  &__summary-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $seneca-space-2;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__summary {
+    display: inline-flex;
+    align-items: center;
+    gap: $seneca-space-2;
+    padding: 4px 6px 4px 12px;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-full;
+    background: $seneca-color-surface-muted;
+    font-size: $seneca-font-size-sm;
+
+    @include dark {
+      border-color: $seneca-color-ink-150-dk;
+      background: $seneca-color-surface-muted-dk;
+    }
+
+    &--error &-value {
+      color: $seneca-color-danger;
+    }
+  }
+
+  &__summary-title {
+    color: $seneca-color-ink-500;
+  }
+
+  &__summary-value {
+    font-weight: $seneca-font-weight-semibold;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__summary-actions {
+    display: inline-flex;
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    .seneca-ct__summary:hover &,
+    &:focus-within {
+      opacity: 1;
+    }
+  }
+}
+
+.seneca-ct__toast {
+  display: flex;
+  align-items: center;
+  gap: $seneca-space-3;
+  padding: 10px 14px;
+  border: 1px solid $seneca-color-ink-150;
+  border-radius: $seneca-radius-md;
+  background-color: $seneca-color-surface;
+  box-shadow: $seneca-shadow-md;
+  font-size: $seneca-font-size-sm;
+  color: $seneca-color-text-primary;
+  transition: opacity 150ms ease;
+
+  @include dark {
+    border-color: $seneca-color-ink-150-dk;
+    background-color: $seneca-color-surface-dk;
+    color: $seneca-color-text-primary-dk;
+  }
+
+  &--hidden {
+    opacity: 0;
+  }
+}
+
+.seneca-ct__toast-undo {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: $seneca-font-weight-semibold;
+  color: var(--primary);
+  cursor: pointer;
+
+  @include dark {
+    color: $seneca-color-primary-dk;
+  }
+}
+
+// A destructive entry in a toolbar menu (Restore to default). The menu is
+// portaled out of the page, so the rule stands on its own.
+.seneca-ct__menu-item--danger {
+  color: $seneca-color-danger;
+}
+

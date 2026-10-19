@@ -1,10 +1,10 @@
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
-import { usePullToRefresh } from '@/app/hooks/usePullToRefresh';
-import type { StatementExpenseMode } from '@/app/lib/statement-expense-drawer';
-import type { StatementStage } from '@/app/lib/statement-workflow';
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import type { ReadonlyURLSearchParams } from 'next/navigation';
 import type { RefObject } from 'react';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { usePullToRefresh } from '@/app/hooks/usePullToRefresh';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
+import type { StatementExpenseMode } from '@/app/lib/statement-expense-drawer';
 import type { useManualExpenseOptions } from './useManualExpenseOptions';
 import type { useStatementPreview } from './useStatementPreview';
 import type { useStatementsDuplicates } from './useStatementsDuplicates';
@@ -25,7 +25,7 @@ export interface StatementsStatement {
   exported?: boolean | null;
   paid?: boolean | null;
   createdAt: string;
-  processedAt?: string;
+  processedAt?: string | null;
   statementDateFrom?: string | null;
   statementDateTo?: string | null;
   bankName: string;
@@ -38,7 +38,6 @@ export interface StatementsStatement {
     icon?: string | null;
   } | null;
   tags?: Array<{ id?: string; name?: string; color?: string | null }>;
-  googleSheet?: { id?: string; sheetName?: string | null; worksheetName?: string | null } | null;
   transactionSummary?: {
     description?: string | null;
     exchangeRate?: string | number | null;
@@ -52,19 +51,7 @@ export interface StatementsStatement {
     avatarUrl?: string | null;
   } | null;
   errorMessage?: string | null;
-  parsingDetails?: {
-    logEntries?: Array<{ timestamp: string; level: string; message: string }>;
-    detectedBy?: string;
-    parserUsed?: string;
-    importPreview?: {
-      source?: string;
-      merchant?: string;
-      attachments?: number;
-      description?: string;
-      categoryId?: string;
-    };
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  };
+  parsingDetails?: StatementParsingDetails | null;
   gmailMessageId?: string;
   receivedAt?: string;
   parsedData?: {
@@ -79,9 +66,11 @@ export interface StatementsStatement {
 }
 
 export interface UseStatementsViewParams {
-  stage: StatementStage;
   router: AppRouterInstance;
   searchParams: ReadonlyURLSearchParams;
+  /** Owned by the view: keeping the ref out of the returned state object lets
+   * React Compiler memoize the view (an object holding a ref is treated as a ref). */
+  listScrollRef: RefObject<HTMLDivElement | null>;
 }
 
 export const STATEMENTS_PAGE_SIZE = 30;
@@ -97,7 +86,6 @@ export interface StatementsViewState {
   expenseDrawerOpen: boolean;
   setExpenseDrawerOpen: (v: boolean) => void;
   expenseDrawerMode: StatementExpenseMode;
-  listScrollRef: RefObject<HTMLDivElement | null>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
   filterLabels: Record<string, string>;
@@ -120,8 +108,8 @@ export interface StatementsViewState {
   closePreview: ReturnType<typeof useStatementPreview>['closePreview'];
   loading: boolean;
   gmailSyncSkeletonKeys: string[];
-  loadStatements: ReturnType<typeof useStatementsListData>['loadStatements'];
-  loadGmailReceipts: ReturnType<typeof useStatementsListData>['loadGmailReceipts'];
+  refetchStatements: ReturnType<typeof useStatementsListData>['refetchStatements'];
+  refetchGmailReceipts: ReturnType<typeof useStatementsListData>['refetchGmailReceipts'];
   refreshActiveStatements: ReturnType<typeof useStatementsListData>['refreshActiveStatements'];
   displayStatements: StatementsStatement[];
   paginatedDisplayStatements: StatementsStatement[];

@@ -1,5 +1,6 @@
 'use client';
 
+import React, { isValidElement, useCallback, useMemo, useState } from 'react';
 import {
   AlertCircle,
   ChevronLeft,
@@ -9,8 +10,8 @@ import {
   RefreshCw,
 } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
+import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
-import React, { isValidElement, useCallback, useMemo, useState } from 'react';
 import { useSidePanel } from './SidePanelContext';
 import { SectionRenderer } from './sections';
 import type { ActionItem, SidePanelProps } from './types';
@@ -63,6 +64,7 @@ export function SidePanel({
   topContent,
 }: SidePanelProps) {
   const context = useSidePanel();
+  const t = useIntlayer('sidePanel');
 
   // Use prop values or context values
   const width = propWidth ?? context.width;
@@ -87,10 +89,11 @@ export function SidePanel({
   const collapsedWidth = 48; // Width when collapsed (just shows toggle)
 
   // Filter sections based on enabledSections and permissions
+  const sections = config?.sections;
   const filteredSections = useMemo(() => {
-    if (!config?.sections) return [];
+    if (!sections) return [];
 
-    return config.sections.filter(section => {
+    return sections.filter(section => {
       // Check if section is enabled
       if (enabledSections && !enabledSections.includes(section.id)) {
         return false;
@@ -105,7 +108,7 @@ export function SidePanel({
 
       return true;
     });
-  }, [config?.sections, enabledSections, permissions, context]);
+  }, [sections, enabledSections, permissions, context]);
 
   // Check panel-level permissions
   const canViewPanel = useMemo(() => {
@@ -114,7 +117,7 @@ export function SidePanel({
   }, [permissions?.viewPanel, context]);
 
   // Don't render if not visible or no permission
-  if (!visible || !canViewPanel) return null;
+  if (!(visible && canViewPanel)) return null;
 
   return (
     <aside
@@ -160,7 +163,7 @@ export function SidePanel({
                 color: 'var(--muted-foreground)',
                 borderRadius: tokens.radius.md,
               }}
-              aria-label="Expand panel"
+              aria-label={t.expandPanel.value}
             >
               {position === 'left' ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
             </button>
@@ -266,7 +269,7 @@ export function SidePanel({
                       color: 'var(--muted-foreground)',
                       borderRadius: tokens.radius.md,
                     }}
-                    aria-label="Collapse panel"
+                    aria-label={t.collapsePanel.value}
                   >
                     {position === 'left' ? (
                       <PanelLeftClose size={16} />
@@ -294,7 +297,7 @@ export function SidePanel({
               >
                 <Spinner size={32} />
                 <p style={{ fontSize: 14, color: 'var(--muted-foreground)', margin: 0 }}>
-                  Loading...
+                  {t.loading}
                 </p>
               </div>
             ) : error ? (
@@ -318,7 +321,7 @@ export function SidePanel({
                     margin: '0 0 4px',
                   }}
                 >
-                  Error loading content
+                  {t.loadError}
                 </p>
                 <p
                   style={{
@@ -349,7 +352,7 @@ export function SidePanel({
                     }}
                   >
                     <RefreshCw size={14} />
-                    Retry
+                    {t.retry}
                   </button>
                 )}
               </div>
@@ -372,13 +375,15 @@ export function SidePanel({
                     margin: 0,
                   }}
                 >
-                  No content available
+                  {t.noContent}
                 </p>
               </div>
             ) : (
-              filteredSections.map(section => (
-                <SectionRenderer key={section.id} section={section} />
-              ))
+              <div data-side-panel-sections>
+                {filteredSections.map(section => (
+                  <SectionRenderer key={section.id} section={section} />
+                ))}
+              </div>
             )}
           </div>
 
@@ -443,7 +448,7 @@ export function SidePanel({
                 cursor: 'pointer',
                 ...(position === 'left' ? { right: -12 } : { left: -12 }),
               }}
-              aria-label="Collapse panel"
+              aria-label={t.collapsePanel.value}
             >
               {position === 'left' ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
             </button>

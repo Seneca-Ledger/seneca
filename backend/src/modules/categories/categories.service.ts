@@ -1,5 +1,6 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -11,43 +12,55 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import type { FindOptionsWhere, Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
+import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
+import type { CreateCategoryBody, UpdateCategoryBody } from '../../contracts';
 import { Statement, Transaction, User, WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
-import { Category, CategorySource, CategoryType } from '../../entities/category.entity';
+import { Category, CategorySource, CategoryType, StoicClass } from '../../entities/category.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CategoryChangedEvent } from '../notifications/events/notification-events';
-import type { CreateCategoryDto } from './dto/create-category.dto';
-import type { UpdateCategoryDto } from './dto/update-category.dto';
 
 const DEFAULT_SYSTEM_CATEGORIES: ReadonlyArray<{
   name: string;
   type: CategoryType;
 }> = [
-  { name: 'Продажи', type: CategoryType.INCOME },
-  { name: 'Услуги', type: CategoryType.INCOME },
-  { name: 'Процентный доход', type: CategoryType.INCOME },
-  { name: 'Прочий доход', type: CategoryType.INCOME },
-  { name: 'Реклама', type: CategoryType.EXPENSE },
-  { name: 'Льготы и компенсации', type: CategoryType.EXPENSE },
-  { name: 'Автомобильные расходы', type: CategoryType.EXPENSE },
-  { name: 'Оборудование', type: CategoryType.EXPENSE },
-  { name: 'Комиссии и сборы', type: CategoryType.EXPENSE },
-  { name: 'Домашний офис', type: CategoryType.EXPENSE },
-  { name: 'Страхование', type: CategoryType.EXPENSE },
-  { name: 'Проценты', type: CategoryType.EXPENSE },
-  { name: 'Оплата труда', type: CategoryType.EXPENSE },
-  { name: 'Обслуживание и ремонт', type: CategoryType.EXPENSE },
-  { name: 'Материалы', type: CategoryType.EXPENSE },
-  { name: 'Питание и представительские расходы', type: CategoryType.EXPENSE },
-  { name: 'Канцелярские товары', type: CategoryType.EXPENSE },
-  { name: 'Прочие расходы', type: CategoryType.EXPENSE },
-  { name: 'Профессиональные услуги', type: CategoryType.EXPENSE },
-  { name: 'Аренда', type: CategoryType.EXPENSE },
-  { name: 'Налоги', type: CategoryType.EXPENSE },
-  { name: 'Командировки', type: CategoryType.EXPENSE },
-  { name: 'Коммунальные услуги', type: CategoryType.EXPENSE },
+  // Seeded in English; clients resolve the display name through the
+  // systemCategories dictionary, keyed on the stored name.
+  { name: 'Sales', type: CategoryType.INCOME },
+  { name: 'Services', type: CategoryType.INCOME },
+  { name: 'Interest income', type: CategoryType.INCOME },
+  { name: 'Other income', type: CategoryType.INCOME },
+  { name: 'Advertising', type: CategoryType.EXPENSE },
+  { name: 'Benefits and compensation', type: CategoryType.EXPENSE },
+  { name: 'Vehicle expenses', type: CategoryType.EXPENSE },
+  { name: 'Equipment', type: CategoryType.EXPENSE },
+  { name: 'Fees and charges', type: CategoryType.EXPENSE },
+  { name: 'Home office', type: CategoryType.EXPENSE },
+  { name: 'Insurance', type: CategoryType.EXPENSE },
+  { name: 'Interest', type: CategoryType.EXPENSE },
+  { name: 'Payroll', type: CategoryType.EXPENSE },
+  { name: 'Maintenance and repairs', type: CategoryType.EXPENSE },
+  { name: 'Materials', type: CategoryType.EXPENSE },
+  { name: 'Meals and entertainment', type: CategoryType.EXPENSE },
+  { name: 'Office supplies', type: CategoryType.EXPENSE },
+  { name: 'Other expenses', type: CategoryType.EXPENSE },
+  { name: 'Professional services', type: CategoryType.EXPENSE },
+  { name: 'Rent', type: CategoryType.EXPENSE },
+  { name: 'Taxes', type: CategoryType.EXPENSE },
+  { name: 'Travel', type: CategoryType.EXPENSE },
+  { name: 'Utilities', type: CategoryType.EXPENSE },
 ];
+
+/** Columns an update may not empty: a null sent for them leaves them as they are. */
+const REQUIRED_CATEGORY_FIELDS: ReadonlySet<string> = new Set([
+  'name',
+  'type',
+  'isEnabled',
+  'taxRelevant',
+]);
 
 @Injectable()
 export class CategoriesService {
@@ -80,6 +93,7 @@ export class CategoriesService {
       isSystem: category.isSystem,
       source: category.source,
       isEnabled: category.isEnabled,
+      taxRelevant: category.taxRelevant,
       color: category.color,
       icon: category.icon,
       createdAt: category.createdAt,
@@ -101,29 +115,33 @@ export class CategoriesService {
       workspaceId,
       userId,
       'canEditCategories',
-      'Недостаточно прав для редактирования категорий',
+      'CATEGORIES_EDIT_FORBIDDEN',
     );
   }
 
   async create(
     workspaceId: string,
     userId: string,
-    createDto: CreateCategoryDto,
+    createDto: CreateCategoryBody,
   ): Promise<Category> {
     await this.ensureCanEditCategories(workspaceId, userId);
+    const type = toEnum(CategoryType, createDto.type);
     // Check for duplicate name
     const existing = await this.categoryRepository.findOne({
-      where: { workspaceId, name: createDto.name, type: createDto.type },
+      where: { workspaceId, name: createDto.name, type },
     });
 
     if (existing) {
       throw new ConflictException('Category with this name already exists');
     }
+    await this.assertParentInWorkspace(workspaceId, createDto.parentId);
 
     const category = this.categoryRepository.create({
       workspaceId,
       userId,
-      ...createDto,
+      ...withoutNulls(createDto),
+      type,
+      stoicClass: toEnum(StoicClass, createDto.stoicClass),
       isSystem: false,
       source: CategorySource.USER,
       isEnabled: createDto.isEnabled ?? true,
@@ -180,6 +198,16 @@ export class CategoriesService {
     return categories;
   }
 
+  /** The parent comes from the request: another workspace's category is "not found". */
+  private async assertParentInWorkspace(
+    workspaceId: string,
+    parentId: string | null | undefined,
+  ): Promise<void> {
+    if (!parentId) return;
+    const parent = await this.categoryRepository.findOne({ where: { id: parentId, workspaceId } });
+    if (!parent) throw new NotFoundException('Parent category not found');
+  }
+
   async findOne(id: string, workspaceId: string): Promise<Category> {
     const category = await this.categoryRepository.findOne({
       where: { id, workspaceId },
@@ -201,8 +229,8 @@ export class CategoriesService {
         .createQueryBuilder('transaction')
         .select('transaction.categoryId', 'categoryId')
         .addSelect('COUNT(transaction.id)', 'count')
-        .innerJoin('transaction.statement', 'statement')
-        .where('statement.workspaceId = :workspaceId', { workspaceId })
+        // Every row of the workspace, a receipt's or a cash payment's too.
+        .where('transaction.workspaceId = :workspaceId', { workspaceId })
         .andWhere('transaction.categoryId IS NOT NULL')
         .groupBy('transaction.categoryId')
         .getRawMany(),
@@ -249,9 +277,8 @@ export class CategoriesService {
     const [transactions, statements] = await Promise.all([
       this.transactionRepository
         .createQueryBuilder('transaction')
-        .innerJoin('transaction.statement', 'statement')
         .where('transaction.categoryId = :categoryId', { categoryId })
-        .andWhere('statement.workspaceId = :workspaceId', { workspaceId })
+        .andWhere('transaction.workspaceId = :workspaceId', { workspaceId })
         .getCount(),
       this.statementRepository.count({
         where: { categoryId, workspaceId },
@@ -269,15 +296,22 @@ export class CategoriesService {
     id: string,
     workspaceId: string,
     userId: string,
-    updateDto: UpdateCategoryDto,
+    updateDto: UpdateCategoryBody,
   ): Promise<Category> {
     await this.ensureCanEditCategories(workspaceId, userId);
     const category = await this.findOne(id, workspaceId);
     const before = this.snapshotCategory(category);
 
     if (category.isSystem) {
+      // A system category's name and shape are fixed, but whether it is on and
+      // how the user judges its spending are theirs to decide.
       const nonToggleUpdates = Object.entries(updateDto).filter(
-        ([key, value]) => key !== 'isEnabled' && value !== undefined,
+        ([key, value]) =>
+          key !== 'isEnabled' &&
+          key !== 'stoicClass' &&
+          key !== 'helpsOthers' &&
+          key !== 'taxRelevant' &&
+          value !== undefined,
       );
 
       if (nonToggleUpdates.length > 0) {
@@ -296,7 +330,29 @@ export class CategoriesService {
       }
     }
 
-    Object.assign(category, updateDto);
+    // null clears what may be empty (parent, colour, icon, the judgements); on a
+    // required column it can only mean "leave it", and saving it failed NOT NULL.
+    const changes = Object.fromEntries(
+      Object.entries(updateDto).filter(
+        ([key, value]) => !(value === null && REQUIRED_CATEGORY_FIELDS.has(key)),
+      ),
+    ) as UpdateCategoryBody;
+
+    if (changes.parentId) {
+      if (changes.parentId === id) {
+        throw new BadRequestException('A category cannot be its own parent');
+      }
+      await this.assertParentInWorkspace(workspaceId, changes.parentId);
+    }
+
+    // A save that changes nothing (the editor re-submitting unchanged fields) is not an
+    // event: logging it filled the audit log with identical "updated" rows.
+    const changed = Object.entries(changes).some(
+      ([key, value]) =>
+        value !== undefined &&
+        JSON.stringify(value) !== JSON.stringify(category[key as keyof Category] ?? null),
+    );
+    Object.assign(category, changes);
     const saved = await this.categoryRepository.save(category);
     await this.invalidateCache(workspaceId);
     const after = this.snapshotCategory(saved);
@@ -304,19 +360,21 @@ export class CategoriesService {
     const parentChanged = before.parentId !== saved.parentId;
     // Audit: track category updates with before/after diff.
     try {
-      await this.auditService.createEvent({
-        workspaceId,
-        actorType: ActorType.USER,
-        actorId: userId,
-        entityType: EntityType.CATEGORY,
-        entityId: saved.id,
-        action: AuditAction.UPDATE,
-        diff: { before, after },
-        meta: parentChanged
-          ? { parentChange: { from: before.parentId ?? null, to: saved.parentId ?? null } }
-          : undefined,
-        isUndoable: true,
-      });
+      if (changed) {
+        await this.auditService.createEvent({
+          workspaceId,
+          actorType: ActorType.USER,
+          actorId: userId,
+          entityType: EntityType.CATEGORY,
+          entityId: saved.id,
+          action: AuditAction.UPDATE,
+          diff: { before, after },
+          meta: parentChanged
+            ? { parentChange: { from: before.parentId ?? null, to: saved.parentId ?? null } }
+            : undefined,
+          isUndoable: true,
+        });
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Audit event failed for category ${saved.id}: ${message}`);
@@ -341,6 +399,11 @@ export class CategoriesService {
     if (category.isSystem) {
       throw new ForbiddenException('Cannot delete system category');
     }
+    // Deleting the category would clear it on rows a filed return was built from.
+    await assertNoTaxLockedTransactions(this.transactionRepository, {
+      categoryId: category.id,
+      workspaceId,
+    });
 
     await this.categoryRepository.remove(category);
     await this.invalidateCache(workspaceId);

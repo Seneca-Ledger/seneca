@@ -16,7 +16,8 @@ export class GmailSettings {
   @Column({ name: 'label_id', nullable: true })
   labelId: string;
 
-  @Column({ name: 'label_name', default: 'Lumio/Receipts' })
+  /** Set on connect from the product name (APP_NAME), so the column has no default. */
+  @Column({ name: 'label_name' })
   labelName: string;
 
   @Column({ name: 'filter_enabled', default: true })
@@ -39,6 +40,6 @@ export class GmailSettings {
   @Column({ name: 'last_sync_at', type: 'timestamp', nullable: true })
   lastSyncAt: Date | null;
 
-  @Column({ name: 'history_id', nullable: true })
+  @Column({ type: 'varchar', name: 'history_id', nullable: true })
   historyId: string | null;
 }

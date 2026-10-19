@@ -1,6 +1,6 @@
 @use '../abstracts' as *;
 
-/* lumio-statements.scss — BEM styles for statements list, trash, views, and payables */
+/* seneca-statements.scss — BEM styles for statements list, trash, views, and payables */
 
 /* Mobile-only helper (replaces lg:hidden) */
 [data-mobile-only="true"] {
@@ -11,30 +11,53 @@
   }
 }
 
+/* ── Statements route shell ───────────────────────────────
+   Wraps AlertBanner + the page view (see MainSidePanelLayout). Giving the
+   page view its own "height: 100%" only matches the wrapper's total height,
+   not the space actually left after AlertBanner renders above it — that
+   still overflowed the wrapper's overflow:hidden by AlertBanner's height.
+   A flex column here lets the last child (the page view) shrink to fill
+   exactly what AlertBanner didn't take, regardless of how tall it is. */
+.seneca-statements-shell {
+  display: flex;
+  flex-direction: column;
+
+  > * {
+    flex-shrink: 0;
+  }
+
+  // No overflow here: this selector outranks MUI's single class, and some page
+  // views (statement edit) are their own scroller via overflowY:auto.
+  > *:last-child {
+    flex: 1 1 0%;
+    min-height: 0;
+  }
+}
+
 /* ── Statement list item ──────────────────────────────── */
-.lumio-stmt-item {
+.seneca-stmt-item {
   position: relative;
   overflow: hidden;
-  border-radius: $lumio-radius-lg;
+  border-radius: $seneca-radius-lg;
   border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
+  background: $seneca-color-surface;
   padding: 12px;
   transition: border-color 0.15s;
 
   @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
+    border-color: $seneca-color-border-dk;
+    background: $seneca-color-surface-dk;
   }
 
   &:hover {
-    border-color: color-mix(in srgb, $color-primary 30%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
   }
 
   &--duplicate-original {
     border-left: 3px solid #f59e0b;
 
     @include dark {
-      border-left-color: $lumio-color-warning-dk;
+      border-left-color: $seneca-color-warning-dk;
     }
   }
 
@@ -42,7 +65,7 @@
     border-left: 3px solid #d1d5db;
 
     @include dark {
-      border-left-color: $lumio-color-ink-300-dk;
+      border-left-color: $seneca-color-ink-300-dk;
     }
   }
 
@@ -52,7 +75,7 @@
     top: 8px;
     bottom: 8px;
     width: 2px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
   }
 
   &__mobile {
@@ -112,7 +135,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -123,7 +146,7 @@
     margin-top: 2px;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -149,14 +172,14 @@
     color: #030712;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &--error {
       color: #dc2626;
 
       @include dark {
-        color: $lumio-color-danger-dk;
+        color: $seneca-color-danger-dk;
       }
     }
   }
@@ -172,7 +195,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     padding: 4px 10px;
     font-size: 10px;
     font-weight: 700;
@@ -184,7 +207,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     padding: 2px 6px;
     font-size: 10px;
     font-weight: 700;
@@ -194,35 +217,35 @@
 }
 
 /* ── Status chips ──────────────────────────────── */
-.lumio-status-chip {
+.seneca-status-chip {
   display: inline-flex;
   align-items: center;
-  border-radius: $lumio-radius-full;
+  border-radius: $seneca-radius-full;
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 
   &--error {
-    background-color: $lumio-color-surface-error;
+    background-color: $seneca-color-surface-error;
     color: #b91c1c;
     box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.2) inset;
 
     @include dark {
-      background-color: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      background-color: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
       box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.3) inset;
     }
   }
 
   &--processing {
-    background-color: $lumio-color-surface-muted;
+    background-color: $seneca-color-surface-muted;
     color: #92400e;
     box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3) inset;
 
     @include dark {
-      background-color: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      background-color: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
       box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4) inset;
     }
   }
@@ -233,22 +256,22 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 }
 
 /* ── Statement view ──────────────────────────────── */
-.lumio-stmt-view {
+.seneca-stmt-view {
   &__back-btn,
   &__back-btn-primary {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-surface;
-    color: $lumio-color-ink-700;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-md;
+    background: $seneca-color-surface;
+    color: $seneca-color-ink-700;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
@@ -256,14 +279,14 @@
     transition: border-color 150ms, color 150ms, background-color 150ms;
 
     @include dark {
-      border-color: $lumio-color-ink-150-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-ink-150-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
-      border-color: $color-primary;
-      color: $color-primary;
+      border-color: var(--primary);
+      color: var(--primary);
 
       @include dark {
         border-color: $color-primary-dk;
@@ -277,35 +300,35 @@
   }
 
   &__error-box {
-    border: 1px solid rgba($lumio-color-danger, 0.35);
-    border-radius: $lumio-radius-lg;
-    background: $lumio-color-surface-error;
-    color: $lumio-color-danger;
+    border: 1px solid rgba($seneca-color-danger, 0.35);
+    border-radius: $seneca-radius-lg;
+    background: $seneca-color-surface-error;
+    color: $seneca-color-danger;
     padding: 16px;
 
     @include dark {
-      border-color: rgba($lumio-color-danger-dk, 0.4);
-      background: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      border-color: rgba($seneca-color-danger-dk, 0.4);
+      background: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
     }
   }
 }
 
 /* ── Statements list view ──────────────────────────────── */
-.lumio-stmt-list {
+.seneca-stmt-list {
   display: flex;
   flex-direction: column;
   height: calc(100vh - $global-nav-height);
   min-height: 0;
   overflow: hidden;
-  padding: 24px 16px;
+  padding: var(--seneca-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: 24px;
+    padding: var(--seneca-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: 24px 32px;
+    padding: var(--seneca-page-top, 24px) 32px 24px;
   }
 
   &__header {
@@ -342,30 +365,30 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px 16px 12px 44px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 10%, transparent);
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
   }
 
@@ -383,9 +406,9 @@
     align-items: center;
     gap: 6px;
     white-space: nowrap;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 10px;
     font-size: 13px;
     font-weight: 500;
@@ -393,20 +416,20 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
-      border-color: $color-primary;
-      color: $color-primary;
+      border-color: var(--primary);
+      color: var(--primary);
     }
 
     &--active {
-      border-color: $color-primary;
-      background: color-mix(in srgb, $color-primary 5%, transparent);
-      color: $color-primary;
+      border-color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 5%, transparent);
+      color: var(--primary);
     }
   }
 
@@ -416,11 +439,11 @@
     width: 20px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
-    background: color-mix(in srgb, $color-primary 10%, transparent);
+    border-radius: $seneca-radius-md;
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
     font-size: 12px;
     font-weight: 600;
-    color: $color-primary;
+    color: var(--primary);
     margin-left: 4px;
   }
 
@@ -429,9 +452,9 @@
     align-items: center;
     gap: 6px;
     white-space: nowrap;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #fde68a;
-    background: $lumio-color-surface-muted;
+    background: $seneca-color-surface-muted;
     padding: 6px 10px;
     font-size: 13px;
     font-weight: 500;
@@ -440,9 +463,9 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-warning-dk;
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      border-color: $seneca-color-warning-dk;
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
     }
 
     &:hover {
@@ -450,8 +473,8 @@
       background: #fef3c7;
 
       @include dark {
-        border-color: $lumio-color-warning-dk;
-        background: $lumio-color-warning-soft-dk;
+        border-color: $seneca-color-warning-dk;
+        background: $seneca-color-warning-soft-dk;
       }
     }
   }
@@ -462,16 +485,16 @@
     min-width: 20px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-surface;
+    border-radius: $seneca-radius-md;
+    background: $seneca-color-surface;
     padding: 0 4px;
     font-size: 11px;
     font-weight: 600;
     color: #92400e;
 
     @include dark {
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-warning-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-warning-dk;
     }
   }
 
@@ -485,14 +508,14 @@
   &__skeleton {
     position: relative;
     overflow: hidden;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px 16px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -508,14 +531,14 @@
     color: #d1d5db;
     margin-bottom: 16px;
     background: #f9fafb;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     display: flex;
     align-items: center;
     justify-content: center;
 
     @include dark {
-      color: $lumio-color-ink-300-dk;
-      background: $lumio-color-surface-muted-dk;
+      color: $seneca-color-ink-300-dk;
+      background: $seneca-color-surface-muted-dk;
     }
   }
 
@@ -534,7 +557,7 @@
       color: #6b7280;
 
       @include dark {
-        color: $lumio-color-ink-500-dk;
+        color: $seneca-color-ink-500-dk;
       }
     }
   }
@@ -554,7 +577,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -567,7 +590,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -578,7 +601,7 @@
     padding-right: 4px;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -588,7 +611,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -611,7 +634,7 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -623,7 +646,7 @@
 }
 
 /* ── Selected actions bar ──────────────────────────────── */
-.lumio-stmt-selected-actions {
+.seneca-stmt-selected-actions {
   position: fixed;
   inset-inline: 16px;
   bottom: calc(0.75rem + env(safe-area-inset-bottom));
@@ -632,15 +655,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-radius: $lumio-radius-md;
+  border-radius: $seneca-radius-md;
   border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
+  background: $seneca-color-surface;
   padding: 8px 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 
   @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
+    border-color: $seneca-color-border-dk;
+    background: $seneca-color-surface-dk;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   }
 
@@ -653,7 +676,7 @@
     min-height: 40px;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid;
     padding: 4px 10px;
     font-size: 12px;
@@ -662,12 +685,12 @@
     transition: all 0.15s;
 
     &--merge {
-      border-color: color-mix(in srgb, $color-primary 20%, transparent);
-      color: $color-primary;
+      border-color: color-mix(in srgb, var(--primary) 20%, transparent);
+      color: var(--primary);
 
       &:hover {
-        border-color: $color-primary;
-        background: color-mix(in srgb, $color-primary 5%, transparent);
+        border-color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 5%, transparent);
       }
     }
 
@@ -676,13 +699,13 @@
       color: #374151;
 
       @include dark {
-        border-color: $lumio-color-border-dk;
-        color: $lumio-color-ink-700-dk;
+        border-color: $seneca-color-border-dk;
+        color: $seneca-color-ink-700-dk;
       }
 
       &:hover {
-        border-color: $color-primary;
-        color: $color-primary;
+        border-color: var(--primary);
+        color: var(--primary);
       }
     }
 
@@ -691,8 +714,8 @@
       color: #374151;
 
       @include dark {
-        border-color: $lumio-color-border-dk;
-        color: $lumio-color-ink-700-dk;
+        border-color: $seneca-color-border-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
 
@@ -701,8 +724,8 @@
       color: #dc2626;
 
       @include dark {
-        border-color: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
+        border-color: $seneca-color-danger-soft-dk;
+        color: $seneca-color-danger-dk;
       }
 
       &:hover {
@@ -710,8 +733,8 @@
         color: #b91c1c;
 
         @include dark {
-          border-color: $lumio-color-danger-dk;
-          color: $lumio-color-danger-dk;
+          border-color: $seneca-color-danger-dk;
+          color: $seneca-color-danger-dk;
         }
       }
     }
@@ -719,7 +742,7 @@
 }
 
 /* Desktop selected actions dropdown */
-.lumio-stmt-desktop-actions {
+.seneca-stmt-desktop-actions {
   position: relative;
   display: none;
 
@@ -731,8 +754,8 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
-    background: $color-primary;
+    border-radius: $seneca-radius-md;
+    background: var(--primary-fill);
     padding: 6px 10px;
     font-size: 13px;
     font-weight: 500;
@@ -742,7 +765,7 @@
     border: none;
 
     &:hover {
-      background: $color-primary-hover;
+      background: var(--primary-fill-hover);
     }
   }
 
@@ -753,15 +776,15 @@
     z-index: 20;
     width: 280px;
     max-width: calc(100vw - 64px);
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #dedad2;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px;
     box-shadow: 0 10px 20px rgba(17, 24, 39, 0.1);
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
     }
   }
@@ -771,7 +794,7 @@
     width: 100%;
     align-items: center;
     justify-content: space-between;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 10px 12px;
     text-align: left;
     cursor: pointer;
@@ -783,15 +806,15 @@
       background: #f8fbff;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
     &--danger:hover {
-      background: $lumio-color-surface-error;
+      background: $seneca-color-surface-error;
 
       @include dark {
-        background: $lumio-color-danger-soft-dk;
+        background: $seneca-color-danger-soft-dk;
       }
     }
   }
@@ -808,27 +831,27 @@
     margin: 4px 0;
 
     @include dark {
-      background: $lumio-color-border-dk;
+      background: $seneca-color-border-dk;
     }
   }
 }
 
 /* ── Trash list ──────────────────────────────── */
-.lumio-trash-item {
+.seneca-trash-item {
   position: relative;
-  border-radius: $lumio-radius-lg;
+  border-radius: $seneca-radius-lg;
   border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
+  background: $seneca-color-surface;
   padding: 16px;
   transition: border-color 0.15s;
 
   @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
+    border-color: $seneca-color-border-dk;
+    background: $seneca-color-surface-dk;
   }
 
   &:hover {
-    border-color: color-mix(in srgb, $color-primary 30%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
   }
 
   &__inner {
@@ -865,7 +888,7 @@
     color: #374151;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
   }
 
@@ -877,7 +900,7 @@
     color: #4b5563;
 
     @include dark {
-      color: $lumio-color-ink-600-dk;
+      color: $seneca-color-ink-600-dk;
     }
 
     @media (min-width: 640px) {
@@ -898,7 +921,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -912,7 +935,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -932,7 +955,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #a7f3d0;
     padding: 4px 10px;
     font-size: 12px;
@@ -943,17 +966,17 @@
     background: none;
 
     @include dark {
-      border-color: $lumio-color-success-dk;
-      color: $lumio-color-success-dk;
+      border-color: $seneca-color-success-dk;
+      color: $seneca-color-success-dk;
     }
 
     &:hover {
-      border-color: #34d399;
+      border-color: var(--primary);
       background: #ecfdf5;
 
       @include dark {
-        border-color: $lumio-color-success-dk;
-        background: $lumio-color-success-soft-dk;
+        border-color: $seneca-color-success-dk;
+        background: $seneca-color-success-soft-dk;
       }
     }
   }
@@ -962,7 +985,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #fecaca;
     padding: 6px;
     color: #f87171;
@@ -971,26 +994,26 @@
     background: none;
 
     @include dark {
-      border-color: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      border-color: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
     }
 
     &:hover {
       border-color: #f87171;
-      background: $lumio-color-surface-muted;
+      background: $seneca-color-surface-muted;
       color: #dc2626;
 
       @include dark {
-        border-color: $lumio-color-danger-dk;
-        background: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
+        border-color: $seneca-color-danger-dk;
+        background: $seneca-color-danger-soft-dk;
+        color: $seneca-color-danger-dk;
       }
     }
   }
 }
 
 /* ── Statement Category Drawer ──────────────────────────── */
-.lumio-cat-drawer {
+.seneca-cat-drawer {
   display: flex;
   height: 100%;
   flex-direction: column;
@@ -1000,7 +1023,7 @@
     padding-bottom: 16px;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
@@ -1018,31 +1041,41 @@
     color: $color-muted-foreground;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
   &__search-input {
     height: 56px;
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
     background: $color-card-bg;
     padding: 0 16px 0 48px;
     font-size: 16px;
     color: $color-foreground;
-    outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 20%, transparent);
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+  }
+
+  &__footer {
+    flex: none;
+    padding-top: 12px;
+    border-top: 1px solid $color-border;
+
+    @include dark {
+      border-top-color: $seneca-color-border-dk;
     }
   }
 
@@ -1068,20 +1101,20 @@
     color: $color-foreground;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:hover {
       background: $color-muted;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
     &--selected {
-      background: color-mix(in srgb, $color-primary 10%, transparent);
-      color: $color-primary;
+      background: color-mix(in srgb, var(--primary) 10%, transparent);
+      color: var(--primary);
     }
   }
 
@@ -1091,19 +1124,19 @@
     color: $color-muted-foreground;
 
     @include dark {
-      color: $lumio-color-text-secondary-dk;
+      color: $seneca-color-text-secondary-dk;
     }
   }
 }
 
 /* ── Columns Drawer ──────────────────────────────────────── */
-.lumio-col-drawer {
+.seneca-col-drawer {
   display: flex;
   height: 100%;
   flex-direction: column;
 
   &__back-btn {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 8px;
     color: $color-muted-foreground;
     transition: all 0.15s;
@@ -1112,7 +1145,7 @@
     cursor: pointer;
 
     @include dark {
-      color: $lumio-color-text-secondary-dk;
+      color: $seneca-color-text-secondary-dk;
     }
 
     &:hover {
@@ -1120,8 +1153,8 @@
       color: $color-foreground;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-text-primary-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-text-primary-dk;
       }
     }
   }
@@ -1146,7 +1179,7 @@
     transition: background-color 0.15s;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
 
     &:last-child {
@@ -1157,7 +1190,7 @@
       background: $color-muted;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
@@ -1167,7 +1200,7 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
       @include dark {
-        background: $lumio-color-surface-dk;
+        background: $seneca-color-surface-dk;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
       }
     }
@@ -1177,7 +1210,7 @@
     margin-left: -4px;
     cursor: grab;
     touch-action: none;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 4px;
     color: color-mix(in srgb, $color-muted-foreground 70%, transparent);
     transition: color 0.15s;
@@ -1185,14 +1218,14 @@
     border: none;
 
     @include dark {
-      color: color-mix(in srgb, $lumio-color-ink-400-dk 70%, transparent);
+      color: color-mix(in srgb, $seneca-color-ink-400-dk 70%, transparent);
     }
 
     &:hover {
       color: $color-foreground;
 
       @include dark {
-        color: $lumio-color-text-primary-dk;
+        color: $seneca-color-text-primary-dk;
       }
     }
 
@@ -1207,14 +1240,14 @@
     color: $color-foreground;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &--hidden {
       color: $color-muted-foreground;
 
       @include dark {
-        color: $lumio-color-text-secondary-dk;
+        color: $seneca-color-text-secondary-dk;
       }
     }
   }
@@ -1226,99 +1259,25 @@
     padding: 16px 0 8px;
 
     @include dark {
-      background: $lumio-color-surface-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 }
 
 /* ── Payables ──────────────────────────────────────────── */
-.lumio-payable-filters {
-  border-radius: $lumio-radius-lg;
+.seneca-payable-list {
+  border-radius: $seneca-radius-lg;
   border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
-  padding: 16px;
+  background: $seneca-color-surface;
 
   @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
-  }
-
-  &__inner {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    @media (min-width: 1280px) {
-      flex-direction: row;
-      align-items: center;
-    }
-  }
-
-  &__search {
-    position: relative;
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-
-    @media (min-width: 640px) {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    @media (min-width: 1280px) {
-      grid-template-columns: repeat(4, 1fr);
-      align-items: center;
-    }
-  }
-
-  &__select {
-    height: 40px;
-    border-radius: $lumio-radius-md;
-    border: 1px solid $color-border;
-    background: $lumio-color-surface;
-    padding: 0 12px;
-    font-size: 14px;
-    color: $color-foreground;
-    outline: none;
-
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
-    }
-
-    &:focus {
-      outline: none;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 30%, transparent);
-    }
-  }
-}
-
-.lumio-payable-list {
-  border-radius: $lumio-radius-lg;
-  border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
-
-  @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
+    border-color: $seneca-color-border-dk;
+    background: $seneca-color-surface-dk;
   }
 
   &__empty {
-    border-radius: $lumio-radius-lg;
-    border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
     padding: 48px 24px;
     text-align: center;
-
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-    }
   }
 
   &__mobile-rows {
@@ -1334,7 +1293,7 @@
     border-bottom: 1px solid #f3f4f6;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
 
     &:last-child {
@@ -1367,17 +1326,12 @@
     border-collapse: collapse;
   }
 
+  // Column names in sentence case and the readable grey, like every other label.
   &__thead tr {
     text-align: left;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #94a3b8;
-
-    @include dark {
-      color: $lumio-color-ink-400-dk;
-    }
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
   }
 
   &__th {
@@ -1393,7 +1347,7 @@
     vertical-align: middle;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
   }
 
@@ -1411,7 +1365,7 @@
     justify-content: space-between;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
 
     @media (min-width: 640px) {
@@ -1426,9 +1380,141 @@
     justify-content: flex-end;
     gap: 8px;
   }
+
+  // A click anywhere on a row opens the bill.
+  &__row {
+    cursor: pointer;
+
+    &:hover {
+      background: var(--surface-soft);
+    }
+  }
+
+  &__vendor {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 500;
+    color: var(--foreground);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  &__muted {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  &__amount {
+    text-align: right;
+    font-weight: 500;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__amount-note {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
+  &__empty-title {
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__empty-text {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  // The row's one action, a sage text link that shows on hover or focus, so a
+  // column of identical buttons does not repeat down the list.
+  &__mark {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary);
+    cursor: pointer;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    &:focus-visible {
+      opacity: 1;
+    }
+
+    &:disabled {
+      cursor: default;
+    }
+  }
+
+  &__row:hover &__mark,
+  &__row:focus-within &__mark,
+  &__mobile-row &__mark {
+    opacity: 1;
+  }
 }
 
-.lumio-payable-summary {
+// A status is a word with a small dot. Only overdue gets a colour beyond the dot:
+// how long it has been, in terracotta, the one accent of its row.
+.seneca-payable-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--foreground);
+  white-space: nowrap;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--cat-tone-other);
+  }
+
+  &--overdue::before {
+    background: var(--money-down);
+  }
+
+  &--done::before {
+    background: var(--money-up);
+  }
+
+  &--partial::before {
+    background: var(--attention);
+  }
+
+  &__since {
+    font-size: 13px;
+    color: var(--money-down);
+  }
+
+  // Ochre: something waits, nothing is wrong yet.
+  &__unbooked {
+    font-size: 13px;
+    color: var(--attention);
+  }
+}
+
+.seneca-payable-summary-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seneca-payable-summary {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
@@ -1444,48 +1530,519 @@
   &__card-content {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 20px;
+    gap: 4px;
+    padding: 16px 20px;
   }
 
-  &__card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    color: #94a3b8;
+  &__label {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
 
-    @include dark {
-      color: $lumio-color-ink-400-dk;
+  &__value {
+    margin-top: 4px;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__count {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__note {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__unbooked {
+    color: var(--attention);
+  }
+}
+
+/* ── Invoice line-item editor ────────────────────────────── */
+/* Its own table skin: `seneca-payable-list__table` is sized for compact
+   read-only rows, not for hosting 48px-tall form inputs — reusing it left
+   the header cells and the fixed-width input cells out of step. */
+// Unlike .seneca-stmt-list this page has no inner scroller, so it must not cap
+// its own height — the form flows and the shell's main area scrolls.
+.seneca-invoice-detail {
+  padding: var(--seneca-page-top, 24px) 16px 24px;
+
+  @media (min-width: 640px) {
+    padding: var(--seneca-page-top, 24px) 24px 24px;
+  }
+
+  @media (min-width: 1024px) {
+    padding: var(--seneca-page-top, 24px) 32px 24px;
+  }
+
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+
+    @include respond-to('sm') {
+      width: 100%;
+      margin-left: 0;
+    }
+  }
+}
+
+/* ── New / draft invoice wizard ───────────────────────────── */
+// One question per step in a narrow column, the onboarding's rhythm inside the app.
+.seneca-invoice-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 640px;
+  margin: 0 auto;
+
+  &__progress {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__progress-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__segments {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__segment {
+    flex: 1;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--border-color);
+    transition: background-color 240ms ease;
+
+    &--done {
+      background: var(--primary);
     }
   }
 
-  &__icon {
+  &__step {
     display: flex;
-    height: 36px;
-    width: 36px;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  &__heading {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    h2 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.2;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--foreground);
+
+      &:focus {
+        outline: none;
+      }
+    }
+
+    p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+  }
+
+  // Every field of the wizard one family: 44px tall, 8px corners, 14px type, the
+  // label 6px above it — the shared Input is 48px/16px and the Select 40px.
+  // Doubled class: outweighs the theme's own small-size height (34px).
+  .MuiOutlinedInput-root.MuiOutlinedInput-root {
+    height: 44px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  // Numbers are typed, not stepped: no browser spinner arrows in the field.
+  input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      margin: 0;
+      -webkit-appearance: none;
+    }
+  }
+
+  .seneca-payable-drawer__field-group {
+    gap: 6px;
+  }
+
+  .seneca-payable-drawer__field-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__number input {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__currency {
+    margin-right: 6px;
+    color: var(--text-muted);
+  }
+
+  // Qty | Unit | Unit price, bottoms aligned: nothing sits under one field and not the others.
+  &__qty-row {
+    display: grid;
+    grid-template-columns: 96px 140px minmax(0, 1fr);
+    // Fields are one height, so aligning the tops lines up the labels and the fields alike.
+    align-items: start;
+
+    // UnitSelect brings its own 4px top margin (it was made to sit under Qty).
+    .MuiOutlinedInput-root {
+      margin-top: 0;
+    }
+    gap: 12px;
+
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr 1fr;
+
+      > :last-child {
+        grid-column: 1 / -1;
+      }
+    }
+  }
+
+  // Quiet actions as sage text: "Add a discount", "Add another line", "Add late fee".
+  &__link {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-md;
-    border: 1px solid #e5e7eb;
-    background: #f8fafc;
-    color: #475569;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    color: #3f7d5c;
+    cursor: pointer;
+
+    @include dark { color: var(--primary); }
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+    }
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__hint,
+  &__note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  &__note {
+    font-size: 14px;
+  }
+
+  &__muted {
+    color: var(--muted-foreground);
+  }
+
+  // One hairline around a line, no fill and no rule inside it.
+  &__line {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+    border: 1px solid $seneca-color-hairline;
+    border-radius: 12px;
+
+    @include dark { border-color: var(--border); }
+  }
+
+  &__line-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 32px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__line-amount {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__line-sum {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  // Labels next to their numbers: a narrow block on the right, not across the page.
+  &__totals {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    margin-left: auto;
+    width: min(280px, 100%);
+    font-size: 14px;
+    color: var(--text-muted);
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    dd {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+      color: var(--foreground);
+    }
+  }
+
+  &__total {
+    padding-top: 6px;
+    border-top: 1px solid $seneca-color-hairline;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--foreground);
+
+    @include dark { border-top-color: var(--border); }
+  }
+
+  &__totals-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -8px;
+  }
+
+  &__review-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+  }
+
+  &__review-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    h3 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted-foreground);
+    }
+  }
+
+  &__review-lines {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+  }
+
+  &__review-extras {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+
+    div {
+      display: flex;
+      gap: 8px;
+    }
+
+    dt {
+      color: var(--muted-foreground);
+
+      &::after {
+        content: ':';
+      }
+    }
+
+    dd {
+      margin: 0;
+    }
+  }
+
+  &__review-notes {
+    white-space: pre-wrap;
+  }
+}
+
+.seneca-invoice-lines {
+  &__table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  &__th {
+    padding: 8px 12px 12px;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
-      color: $lumio-color-ink-600-dk;
+      color: $seneca-color-ink-700-dk;
+    }
+
+    &:first-child {
+      padding-left: 0;
+    }
+
+    &--right {
+      text-align: right;
+    }
+  }
+
+  &__row {
+    border-top: 1px solid #f3f4f6;
+
+    @include dark {
+      border-top-color: $seneca-color-border-dk;
+    }
+  }
+
+  &__td {
+    padding: 8px 12px;
+    vertical-align: middle;
+
+    &:first-child {
+      padding-left: 0;
+    }
+
+    &--right {
+      text-align: right;
+    }
+  }
+
+  // Below the 'sm' breakpoint the fixed % columns squeeze every field down to
+  // a sliver. Switch each row to a card: label on top, full-width field below
+  // (matching the client/currency fields above), so every input's left edge
+  // lines up instead of drifting with its label's width.
+  @include respond-to('sm') {
+    &__table,
+    &__table tbody,
+    &__table tr {
+      display: block;
+      width: 100%;
+    }
+
+    &__table thead,
+    &__table colgroup {
+      display: none;
+    }
+
+    &__row {
+      display: grid;
+      gap: 14px;
+      padding: 16px 0;
+    }
+
+    &__td {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+      padding: 0 !important;
+      text-align: left !important;
+
+      &::before {
+        content: attr(data-label);
+        font-size: 14px;
+        font-weight: 500;
+        color: #334155;
+
+        @include dark {
+          color: $seneca-color-ink-700-dk;
+        }
+      }
+    }
+
+    &__td--right {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    &__td--actions {
+      display: flex;
+      justify-content: flex-end;
+
+      &::before {
+        content: none;
+      }
     }
   }
 }
 
 /* ── Payable drawer back button ──────────────────────────── */
-.lumio-payable-drawer {
+.seneca-payable-drawer {
   &__back-btn {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 8px;
     color: #6b7280;
     transition: all 0.15s;
@@ -1494,7 +2051,7 @@
     cursor: pointer;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &:hover {
@@ -1502,8 +2059,8 @@
       color: #374151;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-ink-700-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
   }
@@ -1524,11 +2081,6 @@
   &__field-group {
     display: grid;
     gap: 8px;
-
-    &--floating-select {
-      display: block;
-      position: relative;
-    }
   }
 
   &__field-label {
@@ -1537,25 +2089,7 @@
     color: #334155;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
-    }
-  }
-
-  &__field-group--floating-select &__field-label {
-    position: absolute;
-    z-index: 1;
-    top: -7px;
-    left: 12px;
-    padding: 0 4px;
-    background: $lumio-color-surface;
-    font-size: 12px;
-    line-height: 1;
-    color: #64748b;
-    pointer-events: none;
-
-    @include dark {
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-700-dk;
     }
   }
 
@@ -1569,60 +2103,39 @@
     }
   }
 
-  &__select {
-    width: 100%;
-    height: 40px;
-    border-radius: $lumio-radius-md;
-    border: 1px solid $color-border;
-    background: $lumio-color-surface;
-    padding: 0 12px;
-    font-size: 14px;
-    color: $color-foreground;
-    outline: none;
-
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
-    }
-
-    &:focus {
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 30%, transparent);
-    }
-  }
-
   &__currency-trigger {
     display: flex;
     width: 100%;
-    height: 40px;
+    // Same as FORM_CONTROL_SX, so it lines up with the Amount input beside it.
+    height: 48px;
     align-items: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
-    background: $lumio-color-surface;
-    padding: 0 12px;
+    background: $seneca-color-surface;
+    padding: 0 14px;
     color: $color-foreground;
-    font-size: 14px;
+    font-size: 16px;
     text-align: left;
     cursor: pointer;
     outline: none;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:focus-visible {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 30%, transparent);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
     }
   }
 
   &__textarea {
     min-height: 120px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 12px;
     font-size: 14px;
     color: $color-foreground;
@@ -1631,13 +2144,13 @@
     resize: vertical;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-text-primary-dk;
     }
 
     &:focus {
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 30%, transparent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
     }
   }
 
@@ -1650,10 +2163,45 @@
 }
 
 /* ── SpendOverTime / TopCategories / TopMerchants ─────────── */
-.lumio-view-page {
+/* ── Reports → Cash flow: the three leaderboards as stacked sections ── */
+.seneca-cash-flow {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - $global-nav-height);
+  gap: 40px;
+
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+
+  // Name on the left, Spending | Income and Chart | Table on the right, one row.
+  &__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 24px;
+  }
+
+  /* The page's header owns the period, so a section needs nothing but its
+     name — the size of every other card title, not a page heading. */
+  &__section-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+}
+
+.seneca-view-page {
+  display: flex;
+  flex-direction: column;
+  // See .seneca-stmt-list-view below: fill the parent's already-capped
+  // height instead of recomputing it, or a sibling like AlertBanner clips
+  // the bottom.
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   padding: 24px 16px;
@@ -1688,7 +2236,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -1697,25 +2245,25 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__period-tabs {
     display: inline-flex;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 4px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
   &__period-tab {
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 500;
@@ -1726,11 +2274,11 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &--active {
-      background: $color-primary;
+      background: var(--primary-fill);
       color: #fff;
     }
   }
@@ -1759,56 +2307,30 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px 16px 12px 44px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 10%, transparent);
-    }
-  }
-
-  &__workspace-filter {
-    width: 100%;
-    border-radius: $lumio-radius-md;
-    border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
-    padding: 12px;
-    font-size: 14px;
-    color: #374151;
-    outline: none;
-
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-700-dk;
-    }
-
-    @media (min-width: 640px) {
-      width: 240px;
-    }
-
-    &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 10%, transparent);
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
   }
 
@@ -1825,11 +2347,11 @@
     width: 20px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
-    background: color-mix(in srgb, $color-primary 10%, transparent);
+    border-radius: $seneca-radius-md;
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
     font-size: 12px;
     font-weight: 600;
-    color: $color-primary;
+    color: var(--primary);
     margin-left: 4px;
   }
 
@@ -1848,16 +2370,8 @@
   }
 
   &__empty {
-    border-radius: $lumio-radius-md;
-    border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
     padding: 32px;
     text-align: center;
-
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-    }
   }
 
   &__empty-actions {
@@ -1887,14 +2401,14 @@
   }
 
   &__stat-card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 16px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -1911,7 +2425,7 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -1930,11 +2444,11 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 6px 8px;
     font-size: 13px;
     font-weight: 500;
-    color: $color-primary;
+    color: var(--primary);
     background: none;
     border: none;
     cursor: pointer;
@@ -1947,7 +2461,7 @@
     color: #4b5563;
 
     @include dark {
-      color: $lumio-color-ink-600-dk;
+      color: $seneca-color-ink-600-dk;
     }
   }
 
@@ -1962,25 +2476,25 @@
   }
 
   &__chart-card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 20px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
 
     &--wide {
-      border-radius: $lumio-radius-lg;
+      border-radius: $seneca-radius-lg;
       border: 1px solid #e5e7eb;
-      background: $lumio-color-surface;
+      background: $seneca-color-surface;
       padding: 20px;
 
       @include dark {
-        border-color: $lumio-color-border-dk;
-        background: $lumio-color-surface-dk;
+        border-color: $seneca-color-border-dk;
+        background: $seneca-color-surface-dk;
       }
 
       @media (min-width: 1024px) {
@@ -2002,19 +2516,19 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
   &__leaderboard-card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 20px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -2039,7 +2553,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -2048,25 +2562,25 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__sort-tabs {
     display: inline-flex;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
     background: #f9fafb;
     padding: 4px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-muted-dk;
     }
   }
 
   &__sort-btn {
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     padding: 4px 10px;
     font-size: 12px;
     font-weight: 500;
@@ -2076,17 +2590,17 @@
     cursor: pointer;
 
     @include dark {
-      color: $lumio-color-ink-600-dk;
+      color: $seneca-color-ink-600-dk;
     }
 
     &--active {
-      background: $lumio-color-surface;
+      background: $seneca-color-surface;
       color: #111827;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 
       @include dark {
-        background: $lumio-color-surface-dk;
-        color: $lumio-color-ink-900-dk;
+        background: $seneca-color-surface-dk;
+        color: $seneca-color-ink-900-dk;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
       }
     }
@@ -2109,7 +2623,7 @@
       color: #6b7280;
 
       @include dark {
-        color: $lumio-color-ink-500-dk;
+        color: $seneca-color-ink-500-dk;
       }
     }
 
@@ -2126,7 +2640,7 @@
       border-top: 1px solid #f3f4f6;
 
       @include dark {
-        border-top-color: $lumio-color-border-dk;
+        border-top-color: $seneca-color-border-dk;
       }
     }
 
@@ -2135,8 +2649,8 @@
       color: #374151;
 
       @include dark {
-        border-bottom-color: $lumio-color-border-dk;
-        color: $lumio-color-ink-700-dk;
+        border-bottom-color: $seneca-color-border-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
 
@@ -2147,7 +2661,7 @@
 
   &__table-link {
     text-align: left;
-    color: $color-primary;
+    color: var(--primary);
     background: none;
     border: none;
     cursor: pointer;
@@ -2172,6 +2686,11 @@
     @include dark {
       background: rgba(0, 0, 0, 0.6);
     }
+
+    // Focused by the modal's focus trap; the backdrop itself needs no ring.
+    &:focus {
+      outline: none;
+    }
   }
 
   &__drill-modal {
@@ -2179,13 +2698,13 @@
     width: 100%;
     max-width: 896px;
     overflow: hidden;
-    border-radius: $lumio-radius-xl;
+    border-radius: $seneca-radius-xl;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -2197,7 +2716,7 @@
     padding: 12px 20px;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
@@ -2207,7 +2726,7 @@
     color: #111827;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -2216,12 +2735,12 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__drill-close {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 6px;
     color: #6b7280;
     background: none;
@@ -2229,7 +2748,7 @@
     cursor: pointer;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &:hover {
@@ -2237,8 +2756,8 @@
       color: #374151;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-ink-700-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
   }
@@ -2250,7 +2769,7 @@
   }
 
   &__drill-empty {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px dashed #d1d5db;
     padding: 32px;
     text-align: center;
@@ -2258,16 +2777,16 @@
     color: #6b7280;
 
     @include dark {
-      border-color: $lumio-color-ink-300-dk;
-      color: $lumio-color-ink-500-dk;
+      border-color: $seneca-color-ink-300-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__empty-cta-primary {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-md;
-    background: $color-primary;
+    border-radius: $seneca-radius-md;
+    background: var(--primary-fill);
     padding: 8px 16px;
     font-size: 14px;
     font-weight: 500;
@@ -2277,31 +2796,31 @@
     transition: background-color 0.15s;
 
     &:hover {
-      background: color-mix(in srgb, $color-primary 90%, transparent);
+      background: var(--primary-fill-hover);
     }
   }
 
   &__empty-cta-secondary {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-md;
-    border: 1px solid $color-primary;
+    border-radius: $seneca-radius-md;
+    border: 1px solid var(--primary);
     padding: 8px 16px;
     font-size: 14px;
     font-weight: 500;
-    color: $color-primary;
+    color: var(--primary);
     background: none;
     cursor: pointer;
     transition: background-color 0.15s;
 
     &:hover {
-      background: color-mix(in srgb, $color-primary 5%, transparent);
+      background: color-mix(in srgb, var(--primary) 5%, transparent);
     }
   }
 }
 
 /* ── ParsingWarningsPanel ──────────────────────────────── */
-.lumio-warnings {
+.seneca-warnings {
   display: flex;
   flex-direction: column;
   height: calc(100vh - $global-nav-height);
@@ -2329,14 +2848,14 @@
   }
 
   &__card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     overflow: hidden;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -2358,9 +2877,9 @@
     border-bottom: 1px solid #f3f4f6;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
-      background: $lumio-color-surface-muted-dk;
-      border-bottom-color: $lumio-color-border-dk;
+      color: $seneca-color-ink-500-dk;
+      background: $seneca-color-surface-muted-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
@@ -2370,49 +2889,49 @@
     border-bottom: 1px solid #f9fafb;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
   &__badge {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     padding: 2px 8px;
     font-size: 12px;
     font-weight: 600;
 
     &--warning {
-      background: $lumio-color-surface-warning;
+      background: $seneca-color-surface-warning;
       color: #92400e;
 
       @include dark {
-        background: $lumio-color-warning-soft-dk;
-        color: $lumio-color-warning-dk;
+        background: $seneca-color-warning-soft-dk;
+        color: $seneca-color-warning-dk;
       }
     }
 
     &--error {
-      background: $lumio-color-surface-error;
+      background: $seneca-color-surface-error;
       color: #991b1b;
 
       @include dark {
-        background: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
+        background: $seneca-color-danger-soft-dk;
+        color: $seneca-color-danger-dk;
       }
     }
   }
 }
 
 /* ── Statement view page nav button ─────────────────────── */
-.lumio-stmt-view {
+.seneca-stmt-view {
   &__back-btn {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 16px;
     font-size: 14px;
     font-weight: 500;
@@ -2421,32 +2940,32 @@
     transition: background-color 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
       background: $color-muted;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
   }
 
   &__error-box {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #fecaca;
-    background: $lumio-color-surface-error;
+    background: $seneca-color-surface-error;
     padding: 16px;
     color: #dc2626;
     margin-bottom: 16px;
 
     @include dark {
-      border-color: $lumio-color-danger-soft-dk;
-      background: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      border-color: $seneca-color-danger-soft-dk;
+      background: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
     }
   }
 
@@ -2454,8 +2973,8 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border-radius: $lumio-radius-md;
-    background: $color-primary;
+    border-radius: $seneca-radius-md;
+    background: var(--primary-fill);
     padding: 8px 16px;
     font-size: 14px;
     font-weight: 500;
@@ -2465,26 +2984,29 @@
     border: none;
 
     &:hover {
-      background: $color-primary-hover;
+      background: var(--primary-fill-hover);
     }
   }
 }
 
 /* ── TrashListView ───────────────────────────────────────── */
-.lumio-trash-list {
+.seneca-trash-list {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - $global-nav-height);
+  // See .seneca-stmt-list-view below: fill the parent's already-capped
+  // height instead of recomputing it, or a sibling like AlertBanner clips
+  // the bottom.
+  height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: 24px 16px;
+  padding: var(--seneca-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: 24px;
+    padding: var(--seneca-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: 24px 32px;
+    padding: var(--seneca-page-top, 24px) 32px 24px;
   }
 
   &__header {
@@ -2513,32 +3035,32 @@
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px 16px 12px 44px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &::placeholder {
       color: #9ca3af;
 
       @include dark {
-        color: $lumio-color-ink-400-dk;
+        color: $seneca-color-ink-400-dk;
       }
     }
 
     &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 10%, transparent);
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
   }
 
@@ -2551,7 +3073,7 @@
     pointer-events: none;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -2566,7 +3088,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #a7f3d0;
     padding: 6px 10px;
     font-size: 13px;
@@ -2577,17 +3099,17 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-success-dk;
-      color: $lumio-color-success-dk;
+      border-color: $seneca-color-success-dk;
+      color: $seneca-color-success-dk;
     }
 
     &:hover:not(:disabled) {
-      border-color: #34d399;
+      border-color: var(--primary);
       background: #ecfdf5;
 
       @include dark {
-        border-color: $lumio-color-success-dk;
-        background: $lumio-color-success-soft-dk;
+        border-color: $seneca-color-success-dk;
+        background: $seneca-color-success-soft-dk;
       }
     }
 
@@ -2601,7 +3123,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #fecaca;
     padding: 6px 10px;
     font-size: 13px;
@@ -2612,17 +3134,17 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      border-color: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
     }
 
     &:hover:not(:disabled) {
       border-color: #f87171;
-      background: $lumio-color-surface-muted;
+      background: $seneca-color-surface-muted;
 
       @include dark {
-        border-color: $lumio-color-danger-dk;
-        background: $lumio-color-danger-soft-dk;
+        border-color: $seneca-color-danger-dk;
+        background: $seneca-color-danger-soft-dk;
       }
     }
 
@@ -2636,7 +3158,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
     padding: 6px 10px;
     font-size: 13px;
@@ -2647,13 +3169,13 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover:not(:disabled) {
-      border-color: $color-primary;
-      color: $color-primary;
+      border-color: var(--primary);
+      color: var(--primary);
     }
 
     &:disabled {
@@ -2688,13 +3210,13 @@
     width: 64px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background: #f9fafb;
     color: #d1d5db;
 
     @include dark {
-      background: $lumio-color-surface-muted-dk;
-      color: $lumio-color-ink-300-dk;
+      background: $seneca-color-surface-muted-dk;
+      color: $seneca-color-ink-300-dk;
     }
   }
 
@@ -2727,7 +3249,7 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     @media (min-width: 768px) {
@@ -2756,23 +3278,23 @@
 }
 
 /* ── Statement status badges ─────────────────────────────── */
-.lumio-stmt-badge {
+.seneca-stmt-badge {
   display: inline-flex;
   align-items: center;
-  border-radius: $lumio-radius-full;
+  border-radius: $seneca-radius-full;
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 
   &--error {
-    background: $lumio-color-surface-error;
+    background: $seneca-color-surface-error;
     color: #b91c1c;
     box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.2);
 
     @include dark {
-      background: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      background: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
       box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.3);
     }
   }
@@ -2784,8 +3306,8 @@
     animation: pulse 1.5s infinite;
 
     @include dark {
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
       box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.4);
     }
   }
@@ -2798,8 +3320,8 @@
     box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.3);
 
     @include dark {
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
       box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.4);
     }
   }
@@ -2811,7 +3333,75 @@
     white-space: nowrap;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
+    }
+  }
+}
+
+// Review: a row's own "Approve as is" is a sage text link that only shows on
+// the row under the pointer or the keyboard cursor, or when tabbed to. It keeps
+// its room while hidden, so the amounts stay in one column.
+.seneca-review-row-approve {
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--primary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+
+  .seneca-stmt-list-item:hover &,
+  .seneca-stmt-list-item:focus-within &,
+  .seneca-stmt-list-item[data-cursor='true'] & {
+    opacity: 1;
+  }
+
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+// Review tab counts: "Receipts 0", the zero greyed out so only real work stands out.
+.seneca-review-tab-count {
+  font-variant-numeric: tabular-nums;
+
+  &--zero {
+    color: $seneca-color-tab-count-zero;
+
+    @include dark {
+      color: $seneca-color-ink-400-dk;
+    }
+  }
+}
+
+// "To review": the one status a row shows, as a dot and a word, no fill.
+.seneca-stmt-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text-secondary);
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $seneca-color-attention;
+
+    @include dark {
+      background: $seneca-color-warning-dk;
     }
   }
 }
@@ -2827,57 +3417,106 @@
 }
 
 /* ── StatementsListItem ──────────────────────────────────── */
-.lumio-stmt-list-item {
+.seneca-stmt-list-item {
+  // A flat row: one hairline underneath, no card of its own. The list block
+  // (.seneca-stmt-list-view__table) is the only surface.
   position: relative;
   overflow: hidden;
-  border-radius: $lumio-radius-lg;
-  border: 1px solid #e5e7eb;
-  background: $lumio-color-surface;
+  border-bottom: 1px solid $seneca-color-hairline;
   padding: 12px;
-  transition: border-color 0.15s;
+  transition: background-color 0.15s;
 
   @include dark {
-    border-color: $lumio-color-border-dk;
-    background: $lumio-color-surface-dk;
+    border-bottom-color: $seneca-color-ink-150-dk;
+  }
+
+  &:last-child {
+    border-bottom: 0;
   }
 
   &:hover {
-    border-color: color-mix(in srgb, $color-primary 30%, transparent);
+    background: $seneca-color-ink-50;
+
+    @include dark {
+      background: $seneca-color-ink-50-dk;
+    }
   }
 
   @media (min-width: 768px) {
-    padding: 10px 16px;
+    padding: 18px 16px;
   }
 
-  &--selected {
-    border-color: color-mix(in srgb, $color-primary 60%, transparent);
-    background: color-mix(in srgb, $color-primary 5%, transparent);
+  &--selected,
+  &--selected:hover {
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
   }
 
   &--error {
-    border-color: #fecaca;
     background: rgba(255, 241, 242, 0.4);
 
     @include dark {
-      border-color: $lumio-color-danger-soft-dk;
       background: rgba(220, 38, 38, 0.08);
     }
   }
 
+  // A possible duplicate: one sage line down the left, unbroken across the rows
+  // of its group and inset where the group starts and ends, so neighbouring
+  // groups read apart without a colour of their own.
   &__accent {
     position: absolute;
     left: 0;
-    top: 8px;
-    bottom: 8px;
+    top: 0;
+    bottom: 0;
     width: 2px;
-    border-radius: $lumio-radius-md;
+    background: var(--primary);
+
+    &--start {
+      top: 8px;
+      border-top-left-radius: $seneca-radius-md;
+      border-top-right-radius: $seneca-radius-md;
+    }
+
+    &--end {
+      bottom: 8px;
+      border-bottom-left-radius: $seneca-radius-md;
+      border-bottom-right-radius: $seneca-radius-md;
+    }
+  }
+
+  // Under the merchant: "Oct 10, 2026 · Receipt · Possible duplicate · 1 of 2".
+  &__meta {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  // The amount is read after the merchant, not before it: regular weight, the
+  // currency apart and quieter.
+  &__amount {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    line-height: 1.2;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__currency {
+    font-size: 12px;
+    font-weight: 400;
+    color: $seneca-color-slot-text;
+
+    @include dark {
+      color: var(--muted-foreground);
+    }
   }
 
   &__desktop-overlay {
     position: absolute;
     inset: 0;
     display: block;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     z-index: 0;
     cursor: pointer;
     background: transparent;
@@ -2886,22 +3525,133 @@
   }
 
   &__desktop {
-    display: flex;
+    display: none;
     align-items: center;
     gap: 16px;
     position: relative;
     z-index: 10;
     width: 100%;
     min-width: 0;
+
+    @media (min-width: 768px) {
+      display: flex;
+    }
+  }
+
+  // Phones: a two-line row instead of the column grid.
+  //   [☐] [doc]  Merchant ............ -9.99 EUR
+  //              Sep 25, 2026 · IT services  Completed
+  &__mobile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 10;
+    min-width: 0;
+    // Only the checkbox and icon take taps; the rest reaches the overlay button.
+    pointer-events: none;
+
+    @media (min-width: 768px) {
+      display: none;
+    }
+  }
+
+  &__mobile-select {
+    display: flex;
+    flex-shrink: 0;
+    pointer-events: auto;
+
+    .MuiCheckbox-root {
+      padding: 4px;
+    }
+  }
+
+  &__mobile-icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    pointer-events: auto;
+    opacity: 0.7;
+  }
+
+  &__mobile-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__mobile-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  &__mobile-merchant {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    font-weight: 600;
+    color: $seneca-color-ink-900;
+
+    @include dark {
+      color: $seneca-color-ink-900-dk;
+    }
+  }
+
+  &__mobile-amount {
+    flex-shrink: 0;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: $seneca-color-ink-900;
+
+    @include dark {
+      color: $seneca-color-ink-900-dk;
+    }
+  }
+
+  &__mobile-meta {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    font-size: 12px;
+    color: $seneca-color-ink-400;
+
+    @include dark {
+      color: $seneca-color-ink-400-dk;
+    }
+  }
+
+  /* The date and category keep their full width; the rows toggle and the
+     status move to the next line instead of cutting the date to "Sep 1…". */
+  &__mobile-meta-text {
+    flex: 1 0 auto;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__view-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 600;
@@ -2911,9 +3661,9 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-600-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-600-dk;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     }
 
@@ -2923,9 +3673,9 @@
       color: #111827;
 
       @include dark {
-        border-color: $lumio-color-ink-300-dk;
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-ink-900-dk;
+        border-color: $seneca-color-ink-300-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-ink-900-dk;
       }
     }
 
@@ -2933,24 +3683,482 @@
       cursor: not-allowed;
       opacity: 0.5;
     }
+
+    // Plain rows: just an arrow, faint until the row is hovered or focused.
+    &--arrow {
+      border: 0;
+      background: none;
+      box-shadow: none;
+      padding: 4px;
+      color: $seneca-color-ink-400;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+
+      @include dark {
+        border: 0;
+        background: none;
+        box-shadow: none;
+        color: $seneca-color-ink-600-dk;
+      }
+
+      &:hover:not(:disabled) {
+        border: 0;
+        background: none;
+        color: $seneca-color-ink-900;
+
+        @include dark {
+          border: 0;
+          background: none;
+          color: $seneca-color-ink-900-dk;
+        }
+      }
+    }
+  }
+
+  // A duplicate's Review: a sage text link, not a filled pill.
+  &__view-btn--link,
+  &__view-btn--link:hover:not(:disabled) {
+    border: 0;
+    background: none;
+    box-shadow: none;
+    padding: 4px 0;
+    font-weight: 500;
+    color: var(--primary);
+
+    @include dark {
+      border: 0;
+      background: none;
+      box-shadow: none;
+      color: var(--primary);
+    }
+  }
+
+  &__view-btn--link:hover:not(:disabled) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  // Invisible copy of the Review label in every action cell, header included:
+  // it keeps the button's width but no height, so the action column is as wide
+  // as the label in the current language on every row alike.
+  &__action-sizer {
+    display: block;
+    height: 0;
+    padding-block: 0;
+    border-block-width: 0;
+    overflow: hidden;
+    visibility: hidden;
+    white-space: nowrap;
+    // The header copy must not pick up the header's uppercase lettering.
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  &:hover &__view-btn--arrow,
+  &:focus-within &__view-btn--arrow {
+    opacity: 1;
+  }
+}
+
+// The category chip in a statement row is a link to that category's row on the
+// Top categories leaderboard. It stays quiet at first and only answers a hover
+// that lingers: the green sweep is an invitation to click, not a hover state,
+// so it must not fire while the pointer crosses the column on its way
+// elsewhere. The `--lit` class is put on by the component after that wait
+// (CATEGORY_LINK_DELAY_MS in StatementsListItem.tsx) and is also what makes the
+// link navigate — before it, a click belongs to the row — so the wait lives
+// there, in one place, rather than in a `transition-delay` here.
+// No category yet (NoCategoryBadge): the mirror of a category chip — a dashed
+// circle where the icon would be and grey words — that only shows it can be
+// clicked on hover. The padding is taken back by the margin so the circle sits
+// where a chosen category's icon does.
+.seneca-no-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: -4px 0 -4px -4px;
+  padding: 3px 10px 3px 3px;
+  border: 1px solid transparent;
+  border-radius: $seneca-radius-full;
+  font-weight: 400;
+  color: $seneca-color-text-muted;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+
+  @include dark {
+    color: var(--muted-foreground);
+  }
+
+  &:hover {
+    border-color: $seneca-color-slot-border;
+    background: $seneca-color-slot-bg;
+    color: $seneca-color-figure;
+
+    @include dark {
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-ink-100-dk;
+      color: $seneca-color-ink-900-dk;
+    }
+  }
+
+  &--button {
+    background: none;
+    font: inherit;
+    font-weight: 400;
+    cursor: pointer;
+    pointer-events: auto;
+
+    &:focus-visible {
+      border-color: $seneca-color-slot-border;
+      background: $seneca-color-slot-bg;
+      color: $seneca-color-figure;
+    }
+  }
+
+  &__slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px dashed $seneca-color-slot-dash;
+    border-radius: 50%;
+
+    @include dark {
+      border-color: $seneca-color-ink-300-dk;
+    }
+  }
+
+  &__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.seneca-stmt-category-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+
+  &__badge {
+    display: flex;
+    flex-shrink: 0;
+    // The wrapper hugs the circle: with a line box of its own it would be
+    // taller than the badge, and anything it painted would show as corners
+    // around the round icon.
+    line-height: 0;
+  }
+
+  // The badge paints itself in the category's own colour through an inline MUI
+  // class; two class names plus a child selector outrank it.
+  & &__badge > * {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  &__text {
+    position: relative;
+    min-width: 0;
+
+    // A second copy of the label, in green, fading in over the first: a
+    // gradient cannot be transitioned, so the shimmer needs a layer of its own.
+    // `attr()` keeps it out of the DOM and out of the accessibility tree.
+    &::after {
+      content: attr(data-label);
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      // The bright band is mixed with white rather than taken from
+      // --primary-200: that token is translucent in dark mode, and a
+      // translucent stop behind `background-clip: text` punches a hole in the
+      // glyphs instead of lighting them up.
+      background: linear-gradient(
+        100deg,
+        var(--primary) 30%,
+        color-mix(in srgb, var(--primary) 45%, #fff) 45%,
+        var(--primary) 60%
+      );
+      background-size: 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  }
+
+  // Lit: the label shimmers green and the icon breathes green from the inside.
+  // The pulse is the circle's own fill, never a ring around it — an outer glow
+  // on a 22px badge reads as a square smudge, not as a halo.
+  &--lit &__text::after {
+    opacity: 1;
+
+    @media (prefers-reduced-motion: no-preference) {
+      animation: seneca-category-link-shimmer 2.4s linear infinite;
+    }
+  }
+
+  &--lit &__badge > * {
+    background-color: color-mix(in srgb, var(--primary) 20%, transparent);
+    color: var(--primary);
+
+    @media (prefers-reduced-motion: no-preference) {
+      animation: seneca-category-link-pulse 2.4s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes seneca-category-link-shimmer {
+  to { background-position: -300% 0; }
+}
+
+@keyframes seneca-category-link-pulse {
+  50% { background-color: color-mix(in srgb, var(--primary) 38%, transparent); }
+}
+
+// On the flat white list the app's filled grey checkbox read as one more
+// tile under every row; here an unchecked box is just an outline.
+.seneca-stmt-list-item,
+.seneca-stmt-list-view__desktop-header,
+.seneca-stmt-edit-table,
+.seneca-categories-list {
+  .MuiCheckbox-root:not(.Mui-checked):not(.MuiCheckbox-indeterminate) .MuiSvgIcon-root rect {
+    x: 1px;
+    y: 1px;
+    width: 22px;
+    height: 22px;
+    fill: transparent;
+    // ink-400 keeps the outline at 3:1 against white, the minimum for a control.
+    stroke: $seneca-color-ink-400;
+    stroke-width: 2;
+
+    @include dark {
+      stroke: $seneca-color-ink-600-dk;
+    }
+  }
+}
+
+// Statement edit table: edit/delete stay out of sight until their row is
+// hovered or holds focus, so 15+ rows don't repeat two icons down the edge.
+// Touch screens have no hover, so there they stay visible.
+.seneca-stmt-edit-table {
+  @media (hover: hover) {
+    .seneca-stmt-edit-table__row-actions {
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .MuiTableRow-root:hover .seneca-stmt-edit-table__row-actions,
+    .seneca-stmt-edit-table__row-actions:focus-within {
+      opacity: 1;
+    }
+  }
+
+  // The category reads as text; on the row under the pointer it gets a light
+  // frame, the sign it can be changed.
+  .MuiTableRow-root:hover .seneca-stmt-edit-table__category {
+    border-color: var(--border);
+    background: var(--card-bg);
+  }
+}
+
+// "Transactions: 24 ▾" beside the date of a multi-row statement. Sits above the
+// row's click overlay so it opens the rows instead of the statement.
+.seneca-stmt-list-item__rows-toggle {
+  position: relative;
+  z-index: 11;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 8px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: $seneca-radius-xs;
+  background: transparent;
+  font: inherit;
+  color: var(--primary);
+  cursor: pointer;
+  pointer-events: auto;
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+  }
+}
+
+// A statement's own rows, opened under its line in Documents: a quiet inset
+// list under the hairline, lined up with the merchant column.
+.seneca-stmt-tx-panel {
+  border-bottom: 1px solid $seneca-color-ink-150;
+  background: $seneca-color-ink-50;
+  padding: 4px 16px 8px 48px;
+
+  @include dark {
+    border-bottom-color: $seneca-color-ink-150-dk;
+    background: $seneca-color-ink-50-dk;
+  }
+
+  @media (max-width: 767px) {
+    padding: 4px 12px 8px;
+  }
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &__state {
+    padding: 12px 0;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 8px;
+    border: 0;
+    border-radius: $seneca-radius-md;
+    background: transparent;
+    font-size: 13px;
+    text-align: left;
+    color: var(--foreground);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--card-bg);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+    }
+  }
+
+  &__date {
+    flex: 0 0 56px;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__name {
+    flex: 3 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  &__category {
+    display: flex;
+    flex: 2 1 0;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    color: var(--muted-foreground);
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 767px) {
+      display: none;
+    }
+  }
+
+  &__amount {
+    flex: 0 0 auto;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+
+    &--income {
+      color: var(--color-success-soft-text);
+    }
   }
 }
 
 /* ── StatementsListView ──────────────────────────────────── */
-.lumio-stmt-list-view {
+/* Queue tabs and the list's actions on one line; on a phone the tabs take a
+   line of their own (otherwise they shrink to nothing) and the actions wrap. */
+.seneca-stmt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  &__tabs {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  /* Keeps the primary action from reading as one more filter button. */
+  &__divider {
+    width: 1px;
+    align-self: stretch;
+    min-height: 24px;
+    background: var(--border-color);
+    flex-shrink: 0;
+  }
+
+  @include respond-to('sm') {
+    flex-wrap: wrap;
+    gap: 8px;
+
+    &__tabs {
+      flex-basis: 100%;
+    }
+
+    &__group {
+      flex-shrink: 1;
+      min-width: 0;
+      gap: 8px;
+    }
+
+    &__divider {
+      display: none;
+    }
+  }
+}
+
+.seneca-stmt-list-view {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - $global-nav-height);
+  // The parent MainSidePanelLayout wrapper already caps height to
+  // 100vh - nav on /statements/* routes; recomputing it here (instead of
+  // filling that parent) made this box taller than the parent whenever a
+  // sibling (e.g. AlertBanner) also took up space, clipping the bottom rows.
+  height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: 16px;
+  padding: var(--seneca-page-top, 16px) 16px 16px;
 
   @media (min-width: 640px) {
-    padding: 16px 24px;
+    padding: var(--seneca-page-top, 16px) 24px 16px;
   }
 
   @media (min-width: 1024px) {
-    padding: 16px 32px;
+    padding: var(--seneca-page-top, 16px) 32px 16px;
   }
 
   &__header {
@@ -2974,32 +4182,32 @@
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 16px 8px 40px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &::placeholder {
       color: #9ca3af;
 
       @include dark {
-        color: $lumio-color-ink-400-dk;
+        color: $seneca-color-ink-400-dk;
       }
     }
 
     &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 10%, transparent);
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
   }
 
@@ -3012,7 +4220,7 @@
     pointer-events: none;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -3029,11 +4237,36 @@
     padding-bottom: 8px;
   }
 
+  // The list's own controls, on the first row inside the white block: From on the
+  // left edge, the column picker on the right.
+  &__table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid $seneca-color-ink-150;
+
+    @include dark {
+      border-bottom-color: $seneca-color-ink-150-dk;
+    }
+  }
+
+  // One white block for the whole list; rows inside are flat and divided
+  // by hairlines, the way the Tables page draws its grid.
   &__table {
     display: flex;
     width: 100%;
     flex-direction: column;
-    gap: 12px;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-lg;
+    background: $seneca-color-surface;
+    overflow: hidden;
+
+    @include dark {
+      border-color: $seneca-color-ink-150-dk;
+      background: $seneca-color-surface-dk;
+    }
   }
 
   &__loading {
@@ -3052,15 +4285,15 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 12px;
     font-size: 14px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -3068,7 +4301,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid transparent;
     padding: 4px 12px;
     font-size: 13px;
@@ -3079,7 +4312,7 @@
     color: #374151;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
@@ -3087,8 +4320,8 @@
       border-color: #e5e7eb;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        border-color: $lumio-color-border-dk;
+        background: $seneca-color-surface-muted-dk;
+        border-color: $seneca-color-border-dk;
       }
     }
 
@@ -3096,16 +4329,16 @@
       color: #dc2626;
 
       @include dark {
-        color: $lumio-color-danger-dk;
+        color: $seneca-color-danger-dk;
       }
 
       &:hover {
-        background: $lumio-color-surface-error;
+        background: $seneca-color-surface-error;
         border-color: #fecaca;
 
         @include dark {
-          background: $lumio-color-danger-soft-dk;
-          border-color: $lumio-color-danger-soft-dk;
+          background: $seneca-color-danger-soft-dk;
+          border-color: $seneca-color-danger-soft-dk;
         }
       }
     }
@@ -3115,9 +4348,9 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 10px;
     font-size: 12px;
     font-weight: 500;
@@ -3126,9 +4359,9 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-500-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &:hover {
@@ -3136,20 +4369,20 @@
       color: #374151;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-ink-700-dk;
+        background: $seneca-color-surface-muted-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
 
     &--active {
       background: #f0f4ff;
-      color: $color-primary;
-      border-color: color-mix(in srgb, $color-primary 30%, transparent);
+      color: var(--primary);
+      border-color: color-mix(in srgb, var(--primary) 30%, transparent);
 
       @include dark {
-        background: color-mix(in srgb, $lumio-color-primary-dk 10%, transparent);
-        color: $lumio-color-primary-dk;
-        border-color: color-mix(in srgb, $lumio-color-primary-dk 30%, transparent);
+        background: color-mix(in srgb, $seneca-color-primary-dk 10%, transparent);
+        color: $seneca-color-primary-dk;
+        border-color: color-mix(in srgb, $seneca-color-primary-dk 30%, transparent);
       }
     }
   }
@@ -3176,7 +4409,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -3184,17 +4417,24 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 4px 16px;
-    font-size: 12px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #9ca3af;
+    padding: 12px 16px;
+    border-bottom: 1px solid $seneca-color-hairline;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted-foreground);
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      border-bottom-color: $seneca-color-ink-150-dk;
+      color: $seneca-color-ink-400-dk;
     }
 
+    // Phones: rows are stacked, so column titles would label nothing; keep
+    // select-all and the date sort.
+    @media (max-width: 767px) {
+      [data-column-id]:not([data-column-id='date']) {
+        display: none;
+      }
+    }
   }
 
   &__pull-indicator {
@@ -3208,9 +4448,9 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 500;
@@ -3219,15 +4459,15 @@
     color: #4b5563;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-600-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-600-dk;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
 
     &--ready {
-      border-color: color-mix(in srgb, $color-primary 40%, transparent);
-      color: $color-primary;
+      border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+      color: var(--primary);
     }
   }
 
@@ -3245,8 +4485,8 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
-    background: $color-primary;
+    border-radius: $seneca-radius-md;
+    background: var(--primary-fill);
     padding: 6px 10px;
     font-size: 13px;
     font-weight: 500;
@@ -3256,7 +4496,7 @@
     transition: background-color 0.15s;
 
     &:hover {
-      background: $color-primary-hover;
+      background: var(--primary-fill-hover);
     }
   }
 
@@ -3267,15 +4507,15 @@
     z-index: 20;
     width: 280px;
     max-width: calc(100vw - 64px);
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #dedad2;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px;
     box-shadow: 0 10px 20px rgba(17, 24, 39, 0.1);
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
     }
   }
@@ -3285,7 +4525,7 @@
     width: 100%;
     align-items: center;
     justify-content: space-between;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     padding: 10px 12px;
     text-align: left;
     cursor: pointer;
@@ -3295,22 +4535,22 @@
     color: #374151;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
       background: #f9fafb;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
     &--danger:hover {
-      background: $lumio-color-surface-error;
+      background: $seneca-color-surface-error;
 
       @include dark {
-        background: $lumio-color-danger-soft-dk;
+        background: $seneca-color-danger-soft-dk;
       }
     }
   }
@@ -3321,31 +4561,28 @@
     background: #ece9e2;
 
     @include dark {
-      background: $lumio-color-border-dk;
+      background: $seneca-color-border-dk;
     }
   }
 
   /* Mobile bulk bar */
+  // Sits in the header where the filter chips were (it replaces them while rows
+  // are selected). It used to be pinned to the screen bottom, where the app's
+  // bottom nav covered it.
   &__mobile-bulk {
-    position: fixed;
-    left: 16px;
-    right: 16px;
-    bottom: calc(0.75rem + env(safe-area-inset-bottom));
-    z-index: 40;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
 
     @media (min-width: 768px) {
@@ -3355,6 +4592,7 @@
 
   &__mobile-bulk-actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
@@ -3364,7 +4602,7 @@
     min-height: 40px;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
     padding: 4px 10px;
     font-size: 12px;
@@ -3375,23 +4613,35 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &--primary {
-      border-color: color-mix(in srgb, $color-primary 20%, transparent);
-      color: $color-primary;
+      border-color: color-mix(in srgb, var(--primary) 20%, transparent);
+      color: var(--primary);
 
       &:hover {
-        border-color: $color-primary;
-        background: color-mix(in srgb, $color-primary 5%, transparent);
+        border-color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 5%, transparent);
+      }
+    }
+
+    // The stage move (Submit / Unapprove): the one filled button, like Submit on the statement page.
+    &--filled {
+      border-color: var(--primary-fill);
+      background: var(--primary-fill);
+      color: #fff;
+      font-weight: 600;
+
+      &:hover {
+        filter: brightness(0.95);
       }
     }
 
     &--secondary:hover {
-      border-color: $color-primary;
-      color: $color-primary;
+      border-color: var(--primary);
+      color: var(--primary);
     }
 
     &--danger {
@@ -3399,8 +4649,8 @@
       color: #dc2626;
 
       @include dark {
-        border-color: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
+        border-color: $seneca-color-danger-soft-dk;
+        color: $seneca-color-danger-dk;
       }
 
       &:hover {
@@ -3408,8 +4658,8 @@
         color: #b91c1c;
 
         @include dark {
-          border-color: $lumio-color-danger-dk;
-          color: $lumio-color-danger-dk;
+          border-color: $seneca-color-danger-dk;
+          color: $seneca-color-danger-dk;
         }
       }
     }
@@ -3420,64 +4670,39 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
-    border: 1px solid #fde68a;
-    background: $lumio-color-surface-muted;
+    border-radius: $seneca-radius-md;
+    border: 1px solid transparent;
+    background: none;
     padding: 6px 10px;
     font-size: 13px;
     font-weight: 500;
-    color: #92400e;
+    color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s;
-
-    @include dark {
-      border-color: $lumio-color-warning-dk;
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
-    }
+    transition: background-color 0.15s;
 
     &:hover {
-      border-color: #fcd34d;
-      background: #fef3c7;
-
-      @include dark {
-        border-color: $lumio-color-warning-dk;
-        background: $lumio-color-warning-soft-dk;
-      }
+      background: var(--muted);
     }
   }
 
   &__duplicate-count {
-    display: inline-flex;
-    height: 20px;
-    min-width: 20px;
-    align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-surface;
-    padding: 0 4px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #92400e;
-
-    @include dark {
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-warning-dk;
-    }
+    font-weight: 400;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
   }
 
   /* Skeleton rows */
   &__skeleton-row {
     position: relative;
     overflow: hidden;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 12px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
 
     @media (min-width: 768px) {
@@ -3505,25 +4730,17 @@
 }
 
 /* ── CreateExpenseDrawer ─────────────────────────────────── */
-.lumio-expense-drawer {
+.seneca-expense-drawer {
   display: flex;
   height: 100%;
   flex-direction: column;
 
+  // Plain tabs: an underline marks the active mode, no inset tray around them.
   &__tabs {
     margin-bottom: 20px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    border-radius: $lumio-radius-md;
-    border: 1px solid $color-border;
-    background: rgba(0, 0, 0, 0.04);
-    padding: 6px;
-
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: rgba(255, 255, 255, 0.04);
-    }
+    border-bottom: 1px solid var(--border-color);
   }
 
   &__tab {
@@ -3531,40 +4748,185 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border-radius: $lumio-radius-md;
-    padding: 8px 12px;
+    margin-bottom: -1px;
+    padding: 10px 12px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: color 0.15s, border-color 0.15s;
     background: none;
     border: none;
-    color: $color-muted-foreground;
-
-    @include dark {
-      color: $lumio-color-text-secondary-dk;
-    }
+    border-bottom: 2px solid transparent;
+    color: var(--muted-foreground);
 
     &:hover {
-      background: $color-muted;
-      color: $color-foreground;
-
-      @include dark {
-        background: $lumio-color-surface-muted-dk;
-        color: $lumio-color-text-primary-dk;
-      }
+      color: var(--foreground);
     }
 
     &--active {
-      background: $color-card-bg;
-      color: $color-foreground;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      color: var(--foreground);
+      border-bottom-color: var(--primary);
+    }
+  }
 
-      @include dark {
-        background: $lumio-color-surface-dk;
-        color: $lumio-color-text-primary-dk;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  // Quiet one-line attach row in place of a tall drop zone.
+  &__attach {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--foreground);
+    transition: border-color 0.15s, background-color 0.15s;
+
+    &:hover {
+      background: var(--muted);
+    }
+
+    // Ring drawn inside, like the fields below: the scrolling column clips anything outside.
+    &:has(:focus-visible) {
+      border-style: solid;
+      border-color: var(--primary);
+      box-shadow: inset 0 0 0 1px var(--primary);
+    }
+  }
+
+  &__attach-hint {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    text-align: right;
+  }
+
+  // Hidden but still reachable with Tab, unlike display: none.
+  &__attach-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+  }
+
+  &__fields {
+    display: grid;
+    gap: 16px;
+  }
+
+  &__field {
+    display: grid;
+    // Without these a field in a narrow grid column grows to the input's
+    // intrinsic width (~150px) and pushes the row past the drawer edge.
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    gap: 6px;
+  }
+
+  &__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+
+  // One look for every control: text inputs, picker buttons and the date picker.
+  &__control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    font: inherit;
+    font-size: 16px;
+    color: var(--foreground);
+    text-align: left;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &::placeholder {
+      color: var(--muted-foreground);
+    }
+
+    // One ring, drawn inside the border: an outer ring would be clipped by the
+    // scrolling column and would stack on the global :focus-visible outline.
+    &:focus-visible,
+    &:has(:focus-visible),
+    &:focus-within:not(&--button) {
+      border-color: var(--primary);
+      box-shadow: inset 0 0 0 1px var(--primary);
+    }
+
+    &--button {
+      cursor: pointer;
+
+      &:hover {
+        background: var(--muted);
       }
+    }
+
+    &--invalid,
+    &--invalid:focus-visible,
+    &--invalid:focus-within {
+      border-color: var(--destructive);
+      box-shadow: inset 0 0 0 1px var(--destructive);
+    }
+
+    &--invalid:not(:focus-visible):not(:focus-within) {
+      box-shadow: none;
+    }
+  }
+
+  // The control draws its own ring; drop the global outline so it is not doubled.
+  html &__control:focus-visible,
+  html &__control :focus-visible,
+  html &__attach-input:focus-visible {
+    outline: none;
+  }
+
+  &__value {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &--placeholder {
+      color: var(--muted-foreground);
+    }
+
+    &--amount {
+      font-size: 20px;
+      font-weight: 600;
+    }
+  }
+
+  &__error {
+    font-size: 12px;
+    color: var(--destructive);
+  }
+
+  // What the expense does to budgets and the account: advice under the category, not a gate.
+  &__impact {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 4px;
+  }
+
+  &__impact-line {
+    font-size: 12px;
+    color: var(--muted-foreground);
+
+    &--warn {
+      color: var(--destructive);
     }
   }
 
@@ -3576,145 +4938,23 @@
     gap: 12px;
     padding-bottom: 16px;
   }
-
-  &__search {
-    position: relative;
-  }
-
-  &__search-icon {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    pointer-events: none;
-    color: $color-muted-foreground;
-
-    @include dark {
-      color: $lumio-color-text-secondary-dk;
-    }
-  }
-
-  &__search-input {
-    width: 100%;
-    border-radius: $lumio-radius-md;
-    border: 1px solid $color-border;
-    background: $color-card-bg;
-    padding: 12px 16px 12px 40px;
-    font-size: 14px;
-    color: $color-foreground;
-    outline: none;
-    transition: border-color 0.15s;
-
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-primary-dk;
-    }
-
-    &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 20%, transparent);
-    }
-  }
-
-  &__currency-item {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: space-between;
-    border-radius: $lumio-radius-md;
-    padding: 12px;
-    text-align: left;
-    cursor: pointer;
-    transition: background-color 0.15s;
-    background: none;
-    border: none;
-    color: $color-foreground;
-
-    @include dark {
-      color: $lumio-color-text-primary-dk;
-    }
-
-    &:hover {
-      background: $color-muted;
-
-      @include dark {
-        background: $lumio-color-surface-muted-dk;
-      }
-    }
-  }
-
-  &__currency-selected {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: space-between;
-    border-radius: $lumio-radius-md;
-    border: 1px solid $color-border;
-    background: $color-muted;
-    padding: 16px;
-    text-align: left;
-    cursor: pointer;
-
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
-    }
-  }
-
-  &__label {
-    padding: 0 4px;
-    font-size: 14px;
-    color: $color-muted-foreground;
-
-    @include dark {
-      color: $lumio-color-text-secondary-dk;
-    }
-  }
-
-  &__section {
-    margin-top: 8px;
-  }
-
-  &__all-list {
-    margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  &__no-result {
-    border-radius: $lumio-radius-md;
-    border: 1px solid $color-border;
-    background: $color-card-bg;
-    padding: 12px;
-    font-size: 14px;
-    color: $color-muted-foreground;
-
-    @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-text-secondary-dk;
-    }
-  }
-
 }
 
 /* ── UnapprovedCashView ──────────────────────────────────── */
-.lumio-unapproved {
+.seneca-unapproved {
   display: flex;
   flex-direction: column;
   height: calc(100vh - $global-nav-height);
   min-height: 0;
   overflow: hidden;
-  padding: 24px 16px;
+  padding: var(--seneca-page-top, 24px) 16px 24px;
 
   @media (min-width: 640px) {
-    padding: 24px;
+    padding: var(--seneca-page-top, 24px) 24px 24px;
   }
 
   @media (min-width: 1024px) {
-    padding: 24px 32px;
+    padding: var(--seneca-page-top, 24px) 32px 24px;
   }
 
   &__body {
@@ -3727,7 +4967,7 @@
   &__badge {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid;
     padding: 2px 8px;
     font-size: 12px;
@@ -3737,7 +4977,7 @@
   &__source-badge {
     display: inline-flex;
     align-items: center;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid;
     padding: 2px 8px;
     font-size: 11px;
@@ -3745,17 +4985,17 @@
   }
 
   &__card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
 
     &--approved {
@@ -3763,8 +5003,8 @@
       background: #f0fdf4;
 
       @include dark {
-        border-color: $lumio-color-success-dk;
-        background: $lumio-color-success-soft-dk;
+        border-color: $seneca-color-success-dk;
+        background: $seneca-color-success-soft-dk;
       }
     }
 
@@ -3775,7 +5015,7 @@
 }
 
 /* ── TablesReportsView ───────────────────────────────────── */
-.lumio-tables-report {
+.seneca-tables-report {
   display: flex;
   flex-direction: column;
   height: calc(100vh - $global-nav-height);
@@ -3815,24 +5055,24 @@
 
   &__search-input {
     width: 100%;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 8px 16px 8px 40px;
     font-size: 14px;
     color: #111827;
-    outline: none;
     transition: border-color 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 2px color-mix(in srgb, $color-primary 10%, transparent);
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
   }
 
@@ -3845,25 +5085,25 @@
     pointer-events: none;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
   &__period-tabs {
     display: inline-flex;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
     background: #f9fafb;
     padding: 4px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-muted-dk;
     }
   }
 
   &__period-tab {
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     padding: 6px 10px;
     font-size: 12px;
     font-weight: 500;
@@ -3874,17 +5114,17 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &--active {
-      background: $lumio-color-surface;
+      background: $seneca-color-surface;
       color: #111827;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 
       @include dark {
-        background: $lumio-color-surface-dk;
-        color: $lumio-color-ink-900-dk;
+        background: $seneca-color-surface-dk;
+        color: $seneca-color-ink-900-dk;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
       }
     }
@@ -3892,19 +5132,19 @@
 
   &__sort-tabs {
     display: inline-flex;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
     background: #f9fafb;
     padding: 4px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-muted-dk;
     }
   }
 
   &__sort-tab {
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     padding: 4px 10px;
     font-size: 12px;
     font-weight: 500;
@@ -3915,31 +5155,31 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &--active {
-      background: $lumio-color-surface;
+      background: $seneca-color-surface;
       color: #111827;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 
       @include dark {
-        background: $lumio-color-surface-dk;
-        color: $lumio-color-ink-900-dk;
+        background: $seneca-color-surface-dk;
+        color: $seneca-color-ink-900-dk;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
       }
     }
   }
 
   &__card {
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 20px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -3963,7 +5203,7 @@
     color: #6b7280;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &--right {
@@ -3977,7 +5217,7 @@
     border-top: 1px solid #f3f4f6;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
   }
 
@@ -3988,7 +5228,7 @@
     color: #9ca3af;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -4000,9 +5240,9 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 6px 12px;
     font-size: 14px;
     color: #374151;
@@ -4010,16 +5250,16 @@
     transition: all 0.15s;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      color: $lumio-color-ink-700-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
       background: #f9fafb;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
   }
@@ -4030,15 +5270,15 @@
     left: 0;
     z-index: 50;
     min-width: 200px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     padding: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     }
   }
@@ -4049,7 +5289,7 @@
     gap: 8px;
     width: 100%;
     padding: 8px 12px;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     font-size: 14px;
     cursor: pointer;
     background: none;
@@ -4059,25 +5299,551 @@
     transition: background-color 0.15s;
 
     @include dark {
-      color: $lumio-color-ink-700-dk;
+      color: $seneca-color-ink-700-dk;
     }
 
     &:hover {
       background: #f9fafb;
 
       @include dark {
-        background: $lumio-color-surface-muted-dk;
+        background: $seneca-color-surface-muted-dk;
       }
     }
 
     &--active {
       background: #f0f4ff;
-      color: $color-primary;
+      color: var(--primary);
 
       @include dark {
-        background: color-mix(in srgb, $lumio-color-primary-dk 10%, transparent);
-        color: $lumio-color-primary-dk;
+        background: color-mix(in srgb, $seneca-color-primary-dk 10%, transparent);
+        color: $seneca-color-primary-dk;
       }
     }
+  }
+}
+
+/* ── Analytics stat tiles ─────────────────────────────────
+   Four tiles per row. A fixed `repeat(4, 1fr)` kept every track at its own
+   content width, so on phones the row grew past the screen and the last
+   tiles were cut off; two tracks that may shrink to zero fit instead. */
+.seneca-stat-tiles {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+
+  @include respond-to('sm') {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Unapproved-cash filter row ───────────────────────────
+   Seven tracks beside each other on desktop; the same row wrapped to three
+   and then two on narrower screens, where seven inputs could not fit. */
+/* ── Spend-over-time drill-down ───────────────────────────
+   The table on wider screens, a two-line list per operation on phones. */
+.seneca-spend-drill {
+  &__list {
+    display: none;
+  }
+
+  // An operation opens the document behind it.
+  &__row--link {
+    cursor: pointer;
+
+    &:hover td {
+      background: var(--muted);
+    }
+  }
+
+  &__link {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--foreground);
+      text-decoration: underline;
+    }
+  }
+
+  @include respond-to('md') {
+    &__table {
+      display: none;
+    }
+
+    &__list {
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    &__item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 4px 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+      color: inherit;
+      text-decoration: none;
+    }
+
+    &__list > li:last-child > &__item {
+      border-bottom: 0;
+    }
+
+    &__merchant {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    &__amount {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--foreground);
+      white-space: nowrap;
+    }
+
+    &__meta {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+  }
+}
+
+/* ── Spend-over-time calendar ─────────────────────────────
+   Desktop: a month of day cards, each listing its top merchants.
+   Phones: a card needs ~100px for a merchant, seven of those do not fit, so
+   the grid shrinks to day numbers with a short total and the month's days
+   with spending are listed under it instead. */
+.seneca-spend-calendar {
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px;
+
+    &--weekdays {
+      margin-bottom: 10px;
+    }
+  }
+
+  &__weekday {
+    padding: 0 4px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+
+  // An empty day is just its number; only days with spending get a cell, so
+  // they read as islands. The cell's shade is the day's step on a one-colour
+  // heat scale (data-heat 1–5).
+  &__day {
+    min-width: 0;
+    min-height: 62px;
+    padding: 8px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--foreground);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 4px;
+    text-align: left;
+    cursor: default;
+
+    &--active {
+      cursor: pointer;
+      background: color-mix(in srgb, #{$seneca-color-empty-icon} 8%, transparent);
+
+      &:hover {
+        border-color: color-mix(in srgb, #{$seneca-color-empty-icon} 45%, transparent);
+      }
+    }
+
+    &[data-heat='1'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 8%, transparent); }
+    &[data-heat='2'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 16%, transparent); }
+    &[data-heat='3'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 24%, transparent); }
+    &[data-heat='4'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 34%, transparent); }
+    &[data-heat='5'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 45%, transparent); }
+
+    // Another currency: a hairline instead of a shade, and a small mark.
+    &--foreign {
+      position: relative;
+      background: transparent;
+      border-color: $seneca-color-hairline;
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--text-muted);
+      }
+    }
+
+    &--today {
+      border-color: var(--primary);
+    }
+
+    &--outside {
+      color: var(--muted-foreground);
+    }
+  }
+
+  &__day-number {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  &__day-total {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__day-compact {
+    display: none;
+  }
+
+  &__agenda {
+    display: none;
+  }
+
+  &__empty {
+    margin-top: 16px;
+    border-radius: 16px;
+    border: 1px dashed var(--border-color);
+    padding: 20px;
+    text-align: center;
+    color: var(--muted-foreground);
+  }
+
+  @include respond-to('lg') {
+    &__grid {
+      gap: 6px;
+    }
+
+    &__day {
+      min-height: 54px;
+      padding: 6px;
+    }
+  }
+
+  @include respond-to('md') {
+    &__grid {
+      gap: 4px;
+
+      &--weekdays {
+        margin-bottom: 6px;
+      }
+    }
+
+    &__weekday {
+      padding: 0;
+      font-size: 10px;
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+
+    &__day {
+      min-height: 0;
+      aspect-ratio: 1 / 1.1;
+      padding: 4px 2px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      text-align: center;
+
+      &--outside {
+        border-color: transparent;
+        background: transparent;
+        opacity: 0.35;
+      }
+    }
+
+    &__day-number {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    &__day--active &__day-number {
+      font-weight: 700;
+    }
+
+    &__day-total {
+      display: none;
+    }
+
+    &__day-compact {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: clip;
+      white-space: nowrap;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      color: var(--foreground);
+    }
+
+    &__agenda {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 14px 0 0;
+      padding: 14px 0 0;
+      list-style: none;
+      border-top: 1px solid var(--border-color);
+    }
+
+    &__agenda-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--foreground);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    &__agenda-date {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      width: 36px;
+    }
+
+    &__agenda-day {
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    &__agenda-weekday {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+    }
+
+    &__agenda-merchants {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    &__agenda-total {
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    &__empty {
+      margin-top: 12px;
+      padding: 14px;
+    }
+  }
+}
+
+/* ── Tax rate drawer (inside CreateExpenseDrawer) ────────── */
+.seneca-tax-drawer {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+
+  &__form {
+    display: grid;
+    gap: 16px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  &__form-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 112px;
+    gap: 12px;
+  }
+
+  &__percent-input {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    outline: none;
+
+    &::placeholder {
+      color: var(--muted-foreground);
+    }
+  }
+
+  &__percent-sign {
+    color: var(--muted-foreground);
+  }
+
+  &__list {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    align-content: start;
+    gap: 2px;
+    // Rows reach 12px past the form so their text lines up with the inputs above.
+    margin-inline: -12px;
+    padding-top: 12px;
+    padding-bottom: 24px;
+  }
+
+  &__option {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    text-align: left;
+    font-size: 14px;
+    color: var(--foreground);
+    cursor: pointer;
+    transition: background-color 0.15s;
+
+    &:hover {
+      background: var(--muted);
+    }
+
+    // Inside the row: the scrolling list would clip an outer ring.
+    html &:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 2px var(--primary);
+    }
+
+    &--selected {
+      font-weight: 600;
+    }
+  }
+
+  &__option-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__tag {
+    flex-shrink: 0;
+    padding: 1px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+
+  &__option-rate {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
+
+  &__option-check {
+    display: inline-flex;
+    width: 18px;
+    flex-shrink: 0;
+    color: var(--primary);
+  }
+
+  &__empty {
+    padding: 24px 12px;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    text-align: center;
+  }
+}
+
+// Offline strip above the page: a status line, not a modal.
+.seneca-offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 12px;
+  font-size: 13px;
+  background: var(--muted, #f3f4f6);
+  color: var(--foreground, #111827);
+
+  &--offline {
+    background: var(--destructive, #dc2626);
+    color: #fff;
+  }
+
+  &__action {
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font-size: 12px;
+    padding: 2px 10px;
+    cursor: pointer;
+  }
+}
+
+// Rows counted at face value because a rate is missing: a warning line above the dashboard tabs.
+.seneca-dashboard__rates-banner {
+  margin: 0 16px 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  background: rgba(217, 119, 6, 0.08);
+  color: var(--foreground, #111827);
+  font-size: 13px;
+
+  a {
+    color: var(--primary, #0584c7);
+    font-weight: 600;
   }
 }

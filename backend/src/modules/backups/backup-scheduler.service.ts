@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import { BackupConfiguration, BackupRunTrigger, Workspace } from '../../entities';
 import { BackupsService } from './backups.service';
 
@@ -24,7 +25,10 @@ export class BackupSchedulerService {
   }
 
   async runDueBackups(now: Date): Promise<void> {
-    const configurations = await this.configurationRepository.find();
+    // A past version runs nothing on its own: its copied backup settings stay inert.
+    const configurations = await this.configurationRepository.find({
+      where: { workspace: STANDARD_WORKSPACE },
+    });
     for (const configuration of configurations) {
       if (!configuration.enabled) continue;
       const localSlot = this.localSlot(now, configuration.timeZone);

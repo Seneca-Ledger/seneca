@@ -3,8 +3,8 @@ title: Adding a Bank Parser
 description: Extend the parsing pipeline with a new bank format
 ---
 
-Bank-specific parsers live in the parsing module. Add a new parser when you want first-class support for a PDF
-layout or CSV export.
+Bank-specific parsers live in `backend/src/modules/parsing/parsers`. Add a new parser when you want first-class
+support for a PDF layout or CSV export.
 
 ## 1. Inspect the input
 
@@ -14,25 +14,39 @@ layout or CSV export.
 
 ## 2. Add a parser class
 
-Create a new parser in `backend/src/modules/parsing`:
+Create `backend/src/modules/parsing/parsers/<bank>.parser.ts`:
 
-- Implement the parser interface
-- Normalize rows to the transaction DTO
-- Include unit tests with a sample statement
+- Extend `BaseParser`, which implements `IParser`
+- Implement `canParse(bankName, fileType, filePath, cachedText?)` and `parse(filePath, cachedText?)`; `parse`
+  returns a `ParsedStatement`
+- Use the number normalization helpers on `BaseParser`
+- Log volumes and outcomes only — never transaction contents
 
-## 3. Register with ParserFactory
+## 3. Register the parser
 
-Update the factory so it selects your parser when a statement matches the bank format.
+- Add a value to the `BankName` enum in `backend/src/entities/statement.entity.ts`
+- The column is the Postgres enum `bank_name_enum`, so add a migration that extends it — see
+  `backend/src/migrations/1764700000000-AddHapoalimBankName.ts`:
+  `ALTER TYPE "bank_name_enum" ADD VALUE IF NOT EXISTS '<bank>'`
+- Add the parser to the list in `ParserFactoryService` (`parsing/services/parser-factory.service.ts`)
+- Extend bank detection in the same service (`detectBankByName` / `detectBankByBic`)
 
-## 4. Add fixtures
+## 4. Add tests and fixtures
 
-- Store sample files under `docs/statements-examples`
-- Keep fixtures small and anonymized
+- Specs live under `backend/@tests` as `*.spec.ts`; see `backend/@tests/integration/hapoalim-parser-test.spec.ts`
+- Parser fixtures go in `backend/@tests/fixtures/parsing`; keep them small and anonymized
+- Golden samples live in `backend/golden/<bank>/` as an input file next to its `.expected.json`; record the
+  expected output with `npm --prefix backend run golden:record`
+- Real statement examples for manual checks are in `docs/statements-examples`
 
-## 5. Verify dedup and import
+## 5. Verify
 
-- Run `npm run test:golden` if available
-- Import the sample file through the UI
+```bash
+npm --prefix backend run test:golden    # sets GOLDEN_ENABLED=1
+npm --prefix backend run test:parsing   # parsing regression spec
+```
+
+Then import a sample file through the UI.
 
 ## 6. Document the support
 

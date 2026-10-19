@@ -1,8 +1,9 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
-import { useCallback, useEffect, useState } from 'react';
 
 export const duplicateResolutions = ['skip', 'mark_duplicate', 'force_import'] as const;
 export type DuplicateResolution = (typeof duplicateResolutions)[number];
@@ -10,12 +11,14 @@ export type DuplicateResolution = (typeof duplicateResolutions)[number];
 export type ProcessingSettings = {
   categorizationThreshold: number;
   duplicateResolution: DuplicateResolution;
+  merchantLearning: boolean;
 };
 
 /** Mirrors the server defaults, which are the previously hardcoded values. */
 const DEFAULTS: ProcessingSettings = {
   categorizationThreshold: 0.7,
   duplicateResolution: 'skip',
+  merchantLearning: true,
 };
 
 export type UseProcessingMessages = {
@@ -35,7 +38,6 @@ export type UseProcessingReturn = {
 
 export function useProcessing(
   isAuthenticated: boolean,
-  activeSection: string,
   workspaceId: string | null | undefined,
   messages: UseProcessingMessages,
 ): UseProcessingReturn {
@@ -46,51 +48,68 @@ export function useProcessing(
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || activeSection !== 'processing' || !workspaceId) return;
+    if (!(isAuthenticated && workspaceId)) return;
 
     let active = true;
 
     const load = async () => {
       setLoading(true);
       setError(null);
-      try {
-        const response = await apiClient.get(`/workspaces/${workspaceId}`);
-        if (!active) return;
-        setSettings({ ...DEFAULTS, ...(response.data?.settings?.processing || {}) });
-      } catch (err: unknown) {
-        if (active) setError(getApiErrorMessage(err, messages.loadError));
-      } finally {
-        if (active) setLoading(false);
-      }
+      await apiQueryDecoded({
+        url: `/workspaces/${workspaceId}`,
+        contract: 'WorkspaceDetail',
+      }).then(
+        workspace => {
+          if (!active) return;
+          // `settings` is the workspace's free-form blob; `processing` is this page's part.
+          const processing = workspace.settings?.processing as
+            | Partial<ProcessingSettings>
+            | undefined;
+          setSettings({ ...DEFAULTS, ...(processing ?? {}) });
+        },
+        (err: unknown) => {
+          if (active) setError(getApiErrorMessage(err, messages.loadError));
+        },
+      );
+      if (active) setLoading(false);
     };
 
     void load();
     return () => {
       active = false;
     };
-  }, [activeSection, isAuthenticated, workspaceId, messages.loadError]);
+  }, [isAuthenticated, workspaceId, messages.loadError]);
+
+  const rollbackRef = useRef(settings);
 
   const update = useCallback(
     async (patch: Partial<ProcessingSettings>) => {
       if (!workspaceId) return;
 
-      const previous = settings;
-      setSettings(current => ({ ...current, ...patch }));
+      // Capture the rollback value from the updater so `update` keeps its
+      // identity across saves.
+      setSettings(current => {
+        rollbackRef.current = current;
+        return { ...current, ...patch };
+      });
       setSaving(true);
       setError(null);
       setMessage(null);
 
-      try {
-        await apiClient.patch(`/workspaces/${workspaceId}`, { processing: patch });
-        setMessage(messages.savedMessage);
-      } catch (err: unknown) {
-        setSettings(previous);
-        setError(getApiErrorMessage(err, messages.saveError));
-      } finally {
-        setSaving(false);
-      }
+      await apiClient
+        .patch(`/workspaces/${workspaceId}`, {
+          processing: patch,
+        } satisfies ContractInput<'UpdateWorkspaceBody'>)
+        .then(
+          () => setMessage(messages.savedMessage),
+          (err: unknown) => {
+            setSettings(rollbackRef.current);
+            setError(getApiErrorMessage(err, messages.saveError));
+          },
+        );
+      setSaving(false);
     },
-    [messages.saveError, messages.savedMessage, settings, workspaceId],
+    [messages.saveError, messages.savedMessage, workspaceId],
   );
 
   return { settings, loading, saving, error, message, update };

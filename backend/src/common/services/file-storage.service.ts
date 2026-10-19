@@ -1,8 +1,8 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Readable } from 'stream';
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { FileType, Statement } from '../../entities';
 import { calculateFileHash } from '../utils/file-hash.util';
@@ -100,6 +100,12 @@ export class FileStorageService {
       case FileType.DOCX:
       case 'docx':
         return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case FileType.OFX:
+      case FileType.QIF:
+      case FileType.MT940:
+        return 'text/plain';
+      case FileType.CAMT:
+        return 'application/xml';
       case FileType.IMAGE:
       case 'jpg':
       case 'jpeg':

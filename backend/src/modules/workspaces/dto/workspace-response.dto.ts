@@ -1,3 +1,4 @@
+import type { WorkspaceKind } from '../../../entities/workspace.entity';
 import {
   WorkspaceMemberPermissions,
   WorkspaceRole,
@@ -19,8 +20,15 @@ export class WorkspaceResponseDto {
   icon: string | null;
   color: string | null;
   backgroundImage: string | null;
-  currency: string | null;
+  /** Credit line for a searched photo; null for bundled backgrounds. */
+  backgroundAttribution: string | null;
+  backgroundSourceUrl: string | null;
+  currency: string;
   isFavorite: boolean;
+  /** `version`: a past version opened to look at, read only. */
+  kind: WorkspaceKind;
+  /** For an opened version: which version, of which workspace, taken when. */
+  version?: { id: string; takenAt: Date; sourceWorkspaceId: string } | null;
   settings: JsonObject | null;
   ownerId: string | null;
   createdAt: Date;

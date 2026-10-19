@@ -247,16 +247,19 @@ describe('ReportsController', () => {
     const controller = new ReportsController(reportsService as any);
     const workspaceId = 'ws-1';
 
-    const result = await controller.getTopCategories({ id: 'u-1' } as any, workspaceId, {
-      limit: 5,
-      type: 'expense',
-    } as any);
+    const result = await controller.getTopCategories(
+      { id: 'u-1' } as any,
+      workspaceId,
+      { limit: 5, type: 'expense' } as any,
+      'member-self',
+    );
 
     expect(result).toEqual({ categories: [] });
-    expect(reportsService.getTopCategoriesReport).toHaveBeenCalledWith(workspaceId, {
-      limit: 5,
-      type: 'expense',
-    });
+    expect(reportsService.getTopCategoriesReport).toHaveBeenCalledWith(
+      workspaceId,
+      { limit: 5, type: 'expense' },
+      'member-self',
+    );
   });
 
   it('getSpendOverTime delegates to reports service', async () => {
@@ -283,14 +286,19 @@ describe('ReportsController', () => {
         dateFrom: '2025-01-01',
         dateTo: '2025-01-03',
       },
+      'member-self',
     );
 
     expect(result).toEqual({ points: [] });
-    expect(reportsService.getSpendOverTimeReport).toHaveBeenCalledWith(workspaceId, {
-      groupBy: 'day',
-      dateFrom: '2025-01-01',
-      dateTo: '2025-01-03',
-    });
+    expect(reportsService.getSpendOverTimeReport).toHaveBeenCalledWith(
+      workspaceId,
+      {
+        groupBy: 'day',
+        dateFrom: '2025-01-01',
+        dateTo: '2025-01-03',
+      },
+      'member-self',
+    );
   });
 
   it('getCustomTablesReport delegates to reports service', async () => {

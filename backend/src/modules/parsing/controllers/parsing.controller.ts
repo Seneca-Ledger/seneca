@@ -1,8 +1,5 @@
-import { promises as fs } from 'fs';
-import * as path from 'path';
 import {
   BadRequestException,
-  Body,
   Controller,
   HttpCode,
   HttpStatus,
@@ -13,11 +10,15 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 import * as xlsx from 'xlsx';
+import { SchemaBody } from '../../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { validateFile } from '../../../common/utils/file-validator.util';
+import { assertSafeZipDecompressionRatio } from '../../../common/utils/zip-bomb-guard.util';
 import { multerConfig } from '../../../config/multer.config';
-import { ParseDocumentDto } from '../dto/parse-document.dto';
+import { ParseDocumentBody } from '../../../contracts';
 import { UniversalExtractorService } from '../services/universal-extractor.service';
 
 // Local type alias prevents babel-plugin-transform-typescript-metadata from emitting
@@ -25,6 +26,10 @@ import { UniversalExtractorService } from '../services/universal-extractor.servi
 type MulterFile = Express.Multer.File;
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp']);
+// `sheetRows` (used below) only skips building JS row objects — xlsx still
+// fully inflates every ZIP entry first, so it doesn't bound decompression
+// cost. assertSafeZipDecompressionRatio, called before xlsx.read, does that.
+const MAX_SHEET_ROWS = 50_000;
 
 @ApiTags('Documents')
 @ApiBearerAuth()
@@ -38,7 +43,10 @@ export class ParsingController {
   @ApiOperation({ summary: 'Parse uploaded document and extract structured financial fields' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', multerConfig))
-  async parseDocument(@UploadedFile() file: MulterFile, @Body() payload: ParseDocumentDto) {
+  async parseDocument(
+    @UploadedFile() file: MulterFile,
+    @SchemaBody(ParseDocumentBody) payload: ParseDocumentBody,
+  ) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -48,9 +56,9 @@ export class ParsingController {
     const ext = path.extname(file.originalname || '').toLowerCase();
     const buffer = await fs.readFile(file.path);
     const context = {
-      sender: payload.sender,
-      subject: payload.subject,
-      emailBody: payload.emailBody,
+      sender: payload.sender ?? undefined,
+      subject: payload.subject ?? undefined,
+      emailBody: payload.emailBody ?? undefined,
       fileNameHint: file.originalname,
     };
 
@@ -86,7 +94,8 @@ export class ParsingController {
       }
 
       if (ext === '.xlsx' || ext === '.xls') {
-        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        assertSafeZipDecompressionRatio(buffer);
+        const workbook = xlsx.read(buffer, { type: 'buffer', sheetRows: MAX_SHEET_ROWS });
         const firstSheet = workbook.SheetNames[0];
 
         if (!firstSheet) {

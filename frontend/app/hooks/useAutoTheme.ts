@@ -1,9 +1,9 @@
 'use client';
 
-import type { ThemePreference } from '@/app/lib/theme-preference';
-import { getScheduledTheme, getStoredThemeTimeZone } from '@/app/lib/theme-preference';
 import { useTheme } from 'next-themes';
 import { useEffect } from 'react';
+import type { ThemePreference } from '@/app/lib/theme-preference';
+import { getScheduledTheme, getStoredThemeTimeZone } from '@/app/lib/theme-preference';
 
 const AUTO_THEME_CHECK_INTERVAL_MS = 60_000;
 

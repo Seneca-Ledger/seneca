@@ -1,3 +1,4 @@
+import type { LucideIcon } from '@/app/components/icons';
 import {
   Copy,
   Download,
@@ -10,7 +11,6 @@ import {
   Unlink2,
   Upload,
 } from '@/app/components/icons';
-import type { LucideIcon } from '@/app/components/icons';
 import type { AuditAction } from '@/lib/api/audit';
 
 export const ACTION_ICON_MAP: Record<AuditAction, LucideIcon> = {

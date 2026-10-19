@@ -1,10 +1,6 @@
-jest.mock('pdf-parse', () => {
-  const mock = jest.fn();
-  (mock as any).__esModule = true;
-  return mock;
-});
+jest.mock('pdf-parse', () => jest.fn());
 
-const { GmailReceiptParserService } =
+const { GmailReceiptParserService, normalizeDateHeader } =
   require('../../../../src/modules/gmail/services/gmail-receipt-parser.service') as typeof import('../../../../src/modules/gmail/services/gmail-receipt-parser.service');
 const { UniversalAmountParser } =
   require('../../../../src/modules/parsing/services/universal-amount-parser.service') as typeof import('../../../../src/modules/parsing/services/universal-amount-parser.service');
@@ -109,72 +105,18 @@ describe('GmailReceiptParserService', () => {
     expect(vendor).toBe('Notion');
   });
 
-  describe('AI-powered merchant extraction', () => {
-    it('uses AI result when available and confidence is high', async () => {
-      const aiMock = {
-        isAvailable: jest.fn().mockReturnValue(true),
-        extractMerchant: jest.fn().mockResolvedValue({ merchant: 'GitHub', confidence: 0.95 }),
-      };
-
-      const aiService = new GmailReceiptParserService(new UniversalAmountParser(), aiMock as any);
-
-      const vendor = await (aiService as any).extractVendorWithAi(
-        'Date2026-02-16 10:57AM PST\nGitHub',
-        {
-          sender: 'GitHub <noreply@github.com>',
-          subject: '[GitHub] Receipt',
-          emailBody: '<p>Thanks for your payment</p>',
-        },
-      );
-
-      expect(vendor).toBe('GitHub');
-      expect(aiMock.extractMerchant).toHaveBeenCalled();
-    });
-
-    it('falls back to heuristics when AI returns null', async () => {
-      const aiMock = {
-        isAvailable: jest.fn().mockReturnValue(true),
-        extractMerchant: jest.fn().mockResolvedValue(null),
-      };
-
-      const aiService = new GmailReceiptParserService(new UniversalAmountParser(), aiMock as any);
-
-      const vendor = await (aiService as any).extractVendorWithAi(
+  describe('merchant extraction', () => {
+    it('reads the vendor from the PDF text', () => {
+      const vendor = (service as any).extractVendor(
         'Spotify\nReceipt for your subscription',
-        {
-          sender: 'no-reply@spotify.com',
-          subject: 'Receipt',
-        },
+        'no-reply@spotify.com',
       );
 
       expect(vendor).toBe('Spotify');
     });
 
-    it('falls back to heuristics when AI is unavailable', async () => {
-      const aiMock = {
-        isAvailable: jest.fn().mockReturnValue(false),
-        extractMerchant: jest.fn(),
-      };
-
-      const aiService = new GmailReceiptParserService(new UniversalAmountParser(), aiMock as any);
-
-      const vendor = await (aiService as any).extractVendorWithAi('Netflix\nMonthly subscription', {
-        sender: 'info@netflix.com',
-      });
-
-      expect(vendor).toBe('Netflix');
-      expect(aiMock.extractMerchant).not.toHaveBeenCalled();
-    });
-
     it('extracts merchant from email-only parsing flow', async () => {
-      const aiMock = {
-        isAvailable: jest.fn().mockReturnValue(true),
-        extractMerchant: jest.fn().mockResolvedValue({ merchant: 'Notion', confidence: 0.8 }),
-      };
-
-      const aiService = new GmailReceiptParserService(new UniversalAmountParser(), aiMock as any);
-
-      const parsed = await aiService.parseFromEmailOnly({
+      const parsed = await service.parseFromEmailOnly({
         sender: 'Notion <billing@makenotion.com>',
         subject: 'Your invoice',
         dateHeader: '2026-02-16',
@@ -202,6 +144,70 @@ describe('GmailReceiptParserService', () => {
     const parsed = await (service as any).extractAmountWithCurrency('Celkem: 1 500,00 CZK');
 
     expect(parsed).toEqual({ amount: 1500, currency: 'CZK' });
+  });
+
+  describe('receipts in the email body', () => {
+    it('takes line items from the stripped body and normalises the Date header', async () => {
+      const extractor = {
+        extractFromText: jest.fn(async () => ({
+          lineItems: [
+            { description: 'Echo Dot', amount: 49.99 },
+            { description: 'HDMI cable', amount: 9.99 },
+            { description: 'Broken', amount: 0 },
+          ],
+          totalAmount: 59.98,
+        })),
+      };
+      const bodyService = new GmailReceiptParserService(
+        new UniversalAmountParser(),
+        extractor as any,
+      );
+
+      const parsed = await bodyService.parseFromEmailOnly({
+        sender: 'order-update@amazon.de',
+        subject: 'Your order',
+        dateHeader: 'Mon, 11 May 2026 10:15:00 +0200',
+        emailBody: '<p>Echo Dot 49.99 EUR</p><p>HDMI cable 9.99 EUR</p><p>Total 59.98 EUR</p>',
+      });
+
+      expect(parsed?.lineItems).toEqual([
+        { description: 'Echo Dot', amount: 49.99 },
+        { description: 'HDMI cable', amount: 9.99 },
+      ]);
+      expect(parsed?.date).toBe('2026-05-11');
+      expect(typeof parsed?.amount).toBe('number');
+    });
+
+    it('drops body line items that do not add up to the amount the email states', async () => {
+      const extractor = {
+        extractFromText: jest.fn(async () => ({
+          lineItems: [
+            { description: 'Page 1 of', amount: 2 },
+            { description: 'Date of issueJune 13,', amount: 202 },
+          ],
+          totalAmount: 204,
+        })),
+      };
+      const bodyService = new GmailReceiptParserService(
+        new UniversalAmountParser(),
+        extractor as any,
+      );
+
+      const parsed = await bodyService.parseFromEmailOnly({
+        sender: 'billing@railway.com',
+        subject: 'Your invoice',
+        emailBody: '<p>Amount due $14.63</p>',
+      });
+
+      expect(parsed?.amount).toBe(14.63);
+      expect(parsed?.lineItems).toEqual([]);
+    });
+
+    it('keeps an unparseable Date header as it is', () => {
+      expect(normalizeDateHeader('yesterday-ish')).toBe('yesterday-ish');
+      expect(normalizeDateHeader('2026-05-11')).toBe('2026-05-11');
+      expect(normalizeDateHeader(undefined)).toBeUndefined();
+    });
   });
 
   describe('line item extraction filters', () => {
@@ -271,5 +277,30 @@ describe('GmailReceiptParserService', () => {
 
     expect(parsed.amount).toBe(17.61);
     expect(parsed.lineItems).toEqual([]);
+  });
+});
+
+describe('GmailReceiptParserService.extractDate', () => {
+  const extract = (text: string): string | undefined =>
+    (
+      new GmailReceiptParserService(new UniversalAmountParser()) as unknown as {
+        extractDate(input: string): string | undefined;
+      }
+    ).extractDate(text);
+
+  it('returns a plausible receipt date in either common layout', () => {
+    expect(extract('Receipt\nDate: 16.02.2026\nTotal 12.00')).toBe('16.02.2026');
+    expect(extract('Issued 2026-02-16 10:31')).toBe('2026-02-16');
+  });
+
+  it('ignores digit runs inside DOIs, page references and impossible dates', () => {
+    expect(extract('doi:10.1145/1250734.1250752 pp. 465-478')).toBeUndefined();
+    expect(extract('ref 11.11.9301 something')).toBeUndefined();
+    expect(extract('31.02.2026 is not a date')).toBeUndefined();
+    expect(extract('see 99.99.2026 or 2026-13-01')).toBeUndefined();
+  });
+
+  it('skips a bogus candidate and keeps looking for a real one', () => {
+    expect(extract('code 12.12.9999\nDate 05.03.2026')).toBe('05.03.2026');
   });
 });

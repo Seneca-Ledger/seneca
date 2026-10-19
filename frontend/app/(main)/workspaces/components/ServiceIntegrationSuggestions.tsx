@@ -1,12 +1,12 @@
 'use client';
 
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { tokens } from '@/lib/theme-tokens';
 
 interface ServiceIntegrationSuggestionsProps {
   onSkip: () => void;
@@ -27,13 +27,6 @@ const INTEGRATIONS = [
     description: 'Automatically extract receipts and invoices from emails',
     icon: '/icons/gmail.png',
     path: '/integrations/gmail',
-  },
-  {
-    id: 'google-sheets',
-    name: 'Google Sheets',
-    description: 'Export your financial data to Google Sheets',
-    icon: '/icons/icons8-google-sheets-48.png',
-    path: '/integrations/google-sheets',
   },
 ];
 

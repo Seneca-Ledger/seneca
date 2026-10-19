@@ -4,6 +4,12 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const documentTypeIconSpy = vi.hoisted(() => vi.fn());
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
 const pdfThumbnailSpy = vi.hoisted(() => vi.fn());
 
 type IconProps = {
@@ -61,6 +67,7 @@ describe('StatementsListItem', () => {
     document.body.appendChild(container);
     documentTypeIconSpy.mockReset();
     pdfThumbnailSpy.mockReset();
+    appLocale.current = 'en';
   });
 
   afterEach(() => {
@@ -118,10 +125,12 @@ describe('StatementsListItem', () => {
     expect(container.textContent).toContain('Shop');
     const viewIcon = container.querySelector('[data-testid="statement-view-icon"]');
     expect(viewIcon).toBeTruthy();
-    expect(container.querySelector('img[alt="Gmail"]')).not.toBeNull();
+    // The thumbnail stands for the document; the type is a word beside the date.
+    expect(container.querySelector('img[alt="Gmail"]')).toBeNull();
+    expect(container.textContent).toContain('02/01/2026 · PDF');
   });
 
-  it('renders a single column layout container', () => {
+  it('renders a stacked phone layout next to the column layout', () => {
     const root = createRoot(container);
 
     const statement: Statement = {
@@ -157,7 +166,15 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.querySelector('[data-testid="statement-item-mobile-statement-1"]')).toBeNull();
+    // CSS shows one or the other at 768px; the phone row must carry who, how much and when.
+    const mobile = container.querySelector('[data-testid="statement-item-mobile-statement-1"]');
+    expect(mobile?.querySelector('.seneca-stmt-list-item__mobile-merchant')?.textContent).toBe(
+      'Kaspi',
+    );
+    expect(mobile?.querySelector('.seneca-stmt-list-item__mobile-amount')?.textContent).toBe(
+      '1,200 KZT',
+    );
+    expect(mobile?.textContent).toContain('01/31/2026');
     expect(
       container.querySelector('[data-testid="statement-item-desktop-statement-1"]'),
     ).toBeTruthy();
@@ -389,7 +406,7 @@ describe('StatementsListItem', () => {
     expect(onView).toHaveBeenCalledTimes(1);
 
     const overlayButton = container.querySelector(
-      '.lumio-stmt-list-item__desktop-overlay',
+      '.seneca-stmt-list-item__desktop-overlay',
     ) as HTMLButtonElement | null;
     expect(overlayButton).toBeTruthy();
 
@@ -445,7 +462,7 @@ describe('StatementsListItem', () => {
     expect(container.textContent).not.toContain('FILE');
   });
 
-  it('renders receipt icon for receipt-scan statement instead of gmail icon', () => {
+  it('names a receipt-scan statement by type beside the date, with no extra icon', () => {
     const root = createRoot(container);
 
     const statement: Statement = {
@@ -494,8 +511,8 @@ describe('StatementsListItem', () => {
     });
 
     expect(container.querySelector('img[alt="Gmail"]')).toBeNull();
-    const receiptIcons = container.querySelectorAll('[data-testid="receipt-statement-type-icon"]');
-    expect(receiptIcons.length).toBe(1);
+    expect(container.querySelector('[data-testid="receipt-statement-type-icon"]')).toBeNull();
+    expect(container.textContent).toContain('03/27/2026 · IMAGE');
     expect(
       container.querySelector('[data-testid="statement-thumbnail-trigger-receipt-scan-1"]'),
     ).toBeTruthy();
@@ -537,9 +554,9 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.querySelector('.lumio-stmt-badge--review')).toBeTruthy();
+    expect(container.querySelector('.seneca-stmt-badge--review')).toBeTruthy();
     // Must not read as done: the statement is excluded from analytics until confirmed.
-    expect(container.querySelector('.lumio-stmt-badge--completed')).toBeNull();
+    expect(container.querySelector('.seneca-stmt-badge--completed')).toBeNull();
     expect(container.textContent).toContain('Needs review');
   });
 
@@ -582,7 +599,7 @@ describe('StatementsListItem', () => {
     });
 
     const overlayButton = container.querySelector(
-      '.lumio-stmt-list-item__desktop-overlay',
+      '.seneca-stmt-list-item__desktop-overlay',
     ) as HTMLButtonElement | null;
     expect(overlayButton).toBeTruthy();
 
@@ -640,10 +657,11 @@ describe('StatementsListItem', () => {
     });
 
     expect(container.textContent).not.toContain('0 KZT');
-    expect(container.querySelectorAll('[aria-label="Loading"]')).toHaveLength(1);
+    // One loader in the column layout, one in the phone layout.
+    expect(container.querySelectorAll('[aria-label="Loading"]')).toHaveLength(2);
   });
 
-  it('uses the primary color for amounts in dark mode', () => {
+  it('sets the currency apart from the figure', () => {
     const root = createRoot(container);
 
     const statement: Statement = {
@@ -679,17 +697,17 @@ describe('StatementsListItem', () => {
       );
     });
 
-    const amountNodes = Array.from(container.querySelectorAll('p, span')).filter(node =>
-      node.textContent?.includes('702,799.13KZT'),
+    const desktop = container.querySelector(
+      '[data-testid="statement-item-desktop-statement-dark-amount"]',
+    ) as HTMLElement;
+    const amount = desktop.querySelector('.seneca-stmt-list-item__amount');
+    expect(amount?.textContent).toBe('702,799.13 KZT');
+    expect(amount?.querySelector('.seneca-stmt-list-item__currency')?.textContent?.trim()).toBe(
+      'KZT',
     );
-
-    expect(amountNodes).toHaveLength(1);
-    amountNodes.forEach(node => {
-      expect(node.textContent).toContain('702,799.13KZT');
-    });
   });
 
-  it('renders primary duplicate badge and review action for duplicate item', () => {
+  it('marks a duplicate with a caption, a line on the left and a Review link', () => {
     const root = createRoot(container);
 
     const statement: Statement = {
@@ -731,16 +749,62 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.textContent).toContain('PRIMARY #1/2');
-    expect(container.textContent).toContain('Review');
-    const duplicateRow = container.querySelector('.lumio-stmt-list-item') as HTMLElement | null;
-    const duplicateAccent = container.querySelector(
-      '.lumio-stmt-list-item__accent',
-    ) as HTMLElement | null;
+    expect(
+      container.querySelector('[data-testid="statement-duplicate-caption"]')?.textContent,
+    ).toContain('Possible duplicate · 1 of 2');
+    expect(container.textContent).not.toContain('PRIMARY');
+    const review = container.querySelector('[data-testid="statement-view-icon"]');
+    expect(review?.textContent).toBe('Review');
+    expect(review?.className).toContain('seneca-stmt-list-item__view-btn--link');
+    const duplicateRow = container.querySelector('.seneca-stmt-list-item') as HTMLElement | null;
+    expect(duplicateRow?.style.boxShadow).toBe('');
+    // A lone duplicate both starts and ends its group's line.
+    const accent = container.querySelector('.seneca-stmt-list-item__accent');
+    expect(accent?.className).toContain('seneca-stmt-list-item__accent--start');
+    expect(accent?.className).toContain('seneca-stmt-list-item__accent--end');
+  });
 
-    expect(duplicateRow?.style.backgroundColor).toBe('rgb(255, 255, 255)');
-    expect(duplicateRow?.style.boxShadow).toContain('inset 0 0 0 1px');
-    expect(duplicateAccent?.style.width).toBe('4px');
+  it('runs the duplicate line through the middle of a group', () => {
+    const root = createRoot(container);
+    const statement: Statement = {
+      id: 'duplicate-2',
+      source: 'statement',
+      fileName: 'Invoice.pdf',
+      status: 'completed',
+      totalDebit: 14.63,
+      totalCredit: 0,
+      createdAt: '2026-10-09T00:00:00Z',
+      statementDateFrom: '2026-10-09',
+      statementDateTo: '2026-10-09',
+      bankName: 'other',
+      fileType: 'pdf',
+      currency: 'USD',
+    };
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Railway"
+          amountLabel="14.63 USD"
+          dateLabel="10/09/2026"
+          isPossibleDuplicate
+          duplicateRole="suspected"
+          duplicateGroupStart={false}
+          duplicateGroupEnd={false}
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          typeLabel="PDF"
+        />,
+      );
+    });
+
+    expect(container.querySelector('.seneca-stmt-list-item__accent')?.className).toBe(
+      'seneca-stmt-list-item__accent',
+    );
   });
 
   it('honors desktop column visibility and keeps hidden action rows clickable', () => {
@@ -792,7 +856,7 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.querySelector('[data-testid="statement-view-icon"]')).toBeNull();
 
     const desktopOverlay = container.querySelector(
-      '.lumio-stmt-list-item__desktop-overlay',
+      '.seneca-stmt-list-item__desktop-overlay',
     ) as HTMLButtonElement | null;
     expect(desktopOverlay).toBeTruthy();
 
@@ -821,7 +885,6 @@ describe('StatementsListItem', () => {
       currency: 'USD',
       category: { id: 'cat-1', name: 'Software' },
       tags: [{ id: 'tag-1', name: 'SaaS' }],
-      googleSheet: { id: 'sheet-1', sheetName: 'Expenses export' },
       transactionSummary: {
         description: 'Cloud subscription',
         exchangeRate: '4.5500',
@@ -851,7 +914,6 @@ describe('StatementsListItem', () => {
             { id: 'description', label: 'Description', visible: true, order: 2 },
             { id: 'exchangeRate', label: 'Exchange rate', visible: true, order: 3 },
             { id: 'card', label: 'Card', visible: true, order: 4 },
-            { id: 'exportedTo', label: 'Exported to', visible: true, order: 5 },
           ]}
         />,
       );
@@ -865,7 +927,6 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.textContent).toContain('Cloud subscription');
     expect(desktopContainer?.textContent).toContain('1 USD = 512.34 KZT');
     expect(desktopContainer?.textContent).toContain('Corporate card');
-    expect(desktopContainer?.textContent).toContain('Expenses export');
   });
 
   it('uses the current USD exchange rate for non-USD statement rows', () => {
@@ -994,5 +1055,348 @@ describe('StatementsListItem', () => {
       '[data-testid="statement-item-desktop-column-usd-rate-nis-currency"]',
     ) as HTMLDivElement | null;
     expect(desktopContainer?.textContent).toContain('1 USD = 3.72 ILS');
+  });
+
+  it('says a one-purchase document has no category yet, but leaves a multi-row statement blank', () => {
+    const renderCategory = (
+      statement: Partial<StatementsListItemProps['statement']>,
+      props: Partial<StatementsListItemProps> = {},
+    ): HTMLElement | null => {
+      const root = createRoot(container);
+      act(() => {
+        root.render(
+          <StatementsListItem
+            statement={
+              {
+                id: 'no-category',
+                source: 'scan',
+                fileName: 'scan.jpg',
+                status: 'completed',
+                createdAt: '2026-02-05T00:00:00Z',
+                bankName: 'other',
+                fileType: 'image',
+                ...statement,
+              } as StatementsListItemProps['statement']
+            }
+            viewLabel="View"
+            isReceipt
+            isProcessing={false}
+            merchantLabel="Lidl"
+            amountLabel="9.99 EUR"
+            dateLabel="02/05/2026"
+            onView={() => undefined}
+            onIconClick={() => undefined}
+            columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+            {...props}
+          />,
+        );
+      });
+      const cell = container.querySelector(
+        '[data-testid="statement-column-no-category-category"]',
+      ) as HTMLElement | null;
+      const snapshot = cell?.cloneNode(true) as HTMLElement | null;
+      act(() => root.unmount());
+      return snapshot;
+    };
+
+    // A scan with nothing picked, and one still in the Uncategorized fallback.
+    expect(renderCategory({})?.querySelector('[data-testid="no-category-badge"]')).toBeTruthy();
+    expect(
+      renderCategory({ category: { id: 'u', name: 'Uncategorized' } })?.querySelector(
+        '[data-testid="no-category-badge"]',
+      ),
+    ).toBeTruthy();
+    // A bank statement's category is only the majority of its rows'.
+    const multiRow = renderCategory(
+      { source: 'statement', fileType: 'pdf' },
+      { isReceipt: false, transactionCount: 24 },
+    );
+    expect(multiRow?.querySelector('[data-testid="no-category-badge"]')).toBeNull();
+    expect(multiRow?.textContent).toBe('—');
+  });
+
+  it('opens the category drawer from "Add category" without opening the document', () => {
+    const root = createRoot(container);
+    const onView = vi.fn();
+    const onAddCategory = vi.fn();
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: 'add-category',
+              source: 'scan',
+              fileName: 'scan.jpg',
+              status: 'completed',
+              createdAt: '2026-02-05T00:00:00Z',
+              bankName: 'other',
+              fileType: 'image',
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt
+          isProcessing={false}
+          merchantLabel="Lidl"
+          amountLabel="9.99 EUR"
+          dateLabel="02/05/2026"
+          onView={onView}
+          onIconClick={() => undefined}
+          onAddCategory={onAddCategory}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const slot = container.querySelector('[data-testid="no-category-badge"]') as HTMLElement;
+    expect(slot.tagName).toBe('BUTTON');
+    act(() => slot.click());
+    expect(onAddCategory).toHaveBeenCalledTimes(1);
+    expect(onView).not.toHaveBeenCalled();
+    act(() => root.unmount());
+  });
+
+  it('links the category chip to that category on the Top categories leaderboard', () => {
+    const root = createRoot(container);
+
+    const statement = {
+      id: 'column-category-link',
+      source: 'statement',
+      fileName: 'Summary.pdf',
+      status: 'completed',
+      totalDebit: 1200,
+      totalCredit: 0,
+      createdAt: '2026-02-05T00:00:00Z',
+      statementDateTo: '2026-03-18T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+      currency: 'KZT',
+      category: { id: 'cat-1', name: 'Meals and entertainment', color: '#b45309', icon: null },
+    } as StatementsListItemProps['statement'];
+
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Kaspi"
+          amountLabel="1,200 KZT"
+          dateLabel="03/18/2026"
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const link = container.querySelector('a.seneca-stmt-category-link') as HTMLAnchorElement | null;
+    // The statement's own month, so the leaderboard opens where the row is.
+    expect(link?.getAttribute('href')).toBe(
+      '/reports?tab=cash-flow&month=2026-03&focus=category%3Ameals+and+entertainment',
+    );
+    expect(link?.textContent).toContain('Meals and entertainment');
+  });
+
+  it('treats a category chip click as a row click until the chip lights up', () => {
+    const root = createRoot(container);
+    const onView = vi.fn();
+
+    const statement = {
+      id: 'column-category-link-click',
+      source: 'statement',
+      fileName: 'Summary.pdf',
+      status: 'completed',
+      totalDebit: 1200,
+      totalCredit: 0,
+      createdAt: '2026-02-05T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+      currency: 'KZT',
+      category: { id: 'cat-1', name: 'Travel', color: null, icon: null },
+    } as StatementsListItemProps['statement'];
+
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Kaspi"
+          amountLabel="1,200 KZT"
+          dateLabel="02/05/2026"
+          onView={onView}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const link = container.querySelector('a.seneca-stmt-category-link') as HTMLAnchorElement | null;
+    // jsdom would try to follow the href and log "navigation not implemented".
+    container.addEventListener('click', event => event.preventDefault(), true);
+
+    // Not lit: the chip is still part of the row.
+    const beforeDwell = new MouseEvent('click', { bubbles: true, cancelable: true });
+    act(() => {
+      link?.dispatchEvent(beforeDwell);
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+    expect(beforeDwell.defaultPrevented).toBe(true);
+
+    // Focus lights it without the dwell; now the click belongs to the link.
+    act(() => {
+      link?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    });
+    expect(link?.className).toContain('seneca-stmt-category-link--lit');
+
+    act(() => {
+      link?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a multi-row statement under its line instead of opening the statement', () => {
+    const root = createRoot(container);
+    const onView = vi.fn();
+    const onToggleExpand = vi.fn();
+    const statement: Statement = {
+      id: 'statement-rows',
+      source: 'statement',
+      fileName: 'september.pdf',
+      status: 'completed',
+      totalDebit: 300,
+      totalCredit: 0,
+      createdAt: '2026-09-30T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+    };
+    const render = (count: number, expanded: boolean): void =>
+      act(() => {
+        root.render(
+          <StatementsListItem
+            statement={statement}
+            viewLabel="View"
+            isReceipt={false}
+            isProcessing={false}
+            merchantLabel="Kaspi"
+            amountLabel="300 KZT"
+            dateLabel="09/30/2026"
+            onView={onView}
+            onIconClick={() => undefined}
+            transactionCount={count}
+            expanded={expanded}
+            onToggleExpand={onToggleExpand}
+          />,
+        );
+      });
+
+    render(1, false);
+    expect(container.querySelector('.seneca-stmt-list-item__rows-toggle')).toBeNull();
+
+    render(3, false);
+    const toggle = container.querySelector(
+      '[data-testid="statement-item-desktop-statement-rows"] .seneca-stmt-list-item__rows-toggle',
+    ) as HTMLButtonElement | null;
+    expect(toggle?.textContent).toContain('3');
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+
+    act(() => {
+      toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onToggleExpand).toHaveBeenCalledTimes(1);
+    expect(onView).not.toHaveBeenCalled();
+
+    render(3, true);
+    expect(
+      container
+        .querySelector('.seneca-stmt-list-item__rows-toggle')
+        ?.getAttribute('aria-expanded'),
+    ).toBe('true');
+  });
+
+  const renderApprovedCell = (status: string, isReceipt: boolean, pendingReview: number) => {
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: `approved-${status}`,
+              source: isReceipt ? 'scan' : 'statement',
+              fileName: 'doc.pdf',
+              status,
+              createdAt: '2026-10-14T00:00:00Z',
+              bankName: 'other',
+              fileType: 'pdf',
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt={isReceipt}
+          isProcessing={false}
+          merchantLabel="Shop"
+          amountLabel="8.90 ILS"
+          dateLabel="10/14/2026"
+          pendingReview={pendingReview}
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          columns={[{ id: 'approved', label: 'Approved', visible: true, order: 0 }]}
+        />,
+      );
+    });
+    const text = container.textContent;
+    act(() => root.unmount());
+    return text;
+  };
+
+  it('marks an approved receipt as approved and a draft one as not', () => {
+    expect(renderApprovedCell('approved', true, 0)).toContain('Yes');
+    expect(renderApprovedCell('draft', true, 1)).toContain('No');
+  });
+
+  it('does not call a parsed statement approved while its rows wait in Review', () => {
+    expect(renderApprovedCell('completed', false, 3)).toContain('No');
+    expect(renderApprovedCell('completed', false, 0)).toContain('Yes');
+  });
+
+  it("shows a system category in the reader's language and links it by its stored name", () => {
+    appLocale.current = 'ru';
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: 'ru-category',
+              source: 'scan',
+              fileName: 'scan.jpg',
+              status: 'draft',
+              createdAt: '2026-10-14T00:00:00Z',
+              bankName: 'other',
+              fileType: 'image',
+              category: { id: 'cat-ad', name: 'Advertising', color: null, icon: null },
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt
+          isProcessing={false}
+          merchantLabel="100 Telegram Stars"
+          amountLabel="8.90 ILS"
+          dateLabel="10/14/2026"
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const link = container.querySelector('.seneca-stmt-category-link') as HTMLAnchorElement;
+    expect(link.textContent).toContain('Реклама');
+    expect(link.textContent).not.toContain('Advertising');
+    expect(link.getAttribute('href')).toContain('focus=category%3Aadvertising');
+    act(() => root.unmount());
   });
 });

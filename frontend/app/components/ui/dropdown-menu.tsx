@@ -1,7 +1,6 @@
 /* eslint-disable max-lines */
 'use client';
 
-import { Check } from '@/app/components/icons';
 import Divider from '@mui/material/Divider';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
@@ -10,6 +9,7 @@ import MenuItem from '@mui/material/MenuItem';
 import RadioButton from '@mui/material/Radio';
 import Typography from '@mui/material/Typography';
 import * as React from 'react';
+import { Check } from '@/app/components/icons';
 
 /* ─── Context ────────────────────────────────────────────────────────────── */
 
@@ -174,7 +174,6 @@ interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLLIElement> {
 }
 
 const DropdownMenuItem = React.forwardRef<HTMLLIElement, DropdownMenuItemProps>(
-  // eslint-disable-next-line max-params
   (
     { children, inset, disabled, onClick, onSelect, className, style, ...props },
     ref,
@@ -213,7 +212,6 @@ interface DropdownMenuCheckboxItemProps extends React.HTMLAttributes<HTMLLIEleme
 }
 
 const DropdownMenuCheckboxItem = React.forwardRef<HTMLLIElement, DropdownMenuCheckboxItemProps>(
-  // eslint-disable-next-line max-params
   (
     { children, checked, onCheckedChange, disabled, className, ...props },
     ref,
@@ -401,18 +399,18 @@ const DropdownMenuSubContent = ({
 
 export {
   DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuCheckboxItem,
-  DropdownMenuRadioItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
-  DropdownMenuGroup,
-  DropdownMenuPortal,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuRadioGroup,
+  DropdownMenuTrigger,
 };

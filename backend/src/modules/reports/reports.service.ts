@@ -1,22 +1,37 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
-import { Between, In, MoreThanOrEqual, type Repository } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
+import { In, MoreThanOrEqual, type Repository, type SelectQueryBuilder } from 'typeorm';
 import * as xlsx from 'xlsx';
+import { appError } from '../../common/errors/app-error';
+import { onlyCounted, onlyFlows } from '../../common/utils/counted-transactions.util';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { formatMoney } from '../../common/utils/format-money.util';
+import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
+import { applyOwnerFilter, parseOwnerFilter } from '../../common/utils/transaction-owner.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type {
+  CustomReportBody,
+  CustomTablesReportBody,
+  CustomTablesReportDrillDownBody,
+  CustomTablesSummaryBody,
+  ExportReportBody,
+  GenerateReportBody,
+  SpendOverTimeQuery,
+  TopCategoriesQuery,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Branch } from '../../entities/branch.entity';
 import { Category } from '../../entities/category.entity';
+import { CustomTable } from '../../entities/custom-table.entity';
 import {
   CustomTableColumn,
   CustomTableColumnType,
 } from '../../entities/custom-table-column.entity';
 import { CustomTableRow } from '../../entities/custom-table-row.entity';
-import { CustomTable } from '../../entities/custom-table.entity';
 import { ReportHistory } from '../../entities/report-history.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
@@ -25,32 +40,33 @@ import { Workspace } from '../../entities/workspace.entity';
 import { AuditService } from '../audit/audit.service';
 import { BalanceService } from '../balance/balance.service';
 import { BalanceExportFormat } from '../balance/dto/export-balance.dto';
+import { UNCATEGORIZED_CATEGORY_NAME } from '../categories/uncategorized-category';
+import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import { type CustomReportDto, ReportGroupBy } from './dto/custom-report.dto';
+import { BudgetVsActualReport } from './budget-vs-actual.report';
+import { ReportGroupBy } from './dto/custom-report.dto';
 import {
   CustomTableReportFlowType,
   CustomTableReportSortKey,
-  type CustomTablesReportDrillDownDto,
-  type CustomTablesReportDto,
 } from './dto/custom-tables-report.dto';
-import type { CustomTablesSummaryDto } from './dto/custom-tables-summary.dto';
-import { ExportFormat, type ExportReportDto } from './dto/export-report.dto';
-import type { GenerateReportDto } from './dto/generate-report.dto';
-import type { SpendOverTimeQueryDto } from './dto/spend-over-time-query.dto';
-import type { TopCategoriesQueryDto } from './dto/top-categories-query.dto';
+import { ExportFormat } from './dto/export-report.dto';
 import { WorkspaceExportFormat } from './dto/workspace-export.dto';
+import { HoldingsSnapshotReport } from './holdings-snapshot.report';
 import type { CustomReport, CustomReportGroup } from './interfaces/custom-report.interface';
 import type { DailyReport } from './interfaces/daily-report.interface';
 import type { MonthlyReport } from './interfaces/monthly-report.interface';
 import type { TopCategoriesReport } from './interfaces/top-categories-report.interface';
 import {
+  loadPdfMake,
   type ReportCell,
   type ReportDocument,
   type ReportFile,
   type ReportFileFormat,
-  loadPdfMake,
   writeReportFile,
 } from './report-document.util';
+import { renderReportLabels } from './report-export.translations';
+import { fillLabel, renderTemplateLabels } from './report-template.translations';
+import type { TemplateLabels, TemplateReportRow } from './report-template.types';
 
 export interface StatementsSummaryResponse {
   totals: {
@@ -120,31 +136,53 @@ interface WorkspaceTransactionExportRow {
 }
 
 interface CustomReportExportRow {
-  Группа: string;
-  Дата: string | null;
-  Контрагент: string;
-  Сумма: number;
-  Категория: string;
-  Филиал: string;
-  Кошелёк: string;
+  group: string;
+  date: string | null;
+  counterparty: string;
+  amount: number;
+  category: string;
+  branch: string;
+  wallet: string;
 }
 
-/** A transaction flattened for template aggregation, already in workspace currency. */
-interface TemplateReportRow {
-  date: string;
+/**
+ * Where a category sorts: under its group, or — for a top-level category,
+ * whose group cell is empty — under its own name, so it sits beside its children.
+ */
+function groupSortKey(entry: { groupName: string; categoryName: string }): string {
+  return entry.groupName || entry.categoryName;
+}
+
+/**
+ * Largest group first and largest category first within it: a flat category
+ * tree reads as before, largest first, and a nested one keeps groups together.
+ */
+function byGroupThenAmount<T extends { groupName: string; categoryName: string; total: number }>(
+  entries: T[],
+): T[] {
+  const groupTotal = new Map<string, number>();
+  for (const entry of entries) {
+    const key = groupSortKey(entry);
+    groupTotal.set(key, (groupTotal.get(key) ?? 0) + entry.total);
+  }
+  return [...entries].sort(
+    (a, b) =>
+      (groupTotal.get(groupSortKey(b)) ?? 0) - (groupTotal.get(groupSortKey(a)) ?? 0) ||
+      groupSortKey(a).localeCompare(groupSortKey(b)) ||
+      b.total - a.total,
+  );
+}
+
+interface CategoryTotal {
+  groupName: string;
   categoryName: string;
-  counterparty: string;
-  isIncome: boolean;
-  /** Converted to the workspace currency. */
-  amount: number;
-  /** As recorded on the transaction, kept so the register can show both. */
-  originalAmount: number;
-  originalCurrency: string;
+  total: number;
+  count: number;
 }
 
 export interface CustomTablesReportRow {
   counterparty: string;
-  source: 'manual' | 'google_sheets_import';
+  source: 'manual';
   tableId: string;
   tableName: string;
   count: number;
@@ -158,7 +196,6 @@ export interface CustomTablesReportResponse {
   totals: {
     total: number;
     manualTotal: number;
-    googleSheetsTotal: number;
     operations: number;
   };
   comparison: {
@@ -168,20 +205,17 @@ export interface CustomTablesReportResponse {
     manualDelta: number;
     manualPercentage: number;
     manualTrend: 'up' | 'down' | 'flat';
-    googleSheetsDelta: number;
-    googleSheetsPercentage: number;
-    googleSheetsTrend: 'up' | 'down' | 'flat';
     operationsDelta: number;
     operationsPercentage: number;
     operationsTrend: 'up' | 'down' | 'flat';
   };
   timeseries: Array<{ date: string; amount: number }>;
-  sourceSplit: { manual: number; googleSheets: number };
+  sourceSplit: { manual: number };
   aggregatedRows: CustomTablesReportRow[];
   tables: Array<{
     id: string;
     name: string;
-    source: 'manual' | 'google_sheets_import';
+    source: 'manual';
     total: number;
     rows: number;
   }>;
@@ -193,7 +227,7 @@ export interface CustomTablesReportDrillDownResponse {
     rowId: string;
     tableId: string;
     tableName: string;
-    source: 'manual' | 'google_sheets_import';
+    source: 'manual';
     date: string | null;
     amount: number;
     category: string | null;
@@ -201,10 +235,12 @@ export interface CustomTablesReportDrillDownResponse {
   }>;
 }
 
+/** Keeps the export cell inert while preserving the empty-string default. */
+const neutralize = (value: string | null | undefined): string =>
+  neutralizeSpreadsheetFormulaCell(value || '') as string;
+
 @Injectable()
 export class ReportsService {
-  private readonly logger = new Logger(ReportsService.name);
-
   private toParsableDateInput(value: unknown): string | number | Date | null {
     if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
       return value;
@@ -215,7 +251,7 @@ export class ReportsService {
 
   private emptyCustomTablesReportResponse(): CustomTablesReportResponse {
     return {
-      totals: { total: 0, manualTotal: 0, googleSheetsTotal: 0, operations: 0 },
+      totals: { total: 0, manualTotal: 0, operations: 0 },
       comparison: {
         totalDelta: 0,
         totalPercentage: 0,
@@ -223,15 +259,12 @@ export class ReportsService {
         manualDelta: 0,
         manualPercentage: 0,
         manualTrend: 'flat',
-        googleSheetsDelta: 0,
-        googleSheetsPercentage: 0,
-        googleSheetsTrend: 'flat',
         operationsDelta: 0,
         operationsPercentage: 0,
         operationsTrend: 'flat',
       },
       timeseries: [],
-      sourceSplit: { manual: 0, googleSheets: 0 },
+      sourceSplit: { manual: 0 },
       aggregatedRows: [],
       tables: [],
     };
@@ -385,11 +418,11 @@ export class ReportsService {
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(Category)
-    private categoryRepository: Repository<Category>,
+    categoryRepository: Repository<Category>,
     @InjectRepository(Branch)
-    private branchRepository: Repository<Branch>,
+    branchRepository: Repository<Branch>,
     @InjectRepository(Wallet)
-    private walletRepository: Repository<Wallet>,
+    walletRepository: Repository<Wallet>,
     @InjectRepository(CustomTable)
     private customTableRepository: Repository<CustomTable>,
     @InjectRepository(CustomTableColumn)
@@ -397,7 +430,7 @@ export class ReportsService {
     @InjectRepository(CustomTableRow)
     private customTableRowRepository: Repository<CustomTableRow>,
     @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    userRepository: Repository<User>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
     @InjectRepository(ReportHistory)
@@ -406,10 +439,13 @@ export class ReportsService {
     private readonly workspaceRepository: Repository<Workspace>,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly balanceService: BalanceService,
+    private readonly budgetVsActualReport: BudgetVsActualReport,
+    private readonly holdingsSnapshotReport: HoldingsSnapshotReport,
   ) {}
 
-  private async getReportsVersion(userId: string): Promise<string> {
-    const key = `reports:version:${userId}`;
+  /** Cached reports are keyed by this version; TransactionsService bumps it on every edit. */
+  private async getReportsVersion(workspaceId: string): Promise<string> {
+    const key = `reports:version:${workspaceId}`;
     let version = await this.cacheManager.get<string>(key);
     if (!version) {
       version = Date.now().toString();
@@ -528,7 +564,7 @@ export class ReportsService {
 
   async getCustomTablesSummary(
     workspaceId: string,
-    dto: CustomTablesSummaryDto,
+    dto: CustomTablesSummaryBody,
   ): Promise<CustomTablesSummaryResponse> {
     const version = await this.getReportsVersion(workspaceId);
     const cacheKey = `reports:custom-tables:${workspaceId}:${version}:${JSON.stringify(dto)}`;
@@ -557,7 +593,7 @@ export class ReportsService {
     });
 
     if (requestedIds.length && tables.length !== requestedIds.length) {
-      throw new BadRequestException('Одна или несколько таблиц не найдены');
+      throw new BadRequestException(appError('TABLES_NOT_FOUND'));
     }
 
     if (!tables.length) {
@@ -572,7 +608,9 @@ export class ReportsService {
     }
 
     const tableById = new Map<string, CustomTable>();
-    tables.forEach(t => tableById.set(t.id, t));
+    for (const t of tables) {
+      tableById.set(t.id, t);
+    }
     const tableIds = tables.map(t => t.id);
 
     const columns = await this.customTableColumnRepository.find({
@@ -672,7 +710,8 @@ export class ReportsService {
         const existing = counterpartyMap.get(key) || { amount: 0, rows: 0 };
         counterpartyMap.set(key, { amount: existing.amount + abs, rows: existing.rows + 1 });
       } else {
-        const key = (categoryName || 'Без категории').trim() || 'Без категории';
+        const key =
+          (categoryName || UNCATEGORIZED_CATEGORY_NAME).trim() || UNCATEGORIZED_CATEGORY_NAME;
         const existing = categoryMap.get(key) || { amount: 0, rows: 0 };
         categoryMap.set(key, { amount: existing.amount + abs, rows: existing.rows + 1 });
       }
@@ -736,7 +775,7 @@ export class ReportsService {
 
   async getCustomTablesReport(
     workspaceId: string,
-    dto: CustomTablesReportDto,
+    dto: CustomTablesReportBody,
   ): Promise<CustomTablesReportResponse> {
     const version = await this.getReportsVersion(workspaceId);
     const cacheKey = `reports:custom-tables-report:${workspaceId}:${version}:${JSON.stringify(dto)}`;
@@ -775,7 +814,7 @@ export class ReportsService {
     });
 
     if (requestedIds.length && tables.length !== requestedIds.length) {
-      throw new BadRequestException('Одна или несколько таблиц не найдены');
+      throw new BadRequestException(appError('TABLES_NOT_FOUND'));
     }
 
     if (!tables.length) {
@@ -783,7 +822,9 @@ export class ReportsService {
     }
 
     const tableById = new Map<string, CustomTable>();
-    tables.forEach(table => tableById.set(table.id, table));
+    for (const table of tables) {
+      tableById.set(table.id, table);
+    }
     const tableIds = tables.map(table => table.id);
 
     const columns = await this.customTableColumnRepository.find({
@@ -835,7 +876,7 @@ export class ReportsService {
       rowId: string;
       tableId: string;
       tableName: string;
-      source: 'manual' | 'google_sheets_import';
+      source: 'manual';
       counterparty: string;
       amount: number;
       date: string | null;
@@ -913,14 +954,14 @@ export class ReportsService {
     const records = currentRows.map(toRecord).filter(Boolean) as ReportRecord[];
     const previousRecords = previousRows.map(toRecord).filter(Boolean) as ReportRecord[];
 
-    const totals = { total: 0, manualTotal: 0, googleSheetsTotal: 0, operations: 0 };
-    const previousTotals = { total: 0, manualTotal: 0, googleSheetsTotal: 0, operations: 0 };
+    const totals = { total: 0, manualTotal: 0, operations: 0 };
+    const previousTotals = { total: 0, manualTotal: 0, operations: 0 };
     const timeseriesMap = new Map<string, number>();
     const aggregateMap = new Map<
       string,
       {
         counterparty: string;
-        source: 'manual' | 'google_sheets_import';
+        source: 'manual';
         tableId: string;
         tableName: string;
         count: number;
@@ -934,11 +975,7 @@ export class ReportsService {
     for (const record of records) {
       totals.total += record.amount;
       totals.operations += 1;
-      if (record.source === 'google_sheets_import') {
-        totals.googleSheetsTotal += record.amount;
-      } else {
-        totals.manualTotal += record.amount;
-      }
+      totals.manualTotal += record.amount;
 
       if (record.date) {
         timeseriesMap.set(record.date, (timeseriesMap.get(record.date) || 0) + record.amount);
@@ -974,11 +1011,7 @@ export class ReportsService {
     for (const record of previousRecords) {
       previousTotals.total += record.amount;
       previousTotals.operations += 1;
-      if (record.source === 'google_sheets_import') {
-        previousTotals.googleSheetsTotal += record.amount;
-      } else {
-        previousTotals.manualTotal += record.amount;
-      }
+      previousTotals.manualTotal += record.amount;
     }
 
     const toComparison = (current: number, previous: number) => {
@@ -991,7 +1024,6 @@ export class ReportsService {
 
     const totalCmp = toComparison(totals.total, previousTotals.total);
     const manualCmp = toComparison(totals.manualTotal, previousTotals.manualTotal);
-    const googleCmp = toComparison(totals.googleSheetsTotal, previousTotals.googleSheetsTotal);
     const operationsCmp = toComparison(totals.operations, previousTotals.operations);
 
     let aggregatedRows: CustomTablesReportRow[] = Array.from(aggregateMap.values()).map(item => ({
@@ -1028,9 +1060,6 @@ export class ReportsService {
         manualDelta: manualCmp.delta,
         manualPercentage: manualCmp.percentage,
         manualTrend: manualCmp.trend,
-        googleSheetsDelta: googleCmp.delta,
-        googleSheetsPercentage: googleCmp.percentage,
-        googleSheetsTrend: googleCmp.trend,
         operationsDelta: operationsCmp.delta,
         operationsPercentage: operationsCmp.percentage,
         operationsTrend: operationsCmp.trend,
@@ -1038,7 +1067,6 @@ export class ReportsService {
       timeseries,
       sourceSplit: {
         manual: totals.manualTotal,
-        googleSheets: totals.googleSheetsTotal,
       },
       aggregatedRows,
       tables: tables
@@ -1062,7 +1090,7 @@ export class ReportsService {
 
   async getCustomTablesReportDrillDown(
     workspaceId: string,
-    dto: CustomTablesReportDrillDownDto,
+    dto: CustomTablesReportDrillDownBody,
   ): Promise<CustomTablesReportDrillDownResponse> {
     const safeDays =
       Number.isFinite(dto.days) && (dto.days as number) > 0
@@ -1206,7 +1234,7 @@ export class ReportsService {
     Array<{
       id: string;
       name: string;
-      source: 'manual' | 'google_sheets_import';
+      source: 'manual';
       rowCount: number;
     }>
   > {
@@ -1218,7 +1246,7 @@ export class ReportsService {
     const results = [] as Array<{
       id: string;
       name: string;
-      source: 'manual' | 'google_sheets_import';
+      source: 'manual';
       rowCount: number;
     }>;
 
@@ -1253,32 +1281,28 @@ export class ReportsService {
     endOfDay.setHours(23, 59, 59, 999);
 
     // Get income transactions
-    const incomeTransactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    const incomeTransactions = await this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionType = :type', { type: TransactionType.INCOME })
       .andWhere('transaction.transactionDate >= :start', { start: startOfDay })
       .andWhere('transaction.transactionDate <= :end', { end: endOfDay })
       .getMany();
 
     // Get expense transactions
-    const expenseTransactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    const expenseTransactions = await this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionType = :type', { type: TransactionType.EXPENSE })
       .andWhere('transaction.transactionDate >= :start', { start: startOfDay })
       .andWhere('transaction.transactionDate <= :end', { end: endOfDay })
       .getMany();
 
     // Calculate income block
-    const incomeTotal = incomeTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const incomeTotal = incomeTransactions.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const counterpartyMap = new Map<string, { amount: number; count: number }>();
     incomeTransactions.forEach(t => {
       const existing = counterpartyMap.get(t.counterpartyName) || { amount: 0, count: 0 };
       counterpartyMap.set(t.counterpartyName, {
-        amount: existing.amount + (t.amount || 0),
+        amount: existing.amount + Number(t.amount ?? 0),
         count: existing.count + 1,
       });
     });
@@ -1289,15 +1313,15 @@ export class ReportsService {
       .slice(0, 10);
 
     // Calculate expense block
-    const expenseTotal = expenseTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const expenseTotal = expenseTransactions.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const categoryMap = new Map<string, { name: string; amount: number; count: number }>();
     expenseTransactions.forEach(t => {
       const categoryId = t.categoryId || 'uncategorized';
-      const categoryName = t.category?.name || 'Без категории';
+      const categoryName = t.category?.name || UNCATEGORIZED_CATEGORY_NAME;
       const existing = categoryMap.get(categoryId) || { name: categoryName, amount: 0, count: 0 };
       categoryMap.set(categoryId, {
         name: categoryName,
-        amount: existing.amount + (t.amount || 0),
+        amount: existing.amount + Number(t.amount ?? 0),
         count: existing.count + 1,
       });
     });
@@ -1356,12 +1380,10 @@ export class ReportsService {
     const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
     // Get all transactions for the month
-    const transactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    const transactions = await this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.branch', 'branch')
       .leftJoinAndSelect('transaction.wallet', 'wallet')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :start', { start: startDate })
       .andWhere('transaction.transactionDate <= :end', { end: endDate })
       .getMany();
@@ -1369,12 +1391,12 @@ export class ReportsService {
     // Calculate daily trends
     const dailyMap = new Map<string, { income: number; expense: number }>();
     transactions.forEach(t => {
-      const dateKey = t.transactionDate.toISOString().split('T')[0];
+      const dateKey = dayOf(t.transactionDate);
       const existing = dailyMap.get(dateKey) || { income: 0, expense: 0 };
       if (t.transactionType === TransactionType.INCOME) {
-        existing.income += t.amount || 0;
+        existing.income += Number(t.amount ?? 0);
       } else {
-        existing.expense += t.amount || 0;
+        existing.expense += Number(t.amount ?? 0);
       }
       dailyMap.set(dateKey, existing);
     });
@@ -1389,11 +1411,11 @@ export class ReportsService {
       .filter(t => t.transactionType === TransactionType.EXPENSE)
       .forEach(t => {
         const categoryId = t.categoryId || 'uncategorized';
-        const categoryName = t.category?.name || 'Без категории';
+        const categoryName = t.category?.name || UNCATEGORIZED_CATEGORY_NAME;
         const existing = categoryMap.get(categoryId) || { name: categoryName, amount: 0, count: 0 };
         categoryMap.set(categoryId, {
           name: categoryName,
-          amount: existing.amount + (t.amount || 0),
+          amount: existing.amount + Number(t.amount ?? 0),
           count: existing.count + 1,
         });
       });
@@ -1414,7 +1436,7 @@ export class ReportsService {
     transactions.forEach(t => {
       const existing = counterpartyMap.get(t.counterpartyName) || { amount: 0, count: 0 };
       counterpartyMap.set(t.counterpartyName, {
-        amount: existing.amount + (t.amount || 0),
+        amount: existing.amount + Number(t.amount ?? 0),
         count: existing.count + 1,
       });
     });
@@ -1434,27 +1456,25 @@ export class ReportsService {
     const previousStartDate = new Date(year, month - 2, 1);
     const previousEndDate = new Date(year, month - 1, 0, 23, 59, 59, 999);
 
-    const previousTransactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
+    const previousTransactions = await this.countedTransactions(workspaceId)
       .andWhere('transaction.transactionDate >= :start', { start: previousStartDate })
       .andWhere('transaction.transactionDate <= :end', { end: previousEndDate })
       .getMany();
 
     const currentIncome = transactions
       .filter(t => t.transactionType === TransactionType.INCOME)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const currentExpense = transactions
       .filter(t => t.transactionType === TransactionType.EXPENSE)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const currentDifference = currentIncome - currentExpense;
 
     const previousIncome = previousTransactions
       .filter(t => t.transactionType === TransactionType.INCOME)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const previousExpense = previousTransactions
       .filter(t => t.transactionType === TransactionType.EXPENSE)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const previousDifference = previousIncome - previousExpense;
 
     const incomeChange = currentIncome - previousIncome;
@@ -1528,33 +1548,29 @@ export class ReportsService {
    * Latest transaction date in ISO (YYYY-MM-DD) or null
    */
   async getLatestTransactionDate(workspaceId: string): Promise<string | null> {
-    const latest = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
+    const latest = await this.countedTransactions(workspaceId)
       .orderBy('transaction.transactionDate', 'DESC')
       .select('transaction.transactionDate', 'transactionDate')
-      .getRawOne<{ transactionDate: Date }>();
+      .getRawOne<{ transactionDate: Date | string }>();
 
     if (!latest?.transactionDate) {
       return null;
     }
-    return latest.transactionDate.toISOString().split('T')[0];
+    return dayOf(latest.transactionDate);
   }
 
   /**
    * Generate custom report
    */
-  async generateCustomReport(workspaceId: string, dto: CustomReportDto): Promise<CustomReport> {
+  async generateCustomReport(workspaceId: string, dto: CustomReportBody): Promise<CustomReport> {
     const dateFrom = new Date(dto.dateFrom);
     const dateTo = new Date(dto.dateTo);
 
     // Build query
-    const queryBuilder = this.transactionRepository
-      .createQueryBuilder('transaction')
+    const queryBuilder = this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.branch', 'branch')
       .leftJoinAndSelect('transaction.wallet', 'wallet')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :dateFrom', { dateFrom })
       .andWhere('transaction.transactionDate <= :dateTo', { dateTo });
 
@@ -1582,7 +1598,7 @@ export class ReportsService {
       switch (groupBy) {
         case ReportGroupBy.CATEGORY:
           key = t.categoryId || 'uncategorized';
-          label = t.category?.name || 'Без категории';
+          label = t.category?.name || UNCATEGORIZED_CATEGORY_NAME;
           break;
         case ReportGroupBy.COUNTERPARTY:
           key = t.counterpartyName;
@@ -1596,15 +1612,16 @@ export class ReportsService {
           key = t.walletId || 'unassigned';
           label = t.wallet?.name || 'Не назначен';
           break;
-        case ReportGroupBy.DAY:
-          key = t.transactionDate.toISOString().split('T')[0];
-          label = t.transactionDate.toLocaleDateString('ru-RU');
+        case ReportGroupBy.DAY: {
+          key = dayOf(t.transactionDate);
+          const [year, month, day] = key.split('-');
+          label = `${day}.${month}.${year}`;
           break;
+        }
         case ReportGroupBy.MONTH: {
-          const month = t.transactionDate.getMonth() + 1;
-          const year = t.transactionDate.getFullYear();
-          key = `${year}-${month.toString().padStart(2, '0')}`;
-          label = `${month.toString().padStart(2, '0')}.${year}`;
+          const [year, month] = dayOf(t.transactionDate).split('-');
+          key = `${year}-${month}`;
+          label = `${month}.${year}`;
           break;
         }
         default:
@@ -1620,13 +1637,13 @@ export class ReportsService {
         transactions: [],
       };
 
-      existing.totalAmount += t.amount || 0;
+      existing.totalAmount += Number(t.amount ?? 0);
       existing.transactionCount += 1;
       existing.transactions.push({
         id: t.id,
-        date: t.transactionDate.toISOString().split('T')[0],
+        date: dayOf(t.transactionDate),
         counterparty: t.counterpartyName,
-        amount: t.amount || 0,
+        amount: Number(t.amount ?? 0),
         category: t.category?.name,
         branch: t.branch?.name,
         wallet: t.wallet?.name,
@@ -1639,10 +1656,10 @@ export class ReportsService {
 
     const totalIncome = transactions
       .filter(t => t.transactionType === TransactionType.INCOME)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
     const totalExpense = transactions
       .filter(t => t.transactionType === TransactionType.EXPENSE)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
 
     const report: CustomReport = {
       dateFrom: dto.dateFrom,
@@ -1668,8 +1685,9 @@ export class ReportsService {
    */
   async exportReport(
     _workspaceId: string,
-    dto: ExportReportDto,
+    dto: ExportReportBody,
     reportData: DailyReport | MonthlyReport | CustomReport,
+    locale?: string,
   ): Promise<{ filePath: string; fileName: string }> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `report-${timestamp}.${dto.format === ExportFormat.EXCEL ? 'xlsx' : 'csv'}`;
@@ -1683,9 +1701,9 @@ export class ReportsService {
     }
 
     if (dto.format === ExportFormat.EXCEL) {
-      await this.exportToExcel(reportData, filePath);
+      await this.exportToExcel(reportData, filePath, locale);
     } else {
-      await this.exportToCSV(reportData, filePath);
+      await this.exportToCSV(reportData, filePath, locale);
     }
 
     return { filePath, fileName };
@@ -1695,15 +1713,17 @@ export class ReportsService {
     workspaceId: string,
     format: WorkspaceExportFormat,
   ): Promise<{ filePath: string; fileName: string; mimeType: string }> {
-    const transactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    // A list of rows, not a figure: every confirmed row goes out, crypto moves included.
+    const transactions = await onlyCounted(
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+      'transaction',
+    )
+      .andWhere('transaction.transferPairId IS NULL')
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.branch', 'branch')
       .leftJoinAndSelect('transaction.wallet', 'wallet')
-      .leftJoin('transaction.statement', 'statement')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.isDuplicate = false')
-      .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
       .orderBy('transaction.transactionDate', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC')
       .getMany();
@@ -1755,18 +1775,22 @@ export class ReportsService {
         ? this.toDateKey(transaction.transactionDate as unknown as Date)
         : '',
       transactionType: transaction.transactionType === TransactionType.INCOME ? 'Приход' : 'Расход',
-      counterpartyName: transaction.counterpartyName || '',
-      counterpartyBin: transaction.counterpartyBin || '',
-      paymentPurpose: transaction.paymentPurpose || '',
+      // Free-text fields come from parsed statements, receipt OCR and Gmail, so
+      // a value starting with = + - @ would execute as a formula when the CSV or
+      // XLSX is opened. Control fields below are ours and stay untouched so the
+      // summary can still match on them.
+      counterpartyName: neutralize(transaction.counterpartyName),
+      counterpartyBin: neutralize(transaction.counterpartyBin),
+      paymentPurpose: neutralize(transaction.paymentPurpose),
       debit: transaction.debit != null ? Number(transaction.debit) : null,
       credit: transaction.credit != null ? Number(transaction.credit) : null,
       amount: transaction.amount != null ? Number(transaction.amount) : null,
-      currency: transaction.currency || 'KZT',
-      category: transaction.category?.name || 'Без категории',
-      branch: transaction.branch?.name || '',
-      wallet: transaction.wallet?.name || '',
-      documentNumber: transaction.documentNumber || '',
-      comments: transaction.comments || '',
+      currency: currencyCodeOrDefault(transaction.currency),
+      category: neutralize(transaction.category?.name) || UNCATEGORIZED_CATEGORY_NAME,
+      branch: neutralize(transaction.branch?.name),
+      wallet: neutralize(transaction.wallet?.name),
+      documentNumber: neutralize(transaction.documentNumber),
+      comments: neutralize(transaction.comments),
     }));
   }
 
@@ -2067,31 +2091,30 @@ export class ReportsService {
   private async exportToExcel(
     reportData: DailyReport | MonthlyReport | CustomReport,
     filePath: string,
+    locale?: string,
   ): Promise<void> {
     const workbook = xlsx.utils.book_new();
+
+    const L = renderReportLabels(locale);
 
     if ('date' in reportData) {
       // Daily report
       const dailyData = reportData as DailyReport;
-      const ws = xlsx.utils.json_to_sheet([
-        {
-          Тип: 'Приходы',
-          Сумма: dailyData.income.totalAmount,
-          Количество: dailyData.income.transactionCount,
-        },
-        {
-          Тип: 'Расходы',
-          Сумма: dailyData.expense.totalAmount,
-          Количество: dailyData.expense.transactionCount,
-        },
-        { Тип: 'Разница', Сумма: dailyData.summary.difference },
+      const ws = xlsx.utils.aoa_to_sheet([
+        [L.type, L.amount, L.count],
+        [L.income, dailyData.income.totalAmount, dailyData.income.transactionCount],
+        [L.expense, dailyData.expense.totalAmount, dailyData.expense.transactionCount],
+        [L.difference, dailyData.summary.difference],
       ]);
-      xlsx.utils.book_append_sheet(workbook, ws, 'Отчёт');
+      xlsx.utils.book_append_sheet(workbook, ws, L.sheetReport);
     } else if ('month' in reportData) {
       // Monthly report
       const monthlyData = reportData as MonthlyReport;
-      const ws = xlsx.utils.json_to_sheet(monthlyData.dailyTrends);
-      xlsx.utils.book_append_sheet(workbook, ws, 'Динамика');
+      const ws = xlsx.utils.aoa_to_sheet([
+        [L.date, L.income, L.expense],
+        ...monthlyData.dailyTrends.map(trend => [trend.date, trend.income, trend.expense]),
+      ]);
+      xlsx.utils.book_append_sheet(workbook, ws, L.sheetTrends);
     } else {
       // Custom report
       const customData = reportData as CustomReport;
@@ -2099,18 +2122,29 @@ export class ReportsService {
       customData.groups.forEach(group => {
         group.transactions.forEach(t => {
           rows.push({
-            Группа: group.label,
-            Дата: t.date,
-            Контрагент: t.counterparty,
-            Сумма: t.amount,
-            Категория: t.category || '',
-            Филиал: t.branch || '',
-            Кошелёк: t.wallet || '',
+            group: group.label,
+            date: t.date,
+            counterparty: t.counterparty,
+            amount: t.amount,
+            category: t.category || '',
+            branch: t.branch || '',
+            wallet: t.wallet || '',
           });
         });
       });
-      const ws = xlsx.utils.json_to_sheet(rows);
-      xlsx.utils.book_append_sheet(workbook, ws, 'Отчёт');
+      const ws = xlsx.utils.aoa_to_sheet([
+        [L.group, L.date, L.counterparty, L.amount, L.category, L.branch, L.wallet],
+        ...rows.map(r => [
+          r.group,
+          r.date,
+          r.counterparty,
+          r.amount,
+          r.category,
+          r.branch,
+          r.wallet,
+        ]),
+      ]);
+      xlsx.utils.book_append_sheet(workbook, ws, L.sheetReport);
     }
 
     xlsx.writeFile(workbook, filePath);
@@ -2119,27 +2153,29 @@ export class ReportsService {
   private async exportToCSV(
     reportData: DailyReport | MonthlyReport | CustomReport,
     filePath: string,
+    locale?: string,
   ): Promise<void> {
     let csvContent = '';
+    const L = renderReportLabels(locale);
 
     if ('date' in reportData) {
       // Daily report
       const dailyData = reportData as DailyReport;
-      csvContent = 'Тип,Сумма,Количество\n';
-      csvContent += `Приходы,${dailyData.income.totalAmount},${dailyData.income.transactionCount}\n`;
-      csvContent += `Расходы,${dailyData.expense.totalAmount},${dailyData.expense.transactionCount}\n`;
-      csvContent += `Разница,${dailyData.summary.difference},\n`;
+      csvContent = `${L.type},${L.amount},${L.count}\n`;
+      csvContent += `${L.income},${dailyData.income.totalAmount},${dailyData.income.transactionCount}\n`;
+      csvContent += `${L.expense},${dailyData.expense.totalAmount},${dailyData.expense.transactionCount}\n`;
+      csvContent += `${L.difference},${dailyData.summary.difference},\n`;
     } else if ('month' in reportData) {
       // Monthly report
       const monthlyData = reportData as MonthlyReport;
-      csvContent = 'Дата,Приходы,Расходы\n';
+      csvContent = `${L.date},${L.income},${L.expense}\n`;
       monthlyData.dailyTrends.forEach(trend => {
         csvContent += `${trend.date},${trend.income},${trend.expense}\n`;
       });
     } else {
       // Custom report
       const customData = reportData as CustomReport;
-      csvContent = 'Группа,Дата,Контрагент,Сумма,Категория,Филиал,Кошелёк\n';
+      csvContent = `${L.group},${L.date},${L.counterparty},${L.amount},${L.category},${L.branch},${L.wallet}\n`;
       customData.groups.forEach(group => {
         group.transactions.forEach(t => {
           csvContent += `${group.label},${t.date},${t.counterparty},${t.amount},${t.category || ''},${t.branch || ''},${t.wallet || ''}\n`;
@@ -2179,10 +2215,8 @@ export class ReportsService {
     since.setDate(since.getDate() - safeDays);
     since.setHours(0, 0, 0, 0);
 
-    const transactions = await this.transactionRepository
-      .createQueryBuilder('transaction')
+    const transactions = await this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :since', { since })
       .orderBy('transaction.updatedAt', 'DESC')
       .take(2000)
@@ -2226,7 +2260,8 @@ export class ReportsService {
         totals.income += abs;
       } else {
         ts.expense += abs;
-        const category = (t.category?.name || 'Без категории').trim() || 'Без категории';
+        const category =
+          (t.category?.name || UNCATEGORIZED_CATEGORY_NAME).trim() || UNCATEGORIZED_CATEGORY_NAME;
         const existing = categoryMap.get(category) || { amount: 0, rows: 0 };
         categoryMap.set(category, { amount: existing.amount + abs, rows: existing.rows + 1 });
         totals.expense += abs;
@@ -2256,7 +2291,8 @@ export class ReportsService {
 
   async getTopCategoriesReport(
     workspaceId: string,
-    query: TopCategoriesQueryDto,
+    query: TopCategoriesQuery,
+    selfMemberId: string | null = null,
   ): Promise<TopCategoriesReport> {
     const safeLimit = Number.isFinite(query.limit)
       ? Math.min(Math.max(query.limit || 20, 1), 100)
@@ -2267,11 +2303,9 @@ export class ReportsService {
       ? new Date(query.dateFrom)
       : new Date(new Date(to).setDate(to.getDate() - 30));
 
-    const qb = this.transactionRepository
-      .createQueryBuilder('transaction')
+    const qb = this.countedTransactions(workspaceId)
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.statement', 'statement')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :from', { from })
       .andWhere('transaction.transactionDate <= :to', { to });
 
@@ -2288,6 +2322,8 @@ export class ReportsService {
     if (query.bankName) {
       qb.andWhere('statement.bankName = :bankName', { bankName: query.bankName });
     }
+
+    applyOwnerFilter(qb, 'transaction', parseOwnerFilter(query.owner, selfMemberId));
 
     if (query.counterparties) {
       const counterparties = query.counterparties
@@ -2428,7 +2464,8 @@ export class ReportsService {
 
       const categoryKey = transaction.category?.id || 'without-category';
       const categoryName =
-        (transaction.category?.name || 'Без категории').trim() || 'Без категории';
+        (transaction.category?.name || UNCATEGORIZED_CATEGORY_NAME).trim() ||
+        UNCATEGORIZED_CATEGORY_NAME;
       const categoryCurrent = categoryMap.get(categoryKey) || {
         id: transaction.category?.id || null,
         name: categoryName,
@@ -2506,7 +2543,8 @@ export class ReportsService {
 
   async getSpendOverTimeReport(
     workspaceId: string,
-    query: SpendOverTimeQueryDto,
+    query: SpendOverTimeQuery,
+    selfMemberId: string | null = null,
   ): Promise<{
     groupBy: string;
     dateFrom: string;
@@ -2537,11 +2575,10 @@ export class ReportsService {
     const from = this.toStartOfUtcDay(startDate);
     const to = this.toEndOfUtcDay(endDate);
 
-    const qb = this.transactionRepository
-      .createQueryBuilder('transaction')
-      .innerJoin('transaction.statement', 'statement')
+    const qb = this.countedTransactions(workspaceId)
+      // Rows without a statement (cash, approved receipts) are spending too.
+      .leftJoin('transaction.statement', 'statement')
       .leftJoin('transaction.category', 'category')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.transactionDate >= :from', { from })
       .andWhere('transaction.transactionDate <= :to', { to });
 
@@ -2558,6 +2595,8 @@ export class ReportsService {
     if (query.bankName) {
       qb.andWhere('statement.bankName = :bankName', { bankName: query.bankName });
     }
+
+    applyOwnerFilter(qb, 'transaction', parseOwnerFilter(query.owner, selfMemberId));
 
     if (query.counterparties) {
       const counterparties = query.counterparties
@@ -2781,7 +2820,38 @@ export class ReportsService {
     'balance-sheet': 'Balance Sheet',
     'transaction-register': 'Transaction Register',
     'monthly-summary': 'Monthly Summary',
+    'category-by-month': 'Categories by Month',
+    'budget-vs-actual': 'Budget vs Actual',
+    'investment-holdings': 'Investment Holdings',
   };
+
+  /**
+   * A month per column: past a year a PDF page cannot hold the table legibly,
+   * and past three years a spreadsheet is the wrong place to read it too.
+   */
+  private static readonly MAX_MONTHS = { pdf: 12, other: 36 };
+
+  /** The formats each template can be written in; the Balance Sheet has no CSV renderer. */
+  private static readonly TEMPLATE_FORMATS: Record<string, readonly ReportFileFormat[]> = {
+    'balance-sheet': ['pdf', 'excel'],
+  };
+
+  /**
+   * Rejects a template or format the generator cannot produce. Schedules call
+   * this when they are created, so a bad pair fails at once rather than on
+   * its first run days later.
+   */
+  static assertTemplateFormat(templateId: string, format: string): void {
+    if (!ReportsService.TEMPLATE_NAMES[templateId]) {
+      throw new BadRequestException(`Unknown template: ${templateId}`);
+    }
+    const formats = ReportsService.TEMPLATE_FORMATS[templateId] ?? ['pdf', 'excel', 'csv'];
+    if (!formats.includes(format as ReportFileFormat)) {
+      throw new BadRequestException(
+        `${ReportsService.TEMPLATE_NAMES[templateId]} supports only ${formats.join(' and ')}`,
+      );
+    }
+  }
 
   /**
    * Generated reports live under uploads/ rather than the OS temp dir, because
@@ -2796,12 +2866,10 @@ export class ReportsService {
   async generateFromTemplate(
     workspaceId: string,
     userId: string,
-    dto: GenerateReportDto,
+    dto: GenerateReportBody,
   ): Promise<ReportFile> {
+    ReportsService.assertTemplateFormat(dto.templateId, dto.format);
     const templateName = ReportsService.TEMPLATE_NAMES[dto.templateId];
-    if (!templateName) {
-      throw new BadRequestException(`Unknown template: ${dto.templateId}`);
-    }
 
     const baseName = `${dto.templateId}-${dto.dateFrom}-${dto.dateTo}`;
     const file =
@@ -2836,7 +2904,7 @@ export class ReportsService {
    */
   async previewTemplate(
     workspaceId: string,
-    dto: GenerateReportDto,
+    dto: GenerateReportBody,
     maxRowsPerSection = 20,
   ): Promise<ReportDocument & { truncated: boolean }> {
     if (!ReportsService.TEMPLATE_NAMES[dto.templateId]) {
@@ -2865,17 +2933,16 @@ export class ReportsService {
    */
   private async writeBalanceSheetFile(
     workspaceId: string,
-    dto: GenerateReportDto,
+    dto: GenerateReportBody,
     baseName: string,
   ): Promise<ReportFile> {
-    if (dto.format !== 'excel' && dto.format !== 'pdf') {
-      throw new BadRequestException('Balance Sheet supports only excel and pdf');
-    }
-
+    // The chart of accounts is named in ru, en and kk only; any other reader
+    // gets English rather than Russian account names under English headers.
+    const locale = dto.locale === 'ru' || dto.locale === 'kk' ? dto.locale : 'en';
     const payload = await this.balanceService.exportBalanceSheet(
       workspaceId,
       { date: dto.dateTo, format: dto.format as BalanceExportFormat },
-      dto.locale,
+      locale,
     );
 
     const fileName = `${baseName}.${dto.format === 'pdf' ? 'pdf' : 'xlsx'}`;
@@ -2887,31 +2954,128 @@ export class ReportsService {
 
   private async buildTemplateDocument(
     workspaceId: string,
-    dto: GenerateReportDto,
+    dto: GenerateReportBody,
   ): Promise<ReportDocument> {
-    const { currency, rows } = await this.loadReportRows(workspaceId, dto);
+    const labels = renderTemplateLabels(dto.locale);
+    if (dto.templateId === 'category-by-month') {
+      this.assertMonthColumns(dto);
+    }
+    if (dto.templateId === 'investment-holdings') {
+      // A snapshot of today: positions have no history, so no rows and no period.
+      const currency = await this.getWorkspaceCurrency(workspaceId);
+      const { document, missingRates } = await this.holdingsSnapshotReport.build(
+        workspaceId,
+        labels,
+        currency,
+      );
+      return this.withRateNote(document, labels, missingRates, currency);
+    }
+
+    const { currency, rows, missingRates } = await this.loadReportRows(workspaceId, dto);
     const subtitle = `${dto.dateFrom} — ${dto.dateTo} · ${currency}`;
 
+    if (dto.templateId === 'budget-vs-actual') {
+      const result = await this.budgetVsActualReport.build(
+        workspaceId,
+        dto,
+        labels,
+        subtitle,
+        currency,
+        rows,
+      );
+      const missing = Array.from(new Set([...missingRates, ...result.missingRates])).sort();
+      return this.withRateNote(result.document, labels, missing, currency);
+    }
+
+    const document = this.buildTemplateBody(dto, labels, subtitle, currency, rows);
+    return this.withRateNote(document, labels, missingRates, currency);
+  }
+
+  /**
+   * Said once, at the top and before the template's own caveats: totals below
+   * are short by whatever could not be converted, and the reader can see which
+   * currencies those were.
+   */
+  private withRateNote(
+    document: ReportDocument,
+    labels: TemplateLabels,
+    missingRates: string[],
+    currency: string,
+  ): ReportDocument {
+    if (!missingRates.length) {
+      return document;
+    }
+    const note = fillLabel(labels.missingRateNote, {
+      currencies: missingRates.join(', '),
+      currency,
+    });
+    return { ...document, notes: [note, ...(document.notes ?? [])] };
+  }
+
+  private assertMonthColumns(dto: GenerateReportBody): void {
+    const months = this.monthKeys(dto.dateFrom, dto.dateTo).length;
+    const limit =
+      dto.format === 'pdf' ? ReportsService.MAX_MONTHS.pdf : ReportsService.MAX_MONTHS.other;
+    if (months > limit) {
+      throw new BadRequestException(
+        dto.format === 'pdf'
+          ? `Categories by Month fits ${limit} months on a PDF page; choose Excel or CSV for a longer period`
+          : `Categories by Month covers at most ${limit} months`,
+      );
+    }
+  }
+
+  /** Every calendar month the period touches, as YYYY-MM, including empty ones. */
+  private monthKeys(dateFrom: string, dateTo: string): string[] {
+    const keys: string[] = [];
+    let [year, month] = dateFrom.slice(0, 7).split('-').map(Number);
+    const last = dateTo.slice(0, 7);
+    for (;;) {
+      const key = `${year}-${String(month).padStart(2, '0')}`;
+      if (key > last) {
+        return keys;
+      }
+      keys.push(key);
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+  }
+
+  private buildTemplateBody(
+    dto: GenerateReportBody,
+    text: TemplateLabels,
+    subtitle: string,
+    currency: string,
+    rows: TemplateReportRow[],
+  ): ReportDocument {
     if (dto.templateId === 'pnl') {
-      return this.buildPnLDocument(subtitle, rows);
+      return this.buildPnLDocument(text, subtitle, rows);
     }
     if (dto.templateId === 'cash-flow') {
-      return this.buildCashFlowDocument(subtitle, rows, dto.groupBy || 'day');
+      return this.buildCashFlowDocument(text, subtitle, rows, dto.groupBy || 'day');
     }
     if (dto.templateId === 'transaction-register') {
-      return this.buildTransactionRegisterDocument(subtitle, currency, rows);
+      return this.buildTransactionRegisterDocument(text, subtitle, currency, rows);
     }
     if (dto.templateId === 'monthly-summary') {
-      return this.buildMonthlySummaryDocument(subtitle, rows);
+      return this.buildMonthlySummaryDocument(text, subtitle, rows);
     }
-    return this.buildExpenseByCategoryDocument(subtitle, rows);
+    if (dto.templateId === 'category-by-month') {
+      return this.buildCategoryByMonthDocument(
+        text,
+        subtitle,
+        rows,
+        this.monthKeys(dto.dateFrom, dto.dateTo),
+      );
+    }
+    return this.buildExpenseByCategoryDocument(text, subtitle, rows);
   }
 
   private normalizeCurrency(currency: string | null | undefined): string {
-    const normalized = String(currency || '')
-      .trim()
-      .toUpperCase();
-    return /^[A-Z]{3}$/.test(normalized) ? normalized : 'KZT';
+    return currencyCodeOrDefault(currency);
   }
 
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
@@ -2923,120 +3087,138 @@ export class ReportsService {
   }
 
   /**
-   * One rate lookup per distinct source currency rather than one per transaction.
-   * getRate never throws: it degrades to a stale rate, then to 1:1, and logs.
+   * What a report, export or summary counts: confirmed rows (a row waiting in
+   * Review is listed elsewhere, never summed) that are not suspected
+   * duplicates, not transfers between the user's own accounts and not on a
+   * trashed statement. The trash check is a subquery so callers can still join
+   * the statement under their own alias.
    */
-  private async buildRateMap(
-    transactions: Transaction[],
-    targetCurrency: string,
-  ): Promise<Map<string, number>> {
-    const sources = new Set(transactions.map(t => this.normalizeCurrency(t.currency)));
-    const rates = new Map<string, number>();
-
-    for (const source of sources) {
-      rates.set(
-        source,
-        source === targetCurrency
-          ? 1
-          : await this.exchangeRatesService.getRate(source, targetCurrency),
-      );
-    }
-
-    return rates;
+  private countedTransactions(workspaceId: string): SelectQueryBuilder<Transaction> {
+    return onlyFlows(
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+      'transaction',
+    ).andWhere('transaction.transferPairId IS NULL');
   }
 
   private async loadReportRows(
     workspaceId: string,
-    dto: GenerateReportDto,
-  ): Promise<{ currency: string; rows: TemplateReportRow[] }> {
+    dto: GenerateReportBody,
+  ): Promise<{ currency: string; rows: TemplateReportRow[]; missingRates: string[] }> {
     const dateFrom = new Date(dto.dateFrom);
     const dateTo = new Date(dto.dateTo);
     dateTo.setUTCHours(23, 59, 59, 999);
 
+    // The same rows every other figure counts (transfers already left out).
+    // Category group, account and tags are register columns of the templates.
+    const query = this.countedTransactions(workspaceId)
+      .leftJoinAndSelect('transaction.category', 'category')
+      .leftJoinAndSelect('category.parent', 'categoryParent')
+      .leftJoinAndSelect('transaction.wallet', 'wallet')
+      .leftJoinAndSelect('transaction.tags', 'tags')
+      .andWhere('transaction.transactionDate BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
+    // An empty list would compile to `IN ()` and match nothing: an unset filter adds no condition.
+    if (dto.walletIds?.length) {
+      query.andWhere('transaction.walletId IN (:...walletIds)', { walletIds: dto.walletIds });
+    }
+    if (dto.categoryIds?.length) {
+      query.andWhere('transaction.categoryId IN (:...categoryIds)', {
+        categoryIds: dto.categoryIds,
+      });
+    }
     const [transactions, currency] = await Promise.all([
-      this.transactionRepository.find({
-        where: {
-          workspaceId,
-          isDuplicate: false,
-          transactionDate: Between(dateFrom, dateTo),
-          // An empty array would compile to `IN ()` and match nothing, so an
-          // unset filter has to drop the key entirely rather than pass [].
-          ...(dto.walletIds?.length ? { walletId: In(dto.walletIds) } : {}),
-          ...(dto.categoryIds?.length ? { categoryId: In(dto.categoryIds) } : {}),
-        },
-        relations: ['category'],
-      }),
+      query.getMany(),
       this.getWorkspaceCurrency(workspaceId),
     ]);
 
-    const rates = await this.buildRateMap(transactions, currency);
-
-    const rows = transactions.map(transaction => {
-      const originalCurrency = this.normalizeCurrency(transaction.currency);
-      const originalAmount = Math.abs(Number(transaction.amount || 0));
-
+    // Each amount converts at its own day's rate, and a currency without one is
+    // left out rather than counted 1:1 — a silent 1:1 would turn 1,000 USD into
+    // 1,000 KZT in a document someone sends to their accountant.
+    const rows: TemplateReportRow[] = transactions.map(transaction => {
+      const categoryName = transaction.category?.name || UNCATEGORIZED_CATEGORY_NAME;
       return {
+        id: transaction.id,
         date: this.toDateKey(transaction.transactionDate),
-        categoryName: transaction.category?.name || 'Uncategorized',
+        categoryKey: transaction.categoryId ?? '',
+        categoryName,
+        groupName: transaction.category?.parent?.name ?? '',
         counterparty: transaction.counterpartyName || '',
+        accountName: transaction.wallet?.name ?? '',
+        comment: transaction.comments ?? '',
+        tags: (transaction.tags ?? []).map(tag => tag.name),
         isIncome: transaction.transactionType === TransactionType.INCOME,
-        amount: originalAmount * (rates.get(originalCurrency) ?? 1),
-        originalAmount,
-        originalCurrency,
+        amount: 0,
+        originalAmount: Math.abs(Number(transaction.amount || 0)),
+        originalCurrency: normalizeCurrencyCode(transaction.currency),
       };
     });
 
-    return { currency, rows };
-  }
-
-  private sumByKey(
-    rows: TemplateReportRow[],
-    keyOf: (row: TemplateReportRow) => string,
-  ): Map<string, { total: number; count: number }> {
-    const totals = new Map<string, { total: number; count: number }>();
-
+    const converter = await CurrencyConverter.load(
+      this.exchangeRatesService,
+      currency,
+      rows.map(row => ({ currency: row.originalCurrency, date: row.date })),
+      workspaceId,
+    );
     for (const row of rows) {
-      const key = keyOf(row);
-      const entry = totals.get(key) ?? { total: 0, count: 0 };
-      entry.total += row.amount;
-      entry.count += 1;
-      totals.set(key, entry);
+      row.amount = converter.convert(row.originalAmount, row.originalCurrency, row.date);
     }
 
-    return totals;
+    return { currency, rows, missingRates: converter.missing };
   }
 
-  private buildPnLDocument(subtitle: string, rows: TemplateReportRow[]): ReportDocument {
-    const income = this.sumByKey(
-      rows.filter(row => row.isIncome),
-      row => row.categoryName,
-    );
-    const expense = this.sumByKey(
-      rows.filter(row => !row.isIncome),
-      row => row.categoryName,
-    );
+  /**
+   * Totals per category, keyed by id: two categories may share a name under
+   * different parents, and summing by name would fold them into one line.
+   */
+  private sumByCategory(rows: TemplateReportRow[]): CategoryTotal[] {
+    const totals = new Map<string, CategoryTotal>();
+
+    for (const row of rows) {
+      const entry = totals.get(row.categoryKey) ?? {
+        groupName: row.groupName,
+        categoryName: row.categoryName,
+        total: 0,
+        count: 0,
+      };
+      entry.total += row.amount;
+      entry.count += 1;
+      totals.set(row.categoryKey, entry);
+    }
+
+    return Array.from(totals.values());
+  }
+
+  private buildPnLDocument(
+    text: TemplateLabels,
+    subtitle: string,
+    rows: TemplateReportRow[],
+  ): ReportDocument {
+    const income = byGroupThenAmount(this.sumByCategory(rows.filter(row => row.isIncome)));
+    const expense = byGroupThenAmount(this.sumByCategory(rows.filter(row => !row.isIncome)));
 
     const totalRevenue = this.sumTotals(income);
     const totalExpenses = this.sumTotals(expense);
+    const columns = [text.group, text.category, text.amount];
 
     return {
-      title: 'Profit & Loss (P&L)',
+      title: text.titlePnl,
       subtitle,
       sections: [
         {
-          title: 'Revenue',
-          columns: ['Category', 'Amount'],
+          title: text.revenue,
+          columns,
           rows: this.toAmountRows(income),
-          total: ['TOTAL REVENUE', this.round2(totalRevenue)],
+          total: [text.totalRevenue, '', this.round2(totalRevenue)],
         },
         {
-          title: 'Expenses',
-          columns: ['Category', 'Amount'],
+          title: text.expenses,
+          columns,
           rows: this.toAmountRows(expense),
-          total: ['TOTAL EXPENSES', this.round2(totalExpenses)],
+          total: [text.totalExpenses, '', this.round2(totalExpenses)],
         },
       ],
-      footer: [['NET INCOME', this.round2(totalRevenue - totalExpenses)]],
+      footer: [[text.netIncome, this.round2(totalRevenue - totalExpenses)]],
     };
   }
 
@@ -3059,6 +3241,7 @@ export class ReportsService {
   }
 
   private buildCashFlowDocument(
+    text: TemplateLabels,
     subtitle: string,
     rows: TemplateReportRow[],
     groupBy: 'day' | 'week' | 'month',
@@ -3081,15 +3264,15 @@ export class ReportsService {
     const totalExpense = sorted.reduce((sum, [, bucket]) => sum + bucket.expense, 0);
 
     return {
-      title: 'Cash Flow Statement',
+      title: text.titleCashFlow,
       subtitle,
       sections: [
         {
           columns: [
-            groupBy === 'day' ? 'Date' : groupBy === 'week' ? 'Week of' : 'Month',
-            'Income',
-            'Expense',
-            'Net',
+            groupBy === 'day' ? text.date : groupBy === 'week' ? text.weekOf : text.month,
+            text.income,
+            text.expense,
+            text.net,
           ],
           rows: sorted.map(([date, bucket]) => [
             date,
@@ -3098,7 +3281,7 @@ export class ReportsService {
             this.round2(bucket.income - bucket.expense),
           ]),
           total: [
-            'TOTAL',
+            text.total,
             this.round2(totalIncome),
             this.round2(totalExpense),
             this.round2(totalIncome - totalExpense),
@@ -3109,33 +3292,42 @@ export class ReportsService {
   }
 
   private buildExpenseByCategoryDocument(
+    text: TemplateLabels,
     subtitle: string,
     rows: TemplateReportRow[],
   ): ReportDocument {
-    const byCategory = this.sumByKey(
-      rows.filter(row => !row.isIncome),
-      row => row.categoryName,
-    );
+    const byCategory = byGroupThenAmount(this.sumByCategory(rows.filter(row => !row.isIncome)));
     const totalExpenses = this.sumTotals(byCategory);
-    const totalCount = Array.from(byCategory.values()).reduce((sum, e) => sum + e.count, 0);
+    const totalCount = byCategory.reduce((sum, entry) => sum + entry.count, 0);
 
-    const categoryRows = Array.from(byCategory.entries())
-      .sort(([, a], [, b]) => b.total - a.total)
-      .map(([categoryName, entry]) => [
-        categoryName,
-        this.round2(entry.total),
-        entry.count,
-        totalExpenses > 0 ? this.round2((entry.total / totalExpenses) * 100) : 0,
-      ]);
+    const categoryRows = byCategory.map(entry => [
+      entry.groupName,
+      entry.categoryName,
+      this.round2(entry.total),
+      entry.count,
+      totalExpenses > 0 ? this.round2((entry.total / totalExpenses) * 100) : 0,
+    ]);
 
     return {
-      title: 'Expense by Category',
+      title: text.titleExpenseByCategory,
       subtitle,
       sections: [
         {
-          columns: ['Category', 'Total Amount', 'Transaction Count', '% of Total'],
+          columns: [
+            text.group,
+            text.category,
+            text.totalAmount,
+            text.transactionCount,
+            text.percentOfTotal,
+          ],
           rows: categoryRows,
-          total: ['TOTAL', this.round2(totalExpenses), totalCount, categoryRows.length ? 100 : 0],
+          total: [
+            text.total,
+            '',
+            this.round2(totalExpenses),
+            totalCount,
+            categoryRows.length ? 100 : 0,
+          ],
         },
       ],
     };
@@ -3143,9 +3335,11 @@ export class ReportsService {
 
   /**
    * The one detail-level template: every transaction in the period, with both the
-   * converted and the original amount so a foreign-currency line stays auditable.
+   * converted and the original amount so a foreign-currency line stays auditable,
+   * and the id so a line can be traced back to the app.
    */
   private buildTransactionRegisterDocument(
+    text: TemplateLabels,
     subtitle: string,
     currency: string,
     rows: TemplateReportRow[],
@@ -3154,72 +3348,200 @@ export class ReportsService {
     const net = sorted.reduce((sum, row) => sum + (row.isIncome ? row.amount : -row.amount), 0);
 
     return {
-      title: 'Transaction Register',
+      title: text.titleTransactionRegister,
       subtitle,
       sections: [
         {
-          columns: ['Date', 'Counterparty', 'Category', 'Type', `Amount (${currency})`, 'Original'],
+          columns: [
+            text.date,
+            text.counterparty,
+            text.group,
+            text.category,
+            text.type,
+            fillLabel(text.amountInCurrency, { currency }),
+            text.original,
+            text.account,
+            text.comment,
+            text.tags,
+            text.transactionId,
+          ],
           rows: sorted.map(row => [
             row.date,
             row.counterparty,
+            row.groupName,
             row.categoryName,
-            row.isIncome ? 'Income' : 'Expense',
+            row.isIncome ? text.income : text.expense,
             this.round2(row.isIncome ? row.amount : -row.amount),
             `${this.round2(row.originalAmount)} ${row.originalCurrency}`,
+            row.accountName,
+            row.comment,
+            row.tags.join(', '),
+            row.id,
           ]),
-          total: ['TOTAL', '', '', `${sorted.length} rows`, this.round2(net), ''],
+          total: [
+            text.total,
+            '',
+            '',
+            '',
+            fillLabel(text.rowCount, { count: sorted.length }),
+            this.round2(net),
+            '',
+            '',
+            '',
+            '',
+            '',
+          ],
         },
       ],
     };
   }
 
   /** P&L condensed to one screen: the headline numbers plus where the money went. */
-  private buildMonthlySummaryDocument(subtitle: string, rows: TemplateReportRow[]): ReportDocument {
+  private buildMonthlySummaryDocument(
+    text: TemplateLabels,
+    subtitle: string,
+    rows: TemplateReportRow[],
+  ): ReportDocument {
     const income = rows.filter(row => row.isIncome);
     const expense = rows.filter(row => !row.isIncome);
     const totalIncome = income.reduce((sum, row) => sum + row.amount, 0);
     const totalExpense = expense.reduce((sum, row) => sum + row.amount, 0);
 
-    const topCategories = this.toAmountRows(this.sumByKey(expense, row => row.categoryName)).slice(
-      0,
-      10,
-    );
+    const topCategories = this.sumByCategory(expense)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+      .map(entry => [entry.categoryName, this.round2(entry.total)]);
 
     return {
-      title: 'Monthly Summary',
+      title: text.titleMonthlySummary,
       subtitle,
       sections: [
         {
-          title: 'Totals',
-          columns: ['Metric', 'Value'],
+          title: text.totals,
+          columns: [text.metric, text.value],
           rows: [
-            ['Income', this.round2(totalIncome)],
-            ['Expenses', this.round2(totalExpense)],
-            ['Transactions', rows.length],
+            [text.income, this.round2(totalIncome)],
+            [text.expenses, this.round2(totalExpense)],
+            [text.transactions, rows.length],
             [
-              'Savings rate, %',
+              text.savingsRate,
               totalIncome > 0 ? this.round2(((totalIncome - totalExpense) / totalIncome) * 100) : 0,
             ],
           ],
         },
         {
-          title: 'Top expense categories',
-          columns: ['Category', 'Amount'],
+          title: text.topExpenseCategories,
+          columns: [text.category, text.amount],
           rows: topCategories,
         },
       ],
-      footer: [['NET', this.round2(totalIncome - totalExpense)]],
+      footer: [[text.netTotal, this.round2(totalIncome - totalExpense)]],
     };
   }
 
-  private sumTotals(entries: Map<string, { total: number; count: number }>): number {
-    return Array.from(entries.values()).reduce((sum, entry) => sum + entry.total, 0);
+  /**
+   * Income and spending per category with a column per month, as YNAB's
+   * Income v Expense lays it out: the table people build next year's budget
+   * from. Empty months stay as zero columns so every row lines up.
+   */
+  private buildCategoryByMonthDocument(
+    text: TemplateLabels,
+    subtitle: string,
+    rows: TemplateReportRow[],
+    months: string[],
+  ): ReportDocument {
+    const column = new Map(months.map((month, index) => [month, index]));
+    const net = months.map(() => 0);
+
+    const section = (title: string, sectionRows: TemplateReportRow[], sign: 1 | -1) => {
+      const byCategory = new Map<
+        string,
+        { groupName: string; categoryName: string; perMonth: number[]; total: number }
+      >();
+      const perMonthTotal = months.map(() => 0);
+      for (const row of sectionRows) {
+        const index = column.get(row.date.slice(0, 7));
+        if (index === undefined) {
+          continue;
+        }
+        const entry = byCategory.get(row.categoryKey) ?? {
+          groupName: row.groupName,
+          categoryName: row.categoryName,
+          perMonth: months.map(() => 0),
+          total: 0,
+        };
+        entry.perMonth[index] += row.amount;
+        entry.total += row.amount;
+        byCategory.set(row.categoryKey, entry);
+        perMonthTotal[index] += row.amount;
+        net[index] += sign * row.amount;
+      }
+
+      const entries = byGroupThenAmount(Array.from(byCategory.values()));
+      const sectionTotal = perMonthTotal.reduce((sum, value) => sum + value, 0);
+      return {
+        title,
+        columns: [text.group, text.category, ...months, text.totalColumn, text.averagePerMonth],
+        rows: entries.map(entry => [
+          entry.groupName,
+          entry.categoryName,
+          ...entry.perMonth.map(value => this.round2(value)),
+          this.round2(entry.total),
+          this.round2(entry.total / months.length),
+        ]),
+        total: [
+          text.total,
+          '',
+          ...perMonthTotal.map(value => this.round2(value)),
+          this.round2(sectionTotal),
+          this.round2(sectionTotal / months.length),
+        ],
+      };
+    };
+
+    const income = section(
+      text.revenue,
+      rows.filter(row => row.isIncome),
+      1,
+    );
+    const expenses = section(
+      text.expenses,
+      rows.filter(row => !row.isIncome),
+      -1,
+    );
+    const netTotal = net.reduce((sum, value) => sum + value, 0);
+
+    return {
+      title: text.titleCategoryByMonth,
+      subtitle,
+      orientation: 'landscape',
+      sections: [
+        income,
+        expenses,
+        {
+          title: text.net,
+          columns: ['', '', ...months, text.totalColumn, text.averagePerMonth],
+          rows: [
+            [
+              text.netTotal,
+              '',
+              ...net.map(value => this.round2(value)),
+              this.round2(netTotal),
+              this.round2(netTotal / months.length),
+            ],
+          ],
+        },
+      ],
+      footer: [[text.netTotal, this.round2(netTotal)]],
+    };
   }
 
-  private toAmountRows(entries: Map<string, { total: number; count: number }>): ReportCell[][] {
-    return Array.from(entries.entries())
-      .sort(([, a], [, b]) => b.total - a.total)
-      .map(([name, entry]) => [name, this.round2(entry.total)]);
+  private sumTotals(entries: CategoryTotal[]): number {
+    return entries.reduce((sum, entry) => sum + entry.total, 0);
+  }
+
+  private toAmountRows(entries: CategoryTotal[]): ReportCell[][] {
+    return entries.map(entry => [entry.groupName, entry.categoryName, this.round2(entry.total)]);
   }
 
   private round2(value: number): number {
@@ -3258,4 +3580,13 @@ export class ReportsService {
       contentType,
     };
   }
+}
+
+/**
+ * The calendar day of a `date` column as YYYY-MM-DD. Postgres hands such a
+ * column back as that string, not as the `Date` the entity declares, so
+ * calling Date methods on it throws.
+ */
+function dayOf(value: Date | string): string {
+  return typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10);
 }

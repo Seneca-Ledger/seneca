@@ -1,10 +1,11 @@
 'use client';
 
 import { X } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import type { ErrorItem, ErrorSection } from '../types';
 import { SectionWrapper } from './components/SectionWrapper';
-import { ERROR_BG, ERROR_BORDER, ERROR_ICONS, ERROR_ICON_COLOR } from './helpers/section-constants';
+import { ERROR_BG, ERROR_BORDER, ERROR_ICON_COLOR, ERROR_ICONS } from './helpers/section-constants';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, max-lines-per-function
 function ErrorItemComponent({ item }: { item: ErrorItem }) {
@@ -85,6 +86,7 @@ function ErrorItemComponent({ item }: { item: ErrorItem }) {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function ErrorSectionRenderer({ section }: { section: ErrorSection }) {
+  const t = useIntlayer('sidePanel');
   const displayItems = section.maxItems ? section.items.slice(0, section.maxItems) : section.items;
 
   return (
@@ -103,7 +105,7 @@ export function ErrorSectionRenderer({ section }: { section: ErrorSection }) {
               margin: 0,
             }}
           >
-            +{section.items.length - section.maxItems} more
+            {t.moreCount.value.replace('{count}', String(section.items.length - section.maxItems))}
           </p>
         )}
       </div>

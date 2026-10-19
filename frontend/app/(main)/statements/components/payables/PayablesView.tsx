@@ -1,37 +1,42 @@
 /* eslint-disable max-lines */
 'use client';
 
-import { Download, Plus, RefreshCcw } from '@/app/components/icons';
+import Skeleton from '@mui/material/Skeleton';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
+import { Plus } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useAuth } from '@/app/hooks/useAuth';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import {
   type CreatePayableInput,
-  type ExportPayablesParams,
   type ListPayablesParams,
   type Payable,
   type PayableDirection,
-  type PayablesExportFormat,
   type PayablesSummary,
-  type UpdatePayableInput,
   payablesApi,
+  type UpdatePayableInput,
 } from '@/app/lib/payables-api';
+import { queryKeys } from '@/app/lib/query-keys';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import { tokens } from '@/lib/theme-tokens';
-import Skeleton from '@mui/material/Skeleton';
-import { useSearchParams } from 'next/navigation';
-import React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
+import { StatementsQueueTabs } from '../StatementsQueueTabs';
 import { CreatePayableDrawer } from './CreatePayableDrawer';
+import { MarkPaidDialog, type MarkPaidResult } from './MarkPaidDialog';
 import PayableFiltersBar from './PayableFiltersBar';
 import PayableSummaryCards from './PayableSummaryCards';
 import PayablesList from './PayablesList';
 import {
+  buildPayablesListParams,
   DEFAULT_PAYABLES_FILTERS,
   type PayablesFiltersState,
-  buildPayablesListParams,
 } from './payables-utils';
 
 const DEFAULT_SUMMARY: PayablesSummary = {
@@ -43,6 +48,10 @@ const DEFAULT_SUMMARY: PayablesSummary = {
   toPayCount: 0,
   overdueCount: 0,
   paidTotalCount: 0,
+  dueThisWeekCount: 0,
+  unbookedTotal: 0,
+  unbookedCount: 0,
+  convertedCurrencies: [],
 };
 
 const PAGE_SIZE = 20;
@@ -72,22 +81,22 @@ function PayablesSummaryCardSkeleton(): React.JSX.Element {
 function PayablesRowSkeleton(): React.JSX.Element {
   return (
     <tr>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="text" width="70%" height={18} />
       </td>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="text" width="60%" height={16} />
       </td>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="text" width="60%" height={16} />
       </td>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="rounded" width={72} height={22} />
       </td>
-      <td className="lumio-payable-list__td" style={{ textAlign: 'right' }}>
+      <td className="seneca-payable-list__td" style={{ textAlign: 'right' }}>
         <Skeleton variant="text" width={80} height={18} style={{ marginLeft: 'auto' }} />
       </td>
-      <td className="lumio-payable-list__td">
+      <td className="seneca-payable-list__td">
         <Skeleton variant="rounded" width={120} height={28} style={{ marginLeft: 'auto' }} />
       </td>
     </tr>
@@ -96,8 +105,8 @@ function PayablesRowSkeleton(): React.JSX.Element {
 
 function PayablesViewSkeleton(): React.JSX.Element {
   return (
-    <div className="container-shared lumio-stmt-list">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+    <div className="container-shared seneca-stmt-list">
+      <div className="seneca-stat-tiles">
         {SUMMARY_CARD_KEYS.map(key => (
           <PayablesSummaryCardSkeleton key={key} />
         ))}
@@ -115,7 +124,7 @@ function PayablesViewSkeleton(): React.JSX.Element {
   );
 }
 
-// eslint-disable-next-line max-lines-per-function, complexity
+// eslint-disable-next-line complexity
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (!error || typeof error !== 'object') {
     return fallback;
@@ -149,17 +158,6 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
   return fallback;
 };
 
-const triggerBlobDownload = (blob: Blob, fileName: string) => {
-  const url = window.URL.createObjectURL(new Blob([blob]));
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', fileName);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-};
-
 type PayablesViewProps = {
   /** Which side of the ledger this view manages. Defaults to money the workspace owes. */
   direction?: PayableDirection;
@@ -168,14 +166,27 @@ type PayablesViewProps = {
 // eslint-disable-next-line max-lines-per-function, complexity
 export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}): React.JSX.Element {
   const searchParams = useSearchParams();
+  useAttentionFocus();
   const { user, loading: authLoading } = useAuth();
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const { locale } = useLocale();
+  const router = useRouter();
   const t = useIntlayer('statementsPage');
   const tx = useCallback(
     (path: string[], fallback: string) => resolveLabel(getNestedValue(t, path), fallback),
     [t],
   );
+  // Receivables reuse the payables screen; only the wording that names the counterparty
+  // or the money flow switches, and it lives under the `receivables` content key.
+  const dx = useCallback(
+    (path: string[], payableFallback: string, receivableFallback: string) =>
+      direction === 'receivable'
+        ? tx(['receivables', ...path], receivableFallback)
+        : tx(['payables', ...path], payableFallback),
+    [direction, tx],
+  );
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
   const [summary, setSummary] = useState<PayablesSummary>(DEFAULT_SUMMARY);
   const [items, setItems] = useState<Payable[]>([]);
   const [filters, setFilters] = useState<PayablesFiltersState>(DEFAULT_PAYABLES_FILTERS);
@@ -183,14 +194,15 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [, setRefreshing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingPayable, setEditingPayable] = useState<Payable | null>(null);
   const [saving, setSaving] = useState(false);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [payingPayable, setPayingPayable] = useState<Payable | null>(null);
+  const [removingPaymentId, setRemovingPaymentId] = useState<string | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [exporting, setExporting] = useState<PayablesExportFormat | null>(null);
   const [queryPage, setQueryPage] = useState(1);
   const requestVersionRef = useRef(0);
 
@@ -203,6 +215,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
       status:
         status === 'to_pay' ||
         status === 'scheduled' ||
+        status === 'partially_paid' ||
         status === 'paid' ||
         status === 'overdue' ||
         status === 'archived'
@@ -234,22 +247,24 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
 
   const labels = useMemo(
     () => ({
-      title: tx(['payables', 'title'], 'Payables'),
-      subtitle: tx(
-        ['payables', 'subtitle'],
+      title: dx(['title'], 'Payables', 'Receivables'),
+      subtitle: dx(
+        ['subtitle'],
         'Track upcoming payments, overdue bills, and paid expenses in one queue.',
+        'Track money owed to you: upcoming, overdue, and already received payments.',
       ),
-      add: tx(['payables', 'add'], 'Add payable'),
-      refresh: tx(['payables', 'refresh'], 'Refresh'),
+      add: dx(['add'], 'Add payable', 'Add receivable'),
       export: tx(['payables', 'export'], 'Export'),
-      exportCsv: tx(['payables', 'exportCsv'], 'Export CSV'),
-      exportXlsx: tx(['payables', 'exportXlsx'], 'Export XLSX'),
       summary: {
-        toPay: tx(['payables', 'summary', 'toPay'], 'To Pay'),
+        toPay: dx(['summary', 'toPay'], 'To Pay', 'To Receive'),
         overdue: tx(['payables', 'summary', 'overdue'], 'Overdue'),
         dueThisWeek: tx(['payables', 'summary', 'dueThisWeek'], 'Due This Week'),
-        paidTotal: tx(['payables', 'summary', 'paidThisMonth'], 'Paid'),
+        paidTotal: dx(['summary', 'paidThisMonth'], 'Paid', 'Received'),
         itemsSuffix: tx(['payables', 'summary', 'itemsSuffix'], 'items'),
+        convertedNote: tx(
+          ['payables', 'summary', 'convertedNote'],
+          "In {currency}; {currencies} converted at today's rate",
+        ),
       },
       filters: {
         status: tx(['payables', 'filters', 'status'], 'Status'),
@@ -261,9 +276,10 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         allStatuses: tx(['payables', 'filters', 'allStatuses'], 'All statuses'),
         allSources: tx(['payables', 'filters', 'allSources'], 'All sources'),
         statusOptions: {
-          to_pay: tx(['payables', 'status', 'toPay'], 'To pay'),
+          to_pay: dx(['status', 'toPay'], 'To pay', 'To receive'),
           scheduled: tx(['payables', 'status', 'scheduled'], 'Scheduled'),
-          paid: tx(['payables', 'status', 'paid'], 'Paid'),
+          partially_paid: dx(['status', 'partiallyPaid'], 'Partially paid', 'Partially received'),
+          paid: dx(['status', 'paid'], 'Paid', 'Received'),
           overdue: tx(['payables', 'status', 'overdue'], 'Overdue'),
           archived: tx(['payables', 'status', 'archived'], 'Archived'),
         },
@@ -276,17 +292,17 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
           dueDateAsc: tx(['payables', 'sort', 'dueDateAsc'], 'Due date (earliest)'),
           dueDateDesc: tx(['payables', 'sort', 'dueDateDesc'], 'Due date (latest)'),
           amountDesc: tx(['payables', 'sort', 'amountDesc'], 'Amount (highest)'),
-          vendorAsc: tx(['payables', 'sort', 'vendorAsc'], 'Vendor (A-Z)'),
+          vendorAsc: dx(['sort', 'vendorAsc'], 'Vendor (A-Z)', 'Customer (A-Z)'),
         },
       },
       list: {
-        vendor: tx(['payables', 'list', 'vendor'], 'Vendor'),
+        vendor: dx(['list', 'vendor'], 'Vendor', 'Customer'),
         dueDate: tx(['payables', 'list', 'dueDate'], 'Due date'),
         amount: tx(['payables', 'list', 'amount'], 'Amount'),
         source: tx(['payables', 'list', 'source'], 'Source'),
         status: tx(['payables', 'list', 'status'], 'Status'),
         actions: tx(['payables', 'list', 'actions'], 'Actions'),
-        markPaid: tx(['payables', 'actions', 'markPaid'], 'Mark paid'),
+        markPaid: dx(['actions', 'markPaid'], 'Mark paid', 'Mark received'),
         edit: tx(['payables', 'actions', 'edit'], 'Edit'),
         archive: tx(['payables', 'actions', 'archive'], 'Archive'),
         delete: tx(['payables', 'actions', 'delete'], 'Delete'),
@@ -295,12 +311,14 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         next: tx(['pagination', 'next'], 'Next'),
         pageOf: tx(['pagination', 'pageOf'], 'Page {page} of {count}'),
         statusLabels: {
-          to_pay: tx(['payables', 'status', 'toPay'], 'To pay'),
+          to_pay: dx(['status', 'toPay'], 'To pay', 'To receive'),
           scheduled: tx(['payables', 'status', 'scheduled'], 'Scheduled'),
-          paid: tx(['payables', 'status', 'paid'], 'Paid'),
+          partially_paid: dx(['status', 'partiallyPaid'], 'Partially paid', 'Partially received'),
+          paid: dx(['status', 'paid'], 'Paid', 'Received'),
           overdue: tx(['payables', 'status', 'overdue'], 'Overdue'),
           archived: tx(['payables', 'status', 'archived'], 'Archived'),
         },
+        amountPaid: dx(['list', 'amountPaid'], 'paid', 'received'),
         sourceLabels: {
           manual: tx(['payables', 'sources', 'manual'], 'Manual'),
           invoice: tx(['payables', 'sources', 'invoice'], 'Invoice'),
@@ -308,9 +326,9 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         },
       },
       drawer: {
-        createTitle: tx(['payables', 'drawer', 'createTitle'], 'Create payable'),
-        editTitle: tx(['payables', 'drawer', 'editTitle'], 'Edit payable'),
-        vendor: tx(['payables', 'drawer', 'vendor'], 'Vendor'),
+        createTitle: dx(['drawer', 'createTitle'], 'Create payable', 'Create receivable'),
+        editTitle: dx(['drawer', 'editTitle'], 'Edit payable', 'Edit receivable'),
+        vendor: dx(['drawer', 'vendor'], 'Vendor', 'Customer'),
         amount: tx(['payables', 'drawer', 'amount'], 'Amount'),
         currency: tx(['payables', 'drawer', 'currency'], 'Currency'),
         dueDate: tx(['payables', 'drawer', 'dueDate'], 'Due date'),
@@ -326,45 +344,70 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
           statement: tx(['payables', 'sources', 'statement'], 'Statement'),
         },
         statusOptions: {
-          to_pay: tx(['payables', 'status', 'toPay'], 'To pay'),
+          to_pay: dx(['status', 'toPay'], 'To pay', 'To receive'),
           scheduled: tx(['payables', 'status', 'scheduled'], 'Scheduled'),
-          paid: tx(['payables', 'status', 'paid'], 'Paid'),
+          paid: dx(['status', 'paid'], 'Paid', 'Received'),
           overdue: tx(['payables', 'status', 'overdue'], 'Overdue'),
           archived: tx(['payables', 'status', 'archived'], 'Archived'),
         },
       },
-      emptyTitle: tx(['payables', 'empty', 'title'], 'No payables found'),
-      emptyDescription: tx(
-        ['payables', 'empty', 'description'],
+      emptyTitle: dx(['empty', 'title'], 'No payables found', 'No receivables found'),
+      emptyDescription: dx(
+        ['empty', 'description'],
         'Try changing filters or create your first payable.',
+        'Try changing filters or add money someone owes you.',
       ),
       authLoading: tx(['payables', 'auth', 'loading'], 'Loading...'),
-      loginRequired: tx(['payables', 'auth', 'loginRequired'], 'Please sign in to view payables.'),
-      noWorkspace: tx(
-        ['payables', 'auth', 'workspaceRequired'],
+      loginRequired: dx(
+        ['auth', 'loginRequired'],
+        'Please sign in to view payables.',
+        'Please sign in to view receivables.',
+      ),
+      noWorkspace: dx(
+        ['auth', 'workspaceRequired'],
         'Select a workspace to view payables.',
+        'Select a workspace to view receivables.',
       ),
       toasts: {
-        loadFailed: tx(['payables', 'toasts', 'loadFailed'], 'Failed to load payables'),
-        createSuccess: tx(['payables', 'toasts', 'createSuccess'], 'Payable created'),
-        createFailed: tx(['payables', 'toasts', 'createFailed'], 'Failed to create payable'),
-        updateSuccess: tx(['payables', 'toasts', 'updateSuccess'], 'Payable updated'),
-        updateFailed: tx(['payables', 'toasts', 'updateFailed'], 'Failed to update payable'),
-        markPaidSuccess: tx(['payables', 'toasts', 'markPaidSuccess'], 'Marked as paid'),
-        markPaidFailed: tx(
-          ['payables', 'toasts', 'markPaidFailed'],
-          'Failed to mark payable as paid',
+        loadFailed: dx(
+          ['toasts', 'loadFailed'],
+          'Failed to load payables',
+          'Failed to load receivables',
         ),
-        archiveSuccess: tx(['payables', 'toasts', 'archiveSuccess'], 'Payable archived'),
-        archiveFailed: tx(['payables', 'toasts', 'archiveFailed'], 'Failed to archive payable'),
-        deleteSuccess: tx(['payables', 'toasts', 'deleteSuccess'], 'Payable deleted'),
-        deleteFailed: tx(['payables', 'toasts', 'deleteFailed'], 'Failed to delete payable'),
+        createSuccess: dx(['toasts', 'createSuccess'], 'Payable created', 'Receivable created'),
+        createFailed: dx(
+          ['toasts', 'createFailed'],
+          'Failed to create payable',
+          'Failed to create receivable',
+        ),
+        updateSuccess: dx(['toasts', 'updateSuccess'], 'Payable updated', 'Receivable updated'),
+        updateFailed: dx(
+          ['toasts', 'updateFailed'],
+          'Failed to update payable',
+          'Failed to update receivable',
+        ),
+        markPaidSuccess: dx(['toasts', 'markPaidSuccess'], 'Marked as paid', 'Marked as received'),
+        markPaidFailed: dx(
+          ['toasts', 'markPaidFailed'],
+          'Failed to mark payable as paid',
+          'Failed to mark receivable as received',
+        ),
+        archiveSuccess: dx(['toasts', 'archiveSuccess'], 'Payable archived', 'Receivable archived'),
+        archiveFailed: dx(
+          ['toasts', 'archiveFailed'],
+          'Failed to archive payable',
+          'Failed to archive receivable',
+        ),
+        deleteSuccess: dx(['toasts', 'deleteSuccess'], 'Payable deleted', 'Receivable deleted'),
+        deleteFailed: dx(
+          ['toasts', 'deleteFailed'],
+          'Failed to delete payable',
+          'Failed to delete receivable',
+        ),
         deleteConfirm: tx(['payables', 'toasts', 'deleteConfirm'], 'Delete {vendor}?'),
-        exportSuccess: tx(['payables', 'toasts', 'exportSuccess'], 'Export started'),
-        exportFailed: tx(['payables', 'toasts', 'exportFailed'], 'Failed to export payables'),
       },
     }),
-    [t, tx],
+    [dx, tx],
   );
 
   const loadData = useCallback(
@@ -382,7 +425,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
 
       const requestVersion = ++requestVersionRef.current;
 
-      try {
+      return await (async () => {
         const [summaryResponse, listResponse] = await Promise.all([
           payablesApi.getSummary(direction),
           payablesApi.list(
@@ -411,17 +454,19 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         setTotal(listResponse.total);
         setTotalPages(nextTotalPages);
         setPage(Math.min(queryPage, nextTotalPages));
-      } catch (error) {
-        if (requestVersion !== requestVersionRef.current) {
-          return;
-        }
-        toast.error(getErrorMessage(error, labels.toasts.loadFailed));
-      } finally {
-        if (requestVersion === requestVersionRef.current) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
+      })()
+        .catch(async error => {
+          if (requestVersion !== requestVersionRef.current) {
+            return;
+          }
+          toast.error(getErrorMessage(error, labels.toasts.loadFailed));
+        })
+        .finally(async () => {
+          if (requestVersion === requestVersionRef.current) {
+            setLoading(false);
+            setRefreshing(false);
+          }
+        });
     },
     [currentWorkspace, direction, filters, labels.toasts.loadFailed, queryPage, user],
   );
@@ -450,19 +495,19 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
   };
 
   const handleEdit = async (payable: Payable): Promise<void> => {
-    try {
+    await (async () => {
       const fresh = await payablesApi.getOne(payable.id);
       setEditingPayable(fresh);
       setDrawerOpen(true);
-    } catch (error) {
+    })().catch(async error => {
       toast.error(getErrorMessage(error, labels.toasts.loadFailed));
-    }
+    });
   };
 
-  // eslint-disable-next-line max-lines-per-function
   const handleSave = async (payload: CreatePayableInput | UpdatePayableInput): Promise<void> => {
     setSaving(true);
-    try {
+
+    await (async () => {
       if (editingPayable) {
         await payablesApi.update(editingPayable.id, payload as UpdatePayableInput);
         toast.success(labels.toasts.updateSuccess);
@@ -474,42 +519,85 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
       setDrawerOpen(false);
       setEditingPayable(null);
       await loadData({ silent: true });
-    } catch (error) {
-      toast.error(
-        getErrorMessage(
-          error,
-          editingPayable ? labels.toasts.updateFailed : labels.toasts.createFailed,
-        ),
-      );
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async error => {
+        toast.error(
+          getErrorMessage(
+            error,
+            editingPayable ? labels.toasts.updateFailed : labels.toasts.createFailed,
+          ),
+        );
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleMarkPaid = async (payable: Payable): Promise<void> => {
+    setPayingPayable(payable);
+  };
+
+  const confirmMarkPaid = async (payable: Payable, result: MarkPaidResult): Promise<void> => {
     setMarkingPaidId(payable.id);
-    try {
-      await payablesApi.markAsPaid(payable.id);
+
+    await (async () => {
+      const updated =
+        result.kind === 'full'
+          ? await payablesApi.markAsPaid(payable.id, result.payload)
+          : result.kind === 'book'
+            ? await payablesApi.bookPayment(payable.id, result.paymentId, result.payload)
+            : await payablesApi.addPayment(payable.id, result.payload);
+      // A bill that is still short keeps the dialog open on its new outstanding
+      // amount: instalments arrive one after another.
+      setPayingPayable(updated.status === 'partially_paid' ? updated : null);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.payablePayments({ workspaceId, payableId: payable.id }),
+      });
       toast.success(labels.toasts.markPaidSuccess);
       await loadData({ silent: true });
-    } catch (error) {
-      toast.error(getErrorMessage(error, labels.toasts.markPaidFailed));
-    } finally {
-      setMarkingPaidId(null);
-    }
+    })()
+      .catch(async error => {
+        // The payment refusals are coded, so they read in the user's language.
+        toast.error(getApiErrorMessage(error, labels.toasts.markPaidFailed));
+      })
+      .finally(async () => {
+        setMarkingPaidId(null);
+      });
+  };
+
+  const removePayment = async (payable: Payable, paymentId: string): Promise<void> => {
+    setRemovingPaymentId(paymentId);
+
+    await (async () => {
+      const updated = await payablesApi.removePayment(payable.id, paymentId);
+      setPayingPayable(updated);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.payablePayments({ workspaceId, payableId: payable.id }),
+      });
+      await loadData({ silent: true });
+    })()
+      .catch(async error => {
+        toast.error(getApiErrorMessage(error, labels.toasts.markPaidFailed));
+      })
+      .finally(async () => {
+        setRemovingPaymentId(null);
+      });
   };
 
   const handleArchive = async (payable: Payable): Promise<void> => {
     setArchivingId(payable.id);
-    try {
+
+    await (async () => {
       await payablesApi.archive(payable.id);
       toast.success(labels.toasts.archiveSuccess);
       await loadData({ silent: true });
-    } catch (error) {
-      toast.error(getErrorMessage(error, labels.toasts.archiveFailed));
-    } finally {
-      setArchivingId(null);
-    }
+    })()
+      .catch(async error => {
+        toast.error(getErrorMessage(error, labels.toasts.archiveFailed));
+      })
+      .finally(async () => {
+        setArchivingId(null);
+      });
   };
 
   const handleDelete = async (payable: Payable): Promise<void> => {
@@ -519,34 +607,18 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
     }
 
     setDeletingId(payable.id);
-    try {
+
+    await (async () => {
       await payablesApi.delete(payable.id);
       toast.success(labels.toasts.deleteSuccess);
       await loadData({ silent: true });
-    } catch (error) {
-      toast.error(getErrorMessage(error, labels.toasts.deleteFailed));
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const handleExport = async (format: PayablesExportFormat): Promise<void> => {
-    setExporting(format);
-    try {
-      const result = await payablesApi.exportList({
-        ...buildPayablesListParams(filters, { direction }),
-        format,
-      } as ExportPayablesParams);
-      triggerBlobDownload(
-        result.blob,
-        result.fileName || `payables.${format === 'csv' ? 'csv' : 'xlsx'}`,
-      );
-      toast.success(labels.toasts.exportSuccess);
-    } catch (error) {
-      toast.error(getErrorMessage(error, labels.toasts.exportFailed));
-    } finally {
-      setExporting(null);
-    }
+    })()
+      .catch(async error => {
+        toast.error(getErrorMessage(error, labels.toasts.deleteFailed));
+      })
+      .finally(async () => {
+        setDeletingId(null);
+      });
   };
 
   if (authLoading || workspaceLoading || loading) {
@@ -593,7 +665,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
 
   return (
     <>
-      <div className="container-shared lumio-stmt-list">
+      <div className="container-shared seneca-stmt-list">
         <div
           style={{
             marginBottom: 24,
@@ -612,50 +684,28 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
               alignItems: 'flex-start',
             }}
           >
-            <div>
-              <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--foreground)' }}>
-                {labels.title}
-              </h1>
-              <p
-                style={{
-                  marginTop: 8,
-                  maxWidth: 768,
-                  fontSize: 14,
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                {labels.subtitle}
-              </p>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-              <Button
-                variant="outline"
-                onClick={() => void loadData({ silent: true })}
-                disabled={refreshing}
-              >
-                <RefreshCcw size={16} />
-                {labels.refresh}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void handleExport('csv')}
-                disabled={exporting !== null}
-              >
-                <Download size={16} />
-                {labels.exportCsv}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void handleExport('excel')}
-                disabled={exporting !== null}
-              >
-                <Download size={16} />
-                {labels.exportXlsx}
-              </Button>
-              <Button onClick={openCreateDrawer}>
-                <Plus size={16} />
-                {labels.add}
-              </Button>
+            <div className="seneca-stmt-toolbar" style={{ width: '100%' }}>
+              <div className="seneca-stmt-toolbar__tabs">
+                <StatementsQueueTabs />
+              </div>
+              <div className="seneca-stmt-toolbar__group">
+                <PayableFiltersBar
+                  value={filters}
+                  onChange={handleFiltersChange}
+                  onReset={() => handleFiltersChange(DEFAULT_PAYABLES_FILTERS)}
+                  labels={labels.filters}
+                />
+                {/* Keeps the primary actions from reading as more filter buttons. */}
+                <span aria-hidden className="seneca-stmt-toolbar__divider" />
+                {/* One primary action per page; the bank check is secondary. */}
+                <Button variant="ghost" onClick={() => router.push('/statements/reconcile')}>
+                  {tx(['payables', 'reconcile'], 'Reconcile with the bank')}
+                </Button>
+                <Button onClick={openCreateDrawer}>
+                  <Plus size={18} aria-hidden />
+                  {labels.add}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -674,15 +724,8 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
           <PayableSummaryCards
             summary={summary}
             locale={locale}
-            currency={(currentWorkspace.currency || 'KZT').toUpperCase()}
+            currency={(currentWorkspace.currency || FALLBACK_CURRENCY).toUpperCase()}
             labels={labels.summary}
-          />
-
-          <PayableFiltersBar
-            value={filters}
-            onChange={handleFiltersChange}
-            onReset={() => handleFiltersChange(DEFAULT_PAYABLES_FILTERS)}
-            labels={labels.filters}
           />
 
           <PayablesList
@@ -690,6 +733,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
             locale={locale}
             emptyTitle={labels.emptyTitle}
             emptyDescription={labels.emptyDescription}
+            emptyIllustration={direction === 'receivable' ? 'receivables' : 'payables'}
             labels={labels.list}
             pagination={{
               page,
@@ -707,9 +751,19 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         </div>
       </div>
 
+      <MarkPaidDialog
+        removingPaymentId={removingPaymentId}
+        onRemovePayment={(payable, paymentId) => void removePayment(payable, paymentId)}
+        payable={payingPayable}
+        submitting={markingPaidId !== null}
+        onClose={() => setPayingPayable(null)}
+        onConfirm={(payable, result) => void confirmMarkPaid(payable, result)}
+      />
+
       <CreatePayableDrawer
         open={drawerOpen}
         payable={editingPayable}
+        defaultCurrency={(currentWorkspace.currency || FALLBACK_CURRENCY).toUpperCase()}
         saving={saving}
         onClose={() => {
           setDrawerOpen(false);

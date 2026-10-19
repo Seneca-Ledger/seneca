@@ -2,8 +2,6 @@ import { extractTextFromPdf } from '@/common/utils/pdf-parser.util';
 import { BankName, FileType } from '@/entities/statement.entity';
 import { BerekeNewParser } from '@/modules/parsing/parsers/bereke-new.parser';
 import { BerekeOldParser } from '@/modules/parsing/parsers/bereke-old.parser';
-import { CsvParser } from '@/modules/parsing/parsers/csv.parser';
-import { ExcelParser } from '@/modules/parsing/parsers/excel.parser';
 import { GenericPdfParser } from '@/modules/parsing/parsers/generic-pdf.parser';
 import { HapoalimParser } from '@/modules/parsing/parsers/hapoalim.parser';
 import { KaspiParser } from '@/modules/parsing/parsers/kaspi.parser';
@@ -36,13 +34,16 @@ describe('ParserFactoryService', () => {
 
     service = testingModule.get<ParserFactoryService>(ParserFactoryService);
 
-    // Avoid real file I/O inside parsers
+    // Avoid real file I/O inside parsers. ExcelParser/CsvParser are
+    // deliberately NOT mocked here: their real canParse is a pure
+    // `fileType === X` check with no I/O, and leaving it real is what lets
+    // the fallback-loop tests below actually exercise (and catch a
+    // regression in) the Bereke `instanceof` guards instead of trivially
+    // passing because every parser was forced to return false.
     jest.spyOn(BerekeNewParser.prototype, 'canParse').mockResolvedValue(false);
     jest.spyOn(BerekeOldParser.prototype, 'canParse').mockResolvedValue(false);
     jest.spyOn(KaspiParser.prototype, 'canParse').mockResolvedValue(false);
     jest.spyOn(HapoalimParser.prototype, 'canParse').mockResolvedValue(false);
-    jest.spyOn(ExcelParser.prototype, 'canParse').mockResolvedValue(false);
-    jest.spyOn(CsvParser.prototype, 'canParse').mockResolvedValue(false);
   });
 
   beforeEach(() => {
@@ -114,7 +115,15 @@ describe('ParserFactoryService', () => {
 
     it('falls back to OTHER for non-PDF files', async () => {
       const result = await service.detectBankAndFormat('/tmp/mock.xlsx', FileType.XLSX);
-      expect(result.bankName).toBeDefined();
+      // ExcelParser/CsvParser's canParse ignores the bankName argument, so an
+      // unguarded loop over every registered parser would have them "match"
+      // the BEREKE_NEW/BEREKE_OLD probes and mislabel any generic XLSX/CSV.
+      expect(result.bankName).toBe(BankName.OTHER);
+    });
+
+    it('does not mislabel a generic CSV as Bereke Bank', async () => {
+      const result = await service.detectBankAndFormat('/tmp/mock.csv', FileType.CSV);
+      expect(result.bankName).toBe(BankName.OTHER);
     });
 
     it('detects Bereke by header name even when body mentions Kaspi', async () => {
@@ -174,6 +183,10 @@ describe('ParserFactoryService', () => {
       'ExcelParser',
       'CsvParser',
       'DocxParser',
+      'OfxParser',
+      'QifParser',
+      'Camt053Parser',
+      'Mt940Parser',
     ]);
   });
 });

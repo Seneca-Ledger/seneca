@@ -1,3 +1,4 @@
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
 
 export interface GmailReceipt {
@@ -17,6 +18,8 @@ export interface GmailReceipt {
     categoryId?: string;
     lineItems?: Array<{ description: string; amount?: number }>;
   };
+  /** Resolved by the API from `parsedData.categoryId`; absent when none is picked. */
+  category?: { id: string; name: string; color: string | null; icon: string | null } | null;
   gmailMessageId?: string;
 }
 
@@ -56,6 +59,7 @@ export interface GmailMappedStatement {
   gmailMessageId?: string;
   receivedAt: string;
   parsedData?: GmailMappedParsedData;
+  category?: { id: string; name: string; color: string | null; icon: string | null } | null;
 }
 
 const VENDOR_BANK_PATTERNS: { pattern: RegExp; bankName: string }[] = [
@@ -135,11 +139,12 @@ export const mapGmailReceiptToStatement = (receipt: GmailReceipt): GmailMappedSt
       ? (detectBankFromVendor(receipt.parsedData?.vendor) ?? 'receipt')
       : 'gmail',
     fileType: isLocalReceipt ? 'receipt' : 'gmail',
-    currency: receipt.parsedData?.currency || 'KZT',
+    currency: receipt.parsedData?.currency || FALLBACK_CURRENCY,
     user: null,
     errorMessage: receipt.status === 'failed' ? 'Failed to parse' : null,
     gmailMessageId: receipt.gmailMessageId,
     receivedAt: receipt.receivedAt,
+    category: receipt.category,
     parsedData: {
       amount: amount ?? undefined,
       currency: receipt.parsedData?.currency,

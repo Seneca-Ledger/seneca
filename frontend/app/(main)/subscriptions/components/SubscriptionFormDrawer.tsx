@@ -1,19 +1,21 @@
 'use client';
 
-import { ChevronLeft } from '@/app/components/icons';
-import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
-import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import {
-  type CurrencySearchItem,
-  DEFAULT_RECENT_CURRENCIES,
-  buildCurrencySearchIndex,
-} from '@/app/lib/statement-expense-drawer';
-import { tokens } from '@/lib/theme-tokens';
 import { Button, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { format, isValid, parseISO } from 'date-fns';
 import { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft } from '@/app/components/icons';
+import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
+import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { useIntlayer } from '@/app/i18n';
+import {
+  buildCurrencySearchIndex,
+  type CurrencySearchItem,
+  DEFAULT_RECENT_CURRENCIES,
+} from '@/app/lib/statement-expense-drawer';
+import { tokens } from '@/lib/theme-tokens';
 import type { SubscriptionFormData } from '../hooks/useSubscriptionsPage';
+import { guessVendorDomain } from './vendor-domain.utils';
 
 interface SubscriptionFormDrawerProps {
   open: boolean;
@@ -107,6 +109,7 @@ export function SubscriptionFormDrawer({
   onSave,
   onClose,
 }: SubscriptionFormDrawerProps): React.JSX.Element {
+  const t = useIntlayer('subscriptionsPage');
   const currencyPicker = useCurrencyPickerState(formData.currency || 'USD');
   const {
     currencyDrawerOpen,
@@ -149,25 +152,25 @@ export function SubscriptionFormDrawer({
           '@media (min-width:600px)': { maxWidth: 512 },
         }}
         title={
-          <div className="lumio-payable-drawer__title-wrap">
+          <div className="seneca-payable-drawer__title-wrap">
             <button
               type="button"
               onClick={onClose}
-              className="lumio-payable-drawer__back-btn"
-              aria-label="Cancel"
+              className="seneca-payable-drawer__back-btn"
+              aria-label={t.cancel.value}
             >
               <ChevronLeft size={20} />
             </button>
             <span style={{ fontSize: 18, fontWeight: 600, color: 'var(--foreground)' }}>
-              {isEditing ? 'Edit Subscription' : 'Add Subscription'}
+              {isEditing ? t.editSubscription : t.addSubscription}
             </span>
           </div>
         }
       >
-        <div className="lumio-payable-drawer__body">
+        <div className="seneca-payable-drawer__body">
           <div style={{ display: 'grid', gap: 16 }}>
             <TextField
-              label="Vendor name"
+              label={t.vendorName.value}
               value={formData.vendorName}
               onChange={event => setFormData({ ...formData, vendorName: event.target.value })}
               required
@@ -175,7 +178,16 @@ export function SubscriptionFormDrawer({
             />
 
             <TextField
-              label="Amount"
+              label={t.website.value}
+              value={formData.vendorDomain}
+              onChange={event => setFormData({ ...formData, vendorDomain: event.target.value })}
+              placeholder={guessVendorDomain(formData.vendorName)}
+              helperText={t.websiteHint}
+              fullWidth
+            />
+
+            <TextField
+              label={t.amount.value}
               type="number"
               value={formData.amount}
               onChange={event =>
@@ -189,10 +201,10 @@ export function SubscriptionFormDrawer({
             />
 
             <FormControl fullWidth>
-              <InputLabel>Frequency</InputLabel>
+              <InputLabel>{t.frequency}</InputLabel>
               <Select
                 value={formData.frequency}
-                label="Frequency"
+                label={t.frequency.value}
                 onChange={event =>
                   setFormData({
                     ...formData,
@@ -200,15 +212,15 @@ export function SubscriptionFormDrawer({
                   })
                 }
               >
-                <MenuItem value="weekly">Weekly</MenuItem>
-                <MenuItem value="monthly">Monthly</MenuItem>
-                <MenuItem value="quarterly">Quarterly</MenuItem>
-                <MenuItem value="annual">Annual</MenuItem>
+                <MenuItem value="weekly">{t.weekly}</MenuItem>
+                <MenuItem value="monthly">{t.monthly}</MenuItem>
+                <MenuItem value="quarterly">{t.quarterly}</MenuItem>
+                <MenuItem value="annual">{t.annual}</MenuItem>
               </Select>
             </FormControl>
 
             <TextField
-              label="Currency"
+              label={t.currency.value}
               value={formData.currency}
               fullWidth
               inputProps={{ readOnly: true }}
@@ -217,7 +229,7 @@ export function SubscriptionFormDrawer({
             />
 
             <DatePicker
-              label="Next charge date"
+              label={t.nextChargeDate.value}
               value={parseDateValue(formData.nextChargeDate)}
               onChange={date =>
                 setFormData({
@@ -236,9 +248,9 @@ export function SubscriptionFormDrawer({
             />
           </div>
 
-          <div className="lumio-payable-drawer__footer">
+          <div className="seneca-payable-drawer__footer">
             <Button variant="outlined" sx={{ flex: 1 }} onClick={onClose} disabled={saving}>
-              Cancel
+              {t.cancel}
             </Button>
             <Button
               variant="contained"
@@ -246,7 +258,7 @@ export function SubscriptionFormDrawer({
               onClick={onSave}
               disabled={saving || !canSave}
             >
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? t.saving : t.save}
             </Button>
           </div>
         </div>

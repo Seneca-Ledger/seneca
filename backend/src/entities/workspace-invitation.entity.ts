@@ -9,8 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
-import { type WorkspaceMemberPermissions, WorkspaceRole } from './workspace-member.entity';
 import { Workspace } from './workspace.entity';
+import { type WorkspaceMemberPermissions, WorkspaceRole } from './workspace-member.entity';
 
 export enum WorkspaceInvitationStatus {
   PENDING = 'pending',
@@ -25,7 +25,7 @@ export class WorkspaceInvitation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
@@ -53,7 +53,7 @@ export class WorkspaceInvitation {
   })
   status: WorkspaceInvitationStatus;
 
-  @Column({ name: 'invited_by_id', nullable: true })
+  @Column({ name: 'invited_by_id', type: 'uuid', nullable: true })
   invitedById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

@@ -1,8 +1,19 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import { ArrowLeft, Download, Table } from '@/app/components/icons';
+import { Box, Typography } from '@mui/material';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import Skeleton from '@mui/material/Skeleton';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useTheme } from 'next-themes';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
+import { ArrowLeft, CheckCircle } from '@/app/components/icons';
+import { EInvoicePanel } from '@/app/components/receipts/EInvoicePanel';
+import { ReceiptLocationSection } from '@/app/components/receipts/location/ReceiptLocationSection';
 import { ReceiptParsedDataForm } from '@/app/components/receipts/ReceiptParsedDataForm';
+import { ReceiptTransactionMatch } from '@/app/components/receipts/ReceiptTransactionMatch';
 import type {
   EditableReceiptLineItem,
   EditableReceiptParsedData,
@@ -10,27 +21,29 @@ import type {
 } from '@/app/components/receipts/receipt-types';
 import { DetailActionButton } from '@/app/components/ui/detail-action-button';
 import { Spinner } from '@/app/components/ui/spinner';
-import apiClient, { apiBaseUrl, receiptsApi, type ReceiptRecord } from '@/app/lib/api';
+import { useIntlayer } from '@/app/i18n';
+import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
+import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, Typography } from '@mui/material';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
-import Skeleton from '@mui/material/Skeleton';
-import { useTheme } from 'next-themes';
-import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
 
 type ReceiptExportColumn = {
+  /** Row key the column's values are stored under; `title` is the localized header. */
+  field: string;
   title: string;
   type: 'text' | 'number' | 'date';
 };
 
 type ReceiptExportRow = Record<string, string | number>;
+
+type ReceiptExportColumnLabels = Record<
+  'item' | 'vendor' | 'date' | 'amount' | 'currency' | 'source' | 'status',
+  string
+>;
 
 function buildLineItems(receipt: ReceiptRecord | null): EditableReceiptLineItem[] {
   return normalizeReceiptLineItems(receipt?.parsedData).map((item, index) => ({
@@ -40,11 +53,20 @@ function buildLineItems(receipt: ReceiptRecord | null): EditableReceiptLineItem[
   }));
 }
 
+function buildReceiptDisplayTitle(receipt: ReceiptRecord, titleTemplate: string): string {
+  const vendor = receipt.parsedData?.vendor?.trim();
+  if (!vendor) {
+    return receipt.subject;
+  }
+  const date = receipt.parsedData?.date || receipt.receivedAt;
+  return titleTemplate.replace('{vendor}', vendor).replace('{date}', formatStoredDate(date));
+}
+
 function buildInitialForm(receipt: ReceiptRecord | null): EditableReceiptParsedData {
   return {
     vendor: receipt?.parsedData?.vendor ?? '',
     amount: receipt?.parsedData?.amount ?? '',
-    currency: receipt?.parsedData?.currency ?? 'KZT',
+    currency: receipt?.parsedData?.currency ?? FALLBACK_CURRENCY,
     date: receipt?.parsedData?.date?.split('T')[0] ?? '',
     tax: receipt?.parsedData?.tax ?? '',
     paymentMethod: receipt?.parsedData?.paymentMethod ?? '',
@@ -75,6 +97,7 @@ function buildParsedDataPayload(formValue: EditableReceiptParsedData) {
 function buildReceiptExportData(
   receipt: ReceiptRecord,
   formValue: EditableReceiptParsedData,
+  labels: ReceiptExportColumnLabels,
 ): {
   columns: ReceiptExportColumn[];
   rows: ReceiptExportRow[];
@@ -86,29 +109,29 @@ function buildReceiptExportData(
   const hasLineItems = parsedData.lineItems.length > 0;
 
   if (hasLineItems) {
-    columns.push({ title: 'Item', type: 'text' });
+    columns.push({ field: 'Item', title: labels.item, type: 'text' });
   } else if (parsedData.vendor?.trim()) {
-    columns.push({ title: 'Vendor', type: 'text' });
+    columns.push({ field: 'Vendor', title: labels.vendor, type: 'text' });
     baseRow.Vendor = parsedData.vendor.trim();
   }
   if (parsedData.date?.trim()) {
-    columns.push({ title: 'Date', type: 'date' });
+    columns.push({ field: 'Date', title: labels.date, type: 'date' });
     baseRow.Date = parsedData.date.trim();
   }
   if (typeof parsedData.amount === 'number' && Number.isFinite(parsedData.amount)) {
-    columns.push({ title: 'Amount', type: 'number' });
+    columns.push({ field: 'Amount', title: labels.amount, type: 'number' });
     baseRow.Amount = parsedData.amount;
   }
   if (parsedData.currency?.trim()) {
-    columns.push({ title: 'Currency', type: 'text' });
+    columns.push({ field: 'Currency', title: labels.currency, type: 'text' });
     baseRow.Currency = parsedData.currency.trim();
   }
   if (receipt.source?.trim()) {
-    columns.push({ title: 'Source', type: 'text' });
+    columns.push({ field: 'Source', title: labels.source, type: 'text' });
     baseRow.Source = receipt.source.trim();
   }
   if (receipt.status?.trim()) {
-    columns.push({ title: 'Status', type: 'text' });
+    columns.push({ field: 'Status', title: labels.status, type: 'text' });
     baseRow.Status = receipt.status.trim();
   }
 
@@ -182,14 +205,13 @@ function ReceiptPreviewContent({
   inkColor: string;
   borderColor: string;
 }) {
+  const t = useIntlayer('receiptDocumentPage');
   if (loading) {
-    return <Box sx={previewPlaceholderSx(inkColor)}>Preparing preview...</Box>;
+    return <Box sx={previewPlaceholderSx(inkColor)}>{t.preparingPreview}</Box>;
   }
-  if (error) {
-    return <Box sx={previewPlaceholderSx(inkColor)}>{error}</Box>;
-  }
-  if (!url) {
-    return <Box sx={previewPlaceholderSx(inkColor)}>Preview unavailable</Box>;
+  // `error` is only ever set when the preview fetch failed; show the localized message.
+  if (error || !url) {
+    return <Box sx={previewPlaceholderSx(inkColor)}>{t.previewUnavailable}</Box>;
   }
   if (isPdf) {
     return (
@@ -201,6 +223,7 @@ function ReceiptPreviewContent({
           minHeight: 760,
           width: '100%',
           border: `1px solid ${borderColor}`,
+          borderRadius: tokens.radius.md,
           background: 'var(--card-bg)',
           display: 'block',
         }}
@@ -228,9 +251,11 @@ function ReceiptPreviewContent({
 export default function ReceiptDocumentPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const receiptId = params.id;
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
+  const t = useIntlayer('receiptDocumentPage');
 
   const [receipt, setReceipt] = useState<ReceiptRecord | null>(null);
   const [categories, setCategories] = useState<ReceiptCategoryOption[]>([]);
@@ -246,31 +271,28 @@ export default function ReceiptDocumentPage() {
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    try {
+    await (async () => {
       setLoading(true);
       setError(null);
 
-      const [receiptResponse, categoriesResponse] = await Promise.all([
-        apiClient.get(`/receipts/${receiptId}`),
-        apiClient.get('/categories'),
+      const [nextReceipt, nextCategories] = await Promise.all([
+        apiQueryDecoded({ url: `/receipts/${receiptId}`, contract: 'ReceiptRecord' }),
+        apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }),
       ]);
-
-      const nextReceipt = (receiptResponse.data?.data || receiptResponse.data) as ReceiptRecord;
-      const nextCategories = (categoriesResponse.data?.data ||
-        categoriesResponse.data ||
-        []) as ReceiptCategoryOption[];
 
       setReceipt(nextReceipt);
       setFormValue(buildInitialForm(nextReceipt));
       setCategories(nextCategories);
-    } catch (loadError) {
-      console.error('Failed to load receipt details:', loadError);
-      setError('Failed to load receipt');
-      toast.error('Failed to load receipt');
-    } finally {
-      setLoading(false);
-    }
-  }, [receiptId]);
+    })()
+      .catch(async loadError => {
+        console.error('Failed to load receipt details:', loadError);
+        setError(t.loadFailed.value);
+        toast.error(t.loadFailed.value);
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
+  }, [receiptId, t]);
 
   useEffect(() => {
     void loadData();
@@ -361,11 +383,12 @@ export default function ReceiptDocumentPage() {
         return;
       }
 
-      try {
+      await (async () => {
         await apiClient.patch(`/receipts/${receipt.id}`, {
           parsedData: nextPayload,
-        });
+        } satisfies ContractInput<'UpdateReceiptBody'>);
         lastSavedPayloadRef.current = serializedPayload;
+        invalidateDocumentLists();
         setReceipt(currentReceipt =>
           currentReceipt
             ? {
@@ -377,11 +400,11 @@ export default function ReceiptDocumentPage() {
               }
             : currentReceipt,
         );
-      } catch {
-        toast.error('Failed to autosave receipt changes.');
-      }
+      })().catch(async () => {
+        toast.error(t.autosaveFailed.value);
+      });
     },
-    [receipt],
+    [receipt, t],
   );
 
   const handleFormChange = useCallback(
@@ -399,26 +422,37 @@ export default function ReceiptDocumentPage() {
     [persistParsedData],
   );
 
-  const handleApprove = async () => {
+  const handleApprove = async (options: { transactionId?: string | null } = {}) => {
     if (!receipt) {
+      return;
+    }
+    // Booking it without a date would date the expense today. A bank row to
+    // attach to brings its own date.
+    if (!(formValue.date || options.transactionId)) {
+      toast.error(t.approveNeedsDate.value);
       return;
     }
 
     setSaving(true);
-    try {
+
+    await (async () => {
       const currentPayload = buildParsedDataPayload(formValue);
       await apiClient.patch(`/receipts/${receipt.id}`, {
         parsedData: currentPayload,
-      });
+      } satisfies ContractInput<'UpdateReceiptBody'>);
       lastSavedPayloadRef.current = JSON.stringify(currentPayload);
-      await receiptsApi.approveReceipt(receipt.id);
-      toast.success('Receipt approved.');
-      await loadData();
-    } catch {
-      toast.error('Failed to approve receipt.');
-    } finally {
-      setSaving(false);
-    }
+      await receiptsApi.approveReceipt(receipt.id, options);
+      toast.success(t.approved.value);
+      // It leaves the Review queue; both lists are cached for 30s.
+      invalidateDocumentLists();
+      router.push(searchParams.get('from') === 'review' ? '/review' : '/statements/submit');
+    })()
+      .catch(async () => {
+        toast.error(t.approveFailed.value);
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleDownload = async () => {
@@ -426,7 +460,7 @@ export default function ReceiptDocumentPage() {
       return;
     }
 
-    try {
+    await (async () => {
       const response = await fetch(`${apiBaseUrl}/receipts/${receipt.id}/file`, {
         method: 'GET',
         headers: getWorkspaceHeaders(),
@@ -447,34 +481,50 @@ export default function ReceiptDocumentPage() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-    } catch (downloadError) {
+    })().catch(async downloadError => {
       console.error('Failed to download receipt:', downloadError);
-      toast.error('Failed to download receipt');
-    }
+      toast.error(t.downloadFailed.value);
+    });
   };
 
   const handleExportToTable = async () => {
     if (!receipt) {
-      toast.error('Export to table is unavailable for this receipt yet');
+      toast.error(t.exportUnavailable.value);
       return;
     }
 
     setExportingToTable(true);
-    try {
-      const exportData = buildReceiptExportData(receipt, formValue);
+
+    return await (async () => {
+      const exportData = buildReceiptExportData(receipt, formValue, {
+        item: t.columns.item.value,
+        vendor: t.columns.vendor.value,
+        date: t.columns.date.value,
+        amount: t.columns.amount.value,
+        currency: t.columns.currency.value,
+        source: t.columns.source.value,
+        status: t.columns.status.value,
+      });
 
       if (!(exportData.columns.length && exportData.rows.length)) {
-        toast.error('There are no parsed receipt fields to export yet');
+        toast.error(t.exportNoFields.value);
         return;
       }
 
       const createTableResponse = await apiClient.post('/custom-tables', {
-        name: `Receipt ${receipt.subject}`.slice(0, 120),
-        description: `Exported from scanned receipt on ${formatStoredDate(receipt.receivedAt)}`,
-      });
+        name: t.tableName.value.replace('{subject}', receipt.subject).slice(0, 120),
+        description: t.tableDescription.value.replace(
+          '{date}',
+          formatStoredDate(receipt.receivedAt),
+        ),
+      } satisfies ContractInput<'CreateCustomTableBody'>);
 
-      const createdTable = createTableResponse.data?.data || createTableResponse.data;
-      const tableId = createdTable?.id;
+      const createdTable = await checkContract(
+        'CreatedCustomTable',
+        createTableResponse.data,
+        '/custom-tables',
+      );
+      const tableId = createdTable.id;
 
       if (!tableId) {
         toast.error('Failed to export to table');
@@ -483,20 +533,24 @@ export default function ReceiptDocumentPage() {
       }
 
       const createdColumns = await Promise.all(
-        exportData.columns.map(column =>
-          apiClient.post(`/custom-tables/${tableId}/columns`, {
+        exportData.columns.map(async column => {
+          const response = await apiClient.post(`/custom-tables/${tableId}/columns`, {
             title: column.title,
             type: column.type,
-          }),
-        ),
+          } satisfies ContractInput<'CreateCustomTableColumnBody'>);
+          return checkContract(
+            'CustomTableColumnItem',
+            response.data,
+            '/custom-tables/:id/columns',
+          );
+        }),
       );
 
-      const columnKeyByTitle = exportData.columns.reduce<Record<string, string>>(
+      const columnKeyByField = exportData.columns.reduce<Record<string, string>>(
         (acc, column, index) => {
-          const payload = createdColumns[index]?.data?.data || createdColumns[index]?.data;
-          const key = payload?.key;
+          const key = createdColumns[index]?.key;
           if (key) {
-            acc[column.title] = key;
+            acc[column.field] = key;
           }
           return acc;
         },
@@ -505,8 +559,8 @@ export default function ReceiptDocumentPage() {
 
       const rows = exportData.rows.map(row => {
         const data = Object.entries(row).reduce<Record<string, string | number>>(
-          (acc, [title, value]) => {
-            const key = columnKeyByTitle[title];
+          (acc, [field, value]) => {
+            const key = columnKeyByField[field];
             if (key && value !== undefined && value !== '') {
               acc[key] = value;
             }
@@ -520,16 +574,18 @@ export default function ReceiptDocumentPage() {
 
       await apiClient.post(`/custom-tables/${tableId}/rows/batch`, {
         rows,
-      });
+      } satisfies ContractInput<'BatchCreateCustomTableRowsBody'>);
 
-      toast.success('Table created successfully');
+      toast.success(t.exportSuccess.value);
       router.push(`/custom-tables/${tableId}`);
       return;
-    } catch {
-      toast.error('Failed to export to table');
-    } finally {
-      setExportingToTable(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error('Failed to export to table');
+      })
+      .finally(async () => {
+        setExportingToTable(false);
+      });
   };
 
   if (loading) {
@@ -643,7 +699,7 @@ export default function ReceiptDocumentPage() {
             color: c.danger,
           }}
         >
-          {error || 'Receipt not found'}
+          {error || t.notFound}
         </Box>
         <Box
           component="button"
@@ -664,7 +720,7 @@ export default function ReceiptDocumentPage() {
           }}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Back
+          {t.back}
         </Box>
       </Box>
     );
@@ -673,26 +729,41 @@ export default function ReceiptDocumentPage() {
   const attachment = receipt.metadata?.attachments?.[0];
   const isPdf = (previewMimeType || attachment?.mimeType || '').includes('pdf');
   const canExportToTable = Boolean(receipt);
+  const displayTitle = buildReceiptDisplayTitle(receipt, t.displayTitle.value);
 
   return (
     <Box
       className="container-shared"
+      // On wide screens the page fits the viewport: the document and the form
+      // scroll on their own, so the header and Approve stay in view.
       sx={{
         height: '100%',
-        overflowY: 'auto',
+        overflowY: { xs: 'auto', xl: 'hidden' },
         overflowX: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
         px: { xs: 2, sm: 3, lg: 4 },
-        py: 4,
+        py: { xs: 4, xl: 2.5 },
       }}
     >
-      <Box sx={{ display: 'flex', width: '100%', flexDirection: 'column', gap: 3 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          width: '100%',
+          flexDirection: 'column',
+          gap: { xs: 3, xl: 2 },
+          flex: { xl: 1 },
+          minHeight: { xl: 0 },
+        }}
+      >
         <Box
           sx={{
             display: 'flex',
             flexDirection: { xs: 'column', sm: 'row' },
             gap: 2,
             borderBottom: `1px solid ${c.ink150}`,
-            pb: 3,
+            pb: { xs: 3, xl: 2 },
+            flexShrink: 0,
             alignItems: { sm: 'center' },
             justifyContent: { sm: 'space-between' },
           }}
@@ -717,7 +788,7 @@ export default function ReceiptDocumentPage() {
               }}
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back
+              {t.back}
             </Box>
             <Box>
               <Typography
@@ -729,52 +800,92 @@ export default function ReceiptDocumentPage() {
                   color: c.ink500,
                 }}
               >
-                Receipt details
+                {t.eyebrow}
               </Typography>
               <Typography
                 component="h1"
                 style={{
-                  marginTop: 8,
-                  fontSize: 30,
+                  marginTop: 4,
+                  fontSize: 24,
                   fontWeight: 600,
-                  letterSpacing: '-0.025em',
+                  letterSpacing: '-0.02em',
                   color: c.ink900,
                 }}
               >
-                {receipt.subject}
+                {displayTitle}
               </Typography>
-              <Typography style={{ marginTop: 8, fontSize: 14, color: c.ink700 }}>
+              {displayTitle !== receipt.subject && (
+                <Typography style={{ marginTop: 4, fontSize: 12, color: c.ink500 }}>
+                  {receipt.subject}
+                </Typography>
+              )}
+              <Typography style={{ marginTop: 4, fontSize: 13, color: c.ink700 }}>
                 {receipt.source} · {formatStoredDate(receipt.receivedAt)}
               </Typography>
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
-            <DetailActionButton type="button" onClick={handleDownload}>
-              <Download className="h-4 w-4" />
-              Download
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+            <DetailActionButton variant="ghost" type="button" onClick={handleDownload}>
+              {t.download}
             </DetailActionButton>
             <DetailActionButton
+              variant="ghost"
               type="button"
               onClick={() => setExportConfirmOpen(true)}
               disabled={exportingToTable || !canExportToTable}
             >
-              <Table className="h-4 w-4" />
-              Export to table
+              {t.exportToTable}
             </DetailActionButton>
-            <DetailActionButton type="button" onClick={handleApprove} disabled={saving}>
-              {saving ? <Spinner className="size-[18px]" /> : null}
-              Approve receipt
-            </DetailActionButton>
+            {/* Approving again books nothing new, so an approved receipt says so instead. */}
+            {receipt.status === 'approved' ? (
+              <Box
+                role="status"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  px: 1.5,
+                  height: 32,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'var(--primary)',
+                }}
+              >
+                <CheckCircle size={18} />
+                {t.approvedState}
+              </Box>
+            ) : (
+              <DetailActionButton
+                variant="default"
+                type="button"
+                onClick={() => void handleApprove()}
+                disabled={saving}
+              >
+                {saving ? <Spinner className="size-[18px] mr-2" /> : null}
+                {t.approve}
+              </DetailActionButton>
+            )}
           </Box>
         </Box>
+
+        <ReceiptTransactionMatch
+          receipt={receipt}
+          categories={categories}
+          saving={saving}
+          onApprove={handleApprove}
+          onChanged={loadData}
+        />
 
         <Box
           sx={{
             display: 'grid',
             alignItems: 'stretch',
-            gap: 3,
-            gridTemplateColumns: { xs: '1fr', xl: 'minmax(360px, 0.95fr) minmax(0, 1.05fr)' },
+            gap: { xs: 3, xl: 2.5 },
+            gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 1fr) minmax(0, 1fr)' },
+            gridTemplateRows: { xl: 'minmax(0, 1fr)' },
+            flex: { xl: 1 },
+            minHeight: { xl: 0 },
           }}
         >
           <Box
@@ -785,16 +896,17 @@ export default function ReceiptDocumentPage() {
               sx={{
                 display: 'flex',
                 height: '100%',
-                minHeight: 420,
+                minHeight: { xs: 420, xl: 0 },
                 flexDirection: 'column',
                 overflow: 'hidden',
                 border: `1px solid ${c.ink150}`,
+                borderRadius: tokens.radius.lg,
                 bgcolor: 'background.paper',
               }}
             >
               <Box sx={{ borderBottom: `1px solid ${c.ink150}`, px: 2.5, py: 2 }}>
                 <Typography style={{ fontSize: 14, fontWeight: 600, color: c.ink900 }}>
-                  Original document
+                  {t.originalDocument}
                 </Typography>
               </Box>
               <Box sx={{ flex: 1, overflow: 'auto', bgcolor: c.ink50, p: 2 }}>
@@ -815,37 +927,52 @@ export default function ReceiptDocumentPage() {
             component="section"
             sx={{
               height: '100%',
-              border: `1px solid ${c.ink150}`,
-              bgcolor: 'background.paper',
-              p: 3,
+              minHeight: 0,
+              overflowY: { xl: 'auto' },
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2.5,
+              // No card: the form sits straight on the page, beside the document.
+              px: { xl: 1 },
             }}
           >
             <Box
               sx={{
-                mb: 2.5,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 2,
                 borderBottom: `1px solid ${c.ink150}`,
-                pb: 2,
+                pb: 1.5,
               }}
             >
               <Box>
-                <Typography style={{ fontSize: 18, fontWeight: 600, color: c.ink900 }}>
-                  Parsed fields
+                <Typography style={{ fontSize: 16, fontWeight: 600, color: c.ink900 }}>
+                  {t.parsedFields}
                 </Typography>
-                <Typography style={{ marginTop: 4, fontSize: 14, color: c.ink500 }}>
-                  Review and correct the extracted receipt data before approval.
+                <Typography style={{ marginTop: 2, fontSize: 13, color: c.ink500 }}>
+                  {t.parsedFieldsHint}
                 </Typography>
               </Box>
             </Box>
 
             <ReceiptParsedDataForm
+              compact
               value={formValue}
               categories={categories}
               onChange={handleFormChange}
             />
+
+            {receipt.parsedData?.einvoice ? (
+              <EInvoicePanel
+                einvoice={receipt.parsedData.einvoice}
+                issues={receipt.parsedData.validationIssues ?? []}
+                currency={receipt.parsedData.currency ?? FALLBACK_CURRENCY}
+              />
+            ) : null}
+
+            {/* In the form's column, so correcting a place never scrolls the document away. */}
+            <ReceiptLocationSection flat receipt={receipt} onReceiptChange={setReceipt} />
           </Box>
         </Box>
       </Box>
@@ -856,10 +983,10 @@ export default function ReceiptDocumentPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle sx={{ fontSize: 22, fontWeight: 600 }}>Confirm export</DialogTitle>
+        <DialogTitle sx={{ fontSize: 22, fontWeight: 600 }}>{t.confirmExportTitle}</DialogTitle>
         <DialogContent dividers>
           <Typography style={{ fontSize: 16, lineHeight: 2, color: c.ink800 }}>
-            Are you sure you want to export this statement to a custom table?
+            {t.confirmExportBody}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 4, py: 3, gap: 1.5 }}>
@@ -879,7 +1006,7 @@ export default function ReceiptDocumentPage() {
               '&:hover': { borderColor: 'primary.main', color: 'primary.main' },
             }}
           >
-            Cancel
+            {t.cancel}
           </Box>
           <Box
             component="button"
@@ -906,7 +1033,7 @@ export default function ReceiptDocumentPage() {
             }}
           >
             {exportingToTable ? <Spinner className="h-4 w-4" /> : null}
-            Export
+            {t.confirmExport}
           </Box>
         </DialogActions>
       </Dialog>

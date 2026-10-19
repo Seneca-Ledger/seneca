@@ -1,142 +1,130 @@
 'use client';
 
-import { Check, ChevronDown, Plus } from '@/app/components/icons';
-import { useMenuClickOutside } from '@/app/components/pdf-preview/hooks/useMenuClickOutside';
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
-import { useAuth } from '@/app/hooks/useAuth';
-import { usePermissions } from '@/app/hooks/usePermissions';
-import { useIntlayer } from '@/app/i18n';
 import Skeleton from '@mui/material/Skeleton';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useState } from 'react';
-import { buildNavItems, isNavItemActive } from './navigation/helpers/navigation-config';
+import type React from 'react';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useAuth } from '@/app/hooks/useAuth';
+import { useNotifications } from '@/app/hooks/useNotifications';
+import { usePermissions } from '@/app/hooks/usePermissions';
+import { useIntlayer } from '@/app/i18n';
+import { useExperimentalMode } from '@/app/lib/experimental-mode';
+import { openCommandPalette } from './command-palette/command-palette-store';
+import { Bell, Heart, PanelLeftClose, Search, Settings } from './icons';
+import { AccountMenu } from './navigation/AccountMenu';
+import {
+  buildNavItems,
+  isNavItemActive,
+  isNavItemVisible,
+  workspaceProfileOf,
+} from './navigation/helpers/navigation-config';
+import { toggleSidebarCollapsed, useSidebarCollapsed } from './navigation/sidebar-collapsed-store';
+import { openAppPanel } from './panels/app-panels-store';
+import { useReviewInboxTotal } from './review/useReviewInboxTotal';
+
+const REVIEW_PATH = '/review';
 
 // Matches buildNavItems() length so the skeleton doesn't jump when real items land.
-const NAV_ITEM_SKELETON_KEYS = Array.from({ length: 10 }, (_, i) => `nav-skeleton-${i}`);
+const NAV_ITEM_SKELETON_KEYS = Array.from({ length: 16 }, (_, i) => `nav-skeleton-${i}`);
 
-function WorkspaceSwitcher() {
-  const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace();
-  const [open, setOpen] = useState(false);
-  const close = useCallback(() => setOpen(false), []);
-  const switcherRef = useMenuClickOutside({ menuOpen: open, onClose: close });
-
-  if (!currentWorkspace) return null;
-
-  const initials = (currentWorkspace.name ?? '?').slice(0, 1).toUpperCase();
-  const color = currentWorkspace.color ?? '#168118';
-  const role = currentWorkspace.memberRole;
-
-  return (
-    <div
-      ref={switcherRef}
-      className="lumio-sidebar__ws-switcher"
-      onClick={() => setOpen(prev => !prev)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') setOpen(prev => !prev);
-      }}
-      aria-expanded={open}
-    >
-      <div className="lumio-sidebar__ws-chip" style={{ background: color }}>
-        {initials}
-      </div>
-      <div className="lumio-sidebar__ws-info">
-        <div className="lumio-sidebar__ws-name">{currentWorkspace.name}</div>
-        {role && <div className="lumio-sidebar__ws-role">{role}</div>}
-      </div>
-      <ChevronDown
-        size={14}
-        className={`lumio-sidebar__ws-chevron${open ? ' lumio-sidebar__ws-chevron--open' : ''}`}
-      />
-
-      {open && (
-        <div className="lumio-sidebar__ws-dropdown" onClick={e => e.stopPropagation()} role="menu">
-          <div className="lumio-sidebar__ws-dropdown-label">Switch workspace</div>
-          {workspaces.map(ws => (
-            <button
-              key={ws.id}
-              type="button"
-              className={`lumio-sidebar__ws-item${ws.id === currentWorkspace.id ? ' lumio-sidebar__ws-item--active' : ''}`}
-              onClick={() => {
-                void switchWorkspace(ws.id);
-                setOpen(false);
-              }}
-              role="menuitem"
-            >
-              <div className="lumio-sidebar__ws-chip" style={{ background: ws.color ?? '#168118' }}>
-                {(ws.name ?? '?').slice(0, 1).toUpperCase()}
-              </div>
-              <span className="lumio-sidebar__ws-item-name">{ws.name}</span>
-              {ws.id === currentWorkspace.id && <Check size={13} />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-type SidebarProps = {
-  onNavClick?: () => void;
-};
-
-export function SidebarContent({ onNavClick }: SidebarProps) {
+function SidebarContent({
+  collapsed,
+  onToggleCollapsed,
+}: {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}) {
   const pathname = usePathname();
   const { hasPermission } = usePermissions();
   const { loading: authLoading } = useAuth();
-  const { loading: workspaceLoading } = useWorkspace();
-  const { nav, supportProject } = useIntlayer('navigation');
+  const { loading: workspaceLoading, currentWorkspace } = useWorkspace();
+  const { nav, supportProject, shell, userMenu } = useIntlayer('navigation');
+  const notificationsText = useIntlayer('notificationDropdown');
+  const { unreadCount } = useNotifications();
 
   const isLoading = authLoading || workspaceLoading;
   const navItems = buildNavItems(nav as Parameters<typeof buildNavItems>[0]);
-  const visibleNavItems = navItems.filter(item => hasPermission(item.permission));
+  const experimentalMode = useExperimentalMode();
+  const profile = workspaceProfileOf(currentWorkspace);
+  const visibleNavItems = navItems.filter(item =>
+    isNavItemVisible(item, { hasPermission, experimentalMode, profile }),
+  );
+  // Only asked for when Review is in the menu: without the permission the call would be refused.
+  const reviewWaiting =
+    useReviewInboxTotal(visibleNavItems.some(item => item.path === REVIEW_PATH)) > 0;
+
+  // Every row of the sidebar — the nav items plus the account entry and the
+  // support link below them — shares the window height; CSS sizes them from it.
+  const rowCount = (isLoading ? NAV_ITEM_SKELETON_KEYS.length : visibleNavItems.length) + 2;
+  const rowsStyle = { '--seneca-sidebar-rows': rowCount } as React.CSSProperties;
 
   return (
     <>
-      {/* Brand */}
-      <Link href="/" className="lumio-sidebar__brand" onClick={onNavClick} aria-label="Lumio home">
-        <div className="lumio-sidebar__brand-name">LUMIO</div>
-      </Link>
-
-      {/* Workspace switcher */}
-      {isLoading ? (
-        <div className="lumio-sidebar__ws-switcher">
-          <Skeleton variant="rounded" width={28} height={28} />
-          <div className="lumio-sidebar__ws-info">
-            <Skeleton variant="text" width="70%" height={16} />
-            <Skeleton variant="text" width="40%" height={13} />
-          </div>
-        </div>
-      ) : (
-        <WorkspaceSwitcher />
-      )}
-
-      {/* CTA */}
-      {isLoading ? (
-        <div className="lumio-sidebar__cta">
-          <Skeleton variant="rounded" width={18} height={18} />
-          <Skeleton variant="text" width={90} height={16} />
-        </div>
-      ) : (
-        <Link href="/statements?upload=1" className="lumio-sidebar__cta" onClick={onNavClick}>
-          <span className="lumio-sidebar__cta-icon">
-            <Plus size={12} />
-          </span>
-          <span>New statement</span>
-          <span className="lumio-sidebar__kbd">⌘ N</span>
+      {/* Brand: the emblem alone, so the rest of the row is free for the actions */}
+      <div className="seneca-sidebar__brand" style={rowsStyle}>
+        <Link href="/" className="seneca-sidebar__brand-link" aria-label={shell.home.value}>
+          <span className="seneca-sidebar__brand-emblem" />
         </Link>
-      )}
+
+        {/* Folded away in the idle rail, where there is only room for the emblem. */}
+        <div className="seneca-sidebar__brand-actions">
+          <button
+            type="button"
+            className="seneca-sidebar__brand-action"
+            onClick={openCommandPalette}
+            title={shell.search.value}
+            aria-label={shell.search.value}
+          >
+            <Search size={17} />
+          </button>
+          <button
+            type="button"
+            className="seneca-sidebar__brand-action"
+            onClick={() => {
+              openAppPanel('notifications');
+            }}
+            title={notificationsText.title.value}
+            aria-label={notificationsText.title.value}
+          >
+            <Bell size={17} />
+            {unreadCount > 0 ? <span className="seneca-sidebar__brand-action-dot" /> : null}
+          </button>
+          <Link
+            href="/settings/profile"
+            className="seneca-sidebar__brand-action"
+            title={userMenu.settings.value}
+            aria-label={userMenu.settings.value}
+          >
+            <Settings size={17} />
+          </Link>
+          <button
+            type="button"
+            className="seneca-sidebar__brand-action"
+            onClick={onToggleCollapsed}
+            aria-pressed={collapsed}
+            aria-label={collapsed ? shell.expandSidebar.value : shell.collapseSidebar.value}
+            title={collapsed ? shell.expandSidebar.value : shell.collapseSidebar.value}
+          >
+            <PanelLeftClose size={17} />
+          </button>
+        </div>
+      </div>
 
       {/* Navigation */}
-      <nav className="lumio-sidebar__nav" aria-label="Main navigation">
-        <div className="lumio-sidebar__section-label">Workspace</div>
+      <nav
+        className="seneca-sidebar__nav"
+        aria-label={shell.mainNavigation.value}
+        style={rowsStyle}
+      >
         {isLoading
           ? NAV_ITEM_SKELETON_KEYS.map(key => (
-              <div className="lumio-sidebar__nav-item" key={key}>
+              <div className="seneca-sidebar__nav-item" key={key}>
                 <Skeleton variant="rounded" width={18} height={18} />
-                <Skeleton variant="text" width="60%" height={16} />
+                {/* Labelled like a real row, so the collapsed rail folds it away. */}
+                <span className="seneca-sidebar__nav-label">
+                  <Skeleton variant="text" width="60%" height={16} />
+                </span>
               </div>
             ))
           : visibleNavItems.map(item => {
@@ -145,25 +133,44 @@ export function SidebarContent({ onNavClick }: SidebarProps) {
                 <Link
                   key={item.path}
                   href={item.path}
-                  className={`lumio-sidebar__nav-item${active ? ' lumio-sidebar__nav-item--active' : ''}`}
-                  onClick={onNavClick}
+                  className={`seneca-sidebar__nav-item${active ? ' seneca-sidebar__nav-item--active' : ''}`}
                 >
-                  <span className="lumio-sidebar__nav-icon">{item.icon}</span>
-                  <span className="lumio-sidebar__nav-label">{item.label}</span>
+                  {item.path === REVIEW_PATH ? (
+                    // The icon is dimmed; the dot sits beside it so it keeps its full colour.
+                    <span className="seneca-sidebar__nav-icon-slot">
+                      <span className="seneca-sidebar__nav-icon">{item.icon}</span>
+                      {/* Something waits in Review: a quiet dot, the count is on the page itself. */}
+                      {reviewWaiting ? (
+                        <span
+                          className="seneca-sidebar__nav-dot"
+                          data-testid="review-waiting-dot"
+                        />
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span className="seneca-sidebar__nav-icon">{item.icon}</span>
+                  )}
+                  <span className="seneca-sidebar__nav-label">{item.label}</span>
                 </Link>
               );
             })}
       </nav>
 
-      <div className="lumio-sidebar__footer">
+      <div className="seneca-sidebar__footer" style={rowsStyle}>
+        <AccountMenu />
+
         <a
           href="https://github.com/sponsors/symonbaikov"
           target="_blank"
           rel="noopener noreferrer"
-          className="lumio-sidebar__support-link"
+          className="seneca-sidebar__support-link"
         >
-          <span className="lumio-sidebar__support-icon">💚</span>
-          {(supportProject as { value?: string })?.value ?? 'Support the project'}
+          <span className="seneca-sidebar__support-icon" aria-hidden="true">
+            <Heart />
+          </span>
+          <span className="seneca-sidebar__support-label">
+            {(supportProject as { value?: string })?.value ?? 'Support the project'}
+          </span>
         </a>
       </div>
     </>
@@ -171,9 +178,15 @@ export function SidebarContent({ onNavClick }: SidebarProps) {
 }
 
 export default function Sidebar() {
+  // Collapsed keeps only the icon rail; hovering (or focusing into) the rail
+  // brings the full sidebar back — both widths come from CSS, which reflows the
+  // page beside it. The state lives in a store so the command palette can
+  // toggle it from outside this tree.
+  const collapsed = useSidebarCollapsed();
+
   return (
-    <aside className="lumio-shell__sidebar">
-      <SidebarContent />
+    <aside className={`seneca-shell__sidebar${collapsed ? ' seneca-shell__sidebar--rail' : ''}`}>
+      <SidebarContent collapsed={collapsed} onToggleCollapsed={toggleSidebarCollapsed} />
     </aside>
   );
 }

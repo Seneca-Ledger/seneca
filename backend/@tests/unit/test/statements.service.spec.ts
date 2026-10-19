@@ -3,19 +3,28 @@ import { calculateFileHash } from '@/common/utils/file-hash.util';
 import { FileType } from '@/entities/statement.entity';
 import { StatementsService } from '@/modules/statements/statements.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { workspaceCurrencyStub } from '../../helpers/workspace-currency-stub';
 
 jest.mock('@/common/utils/file-hash.util', () => ({
   calculateFileHash: jest.fn(),
 }));
 
 describe('StatementsService', () => {
-  const statementRepository = {
+  // create() оборачивает проверку дубликатов и вставку в транзакцию с advisory-lock;
+  // менеджер прокидывает вызовы в тот же мок-репозиторий, чтобы ассерты не менялись.
+  const statementRepository: Record<string, any> = {
     create: jest.fn(data => data),
     save: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
+  const statementManager = {
+    query: jest.fn(),
+    getRepository: jest.fn(() => statementRepository),
+    transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(statementManager)),
+  };
+  statementRepository.manager = statementManager;
 
   const auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
   const userRepository = {
@@ -63,12 +72,15 @@ describe('StatementsService', () => {
       categoryRepository as any,
       taxRateRepository as any,
       workspaceMemberRepository as any,
+      { findOne: jest.fn(async () => null) } as any,
       fileStorageService as any,
       statementProcessingService as any,
       { enqueue: jest.fn() } as any,
       receiptStatementService as any,
       cacheManager as any,
       auditService as any,
+      { resolve: jest.fn(async () => ({})) } as any,
+      workspaceCurrencyStub() as never,
       eventEmitter as any,
     );
     jest.spyOn(service as any, 'ensureCanEditStatements').mockResolvedValue(undefined);

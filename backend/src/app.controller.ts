@@ -1,8 +1,9 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { Controller, Get, Res, ServiceUnavailableException } from '@nestjs/common';
 import type { Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import { AppService } from './app.service';
+import { APP_NAME } from './common/brand';
 import { Public } from './modules/auth/decorators/public.decorator';
 
 type ReadinessResponse = Awaited<ReturnType<AppService['getReadiness']>>;
@@ -39,7 +40,7 @@ export class AppController {
     } else {
       // Fallback to API info
       res.status(200).json({
-        message: 'Lumio - Bank Statement Processing System',
+        message: `${APP_NAME} - Bank Statement Processing System`,
         version: '1.0.0',
         status: 'running',
         endpoints: {

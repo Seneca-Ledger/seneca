@@ -1,12 +1,11 @@
 import {
   DEFAULT_STATEMENT_FILTERS,
-  type StatementFilters,
   resetSingleStatementFilter,
+  type StatementFilters,
 } from '../filters/statement-filters';
 
 export type StatementColumnId =
   | 'receipt'
-  | 'date'
   | 'merchant'
   | 'from'
   | 'to'
@@ -19,8 +18,7 @@ export type StatementColumnId =
   | 'card'
   | 'description'
   | 'exchangeRate'
-  | 'exported'
-  | 'exportedTo';
+  | 'exported';
 
 export type StatementColumn = {
   id: StatementColumnId;
@@ -29,31 +27,30 @@ export type StatementColumn = {
   order: number;
 };
 
-export const STATEMENT_COLUMNS_STORAGE_KEY = 'lumio-statement-columns';
+export const STATEMENT_COLUMNS_STORAGE_KEY = 'seneca-statement-columns';
 
 export const DEFAULT_STATEMENT_COLUMNS: StatementColumn[] = [
   { id: 'receipt', label: 'Receipt', visible: true, order: 0 },
-  { id: 'date', label: 'Date', visible: true, order: 1 },
-  { id: 'merchant', label: 'Merchant', visible: true, order: 2 },
-  { id: 'from', label: 'From', visible: true, order: 3 },
-  { id: 'to', label: 'To', visible: true, order: 4 },
-  { id: 'category', label: 'Category', visible: true, order: 5 },
-  { id: 'tag', label: 'Tag', visible: true, order: 6 },
-  { id: 'amount', label: 'Amount', visible: true, order: 7 },
-  { id: 'action', label: 'Action', visible: true, order: 8 },
-  { id: 'approved', label: 'Approved', visible: false, order: 9 },
-  { id: 'billable', label: 'Billable', visible: false, order: 10 },
-  { id: 'card', label: 'Card', visible: false, order: 11 },
-  { id: 'description', label: 'Description', visible: false, order: 12 },
-  { id: 'exchangeRate', label: 'Exchange rate', visible: false, order: 13 },
-  { id: 'exported', label: 'Exported', visible: false, order: 14 },
-  { id: 'exportedTo', label: 'Exported to', visible: false, order: 15 },
+  // No separate date column: the merchant cell already prints the date under
+  // the name, and the merchant header carries the date sort.
+  { id: 'merchant', label: 'Merchant', visible: true, order: 1 },
+  { id: 'from', label: 'From', visible: true, order: 2 },
+  { id: 'to', label: 'To', visible: false, order: 3 },
+  { id: 'category', label: 'Category', visible: true, order: 4 },
+  { id: 'tag', label: 'Tag', visible: false, order: 5 },
+  { id: 'amount', label: 'Amount', visible: true, order: 6 },
+  { id: 'action', label: 'Action', visible: true, order: 7 },
+  { id: 'approved', label: 'Approved', visible: false, order: 8 },
+  { id: 'billable', label: 'Billable', visible: false, order: 9 },
+  { id: 'card', label: 'Card', visible: false, order: 10 },
+  { id: 'description', label: 'Description', visible: false, order: 11 },
+  { id: 'exchangeRate', label: 'Exchange rate', visible: false, order: 12 },
+  { id: 'exported', label: 'Exported', visible: false, order: 13 },
 ];
 
 export const COLUMN_FILTER_MAP: Partial<Record<StatementColumnId, Array<keyof StatementFilters>>> =
   {
     receipt: ['type', 'statuses'],
-    date: ['date'],
     merchant: ['keywords'],
     from: [],
     to: [],
@@ -67,11 +64,11 @@ export const COLUMN_FILTER_MAP: Partial<Record<StatementColumnId, Array<keyof St
     description: ['keywords'],
     exchangeRate: [],
     exported: ['exported'],
-    exportedTo: [],
   };
 
 const ALWAYS_AVAILABLE_FILTER_KEYS: Array<keyof StatementFilters> = [
   'type',
+  'date',
   'statuses',
   'groupBy',
   'has',
@@ -160,4 +157,40 @@ export const resetDisallowedStatementFilters = (
   });
 
   return next;
+};
+
+// Widths shared by the list header and its rows. Only the receipt icon and the
+// amount keep a fixed width; the action is as wide as its Review label in the
+// current language (every action cell carries an invisible copy of it, so the
+// header and the rows agree); the rest split what is left by weight and
+// truncate, so any set of columns fits the screen without a sideways scroll.
+const FIXED_COLUMN_WIDTHS: Partial<Record<StatementColumnId, number>> = {
+  receipt: 40,
+  amount: 140,
+};
+
+const ACTION_COLUMN_MIN_WIDTH = 80;
+
+const FLEX_COLUMN_WEIGHTS: Partial<Record<StatementColumnId, number>> = {
+  merchant: 3,
+  description: 2,
+  approved: 0.6,
+  billable: 0.6,
+  exported: 0.6,
+};
+
+export const statementColumnWidthStyle = (
+  columnId: StatementColumnId,
+): { flex: string; width?: number; minWidth: number } => {
+  const fixed = FIXED_COLUMN_WIDTHS[columnId];
+  if (fixed) {
+    return { flex: `0 0 ${fixed}px`, width: fixed, minWidth: fixed };
+  }
+  if (columnId === 'action') {
+    return { flex: '0 0 auto', minWidth: ACTION_COLUMN_MIN_WIDTH };
+  }
+  return {
+    flex: `${FLEX_COLUMN_WEIGHTS[columnId] ?? 1} 1 0`,
+    minWidth: columnId === 'merchant' ? 120 : 0,
+  };
 };

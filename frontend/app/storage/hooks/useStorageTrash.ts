@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { StorageFile } from '../storageHelpers';
-import type { DEFAULT_FILTERS, DEFAULT_SORT } from '../storageHelpers';
+import type { DEFAULT_FILTERS, DEFAULT_SORT, StorageFile } from '../storageHelpers';
 
 interface FilterDeps {
   activeList: 'active' | 'trash';

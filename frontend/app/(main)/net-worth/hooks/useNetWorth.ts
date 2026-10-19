@@ -1,27 +1,32 @@
 'use client';
 
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useState } from 'react';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { useCallback, useEffect, useState } from 'react';
+import type {
+  CapitalRole,
+  NetWorthResponse as NetWorthData,
+  NetWorthRange,
+  RiskLevel,
+} from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
 
-export type NetWorthRange = '30d' | '90d' | '1y' | '5y' | 'all';
+export type {
+  CapitalRole,
+  NetWorthAssetLine,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthRange,
+  NetWorthResponse as NetWorthData,
+  RiskLevel,
+} from '@/app/lib/contracts';
 
-export const NET_WORTH_RANGES: NetWorthRange[] = ['30d', '90d', '1y', '5y', 'all'];
-
-export interface NetWorthPoint {
-  date: string;
-  value: number;
-}
-
-export interface NetWorthBreakdownItem {
-  code: string;
-  name: string;
-  amount: number;
-  percent: number;
-}
-
-export type CapitalRole = 'income' | 'neutral' | 'drain';
-export type RiskLevel = 'low' | 'medium' | 'high';
+export const NET_WORTH_RANGES: NetWorthRange[] = ['30d', '90d', '180d', '1y', '3y', '5y', 'all'];
 
 export const CAPITAL_ROLES: CapitalRole[] = ['income', 'neutral', 'drain'];
 export const RISK_LEVELS: RiskLevel[] = ['low', 'medium', 'high'];
@@ -29,91 +34,106 @@ export const RISK_LEVELS: RiskLevel[] = ['low', 'medium', 'high'];
 /** The share of assets above which the 80/20 rule is considered broken. */
 export const RISKY_ALLOCATION_THRESHOLD = 20;
 
-export interface NetWorthClassificationItem {
-  key: string | null;
-  amount: number;
-  percent: number;
-}
-
-export interface NetWorthAssetLine {
-  id: string;
-  code: string;
-  name: string;
-  amount: number;
-  capitalRole: CapitalRole | null;
-  riskLevel: RiskLevel | null;
-  isClassifiable: boolean;
-}
-
-export interface NetWorthData {
-  range: NetWorthRange;
-  currency: string;
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  assetsTotal: number;
-  liabilitiesTotal: number;
-  series: NetWorthPoint[];
-  breakdown: NetWorthBreakdownItem[];
-  byRisk: NetWorthClassificationItem[];
-  byRole: NetWorthClassificationItem[];
-  riskyPercent: number;
-  assetLines: NetWorthAssetLine[];
-}
+export type ClassificationPatch = {
+  capitalRole?: CapitalRole | null;
+  riskLevel?: RiskLevel | null;
+};
 
 interface NetWorthState {
-  data: NetWorthData | null;
-  loading: boolean;
-  error: string | null;
+  data: NetWorthData | undefined;
+  isPending: boolean;
+  isFetching: boolean;
+  error: boolean;
   range: NetWorthRange;
   setRange: (range: NetWorthRange) => void;
-  refresh: () => void;
-  classify: (
-    accountId: string,
-    patch: { capitalRole?: CapitalRole | null; riskLevel?: RiskLevel | null },
-  ) => Promise<void>;
+  /** Null shows money; a metal shows the same net worth in its ounces. */
+  denominate: 'XAU' | null;
+  setDenominate: (metal: 'XAU' | null) => void;
+  refetch: () => void;
+  classify: (accountId: string, patch: ClassificationPatch) => void;
 }
 
-export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState {
-  const { currentWorkspace } = useWorkspace();
+function applyPatch(
+  data: NetWorthData,
+  accountId: string,
+  patch: ClassificationPatch,
+): NetWorthData {
+  return {
+    ...data,
+    assetLines: data.assetLines.map(line => (line.id === accountId ? { ...line, ...patch } : line)),
+  };
+}
+
+/** `to` (`YYYY-MM-DD`) ends the window on that day instead of today. */
+export function useNetWorth(
+  initialRange: NetWorthRange = '90d',
+  to: string | null = null,
+): NetWorthState {
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
   const [range, setRange] = useState<NetWorthRange>(initialRange);
-  const [data, setData] = useState<NetWorthData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [denominate, setDenominate] = useState<'XAU' | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await apiClient.get('/reports/net-worth', { params: { range } });
-      setData(response.data?.data ?? response.data);
-    } catch {
-      setError('failed');
-    } finally {
-      setLoading(false);
-    }
-    // currentWorkspace is a dependency because the report is workspace-scoped
-    // and switching workspaces must refetch rather than show stale numbers.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, currentWorkspace?.id]);
+  const queryKey = queryKeys.netWorth({ workspaceId, range, denominate, to });
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: '/reports/net-worth',
+        params: {
+          range,
+          ...(denominate ? { denominate } : {}),
+          ...(to ? { to } : {}),
+        } satisfies ContractInput<'NetWorthQuery'>,
+        signal,
+        contract: 'NetWorthResponse',
+      }),
+    // Смена периода не должна гасить карточки: данные прошлого запроса живут
+    // на экране до прихода новых, но только внутри того же воркспейса.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
+  });
+
+  const classifyMutation = useMutation({
+    mutationFn: async (variables: { accountId: string; patch: ClassificationPatch }) => {
+      await apiClient.patch(
+        `/reports/balance/accounts/${variables.accountId}/classification`,
+        variables.patch satisfies ContractInput<'UpdateAccountClassificationBody'>,
+      );
+    },
+    // Выбор в селекте применяется сразу, иначе он «откатывается» на время
+    // запроса; проценты и сводки пересчитывает сервер — их ждём.
+    onMutate: (variables: { accountId: string; patch: ClassificationPatch }) => {
+      queryClient.setQueryData<NetWorthData>(queryKey, previous =>
+        previous ? applyPatch(previous, variables.accountId, variables.patch) : previous,
+      );
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['net-worth', workspaceId] }),
+  });
+
+  const refetch = useCallback((): void => {
+    void query.refetch();
+  }, [query.refetch]);
 
   const classify = useCallback(
-    async (
-      accountId: string,
-      patch: { capitalRole?: CapitalRole | null; riskLevel?: RiskLevel | null },
-    ) => {
-      // Reloading rather than patching locally: the change moves every
-      // percentage on the page, not just the row that was edited.
-      await apiClient.patch(`/reports/balance/accounts/${accountId}/classification`, patch);
-      await load();
+    (accountId: string, patch: ClassificationPatch): void => {
+      classifyMutation.mutate({ accountId, patch });
     },
-    [load],
+    [classifyMutation.mutate],
   );
 
-  return { data, loading, error, range, setRange, refresh: load, classify };
+  return {
+    data: query.data,
+    isPending: query.isPending,
+    isFetching: query.isFetching || classifyMutation.isPending,
+    error: query.isError || classifyMutation.isError,
+    range,
+    setRange,
+    denominate,
+    setDenominate,
+    refetch,
+    classify,
+  };
 }

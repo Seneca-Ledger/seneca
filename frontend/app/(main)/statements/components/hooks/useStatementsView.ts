@@ -1,25 +1,25 @@
 'use client';
 
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { applyStatementsFilters } from '@/app/(main)/statements/components/filters/statement-filters';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { usePullToRefresh } from '@/app/hooks/usePullToRefresh';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { fetchExchangeRate } from '@/app/lib/exchange-rate';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import {
   type OpenExpenseDrawerEventDetail,
+  resolveExpenseDrawerMode,
   STATEMENTS_OPEN_EXPENSE_DRAWER_EVENT,
   type StatementExpenseMode,
-  resolveExpenseDrawerMode,
 } from '@/app/lib/statement-expense-drawer';
 import { STATEMENTS_GMAIL_SYNC_STORAGE_KEY } from '@/app/lib/statement-upload-actions';
-import { type StatementStage, getStatementStage } from '@/app/lib/statement-workflow';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { mapGmailReceiptsToStatements } from '../gmail-receipt-mapping';
 import {
-  type FilterLabels,
-  type FilterOptionLabels,
   buildColumnLabels,
   buildCurrencyOptions,
   buildDateModes,
@@ -36,11 +36,13 @@ import {
   buildUploadLabels,
   computeActiveFilterCount,
   deriveVisibleFilterScreens,
+  type FilterLabels,
+  type FilterOptionLabels,
+  filterByApproved,
   isReceiptDerivedStatement,
   paginateStatements,
   resolveStatementSortDate,
 } from '../StatementsListView.utils';
-import { mapGmailReceiptsToStatements } from '../gmail-receipt-mapping';
 import type { StatementUploadLabels } from '../statement-upload';
 import {
   STATEMENTS_PAGE_SIZE as PAGE_SIZE,
@@ -49,14 +51,15 @@ import {
 } from './statementsViewTypes';
 import { useManualExpenseOptions } from './useManualExpenseOptions';
 import { useStatementPreview } from './useStatementPreview';
-import { useStatementSelection } from './useStatementSelection';
+import { useStatementReviewCounts } from './useStatementReviewCounts';
+import { type MergeDuplicatesPlan, useStatementSelection } from './useStatementSelection';
 import { useStatementsDuplicates } from './useStatementsDuplicates';
 import { useStatementsFilterState } from './useStatementsFilterState';
 import { useStatementsListData } from './useStatementsListData';
+import { useUploadSkeletonKeys } from './useUploadSkeletonKeys';
 
-interface StagedStatementsParams {
+interface DocumentStatementsParams {
   statements: Statement[];
-  stage: StatementStage;
   search: string;
   receiptStatements: Statement[];
 }
@@ -86,29 +89,60 @@ const formatCurrentExchangeRateLabel = (from: string, to: string, rate: number):
   return `1 ${from} = ${formattedRate} ${to}`;
 };
 
+function resolveRouteFilterLabel(
+  routeCategoryId: string | null,
+  routeReceiptStatus: string | null,
+): string | null {
+  if (routeCategoryId === 'uncategorized') {
+    return 'Missing category';
+  }
+  if (routeCategoryId) {
+    return 'Category filter';
+  }
+  return routeReceiptStatus ? 'Status filter' : null;
+}
+
+const SEARCH_AMOUNT_PATTERN = /^\d[\d ]*(?:[.,](\d{1,2}))?$/;
+
+/**
+ * Same reading as the server's search: "12" finds 12.49, "12.5" finds 12.57,
+ * "12.50" only 12.50, and "1 200,50" is 1200.50.
+ */
+function matchesSearchAmount(amount: number | string | null | undefined, q: string): boolean {
+  const match = SEARCH_AMOUNT_PATTERN.exec(q);
+  const value = Math.abs(Number(amount));
+  if (!match || amount === null || amount === undefined || !Number.isFinite(value)) {
+    return false;
+  }
+  const scale = match[1]?.length ?? 0;
+  const [whole, cents] = value.toFixed(2).split('.');
+  const truncated = scale > 0 ? `${whole}.${cents.slice(0, scale)}` : whole;
+  return Number(truncated) === Number(q.replace(/ /g, '').replace(',', '.'));
+}
+
+// Receipts come from their own paged endpoint, so the search reaches them here,
+// on the fields a receipt row has.
 function matchesSearch(s: Statement, q: string): boolean {
   return (
     s.fileName.toLowerCase().includes(q) ||
     (s.subject ?? '').toLowerCase().includes(q) ||
     (s.sender ?? '').toLowerCase().includes(q) ||
-    (s.parsedData?.vendor ?? '').toLowerCase().includes(q)
+    (s.parsedData?.vendor ?? '').toLowerCase().includes(q) ||
+    (s.category?.name ?? '').toLowerCase().includes(q) ||
+    matchesSearchAmount(s.totalDebit, q)
   );
 }
 
-function buildStagedStatements({
+/**
+ * Every document: uploaded statements plus receipts. A scan's own statement is
+ * left out, its receipt row stands for it.
+ */
+function buildDocumentStatements({
   statements,
-  stage,
   search,
   receiptStatements,
-}: StagedStatementsParams): Statement[] {
-  const baseStatements = statements.filter(s => {
-    return getStatementStage(s.id) === stage && !isReceiptDerivedStatement(s);
-  });
-
-  if (stage !== 'submit') {
-    return baseStatements;
-  }
-
+}: DocumentStatementsParams): Statement[] {
+  const baseStatements = statements.filter(s => !isReceiptDerivedStatement(s));
   const q = search.trim().toLowerCase();
   const receiptFiltered =
     q.length > 0 ? receiptStatements.filter(s => matchesSearch(s, q)) : receiptStatements;
@@ -125,24 +159,33 @@ function sortStatements(statements: Statement[], direction: 'asc' | 'desc'): Sta
     if (diff !== 0) {
       return diff * factor;
     }
+    // One period from two accounts: the statement added later counts as the newer one, so
+    // the order does not hang on the ids, which are random.
+    const added = Date.parse(l.createdAt ?? '') - Date.parse(r.createdAt ?? '');
+    if (added) {
+      return added * factor;
+    }
     return l.id.localeCompare(r.id) * factor;
   });
 }
 
 // eslint-disable-next-line max-lines-per-function
-export function useStatementsView({ stage, router, searchParams }: UseStatementsViewParams): {
+export function useStatementsView({
+  router,
+  searchParams,
+  listScrollRef,
+}: UseStatementsViewParams): {
   // state
   page: number;
   setPage: (p: number) => void;
-  searchInput: string;
-  setSearchInput: (v: string) => void;
   search: string;
+  /** Sets the search and goes back to the first page. */
+  applySearch: (value: string) => void;
   dateSortDirection: 'asc' | 'desc';
   setDateSortDirection: (d: 'asc' | 'desc') => void;
   expenseDrawerOpen: boolean;
   setExpenseDrawerOpen: (v: boolean) => void;
   expenseDrawerMode: StatementExpenseMode;
-  listScrollRef: React.RefObject<HTMLDivElement | null>;
   // labels
   t: ReturnType<typeof useIntlayer<'statementsPage'>>;
   filterLabels: FilterLabels;
@@ -166,11 +209,11 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
   openPreview: ReturnType<typeof useStatementPreview>['openPreview'];
   closePreview: ReturnType<typeof useStatementPreview>['closePreview'];
   // data
-  loading: boolean;
-  gmailSyncSkeletonKeys: string[];
-  setGmailSyncSkeletonKeys: React.Dispatch<React.SetStateAction<string[]>>;
-  loadStatements: ReturnType<typeof useStatementsListData>['loadStatements'];
-  loadGmailReceipts: ReturnType<typeof useStatementsListData>['loadGmailReceipts'];
+  isPending: boolean;
+  /** Placeholder rows above the list: local uploads first, then Gmail sync. */
+  listSkeletonKeys: string[];
+  refetchStatements: ReturnType<typeof useStatementsListData>['refetchStatements'];
+  refetchGmailReceipts: ReturnType<typeof useStatementsListData>['refetchGmailReceipts'];
   refreshActiveStatements: ReturnType<typeof useStatementsListData>['refreshActiveStatements'];
   // derived
   displayStatements: Statement[];
@@ -181,6 +224,8 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
   rangeStart: number;
   rangeEnd: number;
   duplicateMetaById: ReturnType<typeof useStatementsDuplicates>['duplicateMetaById'];
+  /** Rows each statement still has in Review, by statement id. */
+  statementReviewCounts: Record<string, number>;
   setDuplicateOverrides: ReturnType<typeof useStatementsDuplicates>['setDuplicateOverrides'];
   // selection
   selectedStatementIds: string[];
@@ -197,7 +242,11 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
   handleMarkSelectedAsDuplicate: () => void;
   handleDismissSelectedDuplicates: () => void;
   handleSelectDetectedDuplicates: () => void;
-  handleMergeSelectedDuplicates: () => Promise<void>;
+  handleMergeSelectedDuplicates: () => void;
+  mergePlan: MergeDuplicatesPlan | null;
+  mergeRunning: boolean;
+  confirmMergeSelectedDuplicates: () => Promise<void>;
+  cancelMergeSelectedDuplicates: () => void;
   // pull-to-refresh
   pullToRefreshHandlers: ReturnType<typeof usePullToRefresh>['handlers'];
   pullDistance: number;
@@ -206,7 +255,8 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
   // computed
   activeFilterCount: number;
   routeFilterLabel: string | null;
-  resetRouteCategoryFilter: () => void;
+  resetRouteFilters: () => void;
+  resetAllFilters: () => void;
   visibleFilterScreens: string[];
   fromOptions: ReturnType<typeof buildFromOptions>;
   currencyOptions: string[];
@@ -219,11 +269,13 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
 } {
   const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
+  const workspaceId = useWorkspaceId();
   const isMobile = useIsMobile();
   const t = useIntlayer('statementsPage');
 
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState('');
+  // Statements are searched on the server (the term is part of the query key);
+  // receipts are searched on the client in buildDocumentStatements.
   const [search, setSearch] = useState('');
   const [dateSortDirection, setDateSortDirection] = useState<'desc' | 'asc'>('desc');
   const [expenseDrawerOpen, setExpenseDrawerOpen] = useState(false);
@@ -231,7 +283,6 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
   const [currentExchangeRateLabels, setCurrentExchangeRateLabels] = useState<
     Record<string, string>
   >({});
-  const listScrollRef = useRef<HTMLDivElement | null>(null);
 
   const tx = (path: string[], fallback: string): string =>
     resolveLabel(getNestedValue(t, path), fallback);
@@ -260,41 +311,44 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
     }
     return searchParams.get('missingCategory') === 'true' ? 'uncategorized' : null;
   }, [searchParams]);
-  const routeFilterLabel =
-    routeCategoryId === 'uncategorized'
-      ? 'Missing category'
-      : routeCategoryId
-        ? 'Category filter'
-        : null;
-  const resetRouteCategoryFilter = useCallback((): void => {
-    if (!routeCategoryId) {
+  const routeReceiptStatus = useMemo(() => searchParams.get('status') || null, [searchParams]);
+  const routeFilterLabel = resolveRouteFilterLabel(routeCategoryId, routeReceiptStatus);
+  // Dashboard widgets link here with the filter in the query string, where the
+  // drawer never shows it. Resetting has to clear it too, or the list stays
+  // filtered by something the user cannot see.
+  const resetRouteFilters = useCallback((): void => {
+    if (!(routeCategoryId || routeReceiptStatus)) {
       return;
     }
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete('categoryId');
     nextParams.delete('missingCategory');
+    nextParams.delete('status');
     const nextQuery = nextParams.toString();
-    router.replace(nextQuery ? `/statements/${stage}?${nextQuery}` : `/statements/${stage}`);
+    router.replace(nextQuery ? `/statements/submit?${nextQuery}` : '/statements/submit');
     setPage(1);
-  }, [routeCategoryId, router, searchParams, stage]);
+  }, [routeCategoryId, routeReceiptStatus, router, searchParams]);
 
-  const routeReceiptStatus = useMemo(() => searchParams.get('status') || null, [searchParams]);
+  const resetAllFilters = (): void => {
+    filterState.resetAllFilters();
+    resetRouteFilters();
+  };
 
   const {
     statements,
     gmailReceipts,
-    loading,
+    isPending,
+    gmailIsPending,
     gmailSyncSkeletonKeys,
     setGmailSyncSkeletonKeys,
-    loadStatements,
-    loadGmailReceipts,
+    refetchStatements,
+    refetchGmailReceipts,
     refreshActiveStatements,
-  } = useStatementsListData<Statement>({
+  } = useStatementsListData({
     appliedFilters: filterState.appliedFilters,
     categoryId: routeCategoryId,
     receiptStatus: routeReceiptStatus,
     search,
-    stage,
     user,
     page,
     pageSize: PAGE_SIZE,
@@ -303,27 +357,27 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
     refreshFailedLabel: resolveLabel(t.refreshFailed, 'Failed to refresh statements'),
   });
 
-  // Search debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  // Effect events: the loaders are re-created by their hooks each render, and
+  // an eslint-disable inside a hook makes React Compiler skip the whole hook.
+  const loadManualExpenseOptionsEvent = useEffectEvent(() => {
+    void loadManualExpenseOptions();
+  });
+  const initFiltersFromStorage = useEffectEvent(() => {
+    filterState.initFromStorage(searchParams.get('month'));
+  });
 
   // Load manual expense options when user is available
   useEffect(() => {
     if (!user) {
       return;
     }
-    void loadManualExpenseOptions();
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+    loadManualExpenseOptionsEvent();
+  }, [user]);
 
   // Init from storage
   useEffect(() => {
-    filterState.initFromStorage();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    initFiltersFromStorage();
+  }, []);
 
   // Open expense drawer from event
   useEffect(() => {
@@ -338,9 +392,6 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
 
   // Open expense drawer from URL params
   useEffect(() => {
-    if (stage !== 'submit') {
-      return;
-    }
     const requestedMode = searchParams.get('openExpenseDrawer');
     if (!requestedMode) {
       return;
@@ -351,11 +402,11 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
     nextParams.delete('openExpenseDrawer');
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `/statements/submit?${nextQuery}` : '/statements/submit');
-  }, [stage, searchParams, router]);
+  }, [searchParams, router]);
 
   // Clear Gmail sync skeletons
   useEffect(() => {
-    if (stage !== 'submit' || gmailSyncSkeletonKeys.length === 0) {
+    if (gmailSyncSkeletonKeys.length === 0) {
       return;
     }
     if (gmailReceipts.length === 0) {
@@ -365,24 +416,47 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(STATEMENTS_GMAIL_SYNC_STORAGE_KEY);
     }
-  }, [stage, gmailReceipts.length, gmailSyncSkeletonKeys.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gmailReceipts.length, gmailSyncSkeletonKeys.length, setGmailSyncSkeletonKeys]);
 
-  const receiptStatements = useMemo<Statement[]>(() => {
-    if (stage !== 'submit') {
-      return [];
-    }
-    const mapped = mapGmailReceiptsToStatements(gmailReceipts);
-    return mapped;
-  }, [gmailReceipts, stage]);
+  // Gmail-чеки вливаются в тот же список, поэтому ждём оба запроса —
+  // иначе строки досыпаются в уже отрисованную таблицу.
+  const listIsPending = isPending || gmailIsPending;
+  const statementReviewCounts = useStatementReviewCounts(Boolean(user));
 
-  const stagedStatements = useMemo(
-    () => buildStagedStatements({ statements, stage, search, receiptStatements }),
-    [statements, stage, search, receiptStatements],
+  const receiptStatements = useMemo<Statement[]>(
+    () => mapGmailReceiptsToStatements(gmailReceipts),
+    [gmailReceipts],
   );
 
+  const uploadSkeletonKeys = useUploadSkeletonKeys({
+    workspaceId,
+    receiptRows: gmailReceipts,
+    statements,
+    limit: PAGE_SIZE,
+  });
+  const listSkeletonKeys = useMemo(
+    () => [...uploadSkeletonKeys, ...gmailSyncSkeletonKeys],
+    [uploadSkeletonKeys, gmailSyncSkeletonKeys],
+  );
+
+  const documentStatements = useMemo(
+    () => buildDocumentStatements({ statements, search, receiptStatements }),
+    [statements, search, receiptStatements],
+  );
+
+  // Approved needs Review's counts and the row kind, which the shared filters
+  // do not know, so it is applied here, before the limit cuts the list.
   const displayStatements = useMemo(
-    () => applyStatementsFilters(stagedStatements, filterState.appliedFilters),
-    [stagedStatements, filterState.appliedFilters],
+    () =>
+      applyStatementsFilters(
+        filterByApproved(
+          documentStatements,
+          filterState.appliedFilters.approved,
+          statementReviewCounts,
+        ),
+        { ...filterState.appliedFilters, approved: null },
+      ),
+    [documentStatements, filterState.appliedFilters, statementReviewCounts],
   );
 
   const sortedDisplayStatements = useMemo(
@@ -433,18 +507,23 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
     handleDismissSelectedDuplicates,
     handleSelectDetectedDuplicates,
     handleMergeSelectedDuplicates,
+    mergePlan,
+    mergeRunning,
+    confirmMergeSelectedDuplicates,
+    cancelMergeSelectedDuplicates,
   } = useStatementSelection({
     displayStatements,
     visibleStatementIds,
     duplicateMetaById,
     setDuplicateOverrides,
     search,
-    stage,
-    onRefreshStatements: async opts => {
-      await loadStatements({ ...opts });
+    // Опции загрузчиков растворились: search теперь часть ключа запроса,
+    // silent — это isFetching, а тост об ошибке живёт в самом хуке данных.
+    onRefreshStatements: async () => {
+      refetchStatements();
     },
-    onRefreshGmail: async opts => {
-      await loadGmailReceipts({ ...opts });
+    onRefreshGmail: async () => {
+      refetchGmailReceipts();
     },
   });
 
@@ -460,8 +539,11 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
   });
 
   const activeFilterCount = useMemo(
-    () => computeActiveFilterCount(filterState.appliedFilters) + (routeCategoryId ? 1 : 0),
-    [filterState.appliedFilters, routeCategoryId],
+    () =>
+      computeActiveFilterCount(filterState.appliedFilters) +
+      (routeCategoryId ? 1 : 0) +
+      (routeReceiptStatus ? 1 : 0),
+    [filterState.appliedFilters, routeCategoryId, routeReceiptStatus],
   );
 
   const visibleFilterScreens = useMemo(
@@ -469,25 +551,27 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
     [filterState.columns],
   );
 
-  const fromOptions = useMemo(() => buildFromOptions(stagedStatements), [stagedStatements]);
-  const currencyOptions = useMemo(() => buildCurrencyOptions(stagedStatements), [stagedStatements]);
+  const fromOptions = useMemo(() => buildFromOptions(documentStatements), [documentStatements]);
+  const currencyOptions = useMemo(
+    () => buildCurrencyOptions(documentStatements),
+    [documentStatements],
+  );
 
   const columnLabels = buildColumnLabels(filterOptionLabels);
   const appliedColumnsWithLabels = useMemo(
     () => filterState.columns.map(col => ({ ...col, label: columnLabels[col.id] ?? col.label })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterState.columns],
+    [filterState.columns, columnLabels],
   );
   const columnsWithLabels = useMemo(
     () =>
       filterState.draftColumns.map(col => ({ ...col, label: columnLabels[col.id] ?? col.label })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterState.draftColumns],
+    [filterState.draftColumns, columnLabels],
   );
   const exchangeRateColumnVisible = appliedColumnsWithLabels.some(
     column => column.id === 'exchangeRate' && column.visible,
   );
-  const exchangeRateTargetCurrency = normalizeCurrencyCode(currentWorkspace?.currency) ?? 'KZT';
+  const exchangeRateTargetCurrency =
+    normalizeCurrencyCode(currentWorkspace?.currency) ?? FALLBACK_CURRENCY;
   const exchangeRateSourceCurrencies = useMemo(() => {
     if (!exchangeRateColumnVisible) {
       return [];
@@ -560,15 +644,16 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
   return {
     page,
     setPage,
-    searchInput,
-    setSearchInput,
     search,
+    applySearch: (value: string) => {
+      setSearch(value);
+      setPage(1);
+    },
     dateSortDirection,
     setDateSortDirection,
     expenseDrawerOpen,
     setExpenseDrawerOpen,
     expenseDrawerMode,
-    listScrollRef,
     t,
     filterLabels,
     filterOptionLabels,
@@ -588,11 +673,10 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
     preview,
     openPreview,
     closePreview,
-    loading,
-    gmailSyncSkeletonKeys,
-    setGmailSyncSkeletonKeys,
-    loadStatements,
-    loadGmailReceipts,
+    isPending: listIsPending,
+    listSkeletonKeys,
+    refetchStatements,
+    refetchGmailReceipts,
     refreshActiveStatements,
     displayStatements,
     paginatedDisplayStatements,
@@ -602,6 +686,7 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
     rangeStart,
     rangeEnd,
     duplicateMetaById,
+    statementReviewCounts,
     setDuplicateOverrides,
     selectedStatementIds,
     selectedActionsOpen,
@@ -618,13 +703,18 @@ export function useStatementsView({ stage, router, searchParams }: UseStatements
     handleDismissSelectedDuplicates,
     handleSelectDetectedDuplicates,
     handleMergeSelectedDuplicates,
+    mergePlan,
+    mergeRunning,
+    confirmMergeSelectedDuplicates,
+    cancelMergeSelectedDuplicates,
     pullToRefreshHandlers,
     pullDistance,
     pullRefreshing,
     isReadyToRefresh,
     activeFilterCount,
     routeFilterLabel,
-    resetRouteCategoryFilter,
+    resetRouteFilters,
+    resetAllFilters,
     visibleFilterScreens,
     fromOptions,
     currencyOptions,

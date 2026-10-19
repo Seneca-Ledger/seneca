@@ -3,10 +3,10 @@
  * Supports YAML configuration files for bank profiles without code changes
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { Injectable, Logger } from '@nestjs/common';
+import * as fs from 'fs';
 import * as yaml from 'js-yaml';
+import * as path from 'path';
 
 export interface BankProfile {
   name: string;

@@ -3,8 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { Category } from '../../entities/category.entity';
 import { Payable, PayableDirection } from '../../entities/payable.entity';
+import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
+import { documentHref, findScanReceipts } from './document-href';
 
 export type SearchResultKind = 'transaction' | 'statement' | 'payable' | 'receivable' | 'category';
 
@@ -37,6 +39,8 @@ export class SearchService {
     private readonly payableRepo: Repository<Payable>,
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
+    @InjectRepository(Receipt)
+    private readonly receiptRepo: Repository<Receipt>,
   ) {}
 
   async search(workspaceId: string, rawQuery: string): Promise<SearchResponse> {
@@ -60,7 +64,7 @@ export class SearchService {
   private async searchTransactions(workspaceId: string, needle: string): Promise<SearchResult[]> {
     const rows = await this.transactionRepo
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
+      .innerJoinAndSelect('t.statement', 's')
       .where('s.workspaceId = :workspaceId', { workspaceId })
       .andWhere('s.deletedAt IS NULL')
       .andWhere(
@@ -71,12 +75,20 @@ export class SearchService {
       .take(PER_KIND_LIMIT)
       .getMany();
 
-    return rows.map(row => ({
+    // The inner join drops rows without a statement; this only tells the compiler.
+    const hits = rows.flatMap(row => (row.statement ? [{ row, statement: row.statement }] : []));
+    const receipts = await findScanReceipts(
+      this.receiptRepo,
+      workspaceId,
+      hits.map(hit => hit.statement),
+    );
+    return hits.map(({ row, statement }) => ({
       kind: 'transaction' as const,
       id: row.id,
       title: row.counterpartyName,
       subtitle: row.paymentPurpose || null,
-      href: `/statements/transactions?highlight=${row.id}`,
+      // A row lives in its document; there is no separate transactions list.
+      href: documentHref(statement, receipts),
     }));
   }
 
@@ -90,12 +102,33 @@ export class SearchService {
       .take(PER_KIND_LIMIT)
       .getMany();
 
+    return this.toStatementResults(workspaceId, rows);
+  }
+
+  /** Latest uploads, newest first — what the search panel shows before anything is typed. */
+  async recent(workspaceId: string): Promise<SearchResponse> {
+    const rows = await this.statementRepo
+      .createQueryBuilder('s')
+      .where('s.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('s.deletedAt IS NULL')
+      .orderBy('s.createdAt', 'DESC')
+      .take(PER_KIND_LIMIT)
+      .getMany();
+
+    return { query: '', results: await this.toStatementResults(workspaceId, rows) };
+  }
+
+  private async toStatementResults(
+    workspaceId: string,
+    rows: Statement[],
+  ): Promise<SearchResult[]> {
+    const receipts = await findScanReceipts(this.receiptRepo, workspaceId, rows);
     return rows.map(row => ({
       kind: 'statement' as const,
       id: row.id,
       title: row.fileName,
       subtitle: row.bankName ?? null,
-      href: `/statements/${row.id}/view`,
+      href: documentHref(row, receipts),
     }));
   }
 

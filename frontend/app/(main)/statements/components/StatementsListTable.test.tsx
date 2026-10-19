@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { renderWithQuery as render } from '@/app/test/query-wrapper';
 import { StatementsListTable } from './StatementsListTable';
+
+vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 
 vi.mock('@/app/components/DocumentTypeIcon', () => ({
   DocumentTypeIcon: () => <div data-testid="document-type-icon" />,
@@ -27,12 +30,17 @@ const statement = {
   currency: 'KZT',
 };
 
-const renderTable = (columns: React.ComponentProps<typeof StatementsListTable>['columns']) =>
+type TableProps = React.ComponentProps<typeof StatementsListTable>;
+
+const renderTable = (
+  columns: TableProps['columns'],
+  statements: TableProps['paginatedStatements'] = [statement],
+) =>
   render(
     <StatementsListTable
       loading={false}
-      displayStatements={[statement]}
-      paginatedStatements={[statement]}
+      displayStatements={statements}
+      paginatedStatements={statements}
       gmailSyncSkeletonKeys={[]}
       allVisibleSelected={false}
       selectedCount={0}
@@ -117,27 +125,49 @@ describe('StatementsListTable upload skeleton', () => {
 describe('StatementsListTable columns', () => {
   it('renders desktop header and row from visible columns in order', () => {
     const { container } = renderTable([
-      { id: 'date', label: 'Date', visible: true, order: 0 },
-      { id: 'merchant', label: 'Merchant', visible: true, order: 1 },
+      { id: 'merchant', label: 'Merchant', visible: true, order: 0 },
+      { id: 'category', label: 'Category', visible: true, order: 1 },
       { id: 'amount', label: 'Amount', visible: false, order: 2 },
       { id: 'action', label: 'Action', visible: true, order: 3 },
     ]);
 
-    const header = container.querySelector('.lumio-stmt-list-view__desktop-header');
-    const table = container.querySelector('.lumio-stmt-list-view__table') as HTMLDivElement | null;
-    const scroller = container.querySelector('.lumio-stmt-list-view__table-scroll');
-    expect(header?.textContent).toContain('Date');
+    const header = container.querySelector('.seneca-stmt-list-view__desktop-header');
+    const scroller = container.querySelector('.seneca-stmt-list-view__table-scroll');
     expect(header?.textContent).toContain('Merchant');
+    expect(header?.textContent).toContain('Category');
     expect(header?.textContent).not.toContain('Amount');
     expect(scroller).toBeTruthy();
-    expect(table?.style.minWidth).toMatch(/px$/);
-    expect((header?.textContent || '').indexOf('Date')).toBeLessThan(
-      (header?.textContent || '').indexOf('Merchant'),
+    expect((header?.textContent || '').indexOf('Merchant')).toBeLessThan(
+      (header?.textContent || '').indexOf('Category'),
     );
+    // The date sort rides on the merchant header now that dates sit under names.
+    expect(
+      header?.querySelector('[data-column-id="merchant"] [data-testid="statements-date-sort"]'),
+    ).toBeTruthy();
 
     const desktopRow = screen.getByTestId('statement-item-desktop-statement-1');
     expect(desktopRow.textContent).toContain('Kaspi');
     expect(desktopRow.textContent).not.toContain('1,200.00KZT');
     expect(desktopRow.querySelector('[data-testid="statement-view-icon"]')).toBeTruthy();
+  });
+
+  it('drops the From column while every row on the page says the same there', () => {
+    const columns: TableProps['columns'] = [
+      { id: 'merchant', label: 'Merchant', visible: true, order: 0 },
+      { id: 'from', label: 'From', visible: true, order: 1 },
+    ];
+    const scan = (id: string, sender: string) => ({ ...statement, id, sender });
+
+    const { container, unmount } = renderTable(columns, [
+      scan('a', 'camera-scan'),
+      scan('b', 'camera-scan'),
+    ]);
+    expect(container.querySelector('[data-column-id="from"]')).toBeNull();
+    expect(screen.queryByTestId('statement-column-a-from')).toBeNull();
+    unmount();
+
+    const mixed = renderTable(columns, [scan('a', 'camera-scan'), scan('b', 'mail@shop.test')]);
+    expect(mixed.container.querySelector('[data-column-id="from"]')).not.toBeNull();
+    expect(screen.getByTestId('statement-column-b-from').textContent).toBe('mail@shop.test');
   });
 });

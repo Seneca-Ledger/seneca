@@ -1,9 +1,10 @@
 'use client';
 
-import ConfirmModal from '@/app/components/ConfirmModal';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import ConfirmModal from '@/app/components/ConfirmModal';
+import { useIntlayer } from '@/app/i18n';
 import type { RollbackState } from '../hooks/useAuditRollback';
 
 type MsgProps = {
@@ -11,15 +12,16 @@ type MsgProps = {
   rollbackError: string | null;
 };
 function RollbackMessage({ rollbackTarget, rollbackError }: MsgProps): React.JSX.Element {
+  const t = useIntlayer('auditUi');
   return (
     <Stack spacing={1.5}>
       <Typography variant="body2" style={{ color: 'var(--text-secondary)' }}>
-        This will attempt to rollback:{' '}
+        {t.rollbackAttempt}{' '}
         {rollbackTarget.description || `${rollbackTarget.entityType} ${rollbackTarget.entityId}`}.
       </Typography>
       {rollbackTarget.diff && (
         <Alert severity="warning" sx={{ fontSize: 12 }}>
-          Rollback is based on stored diff data. Review changes before continuing.
+          {t.rollbackDiffWarning}
         </Alert>
       )}
       {rollbackError && (
@@ -32,12 +34,13 @@ function RollbackMessage({ rollbackTarget, rollbackError }: MsgProps): React.JSX
 }
 
 export function AuditRollbackModal({ rollback }: { rollback: RollbackState }): React.JSX.Element {
+  const t = useIntlayer('auditUi');
   return (
     <ConfirmModal
       isOpen={Boolean(rollback.rollbackTarget)}
       onClose={rollback.cancelRollback}
       onConfirm={rollback.confirmRollback}
-      title="Confirm rollback"
+      title={t.confirmRollback.value}
       message={
         rollback.rollbackTarget && (
           <RollbackMessage
@@ -46,8 +49,8 @@ export function AuditRollbackModal({ rollback }: { rollback: RollbackState }): R
           />
         )
       }
-      confirmText={rollback.rollbackLoading ? 'Rolling back...' : 'Rollback'}
-      cancelText="Cancel"
+      confirmText={rollback.rollbackLoading ? t.rollingBack.value : t.rollback.value}
+      cancelText={t.cancel.value}
       isDestructive
       isLoading={rollback.rollbackLoading}
       manualClose

@@ -1,8 +1,8 @@
+import type { AxiosError } from 'axios';
+import type React from 'react';
 import type { ChangelogEntry } from '@/app/components/ChangelogModal';
 import type { LucideProps } from '@/app/components/icons';
 import { Bot, Monitor, Smartphone, Tablet } from '@/app/components/icons';
-import type { AxiosError } from 'axios';
-import type React from 'react';
 
 export type ApiErrorResponse = { message?: string; error?: { message?: string } };
 
@@ -32,9 +32,10 @@ export type NotificationPreferences = {
   parsingErrors: boolean;
   importFailures: boolean;
   uncategorizedItems: boolean;
+  subscriptionPrompts: boolean;
 };
 
-export const notificationChannels = ['inApp', 'email', 'telegram'] as const;
+export const notificationChannels = ['inApp', 'email', 'telegram', 'push'] as const;
 export type NotificationChannel = (typeof notificationChannels)[number];
 
 export type NotificationChannelSet = Record<NotificationChannel, boolean>;
@@ -69,12 +70,13 @@ export const defaultNotificationPreferences: NotificationPreferences = {
   parsingErrors: true,
   importFailures: true,
   uncategorizedItems: true,
+  subscriptionPrompts: true,
 };
 
 export const defaultNotificationChannels: NotificationChannelMatrix = Object.fromEntries(
   (Object.keys(defaultNotificationPreferences) as Array<keyof NotificationPreferences>).map(key => [
     key,
-    { inApp: true, email: false, telegram: false },
+    { inApp: true, email: false, telegram: false, push: false },
   ]),
 ) as NotificationChannelMatrix;
 
@@ -98,28 +100,8 @@ export const systemNotificationSettings: Array<{ key: keyof NotificationPreferen
   { key: 'parsingErrors' },
   { key: 'importFailures' },
   { key: 'uncategorizedItems' },
+  { key: 'subscriptionPrompts' },
 ];
-
-export const sections = [
-  'profile',
-  'appearance',
-  'sessions',
-  'email',
-  'password',
-  'security',
-  'processing',
-  'notifications',
-  'changelog',
-  'sync',
-  'my-data',
-] as const;
-export type SectionId = (typeof sections)[number];
-
-export const normalizeSection = (value: string | null | undefined): SectionId => {
-  if (!value) return 'profile';
-  if ((sections as readonly string[]).includes(value)) return value as SectionId;
-  return 'profile';
-};
 
 export const getApiErrorMessage = (error: unknown, fallback: string) => {
   const axiosError = error as AxiosError<ApiErrorResponse>;

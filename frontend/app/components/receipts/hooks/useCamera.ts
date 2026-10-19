@@ -9,7 +9,7 @@ export function useCamera() {
   const [isCameraAvailable, setIsCameraAvailable] = useState(true);
 
   const startCamera = useCallback(async () => {
-    try {
+    await (async () => {
       const nextStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
@@ -22,19 +22,21 @@ export function useCamera() {
       setIsCameraAvailable(true);
       setError(null);
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = nextStream;
-        try {
-          const playResult = videoRef.current.play?.();
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = nextStream;
+
+        await (async () => {
+          const playResult = video.play?.();
           await playResult?.catch(() => undefined);
-        } catch {
+        })().catch(async () => {
           // jsdom does not implement HTMLMediaElement.play
-        }
+        });
       }
-    } catch {
+    })().catch(async () => {
       setError('Camera access denied or unavailable');
       setIsCameraAvailable(false);
-    }
+    });
   }, []);
 
   const capturePhoto = useCallback(async () => {
@@ -55,7 +57,9 @@ export function useCamera() {
   }, []);
 
   const stopCamera = useCallback(() => {
-    stream?.getTracks().forEach(track => track.stop());
+    stream?.getTracks().forEach(track => {
+      track.stop();
+    });
     setStream(null);
   }, [stream]);
 

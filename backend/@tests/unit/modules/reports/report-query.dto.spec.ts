@@ -1,11 +1,9 @@
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
-import { SpendOverTimeQueryDto } from '@/modules/reports/dto/spend-over-time-query.dto';
-import { TopCategoriesQueryDto } from '@/modules/reports/dto/top-categories-query.dto';
+import { SpendOverTimeQuery, TopCategoriesQuery } from '@/contracts';
+import { decodeQuery } from '../../../helpers/schema-body';
 
-describe('Report query DTOs', () => {
-  it('transforms shared report filters for spend over time queries', async () => {
-    const dto = plainToInstance(SpendOverTimeQueryDto, {
+describe('Report queries', () => {
+  it('decodes shared report filters for spend over time queries', () => {
+    const { value, errors } = decodeQuery(SpendOverTimeQuery, {
       dateFrom: '2026-03-01',
       dateTo: '2026-03-31',
       type: 'expense',
@@ -23,19 +21,19 @@ describe('Report query DTOs', () => {
       counterparties: 'Acme',
     });
 
-    const errors = await validate(dto);
-
-    expect(errors).toHaveLength(0);
-    expect(dto.amountMin).toBe(10.5);
-    expect(dto.amountMax).toBe(100.25);
-    expect(dto.approved).toBe(true);
-    expect(dto.billable).toBe(false);
-    expect(dto.exported).toBe(true);
-    expect(dto.paid).toBe(false);
+    expect(errors).toEqual([]);
+    expect(value).toMatchObject({
+      amountMin: 10.5,
+      amountMax: 100.25,
+      approved: true,
+      billable: false,
+      exported: true,
+      paid: false,
+    });
   });
 
-  it('transforms shared report filters for top categories queries', async () => {
-    const dto = plainToInstance(TopCategoriesQueryDto, {
+  it('decodes shared report filters for top categories queries', () => {
+    const { value, errors } = decodeQuery(TopCategoriesQuery, {
       dateFrom: '2026-03-01',
       dateTo: '2026-03-31',
       type: 'all',
@@ -55,15 +53,15 @@ describe('Report query DTOs', () => {
       paid: 'true',
     });
 
-    const errors = await validate(dto);
-
-    expect(errors).toHaveLength(0);
-    expect(dto.limit).toBe(25);
-    expect(dto.amountMin).toBe(5);
-    expect(dto.amountMax).toBe(500);
-    expect(dto.approved).toBe(false);
-    expect(dto.billable).toBe(true);
-    expect(dto.exported).toBe(false);
-    expect(dto.paid).toBe(true);
+    expect(errors).toEqual([]);
+    expect(value).toMatchObject({
+      limit: 25,
+      amountMin: 5,
+      amountMax: 500,
+      approved: false,
+      billable: true,
+      exported: false,
+      paid: true,
+    });
   });
 });

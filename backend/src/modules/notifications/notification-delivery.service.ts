@@ -2,15 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
+import { Notification } from '../../entities/notification.entity';
 import {
   NotificationChannel,
   NotificationDigestMode,
   NotificationPreference,
 } from '../../entities/notification-preference.entity';
-import { Notification } from '../../entities/notification.entity';
 import { User } from '../../entities/user.entity';
 import { MailerService } from '../mailer/mailer.service';
+import { PushService } from '../push/push.service';
 import { TelegramService } from '../telegram/telegram.service';
+import { notificationUrl } from './notification-url';
 import { getLocalHour, isWithinQuietHours } from './quiet-hours.util';
 
 /** Digests go out in the morning rather than at midnight, when nobody reads them. */
@@ -31,6 +34,7 @@ export class NotificationDeliveryService {
     private readonly userRepository: Repository<User>,
     private readonly mailerService: MailerService,
     private readonly telegramService: TelegramService,
+    private readonly pushService: PushService,
   ) {}
 
   /**
@@ -95,6 +99,15 @@ export class NotificationDeliveryService {
         user,
       );
       return true;
+    }
+
+    if (channel === NotificationChannel.PUSH) {
+      return this.pushService.sendToUser(user.id, {
+        title: notification.title,
+        body: notification.message,
+        url: notificationUrl(notification),
+        tag: notification.id,
+      });
     }
 
     return true;
@@ -204,7 +217,7 @@ export class NotificationDeliveryService {
     preference: NotificationPreference,
   ): Promise<void> {
     const channels = [...new Set(pending.flatMap(item => item.pendingChannels ?? []))];
-    const subject = `Lumio: ${pending.length}`;
+    const subject = `${APP_NAME}: ${pending.length}`;
     const body = pending.map(item => `• ${item.title}\n  ${item.message}`).join('\n\n');
 
     let delivered = true;
@@ -220,6 +233,20 @@ export class NotificationDeliveryService {
         `${subject}\n\n${body}`,
         user,
       );
+    }
+
+    if (channels.includes(NotificationChannel.PUSH)) {
+      // One push for the whole digest; the phone would not want one per item.
+      delivered =
+        (await this.pushService.sendToUser(user.id, {
+          title: subject,
+          body: pending
+            .slice(0, 3)
+            .map(item => item.title)
+            .join(' · '),
+          url: '/dashboard',
+          tag: 'digest',
+        })) && delivered;
     }
 
     if (!delivered) {

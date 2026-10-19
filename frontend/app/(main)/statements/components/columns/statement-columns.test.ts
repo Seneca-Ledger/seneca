@@ -23,7 +23,7 @@ describe('statement column storage', () => {
   it('merges stored columns with defaults', () => {
     const stored = [
       { id: 'amount', visible: false, order: 0 },
-      { id: 'date', visible: true, order: 1 },
+      { id: 'merchant', visible: true, order: 1 },
     ];
     localStorage.setItem(STATEMENT_COLUMNS_STORAGE_KEY, JSON.stringify(stored));
 
@@ -33,7 +33,7 @@ describe('statement column storage', () => {
 
     expect(amount?.visible).toBe(false);
     expect(receipt).toBeTruthy();
-    expect(result.map((column: StatementColumn) => column.id)).toContain('date');
+    expect(result.map((column: StatementColumn) => column.id)).toContain('merchant');
   });
 
   it('saves columns to storage', () => {
@@ -46,7 +46,7 @@ describe('statement column storage', () => {
   it('reorders columns and updates order values', () => {
     const columns = [
       { id: 'receipt', label: 'Receipt', visible: true, order: 0 },
-      { id: 'date', label: 'Date', visible: true, order: 1 },
+      { id: 'merchant', label: 'Merchant', visible: true, order: 1 },
       { id: 'amount', label: 'Amount', visible: true, order: 2 },
     ] as StatementColumn[];
 
@@ -55,7 +55,7 @@ describe('statement column storage', () => {
     expect(result.map((column: StatementColumn) => column.id)).toEqual([
       'amount',
       'receipt',
-      'date',
+      'merchant',
     ]);
     expect(result.map((column: StatementColumn) => column.order)).toEqual([0, 1, 2]);
   });
@@ -63,10 +63,10 @@ describe('statement column storage', () => {
   it('returns original array when drag target is the same column', () => {
     const columns = [
       { id: 'receipt', label: 'Receipt', visible: true, order: 0 },
-      { id: 'date', label: 'Date', visible: true, order: 1 },
+      { id: 'merchant', label: 'Merchant', visible: true, order: 1 },
     ] as StatementColumn[];
 
-    const result = reorderStatementColumns(columns, 'date', 'date');
+    const result = reorderStatementColumns(columns, 'merchant', 'merchant');
 
     expect(result).toBe(columns);
   });
@@ -74,16 +74,16 @@ describe('statement column storage', () => {
   it('returns original array when drop target is missing', () => {
     const columns = [
       { id: 'receipt', label: 'Receipt', visible: true, order: 0 },
-      { id: 'date', label: 'Date', visible: true, order: 1 },
+      { id: 'merchant', label: 'Merchant', visible: true, order: 1 },
     ] as StatementColumn[];
 
-    const result = reorderStatementColumns(columns, 'date', 'amount');
+    const result = reorderStatementColumns(columns, 'merchant', 'amount');
 
     expect(result).toBe(columns);
   });
 
   it('maps visible columns to allowed filter keys', () => {
-    const result = getAllowedStatementFilterKeys(['amount', 'approved', 'date']);
+    const result = getAllowedStatementFilterKeys(['amount', 'approved']);
 
     expect(result).toEqual([
       'amountMax',

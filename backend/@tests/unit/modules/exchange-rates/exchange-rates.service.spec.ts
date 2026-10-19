@@ -1,4 +1,14 @@
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 import { ExchangeRatesService } from '@/modules/exchange-rates/exchange-rates.service';
+
+const effects = new EffectRuntime();
+afterAll(() => effects.onModuleDestroy());
+
+const jsonResponse = (body: unknown) =>
+  new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+const statusResponse = (status: number) => new Response(null, { status });
+/** The URLs fetched so far, in order. */
+const requestedUrls = () => (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url));
 
 function createRepoMock() {
   return {
@@ -26,6 +36,41 @@ function createConfigMock(apiKey?: string) {
   } as any;
 }
 
+/** An in-memory workspace_exchange_rates table, enough for findOne/count/upsert/delete. */
+function createWorkspaceRateRepo() {
+  const rows: any[] = [];
+  const day = (value: any) => new Date(value).toISOString().slice(0, 10);
+  const matches = (row: any, where: any) =>
+    Object.entries(where).every(([key, expected]: [string, any]) => {
+      if (key !== 'rateDate') return row[key] === expected;
+      if (expected?.type === 'lessThanOrEqual') return day(row.rateDate) <= day(expected.value);
+      return day(row.rateDate) === day(expected);
+    });
+  return {
+    rows,
+    findOne: jest.fn(async ({ where, order }: any) => {
+      const found = rows.filter(row => matches(row, where));
+      if (order?.rateDate === 'DESC') found.sort((a, b) => day(b.rateDate).localeCompare(day(a.rateDate)));
+      return found[0] ?? null;
+    }),
+    count: jest.fn(async ({ where }: any) => rows.filter(row => matches(row, where)).length),
+    upsert: jest.fn(async (row: any) => {
+      const index = rows.findIndex(
+        existing =>
+          existing.workspaceId === row.workspaceId &&
+          existing.baseCurrency === row.baseCurrency &&
+          existing.targetCurrency === row.targetCurrency &&
+          day(existing.rateDate) === day(row.rateDate),
+      );
+      if (index >= 0) rows[index] = { ...rows[index], ...row };
+      else rows.push({ ...row });
+    }),
+    delete: jest.fn(async (where: any) => {
+      for (let i = rows.length - 1; i >= 0; i--) if (matches(rows[i], where)) rows.splice(i, 1);
+    }),
+  } as any;
+}
+
 describe('ExchangeRatesService', () => {
   let service: ExchangeRatesService;
   let repo: ReturnType<typeof createRepoMock>;
@@ -33,10 +78,10 @@ describe('ExchangeRatesService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 }) as any;
+    global.fetch = jest.fn(async () => statusResponse(404)) as any;
     repo = createRepoMock();
     cache = createCacheMock();
-    service = new ExchangeRatesService(repo, cache, createConfigMock());
+    service = new ExchangeRatesService(repo, cache, createConfigMock(), effects);
   });
 
   // ─── getRate ───────────────────────────────────────────────
@@ -112,16 +157,16 @@ describe('ExchangeRatesService', () => {
 
     it('fetches the current rate from the public API when no API key is configured', async () => {
       repo.findOne.mockResolvedValue(null);
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ date: '2026-04-29', usd: { kzt: 512.34 } }),
-      }) as any;
+      global.fetch = jest.fn(async () =>
+        jsonResponse({ date: '2026-04-29', usd: { kzt: 512.34 } }),
+      ) as any;
 
       const rate = await service.getRate('USD', 'KZT');
 
       expect(rate).toBe(512.34);
-      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('@fawazahmed0/currency-api@latest'));
-      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/currencies/usd.json'));
+      expect(requestedUrls()).toEqual([
+        expect.stringMatching(/@fawazahmed0\/currency-api@latest\/.*\/currencies\/usd\.json$/),
+      ]);
       expect(repo.createQueryBuilder).toHaveBeenCalled();
       expect(cache.set).toHaveBeenCalledWith(
         expect.stringContaining('exchange_rate:USD:KZT'),
@@ -130,23 +175,56 @@ describe('ExchangeRatesService', () => {
       );
     });
 
-    it('uses the public API fallback URL when the CDN request fails', async () => {
+    it('retries a failing CDN twice, then uses the public API fallback URL', async () => {
       repo.findOne.mockResolvedValue(null);
       global.fetch = jest
         .fn()
-        .mockResolvedValueOnce({ ok: false, status: 503 })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ date: '2026-04-29', usd: { kzt: 511.22 } }),
-        }) as any;
+        .mockResolvedValueOnce(statusResponse(503))
+        .mockResolvedValueOnce(statusResponse(503))
+        .mockResolvedValueOnce(statusResponse(503))
+        .mockResolvedValueOnce(jsonResponse({ date: '2026-04-29', usd: { kzt: 511.22 } })) as any;
 
       const rate = await service.getRate('USD', 'KZT');
 
       expect(rate).toBe(511.22);
-      expect(global.fetch).toHaveBeenNthCalledWith(
-        2,
+      expect(requestedUrls()).toEqual([
+        expect.stringContaining('cdn.jsdelivr.net'),
+        expect.stringContaining('cdn.jsdelivr.net'),
+        expect.stringContaining('cdn.jsdelivr.net'),
         expect.stringContaining('latest.currency-api.pages.dev'),
-      );
+      ]);
+    });
+
+    it('does not retry a 404, which will not change', async () => {
+      repo.findOne.mockResolvedValue(null);
+
+      await service.getRate('USD', 'KZT');
+
+      expect(requestedUrls()).toEqual([
+        expect.stringContaining('cdn.jsdelivr.net'),
+        expect.stringContaining('latest.currency-api.pages.dev'),
+      ]);
+    });
+
+    it('gives up on a provider that does not answer within five seconds', async () => {
+      repo.findOne.mockResolvedValue(null);
+      global.fetch = jest.fn(
+        (_url: unknown, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) =>
+            init?.signal?.addEventListener('abort', () => reject(init.signal?.reason)),
+          ),
+      ) as any;
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+
+      try {
+        const pending = service.getRate('USD', 'KZT');
+        await jest.advanceTimersByTimeAsync(5_000);
+        await jest.advanceTimersByTimeAsync(5_000);
+        await expect(pending).resolves.toBe(1);
+      } finally {
+        jest.useRealTimers();
+      }
+      expect(requestedUrls()).toHaveLength(2);
     });
 
     it('uses specific date when provided', async () => {
@@ -176,6 +254,115 @@ describe('ExchangeRatesService', () => {
           }),
         }),
       );
+    });
+  });
+
+  // ─── getRateQuote ──────────────────────────────────────────
+
+  describe('getRateQuote', () => {
+    const noExactRate = () => repo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+    it('marks an exact rate as fresh', async () => {
+      repo.findOne.mockResolvedValue({ rate: '0.91' });
+      await expect(service.getRateQuote('USD', 'EUR', '2025-03-10')).resolves.toEqual({
+        rate: 0.91,
+        rateDate: '2025-03-10',
+        stale: false,
+      });
+    });
+
+    it('borrows only a rate quoted on or before the requested day', async () => {
+      noExactRate()
+        .mockResolvedValueOnce({ rate: '0.90', rateDate: '2025-03-07' })
+        .mockResolvedValueOnce(null);
+
+      const quote = await service.getRateQuote('USD', 'EUR', '2025-03-10');
+
+      expect(quote).toEqual({ rate: 0.9, rateDate: '2025-03-07', stale: true });
+      const fallbackWhere = repo.findOne.mock.calls[2][0].where;
+      expect(fallbackWhere.rateDate).toMatchObject({
+        type: 'lessThanOrEqual',
+        value: new Date('2025-03-10'),
+      });
+      expect(repo.findOne.mock.calls[2][0].order).toEqual({ rateDate: 'DESC' });
+    });
+
+    it('prefers whichever of the direct and reverse pair is closer to the day', async () => {
+      noExactRate()
+        .mockResolvedValueOnce({ rate: '0.80', rateDate: '2025-02-01' })
+        .mockResolvedValueOnce({ rate: '1.25', rateDate: '2025-03-09' });
+
+      const quote = await service.getRateQuote('USD', 'EUR', '2025-03-10');
+
+      expect(quote).toEqual({ rate: 0.8, rateDate: '2025-03-09', stale: true });
+    });
+
+    it('refuses a borrowed rate older than maxStaleDays', async () => {
+      noExactRate()
+        .mockResolvedValueOnce({ rate: '0.90', rateDate: '2025-03-01' })
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.getRateQuote('USD', 'EUR', '2025-03-10', { maxStaleDays: 7 }),
+      ).resolves.toBeNull();
+    });
+
+    it('accepts a borrowed rate within maxStaleDays', async () => {
+      noExactRate()
+        .mockResolvedValueOnce({ rate: '0.90', rateDate: '2025-03-03' })
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.getRateQuote('USD', 'EUR', '2025-03-10', { maxStaleDays: 7 }),
+      ).resolves.toMatchObject({ rate: 0.9, stale: true });
+    });
+
+    it('caches a borrowed rate and skips the network while it is cached', async () => {
+      noExactRate()
+        .mockResolvedValueOnce({ rate: '0.90', rateDate: '2025-03-07' })
+        .mockResolvedValueOnce(null);
+      await service.getRateQuote('USD', 'EUR', '2025-03-10');
+      expect(cache.set).toHaveBeenCalledWith(
+        'exchange_rate_fallback:USD:EUR:2025-03-10',
+        { rate: 0.9, rateDate: '2025-03-07', stale: true },
+        3600 * 1000,
+      );
+
+      (global.fetch as jest.Mock).mockClear();
+      cache.get.mockImplementation(async (key: string) =>
+        key.startsWith('exchange_rate_fallback:')
+          ? { rate: 0.9, rateDate: '2025-03-07', stale: true }
+          : undefined,
+      );
+      repo.findOne.mockResolvedValue(null);
+
+      await expect(service.getRateQuote('USD', 'EUR', '2025-03-10')).resolves.toMatchObject({
+        rate: 0.9,
+        stale: true,
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('never stores the paid API latest rates under a past date', async () => {
+      const serviceWithKey = new ExchangeRatesService(repo, cache, createConfigMock('test-api-key'), effects);
+      repo.findOne.mockResolvedValue(null);
+
+      await serviceWithKey.getRateQuote('EUR', 'KZT', '2025-03-10');
+
+      const urls = (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url));
+      expect(urls.some(url => url.includes('/latest/'))).toBe(false);
+      expect(urls.some(url => url.includes('@2025-03-10'))).toBe(true);
+      expect(repo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('still asks the paid API for today', async () => {
+      const serviceWithKey = new ExchangeRatesService(repo, cache, createConfigMock('test-api-key'), effects);
+      repo.findOne.mockResolvedValue(null);
+
+      await serviceWithKey.getRateQuote('USD', 'KZT');
+
+      const urls = (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url));
+      expect(urls).toContain('https://v6.exchangerate-api.com/v6/test-api-key/latest/USD');
     });
   });
 
@@ -218,7 +405,7 @@ describe('ExchangeRatesService', () => {
         .mockResolvedValueOnce({ rate: '3.67' }) // USD->ILS
         .mockResolvedValueOnce(null) // EUR->ILS exact
         .mockResolvedValueOnce(null) // ILS->EUR exact
-        .mockResolvedValueOnce({ rate: '4.05' }); // EUR->ILS latest
+        .mockResolvedValueOnce({ rate: '4.05', rateDate: '2026-01-01' }); // EUR->ILS latest
 
       const results = await service.bulkConvert(
         [
@@ -254,13 +441,13 @@ describe('ExchangeRatesService', () => {
         repo,
         cache,
         createConfigMock('test-api-key'),
+        effects,
       );
 
       const mockRates = { USD: 1, EUR: 0.85, ILS: 3.67 };
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ result: 'success', conversion_rates: mockRates }),
-      }) as any;
+      global.fetch = jest.fn(async () =>
+        jsonResponse({ result: 'success', conversion_rates: mockRates }),
+      ) as any;
 
       await serviceWithKey.fetchAndCacheRates('USD');
 
@@ -273,12 +460,10 @@ describe('ExchangeRatesService', () => {
         repo,
         cache,
         createConfigMock('test-api-key'),
+        effects,
       );
 
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-      }) as any;
+      global.fetch = jest.fn(async () => statusResponse(500)) as any;
 
       // Should not throw
       await expect(serviceWithKey.fetchAndCacheRates('USD')).resolves.toBeUndefined();
@@ -289,12 +474,10 @@ describe('ExchangeRatesService', () => {
         repo,
         cache,
         createConfigMock('test-api-key'),
+        effects,
       );
 
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ result: 'error' }),
-      }) as any;
+      global.fetch = jest.fn(async () => jsonResponse({ result: 'error' })) as any;
 
       await serviceWithKey.fetchAndCacheRates('USD');
       expect(repo.createQueryBuilder).not.toHaveBeenCalled();
@@ -305,10 +488,99 @@ describe('ExchangeRatesService', () => {
         repo,
         cache,
         createConfigMock('test-api-key'),
+        effects,
       );
 
       global.fetch = jest.fn().mockRejectedValue(new Error('Network error')) as any;
       await expect(serviceWithKey.fetchAndCacheRates()).resolves.toBeUndefined();
+    });
+  });
+
+  // ─── workspace manual rates ────────────────────────────────
+
+  describe('manual rates', () => {
+    let workspaceRates: ReturnType<typeof createWorkspaceRateRepo>;
+    let scoped: ExchangeRatesService;
+
+    beforeEach(() => {
+      workspaceRates = createWorkspaceRateRepo();
+      repo.findOne.mockResolvedValue(null);
+      repo.delete = jest.fn();
+      cache.del = jest.fn();
+      scoped = new ExchangeRatesService(
+        repo,
+        cache,
+        createConfigMock(),
+        effects,
+        undefined,
+        workspaceRates,
+      );
+    });
+
+    it('stores the rate for its workspace and leaves the shared provider cache alone', async () => {
+      await scoped.setManualRate('ws-a', 'zzx', 'usd', 0.25, '2025-03-10');
+
+      expect(workspaceRates.rows).toHaveLength(1);
+      expect(workspaceRates.rows[0]).toMatchObject({
+        workspaceId: 'ws-a',
+        baseCurrency: 'ZZX',
+        targetCurrency: 'USD',
+        rate: 0.25,
+      });
+      expect(repo.delete).not.toHaveBeenCalled();
+      expect(repo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('applies only inside the workspace that entered it', async () => {
+      await scoped.setManualRate('ws-a', 'ZZX', 'USD', 0.25, '2025-03-10');
+
+      await expect(
+        scoped.getRateQuote('ZZX', 'USD', '2025-03-10', { workspaceId: 'ws-a' }),
+      ).resolves.toEqual({ rate: 0.25, rateDate: '2025-03-10', stale: false });
+      await expect(
+        scoped.getRateQuote('ZZX', 'USD', '2025-03-10', { workspaceId: 'ws-b' }),
+      ).resolves.toBeNull();
+      await expect(scoped.getRateQuote('ZZX', 'USD', '2025-03-10')).resolves.toBeNull();
+    });
+
+    it('wins over the provider rate for its day', async () => {
+      repo.findOne.mockResolvedValue({ rate: '0.30' });
+      await scoped.setManualRate('ws-a', 'ZZX', 'USD', 0.25, '2025-03-10');
+
+      await expect(scoped.getRate('ZZX', 'USD', '2025-03-10', 'ws-a')).resolves.toBe(0.25);
+      await expect(scoped.getRate('ZZX', 'USD', '2025-03-10', 'ws-b')).resolves.toBe(0.3);
+    });
+
+    it('answers the reverse pair with the inverse rate', async () => {
+      await scoped.setManualRate('ws-a', 'ZZX', 'USD', 0.25, '2025-03-10');
+
+      await expect(scoped.getRateOrNull('USD', 'ZZX', '2025-03-10', 'ws-a')).resolves.toBe(4);
+    });
+
+    it('replaces the same day, also when entered for the reverse pair', async () => {
+      await scoped.setManualRate('ws-a', 'ZZX', 'USD', 0.25, '2025-03-10');
+      await scoped.setManualRate('ws-a', 'USD', 'ZZX', 5, '2025-03-10');
+
+      expect(workspaceRates.rows).toHaveLength(1);
+      await expect(scoped.getRateOrNull('ZZX', 'USD', '2025-03-10', 'ws-a')).resolves.toBe(0.2);
+    });
+
+    it('lends an earlier manual rate to a later day that has none', async () => {
+      await scoped.setManualRate('ws-a', 'ZZX', 'USD', 0.25, '2025-03-01');
+
+      await expect(
+        scoped.getRateQuote('ZZX', 'USD', '2025-03-10', { workspaceId: 'ws-a' }),
+      ).resolves.toEqual({ rate: 0.25, rateDate: '2025-03-01', stale: true });
+      await expect(
+        scoped.getRateQuote('ZZX', 'USD', '2025-03-10', { workspaceId: 'ws-a', maxStaleDays: 7 }),
+      ).resolves.toBeNull();
+    });
+
+    it('does not query manual rates for a workspace that has none', async () => {
+      await scoped.getRateQuote('ZZX', 'USD', '2025-03-10', { workspaceId: 'ws-empty' });
+      await scoped.getRateQuote('ZZX', 'USD', '2025-03-11', { workspaceId: 'ws-empty' });
+
+      expect(workspaceRates.findOne).not.toHaveBeenCalled();
     });
   });
 });

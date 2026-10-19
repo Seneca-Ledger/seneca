@@ -13,12 +13,14 @@ import type {
   StatementMeta,
   Transaction,
 } from '@/app/(main)/statements/types/statement-types';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 
-/** Normalizes a raw currency string to a 3-letter ISO code, falling back to KZT. */
+/** Normalizes a raw currency string to a 3-letter ISO code, falling back to the installation default. */
 export const resolveCurrencyCode = (
   currency: string | null | undefined,
-  fallback = 'KZT',
+  fallback = FALLBACK_CURRENCY,
 ): string => {
   const normalized = String(currency || '')
     .trim()
@@ -29,9 +31,7 @@ export const resolveCurrencyCode = (
 
 /** Maps an Intlayer locale code to a BCP 47 locale string for Intl APIs. */
 export const resolveLocale = (locale?: string): string => {
-  if (locale === 'ru') return 'ru-RU';
-  if (locale === 'kk') return 'kk-KZ';
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 /** Formats a monetary value as a localized currency string. */
@@ -133,9 +133,15 @@ export const mapGmailReceiptToStatement = (
  */
 export const getSourceLabel = (
   channel: string,
-  labels: { sourceBank: string; sourceReceipt: string; sourceGmailInbox: string },
+  labels: {
+    sourceBank: string;
+    sourceReceipt: string;
+    sourceGmailInbox: string;
+    sourceCrypto: string;
+  },
 ): string => {
   if (channel === 'gmail') return labels.sourceGmailInbox;
   if (channel === 'receipt') return labels.sourceReceipt;
+  if (channel === 'crypto') return labels.sourceCrypto;
   return labels.sourceBank;
 };

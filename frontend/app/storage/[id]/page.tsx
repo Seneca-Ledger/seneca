@@ -1,7 +1,10 @@
 /* eslint-disable max-lines */
 'use client';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-
+import { resolveBankLogo } from '@bank-logos';
+import { Box, Chip, Typography } from '@mui/material';
+import Skeleton from '@mui/material/Skeleton';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import React, { useEffect, useEffectEvent, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Download,
@@ -14,85 +17,20 @@ import {
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage, getApiErrorStatus } from '@/app/lib/api-error';
+import { resolveLocaleTag } from '@/app/lib/user-format';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
-import { resolveBankLogo } from '@bank-logos';
-import { Box, Chip, Typography } from '@mui/material';
-import Skeleton from '@mui/material/Skeleton';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import React, { useEffect, useRef, useState } from 'react';
 import PermissionsPanel from '../../components/PermissionsPanel';
 import ShareDialog from '../../components/ShareDialog';
-import TransactionsView, {
-  type Transaction as StatementTransaction,
-} from '../../components/TransactionsView';
+import TransactionsView from '../../components/TransactionsView';
 import api from '../../lib/api';
+import { blobOf } from '../../lib/blob-of';
+import type { StorageFileDetails } from '../../lib/contracts';
+import { checkContract } from '../../lib/query-fn-schema';
 
-type FileAvailabilityStatus = 'both' | 'disk' | 'db' | 'missing';
-
-type FileAvailability = {
-  onDisk: boolean;
-  inDb: boolean;
-  status: FileAvailabilityStatus;
-};
-
-interface StatementCategory {
-  id: string;
-  name: string;
-  color?: string;
-}
-
-interface StatementDetails {
-  id: string;
-  fileName: string;
-  bankName: string;
-  status: string;
-  fileSize: number;
-  createdAt: string;
-  metadata?: {
-    accountNumber?: string;
-  };
-  category?: StatementCategory | null;
-  categoryId?: string | null;
-}
-
-interface FileDetails {
-  statement: StatementDetails;
-  transactions: StatementTransaction[];
-  sharedLinks: SharedLink[];
-  permissions: FilePermission[];
-  isOwner: boolean;
-  userPermission?: string;
-  fileAvailability?: FileAvailability;
-}
-
-interface SharedLink {
-  id: string;
-  token: string;
-  permission: string;
-  expiresAt: string | null;
-  allowAnonymous: boolean;
-  description: string | null;
-  status: string;
-  accessCount: number;
-  createdAt: string;
-}
-
-interface FilePermission {
-  id: string;
-  user: {
-    id: string;
-    email: string;
-  };
-  grantedBy: {
-    id: string;
-    email: string;
-  };
-  permissionType: string;
-  canReshare: boolean;
-  expiresAt: string | null;
-  isActive: boolean;
-  createdAt: string;
-}
+type FileDetails = StorageFileDetails;
+type FileAvailability = FileDetails['fileAvailability'];
+type FileAvailabilityStatus = FileAvailability['status'];
 
 const getBankDisplayName = (bankName: string): string => {
   const resolved = resolveBankLogo(bankName);
@@ -203,56 +141,30 @@ export default function FileDetailsPage() {
   };
 
   useEffect(() => {
-    let cancelled = false;
-
-    // eslint-disable-next-line complexity
-    const run = async (): Promise<void> => {
-      const loadedDetails = await loadFileDetails();
-      if (cancelled) {
-        return;
-      }
-
-      if (loadedDetails?.fileAvailability?.status === 'missing') {
-        setPreviewError(t.preview.unavailable.value);
-        revokePreviewUrl();
-        setPreviewUrl(null);
-        setPreviewLoading(false);
-        return;
-      }
-
-      await loadPreview(loadedDetails?.fileAvailability?.status);
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileId]);
-
-  useEffect(() => {
     return () => {
       revokePreviewUrl();
     };
   }, []);
 
   const loadFileDetails = async (): Promise<FileDetails | null> => {
-    try {
+    return await (async () => {
       setLoading(true);
       const response = await api.get(`/storage/files/${fileId}`);
-      setDetails(response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Failed to load file details:', error);
-      setDetails(null);
-      return null;
-    } finally {
-      setLoading(false);
-    }
+      const loaded = await checkContract('StorageFileDetails', response.data, '/storage/files/:id');
+      setDetails(loaded);
+      return loaded;
+    })()
+      .catch(async error => {
+        console.error('Failed to load file details:', error);
+        setDetails(null);
+        return null;
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
   };
 
-  // eslint-disable-next-line max-lines-per-function, complexity
+  // eslint-disable-next-line max-lines-per-function
   const loadPreview = async (
     availabilityStatusOverride?: FileAvailabilityStatus,
   ): Promise<void> => {
@@ -265,7 +177,7 @@ export default function FileDetailsPage() {
       return;
     }
 
-    try {
+    await (async () => {
       setPreviewLoading(true);
       setPreviewError(null);
       revokePreviewUrl();
@@ -275,42 +187,70 @@ export default function FileDetailsPage() {
         responseType: 'blob',
       });
 
-      const url = URL.createObjectURL(response.data);
+      const url = URL.createObjectURL(blobOf(response));
       previewUrlRef.current = url;
       setPreviewUrl(url);
-    } catch (error) {
-      console.error('Failed to load file preview:', error);
-      const message =
-        getApiErrorStatus(error) === 404
-          ? t.preview.unavailable.value
-          : getApiErrorMessage(error, t.toasts.previewFailed.value);
-      setPreviewError(message);
-      setPreviewUrl(null);
-    } finally {
-      setPreviewLoading(false);
-    }
+    })()
+      .catch(async error => {
+        console.error('Failed to load file preview:', error);
+        const message =
+          getApiErrorStatus(error) === 404
+            ? t.preview.unavailable.value
+            : getApiErrorMessage(error, t.toasts.previewFailed.value);
+        setPreviewError(message);
+        setPreviewUrl(null);
+      })
+      .finally(async () => {
+        setPreviewLoading(false);
+      });
   };
+
+  // eslint-disable-next-line complexity
+  const loadDetailsAndPreview = useEffectEvent(async (isCancelled: () => boolean) => {
+    const loadedDetails = await loadFileDetails();
+    if (isCancelled()) {
+      return;
+    }
+
+    if (loadedDetails?.fileAvailability?.status === 'missing') {
+      setPreviewError(t.preview.unavailable.value);
+      revokePreviewUrl();
+      setPreviewUrl(null);
+      setPreviewLoading(false);
+      return;
+    }
+
+    await loadPreview(loadedDetails?.fileAvailability?.status);
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadDetailsAndPreview(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [fileId]);
 
   const handleDownload = async (): Promise<void> => {
     if (!details) {
       return;
     }
 
-    try {
+    await (async () => {
       const response = await api.get(`/storage/files/${fileId}/download`, {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', details.statement.fileName);
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to download file:', error);
-    }
+    });
   };
 
   const formatDate = (dateString: string): string => {
@@ -318,7 +258,7 @@ export default function FileDetailsPage() {
     return formatStoredDateWithOptions(
       date,
       { year: 'numeric', month: 'long', day: 'numeric' },
-      locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
+      resolveLocaleTag(locale),
     );
   };
 
@@ -511,7 +451,7 @@ export default function FileDetailsPage() {
             component="button"
             type="button"
             onClick={() => router.push('/statements')}
-            aria-label="Back to storage"
+            aria-label={t.actions.backToStorage.value}
             sx={{
               borderRadius: tokens.radius.full,
               border: '1px solid var(--border-color)',
@@ -546,9 +486,9 @@ export default function FileDetailsPage() {
                   borderRadius: tokens.radius.sm,
                   fontSize: 12,
                   fontWeight: 600,
-                  bgcolor: 'rgba(22,129,24,0.1)',
+                  bgcolor: 'rgba(var(--primary-rgb),0.1)',
                   color: 'primary.main',
-                  border: '1px solid rgba(22,129,24,0.2)',
+                  border: '1px solid rgba(var(--primary-rgb),0.2)',
                 }}
               />
               <Chip
@@ -656,7 +596,7 @@ export default function FileDetailsPage() {
             { label: t.cards.uploadedAt, value: formatDate(statement.createdAt) },
             {
               label: t.cards.account,
-              value: statement.metadata?.accountNumber || t.cards.dash.value,
+              value: statement.accountNumber || t.cards.dash.value,
             },
             // eslint-disable-next-line max-params
           ].map((card, idx) => (

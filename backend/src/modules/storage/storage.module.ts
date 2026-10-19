@@ -17,9 +17,9 @@ import {
 import { MetricsService } from '../observability/metrics.service';
 import { ObservabilityModule } from '../observability/observability.module';
 import { StatementsModule } from '../statements/statements.module';
-import { StorageTrashScheduler } from './storage-trash.scheduler';
 import { StorageController } from './storage.controller';
 import { StorageService } from './storage.service';
+import { StorageTrashScheduler } from './storage-trash.scheduler';
 
 /**
  * Storage module for file management, sharing, and permissions

@@ -1,8 +1,4 @@
 'use client';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-
-import { Copy, Trash2 } from '@/app/components/icons';
-import { useIntlayer, useLocale } from '@/app/i18n';
 import {
   Box,
   Chip,
@@ -16,6 +12,10 @@ import {
   Typography,
 } from '@mui/material';
 import React, { useState } from 'react';
+import { Copy, Trash2 } from '@/app/components/icons';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { resolveLocaleTag } from '@/app/lib/user-format';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import api from '../lib/api';
 
 interface SharedLink {
@@ -38,10 +38,8 @@ interface ShareDialogProps {
   onLinksUpdate: () => void;
 }
 
-const DATE_LOCALE_MAP: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ' };
-
 function resolveDateLocale(locale: string): string {
-  return DATE_LOCALE_MAP[locale] ?? 'en-US';
+  return resolveLocaleTag(locale);
 }
 
 interface LinkPrimaryProps {

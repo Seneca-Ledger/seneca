@@ -1,7 +1,4 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import { AlertCircle, RefreshCw, Trash2 } from '@/app/components/icons';
 import {
   Box,
   Button,
@@ -16,6 +13,8 @@ import {
   TextField,
 } from '@mui/material';
 import React from 'react';
+import { AlertCircle, RefreshCw, Trash2 } from '@/app/components/icons';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 
 interface Statement {
   id: string;

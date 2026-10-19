@@ -1,74 +1,72 @@
 // Main Components
-export { SidePanel } from './SidePanel';
-export { SidePanelProvider, useSidePanel, useSidePanelOptional } from './SidePanelContext';
-
-// Hooks
-export { useSidePanelConfig, useCurrentSidePanelConfig } from './hooks/useSidePanelConfig';
-
-// Section Renderers (for custom implementations)
-export {
-  SectionRenderer,
-  NavigationSectionRenderer,
-  StatusSectionRenderer,
-  SummarySectionRenderer,
-  MetricsSectionRenderer,
-  ActionsSectionRenderer,
-  SettingsSectionRenderer,
-  ErrorSectionRenderer,
-  ChartSectionRenderer,
-  CustomSectionRenderer,
-} from './sections';
 
 // Page Configuration Factories
 export { createBasicSidePanelConfig } from './configs';
-
 // Example Components
 export {
-  PageWithSidePanel,
   AppLayoutWithSidePanel,
+  PageWithSidePanel,
 } from './examples/SidePanelPageLayout';
+
+// Hooks
+export { useCurrentSidePanelConfig, useSidePanelConfig } from './hooks/useSidePanelConfig';
+export { SidePanel } from './SidePanel';
+export { SidePanelProvider, useSidePanel, useSidePanelOptional } from './SidePanelContext';
+// Section Renderers (for custom implementations)
+export {
+  ActionsSectionRenderer,
+  ChartSectionRenderer,
+  CustomSectionRenderer,
+  ErrorSectionRenderer,
+  MetricsSectionRenderer,
+  NavigationSectionRenderer,
+  SectionRenderer,
+  SettingsSectionRenderer,
+  StatusSectionRenderer,
+  SummarySectionRenderer,
+} from './sections';
 
 // Types
 export type {
-  // Core types
-  SidePanelWidth,
-  SidePanelPosition,
-  SidePanelSectionType,
-  // Item types
-  NavigationItem,
-  StatusItem,
-  SummaryItem,
   ActionItem,
-  SettingsToggleItem,
-  SettingsSelectItem,
-  ErrorItem,
-  ChartItem,
-  // Section types
-  SidePanelSectionBase,
-  NavigationSection,
-  StatusSection,
-  SummarySection,
-  MetricsSection,
   ActionsSection,
-  SettingsSection,
-  ErrorSection,
+  ChartItem,
   ChartSection,
   CustomSection,
-  SidePanelSection,
-  // Configuration types
-  SidePanelPermissions,
-  SidePanelPageConfig,
-  SidePanelProps,
+  ErrorItem,
+  ErrorSection,
+  MetricsSection,
+  // Item types
+  NavigationItem,
+  NavigationSection,
+  SettingsSection,
+  SettingsSelectItem,
+  SettingsToggleItem,
   // Context types
   SidePanelContextState,
+  SidePanelPageConfig,
+  // Configuration types
+  SidePanelPermissions,
+  SidePanelPosition,
+  SidePanelProps,
   SidePanelProviderProps,
+  SidePanelSection,
+  // Section types
+  SidePanelSectionBase,
+  SidePanelSectionType,
+  // Core types
+  SidePanelWidth,
+  StatusItem,
+  StatusSection,
+  SummaryItem,
+  SummarySection,
 } from './types';
 
 // Utility exports
 export {
-  WIDTH_VALUES,
+  ACTION_VARIANTS,
+  BADGE_VARIANTS,
   getWidthValue,
   STATUS_COLORS,
-  BADGE_VARIANTS,
-  ACTION_VARIANTS,
+  WIDTH_VALUES,
 } from './types';

@@ -1,6 +1,10 @@
 import { Body, Controller, Get, Post, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
+import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { Permission } from '../../common/enums/permissions.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -14,22 +18,24 @@ export class GoogleDriveController {
   constructor(private readonly googleDriveService: GoogleDriveService) {}
 
   @Get('status')
-  async status(@CurrentUser() user: User) {
-    return this.googleDriveService.getStatus(user.id);
+  @UseGuards(WorkspaceContextGuard)
+  async status(@WorkspaceId() workspaceId: string) {
+    return this.googleDriveService.getStatus(workspaceId);
   }
 
   @Get('connect')
-  async connect(@CurrentUser() user: User) {
-    const url = this.googleDriveService.getAuthUrl(user);
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  async connect(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    const url = this.googleDriveService.getAuthUrl(user, workspaceId);
     return { url };
   }
 
   @Public()
   @Get('callback')
   async callback(
-    @Query('code') code: string | undefined,
-    @Query('state') state: string | undefined,
-    @Query('error') error: string | undefined,
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Query('error') error: string,
     @Res() res: Response,
   ) {
     const redirect = await this.googleDriveService.handleOAuthCallback({
@@ -41,27 +47,36 @@ export class GoogleDriveController {
   }
 
   @Post('disconnect')
-  async disconnect(@CurrentUser() user: User) {
-    return this.googleDriveService.disconnect(user.id);
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  async disconnect(@WorkspaceId() workspaceId: string) {
+    return this.googleDriveService.disconnect(workspaceId);
   }
 
   @Post('settings')
-  async updateSettings(@CurrentUser() user: User, @Body() dto: UpdateDriveSettingsDto) {
-    return this.googleDriveService.updateSettings(user.id, dto);
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  async updateSettings(@WorkspaceId() workspaceId: string, @Body() dto: UpdateDriveSettingsDto) {
+    return this.googleDriveService.updateSettings(workspaceId, dto);
   }
 
   @Get('picker-token')
-  async getPickerToken(@CurrentUser() user: User) {
-    return this.googleDriveService.getPickerToken(user.id);
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  async getPickerToken(@WorkspaceId() workspaceId: string) {
+    return this.googleDriveService.getPickerToken(workspaceId);
   }
 
   @Post('import')
-  async importFiles(@CurrentUser() user: User, @Body() dto: ImportDriveFilesDto) {
-    return this.googleDriveService.importFiles(user.id, dto);
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  async importFiles(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Body() dto: ImportDriveFilesDto,
+  ) {
+    return this.googleDriveService.importFiles(user.id, workspaceId, dto);
   }
 
   @Post('sync')
-  async sync(@CurrentUser() user: User) {
-    return this.googleDriveService.syncNow(user.id);
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  async sync(@WorkspaceId() workspaceId: string) {
+    return this.googleDriveService.syncNow(workspaceId);
   }
 }

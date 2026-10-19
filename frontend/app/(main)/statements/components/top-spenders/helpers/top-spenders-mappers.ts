@@ -1,15 +1,15 @@
+import { resolveBankLogo } from '@bank-logos';
 import type { StatementFilterItem } from '@/app/(main)/statements/components/filters/statement-filters';
 import {
+  resolveSourceChannel,
+  resolveSpenderFlow,
   type TopSpenderFlowType,
   type TopSpenderRecord,
   type TopSpenderSourceChannel,
-  resolveSourceChannel,
-  resolveSpenderFlow,
 } from '@/app/(main)/statements/components/top-spenders/top-spenders.types';
 import type { GmailReceipt } from '@/app/(main)/statements/types/statement-types';
 import { resolveCurrencyCode } from '@/app/lib/analytics-common';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
-import { resolveBankLogo } from '@bank-logos';
 
 /** Collapse an optional string to null rather than empty string. */
 const opt = (v: string | null | undefined): string | null => (v ? v : null);

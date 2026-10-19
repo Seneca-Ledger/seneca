@@ -1,7 +1,4 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import { Pencil } from '@/app/components/icons';
 import {
   Chip,
   FormControl,
@@ -12,6 +9,8 @@ import {
   TableRow,
 } from '@mui/material';
 import React from 'react';
+import { Pencil } from '@/app/components/icons';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 
 interface User {
   id: string;
@@ -88,7 +87,10 @@ function StatusChip({
 function PermissionsChip({
   user,
   labels,
-}: { user: User; labels: UserTableRowProps['labels'] }): React.JSX.Element {
+}: {
+  user: User;
+  labels: UserTableRowProps['labels'];
+}): React.JSX.Element {
   const label = user.permissions?.length || labels.permissionsDefault;
   const color = user.permissions?.length ? 'primary' : 'default';
   return <Chip label={label} color={color} size="small" />;

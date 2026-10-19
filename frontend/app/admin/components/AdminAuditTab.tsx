@@ -1,9 +1,9 @@
 'use client';
 
-import CustomDatePicker from '@/app/components/CustomDatePicker';
-import type { AuditEvent, AuditEventFilter } from '@/lib/api/audit';
 import { Box, Paper, TextField, Typography } from '@mui/material';
 import React from 'react';
+import CustomDatePicker from '@/app/components/CustomDatePicker';
+import type { AuditEvent, AuditEventFilter } from '@/lib/api/audit';
 import { AuditEventDrawer } from '../../audit/components/AuditEventDrawer';
 import { AuditEventTable } from '../../audit/components/AuditEventTable';
 
@@ -132,7 +132,7 @@ function AuditFilters({ filters, labels, onFilterChange }: FilterProps): React.J
   return (
     <Paper
       variant="outlined"
-      className="lumio-audit-panel__filters"
+      className="seneca-audit-panel__filters"
       data-tour-id="admin-audit-filters"
     >
       <Typography variant="subtitle2" gutterBottom>
@@ -242,8 +242,8 @@ export function AdminAuditTab({
   onCloseDrawer,
 }: AdminAuditTabProps): React.JSX.Element {
   return (
-    <Box className="lumio-audit-panel">
-      <Box className="lumio-audit-panel__header">
+    <Box className="seneca-audit-panel">
+      <Box className="seneca-audit-panel__header">
         <Typography variant="h6" component="h2">
           {labels.title}
         </Typography>
@@ -251,9 +251,9 @@ export function AdminAuditTab({
           {labels.helper}
         </Typography>
       </Box>
-      <Box className="lumio-audit-panel__layout">
+      <Box className="seneca-audit-panel__layout">
         <AuditFilters filters={auditFilters} labels={labels} onFilterChange={onFilterChange} />
-        <Box className="lumio-audit-panel__results">
+        <Box className="seneca-audit-panel__results">
           <AuditResults
             auditLogs={auditLogs}
             auditLoading={auditLoading}

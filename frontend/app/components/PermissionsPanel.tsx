@@ -1,8 +1,4 @@
 'use client';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-
-import { Pencil, Trash2, UserPlus } from '@/app/components/icons';
-import { useIntlayer, useLocale } from '@/app/i18n';
 import {
   Alert,
   Box,
@@ -30,8 +26,20 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { isValid } from 'date-fns';
 import React, { useState } from 'react';
+import { Pencil, Trash2, UserPlus } from '@/app/components/icons';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { resolveLocaleTag, resolvePickerFormat } from '@/app/lib/user-format';
+import { formatStoredDateWithOptions, useUserFormat } from '@/app/lib/user-format-store';
 import api from '../lib/api';
+
+type FilePermissionType = ContractInput<'GrantPermissionBody'>['permissionType'];
+const PERMISSION_TYPES: readonly FilePermissionType[] = ['owner', 'editor', 'viewer', 'downloader'];
+const isPermissionType = (value: string): value is FilePermissionType =>
+  PERMISSION_TYPES.some(type => type === value);
 
 interface Permission {
   id: string;
@@ -190,8 +198,8 @@ function PermTable({
 }
 
 interface PermFormProps {
-  permissionType: string;
-  setPermissionType: (v: string) => void;
+  permissionType: FilePermissionType;
+  setPermissionType: (v: FilePermissionType) => void;
   canReshare: boolean;
   setCanReshare: (v: boolean) => void;
   expiresAt: string;
@@ -210,6 +218,7 @@ function PermFormFields({
   error,
   t,
 }: PermFormProps): React.JSX.Element {
+  const { preferences } = useUserFormat();
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
       {error && <Alert severity="error">{error}</Alert>}
@@ -218,20 +227,23 @@ function PermFormFields({
         <Select
           value={permissionType}
           label={t.dialogs.accessLevel.value}
-          onChange={e => setPermissionType(e.target.value)}
+          onChange={e => {
+            if (isPermissionType(e.target.value)) setPermissionType(e.target.value);
+          }}
         >
           <MenuItem value="viewer">{t.permission.viewer}</MenuItem>
           <MenuItem value="downloader">{t.permission.viewDownloadLong}</MenuItem>
           <MenuItem value="editor">{t.permission.editorLong}</MenuItem>
         </Select>
       </FormControl>
-      <TextField
-        fullWidth
+      <DateTimePicker
         label={t.dialogs.expiresAt.value}
-        type="datetime-local"
-        value={expiresAt}
-        onChange={e => setExpiresAt(e.target.value)}
-        InputLabelProps={{ shrink: true }}
+        value={expiresAt ? new Date(expiresAt) : null}
+        onChange={date => setExpiresAt(date && isValid(date) ? date.toISOString() : '')}
+        format={`${resolvePickerFormat(preferences)} HH:mm`}
+        ampm={false}
+        disablePast
+        slotProps={{ textField: { fullWidth: true } }}
       />
       <FormControlLabel
         control={<Switch checked={canReshare} onChange={e => setCanReshare(e.target.checked)} />}
@@ -255,83 +267,87 @@ export default function PermissionsPanel({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null);
   const [userEmail, setUserEmail] = useState('');
-  const [permissionType, setPermissionType] = useState('viewer');
+  const [permissionType, setPermissionType] = useState<FilePermissionType>('viewer');
   const [canReshare, setCanReshare] = useState(false);
   const [expiresAt, setExpiresAt] = useState('');
   const [granting, setGranting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleGrantPermission = async (): Promise<void> => {
-    try {
+    await (async () => {
       setGranting(true);
       setError(null);
       await api.post(`/storage/files/${fileId}/permissions`, {
-        userId: userEmail,
+        userId: userEmail.trim(),
         permissionType,
         canReshare,
         expiresAt: expiresAt || undefined,
-      });
+      } satisfies ContractInput<'GrantPermissionBody'>);
       setUserEmail('');
       setPermissionType('viewer');
       setCanReshare(false);
       setExpiresAt('');
       setGrantDialogOpen(false);
       onPermissionsUpdate();
-    } catch (err: unknown) {
-      setError(getApiMessage({ error: err, fallback: t.errors.grantFailed.value }));
-    } finally {
-      setGranting(false);
-    }
+    })()
+      .catch(async (err: unknown) => {
+        setError(getApiMessage({ error: err, fallback: t.errors.grantFailed.value }));
+      })
+      .finally(async () => {
+        setGranting(false);
+      });
   };
 
   const handleUpdatePermission = async (): Promise<void> => {
     if (!selectedPermission) {
       return;
     }
-    try {
+
+    await (async () => {
       setGranting(true);
       setError(null);
       await api.put(`/storage/permissions/${selectedPermission.id}`, {
         permissionType,
         canReshare,
         expiresAt: expiresAt || null,
-      });
+      } satisfies ContractInput<'UpdatePermissionBody'>);
       setEditDialogOpen(false);
       setSelectedPermission(null);
       onPermissionsUpdate();
-    } catch (err: unknown) {
-      setError(getApiMessage({ error: err, fallback: t.errors.updateFailed.value }));
-    } finally {
-      setGranting(false);
-    }
+    })()
+      .catch(async (err: unknown) => {
+        setError(getApiMessage({ error: err, fallback: t.errors.updateFailed.value }));
+      })
+      .finally(async () => {
+        setGranting(false);
+      });
   };
 
   const handleRevokePermission = async (permissionId: string): Promise<void> => {
     if (!confirm(t.confirmRevoke.value)) {
       return;
     }
-    try {
+
+    await (async () => {
       await api.delete(`/storage/permissions/${permissionId}`);
       onPermissionsUpdate();
-    } catch (err) {
+    })().catch(async err => {
       console.error('Failed to revoke permission:', err);
-    }
+    });
   };
 
   const handleEditClick = (permission: Permission): void => {
     setSelectedPermission(permission);
-    setPermissionType(permission.permissionType);
+    if (isPermissionType(permission.permissionType)) setPermissionType(permission.permissionType);
     setCanReshare(permission.canReshare);
     setExpiresAt(permission.expiresAt || '');
     setEditDialogOpen(true);
   };
-
-  const LOCALE_MAP: Record<string, string> = { kk: 'kk-KZ', ru: 'ru-RU' };
   const formatDate = (dateString: string): string =>
     formatStoredDateWithOptions(
       dateString,
       { year: 'numeric', month: 'long', day: 'numeric' },
-      LOCALE_MAP[locale] ?? 'en-US',
+      resolveLocaleTag(locale),
     );
 
   const formProps: PermFormProps = {

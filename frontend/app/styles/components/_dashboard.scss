@@ -1,78 +1,208 @@
 @use '../abstracts' as *;
 
-/* BEM block: lumio-dashboard */
+/* BEM block: seneca-dashboard */
 
 /* ── Stat grid ── */
-.lumio-dashboard {
+.seneca-dashboard {
+  /* Tab body: stacked sections with a uniform gap. */
+  &__tab {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 40px;
+    min-width: 0;
+    max-width: 100%;
+
+    @media (max-width: 640px) {
+      gap: 12px;
+    }
+  }
+
   &__stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 16px;
+
+    /* Let cards shrink below their nowrap content instead of widening the track. */
+    > * {
+      min-width: 0;
+    }
+
+    &--auto {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
 
     @media (max-width: 1280px) {
       grid-template-columns: repeat(2, 1fr);
+
+      /* In two-column mode an odd trailing tile stretches across the row. */
+      &--auto > :last-child:nth-child(odd) {
+        grid-column: span 2;
+      }
     }
 
+    /* Phones: two compact tiles per row instead of a tall single column. */
     @media (max-width: 640px) {
-      grid-template-columns: 1fr;
+      gap: 10px;
     }
   }
 
   &__stat {
     position: relative;
     padding: 18px 20px 16px;
-    background: $lumio-color-surface;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-lg;
+
+    @media (max-width: 640px) {
+      padding: 14px 14px 12px;
+    }
+    background: $seneca-color-surface;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-lg;
     overflow: hidden;
-    box-shadow: $lumio-shadow-sm;
 
     @include dark {
-      background: $lumio-color-surface-dk;
-      border-color: $lumio-color-ink-150-dk;
-      box-shadow: $lumio-shadow-sm-dk;
+      background: $seneca-color-surface-dk;
+      border-color: $seneca-color-ink-150-dk;
     }
   }
 
+  // Sentence case in the readable grey, like every other label: no capitals.
   &__stat-label {
-    font-size: 11.5px;
-    color: $lumio-color-ink-500;
+    font-size: 13px;
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
 
-    @include dark {
-      color: $lumio-color-ink-500-dk;
+  &__stat-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    vertical-align: 1px;
+
+    &--positive {
+      background: $seneca-color-money-up;
+
+      @include dark {
+        background: $seneca-color-success-dk;
+      }
     }
+
+    &--negative {
+      background: $seneca-color-money-down;
+
+      @include dark {
+        background: $seneca-color-danger-dk;
+      }
+    }
+
+    &--warning {
+      background: $seneca-color-warning;
+
+      @include dark {
+        background: $seneca-color-warning-dk;
+      }
+    }
+
+    &--info {
+      background: $seneca-color-info;
+
+      @include dark {
+        background: $seneca-color-info-dk;
+      }
+    }
+  }
+
+  /* A category's share of the spending, under its name: for two or three, in place of a ring. */
+  &__share-bar {
+    display: block;
+    height: 4px;
+    margin-top: 6px;
+    border-radius: 2px;
+    background: var(--icon-badge-bg);
+    overflow: hidden;
+
+    > span {
+      display: block;
+      height: 100%;
+      border-radius: 2px;
+    }
+  }
+
+  /* Ties a category row to its slice: the only colour the list carries. */
+  &__legend-dot {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    border-radius: 50%;
+    vertical-align: 1px;
   }
 
   &__stat-value {
     font-size: 26px;
     font-weight: 600;
-    color: $lumio-color-ink-900;
+    color: $seneca-color-figure;
     letter-spacing: -0.015em;
     margin-top: 6px;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+
+    @media (max-width: 640px) {
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &--positive {
-      color: $lumio-color-success;
+      color: $seneca-color-success;
 
       @include dark {
-        color: $lumio-color-success-dk;
+        color: $seneca-color-success-dk;
       }
     }
 
     &--negative {
-      color: $lumio-color-danger;
+      color: $seneca-color-danger;
 
       @include dark {
-        color: $lumio-color-danger-dk;
+        color: $seneca-color-danger-dk;
+      }
+    }
+
+    &--warning {
+      color: $seneca-color-warning;
+
+      @include dark {
+        color: $seneca-color-warning-dk;
+      }
+    }
+
+    &--info {
+      color: $seneca-color-info;
+
+      @include dark {
+        color: $seneca-color-info-dk;
+      }
+    }
+  }
+
+  &__stat--link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 120ms;
+
+    &:hover {
+      border-color: $seneca-color-ink-300;
+
+      @include dark {
+        border-color: $seneca-color-ink-300-dk;
       }
     }
   }
@@ -85,97 +215,173 @@
     font-size: 12px;
   }
 
+  &__stat-note {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* What a tile with room adds under its figure: label on the left, value on the right. */
+  /* A tile with room drawing a full chart rather than its sparkline. */
+  &__stat-chart {
+    margin-top: 12px;
+  }
+
+  &__stat-details {
+    display: grid;
+    gap: 4px;
+    margin: 10px 0 0;
+    font-size: 12px;
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    dt {
+      color: var(--muted-foreground);
+    }
+
+    dd {
+      margin: 0;
+      font-weight: 600;
+      color: var(--foreground);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+  }
+
   &__stat-sub {
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: $seneca-font-weight-medium;
+
+      @include dark {
+        color: $seneca-color-primary-dk;
+      }
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
   }
 
   &__stat-spark {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 42px;
+    height: 38px;
+    margin-top: 10px;
     pointer-events: none;
     opacity: 0.9;
-  }
+    // A neutral line is grey: colour is kept for the cards that deviate.
+    color: var(--text-muted);
 
-  /* ── Main 2fr/1fr grid ── */
-  &__grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 16px;
+    &--positive {
+      color: $seneca-color-money-up;
 
-    @media (max-width: 1024px) {
-      grid-template-columns: 1fr;
+      @include dark {
+        color: $seneca-color-success-dk;
+      }
+    }
+
+    &--negative {
+      color: $seneca-color-money-down;
+
+      @include dark {
+        color: $seneca-color-danger-dk;
+      }
+    }
+
+    &--warning {
+      color: $seneca-color-warning;
+
+      @include dark {
+        color: $seneca-color-warning-dk;
+      }
+    }
+
+    &--info {
+      color: $seneca-color-info;
+
+      @include dark {
+        color: $seneca-color-info-dk;
+      }
     }
   }
 
-  &__cashflow  { grid-column: 1; grid-row: 1; }
-  &__categories { grid-column: 2; grid-row: 1; }
-  &__activity  { grid-column: 1; grid-row: 2 / span 2; }
-  &__actions   { grid-column: 2; grid-row: 2; }
-  &__upload    { grid-column: 2; grid-row: 3; }
+  /* ── Card grids ── */
+  &__grid {
+    display: grid;
+    gap: 16px;
+    align-items: stretch;
 
-  @media (max-width: 1024px) {
-    &__cashflow,
-    &__categories,
-    &__activity,
-    &__actions,
-    &__upload {
-      grid-column: 1;
-      grid-row: auto;
+    @media (max-width: 640px) {
+      gap: 12px;
+    }
+
+    > * {
+      min-width: 0;
+    }
+
+    /* Categories vs. transactions on the first screen. */
+    &--split {
+      grid-template-columns: 11fr 9fr;
+    }
+
+    /* Two equal cards; a lone card stretches to the full row. */
+    &--pair {
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    /* Primary chart plus a narrower companion. */
+    &--wide {
+      grid-template-columns: 2fr 1fr;
+    }
+
+    /* Any number of feature cards. */
+    &--cards {
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+
+    @media (max-width: 1024px) {
+      &--split,
+      &--wide {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+
+  /* Stacked cards inside one grid column; the last card absorbs leftover height. */
+  &__column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+
+    > :last-child {
+      flex: 1;
     }
   }
 
   /* ── Card (padded) ── */
   &__card {
-    background: $lumio-color-surface;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-lg;
-    padding: 20px;
-    box-shadow: $lumio-shadow-sm;
-
-    @include dark {
-      background: $lumio-color-surface-dk;
-      border-color: $lumio-color-ink-150-dk;
-      box-shadow: $lumio-shadow-sm-dk;
-    }
-  }
-
-  /* Card shell — provides border/radius/shadow but no padding (used for components with self-managed padding) */
-  &__card-shell {
-    background: $lumio-color-surface;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-lg;
-    box-shadow: $lumio-shadow-sm;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
+    background: $seneca-color-surface;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-lg;
+    padding: 20px;
 
     @include dark {
-      background: $lumio-color-surface-dk;
-      border-color: $lumio-color-ink-150-dk;
-      box-shadow: $lumio-shadow-sm-dk;
+      background: $seneca-color-surface-dk;
+      border-color: $seneca-color-ink-150-dk;
     }
-  }
-
-  &__card-shell-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 20px 20px 0;
-    flex-shrink: 0;
-  }
-
-  &__card-shell-body {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
   }
 
   /* ── Card header (for padded cards) ── */
@@ -184,7 +390,14 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+
+    /* On a phone the title and a wide action (a month strip) cannot share one
+       line without squeezing the title to a few characters. */
+    @include respond-to('sm') {
+      flex-wrap: wrap;
+      gap: 12px;
+    }
   }
 
   &__card-head-actions {
@@ -192,46 +405,61 @@
     align-items: center;
     gap: 14px;
     flex-shrink: 0;
+
+    /* A month strip in this slot is twelve chips wide. Refusing to shrink, it
+       stretched the card — and with it the whole page — well past the screen
+       on the goal page; this one case shrinks and scrolls inside itself. */
+    &:has(.seneca-dashboard__month-strip) {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    /* On a phone the head already wraps the actions under the title; there they
+       wrap too (period tabs, then the link) instead of running past the card. */
+    @include respond-to('sm') {
+      flex-shrink: 1;
+      flex-wrap: wrap;
+      min-width: 0;
+      row-gap: 8px;
+    }
   }
 
+  // Sentence case and a medium weight, as on every other card in the app.
   &__card-title {
     font-size: 15px;
-    font-weight: 600;
-    color: $lumio-color-ink-900;
-    letter-spacing: -0.01em;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-figure;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
+    }
+  }
+
+  &__card-heading {
+    min-width: 0;
+  }
+
+  &__card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* Shell variant: the body scrolls instead of growing the card. */
+  &__card--shell {
+    overflow: hidden;
+
+    .seneca-dashboard__card-body {
+      overflow: auto;
     }
   }
 
   &__card-sub {
-    font-size: 12.5px;
-    color: $lumio-color-ink-500;
+    font-size: 14px;
+    color: var(--text-muted);
     margin-top: 4px;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
-  &__legend {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: $lumio-color-ink-500;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
-  &__legend-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: $lumio-radius-xs;
-    flex-shrink: 0;
   }
 
   &__card-link-btn {
@@ -240,254 +468,312 @@
     gap: 4px;
     font-size: 12.5px;
     font-weight: 500;
-    color: $lumio-color-primary;
+    color: var(--primary);
     text-decoration: none;
     background: none;
     border: none;
     cursor: pointer;
     padding: 4px 8px;
-    border-radius: $lumio-radius-xs;
+    border-radius: $seneca-radius-xs;
     transition: background-color 150ms;
     white-space: nowrap;
     flex-shrink: 0;
 
     @include dark {
-      color: $lumio-color-primary-dk;
+      color: $seneca-color-primary-dk;
     }
 
     &:hover {
-      background-color: $lumio-color-primary-50;
+      background-color: var(--primary-50);
 
       @include dark {
-        background-color: $lumio-color-primary-50-dk;
+        background-color: $seneca-color-primary-50-dk;
       }
     }
   }
 
-  /* ── Cash flow chart area ── */
-  &__cf-chart {
-    height: 260px;
+  /* ── Chart area inside a card ── */
+  /* The chart box grows with the card; the canvas is pinned to it so ECharts
+     gets a definite size even when the height comes from flex. */
+  &__chart {
+    flex: 1;
+    min-height: 260px;
     position: relative;
+    overflow: hidden;
+
+    > * {
+      position: absolute;
+      inset: 0;
+    }
   }
 
-  /* ── Top categories area ── */
-  &__cat-chart {
-    height: 260px;
-    position: relative;
-  }
-
-  /* ── Quick actions ── */
-  &__action-list {
+  /* ── Spending by category: donut + list ── */
+  &__categories {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
+    align-items: flex-start;
+    gap: 20px;
+    flex: 1;
+    min-height: 200px;
 
-  &__action-row {
-    display: grid;
-    grid-template-columns: 32px 1fr auto;
-    gap: 12px;
-    align-items: center;
-    padding: 10px;
-    border-radius: $lumio-radius-sm;
-    cursor: pointer;
-    transition: background-color 120ms;
-    text-align: left;
-    background: none;
-    border: none;
-    width: 100%;
-    text-decoration: none;
-    color: inherit;
-
-    &:hover {
-      background: $lumio-color-ink-50;
-
-      @include dark {
-        background: $lumio-color-ink-50-dk;
-      }
+    @media (max-width: 640px) {
+      flex-direction: column;
+      align-items: stretch;
     }
   }
 
-  &__action-ico {
-    width: 32px;
-    height: 32px;
-    border-radius: $lumio-radius-sm;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+  &__donut {
+    flex: 0 0 160px;
+    height: 160px;
 
-    &--warning {
-      background: $lumio-color-warning-soft;
-      color: $lumio-color-warning;
-
-      @include dark {
-        background: $lumio-color-warning-soft-dk;
-        color: $lumio-color-warning-dk;
-      }
+    &--wide {
+      flex-basis: auto;
+      width: 100%;
+      height: 200px;
+      margin-bottom: 8px;
     }
 
-    &--info {
-      background: $lumio-color-info-soft;
-      color: $lumio-color-info;
-
-      @include dark {
-        background: $lumio-color-info-soft-dk;
-        color: $lumio-color-info-dk;
-      }
-    }
-
-    &--success {
-      background: $lumio-color-success-soft;
-      color: $lumio-color-success;
-
-      @include dark {
-        background: $lumio-color-success-soft-dk;
-        color: $lumio-color-success-dk;
-      }
-    }
-
-    &--neutral {
-      background: $lumio-color-ink-100;
-      color: $lumio-color-ink-600;
-
-      @include dark {
-        background: $lumio-color-ink-100-dk;
-        color: $lumio-color-ink-600-dk;
-      }
-    }
-
-    &--critical {
-      background: $lumio-color-danger-soft;
-      color: $lumio-color-danger;
-
-      @include dark {
-        background: $lumio-color-danger-soft-dk;
-        color: $lumio-color-danger-dk;
-      }
+    @media (max-width: 640px) {
+      flex-basis: auto;
+      height: 180px;
     }
   }
 
-  &__action-body {
+  &__list {
+    flex: 1;
     min-width: 0;
+
+    /* A card with the row to itself: its list in two columns. */
+    &--columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 32px;
+      align-content: start;
+
+      @container overview-section (max-width: 720px) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
   }
 
-  &__action-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: $lumio-color-ink-900;
-    white-space: nowrap;
+  /* Recent transactions with the row to itself: category and account as columns. */
+  &__recent-col {
+    width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted-foreground);
 
-    @include dark {
-      color: $lumio-color-ink-900-dk;
+    @container overview-section (max-width: 720px) {
+      display: none;
     }
   }
 
-  &__action-sub {
-    font-size: 11.5px;
-    color: $lumio-color-ink-500;
-    margin-top: 2px;
+  &__recent-amount {
+    min-width: 88px;
+    text-align: right;
+  }
+
+  /* The crypto card with the row to itself: its holdings as a small table. */
+  &__holdings {
+    flex: 1;
+    max-width: 560px;
+    margin-left: auto;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+
+    th {
+      padding: 0 0 6px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      text-align: right;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted-foreground);
+    }
+
+    td {
+      padding: 6px 0 6px 16px;
+      text-align: right;
+      color: var(--foreground);
+      border-top: 1px solid var(--border-color);
+    }
+
+    th:first-child,
+    td:first-child {
+      padding-left: 0;
+      text-align: left;
+    }
+
+    @container overview-section (max-width: 720px) {
+      display: none;
+    }
+
+    /* Under the value when the card shares its row: the card's full width. */
+    &--stacked {
+      flex: none;
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+
+      @container overview-section (max-width: 720px) {
+        display: table;
+      }
+
+      @container overview-section (max-width: 400px) {
+        th:nth-child(2),
+        td:nth-child(2) {
+          display: none;
+        }
+      }
+    }
+  }
+
+  &__holdings-asset {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+
+  /* A chart with the row to itself, and what explains it beside (net worth, cash runway). */
+  &__chart-aside {
+    display: grid;
+    // A narrow side column: each label sits next to its figure, not across the card.
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 32px;
+    align-items: start;
+
+    @container overview-section (max-width: 720px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  &__chart-aside-main {
+    min-width: 0;
+    margin: 0;
+  }
+
+  &__chart-aside-side {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .seneca-dashboard__stat-details {
+      margin: 0;
+      gap: 6px;
+      font-size: 14px;
+
+      dt {
+        color: var(--text-muted);
+      }
+
+      dd {
+        font-size: 16px;
+        font-weight: $seneca-font-weight-medium;
+      }
+    }
+  }
+
+  /* ── Budget rows ── */
+  &__budget-amounts {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  // Over the limit the bar stays inside its track; a short tick past the end
+  // says it went beyond.
+  &__budget-bar {
+    position: relative;
+
+    &[data-tone='over']::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      right: -1px;
+      width: 2px;
+      height: 11px;
+      border-radius: 1px;
+      background: var(--money-down);
+    }
+  }
+
+  &__budget-row {
+    padding: 10px 0;
+
+    & + & {
+      border-top: 1px solid $seneca-color-ink-150;
+
+      @include dark {
+        border-top-color: $seneca-color-ink-150-dk;
+      }
+    }
+
+    &:first-child {
+      padding-top: 0;
+    }
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+  }
+
+  &__budget-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  &__budget-pct {
+    font-size: 13px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Short note inside a card (runway summary, footnotes) ── */
+  &__card-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
+    }
+
+    &--danger {
+      color: $seneca-color-danger;
+
+      @include dark {
+        color: $seneca-color-danger-dk;
+      }
+    }
+
+    &--footer {
+      margin: 12px 0 0;
+      font-size: 12px;
     }
   }
 
   &__action-chevron {
-    color: $lumio-color-ink-300;
+    color: $seneca-color-ink-300;
     flex-shrink: 0;
 
     @include dark {
-      color: $lumio-color-ink-300-dk;
-    }
-  }
-
-  /* ── Upload zone ── */
-  &__upload-zone {
-    border: 1.5px dashed $lumio-color-ink-200;
-    border-radius: $lumio-radius-md;
-    padding: 24px;
-    text-align: center;
-    transition: border-color 120ms, background-color 120ms;
-    cursor: pointer;
-    display: block;
-    text-decoration: none;
-
-    @include dark {
-      border-color: $lumio-color-ink-200-dk;
-    }
-
-    &:hover {
-      border-color: $lumio-color-primary;
-      background: $lumio-color-primary-50;
-
-      @include dark {
-        border-color: $lumio-color-primary-dk;
-        background: $lumio-color-primary-50-dk;
-      }
-    }
-  }
-
-  &__upload-ico {
-    width: 44px;
-    height: 44px;
-    margin: 0 auto 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-md;
-    background: $lumio-color-primary-50;
-    color: $lumio-color-primary;
-
-    @include dark {
-      background: $lumio-color-primary-50-dk;
-      color: $lumio-color-primary-dk;
-    }
-  }
-
-  &__upload-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: $lumio-color-ink-900;
-
-    @include dark {
-      color: $lumio-color-ink-900-dk;
-    }
-  }
-
-  &__upload-sub {
-    font-size: 12px;
-    color: $lumio-color-ink-500;
-    margin-top: 4px;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
-  &__upload-formats {
-    display: flex;
-    gap: 4px;
-    justify-content: center;
-    margin-top: 14px;
-    flex-wrap: wrap;
-  }
-
-  &__format-tag {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: $lumio-radius-xs;
-    font-size: 11px;
-    font-weight: 500;
-    background: $lumio-color-ink-100;
-    color: $lumio-color-ink-600;
-
-    @include dark {
-      background: $lumio-color-ink-100-dk;
-      color: $lumio-color-ink-600-dk;
+      color: $seneca-color-ink-300-dk;
     }
   }
 
@@ -508,15 +794,15 @@
     height: 80px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-lg;
-    border: 1px solid $lumio-color-border;
-    background: $lumio-color-surface;
-    box-shadow: $lumio-shadow-md;
+    border-radius: $seneca-radius-lg;
+    border: 1px solid $seneca-color-border;
+    background: $seneca-color-surface;
+    box-shadow: $seneca-shadow-md;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      box-shadow: $lumio-shadow-md-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      box-shadow: $seneca-shadow-md-dk;
     }
   }
 
@@ -524,10 +810,10 @@
     margin: 0 0 8px;
     font-size: 20px;
     font-weight: 700;
-    color: $lumio-color-ink-900;
+    color: $seneca-color-ink-900;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -535,11 +821,11 @@
     margin: 0 0 32px;
     max-width: 448px;
     font-size: 14px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     line-height: 1.6;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -547,82 +833,191 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background-color: $lumio-color-primary;
+    background-color: var(--primary-fill);
     color: #fff;
     padding: 12px 24px;
     font-size: 14px;
     font-weight: 600;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     text-decoration: none;
     transition: background-color 150ms;
 
     @include dark {
-      background-color: $lumio-color-primary-fill-dk;
+      background-color: $seneca-color-primary-fill-dk;
     }
 
     &:hover {
-      background-color: $lumio-color-primary-hover;
+      background-color: var(--primary-fill-hover);
 
       @include dark {
-        background-color: $lumio-color-primary-fill-hover-dk;
+        background-color: $seneca-color-primary-fill-hover-dk;
       }
     }
   }
 
-  /* ── Month/year picker ── */
-  &__month-picker {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
+  /* Lined up with the tab content below (DashboardTabContent px: 2 / md: 4). */
+  &__unconfirmed {
+    margin: 12px 32px 0;
+
+    @media (max-width: 899.95px) {
+      margin: 12px 16px 0;
+    }
   }
 
-  &__month-picker-select {
-    appearance: none;
-    padding: 8px 32px 8px 12px;
-    background: $lumio-color-surface url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e9a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")
-      no-repeat right 8px center;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-md;
-    font-size: 13px;
-    font-weight: 500;
-    color: $lumio-color-ink-900;
-    cursor: pointer;
+  /* ── Month strip + year stepper ── */
+  &__month-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
 
-    &--year {
-      min-width: 92px;
+  &__month-chips {
+    flex: 1;
+    min-width: 0;
+
+    // Desktop: stretch the twelve chips across the row instead of leaving a gap
+    // before the year stepper; below this width they keep their natural size and scroll.
+    @media (min-width: 1025px) {
+      .seneca-chip {
+        flex: 1 1 0;
+        justify-content: center;
+        height: 36px;
+        font-size: 14px;
+      }
     }
 
+    // Months are text tabs, not twelve identical pills: no frame or fill, the
+    // picked month in ink with a sage underline, the rest in the readable grey.
+    // Doubled class: outweighs the chip's own dark and hover rules.
+    .seneca-chip.seneca-chip,
+    .seneca-chip.seneca-chip:hover:not(:disabled) {
+      border-color: transparent;
+      border-radius: 0;
+      background: none;
+      box-shadow: none;
+      color: var(--text-muted);
+      font-weight: $seneca-font-weight-medium;
+      text-decoration: underline 2px transparent;
+      text-underline-offset: 8px;
+      transition: color 0.15s, text-decoration-color 0.15s;
+    }
+
+    .seneca-chip.seneca-chip:hover:not(:disabled):not(.seneca-chip--active) {
+      border-color: transparent;
+      background: none;
+      color: var(--foreground);
+    }
+
+    .seneca-chip.seneca-chip--active,
+    .seneca-chip.seneca-chip--active:hover {
+      color: var(--foreground);
+      text-decoration-color: var(--primary);
+    }
+
+    .seneca-chip.seneca-chip--muted {
+      opacity: 0.45;
+    }
+  }
+
+  &__year-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    height: 32px;
+    padding: 0 4px;
+
+    @media (min-width: 1025px) {
+      height: 36px;
+    }
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-full;
+    background: $seneca-color-surface;
+
     @include dark {
-      background-color: $lumio-color-surface-dk;
-      border-color: $lumio-color-border-dk;
-      color: $lumio-color-ink-900-dk;
+      border-color: $seneca-color-ink-150-dk;
+      background: $seneca-color-surface-dk;
+    }
+  }
+
+  &__year-value {
+    min-width: 44px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: $seneca-font-weight-semibold;
+    font-variant-numeric: tabular-nums;
+    color: $seneca-color-ink-900;
+
+    @include dark {
+      color: $seneca-color-ink-900-dk;
+    }
+  }
+
+  &__year-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: $seneca-color-ink-500;
+    cursor: pointer;
+    transition: background-color 120ms, color 120ms;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+
+    &:hover:not(:disabled) {
+      background: $seneca-color-ink-100;
+      color: $seneca-color-ink-900;
+
+      @include dark {
+        background: $seneca-color-ink-100-dk;
+        color: $seneca-color-ink-900-dk;
+      }
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
     }
   }
 
   /* ── Period banner ── */
   &__period-banner {
-    border: 1px solid $lumio-color-border;
-    background: $lumio-color-surface-muted;
+    border: 1px solid $seneca-color-border;
+    background: $seneca-color-surface-muted;
     padding: 10px 16px;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     font-size: 12px;
-    color: $lumio-color-ink-500;
-    margin-bottom: 16px;
+    color: $seneca-color-ink-500;
+    margin-top: 12px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
-      color: $lumio-color-ink-500-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-muted-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 }
 
 /* ── Page header ── */
-.lumio-dashboard-header {
-  padding: 32px 32px 0; /* matches DashboardTabContent px:4 = 32px */
+.seneca-dashboard-header {
+  padding: var(--seneca-page-top, 24px) 32px 0; /* matches DashboardTabContent px:4 = 32px */
+  min-width: 0;
+  max-width: 100%;
 
   @media (max-width: 640px) {
-    padding: 24px 16px 0;
+    padding: 20px 16px 0;
   }
 
   &__greet {
@@ -630,44 +1025,11 @@
     align-items: center;
     gap: 6px;
     font-size: 12.5px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     margin-bottom: 8px;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
-  &__title {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 700;
-    color: $lumio-color-ink-900;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-
-    @include dark {
-      color: $lumio-color-ink-900-dk;
-    }
-  }
-
-  &__subtitle {
-    margin: 6px 0 0;
-    font-size: 14px;
-    color: $lumio-color-ink-500;
-
-    @include dark {
-      color: $lumio-color-ink-500-dk;
-    }
-  }
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-
-    @media (max-width: 640px) {
-      flex-wrap: wrap;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -677,23 +1039,27 @@
     justify-content: center;
     width: 48px;
     height: 48px;
+
+    @media (max-width: 640px) {
+      width: 40px;
+      height: 40px;
+    }
     border: none;
     border-radius: 50%;
-    background: $lumio-color-primary;
+    background: var(--primary-fill);
     color: #fff;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
     transition: background 150ms ease, transform 150ms ease;
 
     @include dark {
-      background: $lumio-color-primary-fill-dk;
+      background: $seneca-color-primary-fill-dk;
     }
 
     &:hover {
-      background: $lumio-color-primary-hover;
+      background: var(--primary-fill-hover);
 
       @include dark {
-        background: $lumio-color-primary-fill-hover-dk;
+        background: $seneca-color-primary-fill-hover-dk;
       }
     }
 
@@ -702,11 +1068,500 @@
     }
   }
 
-  &__row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+  &__tabs {
+    border-bottom: 1px solid $seneca-color-border;
+
+    @include dark {
+      border-bottom-color: $seneca-color-border-dk;
+    }
+  }
+
+  &__controls {
+    padding-top: 16px;
+
+    @media (max-width: 640px) {
+      padding-top: 12px;
+    }
+  }
+}
+
+/* ── Overview: sections moved by their grip ──
+   One flat twelve-column grid: each section spans the columns OverviewLayout
+   gives it (`--overview-span`) — a card alone the whole row, two cards half
+   each, KPI tiles their share. Width decisions live there; this only draws. */
+.seneca-overview {
+  &__body {
+    container: overview / inline-size;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 16px;
+    align-items: stretch;
+
+    @media (max-width: 640px) {
+      gap: 12px;
+    }
+  }
+
+  &__section {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    grid-column: span var(--overview-span, 12);
+    container: overview-section / inline-size;
+
+    /* The sections of a row share its height. */
+    > :not(.seneca-overview__handle) {
+      flex: 1 1 auto;
+    }
+
+    /* A card with nothing to show takes no room. */
+    &:has(> .seneca-overview__handle:only-child) {
+      display: none;
+    }
+
+    /* The original stays in place, dimmed; a snapshot follows the pointer. */
+    &--dragging {
+      opacity: 0.35;
+    }
+
+    /* Where the section will land: a bar in the gap on that side. */
+    &::after {
+      content: '';
+      position: absolute;
+      display: none;
+      border-radius: 2px;
+      background: var(--primary);
+      pointer-events: none;
+    }
+
+    &--drop-above::after,
+    &--drop-below::after {
+      display: block;
+      left: 0;
+      right: 0;
+      height: 4px;
+    }
+
+    &--drop-above::after {
+      top: -10px;
+    }
+
+    &--drop-below::after {
+      bottom: -10px;
+    }
+
+    &--drop-left::after,
+    &--drop-right::after {
+      display: block;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+    }
+
+    &--drop-left::after {
+      left: -10px;
+    }
+
+    &--drop-right::after {
+      right: -10px;
+    }
+  }
+
+  &__handle {
+    position: absolute;
+    top: 16px;
+    left: 2px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted-foreground);
+    opacity: 0.45;
+    cursor: grab;
+    touch-action: none;
+    transition:
+      opacity 120ms ease,
+      color 120ms ease,
+      background-color 120ms ease;
+
+    &:hover {
+      color: var(--foreground);
+      background: var(--primary-fill);
+    }
+
+    &:focus-visible {
+      opacity: 1;
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+
+    /* Phones get no rearranging: everything is one column there anyway. */
+    @media (max-width: 767px) {
+      display: none;
+    }
+  }
+
+  &__section:hover > &__handle {
+    opacity: 1;
+  }
+
+  /* The snapshot under the pointer, shrunk around the grip it was picked up by. */
+  &__ghost {
+    width: max-content;
+    transform-origin: top left;
+    border-radius: $seneca-radius-lg;
+    background: var(--card-bg);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+    cursor: grabbing;
+
+    .seneca-overview__handle {
+      opacity: 1;
+    }
+  }
+
+  /* Under the grid: the widget picker, and the way back to the shipped layout. */
+  &__footer {
+    align-self: center;
+    display: flex;
     flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  &__widgets,
+  &__reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--foreground);
+      background: var(--primary-fill);
+    }
+  }
+
+  /* Phones have no grips, so nothing there moves away from the shipped layout by hand. */
+  &__reset {
+    @media (max-width: 767px) {
+      display: none;
+    }
+  }
+}
+
+/* Too narrow for halves (a phone, a tablet with the sidebar open): cards take
+   the whole row and KPI tiles go two by two rather than a column of four. */
+@container overview (max-width: 720px) {
+  .seneca-overview__section {
+    grid-column: 1 / -1;
+
+    &--tile {
+      grid-column: span 6;
+    }
+
+    /* A tile with no partner in its row would leave half the row empty. */
+    &--unpaired {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+/* ── Getting started checklist ── */
+.seneca-getting-started {
+  &__ring {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+
+    svg {
+      transform: rotate(-90deg);
+    }
+
+    span {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: $seneca-font-weight-medium;
+      color: $seneca-color-ink-700;
+
+      @include dark {
+        color: $seneca-color-ink-700-dk;
+      }
+    }
+  }
+
+  &__ring-track,
+  &__ring-fill {
+    fill: none;
+    stroke-width: 4;
+  }
+
+  &__ring-track {
+    stroke: $seneca-color-ink-100;
+
+    @include dark {
+      stroke: $seneca-color-ink-100-dk;
+    }
+  }
+
+  &__ring-fill {
+    stroke: var(--primary);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 300ms ease;
+
+    @include dark {
+      stroke: $seneca-color-primary-dk;
+    }
+  }
+
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    margin-bottom: 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: $seneca-color-ink-500;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__toggle-icon {
+    transition: transform 150ms;
+
+    &--open {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__step {
+    display: grid;
+    grid-template-columns: 18px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px;
+    border-radius: $seneca-radius-sm;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 120ms;
+
+    &:hover {
+      background: $seneca-color-ink-50;
+
+      @include dark {
+        background: $seneca-color-ink-50-dk;
+      }
+    }
+  }
+
+  &__check {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid $seneca-color-ink-300;
+    border-radius: 4px;
+
+    @include dark {
+      border-color: $seneca-color-ink-300-dk;
+    }
+  }
+
+  &__step--done &__check {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+
+    @include dark {
+      border-color: $seneca-color-primary-dk;
+      background: $seneca-color-primary-dk;
+    }
+  }
+
+  &__step-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__step-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-ink-900;
+
+    @include dark {
+      color: $seneca-color-ink-900-dk;
+    }
+  }
+
+  &__step--done &__step-title {
+    color: $seneca-color-ink-500;
+    text-decoration: line-through;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__step-sub {
+    font-size: 12px;
+    margin-top: 2px;
+    color: $seneca-color-ink-500;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__next {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: $seneca-font-weight-semibold;
+    background: $seneca-color-warning-soft;
+    color: $seneca-color-warning;
+
+    @include dark {
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+
+  &__dismiss {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 4px 0;
+    font-size: 12.5px;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-ink-500;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+
+    &:hover {
+      color: $seneca-color-ink-900;
+
+      @include dark {
+        color: $seneca-color-ink-900-dk;
+      }
+    }
+  }
+}
+
+// Finance ops: the month's close as one headline and one list of steps.
+.seneca-close-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+
+  &__title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--foreground);
+
+    @media (max-width: 640px) {
+      font-size: 22px;
+    }
+  }
+
+  &__note {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+}
+
+// A reference fact (last upload, money not counted yet): moderate figure, one line under it.
+.seneca-fact {
+  &__value {
+    font-size: 20px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  &__caption {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+}
+
+.seneca-close-step {
+  // A step still open: an ochre dot, not a red alarm. Done: a sage tick, no circle.
+  &__open {
+    display: block;
+    width: 8px;
+    height: 8px;
+    margin: 0 4px;
+    border-radius: 50%;
+    background: var(--attention);
+  }
+
+  &__done {
+    color: var(--primary);
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary);
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .seneca-dashboard__row-secondary {
+    font-size: 13px;
+    color: var(--text-muted);
   }
 }

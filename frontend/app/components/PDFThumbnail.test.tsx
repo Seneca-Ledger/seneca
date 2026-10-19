@@ -12,7 +12,12 @@ vi.mock('next/image', () => ({
 }));
 
 vi.mock('@/app/lib/workspace-headers', () => ({
-  getWorkspaceHeaders: () => ({ Authorization: 'Bearer test-token' }),
+  getWorkspaceHeaders: () => ({ 'X-CSRF-Token': 'test-csrf' }),
+}));
+
+vi.mock('@/app/lib/csrf', () => ({
+  hasSessionCookie: () => true,
+  getCsrfHeaders: () => ({ 'X-CSRF-Token': 'test-csrf' }),
 }));
 
 describe('PDFThumbnail', () => {

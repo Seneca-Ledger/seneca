@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Counter, Gauge, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
+import { Counter, collectDefaultMetrics, Gauge, Histogram, Registry } from 'prom-client';
 
 @Injectable()
 export class MetricsService {
@@ -32,13 +32,6 @@ export class MetricsService {
     name: 'statement_parsing_errors_total',
     help: 'Total parsing errors by stage and reason',
     labelNames: ['stage', 'error'] as const,
-    registers: [this.registry],
-  });
-
-  readonly aiParsingCallsTotal = new Counter({
-    name: 'ai_parsing_calls_total',
-    help: 'AI parsing calls by kind and result',
-    labelNames: ['kind', 'result'] as const,
     registers: [this.registry],
   });
 

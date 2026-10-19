@@ -1,18 +1,19 @@
-import { buildCurrencySearchIndex } from '@/app/lib/statement-expense-drawer';
-import type { CurrencySearchItem } from '@/app/lib/statement-expense-drawer';
 import { useEffect, useMemo, useState } from 'react';
+import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
+import type { CurrencySearchItem } from '@/app/lib/statement-expense-drawer';
+import { buildCurrencySearchIndex } from '@/app/lib/statement-expense-drawer';
+import {
+  canConvertDraft,
+  type DroppedSampleDraft,
+  normalizeCurrencyCode,
+  toDraft,
+} from '../helpers/warning-formatters';
+import { buildWarningHandlers } from '../helpers/warning-handlers';
 import type {
   ConvertDroppedSamplePayload,
   ParsingDroppedSample,
   ResolveWarningPayload,
 } from '../ParsingWarningsPanel';
-import {
-  type DroppedSampleDraft,
-  canConvertDraft,
-  normalizeCurrencyCode,
-  toDraft,
-} from '../helpers/warning-formatters';
-import { buildWarningHandlers } from '../helpers/warning-handlers';
 
 export interface EditableWarningEntry {
   key: string;
@@ -30,8 +31,6 @@ export interface SelectedWarning {
 
 const isCurrencySearchItem = (item: CurrencySearchItem | undefined): item is CurrencySearchItem =>
   item !== undefined;
-
-const DEFAULT_RECENT_CURRENCIES = ['KZT', 'USD', 'EUR', 'RUB'] as const;
 
 interface EntryMaps {
   byKey: Map<string, EditableWarningEntry>;

@@ -1,10 +1,11 @@
 'use client';
 
-import { Send as SendIcon } from '@/app/components/icons';
-import { Checkbox } from '@/app/components/ui/checkbox';
-import { tokens } from '@/lib/theme-tokens';
 import Button from '@mui/material/Button';
 import React, { useState } from 'react';
+import { Send as SendIcon } from '@/app/components/icons';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { Select } from '@/app/components/ui/select';
+import { tokens } from '@/lib/theme-tokens';
 import type { InvitePermissions, WorkspaceRole } from './hooks/useMemberManagement';
 
 const PERMISSION_LABELS: Record<keyof InvitePermissions, string> = {
@@ -92,17 +93,18 @@ function EmailRoleFields({
         >
           Role
         </label>
-        <select
+        <Select
+          fullWidth
           id="invite-role"
           value={inviteRole}
-          onChange={e => onRoleChange(e.target.value as WorkspaceRole)}
+          onChange={value => onRoleChange(value as WorkspaceRole)}
           disabled={!isOwnerOrAdmin}
-          style={{ ...inputStyle, padding: '8px 12px' }}
-        >
-          <option value="member">Member</option>
-          <option value="viewer">Viewer</option>
-          <option value="admin">Admin</option>
-        </select>
+          options={[
+            { value: 'member', label: 'Member' },
+            { value: 'viewer', label: 'Viewer' },
+            { value: 'admin', label: 'Admin' },
+          ]}
+        />
       </div>
     </div>
   );
@@ -170,12 +172,13 @@ export function InviteForm({ isOwnerOrAdmin, onInvite }: InviteFormProps): React
   const handleSubmit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
     setInviteLoading(true);
-    try {
+
+    await (async () => {
       await onInvite({ email: inviteEmail, role: inviteRole, permissions: invitePermissions });
       setInviteEmail('');
-    } finally {
+    })().finally(async () => {
       setInviteLoading(false);
-    }
+    });
   };
 
   const handlePermissionChange = (

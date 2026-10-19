@@ -1,15 +1,22 @@
 'use client';
 
-import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import { Tab, Tabs } from '@mui/material';
 import type React from 'react';
-import type { DashboardTabId } from '../hooks/useDashboardPage';
+import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { DASHBOARD_TABS, type DashboardTabId } from '../helpers/dashboard-url-state';
 
-type DashboardTabsLabels = {
+export type DashboardTabsLabels = {
   financeOps: string;
   overview: string;
   trends: string;
   dataHealth: string;
+};
+
+const TAB_LABEL_KEY: Record<DashboardTabId, keyof DashboardTabsLabels> = {
+  overview: 'overview',
+  trends: 'trends',
+  'finance-ops': 'financeOps',
+  'data-health': 'dataHealth',
 };
 
 type DashboardTabsProps = {
@@ -33,10 +40,9 @@ export function DashboardTabs({
       scrollButtons={false}
       sx={sharedMuiTabsSx}
     >
-      <Tab value="finance-ops" label={labels.financeOps} />
-      <Tab value="overview" label={labels.overview} />
-      <Tab value="trends" label={labels.trends} />
-      <Tab value="data-health" label={labels.dataHealth} />
+      {DASHBOARD_TABS.map(tab => (
+        <Tab key={tab} value={tab} label={labels[TAB_LABEL_KEY[tab]]} />
+      ))}
     </Tabs>
   );
 }

@@ -2,12 +2,19 @@ import { ConflictException, ForbiddenException, Injectable, Logger } from '@nest
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { IsNull, type Repository } from 'typeorm';
-import { AuditEvent } from '../../../entities/audit-event.entity';
+import {
+  AuditAction,
+  AuditEvent,
+  EntityType,
+  Severity,
+} from '../../../entities/audit-event.entity';
 import { AuthSession } from '../../../entities/auth-session.entity';
-import { NotificationPreference } from '../../../entities/notification-preference.entity';
 import { Notification } from '../../../entities/notification.entity';
+import { NotificationPreference } from '../../../entities/notification-preference.entity';
 import { User } from '../../../entities/user.entity';
 import { WorkspaceMember, WorkspaceRole } from '../../../entities/workspace-member.entity';
+import { AuditService } from '../../audit/audit.service';
+import { recordSecurityEvent } from '../../auth/security-audit.util';
 
 /** How many of the user's own audit entries the export carries. */
 const EXPORT_AUDIT_LIMIT = 5000;
@@ -46,6 +53,7 @@ export class AccountDataService {
     private readonly notificationRepository: Repository<Notification>,
     @InjectRepository(AuditEvent)
     private readonly auditRepository: Repository<AuditEvent>,
+    private readonly auditService: AuditService,
   ) {}
 
   async exportMyData(userId: string): Promise<AccountExport> {
@@ -106,7 +114,7 @@ export class AccountDataService {
   async deleteMyAccount(userId: string, currentPassword: string): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'passwordHash'],
+      select: ['id', 'email', 'workspaceId', 'passwordHash'],
     });
 
     if (!user) {
@@ -119,6 +127,18 @@ export class AccountDataService {
     }
 
     await this.assertNotSoleOwner(userId);
+
+    // Written before the deletion, while the account can still be resolved as
+    // the actor. The home workspace survives: accounts are soft-deleted.
+    await recordSecurityEvent(this.auditService, this.logger, {
+      workspaceId: user.workspaceId,
+      actorId: user.id,
+      entityType: EntityType.USER,
+      entityId: user.id,
+      action: AuditAction.DELETE,
+      severity: Severity.CRITICAL,
+      meta: { email: user.email, reason: 'self-service' },
+    });
 
     await this.sessionRepository.update({ userId, revokedAt: IsNull() }, { revokedAt: new Date() });
     await this.userRepository.softDelete(userId);

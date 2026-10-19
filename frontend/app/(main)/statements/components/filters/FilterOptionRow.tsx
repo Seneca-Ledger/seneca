@@ -1,12 +1,11 @@
 'use client';
 
-import { BankLogoAvatar } from '@/app/components/BankLogoAvatar';
-import { Receipt } from '@/app/components/icons';
-import { Check } from '@/app/components/icons';
-import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import type { JSX } from 'react';
+import { BankLogoAvatar } from '@/app/components/BankLogoAvatar';
+import { Check, Receipt } from '@/app/components/icons';
+import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { tokens } from '@/lib/theme-tokens';
 
 type FilterOptionRowProps = {
   label: string;
@@ -45,7 +44,8 @@ export function FilterOptionRow({
         borderRadius: tokens.radius.xs,
         bgcolor: theme =>
           selected
-            ? theme.palette.primary.main
+            ? // Dark green in both themes; dark mode's primary.main is a light green.
+              (theme.palette.mode === 'dark' ? tokens.dark.color : tokens.color).primaryFill
             : theme.palette.mode === 'dark'
               ? 'rgba(232, 232, 240, 0.18)'
               : theme.palette.grey[100],

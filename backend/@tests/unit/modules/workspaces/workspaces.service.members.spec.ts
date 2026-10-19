@@ -7,6 +7,7 @@ import {
   type WorkspaceMember,
   WorkspaceRole,
 } from '@/entities';
+import { ActorType, AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
@@ -227,7 +228,7 @@ describe('WorkspacesService — member management', () => {
 
       const result = await service.cancelInvitation(WS_ID, ADMIN_ID, 'inv-1');
 
-      expect(result).toMatchObject({ message: 'Приглашение уже неактивно' });
+      expect(result).toMatchObject({ message: 'Invitation is already inactive' });
       expect(invitationRepository.save).not.toHaveBeenCalled();
     });
 
@@ -243,7 +244,7 @@ describe('WorkspacesService — member management', () => {
       expect(invitationRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ status: WorkspaceInvitationStatus.CANCELLED }),
       );
-      expect(result).toMatchObject({ message: 'Приглашение отозвано' });
+      expect(result).toMatchObject({ message: 'Invitation revoked' });
     });
   });
 
@@ -300,7 +301,7 @@ describe('WorkspacesService — member management', () => {
       expect(auditService.createEvent).toHaveBeenCalledWith(
         expect.objectContaining({ entityType: 'workspace' }),
       );
-      expect(result).toMatchObject({ message: 'Доступ участника отозван' });
+      expect(result).toMatchObject({ message: 'Member access revoked' });
     });
 
     it('clears user workspaceId when they belong to removed workspace', async () => {
@@ -341,6 +342,11 @@ describe('WorkspacesService — member management', () => {
       expect(auditService.createEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'delete', isUndoable: true }),
       );
+      // Аудит — строго до remove: после удаления createEvent отверг бы событие
+      // (воркспейса больше нет), и след удаления пропал бы.
+      const auditOrder = auditService.createEvent.mock.invocationCallOrder[0];
+      const removeOrder = workspaceRepository.remove.mock.invocationCallOrder[0];
+      expect(auditOrder).toBeLessThan(removeOrder);
     });
   });
 
@@ -446,6 +452,223 @@ describe('WorkspacesService — member management', () => {
       const result = await service.toggleFavorite(WS_ID, MEMBER_ID);
 
       expect(result.isFavorite).toBe(false);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // audit events for invitations and member management
+  // ─────────────────────────────────────────────────────────────────────────
+  describe('member audit events', () => {
+    const owner = { id: OWNER_ID, email: 'owner@example.com', name: 'Owner' } as User;
+
+    function stubNewInvitation() {
+      stubAdminCheck(makeMember(OWNER_ID, WorkspaceRole.OWNER));
+      workspaceRepository.findOne.mockResolvedValue(makeWorkspace());
+      userRepository.findOne.mockResolvedValue(null);
+      invitationRepository.findOne.mockResolvedValue(null);
+      invitationRepository.save.mockImplementationOnce(async (data: any) => ({
+        ...data,
+        id: 'inv-new',
+      }));
+    }
+
+    it('logs WORKSPACE_MEMBER CREATE with invitation id when inviting', async () => {
+      stubNewInvitation();
+
+      await service.inviteMember(WS_ID, owner, {
+        email: ' New@Example.com ',
+        role: WorkspaceRole.VIEWER,
+      } as any);
+
+      expect(auditService.createEvent).toHaveBeenCalledTimes(1);
+      expect(auditService.createEvent).toHaveBeenCalledWith({
+        workspaceId: WS_ID,
+        actorType: ActorType.USER,
+        actorId: OWNER_ID,
+        entityType: EntityType.WORKSPACE_MEMBER,
+        entityId: 'inv-new',
+        action: AuditAction.CREATE,
+        meta: { email: 'new@example.com', role: WorkspaceRole.VIEWER },
+      });
+    });
+
+    it('logs WORKSPACE_MEMBER CREATE when re-sending a pending invitation', async () => {
+      stubAdminCheck(makeMember(OWNER_ID, WorkspaceRole.OWNER));
+      workspaceRepository.findOne.mockResolvedValue(makeWorkspace());
+      userRepository.findOne.mockResolvedValue(null);
+      invitationRepository.findOne.mockResolvedValueOnce({
+        id: 'inv-old',
+        workspaceId: WS_ID,
+        email: 'again@example.com',
+        role: WorkspaceRole.MEMBER,
+        status: WorkspaceInvitationStatus.PENDING,
+      } as WorkspaceInvitation);
+
+      await service.inviteMember(WS_ID, owner, {
+        email: 'again@example.com',
+        role: WorkspaceRole.ADMIN,
+      } as any);
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityType: EntityType.WORKSPACE_MEMBER,
+          entityId: 'inv-old',
+          action: AuditAction.CREATE,
+          meta: { email: 'again@example.com', role: WorkspaceRole.ADMIN },
+        }),
+      );
+    });
+
+    it('does not fail the invitation when the audit write fails', async () => {
+      stubNewInvitation();
+      auditService.createEvent.mockRejectedValueOnce(new Error('audit down'));
+
+      const result = await service.inviteMember(WS_ID, owner, {
+        email: 'x@example.com',
+        role: WorkspaceRole.MEMBER,
+      } as any);
+
+      expect(result.invitation).toMatchObject({ id: 'inv-new' });
+      expect((service as any).sendInvitationEmail).toHaveBeenCalled();
+    });
+
+    it('logs WORKSPACE_MEMBER DELETE when revoking a pending invitation', async () => {
+      stubAdminCheck(makeMember(ADMIN_ID, WorkspaceRole.ADMIN));
+      invitationRepository.findOne.mockResolvedValueOnce({
+        id: 'inv-1',
+        workspaceId: WS_ID,
+        email: 'gone@example.com',
+        status: WorkspaceInvitationStatus.PENDING,
+      } as WorkspaceInvitation);
+
+      await service.cancelInvitation(WS_ID, ADMIN_ID, 'inv-1');
+
+      expect(auditService.createEvent).toHaveBeenCalledWith({
+        workspaceId: WS_ID,
+        actorType: ActorType.USER,
+        actorId: ADMIN_ID,
+        entityType: EntityType.WORKSPACE_MEMBER,
+        entityId: 'inv-1',
+        action: AuditAction.DELETE,
+        meta: { email: 'gone@example.com' },
+      });
+    });
+
+    it('does not log when the invitation was already inactive', async () => {
+      stubAdminCheck(makeMember(ADMIN_ID, WorkspaceRole.ADMIN));
+      invitationRepository.findOne.mockResolvedValueOnce({
+        id: 'inv-1',
+        workspaceId: WS_ID,
+        status: WorkspaceInvitationStatus.CANCELLED,
+      } as WorkspaceInvitation);
+
+      await service.cancelInvitation(WS_ID, ADMIN_ID, 'inv-1');
+
+      expect(auditService.createEvent).not.toHaveBeenCalled();
+    });
+
+    it('does not fail the revoke when the audit write fails', async () => {
+      stubAdminCheck(makeMember(ADMIN_ID, WorkspaceRole.ADMIN));
+      invitationRepository.findOne.mockResolvedValueOnce({
+        id: 'inv-1',
+        workspaceId: WS_ID,
+        email: 'gone@example.com',
+        status: WorkspaceInvitationStatus.PENDING,
+      } as WorkspaceInvitation);
+      auditService.createEvent.mockRejectedValueOnce(new Error('audit down'));
+
+      await expect(service.cancelInvitation(WS_ID, ADMIN_ID, 'inv-1')).resolves.toMatchObject({
+        message: 'Invitation revoked',
+      });
+    });
+
+    it('logs WORKSPACE_MEMBER UPDATE with role diff (INFO) for a member role change', async () => {
+      stubAdminCheck(makeMember(OWNER_ID, WorkspaceRole.OWNER));
+      workspaceRepository.findOne.mockResolvedValue(makeWorkspace());
+      workspaceMemberRepository.findOne.mockResolvedValueOnce(
+        makeMember(MEMBER_ID, WorkspaceRole.MEMBER, { user: { email: 'm@example.com' } }),
+      );
+
+      await service.updateMemberRole(WS_ID, OWNER_ID, MEMBER_ID, WorkspaceRole.VIEWER);
+
+      expect(workspaceMemberRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ relations: ['user'] }),
+      );
+      expect(auditService.createEvent).toHaveBeenCalledWith({
+        workspaceId: WS_ID,
+        actorType: ActorType.USER,
+        actorId: OWNER_ID,
+        entityType: EntityType.WORKSPACE_MEMBER,
+        entityId: `m-${MEMBER_ID}`,
+        action: AuditAction.UPDATE,
+        diff: { before: { role: WorkspaceRole.MEMBER }, after: { role: WorkspaceRole.VIEWER } },
+        meta: { userId: MEMBER_ID, email: 'm@example.com' },
+        severity: Severity.INFO,
+      });
+    });
+
+    it('uses WARN severity when promoting to admin', async () => {
+      stubAdminCheck(makeMember(OWNER_ID, WorkspaceRole.OWNER));
+      workspaceRepository.findOne.mockResolvedValue(makeWorkspace());
+      workspaceMemberRepository.findOne.mockResolvedValueOnce(
+        makeMember(MEMBER_ID, WorkspaceRole.MEMBER),
+      );
+
+      await service.updateMemberRole(WS_ID, OWNER_ID, MEMBER_ID, WorkspaceRole.ADMIN);
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          diff: { before: { role: WorkspaceRole.MEMBER }, after: { role: WorkspaceRole.ADMIN } },
+          meta: { userId: MEMBER_ID, email: null },
+          severity: Severity.WARN,
+        }),
+      );
+    });
+
+    it('uses WARN severity when transferring ownership', async () => {
+      const ownerMember = makeMember(OWNER_ID, WorkspaceRole.OWNER);
+      stubAdminCheck(ownerMember);
+      workspaceRepository.findOne.mockResolvedValue(makeWorkspace());
+      workspaceMemberRepository.findOne
+        .mockResolvedValueOnce(makeMember(MEMBER_ID, WorkspaceRole.MEMBER))
+        .mockResolvedValueOnce(ownerMember);
+
+      await service.updateMemberRole(WS_ID, OWNER_ID, MEMBER_ID, WorkspaceRole.OWNER);
+
+      expect(auditService.createEvent).toHaveBeenCalledTimes(1);
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityId: `m-${MEMBER_ID}`,
+          diff: { before: { role: WorkspaceRole.MEMBER }, after: { role: WorkspaceRole.OWNER } },
+          severity: Severity.WARN,
+        }),
+      );
+    });
+
+    it('does not log when the role is unchanged', async () => {
+      stubAdminCheck(makeMember(OWNER_ID, WorkspaceRole.OWNER));
+      workspaceRepository.findOne.mockResolvedValue(makeWorkspace());
+      workspaceMemberRepository.findOne.mockResolvedValueOnce(
+        makeMember(MEMBER_ID, WorkspaceRole.MEMBER),
+      );
+
+      await service.updateMemberRole(WS_ID, OWNER_ID, MEMBER_ID, WorkspaceRole.MEMBER);
+
+      expect(auditService.createEvent).not.toHaveBeenCalled();
+    });
+
+    it('does not fail the role change when the audit write fails', async () => {
+      stubAdminCheck(makeMember(OWNER_ID, WorkspaceRole.OWNER));
+      workspaceRepository.findOne.mockResolvedValue(makeWorkspace());
+      workspaceMemberRepository.findOne.mockResolvedValueOnce(
+        makeMember(MEMBER_ID, WorkspaceRole.MEMBER),
+      );
+      auditService.createEvent.mockRejectedValueOnce(new Error('audit down'));
+
+      await expect(
+        service.updateMemberRole(WS_ID, OWNER_ID, MEMBER_ID, WorkspaceRole.VIEWER),
+      ).resolves.toMatchObject({ role: WorkspaceRole.VIEWER });
+      expect(workspaceMemberRepository.save).toHaveBeenCalled();
     });
   });
 });

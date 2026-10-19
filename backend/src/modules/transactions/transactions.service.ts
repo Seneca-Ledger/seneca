@@ -1,34 +1,47 @@
 import { randomUUID } from 'node:crypto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import {
-  BadRequestException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import { type EntityTarget, In, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
+import { toMinor } from '../../common/utils/money.util';
+import { taxLockedConflict } from '../../common/utils/tax-lock.util';
+import {
+  applyOwnerFilter,
+  assertOwnerMemberInWorkspace,
+  type OwnerFilter,
+} from '../../common/utils/transaction-owner.util';
+import { redactPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
+import type {
+  BulkUpdateItemInput,
+  SplitPartInput,
+  SplitTransactionBody,
+  UpdateTransactionBody,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Branch } from '../../entities/branch.entity';
-import { Category } from '../../entities/category.entity';
+import { Category, CategoryType } from '../../entities/category.entity';
 import { Payable } from '../../entities/payable.entity';
 import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
-import { Transaction } from '../../entities/transaction.entity';
-import { TransactionType } from '../../entities/transaction.entity';
+import {
+  TaxSource,
+  Transaction,
+  TransactionCategorySource,
+  TransactionType,
+} from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
 import { Wallet } from '../../entities/wallet.entity';
-import { WorkspaceMember, WorkspaceRole } from '../../entities/workspace-member.entity';
+import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
-import { ClassificationService } from '../classification/services/classification.service';
+import { ensurePrivateCategory } from '../categories/private-category';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { DataDeletedEvent } from '../notifications/events/notification-events';
-import type { BulkUpdateItemDto } from './dto/bulk-update-transaction.dto';
-import type { SplitPartDto, SplitTransactionDto } from './dto/split-transaction.dto';
-import type { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { TaxAssignmentService } from '../tax/tax-assignment.service';
 
 export type TransactionWithConversion = Transaction & {
   convertedAmount?: number;
@@ -42,15 +55,17 @@ export class TransactionsService {
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(Statement)
-    private statementRepository: Repository<Statement>,
+    statementRepository: Repository<Statement>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
-    private readonly classificationService: ClassificationService,
     private readonly exchangeRatesService: ExchangeRatesService,
+    private readonly taxAssignmentService: TaxAssignmentService,
     private readonly eventEmitter?: EventEmitter2,
   ) {}
 
@@ -62,36 +77,21 @@ export class TransactionsService {
     return user?.name || user?.email || 'User';
   }
 
-  private async invalidateReports(userId: string): Promise<void> {
-    const key = `reports:version:${userId}`;
+  /** Bumps the version the cached reports are keyed by; they are keyed by workspace. */
+  private async invalidateReports(workspaceId: string): Promise<void> {
+    const key = `reports:version:${workspaceId}`;
     await this.cacheManager.set(key, Date.now().toString(), 0);
   }
 
-  private async ensureCanEditStatements(userId: string): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      select: ['id', 'workspaceId'],
-    });
-    const workspaceId = user?.workspaceId ?? null;
-    if (!workspaceId) {
-      return;
-    }
-
-    const membership = await this.workspaceMemberRepository.findOne({
-      where: { workspaceId, userId },
-      select: ['role', 'permissions'],
-    });
-
-    if (!membership) {
-      return;
-    }
-    if ([WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role)) {
-      return;
-    }
-
-    if (membership.permissions?.canEditStatements === false) {
-      throw new ForbiddenException('Недостаточно прав для редактирования выписок');
-    }
+  /** Checked in the workspace being edited, not the one the user registered with. */
+  private async ensureCanEditStatements(userId: string, workspaceId: string): Promise<void> {
+    await ensureCanEdit(
+      this.workspaceMemberRepository,
+      workspaceId,
+      userId,
+      'canEditStatements',
+      'STATEMENTS_EDIT_FORBIDDEN',
+    );
   }
 
   async findAll(
@@ -104,9 +104,11 @@ export class TransactionsService {
       categoryId?: string;
       currency?: string;
       convertTo?: string;
+      owner?: OwnerFilter;
       page?: number;
       limit?: number;
     },
+    viewerMemberId: string | null = null,
   ): Promise<{ data: TransactionWithConversion[]; total: number; page: number; limit: number }> {
     const query = this.transactionRepository
       .createQueryBuilder('transaction')
@@ -115,7 +117,11 @@ export class TransactionsService {
       .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.branch', 'branch')
-      .leftJoinAndSelect('transaction.wallet', 'wallet');
+      .leftJoinAndSelect('transaction.wallet', 'wallet')
+      .leftJoinAndSelect('transaction.payee', 'payee')
+      .leftJoinAndSelect('transaction.reimbursementOf', 'reimbursementOf');
+
+    applyOwnerFilter(query, 'transaction', filters.owner ?? { kind: 'all' });
 
     if (filters.statementId) {
       query.andWhere('transaction.statementId = :statementId', {
@@ -135,7 +141,9 @@ export class TransactionsService {
       });
     }
 
-    if (filters.type) {
+    if (filters.type === 'transfer') {
+      query.andWhere('transaction.transferPairId IS NOT NULL');
+    } else if (filters.type) {
       query.andWhere('transaction.transactionType = :type', { type: filters.type });
     }
 
@@ -157,7 +165,8 @@ export class TransactionsService {
 
     query.orderBy('transaction.transactionDate', 'DESC').skip(skip).take(limit);
 
-    const [rawData, total] = await query.getManyAndCount();
+    const [rows, total] = await query.getManyAndCount();
+    const rawData = redactPrivateRows(rows, viewerMemberId);
 
     if (!filters.convertTo) {
       return { data: rawData, total, page, limit };
@@ -166,10 +175,14 @@ export class TransactionsService {
     const targetCurrency = filters.convertTo.toUpperCase();
     const items = rawData.map(tx => ({
       amount: Number(tx.amount) || Number(tx.debit) || Number(tx.credit) || 0,
-      currency: tx.currency || 'KZT',
+      currency: currencyCodeOrDefault(tx.currency),
       date: tx.transactionDate,
     }));
-    const conversions = await this.exchangeRatesService.bulkConvert(items, targetCurrency);
+    const conversions = await this.exchangeRatesService.bulkConvert(
+      items,
+      targetCurrency,
+      workspaceId,
+    );
 
     const data: TransactionWithConversion[] = rawData.map((tx, i) => {
       const conv = conversions[i];
@@ -186,7 +199,7 @@ export class TransactionsService {
   async findOne(id: string, workspaceId: string): Promise<Transaction> {
     const transaction = await this.transactionRepository.findOne({
       where: { id, workspaceId },
-      relations: ['category', 'branch', 'wallet'],
+      relations: ['category', 'branch', 'wallet', 'payee'],
     });
 
     if (!transaction) {
@@ -196,18 +209,65 @@ export class TransactionsService {
     return transaction;
   }
 
+  /** `findOne` as the caller is allowed to read it. */
+  async findOneFor(
+    id: string,
+    workspaceId: string,
+    viewerMemberId: string | null,
+  ): Promise<Transaction> {
+    return redactPrivate(await this.findOne(id, workspaceId), viewerMemberId);
+  }
+
+  /**
+   * Refuses edits that would put a filed return out of step with its data.
+   *
+   * A locked transaction has been reported to a tax authority. Its money and
+   * its tax are therefore fixed; everything else about it — comments, wallet,
+   * counterparty spelling — stays editable, so locking does not turn the row
+   * into a museum piece.
+   */
+  private assertTaxEditable(transaction: Transaction, updateDto: UpdateTransactionBody): void {
+    if (!transaction.taxLocked) {
+      return;
+    }
+
+    const frozen: Array<keyof UpdateTransactionBody> = [
+      'amount',
+      'debit',
+      'credit',
+      'amountForeign',
+      'exchangeRate',
+      'transactionType',
+      'categoryId',
+      'transactionDate',
+      // Changing it would re-convert the tax at a different rate than the one
+      // the filed figure was built from.
+      'currency',
+    ];
+
+    const attempted = frozen.filter(field => updateDto[field] !== undefined);
+    if (attempted.length > 0) {
+      throw new BadRequestException(
+        `Cannot change ${attempted.join(', ')} on a transaction that is part of a filed tax return. Reopen the return first.`,
+      );
+    }
+  }
+
   async update(
     id: string,
     workspaceId: string,
     userId: string,
-    updateDto: UpdateTransactionDto,
+    updateDto: UpdateTransactionBody,
     batchId?: string | null,
+    viewerMemberId: string | null = null,
   ): Promise<Transaction> {
-    await this.ensureCanEditStatements(userId);
+    await this.ensureCanEditStatements(userId, workspaceId);
     const transaction = await this.findOne(id, workspaceId);
     await this.assertWorkspaceOwnedRefs(updateDto, workspaceId);
+    const movedForPrivacy = await this.applyPrivacy(transaction, updateDto, viewerMemberId);
     const before = { ...transaction };
     const previousCategoryId = transaction.categoryId;
+    this.assertTaxEditable(transaction, updateDto);
 
     // Recalculate amount if debit/credit changed
     if (updateDto.debit !== undefined || updateDto.credit !== undefined) {
@@ -232,8 +292,36 @@ export class TransactionsService {
 
     Object.assign(transaction, updateDto);
 
+    // `findOne` loaded the relation objects. On save TypeORM takes a loaded
+    // relation over the foreign-key column, so a changed id would silently be
+    // written back as the old one. Drop the stale objects; the id is the truth.
+    if (updateDto.categoryId !== undefined) {
+      transaction.category = undefined as unknown as Category | null;
+    }
+    if (updateDto.branchId !== undefined) {
+      transaction.branch = undefined as unknown as Branch | null;
+    }
+    if (updateDto.walletId !== undefined) {
+      transaction.wallet = undefined as unknown as Wallet | null;
+    }
+    if (updateDto.ownerMemberId !== undefined) {
+      transaction.ownerMember = undefined as unknown as WorkspaceMember | null;
+    }
+
+    // A category the user picked is sticky: re-classification leaves it alone.
+    // Moving in or out of `Private` is not such a pick — it would overwrite the
+    // reason the row was categorised the way it was, which the owner still needs.
+    if (
+      !movedForPrivacy &&
+      updateDto.categoryId !== undefined &&
+      updateDto.categoryId !== previousCategoryId
+    ) {
+      transaction.categorySource = updateDto.categoryId ? TransactionCategorySource.MANUAL : null;
+      transaction.categoryReason = null;
+    }
+
     const saved = await this.transactionRepository.save(transaction);
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     // Audit: capture transaction update with before/after snapshot.
     await this.auditService.createEvent({
@@ -251,41 +339,88 @@ export class TransactionsService {
       isUndoable: true,
     });
 
-    if (
-      updateDto.categoryId !== undefined &&
-      updateDto.categoryId !== null &&
-      updateDto.categoryId !== previousCategoryId
-    ) {
-      try {
-        await this.classificationService.learnFromCorrection(saved, updateDto.categoryId, userId);
-      } catch (error) {
-        console.error('[TransactionsService] Failed to learn from category correction:', error);
-      }
-    }
+    // A correction teaches by itself: the row's own category is what the payee
+    // history reads next time, so there is nothing else to record.
 
     return saved;
+  }
+
+  /**
+   * Moves a row in or out of the workspace's `Private` category.
+   *
+   * Only the owner of a row may hide it: a row the household shares has nobody
+   * to keep a secret from, and a row somebody else owns is not yours to hide.
+   *
+   * The category really moves rather than being masked when read. A mask would
+   * make every total depend on who is asking, and two such totals differ by
+   * exactly the hidden amount.
+   */
+  private async applyPrivacy(
+    transaction: Transaction,
+    updateDto: UpdateTransactionBody,
+    viewerMemberId: string | null,
+  ): Promise<boolean> {
+    if (updateDto.isPrivate === undefined || updateDto.isPrivate === transaction.isPrivate) {
+      // Drop the key rather than blank it: `Object.assign` copies an
+      // `undefined` value too, and the row would then look changed to the audit
+      // — "changed: isPrivate" on an edit that touched nothing of the sort.
+      // biome-ignore lint/performance/noDelete: an undefined assignment, which is what the rule suggests, creates the key and marks the row as changed
+      delete updateDto.isPrivate;
+      return false;
+    }
+
+    if (updateDto.isPrivate) {
+      if (!transaction.ownerMemberId || transaction.ownerMemberId !== viewerMemberId) {
+        throw new BadRequestException(appError('TRANSACTION_PRIVATE_NOT_OWNER'));
+      }
+      const privateCategory = await ensurePrivateCategory(
+        this.categoryRepository,
+        transaction.workspaceId,
+        transaction.transactionType === TransactionType.INCOME
+          ? CategoryType.INCOME
+          : CategoryType.EXPENSE,
+      );
+      transaction.privateCategoryId = transaction.categoryId;
+      // Through the DTO, not the entity: `findOne` loaded the `category`
+      // relation, and on save a loaded relation wins over the column, so an id
+      // assigned here alone would be written back as the old one. The block
+      // below already drops the stale object for a DTO-driven change.
+      updateDto.categoryId = privateCategory.id;
+    } else {
+      updateDto.categoryId = transaction.privateCategoryId ?? undefined;
+      transaction.privateCategoryId = null;
+    }
+    return true;
   }
 
   async bulkUpdate(
     workspaceId: string,
     userId: string,
-    items: BulkUpdateItemDto[],
+    items: BulkUpdateItemInput[],
+    viewerMemberId: string | null = null,
   ): Promise<Transaction[]> {
-    await this.ensureCanEditStatements(userId);
+    await this.ensureCanEditStatements(userId, workspaceId);
     const updatedTransactions: Transaction[] = [];
     const batchId = items.length > 1 ? randomUUID() : null;
 
     for (const item of items) {
       try {
-        const transaction = await this.update(item.id, workspaceId, userId, item.updates, batchId);
+        const transaction = await this.update(
+          item.id,
+          workspaceId,
+          userId,
+          item.updates,
+          batchId,
+          viewerMemberId,
+        );
         updatedTransactions.push(transaction);
       } catch (error) {
-        console.error(`Error updating transaction ${item.id}:`, error);
+        console.error('Error updating transaction %s:', item.id, error);
       }
     }
 
     if (updatedTransactions.length > 0) {
-      await this.invalidateReports(userId);
+      await this.invalidateReports(workspaceId);
     }
 
     return updatedTransactions;
@@ -326,13 +461,21 @@ export class TransactionsService {
 
   /** Every workspace-scoped reference an update body can carry. */
   private assertWorkspaceOwnedRefs(
-    updateDto: Pick<UpdateTransactionDto, 'categoryId' | 'branchId' | 'walletId'>,
+    updateDto: Pick<
+      UpdateTransactionBody,
+      'categoryId' | 'branchId' | 'walletId' | 'ownerMemberId'
+    >,
     workspaceId: string,
   ): Promise<unknown> {
     return Promise.all([
       this.assertWorkspaceOwned(Category, [updateDto.categoryId], workspaceId),
       this.assertWorkspaceOwned(Branch, [updateDto.branchId], workspaceId),
       this.assertWorkspaceOwned(Wallet, [updateDto.walletId], workspaceId),
+      assertOwnerMemberInWorkspace(
+        this.workspaceMemberRepository,
+        workspaceId,
+        updateDto.ownerMemberId,
+      ),
     ]);
   }
 
@@ -358,13 +501,25 @@ export class TransactionsService {
       counterpartyBin: source.counterpartyBin,
       counterpartyAccount: source.counterpartyAccount,
       counterpartyBank: source.counterpartyBank,
+      counterpartyCountry: source.counterpartyCountry,
+      counterpartyVatId: source.counterpartyVatId,
       currency: source.currency,
       exchangeRate: source.exchangeRate,
       paymentPurpose: source.paymentPurpose,
       categoryId: source.categoryId,
+      categorySource: source.categorySource,
+      categoryReason: source.categoryReason,
+      // The rate carries over, but never the assessed figures: those belong to
+      // the pre-split amount, and copying them onto each part would multiply
+      // the transaction's tax by the number of parts. `split()` re-assesses
+      // every part from its own amount and category instead.
       taxRateId: source.taxRateId,
+      taxSource: source.taxSource,
       branchId: source.branchId,
       walletId: source.walletId,
+      // Each part starts on the same person as the whole; splitting a shared
+      // purchase between two people is done by reassigning the parts afterwards.
+      ownerMemberId: source.ownerMemberId,
       article: source.article,
       activityType: source.activityType,
       vendorNormalized: source.vendorNormalized,
@@ -385,7 +540,7 @@ export class TransactionsService {
    * Called twice: once outside the DB transaction as a cheap fast path, and again
    * on the locked row, which is the read the parts are actually derived from.
    */
-  private assertSplittable(transaction: Transaction, dto: SplitTransactionDto): number {
+  private assertSplittable(transaction: Transaction, dto: SplitTransactionBody): number {
     if (transaction.splitGroupId) {
       throw new BadRequestException('Transaction is already part of a split');
     }
@@ -395,6 +550,15 @@ export class TransactionsService {
     // amounts would reappear in those totals. Refuse instead.
     if (transaction.isDuplicate) {
       throw new BadRequestException('Cannot split a transaction marked as a duplicate');
+    }
+
+    // A locked row has already been reported on a filed return. Splitting it
+    // re-assesses the tax across the parts, which would change figures that
+    // have been submitted to a tax authority.
+    if (transaction.taxLocked) {
+      throw new BadRequestException(
+        'Cannot split a transaction that is part of a filed tax return',
+      );
     }
 
     const total = Number(
@@ -424,7 +588,7 @@ export class TransactionsService {
   private allocateParts(
     total: number,
     foreignTotal: number | null,
-    parts: SplitPartDto[],
+    parts: SplitPartInput[],
   ): { amounts: number[]; foreignAmounts: (number | null)[] } {
     const amounts = parts.map(part => this.round2(Number(part.amount)));
     const lastIndex = amounts.length - 1;
@@ -438,7 +602,7 @@ export class TransactionsService {
     if (foreignTotal !== null) {
       foreignAmounts[lastIndex] = this.round2(
         foreignTotal -
-          foreignAmounts.slice(0, lastIndex).reduce((sum, value) => sum + (value ?? 0), 0),
+          foreignAmounts.slice(0, lastIndex).reduce<number>((sum, value) => sum + (value ?? 0), 0),
       );
     }
 
@@ -456,9 +620,9 @@ export class TransactionsService {
     id: string,
     workspaceId: string,
     userId: string,
-    dto: SplitTransactionDto,
+    dto: SplitTransactionBody,
   ): Promise<Transaction[]> {
-    await this.ensureCanEditStatements(userId);
+    await this.ensureCanEditStatements(userId, workspaceId);
     const original = await this.findOne(id, workspaceId);
     await this.assertWorkspaceOwned(
       Category,
@@ -514,9 +678,37 @@ export class TransactionsService {
         row.fingerprint = null;
 
         // Per-part override, else keep what the row already inherited.
-        row.categoryId = part.categoryId ?? row.categoryId;
+        if (part.categoryId && part.categoryId !== row.categoryId) {
+          row.categoryId = part.categoryId;
+          row.categorySource = TransactionCategorySource.MANUAL;
+          row.categoryReason = null;
+        }
         row.paymentPurpose = part.paymentPurpose ?? row.paymentPurpose;
         row.comments = part.comments ?? row.comments;
+
+        // Re-assessed after the category override, because a part moved to a
+        // different category may fall under a different rule. A rate the user
+        // picked by hand is carried through; an auto-assigned one is derived
+        // again from the part's own amount and category.
+        const assignment = await this.taxAssignmentService.resolve({
+          workspaceId,
+          transactionDate: row.transactionDate,
+          amountMinor: toMinor(amount),
+          categoryId: row.categoryId,
+          transactionType: row.transactionType,
+          transactionNature: row.transactionNature,
+          explicitTaxRateId: row.taxSource === TaxSource.MANUAL ? row.taxRateId : null,
+          counterpartyCountry: row.counterpartyCountry,
+          counterpartyVatId: row.counterpartyVatId,
+        });
+
+        row.taxRateId = assignment.taxRateId;
+        row.taxRuleId = assignment.taxRuleId;
+        row.taxSource = assignment.taxSource;
+        row.taxAmount = assignment.taxAmount;
+        row.taxNetAmount = assignment.taxNetAmount;
+        row.taxReverseCharge = assignment.taxReverseCharge;
+        row.taxNotionalAmount = assignment.taxNotionalAmount;
 
         rows.push(await repo.save(row));
       }
@@ -524,7 +716,7 @@ export class TransactionsService {
       return rows;
     });
 
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     await this.auditService.createEvent({
       workspaceId,
@@ -554,7 +746,7 @@ export class TransactionsService {
     return this.transactionRepository.find({
       // Same relations as findOne, so a caller gets one shape either way.
       where: { workspaceId, splitGroupId: transaction.splitGroupId },
-      relations: ['category', 'branch', 'wallet'],
+      relations: ['category', 'branch', 'wallet', 'payee'],
       order: { splitIndex: 'ASC' },
     });
   }
@@ -570,7 +762,7 @@ export class TransactionsService {
    * cannot be restored; that loss is accepted, not an oversight.
    */
   async unsplit(id: string, workspaceId: string, userId: string): Promise<Transaction> {
-    await this.ensureCanEditStatements(userId);
+    await this.ensureCanEditStatements(userId, workspaceId);
 
     // Fast path only: reject an obviously invalid request before opening a DB
     // transaction and taking row locks. The authoritative read is the locked one.
@@ -580,7 +772,9 @@ export class TransactionsService {
     }
     const splitGroupId = target.splitGroupId;
 
-    let before: Transaction[] = [];
+    // Plain copies for the audit diff, not entities: spreading drops the
+    // entity's own methods.
+    let before: Array<Partial<Transaction>> = [];
     let repointed = { duplicates: 0, receipts: 0, payables: 0 };
 
     const merged = await this.transactionRepository.manager.transaction(async manager => {
@@ -602,6 +796,14 @@ export class TransactionsService {
       // other way; clearing its markers below is the right repair either way.
       if (parts.length === 0) {
         throw new BadRequestException('Transaction is not part of a split');
+      }
+
+      // Folding the parts back deletes all but one, and a part on a filed
+      // return may not disappear from under it.
+      if (parts.some(part => part.taxLocked)) {
+        throw new BadRequestException(
+          'Cannot unsplit a transaction whose parts are part of a filed tax return',
+        );
       }
 
       before = parts.map(part => ({ ...part }));
@@ -691,7 +893,7 @@ export class TransactionsService {
       return saved;
     });
 
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     await this.auditService.createEvent({
       workspaceId,
@@ -716,12 +918,15 @@ export class TransactionsService {
   }
 
   async remove(id: string, workspaceId: string, userId: string): Promise<void> {
-    await this.ensureCanEditStatements(userId);
+    await this.ensureCanEditStatements(userId, workspaceId);
     const transaction = await this.findOne(id, workspaceId);
+    if (transaction.taxLocked) {
+      throw taxLockedConflict(1);
+    }
     // Use delete for simplicity; entity already validated for ownership.
 
     await this.transactionRepository.delete(transaction.id);
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     // Audit: record deletion for potential rollback.
     await this.auditService.createEvent({

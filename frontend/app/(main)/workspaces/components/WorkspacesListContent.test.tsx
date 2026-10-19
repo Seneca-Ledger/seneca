@@ -26,6 +26,34 @@ vi.mock('@/app/i18n', () => ({
     noWorkspaces: 'No workspaces',
     createWorkspace: 'Create Workspace',
     searchPlaceholder: 'Search workspaces...',
+    // workspacesListView, read by the grid, list and filter children.
+    empty: { subtitle: 'Create your first workspace to get started' },
+    noResults: { title: 'No workspaces found', subtitle: 'Try adjusting your search query' },
+    sort: {
+      button: { value: 'Sort options' },
+      favorites: 'Favorites First',
+      alphabetical: 'Alphabetical',
+      recent: 'Recently Created',
+    },
+    view: { grid: { value: 'Grid view' }, list: { value: 'List view' } },
+    list: {
+      you: 'You',
+      currentMember: 'Current member',
+      default: 'Default',
+      workspaceFallback: { value: 'Workspace' },
+    },
+    columns: {
+      name: 'Workspace name',
+      owner: 'Owner',
+      type: 'Workspace type',
+      actions: 'Actions',
+    },
+    roles: {
+      owner: { value: 'Owner' },
+      admin: { value: 'Admin' },
+      member: { value: 'Member' },
+      viewer: { value: 'Viewer' },
+    },
   }),
 }));
 
@@ -89,6 +117,23 @@ describe('WorkspacesListContent', () => {
     expect(html).not.toContain('Close');
   });
 
+  it('lets the page scroll to the last card instead of cutting the list at screen height', async () => {
+    const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspacesListContent embedded onCloseEmbedded={vi.fn()} />);
+    });
+
+    const outer = container.firstElementChild as HTMLElement;
+    expect(getComputedStyle(outer).overflow).not.toBe('hidden');
+    expect(getComputedStyle(outer).height).not.toContain('100vh');
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('renders statements-style search bar in embedded mode', async () => {
     const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
     const container = document.createElement('div');
@@ -100,8 +145,10 @@ describe('WorkspacesListContent', () => {
 
     const searchInput = container.querySelector('input[aria-label="Search workspaces..."]');
     expect(searchInput).toBeTruthy();
-    expect(searchInput?.getAttribute('style')).toContain('padding: 12px 16px 12px 44px');
-    expect(searchInput?.getAttribute('style')).toContain('border-radius: 10px');
+    // Compact and outlined: sized to what it holds, no filled background.
+    expect(searchInput?.getAttribute('style')).toContain('padding: 8px 12px 8px 36px');
+    expect(searchInput?.getAttribute('style')).toContain('background: transparent');
+    expect(searchInput?.getAttribute('style')).toContain('border-radius: 8px');
   });
 
   it('switches to list format when list view button is clicked', async () => {
@@ -129,23 +176,23 @@ describe('WorkspacesListContent', () => {
     expect(container.textContent).toContain('Main Workspace');
   });
 
-  it('renders a more visible create workspace tile in grid view', async () => {
+  it('renders the create workspace tile as an outlined action, not a filled card', async () => {
     const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
     const html = renderToStaticMarkup(<WorkspacesListContent />);
 
     expect(html).toContain('Create Workspace');
-    expect(html).toContain('border:1px solid var(--border-color)');
-    expect(html).toContain('background:var(--card-bg)');
-    expect(html).toContain('border-radius:20px');
-    expect(html).toContain('color:var(--primary)');
+    // The old tile was a filled card; the dashed outline lives in the sx class now.
+    const createTile = html.slice(
+      html.lastIndexOf('<button', html.indexOf('Create Workspace')),
+      html.indexOf('Create Workspace'),
+    );
+    expect(createTile).not.toContain('background:var(--card-bg)');
   });
 
-  it('keeps the create workspace tile at the same height as workspace cards', async () => {
+  it('draws the create tile without a fixed aspect ratio, so it stretches to the row', async () => {
     const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
     const html = renderToStaticMarkup(<WorkspacesListContent />);
 
-    expect(html).toContain('height:100%');
-    expect(html).toContain('width:100%');
-    expect(html).toContain('aspect-ratio:16/9');
+    expect(html).not.toContain('aspect-ratio:16/9');
   });
 });

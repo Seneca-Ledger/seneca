@@ -1,7 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { renderWithQuery } from '@/app/test/query-wrapper';
 import React from 'react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { selectOption } from '@/app/test/select';
 
 const navigationState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
@@ -24,6 +26,7 @@ const apiMocks = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   markAsPaid: vi.fn(),
+  addPayment: vi.fn(),
   archive: vi.fn(),
   delete: vi.fn(),
   exportList: vi.fn(),
@@ -34,6 +37,44 @@ const toastMock = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 
+// The dialog has its own test; here it only has to hand the choice back —
+// either a full settlement or one payment among several.
+vi.mock('./MarkPaidDialog', () => ({
+  MarkPaidDialog: (props: {
+    payable: { id: string } | null;
+    onConfirm: (
+      payable: { id: string },
+      result: { kind: 'full' | 'payment'; payload: Record<string, unknown> },
+    ) => void;
+  }) =>
+    props.payable ? (
+      <>
+        <button
+          type="button"
+          onClick={() =>
+            props.onConfirm(props.payable as { id: string }, {
+              kind: 'full',
+              payload: { payFromWalletId: 'wallet-1' },
+            })
+          }
+        >
+          Confirm payment
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            props.onConfirm(props.payable as { id: string }, {
+              kind: 'payment',
+              payload: { amount: 400 },
+            })
+          }
+        >
+          Confirm part
+        </button>
+      </>
+    ) : null,
+}));
+
 vi.mock('@/app/hooks/useAuth', () => ({
   useAuth: () => authState,
 }));
@@ -42,9 +83,14 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
   useWorkspace: () => workspaceState,
 }));
 
-vi.mock('@/app/i18n', () => ({
+vi.mock('@/app/i18n', async () => {
+  // The shared currency drawer and the import wizard read their own dictionaries; serve them for real (English).
+  const { useIntlayer: realUseIntlayer } =
+    await vi.importActual<typeof import('react-intlayer')>('react-intlayer');
+  return {
   useLocale: () => ({ locale: 'en' }),
-  useIntlayer: () => ({
+  useIntlayer: (key: string) =>
+    key === 'receiptCurrencyDrawer' || key === 'importWizard' ? realUseIntlayer(key) : ({
     payables: {
       title: { value: 'Payables' },
       subtitle: { value: 'Track upcoming payments.' },
@@ -144,10 +190,13 @@ vi.mock('@/app/i18n', () => ({
       pageOf: { value: 'Page {page} of {count}' },
     },
   }),
-}));
+  };
+});
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => navigationState.searchParams,
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => '/statements/pay',
 }));
 
 vi.mock('@mui/x-date-pickers/DatePicker', async () => {
@@ -240,6 +289,10 @@ describe('PayablesView', () => {
       toPayCount: 2,
       overdueCount: 1,
       paidTotalCount: 2,
+      dueThisWeekCount: 1,
+      unbookedTotal: 0,
+      unbookedCount: 0,
+      convertedCurrencies: [],
     });
     apiMocks.list.mockResolvedValue({
       data: [
@@ -267,6 +320,7 @@ describe('PayablesView', () => {
       totalPages: 1,
     });
     apiMocks.markAsPaid.mockResolvedValue({});
+    apiMocks.addPayment.mockResolvedValue({ id: 'payable-1', status: 'partially_paid' });
     apiMocks.exportList.mockResolvedValue({
       blob: new Blob(['csv'], { type: 'text/csv' }),
       fileName: 'payables.csv',
@@ -292,33 +346,56 @@ describe('PayablesView', () => {
     });
 
     const { PayablesView } = await import('./PayablesView');
-    render(<PayablesView />);
+    renderWithQuery(<PayablesView />);
 
-    expect(await screen.findByText('Payables')).toBeInTheDocument();
     expect(await screen.findByText('ACME LLC')).toBeInTheDocument();
     expect(screen.getAllByText('Paid').length).toBeGreaterThan(0);
-    expect(screen.getByText('KZT 1,800.00')).toBeInTheDocument();
+    // Overview figures in whole units; the first card is everything open, overdue included.
+    expect(screen.getByText('KZT 1,800')).toBeInTheDocument();
+    expect(screen.getByText('KZT 1,500')).toBeInTheDocument();
     expect(screen.queryByText('Sort')).not.toBeInTheDocument();
     expect(apiMocks.getSummary).toHaveBeenCalledTimes(1);
     expect(apiMocks.list).toHaveBeenCalledTimes(1);
   });
 
-  it('marks a payable as paid from the list action', async () => {
+  it('marks a payable as paid through the payment dialog', async () => {
     const { PayablesView } = await import('./PayablesView');
-    render(<PayablesView />);
+    renderWithQuery(<PayablesView />);
 
     const button = await screen.findByRole('button', { name: 'Mark paid' });
     fireEvent.click(button);
+    expect(apiMocks.markAsPaid).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm payment' }));
 
     await waitFor(() => {
-      expect(apiMocks.markAsPaid).toHaveBeenCalledWith('payable-1');
+      expect(apiMocks.markAsPaid).toHaveBeenCalledWith('payable-1', {
+        payFromWalletId: 'wallet-1',
+      });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Confirm payment' })).not.toBeInTheDocument();
     });
     expect(toastMock.success).toHaveBeenCalledWith('Marked as paid');
   });
 
+  it('keeps the dialog open when the payment leaves the bill partly unpaid', async () => {
+    const { PayablesView } = await import('./PayablesView');
+    renderWithQuery(<PayablesView />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark paid' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm part' }));
+
+    await waitFor(() => {
+      expect(apiMocks.addPayment).toHaveBeenCalledWith('payable-1', { amount: 400 });
+    });
+    expect(apiMocks.markAsPaid).not.toHaveBeenCalled();
+    // Still short, so the next instalment can be recorded straight away.
+    expect(screen.getByRole('button', { name: 'Confirm part' })).toBeInTheDocument();
+  });
+
   it('opens currency drawer from the payable form currency field', async () => {
     const { PayablesView } = await import('./PayablesView');
-    render(<PayablesView />);
+    renderWithQuery(<PayablesView />);
 
     await screen.findByText('ACME LLC');
     fireEvent.click(screen.getByRole('button', { name: 'Add payable' }));
@@ -334,48 +411,34 @@ describe('PayablesView', () => {
     });
   });
 
-  it('exports all filtered rows without page params and keeps the default sort', async () => {
-    const createObjectUrl = vi.fn(() => 'blob:payables');
-    const revokeObjectUrl = vi.fn();
-    Object.defineProperty(window.URL, 'createObjectURL', {
-      value: createObjectUrl,
-      writable: true,
-    });
-    Object.defineProperty(window.URL, 'revokeObjectURL', {
-      value: revokeObjectUrl,
-      writable: true,
-    });
+  it('uses receivable wording and illustration for the receive direction', async () => {
+    apiMocks.list.mockResolvedValueOnce({ data: [], total: 0, page: 1, limit: 20, totalPages: 1 });
 
     const { PayablesView } = await import('./PayablesView');
-    render(<PayablesView />);
+    const { container } = renderWithQuery(<PayablesView direction="receivable" />);
 
-    await screen.findByText('ACME LLC');
-    const selects = screen.getAllByRole('combobox');
+    expect(await screen.findByText('No receivables found')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add receivable' })).toBeInTheDocument();
+    expect(screen.getByText('To Receive')).toBeInTheDocument();
+    // Empty states draw a line icon in a circle now, not a picture.
+    expect(container.querySelector('.seneca-empty-state__icon svg')).not.toBeNull();
+    expect(apiMocks.getSummary).toHaveBeenCalledWith('receivable');
+  });
 
-    await act(async () => {
-      fireEvent.change(selects[0] as HTMLSelectElement, { target: { value: 'paid' } });
-    });
+  it('preselects the workspace currency when adding an entry', async () => {
+    workspaceState.currentWorkspace = { id: 'workspace-1', currency: 'usd' };
 
-    await waitFor(() => {
-      expect(apiMocks.list).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: 'paid', sort: 'dueDateAsc' }),
-      );
-    });
+    try {
+      const { PayablesView } = await import('./PayablesView');
+      renderWithQuery(<PayablesView />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+      await screen.findByText('ACME LLC');
+      fireEvent.click(screen.getByRole('button', { name: 'Add payable' }));
 
-    await waitFor(() => {
-      expect(apiMocks.exportList).toHaveBeenCalledWith({
-        direction: 'payable',
-        search: undefined,
-        status: 'paid',
-        source: undefined,
-        dueDateFrom: undefined,
-        dueDateTo: undefined,
-        sort: 'dueDateAsc',
-        format: 'csv',
-      });
-    });
+      expect(await screen.findByRole('button', { name: 'Currency' })).toHaveTextContent('USD');
+    } finally {
+      workspaceState.currentWorkspace = { id: 'workspace-1', currency: 'KZT' };
+    }
   });
 
   it('does not offer mark paid for archived rows', async () => {
@@ -406,7 +469,7 @@ describe('PayablesView', () => {
     });
 
     const { PayablesView } = await import('./PayablesView');
-    render(<PayablesView />);
+    renderWithQuery(<PayablesView />);
 
     expect(await screen.findByText('Archived Vendor')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Mark paid' })).not.toBeInTheDocument();
@@ -416,7 +479,7 @@ describe('PayablesView', () => {
     (window.confirm as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
 
     const { PayablesView } = await import('./PayablesView');
-    render(<PayablesView />);
+    renderWithQuery(<PayablesView />);
 
     await screen.findByText('ACME LLC');
 
@@ -491,7 +554,7 @@ describe('PayablesView', () => {
       });
 
     const { PayablesView } = await import('./PayablesView');
-    render(<PayablesView />);
+    renderWithQuery(<PayablesView />);
 
     await screen.findByText('Page Two Vendor');
 
@@ -500,14 +563,15 @@ describe('PayablesView', () => {
     });
 
     await screen.findByText('Page One Vendor');
-    expect(screen.getByText('Showing 1–20 of 20')).toBeInTheDocument();
+    // Back to a single page: no page count and no page buttons.
+    expect(screen.queryByText('Showing 1–20 of 20')).not.toBeInTheDocument();
   });
 
   it('applies status filter from search params on first load', async () => {
     navigationState.searchParams = new URLSearchParams('status=overdue');
 
     const { PayablesView } = await import('./PayablesView');
-    render(<PayablesView />);
+    renderWithQuery(<PayablesView />);
 
     await screen.findByText('ACME LLC');
 

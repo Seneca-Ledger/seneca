@@ -1,9 +1,10 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
-import { useEffect, useState } from 'react';
 
 export type UseEmailFormMessages = {
   passwordRequired: string;
@@ -46,20 +47,24 @@ export function useEmailForm(
       return;
     }
 
-    try {
+    await (async () => {
       setEmailLoading(true);
       const response = await apiClient.patch('/users/me/email', {
         email,
         currentPassword: emailPassword,
-      });
+      } satisfies ContractInput<'ChangeEmailBody'>);
 
-      setEmailMessage(response.data?.message || messages.successFallback);
+      // The server's sentence: the address changes only once the emailed link is opened.
+      const { message } = await checkContract('MessageResult', response.data, '/users/me/email');
+      setEmailMessage(message);
       setEmailPassword('');
-    } catch (error: unknown) {
-      setEmailError(getApiErrorMessage(error, messages.errorFallback));
-    } finally {
-      setEmailLoading(false);
-    }
+    })()
+      .catch(async (error: unknown) => {
+        setEmailError(getApiErrorMessage(error, messages.errorFallback));
+      })
+      .finally(async () => {
+        setEmailLoading(false);
+      });
   };
 
   return {

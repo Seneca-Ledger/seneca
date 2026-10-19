@@ -1,7 +1,5 @@
-import type {
-  TopCategoryAggregateRow,
-  TopCategoryRecord,
-} from '@/app/(main)/statements/components/top-categories.utils';
+import { useMemo } from 'react';
+import { useMonthFilters } from '@/app/(main)/statements/components/analytics/flow/useMonthFilters';
 import {
   type TopCategoriesAggregationReturn,
   useTopCategoriesAggregation,
@@ -11,9 +9,12 @@ import {
   useTopCategoriesRecords,
 } from '@/app/(main)/statements/components/top-categories/hooks/useTopCategoriesRecords';
 import type { useTopCategoriesState } from '@/app/(main)/statements/components/top-categories/hooks/useTopCategoriesState';
+import type {
+  TopCategoryAggregateRow,
+  TopCategoryRecord,
+} from '@/app/(main)/statements/components/top-categories.utils';
 import { useAnalyticsData } from '@/app/(main)/statements/hooks/useAnalyticsData';
 import { getRecordDate } from '@/app/lib/analytics-common';
-import { useMemo } from 'react';
 
 type WorkspaceLike = { id: string; name?: string | null };
 
@@ -24,6 +25,7 @@ type Params = {
   workspaceCurrency: string;
   resolvedTheme: string | undefined;
   labels: Record<string, string>;
+  month: Date;
   state: ReturnType<typeof useTopCategoriesState>;
 };
 
@@ -57,6 +59,7 @@ export const useTopCategoriesData = ({
   workspaceCurrency,
   resolvedTheme,
   labels,
+  month,
   state,
 }: Params): TopCategoriesDataReturn => {
   const {
@@ -74,6 +77,7 @@ export const useTopCategoriesData = ({
     errorToastMessage: labels.loadError,
   });
   const statements = rawStatements as unknown[];
+  const monthFilters = useMonthFilters(month);
   const transactions = rawTransactions as unknown[];
   const { flowFilteredRecords, flowRecordsWithoutDateFilter, fromOptions, currencyOptions } =
     useTopCategoriesRecords({
@@ -81,7 +85,7 @@ export const useTopCategoriesData = ({
       transactions: transactions as Parameters<typeof useTopCategoriesRecords>[0]['transactions'],
       gmailReceipts,
       workspaceCurrency,
-      appliedFilters: state.filterState.appliedFilters,
+      appliedFilters: monthFilters,
       searchInput: state.searchInput,
       activeFlowType: state.activeFlowType,
     });

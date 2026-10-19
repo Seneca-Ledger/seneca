@@ -1,7 +1,7 @@
 'use client';
 
-import { tokens } from '@/lib/theme-tokens';
 import Skeleton from '@mui/material/Skeleton';
+import { tokens } from '@/lib/theme-tokens';
 
 function CheckboxPlaceholder(): React.JSX.Element {
   return (
@@ -124,12 +124,12 @@ export function StatementsGmailSync({
         <div
           key={key}
           data-testid="gmail-sync-skeleton-row"
-          className="lumio-stmt-list-view__skeleton-row"
+          className="seneca-stmt-list-view__skeleton-row"
         >
-          <div className="lumio-stmt-list-view__skeleton-mobile">
+          <div className="seneca-stmt-list-view__skeleton-mobile">
             <GmailSyncSkeletonRowMobile />
           </div>
-          <div className="lumio-stmt-list-view__skeleton-desktop">
+          <div className="seneca-stmt-list-view__skeleton-desktop">
             <GmailSyncSkeletonRowDesktop />
           </div>
         </div>

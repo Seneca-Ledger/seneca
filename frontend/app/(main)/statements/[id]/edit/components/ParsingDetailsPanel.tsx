@@ -3,12 +3,7 @@
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
-import {
-  type ConvertDroppedSamplePayload,
-  type ParsingDroppedSample,
-  ParsingWarningsPanel,
-  type ResolveWarningPayload,
-} from '../ParsingWarningsPanel';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import {
   countArray,
   formatLabel,
@@ -17,24 +12,19 @@ import {
   toOptionalStr,
   toUpperOrUndefined,
 } from '../editHelpers';
+import {
+  type ConvertDroppedSamplePayload,
+  ParsingWarningsPanel,
+  type ResolveWarningPayload,
+} from '../ParsingWarningsPanel';
 
 type Labels = Record<string, { value?: string } | undefined>;
 
-export type ParsingDetailsData = {
-  detectedBank?: string;
-  detectedBy?: string;
-  detectedFormat?: string;
-  transactionsFound?: number;
-  transactionsCreated?: number;
-  errors?: string[];
-  warnings?: string[];
-  droppedSamples?: Array<string | ParsingDroppedSample>;
-  otherBankMentions?: string[];
-};
+export type ParsingDetailsData = StatementParsingDetails;
 
-type MetaItemProps = { label: string; value?: string };
+type MetaItemProps = { label: string; value?: string | null };
 type StatBadgeProps = { label: string; count: number; color: string };
-type MentionsBadgeProps = { label: string; mentions: string[] };
+type MentionsBadgeProps = { label: string; mentions: readonly string[] };
 
 function MetaItem({ label, value }: MetaItemProps): React.ReactElement {
   return (

@@ -1,6 +1,0 @@
-<svg width="120" height="32" viewBox="0 0 120 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="0" width="32" height="32" rx="8" fill="#168118"/>
-  <polyline points="6,22 12,15 18,18 26,9" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <polyline points="21,9 26,9 26,14" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <text x="42" y="22" font-family="Manrope, Arial, sans-serif" font-size="18" font-weight="700" fill="#0F172A">Lumio</text>
-</svg>

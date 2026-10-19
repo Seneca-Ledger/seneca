@@ -21,6 +21,7 @@ const renderDialog = (
       currency="KZT"
       categories={categories}
       saving={false}
+      locale="en"
       onClose={onClose}
       onSubmit={onSubmit}
       {...overrides}

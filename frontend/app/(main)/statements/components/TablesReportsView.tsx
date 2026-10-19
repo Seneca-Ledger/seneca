@@ -1,17 +1,21 @@
 'use client';
 
-import apiClient from '@/app/lib/api';
-import { tokens } from '@/lib/theme-tokens';
+import Modal from '@mui/material/Modal';
 import Skeleton from '@mui/material/Skeleton';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
-import dynamic from 'next/dynamic';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { closeOnBackdropClick } from '@/app/components/ui/backdrop-click';
+import { LazyECharts } from '@/app/components/ui/lazy-echarts';
+import { Select } from '@/app/components/ui/select';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer } from '@/app/i18n';
+import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
+import { tokens } from '@/lib/theme-tokens';
 import {
   type AvailableTable,
-  type TablesReportDrillDownResponse,
-  type TablesReportFlowType,
-  type TablesReportResponse,
-  type TablesReportSortKey,
   formatAmount,
   getComparisonArrow,
   getComparisonColor,
@@ -19,14 +23,16 @@ import {
   loadTablesReportsFilters,
   resolveDays,
   saveTablesReportsFilters,
+  type TablesReportDrillDownResponse,
+  type TablesReportFlowType,
+  type TablesReportSortKey,
 } from './tables-reports.utils';
-
-const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
 export default function TablesReportsView() {
   const { resolvedTheme } = useTheme();
-  const [loading, setLoading] = useState(true);
-  const [report, setReport] = useState<TablesReportResponse | null>(null);
+  const reportsT = useIntlayer('statementsTablesReports');
+  const manualLabel = reportsT.sourceManual.value;
+  const workspaceId = useWorkspaceId();
   const [availableTables, setAvailableTables] = useState<AvailableTable[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -37,7 +43,6 @@ export default function TablesReportsView() {
   const [selectedCounterparty, setSelectedCounterparty] = useState<string | null>(null);
   const [drillDown, setDrillDown] = useState<TablesReportDrillDownResponse | null>(null);
   const [tableDropdownOpen, setTableDropdownOpen] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
   const tableDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -83,11 +88,10 @@ export default function TablesReportsView() {
   useEffect(() => {
     let mounted = true;
 
-    apiClient
-      .get('/reports/custom-tables/available')
-      .then(response => {
+    apiQueryDecoded({ url: '/reports/custom-tables/available', contract: 'AvailableCustomTables' })
+      .then(tables => {
         if (!mounted) return;
-        setAvailableTables(Array.isArray(response.data) ? response.data : []);
+        setAvailableTables(tables);
       })
       .catch(() => {
         if (!mounted) return;
@@ -99,59 +103,53 @@ export default function TablesReportsView() {
     };
   }, []);
 
-  const fetchReport = useCallback(async () => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+  const reportPayload = useMemo(() => {
+    const payload: {
+      days: number;
+      flowType: TablesReportFlowType;
+      sortBy: TablesReportSortKey;
+      search?: string;
+      limit: number;
+      tableIds?: string[];
+    } = {
+      days: resolveDays(selectedDays),
+      flowType: activeFlowType,
+      sortBy: sortKey,
+      search: debouncedSearch.trim() || undefined,
+      limit: 60,
+    };
 
-    setLoading(true);
-    try {
-      const payload: {
-        days: number;
-        flowType: TablesReportFlowType;
-        sortBy: TablesReportSortKey;
-        search?: string;
-        limit: number;
-        tableIds?: string[];
-      } = {
-        days: resolveDays(selectedDays),
-        flowType: activeFlowType,
-        sortBy: sortKey,
-        search: debouncedSearch.trim() || undefined,
-        limit: 60,
-      };
-
-      if (selectedTableIds.length > 0) {
-        payload.tableIds = selectedTableIds;
-      }
-
-      const response = await apiClient.post('/reports/custom-tables/report', payload, {
-        signal: controller.signal,
-      });
-
-      if (!controller.signal.aborted) {
-        setReport(response.data);
-      }
-    } catch {
-      if (!controller.signal.aborted) {
-        setReport(null);
-      }
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false);
-      }
+    if (selectedTableIds.length > 0) {
+      payload.tableIds = selectedTableIds;
     }
+
+    return payload;
   }, [activeFlowType, debouncedSearch, selectedDays, selectedTableIds, sortKey]);
 
-  useEffect(() => {
-    void fetchReport();
-    return () => abortRef.current?.abort();
-  }, [fetchReport]);
+  const reportQuery = useQuery({
+    queryKey: queryKeys.tablesReport({ workspaceId, params: reportPayload }),
+    queryFn: async ({ signal }) => {
+      const response = await apiClient.post(
+        '/reports/custom-tables/report',
+        reportPayload satisfies ContractInput<'CustomTablesReportBody'>,
+        { signal },
+      );
+      return checkContract('CustomTablesReport', response.data, '/reports/custom-tables/report');
+    },
+    // Клик по фильтру меняет ключ; цифры и графики держатся на экране до
+    // прихода нового отчёта, но только внутри того же воркспейса.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
+  });
+
+  const report = reportQuery.isError ? null : (reportQuery.data ?? null);
 
   const handleDrillDown = useCallback(
     async (counterparty: string) => {
       setSelectedCounterparty(counterparty);
-      try {
+
+      await (async () => {
         const payload: {
           counterparty: string;
           days: number;
@@ -169,29 +167,44 @@ export default function TablesReportsView() {
           payload.tableIds = selectedTableIds;
         }
 
-        const response = await apiClient.post('/reports/custom-tables/report/drill-down', payload);
-        setDrillDown(response.data);
-      } catch {
+        const response = await apiClient.post(
+          '/reports/custom-tables/report/drill-down',
+          payload satisfies ContractInput<'CustomTablesReportDrillDownBody'>,
+        );
+        setDrillDown(
+          await checkContract(
+            'CustomTablesReportDrillDown',
+            response.data,
+            '/reports/custom-tables/report/drill-down',
+          ),
+        );
+      })().catch(async () => {
         setDrillDown({ counterparty, items: [] });
-      }
+      });
     },
     [activeFlowType, selectedDays, selectedTableIds],
   );
 
+  const closeDrillDown = useCallback(() => {
+    setSelectedCounterparty(null);
+    setDrillDown(null);
+  }, []);
+
+  const timeseries = report?.timeseries;
   const trendChartOption = useMemo(() => {
-    if (!report?.timeseries?.length) return null;
+    if (!timeseries?.length) return null;
     return {
-      xAxis: { type: 'category', data: report.timeseries.map(item => item.date) },
+      xAxis: { type: 'category', data: timeseries.map(item => item.date) },
       yAxis: { type: 'value' },
       series: [
         {
           type: 'line',
-          data: report.timeseries.map(item => item.amount),
+          data: timeseries.map(item => item.amount),
           smooth: true,
         },
       ],
     };
-  }, [report?.timeseries]);
+  }, [timeseries]);
 
   const sourceSplitOption = useMemo(() => {
     if (!report) return null;
@@ -199,19 +212,17 @@ export default function TablesReportsView() {
       series: [
         {
           type: 'pie',
-          data: [
-            { value: report.sourceSplit.manual, name: 'Manual' },
-            { value: report.sourceSplit.googleSheets, name: 'Google Sheets' },
-          ],
+          data: [{ value: report.sourceSplit.manual, name: manualLabel }],
         },
       ],
     };
-  }, [report]);
+  }, [report, manualLabel]);
 
+  const aggregatedRows = report?.aggregatedRows;
   const topRowsBarOption = useMemo(() => {
-    if (!report?.aggregatedRows?.length) return null;
+    if (!aggregatedRows?.length) return null;
 
-    const topRows = report.aggregatedRows.slice(0, 12).reverse();
+    const topRows = aggregatedRows.slice(0, 12).reverse();
 
     return {
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
@@ -234,7 +245,7 @@ export default function TablesReportsView() {
         },
       ],
     };
-  }, [report?.aggregatedRows]);
+  }, [aggregatedRows]);
 
   const selectedTablesCount = selectedTableIds.length;
   const chartTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
@@ -260,7 +271,11 @@ export default function TablesReportsView() {
       className="container-shared"
       style={{
         display: 'flex',
-        height: 'calc(100vh - var(--global-nav-height,0px))',
+        // The parent layout wrapper already caps height to 100vh - nav on
+        // /statements/* routes; recomputing it here made this box taller
+        // than the parent whenever a sibling (e.g. AlertBanner) also took
+        // up space.
+        height: '100%',
         minHeight: 0,
         flexDirection: 'column',
         overflow: 'hidden',
@@ -269,12 +284,6 @@ export default function TablesReportsView() {
     >
       <div style={{ marginBottom: 20, flexShrink: 0 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 600, color: c.ink900 }}>Tables reports</h1>
-            <p style={{ fontSize: 14, color: c.ink500 }}>
-              Aggregated insights from your custom tables
-            </p>
-          </div>
           <div
             style={{
               display: 'inline-flex',
@@ -301,7 +310,7 @@ export default function TablesReportsView() {
                 boxShadow: activeFlowType === 'all' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
               }}
             >
-              All
+              {reportsT.flowAll}
             </button>
             <button
               type="button"
@@ -318,7 +327,7 @@ export default function TablesReportsView() {
                 boxShadow: activeFlowType === 'expense' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
               }}
             >
-              Expenses
+              {reportsT.flowExpenses}
             </button>
             <button
               type="button"
@@ -335,7 +344,7 @@ export default function TablesReportsView() {
                 boxShadow: activeFlowType === 'income' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
               }}
             >
-              Income
+              {reportsT.flowIncome}
             </button>
           </div>
         </div>
@@ -345,7 +354,7 @@ export default function TablesReportsView() {
             type="search"
             value={searchInput}
             onChange={event => setSearchInput(event.target.value)}
-            placeholder="Search counterparties, categories, tables..."
+            placeholder={reportsT.searchPlaceholder.value}
             style={{
               width: '100%',
               border: `1px solid ${c.ink150}`,
@@ -362,7 +371,7 @@ export default function TablesReportsView() {
               onClick={() => setTableDropdownOpen(open => !open)}
               style={subtlePanelStyle}
             >
-              Tables
+              {reportsT.tables}
               {selectedTablesCount > 0 ? ` (${selectedTablesCount})` : ''}
             </button>
 
@@ -397,7 +406,7 @@ export default function TablesReportsView() {
                     borderRadius: tokens.radius.sm,
                   }}
                 >
-                  All tables
+                  {reportsT.allTables}
                 </button>
                 {availableTables.map(table => {
                   const checked = selectedTableIds.includes(table.id);
@@ -417,7 +426,7 @@ export default function TablesReportsView() {
                     >
                       <input
                         type="checkbox"
-                        aria-label={`Select table ${table.name}`}
+                        aria-label={reportsT.selectTable.value.replace('{name}', table.name)}
                         checked={checked}
                         onChange={() =>
                           setSelectedTableIds(current =>
@@ -438,7 +447,7 @@ export default function TablesReportsView() {
                         {table.name}
                       </span>
                       <span style={{ fontSize: 12, color: c.ink400 }}>
-                        {getSourceLabel(table.source)}
+                        {getSourceLabel(table.source, manualLabel)}
                       </span>
                     </label>
                   );
@@ -446,17 +455,18 @@ export default function TablesReportsView() {
               </div>
             ) : null}
           </div>
-          <select
+          <Select
             value={selectedDays}
-            onChange={event => setSelectedDays(Number(event.target.value))}
-            style={{ ...subtlePanelStyle, appearance: 'none', paddingRight: 36 }}
-          >
-            <option value={7}>Last 7 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
-            <option value={365}>Last 365 days</option>
-            <option value={-1}>Year to date</option>
-          </select>
+            onChange={value => setSelectedDays(Number(value))}
+            options={[
+              { value: 7, label: reportsT.last7Days.value },
+              { value: 30, label: reportsT.last30Days.value },
+              { value: 90, label: reportsT.last90Days.value },
+              { value: 365, label: reportsT.last365Days.value },
+              { value: -1, label: reportsT.yearToDate.value },
+            ]}
+            sx={{ backgroundColor: 'var(--card-bg)', color: c.ink800 }}
+          />
         </div>
 
         <div
@@ -494,16 +504,16 @@ export default function TablesReportsView() {
                 fontSize: 12,
               }}
             >
-              {table.name} · {getSourceLabel(table.source)}
+              {table.name} · {getSourceLabel(table.source, manualLabel)}
             </button>
           ))}
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {loading ? (
+        {reportQuery.isPending ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-            {['total', 'manual', 'googleSheets', 'operations'].map(key => (
+            {['total', 'manual', 'operations'].map(key => (
               <div key={key} style={panelStyle}>
                 <Skeleton variant="text" width="40%" height={16} />
                 <Skeleton variant="rounded" width="60%" height={24} style={{ marginTop: 4 }} />
@@ -511,14 +521,18 @@ export default function TablesReportsView() {
             ))}
           </div>
         ) : !report || report.totals.operations === 0 ? (
-          <div style={{ padding: '40px 0', fontSize: 14, color: c.ink500 }}>
-            No data found for the selected period.
-          </div>
+          <div style={{ padding: '40px 0', fontSize: 14, color: c.ink500 }}>{reportsT.noData}</div>
         ) : (
-          <>
+          // Смена фильтра перезагружает отчёт в фоне: цифры и графики не гаснут.
+          <div
+            style={{
+              opacity: reportQuery.isFetching ? 0.6 : 1,
+              transition: 'opacity 150ms ease',
+            }}
+          >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
               <div style={panelStyle}>
-                <div style={{ fontSize: 12, color: c.ink500 }}>Total</div>
+                <div style={{ fontSize: 12, color: c.ink500 }}>{reportsT.total}</div>
                 <div style={{ marginTop: 4, fontSize: 20, fontWeight: 600, color: c.ink900 }}>
                   {formatAmount(report.totals.total)}
                 </div>
@@ -538,19 +552,13 @@ export default function TablesReportsView() {
                 </div>
               </div>
               <div style={panelStyle}>
-                <div style={{ fontSize: 12, color: c.ink500 }}>Manual tables</div>
+                <div style={{ fontSize: 12, color: c.ink500 }}>{reportsT.manualTables}</div>
                 <div style={{ marginTop: 4, fontSize: 20, fontWeight: 600, color: c.ink900 }}>
                   {formatAmount(report.totals.manualTotal)}
                 </div>
               </div>
               <div style={panelStyle}>
-                <div style={{ fontSize: 12, color: c.ink500 }}>Google Sheets</div>
-                <div style={{ marginTop: 4, fontSize: 20, fontWeight: 600, color: c.ink900 }}>
-                  {formatAmount(report.totals.googleSheetsTotal)}
-                </div>
-              </div>
-              <div style={panelStyle}>
-                <div style={{ fontSize: 12, color: c.ink500 }}>Operations</div>
+                <div style={{ fontSize: 12, color: c.ink500 }}>{reportsT.operations}</div>
                 <div style={{ marginTop: 4, fontSize: 20, fontWeight: 600, color: c.ink900 }}>
                   {report.totals.operations}
                 </div>
@@ -560,10 +568,10 @@ export default function TablesReportsView() {
             <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
               <div style={{ ...panelStyle, gridColumn: 'span 2' }}>
                 <div style={{ marginBottom: 12, fontSize: 14, fontWeight: 500, color: c.ink800 }}>
-                  Trend
+                  {reportsT.trend}
                 </div>
                 {trendChartOption ? (
-                  <ReactECharts
+                  <LazyECharts
                     option={trendChartOption}
                     style={{ height: 220 }}
                     theme={chartTheme}
@@ -572,10 +580,10 @@ export default function TablesReportsView() {
               </div>
               <div style={panelStyle}>
                 <div style={{ marginBottom: 12, fontSize: 14, fontWeight: 500, color: c.ink800 }}>
-                  Source split
+                  {reportsT.sourceSplit}
                 </div>
                 {sourceSplitOption ? (
-                  <ReactECharts
+                  <LazyECharts
                     option={sourceSplitOption}
                     style={{ height: 220 }}
                     theme={chartTheme}
@@ -587,13 +595,9 @@ export default function TablesReportsView() {
             {topRowsBarOption ? (
               <div style={{ marginTop: 24, ...panelStyle }}>
                 <div style={{ marginBottom: 12, fontSize: 14, fontWeight: 500, color: c.ink800 }}>
-                  Top counterparties
+                  {reportsT.topCounterparties}
                 </div>
-                <ReactECharts
-                  option={topRowsBarOption}
-                  style={{ height: 320 }}
-                  theme={chartTheme}
-                />
+                <LazyECharts option={topRowsBarOption} style={{ height: 320 }} theme={chartTheme} />
               </div>
             ) : null}
 
@@ -614,7 +618,11 @@ export default function TablesReportsView() {
                     cursor: 'pointer',
                   }}
                 >
-                  {key === 'amount' ? 'Amount' : key === 'average' ? 'Average' : 'Operations'}
+                  {key === 'amount'
+                    ? reportsT.amount
+                    : key === 'average'
+                      ? reportsT.average
+                      : reportsT.operations}
                 </button>
               ))}
             </div>
@@ -622,7 +630,9 @@ export default function TablesReportsView() {
             <div
               style={{
                 marginTop: 16,
-                overflow: 'hidden',
+                // Seven columns do not fit a phone: `hidden` cut the last four
+                // off with no way to reach them, so the wrapper scrolls instead.
+                overflowX: 'auto',
                 border: `1px solid ${c.ink150}`,
                 background: 'var(--card-bg)',
                 borderRadius: tokens.radius.lg,
@@ -638,13 +648,17 @@ export default function TablesReportsView() {
                       color: c.ink500,
                     }}
                   >
-                    <th style={{ padding: '12px 16px' }}>Counterparty</th>
-                    <th style={{ padding: '12px 16px' }}>Source</th>
-                    <th style={{ padding: '12px 16px' }}>Table</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Operations</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Average</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Last operation</th>
+                    <th style={{ padding: '12px 16px' }}>{reportsT.counterparty}</th>
+                    <th style={{ padding: '12px 16px' }}>{reportsT.source}</th>
+                    <th style={{ padding: '12px 16px' }}>{reportsT.table}</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      {reportsT.operations}
+                    </th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>{reportsT.average}</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>{reportsT.amount}</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      {reportsT.lastOperation}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -673,20 +687,14 @@ export default function TablesReportsView() {
                           style={{
                             display: 'inline-flex',
                             borderRadius: tokens.radius.sm,
-                            background:
-                              row.source === 'google_sheets_import'
-                                ? 'var(--color-success-soft-bg)'
-                                : c.ink50,
+                            background: c.ink50,
                             padding: '2px 8px',
                             fontSize: 12,
                             fontWeight: 500,
-                            color:
-                              row.source === 'google_sheets_import'
-                                ? 'var(--color-success-soft-text)'
-                                : c.ink700,
+                            color: c.ink700,
                           }}
                         >
-                          {getSourceLabel(row.source)}
+                          {getSourceLabel(row.source, manualLabel)}
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px', color: c.ink500 }}>{row.tableName}</td>
@@ -713,8 +721,12 @@ export default function TablesReportsView() {
               </table>
             </div>
 
-            {selectedCounterparty ? (
+            {/* Modal traps focus inside the drill-down, closes on Escape and restores focus. */}
+            <Modal open={Boolean(selectedCounterparty)} onClose={closeDrillDown} hideBackdrop>
+              {/* biome-ignore lint/a11y: the dimmed backdrop is a mouse-only dismiss surface; keyboard users close with Escape (Modal). */}
               <div
+                tabIndex={-1}
+                onClick={closeOnBackdropClick(closeDrillDown)}
                 style={{
                   position: 'fixed',
                   inset: 0,
@@ -724,8 +736,8 @@ export default function TablesReportsView() {
                   justifyContent: 'center',
                   background: 'rgba(0,0,0,0.4)',
                   padding: '0 16px',
+                  outline: 'none',
                 }}
-                aria-hidden="true"
               >
                 <div
                   style={{
@@ -737,9 +749,15 @@ export default function TablesReportsView() {
                     boxShadow: tokens.shadow.lg,
                     borderRadius: tokens.radius.xl,
                   }}
+                  role="dialog"
                   aria-modal="true"
+                  aria-labelledby="tables-reports-drilldown-title"
                   onClick={event => event.stopPropagation()}
-                  onKeyDown={event => event.stopPropagation()}
+                  onKeyDown={event => {
+                    if (event.key !== 'Escape') {
+                      event.stopPropagation();
+                    }
+                  }}
                 >
                   <div
                     style={{
@@ -750,15 +768,18 @@ export default function TablesReportsView() {
                       padding: '16px 24px',
                     }}
                   >
-                    <h2 style={{ fontSize: 18, fontWeight: 600, color: c.ink900 }}>
-                      {`${drillDown?.counterparty || selectedCounterparty} — Drill-down`}
+                    <h2
+                      id="tables-reports-drilldown-title"
+                      style={{ fontSize: 18, fontWeight: 600, color: c.ink900 }}
+                    >
+                      {reportsT.drillDownTitle.value.replace(
+                        '{counterparty}',
+                        drillDown?.counterparty || selectedCounterparty || '',
+                      )}
                     </h2>
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedCounterparty(null);
-                        setDrillDown(null);
-                      }}
+                      onClick={closeDrillDown}
                       style={{
                         color: c.ink500,
                         background: 'none',
@@ -767,7 +788,7 @@ export default function TablesReportsView() {
                         fontSize: 14,
                       }}
                     >
-                      Close
+                      {reportsT.close}
                     </button>
                   </div>
 
@@ -783,11 +804,13 @@ export default function TablesReportsView() {
                               color: c.ink500,
                             }}
                           >
-                            <th style={{ padding: '12px 16px' }}>Date</th>
-                            <th style={{ padding: '12px 16px' }}>Source</th>
-                            <th style={{ padding: '12px 16px' }}>Table</th>
-                            <th style={{ padding: '12px 16px' }}>Category</th>
-                            <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
+                            <th style={{ padding: '12px 16px' }}>{reportsT.date}</th>
+                            <th style={{ padding: '12px 16px' }}>{reportsT.source}</th>
+                            <th style={{ padding: '12px 16px' }}>{reportsT.table}</th>
+                            <th style={{ padding: '12px 16px' }}>{reportsT.category}</th>
+                            <th style={{ padding: '12px 16px', textAlign: 'right' }}>
+                              {reportsT.amount}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -802,20 +825,14 @@ export default function TablesReportsView() {
                                   style={{
                                     display: 'inline-flex',
                                     borderRadius: tokens.radius.sm,
-                                    background:
-                                      item.source === 'google_sheets_import'
-                                        ? 'var(--color-success-soft-bg)'
-                                        : c.ink50,
+                                    background: c.ink50,
                                     padding: '2px 8px',
                                     fontSize: 12,
                                     fontWeight: 500,
-                                    color:
-                                      item.source === 'google_sheets_import'
-                                        ? 'var(--color-success-soft-text)'
-                                        : c.ink700,
+                                    color: c.ink700,
                                   }}
                                 >
-                                  {getSourceLabel(item.source)}
+                                  {getSourceLabel(item.source, manualLabel)}
                                 </span>
                               </td>
                               <td style={{ padding: '12px 16px' }}>{item.tableName}</td>
@@ -829,14 +846,14 @@ export default function TablesReportsView() {
                       </table>
                     ) : (
                       <div style={{ padding: '32px 24px', fontSize: 14, color: c.ink500 }}>
-                        No records found
+                        {reportsT.noRecords}
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-            ) : null}
-          </>
+            </Modal>
+          </div>
         )}
       </div>
     </div>

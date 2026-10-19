@@ -19,6 +19,8 @@ describe('OpenProtocolIntegrationsController security metadata', () => {
     ['listImapFolders'],
     ['syncImap'],
     ['disconnectImap'],
+    ['listS3Files'],
+    ['listWebdavFiles'],
   ])('requires integration management permission on %s', methodName => {
     const handler = OpenProtocolIntegrationsController.prototype[
       methodName as keyof OpenProtocolIntegrationsController
@@ -31,4 +33,17 @@ describe('OpenProtocolIntegrationsController security metadata', () => {
       Permission.INTEGRATION_MANAGE,
     ]);
   });
+
+  it.each([['s3Status'], ['webdavStatus'], ['imapStatus']])(
+    'reads %s for the workspace of the request',
+    methodName => {
+      const handler = OpenProtocolIntegrationsController.prototype[
+        methodName as keyof OpenProtocolIntegrationsController
+      ] as (...args: never[]) => unknown;
+
+      expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual(
+        expect.arrayContaining([WorkspaceContextGuard]),
+      );
+    },
+  );
 });

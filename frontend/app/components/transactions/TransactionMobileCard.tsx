@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronRight } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 import { Checkbox } from '../ui/checkbox';
 import { CategoryDropdown } from './CategoryDropdown';
 import type { TransactionRowFormatters, TransactionRowHandlers } from './TransactionRow';
@@ -22,17 +23,24 @@ function buildCardClass({
   isSelected,
   hasErrors,
   hasWarnings,
-}: { isSelected: boolean; hasErrors?: boolean; hasWarnings?: boolean }): string {
-  if (isSelected) return 'lumio-tx-card lumio-tx-card--selected';
-  if (hasErrors) return 'lumio-tx-card lumio-tx-card--error';
-  if (hasWarnings) return 'lumio-tx-card lumio-tx-card--warning';
-  return 'lumio-tx-card';
+}: {
+  isSelected: boolean;
+  hasErrors?: boolean;
+  hasWarnings?: boolean;
+}): string {
+  if (isSelected) return 'seneca-tx-card seneca-tx-card--selected';
+  if (hasErrors) return 'seneca-tx-card seneca-tx-card--error';
+  if (hasWarnings) return 'seneca-tx-card seneca-tx-card--warning';
+  return 'seneca-tx-card';
 }
 
 function MobileAmounts({
   tx,
   formatters,
-}: { tx: Transaction; formatters: TransactionRowFormatters }): React.ReactElement {
+}: {
+  tx: Transaction;
+  formatters: TransactionRowFormatters;
+}): React.ReactElement {
   const debit = Number(tx.debit);
   const credit = Number(tx.credit);
   const fmtAmt = (n: number): string =>
@@ -41,7 +49,7 @@ function MobileAmounts({
       formatters.resolveDisplayCurrency(tx),
     );
   return (
-    <div className="lumio-tx-card__amounts">
+    <div className="seneca-tx-card__amounts">
       {debit > 0 && (
         <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>{fmtAmt(debit)}</p>
       )}
@@ -66,8 +74,9 @@ function MobileExpandedDetails({
   columnBinLabel: string;
   columnDateLabel: string;
 }): React.ReactElement {
+  const t = useIntlayer('transactionsTable');
   return (
-    <div className="lumio-tx-card__expanded">
+    <div className="seneca-tx-card__expanded">
       <div>
         <span
           style={{
@@ -92,7 +101,7 @@ function MobileExpandedDetails({
             marginBottom: 4,
           }}
         >
-          Currency
+          {t.columnCurrency}
         </span>
         <span style={{ color: 'var(--foreground)' }}>{tx.currency ?? '—'}</span>
       </div>
@@ -105,7 +114,7 @@ function MobileExpandedDetails({
             marginBottom: 4,
           }}
         >
-          Doc Number
+          {t.columnDocNumber}
         </span>
         <span style={{ color: 'var(--foreground)' }}>{tx.documentNumber ?? '—'}</span>
       </div>
@@ -137,6 +146,7 @@ export function TransactionMobileCard({
   columnBinLabel,
   columnDateLabel,
 }: TransactionMobileCardProps): React.ReactElement {
+  const t = useIntlayer('transactionsTable');
   return (
     <div
       data-testid={`transaction-card-${tx.id}`}
@@ -146,32 +156,47 @@ export function TransactionMobileCard({
         hasWarnings: tx.hasWarnings,
       })}
     >
-      <div className="lumio-tx-card__body">
-        <div className="lumio-tx-card__checkbox" onClick={e => e.stopPropagation()}>
+      <div className="seneca-tx-card__body">
+        <div className="seneca-tx-card__checkbox">
           <Checkbox
             checked={isSelected}
             onCheckedChange={handlers.onSelectRow(tx.id)}
             style={{ height: 20, width: 20 }}
-            aria-label={`Select transaction ${tx.counterpartyName}`}
+            aria-label={t.selectTransaction.value.replace('{name}', tx.counterpartyName)}
           />
         </div>
-        <div className="lumio-tx-card__content">
+        <div className="seneca-tx-card__content">
           <button
             type="button"
             onClick={() => handlers.onRowClick(tx)}
-            className="lumio-tx-card__clickable"
+            className="seneca-tx-card__clickable"
           >
-            <div className="lumio-tx-card__header">
-              <div className="lumio-tx-card__name">
-                <p>{tx.counterpartyName}</p>
+            <div className="seneca-tx-card__header">
+              <div className="seneca-tx-card__name">
+                <p>
+                  {tx.counterpartyName}
+                  {tx.isVerified === false ? (
+                    <span
+                      data-testid="unconfirmed-badge"
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: 'var(--color-warning-soft-text)',
+                      }}
+                    >
+                      {t.unconfirmedBadge}
+                    </span>
+                  ) : null}
+                </p>
                 <p>{formatters.formatDate(tx.transactionDate)}</p>
               </div>
               <MobileAmounts tx={tx} formatters={formatters} />
             </div>
-            <p className="lumio-tx-card__purpose">{tx.paymentPurpose || '—'}</p>
+            <p className="seneca-tx-card__purpose">{tx.paymentPurpose || '—'}</p>
           </button>
-          <div className="lumio-tx-card__footer">
-            <div style={{ minWidth: 0 }} onClick={e => e.stopPropagation()}>
+          <div className="seneca-tx-card__footer">
+            <div style={{ minWidth: 0 }}>
               <CategoryDropdown
                 tx={tx}
                 categories={categories}
@@ -184,8 +209,8 @@ export function TransactionMobileCard({
               type="button"
               onClick={handlers.onToggleExpansion(tx.id)}
               aria-expanded={isExpanded}
-              aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
-              className="lumio-tx-card__expand-btn"
+              aria-label={isExpanded ? t.collapseRow.value : t.expandRow.value}
+              className="seneca-tx-card__expand-btn"
             >
               {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>

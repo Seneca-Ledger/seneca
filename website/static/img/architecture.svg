@@ -13,16 +13,16 @@
   <text x="800" y="145" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="12" fill="#475569">TypeORM</text>
 
   <rect x="365" y="230" width="240" height="120" rx="16" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
-  <text x="485" y="270" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="16" fill="#0F172A">Redis + Workers</text>
-  <text x="485" y="295" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="12" fill="#475569">Queues / Dedup / AI jobs</text>
+  <text x="485" y="270" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="16" fill="#0F172A">Redis</text>
+  <text x="485" y="295" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="12" fill="#475569">Cache / Queues / Rate limits</text>
 
   <rect x="70" y="250" width="220" height="100" rx="16" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
   <text x="180" y="290" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="15" fill="#0F172A">Integrations</text>
-  <text x="180" y="315" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="12" fill="#475569">Gmail / Drive / Dropbox</text>
+  <text x="180" y="315" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="12" fill="#475569">S3 / WebDAV / IMAP / AI</text>
 
   <rect x="700" y="250" width="200" height="100" rx="16" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
-  <text x="800" y="290" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="15" fill="#0F172A">Observability</text>
-  <text x="800" y="315" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="12" fill="#475569">Prometheus / Grafana</text>
+  <text x="800" y="290" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="15" fill="#0F172A">Metrics</text>
+  <text x="800" y="315" text-anchor="middle" font-family="Manrope, Arial, sans-serif" font-size="12" fill="#475569">/api/v1/metrics</text>
 
   <path d="M290 125H365" stroke="#94A3B8" stroke-width="2" marker-end="url(#arrow)"/>
   <path d="M605 125H700" stroke="#94A3B8" stroke-width="2" marker-end="url(#arrow)"/>

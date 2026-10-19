@@ -1,6 +1,5 @@
 'use client';
 
-import { Checkbox } from '@/app/components/ui/checkbox';
 import {
   Box,
   Button,
@@ -14,6 +13,7 @@ import {
 } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import React from 'react';
+import { Checkbox } from '@/app/components/ui/checkbox';
 
 interface Permission {
   value: string;

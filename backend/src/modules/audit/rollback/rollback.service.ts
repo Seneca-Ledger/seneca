@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { DeepPartial, Repository } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
+import { ERR } from '../../../common/errors/app-error';
 import {
   AuditAction,
   AuditEvent,
@@ -9,9 +10,9 @@ import {
   EntityType,
 } from '../../../entities/audit-event.entity';
 import { Category } from '../../../entities/category.entity';
+import { CustomTable } from '../../../entities/custom-table.entity';
 import { CustomTableColumn } from '../../../entities/custom-table-column.entity';
 import { CustomTableRow } from '../../../entities/custom-table-row.entity';
-import { CustomTable } from '../../../entities/custom-table.entity';
 import { Statement } from '../../../entities/statement.entity';
 import { Transaction } from '../../../entities/transaction.entity';
 import { Workspace } from '../../../entities/workspace.entity';
@@ -21,6 +22,18 @@ type SnapshotRecord = Record<string, unknown>;
 
 const asSnapshotRecord = (value: unknown): SnapshotRecord | null =>
   value && typeof value === 'object' ? (value as SnapshotRecord) : null;
+
+/** Entity types `rollback` below can restore; anything else must not be offered as undoable. */
+const ROLLBACK_ENTITY_TYPES: ReadonlySet<EntityType> = new Set([
+  EntityType.TRANSACTION,
+  EntityType.STATEMENT,
+  EntityType.CATEGORY,
+  EntityType.TABLE_ROW,
+  EntityType.TABLE_CELL,
+  EntityType.CUSTOM_TABLE,
+  EntityType.CUSTOM_TABLE_COLUMN,
+  EntityType.WORKSPACE,
+]);
 
 @Injectable()
 export class RollbackService {
@@ -42,6 +55,10 @@ export class RollbackService {
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
   ) {}
+
+  static supports(entityType: EntityType): boolean {
+    return ROLLBACK_ENTITY_TYPES.has(entityType);
+  }
 
   async rollback(event: AuditEvent): Promise<RollbackResult> {
     switch (event.entityType) {
@@ -117,10 +134,16 @@ export class RollbackService {
       if (!row) {
         return { success: false, message: 'Row not found for rollback' };
       }
+      if (await this.isAppRecordCell(row, columnKey)) {
+        // The cell mirrors an app record: rewriting it here would leave the
+        // record as it is and the two disagreeing. The record's own event undoes it.
+        return { success: false, message: ERR.CELL_LINKED_TO_APP_RECORD };
+      }
       const data: CustomTableRow['data'] = { ...(row.data || {}) };
       data[columnKey] = asSnapshotRecord(snapshot.before)?.value ?? null;
       await this.customTableRowRepository.update(event.entityId, {
-        data,
+        // jsonb: TypeORM's deep-partial type cannot express `unknown` values.
+        data: data as QueryDeepPartialEntity<CustomTableRow>['data'],
       });
       return { success: true, message: 'Cell update rolled back' };
     } catch (error) {
@@ -128,6 +151,18 @@ export class RollbackService {
       this.logger.error(`Rollback failed: ${message}`);
       return { success: false, message };
     }
+  }
+
+  /** A source column of a table filled from app data, on a row that came from a record. */
+  private async isAppRecordCell(row: CustomTableRow, columnKey: string): Promise<boolean> {
+    if (!row.sourceKey) {
+      return false;
+    }
+    const column = await this.customTableColumnRepository.findOne({
+      where: { tableId: row.tableId, key: columnKey },
+    });
+    const source = (column?.config as { source?: { kind?: unknown } } | null | undefined)?.source;
+    return source?.kind === 'app_field';
   }
 
   private async applyRollback<T extends { id: string }>(

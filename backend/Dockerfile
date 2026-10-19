@@ -1,62 +1,67 @@
-# Build stage
-FROM node:20-bookworm-slim AS builder
+# --- Base: runtime OS deps shared by every stage ---
+FROM node:24-bookworm-slim AS base
+
+# Pinned explicitly (not just relying on the base image's default) so a date
+# built from local Date parts (new Date(year, month, day), used throughout
+# statement parsing) round-trips through toISOString()/Postgres without a
+# timezone-dependent day shift.
+ENV TZ=UTC
 
 WORKDIR /app
 
-# Copy package files
+# Python + pdfplumber for PDF parsing + pdf2image for thumbnails. Lives in the
+# first stage so it is cached independently of package.json and source changes.
+# Pillow comes from requirements.txt rather than the distro's python3-pil so the
+# pinned version is the one that actually ships.
+COPY requirements.txt ./
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends python3 python3-pip poppler-utils && \
+  pip3 install --no-cache-dir --break-system-packages -r requirements.txt && \
+  rm -rf /var/lib/apt/lists/*
+
+# --- Deps: node_modules keyed only by the lockfile ---
+FROM base AS deps
+
 COPY package*.json ./
-COPY tsconfig.json ./
-COPY tsconfig.scripts.json ./
-COPY nest-cli.json ./
 
-# Install dependencies
-RUN npm ci
-
-# Copy source code
-COPY . .
-
-# Build application (compiles src/ to dist/) and seed scripts (compiles scripts/ to dist/scripts/)
-RUN npm run build && npm run build:scripts
+# The marker lets scripts/dev-entrypoint.sh detect a lockfile or Node change and
+# refresh the node_modules volume without rebuilding the image.
+RUN npm ci && echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
 
 # --- Dev stage (used by docker-compose.dev.yml) ---
-# Keeps ALL dependencies including devDependencies
-FROM builder AS dev
+# Source is bind-mounted at runtime, so nothing is copied or compiled here.
+FROM deps AS dev
 
-# Same Python toolchain as production — PDF parsing needs pdfplumber
-RUN apt-get update && \
-  apt-get install -y --no-install-recommends python3 python3-pip python3-pil poppler-utils && \
-  pip3 install --no-cache-dir --break-system-packages pdfplumber==0.11.4 pdf2image==1.17.0 && \
-  rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=development
 
-# No pruning here — devDependencies stay for nest start --watch, ts-node, etc.
-CMD ["npm", "run", "start:dev"]
+CMD ["sh", "scripts/dev-entrypoint.sh", "npm", "run", "start:dev"]
+
+# --- Builder: compile src/ and scripts/ into dist/, then drop devDependencies ---
+FROM deps AS builder
+
+COPY . .
+
+RUN npm run build && npm run build:scripts && npm prune --omit=dev
 
 # --- Production stage ---
-FROM node:20-bookworm-slim
+FROM base
 
-WORKDIR /app
+# The runtime only runs `node`; npm and corepack (kept in the earlier stages,
+# which install with them) would only carry npm's bundled packages into the image.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+  /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
-# Install Python + pdfplumber for PDF parsing + pdf2image for thumbnails
-RUN apt-get update && \
-  apt-get install -y --no-install-recommends python3 python3-pip python3-pil poppler-utils && \
-  pip3 install --no-cache-dir --break-system-packages pdfplumber==0.11.4 pdf2image==1.17.0 && \
-  rm -rf /var/lib/apt/lists/*
-
-# Runtime dependencies from builder (pruned)
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-
-# Copy built application from builder
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/scripts ./scripts
-
-# Prune devDependencies for production
-RUN npm prune --omit=dev
-
-# Create uploads directory and reports subdirectory
 RUN groupadd --system app && useradd --system --gid app app && \
-  mkdir -p uploads/reports && \
-  chown -R app:app /app
+  mkdir -p uploads/reports update && chown -R app:app /app
+
+# Pruned in the builder so the runtime image carries only production deps.
+COPY --chown=app:app --from=builder /app/package*.json ./
+COPY --chown=app:app --from=builder /app/node_modules ./node_modules
+COPY --chown=app:app --from=builder /app/dist ./dist
+COPY --chown=app:app --from=builder /app/scripts ./scripts
+# Release tag (vX.Y.Z) the Settings page compares with the newest GitHub release.
+ARG APP_VERSION=""
+ENV APP_VERSION=${APP_VERSION}
 
 USER app
 

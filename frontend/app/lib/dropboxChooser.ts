@@ -118,9 +118,7 @@ export const pickDropboxFiles = async (params: {
   });
 };
 
-export const pickDropboxFolder = async (params: {
-  appKey: string;
-}): Promise<ChooserDoc | null> => {
+export const pickDropboxFolder = async (params: { appKey: string }): Promise<ChooserDoc | null> => {
   console.info('[dropbox-chooser] pickDropboxFolder start', {
     hasAppKey: Boolean(params.appKey),
   });

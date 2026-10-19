@@ -108,7 +108,6 @@ export function useStoragePageHandlers({
     [dndHook],
   );
 
-  // eslint-disable-next-line complexity
   const handleDragEnd = useCallback(
     (event: DragEndEvent): void => {
       const { active, over } = event;

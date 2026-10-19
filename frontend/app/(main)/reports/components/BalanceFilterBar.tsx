@@ -1,12 +1,13 @@
 'use client';
 
-import { CalendarDays, Download, RefreshCcw } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { format, isValid, parseISO } from 'date-fns';
+import { CalendarDays, Download, RefreshCcw } from '@/app/components/icons';
+import { Select } from '@/app/components/ui/select';
+import { tokens } from '@/lib/theme-tokens';
 
 type BalanceExportFormat = 'excel' | 'pdf';
 
@@ -33,12 +34,7 @@ type BalanceFilterBarProps = {
   onDownloadExport: (format: BalanceExportFormat) => void;
 };
 
-const filterSelectStyle = {
-  border: 'none',
-  background: 'transparent',
-  fontSize: 14,
-  color: 'var(--foreground)',
-};
+const filterSelectSx = { fontSize: 14, color: 'var(--foreground)' };
 const buttonBase = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -116,8 +112,8 @@ function FilterControls({
   onDateChange,
   onRefresh,
 }: FilterControlsProps): React.ReactElement {
-  const handleModeChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
-    onFilterModeChange(e.target.value as 'now' | 'date');
+  const handleModeChange = (value: string): void => {
+    onFilterModeChange(value as 'now' | 'date');
   };
   const dateValue = selectedDate ? parseISO(selectedDate) : null;
   const handleDatePickerChange = (d: Date | null): void =>
@@ -138,10 +134,17 @@ function FilterControls({
         }}
       >
         <CalendarDays size={16} style={{ color: 'var(--muted-foreground)' }} />
-        <select style={filterSelectStyle} value={filterMode} onChange={handleModeChange}>
-          <option value="now">{labels.asOfNow}</option>
-          <option value="date">{labels.asOfDate}</option>
-        </select>
+        <Select
+          variant="standard"
+          disableUnderline
+          sx={filterSelectSx}
+          value={filterMode}
+          onChange={handleModeChange}
+          options={[
+            { value: 'now', label: labels.asOfNow },
+            { value: 'date', label: labels.asOfDate },
+          ]}
+        />
       </Box>
       {filterMode === 'date' && (
         <DatePicker

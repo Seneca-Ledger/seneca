@@ -34,12 +34,16 @@ services:
       - finflow-network
 
   backend:
+    # Prebuilt images are published by CD for every release (`latest` tracks
+    # the newest v* tag; set IMAGE_TAG to pin one). `docker compose pull`
+    # then starts the stack without building anything locally.
+    image: ghcr.io/symonbaikov/seneca-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: finflow-backend
     ports:
-      - "3001:3001"
+      - "${BACKEND_PORT:-3001}:3001"
     env_file:
       - path: .env
         required: false
@@ -49,6 +53,7 @@ services:
       - PORT=3001
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - APP_URL=${APP_URL:-http://localhost:3000}
+      - APP_NAME=${APP_NAME:-Seneca}
       - DATABASE_URL=postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-finflow}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -58,11 +63,13 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
       - INTEGRATIONS_ENCRYPTION_KEY=${INTEGRATIONS_ENCRYPTION_KEY:?INTEGRATIONS_ENCRYPTION_KEY is required}
-      - JWT_EXPIRES_IN=30d
+      # Access-token lifetime intentionally left to the code default (30m,
+      # see auth.service.ts). The long-lived session lives in the refresh token.
       - JWT_REFRESH_EXPIRES_IN=30d
       - LOG_LEVEL=info
     volumes:
       - backend_uploads:/app/uploads
+      - update_requests:/app/update
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,19 +80,23 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: ghcr.io/symonbaikov/seneca-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-Seneca}
+        API_PROXY_TARGET: http://backend:3001
     container_name: finflow-frontend
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - NEXT_PUBLIC_APP_NAME=${APP_NAME:-Seneca}
       - NEXT_PUBLIC_ENV=production
       - API_PROXY_TARGET=http://backend:3001
     depends_on:
@@ -94,10 +105,100 @@ services:
       - finflow-network
     restart: unless-stopped
 
+  # --- In-app updates (optional, off by default) -------------------------------
+  # Lets an instance admin run the equivalent of `make upgrade` from
+  # Settings -> Advanced. It drives Docker through the socket, which amounts to
+  # root on the host, so it is opt-in: add COMPOSE_PROFILES=updater to .env.
+  updater:
+    image: docker:28-cli
+    container_name: finflow-updater
+    profiles: ["updater"]
+    entrypoint: ["sh", "/updater.sh"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/project
+      - ./infra/updater/updater.sh:/updater.sh:ro
+      - update_requests:/update
+    networks:
+      - finflow-network
+    restart: unless-stopped
+
+  # --- Receipt maps (optional, off by default) ---------------------------------
+  # Self-hosted tiles and geocoding for the receipt location map:
+  #   docker compose --profile maps --profile geocoder up -d
+  # then set TILESERVER_URL=http://tileserver:8080 and GEOCODER_URL=http://nominatim:8080
+  # for the backend. The first start imports MAP_PBF_URL: minutes for a small
+  # country, hours for a large one, and several GB of disk either way.
+  map-assets:
+    image: alpine:3.22
+    profiles: ["maps"]
+    command: ["sh", "/scripts/prepare-assets.sh"]
+    volumes:
+      - ./infra/maps/prepare-assets.sh:/scripts/prepare-assets.sh:ro
+      - ./infra/maps/tileserver-config.json:/scripts/tileserver-config.json:ro
+      - map_data:/data
+    restart: "no"
+
+  map-tiles-init:
+    image: ghcr.io/onthegomap/planetiler:0.10.2
+    profiles: ["maps"]
+    # Builds OpenMapTiles vector tiles once; later starts see the file and exit.
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        [ -s /data/region.mbtiles ] && echo "Tiles already built" ||
+        exec java -cp @/app/jib-classpath-file com.onthegomap.planetiler.Main
+        --download --download_dir=/data/sources --tmpdir=/data/tmp
+        --osm_url="$${MAP_PBF_URL}" --output=/data/region.mbtiles
+    environment:
+      MAP_PBF_URL: ${MAP_PBF_URL:-https://download.geofabrik.de/asia/kazakhstan-latest.osm.pbf}
+    volumes:
+      - map_data:/data
+    restart: "no"
+
+  tileserver:
+    image: maptiler/tileserver-gl:v5.6.0
+    container_name: finflow-tileserver
+    profiles: ["maps"]
+    command: ["--config", "/data/config.json", "--port", "8080"]
+    # No published port: the backend proxies tiles to signed-in users.
+    volumes:
+      - map_data:/data
+    depends_on:
+      map-assets:
+        condition: service_completed_successfully
+      map-tiles-init:
+        condition: service_completed_successfully
+    networks:
+      finflow-network:
+        aliases: [tileserver]
+    restart: unless-stopped
+
+  nominatim:
+    image: mediagis/nominatim:5.3
+    container_name: finflow-nominatim
+    profiles: ["geocoder"]
+    environment:
+      PBF_URL: ${MAP_PBF_URL:-https://download.geofabrik.de/asia/kazakhstan-latest.osm.pbf}
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-nominatim}
+    shm_size: 1gb
+    # Imports the special phrases that let the backend search by kind of place.
+    command: ["/seneca/start.sh"]
+    volumes:
+      - nominatim_data:/var/lib/postgresql/16/main
+      - ./infra/nominatim:/seneca:ro
+    networks:
+      finflow-network:
+        aliases: [nominatim]
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   backend_uploads:
+  update_requests:
+  map_data:
+  nominatim_data:
 
 networks:
   finflow-network:

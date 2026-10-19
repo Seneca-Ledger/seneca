@@ -76,13 +76,18 @@ export class ReceiptDuplicateService {
     }
   }
 
-  async markAsDuplicate(receiptId: string, originalId: string): Promise<void> {
-    const receipt = await this.receiptRepository.findOne({ where: { id: receiptId } });
+  // Both lookups are scoped to the caller's workspace: without it, `originalId`
+  // was an unvalidated pointer to any receipt in the database, and the caller got
+  // the linked record echoed back through the `duplicateOf` relation.
+  async markAsDuplicate(receiptId: string, originalId: string, workspaceId: string): Promise<void> {
+    const receipt = await this.receiptRepository.findOne({ where: { id: receiptId, workspaceId } });
     if (!receipt) {
       throw new Error('Receipt not found');
     }
 
-    const original = await this.receiptRepository.findOne({ where: { id: originalId } });
+    const original = await this.receiptRepository.findOne({
+      where: { id: originalId, workspaceId },
+    });
     if (!original) {
       throw new Error('Original receipt not found');
     }
@@ -92,8 +97,8 @@ export class ReceiptDuplicateService {
     await this.receiptRepository.save(receipt);
   }
 
-  async unmarkDuplicate(receiptId: string): Promise<void> {
-    const receipt = await this.receiptRepository.findOne({ where: { id: receiptId } });
+  async unmarkDuplicate(receiptId: string, workspaceId: string): Promise<void> {
+    const receipt = await this.receiptRepository.findOne({ where: { id: receiptId, workspaceId } });
     if (!receipt) {
       throw new Error('Receipt not found');
     }

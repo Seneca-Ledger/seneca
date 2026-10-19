@@ -1,9 +1,11 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 
+// The theme wraps scrollable tabs in 4px of focus-ring room with a -4px margin (theme.ts,
+// MuiTabs); width and bottom margin here take that into account.
 export const sharedMuiTabsSx: SxProps<Theme> = {
-  mb: { xs: 2, sm: 2 },
-  width: '100%',
-  maxWidth: '100%',
+  mb: { xs: 1.5, sm: 1.5 },
+  width: 'calc(100% + 8px)',
+  maxWidth: 'calc(100% + 8px)',
   minWidth: 0,
   overflow: 'hidden',
   '& .MuiTabs-scroller': { overflowX: 'auto !important' },

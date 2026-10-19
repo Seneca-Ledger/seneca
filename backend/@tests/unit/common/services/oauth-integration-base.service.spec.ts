@@ -3,6 +3,7 @@ import { decryptText } from '@/common/utils/encryption.util';
 import { IntegrationProvider, type Integration } from '@/entities/integration.entity';
 import type { IntegrationToken } from '@/entities/integration-token.entity';
 import type { User } from '@/entities/user.entity';
+import { type WorkspaceMember, WorkspaceRole } from '@/entities/workspace-member.entity';
 import {
   OAuthIntegrationBaseService,
   type OAuthIntegrationSettingsRelationName,
@@ -58,12 +59,16 @@ class TestOAuthIntegrationService extends OAuthIntegrationBaseService {
     return this.parseState(state);
   }
 
-  exposeFindIntegrationForUser(userId: string) {
-    return this.findIntegrationForUser(userId);
+  exposeFindWorkspaceIntegration(workspaceId: string) {
+    return this.findWorkspaceIntegration(workspaceId);
   }
 
-  exposeBuildProviderAuthUrl(user: Pick<User, 'id' | 'workspaceId'>) {
-    return this.buildProviderAuthUrl(user, state => `https://provider.example.com/oauth?state=${state}`);
+  exposeBuildProviderAuthUrl(user: Pick<User, 'id'>, workspaceId: string) {
+    return this.buildProviderAuthUrl(
+      user,
+      workspaceId,
+      state => `https://provider.example.com/oauth?state=${state}`,
+    );
   }
 
   exposeBuildIntegrationRedirect(status: string, reason?: string) {
@@ -77,8 +82,12 @@ class TestOAuthIntegrationService extends OAuthIntegrationBaseService {
     return this.resolveOAuthCallbackUser(params, select);
   }
 
-  exposeUpsertConnectedIntegration(existing: Integration | null, user: Pick<User, 'id' | 'workspaceId'>) {
-    return this.upsertConnectedIntegration(existing, user, ['scope:read']);
+  exposeUpsertConnectedIntegration(
+    existing: Integration | null,
+    user: Pick<User, 'id'>,
+    workspaceId: string,
+  ) {
+    return this.upsertConnectedIntegration(existing, user, workspaceId, ['scope:read']);
   }
 
   exposeSaveEncryptedTokenRecord(existingToken: IntegrationToken | null, integrationId: string) {
@@ -94,6 +103,7 @@ describe('OAuthIntegrationBaseService', () => {
   const integrationRepository = createRepoMock<Integration>();
   const integrationTokenRepository = createRepoMock<IntegrationToken>();
   const userRepository = createRepoMock<User>();
+  const workspaceMemberRepository = createRepoMock<WorkspaceMember>();
 
   let service: TestOAuthIntegrationService;
 
@@ -103,6 +113,7 @@ describe('OAuthIntegrationBaseService', () => {
       integrationRepository,
       integrationTokenRepository,
       userRepository,
+      workspaceMemberRepository,
     );
   });
 
@@ -122,13 +133,11 @@ describe('OAuthIntegrationBaseService', () => {
     expect(() => service.exposeParseState(`${payload}.invalid`)).toThrow(BadRequestException);
   });
 
-  it('finds the integration by provider and settings relation', async () => {
-    userRepository.findOne.mockResolvedValue({ id: 'user-1', workspaceId: 'ws-1' });
+  it('finds the integration by workspace, provider and settings relation', async () => {
     integrationRepository.findOne.mockResolvedValue({ id: 'integration-1' });
 
-    await expect(service.exposeFindIntegrationForUser('user-1')).resolves.toEqual({
-      integration: { id: 'integration-1' },
-      workspaceId: 'ws-1',
+    await expect(service.exposeFindWorkspaceIntegration('ws-1')).resolves.toEqual({
+      id: 'integration-1',
     });
 
     expect(integrationRepository.findOne).toHaveBeenCalledWith({
@@ -137,13 +146,16 @@ describe('OAuthIntegrationBaseService', () => {
     });
   });
 
-  it('builds provider auth urls with shared signed state payload', () => {
-    const url = service.exposeBuildProviderAuthUrl({ id: 'user-1', workspaceId: 'ws-1' } as User);
+  it('builds provider auth urls with the workspace the user connects from', () => {
+    const url = service.exposeBuildProviderAuthUrl(
+      { id: 'user-1', workspaceId: 'ws-home' } as User,
+      'ws-open',
+    );
     const state = new URL(url).searchParams.get('state');
 
     expect(service.exposeParseState(state || '')).toEqual({
       userId: 'user-1',
-      workspaceId: 'ws-1',
+      workspaceId: 'ws-open',
       redirect: 'https://app.example.com/integrations/dropbox',
     });
   });
@@ -154,26 +166,52 @@ describe('OAuthIntegrationBaseService', () => {
     );
   });
 
-  it('resolves callback user with shared OAuth prelude', async () => {
-    const state = service.exposeBuildState({ userId: 'user-1', workspaceId: 'ws-1' });
-    userRepository.findOne.mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1', timeZone: 'UTC' });
+  it('resolves callback user and the workspace from the state', async () => {
+    const state = service.exposeBuildState({ userId: 'user-1', workspaceId: 'ws-open' });
+    userRepository.findOne.mockResolvedValueOnce({ id: 'user-1', timeZone: 'UTC' });
+    workspaceMemberRepository.findOne.mockResolvedValueOnce({ role: WorkspaceRole.ADMIN });
 
     await expect(
-      service.exposeResolveOAuthCallbackUser({ code: 'code-1', state }, ['id', 'workspaceId', 'timeZone']),
+      service.exposeResolveOAuthCallbackUser({ code: 'code-1', state }, ['id', 'timeZone']),
     ).resolves.toEqual({
       redirectBase: 'https://app.example.com/integrations/dropbox',
-      user: { id: 'user-1', workspaceId: 'ws-1', timeZone: 'UTC' },
+      user: { id: 'user-1', timeZone: 'UTC' },
+      workspaceId: 'ws-open',
+    });
+    expect(workspaceMemberRepository.findOne).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws-open', userId: 'user-1' },
+    });
+  });
+
+  it.each([
+    ['a plain member', { role: WorkspaceRole.MEMBER }, 'ws-open'],
+    ['someone no longer in the workspace', null, 'ws-open'],
+    ['a state without a workspace', { role: WorkspaceRole.OWNER }, undefined],
+  ])('refuses the callback for %s', async (_case, membership, workspaceId) => {
+    const state = service.exposeBuildState({ userId: 'user-1', workspaceId });
+    userRepository.findOne.mockResolvedValueOnce({ id: 'user-1' });
+    workspaceMemberRepository.findOne.mockResolvedValueOnce(membership);
+
+    await expect(
+      service.exposeResolveOAuthCallbackUser({ code: 'code-1', state }, ['id']),
+    ).resolves.toEqual({
+      redirectUrl:
+        'https://app.example.com/integrations/dropbox?status=error&reason=workspace_forbidden',
     });
   });
 
   it('upserts connected integrations with provider defaults', async () => {
     integrationRepository.create = jest.fn(data => data as Integration);
 
-    await service.exposeUpsertConnectedIntegration(null, { id: 'user-1', workspaceId: 'ws-1' } as User);
+    await service.exposeUpsertConnectedIntegration(
+      null,
+      { id: 'user-1', workspaceId: 'ws-home' } as User,
+      'ws-open',
+    );
 
     expect(integrationRepository.create).toHaveBeenCalledWith({
       provider: IntegrationProvider.DROPBOX,
-      workspaceId: 'ws-1',
+      workspaceId: 'ws-open',
       connectedByUserId: 'user-1',
       status: 'connected',
       scopes: ['scope:read'],

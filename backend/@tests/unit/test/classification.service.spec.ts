@@ -1,11 +1,11 @@
 import type { Branch } from '@/entities/branch.entity';
 import type { CategorizationRule } from '@/entities/categorization-rule.entity';
-import type { CategoryLearning } from '@/entities/category-learning.entity';
 import { type Category, CategoryType } from '@/entities/category.entity';
+import type { Payee } from '@/entities/payee.entity';
+import type { PayeeAlias } from '@/entities/payee-alias.entity';
 import { type Transaction, TransactionType } from '@/entities/transaction.entity';
 import type { Wallet } from '@/entities/wallet.entity';
 import { AuditService } from '@/modules/audit/audit.service';
-import type { CategoriesService } from '@/modules/categories/categories.service';
 import { ClassificationService } from '@/modules/classification/services/classification.service';
 
 function createRepoMock<T>() {
@@ -21,13 +21,14 @@ function createRepoMock<T>() {
 describe('ClassificationService', () => {
   let service: ClassificationService;
   const categoryRepo = createRepoMock<Category>();
-  const categoryLearningRepo = createRepoMock<CategoryLearning>();
+  const transactionRepo = createRepoMock<Transaction>();
+  const payeeRepo = createRepoMock<Payee>();
+  const payeeAliasRepo = createRepoMock<PayeeAlias>();
   const branchRepo = createRepoMock<Branch>();
   const walletRepo = createRepoMock<Wallet>();
   const categorizationRuleRepo = createRepoMock<CategorizationRule>();
   const cacheManager = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
   const auditService = { createEvent: jest.fn() } as AuditService;
-  const categoriesService = { findAll: jest.fn() } as unknown as CategoriesService;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -35,14 +36,15 @@ describe('ClassificationService', () => {
     branchRepo.find.mockResolvedValue([]);
     service = new ClassificationService(
       categoryRepo as any,
-      categoryLearningRepo as any,
+      transactionRepo as any,
+      payeeRepo as any,
+      payeeAliasRepo as any,
       branchRepo as any,
       walletRepo as any,
       categorizationRuleRepo as any,
       { findOne: jest.fn(async () => null) } as any,
       cacheManager as any,
       auditService as any,
-      categoriesService,
     );
   });
 

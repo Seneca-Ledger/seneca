@@ -3,28 +3,22 @@
  */
 
 import { useEffect, useState } from 'react';
-import { getTourManager } from '../TourManager';
 import { createAdminTour } from '../admin-tour';
 import { createCategoriesTour } from '../categories-tour';
 import { createCustomTablesTour } from '../custom-tables-tour';
-import { createGoogleSheetsImportTour } from '../google-sheets-import-tour';
-import { createGoogleSheetsIntegrationTour } from '../google-sheets-integration-tour';
 import { createIntegrationsTour } from '../integrations-tour';
 import { createReportsTour } from '../reports-tour';
 import { createSettingsTour } from '../settings-tour';
 import { createStatementsTour } from '../statements-tour';
+import { getTourManager } from '../TourManager';
 import type { TourConfig } from '../types';
-import { getTourContentSteps, getTypedTourInput } from './TourMenuHelpers';
 import type { TourTextContent } from './TourMenuHelpers';
+import { getTypedTourInput } from './TourMenuHelpers';
 
 type CreateCustomTablesTourInput = Parameters<typeof createCustomTablesTour>[0];
 type CreateReportsTourInput = Parameters<typeof createReportsTour>[0];
 type CreateCategoriesTourInput = Parameters<typeof createCategoriesTour>[0];
 type CreateIntegrationsTourInput = Parameters<typeof createIntegrationsTour>[0];
-type CreateGoogleSheetsImportTourInput = Parameters<typeof createGoogleSheetsImportTour>[0];
-type CreateGoogleSheetsIntegrationTourInput = Parameters<
-  typeof createGoogleSheetsIntegrationTour
->[0];
 type CreateSettingsTourInput = Parameters<typeof createSettingsTour>[0];
 type CreateAdminTourInput = Parameters<typeof createAdminTour>[0];
 
@@ -35,8 +29,6 @@ export interface TourTextsMap {
   integrations: TourTextContent;
   settings: TourTextContent;
   admin: TourTextContent;
-  googleSheetsImport: TourTextContent;
-  googleSheetsIntegration: TourTextContent;
 }
 
 export function buildAllTours(texts: TourTextsMap, statementsTexts: unknown): TourConfig[] {
@@ -46,19 +38,9 @@ export function buildAllTours(texts: TourTextsMap, statementsTexts: unknown): To
     createReportsTour(getTypedTourInput<CreateReportsTourInput>(texts.reports)),
     createCategoriesTour(getTypedTourInput<CreateCategoriesTourInput>(texts.categories)),
     createIntegrationsTour(getTypedTourInput<CreateIntegrationsTourInput>(texts.integrations)),
-    getTourContentSteps(texts.googleSheetsImport)
-      ? createGoogleSheetsImportTour(
-          getTypedTourInput<CreateGoogleSheetsImportTourInput>(texts.googleSheetsImport),
-        )
-      : null,
-    getTourContentSteps(texts.googleSheetsIntegration)
-      ? createGoogleSheetsIntegrationTour(
-          getTypedTourInput<CreateGoogleSheetsIntegrationTourInput>(texts.googleSheetsIntegration),
-        )
-      : null,
     createSettingsTour(getTypedTourInput<CreateSettingsTourInput>(texts.settings)),
     createAdminTour(getTypedTourInput<CreateAdminTourInput>(texts.admin)),
-  ].filter(Boolean) as TourConfig[];
+  ];
 }
 
 export interface TourRegistrationOptions {
@@ -71,7 +53,9 @@ export function useTourRegistration(options: TourRegistrationOptions): void {
   useEffect(() => {
     const tourManager = getTourManager();
     const allTours = buildAllTours(tourTexts, statementsTexts);
-    allTours.forEach(tour => tourManager.registerTour(tour));
+    allTours.forEach(tour => {
+      tourManager.registerTour(tour);
+    });
   }, [statementsTexts, tourTexts]);
 }
 
@@ -96,13 +80,17 @@ export function useTourCompletedState(open: boolean): TourCompletedState {
           completed.add(tour.id);
         }
       });
-      setCompletedTours(completed);
+      // Polled twice a second while the menu is open: keep the previous Set
+      // when nothing changed so the menu does not re-render on every tick.
+      setCompletedTours(prev =>
+        prev.size === completed.size && [...completed].every(id => prev.has(id)) ? prev : completed,
+      );
     };
 
     updateCompleted();
 
     const handleStorageChange = (e: StorageEvent): void => {
-      if (e.key === 'lumio_tour_state') {
+      if (e.key === 'seneca_tour_state') {
         updateCompleted();
       }
     };

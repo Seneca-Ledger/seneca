@@ -1,86 +1,154 @@
 'use client';
 
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import {
+  type UseMutationResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { useCallback, useEffect, useState } from 'react';
+import type { Insight, InsightList, InsightSeverity } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
+import { useWorkspaceId } from './useWorkspaceId';
 
-export type InsightSeverity = 'info' | 'warn' | 'critical';
-
-export interface Insight {
-  id: string;
-  type: string;
-  category: string;
-  severity: InsightSeverity;
-  title: string;
-  message: string;
-  messageKey: string | null;
-  messageParams: Record<string, string | number> | null;
-  data: Record<string, unknown> | null;
-  createdAt: string;
-}
+export type { Insight, InsightSeverity } from '@/app/lib/contracts';
 
 interface UseInsightsOptions {
   /** Which severities to keep. Alerts and advice are the same feed, split here. */
   severities: InsightSeverity[];
-  /**
-   * Recompute before reading. Reserved for the page a user opens on purpose —
-   * running the analyzers on every page view would be wasted work.
-   */
-  refreshFirst?: boolean;
 }
 
 interface UseInsightsState {
   items: Insight[];
-  loading: boolean;
-  dismiss: (id: string) => Promise<void>;
-  reload: () => void;
+  isPending: boolean;
+  dismiss: (id: string) => void;
+  refetch: () => void;
 }
 
-export function useInsights({
-  severities,
-  refreshFirst = false,
-}: UseInsightsOptions): UseInsightsState {
-  const { currentWorkspace } = useWorkspace();
-  const [items, setItems] = useState<Insight[]>([]);
-  const [loading, setLoading] = useState(true);
+/**
+ * The server writes the stored category name into the text, and a system
+ * category is stored by its English name; the reader's language has its own.
+ */
+function withLocalCategoryName(item: Insight, locale: string): Insight {
+  const stored = item.messageParams?.category;
+  if (typeof stored !== 'string' || !stored) {
+    return item;
+  }
+  const shown = localizeStatementCategoryName(stored, locale);
+  if (shown === stored) {
+    return item;
+  }
+  return {
+    ...item,
+    title: item.title.replaceAll(stored, shown),
+    message: item.message.replaceAll(stored, shown),
+  };
+}
 
+/**
+ * Один ключ на всех потребителей: AlertBanner (на каждом маршруте) и страница
+ * советов запрашивают один и тот же GET /insights?limit=50 и различаются только
+ * клиентским фильтром по severity — поэтому фильтр живёт в select, а не в ключе.
+ */
+export function useInsights({ severities }: UseInsightsOptions): UseInsightsState {
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
   const key = severities.join(',');
+  // Совет приходит на языке интерфейса, а не профиля: сервер перерисовывает
+  // текст по ключу на каждом чтении, поэтому локаль обязана быть в ключе кэша.
+  const { locale } = useLocale();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (refreshFirst) {
-        await apiClient.post('/insights/refresh');
-      }
-      const response = await apiClient.get('/insights', { params: { limit: 50 } });
-      const payload = response.data?.data ?? response.data;
+  // select обязан быть референциально стабильным: инлайн-стрелка пересчитывала бы
+  // фильтр на каждый рендер и отдавала новый массив, отменяя structural sharing.
+  const selectBySeverity = useCallback(
+    (payload: InsightList): Insight[] => {
       const wanted = new Set(key.split(','));
-      setItems((payload?.items ?? []).filter((item: Insight) => wanted.has(item.severity)));
-    } catch {
-      // Insights are advisory. A failure here must not take a page down with
-      // it, so the feed simply stays empty.
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-    // Workspace id is a real dependency — the feed is workspace-scoped, so
-    // switching must refetch — but the linter cannot see it in the request.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, refreshFirst, currentWorkspace?.id]);
+      return payload.items
+        .filter(item => wanted.has(item.severity))
+        .map(item => withLocalCategoryName(item, locale));
+    },
+    [key, locale],
+  );
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const query = useQuery({
+    queryKey: queryKeys.insights(workspaceId, locale),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: '/insights',
+        params: { limit: 50, locale },
+        signal,
+        contract: 'InsightList',
+        drift: 'report',
+      }),
+    select: selectBySeverity,
+    enabled: Boolean(workspaceId),
+  });
 
-  const dismiss = useCallback(async (id: string) => {
-    setItems(current => current.filter(item => item.id !== id));
-    try {
+  const dismissMutation = useMutation({
+    mutationFn: async (id: string) => {
       await apiClient.post(`/insights/${id}/dismiss`);
-    } catch {
-      // Already removed from view; the next load will bring it back if the
-      // server disagreed.
-    }
-  }, []);
+    },
+    onMutate: async (id: string) => {
+      const queryKey = queryKeys.insights(workspaceId, locale);
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<InsightList>(queryKey);
+      queryClient.setQueryData<InsightList>(queryKey, current =>
+        current ? { ...current, items: current.items.filter(i => i.id !== id) } : current,
+      );
+      return { previous };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.insights(workspaceId, locale), context.previous);
+      }
+    },
+    onSettled: () => {
+      // Уже убрано из вида; следующая загрузка вернёт элемент, если сервер не согласен.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.insightsAll(workspaceId) });
+    },
+  });
 
-  return { items, loading, dismiss, reload: load };
+  const dismiss = useCallback(
+    (id: string): void => {
+      dismissMutation.mutate(id);
+    },
+    [dismissMutation.mutate],
+  );
+
+  const refetch = useCallback((): void => {
+    void query.refetch();
+  }, [query.refetch]);
+
+  // Инсайты — вспомогательные. Сбой не должен ронять страницу, поэтому ошибка
+  // наружу не отдаётся и лента просто остаётся пустой.
+  return { items: query.data ?? [], isPending: query.isPending, dismiss, refetch };
+}
+
+/**
+ * Пересчёт аналитики перед чтением. Вынесен из запроса: внутри queryFn он делал
+ * бы её нечистой и потребовал бы положить флаг в ключ, разделив общий кэш.
+ * Дёргается только на странице, которую пользователь открыл намеренно.
+ */
+/**
+ * Recomputes the advice on the server. The argument is the interface
+ * language, which can differ from the one saved on the profile — the advice
+ * is written in whatever the reader is looking at.
+ */
+export function useRefreshInsights(): UseMutationResult<unknown, Error, string> {
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (locale: string) => {
+      // No body at all: a JSON `null` is rejected by the server's strict body parser (400).
+      await apiClient.post('/insights/refresh', undefined, { params: { locale } });
+    },
+    // Пересчёт переписывает сами строки, а не их перевод, поэтому устаревает
+    // кэш на всех языках сразу — инвалидация идёт по префиксу без локали.
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.insightsAll(workspaceId) }),
+  });
 }

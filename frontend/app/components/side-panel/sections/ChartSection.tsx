@@ -1,8 +1,8 @@
 'use client';
 
 import type { ChartSection } from '../types';
-import { ChartItemComponent } from './MetricsSection';
 import { SectionWrapper } from './components/SectionWrapper';
+import { ChartItemComponent } from './MetricsSection';
 
 export function ChartSectionRenderer({ section }: { section: ChartSection }): React.JSX.Element {
   return (

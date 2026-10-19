@@ -65,8 +65,8 @@ describe('ReportsService custom tables report', () => {
         {
           id: 'table-2',
           workspaceId: 'workspace-1',
-          name: 'Google Sheet',
-          source: 'google_sheets_import',
+          name: 'Second Table',
+          source: 'manual',
           category: null,
         },
       ]),
@@ -216,11 +216,10 @@ describe('ReportsService custom tables report', () => {
 
     expect(result.totals).toEqual({
       total: 235,
-      manualTotal: 185,
-      googleSheetsTotal: 50,
+      manualTotal: 235,
       operations: 4,
     });
-    expect(result.sourceSplit).toEqual({ manual: 185, googleSheets: 50 });
+    expect(result.sourceSplit).toEqual({ manual: 235 });
     expect(result.aggregatedRows).toHaveLength(4);
     expect(result.aggregatedRows[0]).toMatchObject({
       counterparty: 'Vendor A',
@@ -376,8 +375,8 @@ describe('ReportsService custom tables report', () => {
         {
           id: 'table-2',
           workspaceId: 'workspace-1',
-          name: 'Google Sheet',
-          source: 'google_sheets_import',
+          name: 'Second Table',
+          source: 'manual',
         },
       ]),
     } as any;
@@ -410,7 +409,7 @@ describe('ReportsService custom tables report', () => {
 
     expect(result).toEqual([
       { id: 'table-1', name: 'Manual Table', source: 'manual', rowCount: 3 },
-      { id: 'table-2', name: 'Google Sheet', source: 'google_sheets_import', rowCount: 7 },
+      { id: 'table-2', name: 'Second Table', source: 'manual', rowCount: 7 },
     ]);
   });
 });

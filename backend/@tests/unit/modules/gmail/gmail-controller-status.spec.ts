@@ -7,10 +7,12 @@ import {
   IntegrationStatus,
   Receipt,
   Transaction,
-  User,
 } from '../../../../src/entities';
+import { PermissionsGuard } from '../../../../src/common/guards/permissions.guard';
+import { WorkspaceContextGuard } from '../../../../src/common/guards/workspace-context.guard';
 import { GmailController } from '../../../../src/modules/gmail/gmail.controller';
 import { GmailMerchantReparseService } from '../../../../src/modules/gmail/services/gmail-merchant-reparse.service';
+import { ReceiptsService } from '../../../../src/modules/receipts/receipts.service';
 import { GmailOAuthService } from '../../../../src/modules/gmail/services/gmail-oauth.service';
 import { GmailReceiptCategoryService } from '../../../../src/modules/gmail/services/gmail-receipt-category.service';
 import { GmailReceiptDuplicateService } from '../../../../src/modules/gmail/services/gmail-receipt-duplicate.service';
@@ -18,25 +20,21 @@ import { GmailReceiptExportService } from '../../../../src/modules/gmail/service
 import { GmailSyncService } from '../../../../src/modules/gmail/services/gmail-sync.service';
 import { GmailWatchService } from '../../../../src/modules/gmail/services/gmail-watch.service';
 import { GmailService } from '../../../../src/modules/gmail/services/gmail.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 describe('GmailController - Status Endpoint', () => {
   let controller: GmailController;
-  let gmailOAuthService: { findIntegrationForUser: jest.Mock };
-
-  const mockUser: Partial<User> = {
-    id: 'user-123',
-    workspaceId: 'ws-123',
-    email: 'test@example.com',
-  };
+  let gmailOAuthService: { findWorkspaceIntegration: jest.Mock };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GmailController],
       providers: [
+        workspaceCurrencyProvider(),
         {
           provide: GmailOAuthService,
           useValue: {
-            findIntegrationForUser: jest.fn(),
+            findWorkspaceIntegration: jest.fn(),
           },
         },
         { provide: getRepositoryToken(Receipt), useValue: {} },
@@ -50,6 +48,7 @@ describe('GmailController - Status Endpoint', () => {
         { provide: GmailReceiptCategoryService, useValue: {} },
         { provide: GmailReceiptExportService, useValue: {} },
         { provide: GmailMerchantReparseService, useValue: {} },
+        { provide: ReceiptsService, useValue: {} },
         {
           provide: CACHE_MANAGER,
           useValue: {
@@ -58,7 +57,12 @@ describe('GmailController - Status Endpoint', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(WorkspaceContextGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionsGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<GmailController>(GmailController);
     gmailOAuthService = module.get(GmailOAuthService);
@@ -72,9 +76,9 @@ describe('GmailController - Status Endpoint', () => {
       scopes: ['scope-a'],
     };
 
-    gmailOAuthService.findIntegrationForUser.mockResolvedValue({ integration });
+    gmailOAuthService.findWorkspaceIntegration.mockResolvedValue(integration);
 
-    await expect(controller.getStatus(mockUser as User)).resolves.toEqual({
+    await expect(controller.getStatus('ws-123')).resolves.toEqual({
       connected: false,
       status: IntegrationStatus.DISCONNECTED,
       settings: null,

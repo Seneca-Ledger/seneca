@@ -1,11 +1,4 @@
 'use client';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-
-import { Download } from '@/app/components/icons';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
-import { useIntlayer, useLocale } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
@@ -18,6 +11,17 @@ import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { Download } from '@/app/components/icons';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
+import type { ReportHistoryList } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { resolveLocaleTag } from '@/app/lib/user-format';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
+import { tokens } from '@/lib/theme-tokens';
+import { TEMPLATE_NAME_KEYS } from './report-template-names';
 
 const HISTORY_SKELETON_KEYS = ['hist-0', 'hist-1', 'hist-2', 'hist-3', 'hist-4'];
 
@@ -56,6 +60,8 @@ function ReportHistorySkeleton(): React.JSX.Element {
           flexDirection: 'column',
           border: '1px solid var(--border)',
           bgcolor: 'var(--card)',
+          borderRadius: tokens.radius.lg,
+          overflow: 'hidden',
         }}
       >
         {HISTORY_SKELETON_KEYS.map((key, idx) => (
@@ -88,6 +94,7 @@ function ReportHistorySkeleton(): React.JSX.Element {
           overflowX: 'auto',
           border: '1px solid var(--border)',
           bgcolor: 'var(--card)',
+          borderRadius: tokens.radius.lg,
         }}
       >
         <Table size="small" sx={{ minWidth: 480 }}>
@@ -102,19 +109,8 @@ function ReportHistorySkeleton(): React.JSX.Element {
   );
 }
 
-export interface ReportHistoryItem {
-  id: string;
-  templateId: string;
-  templateName: string;
-  dateFrom: string;
-  dateTo: string;
-  format: string;
-  generatedBy: string;
-  generatedAt: string;
-  downloadUrl: string;
-  fileName?: string;
-  fileSize: number;
-}
+/** A generated report file, as `GET /reports/history` lists it. */
+export type ReportHistoryItem = ReportHistoryList[number];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) {
@@ -139,6 +135,9 @@ export function ReportHistory(): React.JSX.Element {
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
+  /** The stored name is English; show the template in the reader's language. */
+  const templateName = (item: ReportHistoryItem): string =>
+    text(TEMPLATE_NAME_KEYS[item.templateId] ?? '', item.templateName);
   const [history, setHistory] = useState<ReportHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -167,7 +166,7 @@ export function ReportHistory(): React.JSX.Element {
       return `${diffDays} ${text('daysAgo', 'days ago')}`;
     }
 
-    const resolvedLocale = locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US';
+    const resolvedLocale = resolveLocaleTag(locale);
     return formatStoredDateWithOptions(date, { month: 'short', day: 'numeric' }, resolvedLocale);
   };
 
@@ -175,7 +174,7 @@ export function ReportHistory(): React.JSX.Element {
     const response = await apiClient.get(`/reports/history/${item.id}/download`, {
       responseType: 'blob',
     });
-    const blob = new Blob([response.data]);
+    const blob = new Blob([blobOf(response)]);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -187,9 +186,8 @@ export function ReportHistory(): React.JSX.Element {
   };
 
   useEffect(() => {
-    apiClient
-      .get('/reports/history')
-      .then(res => setHistory(res.data?.data || res.data || []))
+    apiQueryDecoded({ url: '/reports/history', contract: 'ReportHistoryList' })
+      .then(setHistory)
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -230,6 +228,8 @@ export function ReportHistory(): React.JSX.Element {
           flexDirection: 'column',
           border: '1px solid var(--border)',
           bgcolor: 'var(--card)',
+          borderRadius: tokens.radius.lg,
+          overflow: 'hidden',
         }}
       >
         {history.map((item, idx) => {
@@ -252,7 +252,7 @@ export function ReportHistory(): React.JSX.Element {
                   fontWeight={500}
                   sx={{ color: 'var(--foreground)', mb: 0.25 }}
                 >
-                  {item.templateName}
+                  {templateName(item)}
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
                   {item.dateFrom} – {item.dateTo}
@@ -280,7 +280,7 @@ export function ReportHistory(): React.JSX.Element {
               <IconButton
                 size="small"
                 onClick={() => void handleDownload(item)}
-                aria-label={`Re-download ${item.templateName}`}
+                aria-label={`Re-download ${templateName(item)}`}
                 sx={{ color: 'var(--primary)', flexShrink: 0 }}
               >
                 <Download size={16} />
@@ -297,6 +297,7 @@ export function ReportHistory(): React.JSX.Element {
           overflowX: 'auto',
           border: '1px solid var(--border)',
           bgcolor: 'var(--card)',
+          borderRadius: tokens.radius.lg,
         }}
       >
         <Table size="small" sx={{ minWidth: 480 }}>
@@ -338,7 +339,7 @@ export function ReportHistory(): React.JSX.Element {
                       fontWeight={500}
                       sx={{ color: 'var(--foreground)' }}
                     >
-                      {item.templateName}
+                      {templateName(item)}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -377,8 +378,8 @@ export function ReportHistory(): React.JSX.Element {
                     <IconButton
                       size="small"
                       onClick={() => void handleDownload(item)}
-                      aria-label={`Re-download ${item.templateName}`}
-                      title={`Re-download ${item.templateName}`}
+                      aria-label={`Re-download ${templateName(item)}`}
+                      title={`Re-download ${templateName(item)}`}
                       sx={{ color: 'var(--primary)' }}
                     >
                       <Download size={16} />

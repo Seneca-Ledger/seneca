@@ -1,8 +1,10 @@
 'use client';
 
-import { Spinner } from '@/app/components/ui/spinner';
 import Box from '@mui/material/Box';
 import type React from 'react';
+import { Suspense } from 'react';
+import { Spinner } from '@/app/components/ui/spinner';
+import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { DashboardContent } from './components/DashboardContent';
 import { DashboardPullIndicator } from './components/DashboardPullIndicator';
 import { useDashboardPage } from './hooks/useDashboardPage';
@@ -19,7 +21,8 @@ const MAIN_SX = {
   flexDirection: 'column',
 };
 
-export default function DashboardPage(): React.JSX.Element {
+function DashboardPageInner(): React.JSX.Element {
+  useAttentionFocus();
   const {
     isRedirecting,
     isMobile,
@@ -28,18 +31,16 @@ export default function DashboardPage(): React.JSX.Element {
     pullRefreshing,
     isReadyToRefresh,
     error,
-    loading,
+    isPending,
     data,
-    range,
     activeTab,
     setActiveTab,
-    refresh,
+    refetch,
     formatAmount,
-    statusHeading,
-    greetingSubtitle,
-    effectivePeriod,
+    periodBanner,
     displayMonth,
     changeMonth,
+    locale,
     headerLabels,
     t,
   } = useDashboardPage();
@@ -64,24 +65,36 @@ export default function DashboardPage(): React.JSX.Element {
         />
         <DashboardContent
           error={error}
-          loading={loading}
-          data={data}
+          loading={isPending}
+          data={data ?? null}
           onRefresh={() => {
-            void refresh();
+            void refetch();
           }}
-          range={range}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           formatAmount={formatAmount}
-          statusHeading={statusHeading}
-          greetingSubtitle={greetingSubtitle}
-          effectivePeriod={effectivePeriod}
+          periodBanner={periodBanner}
           displayMonth={displayMonth}
           changeMonth={changeMonth}
-          exportMenu={t.exportMenu}
+          locale={locale}
           headerLabels={headerLabels}
         />
       </Box>
     </Box>
+  );
+}
+
+/** `useSearchParams` needs a Suspense boundary so the static shell can prerender. */
+export default function DashboardPage(): React.JSX.Element {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={REDIRECTING_SX}>
+          <Spinner size={40} />
+        </Box>
+      }
+    >
+      <DashboardPageInner />
+    </Suspense>
   );
 }

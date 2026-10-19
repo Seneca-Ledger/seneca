@@ -1,61 +1,44 @@
 /* eslint-disable max-lines */
 'use client';
 
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import {
+  AlertTriangle,
   CalendarDays,
   ChevronDown,
   ChevronRight,
   Download,
   RefreshCcw,
 } from '@/app/components/icons';
+import { Select } from '@/app/components/ui/select';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { localizeBalanceAccountName } from '@/app/lib/balance-account-names';
+import type { BalanceAccountNode } from '@/app/lib/contracts';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { tokens } from '@/lib/theme-tokens';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
-import Typography from '@mui/material/Typography';
-import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import apiClient from '../../../lib/api';
+import { blobOf } from '../../../lib/blob-of';
 
 type BalanceExportFormat = 'excel' | 'pdf';
 
-type BalanceAccountNode = {
-  id: string;
-  code: string;
-  name: string;
-  nameEn: string | null;
-  nameKk: string | null;
-  accountType: 'asset' | 'liability' | 'equity';
-  isEditable: boolean;
-  isAutoComputed: boolean;
-  isExpandable: boolean;
-  amount: number;
-  children: BalanceAccountNode[];
-  position: number;
-};
-
-type BalanceSheetResponse = {
-  date: string;
-  currency: string;
-  assets: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  liabilities: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  difference: number;
-  isBalanced: boolean;
-};
+/** Reports are written in Russian, English or Kazakh; any other interface language gets English. */
+const reportLocaleOf = (locale: string): 'ru' | 'en' | 'kk' =>
+  locale === 'ru' || locale === 'kk' ? locale : 'en';
 
 const resolveLocale = (locale: string): string => {
-  if (locale === 'ru') return 'ru-RU';
-  if (locale === 'kk') return 'kk-KZ';
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 const toDateInputValue = (date: Date): string => {
@@ -65,7 +48,6 @@ const toDateInputValue = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-// eslint-disable-next-line max-params
 const collectEditableValues = (
   accounts: BalanceAccountNode[],
   result: Record<string, string>,
@@ -80,7 +62,6 @@ const collectEditableValues = (
   }
 };
 
-// eslint-disable-next-line max-params
 const collectExpandableDefaults = (
   accounts: BalanceAccountNode[],
   result: Record<string, boolean>,
@@ -111,6 +92,34 @@ const parseContentDispositionFileName = (contentDisposition?: string): string | 
   return null;
 };
 
+// Суммы в дереве баланса — моноширинные цифры без фона, чтобы колонка читалась ровно.
+const AMOUNT_FONT = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+
+// Нейтральное предупреждение: плашка карточки с янтарной полосой слева вместо жёлтой заливки.
+function WarningNote({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <Box
+      role="alert"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.25,
+        border: '1px solid var(--border)',
+        borderLeft: '4px solid var(--ff-dash-warning)',
+        borderRadius: tokens.radius.md,
+        bgcolor: 'var(--card)',
+        px: 2,
+        py: 1.25,
+        fontSize: 14,
+        color: 'var(--muted-foreground)',
+      }}
+    >
+      <AlertTriangle size={18} style={{ color: 'var(--ff-dash-warning)', flexShrink: 0 }} />
+      <span>{children}</span>
+    </Box>
+  );
+}
+
 // eslint-disable-next-line max-lines-per-function, complexity
 function BalanceSheet(): React.JSX.Element {
   const t = useIntlayer('reportsPage');
@@ -119,8 +128,8 @@ function BalanceSheet(): React.JSX.Element {
   // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
 
-  const [sheet, setSheet] = useState<BalanceSheetResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'now' | 'date'>('now');
   const [selectedDate, setSelectedDate] = useState<string>(toDateInputValue(new Date()));
@@ -131,7 +140,62 @@ function BalanceSheet(): React.JSX.Element {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exportingFormat, setExportingFormat] = useState<BalanceExportFormat | null>(null);
 
-  const currencyCode = sheet?.currency || 'KZT';
+  const effectiveDate = filterMode === 'date' ? selectedDate : undefined;
+
+  const sheetQuery = useQuery({
+    queryKey: queryKeys.balanceSheet({ workspaceId, date: effectiveDate ?? null, locale }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: '/reports/balance/sheet',
+        // The report speaks three languages; any other UI locale gets English.
+        params: {
+          ...(effectiveDate ? { date: effectiveDate } : {}),
+          locale: reportLocaleOf(locale),
+        } satisfies ContractInput<'BalanceQuery'>,
+        signal,
+        contract: 'BalanceSheetResponse',
+      }),
+    // Смена даты и сохранение баланса перезагружают отчёт; таблица держится на
+    // экране до прихода новых цифр, но только внутри того же воркспейса.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
+  });
+
+  const sheet = sheetQuery.data ?? null;
+
+  const loadSheet = useCallback((): void => {
+    void queryClient.invalidateQueries({ queryKey: ['balance-sheet', workspaceId] });
+  }, [queryClient, workspaceId]);
+
+  // Значения в полях и раскрытые секции выводятся из пришедшего отчёта:
+  // редактируемые суммы перезаписываются целиком, раскрытые секции сохраняют
+  // выбор пользователя для тех id, которые есть и в новом отчёте.
+  useEffect(() => {
+    if (!sheetQuery.data) return;
+    const payload = sheetQuery.data;
+
+    const nextEditableValues: Record<string, string> = {};
+    collectEditableValues(payload.assets.sections, nextEditableValues);
+    collectEditableValues(payload.liabilities.sections, nextEditableValues);
+    setEditableValues(nextEditableValues);
+
+    setExpanded(prevExpanded => {
+      const defaults: Record<string, boolean> = {};
+      collectExpandableDefaults(payload.assets.sections, defaults);
+      collectExpandableDefaults(payload.liabilities.sections, defaults);
+
+      const merged = { ...defaults };
+      for (const [id, isOpen] of Object.entries(prevExpanded)) {
+        if (id in merged) {
+          merged[id] = isOpen;
+        }
+      }
+      return merged;
+    });
+  }, [sheetQuery.data]);
+
+  const currencyCode = sheet?.currency || FALLBACK_CURRENCY;
 
   const formatCurrency = useCallback(
     (value: number) =>
@@ -142,55 +206,6 @@ function BalanceSheet(): React.JSX.Element {
       }).format(value),
     [locale, currencyCode],
   );
-
-  const effectiveDate = filterMode === 'date' ? selectedDate : undefined;
-
-  const loadSheet = useCallback(
-    // eslint-disable-next-line max-lines-per-function
-    async (date?: string): Promise<void> => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await apiClient.get('/reports/balance/sheet', {
-          params: {
-            ...(date ? { date } : {}),
-            locale,
-          },
-        });
-        const payload: BalanceSheetResponse = response.data?.data || response.data;
-        setSheet(payload);
-
-        const nextEditableValues: Record<string, string> = {};
-        collectEditableValues(payload.assets.sections, nextEditableValues);
-        collectEditableValues(payload.liabilities.sections, nextEditableValues);
-        setEditableValues(nextEditableValues);
-
-        setExpanded(prevExpanded => {
-          const defaults: Record<string, boolean> = {};
-          collectExpandableDefaults(payload.assets.sections, defaults);
-          collectExpandableDefaults(payload.liabilities.sections, defaults);
-
-          const merged = { ...defaults };
-          for (const [id, isOpen] of Object.entries(prevExpanded)) {
-            if (id in merged) {
-              merged[id] = isOpen;
-            }
-          }
-          return merged;
-        });
-      } catch (err: unknown) {
-        setError(getApiErrorMessage(err, t.errors.loadReport.value));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [locale, t.errors.loadReport.value],
-  );
-
-  useEffect(() => {
-    void loadSheet(effectiveDate);
-  }, [effectiveDate, loadSheet]);
 
   const saveSnapshot = useCallback(
     async (accountId: string): Promise<void> => {
@@ -208,35 +223,36 @@ function BalanceSheet(): React.JSX.Element {
       setSaveHint(text('savingBalance', 'Saving...'));
       setError(null);
 
-      try {
+      await (async () => {
         await apiClient.put('/reports/balance/snapshot', {
           accountId,
           amount: parsed,
           date: effectiveDate,
-          currency: sheet?.currency || 'KZT',
-        });
+          currency: sheet?.currency || FALLBACK_CURRENCY,
+        } satisfies ContractInput<'UpdateBalanceSnapshotBody'>);
 
         setSaveHint(text('balanceSaved', 'Balance saved'));
-        await loadSheet(effectiveDate);
-      } catch (err: unknown) {
-        setError(getApiErrorMessage(err, t.errors.loadReport.value));
-        setSaveHint('');
-      } finally {
-        setSavingAccountId(null);
-      }
+        loadSheet();
+      })()
+        .catch(async (err: unknown) => {
+          setError(getApiErrorMessage(err, t.errors.loadReport.value));
+          setSaveHint('');
+        })
+        .finally(async () => {
+          setSavingAccountId(null);
+        });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [editableValues, effectiveDate, loadSheet, sheet?.currency, t],
+    [editableValues, effectiveDate, loadSheet, sheet?.currency, t, text],
   );
 
   const downloadExport = useCallback(
-    // eslint-disable-next-line max-lines-per-function, complexity
+    // eslint-disable-next-line max-lines-per-function
     async (format: BalanceExportFormat): Promise<void> => {
       setExportingFormat(format);
       setExportMenuOpen(false);
       setError(null);
 
-      try {
+      await (async () => {
         // Goes through the shared template endpoint so the export is recorded
         // in report history, like every other report. A balance sheet is a
         // snapshot, so both ends of the period are the same date.
@@ -248,8 +264,8 @@ function BalanceSheet(): React.JSX.Element {
             dateFrom: snapshotDate,
             dateTo: snapshotDate,
             format,
-            locale,
-          },
+            locale: reportLocaleOf(locale),
+          } satisfies ContractInput<'GenerateReportBody'>,
           { responseType: 'blob' },
         );
 
@@ -259,7 +275,7 @@ function BalanceSheet(): React.JSX.Element {
         const fileName =
           parseContentDispositionFileName(response.headers['content-disposition']) || fallbackName;
 
-        const blob = new Blob([response.data], {
+        const blob = new Blob([blobOf(response)], {
           type:
             (response.headers['content-type'] as string | undefined) || 'application/octet-stream',
         });
@@ -271,11 +287,13 @@ function BalanceSheet(): React.JSX.Element {
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
-      } catch (err: unknown) {
-        setError(getApiErrorMessage(err, t.errors.loadReport.value));
-      } finally {
-        setExportingFormat(null);
-      }
+      })()
+        .catch(async (err: unknown) => {
+          setError(getApiErrorMessage(err, t.errors.loadReport.value));
+        })
+        .finally(async () => {
+          setExportingFormat(null);
+        });
     },
     [effectiveDate, locale, sheet?.date, t.errors.loadReport.value],
   );
@@ -287,152 +305,154 @@ function BalanceSheet(): React.JSX.Element {
     }));
   }, []);
 
-  const renderAccount = useCallback(
-    // eslint-disable-next-line max-lines-per-function, max-params, complexity
-    (account: BalanceAccountNode, level = 0): React.JSX.Element => {
-      const hasChildren = account.children.length > 0;
-      const isExpanded = expanded[account.id] ?? true;
-      const canToggle = account.isExpandable || hasChildren;
-      const isSection = level === 0;
+  // A hoisted function rather than a self-referencing useCallback: React
+  // Compiler cannot compile a callback that calls itself before declaration.
+  // eslint-disable-next-line max-lines-per-function, max-params, complexity
+  function renderAccount(account: BalanceAccountNode, level = 0): React.JSX.Element {
+    const hasChildren = account.children.length > 0;
+    const isExpanded = expanded[account.id] ?? true;
+    const canToggle = account.isExpandable || hasChildren;
+    const isSection = level === 0;
 
-      return (
+    return (
+      <Box
+        key={account.id}
+        sx={{ borderBottom: '1px solid var(--border)', '&:last-child': { borderBottom: 'none' } }}
+      >
         <Box
-          key={account.id}
-          sx={{ borderBottom: '1px solid var(--border)', '&:last-child': { borderBottom: 'none' } }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1.5,
+            py: 1.5,
+          }}
         >
           <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 1.5,
-              py: 1.5,
-            }}
+            sx={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: 1 }}
+            style={{ paddingLeft: `${level * 20}px` }}
           >
-            <Box
-              sx={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: 1 }}
-              style={{ paddingLeft: `${level * 18}px` }}
-            >
-              {canToggle ? (
-                <button
-                  type="button"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 20,
-                    height: 20,
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--muted-foreground)',
-                    flexShrink: 0,
-                  }}
-                  onClick={() => toggleExpanded(account.id)}
-                >
-                  {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </button>
-              ) : (
-                <span style={{ width: 20, height: 20, flexShrink: 0, display: 'inline-block' }} />
-              )}
-
-              <span
+            {canToggle ? (
+              <button
+                type="button"
                 style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  fontSize: isSection ? 16 : 14,
-                  fontWeight: isSection ? 600 : 400,
-                  color: 'var(--foreground)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 20,
+                  height: 20,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--muted-foreground)',
+                  flexShrink: 0,
                 }}
+                onClick={() => toggleExpanded(account.id)}
               >
-                {account.name}
-              </span>
-            </Box>
+                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </button>
+            ) : (
+              <span style={{ width: 20, height: 20, flexShrink: 0, display: 'inline-block' }} />
+            )}
 
-            <Box sx={{ flexShrink: 0 }}>
-              {account.isEditable ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <input
-                    type="number"
-                    step="0.01"
-                    style={{
-                      width: 112,
-                      border: '1px solid var(--border)',
-                      background: 'var(--muted)',
-                      padding: '4px 8px',
-                      textAlign: 'right',
-                      fontSize: 14,
-                      color: 'var(--foreground)',
-                    }}
-                    value={editableValues[account.id] ?? '0.00'}
-                    onChange={event =>
-                      setEditableValues(prev => ({
-                        ...prev,
-                        [account.id]: event.target.value,
-                      }))
-                    }
-                    onBlur={() => saveSnapshot(account.id)}
-                    onKeyDown={event => {
-                      if (event.key === 'Enter') {
-                        event.currentTarget.blur();
-                      }
-                    }}
-                    disabled={savingAccountId === account.id}
-                    aria-label={account.name}
-                  />
-                  <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--muted-foreground)' }}>
-                    {currencyCode}
-                  </span>
-                  {savingAccountId === account.id && (
-                    <CircularProgress size={16} sx={{ color: 'var(--primary)' }} />
-                  )}
-                </Box>
-              ) : (
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: isSection ? 600 : 500,
-                    color: 'var(--foreground)',
-                  }}
-                >
-                  {formatCurrency(account.amount)}
-                </span>
-              )}
-            </Box>
+            <span
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: isSection ? 16 : 14,
+                fontWeight: isSection ? 600 : 400,
+                color: isSection ? 'var(--foreground)' : 'var(--muted-foreground)',
+              }}
+            >
+              {localizeBalanceAccountName(account.name, locale)}
+            </span>
           </Box>
 
-          {hasChildren && isExpanded && (
-            <Box>
-              {account.children
-                // eslint-disable-next-line max-params
-                .sort((a, b) => a.position - b.position)
-                .map(child => renderAccount(child, level + 1))}
-            </Box>
-          )}
+          <Box sx={{ flexShrink: 0 }}>
+            {account.isEditable ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <input
+                  type="number"
+                  step="0.01"
+                  style={{
+                    width: 112,
+                    border: 'none',
+                    borderRadius: 0,
+                    background: 'transparent',
+                    padding: '4px 0',
+                    textAlign: 'right',
+                    fontFamily: AMOUNT_FONT,
+                    fontVariantNumeric: 'tabular-nums',
+                    fontSize: 14,
+                    color: 'var(--foreground)',
+                  }}
+                  value={editableValues[account.id] ?? '0.00'}
+                  onChange={event =>
+                    setEditableValues(prev => ({
+                      ...prev,
+                      [account.id]: event.target.value,
+                    }))
+                  }
+                  onBlur={() => saveSnapshot(account.id)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') {
+                      event.currentTarget.blur();
+                    }
+                  }}
+                  disabled={savingAccountId === account.id}
+                  aria-label={localizeBalanceAccountName(account.name, locale)}
+                />
+                <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted-foreground)' }}>
+                  {currencyCode}
+                </span>
+                {savingAccountId === account.id && (
+                  <CircularProgress size={16} sx={{ color: 'var(--primary)' }} />
+                )}
+              </Box>
+            ) : (
+              <span
+                style={{
+                  fontFamily: AMOUNT_FONT,
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: 14,
+                  fontWeight: isSection ? 600 : 400,
+                  color: isSection ? 'var(--foreground)' : 'var(--muted-foreground)',
+                }}
+              >
+                {formatCurrency(account.amount)}
+              </span>
+            )}
+          </Box>
         </Box>
-      );
-    },
-    [
-      currencyCode,
-      editableValues,
-      expanded,
-      formatCurrency,
-      saveSnapshot,
-      savingAccountId,
-      toggleExpanded,
-    ],
-  );
+
+        {hasChildren && isExpanded && (
+          <Box>
+            {account.children
+              // eslint-disable-next-line max-params
+              .sort((a, b) => a.position - b.position)
+              .map(child => renderAccount(child, level + 1))}
+          </Box>
+        )}
+      </Box>
+    );
+  }
 
   const balanceWarning = useMemo(() => {
     if (!sheet || sheet.isBalanced) return null;
     return `${text('balanceDifference', 'Balance difference')}: ${formatCurrency(sheet.difference)}`;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formatCurrency, sheet]);
+  }, [formatCurrency, sheet, text]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }} data-tour-id="reports-balance">
-      <Box sx={{ border: '1px solid var(--border)', bgcolor: 'var(--card)', p: 2 }}>
+      <Box
+        sx={{
+          border: '1px solid var(--border)',
+          borderRadius: tokens.radius.lg,
+          bgcolor: 'var(--card)',
+          p: 2,
+        }}
+      >
         <Box
           sx={{
             display: 'flex',
@@ -449,6 +469,7 @@ function BalanceSheet(): React.JSX.Element {
                 alignItems: 'center',
                 gap: 1,
                 border: '1px solid var(--border)',
+                borderRadius: tokens.radius.md,
                 bgcolor: 'var(--card)',
                 px: 1.5,
                 py: 1,
@@ -457,19 +478,17 @@ function BalanceSheet(): React.JSX.Element {
               }}
             >
               <CalendarDays size={16} style={{ color: 'var(--muted-foreground)' }} />
-              <select
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  fontSize: 14,
-                  color: 'var(--foreground)',
-                }}
+              <Select
+                variant="standard"
+                disableUnderline
+                sx={{ fontSize: 14, color: 'var(--foreground)' }}
                 value={filterMode}
-                onChange={event => setFilterMode(event.target.value as 'now' | 'date')}
-              >
-                <option value="now">{text('asOfNow', 'As of now')}</option>
-                <option value="date">{text('asOfDate', 'As of date')}</option>
-              </select>
+                onChange={value => setFilterMode(value as 'now' | 'date')}
+                options={[
+                  { value: 'now', label: text('asOfNow', 'As of now') },
+                  { value: 'date', label: text('asOfDate', 'As of date') },
+                ]}
+              />
             </Box>
 
             {filterMode === 'date' && (
@@ -484,7 +503,7 @@ function BalanceSheet(): React.JSX.Element {
 
             <button
               type="button"
-              onClick={() => void loadSheet(effectiveDate)}
+              onClick={loadSheet}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -538,6 +557,7 @@ function BalanceSheet(): React.JSX.Element {
                   mt: 0.5,
                   width: 144,
                   border: '1px solid var(--border)',
+                  borderRadius: tokens.radius.md,
                   bgcolor: 'var(--card)',
                   p: 0.5,
                   boxShadow: 1,
@@ -592,11 +612,21 @@ function BalanceSheet(): React.JSX.Element {
         )}
       </Box>
 
-      {error && <Alert severity="error">{error}</Alert>}
+      {(error || sheetQuery.isError) && (
+        <Alert severity="error">
+          {error ?? getApiErrorMessage(sheetQuery.error, t.errors.loadReport.value)}
+        </Alert>
+      )}
 
-      {balanceWarning && <Alert severity="warning">{balanceWarning}</Alert>}
+      {balanceWarning && <WarningNote>{balanceWarning}</WarningNote>}
 
-      {loading ? (
+      {sheet?.missingRates && sheet.missingRates.length > 0 && (
+        <WarningNote>
+          {`${text('missingRates', 'No exchange rate, left out of the totals')}: ${sheet.missingRates.join(', ')}`}
+        </WarningNote>
+      )}
+
+      {sheetQuery.isPending ? (
         <Box
           sx={{
             border: '1px solid var(--border)',
@@ -604,6 +634,7 @@ function BalanceSheet(): React.JSX.Element {
             px: 2,
             py: 5,
             display: 'flex',
+            borderRadius: tokens.radius.lg,
             justifyContent: 'center',
           }}
         >
@@ -611,9 +642,23 @@ function BalanceSheet(): React.JSX.Element {
         </Box>
       ) : sheet ? (
         <Box
-          sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', xl: 'repeat(2, 1fr)' }, gap: 2 }}
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', xl: 'repeat(2, 1fr)' },
+            gap: 2,
+            // Сохранение баланса и смена даты перезагружают отчёт в фоне.
+            opacity: sheetQuery.isFetching ? 0.6 : 1,
+            transition: 'opacity 150ms ease',
+          }}
         >
-          <Box sx={{ border: '1px solid var(--border)', bgcolor: 'var(--card)', p: 2 }}>
+          <Box
+            sx={{
+              border: '1px solid var(--border)',
+              borderRadius: tokens.radius.lg,
+              bgcolor: 'var(--card)',
+              p: 2,
+            }}
+          >
             <Box
               sx={{
                 mb: 1.5,
@@ -634,7 +679,14 @@ function BalanceSheet(): React.JSX.Element {
             </Box>
           </Box>
 
-          <Box sx={{ border: '1px solid var(--border)', bgcolor: 'var(--card)', p: 2 }}>
+          <Box
+            sx={{
+              border: '1px solid var(--border)',
+              borderRadius: tokens.radius.lg,
+              bgcolor: 'var(--card)',
+              p: 2,
+            }}
+          >
             <Box
               sx={{
                 mb: 1.5,
@@ -663,6 +715,7 @@ function BalanceSheet(): React.JSX.Element {
             px: 2,
             py: 5,
             textAlign: 'center',
+            borderRadius: tokens.radius.lg,
           }}
         >
           <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>

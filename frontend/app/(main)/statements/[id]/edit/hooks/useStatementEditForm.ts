@@ -1,16 +1,13 @@
 'use client';
 
-import { useAutoSave } from '@/app/hooks/useAutoSave';
-import { getStatementStage } from '@/app/lib/statement-workflow';
-import type { StatementStageAction, StatementStageActionId } from '@/app/lib/statement-workflow';
 import { useCallback, useEffect } from 'react';
+import { useAutoSave } from '@/app/hooks/useAutoSave';
 import type { Transaction } from '../editHelpers';
 import {
   convertDroppedSampleAction,
   exportToCustomTable,
   loadStatementData,
   metadataAutoSave,
-  processStageAction,
   updateStatementCategoryAction,
 } from './statement-edit-async';
 import {
@@ -28,7 +25,7 @@ export type { UseStatementEditFormReturn } from './useStatementEditFormTypes';
 export interface UseStatementEditFormOptions {
   statementId: string;
   user: { id: string } | null | undefined;
-  router: { push: (path: string) => void };
+  router: { push: (path: string) => void; replace: (path: string) => void };
   messages: {
     loadDataError: string;
     saveTransactionError: string;
@@ -44,6 +41,8 @@ export interface UseStatementEditFormOptions {
     categoryUpdated: string;
     categoryUpdateFailed: string;
   };
+  /** Translated column titles for a table filled from this statement. */
+  sourceColumnTitles: Record<string, string>;
 }
 
 // eslint-disable-next-line max-lines-per-function
@@ -52,8 +51,13 @@ export function useStatementEditForm({
   user,
   router,
   messages,
+  sourceColumnTitles,
 }: UseStatementEditFormOptions): UseStatementEditFormReturn {
   const s = useStatementFormState();
+  // Destructured so effects/callbacks depend on the stable setters and refs,
+  // not on the (re-created every render) state object.
+  const { setStatement, setParsingDetailsExpanded } = s;
+  const { balanceEndInputRef, balanceStartInputRef } = s;
 
   const loadData = useCallback(async (): Promise<void> => {
     await loadStatementData(
@@ -69,25 +73,36 @@ export function useStatementEditForm({
         setWallets: s.setWallets,
         setMetadataForm: s.setMetadataForm,
         setError: s.setError,
+        // Replace, not push: Back must not return to the editor it just left.
+        redirect: router.replace,
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statementId]);
+  }, [
+    router.replace,
+    statementId,
+    messages.loadDataError,
+    s.setLoading,
+    s.setOptionsLoading,
+    s.setStatement,
+    s.setTransactions,
+    s.setCategories,
+    s.setBranches,
+    s.setWallets,
+    s.setMetadataForm,
+    s.setError,
+  ]);
 
   useEffect(() => {
     if (user && statementId) {
-      s.setCurrentStage(getStatementStage(statementId));
       void loadData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, statementId, loadData]);
 
   const handleMetadataAutoSave = useCallback(
-    async (formData: typeof s.metadataForm): Promise<void> => {
-      await metadataAutoSave({ statementId, formData, setStatement: s.setStatement });
+    async (formData: Parameters<typeof metadataAutoSave>[0]['formData']): Promise<void> => {
+      await metadataAutoSave({ statementId, formData, setStatement });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [statementId],
+    [statementId, setStatement],
   );
 
   useAutoSave({
@@ -99,6 +114,7 @@ export function useStatementEditForm({
 
   const handleExportToCustomTable = async (): Promise<void> => {
     await exportToCustomTable({
+      columnTitles: sourceColumnTitles,
       statementId,
       statement: s.statement,
       router,
@@ -143,6 +159,7 @@ export function useStatementEditForm({
 
   const handleSave = async (transactionId: string): Promise<void> => {
     await saveTransactionAction(transactionId, {
+      original: s.transactions.find(t => t.id === transactionId),
       setTransactions: s.setTransactions,
       setEditingRow: s.setEditingRow,
       setSuccess: s.setSuccess,
@@ -161,21 +178,23 @@ export function useStatementEditForm({
     s.setMetadataForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleResolveParsingWarning = useCallback((warning: string): void => {
-    s.setParsingDetailsExpanded(true);
-    const target = /balance mismatch/i.test(warning)
-      ? s.balanceEndInputRef.current || s.balanceStartInputRef.current
-      : null;
-    if (target) {
-      window.setTimeout(() => {
-        if (typeof target.scrollIntoView === 'function') {
-          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        target.focus();
-      }, 0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const handleResolveParsingWarning = useCallback(
+    (warning: string): void => {
+      setParsingDetailsExpanded(true);
+      const target = /balance mismatch/i.test(warning)
+        ? balanceEndInputRef.current || balanceStartInputRef.current
+        : null;
+      if (target) {
+        window.setTimeout(() => {
+          if (typeof target.scrollIntoView === 'function') {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          target.focus();
+        }, 0);
+      }
+    },
+    [setParsingDetailsExpanded, balanceEndInputRef, balanceStartInputRef],
+  );
 
   const handleConvertDroppedSample = useCallback(
     async (sample: { transaction?: unknown }, index: number, warning?: string): Promise<void> => {
@@ -185,12 +204,10 @@ export function useStatementEditForm({
         index,
         warning,
         loadData,
-        setStatement: s.setStatement,
-        setTransactions: s.setTransactions,
         setSuccess: s.setSuccess,
       });
     },
-    [statementId, loadData, s.setStatement, s.setTransactions, s.setSuccess],
+    [statementId, loadData, s.setSuccess],
   );
 
   const handleDelete = async (transactionId: string): Promise<void> => {
@@ -248,31 +265,10 @@ export function useStatementEditForm({
     });
   };
 
-  const handleStageAction = async (
-    action: StatementStageAction,
-    stageActionToasts: Record<StatementStageActionId, string>,
-    missingCategoryCount: number,
-  ): Promise<void> => {
-    await processStageAction({
-      action,
-      stageActionToasts,
-      missingCategoryCount,
-      statement: s.statement,
-      transactions: s.transactions,
-      router,
-      setStageActionLoadingId: s.setStageActionLoadingId,
-      setCurrentStage: s.setCurrentStage,
-    });
-  };
-
-  const handleStatementCategorySelect = async (
-    categoryId: string,
-    flattenedStatementCategories: { id: string; name: string }[],
-  ): Promise<void> => {
+  const handleStatementCategorySelect = async (categoryId: string): Promise<void> => {
     await updateStatementCategoryAction({
       statement: s.statement,
       categoryId,
-      flatCategories: flattenedStatementCategories,
       messages: {
         categoryUpdated: messages.categoryUpdated,
         categoryUpdateFailed: messages.categoryUpdateFailed,
@@ -309,8 +305,6 @@ export function useStatementEditForm({
     statementCategoryDrawerOpen: s.statementCategoryDrawerOpen,
     setStatementCategoryDrawerOpen: s.setStatementCategoryDrawerOpen,
     statementCategorySaving: s.statementCategorySaving,
-    stageActionLoadingId: s.stageActionLoadingId,
-    currentStage: s.currentStage,
     bulkCategoryId: s.bulkCategoryId,
     setBulkCategoryId: s.setBulkCategoryId,
     metadataForm: s.metadataForm,
@@ -337,7 +331,6 @@ export function useStatementEditForm({
     handleBulkDelete,
     handleOpenBulkCategory,
     handleApplyBulkCategory,
-    handleStageAction,
     handleStatementCategorySelect,
   };
 }

@@ -22,7 +22,7 @@ export class IntegrationToken {
   @JoinColumn({ name: 'integration_id' })
   integration: Integration;
 
-  @Column({ name: 'integration_id' })
+  @Column({ name: 'integration_id', type: 'uuid' })
   integrationId: string;
 
   @Column({ name: 'access_token', type: 'text', nullable: true })

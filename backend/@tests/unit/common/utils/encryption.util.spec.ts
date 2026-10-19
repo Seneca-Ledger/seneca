@@ -44,14 +44,28 @@ describe('encryption.util', () => {
       expect(decryptText(null as any)).toBe(null);
     });
 
-    it('returns original value if payload is too short', () => {
+    // Fail closed: handing the ciphertext back as if it were the plaintext gave
+    // callers a value that looks usable but is not, turning a key-rotation
+    // problem into a confusing downstream failure.
+    it('throws if the payload is too short to be a ciphertext', () => {
       const badValue = 'enc:dG9vc2hvcnQ='; // too short base64
-      expect(decryptText(badValue)).toBe(badValue);
+      expect(() => decryptText(badValue)).toThrow('Failed to decrypt stored secret');
     });
 
-    it('returns original value if decryption fails (corrupted data)', () => {
-      const corrupted = 'enc:' + Buffer.alloc(50).toString('base64');
-      expect(decryptText(corrupted)).toBe(corrupted);
+    it('throws if decryption fails (corrupted data)', () => {
+      const corrupted = `enc:${Buffer.alloc(50).toString('base64')}`;
+      expect(() => decryptText(corrupted)).toThrow('Failed to decrypt stored secret');
+    });
+
+    it('never returns the ciphertext it was given', () => {
+      const corrupted = `enc:${Buffer.alloc(50).toString('base64')}`;
+      let returned: string | null = null;
+      try {
+        returned = decryptText(corrupted);
+      } catch {
+        returned = null;
+      }
+      expect(returned).toBeNull();
     });
   });
 

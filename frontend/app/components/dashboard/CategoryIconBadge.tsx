@@ -1,20 +1,27 @@
 'use client';
 
-import { MoreHorizontal, Tag } from '@/app/components/icons';
-import { resolveCategoryIconUrl } from '@/app/lib/category-icon-url';
 import Box from '@mui/material/Box';
-import { alpha } from '@mui/material/styles';
+import type React from 'react';
+import { resolveCategoryVisual } from '@/app/lib/category-defaults';
 
 interface CategoryIconBadgeProps {
-  color: string;
-  icon: string | null;
+  /** Category name; drives the default icon for system categories. */
+  name?: string | null;
+  color?: string | null;
+  icon?: string | null;
   /** Shows a "more" glyph instead of the generic fallback tag. */
   isOther?: boolean;
   size?: number;
 }
 
-export function CategoryIconBadge({ color, icon, isOther, size = 26 }: CategoryIconBadgeProps) {
-  const iconUrl = isOther ? null : resolveCategoryIconUrl(icon);
+export function CategoryIconBadge({
+  name,
+  color,
+  icon,
+  isOther,
+  size = 26,
+}: CategoryIconBadgeProps): React.JSX.Element {
+  const visual = resolveCategoryVisual({ name, color, icon, isOther });
   const glyphSize = Math.round(size * 0.54);
 
   return (
@@ -27,21 +34,20 @@ export function CategoryIconBadge({ color, icon, isOther, size = 26 }: CategoryI
         height: size,
         borderRadius: '50%',
         flexShrink: 0,
-        bgcolor: alpha(color, 0.16),
-        color,
+        // One neutral circle for every category: colour belongs to the charts alone.
+        bgcolor: 'var(--icon-badge-bg)',
+        color: 'var(--text-secondary)',
       }}
     >
-      {iconUrl ? (
+      {visual.iconUrl ? (
         <Box
           component="img"
-          src={iconUrl}
+          src={visual.iconUrl}
           alt=""
           sx={{ width: glyphSize, height: glyphSize, objectFit: 'contain' }}
         />
-      ) : isOther ? (
-        <MoreHorizontal size={glyphSize} />
       ) : (
-        <Tag size={glyphSize} />
+        <visual.Icon size={glyphSize} />
       )}
     </Box>
   );

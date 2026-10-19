@@ -1,17 +1,4 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import CustomDatePicker from '@/app/components/CustomDatePicker';
-import {
-  CheckCircle2,
-  Layers,
-  Pencil,
-  Trash2,
-  TriangleAlert,
-  XCircle,
-} from '@/app/components/icons';
-import { Checkbox } from '@/app/components/ui/checkbox';
-import { Spinner } from '@/app/components/ui/spinner';
 import {
   Box,
   Button,
@@ -30,6 +17,20 @@ import {
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
+import CustomDatePicker from '@/app/components/CustomDatePicker';
+import {
+  CheckCircle2,
+  Layers,
+  Pencil,
+  Trash2,
+  TriangleAlert,
+  XCircle,
+} from '@/app/components/icons';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { Spinner } from '@/app/components/ui/spinner';
+import { useIntlayer } from '@/app/i18n';
+import { useCategoryName } from '@/app/lib/use-category-name';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 import type {
   EditableLineItem,
   EditableReceiptData,
@@ -93,6 +94,8 @@ function LineItemRow({
   onRowFieldChange,
   setEditedData,
 }: LineItemRowProps): React.ReactElement {
+  const t = useIntlayer('gmailReceiptPage');
+  const categoryName = useCategoryName();
   const edited = editedRowData[item.id] || item;
   const missingCategory = !(hasCategory || editedData.categoryId);
 
@@ -130,7 +133,7 @@ function LineItemRow({
             fullWidth
             value={editedData.vendor || ''}
             onChange={e => setEditedData(prev => ({ ...prev, vendor: e.target.value }))}
-            placeholder="Merchant"
+            placeholder={t.lineItems.merchant.value}
           />
         ) : (
           editedData.vendor || '—'
@@ -144,7 +147,7 @@ function LineItemRow({
             fullWidth
             value={edited.description ?? item.description}
             onChange={e => onRowFieldChange(item.id, 'description', e.target.value)}
-            placeholder="Description"
+            placeholder={t.lineItems.description.value}
           />
         ) : (
           <Tooltip title={item.description}>
@@ -193,10 +196,10 @@ function LineItemRow({
               setEditedData(prev => ({ ...prev, categoryId: e.target.value, category: sel?.name }));
             }}
           >
-            <MenuItem value="">Select</MenuItem>
+            <MenuItem value="">{t.lineItems.select}</MenuItem>
             {enabledCategories.map(cat => (
               <MenuItem key={cat.id} value={cat.id}>
-                {cat.name}
+                {categoryName(cat.name)}
               </MenuItem>
             ))}
           </TextField>
@@ -206,8 +209,10 @@ function LineItemRow({
               <Chip
                 label={
                   editedData.categoryId
-                    ? enabledCategories.find(c => c.id === selectedCategoryId)?.name || 'Category'
-                    : 'Category'
+                    ? categoryName(
+                        enabledCategories.find(c => c.id === selectedCategoryId)?.name ?? '',
+                      ) || t.lineItems.category.value
+                    : t.lineItems.category.value
                 }
                 size="small"
                 sx={{
@@ -219,7 +224,7 @@ function LineItemRow({
               />
             ) : (
               <Chip
-                label="No category"
+                label={t.lineItems.noCategory.value}
                 size="small"
                 icon={<TriangleAlert size={16} />}
                 sx={{
@@ -241,7 +246,7 @@ function LineItemRow({
         {index === 0 &&
           (isLowConfidence ? (
             <Chip
-              label="Low confidence"
+              label={t.lineItems.lowConfidence.value}
               size="small"
               sx={{
                 bgcolor: 'warning.50',
@@ -252,7 +257,7 @@ function LineItemRow({
             />
           ) : (
             <Chip
-              label="Parsed"
+              label={t.lineItems.parsed.value}
               size="small"
               sx={{
                 bgcolor: 'success.50',
@@ -335,6 +340,7 @@ export function GmailReceiptLineItems({
   setEditedData,
   onOpenBulkCategory,
 }: GmailReceiptLineItemsProps): React.ReactElement {
+  const t = useIntlayer('gmailReceiptPage');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editedRowData, setEditedRowData] = useState<Record<string, Partial<EditableLineItem>>>({});
@@ -392,7 +398,7 @@ export function GmailReceiptLineItems({
     if (lineItems.length <= 1) {
       return;
     }
-    if (!window.confirm('Delete this line item?')) {
+    if (!window.confirm(t.lineItems.deleteConfirm.value)) {
       return;
     }
     setEditedData(prev => ({
@@ -410,7 +416,11 @@ export function GmailReceiptLineItems({
     if (selectedRows.size === 0) {
       return;
     }
-    if (!window.confirm(`Delete ${selectedRows.size} line item(s)?`)) {
+    if (
+      !window.confirm(
+        t.lineItems.bulkDeleteConfirm.value.replace('{count}', String(selectedRows.size)),
+      )
+    ) {
       return;
     }
     setEditedData(prev => ({
@@ -445,7 +455,7 @@ export function GmailReceiptLineItems({
               variant="body1"
               sx={{ fontWeight: 600, color: 'primary.700', fontSize: '0.9375rem' }}
             >
-              Selected: {selectedRows.size} item(s)
+              {t.lineItems.selectedCount.value.replace('{count}', String(selectedRows.size))}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1.5 }}>
               <Button
@@ -461,7 +471,7 @@ export function GmailReceiptLineItems({
                   '&:hover': { borderColor: 'primary.400', bgcolor: 'primary.100' },
                 }}
               >
-                Assign category
+                {t.lineItems.assignCategory}
               </Button>
               <Button
                 variant="outlined"
@@ -471,7 +481,7 @@ export function GmailReceiptLineItems({
                 size="small"
                 sx={{ textTransform: 'none', fontWeight: 500 }}
               >
-                Delete
+                {t.lineItems.delete}
               </Button>
             </Box>
           </Box>
@@ -497,7 +507,7 @@ export function GmailReceiptLineItems({
           }}
         >
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Document lines
+            {t.lineItems.documentLines}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
@@ -512,7 +522,7 @@ export function GmailReceiptLineItems({
                 '&:hover': { borderColor: 'primary.main', color: 'primary.main' },
               }}
             >
-              + Add line
+              {t.lineItems.addLine}
             </Button>
             <Button
               size="small"
@@ -527,7 +537,7 @@ export function GmailReceiptLineItems({
                 '&:hover': { boxShadow: 'none' },
               }}
             >
-              Save changes
+              {t.lineItems.saveChanges}
             </Button>
           </Box>
         </Box>
@@ -549,10 +559,18 @@ export function GmailReceiptLineItems({
                   onCheckedChange={handleSelectAll}
                 />
               </TableCell>
-              {['Date', 'Merchant', 'Description', 'Amount', 'Category', 'Flags', ''].map(label => (
+              {[
+                { id: 'date', label: t.lineItems.date.value },
+                { id: 'merchant', label: t.lineItems.merchant.value },
+                { id: 'description', label: t.lineItems.description.value },
+                { id: 'amount', label: t.lineItems.amount.value },
+                { id: 'category', label: t.lineItems.category.value },
+                { id: 'flags', label: t.lineItems.flags.value },
+                { id: 'actions', label: '' },
+              ].map(({ id, label }) => (
                 <TableCell
-                  key={label}
-                  align={label === 'Amount' ? 'right' : 'left'}
+                  key={id}
+                  align={id === 'amount' ? 'right' : 'left'}
                   sx={{
                     fontWeight: 600,
                     fontSize: '0.75rem',

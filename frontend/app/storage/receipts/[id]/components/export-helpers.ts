@@ -1,9 +1,10 @@
-import type { EditableReceiptParsedData } from '@/app/components/receipts/receipt-types';
-import apiClient from '@/app/lib/api';
-import type { ReceiptRecord } from '@/app/lib/api';
-import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import toast from 'react-hot-toast';
+import type { EditableReceiptParsedData } from '@/app/components/receipts/receipt-types';
+import type { ReceiptRecord } from '@/app/lib/api';
+import apiClient from '@/app/lib/api';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 import { buildParsedDataPayload } from '../hooks/useReceiptData';
 
 type ExportColumn = { title: string; type: 'text' | 'number' | 'date' };
@@ -68,7 +69,10 @@ function buildBaseColumns({
 export function buildExportData({
   receipt,
   formValue,
-}: { receipt: ReceiptRecord; formValue: EditableReceiptParsedData }): ExportData {
+}: {
+  receipt: ReceiptRecord;
+  formValue: EditableReceiptParsedData;
+}): ExportData {
   const parsedData = buildParsedDataPayload(formValue);
   const lineItems = parsedData.lineItems as Array<{ description: string; amount: number }>;
   const hasLineItems = lineItems.length > 0;
@@ -123,13 +127,17 @@ export async function createExportTable({
   receipt,
   exportData,
   router,
-}: { receipt: ReceiptRecord; exportData: ExportData; router: AppRouterInstance }): Promise<void> {
+}: {
+  receipt: ReceiptRecord;
+  exportData: ExportData;
+  router: AppRouterInstance;
+}): Promise<void> {
   const createRes = await apiClient.post('/custom-tables', {
     name: `Receipt ${receipt.subject}`.slice(0, 120),
     description: `Exported from scanned receipt on ${formatStoredDate(receipt.receivedAt)}`,
-  });
-  const createdTable = (createRes.data?.data || createRes.data) as Record<string, unknown>;
-  const tableId = createdTable?.id as string | undefined;
+  } satisfies ContractInput<'CreateCustomTableBody'>);
+  const createdTable = await checkContract('CreatedCustomTable', createRes.data, '/custom-tables');
+  const tableId = createdTable.id;
   if (!tableId) {
     toast.error('Failed to export to table');
     router.push('/custom-tables');
@@ -137,12 +145,22 @@ export async function createExportTable({
   }
   const createdColumns = await Promise.all(
     exportData.columns.map(col =>
-      apiClient.post(`/custom-tables/${tableId}/columns`, { title: col.title, type: col.type }),
+      apiClient.post(`/custom-tables/${tableId}/columns`, {
+        title: col.title,
+        type: col.type,
+      } satisfies ContractInput<'CreateCustomTableColumnBody'>),
+    ),
+  );
+  await Promise.all(
+    createdColumns.map(response =>
+      checkContract('CustomTableColumnItem', response.data, '/custom-tables/:id/columns'),
     ),
   );
   const columnKeyByTitle = buildColumnKeyMap(exportData.columns, createdColumns);
   const rows = exportData.rows.map(row => ({ data: buildRowData(row, columnKeyByTitle) }));
-  await apiClient.post(`/custom-tables/${tableId}/rows/batch`, { rows });
+  await apiClient.post(`/custom-tables/${tableId}/rows/batch`, {
+    rows,
+  } satisfies ContractInput<'BatchCreateCustomTableRowsBody'>);
   toast.success('Table created successfully');
   router.push(`/custom-tables/${tableId}`);
 }

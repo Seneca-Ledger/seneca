@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '../../../lib/api';
+import { checkContract } from '../../../lib/query-fn-schema';
 
 export interface User {
   id: string;
@@ -27,7 +28,9 @@ export function useUsersManagement(errorMessages: {
   updateStatus: string;
 }) {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Первый рендер должен быть скелетоном, а не пустым состоянием: фетч уходит
+  // из useEffect, т.е. уже после первой отрисовки.
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -38,15 +41,18 @@ export function useUsersManagement(errorMessages: {
   const loadUsers = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError(null);
-    try {
-      const response = await apiClient.get<{ data: User[] }>('/users');
-      setUsers(response.data.data || []);
-    } catch (err: unknown) {
-      const e = err as ErrorResponse;
-      setError(e.response?.data?.message ?? errorMessages.loadUsers);
-    } finally {
-      setLoading(false);
-    }
+
+    await (async () => {
+      const response = await apiClient.get('/users');
+      setUsers([...(await checkContract('AdminUserList', response.data, '/users'))]);
+    })()
+      .catch(async (err: unknown) => {
+        const e = err as ErrorResponse;
+        setError(e.response?.data?.message ?? errorMessages.loadUsers);
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
   }, [errorMessages.loadUsers]);
 
   useEffect(() => {
@@ -54,15 +60,20 @@ export function useUsersManagement(errorMessages: {
   }, [loadUsers]);
 
   const handleEditPermissions = async (user: User): Promise<void> => {
-    try {
+    await (async () => {
       const response = await apiClient.get(`/users/${user.id}/permissions`);
-      setSelectedPermissions(response.data.customPermissions || []);
+      const { customPermissions } = await checkContract(
+        'UserPermissions',
+        response.data,
+        '/users/:id/permissions',
+      );
+      setSelectedPermissions([...customPermissions]);
       setEditingUser(user);
       setPermissionsDialogOpen(true);
-    } catch (err: unknown) {
+    })().catch(async (err: unknown) => {
       const e = err as ErrorResponse;
       setError(e.response?.data?.message ?? errorMessages.loadPermissions);
-    }
+    });
   };
 
   const handleSavePermissions = async (): Promise<void> => {
@@ -70,19 +81,22 @@ export function useUsersManagement(errorMessages: {
       return;
     }
     setSaving(true);
-    try {
+
+    await (async () => {
       await apiClient.put(`/users/${editingUser.id}/permissions`, {
         permissions: selectedPermissions,
       });
       setPermissionsDialogOpen(false);
       setEditingUser(null);
       void loadUsers();
-    } catch (err: unknown) {
-      const e = err as ErrorResponse;
-      setError(e.response?.data?.message ?? errorMessages.savePermissions);
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async (err: unknown) => {
+        const e = err as ErrorResponse;
+        setError(e.response?.data?.message ?? errorMessages.savePermissions);
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleResetPermissions = async (): Promise<void> => {
@@ -90,17 +104,20 @@ export function useUsersManagement(errorMessages: {
       return;
     }
     setSaving(true);
-    try {
+
+    await (async () => {
       await apiClient.post(`/users/${editingUser.id}/permissions/reset`);
       setPermissionsDialogOpen(false);
       setEditingUser(null);
       void loadUsers();
-    } catch (err: unknown) {
-      const e = err as ErrorResponse;
-      setError(e.response?.data?.message ?? errorMessages.resetPermissions);
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async (err: unknown) => {
+        const e = err as ErrorResponse;
+        setError(e.response?.data?.message ?? errorMessages.resetPermissions);
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleTogglePermission = (permission: string): void => {
@@ -110,23 +127,23 @@ export function useUsersManagement(errorMessages: {
   };
 
   const handleUpdateRole = async (userId: string, newRole: string): Promise<void> => {
-    try {
+    await (async () => {
       await apiClient.put(`/users/${userId}`, { role: newRole });
       void loadUsers();
-    } catch (err: unknown) {
+    })().catch(async (err: unknown) => {
       const e = err as ErrorResponse;
       setError(e.response?.data?.message ?? errorMessages.updateRole);
-    }
+    });
   };
 
   const handleToggleActive = async (user: User): Promise<void> => {
-    try {
+    await (async () => {
       await apiClient.put(`/users/${user.id}`, { isActive: !user.isActive });
       void loadUsers();
-    } catch (err: unknown) {
+    })().catch(async (err: unknown) => {
       const e = err as ErrorResponse;
       setError(e.response?.data?.message ?? errorMessages.updateStatus);
-    }
+    });
   };
 
   const closePermissionsDialog = (): void => {

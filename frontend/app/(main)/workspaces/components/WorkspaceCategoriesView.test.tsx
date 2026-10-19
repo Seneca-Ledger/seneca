@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { categoryItem } from '@/app/test/fixtures/contracts';
+import { renderWithQuery } from '@/app/test/query-wrapper';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/app/components/dashboard/test-setup';
 
@@ -55,6 +57,34 @@ vi.mock('@/app/i18n', () => ({
       parsing: { value: 'Parsing data' },
       system: { value: 'System' },
     },
+    manage: {
+      disableHint: 'Disabling a category will hide it from statements and reports.',
+      selectedCount: { value: '{count} selected' },
+      enable: 'Enable',
+      disable: 'Disable',
+      deleteCustom: 'Delete Custom',
+      selectAll: { value: 'Select all categories' },
+      usedIn: { value: 'Used in {count} transactions' },
+      notUsed: 'Not used yet',
+      editAria: { value: 'Edit {name}' },
+      toggleAria: { value: '{name} enabled' },
+      confirmBulkDelete: { value: 'Delete selected custom categories?' },
+      toasts: {
+        enabled: { value: 'Categories enabled' },
+        disabled: { value: 'Categories disabled' },
+        deleted: { value: 'Categories deleted' },
+        deleteFailed: { value: 'Failed to delete some categories' },
+      },
+      disableDialog: {
+        title: 'Disable category?',
+        usedIn: { value: 'Category {name} is already used in:' },
+        transactionsOne: { value: '{count} transaction' },
+        transactionsMany: { value: '{count} transactions' },
+        statementsOne: { value: '{count} statement' },
+        statementsMany: { value: '{count} statements' },
+        warning: 'Existing items will show a warning until a new category is selected.',
+      },
+    },
   }),
   useLocale: () => ({ locale: 'en' }),
 }));
@@ -66,6 +96,10 @@ vi.mock('react-hot-toast', () => ({
   },
 }));
 
+vi.mock('@/app/contexts/WorkspaceContext', () => ({
+  useWorkspace: () => ({ currentWorkspace: { id: 'w1' } }),
+}));
+
 describe('WorkspaceCategoriesView', () => {
   beforeEach(() => {
     apiGet.mockReset();
@@ -73,22 +107,22 @@ describe('WorkspaceCategoriesView', () => {
       if (url === '/categories') {
         return Promise.resolve({
           data: [
-            {
+            categoryItem({
               id: 'cat-parsing',
               name: 'Kaspi Delivery',
               type: 'expense',
               isSystem: false,
               isEnabled: true,
               source: 'parsing',
-            },
-            {
+            }),
+            categoryItem({
               id: 'cat-system',
               name: 'Taxes',
               type: 'expense',
               isSystem: true,
               isEnabled: true,
               source: 'system',
-            },
+            }),
           ],
         });
       }
@@ -104,7 +138,7 @@ describe('WorkspaceCategoriesView', () => {
   it('renders parsing categories with parsing badge instead of system', async () => {
     const { default: WorkspaceCategoriesView } = await import('./WorkspaceCategoriesView');
 
-    render(<WorkspaceCategoriesView />);
+    renderWithQuery(<WorkspaceCategoriesView />);
 
     await waitFor(() => {
       expect(screen.getByText('Kaspi Delivery')).toBeInTheDocument();
@@ -122,22 +156,22 @@ describe('WorkspaceCategoriesView', () => {
       if (url === '/categories') {
         return Promise.resolve({
           data: [
-            {
+            categoryItem({
               id: 'cat-system',
               name: 'Аренда',
               type: 'expense',
               isSystem: true,
               isEnabled: true,
               source: 'system',
-            },
-            {
+            }),
+            categoryItem({
               id: 'cat-parsing',
               name: 'Зарплаты сотрудникам',
               type: 'expense',
               isSystem: false,
               isEnabled: true,
               source: 'parsing',
-            },
+            }),
           ],
         });
       }
@@ -149,7 +183,7 @@ describe('WorkspaceCategoriesView', () => {
       return Promise.reject(new Error(`Unexpected GET ${url}`));
     });
 
-    render(<WorkspaceCategoriesView />);
+    renderWithQuery(<WorkspaceCategoriesView />);
 
     await waitFor(() => {
       expect(screen.getByText('Rent')).toBeInTheDocument();
@@ -157,13 +191,15 @@ describe('WorkspaceCategoriesView', () => {
 
     expect(screen.getByText('Зарплаты сотрудникам')).toBeInTheDocument();
     expect(screen.queryByText('Аренда')).not.toBeInTheDocument();
+    // The selection checkbox is named the way the row reads.
+    expect(screen.getByRole('checkbox', { name: 'Rent' })).toBeInTheDocument();
     expect(screen.queryByText('Payroll expenses')).not.toBeInTheDocument();
   });
 
   it('uses dark-safe surfaces instead of white category rows', async () => {
     const { default: WorkspaceCategoriesView } = await import('./WorkspaceCategoriesView');
 
-    const { container } = render(<WorkspaceCategoriesView />);
+    const { container } = renderWithQuery(<WorkspaceCategoriesView />);
 
     await waitFor(() => {
       expect(screen.getByText('Kaspi Delivery')).toBeInTheDocument();
@@ -176,7 +212,7 @@ describe('WorkspaceCategoriesView', () => {
   it('renders category enabled controls as switches', async () => {
     const { default: WorkspaceCategoriesView } = await import('./WorkspaceCategoriesView');
 
-    render(<WorkspaceCategoriesView />);
+    renderWithQuery(<WorkspaceCategoriesView />);
 
     await waitFor(() => {
       expect(screen.getByText('Kaspi Delivery')).toBeInTheDocument();
@@ -188,7 +224,7 @@ describe('WorkspaceCategoriesView', () => {
   it('does not render ripple feedback for category enabled switches', async () => {
     const { default: WorkspaceCategoriesView } = await import('./WorkspaceCategoriesView');
 
-    const { container } = render(<WorkspaceCategoriesView />);
+    const { container } = renderWithQuery(<WorkspaceCategoriesView />);
 
     await waitFor(() => {
       expect(screen.getByText('Kaspi Delivery')).toBeInTheDocument();

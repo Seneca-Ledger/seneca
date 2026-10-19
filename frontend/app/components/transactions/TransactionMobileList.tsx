@@ -1,6 +1,7 @@
 'use client';
 
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { useIntlayer } from '@/app/i18n';
 import { Checkbox } from '../ui/checkbox';
 import { TransactionMobileCard } from './TransactionMobileCard';
 import type { TransactionRowFormatters, TransactionRowHandlers } from './TransactionRow';
@@ -44,16 +45,17 @@ export function TransactionMobileList({
   columnDateLabel,
   columnDateSortLabel,
 }: TransactionMobileListProps): React.ReactElement {
+  const t = useIntlayer('transactionsTable');
   return (
-    <div className="lumio-tx-mobile">
-      <div className="lumio-tx-mobile__header">
-        <div className="lumio-tx-mobile__header-left">
+    <div className="seneca-tx-mobile">
+      <div className="seneca-tx-mobile__header">
+        <div className="seneca-tx-mobile__header-left">
           <Checkbox
             checked={allSelected}
             indeterminate={someSelected && !allSelected}
             onCheckedChange={onSelectAll}
             style={{ height: 20, width: 20 }}
-            aria-label="Select all rows"
+            aria-label={t.selectAllRows.value}
           />
           <span style={{ fontSize: 14, color: 'var(--foreground)' }}>
             {selectedIds.length}/{allTransactionsCount}
@@ -62,14 +64,14 @@ export function TransactionMobileList({
         <button
           type="button"
           onClick={() => onToggleSort('date')}
-          className="lumio-tx-mobile__header-sort"
+          className="seneca-tx-mobile__header-sort"
         >
           {columnDateSortLabel}
         </button>
       </div>
-      <div className="lumio-tx-mobile__list">
+      <div className="seneca-tx-mobile__list">
         {transactions.length === 0 ? (
-          <div className="lumio-tx-mobile__empty">
+          <div className="seneca-tx-mobile__empty">
             <EmptyStateIllustration name="transactions" size="md" />
             {noResultsLabel}
           </div>

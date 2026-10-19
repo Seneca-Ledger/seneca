@@ -1,10 +1,12 @@
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { Wallet } from '@/entities/wallet.entity';
+import { WorkspaceMember } from '@/entities/workspace-member.entity';
 import { WalletsService } from '@/modules/wallets/wallets.service';
 import { NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 describe('WalletsService', () => {
   let testingModule: TestingModule;
@@ -30,6 +32,11 @@ describe('WalletsService', () => {
           provide: getRepositoryToken(Wallet),
           useValue: createRepoMock<Wallet>(),
         },
+        {
+          provide: getRepositoryToken(WorkspaceMember),
+          useValue: { ...createRepoMock<WorkspaceMember>(), exists: jest.fn(async () => true) },
+        },
+        workspaceCurrencyProvider('EUR'),
       ],
     }).compile();
 
@@ -61,13 +68,16 @@ describe('WalletsService', () => {
       jest.spyOn(walletRepository, 'create').mockReturnValue(mockWallet as Wallet);
       jest.spyOn(walletRepository, 'save').mockResolvedValue(mockWallet as Wallet);
 
-      const result = await service.create('ws-1', createDto);
+      const result = await service.create('ws-1', 'user-1', createDto);
 
       expect(result).toEqual(mockWallet);
       expect(walletRepository.save).toHaveBeenCalled();
+      expect(walletRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: 'ws-1', userId: 'user-1' }),
+      );
     });
 
-    it('should set default currency to KZT', async () => {
+    it("falls back to the workspace's currency", async () => {
       const dtoWithoutCurrency = {
         name: 'Wallet',
       };
@@ -77,11 +87,11 @@ describe('WalletsService', () => {
         .mockReturnValue(mockWallet as Wallet);
       jest.spyOn(walletRepository, 'save').mockResolvedValue(mockWallet as Wallet);
 
-      await service.create('ws-1', dtoWithoutCurrency);
+      await service.create('ws-1', 'user-1', dtoWithoutCurrency);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          currency: 'KZT',
+          currency: 'EUR',
         }),
       );
     });
@@ -96,7 +106,7 @@ describe('WalletsService', () => {
         .mockReturnValue(mockWallet as Wallet);
       jest.spyOn(walletRepository, 'save').mockResolvedValue(mockWallet as Wallet);
 
-      await service.create('ws-1', dtoWithoutBalance);
+      await service.create('ws-1', 'user-1', dtoWithoutBalance);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -111,7 +121,7 @@ describe('WalletsService', () => {
         .mockReturnValue(mockWallet as Wallet);
       jest.spyOn(walletRepository, 'save').mockResolvedValue(mockWallet as Wallet);
 
-      await service.create('ws-1', createDto);
+      await service.create('ws-1', 'user-1', createDto);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -126,7 +136,7 @@ describe('WalletsService', () => {
         .mockReturnValue(mockWallet as Wallet);
       jest.spyOn(walletRepository, 'save').mockResolvedValue(mockWallet as Wallet);
 
-      await service.create('ws-1', createDto);
+      await service.create('ws-1', 'user-1', createDto);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -145,7 +155,7 @@ describe('WalletsService', () => {
           .mockReturnValue(mockWallet as Wallet);
         jest.spyOn(walletRepository, 'save').mockResolvedValue(mockWallet as Wallet);
 
-        await service.create('ws-1', dto);
+        await service.create('ws-1', 'user-1', dto);
 
         expect(createSpy).toHaveBeenCalledWith(
           expect.objectContaining({

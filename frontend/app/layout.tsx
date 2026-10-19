@@ -1,15 +1,22 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono, Manrope, Nunito } from 'next/font/google';
+import { cookies } from 'next/headers';
 import './globals.scss';
-import { ThemeProvider } from '@/components/theme-provider';
 import { getLocale } from 'next-intlayer/server';
 import { getIntlayer } from 'react-intlayer';
 import { IntlayerServerProvider } from 'react-intlayer/server';
-import { ChatModeRedirect } from './chat/ChatModeRedirect';
+import { ThemeProvider } from '@/components/theme-provider';
 import AppChrome from './components/AppChrome';
 import DynamicPageTitle from './components/DynamicPageTitle';
-import TopBar from './components/TopBar';
 import MobileBottomBar from './components/mobile/MobileBottomBar';
+import { AppPanels } from './components/panels/AppPanels';
+import { ReactScan } from './components/ReactScan';
+import { ReceiptPlaceFollowupHost } from './components/receipts/place-followup/ReceiptPlaceFollowupHost';
+import { SidePanelProvider } from './components/side-panel/SidePanelContext';
+import TopBar from './components/TopBar';
+import { WelcomeTutorialHost } from './components/welcome-tutorial/WelcomeTutorialHost';
+import { normalizeLocale } from './lib/locale';
+import { PALETTE_MODE_COOKIE, parsePaletteModeCookie } from './lib/theme-preference';
 import { Providers } from './providers';
 
 const geist = Geist({
@@ -63,12 +70,20 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>): Promise<React.JSX.Element> {
   const locale = await getLocale();
-  const resolvedLocale = typeof locale === 'string' ? locale : 'en';
-  const direction = resolvedLocale.startsWith('ar') ? 'rtl' : 'ltr';
+  const resolvedLocale = normalizeLocale(typeof locale === 'string' ? locale : undefined);
+  const t = getIntlayer('layout', locale);
+  const initialPaletteMode = parsePaletteModeCookie(
+    (await cookies()).get(PALETTE_MODE_COOKIE)?.value,
+  );
 
   return (
-    <html lang={resolvedLocale} dir={direction} suppressHydrationWarning>
+    <html lang={resolvedLocale} suppressHydrationWarning>
+      {process.env.NODE_ENV === 'development' ? <ReactScan /> : null}
       <body className={FONT_CLASS_NAMES} style={BODY_STYLE} suppressHydrationWarning>
+        {/* First Tab stop: jumps past the sidebar and top bar; shown only while focused. */}
+        <a href="#main-content" className="seneca-skip-link">
+          {t.skipToContent.value}
+        </a>
         <IntlayerServerProvider>
           <ThemeProvider
             attribute="class"
@@ -76,23 +91,35 @@ export default async function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <Providers initialLocale={resolvedLocale as 'en' | 'ru' | 'kk'}>
-              <ChatModeRedirect />
+            <Providers initialLocale={resolvedLocale} initialPaletteMode={initialPaletteMode}>
               <DynamicPageTitle />
-              <div className="lumio-shell">
-                <AppChrome />
-                <div className="lumio-shell__content">
-                  <TopBar />
-                  <main>{children}</main>
-                  <MobileBottomBar />
-                  <div
-                    id="fab-portal"
-                    style={{ position: 'fixed', inset: 0, zIndex: 300, pointerEvents: 'none' }}
-                  >
-                    <div style={{ position: 'relative', height: '100%', width: '100%' }} />
+              <SidePanelProvider
+                defaultWidth="md"
+                defaultPosition="left"
+                defaultCollapsed={false}
+                persistState={true}
+                storageKey="seneca-side-panel"
+              >
+                <div className="seneca-shell">
+                  <AppChrome />
+                  <div className="seneca-shell__content">
+                    <TopBar />
+                    <main id="main-content" tabIndex={-1}>
+                      {children}
+                    </main>
+                    <MobileBottomBar />
+                    <AppPanels />
+                    <WelcomeTutorialHost />
+                    <ReceiptPlaceFollowupHost />
+                    <div
+                      id="fab-portal"
+                      style={{ position: 'fixed', inset: 0, zIndex: 300, pointerEvents: 'none' }}
+                    >
+                      <div style={{ position: 'relative', height: '100%', width: '100%' }} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </SidePanelProvider>
             </Providers>
           </ThemeProvider>
         </IntlayerServerProvider>

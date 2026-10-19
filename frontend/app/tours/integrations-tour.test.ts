@@ -16,7 +16,6 @@ describe('createIntegrationsTour', () => {
       welcome: { title: 'Welcome', description: 'Welcome description' },
       search: { title: 'Search', description: 'Search description' },
       available: { title: 'Available', description: 'Available description' },
-      googleSheets: { title: 'Google Sheets', description: 'Google Sheets description' },
       completed: { title: 'Done', description: 'Done description' },
     },
   };
@@ -29,7 +28,6 @@ describe('createIntegrationsTour', () => {
       'body',
       '[data-tour-id="integrations-search"]',
       '[data-tour-id="integrations-available"]',
-      '[data-tour-id="integration-card-google-sheets"]',
       'body',
     ]);
   });
@@ -40,7 +38,6 @@ describe('createIntegrationsTour', () => {
       description: 'Connect external services',
       steps: {
         welcome: { title: 'Welcome', description: 'Welcome description' },
-        googleSheets: { title: 'Google Sheets', description: 'Google Sheets description' },
         completed: { title: 'Done', description: 'Done description' },
       },
     };
@@ -49,7 +46,7 @@ describe('createIntegrationsTour', () => {
 
     expect(tour.steps[1]?.title).toBe('Search Integrations');
     expect(tour.steps[2]?.title).toBe('Available Integrations');
-    expect(tour.steps[3]?.title).toBe('Google Sheets');
+    expect(tour.steps[3]?.title).toBe('Done');
   });
 
   it('keeps only the current integrations content keys', () => {
@@ -58,7 +55,7 @@ describe('createIntegrationsTour', () => {
     expect(source).toContain('welcome: {');
     expect(source).toContain('search: {');
     expect(source).toContain('available: {');
-    expect(source).toContain('googleSheets: {');
+    expect(source).not.toContain('googleSheets: {');
     expect(source).toContain('completed: {');
 
     expect(source).not.toContain('apiKeys: {');
@@ -69,13 +66,11 @@ describe('createIntegrationsTour', () => {
     expect(source).toContain('kk:');
   });
 
-  it('keeps integrations page anchors aligned with the current page source', () => {
-    const source = readSource('app', 'integrations', 'page.tsx');
+  it('keeps integrations anchors aligned with the panel source', () => {
+    const source = readSource('app', 'integrations', 'panel', 'IntegrationsListDrawer.tsx');
 
-    expect(source).toContain('data-tour-id="integrations-search"');
-    expect(source).toContain('data-tour-id="integrations-connected"');
+    expect(source).toContain('tourId="integrations-search"');
     expect(source).toContain('data-tour-id="integrations-available"');
-    expect(source).toContain("item.key === 'google-sheets'");
-    expect(source).toContain("'integration-card-google-sheets'");
+    expect(source).toContain('`integration-card-${entry.key}`');
   });
 });

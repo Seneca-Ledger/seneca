@@ -75,7 +75,8 @@ vi.mock('@/app/lib/api', () => ({
   },
 }));
 
-vi.mock('@/lib/api/audit', () => ({
+vi.mock('@/lib/api/audit', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/api/audit')>()),
   fetchAuditEvents,
 }));
 

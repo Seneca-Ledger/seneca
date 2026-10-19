@@ -1,129 +1,144 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
+import { createDraftRow, isDraftReadyToSave, isDraftRowId } from '../helpers/draftRowHelpers';
 import {
   applyRowDataPatch,
-  applyRowStylePatch,
   createRowRequest,
-  hasPaidColChange,
-  persistRowStyle,
-  updateCellRequest,
   updateRowPatchRequest,
 } from '../helpers/rowActionHelpers';
 import type {
   CustomTableCellValue,
+  CustomTableColumn,
   CustomTableGridRow,
   CustomTableRowPatch,
-  CustomTableRowStyles,
-} from '../utils/stylingUtils';
+} from '../utils/types';
 
 interface UseRowMutationsMessages {
   addRowLoading: string;
   addRowSuccess: string;
   addRowFailed: string;
-  saveValueFailed: string;
+  cellSaveFailed: string;
 }
 
 export interface UseRowMutationsParams {
   tableId: string | null;
-  paidColKey: string | null;
+  /** Every column, hidden ones included: they decide whether a draft can be saved. */
+  columns: CustomTableColumn[];
   rows: CustomTableGridRow[];
   setRows: React.Dispatch<React.SetStateAction<CustomTableGridRow[]>>;
-  refreshStats: () => Promise<void>;
+  /** Fired after a persisted change so totals and groups can refresh. */
+  onRowsChanged: () => void;
   messages: UseRowMutationsMessages;
 }
 
 export interface UseRowMutationsReturn {
-  createRow: () => Promise<CustomTableGridRow | null>;
-  updateCellFromGrid: (
-    rowId: string,
-    columnKey: string,
-    value: CustomTableCellValue,
-  ) => Promise<void>;
-  updateRowFromDrawer: (rowId: string, patchData: CustomTableRowPatch) => Promise<void>;
-  updateRowStyle: (rowId: string, styles: CustomTableRowStyles) => Promise<void>;
+  createRow: () => CustomTableGridRow | null;
+  updateCell: (rowId: string, columnKey: string, value: CustomTableCellValue) => Promise<void>;
 }
 
 export function useRowMutations({
   tableId,
-  paidColKey,
+  columns,
   rows,
   setRows,
-  refreshStats,
+  onRowsChanged,
   messages,
 }: UseRowMutationsParams): UseRowMutationsReturn {
-  const createRow = useCallback(async (): Promise<CustomTableGridRow | null> => {
+  const draftSeqRef = useRef(0);
+  // Rows whose POST is in flight: two quick cell edits must not create two rows.
+  const promotingRef = useRef<Set<string>>(new Set());
+
+  // Drafts live only on the client: the backend rejects an empty row while any
+  // column is required, so the POST waits until the draft is complete.
+  const createRow = useCallback((): CustomTableGridRow | null => {
     if (!tableId) {
       return null;
     }
-    const toastId = toast.loading(messages.addRowLoading);
-    try {
-      const created = await createRowRequest(tableId, rows.length);
-      setRows(prev => [...prev, created]);
-      toast.success(messages.addRowSuccess, { id: toastId });
-      void refreshStats();
-      return created;
-    } catch (error) {
-      console.error('Failed to add row:', error);
-      toast.error(messages.addRowFailed, { id: toastId });
-      return null;
-    }
-  }, [tableId, rows.length, setRows, refreshStats, messages]);
+    draftSeqRef.current += 1;
+    const draft = createDraftRow(draftSeqRef.current, rows.length + 1);
+    setRows(prev => [...prev, draft]);
+    return draft;
+  }, [tableId, rows.length, setRows]);
 
-  const updateCellFromGrid = useCallback(
+  const promoteDraftRow = useCallback(
+    async (rowId: string, nextData: CustomTableRowPatch): Promise<void> => {
+      if (!tableId || promotingRef.current.has(rowId) || !isDraftReadyToSave(nextData, columns)) {
+        return;
+      }
+      promotingRef.current.add(rowId);
+      const toastId = toast.loading(messages.addRowLoading);
+      await (async () => {
+        const created = await createRowRequest(tableId, rows.length, nextData);
+        setRows(prev =>
+          prev.map(r =>
+            r.id === rowId ? { ...created, data: { ...nextData, ...created.data } } : r,
+          ),
+        );
+        toast.success(messages.addRowSuccess, { id: toastId });
+        onRowsChanged();
+      })()
+        .catch(async error => {
+          // The row stays a draft: the next cell edit retries the POST.
+          console.error('Failed to add row:', error);
+          toast.error(messages.addRowFailed, { id: toastId });
+        })
+        .finally(async () => {
+          promotingRef.current.delete(rowId);
+        });
+    },
+    [tableId, columns, rows.length, setRows, onRowsChanged, messages],
+  );
+
+  const updateCell = useCallback(
     async (rowId: string, columnKey: string, value: CustomTableCellValue): Promise<void> => {
       if (!tableId) {
         return;
       }
-      if (!rowId.startsWith('temp-')) {
-        await updateCellRequest({ tableId, rowId, columnKey, value });
-      }
-      setRows(prev => applyRowDataPatch(prev, rowId, { [columnKey]: value }));
-      if (columnKey === paidColKey) {
-        void refreshStats();
-      }
-    },
-    [tableId, paidColKey, setRows, refreshStats],
-  );
-
-  const updateRowFromDrawer = useCallback(
-    async (rowId: string, patchData: CustomTableRowPatch): Promise<void> => {
-      if (!(tableId && Object.keys(patchData).length)) {
+      if (isDraftRowId(rowId)) {
+        setRows(prev => applyRowDataPatch(prev, rowId, { [columnKey]: value }));
+        const nextData = { ...(rows.find(r => r.id === rowId)?.data || {}), [columnKey]: value };
+        await promoteDraftRow(rowId, nextData);
         return;
       }
-      if (!rowId.startsWith('temp-')) {
-        await updateRowPatchRequest(tableId, rowId, patchData);
-      }
-      setRows(prev => applyRowDataPatch(prev, rowId, patchData));
-      if (hasPaidColChange(paidColKey, patchData)) {
-        void refreshStats();
-      }
-    },
-    [tableId, paidColKey, setRows, refreshStats],
-  );
-
-  const updateRowStyle = useCallback(
-    async (rowId: string, styles: CustomTableRowStyles): Promise<void> => {
-      if (!tableId) {
-        return;
-      }
+      // A cell the import kept as text stops being an issue once someone edits it.
+      const clearIssue = Boolean(rows.find(r => r.id === rowId)?.styles?.[columnKey]?.importIssue);
+      // The reply carries recomputed formulas, and — in a table filled from app
+      // data — every value the record now has (a new type flips the amount's sign),
+      // so it wins over the local patch. Nothing changes locally before it: when
+      // the app refuses the edit, the cell simply keeps its value and says why.
+      let serverData: Awaited<ReturnType<typeof updateRowPatchRequest>>;
       try {
-        const row = rows.find(r => r.id === rowId);
-        const tempStyles = { ...(row?.styles || {}), ...styles };
-        if (rowId.startsWith('temp-')) {
-          setRows(prev => applyRowStylePatch(prev, rowId, tempStyles));
-          return;
-        }
-        const saved = await persistRowStyle({ tableId, rowId, rows, styles });
-        setRows(prev => applyRowStylePatch(prev, rowId, saved));
+        serverData = await updateRowPatchRequest(
+          tableId,
+          rowId,
+          { [columnKey]: value },
+          clearIssue ? { [columnKey]: {} } : undefined,
+        );
       } catch (error) {
-        console.error('Failed to update row styles:', error);
-        toast.error(messages.saveValueFailed);
+        console.error('Failed to save cell:', error);
+        toast.error(getApiErrorMessage(error, messages.cellSaveFailed));
+        return;
       }
+      // The row shows an app record: the change reached it, so the lists that
+      // show documents and their categories must not keep the old one cached.
+      if (rows.find(r => r.id === rowId)?.sourceKey) {
+        invalidateDocumentLists();
+      }
+      setRows(prev =>
+        applyRowDataPatch(prev, rowId, { [columnKey]: value, ...serverData }).map(row =>
+          clearIssue && row.id === rowId
+            ? { ...row, styles: { ...(row.styles ?? {}), [columnKey]: {} } }
+            : row,
+        ),
+      );
+      onRowsChanged();
     },
-    [tableId, rows, setRows, messages.saveValueFailed],
+    [tableId, rows, setRows, onRowsChanged, promoteDraftRow, messages.cellSaveFailed],
   );
 
-  return { createRow, updateCellFromGrid, updateRowFromDrawer, updateRowStyle };
+  return { createRow, updateCell };
 }

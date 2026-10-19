@@ -61,7 +61,7 @@ const receiptDuplicateService = {
 };
 
 const receiptCategoryService = {
-  suggestCategory: jest.fn().mockResolvedValue(null),
+  categorize: jest.fn().mockResolvedValue(null),
 };
 
 const auditService = {
@@ -125,7 +125,7 @@ describe('OpenProtocolIntegrationsService.syncImap — already-seen messages', (
   it('imports a message even when it was already marked \\Seen in the mailbox', async () => {
     const user = { id: 'user-1', workspaceId: 'workspace-1' } as never;
 
-    const result = await createService().syncImap(user);
+    const result = await createService().syncImap(user, 'workspace-1');
 
     expect(result.scanned).toBe(1);
     expect(result.imported).toBe(1);
@@ -135,9 +135,22 @@ describe('OpenProtocolIntegrationsService.syncImap — already-seen messages', (
   it('does not search with seen:false filter so already-read emails are included', async () => {
     const user = { id: 'user-1', workspaceId: 'workspace-1' } as never;
 
-    await createService().syncImap(user);
+    await createService().syncImap(user, 'workspace-1');
 
     const [searchQuery] = searchMock.mock.calls[0] as [Record<string, unknown>];
     expect(searchQuery).not.toHaveProperty('seen');
+  });
+
+  it('imports into the workspace it syncs for, deduplicating within it', async () => {
+    const user = { id: 'user-1', workspaceId: 'ws-home' } as never;
+
+    await createService().syncImap(user, 'ws-open');
+
+    expect(receiptRepository.findOne).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws-open', gmailMessageId: expect.stringMatching(/^imap:/) },
+    });
+    expect(receiptRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', workspaceId: 'ws-open' }),
+    );
   });
 });

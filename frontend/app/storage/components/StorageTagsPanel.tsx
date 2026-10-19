@@ -1,10 +1,10 @@
 'use client';
 
-import { Check, PencilLine, Plus, Trash2, X } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import { Box, IconButton, Popover, TextField, Typography } from '@mui/material';
 import React from 'react';
 import { HexColorPicker } from 'react-colorful';
+import { Check, PencilLine, Plus, Trash2, X } from '@/app/components/icons';
+import { tokens } from '@/lib/theme-tokens';
 import type { TagOption } from '../storageHelpers';
 import { colorPickerPopoverSlotProps } from '../storageHelpers';
 

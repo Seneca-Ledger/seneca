@@ -1,13 +1,13 @@
 'use client';
 
-import { useIntlayer } from '@/app/i18n';
-import type { AuditEvent, AuditEventFilter } from '@/lib/api/audit';
-import { fetchAuditEvents, rollbackEvent } from '@/lib/api/audit';
-import { tokens } from '@/lib/theme-tokens';
 import { Container, Typography } from '@mui/material';
 import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useIntlayer } from '@/app/i18n';
+import type { AuditEvent, AuditEventFilter } from '@/lib/api/audit';
+import { fetchAuditEvents, rollbackEvent } from '@/lib/api/audit';
+import { tokens } from '@/lib/theme-tokens';
 import { AuditEventModal } from '../audit/components/AuditEventModal';
 import { AuditFilterBar } from '../audit/components/AuditFilterBar';
 import { AuditTimeline, AuditTimelineSkeleton } from '../audit/components/AuditTimeline';
@@ -38,16 +38,19 @@ export default function AdminPage() {
   const loadAuditLogs = async (): Promise<void> => {
     setAuditLoading(true);
     setAuditError(null);
-    try {
+
+    await (async () => {
       const response = await fetchAuditEvents(auditParams);
       setAuditLogs(response.data || []);
       setAuditTotal(response.total || 0);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setAuditError(error.response?.data?.message || t.errors.loadAudit.value);
-    } finally {
-      setAuditLoading(false);
-    }
+    })()
+      .catch(async (err: unknown) => {
+        const error = err as { response?: { data?: { message?: string } } };
+        setAuditError(error.response?.data?.message || t.errors.loadAudit.value);
+      })
+      .finally(async () => {
+        setAuditLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -56,18 +59,21 @@ export default function AdminPage() {
 
   const handleDirectRollback = async (event: AuditEvent): Promise<void> => {
     setRollbackLoading(true);
-    try {
+
+    await (async () => {
       const result = await rollbackEvent(event.id);
       assertRollbackSucceeded(result);
-      toast.success('Rollback successful');
+      toast.success(t.toasts.rollbackSuccess.value);
       setModalOpen(false);
       setSelectedEvent(null);
       void loadAuditLogs();
-    } catch {
-      toast.error('Rollback failed');
-    } finally {
-      setRollbackLoading(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error(t.toasts.rollbackFailed.value);
+      })
+      .finally(async () => {
+        setRollbackLoading(false);
+      });
   };
 
   const handleFiltersChange = (update: Partial<AuditEventFilter>) => {

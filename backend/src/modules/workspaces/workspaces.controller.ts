@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -9,25 +8,46 @@ import {
   Patch,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { deletedResponse } from '../../common/utils/responses.util';
+import {
+  AcceptInvitationBody,
+  CreateDemoWorkspaceBody,
+  CreateWorkspaceBody,
+  InvitationAccepted,
+  InvitationPreview,
+  InviteMemberBody,
+  UpdateMemberPermissionsBody,
+  UpdateMemberRoleBody,
+  UpdateWorkspaceBody,
+  WorkspaceDetail,
+  WorkspaceFavorite,
+  WorkspaceList,
+  WorkspaceOverview,
+  WorkspaceSummary,
+} from '../../contracts';
 import type { User } from '../../entities';
+import { WorkspaceRole } from '../../entities/workspace-member.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
-import { AcceptInvitationDto } from './dto/accept-invitation.dto';
-import { CreateWorkspaceDto } from './dto/create-workspace.dto';
-import { InviteMemberDto } from './dto/invite-member.dto';
-import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
+import { DemoWorkspaceService } from './demo-workspace/demo-workspace.service';
 import { WorkspacesService } from './workspaces.service';
 
 @Controller('workspaces')
 export class WorkspacesController {
-  constructor(private readonly workspacesService: WorkspacesService) {}
+  constructor(
+    private readonly workspacesService: WorkspacesService,
+    private readonly demoWorkspaceService: DemoWorkspaceService,
+  ) {}
 
   private getRequestAppOrigin(req: Request): string | undefined {
     const originHeader = req.headers.origin;
@@ -59,18 +79,21 @@ export class WorkspacesController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceList)
   async getUserWorkspaces(@CurrentUser() user: User) {
     return this.workspacesService.getUserWorkspaces(user.id);
   }
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceOverview)
   async getMyWorkspace(@CurrentUser() user: User, @Req() req: Request) {
     return this.workspacesService.getWorkspaceOverview(user, this.getRequestAppOrigin(req));
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceDetail)
   async getWorkspaceById(@CurrentUser() user: User, @Param('id') id: string) {
     const workspace = await this.workspacesService.getWorkspaceById(id, user.id);
     const members = await this.workspacesService.getWorkspaceMembers(id, user.id);
@@ -82,8 +105,28 @@ export class WorkspacesController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  async createWorkspace(@CurrentUser() user: User, @Body() dto: CreateWorkspaceDto) {
+  @SchemaResponse(WorkspaceSummary)
+  async createWorkspace(
+    @CurrentUser() user: User,
+    @SchemaBody(CreateWorkspaceBody) dto: CreateWorkspaceBody,
+  ) {
     return this.workspacesService.createWorkspace(user.id, dto);
+  }
+
+  /** The caller's demo workspace with sample data: 201 when made now, 200 when it already was. */
+  @Post('demo')
+  @UseGuards(JwtAuthGuard)
+  // Each first call writes a year of data; deleting and asking again is the only way to repeat it.
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 per minute
+  @SchemaResponse(WorkspaceSummary)
+  async createDemoWorkspace(
+    @CurrentUser() user: User,
+    @SchemaBody(CreateDemoWorkspaceBody) dto: CreateDemoWorkspaceBody,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { workspace, created } = await this.demoWorkspaceService.getOrCreate(user.id, dto.name);
+    res.status(created ? HttpStatus.CREATED : HttpStatus.OK);
+    return workspace;
   }
 
   @Patch(':id')
@@ -91,7 +134,7 @@ export class WorkspacesController {
   async updateWorkspace(
     @CurrentUser() user: User,
     @Param('id') id: string,
-    @Body() dto: UpdateWorkspaceDto,
+    @SchemaBody(UpdateWorkspaceBody) dto: UpdateWorkspaceBody,
   ) {
     return this.workspacesService.updateWorkspace(id, user.id, dto);
   }
@@ -113,6 +156,7 @@ export class WorkspacesController {
 
   @Patch(':id/favorite')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceFavorite)
   async toggleFavorite(@CurrentUser() user: User, @Param('id') id: string) {
     return this.workspacesService.toggleFavorite(id, user.id);
   }
@@ -128,7 +172,7 @@ export class WorkspacesController {
   async inviteMemberToWorkspace(
     @CurrentUser() user: User,
     @Param('id') workspaceId: string,
-    @Body() dto: InviteMemberDto,
+    @SchemaBody(InviteMemberBody) dto: InviteMemberBody,
     @Req() req: Request,
   ) {
     return this.workspacesService.inviteMember(
@@ -155,9 +199,30 @@ export class WorkspacesController {
     @CurrentUser() user: User,
     @Param('id') workspaceId: string,
     @Param('userId') userId: string,
-    @Body() dto: UpdateMemberRoleDto,
+    @SchemaBody(UpdateMemberRoleBody) dto: UpdateMemberRoleBody,
   ) {
-    return this.workspacesService.updateMemberRole(workspaceId, user.id, userId, dto.role);
+    return this.workspacesService.updateMemberRole(
+      workspaceId,
+      user.id,
+      userId,
+      toEnum(WorkspaceRole, dto.role),
+    );
+  }
+
+  @Patch(':id/members/:userId/permissions')
+  @UseGuards(JwtAuthGuard)
+  async updateWorkspaceMemberPermissions(
+    @CurrentUser() user: User,
+    @Param('id') workspaceId: string,
+    @Param('userId') userId: string,
+    @SchemaBody(UpdateMemberPermissionsBody) dto: UpdateMemberPermissionsBody,
+  ) {
+    return this.workspacesService.updateMemberPermissions(
+      workspaceId,
+      user.id,
+      userId,
+      withoutNulls(dto.permissions),
+    );
   }
 
   @Delete(':id/invitations/:invitationId')
@@ -172,7 +237,11 @@ export class WorkspacesController {
 
   @Post('invitations')
   @UseGuards(JwtAuthGuard)
-  async inviteMember(@CurrentUser() user: User, @Body() dto: InviteMemberDto, @Req() req: Request) {
+  async inviteMember(
+    @CurrentUser() user: User,
+    @SchemaBody(InviteMemberBody) dto: InviteMemberBody,
+    @Req() req: Request,
+  ) {
     return this.workspacesService.inviteMemberLegacy(user, dto, this.getRequestAppOrigin(req));
   }
 
@@ -185,6 +254,7 @@ export class WorkspacesController {
   @Public()
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 per minute
   @Get('invitations/:token')
+  @SchemaResponse(InvitationPreview)
   async getInvitation(@Param('token') token: string) {
     return this.workspacesService.getInvitationInfo(token);
   }
@@ -193,6 +263,7 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 per minute
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(InvitationAccepted)
   async acceptInvitation(@CurrentUser() user: User, @Param('token') token: string) {
     return this.workspacesService.acceptInvitation(user, token);
   }
@@ -200,7 +271,10 @@ export class WorkspacesController {
   @Post('invitations/accept')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async acceptInvitationLegacy(@CurrentUser() user: User, @Body() dto: AcceptInvitationDto) {
+  async acceptInvitationLegacy(
+    @CurrentUser() user: User,
+    @SchemaBody(AcceptInvitationBody) dto: AcceptInvitationBody,
+  ) {
     return this.workspacesService.acceptInvitation(user, dto.token);
   }
 }

@@ -1,530 +1,412 @@
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test, type TestingModule } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import {
+  deleteUserByEmail,
+  type E2eAccount,
+  e2eTestingModule,
+  registerAccount,
+} from './helpers/e2e-app';
 
+/**
+ * Workspace access end to end: who can read and change a workspace, the
+ * invitation lifecycle, member roles and removal. Each test builds on the
+ * state the previous ones leave, as a real team would.
+ */
 describe('Workspaces (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  let ownerAccessToken: string;
-  let memberAccessToken: string;
-  let workspaceId: string;
-  let invitationId: string;
+  const stamp = Date.now();
+  const emails = {
+    owner: `ws-owner-${stamp}@example.com`,
+    member: `ws-member-${stamp}@example.com`,
+    outsider: `ws-outsider-${stamp}@example.com`,
+    pending: `ws-pending-${stamp}@example.com`,
+  };
+  let owner: E2eAccount;
+  let member: E2eAccount;
+  let outsider: E2eAccount;
+  let invitationToken: string;
+
+  const as = (account: E2eAccount, req: request.Test) =>
+    req.set('Authorization', `Bearer ${account.token}`);
+  const server = () => app.getHttpServer();
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    const moduleFixture: TestingModule = await e2eTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true }));
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
-
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
-    // Register owner
-    const ownerRegister = await request(app.getHttpServer()).post('/auth/register').send({
-      email: 'workspace-owner@example.com',
-      password: 'Test123!@#',
-      firstName: 'Owner',
-      lastName: 'Test',
-    });
-
-    const ownerLogin = await request(app.getHttpServer()).post('/auth/login').send({
-      email: 'workspace-owner@example.com',
-      password: 'Test123!@#',
-    });
-
-    ownerAccessToken = ownerLogin.body.accessToken;
-    workspaceId = ownerLogin.body.user.workspaceId;
-
-    // Register member
-    await request(app.getHttpServer()).post('/auth/register').send({
-      email: 'workspace-member@example.com',
-      password: 'Test123!@#',
-      firstName: 'Member',
-      lastName: 'Test',
-    });
-
-    const memberLogin = await request(app.getHttpServer()).post('/auth/login').send({
-      email: 'workspace-member@example.com',
-      password: 'Test123!@#',
-    });
-
-    memberAccessToken = memberLogin.body.accessToken;
+    owner = await registerAccount(app, emails.owner, 'Workspace Owner');
+    member = await registerAccount(app, emails.member, 'Workspace Member');
+    outsider = await registerAccount(app, emails.outsider, 'Workspace Outsider');
   });
 
   afterAll(async () => {
-    await dataSource.dropDatabase();
+    if (dataSource) {
+      for (const email of Object.values(emails)) {
+        await deleteUserByEmail(dataSource, email);
+      }
+    }
     await app.close();
   });
 
+  describe('GET /workspaces', () => {
+    it('lists the workspaces the user belongs to', async () => {
+      const res = await as(owner, request(server()).get('/workspaces')).expect(200);
+      expect(res.body.map((workspace: { id: string }) => workspace.id)).toContain(
+        owner.workspaceId,
+      );
+    });
+  });
+
   describe('GET /workspaces/:id', () => {
-    it('should return workspace details', () => {
-      return request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body.id).toBe(workspaceId);
-          expect(res.body).toHaveProperty('name');
-          expect(res.body).toHaveProperty('members');
-        });
-    });
-
-    it('should include workspace members', () => {
-      return request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(Array.isArray(res.body.members)).toBe(true);
-          expect(res.body.members.length).toBeGreaterThan(0);
-        });
-    });
-
-    it('should not allow accessing other workspaces', async () => {
-      // Create another workspace
-      await request(app.getHttpServer()).post('/auth/register').send({
-        email: 'other-workspace@example.com',
-        password: 'Test123!@#',
-        firstName: 'Other',
-        lastName: 'Workspace',
+    it('returns the workspace with the caller’s role', async () => {
+      const res = await as(owner, request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(
+        200,
+      );
+      expect(res.body).toMatchObject({
+        id: owner.workspaceId,
+        ownerId: owner.userId,
+        memberRole: 'owner',
       });
-
-      const otherLogin = await request(app.getHttpServer()).post('/auth/login').send({
-        email: 'other-workspace@example.com',
-        password: 'Test123!@#',
-      });
-
-      return request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${otherLogin.body.accessToken}`)
-        .expect(403);
     });
 
-    it('should require authentication', () => {
-      return request(app.getHttpServer()).get(`/workspaces/${workspaceId}`).expect(401);
+    it('refuses a user who is not a member', () => {
+      return as(outsider, request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(403);
+    });
+
+    it('requires authentication', () => {
+      return request(server()).get(`/workspaces/${owner.workspaceId}`).expect(401);
     });
   });
 
   describe('PATCH /workspaces/:id', () => {
-    it('should update workspace name', () => {
-      return request(app.getHttpServer())
-        .patch(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          name: 'Updated Workspace Name',
-        })
-        .expect(200)
-        .expect(res => {
-          expect(res.body.name).toBe('Updated Workspace Name');
-        });
-    });
-
-    it('should update workspace settings', () => {
-      return request(app.getHttpServer())
-        .patch(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          settings: {
-            currency: 'USD',
-            timezone: 'America/New_York',
-          },
-        })
-        .expect(200)
-        .expect(res => {
-          expect(res.body.settings.currency).toBe('USD');
-        });
-    });
-
-    it('should not allow non-owner updates', async () => {
-      // First, invite and accept the member
-      const inviteRes = await request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email: 'workspace-member@example.com',
-          role: 'MEMBER',
-        });
-
-      await request(app.getHttpServer())
-        .post(`/workspaces/invitations/${inviteRes.body.id}/accept`)
-        .set('Authorization', `Bearer ${memberAccessToken}`)
+    it('lets the owner rename the workspace', async () => {
+      const res = await as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+        .send({ name: 'Renamed workspace' })
         .expect(200);
-
-      return request(app.getHttpServer())
-        .patch(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${memberAccessToken}`)
-        .send({
-          name: 'Hacked Name',
-        })
-        .expect(403);
+      expect(res.body.name).toBe('Renamed workspace');
     });
 
-    it('should validate update data', () => {
-      return request(app.getHttpServer())
-        .patch(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          name: '', // Empty name should fail
-        })
+    it('rejects an empty name', () => {
+      return as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+        .send({ name: '' })
         .expect(400);
+    });
+
+    it('refuses a user who is not a member', () => {
+      return as(outsider, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+        .send({ name: 'Hijacked' })
+        .expect(403);
     });
   });
 
-  describe('POST /workspaces/:id/invitations', () => {
-    it('should create workspace invitation', () => {
-      return request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email: 'invited@example.com',
-          role: 'MEMBER',
-        })
-        .expect(201)
-        .expect(res => {
-          expect(res.body).toHaveProperty('id');
-          expect(res.body.email).toBe('invited@example.com');
-          expect(res.body.role).toBe('MEMBER');
-          invitationId = res.body.id;
-        });
+  describe('workspace profile', () => {
+    it('is business until told otherwise, and remembers home', async () => {
+      const before = await as(owner, request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(
+        200,
+      );
+      expect(before.body.settings?.profile).toBeUndefined();
+
+      const res = await as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+        .send({ profile: 'home' })
+        .expect(200);
+      expect(res.body.settings.profile).toBe('home');
+
+      const after = await as(owner, request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(
+        200,
+      );
+      expect(after.body.settings.profile).toBe('home');
     });
 
-    it('should send invitation email', () => {
-      return request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email: 'email-test@example.com',
-          role: 'MEMBER',
-        })
-        .expect(201)
-        .expect(res => {
-          expect(res.body).toHaveProperty('emailSent');
-        });
+    it('keeps other settings when the profile changes', async () => {
+      await as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+        .send({ processing: { merchantLearning: false } })
+        .expect(200);
+      const res = await as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+        .send({ profile: 'business' })
+        .expect(200);
+      expect(res.body.settings.profile).toBe('business');
+      expect(res.body.settings.processing.merchantLearning).toBe(false);
     });
 
-    it('should validate invitation data', () => {
-      return request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email: 'invalid-email', // Invalid email
-          role: 'MEMBER',
-        })
+    it('rejects a profile it does not know', () => {
+      return as(owner, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+        .send({ profile: 'shop' })
         .expect(400);
     });
 
-    it('should not allow duplicate invitations', async () => {
-      const email = 'duplicate@example.com';
+    it('starts a new workspace in the chosen profile', async () => {
+      const res = await as(owner, request(server()).post('/workspaces'))
+        .send({ name: `Home ${stamp}`, profile: 'home' })
+        .expect(201);
+      expect(res.body.settings.profile).toBe('home');
+    });
+  });
 
-      await request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email,
-          role: 'MEMBER',
-        })
+  describe('invitations', () => {
+    it('invites a user by email', async () => {
+      const res = await as(
+        owner,
+        request(server()).post(`/workspaces/${owner.workspaceId}/invitations`),
+      )
+        .send({ email: member.email, role: 'member' })
+        .expect(201);
+      expect(res.body.invitation).toMatchObject({ email: member.email, status: 'pending' });
+      invitationToken = res.body.invitation.token;
+      expect(invitationToken).toEqual(expect.any(String));
+    });
+
+    it('rejects an invalid email', () => {
+      return as(owner, request(server()).post(`/workspaces/${owner.workspaceId}/invitations`))
+        .send({ email: 'not-an-email' })
+        .expect(400);
+    });
+
+    it('refreshes a pending invitation instead of creating a second one', async () => {
+      const res = await as(
+        owner,
+        request(server()).post(`/workspaces/${owner.workspaceId}/invitations`),
+      )
+        .send({ email: member.email, role: 'member' })
+        .expect(201);
+      invitationToken = res.body.invitation.token;
+
+      const list = await as(
+        owner,
+        request(server()).get(`/workspaces/${owner.workspaceId}/invitations`),
+      ).expect(200);
+      const forMember = list.body.filter(
+        (invitation: { email: string }) => invitation.email === member.email,
+      );
+      expect(forMember).toHaveLength(1);
+    });
+
+    it('hides invitations from users who are not members', () => {
+      return as(
+        outsider,
+        request(server()).get(`/workspaces/${owner.workspaceId}/invitations`),
+      ).expect(403);
+    });
+
+    it('refuses an invitation accepted by a different account', () => {
+      return as(
+        outsider,
+        request(server()).post(`/workspaces/invitations/${invitationToken}/accept`),
+      ).expect(403);
+    });
+
+    it('adds the invited user when they accept', async () => {
+      const res = await as(
+        member,
+        request(server()).post(`/workspaces/invitations/${invitationToken}/accept`),
+      ).expect(200);
+      expect(res.body.workspaceId).toBe(owner.workspaceId);
+
+      const workspace = await as(
+        member,
+        request(server()).get(`/workspaces/${owner.workspaceId}`),
+      ).expect(200);
+      expect(workspace.body.memberRole).toBe('member');
+    });
+
+    it('rejects inviting someone who is already a member', () => {
+      return as(owner, request(server()).post(`/workspaces/${owner.workspaceId}/invitations`))
+        .send({ email: member.email })
+        .expect(409);
+    });
+
+    it('lets the owner revoke a pending invitation', async () => {
+      const invite = await as(
+        owner,
+        request(server()).post(`/workspaces/${owner.workspaceId}/invitations`),
+      )
+        .send({ email: emails.pending })
         .expect(201);
 
-      return request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email,
-          role: 'MEMBER',
-        })
-        .expect(400);
-    });
+      await as(
+        owner,
+        request(server()).delete(
+          `/workspaces/${owner.workspaceId}/invitations/${invite.body.invitation.id}`,
+        ),
+      ).expect(200);
 
-    it('should not allow inviting existing members', async () => {
-      // Member is already in workspace from previous test
-      return request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email: 'workspace-member@example.com',
-          role: 'MEMBER',
-        })
-        .expect(400);
-    });
-
-    it('should allow inviting with different roles', () => {
-      return request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email: 'admin@example.com',
-          role: 'ADMIN',
-        })
-        .expect(201)
-        .expect(res => {
-          expect(res.body.role).toBe('ADMIN');
-        });
-    });
-
-    it('should not allow non-admin/owner invitations', async () => {
-      return request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${memberAccessToken}`)
-        .send({
-          email: 'unauthorized@example.com',
-          role: 'MEMBER',
-        })
-        .expect(403);
-    });
-  });
-
-  describe('GET /workspaces/:id/invitations', () => {
-    it('should list workspace invitations', () => {
-      return request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(Array.isArray(res.body)).toBe(true);
-        });
-    });
-
-    it('should filter pending invitations', () => {
-      return request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}/invitations?status=PENDING`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .expect(200)
-        .expect(res => {
-          res.body.forEach(invite => {
-            expect(invite.status).toBe('PENDING');
-          });
-        });
-    });
-
-    it('should not allow non-members to view invitations', async () => {
-      const otherLogin = await request(app.getHttpServer()).post('/auth/login').send({
-        email: 'other-workspace@example.com',
-        password: 'Test123!@#',
-      });
-
-      return request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${otherLogin.body.accessToken}`)
-        .expect(403);
-    });
-  });
-
-  describe('POST /workspaces/invitations/:id/accept', () => {
-    it('should accept workspace invitation', async () => {
-      // Register new user
-      await request(app.getHttpServer()).post('/auth/register').send({
-        email: 'invited@example.com',
-        password: 'Test123!@#',
-        firstName: 'Invited',
-        lastName: 'User',
-      });
-
-      const invitedLogin = await request(app.getHttpServer()).post('/auth/login').send({
-        email: 'invited@example.com',
-        password: 'Test123!@#',
-      });
-
-      if (invitationId) {
-        return request(app.getHttpServer())
-          .post(`/workspaces/invitations/${invitationId}/accept`)
-          .set('Authorization', `Bearer ${invitedLogin.body.accessToken}`)
-          .expect(200)
-          .expect(res => {
-            expect(res.body.status).toBe('ACCEPTED');
-          });
-      }
-    });
-
-    it('should not accept expired invitations', async () => {
-      // Create expired invitation (mock or set expiration in past)
-      const expiredInvite = await request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email: 'expired@example.com',
-          role: 'MEMBER',
-          expiresAt: new Date('2020-01-01'),
-        });
-
-      await request(app.getHttpServer()).post('/auth/register').send({
-        email: 'expired@example.com',
-        password: 'Test123!@#',
-        firstName: 'Expired',
-        lastName: 'User',
-      });
-
-      const expiredLogin = await request(app.getHttpServer()).post('/auth/login').send({
-        email: 'expired@example.com',
-        password: 'Test123!@#',
-      });
-
-      return request(app.getHttpServer())
-        .post(`/workspaces/invitations/${expiredInvite.body.id}/accept`)
-        .set('Authorization', `Bearer ${expiredLogin.body.accessToken}`)
-        .expect(400);
-    });
-
-    it('should update user workspace on accept', async () => {
-      const result = await request(app.getHttpServer())
-        .get('/auth/profile')
-        .set('Authorization', `Bearer ${memberAccessToken}`);
-
-      expect(result.body.workspaceId).toBe(workspaceId);
-    });
-  });
-
-  describe('POST /workspaces/invitations/:id/decline', () => {
-    it('should decline workspace invitation', async () => {
-      const invite = await request(app.getHttpServer())
-        .post(`/workspaces/${workspaceId}/invitations`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          email: 'decline-test@example.com',
-          role: 'MEMBER',
-        });
-
-      await request(app.getHttpServer()).post('/auth/register').send({
-        email: 'decline-test@example.com',
-        password: 'Test123!@#',
-        firstName: 'Decline',
-        lastName: 'Test',
-      });
-
-      const declineLogin = await request(app.getHttpServer()).post('/auth/login').send({
-        email: 'decline-test@example.com',
-        password: 'Test123!@#',
-      });
-
-      return request(app.getHttpServer())
-        .post(`/workspaces/invitations/${invite.body.id}/decline`)
-        .set('Authorization', `Bearer ${declineLogin.body.accessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(res.body.status).toBe('DECLINED');
-        });
-    });
-  });
-
-  describe('DELETE /workspaces/:id/members/:memberId', () => {
-    it('should remove workspace member', async () => {
-      // Get member to remove
-      const workspace = await request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`);
-
-      const memberToRemove = workspace.body.members.find(
-        m => m.email !== 'workspace-owner@example.com',
+      const list = await as(
+        owner,
+        request(server()).get(`/workspaces/${owner.workspaceId}/invitations`),
+      ).expect(200);
+      expect(list.body.map((invitation: { email: string }) => invitation.email)).not.toContain(
+        emails.pending,
       );
-
-      if (memberToRemove) {
-        return request(app.getHttpServer())
-          .delete(`/workspaces/${workspaceId}/members/${memberToRemove.id}`)
-          .set('Authorization', `Bearer ${ownerAccessToken}`)
-          .expect(200);
-      }
-    });
-
-    it('should not allow non-owner removals', () => {
-      return request(app.getHttpServer())
-        .delete(`/workspaces/${workspaceId}/members/some-id`)
-        .set('Authorization', `Bearer ${memberAccessToken}`)
-        .expect(403);
-    });
-
-    it('should not allow removing owner', async () => {
-      const workspace = await request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`);
-
-      const owner = workspace.body.members.find(m => m.role === 'OWNER');
-
-      if (owner) {
-        return request(app.getHttpServer())
-          .delete(`/workspaces/${workspaceId}/members/${owner.id}`)
-          .set('Authorization', `Bearer ${ownerAccessToken}`)
-          .expect(400);
-      }
     });
   });
 
-  describe('PATCH /workspaces/:id/members/:memberId/role', () => {
-    it('should update member role', async () => {
-      const workspace = await request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`);
-
-      const member = workspace.body.members.find(
-        m => m.role === 'MEMBER' && m.email !== 'workspace-owner@example.com',
-      );
-
-      if (member) {
-        return request(app.getHttpServer())
-          .patch(`/workspaces/${workspaceId}/members/${member.id}/role`)
-          .set('Authorization', `Bearer ${ownerAccessToken}`)
-          .send({
-            role: 'ADMIN',
-          })
-          .expect(200)
-          .expect(res => {
-            expect(res.body.role).toBe('ADMIN');
-          });
-      }
+  describe('member roles', () => {
+    it('lets the owner change a member’s role', async () => {
+      const res = await as(
+        owner,
+        request(server()).patch(`/workspaces/${owner.workspaceId}/members/${member.userId}/role`),
+      )
+        .send({ role: 'viewer' })
+        .expect(200);
+      expect(res.body.role).toBe('viewer');
     });
 
-    it('should validate role value', async () => {
-      const workspace = await request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`);
-
-      const member = workspace.body.members[0];
-
-      return request(app.getHttpServer())
-        .patch(`/workspaces/${workspaceId}/members/${member.id}/role`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .send({
-          role: 'INVALID_ROLE',
-        })
+    it('rejects an unknown role', () => {
+      return as(
+        owner,
+        request(server()).patch(`/workspaces/${owner.workspaceId}/members/${member.userId}/role`),
+      )
+        .send({ role: 'superuser' })
         .expect(400);
     });
 
-    it('should not allow non-owner role changes', () => {
-      return request(app.getHttpServer())
-        .patch(`/workspaces/${workspaceId}/members/some-id/role`)
-        .set('Authorization', `Bearer ${memberAccessToken}`)
-        .send({
-          role: 'ADMIN',
-        })
+    it('refuses role changes by a member who is not an admin', () => {
+      return as(
+        member,
+        request(server()).patch(`/workspaces/${owner.workspaceId}/members/${owner.userId}/role`),
+      )
+        .send({ role: 'viewer' })
         .expect(403);
     });
   });
 
-  describe('GET /workspaces/:id/activity', () => {
-    it('should return workspace activity log', () => {
-      return request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}/activity`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
-        .expect(200)
-        .expect(res => {
-          expect(Array.isArray(res.body)).toBe(true);
-        });
-    });
+  /**
+   * The toggles are the whole point of the `member` role, and the viewer role
+   * is worth nothing if it can still write. Both used to be broken: a missing
+   * toggle read as "allowed", so a viewer could edit, and the category toggle
+   * was never consulted because the guard asked for an admin first.
+   */
+  describe('member permissions', () => {
+    const asWorkspace = (account: E2eAccount, req: request.Test) =>
+      as(account, req).set('x-workspace-id', owner.workspaceId);
 
-    it('should filter activity by type', () => {
-      return request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}/activity?type=MEMBER_JOINED`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
+    beforeAll(async () => {
+      await as(
+        owner,
+        request(server()).patch(`/workspaces/${owner.workspaceId}/members/${member.userId}/role`),
+      )
+        .send({ role: 'member' })
         .expect(200);
     });
 
-    it('should paginate activity', () => {
-      return request(app.getHttpServer())
-        .get(`/workspaces/${workspaceId}/activity?page=1&limit=10`)
-        .set('Authorization', `Bearer ${ownerAccessToken}`)
+    it('gives a member nothing until a toggle says so', async () => {
+      await as(
+        owner,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditStatements: true } })
         .expect(200);
+
+      await asWorkspace(member, request(server()).post('/categories'))
+        .send({ name: `no-toggle-${stamp}`, type: 'expense' })
+        .expect(403);
+    });
+
+    it('lets the member create a category once canEditCategories is on', async () => {
+      const res = await as(
+        owner,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditStatements: true, canEditCategories: true } })
+        .expect(200);
+      expect(res.body.permissions).toMatchObject({ canEditCategories: true });
+
+      await asWorkspace(member, request(server()).post('/categories'))
+        .send({ name: `with-toggle-${stamp}`, type: 'expense' })
+        .expect(201);
+    });
+
+    it('refuses permission changes from the member themselves', () => {
+      return as(
+        member,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditCategories: true } })
+        .expect(403);
+    });
+
+    it('keeps a viewer read-only even with every toggle in the row', async () => {
+      await as(
+        owner,
+        request(server()).patch(`/workspaces/${owner.workspaceId}/members/${member.userId}/role`),
+      )
+        .send({ role: 'viewer' })
+        .expect(200);
+
+      // Changing the role clears the toggles, so put them back behind the API's
+      // back: the rule under test is that the role wins over the column, not
+      // that the column happens to be empty.
+      await dataSource.query(
+        `UPDATE workspace_members
+         SET permissions = '{"canEditStatements":true,"canEditCategories":true}'::jsonb
+         WHERE workspace_id = $1 AND user_id = $2`,
+        [owner.workspaceId, member.userId],
+      );
+
+      await asWorkspace(member, request(server()).get('/categories')).expect(200);
+      await asWorkspace(member, request(server()).post('/categories'))
+        .send({ name: `viewer-${stamp}`, type: 'expense' })
+        .expect(403);
+    });
+
+    it('has no toggles to set on a viewer', () => {
+      return as(
+        owner,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditCategories: true } })
+        .expect(400);
+    });
+
+    it('lets the owner create a goal and export a report', async () => {
+      await asWorkspace(owner, request(server()).post('/goals'))
+        .send({ name: `goal-${stamp}`, targetAmount: 1000, currency: 'EUR' })
+        .expect(201);
+
+      // Only the guard is under test here; the export itself may still fail on
+      // an empty workspace, and that is not a permission problem.
+      await asWorkspace(owner, request(server()).post('/reports/workspace-export'))
+        .send({ format: 'csv' })
+        .expect(res => {
+          if (res.status === 403) {
+            throw new Error('report export is forbidden for the workspace owner');
+          }
+        });
+    });
+  });
+
+  describe('removing members', () => {
+    it('refuses to remove the owner', () => {
+      return as(
+        owner,
+        request(server()).delete(`/workspaces/${owner.workspaceId}/members/${owner.userId}`),
+      ).expect(403);
+    });
+
+    it('lets the owner remove a member, who then loses access', async () => {
+      await as(
+        owner,
+        request(server()).delete(`/workspaces/${owner.workspaceId}/members/${member.userId}`),
+      ).expect(200);
+
+      await as(member, request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(403);
     });
   });
 });

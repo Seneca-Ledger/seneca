@@ -27,7 +27,7 @@ export interface ProjectionPoint {
  * negative outlay has no return to speak of, and blank fields are not zero.
  */
 export function calculateRoi(investment: number, monthlyIncome: number): RoiResult | null {
-  if (!Number.isFinite(investment) || !Number.isFinite(monthlyIncome) || investment <= 0) {
+  if (!(Number.isFinite(investment) && Number.isFinite(monthlyIncome)) || investment <= 0) {
     return null;
   }
 
@@ -61,4 +61,23 @@ export function buildProjection(
 export function splitPayback(paybackYears: number): { years: number; months: number } {
   const totalMonths = Math.round(paybackYears * 12);
   return { years: Math.floor(totalMonths / 12), months: totalMonths % 12 };
+}
+
+/**
+ * "10 000,50", "10,000.50", "10000" → 10000.5. The last of "." or "," is the
+ * decimal mark when two digits or fewer follow it; any other one groups thousands.
+ */
+export function parseAmount(text: string): number | null {
+  const compact = text.replace(/[\s'\u00a0\u202f]/g, '');
+  if (compact === '') {
+    return null;
+  }
+  const lastMark = Math.max(compact.lastIndexOf('.'), compact.lastIndexOf(','));
+  const decimals = lastMark >= 0 ? compact.length - lastMark - 1 : 0;
+  const normalized =
+    lastMark >= 0 && decimals <= 2
+      ? `${compact.slice(0, lastMark).replace(/[.,]/g, '')}.${compact.slice(lastMark + 1)}`
+      : compact.replace(/[.,]/g, '');
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : null;
 }

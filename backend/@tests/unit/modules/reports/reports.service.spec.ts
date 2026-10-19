@@ -260,6 +260,7 @@ describe('generateFromTemplate', () => {
   let mockWorkspaceRepository: any;
   let mockExchangeRates: any;
   let mockBalanceService: any;
+  let mockHoldingsSnapshot: any;
   let service: ReportsService;
   const written: string[] = [];
 
@@ -268,9 +269,18 @@ describe('generateFromTemplate', () => {
   }
 
   beforeEach(() => {
+    // The rows are read through a query builder (the shared counting rule);
+    // `find` stays the place a test puts them, so the builder hands back its answer.
+    const rowsQuery: any = {
+      andWhere: jest.fn(() => rowsQuery),
+      where: jest.fn(() => rowsQuery),
+      leftJoinAndSelect: jest.fn(() => rowsQuery),
+      getMany: jest.fn(() => mockTransactionRepository.find()),
+    };
     mockTransactionRepository = {
       find: jest.fn(),
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn(() => rowsQuery),
+      rowsQuery,
     };
     mockReportHistoryRepo = {
       save: jest.fn().mockResolvedValue({}),
@@ -279,7 +289,13 @@ describe('generateFromTemplate', () => {
     mockWorkspaceRepository = {
       findOne: jest.fn(async () => ({ currency: 'EUR' })),
     };
-    mockExchangeRates = { getRate: jest.fn(async () => 2) };
+    mockExchangeRates = { getRateOrNull: jest.fn(async () => 2) };
+    mockHoldingsSnapshot = {
+      build: jest.fn(async () => ({
+        document: { title: 'Investment Holdings', subtitle: 's', sections: [] },
+        missingRates: ['XYZ'],
+      })),
+    };
     mockBalanceService = {
       exportBalanceSheet: jest.fn(async () => ({
         fileName: 'balance-sheet-2024-01-31.xlsx',
@@ -303,6 +319,8 @@ describe('generateFromTemplate', () => {
       mockWorkspaceRepository as any,
       mockExchangeRates as any,
       mockBalanceService as any,
+      {} as any,
+      mockHoldingsSnapshot as any,
     );
   });
 
@@ -363,8 +381,20 @@ describe('generateFromTemplate', () => {
 
   it('should generate P&L as excel', async () => {
     mockTransactionRepository.find.mockResolvedValue([
-      { amount: 5000, transactionType: 'income', currency: 'EUR', category: { name: 'Sales' } },
-      { amount: 2000, transactionType: 'expense', currency: 'EUR', category: { name: 'Rent' } },
+      {
+        amount: 5000,
+        transactionType: 'income',
+        currency: 'EUR',
+        categoryId: 'c-sales',
+        category: { name: 'Sales' },
+      },
+      {
+        amount: 2000,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-rent',
+        category: { name: 'Rent' },
+      },
     ]);
 
     const result = await generate({
@@ -417,8 +447,22 @@ describe('generateFromTemplate', () => {
 
   it('converts foreign-currency amounts into the workspace currency', async () => {
     mockTransactionRepository.find.mockResolvedValue([
-      { amount: 100, transactionType: 'income', currency: 'EUR', category: { name: 'Sales' } },
-      { amount: 100, transactionType: 'income', currency: 'USD', category: { name: 'Sales' } },
+      {
+        amount: 100,
+        transactionType: 'income',
+        currency: 'EUR',
+        transactionDate: '2024-03-04',
+        categoryId: 'c-sales',
+        category: { name: 'Sales' },
+      },
+      {
+        amount: 100,
+        transactionType: 'income',
+        currency: 'USD',
+        transactionDate: '2024-03-05',
+        categoryId: 'c-sales',
+        category: { name: 'Sales' },
+      },
     ]);
 
     const result = await generate({
@@ -428,9 +472,15 @@ describe('generateFromTemplate', () => {
       format: 'csv',
     });
 
-    // EUR is the workspace currency (rate 1), USD is converted at the mocked rate of 2.
-    expect(mockExchangeRates.getRate).toHaveBeenCalledWith('USD', 'EUR');
-    expect(mockExchangeRates.getRate).not.toHaveBeenCalledWith('EUR', 'EUR');
+    // EUR is the workspace currency (rate 1), USD is converted at the mocked rate of 2,
+    // looked up for the transaction's own day.
+    expect(mockExchangeRates.getRateOrNull).toHaveBeenCalledWith('USD', 'EUR', '2024-03-05', 'ws1');
+    expect(mockExchangeRates.getRateOrNull).not.toHaveBeenCalledWith(
+      'EUR',
+      'EUR',
+      expect.anything(),
+      expect.anything(),
+    );
     expect(fs.readFileSync(track(result.filePath), 'utf-8')).toContain('NET INCOME,300');
   });
 
@@ -446,9 +496,15 @@ describe('generateFromTemplate', () => {
       categoryIds: ['22222222-2222-4222-8222-222222222222'],
     });
 
-    const where = mockTransactionRepository.find.mock.calls[0][0].where;
-    expect(where.walletId).toBeDefined();
-    expect(where.categoryId).toBeDefined();
+    const conditions = mockTransactionRepository.rowsQuery.andWhere.mock.calls;
+    expect(conditions).toContainEqual([
+      'transaction.walletId IN (:...walletIds)',
+      { walletIds: ['11111111-1111-4111-8111-111111111111'] },
+    ]);
+    expect(conditions).toContainEqual([
+      'transaction.categoryId IN (:...categoryIds)',
+      { categoryIds: ['22222222-2222-4222-8222-222222222222'] },
+    ]);
   });
 
   it('omits the filter keys entirely when the arrays are empty', async () => {
@@ -463,10 +519,12 @@ describe('generateFromTemplate', () => {
       categoryIds: [],
     });
 
-    // `In([])` would render as `IN ()` and silently match nothing.
-    const where = mockTransactionRepository.find.mock.calls[0][0].where;
-    expect(where).not.toHaveProperty('walletId');
-    expect(where).not.toHaveProperty('categoryId');
+    // An empty list would render as `IN ()` and silently match nothing.
+    const sql = mockTransactionRepository.rowsQuery.andWhere.mock.calls.map(
+      ([condition]: [string]) => condition,
+    );
+    expect(sql.some((condition: string) => condition.includes('walletId'))).toBe(false);
+    expect(sql.some((condition: string) => condition.includes('categoryId'))).toBe(false);
   });
 
   it('should generate P&L as pdf', async () => {
@@ -586,6 +644,7 @@ describe('generateFromTemplate', () => {
         transactionType: 'expense',
         currency: 'EUR',
         transactionDate: new Date('2024-01-15'),
+        categoryId: 'c-marketing',
         category: { name: 'Marketing' },
       },
       {
@@ -593,6 +652,7 @@ describe('generateFromTemplate', () => {
         transactionType: 'expense',
         currency: 'EUR',
         transactionDate: new Date('2024-01-20'),
+        categoryId: 'c-rent',
         category: { name: 'Rent' },
       },
     ]);
@@ -611,19 +671,26 @@ describe('generateFromTemplate', () => {
   it('lists every transaction with both amounts in the register', async () => {
     mockTransactionRepository.find.mockResolvedValue([
       {
+        id: 't-acme',
         amount: 100,
         transactionType: 'expense',
         currency: 'USD',
         counterpartyName: 'Acme',
         transactionDate: new Date('2024-01-20T00:00:00.000Z'),
-        category: { name: 'Software' },
+        categoryId: 'c-software',
+        category: { name: 'Software', parent: { name: 'Business' } },
+        wallet: { name: 'Main card' },
+        comments: 'Annual plan',
+        tags: [{ name: 'tools' }, { name: 'tax' }],
       },
       {
+        id: 't-client',
         amount: 40,
         transactionType: 'income',
         currency: 'EUR',
         counterpartyName: 'Client',
         transactionDate: new Date('2024-01-10T00:00:00.000Z'),
+        categoryId: 'c-sales',
         category: { name: 'Sales' },
       },
     ]);
@@ -640,16 +707,37 @@ describe('generateFromTemplate', () => {
     const dataLines = lines.filter(line => /^\d{4}-\d{2}-\d{2},/.test(line));
 
     // Sorted by date, expenses signed negative, USD converted at the mocked rate of 2.
-    expect(dataLines[0]).toBe('2024-01-10,Client,Sales,Income,40,40 EUR');
-    expect(dataLines[1]).toBe('2024-01-20,Acme,Software,Expense,-200,100 USD');
-    expect(lines.some(line => line.startsWith('TOTAL,,,2 rows,-160,'))).toBe(true);
+    // A top-level category has no group; tags are joined into one cell.
+    expect(dataLines[0]).toBe('2024-01-10,Client,,Sales,Income,40,40 EUR,,,,t-client');
+    expect(dataLines[1]).toBe(
+      '2024-01-20,Acme,Business,Software,Expense,-200,100 USD,Main card,Annual plan,"tools, tax",t-acme',
+    );
+    expect(lines.some(line => line.startsWith('TOTAL,,,,2 rows,-160,'))).toBe(true);
   });
 
   it('summarises totals and top categories in the monthly summary', async () => {
     mockTransactionRepository.find.mockResolvedValue([
-      { amount: 1000, transactionType: 'income', currency: 'EUR', category: { name: 'Sales' } },
-      { amount: 300, transactionType: 'expense', currency: 'EUR', category: { name: 'Rent' } },
-      { amount: 100, transactionType: 'expense', currency: 'EUR', category: { name: 'Food' } },
+      {
+        amount: 1000,
+        transactionType: 'income',
+        currency: 'EUR',
+        categoryId: 'c-sales',
+        category: { name: 'Sales' },
+      },
+      {
+        amount: 300,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-rent',
+        category: { name: 'Rent' },
+      },
+      {
+        amount: 100,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-food',
+        category: { name: 'Food' },
+      },
     ]);
 
     const result = await generate({
@@ -667,6 +755,190 @@ describe('generateFromTemplate', () => {
     // Top categories are ordered by size, largest first.
     expect(csv.indexOf('Rent,300')).toBeLessThan(csv.indexOf('Food,100'));
     expect(csv).toContain('NET,600');
+  });
+
+  it('leaves out an amount whose currency has no rate and says so above the figures', async () => {
+    mockExchangeRates.getRateOrNull.mockImplementation(async (from: string) =>
+      from === 'USD' ? 2 : null,
+    );
+    mockTransactionRepository.find.mockResolvedValue([
+      { amount: 100, transactionType: 'income', currency: 'USD', categoryId: 'c-sales' },
+      { amount: 1000, transactionType: 'income', currency: 'XYZ', categoryId: 'c-sales' },
+    ]);
+
+    const preview = await service.previewTemplate('ws1', {
+      templateId: 'pnl',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-12-31',
+      format: 'csv',
+    } as any);
+
+    // Never 1:1: the XYZ thousand is not in the total, and the note names the currency.
+    expect(preview.footer).toEqual([['NET INCOME', 200]]);
+    expect(preview.notes).toEqual([
+      'No exchange rate for XYZ: those amounts are not included in the EUR totals.',
+    ]);
+  });
+
+  it('prints the document in the requested language', async () => {
+    mockTransactionRepository.find.mockResolvedValue([
+      { amount: 10, transactionType: 'income', currency: 'EUR', categoryId: 'c-sales' },
+    ]);
+
+    const result = await generate({
+      templateId: 'pnl',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'csv',
+      locale: 'de',
+    });
+
+    const csv = fs.readFileSync(track(result.filePath), 'utf-8');
+    expect(csv).toContain('Gewinn- und Verlustrechnung');
+    expect(csv).not.toContain('NET INCOME');
+  });
+
+  it('keeps two categories with the same name under different parents apart', async () => {
+    mockTransactionRepository.find.mockResolvedValue([
+      {
+        amount: 30,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-home-other',
+        category: { name: 'Other', parent: { name: 'Home' } },
+      },
+      {
+        amount: 20,
+        transactionType: 'expense',
+        currency: 'EUR',
+        categoryId: 'c-work-other',
+        category: { name: 'Other', parent: { name: 'Work' } },
+      },
+    ]);
+
+    const preview = await service.previewTemplate('ws1', {
+      templateId: 'expense-by-category',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'csv',
+    } as any);
+
+    expect(preview.sections[0].rows.map(row => row.slice(0, 3))).toEqual([
+      ['Home', 'Other', 30],
+      ['Work', 'Other', 20],
+    ]);
+  });
+
+  it('orders categories by their group\'s total, then largest first within the group', async () => {
+    mockTransactionRepository.find.mockResolvedValue([
+      { amount: 500, transactionType: 'expense', currency: 'EUR', categoryId: 'c-rent', category: { name: 'Rent' } },
+      { amount: 250, transactionType: 'expense', currency: 'EUR', categoryId: 'c-cafe', category: { name: 'Cafe', parent: { name: 'Food' } } },
+      { amount: 300, transactionType: 'expense', currency: 'EUR', categoryId: 'c-groc', category: { name: 'Groceries', parent: { name: 'Food' } } },
+    ]);
+
+    const preview = await service.previewTemplate('ws1', {
+      templateId: 'expense-by-category',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'csv',
+    } as any);
+
+    // Food (550) outweighs Rent (500), so its two categories come first, together.
+    expect(preview.sections[0].rows.map(row => row.slice(0, 2))).toEqual([
+      ['Food', 'Groceries'],
+      ['Food', 'Cafe'],
+      ['', 'Rent'],
+    ]);
+  });
+
+  it('gives the balance sheet English account names for a language it has none in', async () => {
+    const result = await generate({
+      templateId: 'balance-sheet',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'pdf',
+      locale: 'de',
+    });
+    track(result.filePath);
+
+    expect(mockBalanceService.exportBalanceSheet).toHaveBeenCalledWith(
+      'ws1',
+      { date: '2024-01-31', format: 'pdf' },
+      'en',
+    );
+  });
+
+  describe('categories by month', () => {
+    const rows = [
+      { amount: 100, transactionType: 'income', currency: 'EUR', transactionDate: '2024-01-05', categoryId: 'c-sales', category: { name: 'Sales' } },
+      { amount: 40, transactionType: 'expense', currency: 'EUR', transactionDate: '2024-01-07', categoryId: 'c-food', category: { name: 'Food' } },
+      { amount: 60, transactionType: 'expense', currency: 'EUR', transactionDate: '2024-03-02', categoryId: 'c-food', category: { name: 'Food' } },
+      { amount: 25, transactionType: 'expense', currency: 'USD', transactionDate: '2024-03-09', categoryId: 'c-rent', category: { name: 'Rent', parent: { name: 'Home' } } },
+    ];
+    const dto = {
+      templateId: 'category-by-month',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-03-31',
+      format: 'csv',
+    } as any;
+
+    it('lays out a column per month, empty months included, with totals and an average', async () => {
+      mockTransactionRepository.find.mockResolvedValue(rows);
+
+      const preview = await service.previewTemplate('ws1', dto);
+      const [income, expenses, net] = preview.sections;
+
+      expect(expenses.columns).toEqual([
+        'Group', 'Category', '2024-01', '2024-02', '2024-03', 'Total', 'Average / month',
+      ]);
+      expect(expenses.rows).toEqual([
+        ['', 'Food', 40, 0, 60, 100, 33.33],
+        // USD at the mocked rate of 2.
+        ['Home', 'Rent', 0, 0, 50, 50, 16.67],
+      ]);
+      expect(income.total).toEqual(['TOTAL', '', 100, 0, 0, 100, 33.33]);
+      expect(net.rows[0].slice(2)).toEqual([60, 0, -110, -50, -16.67]);
+      expect(preview.orientation).toBe('landscape');
+    });
+
+    it('agrees with the P&L for the same period', async () => {
+      mockTransactionRepository.find.mockResolvedValue(rows);
+      const matrix = await service.previewTemplate('ws1', dto);
+      const pnl = await service.previewTemplate('ws1', { ...dto, templateId: 'pnl' });
+
+      expect(matrix.footer).toEqual([['NET', pnl.footer?.[0][1]]]);
+      expect(matrix.sections[1].total?.at(-2)).toBe(pnl.sections[1].total?.at(-1));
+    });
+
+    it('refuses more than a year on a PDF page, and more than three years at all', async () => {
+      await expect(
+        service.previewTemplate('ws1', { ...dto, dateTo: '2025-01-31', format: 'pdf' }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.previewTemplate('ws1', { ...dto, dateTo: '2027-01-31', format: 'excel' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockTransactionRepository.find).not.toHaveBeenCalled();
+
+      mockTransactionRepository.find.mockResolvedValue([]);
+      await expect(
+        service.previewTemplate('ws1', { ...dto, dateTo: '2024-12-31', format: 'pdf' }),
+      ).resolves.toBeDefined();
+    });
+  });
+
+  it('takes the holdings snapshot from its own builder, with the missing-rate note on top', async () => {
+    const preview = await service.previewTemplate('ws1', {
+      templateId: 'investment-holdings',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-01-31',
+      format: 'pdf',
+    } as any);
+
+    expect(mockHoldingsSnapshot.build).toHaveBeenCalledWith('ws1', expect.anything(), 'EUR');
+    expect(mockTransactionRepository.find).not.toHaveBeenCalled();
+    expect(preview.notes).toEqual([
+      'No exchange rate for XYZ: those amounts are not included in the EUR totals.',
+    ]);
   });
 
   it('delegates Balance Sheet to BalanceService and stores the buffer', async () => {
@@ -699,8 +971,8 @@ describe('generateFromTemplate', () => {
 
   it('previews the document without writing a file', async () => {
     mockTransactionRepository.find.mockResolvedValue([
-      { amount: 10, transactionType: 'income', currency: 'EUR', category: { name: 'Sales' } },
-      { amount: 4, transactionType: 'expense', currency: 'EUR', category: { name: 'Rent' } },
+      { amount: 10, transactionType: 'income', currency: 'EUR', categoryId: 'c-sales' },
+      { amount: 4, transactionType: 'expense', currency: 'EUR', categoryId: 'c-rent' },
     ]);
 
     const preview = await service.previewTemplate('ws1', {
@@ -722,6 +994,7 @@ describe('generateFromTemplate', () => {
         amount: index + 1,
         transactionType: 'expense',
         currency: 'EUR',
+        categoryId: `c-${index}`,
         category: { name: `Category ${index}` },
       })),
     );
@@ -740,7 +1013,7 @@ describe('generateFromTemplate', () => {
     expect(preview.sections[0].rows).toHaveLength(5);
     expect(preview.truncated).toBe(true);
     // Totals stay computed over the full set, not the visible slice.
-    expect(preview.sections[0].total?.[1]).toBe(325);
+    expect(preview.sections[0].total?.[2]).toBe(325);
   });
 
   it('refuses to preview the balance sheet', async () => {
@@ -820,11 +1093,12 @@ describe('exportWorkspaceTransactions', () => {
     expect(qb.where).toHaveBeenCalledWith('transaction.workspaceId = :workspaceId', {
       workspaceId: 'ws-42',
     });
-    expect(qb.andWhere).toHaveBeenNthCalledWith(1, 'transaction.isDuplicate = false');
-    expect(qb.andWhere).toHaveBeenNthCalledWith(
-      2,
-      '(transaction.statementId IS NULL OR statement.deletedAt IS NULL)',
-    );
+    // Only confirmed rows are exported; a row waiting in Review is not.
+    expect(qb.andWhere).toHaveBeenNthCalledWith(1, 'transaction.isVerified = true');
+    expect(qb.andWhere).toHaveBeenNthCalledWith(2, 'transaction.isDuplicate = false');
+    // Trashed statements are left out through a subquery, not a join.
+    expect(qb.andWhere).toHaveBeenNthCalledWith(3, expect.stringContaining('deleted_at IS NOT NULL'));
+    expect(qb.andWhere).toHaveBeenNthCalledWith(4, 'transaction.transferPairId IS NULL');
     expect(excelSpy).toHaveBeenCalledWith([{ id: 'tx-1' }], expect.stringContaining('workspace-transactions-'));
     expect(result.fileName).toMatch(/^workspace-transactions-.*\.xlsx$/);
     expect(result.mimeType).toBe(

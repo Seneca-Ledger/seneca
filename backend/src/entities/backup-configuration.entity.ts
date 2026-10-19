@@ -24,7 +24,7 @@ export class BackupConfiguration {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })

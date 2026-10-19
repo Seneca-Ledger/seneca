@@ -1,7 +1,5 @@
 'use client';
 
-import { ChevronDown, Search } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -10,6 +8,8 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import React, { useState } from 'react';
+import { ChevronDown, Search } from '@/app/components/icons';
+import { tokens } from '@/lib/theme-tokens';
 import type { MemberRoleFilter, MemberSortBy } from './workspace-members.utils';
 
 const SORT_OPTIONS: Array<{ key: MemberSortBy; label: string }> = [

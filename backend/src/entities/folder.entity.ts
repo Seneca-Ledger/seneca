@@ -20,17 +20,17 @@ export class Folder {
   @Column()
   name: string;
 
-  @Column({ name: 'user_id', nullable: true })
+  @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string | null;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
-  @Column({ name: 'tag_id', nullable: true })
+  @Column({ name: 'tag_id', type: 'uuid', nullable: true })
   tagId: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

@@ -1,3 +1,5 @@
+import type { CustomTablesReport, CustomTablesReportDrillDown } from '@/app/lib/contracts';
+
 export type TablesReportFlowType = 'all' | 'expense' | 'income';
 export type TablesReportSortKey = 'amount' | 'average' | 'operations';
 export type TablesReportTrend = 'up' | 'down' | 'flat';
@@ -10,75 +12,19 @@ export interface TablesReportsFilters {
   search: string;
 }
 
-export interface TablesReportRow {
-  counterparty: string;
-  source: 'manual' | 'google_sheets_import';
-  tableId: string;
-  tableName: string;
-  count: number;
-  total: number;
-  average: number;
-  lastDate: string | null;
-  currency: string | null;
-}
-
-export interface TablesReportResponse {
-  totals: {
-    total: number;
-    manualTotal: number;
-    googleSheetsTotal: number;
-    operations: number;
-  };
-  comparison: {
-    totalDelta: number;
-    totalPercentage: number;
-    totalTrend: TablesReportTrend;
-    manualDelta: number;
-    manualPercentage: number;
-    manualTrend: TablesReportTrend;
-    googleSheetsDelta: number;
-    googleSheetsPercentage: number;
-    googleSheetsTrend: TablesReportTrend;
-    operationsDelta: number;
-    operationsPercentage: number;
-    operationsTrend: TablesReportTrend;
-  };
-  timeseries: Array<{ date: string; amount: number }>;
-  sourceSplit: { manual: number; googleSheets: number };
-  aggregatedRows: TablesReportRow[];
-  tables: Array<{
-    id: string;
-    name: string;
-    source: 'manual' | 'google_sheets_import';
-    total: number;
-    rows: number;
-  }>;
-}
-
-export interface TablesReportDrillDownItem {
-  rowId: string;
-  tableId: string;
-  tableName: string;
-  source: 'manual' | 'google_sheets_import';
-  date: string | null;
-  amount: number;
-  category: string | null;
-  currency: string | null;
-}
-
-export interface TablesReportDrillDownResponse {
-  counterparty: string;
-  items: TablesReportDrillDownItem[];
-}
+export type TablesReportResponse = CustomTablesReport;
+export type TablesReportRow = TablesReportResponse['aggregatedRows'][number];
+export type TablesReportDrillDownResponse = CustomTablesReportDrillDown;
+export type TablesReportDrillDownItem = TablesReportDrillDownResponse['items'][number];
 
 export interface AvailableTable {
   id: string;
   name: string;
-  source: 'manual' | 'google_sheets_import';
+  source: 'manual';
   rowCount: number;
 }
 
-export const TABLES_REPORTS_FILTERS_STORAGE_KEY = 'lumio-tables-reports-filters';
+export const TABLES_REPORTS_FILTERS_STORAGE_KEY = 'seneca-tables-reports-filters';
 
 export const DEFAULT_TABLES_REPORTS_FILTERS: TablesReportsFilters = {
   tableIds: [],
@@ -130,8 +76,8 @@ export function formatAmount(value: number, currency?: string | null): string {
   return currency ? `${formatted} ${currency}` : formatted;
 }
 
-export function getSourceLabel(source: string): string {
-  return source === 'google_sheets_import' ? 'Google Sheets' : 'Manual';
+export function getSourceLabel(source: string, manualLabel = 'Manual'): string {
+  return source === 'manual' ? manualLabel : source;
 }
 
 export function getComparisonColor(trend: TablesReportTrend): string {

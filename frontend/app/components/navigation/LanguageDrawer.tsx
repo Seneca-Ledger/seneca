@@ -1,8 +1,9 @@
 'use client';
 
+import React from 'react';
 import { Check, ChevronLeft, Search } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import React from 'react';
+import { useIntlayer } from '@/app/i18n';
 
 type LanguageDrawerProps = {
   isOpen: boolean;
@@ -26,17 +27,18 @@ export function LanguageDrawer({
   normalizedLocale,
   handleLanguageSelect,
 }: LanguageDrawerProps): React.JSX.Element {
+  const { shell } = useIntlayer('navigation');
   return (
     <DrawerShell
       isOpen={isOpen}
       onClose={onClose}
       title={
-        <div className="lumio-navigation__lang-header">
+        <div className="seneca-navigation__lang-header">
           <button
             type="button"
             onClick={onClose}
-            className="lumio-navigation__lang-back-btn"
-            aria-label="Close language drawer"
+            className="seneca-navigation__lang-back-btn"
+            aria-label={shell.closeLanguageDrawer.value}
           >
             <ChevronLeft style={{ width: 20, height: 20 }} />
           </button>
@@ -44,24 +46,24 @@ export function LanguageDrawer({
         </div>
       }
       position="right"
-      width="lg"
+      width="sm"
       showCloseButton={false}
     >
-      <div className="lumio-navigation__lang-body">
-        <div className="lumio-navigation__lang-scroll">
-          <div className="lumio-navigation__lang-search-wrapper">
-            <Search className="lumio-navigation__lang-search-icon" />
+      <div className="seneca-navigation__lang-body">
+        <div className="seneca-navigation__lang-scroll">
+          <div className="seneca-navigation__lang-search-wrapper">
+            <Search className="seneca-navigation__lang-search-icon" />
             <input
               type="text"
               value={languageSearch}
               onChange={e => {
                 setLanguageSearch(e.target.value);
               }}
-              placeholder="Search"
-              className="lumio-navigation__lang-search-input"
+              placeholder={shell.search.value}
+              className="seneca-navigation__lang-search-input"
             />
           </div>
-          <div className="lumio-navigation__lang-list">
+          <div className="seneca-navigation__lang-list">
             {filteredLanguages.length > 0 ? (
               filteredLanguages.map(lang => {
                 const selected = normalizedLocale === lang.code;
@@ -72,9 +74,9 @@ export function LanguageDrawer({
                     onClick={() => {
                       handleLanguageSelect(lang.code);
                     }}
-                    className={`lumio-navigation__lang-option${selected ? ' lumio-navigation__lang-option--selected' : ''}`}
+                    className={`seneca-navigation__lang-option${selected ? ' seneca-navigation__lang-option--selected' : ''}`}
                   >
-                    <span className="lumio-navigation__lang-option-label">{lang.label}</span>
+                    <span className="seneca-navigation__lang-option-label">{lang.label}</span>
                     {selected && (
                       <Check style={{ width: 20, height: 20, color: 'var(--color-primary)' }} />
                     )}
@@ -82,7 +84,7 @@ export function LanguageDrawer({
                 );
               })
             ) : (
-              <p className="lumio-navigation__lang-empty">No languages found</p>
+              <p className="seneca-navigation__lang-empty">{shell.noLanguagesFound}</p>
             )}
           </div>
         </div>

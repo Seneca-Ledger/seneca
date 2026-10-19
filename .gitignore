@@ -60,9 +60,11 @@ uploads/
 
 # Statement uploads land in the backend's working directory when UPLOADS_DIR is
 # unset, which is the default in local dev. Parsing fixtures are kept on purpose
-# and live in backend/golden/ and docs/statements-examples/.
+# and live in backend/golden/ (anonymized) and docs/statements-examples/.
 backend/*-statement.pdf
 backend/*-receipt.pdf
+# Real statements before anonymization (scripts/anonymize_statement_pdf.py).
+backend/golden-private/
 
 # TypeScript
 *.tsbuildinfo
@@ -83,3 +85,10 @@ graphify-out/*
 
 # Claude Code
 .claude/settings.local.json
+
+# SkillOpt-Sleep (staging, evidence logs with transcript excerpts)
+.skillopt-sleep/
+.skillopt-sleep-handoff/
+
+# make db-backup / make upgrade dumps
+backup_*.sql

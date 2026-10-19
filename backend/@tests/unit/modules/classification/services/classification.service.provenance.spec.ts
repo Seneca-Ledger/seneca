@@ -1,0 +1,176 @@
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Test, type TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Branch } from '../../../../../src/entities/branch.entity';
+import { CategorizationRule } from '../../../../../src/entities/categorization-rule.entity';
+import { Category } from '../../../../../src/entities/category.entity';
+import { Payee } from '../../../../../src/entities/payee.entity';
+import { PayeeAlias } from '../../../../../src/entities/payee-alias.entity';
+import {
+  Transaction,
+  TransactionCategorySource,
+  TransactionType,
+} from '../../../../../src/entities/transaction.entity';
+import { Wallet } from '../../../../../src/entities/wallet.entity';
+import { Workspace } from '../../../../../src/entities/workspace.entity';
+import { AuditService } from '../../../../../src/modules/audit/audit.service';
+import { ClassificationService } from '../../../../../src/modules/classification/services/classification.service';
+
+/**
+ * Where a category came from, and the switches that decide which steps may run.
+ */
+describe('ClassificationService provenance and switches', () => {
+  let service: ClassificationService;
+  let module: TestingModule;
+
+  const payeeHistory = {
+    rows: [] as Array<{ categoryId: string }>,
+    seen: [] as string[],
+  };
+  const transactionRepository = {
+    createQueryBuilder: jest.fn(() => {
+      const builder = {
+        select: () => builder,
+        where: (condition: string) => {
+          payeeHistory.seen.push(condition);
+          return builder;
+        },
+        andWhere: (condition: string) => {
+          payeeHistory.seen.push(condition);
+          return builder;
+        },
+        orderBy: () => builder,
+        addOrderBy: () => builder,
+        take: () => builder,
+        getMany: async () => payeeHistory.rows,
+      };
+      return builder;
+    }),
+  };
+  // Every descriptor in these tests is the one payee, "Magnum".
+  const aliasRepository = { findOne: jest.fn(async () => ({ payeeId: 'payee-1' })) };
+  const payeeRepository = {
+    findOne: jest.fn(async () => ({ id: 'payee-1', name: 'Magnum', mode: 'auto', categoryId: null })),
+  };
+  const workspaceRepository = { findOne: jest.fn() };
+  const ruleRepository = { find: jest.fn(async () => []) };
+  const categoryRepository = {
+    find: jest.fn(async () => []),
+    findOne: jest.fn(async () => null),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+  const cache = { get: jest.fn(async () => undefined), set: jest.fn(), del: jest.fn() };
+
+  const tx = (overrides: Partial<Transaction> = {}): Transaction =>
+    ({
+      id: undefined,
+      workspaceId: 'ws-1',
+      counterpartyName: 'Magnum',
+      paymentPurpose: 'Groceries',
+      debit: 100,
+      credit: null,
+      amount: 100,
+      transactionType: TransactionType.EXPENSE,
+      ...overrides,
+    }) as Transaction;
+
+  function settings(processing: Record<string, unknown>) {
+    workspaceRepository.findOne.mockResolvedValue({ id: 'ws-1', settings: { processing } });
+  }
+
+  beforeAll(async () => {
+    module = await Test.createTestingModule({
+      providers: [
+        ClassificationService,
+        { provide: getRepositoryToken(Category), useValue: categoryRepository },
+        { provide: getRepositoryToken(Transaction), useValue: transactionRepository },
+        { provide: getRepositoryToken(Payee), useValue: payeeRepository },
+        { provide: getRepositoryToken(PayeeAlias), useValue: aliasRepository },
+        { provide: getRepositoryToken(Branch), useValue: { find: jest.fn(async () => []) } },
+        {
+          provide: getRepositoryToken(Wallet),
+          useValue: { find: jest.fn(async () => []), findOne: jest.fn(async () => null) },
+        },
+        { provide: getRepositoryToken(CategorizationRule), useValue: ruleRepository },
+        { provide: getRepositoryToken(Workspace), useValue: workspaceRepository },
+        { provide: CACHE_MANAGER, useValue: cache },
+        { provide: AuditService, useValue: { createEvent: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(ClassificationService);
+  });
+
+  afterAll(async () => {
+    await module.close();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    cache.get.mockResolvedValue(undefined);
+    ruleRepository.find.mockResolvedValue([]);
+    payeeHistory.rows = [];
+    payeeHistory.seen = [];
+    settings({});
+  });
+
+  describe('category source', () => {
+    it('names the rule that matched', async () => {
+      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
+        {
+          id: 'rule-1',
+          name: 'Magnum is groceries',
+          priority: 500,
+          isActive: true,
+          conditions: [{ field: 'counterparty_name', operator: 'contains', value: 'magnum' }],
+          result: { categoryId: 'cat-groceries' },
+        },
+      ]);
+
+      const result = await service.classifyTransaction(tx(), 'u1');
+
+      expect(result).toMatchObject({
+        categoryId: 'cat-groceries',
+        categorySource: TransactionCategorySource.RULE,
+        categoryReason: 'Magnum is groceries',
+      });
+    });
+
+    it('marks the uncategorised fallback as default', async () => {
+      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      jest.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
+
+      const result = await service.classifyTransaction(tx({ counterpartyName: 'Zzz' }), 'u1');
+
+      expect(result.categorySource).toBe(TransactionCategorySource.DEFAULT);
+      expect(result.categoryReason).toBeNull();
+    });
+
+    it('names the payee whose history decided it', async () => {
+      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      payeeHistory.rows = [{ categoryId: 'cat-groceries' }];
+
+      const result = await service.classifyTransaction(tx(), 'u1');
+
+      expect(result).toMatchObject({
+        categoryId: 'cat-groceries',
+        categorySource: TransactionCategorySource.HISTORY,
+        categoryReason: 'Magnum',
+      });
+    });
+  });
+
+  describe('switches', () => {
+    it('does not read the payee history when learning is off', async () => {
+      settings({ merchantLearning: false });
+      payeeHistory.rows = [{ categoryId: 'cat-groceries' }];
+      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      jest.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
+
+      const result = await service.classifyTransaction(tx(), 'u1');
+
+      expect(transactionRepository.createQueryBuilder).not.toHaveBeenCalled();
+      expect(result.categorySource).toBe(TransactionCategorySource.DEFAULT);
+    });
+  });
+});

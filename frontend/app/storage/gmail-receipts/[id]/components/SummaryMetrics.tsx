@@ -1,7 +1,8 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
 
 import { Box, Paper, Typography } from '@mui/material';
+import { useIntlayer } from '@/app/i18n';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { EditableReceiptData, GmailReceipt } from '../hooks/useGmailReceiptData';
 
 interface MetricCardProps {
@@ -49,6 +50,7 @@ export function SummaryMetrics({
   confidencePercent,
   isLowConfidence,
 }: SummaryMetricsProps): React.ReactElement {
+  const t = useIntlayer('gmailReceiptPage');
   const dateValue = editedData.date
     ? formatStoredDate(editedData.date)
     : formatStoredDate(receipt.receivedAt);
@@ -62,20 +64,20 @@ export function SummaryMetrics({
         gap: 2,
       }}
     >
-      <MetricCard label="Date" value={dateValue} />
+      <MetricCard label={t.metrics.date.value} value={dateValue} />
       <MetricCard
-        label="Income"
+        label={t.metrics.income.value}
         value={formatCurrencyAmount(income, currency)}
         color="success.main"
       />
       <MetricCard
-        label="Expense"
+        label={t.metrics.expense.value}
         value={formatCurrencyAmount(expense, currency)}
         color="error.main"
       />
       <MetricCard
-        label="Confidence"
-        value={confidencePercent === null ? 'N/A' : `${confidencePercent}%`}
+        label={t.metrics.confidence.value}
+        value={confidencePercent === null ? t.metrics.notAvailable.value : `${confidencePercent}%`}
         color={isLowConfidence ? 'warning.main' : 'success.main'}
       />
     </Box>

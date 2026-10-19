@@ -1,6 +1,7 @@
 import { Box, Button, DialogActions, DialogContent, TextField, Typography } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { format, isValid, parseISO } from 'date-fns';
+import { useIntlayer } from '@/app/i18n';
 import type { DroppedSampleDraft } from './helpers/warning-formatters';
 
 interface DroppedSampleFormProps {
@@ -28,6 +29,7 @@ function DroppedSampleFields({
   onUpdateDraft,
   onOpenCurrencyPicker,
 }: FieldsProps): React.ReactElement {
+  const t = useIntlayer('statementDroppedSampleForm');
   return (
     <Box
       sx={{
@@ -37,7 +39,7 @@ function DroppedSampleFields({
       }}
     >
       <DatePicker
-        label="Date"
+        label={t.date.value}
         value={draft.transactionDate ? parseISO(draft.transactionDate) : null}
         onChange={(date: Date | null) =>
           onUpdateDraft({
@@ -55,21 +57,21 @@ function DroppedSampleFields({
       />
       <TextField
         size="small"
-        label="Counterparty"
+        label={t.counterparty.value}
         name={`droppedSamples.${entryKey}.counterpartyName`}
         value={draft.counterpartyName}
         onChange={event => onUpdateDraft({ field: 'counterpartyName', value: event.target.value })}
       />
       <TextField
         size="small"
-        label="Payment purpose"
+        label={t.paymentPurpose.value}
         name={`droppedSamples.${entryKey}.paymentPurpose`}
         value={draft.paymentPurpose}
         onChange={event => onUpdateDraft({ field: 'paymentPurpose', value: event.target.value })}
       />
       <TextField
         size="small"
-        label="Currency"
+        label={t.currency.value}
         name={`droppedSamples.${entryKey}.currency`}
         value={draft.currency}
         onClick={onOpenCurrencyPicker}
@@ -85,7 +87,7 @@ function DroppedSampleFields({
       <TextField
         size="small"
         type="number"
-        label="Debit"
+        label={t.debit.value}
         name={`droppedSamples.${entryKey}.debit`}
         value={draft.debit}
         onChange={event => onUpdateDraft({ field: 'debit', value: event.target.value })}
@@ -93,7 +95,7 @@ function DroppedSampleFields({
       <TextField
         size="small"
         type="number"
-        label="Credit"
+        label={t.credit.value}
         name={`droppedSamples.${entryKey}.credit`}
         value={draft.credit}
         onChange={event => onUpdateDraft({ field: 'credit', value: event.target.value })}
@@ -113,6 +115,7 @@ export function DroppedSampleForm({
   onCancel,
   onConvert,
 }: DroppedSampleFormProps): React.ReactElement {
+  const t = useIntlayer('statementDroppedSampleForm');
   return (
     <>
       <DialogContent dividers>
@@ -126,13 +129,13 @@ export function DroppedSampleForm({
           onOpenCurrencyPicker={onOpenCurrencyPicker}
         />
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-          Fill in a valid date and either debit or credit to convert this row.
+          {t.hint}
         </Typography>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button onClick={onCancel}>{t.cancel}</Button>
         <Button variant="contained" disabled={!canConvert || isConverting} onClick={onConvert}>
-          Convert to transaction
+          {t.convert}
         </Button>
       </DialogActions>
     </>

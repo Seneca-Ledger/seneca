@@ -1,13 +1,17 @@
+import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Data } from 'effect';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { InjectRepository } from '@nestjs/typeorm';
+import type { Repository } from 'typeorm';
 // DataSource is imported as a value, not a type: Nest resolves this constructor
 // parameter from the emitted design:paramtypes metadata, which `import type` erases.
 import { DataSource } from 'typeorm';
-import type { Repository } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
+import { toMinor } from '../../../common/utils/money.util';
 import { extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import { Semaphore } from '../../../common/utils/semaphore.util';
 import { ImportSessionMode } from '../../../entities/import-session.entity';
@@ -15,9 +19,7 @@ import { BankName, FileType, Statement, StatementStatus } from '../../../entitie
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 import { User } from '../../../entities/user.entity';
 import { extractTaxFromPurpose } from '../../classification/helpers/tax-extractor.util';
-import type { TransactionEnrichment } from '../../classification/interfaces/transaction-enrichment.interface';
 import { ClassificationService } from '../../classification/services/classification.service';
-import { GoogleSheetsService } from '../../google-sheets/google-sheets.service';
 import { ImportSessionService } from '../../import/services/import-session.service';
 import type {
   ImportCommittedEvent,
@@ -25,11 +27,12 @@ import type {
   TransactionsUncategorizedEvent,
 } from '../../notifications/events/notification-events';
 import { MetricsService } from '../../observability/metrics.service';
+import { TaxAssignmentService } from '../../tax/tax-assignment.service';
 import { CrossStatementDeduplicationService } from '../../transactions/services/cross-statement-deduplication.service';
+import { ManualRowDuplicateService } from '../../transactions/services/manual-row-duplicate.service';
 import { TransactionFingerprintService } from '../../transactions/services/transaction-fingerprint.service';
-import { AiParseValidator } from '../helpers/ai-parse-validator.helper';
-import type { ParsedTransaction } from '../interfaces/parsed-statement.interface';
-import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
+import { TransferPairingService } from '../../transactions/services/transfer-pairing.service';
+import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { MetadataExtractionService } from './metadata-extraction.service';
 import { OcrService } from './ocr.service';
 import { ParserFactoryService } from './parser-factory.service';
@@ -48,10 +51,25 @@ function parsePositiveInt(value: string | undefined, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/**
+ * A statement no retry can parse: the row or its file is gone, or no parser
+ * accepts the file. The queue gives up on it instead of trying again.
+ */
+export class StatementRejected extends Data.TaggedError('StatementRejected')<{
+  readonly message: string;
+}> {}
+
+export interface ProcessStatementOptions {
+  /**
+   * False while the queue still has attempts left: the failure is recorded on
+   * the statement, but the user hears about it only once, when it is final.
+   */
+  readonly finalAttempt?: boolean;
+}
+
 @Injectable()
 export class StatementProcessingService {
   private readonly logger = new Logger(StatementProcessingService.name);
-  private aiValidator = new AiParseValidator();
   private static readonly inFlight = new Map<string, Promise<Statement>>();
   private static readonly parsingSemaphore = new Semaphore(
     parsePositiveInt(process.env.STATEMENT_PARSING_CONCURRENCY, 5),
@@ -77,13 +95,15 @@ export class StatementProcessingService {
     private importSessionService: ImportSessionService,
     private transactionFingerprintService: TransactionFingerprintService,
     private readonly dataSource: DataSource,
-    @Optional()
-    @Inject(forwardRef(() => GoogleSheetsService))
-    private googleSheetsService?: GoogleSheetsService,
+    private readonly taxAssignmentService: TaxAssignmentService,
     private metricsService?: MetricsService,
     @Optional()
     private crossStatementDeduplicationService?: CrossStatementDeduplicationService,
     private readonly eventEmitter?: EventEmitter2,
+    @Optional()
+    private readonly transferPairingService?: TransferPairingService,
+    @Optional()
+    private readonly manualRowDuplicates?: ManualRowDuplicateService,
   ) {}
 
   private isRecord(value: unknown): value is Record<string, unknown> {
@@ -118,7 +138,8 @@ export class StatementProcessingService {
         : enrichedMetadata.dateTo,
       balanceStart: parserMetadata.balanceStart ?? enrichedMetadata.balanceStart,
       balanceEnd: parserMetadata.balanceEnd ?? enrichedMetadata.balanceEnd,
-      currency: parserMetadata.currency?.trim() || enrichedMetadata.currency || 'KZT',
+      currency:
+        parserMetadata.currency?.trim() || enrichedMetadata.currency || appDefaultCurrency(),
       rawHeader: enrichedMetadata.rawHeader || parserMetadata.rawHeader,
       normalizedHeader: enrichedMetadata.normalizedHeader || parserMetadata.normalizedHeader,
       periodLabel: enrichedMetadata.periodLabel || parserMetadata.periodLabel,
@@ -187,13 +208,13 @@ export class StatementProcessingService {
     }
 
     if (!fileData) {
-      throw new Error(`File not found: ${statement.filePath}`);
+      throw new StatementRejected({ message: `File not found: ${statement.filePath}` });
     }
 
     const ext = this.getFileExtension(statement);
     const tempFilePath = path.join(
       os.tmpdir(),
-      `lumio-statement-${statement.id}-${Date.now()}.${ext}`,
+      `seneca-statement-${statement.id}-${Date.now()}.${ext}`,
     );
     await fs.promises.writeFile(tempFilePath, fileData);
     return { filePath: tempFilePath, tempFilePath };
@@ -240,9 +261,26 @@ export class StatementProcessingService {
     });
   }
 
+  private static readonly HIGH_DROP_RATIO_THRESHOLD = 0.5;
+
+  /**
+   * Summing debit/credit across transactions only makes sense when they
+   * share one currency — a statement whose rows carry different currency
+   * codes (e.g. a generic CSV/XLSX with a per-row currency column) would
+   * otherwise get compared against balanceEnd as if KZT and USD were the
+   * same unit. Parsers that convert foreign amounts into the statement's
+   * own currency (Hapoalim tracks the original via amountForeign instead)
+   * already report one currency per row, so they're unaffected.
+   */
+  private findMixedCurrencies(transactions: ParsedTransaction[]): string[] | null {
+    const currencies = new Set(transactions.map(t => t.currency).filter((c): c is string => !!c));
+    return currencies.size > 1 ? Array.from(currencies) : null;
+  }
+
   private validateStatement(
-    metadata: ParsedStatement['metadata'],
+    metadata: { balanceStart?: number | null; balanceEnd?: number | null },
     transactions: ParsedTransaction[],
+    dropInfo?: { rawCount: number; droppedCount: number },
   ): {
     passed: boolean;
     warnings: string[];
@@ -257,6 +295,8 @@ export class StatementProcessingService {
     const debitSum = transactions.reduce((sum, t) => sum + (t.debit ?? 0), 0);
     const creditSum = transactions.reduce((sum, t) => sum + (t.credit ?? 0), 0);
 
+    const mixedCurrencies = this.findMixedCurrencies(transactions);
+
     let balanceCheck:
       | {
           expectedEnd?: number;
@@ -266,7 +306,11 @@ export class StatementProcessingService {
         }
       | undefined;
 
-    if (
+    if (mixedCurrencies) {
+      warnings.push(
+        `Statement mixes multiple currencies (${mixedCurrencies.join(', ')}) — balance could not be automatically reconciled`,
+      );
+    } else if (
       metadata.balanceStart !== null &&
       metadata.balanceStart !== undefined &&
       metadata.balanceEnd !== null &&
@@ -288,6 +332,39 @@ export class StatementProcessingService {
       }
     }
 
+    // The balance check above passes trivially whenever the bank statement
+    // didn't include balances at all, or when every row happened to net to
+    // zero — that's not the same as a good parse. A statement that produced
+    // zero transactions, or dropped most of what it attempted, must not be
+    // reported as COMPLETED just because there was nothing left to compare.
+    if (dropInfo) {
+      const { rawCount, droppedCount } = dropInfo;
+      const validCount = transactions.length;
+
+      if (rawCount > 0 && validCount === 0) {
+        warnings.push(
+          `All ${rawCount} parsed rows were rejected during validation — statement produced zero transactions`,
+        );
+      } else if (
+        rawCount > 0 &&
+        droppedCount / rawCount > StatementProcessingService.HIGH_DROP_RATIO_THRESHOLD
+      ) {
+        const percent = Math.round((droppedCount / rawCount) * 100);
+        warnings.push(
+          `${droppedCount} of ${rawCount} parsed rows were rejected during validation (${percent}%)`,
+        );
+      } else if (
+        rawCount === 0 &&
+        validCount === 0 &&
+        (metadata.balanceStart == null || metadata.balanceEnd == null)
+      ) {
+        // Both balances must be present to trust that zero transactions means
+        // a genuinely empty period rather than a failed extraction — one
+        // balance found and the other missing is still a partial failure.
+        warnings.push('No transactions or balances could be extracted from the statement');
+      }
+    }
+
     return { passed: warnings.length === 0, warnings, balanceCheck };
   }
 
@@ -302,7 +379,7 @@ export class StatementProcessingService {
   ): { valid: ParsedTransaction[]; warnings: string[] } {
     const valid: ParsedTransaction[] = [];
     const warnings: string[] = [];
-    const currencyFallback = (defaultCurrency || '').trim() || 'KZT';
+    const currencyFallback = (defaultCurrency || '').trim() || appDefaultCurrency();
 
     transactions.forEach((tx, index) => {
       const prefix = `tx#${index + 1}`;
@@ -352,24 +429,17 @@ export class StatementProcessingService {
     return { valid, warnings };
   }
 
-  private reportAi(
-    kind: 'extract' | 'validate',
-    result: 'success' | 'empty' | 'error' | 'skipped',
-  ) {
-    if (!this.metricsService) {
-      return;
-    }
-    this.metricsService.aiParsingCallsTotal.inc({ kind, result });
-  }
-
-  async processStatement(statementId: string): Promise<Statement> {
+  async processStatement(
+    statementId: string,
+    options: ProcessStatementOptions = {},
+  ): Promise<Statement> {
     const existing = StatementProcessingService.inFlight.get(statementId);
     if (existing) {
       return existing;
     }
 
     const runPromise = StatementProcessingService.parsingSemaphore.use(() =>
-      this.processStatementInternal(statementId),
+      this.processStatementInternal(statementId, options),
     );
     StatementProcessingService.inFlight.set(statementId, runPromise);
 
@@ -380,13 +450,13 @@ export class StatementProcessingService {
     }
   }
 
-  async commitImport(statementId: string): Promise<Statement> {
+  async commitImport(statementId: string, workspaceId: string): Promise<Statement> {
     const statement = await this.statementRepository.findOne({
-      where: { id: statementId },
+      where: { id: statementId, workspaceId },
     });
 
     if (!statement) {
-      throw new Error(`Statement ${statementId} not found`);
+      throw new NotFoundException(`Statement ${statementId} not found`);
     }
 
     const importPreview = this.getImportPreview(statement);
@@ -402,12 +472,13 @@ export class StatementProcessingService {
       if (transactionCount > 0) {
         return statement;
       }
-      throw new Error(`Import preview session missing for statement ${statementId}`);
+      // Nothing was previewed, so there is nothing to commit: the caller's state, not a fault.
+      throw new ConflictException(`Import preview session missing for statement ${statementId}`);
     }
 
     const transactions = this.hydratePreviewTransactions(importPreview.transactions);
     if (transactions.length === 0) {
-      throw new Error(`No preview transactions available for statement ${statementId}`);
+      throw new ConflictException(`No preview transactions available for statement ${statementId}`);
     }
 
     const commitResult = await this.importSessionService.processImport(
@@ -443,6 +514,24 @@ export class StatementProcessingService {
       }
     }
 
+    // After dedupe on purpose: a duplicate leg must not take the pair.
+    if (this.transferPairingService && statement.workspaceId) {
+      try {
+        const pairing = await this.transferPairingService.detectAndApply(
+          statement.workspaceId,
+          statement.id,
+        );
+        if (pairing.paired > 0) {
+          statement.parsingDetails = {
+            ...(statement.parsingDetails || {}),
+            transferPairs: pairing,
+          };
+        }
+      } catch (pairingError) {
+        this.logger.warn(`Transfer pairing failed: ${this.getErrorMessage(pairingError)}`);
+      }
+    }
+
     const committedTransactions = await this.transactionRepository.find({
       where: { statementId: statement.id },
     });
@@ -461,7 +550,10 @@ export class StatementProcessingService {
     return statement;
   }
 
-  private async processStatementInternal(statementId: string): Promise<Statement> {
+  private async processStatementInternal(
+    statementId: string,
+    options: ProcessStatementOptions,
+  ): Promise<Statement> {
     const startTime = Date.now();
     const parsingDetails: Statement['parsingDetails'] = {
       logEntries: [],
@@ -484,7 +576,7 @@ export class StatementProcessingService {
     });
 
     if (!statement) {
-      throw new Error(`Statement ${statementId} not found`);
+      throw new StatementRejected({ message: `Statement ${statementId} not found` });
     }
 
     const workspaceCurrency = statement.workspace?.currency || null;
@@ -523,6 +615,7 @@ export class StatementProcessingService {
       addLog('info', `Detecting bank and format for file type: ${statement.fileType}`);
       const detectStartTime = Date.now();
       let cachedText: string | undefined;
+      let ocrConfidence: number | undefined;
       if (statement.fileType === FileType.PDF) {
         try {
           cachedText = await extractTextFromPdf(processingFilePath);
@@ -538,6 +631,7 @@ export class StatementProcessingService {
           const ocrService = new OcrService();
           const ocrResult = await ocrService.extractTextFromImage(imageBuffer);
           cachedText = ocrResult.text;
+          ocrConfidence = ocrResult.confidence;
           addLog(
             'info',
             `OCR extracted ${ocrResult.text.length} chars (confidence: ${ocrResult.confidence.toFixed(2)})`,
@@ -591,7 +685,7 @@ export class StatementProcessingService {
         addLog('error', errorMsg);
         parsingDetails.errors = parsingDetails.errors || [];
         parsingDetails.errors.push(errorMsg);
-        throw new Error(errorMsg);
+        throw new StatementRejected({ message: errorMsg });
       }
 
       const parserVersion =
@@ -604,12 +698,26 @@ export class StatementProcessingService {
       // Parse statement
       addLog('info', 'Starting PDF text extraction...');
       const parseStartTime = Date.now();
-      let parsedStatement = await parser.parse(processingFilePath, cachedText);
+      const parsedStatement = await parser.parse(processingFilePath, cachedText, ocrConfidence);
       const parseTime = Date.now() - parseStartTime;
 
       addLog('info', `Parsing completed in ${parseTime}ms`);
       addLog('info', `Found ${parsedStatement.transactions.length} transactions in parsed data`);
       this.observeDuration('parse', parseStartTime, statement.bankName, statement.fileType, 'ok');
+
+      // Heartbeat: persists progress so far and, via @UpdateDateColumn, bumps
+      // updatedAt — everything from here (metadata extraction, transaction
+      // creation/dedup) can legitimately run long
+      // on a big OCR'd PDF or large XLSX, and the only other save() calls are
+      // at the very start and very end of this method. Without a heartbeat in
+      // between, a statement genuinely still processing looks identical to a
+      // truly stuck one once STALE_PROCESSING_MS elapses, and
+      // StaleStatementReaper would reset+re-enqueue it while this run is
+      // still writing to it.
+      statement.parsingDetails = parsingDetails;
+      await this.statementRepository.update(statement.id, {
+        parsingDetails,
+      } as QueryDeepPartialEntity<Statement>);
 
       // Extract enhanced metadata from raw text
       addLog('info', 'Extracting statement headers and metadata...');
@@ -656,51 +764,25 @@ export class StatementProcessingService {
         // Continue without metadata - not a critical error
       }
 
-      // AI reconciliation with PDF text to correct/match results
-      const aiEnabled =
-        process.env.AI_PARSING_ENABLED === '1' || process.env.AI_PARSING_ENABLED === 'true';
-      if (aiEnabled && this.aiValidator.isAvailable()) {
-        addLog('info', 'Running AI reconciliation between PDF and parsed result...');
-        try {
-          const aiResult = await this.aiValidator.reconcileFromPdf(
-            processingFilePath,
-            parsedStatement,
-          );
-          parsedStatement = aiResult.corrected;
-          if (aiResult.notes.length) {
-            aiResult.notes.forEach(note => addLog('info', `[AI] ${note}`));
-          }
-          addLog(
-            'info',
-            `After AI reconciliation: ${parsedStatement.transactions.length} transactions`,
-          );
-          this.reportAi('validate', parsedStatement.transactions.length > 0 ? 'success' : 'empty');
-        } catch (aiError) {
-          this.reportAi('validate', 'error');
-          addLog('warn', `AI reconciliation failed: ${this.getErrorMessage(aiError)}`);
-        }
-      } else {
-        if (!aiEnabled) {
-          addLog('info', 'AI reconciliation disabled (set AI_PARSING_ENABLED=1 to enable)');
-        } else {
-          addLog('info', 'AI reconciliation skipped (set AI_BASE_URL and AI_MODEL to enable)');
-        }
-        this.reportAi('validate', 'skipped');
-      }
-
       const droppedSamples: Array<{
         reason: string;
         transaction?: Partial<ParsedTransaction>;
       }> = [];
+      const rawTransactionCount = parsedStatement.transactions.length;
       const schemaResult = this.enforceTransactionSchema(
         parsedStatement.transactions,
-        parsedStatement.metadata?.currency || statement.currency || workspaceCurrency || 'KZT',
+        parsedStatement.metadata?.currency ||
+          statement.currency ||
+          workspaceCurrency ||
+          appDefaultCurrency(),
         addLog,
         droppedSamples,
       );
       if (schemaResult.warnings.length) {
         parsingDetails.warnings = parsingDetails.warnings || [];
-        schemaResult.warnings.forEach(w => parsingDetails.warnings?.push(w));
+        for (const w of schemaResult.warnings) {
+          parsingDetails.warnings?.push(w);
+        }
       }
       parsedStatement.transactions = schemaResult.valid;
       parsingDetails.transactionsFound = parsedStatement.transactions.length;
@@ -782,9 +864,20 @@ export class StatementProcessingService {
 
       addLog('info', `Totals - Debit: ${statement.totalDebit}, Credit: ${statement.totalCredit}`);
 
+      // Heartbeat: createTransactions() above does real DB inserts and can
+      // run long on a large statement; see the earlier heartbeat comment.
+      statement.parsingDetails = parsingDetails;
+      await this.statementRepository.update(statement.id, {
+        parsingDetails,
+      } as QueryDeepPartialEntity<Statement>);
+
       const validationResult = this.validateStatement(
         enrichedMetadata,
         parsedStatement.transactions,
+        {
+          rawCount: rawTransactionCount,
+          droppedCount: droppedSamples.length,
+        },
       );
       parsingDetails.validation = {
         passed: validationResult.passed,
@@ -829,6 +922,8 @@ export class StatementProcessingService {
           actorName,
           statementId: statement.id,
           transactionCount: creationResult.transactions.length,
+          transactionIds: creationResult.transactions.map(transaction => transaction.id),
+          source: 'statement',
         } satisfies ImportCommittedEvent);
 
         const uncategorizedCount = creationResult.transactions.filter(
@@ -857,19 +952,6 @@ export class StatementProcessingService {
         `Successfully processed statement ${statementId}: ${parsedStatement.transactions.length} transactions (total time: ${totalTime}ms)`,
       );
 
-      // Auto-sync to Google Sheets if connected (async, non-blocking)
-      if (statement.googleSheetId && this.googleSheetsService) {
-        this.syncToGoogleSheets(statement.googleSheetId, statementId, statement.userId).catch(
-          error => {
-            this.logger.error(
-              `Failed to auto-sync statement ${statementId} to Google Sheets:`,
-              error,
-            );
-            // Don't throw - sync failure shouldn't fail the whole process
-          },
-        );
-      }
-
       return statement;
     } catch (error) {
       const message = this.getErrorMessage(error);
@@ -886,7 +968,8 @@ export class StatementProcessingService {
       statement.parsingDetails = parsingDetails;
       await this.statementRepository.save(statement);
 
-      if (this.eventEmitter && statement.workspaceId) {
+      const final = options.finalAttempt !== false || error instanceof StatementRejected;
+      if (final && this.eventEmitter && statement.workspaceId) {
         this.eventEmitter.emit('parsing.error', {
           workspaceId: statement.workspaceId,
           userId: statement.userId,
@@ -921,72 +1004,17 @@ export class StatementProcessingService {
       addLog ||
       ((level: string, msg: string) => this.logger[level === 'error' ? 'error' : 'log'](msg));
 
-    const seen = new Set<string>();
-    const deduped: ParsedTransaction[] = [];
-    parsedTransactions.forEach(tx => {
-      const dateIso = tx.transactionDate
-        ? tx.transactionDate.toISOString().split('T')[0]
-        : 'no-date';
-      const amount = tx.debit ?? tx.credit ?? 0;
-      const signature = [
-        dateIso,
-        amount.toFixed(2),
-        (tx.documentNumber || '').trim().toLowerCase(),
-        (tx.counterpartyName || '').trim().toLowerCase(),
-        (tx.paymentPurpose || '').trim().toLowerCase(),
-      ].join('|');
-      if (seen.has(signature)) {
-        // The signature contains counterparty and purpose, and these log entries
-        // are persisted to parsingDetails — report the row, not its contents.
-        log('warn', `Duplicate transaction skipped (date=${dateIso}, amount=${amount.toFixed(2)})`);
-        return;
-      }
-      seen.add(signature);
-      deduped.push(tx);
-    });
+    // In-file duplicates are not dropped here: flagFingerprintDuplicates below
+    // already detects same-batch fingerprint collisions (and cross-statement
+    // ones) and marks them isDuplicate=true instead — still persisted, still
+    // visible/reversible via the duplicates review UI, just excluded from
+    // totals. A row silently dropped here could never be recovered.
+    const deduped: ParsedTransaction[] = parsedTransactions;
 
     log(
       'info',
       `Processing ${deduped.length}/${parsedTransactions.length} parsed transactions after dedup (statement currency: ${statement.currency || 'N/A'})`,
     );
-
-    let aiBatchResults = new Map<
-      number,
-      { categoryId: string; enrichment?: TransactionEnrichment }
-    >();
-    if (!manualCategorySelectionRequired && statement.workspaceId && deduped.length > 0) {
-      try {
-        aiBatchResults = await this.classificationService.classifyTransactionsBatch(
-          deduped.map((parsed, index) => {
-            const transactionType =
-              parsed.debit && parsed.debit > 0
-                ? TransactionType.EXPENSE
-                : parsed.credit && parsed.credit > 0
-                  ? TransactionType.INCOME
-                  : TransactionType.INCOME;
-
-            return {
-              index,
-              counterpartyName: (parsed.counterpartyName || '').trim() || 'Неизвестный контрагент',
-              paymentPurpose: (parsed.paymentPurpose || '').trim() || 'Не указано',
-              transactionType,
-            };
-          }),
-          statement.workspaceId,
-          userId,
-        );
-
-        log(
-          'info',
-          `AI batch results: ${aiBatchResults.size}/${deduped.length} transactions classified and enriched`,
-        );
-      } catch (error) {
-        log(
-          'warn',
-          `AI batch categorization failed, fallback to default classification: ${this.getErrorMessage(error)}`,
-        );
-      }
-    }
 
     // Build every entity in memory first: classification hits the DB and external
     // services, so it must not run inside the write transaction below.
@@ -1020,7 +1048,11 @@ export class StatementProcessingService {
         debit: parsed.debit ?? null,
         credit: parsed.credit ?? null,
         amount,
-        currency: parsed.currency || statement.currency || statement.workspace?.currency || 'KZT',
+        currency:
+          parsed.currency ||
+          statement.currency ||
+          statement.workspace?.currency ||
+          appDefaultCurrency(),
         paymentPurpose,
         transactionType,
         workspaceId: statement.workspaceId,
@@ -1033,24 +1065,21 @@ export class StatementProcessingService {
 
       if (manualCategorySelectionRequired) {
         classification.categoryId = undefined;
-      }
-
-      const aiBatchResult = aiBatchResults.get(i);
-      if (!(manualCategorySelectionRequired || classification.categoryId) && aiBatchResult) {
-        classification.categoryId = aiBatchResult.categoryId;
+        classification.categorySource = null;
+        classification.categoryReason = null;
       }
 
       const currency =
-        parsed.currency || statement.currency || statement.workspace?.currency || 'KZT';
+        parsed.currency ||
+        statement.currency ||
+        statement.workspace?.currency ||
+        appDefaultCurrency();
       const exchangeRate = parsed.exchangeRate ?? null;
       const amountForeign = parsed.amountForeign ?? null;
 
-      // Extract enrichment data from AI batch results, with regex tax fallback
-      const enrichment = aiBatchResult?.enrichment;
-      const regexTax = extractTaxFromPurpose(paymentPurpose);
-      const taxDetected = enrichment?.taxMentioned ?? regexTax.taxMentioned;
+      const taxDetected = extractTaxFromPurpose(paymentPurpose).taxMentioned;
 
-      // Create transaction with classification and enrichment
+      // Create transaction with classification
       const transaction = this.transactionRepository.create({
         statementId: statement.id,
         workspaceId: statement.workspaceId,
@@ -1069,12 +1098,39 @@ export class StatementProcessingService {
         paymentPurpose,
         transactionType,
         ...classification,
-        vendorNormalized: enrichment?.vendorNormalized || null,
-        categoryHint: enrichment?.categoryHint || null,
-        transactionNature: enrichment?.transactionNature || null,
+        vendorNormalized: null,
+        categoryHint: null,
+        transactionNature: null,
         taxDetected,
-        enrichmentConfidence: enrichment?.confidence || null,
+        enrichmentConfidence: null,
       });
+
+      // Assessed from the workspace rules and default as they stood on the
+      // transaction's own date. Rows the classifier left uncategorised, and
+      // transfers, wages and loan movements, are deliberately left unassessed
+      // by the resolver rather than taxed on a guess.
+      //
+      // ponytail: two small indexed queries per transaction, so a 500-row
+      // statement costs ~1000 of them. Negligible next to the classification
+      // this loop already does; if it ever shows up, hoist the
+      // rule and rate lookups out of the loop and pass them in.
+      const taxAssignment = await this.taxAssignmentService.resolve({
+        workspaceId: statement.workspaceId,
+        transactionDate: parsed.transactionDate,
+        amountMinor: toMinor(amount ?? 0),
+        categoryId: classification.categoryId ?? null,
+        transactionType,
+        transactionNature: null,
+        explicitTaxRateId: null,
+      });
+
+      transaction.taxRateId = taxAssignment.taxRateId;
+      transaction.taxRuleId = taxAssignment.taxRuleId;
+      transaction.taxSource = taxAssignment.taxSource;
+      transaction.taxAmount = taxAssignment.taxAmount;
+      transaction.taxNetAmount = taxAssignment.taxNetAmount;
+      transaction.taxReverseCharge = taxAssignment.taxReverseCharge;
+      transaction.taxNotionalAmount = taxAssignment.taxNotionalAmount;
 
       transaction.fingerprint = this.buildFingerprint(transaction, statement, log, i);
       drafts.push(transaction);
@@ -1117,7 +1173,17 @@ export class StatementProcessingService {
       }
     }
 
-    const duplicatesFlagged = await this.flagFingerprintDuplicates(drafts, statement, log);
+    const fingerprintRepeats = await this.flagFingerprintDuplicates(drafts, statement, log);
+    // A cash payment or an approved receipt has no fingerprint to match; its
+    // bank row is caught by amount and date instead, so it is not counted twice.
+    const repeatsOfManualRows =
+      statement.workspaceId && this.manualRowDuplicates
+        ? await this.manualRowDuplicates.flagRepeats(drafts, statement.workspaceId)
+        : 0;
+    if (repeatsOfManualRows) {
+      log('warn', `${repeatsOfManualRows} transactions repeat a row booked by hand`);
+    }
+    const duplicatesFlagged = fingerprintRepeats + repeatsOfManualRows;
 
     // Single atomic write. A half-imported statement marked COMPLETED is worse
     // than a failed one: totals and balance checks would silently be wrong.
@@ -1219,47 +1285,6 @@ export class StatementProcessingService {
     return flagged;
   }
 
-  /**
-   * Sync transactions to Google Sheets (async, non-blocking)
-   */
-  private async syncToGoogleSheets(
-    googleSheetId: string,
-    statementId: string,
-    userId: string,
-  ): Promise<void> {
-    if (!this.googleSheetsService) {
-      this.logger.warn('GoogleSheetsService not available, skipping sync');
-      return;
-    }
-
-    try {
-      const result = await this.googleSheetsService.syncStatementTransactions(
-        googleSheetId,
-        statementId,
-        userId,
-      );
-      this.logger.log(
-        `Auto-synced ${result.synced} transactions from statement ${statementId} to Google Sheet ${googleSheetId}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Error auto-syncing statement ${statementId} to Google Sheet ${googleSheetId}:`,
-        error,
-      );
-      // Re-throw to be caught by caller
-      throw error;
-    }
-  }
-
-  private serializePreviewTransactions(
-    transactions: ParsedTransaction[],
-  ): Array<Omit<ParsedTransaction, 'transactionDate'> & { transactionDate: string }> {
-    return transactions.map(tx => ({
-      ...tx,
-      transactionDate: tx.transactionDate.toISOString(),
-    }));
-  }
-
   private hydratePreviewTransactions(raw: unknown): ParsedTransaction[] {
     if (!Array.isArray(raw)) {
       return [];
@@ -1282,8 +1307,8 @@ export class StatementProcessingService {
     accountNumber: string;
     dateFrom: Date;
     dateTo: Date;
-    balanceStart: number | null | undefined;
-    balanceEnd: number | null | undefined;
+    balanceStart: number | null;
+    balanceEnd: number | null;
     currency: string;
   } {
     const transactionDates = transactions.map(t => t.transactionDate).filter((d): d is Date => !!d);
@@ -1297,20 +1322,24 @@ export class StatementProcessingService {
         ? new Date(Math.max(...transactionDates.map(d => d.getTime())))
         : null;
 
-    const fallbackAccount =
-      transactions.find(t => t.counterpartyAccount)?.counterpartyAccount ||
-      transactions.find(t => t.counterpartyBin)?.counterpartyBin ||
-      'Unknown';
-
     const currencyFromTransactions = transactions.find(t => t.currency)?.currency;
 
-    const accountNumber = (parsed.metadata.accountNumber || '').trim() || fallbackAccount;
+    // No counterparty-account fallback here on purpose: a counterparty's
+    // account number is someone else's, not this statement's own, and using
+    // it (a) mislabels the statement's account in the UI and (b) makes the
+    // dedup fingerprint unstable — re-parsing the same file can pick a
+    // different first transaction and change which counterparty account gets
+    // borrowed, breaking idempotent re-upload detection.
+    const accountNumber = (parsed.metadata.accountNumber || '').trim() || 'Unknown';
     const dateFrom = parsed.metadata.dateFrom || minDate || new Date();
     const dateTo = parsed.metadata.dateTo || maxDate || dateFrom;
     const balanceStart = parsed.metadata.balanceStart ?? null;
     const balanceEnd = parsed.metadata.balanceEnd ?? null;
     const currency =
-      parsed.metadata.currency || currencyFromTransactions || workspaceCurrency || 'KZT';
+      parsed.metadata.currency ||
+      currencyFromTransactions ||
+      workspaceCurrency ||
+      appDefaultCurrency();
 
     return {
       accountNumber,

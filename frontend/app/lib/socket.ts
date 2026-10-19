@@ -1,4 +1,4 @@
-import { type Socket, io } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client';
 
 let notificationsSocket: Socket | null = null;
 
@@ -15,14 +15,16 @@ function getBaseUrl(): string {
   return '';
 }
 
-export function connectNotificationsSocket(token: string): Socket {
+export function connectNotificationsSocket(): Socket {
   if (notificationsSocket) {
     return notificationsSocket;
   }
 
   const baseUrl = getBaseUrl();
+  // No `auth.token`: the access token is an httpOnly cookie the browser
+  // attaches to the handshake itself (withCredentials), and this page cannot
+  // read it. The gateway reads it from the handshake cookie header.
   notificationsSocket = io(`${baseUrl}/notifications`, {
-    auth: { token },
     transports: ['websocket', 'polling'],
     withCredentials: true,
     reconnection: true,

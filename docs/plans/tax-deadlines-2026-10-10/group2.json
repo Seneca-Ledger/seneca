@@ -1,0 +1,568 @@
+{
+  "ES": {
+    "vat": {
+      "frequencies": {
+        "monthly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 30,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 1,
+              "monthsAfterPeriodEnd": 1,
+              "day": 28
+            }
+          ]
+        },
+        "quarterly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 20,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 12,
+              "monthsAfterPeriodEnd": 1,
+              "day": 30
+            }
+          ]
+        },
+        "annual": null
+      },
+      "frequencyRule": "Quarterly by default (RIVA art. 71.3). Monthly for: prior-year volume of operations above EUR 6,010,121.04 (gran empresa), businesses registered in REDEME (monthly refund register), VAT groups, and holders/extractors of fuel tax warehouses.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Modelo 303",
+      "sources": [
+        "https://sede.agenciatributaria.gob.es/Sede/ayuda/manuales-videos-folletos/manuales-practicos/manual-iva-2025/capitulo-08-gestion-iva/autoliquidaciones-iva/plazos-presentacion.html",
+        "https://www.boe.es/buscar/act.php?id=BOE-A-1992-28925"
+      ],
+      "unsure": "Common regime only (not Basque Country/Navarra). Q1-Q3 quarterly: 1-20 of April/July/October; Q4 exception: 1-30 January (together with the annual summary Modelo 390, which is not modelled here). Monthly: first 30 calendar days of the following month, except January which runs to the LAST day of February. That is encoded as day 28, so in leap years (e.g. 2028) the true deadline is 29 February. The AEAT manual says a deadline falling on a non-working day (Saturday counts as non-working) moves to the next working day. If you pay by direct debit, the debit must be ordered a few days earlier; the exact cut-off (reportedly the 15th, or 27 January for Q4) was not confirmed on an AEAT page."
+    },
+    "incomeTax2026": null
+  },
+  "PT": {
+    "vat": {
+      "frequencies": {
+        "monthly": {
+          "monthsAfterPeriodEnd": 2,
+          "day": 20,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 6,
+              "monthsAfterPeriodEnd": 3,
+              "day": 20
+            }
+          ]
+        },
+        "quarterly": {
+          "monthsAfterPeriodEnd": 2,
+          "day": 20,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 6,
+              "monthsAfterPeriodEnd": 3,
+              "day": 20
+            }
+          ]
+        },
+        "annual": null
+      },
+      "frequencyRule": "Monthly if turnover in the previous calendar year was EUR 650,000 or more, quarterly if below. Quarterly filers may opt into the monthly regime. For a partial year, turnover is annualised (CIVA art. 41).",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Declaração periódica do IVA",
+      "sources": [
+        "https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/iva41.aspx",
+        "https://www.dgsi.pt/jsta.nsf/0/85f69be9aaad02fe80257d6d0038d359?OpenDocument=&ExpandSection=1"
+      ],
+      "unsure": "The deadline is the 20th of the 2nd month after the month or quarter. Exception from CIVA art. 41: the June return (monthly) and the Q2 return (quarterly) are due 20 September. The weekend/holiday shift comes from Código Civil art. 279(e) (applied through CPPT art. 20) plus settled Supreme Administrative Court case law that also covers Saturdays; there is no VAT-specific provision. The separate payment deadline (CIVA art. 27) was not verified."
+    },
+    "incomeTax2026": {
+      "formName": "Declaração Modelo 3 de IRS",
+      "filingOpens": "2027-04-01",
+      "deadlines": [
+        {
+          "kind": "standard",
+          "date": "2027-06-30"
+        }
+      ],
+      "sources": [
+        "https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs60.aspx"
+      ],
+      "unsure": "CIRS art. 60(1) fixes electronic filing from 1 April to 30 June of the following year, so these dates are computed. 30 June 2027 is a Wednesday, so no shift applies. Taxpayers with foreign-source income whose foreign tax is not yet settled may file by 31 December (art. 60(3)-(4)). That case is not modelled."
+    }
+  },
+  "FR": {
+    "vat": {
+      "frequencies": {
+        "monthly": null,
+        "quarterly": null,
+        "annual": {
+          "monthsAfterPeriodEnd": 5,
+          "day": 4,
+          "plusDays": null,
+          "exceptions": []
+        }
+      },
+      "frequencyRule": "Tax year 2026: under the réel normal regime the CA3 is filed monthly (quarterly is possible for small annual VAT amounts); under the régime simplifié (RSI) the CA12 is filed once a year with two instalments (acomptes). From 1 January 2027 (Loi de finances 2025, art. 38) the RSI is abolished and those taxpayers move automatically to the réel normal. The CA3 is then quarterly when turnover was at most EUR 1,000,000 in the previous year and at most EUR 1,100,000 in the current year, and monthly above that or on request.",
+      "shiftsToNextBusinessDay": null,
+      "extension": null,
+      "returnName": "CA3 (réel normal, monthly/quarterly); CA12 (régime simplifié, annual, last one for 2026)",
+      "sources": [
+        "https://www.impots.gouv.fr/professionnel/calendrier-fiscal",
+        "https://www.impots.gouv.fr/actualite/le-regime-simplifie-dimposition-la-tva-est-supprime-compter-du-1er-janvier-2027"
+      ],
+      "unsure": "The CA3 deadline is not a single date. impots.gouv.fr gives a window from the 15th to the 24th of the following month, and the exact day depends on the taxpayer (legal form, name/department) and is shown in the business account. The monthly and quarterly rules are therefore left null. The annual rule (CA12) applies only to the LAST CA12, for calendar year 2026: impots.gouv.fr says 'au plus tard le 4/05/2027' (the generic rule is the 2nd working day after 1 May). It does not recur, because the CA12 no longer exists from 2027. The pre-2027 quarterly option under réel normal (annual VAT below EUR 4,000) was found only on secondary sources. No general statutory weekend-shift rule for VAT returns was confirmed."
+    },
+    "incomeTax2026": {
+      "formName": "Déclaration des revenus n° 2042 (+ 2042-C-PRO for self-employed income)",
+      "filingOpens": null,
+      "deadlines": [],
+      "sources": [
+        "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000048196402"
+      ],
+      "unsure": "CGI art. 175 sets a nominal deadline of the 2nd working day after 1 April (= 2 April 2027). The same article lets the administration extend it each year through a published calendar, up to 1 July at the latest. In practice it is always extended (online deadlines staggered by département in late May/early June; paper in mid-May). The 2027 calendar is not yet published, so no date is given. Re-check impots.gouv.fr around April 2027."
+    }
+  },
+  "IT": {
+    "vat": {
+      "frequencies": {
+        "monthly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 16,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 7,
+              "monthsAfterPeriodEnd": 1,
+              "day": 20
+            }
+          ]
+        },
+        "quarterly": {
+          "monthsAfterPeriodEnd": 2,
+          "day": 16,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 6,
+              "monthsAfterPeriodEnd": 2,
+              "day": 20
+            },
+            {
+              "periodEndMonth": 12,
+              "monthsAfterPeriodEnd": 3,
+              "day": 16
+            }
+          ]
+        },
+        "annual": null
+      },
+      "frequencyRule": "Monthly by default. Quarterly settlement is an option if the previous year's volume d'affari did not exceed EUR 500,000 (self-employed professionals and service businesses) or EUR 800,000 (other activities); 1% interest is then added to the tax due.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Liquidazione periodica IVA (payment via F24) + Comunicazione liquidazioni periodiche IVA (LIPE)",
+      "sources": [
+        "https://www.agenziaentrate.gov.it/portale/schede/pagamenti/f24ivap10/come-e-quando-si-versa",
+        "https://www.agenziaentrate.gov.it/portale/come-pagare-l-iva-imprese",
+        "https://www.agenziaentrate.gov.it/portale/schede/pagamenti/f24ritreddlavdip/come-e-quando-si-versa-intermediari"
+      ],
+      "unsure": "The rules model the periodic VAT settlement and payment (the 16th). Italy has no periodic VAT 'return' as such: the LIPE communication is due on the last day of the 2nd month after each quarter, and there is a separate annual Dichiarazione IVA whose deadline was not verified here. The August exceptions (monthly July and Q2 -> 20 August) come from the statutory summer deferral (DL 223/2006 art. 37 c.11-bis). Agenzia Entrate confirms 20 August for Q2. Q4 for quarterly filers is settled by 16 March of the following year. 'Special' quarterly filers (e.g. hauliers) pay Q4 by 16 February instead, which is not modelled. Separately, an advance payment (acconto IVA) is due by 27 December. Deadlines falling on a Saturday or holiday move to the next working day (DL 70/2011 art. 7 c.1 lett. h)."
+    },
+    "incomeTax2026": {
+      "formName": "Modello Redditi Persone Fisiche 2027 (Redditi PF)",
+      "filingOpens": null,
+      "deadlines": [
+        {
+          "kind": "online",
+          "date": "2027-11-02"
+        }
+      ],
+      "sources": [
+        "https://www.agenziaentrate.gov.it/portale/come-e-quando-presentare-la-dichiarazione-dei-redditi",
+        "https://www.agenziaentrate.gov.it/portale/documents/d/guest/parte_generale_istr_2026"
+      ],
+      "unsure": "The statutory deadline is 31 October of the following year (DPR 322/1998 art. 2). 31 October 2027 is a Sunday and 1 November is a public holiday, so the deadline becomes Tuesday 2 November 2027. Agenzia Entrate applied the same logic in 2026 (31 Oct 2026, a Saturday, became 2 Nov 2026). The statutory opening date (15 April per art. 2 c.1) was not confirmed for natural persons, so filingOpens is left null. Employees and pensioners may use the 730 instead (30 September), which is not modelled. The tax balance payment (normally 30 June) was not verified."
+    }
+  },
+  "BE": {
+    "vat": {
+      "frequencies": {
+        "monthly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 20,
+          "plusDays": null,
+          "exceptions": []
+        },
+        "quarterly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 25,
+          "plusDays": null,
+          "exceptions": []
+        },
+        "annual": null
+      },
+      "frequencyRule": "Monthly by default. Quarterly filing is allowed if annual turnover excluding VAT does not exceed EUR 2,500,000 (EUR 250,000 for supplies of energy products, mobile phones, computers and motor vehicles) (AR n°1 art. 17 as amended by AR 29 September 2024, in force 1 January 2025).",
+      "shiftsToNextBusinessDay": null,
+      "extension": null,
+      "returnName": "Déclaration périodique à la TVA / periodieke btw-aangifte (Intervat)",
+      "sources": [
+        "https://etaamb.openjustice.be/fr/arrete-royal-du-29-septembre-2024_n2024009309.html"
+      ],
+      "unsure": "finances.belgium.be and ejustice were blocked by a CAPTCHA, so only the royal decree text (Moniteur belge mirror on openjustice.be) was read. Weekend handling, per secondary sources citing administrative circular 2024/C/6 (not verified on an official page): an administrative tolerance moves the monthly deadline (20th) to the next working day permanently; for quarterly filers that tolerance ended on 30 September 2025, so the 25th applies even on a weekend. A recurring 'summer tolerance' for the June/July returns is also reported, but its 2026+ form is unknown."
+    },
+    "incomeTax2026": null
+  },
+  "NL": {
+    "vat": {
+      "frequencies": {
+        "monthly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 30,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 1,
+              "monthsAfterPeriodEnd": 1,
+              "day": 28
+            },
+            {
+              "periodEndMonth": 2,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 4,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 6,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 7,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 9,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 11,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 12,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            }
+          ]
+        },
+        "quarterly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 31,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 3,
+              "monthsAfterPeriodEnd": 1,
+              "day": 30
+            }
+          ]
+        },
+        "annual": {
+          "monthsAfterPeriodEnd": 3,
+          "day": 31,
+          "plusDays": null,
+          "exceptions": []
+        }
+      },
+      "frequencyRule": "Quarterly by default; the period is set in the Belastingdienst's letter. Monthly on request, or imposed after late filing or payment. Annual only if all of these hold: less than EUR 1,883 VAT payable per year, no article 23 licence, a sole trader or partnership of natural persons only, and under EUR 10,000 per year in each category of intra-EU transactions.",
+      "shiftsToNextBusinessDay": null,
+      "extension": null,
+      "returnName": "Btw-aangifte (aangifte omzetbelasting)",
+      "sources": [
+        "https://www.belastingdienst.nl/wps/wcm/connect/nl/btw/content/uiterste-aangifte-en-betaaldatums",
+        "https://www.belastingdienst.nl/wps/wcm/connect/nl/btw/content/wijziging-aangiftetijdvak-btw",
+        "https://wetten.overheid.nl/BWBR0002448/"
+      ],
+      "unsure": "Return and payment must be received by the last calendar day of the month after the period; the annual return by 31 March. 'Last day of month' is encoded as day 30 with exceptions giving 31 (and 28 for January; February 29 in leap years). Weekend shift is unclear. The Algemene termijnenwet art. 1 extends statutory deadlines that end on a weekend or holiday (it does not apply to periods of 3 months or longer). However, the official Belastingdienst table lists unshifted weekend dates (31 Jan 2026 and 31 Oct 2026, both Saturdays), and receipt of payment is what counts. Safest for reminders: no shift."
+    },
+    "incomeTax2026": {
+      "formName": "Aangifte inkomstenbelasting 2026",
+      "filingOpens": null,
+      "deadlines": [
+        {
+          "kind": "standard",
+          "date": "2027-05-01"
+        },
+        {
+          "kind": "with_extension",
+          "date": "2027-09-01"
+        }
+      ],
+      "sources": [
+        "https://www.belastingdienst.nl/wps/wcm/connect/nl/belastingaangifte/content/wanneer-moet-ik-aangifte-doen",
+        "https://www.belastingdienst.nl/wps/wcm/connect/nl/belastingaangifte/content/ik-moet-aangifte-doen-maar-ik-wil-graag-uitstel-kan-dat"
+      ],
+      "unsure": "The deadline is not fixed by statute; it is set in each taxpayer's invitation letter. The Belastingdienst says the return must arrive 'vóór de datum die in uw aangiftebrief staat. Vaak is dit 1 mei', which can be read as up to and including 1 May. 1 May 2027 is a Saturday, and no shift was confirmed. An extension requested before 1 May gives 4 more months (to 1 September). Advisers' bulk extension schemes allow later dates, which are not modelled. Filing normally opens 1 March, but that was not confirmed for 2027."
+    }
+  },
+  "LU": {
+    "vat": {
+      "frequencies": {
+        "monthly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 15,
+          "plusDays": null,
+          "exceptions": []
+        },
+        "quarterly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 15,
+          "plusDays": null,
+          "exceptions": []
+        },
+        "annual": {
+          "monthsAfterPeriodEnd": 2,
+          "day": 28,
+          "plusDays": null,
+          "exceptions": []
+        }
+      },
+      "frequencyRule": "Set by the AED; monthly is the legal default. In practice: turnover above EUR 620,000 -> monthly, plus an annual return; EUR 112,000-620,000 -> quarterly, plus an annual return; below EUR 112,000 -> annual only.",
+      "shiftsToNextBusinessDay": null,
+      "extension": null,
+      "returnName": "Déclaration de TVA (mensuelle/trimestrielle/annuelle) via eCDF",
+      "sources": [
+        "https://guichet.public.lu/fr/entreprises/fiscalite/impots-benefices/tva/declarations/declaration-tva.html",
+        "https://guichet.public.lu/fr/entreprises/fiscalite/notions-fiscales/principes-echeances/calendrier-fiscal.html"
+      ],
+      "unsure": "Guichet.lu wording is 'avant le 15e jour' of the following month or quarter. That is encoded as day 15; the statutory text, which would show whether the 15th itself is included, was not read. Annual-only filers: 'avant le 1er mars', encoded as 28 February (29 in leap years). Monthly and quarterly filers also file an annual return 'avant le 1er mai'; this is not modelled as a frequency. No weekend/holiday rule found."
+    },
+    "incomeTax2026": {
+      "formName": "Déclaration pour l'impôt sur le revenu des personnes physiques (modèle 100)",
+      "filingOpens": null,
+      "deadlines": [
+        {
+          "kind": "standard",
+          "date": "2027-12-31"
+        }
+      ],
+      "sources": [
+        "https://guichet.public.lu/fr/citoyens/fiscalite/declaration-impot-decompte/activite-professionnelle/declaration-revenus/declaration-impot.html"
+      ],
+      "unsure": "Guichet.lu says the return 'doit être envoyée au plus tard le 31 décembre de l'année qui suit celle de l'année d'imposition'. 31 December 2027 is a Friday. The guichet business tax calendar still lists 'avant le 31 mars' for the individual return, which conflicts; the citizen page (31 December) was used. Extensions are available on request from the tax office. The 2027 opening date is not published (2026 opened 7 April)."
+    }
+  },
+  "IE": {
+    "vat": {
+      "frequencies": {
+        "monthly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 19,
+          "plusDays": null,
+          "exceptions": []
+        },
+        "quarterly": null,
+        "annual": null
+      },
+      "frequencyRule": "The standard taxable period is TWO months (Jan-Feb, Mar-Apr, ... Nov-Dec). Revenue may authorise four-monthly returns (annual VAT liability EUR 3,001-14,400), six-monthly returns (EUR 1-3,000), or monthly returns for traders constantly in a repayment position.",
+      "shiftsToNextBusinessDay": null,
+      "extension": null,
+      "returnName": "VAT3 return (plus annual Return of Trading Details, RTD)",
+      "sources": [
+        "https://www.revenue.ie/en/vat/accounting-for-vat/how-to-account-for-value-added-tax/when-vat-becomes-payable.aspx"
+      ],
+      "unsure": "The schema has no bi-monthly, four-monthly or six-monthly slot. For every Irish taxable period the same rule applies: file and pay by the 19th of the month after the period ends. The monthly rule above can be reused for those periods, but the caller must decide how to represent them. ROS filers get until the 23rd (not an application-based extension, so the extension field is null). Annual returns used to be linked to fixed direct debit; Revenue is moving direct-debit payers to variable direct debit with bi-monthly filing from August 2025, so annual is left null. No weekend rule confirmed."
+    },
+    "incomeTax2026": {
+      "formName": "Form 11 (self-assessment income tax return)",
+      "filingOpens": null,
+      "deadlines": [
+        {
+          "kind": "standard",
+          "date": "2027-10-31"
+        }
+      ],
+      "sources": [
+        "https://www.revenue.ie/en/self-assessment-and-self-employment/guide-to-self-assessment/pay-file-system.aspx",
+        "https://www.revenue.ie/en/self-assessment-and-self-employment/filing-your-tax-return/index.aspx"
+      ],
+      "unsure": "By law the return (with preliminary tax for the next year) is due by 31 October of the following year. 31 October 2027 is a Sunday. Revenue does not appear to shift it: it published 'Saturday 31 October 2026' for the 2025 return. Revenue announces a ROS pay-and-file extension each year (18 November 2026 for 2025 returns); the 2027 date is not yet published, so online_pay_and_file is omitted."
+    }
+  },
+  "MT": {
+    "vat": {
+      "frequencies": {
+        "monthly": null,
+        "quarterly": {
+          "monthsAfterPeriodEnd": 2,
+          "day": 15,
+          "plusDays": null,
+          "exceptions": []
+        },
+        "annual": {
+          "monthsAfterPeriodEnd": 2,
+          "day": 15,
+          "plusDays": null,
+          "exceptions": []
+        }
+      },
+      "frequencyRule": "Article 10 registered persons: 3-month tax periods allocated by the Commissioner. These are not necessarily calendar quarters; they start from the registration date, and the Commissioner may vary them. Article 11 small enterprises (turnover up to the EUR 35,000 domestic threshold): annual declaration for the calendar year, or a shorter period by option.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "VAT return (Article 10) / Article 11 annual declaration",
+      "sources": [
+        "https://legislation.mt/getpdf/69e87cc8becf2f2334f5323f"
+      ],
+      "unsure": "VAT Act Cap. 406 art. 27(1): the return is due by the 15th day of the 2nd month after the month in which the tax period ends. Sixth Schedule Part One item 5(5) applies the same deadline to Article 11 declarations, so 15 February for the calendar year. Art. 73(5) moves a deadline on a Saturday, Sunday or public holiday to the next working day. The CFR/MTCA websites (Cloudflare-blocked) appear to list later online deadlines (e.g. '22 October 2026'), which suggests an administrative extension for e-filed returns; this could not be verified, so the statutory 15th is kept."
+    },
+    "incomeTax2026": {
+      "formName": "Individual income tax return (year of assessment 2027, basis year 2026)",
+      "filingOpens": null,
+      "deadlines": [
+        {
+          "kind": "standard",
+          "date": "2027-06-30"
+        }
+      ],
+      "sources": [
+        "https://legislation.mt/getpdf/6022595cbc8272018c0f2ad2"
+      ],
+      "unsure": "Income Tax (Statutory Dates) Rules S.L. 372.16 rule 2(c)(ii) sets the tax return date for individuals at 30 June of the year of assessment (YA 2027 = income of 2026). 30 June 2027 is a Wednesday. Each year the MTCA announces an extension for online filing, and for 2026 it was reportedly to 31 July for both manual and electronic filing; the 2027 extension is not yet known, and the MTCA site was blocked, so it is omitted."
+    }
+  },
+  "CY": {
+    "vat": {
+      "frequencies": {
+        "monthly": null,
+        "quarterly": {
+          "monthsAfterPeriodEnd": 2,
+          "day": 10,
+          "plusDays": null,
+          "exceptions": []
+        },
+        "annual": null
+      },
+      "frequencyRule": "Quarterly tax periods are the standard; the Commissioner allocates the periods.",
+      "shiftsToNextBusinessDay": null,
+      "extension": null,
+      "returnName": "VAT return (T.D. 1004), Tax For All portal",
+      "sources": [
+        "https://www.businessincyprus.gov.cy/doing-business-in-cyprus/start-your-business/registering-for-income-tax-and-value-added-tax/"
+      ],
+      "unsure": "Return and payment are due by the 10th day of the 2nd month after the end of the tax period (businessincyprus.gov.cy). The Tax Department's VAT guide PDF now redirects to gov.cy/mof-tax and could not be read. Secondary sources say a weekend/holiday deadline moves to the next working day, and that monthly periods are possible on request; neither was verified on an official page."
+    },
+    "incomeTax2026": {
+      "formName": "Individual Income Tax Return (T.D.1), via Tax For All from tax year 2026",
+      "filingOpens": null,
+      "deadlines": [
+        {
+          "kind": "standard",
+          "date": "2027-07-31"
+        }
+      ],
+      "sources": [
+        "https://www.gov.cy/mof-tax/en/documents/forologiki-dilosi-eisodimatos-atomoy/"
+      ],
+      "unsure": "Tax Department: under art. 5 of the Tax Assessment and Collection Law the deadline is 31 July of the following year. The Council of Ministers routinely extends it by decree (tax year 2025: 31 Oct 2026; 2024: 15 Oct 2025; 2023: 30 Nov 2024), so the real 2027 date will probably be later. 31 July 2027 is a Saturday, and no shift rule was confirmed. Self-employed rules from businessincyprus.gov.cy, which conflict with the Tax Department page: turnover up to EUR 70,000 -> 30 September; turnover above EUR 70,000 with audited accounts -> 15 months after the year end (31 March 2028). Neither is modelled."
+    }
+  },
+  "GR": {
+    "vat": {
+      "frequencies": {
+        "monthly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 30,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 1,
+              "monthsAfterPeriodEnd": 1,
+              "day": 28
+            },
+            {
+              "periodEndMonth": 2,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 4,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 6,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 7,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 9,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 11,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            },
+            {
+              "periodEndMonth": 12,
+              "monthsAfterPeriodEnd": 1,
+              "day": 31
+            }
+          ]
+        },
+        "quarterly": {
+          "monthsAfterPeriodEnd": 1,
+          "day": 31,
+          "plusDays": null,
+          "exceptions": [
+            {
+              "periodEndMonth": 3,
+              "monthsAfterPeriodEnd": 1,
+              "day": 30
+            }
+          ]
+        },
+        "annual": null
+      },
+      "frequencyRule": "Monthly for businesses keeping double-entry books, public-sector entities, and single-entry businesses that started on or after 1 January 2024. Quarterly (calendar quarters) for single-entry books started before 31 December 2023.",
+      "shiftsToNextBusinessDay": false,
+      "extension": null,
+      "returnName": "Periodic VAT return (Φ2 / F2)",
+      "sources": [
+        "https://mitos.gov.gr/index.php/%CE%94%CE%94:%CE%94%CE%AE%CE%BB%CF%89%CF%83%CE%B7_%CE%A6%CE%A0%CE%91"
+      ],
+      "unsure": "The deadline is 'the last WORKING day of the month following the end of the tax period' (VAT Code, Law 4314/2024). The rule above encodes the last CALENDAR day (base 30, exceptions 31/28). The consumer must move the date BACKWARD to the last working day when it falls on a weekend or holiday. That is why shiftsToNextBusinessDay is false: it never moves forward. Payment in two instalments is possible: the 1st by the filing deadline and the 2nd by the last working day of the next month."
+    },
+    "incomeTax2026": {
+      "formName": "E1 personal income tax return (with E2/E3)",
+      "filingOpens": "2027-03-15",
+      "deadlines": [
+        {
+          "kind": "standard",
+          "date": "2027-07-15"
+        }
+      ],
+      "sources": [
+        "https://minfin.gov.gr/paratasi-eos-15-maiou-gia-tis-diloseis-me-ekptosi-forou-4/",
+        "https://www.taxheaven.gr/law/4172/2013/arthro/67"
+      ],
+      "unsure": "Law 4172/2013 art. 67(1) sets the filing window from 15 March to 15 July of the following year; this text was read on taxheaven.gr (a private consolidation). The Finance Ministry confirms 15 July for 2026. 15 July 2027 is a Thursday. Art. 67(8) moves the window's START date to the next working day if it falls on a holiday or weekend; 15 March 2027 is a Monday. Partners in single-entry legal entities may file by 31 July (not modelled). Early-filing discounts (4%/3%/2%) are not modelled."
+    }
+  }
+}

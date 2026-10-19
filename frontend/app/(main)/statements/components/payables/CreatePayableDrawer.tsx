@@ -1,11 +1,16 @@
 /* eslint-disable max-lines */
 'use client';
 
+import MuiButton from '@mui/material/Button';
+import React, { useEffect, useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronLeft } from '@/app/components/icons';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import { Input } from '@/app/components/ui/input';
+import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
+import { Select } from '@/app/components/ui/select';
+import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type {
   CreatePayableInput,
   Payable,
@@ -13,18 +18,13 @@ import type {
   PayableStatus,
   UpdatePayableInput,
 } from '@/app/lib/payables-api';
-import {
-  type CurrencySearchItem,
-  DEFAULT_RECENT_CURRENCIES,
-  buildCurrencySearchIndex,
-} from '@/app/lib/statement-expense-drawer';
-import MuiButton from '@mui/material/Button';
-import React, { useEffect, useMemo, useState } from 'react';
 
 interface CreatePayableDrawerProps {
   open: boolean;
   payable?: Payable | null;
   initialValues?: CreatePayableInput | null;
+  /** Currency preselected for new entries; the workspace currency. */
+  defaultCurrency?: string;
   saving?: boolean;
   onClose: () => void;
   onSubmit: (payload: CreatePayableInput | UpdatePayableInput) => Promise<void>;
@@ -42,7 +42,8 @@ interface CreatePayableDrawerProps {
     saving: string;
     cancel: string;
     sourceOptions: Record<PayableSource, string>;
-    statusOptions: Record<PayableStatus, string>;
+    /** `partially_paid` is derived from the payments, so it is never offered here. */
+    statusOptions: Record<Exclude<PayableStatus, 'partially_paid'>, string>;
   };
 }
 
@@ -56,94 +57,30 @@ interface PayableFormState {
   comment: string;
 }
 
-const createEmptyState = (): PayableFormState => ({
+const createEmptyState = (defaultCurrency: string): PayableFormState => ({
   vendor: '',
   amount: '',
-  currency: 'KZT',
+  currency: defaultCurrency,
   dueDate: '',
   source: 'manual',
   status: 'to_pay',
   comment: '',
 });
 
-function useCurrencyPickerState(currency: string): {
-  currencyDrawerOpen: boolean;
-  setCurrencyDrawerOpen: (open: boolean) => void;
-  currencySearch: string;
-  setCurrencySearch: (value: string) => void;
-  selectedCurrencyItem: CurrencySearchItem | undefined;
-  selectedMatchesSearch: boolean;
-  currencyQuery: string;
-  recentCurrencyItems: CurrencySearchItem[];
-  allCurrencyItems: CurrencySearchItem[];
-  pushRecentCurrency: (code: string) => void;
-} {
-  const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
-  const [currencySearch, setCurrencySearch] = useState('');
-  const [recentCurrencies, setRecentCurrencies] = useState<string[]>([
-    ...DEFAULT_RECENT_CURRENCIES,
-  ]);
-  const currencyItems = useMemo(() => buildCurrencySearchIndex(), []);
-  const currencyByCode = useMemo(
-    () => new Map(currencyItems.map(item => [item.code, item])),
-    [currencyItems],
-  );
-  const normalizedCurrency = currency.trim().toUpperCase();
-  const selectedCurrencyItem = currencyByCode.get(normalizedCurrency);
-  const currencyQuery = currencySearch.trim().toLowerCase();
-  const selectedMatchesSearch = selectedCurrencyItem
-    ? currencyQuery.length === 0 || selectedCurrencyItem.searchText.includes(currencyQuery)
-    : false;
-  const recentCurrencyItems = useMemo(
-    () =>
-      recentCurrencies
-        .map(code => currencyByCode.get(code))
-        .filter((item): item is CurrencySearchItem => Boolean(item))
-        .filter(item => item.code !== normalizedCurrency),
-    [currencyByCode, normalizedCurrency, recentCurrencies],
-  );
-  const allCurrencyItems = useMemo(() => {
-    const source =
-      currencyQuery.length > 0
-        ? currencyItems.filter(item => item.searchText.includes(currencyQuery))
-        : currencyItems;
-    return source.filter(item => item.code !== normalizedCurrency);
-  }, [currencyItems, currencyQuery, normalizedCurrency]);
-
-  const pushRecentCurrency = (code: string): void => {
-    setRecentCurrencies(prev => [code, ...prev.filter(item => item !== code)]);
-    setCurrencySearch('');
-    setCurrencyDrawerOpen(false);
-  };
-
-  return {
-    currencyDrawerOpen,
-    setCurrencyDrawerOpen,
-    currencySearch,
-    setCurrencySearch,
-    selectedCurrencyItem,
-    selectedMatchesSearch,
-    currencyQuery,
-    recentCurrencyItems,
-    allCurrencyItems,
-    pushRecentCurrency,
-  };
-}
-
-// eslint-disable-next-line max-params
 const toFormState = (
-  payable?: Payable | null,
-  initialValues?: CreatePayableInput | null,
+  payable: Payable | null | undefined,
+  initialValues: CreatePayableInput | null | undefined,
+  defaultCurrency: string,
 ): PayableFormState => {
   if (!(payable || initialValues)) {
-    return createEmptyState();
+    return createEmptyState(defaultCurrency);
   }
 
   if (!payable && initialValues) {
     return {
       vendor: initialValues.vendor || '',
       amount: String(initialValues.amount ?? ''),
-      currency: initialValues.currency || 'KZT',
+      currency: initialValues.currency || defaultCurrency,
       dueDate: initialValues.dueDate ? initialValues.dueDate.slice(0, 10) : '',
       source: initialValues.source || 'manual',
       status: initialValues.status || 'to_pay',
@@ -154,7 +91,7 @@ const toFormState = (
   return {
     vendor: payable?.vendor || '',
     amount: String(payable?.amount ?? ''),
-    currency: payable?.currency || 'KZT',
+    currency: payable?.currency || defaultCurrency,
     dueDate: payable?.dueDate ? payable.dueDate.slice(0, 10) : '',
     source: payable?.source || 'manual',
     status: payable?.status || 'to_pay',
@@ -167,13 +104,16 @@ export function CreatePayableDrawer({
   open,
   payable,
   initialValues,
+  defaultCurrency = FALLBACK_CURRENCY,
   saving,
   onClose,
   onSubmit,
   labels,
 }: CreatePayableDrawerProps): React.JSX.Element {
-  const [form, setForm] = useState<PayableFormState>(() => toFormState(payable, initialValues));
-  const currencyPicker = useCurrencyPickerState(form.currency || 'KZT');
+  const [form, setForm] = useState<PayableFormState>(() =>
+    toFormState(payable, initialValues, defaultCurrency),
+  );
+  const currencyPicker = useCurrencyPickerState(form.currency || defaultCurrency);
   const {
     currencyDrawerOpen,
     setCurrencyDrawerOpen,
@@ -193,8 +133,8 @@ export function CreatePayableDrawer({
       setCurrencySearch('');
       return;
     }
-    setForm(toFormState(payable, initialValues));
-  }, [initialValues, open, payable, setCurrencyDrawerOpen, setCurrencySearch]);
+    setForm(toFormState(payable, initialValues, defaultCurrency));
+  }, [defaultCurrency, initialValues, open, payable, setCurrencyDrawerOpen, setCurrencySearch]);
 
   const canSubmit = useMemo(() => form.vendor.trim().length > 0 && Number(form.amount) > 0, [form]);
 
@@ -206,7 +146,7 @@ export function CreatePayableDrawer({
     await onSubmit({
       vendor: form.vendor.trim(),
       amount: Number(form.amount),
-      currency: form.currency.trim().toUpperCase() || 'KZT',
+      currency: form.currency.trim().toUpperCase() || defaultCurrency,
       dueDate: form.dueDate || undefined,
       source: form.source,
       status: form.status,
@@ -234,11 +174,11 @@ export function CreatePayableDrawer({
           '@media (min-width:600px)': { maxWidth: 512 },
         }}
         title={
-          <div className="lumio-payable-drawer__title-wrap">
+          <div className="seneca-payable-drawer__title-wrap">
             <button
               type="button"
               onClick={onClose}
-              className="lumio-payable-drawer__back-btn"
+              className="seneca-payable-drawer__back-btn"
               aria-label={labels.cancel}
             >
               <ChevronLeft size={20} />
@@ -249,10 +189,10 @@ export function CreatePayableDrawer({
           </div>
         }
       >
-        <div className="lumio-payable-drawer__body">
+        <div className="seneca-payable-drawer__body">
           <div style={{ display: 'grid', gap: 16 }}>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="payable-vendor">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="payable-vendor">
                 {labels.vendor}
               </label>
               <Input
@@ -262,9 +202,9 @@ export function CreatePayableDrawer({
               />
             </div>
 
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-amount">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-amount">
                   {labels.amount}
                 </label>
                 <Input
@@ -276,14 +216,14 @@ export function CreatePayableDrawer({
                   onChange={event => setForm(prev => ({ ...prev, amount: event.target.value }))}
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-currency">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-currency">
                   {labels.currency}
                 </label>
                 <button
                   id="payable-currency"
                   type="button"
-                  className="lumio-payable-drawer__currency-trigger"
+                  className="seneca-payable-drawer__currency-trigger"
                   onClick={() => setCurrencyDrawerOpen(true)}
                   aria-label={labels.currency}
                 >
@@ -292,69 +232,68 @@ export function CreatePayableDrawer({
               </div>
             </div>
 
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-due-date">
+                  {labels.dueDate}
+                </label>
                 <CustomDatePicker
-                  label={labels.dueDate}
+                  id="payable-due-date"
+                  large
                   value={form.dueDate || null}
                   onChange={value => setForm(prev => ({ ...prev, dueDate: value }))}
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group lumio-payable-drawer__field-group--floating-select">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-source">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-source">
                   {labels.source}
                 </label>
-                <select
+                <Select
+                  fullWidth
                   id="payable-source"
-                  className="lumio-payable-drawer__select"
+                  sx={FORM_CONTROL_SX}
                   value={form.source}
-                  onChange={event =>
-                    setForm(prev => ({ ...prev, source: event.target.value as PayableSource }))
-                  }
-                >
-                  {Object.entries(labels.sourceOptions).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={value => setForm(prev => ({ ...prev, source: value as PayableSource }))}
+                  options={Object.entries(labels.sourceOptions).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                />
               </div>
             </div>
 
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="payable-status">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="payable-status">
                 {labels.status}
               </label>
-              <select
+              <Select
+                fullWidth
                 id="payable-status"
-                className="lumio-payable-drawer__select"
+                sx={FORM_CONTROL_SX}
                 value={form.status}
-                onChange={event =>
-                  setForm(prev => ({ ...prev, status: event.target.value as PayableStatus }))
-                }
-              >
-                {Object.entries(labels.statusOptions).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+                onChange={value => setForm(prev => ({ ...prev, status: value as PayableStatus }))}
+                // Paid comes from recording the payment (Mark paid), which books the
+                // money; an edit cannot make an open bill paid, only keep a paid one so.
+                options={Object.entries(labels.statusOptions)
+                  .filter(([value]) => value !== 'paid' || payable?.status === 'paid')
+                  .map(([value, label]) => ({ value, label }))}
+              />
             </div>
 
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="payable-comment">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="payable-comment">
                 {labels.comment}
               </label>
               <textarea
                 id="payable-comment"
                 value={form.comment}
                 onChange={event => setForm(prev => ({ ...prev, comment: event.target.value }))}
-                className="lumio-payable-drawer__textarea"
+                className="seneca-payable-drawer__textarea"
               />
             </div>
           </div>
 
-          <div className="lumio-payable-drawer__footer">
+          <div className="seneca-payable-drawer__footer">
             <MuiButton variant="outlined" sx={{ flex: 1 }} onClick={onClose}>
               {labels.cancel}
             </MuiButton>

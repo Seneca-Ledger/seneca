@@ -5,10 +5,13 @@ import type { DropboxSettings } from '@/entities/dropbox-settings.entity';
 import { IntegrationProvider, IntegrationStatus, type Integration } from '@/entities/integration.entity';
 import type { IntegrationToken } from '@/entities/integration-token.entity';
 import type { User } from '@/entities/user.entity';
+import { WorkspaceKind } from '@/entities/workspace.entity';
+import type { WorkspaceMember } from '@/entities/workspace-member.entity';
 import {
   CloudStorageBaseService,
   type CloudStorageSettingsLike,
 } from '@/common/services/cloud-storage-base.service';
+import { APP_NAME } from '../../../../src/common/brand';
 
 function createRepoMock<T>() {
   return {
@@ -152,6 +155,7 @@ class TestCloudStorageService extends CloudStorageBaseService<TestSettings> {
 
   exposeImportFilesWithClient<TClient>(args: {
     userId: string;
+    workspaceId: string;
     fileIds: string[];
     getClient: (integration: Integration) => Promise<TClient>;
     loadFile: (
@@ -180,6 +184,7 @@ describe('CloudStorageBaseService', () => {
   const integrationTokenRepository = createRepoMock<IntegrationToken>();
   const settingsRepository = createRepoMock<TestSettings>();
   const userRepository = createRepoMock<User>();
+  const workspaceMemberRepository = createRepoMock<WorkspaceMember>();
   let service: TestCloudStorageService;
 
   beforeEach(() => {
@@ -189,6 +194,7 @@ describe('CloudStorageBaseService', () => {
       integrationTokenRepository,
       settingsRepository,
       userRepository,
+      workspaceMemberRepository,
     );
   });
 
@@ -209,15 +215,14 @@ describe('CloudStorageBaseService', () => {
   });
 
   it('marks connected integrations without required tokens as needing reauth', async () => {
-    userRepository.findOne.mockResolvedValue({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.DROPBOX,
       status: IntegrationStatus.CONNECTED,
       token: { accessToken: null, refreshToken: 'encrypted-refresh' },
       dropboxSettings: {
-        folderId: '/lumio',
-        folderName: 'Lumio',
+        folderId: '/seneca',
+        folderName: APP_NAME,
         syncEnabled: true,
         syncTime: '03:00',
         timeZone: 'UTC',
@@ -225,12 +230,12 @@ describe('CloudStorageBaseService', () => {
       },
     });
 
-    await expect(service.getStatus('user-1')).resolves.toEqual({
+    await expect(service.getStatus('ws-1')).resolves.toEqual({
       connected: false,
       status: IntegrationStatus.NEEDS_REAUTH,
       settings: {
-        folderId: '/lumio',
-        folderName: 'Lumio',
+        folderId: '/seneca',
+        folderName: APP_NAME,
         syncEnabled: true,
         syncTime: '03:00',
         timeZone: 'UTC',
@@ -238,10 +243,13 @@ describe('CloudStorageBaseService', () => {
       },
       scopes: [],
     });
+    expect(integrationRepository.findOne).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws-1', provider: IntegrationProvider.DROPBOX },
+      relations: ['token', 'dropboxSettings'],
+    });
   });
 
   it('disconnects the integration and deletes its token', async () => {
-    userRepository.findOne.mockResolvedValue({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.DROPBOX,
@@ -250,7 +258,7 @@ describe('CloudStorageBaseService', () => {
       dropboxSettings: null,
     });
 
-    await expect(service.disconnect('user-1')).resolves.toEqual({ ok: true });
+    await expect(service.disconnect('ws-1')).resolves.toEqual({ ok: true });
     expect(integrationTokenRepository.delete).toHaveBeenCalledWith({ integrationId: 'integration-1' });
     expect(integrationRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -268,7 +276,6 @@ describe('CloudStorageBaseService', () => {
       expiresAt: new Date(Date.now() - 60_000),
     };
 
-    userRepository.findOne.mockResolvedValue({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.DROPBOX,
@@ -281,7 +288,7 @@ describe('CloudStorageBaseService', () => {
       expiresAt: new Date('2026-04-05T00:00:00.000Z'),
     });
 
-    await expect(service.getPickerToken('user-1')).resolves.toEqual({ accessToken: 'fresh-access' });
+    await expect(service.getPickerToken('ws-1')).resolves.toEqual({ accessToken: 'fresh-access' });
     expect(service.refreshAccessTokenMock).toHaveBeenCalledWith('refresh-1');
     expect(integrationTokenRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -336,13 +343,18 @@ describe('CloudStorageBaseService', () => {
     expect(service.syncIntegrationMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'due' }),
     );
+    // A past version files nothing new, so its copied connection is never picked up.
+    expect(integrationRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ workspace: { kind: WorkspaceKind.STANDARD } }),
+      }),
+    );
 
     jest.useRealTimers();
   });
 
   it('builds a shared sync query scoped to workspace and last sync time', () => {
     const qb = {
-      leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -359,9 +371,9 @@ describe('CloudStorageBaseService', () => {
     );
 
     expect(statementRepository.createQueryBuilder).toHaveBeenCalledWith('statement');
-    expect(qb.leftJoin).toHaveBeenCalledWith('statement.user', 'user');
     expect(qb.where).toHaveBeenCalledWith('statement.deletedAt IS NULL');
-    expect(qb.andWhere).toHaveBeenCalledWith('user.workspaceId = :workspaceId', {
+    // The statements' own workspace, not their uploaders' registration workspace.
+    expect(qb.andWhere).toHaveBeenCalledWith('statement.workspaceId = :workspaceId', {
       workspaceId: 'ws-1',
     });
     expect(qb.andWhere).toHaveBeenCalledWith('statement.createdAt > :lastSyncAt', { lastSyncAt });
@@ -379,7 +391,6 @@ describe('CloudStorageBaseService', () => {
   });
 
   it('runs manual sync through the shared base method', async () => {
-    userRepository.findOne.mockResolvedValue({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.DROPBOX,
@@ -389,7 +400,7 @@ describe('CloudStorageBaseService', () => {
     });
     service.syncIntegrationMock.mockResolvedValue({ ok: true, uploaded: 2 });
 
-    await expect(service.syncNow('user-1')).resolves.toEqual({ ok: true, uploaded: 2 });
+    await expect(service.syncNow('ws-1')).resolves.toEqual({ ok: true, uploaded: 2 });
     expect(service.syncIntegrationMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'integration-1' }),
     );
@@ -397,14 +408,14 @@ describe('CloudStorageBaseService', () => {
 
   it('persists an imported file through the shared helper', async () => {
     const importFile = jest.fn().mockResolvedValue(undefined);
-    const uploadsDir = `/tmp/lumio-test-${Date.now()}`;
+    const uploadsDir = `/tmp/seneca-test-${Date.now()}`;
     fs.mkdirSync(uploadsDir, { recursive: true });
 
     await service.exposePersistImportedFile({
       uploadsDir,
       safeBaseName: 'statement.pdf',
       mimeType: 'application/pdf',
-      contents: Buffer.from('pdf-data'),
+      contents: Buffer.from('%PDF-1.4\npdf-data'),
       importFile,
     });
 
@@ -412,7 +423,7 @@ describe('CloudStorageBaseService', () => {
       expect.objectContaining({
         originalname: 'statement.pdf',
         mimetype: 'application/pdf',
-        size: Buffer.byteLength('pdf-data'),
+        size: Buffer.byteLength('%PDF-1.4\npdf-data'),
       }),
     );
   });
@@ -466,9 +477,7 @@ describe('CloudStorageBaseService', () => {
   });
 
   it('runs shared import orchestration with provider hooks', async () => {
-    userRepository.findOne
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' })
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
+    userRepository.findOne.mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.DROPBOX,
@@ -485,7 +494,7 @@ describe('CloudStorageBaseService', () => {
         originalName: 'statement.pdf',
         mimeType: 'application/pdf',
         size: 128,
-        getContents: async () => Buffer.from('pdf-data'),
+        getContents: async () => Buffer.from('%PDF-1.4\npdf-data'),
       })
       .mockResolvedValueOnce({
         result: {
@@ -498,6 +507,7 @@ describe('CloudStorageBaseService', () => {
     await expect(
       service.exposeImportFilesWithClient({
         userId: 'user-1',
+        workspaceId: 'ws-1',
         fileIds: ['file-1', 'file-2'],
         getClient,
         loadFile,
@@ -541,8 +551,8 @@ describe('CloudStorageBaseService', () => {
     const createAuditEvent = jest.fn().mockResolvedValue(undefined);
     const settings = {
       integrationId: 'integration-1',
-      folderId: '/lumio',
-      folderName: 'Lumio',
+      folderId: '/seneca',
+      folderName: APP_NAME,
       syncEnabled: true,
       syncTime: '03:00',
       timeZone: 'UTC',

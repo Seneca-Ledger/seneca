@@ -1,11 +1,13 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../../common/brand';
 import {
   OAuthIntegrationBaseService,
   type OAuthIntegrationSettingsRelationName,
 } from '../../../common/services/oauth-integration-base.service';
 import { decryptText, encryptText } from '../../../common/utils/encryption.util';
+import { requireSecret } from '../../../common/utils/required-secret.util';
 import {
   GmailSettings,
   Integration,
@@ -13,6 +15,7 @@ import {
   IntegrationStatus,
   IntegrationToken,
   User,
+  WorkspaceMember,
 } from '../../../entities';
 
 const GMAIL_SCOPES = [
@@ -20,7 +23,6 @@ const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.labels',
   'https://www.googleapis.com/auth/gmail.settings.basic',
   'https://www.googleapis.com/auth/gmail.compose',
-  'https://www.googleapis.com/auth/spreadsheets',
 ];
 
 type GoogleTokenResponse = {
@@ -43,8 +45,15 @@ export class GmailOAuthService extends OAuthIntegrationBaseService {
     private readonly gmailSettingsRepository: Repository<GmailSettings>,
     @InjectRepository(User)
     userRepository: Repository<User>,
+    @InjectRepository(WorkspaceMember)
+    workspaceMemberRepository: Repository<WorkspaceMember>,
   ) {
-    super(integrationRepository, integrationTokenRepository, userRepository);
+    super(
+      integrationRepository,
+      integrationTokenRepository,
+      userRepository,
+      workspaceMemberRepository,
+    );
   }
 
   protected getProvider(): IntegrationProvider {
@@ -80,7 +89,11 @@ export class GmailOAuthService extends OAuthIntegrationBaseService {
   }
 
   protected getStateSecret() {
-    return process.env.GMAIL_STATE_SECRET || process.env.JWT_SECRET || 'lumio-state';
+    return requireSecret(
+      'GMAIL_STATE_SECRET or JWT_SECRET',
+      process.env.GMAIL_STATE_SECRET,
+      process.env.JWT_SECRET,
+    );
   }
 
   private getOAuthConfig() {
@@ -111,19 +124,20 @@ export class GmailOAuthService extends OAuthIntegrationBaseService {
     return (await response.json()) as GoogleTokenResponse;
   }
 
-  override async findIntegrationForUser(userId: string) {
-    return super.findIntegrationForUser(userId);
+  override findWorkspaceIntegration(workspaceId: string) {
+    return super.findWorkspaceIntegration(workspaceId);
   }
 
-  override async ensureIntegration(userId: string) {
-    return super.ensureIntegration(userId);
+  override ensureWorkspaceIntegration(workspaceId: string) {
+    return super.ensureWorkspaceIntegration(workspaceId);
   }
 
-  getAuthUrl(user: User): string {
+  /** The integration is bound to `workspaceId`, the workspace the user connects from. */
+  getAuthUrl(user: User, workspaceId: string): string {
     const { clientId, redirectUri } = this.getOAuthConfig();
     const state = this.buildState({
       userId: user.id,
-      workspaceId: user.workspaceId || null,
+      workspaceId,
       redirect: `${this.getFrontendBaseUrl()}/integrations/gmail`,
     });
 
@@ -169,11 +183,16 @@ export class GmailOAuthService extends OAuthIntegrationBaseService {
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'workspaceId'],
+      select: ['id'],
     });
 
     if (!user) {
       return { redirectUrl: `${redirectBase}?status=error&reason=user_not_found` };
+    }
+
+    const workspaceId = await this.resolveStateWorkspaceId(state, user.id);
+    if (!workspaceId) {
+      return { redirectUrl: `${redirectBase}?status=error&reason=workspace_forbidden` };
     }
 
     const tokens = await this.requestToken({
@@ -187,14 +206,8 @@ export class GmailOAuthService extends OAuthIntegrationBaseService {
       return { redirectUrl: `${redirectBase}?status=error&reason=missing_tokens` };
     }
 
-    const workspaceId = user.workspaceId || null;
     const existing = await this.integrationRepository.findOne({
-      where: workspaceId
-        ? { workspaceId, provider: IntegrationProvider.GMAIL }
-        : {
-            connectedByUserId: user.id,
-            provider: IntegrationProvider.GMAIL,
-          },
+      where: { workspaceId, provider: IntegrationProvider.GMAIL },
       relations: ['token', 'gmailSettings'],
     });
 
@@ -239,7 +252,7 @@ export class GmailOAuthService extends OAuthIntegrationBaseService {
       existing?.gmailSettings ||
       this.gmailSettingsRepository.create({
         integrationId: savedIntegration.id,
-        labelName: 'Lumio/Receipts',
+        labelName: `${APP_NAME}/Receipts`,
         filterEnabled: true,
         filterConfig: {
           hasAttachment: true,
@@ -322,27 +335,12 @@ export class GmailOAuthService extends OAuthIntegrationBaseService {
     }
   }
 
-  async getGmailClient(userId: string) {
-    const integration = await this.ensureIntegration(userId);
+  async getGmailClient(workspaceId: string) {
+    const integration = await this.ensureWorkspaceIntegration(workspaceId);
 
     // If the integration is already marked as needing re-auth, fail fast
     if (integration.status === IntegrationStatus.NEEDS_REAUTH) {
       throw new BadRequestException('Integration needs re-authentication');
-    }
-
-    // Ensure required scopes (including Sheets) are present. If not, mark integration as NEEDS_REAUTH
-    const requiredScope = 'https://www.googleapis.com/auth/spreadsheets';
-    const currentScopesRaw = integration.scopes || [];
-    const currentScopes = Array.isArray(currentScopesRaw)
-      ? currentScopesRaw
-      : String(currentScopesRaw).split(' ').filter(Boolean);
-
-    if (!currentScopes.includes(requiredScope)) {
-      integration.status = IntegrationStatus.NEEDS_REAUTH;
-      await this.integrationRepository.save(integration);
-      throw new BadRequestException(
-        'Gmail integration requires re-authentication to grant Google Sheets access',
-      );
     }
 
     const tokenRecord = await this.integrationTokenRepository.findOne({
@@ -375,8 +373,8 @@ export class GmailOAuthService extends OAuthIntegrationBaseService {
     return { accessToken, integration };
   }
 
-  async disconnect(userId: string): Promise<void> {
-    const integration = await this.ensureIntegration(userId);
+  async disconnect(workspaceId: string): Promise<void> {
+    const integration = await this.ensureWorkspaceIntegration(workspaceId);
 
     // Delete token
     await this.integrationTokenRepository.delete({ integrationId: integration.id });

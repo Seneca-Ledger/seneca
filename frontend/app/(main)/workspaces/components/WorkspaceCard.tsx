@@ -1,12 +1,15 @@
 'use client';
 
-import { tokens } from '@/lib/theme-tokens';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
+import { alpha } from '@mui/material/styles';
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useIntlayer } from '@/app/i18n';
+import { tokens } from '@/lib/theme-tokens';
+import { PLAIN_BACKGROUND } from '../constants';
 
 const getApiMessage = (error: unknown, fallback: string) => {
   if (!error || typeof error !== 'object') {
@@ -24,12 +27,14 @@ interface WorkspaceCardProps {
     icon: string | null;
     backgroundImage: string | null;
     isFavorite?: boolean;
+    memberRole?: string;
   };
   onClick: () => void;
   onFavoriteToggle?: (workspaceId: string) => Promise<void>;
 }
 
 export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: WorkspaceCardProps) {
+  const { roles } = useIntlayer('workspacesListView');
   const [isFavorite, setIsFavorite] = useState(workspace.isFavorite);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -41,12 +46,13 @@ export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: Workspac
     e.stopPropagation();
     const nextFavorite = !isFavorite;
     setIsFavorite(nextFavorite);
-    try {
+
+    await (async () => {
       await onFavoriteToggle?.(workspace.id);
-    } catch (error: unknown) {
+    })().catch(async (error: unknown) => {
       setIsFavorite(!nextFavorite);
       toast.error(getApiMessage(error, 'Failed to update favorite status'));
-    }
+    });
   };
 
   const isExternalBackground = Boolean(
@@ -56,155 +62,118 @@ export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: Workspac
         workspace.backgroundImage.startsWith('/')),
   );
 
+  const plain = workspace.backgroundImage === PLAIN_BACKGROUND;
   const backgroundImage = workspace.backgroundImage
     ? isExternalBackground
       ? workspace.backgroundImage
       : `/workspace-backgrounds/${workspace.backgroundImage}`
     : '/workspace-backgrounds/vidar-nordli-mathisen-641pLhGEEyg-unsplash.jpg';
 
+  // The role in the reader's language; a role the dictionary lacks keeps its own name.
+  const role = workspace.memberRole;
+  const translatedRole = role
+    ? (roles as Record<string, { value: string } | undefined>)[role]
+    : null;
+  const roleLabel = role
+    ? (translatedRole?.value ?? role.charAt(0).toUpperCase() + role.slice(1))
+    : null;
+  const subtitle = [roleLabel, workspace.description].filter(Boolean).join(' · ');
+
+  // Two zones: the cover on top, name and details on a plain panel below it, so
+  // text never sits on a photo it cannot be read against.
   return (
     <Box
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       sx={{
         position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
         overflow: 'hidden',
-        aspectRatio: '16/9',
-        borderRadius: tokens.radius.xl,
-        transition: 'box-shadow 0.3s',
-        '&:hover': { boxShadow: 6 },
+        border: '1px solid var(--border)',
+        borderRadius: tokens.radius.lg,
+        bgcolor: 'var(--card)',
+        transition: 'border-color 150ms ease',
+        '&:hover': { borderColor: theme => alpha(theme.palette.text.primary, 0.2) },
       }}
     >
       <button
         type="button"
         onClick={onClick}
         style={{
-          position: 'relative',
-          height: '100%',
-          width: '100%',
-          cursor: 'pointer',
-          border: 'none',
-          padding: 0,
-          background: 'none',
           display: 'block',
-          borderRadius: tokens.radius.xl,
+          width: '100%',
+          padding: 0,
+          border: 'none',
+          background: 'none',
+          cursor: 'pointer',
+          textAlign: 'left',
+          color: 'inherit',
         }}
       >
-        {/* Background Image */}
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `url(${backgroundImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            transition: 'transform 0.5s',
-            transform: isHovered ? 'scale(1.1)' : 'scale(1)',
-          }}
-        />
-
-        {/* Darkening Overlay */}
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            transition: 'background-color 0.5s',
-            bgcolor: isHovered ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.2)',
-          }}
-        />
-
-        {/* Static Content (Visible by default) */}
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-end',
-            p: 2,
-            transition: 'opacity 0.3s',
-            opacity: isHovered ? 0.4 : 1,
-          }}
-        >
+        <Box sx={{ position: 'relative', aspectRatio: '16/9', overflow: 'hidden' }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              // "No photo": the flat warm surface instead of a picture.
+              backgroundImage: plain ? 'none' : `url(${backgroundImage})`,
+              bgcolor: 'var(--icon-badge-bg)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              transition: 'transform 400ms ease',
+              transform: isHovered ? 'scale(1.03)' : 'scale(1)',
+            }}
+          />
+        </Box>
+        {/* Room on the right is the star's; it is a sibling, as buttons cannot nest. */}
+        <Box sx={{ px: 2, py: 1.5, pr: 6, minWidth: 0 }}>
           <Box
             component="h3"
             sx={{
-              fontSize: 18,
-              fontWeight: 700,
-              color: '#fff',
+              m: 0,
+              fontSize: 15,
+              fontWeight: 600,
+              color: 'var(--foreground)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              m: 0,
-              textShadow: '0 1px 3px rgba(0,0,0,0.5)',
             }}
           >
             {workspace.name}
           </Box>
-        </Box>
-
-        {/* Animated Description (Slides in on hover) */}
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            p: 3,
-            pointerEvents: 'none',
-          }}
-        >
-          <Box
-            sx={{
-              maxWidth: '80%',
-              transition: 'all 0.5s ease-out',
-              transform: isHovered ? 'translateX(0)' : 'translateX(-32px)',
-              opacity: isHovered ? 1 : 0,
-            }}
-          >
-            <p
-              style={{
-                color: '#fff',
-                fontSize: 14,
-                fontWeight: 500,
-                lineHeight: 1.6,
-                fontStyle: 'italic',
-                margin: 0,
-                textShadow: '0 2px 4px rgba(0,0,0,0.7)',
+          {subtitle ? (
+            <Box
+              component="p"
+              sx={{
+                m: 0,
+                mt: 0.25,
+                fontSize: 12,
+                color: 'var(--muted-foreground)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
             >
-              {workspace.description || 'No description provided'}
-            </p>
-          </Box>
+              {subtitle}
+            </Box>
+          ) : null}
         </Box>
       </button>
 
-      {/* Star Button (Top Right) */}
       <IconButton
         onClick={handleFavoriteClick}
+        size="small"
         sx={{
           position: 'absolute',
-          top: 12,
-          right: 12,
-          p: 0.5,
-          borderRadius: tokens.radius.full,
-          transition: 'opacity 0.2s',
-          opacity: isHovered || isFavorite ? 1 : 0,
-          bgcolor: 'transparent',
-          color: '#ffffff',
-          '&:hover': {
-            bgcolor: 'transparent',
-          },
+          right: 10,
+          bottom: 10,
+          color: isFavorite ? 'warning.main' : 'var(--muted-foreground)',
+          '&:hover': { bgcolor: theme => alpha(theme.palette.text.primary, 0.06) },
         }}
         aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
       >
-        {isFavorite ? (
-          <StarIcon sx={{ fontSize: 18, filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.45))' }} />
-        ) : (
-          <StarBorderIcon
-            sx={{ fontSize: 18, filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.45))' }}
-          />
-        )}
+        {isFavorite ? <StarIcon sx={{ fontSize: 18 }} /> : <StarBorderIcon sx={{ fontSize: 18 }} />}
       </IconButton>
     </Box>
   );

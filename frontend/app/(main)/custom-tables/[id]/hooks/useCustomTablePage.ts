@@ -1,511 +1,465 @@
 'use client';
 
-import { useAuth } from '@/app/hooks/useAuth';
-import { useIntlayer, useLocale } from '@/app/i18n';
-import type { Locale } from 'date-fns';
-import { enUS, kk, ru } from 'date-fns/locale';
-import { useParams, useRouter } from 'next/navigation';
+import type { SortingState } from '@tanstack/react-table';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { findPaidColumnKey } from '../utils/quickTabs';
-import type { CustomTableColumn, CustomTableGridRow } from '../utils/stylingUtils';
-import { tx } from '../utils/tableHelpers';
-import type { CustomTable, CustomTablePageColumn } from '../utils/tableTypes';
-import { useBulkRowActions } from './useBulkRowActions';
-import type { ColumnFilterState } from './useColumnConfig';
-import { useColumnConfig } from './useColumnConfig';
-import { useColumnLayout } from './useColumnLayout';
-import { useColumnManagement } from './useColumnManagement';
-import { useConvertToStatement } from './useConvertToStatement';
-import { useDeleteModals } from './useDeleteModals';
-import { useFullscreenMode } from './useFullscreenMode';
-import { useInsertSuccessToast } from './useInsertSuccessToast';
+import toast from 'react-hot-toast';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useAuth } from '@/app/hooks/useAuth';
+import { useIntlayer } from '@/app/i18n';
+import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import { resolveCurrencyCode } from '@/app/lib/format-money';
+import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { downloadTableExport } from '../../exportTable';
+import type { ConvertResult } from '../components/SendToStatementsDialog';
+import { showUndoToast } from '../components/UndoToast';
+import { isDraftRowId } from '../helpers/draftRowHelpers';
+import { buildDetailLabels } from '../labels';
+import { sourceViewDefaults } from '../utils/source-view-defaults';
+import type { AggregateFn, CustomTableColumn } from '../utils/types';
+import { useColumnEditor } from './useColumnEditor';
 import { usePasteImport } from './usePasteImport';
-import { useQuickTabState } from './useQuickTabState';
-import { useRowActions } from './useRowActions';
-import { useRowDrawer } from './useRowDrawer';
-import { useTabStats } from './useTabStats';
+import { useRowFilters } from './useRowFilters';
+import { useRowMutations } from './useRowMutations';
+import { useTableAggregates } from './useTableAggregates';
 import { useTableData } from './useTableData';
-import { useTableFilters } from './useTableFilters';
 import { useTableGrid } from './useTableGrid';
+import { useTableGroups } from './useTableGroups';
+import { useTableSummaries } from './useTableSummaries';
 
-function buildColumnTypes(
-  t: unknown,
-): { value: 'text' | 'number' | 'date' | 'boolean' | 'select' | 'multi_select'; label: string }[] {
-  return [
-    { value: 'text' as const, label: tx(t, ['columnTypes', 'text'], 'Text') },
-    { value: 'number' as const, label: tx(t, ['columnTypes', 'number'], 'Number') },
-    { value: 'date' as const, label: tx(t, ['columnTypes', 'date'], 'Date') },
-    { value: 'boolean' as const, label: tx(t, ['columnTypes', 'boolean'], 'Yes/No') },
-    { value: 'select' as const, label: tx(t, ['columnTypes', 'select'], 'Select') },
-    {
-      value: 'multi_select' as const,
-      label: tx(t, ['columnTypes', 'multiSelect'], 'Multi-select'),
-    },
-  ];
-}
-function buildPasteDefaults(tOps: unknown): {
-  date: string;
-  type: string;
-  amount: string;
-  currency: string;
-  comment: string;
-  paid: string;
-  columnPrefix: string;
-} {
-  return {
-    date: tx(tOps, ['paste', 'defaults', 'date'], 'Date'),
-    type: tx(tOps, ['paste', 'defaults', 'type'], 'Type'),
-    amount: tx(tOps, ['paste', 'defaults', 'amount'], 'Amount'),
-    currency: tx(tOps, ['paste', 'defaults', 'currency'], 'Currency'),
-    comment: tx(tOps, ['paste', 'defaults', 'comment'], 'Comment'),
-    paid: tx(tOps, ['paste', 'defaults', 'paid'], 'Paid'),
-    columnPrefix: tx(tOps, ['paste', 'defaults', 'columnPrefix'], 'Column'),
-  };
-}
-function buildPasteMessages(tOps: unknown): {
-  noRows: string;
-  missingColumnTitle: string;
-  insertFailed: string;
-  undoFailed: string;
-} {
-  return {
-    noRows: tx(tOps, ['paste', 'noRows'], ''),
-    missingColumnTitle: tx(tOps, ['paste', 'missingColumnTitle'], ''),
-    insertFailed: tx(tOps, ['paste', 'insertFailed'], ''),
-    undoFailed: tx(tOps, ['paste', 'undoFailed'], ''),
-  };
-}
-function buildRowActionsMessages(
-  t: unknown,
-  tOps: unknown,
-): {
-  addRowLoading: string;
-  addRowSuccess: string;
-  addRowFailed: string;
-  saveValueFailed: string;
-  noMoreRows: string;
-} {
-  return {
-    addRowLoading: tx(tOps, ['addRow', 'loading'], ''),
-    addRowSuccess: tx(tOps, ['addRow', 'success'], ''),
-    addRowFailed: tx(tOps, ['addRow', 'failed'], ''),
-    saveValueFailed: tx(t, ['grid', 'saveValueFailed'], ''),
-    noMoreRows: tx(t, ['toasts', 'noMoreRows'], ''),
-  };
-}
-function buildBulkActionsMessages(
-  t: unknown,
-  tModals: unknown,
-): {
-  deleteRowLoading: string;
-  deleteRowSuccess: string;
-  deleteRowFailed: string;
-  bulkDeleteLoading: string;
-  bulkDeleteSuccess: string;
-  bulkDeleteFailed: string;
-  creatingPaidColumn: string;
-  paidColumnCreated: string;
-  paidColumnCreateFailed: string;
-  markingPaid: string;
-  markingUnpaid: string;
-  markedPaid: string;
-  markedUnpaid: string;
-  updateSomeRowsFailed: string;
-  updateRowsFailed: string;
-  paidColumnTitle: string;
-} {
-  return {
-    deleteRowLoading: tx(tModals, ['deleteRow', 'loading'], ''),
-    deleteRowSuccess: tx(tModals, ['deleteRow', 'success'], ''),
-    deleteRowFailed: tx(tModals, ['deleteRow', 'failed'], ''),
-    bulkDeleteLoading: tx(tModals, ['bulkDeleteRows', 'loading'], ''),
-    bulkDeleteSuccess: tx(tModals, ['bulkDeleteRows', 'success'], ''),
-    bulkDeleteFailed: tx(tModals, ['bulkDeleteRows', 'failed'], ''),
-    creatingPaidColumn: tx(t, ['toasts', 'creatingPaidColumn'], ''),
-    paidColumnCreated: tx(t, ['toasts', 'paidColumnCreated'], ''),
-    paidColumnCreateFailed: tx(t, ['toasts', 'paidColumnCreateFailed'], ''),
-    markingPaid: tx(t, ['actions', 'markingPaid'], ''),
-    markingUnpaid: tx(t, ['actions', 'markingUnpaid'], ''),
-    markedPaid: tx(t, ['toasts', 'markedPaid'], ''),
-    markedUnpaid: tx(t, ['toasts', 'markedUnpaid'], ''),
-    updateSomeRowsFailed: tx(t, ['toasts', 'updateSomeRowsFailed'], ''),
-    updateRowsFailed: tx(t, ['toasts', 'updateRowsFailed'], ''),
-    paidColumnTitle: tx(t, ['paidColumn'], 'Paid'),
-  };
-}
-function buildColumnMgmtMessages(tModals: unknown): {
-  addColumnLoading: string;
-  addColumnSuccess: string;
-  addColumnFailed: string;
-  deleteColumnLoading: string;
-  deleteColumnSuccess: string;
-  deleteColumnFailed: string;
-  renameColumnSuccess: string;
-  renameColumnFailed: string;
-} {
-  return {
-    addColumnLoading: tx(tModals, ['addColumn', 'loading'], ''),
-    addColumnSuccess: tx(tModals, ['addColumn', 'success'], ''),
-    addColumnFailed: tx(tModals, ['addColumn', 'failed'], ''),
-    deleteColumnLoading: tx(tModals, ['deleteColumn', 'loading'], ''),
-    deleteColumnSuccess: tx(tModals, ['deleteColumn', 'success'], ''),
-    deleteColumnFailed: tx(tModals, ['deleteColumn', 'failed'], ''),
-    renameColumnSuccess: tx(tModals, ['renameColumn', 'success'], ''),
-    renameColumnFailed: tx(tModals, ['renameColumn', 'failed'], ''),
-  };
-}
-function buildDateFnsLocale(locale: string): Locale {
-  if (locale === 'ru') {
-    return ru;
-  }
-  if (locale === 'kk') {
-    return kk;
-  }
-  return enUS;
+interface ConvertState {
+  open: boolean;
+  busy: boolean;
+  result: ConvertResult | null;
 }
 
-interface InitSetupParams {
-  tableId: string | null;
-  user: unknown;
-  authLoading: boolean;
-  t: unknown;
+interface PendingDelete {
+  kind: 'rows' | 'column';
+  column?: CustomTableColumn;
 }
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useInitSetup = (p: InitSetupParams) => {
-  const tableData = useTableData({
-    tableId: p.tableId,
-    isAuthenticated: Boolean(p.user),
-    authLoading: p.authLoading,
-    loadTableFailedMessage: tx(p.t, ['grid', 'loadTableFailed'], ''),
-  });
-  const orderedColumns = useMemo(
-    () =>
-      [...(tableData.table?.columns ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-    [tableData.table?.columns],
-  );
-  const columnTypes = useMemo(() => buildColumnTypes(p.t), [p.t]);
-  const paidColKey = useMemo(() => findPaidColumnKey(orderedColumns), [orderedColumns]);
-  const tabStats = useTabStats({
-    tableId: p.tableId,
-    isAuthenticated: Boolean(p.user),
-    paidColKey,
-  });
-  return { ...tableData, orderedColumns, columnTypes, paidColKey, ...tabStats };
-};
 
-interface ColSetupParams {
-  tableId: string | null;
-  user: unknown;
-  table: CustomTable | null;
-  orderedColumns: CustomTablePageColumn[];
-  paidColKey: string | null;
-  t: unknown;
-}
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useColSetup = (p: ColSetupParams) => {
-  const cfg = useColumnConfig({
-    tableId: p.tableId,
-    orderedColumns: p.orderedColumns,
-    viewSettings: p.table?.viewSettings,
-    isAuthenticated: Boolean(p.user),
-    columnWidthSaveFailedMessage: tx(p.t, ['grid', 'columnWidthSaveFailed'], ''),
-  });
-  const layout = useColumnLayout({
-    orderedColumns: p.orderedColumns,
-    columnOrder: cfg.columnOrder,
-    hiddenColumnKeys: cfg.hiddenColumnKeys,
-    getColumnWidth: cfg.getColumnWidth,
-    paidColKey: p.paidColKey,
-    t: p.t,
-  });
-  return { ...cfg, ...layout };
-};
+const sortParam = (sorting: SortingState) =>
+  sorting[0]
+    ? { col: sorting[0].id, dir: sorting[0].desc ? ('desc' as const) : ('asc' as const) }
+    : null;
 
-interface GridTabParams {
-  tableId: string | null;
-  user: unknown;
-  paidColKey: string | null;
-  tabCounts: ReturnType<typeof useTabStats>['tabCounts'];
-  orderedColumns: CustomTablePageColumn[];
-  columnFilters: Record<string, ColumnFilterState>;
-  t: unknown;
-  dateFnsLocale: Locale;
-  columnsTabId: string;
-}
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useGridTab = (p: GridTabParams) => {
-  const [gridFiltersParam, setGridFiltersParam] = useState<string | undefined>(undefined);
-  const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>([]);
-  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const tabState = useQuickTabState({
-    paidColKey: p.paidColKey,
-    t: p.t,
-    tabCounts: p.tabCounts,
-    columnsTabId: p.columnsTabId,
-  });
-  const onGridFiltersParamChange = (next: string | undefined): void => {
-    if (next !== gridFiltersParam) {
-      setGridFiltersParam(next);
-    }
-  };
-  const { combinedFiltersParam } = useTableFilters({
-    orderedColumns: p.orderedColumns,
-    columnFilters: p.columnFilters,
-    gridFiltersParam,
-    activeTabFilter: tabState.activeTabFilter,
-    searchQuery,
-    dateFnsLocale: p.dateFnsLocale,
-  });
-  const grid = useTableGrid({
-    tableId: p.tableId,
-    isAuthenticated: Boolean(p.user),
-    combinedFiltersParam,
-    loadRowsFailedMessage: tx(p.t, ['grid', 'loadRowsFailed'], ''),
-  });
-  useEffect(() => {
-    setSelectedRowIds([]);
-  }, [tabState.normalizedActiveTabId]);
-  useEffect(() => {
-    setSelectedRowIds([]);
-  }, [combinedFiltersParam]);
-  useEffect(() => {
-    const a = new Set(p.orderedColumns.map(c => c.key));
-    setSelectedColumnKeys(prev => prev.filter(k => a.has(k)));
-  }, [p.orderedColumns]);
-  useEffect(() => {
-    if (!selectedRowIds.length) {
-      return;
-    }
-    const v = new Set(grid.rows.map(r => r.id));
-    setSelectedRowIds(prev => prev.filter(id => v.has(id)));
-  }, [grid.rows, selectedRowIds.length]);
-  return {
-    gridFiltersParam,
-    onGridFiltersParamChange,
-    selectedColumnKeys,
-    setSelectedColumnKeys,
-    selectedRowIds,
-    setSelectedRowIds,
-    searchQuery,
-    setSearchQuery,
-    combinedFiltersParam,
-    ...tabState,
-    ...grid,
-  };
-};
-
-interface PasteRowParams {
-  tableId: string | null;
-  tOps: unknown;
-  t: unknown;
-  orderedColumns: CustomTablePageColumn[];
-  loadTable: () => Promise<void>;
-  refreshStats: () => Promise<void>;
-  setRows: React.Dispatch<React.SetStateAction<CustomTableGridRow[]>>;
-  rows: CustomTableGridRow[];
-  paidColKey: string | null;
-  openRowDrawer: (rowId: string, mode: 'view' | 'edit') => void;
-  closeRowDrawer: () => void;
-}
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const usePasteRow = (p: PasteRowParams) => {
-  const pasteDefaults = useMemo(() => buildPasteDefaults(p.tOps), [p.tOps]);
-  const handleInsertSuccessObj = useInsertSuccessToast({ tOps: p.tOps });
-  const onInsertSuccess = useCallback(
-    (createdCount: number, onUndo: () => void): void =>
-      handleInsertSuccessObj({ createdCount, onUndo }),
-    [handleInsertSuccessObj],
-  );
-  const pasteState = usePasteImport({
-    tableId: p.tableId,
-    orderedColumns: p.orderedColumns,
-    pasteDefaults,
-    loadTable: p.loadTable,
-    refreshStats: p.refreshStats,
-    setRows: p.setRows,
-    onInsertSuccess,
-    messages: buildPasteMessages(p.tOps),
-  });
-  const rowState = useRowActions({
-    tableId: p.tableId,
-    paidColKey: p.paidColKey,
-    rows: p.rows,
-    displayRows: p.rows,
-    setRows: p.setRows,
-    refreshStats: p.refreshStats,
-    openRowDrawer: p.openRowDrawer,
-    closeRowDrawer: p.closeRowDrawer,
-    messages: buildRowActionsMessages(p.t, p.tOps),
-  });
-  return { ...pasteState, ...rowState };
-};
-
-interface BulkColParams {
-  tableId: string | null;
-  paidColKey: string | null;
-  selectedRowIds: string[];
-  setSelectedRowIds: React.Dispatch<React.SetStateAction<string[]>>;
-  deleteRowTarget: CustomTableGridRow | null;
-  bulkDeleteRowIds: string[];
-  closeDeleteRowModal: () => void;
-  closeBulkDeleteModal: () => void;
-  rows: CustomTableGridRow[];
-  setRows: React.Dispatch<React.SetStateAction<CustomTableGridRow[]>>;
-  setTable: React.Dispatch<React.SetStateAction<CustomTable | null>>;
-  refreshStats: () => Promise<void>;
-  deleteColumnTarget: CustomTableColumn | null;
-  closeDeleteColumnModal: () => void;
-  orderedColumns: CustomTablePageColumn[];
-  loadTable: () => Promise<void>;
-  t: unknown;
-  tModals: unknown;
-}
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useBulkCol = (p: BulkColParams) => {
-  const bulkState = useBulkRowActions({
-    tableId: p.tableId,
-    paidColKey: p.paidColKey,
-    selectedRowIds: p.selectedRowIds,
-    setSelectedRowIds: p.setSelectedRowIds,
-    deleteRowTarget: p.deleteRowTarget,
-    bulkDeleteRowIds: p.bulkDeleteRowIds,
-    closeDeleteRowModal: p.closeDeleteRowModal,
-    closeBulkDeleteModal: p.closeBulkDeleteModal,
-    rows: p.rows,
-    setRows: p.setRows,
-    setTable: p.setTable,
-    refreshStats: p.refreshStats,
-    messages: buildBulkActionsMessages(p.t, p.tModals),
-  });
-  const colMgmt = useColumnManagement({
-    tableId: p.tableId,
-    orderedColumns: p.orderedColumns,
-    loadTable: p.loadTable,
-    deleteColumnTarget: p.deleteColumnTarget,
-    closeDeleteColumnModal: p.closeDeleteColumnModal,
-    messages: buildColumnMgmtMessages(p.tModals),
-  });
-  return { ...bulkState, ...colMgmt };
-};
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
-export function useCustomTablePage() {
-  const params = useParams<{ id: string }>();
+/** Everything the table page needs, composed from the data hooks. */
+export function useCustomTablePage(tableId: string) {
+  const t = useIntlayer('customTableDetailPage');
+  const labels = useMemo(() => buildDetailLabels(t), [t]);
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const t = useIntlayer('customTableDetailPage');
-  const tOps = useIntlayer('customTableDetailPageOperations');
-  const tModals = useIntlayer('customTableDetailPageModals');
-  const { locale } = useLocale();
-  const tableId = params?.id ?? null;
-  const [mounted, setMounted] = useState(false);
-  const [isFullscreen] = useState(true);
-  const handleBackNavigation = useCallback((): void => {
-    router.push('/custom-tables');
-  }, [router]);
-  const { convertingToStatement, convertToStatement } = useConvertToStatement({
+  const isAuthenticated = Boolean(user);
+  const { currentWorkspace } = useWorkspace();
+  const defaultCurrency = resolveCurrencyCode(currentWorkspace?.currency);
+
+  const data = useTableData({
     tableId,
-    router,
-    t,
-  });
-  const dateFnsLocale = useMemo(() => buildDateFnsLocale(locale), [locale]);
-  const columnsTabId = '__columns__';
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-  const init = useInitSetup({ tableId, user, authLoading, t });
-  const col = useColSetup({
-    tableId,
-    user,
-    table: init.table,
-    orderedColumns: init.orderedColumns,
-    paidColKey: init.paidColKey,
-    t,
-  });
-  const grid = useGridTab({
-    tableId,
-    user,
-    paidColKey: init.paidColKey,
-    tabCounts: init.tabCounts,
-    orderedColumns: init.orderedColumns,
-    columnFilters: col.columnFilters,
-    t,
-    dateFnsLocale,
-    columnsTabId,
-  });
-  const modal = { ...useDeleteModals(), ...useRowDrawer(grid.rows) };
-  const pasteRow = usePasteRow({
-    tableId,
-    tOps,
-    t,
-    orderedColumns: init.orderedColumns,
-    loadTable: init.loadTable,
-    refreshStats: init.refreshStats,
-    setRows: grid.setRows,
-    rows: grid.rows,
-    paidColKey: init.paidColKey,
-    openRowDrawer: modal.openRowDrawer,
-    closeRowDrawer: modal.closeRowDrawer,
-  });
-  const bulkCol = useBulkCol({
-    tableId,
-    paidColKey: init.paidColKey,
-    selectedRowIds: grid.selectedRowIds,
-    setSelectedRowIds: grid.setSelectedRowIds,
-    deleteRowTarget: modal.deleteRowTarget,
-    bulkDeleteRowIds: modal.bulkDeleteRowIds,
-    closeDeleteRowModal: modal.closeDeleteRowModal,
-    closeBulkDeleteModal: modal.closeBulkDeleteModal,
-    rows: grid.rows,
-    setRows: grid.setRows,
-    setTable: init.setTable,
-    refreshStats: init.refreshStats,
-    deleteColumnTarget: modal.deleteColumnTarget,
-    closeDeleteColumnModal: modal.closeDeleteColumnModal,
-    orderedColumns: init.orderedColumns,
-    loadTable: init.loadTable,
-    t,
-    tModals,
-  });
-  const { isPrintMode, handlePrintTable } = useFullscreenMode({
-    isFullscreen,
-    user,
-    normalizedActiveTabId: grid.normalizedActiveTabId,
-    columnsTabId,
-    handleBackNavigation,
-  });
-  const tFull = useMemo(
-    () => ({ ...(t as object), ...(tOps as object), ...(tModals as object) }),
-    [t, tOps, tModals],
-  );
-  return {
-    ...init,
-    ...col,
-    ...grid,
-    ...modal,
-    ...pasteRow,
-    ...bulkCol,
-    t,
-    tFull,
-    tableId,
-    user,
+    isAuthenticated,
     authLoading,
-    loading: init.loading,
-    table: init.table,
-    mounted,
-    isFullscreen,
-    isPrintMode,
-    convertingToStatement,
-    convertToStatement,
-    handlePrintTable,
-    handleBackNavigation,
-    columnsTabId,
+    loadTableFailedMessage: labels.toasts.loadTableFailed,
+  });
+  const columns = useMemo(
+    () => [...(data.table?.columns ?? [])].sort((a, b) => a.position - b.position),
+    [data.table],
+  );
+
+  const filters = useRowFilters();
+  // A table filled from Seneca opens newest first and without the columns that
+  // repeat the row (type, statement, a single currency). These defaults are
+  // derived during render, never set in an effect after the rows arrive: that
+  // re-sorted an already drawn table, emptied it and drew it again, so the old
+  // layout flashed after the skeleton. Whatever the user picks overrides them.
+  const isSourceTable = Boolean(data.table?.sourceBinding);
+  const defaultSorting = useMemo(
+    () => (isSourceTable ? sourceViewDefaults(columns, []).sorting : []),
+    [isSourceTable, columns],
+  );
+  const [userSorting, setUserSorting] = useState<{ tableId: string; value: SortingState } | null>(
+    null,
+  );
+  const sorting =
+    userSorting && userSorting.tableId === tableId ? userSorting.value : defaultSorting;
+  const setSorting = useCallback(
+    (updater: SortingState | ((current: SortingState) => SortingState)) =>
+      setUserSorting(prev => {
+        const current = prev && prev.tableId === tableId ? prev.value : defaultSorting;
+        return {
+          tableId: tableId ?? '',
+          value: typeof updater === 'function' ? updater(current) : updater,
+        };
+      }),
+    [tableId, defaultSorting],
+  );
+  const grid = useTableGrid({
+    tableId,
+    // The first page is asked once the table is known, so it comes already in
+    // the order the table opens with, not re-sorted a moment later.
+    isAuthenticated: isAuthenticated && Boolean(data.table),
+    combinedFiltersParam: filters.filtersParam,
+    sort: sortParam(sorting),
+    loadRowsFailedMessage: labels.toasts.loadRowsFailed,
+  });
+
+  const [rowSelection, setRowSelection] = useState<Record<string, true>>({});
+  const [userVisibility, setUserVisibility] = useState<Record<string, boolean>>({});
+  // The currency column hides while every loaded row has one currency (and
+  // before any row is in, the usual case), so it does not pop out on arrival.
+  const defaultHidden = useMemo(
+    () =>
+      isSourceTable ? sourceViewDefaults(columns, grid.rows, { assumeSingle: true }).hidden : [],
+    [isSourceTable, columns, grid.rows],
+  );
+  const columnVisibility = useMemo(
+    () => ({ ...Object.fromEntries(defaultHidden.map(key => [key, false])), ...userVisibility }),
+    [defaultHidden, userVisibility],
+  );
+  const setColumnVisibility = useCallback(
+    (
+      updater:
+        | Record<string, boolean>
+        | ((current: Record<string, boolean>) => Record<string, boolean>),
+    ) =>
+      setUserVisibility(prev =>
+        typeof updater === 'function'
+          ? updater({ ...Object.fromEntries(defaultHidden.map(key => [key, false])), ...prev })
+          : updater,
+      ),
+    [defaultHidden],
+  );
+  const [refreshToken, setRefreshToken] = useState(0);
+  const onRowsChanged = useCallback(() => setRefreshToken(n => n + 1), []);
+
+  const [aggregates, setAggregates] = useState<Record<string, AggregateFn>>({});
+  useEffect(() => {
+    const saved = data.table?.viewSettings?.columns ?? {};
+    const next: Record<string, AggregateFn> = {};
+    for (const [key, settings] of Object.entries(saved)) {
+      if (settings?.aggregate) {
+        next[key] = settings.aggregate;
+      }
+    }
+    setAggregates(next);
+  }, [data.table?.viewSettings?.columns]);
+
+  const aggregateState = useTableAggregates({
+    tableId,
+    isAuthenticated,
+    combinedFiltersParam: filters.filtersParam,
+    selection: aggregates,
+    refreshToken,
+  });
+  const summaries = useTableSummaries({
+    tableId,
+    isAuthenticated,
+    refreshToken,
+    messages: {
+      loadFailed: labels.summaries.loadFailed,
+      saveFailed: labels.summaries.saveFailed,
+    },
+  });
+  const [groupBy, setGroupBy] = useState<string | null>(null);
+  const groupState = useTableGroups({
+    tableId,
+    isAuthenticated,
+    groupBy,
+    combinedFiltersParam: filters.filtersParam,
+    aggregates,
+    refreshToken,
+  });
+
+  const setAggregate = useCallback(
+    (columnKey: string, fn: AggregateFn | null) => {
+      setAggregates(prev => {
+        const { [columnKey]: _removed, ...rest } = prev;
+        return fn ? { ...rest, [columnKey]: fn } : rest;
+      });
+      apiClient
+        .patch(`/custom-tables/${tableId}/view-settings/columns`, {
+          columnKey,
+          aggregate: fn,
+        } satisfies ContractInput<'UpdateCustomTableViewSettingsColumnBody'>)
+        .catch(error => console.error('Failed to persist column aggregate:', error));
+    },
+    [tableId],
+  );
+
+  const mutations = useRowMutations({
+    tableId,
+    columns,
     rows: grid.rows,
-    combinedFiltersParam: grid.combinedFiltersParam,
-    loadRows: grid.loadRows,
-    loadingRows: grid.loadingRows,
-    hasMore: grid.hasMore,
+    setRows: grid.setRows,
+    onRowsChanged,
+    messages: labels.toasts,
+  });
+
+  // A new or changed formula column changes every row: reload them with the table.
+  const reloadTableAndRows = useCallback(async () => {
+    await data.loadTable();
+    await grid.loadRows({ reset: true });
+  }, [data.loadTable, grid.loadRows]);
+
+  const columnEditor = useColumnEditor({
+    tableId,
+    defaultCurrency,
+    reloadTable: reloadTableAndRows,
+    messages: {
+      saved: labels.toasts.columnSaved,
+      saveFailed: labels.toasts.columnSaveFailed,
+      deleted: labels.toasts.columnDeleted,
+      deleteFailed: labels.toasts.columnDeleteFailed,
+    },
+  });
+
+  const onInsertSuccess = useCallback(
+    (
+      { createdCount, issueCount }: { createdCount: number; issueCount: number },
+      onUndo: () => void,
+    ) =>
+      showUndoToast(
+        (issueCount ? labels.import.insertedWithIssues : labels.import.inserted)
+          .replace('{{count}}', String(createdCount))
+          .replace('{{issues}}', String(issueCount)),
+        labels.import.undo,
+        onUndo,
+      ),
+    [labels.import.inserted, labels.import.insertedWithIssues, labels.import.undo],
+  );
+
+  const paste = usePasteImport({
+    tableId,
+    orderedColumns: data.table?.columns ?? [],
+    pasteDefaults: labels.import.defaults,
+    loadTable: data.loadTable,
+    onRowsChanged,
+    setRows: grid.setRows,
+    onInsertSuccess,
+    messages: labels.import,
+  });
+
+  const [exporting, setExporting] = useState(false);
+  const exportView = useCallback(
+    async (format: 'xlsx' | 'csv') => {
+      setExporting(true);
+      const sort = sortParam(sorting);
+      const visible = columns.filter(c => columnVisibility[c.key] !== false).map(c => c.key);
+      await downloadTableExport(tableId, format, {
+        filters: filters.filtersParam,
+        sort: sort ? JSON.stringify(sort) : undefined,
+        columnKeys: visible,
+      })
+        .catch(error => {
+          console.error('Failed to export table:', error);
+          toast.error(getApiErrorMessage(error, labels.toasts.exportFailed));
+        })
+        .finally(() => setExporting(false));
+    },
+    [tableId, sorting, columns, columnVisibility, filters.filtersParam, labels.toasts.exportFailed],
+  );
+
+  const [convert, setConvert] = useState<ConvertState>({ open: false, busy: false, result: null });
+  const runConvert = useCallback(async () => {
+    setConvert(prev => ({ ...prev, busy: true }));
+    await (async () => {
+      const response = await apiClient.post(`/custom-tables/${tableId}/convert-to-statement`);
+      const payload = await checkContract(
+        'ConvertedToStatement',
+        response.data,
+        '/custom-tables/:id/convert-to-statement',
+      );
+      setConvert({ open: true, busy: false, result: payload });
+    })().catch(async error => {
+      console.error('Failed to convert table:', error);
+      toast.error(getApiErrorMessage(error, labels.convert.failed));
+      setConvert(prev => ({ ...prev, busy: false }));
+    });
+  }, [tableId, labels.convert.failed]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const runRefreshSource = useCallback(async () => {
+    setRefreshing(true);
+    await (async () => {
+      const response = await apiClient.post(`/custom-tables/${tableId}/refresh-from-source`);
+      const result = await checkContract(
+        'RefreshedFromSource',
+        response.data,
+        '/custom-tables/:id/refresh-from-source',
+      );
+      toast.success(
+        labels.toasts.refreshed
+          .replace('{{inserted}}', String(result.inserted))
+          .replace('{{updated}}', String(result.updated)),
+      );
+      await data.loadTable();
+      await grid.loadRows({ reset: true });
+      onRowsChanged();
+    })()
+      .catch(async error => {
+        console.error('Failed to refresh table from source:', error);
+        toast.error(getApiErrorMessage(error, labels.toasts.refreshFailed));
+      })
+      .finally(async () => setRefreshing(false));
+  }, [tableId, data, grid, onRowsChanged, labels.toasts]);
+
+  // "Restore to default": undo the table's app changes and rebuild it from the source.
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const runRestoreDefault = useCallback(async () => {
+    setRestoring(true);
+    await (async () => {
+      const response = await apiClient.post(`/custom-tables/${tableId}/restore-default`);
+      const result = await checkContract(
+        'RestoredTableDefault',
+        response.data,
+        '/custom-tables/:id/restore-default',
+      );
+      toast.success(labels.toasts.restored.replace('{{reverted}}', String(result.reverted)));
+      if (result.skippedChanged) {
+        toast(labels.toasts.restoredSkipped.replace('{{count}}', String(result.skippedChanged)));
+      }
+      if (result.failed.length) {
+        toast.error(
+          labels.toasts.restoredFailed.replace('{{count}}', String(result.failed.length)),
+        );
+      }
+      // The view settings the server just cleared, and the ones kept only here.
+      // The restore changed app records back: drop cached document lists too.
+      invalidateDocumentLists();
+      setAggregates({});
+      setGroupBy(null);
+      setSorting([]);
+      setColumnVisibility({});
+      setRowSelection({});
+      filters.clearFilters();
+      filters.setSearchQuery('');
+      await data.loadTable();
+      await grid.loadRows({ reset: true });
+      onRowsChanged();
+    })()
+      .catch(async error => {
+        console.error('Failed to restore table to default:', error);
+        toast.error(getApiErrorMessage(error, labels.toasts.restoreFailed));
+      })
+      .finally(async () => {
+        setRestoring(false);
+        setRestoreOpen(false);
+      });
+  }, [tableId, data, grid, filters, onRowsChanged, labels.toasts]);
+
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDelete) {
+      return;
+    }
+    if (pendingDelete.kind === 'column' && pendingDelete.column) {
+      await columnEditor.deleteColumn(pendingDelete.column);
+      setPendingDelete(null);
+      return;
+    }
+    await (async () => {
+      await Promise.all(
+        // Drafts were never saved, so the server has nothing to delete.
+        selectedIds
+          .filter(id => !isDraftRowId(id))
+          .map(id => apiClient.delete(`/custom-tables/${tableId}/rows/${id}`)),
+      );
+      grid.setRows(prev => prev.filter(row => !selectedIds.includes(row.id)));
+      setRowSelection({});
+      toast.success(labels.toasts.rowsDeleted.replace('{{count}}', String(selectedIds.length)));
+      onRowsChanged();
+    })().catch(async error => {
+      console.error('Failed to delete rows:', error);
+      toast.error(getApiErrorMessage(error, labels.toasts.rowsDeleteFailed));
+    });
+    setPendingDelete(null);
+  }, [pendingDelete, selectedIds, tableId, grid, columnEditor, onRowsChanged, labels.toasts]);
+
+  const rename = useCallback(
+    async (name: string) => {
+      await (async () => {
+        await apiClient.patch(`/custom-tables/${tableId}`, {
+          name,
+        } satisfies ContractInput<'UpdateCustomTableBody'>);
+        data.setTable(prev => (prev ? { ...prev, name } : prev));
+        toast.success(labels.toasts.renamed);
+      })().catch(async error => {
+        toast.error(getApiErrorMessage(error, labels.toasts.renameFailed));
+      });
+    },
+    [tableId, data, labels.toasts.renamed, labels.toasts.renameFailed],
+  );
+
+  const [relationTargets, setRelationTargets] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => {
+    if (columnEditor.dialog.mode === 'closed' || relationTargets.length) {
+      return;
+    }
+    apiQueryDecoded({ url: '/custom-tables', contract: 'CustomTableList' })
+      .then(({ items }) => {
+        setRelationTargets(
+          items.filter(item => item.id !== tableId).map(({ id, name }) => ({ id, name })),
+        );
+      })
+      .catch(error => console.error('Failed to load relation targets:', error));
+  }, [columnEditor.dialog.mode, relationTargets.length, tableId]);
+
+  const pickGroup = useCallback(
+    (key: string | null) => {
+      if (!groupBy) {
+        return;
+      }
+      filters.addFilter(
+        key === null ? { col: groupBy, op: 'isEmpty' } : { col: groupBy, op: 'eq', value: key },
+      );
+    },
+    [groupBy, filters],
+  );
+
+  return {
+    labels,
+    router,
+    defaultCurrency,
+    data,
+    columns,
+    filters,
+    sorting,
+    setSorting,
+    grid,
+    rowSelection,
+    setRowSelection,
+    columnVisibility,
+    setColumnVisibility,
+    aggregates,
+    aggregateValues: aggregateState.values,
+    setAggregate,
+    groupBy,
+    setGroupBy,
+    groups: groupState,
+    pickGroup,
+    mutations,
+    columnEditor,
+    relationTargets,
+    paste,
+    exporting,
+    exportView,
+    convert,
+    setConvert,
+    runConvert,
+    refreshing,
+    runRefreshSource,
+    restoreOpen,
+    setRestoreOpen,
+    restoring,
+    runRestoreDefault,
+    summaries,
+    pendingDelete,
+    setPendingDelete,
+    selectedIds,
+    confirmDelete,
+    rename,
   };
 }
 

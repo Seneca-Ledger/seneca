@@ -8,6 +8,8 @@ import {
   WorkspaceMember,
   WorkspaceRole,
 } from '@/entities';
+import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
+import { AuditService } from '@/modules/audit/audit.service';
 import { AuthService } from '@/modules/auth/auth.service';
 import { TwoFactorService } from '@/modules/auth/two-factor.service';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
@@ -33,6 +35,7 @@ describe('AuthService', () => {
   let workspaceMemberRepository: Repository<WorkspaceMember>;
   let authSessionRepository: Repository<AuthSession>;
   let jwtService: JwtService;
+  const auditService = { createEvent: jest.fn() };
 
   const mockUser: Partial<User> = {
     id: '1',
@@ -61,6 +64,7 @@ describe('AuthService', () => {
             create: jest.fn(),
             save: jest.fn(),
             update: jest.fn(),
+            increment: jest.fn(),
           },
         },
         {
@@ -126,6 +130,7 @@ describe('AuthService', () => {
             assertLoginCode: jest.fn(),
           },
         },
+        { provide: AuditService, useValue: auditService },
       ],
     }).compile();
 
@@ -394,7 +399,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('uses a 30 day access token by default', async () => {
+    it('uses a 30 minute access token by default', async () => {
       const previousExpiresIn = process.env.JWT_EXPIRES_IN;
       delete process.env.JWT_EXPIRES_IN;
 
@@ -412,7 +417,7 @@ describe('AuthService', () => {
         expect(jwtService.sign).toHaveBeenNthCalledWith(
           1,
           expect.any(Object),
-          expect.objectContaining({ expiresIn: '30d' }),
+          expect.objectContaining({ expiresIn: '30m' }),
         );
       } finally {
         if (previousExpiresIn === undefined) {
@@ -523,7 +528,10 @@ describe('AuthService', () => {
         ipAddress: '10.0.0.2',
       });
 
-      expect(result).toEqual({ access_token: 'new-access-token' });
+      expect(result).toEqual({
+        access_token: 'new-access-token',
+        refresh_token: 'new-access-token',
+      });
       expect(authSessionRepository.update).toHaveBeenCalledWith(
         { id: 'session-1' },
         expect.objectContaining({ lastUsedAt: expect.any(Date) }),
@@ -584,6 +592,67 @@ describe('AuthService', () => {
           workspaceId: 'ws-1',
         }),
       );
+    });
+  });
+
+  describe('session revocation audit', () => {
+    beforeEach(() => {
+      auditService.createEvent.mockResolvedValue({});
+      jest
+        .spyOn(userRepository, 'findOne')
+        .mockResolvedValue({ id: '1', workspaceId: 'ws-home' } as User);
+      jest
+        .spyOn(authSessionRepository, 'update')
+        .mockResolvedValue({ affected: 1, generatedMaps: [], raw: [] });
+    });
+
+    it('logs logout-all into the home workspace', async () => {
+      await service.logoutAll('1');
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: 'ws-home',
+          actorId: '1',
+          entityType: EntityType.USER,
+          entityId: '1',
+          action: AuditAction.UPDATE,
+          severity: Severity.INFO,
+          meta: { sessions: 'all-revoked' },
+        }),
+      );
+    });
+
+    it('logs a single revoked session with its id and nothing token-like', async () => {
+      await service.logoutSession('1', 'session-2');
+
+      const [event] = auditService.createEvent.mock.calls[0];
+      expect(event.meta).toEqual({ sessions: 'revoked', sessionId: 'session-2' });
+      expect(JSON.stringify(event)).not.toMatch(/token|refresh|hash/i);
+    });
+
+    it('does not log when the session does not exist', async () => {
+      jest
+        .spyOn(authSessionRepository, 'update')
+        .mockResolvedValue({ affected: 0, generatedMaps: [], raw: [] });
+
+      await expect(service.logoutSession('1', 'missing')).rejects.toThrow('Session not found');
+      expect(auditService.createEvent).not.toHaveBeenCalled();
+    });
+
+    it('still logs out everywhere when the audit write fails', async () => {
+      auditService.createEvent.mockRejectedValue(new Error('audit down'));
+
+      await expect(service.logoutAll('1')).resolves.toEqual({
+        message: 'Logged out from all devices successfully',
+      });
+    });
+
+    it('skips the event when the user has no home workspace', async () => {
+      jest.spyOn(userRepository, 'findOne').mockResolvedValue({ id: '1', workspaceId: null } as never);
+
+      await service.logoutAll('1');
+
+      expect(auditService.createEvent).not.toHaveBeenCalled();
     });
   });
 });

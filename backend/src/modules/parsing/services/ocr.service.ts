@@ -1,5 +1,9 @@
-import * as path from 'path';
 import { Injectable, Logger } from '@nestjs/common';
+import { spawn } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { parsePdf } from '../../../common/utils/pdf-text.util';
 
 export interface OcrResult {
   text: string;
@@ -18,6 +22,9 @@ export interface SupportedLanguage {
   name: string;
   script: 'Latin' | 'Cyrillic' | 'CJK' | 'Arabic' | 'Devanagari' | 'Hebrew';
 }
+
+const PDF_RASTERIZE_TIMEOUT_MS = 30_000;
+const PDF_RASTERIZE_DPI = '150';
 
 const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.png',
@@ -218,8 +225,7 @@ export class OcrService {
   }
 
   async extractTextFromScannedPdf(pdfBuffer: Buffer, options: OcrOptions = {}): Promise<OcrResult> {
-    const pdfParse = await import('pdf-parse');
-    const data = await pdfParse.default(pdfBuffer);
+    const data = await parsePdf(pdfBuffer);
     const existingText = (data.text || '').trim();
 
     if (existingText.length > 100) {
@@ -233,7 +239,11 @@ export class OcrService {
     this.logger.debug('PDF has minimal text; trying OCR fallback path');
 
     try {
-      return await this.extractTextFromImage(pdfBuffer, options);
+      // Tesseract cannot read PDFs — feeding it one makes its worker throw
+      // outside this promise chain and take the process down, so the page has
+      // to be rasterized to an image first.
+      const pageImage = await this.rasterizeFirstPage(pdfBuffer);
+      return await this.extractTextFromImage(pageImage, options);
     } catch (error) {
       this.logger.warn('OCR fallback for scanned PDF failed', error);
 
@@ -242,6 +252,57 @@ export class OcrService {
         confidence: 0.3,
         preprocessed: false,
       };
+    }
+  }
+
+  private async rasterizeFirstPage(pdfBuffer: Buffer): Promise<Buffer> {
+    const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'ocr-pdf-'));
+    const prefix = path.join(dir, 'page');
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const proc = spawn('pdftoppm', [
+          '-png',
+          '-r',
+          PDF_RASTERIZE_DPI,
+          '-f',
+          '1',
+          '-l',
+          '1',
+          '-singlefile',
+          '-',
+          prefix,
+        ]);
+
+        let settled = false;
+        const settle = (fn: () => void) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearTimeout(timer);
+          fn();
+        };
+
+        const timer = setTimeout(() => {
+          proc.kill('SIGKILL');
+          settle(() => reject(new Error(`pdftoppm timed out after ${PDF_RASTERIZE_TIMEOUT_MS}ms`)));
+        }, PDF_RASTERIZE_TIMEOUT_MS);
+
+        proc.on('error', error => settle(() => reject(error)));
+        proc.stdin.on('error', error => settle(() => reject(error)));
+        proc.on('close', code =>
+          settle(() =>
+            code === 0 ? resolve() : reject(new Error(`pdftoppm exited with code ${code}`)),
+          ),
+        );
+
+        proc.stdin.end(pdfBuffer);
+      });
+
+      return await fs.promises.readFile(`${prefix}.png`);
+    } finally {
+      await fs.promises.rm(dir, { recursive: true, force: true });
     }
   }
 

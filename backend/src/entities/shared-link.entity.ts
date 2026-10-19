@@ -31,14 +31,14 @@ export class SharedLink {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'statement_id' })
+  @Column({ name: 'statement_id', type: 'uuid' })
   statementId: string;
 
   @ManyToOne(() => Statement, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'statement_id' })
   statement: Statement;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -62,7 +62,7 @@ export class SharedLink {
   expiresAt: Date | null;
 
   // Password protection (optional, hashed)
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   password: string | null;
 
   // Link status

@@ -46,6 +46,14 @@ const readLocalizedFromRecord = (source: unknown, candidates: string[]): string 
   return null;
 };
 
+/**
+ * Read, never `'value' in token`: intlayer hands back its nodes as proxies whose
+ * `value` exists on read but not to the `in` operator, and that check sent every
+ * string to the English fallback.
+ */
+const readValue = (token: unknown): unknown =>
+  token && typeof token === 'object' ? (token as { value?: unknown }).value : undefined;
+
 const isMeaningfulStringified = (value: string): boolean => {
   return value.length > 0 && value !== '[object Object]';
 };
@@ -81,14 +89,9 @@ export function resolveOnboardingText(
       return localizedFromToken;
     }
 
-    if (token && typeof token === 'object' && 'value' in token) {
-      const localizedFromValue = readLocalizedFromRecord(
-        (token as { value?: unknown }).value,
-        candidates,
-      );
-      if (localizedFromValue) {
-        return localizedFromValue;
-      }
+    const localizedFromValue = readLocalizedFromRecord(readValue(token), candidates);
+    if (localizedFromValue) {
+      return localizedFromValue;
     }
   }
 
@@ -99,11 +102,9 @@ export function resolveOnboardingText(
     }
   }
 
-  if (token && typeof token === 'object' && 'value' in token) {
-    const value = (token as { value?: unknown }).value;
-    if (typeof value === 'string') {
-      return value;
-    }
+  const value = readValue(token);
+  if (typeof value === 'string') {
+    return value;
   }
 
   return fallback;

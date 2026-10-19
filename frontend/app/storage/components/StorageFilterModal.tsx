@@ -1,10 +1,11 @@
 'use client';
 
+import { Box, IconButton, Modal, TextField, Typography } from '@mui/material';
+import React from 'react';
 import { Bookmark, Save, X } from '@/app/components/icons';
+import { Select } from '@/app/components/ui/select';
 import { Spinner } from '@/app/components/ui/spinner';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, IconButton, TextField, Typography } from '@mui/material';
-import React from 'react';
 import type {
   CategoryOption,
   FolderOption,
@@ -13,14 +14,7 @@ import type {
 } from '../storageHelpers';
 import { DEFAULT_FILTERS, NO_FOLDER } from '../storageHelpers';
 
-const filterSelectStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid var(--border-color)',
-  background: 'rgba(249,250,251,0.5)',
-  padding: '10px 12px',
-  fontSize: 14,
-  color: 'var(--foreground)',
-};
+const filterSelectSx = { backgroundColor: 'rgba(249,250,251,0.5)', color: 'var(--foreground)' };
 const filterLabelStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 600,
@@ -112,125 +106,128 @@ export function StorageFilterModal({
   onDeleteView,
   onApplyView,
 }: StorageFilterModalProps): React.JSX.Element {
+  const titleId = React.useId();
+  // Modal traps focus inside, closes on Escape and restores focus on unmount.
   return (
-    <>
-      <Box
-        role="button"
-        tabIndex={0}
-        onClick={onClose}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onClose();
-          }
-        }}
-        sx={{ position: 'fixed', inset: 0, zIndex: 50, bgcolor: 'rgba(0,0,0,0.4)' }}
-      />
-      <Box
-        sx={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 50,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 2,
-          pointerEvents: 'none',
-        }}
-      >
+    <Modal open onClose={onClose} hideBackdrop>
+      <Box tabIndex={-1} sx={{ outline: 'none' }}>
+        <Box
+          aria-hidden="true"
+          onClick={onClose}
+          sx={{ position: 'fixed', inset: 0, zIndex: 50, bgcolor: 'rgba(0,0,0,0.4)' }}
+        />
         <Box
           sx={{
-            width: '100%',
-            maxWidth: 896,
-            bgcolor: 'background.paper',
-            boxShadow: 24,
-            pointerEvents: 'auto',
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
             display: 'flex',
-            flexDirection: 'column',
-            maxHeight: '85vh',
-            overflow: 'hidden',
-            border: '1px solid var(--muted)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 2,
+            pointerEvents: 'none',
           }}
         >
           <Box
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              px: 3,
-              py: 2,
-              borderBottom: '1px solid var(--muted)',
-              flexShrink: 0,
+              width: '100%',
+              maxWidth: 896,
               bgcolor: 'background.paper',
+              boxShadow: 24,
+              pointerEvents: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '85vh',
+              overflow: 'hidden',
+              border: '1px solid var(--muted)',
             }}
           >
-            <Typography style={{ fontSize: 18, fontWeight: 700, color: 'var(--foreground)' }}>
-              {filtersTitle}
-            </Typography>
-            <IconButton
-              size="small"
-              onClick={onClose}
+            <Box
               sx={{
-                color: 'var(--muted-foreground)',
-                borderRadius: tokens.radius.full,
-                '&:hover': { bgcolor: 'var(--muted)', color: 'var(--foreground)' },
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: 3,
+                py: 2,
+                borderBottom: '1px solid var(--muted)',
+                flexShrink: 0,
+                bgcolor: 'background.paper',
               }}
             >
-              <X size={20} />
-            </IconButton>
-          </Box>
-          <Box
-            sx={{
-              flex: 1,
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: { xs: 'column', md: 'row' },
-            }}
-          >
-            <FilterLeftPanel
-              stagedFilters={stagedFilters}
-              statusOptions={statusOptions}
-              bankOptions={bankOptions}
-              categories={categories}
-              folders={folders}
-              filtersStatusLabel={filtersStatusLabel}
-              filtersBankLabel={filtersBankLabel}
-              filtersCategoryLabel={filtersCategoryLabel}
-              filtersAccessTypeLabel={filtersAccessTypeLabel}
-              filtersFolderLabel={filtersFolderLabel}
-              filtersAllOption={filtersAllOption}
-              filtersOwnedOption={filtersOwnedOption}
-              filtersSharedOption={filtersSharedOption}
-              folderNoneLabel={folderNoneLabel}
-              filtersReset={filtersReset}
-              filtersApply={filtersApply}
-              getStatusLabel={getStatusLabel}
-              onFilterChange={onFilterChange}
-              onResetFilters={onResetFilters}
-              onApplyFilters={onApplyFilters}
-            />
-            <SavedViewsPanel
-              views={views}
-              viewsLoading={viewsLoading}
-              viewName={viewName}
-              viewSaving={viewSaving}
-              activeViewId={activeViewId}
-              viewPayload={viewPayload}
-              viewCreateTitle={viewCreateTitle}
-              viewNamePlaceholder={viewNamePlaceholder}
-              viewSaveTooltip={viewSaveTooltip}
-              viewsTitleLabel={viewsTitleLabel}
-              viewsEmpty={viewsEmpty}
-              viewDeleteLabel={viewDeleteLabel}
-              onSetViewName={onSetViewName}
-              onSaveView={onSaveView}
-              onDeleteView={onDeleteView}
-              onApplyView={onApplyView}
-            />
+              <Typography
+                id={titleId}
+                style={{ fontSize: 18, fontWeight: 700, color: 'var(--foreground)' }}
+              >
+                {filtersTitle}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={onClose}
+                sx={{
+                  color: 'var(--muted-foreground)',
+                  borderRadius: tokens.radius.full,
+                  '&:hover': { bgcolor: 'var(--muted)', color: 'var(--foreground)' },
+                }}
+              >
+                <X size={20} />
+              </IconButton>
+            </Box>
+            <Box
+              sx={{
+                flex: 1,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: { xs: 'column', md: 'row' },
+              }}
+            >
+              <FilterLeftPanel
+                stagedFilters={stagedFilters}
+                statusOptions={statusOptions}
+                bankOptions={bankOptions}
+                categories={categories}
+                folders={folders}
+                filtersStatusLabel={filtersStatusLabel}
+                filtersBankLabel={filtersBankLabel}
+                filtersCategoryLabel={filtersCategoryLabel}
+                filtersAccessTypeLabel={filtersAccessTypeLabel}
+                filtersFolderLabel={filtersFolderLabel}
+                filtersAllOption={filtersAllOption}
+                filtersOwnedOption={filtersOwnedOption}
+                filtersSharedOption={filtersSharedOption}
+                folderNoneLabel={folderNoneLabel}
+                filtersReset={filtersReset}
+                filtersApply={filtersApply}
+                getStatusLabel={getStatusLabel}
+                onFilterChange={onFilterChange}
+                onResetFilters={onResetFilters}
+                onApplyFilters={onApplyFilters}
+              />
+              <SavedViewsPanel
+                views={views}
+                viewsLoading={viewsLoading}
+                viewName={viewName}
+                viewSaving={viewSaving}
+                activeViewId={activeViewId}
+                viewPayload={viewPayload}
+                viewCreateTitle={viewCreateTitle}
+                viewNamePlaceholder={viewNamePlaceholder}
+                viewSaveTooltip={viewSaveTooltip}
+                viewsTitleLabel={viewsTitleLabel}
+                viewsEmpty={viewsEmpty}
+                viewDeleteLabel={viewDeleteLabel}
+                onSetViewName={onSetViewName}
+                onSaveView={onSaveView}
+                onDeleteView={onDeleteView}
+                onApplyView={onApplyView}
+              />
+            </Box>
           </Box>
         </Box>
       </Box>
-    </>
+    </Modal>
   );
 }
 
@@ -295,70 +292,66 @@ function FilterLeftPanel({
           <label htmlFor="storage-filter-status" style={filterLabelStyle}>
             {filtersStatusLabel}
           </label>
-          <select
+          <Select
+            fullWidth
             id="storage-filter-status"
             value={stagedFilters.status}
-            onChange={e => onFilterChange('status', e.target.value)}
-            style={filterSelectStyle}
-          >
-            <option value="">{filtersAllOption}</option>
-            {statusOptions.map(s => (
-              <option key={s} value={s}>
-                {getStatusLabel(s)}
-              </option>
-            ))}
-          </select>
+            onChange={value => onFilterChange('status', value)}
+            options={[
+              { value: '', label: filtersAllOption },
+              ...statusOptions.map(s => ({ value: s, label: getStatusLabel(s) })),
+            ]}
+            sx={filterSelectSx}
+          />
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           <label htmlFor="storage-filter-bank" style={filterLabelStyle}>
             {filtersBankLabel}
           </label>
-          <select
+          <Select
+            fullWidth
             id="storage-filter-bank"
             value={stagedFilters.bank}
-            onChange={e => onFilterChange('bank', e.target.value)}
-            style={filterSelectStyle}
-          >
-            <option value="">{filtersAllOption}</option>
-            {bankOptions.map(b => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
+            onChange={value => onFilterChange('bank', value)}
+            options={[
+              { value: '', label: filtersAllOption },
+              ...bankOptions.map(b => ({ value: b, label: b })),
+            ]}
+            sx={filterSelectSx}
+          />
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           <label htmlFor="storage-filter-category" style={filterLabelStyle}>
             {filtersCategoryLabel}
           </label>
-          <select
+          <Select
+            fullWidth
             id="storage-filter-category"
             value={stagedFilters.categoryId}
-            onChange={e => onFilterChange('categoryId', e.target.value)}
-            style={filterSelectStyle}
-          >
-            <option value="">{filtersAllOption}</option>
-            {categories.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={value => onFilterChange('categoryId', value)}
+            options={[
+              { value: '', label: filtersAllOption },
+              ...categories.map(c => ({ value: c.id, label: c.name })),
+            ]}
+            sx={filterSelectSx}
+          />
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           <label htmlFor="storage-filter-ownership" style={filterLabelStyle}>
             {filtersAccessTypeLabel}
           </label>
-          <select
+          <Select
+            fullWidth
             id="storage-filter-ownership"
             value={stagedFilters.ownership}
-            onChange={e => onFilterChange('ownership', e.target.value)}
-            style={filterSelectStyle}
-          >
-            <option value="">{filtersAllOption}</option>
-            <option value="owned">{filtersOwnedOption}</option>
-            <option value="shared">{filtersSharedOption}</option>
-          </select>
+            onChange={value => onFilterChange('ownership', value)}
+            options={[
+              { value: '', label: filtersAllOption },
+              { value: 'owned', label: filtersOwnedOption },
+              { value: 'shared', label: filtersSharedOption },
+            ]}
+            sx={filterSelectSx}
+          />
         </Box>
         <Box
           sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, gridColumn: { sm: 'span 2' } }}
@@ -366,20 +359,18 @@ function FilterLeftPanel({
           <label htmlFor="storage-filter-folder" style={filterLabelStyle}>
             {filtersFolderLabel}
           </label>
-          <select
+          <Select
+            fullWidth
             id="storage-filter-folder"
             value={stagedFilters.folderId}
-            onChange={e => onFilterChange('folderId', e.target.value)}
-            style={filterSelectStyle}
-          >
-            <option value="">{filtersAllOption}</option>
-            <option value={NO_FOLDER}>{folderNoneLabel}</option>
-            {folders.map(f => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
+            onChange={value => onFilterChange('folderId', value)}
+            options={[
+              { value: '', label: filtersAllOption },
+              { value: NO_FOLDER, label: folderNoneLabel },
+              ...folders.map(f => ({ value: f.id, label: f.name })),
+            ]}
+            sx={filterSelectSx}
+          />
         </Box>
       </Box>
       <Box
@@ -625,11 +616,11 @@ function ViewItem({
         justifyContent: 'space-between',
         gap: 1,
         border: '1px solid',
-        borderColor: isActive ? 'rgba(22,129,24,0.3)' : 'var(--border-color)',
-        bgcolor: isActive ? 'rgba(22,129,24,0.05)' : 'background.paper',
+        borderColor: isActive ? 'rgba(var(--primary-rgb),0.3)' : 'var(--border-color)',
+        bgcolor: isActive ? 'rgba(var(--primary-rgb),0.05)' : 'background.paper',
         px: 1.5,
         py: 1.25,
-        '&:hover .view-delete-btn': { opacity: 1 },
+        '&:hover .view-delete-btn, &:focus-within .view-delete-btn': { opacity: 1 },
       }}
     >
       <Box

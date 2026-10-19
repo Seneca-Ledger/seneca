@@ -1,49 +1,63 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
+import { payeeKeyOf } from '../../../common/utils/payee-key.util';
+import { OWNER_SHARED } from '../../../common/utils/transaction-owner.util';
 import {
   DEFAULT_PROCESSING_SETTINGS,
   readProcessingSettings,
+  type WorkspaceProcessingSettings,
 } from '../../../common/utils/workspace-processing.util';
 import { ActorType, AuditAction, EntityType } from '../../../entities/audit-event.entity';
 import { Branch } from '../../../entities/branch.entity';
 import { CategorizationRule } from '../../../entities/categorization-rule.entity';
-import { CategoryLearning } from '../../../entities/category-learning.entity';
 import { Category, CategorySource, CategoryType } from '../../../entities/category.entity';
-import { type Transaction, TransactionType } from '../../../entities/transaction.entity';
+import { Payee } from '../../../entities/payee.entity';
+import { PayeeAlias } from '../../../entities/payee-alias.entity';
+import {
+  Transaction,
+  TransactionCategorySource,
+  TransactionType,
+} from '../../../entities/transaction.entity';
 import { Wallet } from '../../../entities/wallet.entity';
 import { Workspace } from '../../../entities/workspace.entity';
-import { ApplicationSettingsService } from '../../application-settings/application-settings.service';
 import { AuditService } from '../../audit/audit.service';
-import { CategoriesService } from '../../categories/categories.service';
-import {
-  AiCategoryClassifier,
-  type AiCategoryMatch,
-} from '../helpers/ai-category-classifier.helper';
+import { UNCATEGORIZED_CATEGORY_NAME } from '../../categories/uncategorized-category';
+import { decidePayeeCategory } from '../engine/payee-category.matcher';
+import { onlyPayeeEvidence } from '../engine/payee-evidence';
 import {
   type ClassificationCondition,
   type ClassificationRule,
 } from '../interfaces/classification-rule.interface';
-import type { TransactionEnrichment } from '../interfaces/transaction-enrichment.interface';
 
-type BatchTransactionClassificationInput = {
-  index: number;
-  counterpartyName: string;
-  paymentPurpose: string;
-  transactionType: TransactionType;
+/** A category plus the step that found it and the payload the UI shows as "why". */
+export type AutoCategoryMatch = {
+  categoryId: string;
+  source: TransactionCategorySource;
+  reason: string | null;
 };
+
+/**
+ * How many of a payee's most recent transactions are replayed to work out its
+ * default category. The rule itself looks at three at a time; a longer tail is
+ * read so that an established category survives a run of one-offs.
+ */
+const PAYEE_HISTORY_DEPTH = 12;
+const PROCESSING_SETTINGS_TTL_MS = 60_000;
 
 @Injectable()
 export class ClassificationService {
-  private readonly aiCategoryClassifier = new AiCategoryClassifier();
-
   constructor(
     @InjectRepository(Category)
     private categoryRepository: Repository<Category>,
-    @InjectRepository(CategoryLearning)
-    private categoryLearningRepository: Repository<CategoryLearning>,
+    @InjectRepository(Transaction)
+    private transactionRepository: Repository<Transaction>,
+    @InjectRepository(Payee)
+    private payeeRepository: Repository<Payee>,
+    @InjectRepository(PayeeAlias)
+    private payeeAliasRepository: Repository<PayeeAlias>,
     @InjectRepository(Branch)
     private branchRepository: Repository<Branch>,
     @InjectRepository(Wallet)
@@ -54,15 +68,13 @@ export class ClassificationService {
     private workspaceRepository: Repository<Workspace>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
-    private readonly categoriesService: CategoriesService,
-    @Optional()
-    private readonly applicationSettingsService?: ApplicationSettingsService,
   ) {}
 
   async classifyTransaction(
     transaction: Transaction,
     userId: string,
     batchId?: string | null,
+    options: { bypassCache?: boolean } = {},
   ): Promise<Partial<Transaction>> {
     const classification: Partial<Transaction> = {};
     const workspaceId = transaction.workspaceId || null;
@@ -75,14 +87,22 @@ export class ClassificationService {
       classification.transactionType = TransactionType.INCOME;
     }
 
+    // The payee key travels with the row: everything the engine learns later is
+    // keyed on it, and recomputing it per query would be a scan.
+    classification.payeeKey = payeeKeyOf(transaction);
+
     // Check cache first
     const cacheKey = transaction.id ? `classification:${transaction.id}` : null;
-    if (cacheKey) {
+    if (cacheKey && !options.bypassCache) {
       const cached = await this.cacheManager.get<Partial<Transaction>>(cacheKey);
       if (cached) {
         return cached;
       }
     }
+
+    // A rule naming the owner is an explicit instruction; the wallet is only a
+    // default, so it must not overwrite one.
+    let ruleSetOwner = false;
 
     // Get classification rules for user
     const rules = (await this.getClassificationRules(userId, workspaceId)) ?? [];
@@ -94,12 +114,18 @@ export class ClassificationService {
         // Apply rule result
         if (rule.result.categoryId) {
           classification.categoryId = rule.result.categoryId;
+          classification.categorySource = TransactionCategorySource.RULE;
+          classification.categoryReason = rule.name;
         }
         if (rule.result.branchId) {
           classification.branchId = rule.result.branchId;
         }
         if (rule.result.walletId) {
           classification.walletId = rule.result.walletId;
+        }
+        if (rule.result.ownerMemberId !== undefined) {
+          classification.ownerMemberId = rule.result.ownerMemberId;
+          ruleSetOwner = true;
         }
         if (rule.result.article) {
           classification.article = rule.result.article;
@@ -115,22 +141,36 @@ export class ClassificationService {
 
     // Auto-classify category if not set
     if (!classification.categoryId) {
-      classification.categoryId = await this.autoClassifyCategory(
+      const match = await this.autoClassifyCategory(
         transaction,
         userId,
         classification.transactionType || TransactionType.EXPENSE,
         workspaceId,
       );
+      classification.categoryId = match?.categoryId;
+      classification.categorySource = match?.source ?? null;
+      classification.categoryReason = match?.reason ?? null;
     }
 
     // Auto-determine wallet if not set
     if (!classification.walletId) {
-      classification.walletId = await this.autoDetermineWallet(transaction, userId);
+      classification.walletId = await this.autoDetermineWallet(transaction, userId, workspaceId);
     }
 
     // Auto-determine branch if not set
     if (!classification.branchId) {
-      classification.branchId = await this.autoDetermineBranch(transaction, userId);
+      classification.branchId = await this.autoDetermineBranch(transaction, userId, workspaceId);
+    }
+
+    // A new row belongs to whoever owns the account it landed in; NULL means the
+    // household shares it. The owner is inherited once, at classification time:
+    // moving a row to another wallet later does not reassign it behind the
+    // user's back.
+    //
+    // One primary-key lookup per transaction, and the whole classification is
+    // cached below, so it does not add a query per row of a re-imported file.
+    if (classification.walletId && !ruleSetOwner) {
+      classification.ownerMemberId = await this.walletOwnerMemberId(classification.walletId);
     }
 
     // Cache result for 5 minutes
@@ -148,7 +188,7 @@ export class ClassificationService {
         entityId: transaction.id,
         action: AuditAction.APPLY_RULE,
         meta: {
-          ruleId: matchedRule.id ?? null,
+          ruleId: matchedRule.id,
           ruleName: matchedRule.name,
           confidence: 1,
         },
@@ -157,6 +197,43 @@ export class ClassificationService {
     }
 
     return classification;
+  }
+
+  /**
+   * The category for one payee outside a statement import: a scanned receipt,
+   * an emailed invoice. The same steps a bank row goes through: a rule the user
+   * wrote, then what this payee was filed as before. `null` means "leave it for
+   * the user", never the Uncategorized fallback.
+   */
+  async suggestForPayee(input: {
+    workspaceId: string;
+    userId: string;
+    counterpartyName: string;
+    paymentPurpose?: string | null;
+    transactionType: TransactionType;
+    amount?: number | null;
+  }): Promise<AutoCategoryMatch | null> {
+    const transaction = {
+      workspaceId: input.workspaceId,
+      counterpartyName: input.counterpartyName,
+      paymentPurpose: input.paymentPurpose ?? input.counterpartyName,
+      transactionType: input.transactionType,
+      amount: input.amount ?? null,
+      debit: input.transactionType === TransactionType.EXPENSE ? (input.amount ?? null) : null,
+      credit: input.transactionType === TransactionType.INCOME ? (input.amount ?? null) : null,
+    } as Transaction;
+
+    const rules = (await this.getClassificationRules(input.userId, input.workspaceId)) ?? [];
+    const rule = rules.find(candidate => this.matchesRule(transaction, candidate.conditions));
+    if (rule?.result.categoryId) {
+      return {
+        categoryId: rule.result.categoryId,
+        source: TransactionCategorySource.RULE,
+        reason: rule.name,
+      };
+    }
+
+    return (await this.matchByPayeeHistory(transaction, input.workspaceId)) ?? null;
   }
 
   matchesRule(transaction: Transaction, conditions: ClassificationCondition[]): boolean {
@@ -178,6 +255,10 @@ export class ClassificationService {
         return transaction.counterpartyBin || null;
       case 'document_number':
         return transaction.documentNumber || null;
+      // `shared` rather than null: the condition evaluator treats null as "no
+      // value" and refuses to match, so a rule about shared rows needs a word.
+      case 'owner':
+        return transaction.ownerMemberId ?? OWNER_SHARED;
       default:
         return null;
     }
@@ -225,162 +306,130 @@ export class ClassificationService {
     userId: string,
     transactionType: TransactionType,
     workspaceId: string | null = null,
-  ): Promise<string | undefined> {
-    // Look for common patterns in counterparty name or purpose
-    const searchText =
-      `${transaction.counterpartyName} ${transaction.paymentPurpose}`.toLowerCase();
+  ): Promise<AutoCategoryMatch | undefined> {
+    // No category is ever guessed from the text of a descriptor. A bank string
+    // contains a category name by accident often enough ("ENTERPRISE RENT-A-CAR"
+    // -> Rent, "TRAVELODGE" -> Travel) that the guess is wrong more often than
+    // it is right, and a wrong category reaches budgets and fires a false
+    // overspend alert. What the user taught about this payee decides instead.
 
-    if (workspaceId) {
-      const workspaceCategoryId = await this.matchWorkspaceCategories(
-        searchText,
-        workspaceId,
-        transactionType,
-      );
-      if (workspaceCategoryId) {
-        return workspaceCategoryId;
-      }
-    }
-
-    // Common patterns for Kaspi and other banks
-    const patterns: Array<{ pattern: RegExp; categoryName: string }> = [
-      // Kaspi specific
-      { pattern: /kaspi red/i, categoryName: 'Платежи Kaspi Red' },
-      { pattern: /продажи\s+с\s+kaspi/i, categoryName: 'Продажи Kaspi' },
-      { pattern: /бонусы?\s+за\s+отзыв/i, categoryName: 'Маркетинг и реклама' },
-      {
-        pattern: /kaspi\s+доставка|доставк.*kaspi/i,
-        categoryName: 'Логистика и доставка',
-      },
-      {
-        pattern: /рекламн.*услуг|услуг.*рекламн/i,
-        categoryName: 'Маркетинг и реклама',
-      },
-      {
-        pattern: /информационно.*технолог|IT.*услуг/i,
-        categoryName: 'IT услуги',
-      },
-      {
-        pattern: /комисси.*kaspi|kaspi.*комисси/i,
-        categoryName: 'Комиссии банка',
-      },
-      {
-        pattern: /перевод\s+собственных\s+средств/i,
-        categoryName: 'Внутренние переводы',
-      },
-      {
-        pattern: /резервирование.*кредит|погашение.*кредит/i,
-        categoryName: 'Кредиты и займы',
-      },
-      { pattern: /kaspi\s+gold|gold.*карт/i, categoryName: 'Комиссии банка' },
-      { pattern: /kaspi\s+магазин/i, categoryName: 'Комиссии Kaspi' },
-      { pattern: /kaspi\s*pay/i, categoryName: 'Комиссии Kaspi' },
-      // General patterns
-      { pattern: /зарплат/i, categoryName: 'Зарплаты сотрудникам' },
-      { pattern: /аренд/i, categoryName: 'Аренда' },
-      { pattern: /коммунал/i, categoryName: 'Коммунальные услуги' },
-      { pattern: /налог/i, categoryName: 'Налоги' },
-      { pattern: /поступлени|приход/i, categoryName: 'Приход' },
-      { pattern: /оплата\s+услуг/i, categoryName: 'Оплата услуг' },
-      { pattern: /закуп|товар/i, categoryName: 'Закупки товаров' },
-      { pattern: /страхов/i, categoryName: 'Страхование' },
-      { pattern: /доставк|курьер/i, categoryName: 'Логистика и доставка' },
-      { pattern: /маркетинг|реклам/i, categoryName: 'Маркетинг и реклама' },
-      { pattern: /комисси/i, categoryName: 'Комиссии банка' },
-      { pattern: /кредит|лизинг|займ/i, categoryName: 'Кредиты и займы' },
-    ];
-
-    for (const { pattern, categoryName } of patterns) {
-      if (pattern.test(searchText)) {
-        const categoryId = await this.ensureCategory(
-          userId,
-          categoryName,
-          transactionType === TransactionType.INCOME ? CategoryType.INCOME : CategoryType.EXPENSE,
-          undefined,
-          workspaceId,
-        );
-
-        if (categoryId) {
-          return categoryId;
-        }
-      }
-    }
-
-    // Try ML-based learned patterns
-    const learnedMatch = await this.matchByLearnedPatterns(
-      transaction,
-      userId,
-      transactionType,
-      workspaceId,
-    );
-    if (learnedMatch) {
-      return learnedMatch;
-    }
-
-    // Try to find category by historical data
-    const historicalCategory = await this.findCategoryByHistory(transaction, userId, workspaceId);
-    if (historicalCategory) {
-      return historicalCategory.id;
+    const payeeMatch = workspaceId
+      ? await this.matchByPayeeHistory(transaction, workspaceId)
+      : undefined;
+    if (payeeMatch) {
+      return payeeMatch;
     }
 
     // FALLBACK: Create "Uncategorized" to ensure transaction is categorized
-    return await this.ensureCategory(
+    const fallbackId = await this.ensureCategory(
       userId,
-      'Без категории',
+      UNCATEGORIZED_CATEGORY_NAME,
       transactionType === TransactionType.INCOME ? CategoryType.INCOME : CategoryType.EXPENSE,
       undefined,
       workspaceId,
     );
+    return fallbackId
+      ? { categoryId: fallbackId, source: TransactionCategorySource.DEFAULT, reason: null }
+      : undefined;
   }
 
-  private async findCategoryByHistory(
+  /**
+   * What this row's payee was filed as before. The payee is the one the row
+   * already has, or, for a row not booked yet, the one its descriptor is an
+   * alias of. A descriptor never seen before has no payee and no history.
+   */
+  private async matchByPayeeHistory(
     transaction: Transaction,
-    userId: string,
-    workspaceId: string | null = null,
-  ): Promise<Category | null> {
-    const categoryRepository = this.categoryRepository as Partial<
-      Pick<Repository<Category>, 'createQueryBuilder'>
-    >;
-    if (typeof categoryRepository.createQueryBuilder !== 'function') {
-      // In unit tests repositories are shallow mocks without query builder; skip lookup.
-      return null;
+    workspaceId: string,
+  ): Promise<AutoCategoryMatch | undefined> {
+    let payeeId = transaction.payeeId ?? null;
+    if (!payeeId) {
+      const payeeKey = payeeKeyOf(transaction);
+      const alias = payeeKey
+        ? await this.payeeAliasRepository.findOne({ where: { workspaceId, payeeKey } })
+        : null;
+      payeeId = alias?.payeeId ?? null;
     }
-    // Find most common category for this counterparty
-    // Note: transactions don't have userId, they're linked via statement->user
-    const query = categoryRepository
-      .createQueryBuilder('category')
-      .innerJoin('category.transactions', 'transaction')
-      .innerJoin('transaction.statement', 'statement')
-      .where('transaction.counterpartyName = :counterpartyName', {
-        counterpartyName: transaction.counterpartyName,
-      })
-      .groupBy('category.id')
-      .orderBy('COUNT(transaction.id)', 'DESC')
-      .limit(1);
+    return payeeId ? this.categoryForPayee(workspaceId, payeeId) : undefined;
+  }
 
-    if (workspaceId) {
-      query
-        .andWhere('statement.workspaceId = :workspaceId', { workspaceId })
-        .andWhere('category.workspaceId = :workspaceId', { workspaceId });
-    } else {
-      query
-        .andWhere('statement.userId = :userId', { userId })
-        .andWhere('category.userId = :userId', { userId });
+  /**
+   * The category a payee defaults to: its pin when the user said "always",
+   * nothing when they said "never", otherwise its history by the YNAB rule.
+   * Only rows a person decided are read (`onlyPayeeEvidence`), so an
+   * auto-assigned category never becomes the evidence for the next one.
+   */
+  async categoryForPayee(
+    workspaceId: string,
+    payeeId: string,
+  ): Promise<AutoCategoryMatch | undefined> {
+    const settings = await this.getProcessingSettings(workspaceId);
+    if (!settings.merchantLearning) {
+      return undefined;
     }
 
-    const result = await query.getOne();
+    const payee = await this.payeeRepository.findOne({ where: { id: payeeId, workspaceId } });
+    if (!payee) {
+      return undefined;
+    }
 
-    return result || null;
+    const newestFirst = await this.payeeHistoryQuery(workspaceId, payeeId).getMany();
+    const decision = decidePayeeCategory({
+      // The matcher replays history forward; the query hands back the newest first.
+      history: [...newestFirst].reverse().map(row => ({ categoryId: row.categoryId as string })),
+      override: { mode: payee.mode, categoryId: payee.categoryId },
+    });
+
+    if (!decision) {
+      return undefined;
+    }
+
+    return {
+      categoryId: decision.categoryId,
+      source:
+        decision.basis === 'payee-pinned'
+          ? TransactionCategorySource.LEARNED
+          : TransactionCategorySource.HISTORY,
+      reason: payee.name,
+    };
+  }
+
+  private payeeHistoryQuery(workspaceId: string, payeeId: string) {
+    const query = this.transactionRepository
+      .createQueryBuilder('transaction')
+      .select(['transaction.id', 'transaction.categoryId'])
+      .where('transaction.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('transaction.payeeId = :payeeId', { payeeId });
+    return onlyPayeeEvidence(query, 'transaction')
+      .orderBy('transaction.transactionDate', 'DESC')
+      .addOrderBy('transaction.createdAt', 'DESC')
+      .take(PAYEE_HISTORY_DEPTH);
+  }
+
+  private ownerScope(userId: string, workspaceId: string | null) {
+    return workspaceId ? { workspaceId } : { userId };
+  }
+
+  /** Who owns the wallet, or null when it is shared. */
+  private async walletOwnerMemberId(walletId: string): Promise<string | null> {
+    const wallet = await this.walletRepository.findOne({
+      where: { id: walletId },
+      select: ['ownerMemberId'],
+    });
+    return wallet?.ownerMemberId ?? null;
   }
 
   private async autoDetermineWallet(
     transaction: Transaction,
     userId: string,
+    workspaceId: string | null,
   ): Promise<string | undefined> {
+    const scope = this.ownerScope(userId, workspaceId);
     // Try to match by account number if available
     if (transaction.counterpartyAccount) {
       const wallet = await this.walletRepository.findOne({
         where: {
-          userId,
+          ...scope,
           accountNumber: transaction.counterpartyAccount,
         },
       });
@@ -391,7 +440,7 @@ export class ClassificationService {
     }
 
     // Match by wallet name presence in purpose/counterparty
-    const wallets = await this.walletRepository.find({ where: { userId } });
+    const wallets = await this.walletRepository.find({ where: scope });
     const searchText =
       `${transaction.counterpartyName} ${transaction.paymentPurpose}`.toLowerCase();
     const walletMatch = wallets.find(w => searchText.includes((w.name || '').toLowerCase()));
@@ -401,7 +450,7 @@ export class ClassificationService {
 
     // Get default wallet for user
     const defaultWallet = await this.walletRepository.findOne({
-      where: { userId },
+      where: scope,
       order: { createdAt: 'ASC' },
     });
 
@@ -411,9 +460,10 @@ export class ClassificationService {
   private async autoDetermineBranch(
     transaction: Transaction,
     userId: string,
+    workspaceId: string | null,
   ): Promise<string | undefined> {
     const branches = await this.branchRepository.find({
-      where: { userId },
+      where: this.ownerScope(userId, workspaceId),
       order: { createdAt: 'ASC' },
     });
 
@@ -450,305 +500,12 @@ export class ClassificationService {
       isActive: rule.isActive,
     }));
 
-    // Default system rules (templates)
-    const templates: Array<{
-      name: string;
-      field: ClassificationCondition['field'];
-      operator: ClassificationCondition['operator'];
-      value: string;
-      category: string;
-      type: CategoryType;
-      priority: number;
-      article?: string;
-    }> = [
-      {
-        name: 'Kaspi Red payments',
-        field: 'payment_purpose',
-        operator: 'contains',
-        value: 'kaspi red',
-        category: 'Платежи Kaspi Red',
-        type: CategoryType.EXPENSE,
-        priority: 110,
-      },
-      {
-        name: 'Kaspi Pay/комиссии',
-        field: 'payment_purpose',
-        operator: 'regex',
-        value: 'kaspi\\s*pay|комисси.*kaspi',
-        category: 'Комиссии Kaspi',
-        type: CategoryType.EXPENSE,
-        priority: 105,
-      },
-      {
-        name: 'Kaspi sales',
-        field: 'payment_purpose',
-        operator: 'contains',
-        value: 'продажи kaspi',
-        category: 'Продажи Kaspi',
-        type: CategoryType.INCOME,
-        priority: 100,
-      },
-      {
-        name: 'Salary payments',
-        field: 'payment_purpose',
-        operator: 'contains',
-        value: 'зарплат',
-        category: 'Зарплаты сотрудникам',
-        type: CategoryType.EXPENSE,
-        priority: 95,
-      },
-      {
-        name: 'Rent',
-        field: 'payment_purpose',
-        operator: 'contains',
-        value: 'аренд',
-        category: 'Аренда',
-        type: CategoryType.EXPENSE,
-        priority: 90,
-      },
-      {
-        name: 'Taxes',
-        field: 'payment_purpose',
-        operator: 'regex',
-        value: 'налог|гпн|опв|осМС|соц(\\s|$)',
-        category: 'Налоги',
-        type: CategoryType.EXPENSE,
-        priority: 88,
-      },
-      {
-        name: 'Utilities',
-        field: 'payment_purpose',
-        operator: 'regex',
-        value: 'коммунал|электр|газ|тепл|свет',
-        category: 'Коммунальные услуги',
-        type: CategoryType.EXPENSE,
-        priority: 85,
-      },
-      {
-        name: 'Marketing',
-        field: 'payment_purpose',
-        operator: 'regex',
-        value: 'реклам|маркетинг',
-        category: 'Маркетинг и реклама',
-        type: CategoryType.EXPENSE,
-        priority: 80,
-      },
-      {
-        name: 'Logistics',
-        field: 'payment_purpose',
-        operator: 'contains',
-        value: 'достав',
-        category: 'Логистика и доставка',
-        type: CategoryType.EXPENSE,
-        priority: 75,
-      },
-      {
-        name: 'Bank commission',
-        field: 'payment_purpose',
-        operator: 'contains',
-        value: 'комисси',
-        category: 'Комиссии банка',
-        type: CategoryType.EXPENSE,
-        priority: 70,
-      },
-      {
-        name: 'Loans/credit',
-        field: 'payment_purpose',
-        operator: 'regex',
-        value: 'кредит|займ|лизинг',
-        category: 'Кредиты и займы',
-        type: CategoryType.EXPENSE,
-        priority: 65,
-      },
-      {
-        name: 'Incoming payments',
-        field: 'payment_purpose',
-        operator: 'regex',
-        value: 'поступлени|приход|оплата товара',
-        category: 'Приход',
-        type: CategoryType.INCOME,
-        priority: 60,
-      },
-    ];
-
-    const rules: ClassificationRule[] = [];
-    for (const template of templates) {
-      const categoryId = await this.ensureCategory(
-        userId,
-        template.category,
-        template.type,
-        undefined,
-        workspaceId,
-      );
-      if (!categoryId) {
-        continue;
-      }
-
-      rules.push({
-        name: template.name,
-        type: 'category',
-        conditions: [
-          {
-            field: template.field,
-            operator: template.operator,
-            value: template.value,
-          },
-        ],
-        result: {
-          categoryId,
-          article: template.article,
-        },
-        priority: template.priority,
-        isActive: true,
-      });
-    }
-
-    // Merge user rules with system rules (user rules have higher priority)
-    return [...dbRules, ...rules].sort((a, b) => b.priority - a.priority);
-  }
-
-  private async getCategoryIdByName(
-    userId: string,
-    categoryName: string,
-  ): Promise<string | undefined> {
-    return this.ensureCategory(userId, categoryName);
-  }
-
-  private async matchWorkspaceCategories(
-    searchText: string,
-    workspaceId: string,
-    transactionType: TransactionType,
-  ): Promise<string | undefined> {
-    const type =
-      transactionType === TransactionType.INCOME ? CategoryType.INCOME : CategoryType.EXPENSE;
-    const categories = (await this.categoriesService.findAll(workspaceId, type)) ?? [];
-
-    const nameMatchThreshold = await this.getCategorizationThreshold(workspaceId);
-    const searchTokens = this.tokenizeForCategoryMatch(searchText);
-
-    for (const category of categories) {
-      if (category.isEnabled === false) {
-        continue;
-      }
-
-      const normalizedName = category.name.trim().toLowerCase();
-      if (normalizedName === 'без категории' || normalizedName === 'other') {
-        continue;
-      }
-
-      const words = this.tokenizeForCategoryMatch(normalizedName).filter(word => word.length >= 3);
-      if (!words.length) {
-        continue;
-      }
-
-      const matchedWords = words.filter(word =>
-        searchTokens.some(token => this.categoryWordsMatch(word, token)),
-      );
-      if (matchedWords.length / words.length >= nameMatchThreshold) {
-        return category.id;
-      }
-    }
-
-    return undefined;
-  }
-
-  async classifyBulk(_transactionIds: string[], _userId: string): Promise<void> {
-    // TODO: Implement bulk classification
-    // This would process multiple transactions at once
-  }
-
-  async classifyTransactionsBatch(
-    transactions: BatchTransactionClassificationInput[],
-    workspaceId: string,
-    userId: string,
-  ): Promise<Map<number, { categoryId: string; enrichment?: TransactionEnrichment }>> {
-    const resultByIndex = new Map<
-      number,
-      { categoryId: string; enrichment?: TransactionEnrichment }
-    >();
-
-    if (!(transactions.length && workspaceId)) {
-      return resultByIndex;
-    }
-
-    const aiSettings =
-      await this.applicationSettingsService?.getAiSettingsForWorkspaceId(workspaceId);
-    if (aiSettings) {
-      this.aiCategoryClassifier.configureAiClient(aiSettings);
-    }
-    if (!this.aiCategoryClassifier.isAvailable()) {
-      return resultByIndex;
-    }
-
-    const incomeTransactions = transactions.filter(
-      tx => tx.transactionType === TransactionType.INCOME,
-    );
-    const expenseTransactions = transactions.filter(
-      tx => tx.transactionType === TransactionType.EXPENSE,
-    );
-
-    const [incomeCategories, expenseCategories] = await Promise.all([
-      this.getAiCategoryOptions(workspaceId, CategoryType.INCOME),
-      this.getAiCategoryOptions(workspaceId, CategoryType.EXPENSE),
-    ]);
-
-    const [incomeResult, expenseResult] = await Promise.all([
-      this.classifyTransactionGroupWithAi(incomeTransactions, incomeCategories),
-      this.classifyTransactionGroupWithAi(expenseTransactions, expenseCategories),
-    ]);
-
-    const matches = [...incomeResult, ...expenseResult];
-    const transactionByIndex = new Map(transactions.map(tx => [tx.index, tx]));
-
-    for (const match of matches) {
-      const enrichment: TransactionEnrichment = {
-        vendorNormalized: match.vendorNormalized,
-        categoryHint: match.categoryHint,
-        taxMentioned: match.taxMentioned,
-        taxRate: match.taxRate,
-        transactionNature: match.transactionNature,
-        confidence: match.confidence,
-      };
-      resultByIndex.set(match.index, { categoryId: match.categoryId, enrichment });
-      const tx = transactionByIndex.get(match.index);
-      if (!tx) {
-        continue;
-      }
-      await this.learnFromAiClassification(workspaceId, userId, tx, match);
-    }
-
-    return resultByIndex;
-  }
-
-  private async classifyTransactionGroupWithAi(
-    transactions: BatchTransactionClassificationInput[],
-    categories: Array<{ id: string; name: string }>,
-  ): Promise<AiCategoryMatch[]> {
-    if (!(transactions.length && categories.length)) {
-      return [];
-    }
-
-    const result = await this.aiCategoryClassifier.classifyBatch(
-      transactions.map(tx => ({
-        index: tx.index,
-        counterpartyName: tx.counterpartyName,
-        paymentPurpose: tx.paymentPurpose,
-      })),
-      categories,
-    );
-
-    return result.matches;
-  }
-
-  private async getAiCategoryOptions(
-    workspaceId: string,
-    type: CategoryType,
-  ): Promise<Array<{ id: string; name: string }>> {
-    const categories = await this.categoriesService.findAll(workspaceId, type);
-    return categories
-      .filter(category => category.isEnabled !== false)
-      .filter(category => category.name.trim().toLowerCase() !== 'без категории')
-      .map(category => ({ id: category.id, name: category.name }));
+    // No built-in rule templates. The ones that used to live here matched
+    // Russian wording of Kazakh bank statements and created their categories by
+    // name ("Платежи Kaspi Red", "Аренда"), so the first import seeded a German
+    // or Spanish workspace with Russian categories. Bank-specific wording
+    // belongs to the bank profile, not to every workspace in the product.
+    return dbRules.sort((a, b) => b.priority - a.priority);
   }
 
   async ensureCategory(
@@ -784,14 +541,24 @@ export class ClassificationService {
     if (!category) {
       category = this.categoryRepository.create({
         userId,
-        workspaceId,
+        workspaceId: workspaceId ?? undefined,
         name: categoryName,
         type,
         isSystem: false,
         source: workspaceId ? CategorySource.PARSING : CategorySource.USER,
         color,
       });
-      category = await this.categoryRepository.save(category);
+      try {
+        category = await this.categoryRepository.save(category);
+      } catch (error) {
+        // A parallel import created the same fallback first (UQ_categories_uncategorized).
+        if (!(workspaceId && (error as { code?: string }).code === '23505')) throw error;
+        const created = await this.categoryRepository.findOne({
+          where: { workspaceId, name: categoryName, type },
+        });
+        if (!created) throw error;
+        return created.id;
+      }
       if (workspaceId) {
         await this.invalidateWorkspaceCategoriesCache(workspaceId);
       }
@@ -850,32 +617,6 @@ export class ClassificationService {
     await this.cacheManager.del(`categories:${workspaceId}:${CategoryType.EXPENSE}`);
   }
 
-  private tokenizeForCategoryMatch(value: string): string[] {
-    return value
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, ' ')
-      .split(/\s+/)
-      .map(token => token.trim())
-      .filter(Boolean);
-  }
-
-  private categoryWordsMatch(categoryWord: string, searchWord: string): boolean {
-    if (categoryWord === searchWord) {
-      return true;
-    }
-
-    if (categoryWord.includes(searchWord) || searchWord.includes(categoryWord)) {
-      return true;
-    }
-
-    const minPrefixLength = Math.min(4, categoryWord.length, searchWord.length);
-    if (minPrefixLength >= 3) {
-      return categoryWord.slice(0, minPrefixLength) === searchWord.slice(0, minPrefixLength);
-    }
-
-    return false;
-  }
-
   private extractDominantKeyword(
     transactions: Array<{ paymentPurpose?: string; counterpartyName?: string }>,
   ): string {
@@ -918,7 +659,9 @@ export class ClassificationService {
     const words = text.split(/\s+/).filter(w => w.length >= 4 && !stopWords.has(w));
 
     const freq = new Map<string, number>();
-    words.forEach(w => freq.set(w, (freq.get(w) || 0) + 1));
+    for (const w of words) {
+      freq.set(w, (freq.get(w) || 0) + 1);
+    }
     const top = Array.from(freq.entries()).sort((a, b) => b[1] - a[1])[0];
     if (!top) {
       return '';
@@ -949,122 +692,22 @@ export class ClassificationService {
   /**
    * Record a user correction for ML learning
    */
-  async learnFromCorrection(
-    transaction: Transaction,
-    newCategoryId: string,
-    userId: string,
-  ): Promise<void> {
-    const workspaceId = transaction.workspaceId || null;
-
-    const lookupWhere = workspaceId
-      ? {
-          workspaceId,
-          categoryId: newCategoryId,
-          paymentPurpose: transaction.paymentPurpose || '',
-        }
-      : {
-          userId,
-          categoryId: newCategoryId,
-          paymentPurpose: transaction.paymentPurpose || '',
-        };
-
-    // Check if similar pattern already exists
-    const existing = await this.categoryLearningRepository.findOne({
-      where: lookupWhere,
-    });
-
-    if (existing) {
-      // Increment occurrences for confidence boost
-      existing.occurrences += 1;
-      existing.confidence = Math.min(1.0, Number(existing.confidence) + 0.05);
-      await this.categoryLearningRepository.save(existing);
-    } else {
-      // Create new learning entry
-      await this.categoryLearningRepository.save(
-        this.categoryLearningRepository.create({
-          userId,
-          workspaceId,
-          categoryId: newCategoryId,
-          paymentPurpose: transaction.paymentPurpose || '',
-          counterpartyName: transaction.counterpartyName || null,
-          learnedFrom: 'manual_correction',
-          confidence: 1.0,
-          occurrences: 1,
-        }),
-      );
-    }
-
-    // Invalidate learned patterns cache for this user
-    await this.cacheManager.del(this.getLearnedPatternsCacheKey(userId, workspaceId));
-  }
-
   /**
-   * Match transaction against learned patterns using similarity
+   * Remembers a manual category pick for the payee. A single correction does
+   * not flip a payee with an established pattern (a one-off gift bought at the
+   * grocery store stays a one-off); the second correction for the same payee
+   * does, and demotes what it replaces.
    */
-  private async matchByLearnedPatterns(
-    transaction: Transaction,
-    userId: string,
-    _transactionType: TransactionType,
-    workspaceId: string | null = null,
-  ): Promise<string | undefined> {
-    const cacheKey = this.getLearnedPatternsCacheKey(userId, workspaceId);
-
-    // Try to get from cache
-    let learnedPatterns = await this.cacheManager.get<CategoryLearning[]>(cacheKey);
-
-    if (!learnedPatterns) {
-      // Get learned patterns for this user from DB
-      learnedPatterns = await this.categoryLearningRepository.find({
-        where: workspaceId ? { workspaceId } : { userId },
-        order: { confidence: 'DESC', createdAt: 'DESC' },
-        take: 100, // Limit for performance
-      });
-
-      // Cache for 10 minutes
-      await this.cacheManager.set(cacheKey, learnedPatterns, 600000); // 10 minutes in ms
-    }
-
-    if (!learnedPatterns || learnedPatterns.length === 0) {
-      return undefined;
-    }
-
-    const threshold = await this.getCategorizationThreshold(workspaceId);
-
-    // Calculate similarity scores
-    const searchText =
-      `${transaction.paymentPurpose} ${transaction.counterpartyName}`.toLowerCase();
-
-    let bestMatch: { categoryId: string; score: number } | null = null;
-
-    for (const pattern of learnedPatterns) {
-      const patternText =
-        `${pattern.paymentPurpose} ${pattern.counterpartyName || ''}`.toLowerCase();
-
-      const score = this.calculateTextSimilarity(searchText, patternText);
-
-      // Consider confidence in scoring (boost high-confidence patterns)
-      const weightedScore = score * Number(pattern.confidence);
-
-      if (weightedScore > threshold && (!bestMatch || weightedScore > bestMatch.score)) {
-        bestMatch = { categoryId: pattern.categoryId, score: weightedScore };
-      }
-    }
-
-    return bestMatch?.categoryId;
-  }
-
-  /**
-   * Workspace-configured match threshold. Cached because classification runs
-   * per transaction and the value changes about once a year.
-   */
-  private async getCategorizationThreshold(workspaceId: string | null): Promise<number> {
+  private async getProcessingSettings(
+    workspaceId: string | null,
+  ): Promise<WorkspaceProcessingSettings> {
     if (!workspaceId) {
-      return DEFAULT_PROCESSING_SETTINGS.categorizationThreshold;
+      return DEFAULT_PROCESSING_SETTINGS;
     }
 
-    const cacheKey = `workspace:${workspaceId}:categorization-threshold`;
-    const cached = await this.cacheManager.get<number>(cacheKey);
-    if (typeof cached === 'number') {
+    const cacheKey = `workspace:${workspaceId}:processing-settings`;
+    const cached = await this.cacheManager.get<WorkspaceProcessingSettings>(cacheKey);
+    if (cached && typeof cached === 'object') {
       return cached;
     }
 
@@ -1072,83 +715,9 @@ export class ClassificationService {
       where: { id: workspaceId },
       select: ['id', 'settings'],
     });
-    const { categorizationThreshold } = readProcessingSettings(workspace);
+    const settings = readProcessingSettings(workspace);
 
-    await this.cacheManager.set(cacheKey, categorizationThreshold, 300000);
-    return categorizationThreshold;
-  }
-
-  private async learnFromAiClassification(
-    workspaceId: string,
-    userId: string,
-    transaction: BatchTransactionClassificationInput,
-    match: AiCategoryMatch,
-  ): Promise<void> {
-    try {
-      const paymentPurpose = transaction.paymentPurpose || '';
-      const counterpartyName = transaction.counterpartyName || null;
-
-      const existing = await this.categoryLearningRepository.findOne({
-        where: {
-          workspaceId,
-          categoryId: match.categoryId,
-          paymentPurpose,
-          counterpartyName,
-        },
-      });
-
-      if (existing) {
-        existing.occurrences += 1;
-        existing.confidence = Math.min(
-          1,
-          (Number(existing.confidence) + Number(match.confidence)) / 2,
-        );
-        existing.learnedFrom = 'ai_classification';
-        await this.categoryLearningRepository.save(existing);
-      } else {
-        await this.categoryLearningRepository.save(
-          this.categoryLearningRepository.create({
-            userId,
-            workspaceId,
-            categoryId: match.categoryId,
-            paymentPurpose,
-            counterpartyName,
-            learnedFrom: 'ai_classification',
-            confidence: Number(match.confidence),
-            occurrences: 1,
-          }),
-        );
-      }
-
-      await this.cacheManager.del(this.getLearnedPatternsCacheKey(userId, workspaceId));
-    } catch (error) {
-      console.error('[ClassificationService] Failed to persist AI learning:', error);
-    }
-  }
-
-  private getLearnedPatternsCacheKey(userId: string, workspaceId: string | null): string {
-    if (workspaceId) {
-      return `learned-patterns:workspace:${workspaceId}`;
-    }
-    return `learned-patterns:user:${userId}`;
-  }
-
-  /**
-   * Calculate text similarity using Jaccard index
-   * Returns 0.0 - 1.0 (higher = more similar)
-   */
-  private calculateTextSimilarity(text1: string, text2: string): number {
-    // Simple word-based similarity (Jaccard index)
-    const words1 = new Set(text1.split(/\s+/).filter(w => w.length > 2));
-    const words2 = new Set(text2.split(/\s+/).filter(w => w.length > 2));
-
-    if (words1.size === 0 || words2.size === 0) {
-      return 0;
-    }
-
-    const intersection = new Set([...words1].filter(x => words2.has(x)));
-    const union = new Set([...words1, ...words2]);
-
-    return union.size === 0 ? 0 : intersection.size / union.size;
+    await this.cacheManager.set(cacheKey, settings, PROCESSING_SETTINGS_TTL_MS);
+    return settings;
   }
 }

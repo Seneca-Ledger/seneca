@@ -2,7 +2,7 @@ export class Semaphore {
   private available: number;
   private readonly waiters: Array<() => void> = [];
 
-  constructor(private readonly capacity: number) {
+  constructor(capacity: number) {
     if (!Number.isFinite(capacity) || capacity <= 0) {
       throw new Error('Semaphore capacity must be a positive number');
     }

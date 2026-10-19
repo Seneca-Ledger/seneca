@@ -1,10 +1,11 @@
 'use client';
 
-import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
-import type { AuditEvent } from '@/lib/api/audit';
-import { tokens } from '@/lib/theme-tokens';
 import { useTheme } from 'next-themes';
 import React from 'react';
+import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { useIntlayer } from '@/app/i18n';
+import type { AuditEvent } from '@/lib/api/audit';
+import { tokens } from '@/lib/theme-tokens';
 import { formatAuditEvent } from '../utils/formatAuditEvent';
 import { relativeTime } from '../utils/relativeTime';
 
@@ -23,6 +24,7 @@ export function AuditEventModal({
   onRollback,
   rollbackLoading,
 }: AuditEventModalProps) {
+  const t = useIntlayer('auditUi');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
 
@@ -57,16 +59,16 @@ export function AuditEventModal({
     <ModalShell
       isOpen={isOpen}
       onClose={onClose}
-      title="Event details"
+      title={t.eventDetails.value}
       size="sm"
       footer={
         <ModalFooter
           onCancel={onClose}
-          cancelText="Close"
+          cancelText={t.close.value}
           {...(event.isUndoable && onRollback
             ? {
                 onConfirm: () => onRollback(event),
-                confirmText: 'Rollback',
+                confirmText: t.rollback.value,
                 confirmVariant: 'destructive',
                 isConfirmLoading: rollbackLoading,
               }
@@ -92,23 +94,23 @@ export function AuditEventModal({
         </div>
 
         <div style={rowStyle}>
-          <span style={labelStyle}>Actor</span>
+          <span style={labelStyle}>{t.actor}</span>
           <span style={valueStyle}>{event.actorLabel}</span>
         </div>
         <div style={rowStyle}>
-          <span style={labelStyle}>Action</span>
+          <span style={labelStyle}>{t.action}</span>
           <span style={valueStyle}>{formatted.actionLabel}</span>
         </div>
         <div style={rowStyle}>
-          <span style={labelStyle}>Entity</span>
+          <span style={labelStyle}>{t.entity}</span>
           <span style={valueStyle}>{formatted.objectLabel}</span>
         </div>
         <div style={rowStyle}>
-          <span style={labelStyle}>When</span>
+          <span style={labelStyle}>{t.when}</span>
           <span style={valueStyle}>{relativeTime(event.createdAt)}</span>
         </div>
         <div style={{ ...rowStyle, borderBottom: 'none' }}>
-          <span style={labelStyle}>Severity</span>
+          <span style={labelStyle}>{t.severity}</span>
           <span style={valueStyle}>{event.severity}</span>
         </div>
 
@@ -121,7 +123,7 @@ export function AuditEventModal({
               lineHeight: 1.5,
             }}
           >
-            This action can be rolled back. Click "Rollback" to restore the previous state.
+            {t.rollbackHint}
           </p>
         )}
       </div>

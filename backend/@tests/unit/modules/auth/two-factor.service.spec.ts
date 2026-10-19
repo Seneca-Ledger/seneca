@@ -1,4 +1,6 @@
 import { User } from '@/entities';
+import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
+import { AuditService } from '@/modules/audit/audit.service';
 import { TwoFactorService } from '@/modules/auth/two-factor.service';
 import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -7,21 +9,26 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { generateSync } from 'otplib';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../../../src/common/brand';
 
 describe('TwoFactorService', () => {
   let service: TwoFactorService;
   let userRepository: jest.Mocked<Repository<User>>;
   let stored: Partial<User>;
+  let auditService: { createEvent: jest.Mock };
 
   beforeEach(async () => {
     stored = {
       id: 'u1',
       email: 'user@example.com',
+      workspaceId: 'ws-home',
       passwordHash: await bcrypt.hash('correct-password', 4),
       twoFactorSecret: null,
       twoFactorEnabledAt: null,
       twoFactorRecoveryCodes: [],
     };
+
+    auditService = { createEvent: jest.fn().mockResolvedValue({}) };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -40,6 +47,7 @@ describe('TwoFactorService', () => {
           provide: ConfigService,
           useValue: { get: jest.fn(() => 'session-salt') },
         },
+        { provide: AuditService, useValue: auditService },
       ],
     }).compile();
 
@@ -61,7 +69,7 @@ describe('TwoFactorService', () => {
   it('stores the secret encrypted and stays disabled until a code is confirmed', async () => {
     const { secret, otpauthUrl } = await service.setup('u1', 'correct-password');
 
-    expect(otpauthUrl).toContain('otpauth://totp/Lumio');
+    expect(otpauthUrl).toContain(`otpauth://totp/${APP_NAME}`);
     expect(stored.twoFactorSecret).toMatch(/^enc:/);
     expect(stored.twoFactorSecret).not.toContain(secret);
     await expect(service.getStatus('u1')).resolves.toMatchObject({
@@ -133,5 +141,88 @@ describe('TwoFactorService', () => {
     await expect(service.assertLoginCode('u1', recoveryCodes[0])).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
+  });
+
+  describe('audit events', () => {
+    const auditPayloads = () => JSON.stringify(auditService.createEvent.mock.calls);
+
+    it('logs enable as WARN and never the secret, otpauth URL or recovery codes', async () => {
+      const { secret, otpauthUrl } = await service.setup('u1', 'correct-password');
+      expect(auditService.createEvent).not.toHaveBeenCalled();
+
+      const { recoveryCodes } = await service.enable('u1', generateSync({ secret }));
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: 'ws-home',
+          actorId: 'u1',
+          entityType: EntityType.USER,
+          entityId: 'u1',
+          action: AuditAction.UPDATE,
+          severity: Severity.WARN,
+          meta: { twoFactor: 'enabled' },
+        }),
+      );
+      const payload = auditPayloads();
+      for (const leaked of [secret, otpauthUrl, ...recoveryCodes, 'correct-password']) {
+        expect(payload).not.toContain(leaked);
+      }
+      expect(payload).not.toMatch(/passwordHash|twoFactorSecret|twoFactorRecoveryCodes/);
+    });
+
+    it('logs disable as CRITICAL', async () => {
+      await enable();
+      auditService.createEvent.mockClear();
+
+      await service.disable('u1', 'correct-password');
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.UPDATE,
+          severity: Severity.CRITICAL,
+          meta: { twoFactor: 'disabled' },
+        }),
+      );
+    });
+
+    it('logs recovery-code regeneration without the codes', async () => {
+      await enable();
+      auditService.createEvent.mockClear();
+
+      const { recoveryCodes } = await service.regenerateRecoveryCodes('u1', 'correct-password');
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: Severity.WARN,
+          meta: { recoveryCodes: 'regenerated' },
+        }),
+      );
+      for (const code of recoveryCodes) {
+        expect(auditPayloads()).not.toContain(code);
+      }
+    });
+
+    it('does not log a refused change', async () => {
+      await enable();
+      auditService.createEvent.mockClear();
+
+      await expect(service.disable('u1', 'nope')).rejects.toBeInstanceOf(ForbiddenException);
+      expect(auditService.createEvent).not.toHaveBeenCalled();
+    });
+
+    it('still disables 2FA when the audit write fails', async () => {
+      await enable();
+      auditService.createEvent.mockRejectedValue(new Error('audit down'));
+
+      await expect(service.disable('u1', 'correct-password')).resolves.toBeUndefined();
+      expect(stored.twoFactorEnabledAt).toBeNull();
+    });
+
+    it('skips the event when the user has no home workspace', async () => {
+      stored.workspaceId = null;
+      await enable();
+
+      expect(auditService.createEvent).not.toHaveBeenCalled();
+    });
   });
 });

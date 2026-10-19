@@ -10,30 +10,40 @@ describe('BackupsController', () => {
     const controller = new BackupsController(service as never, {} as never);
     const user = { id: 'user-1', workspaceId: 'workspace-1' } as never;
 
-    await controller.configure(user, {
+    await controller.configure(user, 'workspace-2', {
       destinationKind: BackupDestinationKind.LOCAL,
       destinationPath: 'nightly',
       password: 'backup password',
     });
-    await controller.createRun(user);
+    await controller.createRun(user, 'workspace-2');
 
-    expect(service.configure).toHaveBeenCalledWith(user, expect.objectContaining({ destinationPath: 'nightly' }));
-    expect(service.createRun).toHaveBeenCalledWith(user, BackupRunTrigger.MANUAL);
+    // The workspace of the request, not the one the user registered with.
+    expect(service.configure).toHaveBeenCalledWith(
+      user,
+      'workspace-2',
+      expect.objectContaining({ destinationPath: 'nightly' }),
+    );
+    expect(service.createRun).toHaveBeenCalledWith(user, 'workspace-2', BackupRunTrigger.MANUAL);
   });
 
   it('returns an owner-authorized archive as an attachment', async () => {
     const service = {
-      downloadRun: jest.fn().mockResolvedValue({ fileName: 'backup.lumio-backup', contents: Buffer.from('backup') }),
+      downloadRun: jest.fn().mockResolvedValue({ fileName: 'backup.seneca-backup', contents: Buffer.from('backup') }),
     };
     const controller = new BackupsController(service as never, {} as never);
     const response = { setHeader: jest.fn(), send: jest.fn() };
     const user = { id: 'user-1', workspaceId: 'workspace-1' } as never;
 
-    await controller.downloadRun('run-1', user, response as never);
+    await controller.downloadRun('run-1', user, 'workspace-1', response as never);
 
-    expect(service.downloadRun).toHaveBeenCalledWith(user, 'run-1');
+    expect(service.downloadRun).toHaveBeenCalledWith(user, 'workspace-1', 'run-1');
     expect(response.setHeader).toHaveBeenCalledWith('Content-Type', 'application/octet-stream');
-    expect(response.setHeader).toHaveBeenCalledWith('Content-Disposition', 'attachment; filename="backup.lumio-backup"');
+    // Built with the shared buildContentDisposition helper, which percent-encodes
+    // the name and adds the RFC 5987 form instead of interpolating it raw.
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="backup.seneca-backup"; filename*=UTF-8\'\'backup.seneca-backup',
+    );
     expect(response.send).toHaveBeenCalledWith(Buffer.from('backup'));
   });
 

@@ -24,7 +24,7 @@ export function useTransactionHistory(
   const [selectedHistoryEvent, setSelectedHistoryEvent] = useState<AuditEvent | null>(null);
 
   useEffect(() => {
-    if (!open || !transactionId) return;
+    if (!(open && transactionId)) return;
     let cancelled = false;
     setHistoryLoading(true);
     fetchEntityHistory('transaction', transactionId)

@@ -1,12 +1,13 @@
 'use client';
 
-import apiClient from '@/app/lib/api';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { StatementParsingDetails } from '../editHelpers';
 
 export const NEEDS_REVIEW_STATUS = 'needs_review';
@@ -91,14 +92,19 @@ function useConfirmBalance({
   const confirm = async (): Promise<void> => {
     setConfirming(true);
     setError(null);
-    try {
+
+    await (async () => {
       await apiClient.post(`/statements/${statementId}/confirm-balance`);
+      // A confirmed statement's rows start counting.
+      invalidateFinancialData();
       onConfirmed();
-    } catch {
-      setError(failureLabel);
-    } finally {
-      setConfirming(false);
-    }
+    })()
+      .catch(async () => {
+        setError(failureLabel);
+      })
+      .finally(async () => {
+        setConfirming(false);
+      });
   };
 
   return { confirming, error, confirm };
@@ -150,7 +156,7 @@ export function BalanceReviewAlert({
       <AlertTitle sx={{ fontWeight: 600 }}>{labels.title}</AlertTitle>
       <Typography variant="body2">{labels.description}</Typography>
       <BalanceFigures
-        check={parsingDetails?.validation?.balanceCheck}
+        check={parsingDetails?.validation?.balanceCheck ?? undefined}
         labels={labels}
         formatNumber={formatNumber}
       />

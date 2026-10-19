@@ -3,8 +3,11 @@
  * (TopMerchantsView, TopSpendersView, TopCategoriesView).
  */
 
+import type { StatementParsingDetails } from '@/app/lib/contracts';
+
 export type StatementMeta = {
   id: string;
+  fileName: string;
   status?: string;
   createdAt?: string | null;
   statementDateFrom?: string | null;
@@ -16,14 +19,7 @@ export type StatementMeta = {
   paid?: boolean | null;
   workspaceId?: string;
   workspaceName?: string;
-  parsingDetails?: {
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: {
-        currencyDisplay?: string;
-      };
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
   user?: {
     id: string;
     name?: string | null;
@@ -35,6 +31,8 @@ export type StatementMeta = {
 export type Transaction = {
   id: string;
   statementId?: string | null;
+  /** Set when the row came from a synced crypto wallet instead of a statement. */
+  cryptoWalletId?: string | null;
   counterpartyName?: string | null;
   transactionDate?: string | null;
   debit?: number | string | null;
@@ -43,6 +41,8 @@ export type Transaction = {
   currency?: string | null;
   paymentPurpose?: string | null;
   transactionType?: 'income' | 'expense' | null;
+  /** Confirmed by a person in Review; only confirmed rows count in any number. */
+  isVerified?: boolean;
   createdAt?: string | null;
   workspaceId?: string;
   workspaceName?: string;

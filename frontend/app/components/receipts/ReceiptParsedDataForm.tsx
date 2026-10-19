@@ -1,36 +1,41 @@
 /* eslint-disable max-lines */
 'use client';
 
-import CustomDatePicker from '@/app/components/CustomDatePicker';
-import { Check, ChevronDown, ChevronLeft, Plus, Search, Trash2 } from '@/app/components/icons';
-import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import { Input } from '@/app/components/ui/input';
-import { Select } from '@/app/components/ui/select';
-import { useLocale } from '@/app/i18n';
-import { getCategoryDisplayName } from '@/app/lib/statement-categories';
-import {
-  type CurrencySearchItem,
-  buildCurrencySearchIndex,
-} from '@/app/lib/statement-expense-drawer';
-import { tokens } from '@/lib/theme-tokens';
 import { Box, IconButton, Typography } from '@mui/material';
 import MuiButton from '@mui/material/Button';
 import { useTheme } from 'next-themes';
 import { useMemo, useState } from 'react';
+import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { ChevronDown, Trash2 } from '@/app/components/icons';
+import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
+import { Select } from '@/app/components/ui/select';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
+import { formatMoney } from '@/app/lib/format-money';
+import { getCategoryDisplayName } from '@/app/lib/statement-categories';
+import {
+  buildCurrencySearchIndex,
+  type CurrencySearchItem,
+} from '@/app/lib/statement-expense-drawer';
+import { tokens } from '@/lib/theme-tokens';
+import { CurrencyDrawer } from './components/CurrencyDrawer';
 import type { EditableReceiptParsedData, ReceiptCategoryOption } from './receipt-types';
-
-const DEFAULT_RECENT_CURRENCIES = ['KZT', 'USD', 'EUR', 'RUB'] as const;
 
 /** Fields are stacked one per row so the form reads as a single column. */
 const FORM_MAX_WIDTH = 520;
 
+/** `compact`: two fields per row and 36px controls, so the whole form fits beside the document. */
+const COMPACT_CONTROL_STYLE = { height: 36, fontSize: 14 } as const;
+
 function Field({
   htmlFor,
   label,
+  compact = false,
   children,
 }: {
   htmlFor: string;
   label: string;
+  compact?: boolean;
   children: React.ReactNode;
 }): React.ReactElement {
   const { resolvedTheme } = useTheme();
@@ -40,7 +45,13 @@ function Field({
       <Box
         component="label"
         htmlFor={htmlFor}
-        sx={{ display: 'block', mb: 0.75, fontSize: 14, fontWeight: 500, color: c.ink700 }}
+        sx={{
+          display: 'block',
+          mb: compact ? 0.5 : 0.75,
+          fontSize: compact ? 13 : 14,
+          fontWeight: 500,
+          color: c.ink700,
+        }}
       >
         {label}
       </Box>
@@ -49,11 +60,47 @@ function Field({
   );
 }
 
+/**
+ * A line-item cell in compact mode: no fill and no box, just a hairline under
+ * the value that turns green on focus, so a list of items reads as a table.
+ */
+function FlatLineInput(
+  props: React.InputHTMLAttributes<HTMLInputElement> & { align?: 'left' | 'right' },
+): React.ReactElement {
+  const { align = 'left', ...inputProps } = props;
+  return (
+    <Box
+      component="input"
+      {...inputProps}
+      sx={{
+        width: '100%',
+        height: 30,
+        px: 0.5,
+        border: 'none',
+        borderBottom: '1px solid var(--border)',
+        borderRadius: 0,
+        bgcolor: 'transparent',
+        color: 'text.primary',
+        font: 'inherit',
+        fontSize: 13,
+        textAlign: align,
+        outline: 'none',
+        fontVariantNumeric: align === 'right' ? 'tabular-nums' : undefined,
+        transition: 'border-color 120ms ease',
+        '&:hover': { borderBottomColor: 'text.secondary' },
+        '&:focus': { borderBottomColor: 'primary.main' },
+      }}
+    />
+  );
+}
+
 export interface ReceiptParsedDataFormProps {
   value: EditableReceiptParsedData;
   categories: ReceiptCategoryOption[];
   onChange: (value: EditableReceiptParsedData) => void;
   onCurrencyChange?: (value: EditableReceiptParsedData) => void | Promise<void>;
+  /** Two fields per row and shorter controls, for the full-page receipt view. */
+  compact?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
@@ -62,8 +109,11 @@ export function ReceiptParsedDataForm({
   categories,
   onChange,
   onCurrencyChange,
+  compact = false,
 }: ReceiptParsedDataFormProps) {
   const { locale } = useLocale();
+  const t = useIntlayer('receiptParsedDataForm');
+  const tCurrency = useIntlayer('receiptCurrencyDrawer');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   const enabledCategories = categories.filter(category => category.isEnabled !== false);
@@ -125,32 +175,71 @@ export function ReceiptParsedDataForm({
     setCurrencyDrawerOpen(false);
   };
 
+  // Collapsed: most receipts are read for their total, and the items only matter
+  // when a purchase is split across categories.
+  const [itemsOpen, setItemsOpen] = useState(false);
+  const addLineItem = () =>
+    onChange({
+      ...value,
+      lineItems: [...value.lineItems, { id: `line-${Date.now()}`, description: '', amount: 0 }],
+    });
+  // How far the items are from the amount, like the remainder in an itemization.
+  const itemsDifference =
+    value.lineItems.length > 0 && value.amount !== '' && Number(value.amount) > 0
+      ? Number(value.amount) -
+        value.lineItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+      : null;
+
+  const controlStyle = compact ? COMPACT_CONTROL_STYLE : undefined;
+  const selectSx = compact ? COMPACT_CONTROL_STYLE : FORM_CONTROL_SX;
+  const LineInput = compact ? FlatLineInput : Input;
+
   return (
     <>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: FORM_MAX_WIDTH }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          <Field htmlFor="receipt-vendor" label="Vendor">
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: compact ? 2.5 : 4,
+          maxWidth: compact ? 'none' : FORM_MAX_WIDTH,
+        }}
+      >
+        <Box
+          sx={
+            compact
+              ? {
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+                  columnGap: 1.5,
+                  rowGap: 1,
+                }
+              : { display: 'flex', flexDirection: 'column', gap: 2.5 }
+          }
+        >
+          <Field compact={compact} htmlFor="receipt-vendor" label={t.vendor.value}>
             <Input
               id="receipt-vendor"
-              aria-label="Vendor"
+              style={controlStyle}
+              aria-label={t.vendor.value}
               value={value.vendor}
               onChange={event => onChange({ ...value, vendor: event.target.value })}
             />
           </Field>
 
-          <Field htmlFor="receipt-date-picker" label="Date">
+          <Field compact={compact} htmlFor="receipt-date-picker" label={t.date.value}>
             <CustomDatePicker
-              large
+              large={!compact}
               value={value.date}
               onChange={date => onChange({ ...value, date })}
               containerTestId="receipt-date-picker"
             />
           </Field>
 
-          <Field htmlFor="receipt-amount" label="Amount">
+          <Field compact={compact} htmlFor="receipt-amount" label={t.amount.value}>
             <Input
               id="receipt-amount"
-              aria-label="Amount"
+              style={controlStyle}
+              aria-label={t.amount.value}
               type="number"
               value={value.amount}
               onChange={event =>
@@ -162,24 +251,29 @@ export function ReceiptParsedDataForm({
             />
           </Field>
 
-          <Field htmlFor="receipt-currency-trigger" label="Currency">
+          <Field compact={compact} htmlFor="receipt-currency-trigger" label={t.currency.value}>
             <Box
               component="button"
               id="receipt-currency-trigger"
-              aria-label="Currency"
+              aria-label={t.currency.value}
               type="button"
               onClick={() => setCurrencyDrawerOpen(true)}
               sx={{
                 display: 'flex',
-                height: 48,
+                height: compact ? 36 : 48,
                 width: '100%',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                border: '1px solid rgba(0, 0, 0, 0.23)',
+                border: '1px solid',
+                // MUI's own outlined-input border, so it matches the fields beside it in both themes.
+                borderColor: theme =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.23)'
+                    : 'rgba(0, 0, 0, 0.23)',
                 borderRadius: tokens.radius.md,
                 bgcolor: 'transparent',
                 px: 1.75,
-                fontSize: 16,
+                fontSize: compact ? 14 : 16,
                 cursor: 'pointer',
                 '&:hover': { borderColor: 'text.primary' },
                 '&:focus-visible': {
@@ -193,16 +287,17 @@ export function ReceiptParsedDataForm({
                 component="span"
                 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                {selectedCurrencyItem?.code || value.currency || 'Select a currency'}
+                {selectedCurrencyItem?.code || value.currency || tCurrency.title}
               </Box>
               <ChevronDown style={{ width: 18, height: 18, color: c.ink400 }} />
             </Box>
           </Field>
 
-          <Field htmlFor="receipt-tax" label="Tax">
+          <Field compact={compact} htmlFor="receipt-tax" label={t.tax.value}>
             <Input
               id="receipt-tax"
-              aria-label="Tax"
+              style={controlStyle}
+              aria-label={t.tax.value}
               type="number"
               value={value.tax}
               onChange={event =>
@@ -214,327 +309,241 @@ export function ReceiptParsedDataForm({
             />
           </Field>
 
-          <Field htmlFor="receipt-payment-method" label="Payment method">
+          <Field compact={compact} htmlFor="receipt-payment-method" label={t.paymentMethod.value}>
             <Select
+              fullWidth
               id="receipt-payment-method"
-              aria-label="Payment method"
+              inputProps={{ 'aria-label': t.paymentMethod.value }}
               value={value.paymentMethod}
-              onChange={event => onChange({ ...value, paymentMethod: event.target.value })}
-            >
-              <option value="">Select payment method</option>
-              <option value="card">Card</option>
-              <option value="cash">Cash</option>
-              <option value="bank_transfer">Bank transfer</option>
-              <option value="other">Other</option>
-            </Select>
+              onChange={paymentMethod => onChange({ ...value, paymentMethod })}
+              options={[
+                { value: '', label: t.selectPaymentMethod.value },
+                { value: 'card', label: t.paymentCard.value },
+                { value: 'cash', label: t.paymentCash.value },
+                { value: 'bank_transfer', label: t.paymentBankTransfer.value },
+                { value: 'other', label: t.paymentOther.value },
+              ]}
+              sx={selectSx}
+            />
           </Field>
 
-          <Field htmlFor="receipt-transaction-type" label="Transaction type">
+          <Field compact={compact} htmlFor="receipt-category" label={t.category.value}>
             <Select
+              fullWidth
+              id="receipt-category"
+              inputProps={{ 'aria-label': t.category.value }}
+              value={value.categoryId}
+              onChange={categoryId => onChange({ ...value, categoryId })}
+              options={[
+                { value: '', label: t.selectCategory.value },
+                ...enabledCategories.map(category => ({
+                  value: category.id,
+                  label: getCategoryDisplayName(category, locale),
+                })),
+              ]}
+              sx={selectSx}
+            />
+          </Field>
+
+          <Field
+            compact={compact}
+            htmlFor="receipt-transaction-type"
+            label={t.transactionType.value}
+          >
+            <Select
+              fullWidth
               id="receipt-transaction-type"
-              aria-label="Transaction type"
+              inputProps={{ 'aria-label': t.transactionType.value }}
               value={value.transactionType}
-              onChange={event =>
+              onChange={transactionType =>
                 onChange({
                   ...value,
-                  transactionType: event.target
-                    .value as EditableReceiptParsedData['transactionType'],
+                  transactionType: transactionType as EditableReceiptParsedData['transactionType'],
                 })
               }
-            >
-              <option value="expense">Expense</option>
-              <option value="income">Income</option>
-              <option value="transfer">Transfer</option>
-              <option value="unknown">Unknown</option>
-            </Select>
-          </Field>
-
-          <Field htmlFor="receipt-category" label="Category">
-            <Select
-              id="receipt-category"
-              aria-label="Category"
-              value={value.categoryId}
-              onChange={event => onChange({ ...value, categoryId: event.target.value })}
-            >
-              <option value="">Select category</option>
-              {enabledCategories.map(category => (
-                <option key={category.id} value={category.id}>
-                  {getCategoryDisplayName(category, locale)}
-                </option>
-              ))}
-            </Select>
+              options={[
+                { value: 'expense', label: t.typeExpense.value },
+                { value: 'income', label: t.typeIncome.value },
+                { value: 'transfer', label: t.typeTransfer.value },
+                { value: 'unknown', label: t.typeUnknown.value },
+              ]}
+              sx={selectSx}
+            />
           </Field>
         </Box>
 
         <Box>
           <Box
-            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}
-          >
-            <Typography style={{ fontSize: 14, fontWeight: 600, color: c.ink900 }}>
-              Line items
-            </Typography>
-            <MuiButton
-              variant="text"
-              size="small"
-              startIcon={<Plus size={16} />}
-              onClick={() =>
-                onChange({
-                  ...value,
-                  lineItems: [
-                    ...value.lineItems,
-                    {
-                      id: `line-${Date.now()}`,
-                      description: '',
-                      amount: 0,
-                    },
-                  ],
-                })
-              }
-            >
-              Add item
-            </MuiButton>
-          </Box>
-
-          <Box
             sx={{
               display: 'flex',
-              flexDirection: 'column',
-              gap: 1.5,
-              border: `1px solid ${c.ink150}`,
-              bgcolor: 'var(--muted)',
-              p: 2,
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              mb: compact ? 0.75 : 1.5,
             }}
           >
-            {/* eslint-disable-next-line max-lines-per-function, max-params */}
-            {value.lineItems.map((lineItem, index) => (
-              <Box
-                key={lineItem.id}
-                sx={{
-                  display: 'grid',
-                  gap: 1.5,
-                  gridTemplateColumns: { xs: '1fr', sm: 'minmax(0,1fr) 140px 48px' },
-                  alignItems: 'center',
-                }}
+            {value.lineItems.length > 0 ? (
+              <MuiButton
+                variant="text"
+                size="small"
+                aria-expanded={itemsOpen}
+                onClick={() => setItemsOpen(open => !open)}
+                endIcon={
+                  <ChevronDown
+                    size={16}
+                    style={{ transform: itemsOpen ? 'rotate(180deg)' : undefined }}
+                  />
+                }
+                sx={{ px: 0, minWidth: 0, fontSize: 14, fontWeight: 600, color: c.ink900 }}
               >
-                <Input
-                  aria-label={index === 0 ? 'Line item description' : undefined}
-                  value={lineItem.description}
-                  onChange={event =>
-                    onChange({
-                      ...value,
-                      lineItems: value.lineItems.map(currentItem =>
-                        currentItem.id === lineItem.id
-                          ? { ...currentItem, description: event.target.value }
-                          : currentItem,
-                      ),
-                    })
-                  }
-                />
-                <Input
-                  aria-label={index === 0 ? 'Line item amount' : undefined}
-                  type="number"
-                  value={lineItem.amount}
-                  onChange={event =>
-                    onChange({
-                      ...value,
-                      lineItems: value.lineItems.map(currentItem =>
-                        currentItem.id === lineItem.id
-                          ? { ...currentItem, amount: Number(event.target.value) }
-                          : currentItem,
-                      ),
-                    })
-                  }
-                />
-                <IconButton
-                  aria-label={`Remove line item ${lineItem.description || index + 1}`}
-                  size="small"
-                  onClick={() =>
-                    onChange({
-                      ...value,
-                      lineItems: value.lineItems.filter(
-                        currentItem => currentItem.id !== lineItem.id,
-                      ),
-                    })
-                  }
-                >
-                  <Trash2 size={16} />
-                </IconButton>
-              </Box>
-            ))}
+                {`${t.lineItems.value} (${value.lineItems.length})`}
+              </MuiButton>
+            ) : (
+              <MuiButton
+                variant="text"
+                size="small"
+                onClick={() => {
+                  setItemsOpen(true);
+                  addLineItem();
+                }}
+                sx={{ px: 0, minWidth: 0 }}
+              >
+                {t.itemize}
+              </MuiButton>
+            )}
+            {itemsOpen && value.lineItems.length > 0 ? (
+              <MuiButton variant="text" size="small" onClick={addLineItem}>
+                {t.addItem}
+              </MuiButton>
+            ) : null}
           </Box>
+
+          {itemsOpen && compact && value.lineItems.length > 0 ? (
+            <Box
+              aria-hidden
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0,1fr) 110px 32px',
+                gap: 1,
+                px: 0.5,
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: c.ink500,
+              }}
+            >
+              <span>{t.description}</span>
+              <span style={{ textAlign: 'right' }}>{t.price}</span>
+              <span />
+            </Box>
+          ) : null}
+          {itemsOpen ? (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: compact ? 0.25 : 1.5,
+              }}
+            >
+              {/* eslint-disable-next-line max-lines-per-function, max-params */}
+              {value.lineItems.map((lineItem, index) => (
+                <Box
+                  key={lineItem.id}
+                  sx={{
+                    display: 'grid',
+                    gap: compact ? 1 : 1.5,
+                    gridTemplateColumns: compact
+                      ? 'minmax(0,1fr) 110px 32px'
+                      : { xs: '1fr', sm: 'minmax(0,1fr) 140px 48px' },
+                    alignItems: 'center',
+                  }}
+                >
+                  <LineInput
+                    aria-label={index === 0 ? t.lineItemDescriptionLabel.value : undefined}
+                    value={lineItem.description}
+                    onChange={event =>
+                      onChange({
+                        ...value,
+                        lineItems: value.lineItems.map(currentItem =>
+                          currentItem.id === lineItem.id
+                            ? { ...currentItem, description: event.target.value }
+                            : currentItem,
+                        ),
+                      })
+                    }
+                  />
+                  <LineInput
+                    aria-label={index === 0 ? t.lineItemAmountLabel.value : undefined}
+                    {...(compact ? { align: 'right' as const } : {})}
+                    type="number"
+                    value={lineItem.amount}
+                    onChange={event =>
+                      onChange({
+                        ...value,
+                        lineItems: value.lineItems.map(currentItem =>
+                          currentItem.id === lineItem.id
+                            ? { ...currentItem, amount: Number(event.target.value) }
+                            : currentItem,
+                        ),
+                      })
+                    }
+                  />
+                  <IconButton
+                    aria-label={t.removeLineItem.value.replace(
+                      '{name}',
+                      lineItem.description || String(index + 1),
+                    )}
+                    size="small"
+                    onClick={() =>
+                      onChange({
+                        ...value,
+                        lineItems: value.lineItems.filter(
+                          currentItem => currentItem.id !== lineItem.id,
+                        ),
+                      })
+                    }
+                  >
+                    <Trash2 size={16} />
+                  </IconButton>
+                </Box>
+              ))}
+            </Box>
+          ) : null}
+          {itemsOpen && itemsDifference !== null ? (
+            <Typography
+              role="status"
+              style={{
+                marginTop: 8,
+                fontSize: 13,
+                color: Math.abs(itemsDifference) < 0.005 ? c.ink500 : c.warning,
+              }}
+            >
+              {Math.abs(itemsDifference) < 0.005
+                ? t.itemsMatchTotal
+                : t.itemsDifference.value.replace(
+                    '{amount}',
+                    formatMoney(Math.abs(itemsDifference), value.currency, locale),
+                  )}
+            </Typography>
+          ) : null}
         </Box>
       </Box>
 
-      <DrawerShell
+      <CurrencyDrawer
         isOpen={currencyDrawerOpen}
         onClose={() => {
           setCurrencyDrawerOpen(false);
           setCurrencySearch('');
         }}
-        position="right"
-        width="lg"
-        showCloseButton={false}
-        title={
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <IconButton
-              size="small"
-              onClick={() => {
-                setCurrencyDrawerOpen(false);
-                setCurrencySearch('');
-              }}
-              aria-label="Close currency drawer"
-              sx={{ borderRadius: tokens.radius.md }}
-            >
-              <ChevronLeft style={{ width: 20, height: 20 }} />
-            </IconButton>
-            <Typography style={{ fontSize: 18, fontWeight: 600 }}>Select a currency</Typography>
-          </Box>
-        }
-      >
-        <Box sx={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
-          <Box
-            sx={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1.5,
-              overflowY: 'auto',
-              pb: 2,
-            }}
-          >
-            <Box sx={{ position: 'relative' }}>
-              <Search
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 16,
-                  height: 16,
-                  color: c.ink400,
-                  pointerEvents: 'none',
-                }}
-              />
-              <input
-                type="text"
-                value={currencySearch}
-                onChange={event => setCurrencySearch(event.target.value)}
-                placeholder="Search"
-                style={{
-                  width: '100%',
-                  border: `1px solid ${c.ink150}`,
-                  borderRadius: tokens.radius.md,
-                  background: 'var(--card-bg)',
-                  padding: '12px 16px 12px 40px',
-                  fontSize: 14,
-                }}
-              />
-            </Box>
-
-            {selectedCurrencyItem && selectedMatchesSearch ? (
-              <Box
-                component="button"
-                type="button"
-                onClick={() => handleSelectCurrency(selectedCurrencyItem.code)}
-                sx={{
-                  display: 'flex',
-                  width: '100%',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  bgcolor: 'var(--muted)',
-                  px: 2,
-                  py: 2,
-                  textAlign: 'left',
-                  border: 'none',
-                  borderRadius: tokens.radius.md,
-                  cursor: 'pointer',
-                }}
-              >
-                <Typography style={{ fontSize: 16, fontWeight: 600 }}>
-                  {selectedCurrencyItem.label}
-                </Typography>
-                <Check style={{ width: 20, height: 20, color: 'var(--color-primary, #168118)' }} />
-              </Box>
-            ) : null}
-
-            {currencyQuery.length === 0 && recentCurrencyItems.length > 0 ? (
-              <Box>
-                <Typography style={{ paddingLeft: 4, fontSize: 14, color: c.ink400 }}>
-                  Recents
-                </Typography>
-                <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {recentCurrencyItems.map(item => (
-                    <Box
-                      key={`recent-${item.code}`}
-                      component="button"
-                      type="button"
-                      onClick={() => handleSelectCurrency(item.code)}
-                      sx={{
-                        display: 'flex',
-                        width: '100%',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        px: 1.5,
-                        py: 1.5,
-                        textAlign: 'left',
-                        border: 'none',
-                        borderRadius: tokens.radius.md,
-                        bgcolor: 'transparent',
-                        cursor: 'pointer',
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }}
-                    >
-                      <Typography style={{ fontSize: 16, fontWeight: 600 }}>
-                        {item.label}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            ) : null}
-
-            <Box>
-              <Typography style={{ paddingLeft: 4, fontSize: 14, color: c.ink400 }}>All</Typography>
-              <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {allCurrencyItems.length > 0 ? (
-                  allCurrencyItems.map(item => (
-                    <Box
-                      key={item.code}
-                      component="button"
-                      type="button"
-                      onClick={() => handleSelectCurrency(item.code)}
-                      sx={{
-                        display: 'flex',
-                        width: '100%',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        px: 1.5,
-                        py: 1.5,
-                        textAlign: 'left',
-                        border: 'none',
-                        borderRadius: tokens.radius.md,
-                        bgcolor: 'transparent',
-                        cursor: 'pointer',
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }}
-                    >
-                      <Typography style={{ fontSize: 16, fontWeight: 600 }}>
-                        {item.label}
-                      </Typography>
-                    </Box>
-                  ))
-                ) : (
-                  <Typography
-                    sx={{ bgcolor: 'var(--muted)', p: 1.5, fontSize: 14, color: c.ink400 }}
-                  >
-                    No currencies found
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-      </DrawerShell>
+        currencySearch={currencySearch}
+        setCurrencySearch={setCurrencySearch}
+        selectedCurrencyItem={selectedCurrencyItem}
+        selectedMatchesSearch={selectedMatchesSearch}
+        currencyQuery={currencyQuery}
+        recentCurrencyItems={recentCurrencyItems}
+        allCurrencyItems={allCurrencyItems}
+        handleSelectCurrency={handleSelectCurrency}
+      />
     </>
   );
 }

@@ -47,7 +47,7 @@
 ### 🚀 **DevOps maturity**
 
 4. **GitOps и Infrastructure as Code**
-   - Terraform/OpenTofu для Railway/AWS инфраструктуры
+   - Terraform/OpenTofu для инфраструктуры self-hosted-развёртывания
    - FluxCD или ArgoCD для Kubernetes (если планируете миграцию)
    - Автоматические PR для инфраструктурных изменений
 

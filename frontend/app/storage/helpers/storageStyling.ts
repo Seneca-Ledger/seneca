@@ -1,6 +1,6 @@
-import { tokens } from '@/lib/theme-tokens';
 // Styling helpers extracted from StoragePageContent
 import type { SxProps, Theme } from '@mui/material';
+import { tokens } from '@/lib/theme-tokens';
 
 export function tagChipSx(isActive: boolean): SxProps<Theme> {
   return {
@@ -8,14 +8,14 @@ export function tagChipSx(isActive: boolean): SxProps<Theme> {
     alignItems: 'center',
     gap: 0.5,
     border: '1px solid',
-    borderColor: isActive ? 'rgba(22,129,24,0.3)' : '#e5e7eb',
+    borderColor: isActive ? 'rgba(var(--primary-rgb),0.3)' : '#e5e7eb',
     borderRadius: tokens.radius.sm,
     px: 1,
     py: 0.25,
     fontSize: 11,
     fontWeight: 600,
-    bgcolor: isActive ? 'rgba(22,129,24,0.1)' : '#f9fafb',
-    color: isActive ? '#168118' : '#374151',
+    bgcolor: isActive ? 'rgba(var(--primary-rgb),0.1)' : '#f9fafb',
+    color: isActive ? 'var(--primary)' : '#374151',
     cursor: 'pointer',
   };
 }
@@ -31,9 +31,9 @@ export function listToggleSx(isActive: boolean): SxProps<Theme> {
     fontSize: 14,
     fontWeight: 600,
     cursor: 'pointer',
-    bgcolor: isActive ? 'rgba(22,129,24,0.1)' : 'background.paper',
+    bgcolor: isActive ? 'rgba(var(--primary-rgb),0.1)' : 'background.paper',
     color: isActive ? 'primary.main' : '#4b5563',
-    borderColor: isActive ? 'rgba(22,129,24,0.3)' : '#e5e7eb',
+    borderColor: isActive ? 'rgba(var(--primary-rgb),0.3)' : '#e5e7eb',
     '&:hover': isActive ? {} : { bgcolor: '#f9fafb' },
     '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
   };

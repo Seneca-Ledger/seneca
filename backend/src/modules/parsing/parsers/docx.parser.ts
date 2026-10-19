@@ -1,4 +1,9 @@
+import * as fs from 'fs';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
+import { assertSafeZipDecompressionRatio } from '../../../common/utils/zip-bomb-guard.util';
+
 import AdmZip = require('adm-zip');
+
 import { type BankName, FileType } from '../../../entities/statement.entity';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { BaseTabularParser } from './base-tabular.parser';
@@ -19,14 +24,20 @@ export class DocxParser extends BaseTabularParser {
   }
 
   async parse(filePath: string, _cachedText?: string): Promise<ParsedStatement> {
-    const xml = new AdmZip(filePath).readAsText('word/document.xml');
+    // DOCX is a ZIP container like XLSX, and was the one accepted upload format
+    // that reached AdmZip without this check — an archive whose document.xml
+    // inflates to gigabytes would be expanded in full before anything else ran.
+    const buffer = fs.readFileSync(filePath);
+    assertSafeZipDecompressionRatio(buffer);
+
+    const xml = new AdmZip(buffer).readAsText('word/document.xml');
     if (!xml) {
       throw new Error('DOCX file has no word/document.xml');
     }
 
     const tables = this.extractTables(xml);
     const fullText = this.extractPlainText(xml);
-    const detectedCurrency = this.detectCurrency(fullText) || 'KZT';
+    const detectedCurrency = this.detectCurrency(fullText) || appDefaultCurrency();
     const contextYear = this.findContextYear(fullText);
 
     const transactions: ParsedTransaction[] = [];

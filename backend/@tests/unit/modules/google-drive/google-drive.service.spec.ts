@@ -8,6 +8,7 @@ import {
 } from '@/entities/integration.entity';
 import type { Statement } from '@/entities/statement.entity';
 import type { User } from '@/entities/user.entity';
+import type { WorkspaceMember } from '@/entities/workspace-member.entity';
 import type { AuditService } from '@/modules/audit/audit.service';
 import { GoogleDriveService } from '@/modules/google-drive/google-drive.service';
 import type { StatementsService } from '@/modules/statements/statements.service';
@@ -49,6 +50,7 @@ describe('GoogleDriveService', () => {
   const driveSettingsRepository = createRepoMock<DriveSettings>();
   const statementRepository = createRepoMock<Statement>();
   const userRepository = createRepoMock<User>();
+  const workspaceMemberRepository = createRepoMock<WorkspaceMember>();
   const statementsService = { create: jest.fn() };
   const fileStorageService = { getStatementFileStream: jest.fn() };
   const auditService = { createEvent: jest.fn() };
@@ -67,6 +69,7 @@ describe('GoogleDriveService', () => {
       driveSettingsRepository as unknown as Repository<DriveSettings>,
       statementRepository as unknown as Repository<Statement>,
       userRepository as unknown as Repository<User>,
+      workspaceMemberRepository as unknown as Repository<WorkspaceMember>,
       statementsService as unknown as StatementsService,
       fileStorageService as unknown as FileStorageService,
       auditService as unknown as AuditService,
@@ -74,9 +77,7 @@ describe('GoogleDriveService', () => {
   });
 
   it('returns an error result for unsupported google drive file types', async () => {
-    userRepository.findOne
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' })
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
+    userRepository.findOne.mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.GOOGLE_DRIVE,
@@ -100,7 +101,7 @@ describe('GoogleDriveService', () => {
         },
       });
 
-    await expect(service.importFiles('user-1', { fileIds: ['file-1'] })).resolves.toEqual({
+    await expect(service.importFiles('user-1', 'ws-open', { fileIds: ['file-1'] })).resolves.toEqual({
       ok: true,
       results: [
         {
@@ -114,9 +115,7 @@ describe('GoogleDriveService', () => {
   });
 
   it('returns an error result for oversized google drive files', async () => {
-    userRepository.findOne
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' })
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
+    userRepository.findOne.mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.GOOGLE_DRIVE,
@@ -140,7 +139,7 @@ describe('GoogleDriveService', () => {
         },
       });
 
-    await expect(service.importFiles('user-1', { fileIds: ['file-1'] })).resolves.toEqual({
+    await expect(service.importFiles('user-1', 'ws-open', { fileIds: ['file-1'] })).resolves.toEqual({
       ok: true,
       results: [
         {

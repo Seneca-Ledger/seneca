@@ -1,19 +1,22 @@
 /* eslint-disable max-lines */
 'use client';
 
-import { AuthGreeting } from '@/app/components/AuthGreeting';
+import { Box, Button, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
+import CircularProgress from '@mui/material/CircularProgress';
+import NextLink from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import React, { Suspense, useState } from 'react';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { BrandLockup } from '@/app/components/BrandLockup';
+import { Eye, EyeOff } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import { syncLocaleFromUser } from '@/app/lib/locale';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
-import { tokens } from '@/lib/theme-tokens';
-import { Alert, Box, Button, Link, TextField, Typography } from '@mui/material';
-import CircularProgress from '@mui/material/CircularProgress';
-import { useSearchParams } from 'next/navigation';
-import React, { Suspense, useState } from 'react';
+import { AuthHero } from '../AuthHero';
 import AuthLayout from '../AuthLayout';
 
 // eslint-disable-next-line complexity
@@ -51,30 +54,32 @@ function LoginPageContent(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // eslint-disable-next-line max-lines-per-function, complexity
+  // eslint-disable-next-line max-lines-per-function
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    try {
+    return await (async () => {
       const response = await apiClient.post('/auth/login', {
         email,
         password,
         ...(twoFactorCode ? { twoFactorCode: twoFactorCode.trim() } : {}),
-      });
+      } satisfies ContractInput<'LoginBody'>);
 
+      const result = await checkContract('LoginResponse', response.data, '/auth/login');
       // Password was right, but the account also needs a second factor.
-      if (response.data?.twoFactorRequired) {
+      if ('twoFactorRequired' in result) {
         setTwoFactorRequired(true);
         return;
       }
 
-      const { access_token, refresh_token, user } = response.data;
+      // Токены пришли httpOnly-куками и в теле ответа их больше нет —
+      // хранить тут нечего, кроме профиля для первого рендера.
+      const { user } = result;
 
-      localStorage.setItem('access_token', access_token);
-      localStorage.setItem('refresh_token', refresh_token);
       localStorage.setItem('user', JSON.stringify(user));
       syncLocaleFromUser(user);
       if (user.workspaceId) {
@@ -94,184 +99,141 @@ function LoginPageContent(): React.JSX.Element {
       } else {
         window.location.href = '/workspaces';
       }
-    } catch (error: unknown) {
-      setError(getApiErrorMessage(error, t.loginFailed.value));
-    } finally {
-      setLoading(false);
-    }
+    })()
+      .catch(async (error: unknown) => {
+        setError(getApiErrorMessage(error, t.loginFailed.value));
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
   };
 
-  const sideContent = (
-    <Box sx={{ color: 'white' }}>
-      <Typography
-        variant="h2"
-        fontWeight="bold"
-        gutterBottom
-        sx={{
-          fontFamily: 'var(--font-nunito), "Nunito", sans-serif',
-          textShadow: '0 4px 20px rgba(0,0,0,0.3)',
-        }}
-      >
-        Lumio
-      </Typography>
-      <Typography variant="h5" sx={{ opacity: 0.9, lineHeight: 1.6 }}>
-        {t.rightTagline}
-      </Typography>
-      <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'center' }}>
-        {/* Decorative elements representing "Contextual" and "Realtime" */}
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: tokens.radius.md,
-            bgcolor: 'rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255,255,255,0.2)',
-          }}
-        >
-          <Typography variant="subtitle2" fontWeight="bold">
-            Real-time Analytics
-          </Typography>
-        </Box>
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: tokens.radius.md,
-            bgcolor: 'rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255,255,255,0.2)',
-          }}
-        >
-          <Typography variant="subtitle2" fontWeight="bold">
-            Seamless Expense
-          </Typography>
-        </Box>
-      </Box>
-    </Box>
-  );
+  // The name is the logo on the left; the right half only says what it is for.
+  const sideContent = <AuthHero tagline={t.rightTagline} />;
+  const registerHref = nextPath
+    ? `/register?next=${encodeURIComponent(nextPath)}${
+        inviteToken ? `&invite=${encodeURIComponent(inviteToken)}` : ''
+      }`
+    : '/register';
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
-      <Box
-        sx={{
-          width: 60,
-          height: 60,
-          borderRadius: tokens.radius.full,
-          bgcolor: 'var(--primary-fill)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mb: 3,
-          mx: 'auto',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-        }}
-      >
-        <Typography variant="h4" color="white" fontWeight="bold">
-          👋
-        </Typography>
-      </Box>
+      {/* The product's own mark, not an emoji: it swaps for dark mode by itself. */}
+      <BrandLockup className="seneca-auth-logo" />
 
-      <AuthGreeting />
-
-      <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
-        {t.subtitle}
+      <Typography component="h1" className="seneca-auth-title">
+        {t.title}
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-        <TextField
-          margin="normal"
-          required
-          fullWidth
-          id="email"
-          label={t.emailLabel.value}
-          name="email"
-          autoComplete="email"
-          autoFocus
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          InputProps={{
-            sx: { borderRadius: tokens.radius.md },
-          }}
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          margin="normal"
-          required
-          fullWidth
-          name="password"
-          label={t.passwordLabel.value}
-          type="password"
-          id="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          InputProps={{
-            sx: { borderRadius: tokens.radius.md },
-          }}
-          sx={{ mb: twoFactorRequired ? 2 : 3 }}
-        />
-        {twoFactorRequired && (
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        className="seneca-auth-form"
+        sx={{ width: '100%' }}
+      >
+        <div className="seneca-auth-field">
+          <label htmlFor="email" className="seneca-auth-field__label">
+            {t.emailLabel}
+          </label>
           <TextField
-            margin="normal"
             required
             fullWidth
-            id="twoFactorCode"
-            name="twoFactorCode"
-            label={t.twoFactorLabel.value}
-            helperText={t.twoFactorHint.value}
-            autoComplete="one-time-code"
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
             autoFocus
-            value={twoFactorCode}
-            onChange={e => setTwoFactorCode(e.target.value)}
-            InputProps={{
-              sx: { borderRadius: tokens.radius.md },
-            }}
-            sx={{ mb: 3 }}
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            error={Boolean(error)}
+            slotProps={{ htmlInput: { 'aria-describedby': error ? 'login-error' : undefined } }}
           />
+        </div>
+        <div className="seneca-auth-field">
+          <div className="seneca-auth-field__head">
+            <label htmlFor="password" className="seneca-auth-field__label">
+              {t.passwordLabel}
+            </label>
+            <NextLink href="/forgot-password" className="seneca-auth-link">
+              {t.forgotPassword}
+            </NextLink>
+          </div>
+          <TextField
+            required
+            fullWidth
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            id="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            error={Boolean(error)}
+            slotProps={{
+              htmlInput: { 'aria-describedby': error ? 'login-error' : undefined },
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      edge="end"
+                      size="small"
+                      aria-label={(showPassword ? t.hidePassword : t.showPassword).value}
+                      aria-pressed={showPassword}
+                      onClick={() => setShowPassword(prev => !prev)}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          {error && !twoFactorRequired ? (
+            <p id="login-error" role="alert" className="seneca-auth-error">
+              {error}
+            </p>
+          ) : null}
+        </div>
+        {twoFactorRequired && (
+          <div className="seneca-auth-field">
+            <label htmlFor="twoFactorCode" className="seneca-auth-field__label">
+              {t.twoFactorLabel}
+            </label>
+            <TextField
+              required
+              fullWidth
+              id="twoFactorCode"
+              name="twoFactorCode"
+              autoComplete="one-time-code"
+              autoFocus
+              value={twoFactorCode}
+              onChange={e => setTwoFactorCode(e.target.value)}
+              error={Boolean(error)}
+            />
+            {error ? (
+              <p id="login-error" role="alert" className="seneca-auth-error">
+                {error}
+              </p>
+            ) : (
+              <p className="seneca-auth-field__hint">{t.twoFactorHint}</p>
+            )}
+          </div>
         )}
         <Button
           type="submit"
           fullWidth
           variant="contained"
           size="large"
-          sx={{
-            py: 1.5,
-            borderRadius: tokens.radius.full,
-            fontSize: '1rem',
-            fontWeight: 700,
-            textTransform: 'none',
-            boxShadow: 'none',
-            '&:hover': { boxShadow: 'none' },
-          }}
+          className="seneca-auth-submit"
           disabled={loading}
         >
           {loading ? <CircularProgress size={24} color="inherit" /> : t.submit}
         </Button>
-        <Box textAlign="center" sx={{ mt: 3 }}>
-          <Link
-            href={
-              nextPath
-                ? `/register?next=${encodeURIComponent(nextPath)}${
-                    inviteToken ? `&invite=${encodeURIComponent(inviteToken)}` : ''
-                  }`
-                : '/register'
-            }
-            variant="body2"
-            sx={{
-              textDecoration: 'none',
-              fontWeight: 600,
-              color: 'primary.main',
-              '&:hover': { textDecoration: 'underline' },
-            }}
-          >
-            {t.noAccount}
-          </Link>
-        </Box>
+        <p className="seneca-auth-footnote">
+          {t.noAccountPrompt}{' '}
+          <NextLink href={registerHref} className="seneca-auth-link seneca-auth-link--accent">
+            {t.signUp}
+          </NextLink>
+        </p>
       </Box>
     </AuthLayout>
   );

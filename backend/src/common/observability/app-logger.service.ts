@@ -1,5 +1,5 @@
 import * as os from 'node:os';
-import type { LogLevel, LoggerService } from '@nestjs/common';
+import type { LoggerService, LogLevel } from '@nestjs/common';
 import { RequestContext } from './request-context';
 
 type Level = 'error' | 'warn' | 'log' | 'debug' | 'verbose';
@@ -30,7 +30,7 @@ const normalizeLogLevel = (value: string | undefined): Level => {
 };
 
 export class AppLogger implements LoggerService {
-  private readonly serviceName = process.env.SERVICE_NAME || 'lumio-backend';
+  private readonly serviceName = process.env.SERVICE_NAME || 'seneca-backend';
   private readonly host = os.hostname();
   private readonly minLevel = normalizeLogLevel(process.env.LOG_LEVEL);
   private logLevels?: LogLevel[];

@@ -1,34 +1,39 @@
 'use client';
 
-import {
-  Building2,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ImageIcon,
-  Save,
-  Search,
-  Trash2,
-} from '@/app/components/icons';
-import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
-import apiClient from '@/app/lib/api';
-import {
-  type CurrencySearchItem,
-  buildCurrencySearchIndex,
-} from '@/app/lib/statement-expense-drawer';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { AVAILABLE_BACKGROUNDS } from '../constants';
+import { ChevronDown, ChevronLeft, ImageIcon, Save, Trash2 } from '@/app/components/icons';
+import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
+import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { TextTabs } from '@/app/components/ui/text-tabs';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useIntlayer } from '@/app/i18n';
+import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import {
+  buildCurrencySearchIndex,
+  type CurrencySearchItem,
+} from '@/app/lib/statement-expense-drawer';
+import { tokens } from '@/lib/theme-tokens';
+import { AVAILABLE_BACKGROUNDS, PLAIN_BACKGROUND } from '../constants';
+import { BackgroundPhotoSearch } from './BackgroundPhotoSearch';
+import { BackgroundPreviewCard } from './BackgroundPreviewCard';
 import { BackgroundSelector } from './BackgroundSelector';
+import { BusinessProfileSection } from './BusinessProfileSection';
+import { InvoiceSettingsSection } from './InvoiceSettingsSection';
+import { SettingsSection } from './SettingsSection';
+import { TaxJurisdictionSection } from './TaxJurisdictionSection';
+import { TaxRulesSection } from './TaxRulesSection';
+import { TaxStatusSection } from './TaxStatusSection';
 
 const resolveBackgroundSrc = (backgroundImage: string | null) => {
-  if (!backgroundImage) {
+  if (!backgroundImage || backgroundImage === PLAIN_BACKGROUND) {
     return null;
   }
 
@@ -43,18 +48,39 @@ const resolveBackgroundSrc = (backgroundImage: string | null) => {
   return `/workspace-backgrounds/${backgroundImage}`;
 };
 
-const getInitials = (value: string) =>
-  value
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase() ?? '')
-    .join('');
+/** Inputs are outlined, not filled: a hole cut into the page reads heavier than a line. */
+const FIELD_STYLE: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid var(--border)',
+  background: 'transparent',
+  padding: '9px 12px',
+  fontSize: 14,
+  // A textarea does not inherit the page font on its own; it fell back to monospace.
+  fontFamily: 'inherit',
+  color: 'var(--foreground)',
+  borderRadius: tokens.radius.sm,
+  boxSizing: 'border-box',
+};
+
+const FIELD_LABEL_STYLE: React.CSSProperties = {
+  display: 'block',
+  fontSize: 13,
+  fontWeight: 500,
+  color: 'var(--foreground)',
+  marginBottom: 6,
+};
 
 export default function WorkspaceOverviewView() {
   const router = useRouter();
-  const { currentWorkspace, refreshWorkspaces, clearWorkspace, updateWorkspaceBackground } =
-    useWorkspace();
+  const t = useIntlayer('workspaceOverview');
+  const tc = useIntlayer('workspaceCurrencySelector');
+  const {
+    currentWorkspace,
+    refreshWorkspaces,
+    clearWorkspace,
+    updateWorkspaceBackground,
+    setWorkspaceBackgroundPhoto,
+  } = useWorkspace();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -63,6 +89,7 @@ export default function WorkspaceOverviewView() {
   const [deleting, setDeleting] = useState(false);
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const [savingBackground, setSavingBackground] = useState(false);
+  const [backgroundTab, setBackgroundTab] = useState<'gallery' | 'search'>('gallery');
   const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -116,9 +143,7 @@ export default function WorkspaceOverviewView() {
     return source.filter(item => item.code !== currency);
   }, [currencyItems, currencyQuery, currency]);
 
-  const notSelectedLabel = 'Not selected';
-  const notSelectedMatchesSearch =
-    currencyQuery.length === 0 || notSelectedLabel.toLowerCase().includes(currencyQuery);
+  const notSelectedLabel = tc.notSelected.value;
 
   const isDirty =
     Boolean(currentWorkspace) &&
@@ -135,20 +160,23 @@ export default function WorkspaceOverviewView() {
     }
 
     setSaving(true);
-    try {
+
+    await (async () => {
       await apiClient.patch(`/workspaces/${currentWorkspace.id}`, {
         name: name.trim(),
         description: description.trim() || undefined,
         currency: currency || undefined,
-      });
+      } satisfies ContractInput<'UpdateWorkspaceBody'>);
       await refreshWorkspaces();
-      toast.success('Workspace updated');
-    } catch (err) {
-      console.error('Failed to update workspace:', err);
-      toast.error('Failed to update workspace');
-    } finally {
-      setSaving(false);
-    }
+      toast.success(t.toasts.updated.value);
+    })()
+      .catch(async err => {
+        console.error('Failed to update workspace:', err);
+        toast.error(t.toasts.updateFailed.value);
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleDelete = async () => {
@@ -160,20 +188,23 @@ export default function WorkspaceOverviewView() {
     }
 
     setDeleting(true);
-    try {
+
+    await (async () => {
       await apiClient.delete(`/workspaces/${currentWorkspace.id}`);
       clearWorkspace();
       await refreshWorkspaces();
-      toast.success('Workspace deleted');
+      toast.success(t.toasts.deleted.value);
       setDeleteModalOpen(false);
       setDeleteConfirmationName('');
       router.replace('/workspaces/list');
-    } catch (err) {
-      console.error('Failed to delete workspace:', err);
-      toast.error('Failed to delete workspace');
-    } finally {
-      setDeleting(false);
-    }
+    })()
+      .catch(async err => {
+        console.error('Failed to delete workspace:', err);
+        toast.error(t.toasts.deleteFailed.value);
+      })
+      .finally(async () => {
+        setDeleting(false);
+      });
   };
 
   const openDeleteModal = () => {
@@ -203,23 +234,39 @@ export default function WorkspaceOverviewView() {
     setCurrencyDrawerOpen(false);
   };
 
+  const saveBackground = async (save: () => Promise<void>) => {
+    setSavingBackground(true);
+
+    await (async () => {
+      // The drawer stays open: the preview card at its top is the confirmation,
+      // and the next tile can be tried right away.
+      await save();
+    })()
+      // The server says why (Openverse slow or out of allowance); say that, not just "failed".
+      .catch(async (error: unknown) => {
+        toast.error(getApiErrorMessage(error, t.toasts.backgroundFailed.value));
+      })
+      .finally(async () => {
+        setSavingBackground(false);
+      });
+  };
+
   const handleBackgroundChange = async (background: string) => {
     if (!currentWorkspace) {
       return;
     }
-    setSavingBackground(true);
-    try {
-      await updateWorkspaceBackground({
-        workspaceId: currentWorkspace.id,
-        backgroundImage: background,
-      });
-      toast.success('Background updated');
-      setShowBackgroundPicker(false);
-    } catch {
-      toast.error('Failed to update background');
-    } finally {
-      setSavingBackground(false);
+    await saveBackground(() =>
+      updateWorkspaceBackground({ workspaceId: currentWorkspace.id, backgroundImage: background }),
+    );
+  };
+
+  const handleBackgroundPhotoPick = async (photoId: string) => {
+    if (!currentWorkspace) {
+      return;
     }
+    await saveBackground(() =>
+      setWorkspaceBackgroundPhoto({ workspaceId: currentWorkspace.id, photoId }),
+    );
   };
 
   if (!currentWorkspace) {
@@ -229,130 +276,53 @@ export default function WorkspaceOverviewView() {
   return (
     <Box
       sx={{
-        height: 'calc(100vh - var(--global-nav-height, 0px))',
-        overflowY: 'auto',
         bgcolor: 'var(--background)',
       }}
     >
       <Box
-        sx={{ maxWidth: 1024, px: { xs: 2.5, sm: 3 }, py: 2 }}
+        sx={{ maxWidth: 1120, px: { xs: 2.5, sm: 4 }, py: 3 }}
         data-tour-id="workspace-side-panel"
       >
-        {/* Header card */}
-        <Box
-          sx={{
-            border: '1px solid var(--border)',
-            borderRadius: tokens.radius.lg,
-            bgcolor: 'var(--card)',
-            p: 2,
-            mb: 1.5,
-          }}
+        <SettingsSection
+          title={t.background.title}
+          description={t.background.description}
+          tourId="workspace-background"
         >
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 44,
-                height: 44,
-                borderRadius: tokens.radius.sm,
-                bgcolor: 'rgba(var(--primary-rgb,22,129,24),0.1)',
-                color: 'var(--primary)',
-                fontSize: 18,
-                fontWeight: 600,
-                flexShrink: 0,
-              }}
-            >
-              {getInitials(currentWorkspace.name) || <Building2 size={24} />}
-            </Box>
-            <Box>
-              <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-                Overview
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
-                Manage workspace profile, defaults, and billing details.
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Background section */}
-        <Box
-          sx={{
-            border: '1px solid var(--border)',
-            borderRadius: tokens.radius.lg,
-            bgcolor: 'var(--card)',
-            p: 2,
-            mb: 1.5,
-          }}
-          data-tour-id="workspace-background"
-        >
+          {/* The preview is the control: click it (or its hover label) to change the image. */}
           <Box
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              alignItems: { sm: 'flex-start' },
-              justifyContent: { sm: 'space-between' },
-              gap: 1.5,
-              mb: 1.5,
-            }}
-          >
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <ImageIcon size={15} style={{ color: 'var(--muted-foreground)' }} />
-                <Typography variant="body2" fontWeight={500} sx={{ color: 'var(--foreground)' }}>
-                  Workspace background
-                </Typography>
-              </Box>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
-                Choose a background image for your workspace card
-              </Typography>
-            </Box>
-            <button
-              type="button"
-              data-testid="workspace-background-trigger"
-              onClick={() => setShowBackgroundPicker(true)}
-              disabled={savingBackground}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 4,
-                alignSelf: 'flex-start',
-                border: '1px solid var(--border)',
-                background: 'none',
-                padding: '6px 12px',
-                fontSize: 14,
-                fontWeight: 500,
-                color: 'var(--foreground)',
-                cursor: 'pointer',
-                borderRadius: tokens.radius.md,
-                opacity: savingBackground ? 0.6 : 1,
-              }}
-            >
-              Change
-              <ChevronDown size={14} />
-            </button>
-          </Box>
-
-          <Box
+            component="button"
+            type="button"
+            data-testid="workspace-background-trigger"
+            aria-label={t.background.changeAria.value}
+            onClick={() => setShowBackgroundPicker(true)}
+            disabled={savingBackground}
             sx={{
               position: 'relative',
+              display: 'block',
               aspectRatio: '2.8/1',
               width: '100%',
-              maxWidth: 320,
+              maxWidth: 360,
+              p: 0,
               overflow: 'hidden',
               border: '1px solid var(--border)',
               borderRadius: tokens.radius.md,
+              bgcolor: 'transparent',
+              cursor: 'pointer',
+              opacity: savingBackground ? 0.6 : 1,
+              '&:hover .workspace-background-change, &:focus-visible .workspace-background-change':
+                {
+                  opacity: 1,
+                },
             }}
           >
             {resolveBackgroundSrc(currentWorkspace.backgroundImage) ? (
               <img
                 src={resolveBackgroundSrc(currentWorkspace.backgroundImage) || ''}
-                alt="Current workspace background"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                alt={t.background.currentAlt.value}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
+            ) : currentWorkspace.backgroundImage === PLAIN_BACKGROUND ? (
+              <Box sx={{ height: '100%', bgcolor: 'var(--icon-badge-bg)' }} />
             ) : (
               <Box
                 sx={{
@@ -360,42 +330,67 @@ export default function WorkspaceOverviewView() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   height: '100%',
-                  bgcolor: 'var(--muted)',
                   px: 2,
                   textAlign: 'center',
                 }}
               >
                 <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
-                  No background selected
+                  {t.background.none}
                 </Typography>
               </Box>
             )}
+            <Box
+              component="span"
+              className="workspace-background-change"
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+                fontSize: 13,
+                fontWeight: 500,
+                color: '#fff',
+                bgcolor: 'rgba(0, 0, 0, 0.45)',
+                opacity: 0,
+                transition: 'opacity 150ms ease',
+                '@media (hover: none)': { opacity: 1, bgcolor: 'rgba(0, 0, 0, 0.3)' },
+              }}
+            >
+              <ImageIcon size={15} />
+              {t.background.change}
+            </Box>
           </Box>
-        </Box>
+          {/* A searched photo is shown only with its credit — the CC licence asks for it. */}
+          {currentWorkspace.backgroundAttribution && (
+            <Typography
+              variant="caption"
+              data-testid="workspace-background-credit"
+              sx={{ display: 'block', maxWidth: 360, mt: 1, color: 'var(--muted-foreground)' }}
+            >
+              {currentWorkspace.backgroundAttribution}
+              {currentWorkspace.backgroundSourceUrl && (
+                <>
+                  {' '}
+                  <Link
+                    href={currentWorkspace.backgroundSourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {t.background.source}
+                  </Link>
+                </>
+              )}
+            </Typography>
+          )}
+        </SettingsSection>
 
-        {/* Settings section */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <Box
-            sx={{
-              border: '1px solid var(--border)',
-              borderRadius: tokens.radius.lg,
-              bgcolor: 'var(--card)',
-              p: 2,
-            }}
-          >
-            {/* Workspace name */}
-            <Box sx={{ mb: 1.5 }}>
-              <label
-                htmlFor="workspace-name"
-                style={{
-                  display: 'block',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: 'var(--foreground)',
-                  marginBottom: 6,
-                }}
-              >
-                Workspace name
+        <SettingsSection title={t.details.title} description={t.details.description}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box>
+              <label htmlFor="workspace-name" style={FIELD_LABEL_STYLE}>
+                {t.details.name}
               </label>
               <input
                 id="workspace-name"
@@ -403,66 +398,26 @@ export default function WorkspaceOverviewView() {
                 type="text"
                 value={name}
                 onChange={event => setName(event.target.value)}
-                style={{
-                  width: '100%',
-                  border: '1px solid var(--border)',
-                  background: 'var(--background)',
-                  padding: '8px 12px',
-                  fontSize: 14,
-                  color: 'var(--foreground)',
-                  borderRadius: tokens.radius.md,
-                  boxSizing: 'border-box',
-                }}
+                style={FIELD_STYLE}
               />
             </Box>
 
-            {/* Description */}
-            <Box sx={{ mb: 1.5 }}>
-              <label
-                htmlFor="workspace-description"
-                style={{
-                  display: 'block',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: 'var(--foreground)',
-                  marginBottom: 6,
-                }}
-              >
-                Description
+            <Box>
+              <label htmlFor="workspace-description" style={FIELD_LABEL_STYLE}>
+                {t.details.descriptionLabel}
               </label>
               <textarea
                 id="workspace-description"
                 value={description}
                 onChange={event => setDescription(event.target.value)}
                 rows={2}
-                style={{
-                  width: '100%',
-                  minHeight: 80,
-                  border: '1px solid var(--border)',
-                  background: 'var(--background)',
-                  padding: '8px 12px',
-                  fontSize: 14,
-                  color: 'var(--foreground)',
-                  borderRadius: tokens.radius.md,
-                  boxSizing: 'border-box',
-                  resize: 'vertical',
-                }}
+                style={{ ...FIELD_STYLE, minHeight: 80, resize: 'vertical' }}
               />
             </Box>
 
-            {/* Currency */}
-            <Box sx={{ mb: 1.5 }}>
-              <label
-                htmlFor="workspace-currency-trigger"
-                style={{
-                  display: 'block',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: 'var(--foreground)',
-                  marginBottom: 6,
-                }}
-              >
-                Default currency
+            <Box>
+              <label htmlFor="workspace-currency-trigger" style={FIELD_LABEL_STYLE}>
+                {t.details.currency}
               </label>
               <button
                 id="workspace-currency-trigger"
@@ -471,18 +426,11 @@ export default function WorkspaceOverviewView() {
                 type="button"
                 onClick={() => setCurrencyDrawerOpen(true)}
                 style={{
+                  ...FIELD_STYLE,
                   display: 'flex',
-                  width: '100%',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  border: '1px solid var(--border)',
-                  background: 'var(--background)',
-                  padding: '8px 12px',
-                  fontSize: 14,
-                  color: 'var(--foreground)',
                   cursor: 'pointer',
-                  borderRadius: tokens.radius.md,
-                  boxSizing: 'border-box',
                 }}
               >
                 <span
@@ -497,10 +445,7 @@ export default function WorkspaceOverviewView() {
               </button>
             </Box>
 
-            {/* Save button */}
-            <Box
-              sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, pt: 0.5 }}
-            >
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
               <button
                 type="button"
                 onClick={handleSave}
@@ -521,67 +466,71 @@ export default function WorkspaceOverviewView() {
                 }}
               >
                 <Save size={16} />
-                {saving ? 'Saving...' : 'Save changes'}
+                {saving ? t.details.saving : t.details.save}
               </button>
 
               {isDirty && (
-                <Typography variant="body2" fontWeight={500} sx={{ color: '#d97706' }}>
-                  Unsaved changes
+                <Typography variant="body2" fontWeight={500} sx={{ color: 'warning.main' }}>
+                  {t.details.unsaved}
                 </Typography>
               )}
             </Box>
           </Box>
+        </SettingsSection>
 
-          {/* Danger zone */}
-          {currentWorkspace.memberRole === 'owner' && (
-            <Box
-              sx={{
-                border: '1px solid',
-                borderColor: 'var(--color-error-soft-border)',
-                borderRadius: tokens.radius.lg,
-                bgcolor: 'var(--color-error-soft-bg)',
-                p: 2,
+        <BusinessProfileSection />
+
+        <InvoiceSettingsSection />
+
+        <TaxJurisdictionSection
+          labels={{
+            title: t.tax.title.value,
+            description: t.tax.description.value,
+            none: t.tax.none.value,
+            placeholder: t.tax.placeholder.value,
+            ratesTitle: t.tax.ratesTitle.value,
+            apply: t.tax.apply.value,
+            applying: t.tax.applying.value,
+            switchWarning: t.tax.switchWarning.value,
+            noRates: t.tax.noRates.value,
+            loadError: t.tax.loadError.value,
+            saveError: t.tax.saveError.value,
+            saved: t.tax.saved.value,
+            disclaimer: t.tax.disclaimer.value,
+            reportError: t.tax.reportError.value,
+          }}
+        />
+
+        <TaxStatusSection />
+
+        <TaxRulesSection />
+
+        {currentWorkspace.memberRole === 'owner' && (
+          <SettingsSection title={t.danger.title} tone="danger" description={t.danger.description}>
+            <button
+              type="button"
+              onClick={openDeleteModal}
+              disabled={deleting}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                border: '1px solid var(--color-error-soft-border)',
+                background: 'transparent',
+                padding: '8px 16px',
+                fontSize: 14,
+                fontWeight: 500,
+                color: 'var(--destructive)',
+                cursor: deleting ? 'not-allowed' : 'pointer',
+                borderRadius: tokens.radius.md,
+                opacity: deleting ? 0.6 : 1,
               }}
             >
-              <Typography
-                variant="body2"
-                fontWeight={500}
-                sx={{ color: 'var(--destructive)', mb: 0.5 }}
-              >
-                Danger Zone
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{ color: 'var(--destructive)', display: 'block', mb: 1.5 }}
-              >
-                This will permanently delete the workspace and all related data. This action cannot
-                be undone.
-              </Typography>
-              <button
-                type="button"
-                onClick={openDeleteModal}
-                disabled={deleting}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  background: 'var(--card-bg)',
-                  padding: '8px 16px',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: 'var(--destructive)',
-                  cursor: deleting ? 'not-allowed' : 'pointer',
-                  borderRadius: tokens.radius.md,
-                  opacity: deleting ? 0.6 : 1,
-                }}
-              >
-                <Trash2 size={16} />
-                {deleting ? 'Deleting...' : 'Delete workspace'}
-              </button>
-            </Box>
-          )}
-        </Box>
+              <Trash2 size={16} />
+              {deleting ? t.danger.deleting : t.danger.deleteWorkspace}
+            </button>
+          </SettingsSection>
+        )}
       </Box>
 
       {/* Background picker drawer */}
@@ -604,268 +553,80 @@ export default function WorkspaceOverviewView() {
                 border: 'none',
                 cursor: 'pointer',
               }}
-              aria-label="Close background drawer"
+              aria-label={t.background.closeDrawer.value}
             >
               <ChevronLeft size={20} />
             </button>
-            <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-              Select workspace background
+            <Typography variant="h6" fontWeight={500} sx={{ color: 'var(--foreground)' }}>
+              {t.background.drawerTitle}
             </Typography>
           </Box>
         }
       >
         <Box sx={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
-          <Box sx={{ flex: 1, overflowY: 'auto', pb: 2 }}>
-            <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', mb: 1.5 }}>
-              Choose the image shown on your workspace card.
+          <Box className="seneca-thin-scroll" sx={{ flex: 1, overflowY: 'auto', pb: 2 }}>
+            <Typography sx={{ fontSize: 14, color: 'var(--text-muted)', mb: 2 }}>
+              {t.background.drawerHint}
             </Typography>
+            <BackgroundPreviewCard
+              src={resolveBackgroundSrc(currentWorkspace.backgroundImage)}
+              name={currentWorkspace.name}
+              description={currentWorkspace.description}
+            />
+            <Box sx={{ mb: 2 }}>
+              <TextTabs
+                value={backgroundTab}
+                onChange={setBackgroundTab}
+                ariaLabel={t.background.drawerTitle.value}
+                options={[
+                  { value: 'gallery', label: t.background.tabGallery },
+                  { value: 'search', label: t.background.tabSearch },
+                ]}
+              />
+            </Box>
             {savingBackground && (
               <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
-                Saving...
+                {t.details.saving}
               </Typography>
             )}
-            <BackgroundSelector
-              selectedBackground={currentWorkspace.backgroundImage}
-              onSelect={handleBackgroundChange}
-              backgrounds={AVAILABLE_BACKGROUNDS}
-            />
+            {backgroundTab === 'gallery' ? (
+              <BackgroundSelector
+                selectedBackground={currentWorkspace.backgroundImage}
+                onSelect={handleBackgroundChange}
+                backgrounds={AVAILABLE_BACKGROUNDS}
+                plainLabel={t.background.plain.value}
+              />
+            ) : (
+              <BackgroundPhotoSearch
+                disabled={savingBackground}
+                onPick={handleBackgroundPhotoPick}
+              />
+            )}
           </Box>
         </Box>
       </DrawerShell>
 
       {/* Currency drawer */}
-      <DrawerShell
+      <CurrencyDrawer
         isOpen={currencyDrawerOpen}
         onClose={() => {
           setCurrencyDrawerOpen(false);
           setCurrencySearch('');
         }}
-        position="right"
-        width="lg"
-        showCloseButton={false}
-        title={
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <button
-              type="button"
-              onClick={() => {
-                setCurrencyDrawerOpen(false);
-                setCurrencySearch('');
-              }}
-              style={{
-                borderRadius: tokens.radius.full,
-                padding: 8,
-                color: 'var(--muted-foreground)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-              aria-label="Close currency drawer"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-              Select a currency
-            </Typography>
-          </Box>
-        }
-      >
-        <Box sx={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
-          <Box sx={{ flex: 1, overflowY: 'auto', pb: 2 }}>
-            {/* Search input */}
-            <Box sx={{ position: 'relative', mb: 1.5 }}>
-              <Search
-                size={16}
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--muted-foreground)',
-                  pointerEvents: 'none',
-                }}
-              />
-              <input
-                type="text"
-                value={currencySearch}
-                onChange={event => setCurrencySearch(event.target.value)}
-                placeholder="Search"
-                style={{
-                  width: '100%',
-                  border: '1px solid var(--border)',
-                  background: 'var(--background)',
-                  padding: '10px 16px 10px 40px',
-                  fontSize: 14,
-                  color: 'var(--foreground)',
-                  borderRadius: tokens.radius.md,
-                  boxSizing: 'border-box',
-                }}
-              />
-            </Box>
-
-            {/* Not-selected option */}
-            {!currency && notSelectedMatchesSearch ? (
-              <button
-                type="button"
-                onClick={() => handleSelectCurrency('')}
-                style={{
-                  display: 'flex',
-                  width: '100%',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: 'var(--muted)',
-                  border: 'none',
-                  padding: '16px',
-                  cursor: 'pointer',
-                  borderRadius: tokens.radius.md,
-                  marginBottom: 8,
-                }}
-              >
-                <Typography variant="body1" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-                  {notSelectedLabel}
-                </Typography>
-                <Check size={20} style={{ color: 'var(--primary)' }} />
-              </button>
-            ) : null}
-
-            {/* Selected currency */}
-            {selectedCurrencyItem && selectedMatchesSearch ? (
-              <button
-                type="button"
-                onClick={() => handleSelectCurrency(selectedCurrencyItem.code)}
-                style={{
-                  display: 'flex',
-                  width: '100%',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: 'var(--muted)',
-                  border: 'none',
-                  padding: '16px',
-                  cursor: 'pointer',
-                  borderRadius: tokens.radius.md,
-                  marginBottom: 8,
-                }}
-              >
-                <Typography variant="body1" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-                  {selectedCurrencyItem.label}
-                </Typography>
-                <Check size={20} style={{ color: 'var(--primary)' }} />
-              </button>
-            ) : null}
-
-            {/* Recents */}
-            {currencyQuery.length === 0 && recentCurrencyItems.length > 0 ? (
-              <Box sx={{ mb: 1.5 }}>
-                <Typography
-                  variant="body2"
-                  sx={{ color: 'var(--muted-foreground)', px: 0.5, mb: 1 }}
-                >
-                  Recents
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {recentCurrencyItems.map(item => (
-                    <button
-                      key={`recent-${item.code}`}
-                      type="button"
-                      onClick={() => handleSelectCurrency(item.code)}
-                      style={{
-                        display: 'flex',
-                        width: '100%',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        background: 'none',
-                        border: 'none',
-                        padding: '12px',
-                        cursor: 'pointer',
-                        borderRadius: tokens.radius.md,
-                        textAlign: 'left',
-                      }}
-                    >
-                      <Typography
-                        variant="body1"
-                        fontWeight={600}
-                        sx={{ color: 'var(--foreground)' }}
-                      >
-                        {item.label}
-                      </Typography>
-                    </button>
-                  ))}
-                </Box>
-              </Box>
-            ) : null}
-
-            {/* All currencies */}
-            <Box>
-              <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', px: 0.5, mb: 1 }}>
-                All
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {notSelectedMatchesSearch && currency ? (
-                  <button
-                    type="button"
-                    onClick={() => handleSelectCurrency('')}
-                    style={{
-                      display: 'flex',
-                      width: '100%',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      background: 'none',
-                      border: 'none',
-                      padding: '12px',
-                      cursor: 'pointer',
-                      borderRadius: tokens.radius.md,
-                      textAlign: 'left',
-                    }}
-                  >
-                    <Typography
-                      variant="body1"
-                      fontWeight={600}
-                      sx={{ color: 'var(--foreground)' }}
-                    >
-                      {notSelectedLabel}
-                    </Typography>
-                  </button>
-                ) : null}
-
-                {allCurrencyItems.length > 0 ? (
-                  allCurrencyItems.map(item => (
-                    <button
-                      key={item.code}
-                      type="button"
-                      onClick={() => handleSelectCurrency(item.code)}
-                      style={{
-                        display: 'flex',
-                        width: '100%',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        background: 'none',
-                        border: 'none',
-                        padding: '12px',
-                        cursor: 'pointer',
-                        borderRadius: tokens.radius.md,
-                        textAlign: 'left',
-                      }}
-                    >
-                      <Typography
-                        variant="body1"
-                        fontWeight={600}
-                        sx={{ color: 'var(--foreground)' }}
-                      >
-                        {item.label}
-                      </Typography>
-                    </button>
-                  ))
-                ) : (
-                  <Box sx={{ bgcolor: 'var(--muted)', borderRadius: tokens.radius.md, p: 1.5 }}>
-                    <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-                      No currencies found
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-      </DrawerShell>
+        currencySearch={currencySearch}
+        setCurrencySearch={setCurrencySearch}
+        selectedCurrencyItem={selectedCurrencyItem}
+        selectedMatchesSearch={selectedMatchesSearch}
+        currencyQuery={currencyQuery}
+        recentCurrencyItems={recentCurrencyItems}
+        allCurrencyItems={allCurrencyItems}
+        handleSelectCurrency={handleSelectCurrency}
+        noneOption={{
+          label: notSelectedLabel,
+          selected: !currency,
+          onSelect: () => handleSelectCurrency(''),
+        }}
+      />
 
       {/* Delete modal */}
       <ModalShell
@@ -874,7 +635,7 @@ export default function WorkspaceOverviewView() {
         size="sm"
         closeOnBackdropClick={!deleting}
         closeOnEscape={!deleting}
-        title="Delete workspace?"
+        title={t.deleteModal.title.value}
         paperSx={{
           borderRadius: tokens.radius.xl,
           border: '1px solid var(--border)',
@@ -885,8 +646,8 @@ export default function WorkspaceOverviewView() {
           <ModalFooter
             onCancel={closeDeleteModal}
             onConfirm={handleDelete}
-            cancelText="Cancel"
-            confirmText={deleting ? 'Deleting...' : 'Delete'}
+            cancelText={t.deleteModal.cancel.value}
+            confirmText={deleting ? t.danger.deleting.value : t.deleteModal.confirm.value}
             confirmVariant="destructive"
             isConfirmLoading={deleting}
             isConfirmDisabled={!isDeleteConfirmationMatched || deleting}
@@ -895,8 +656,7 @@ export default function WorkspaceOverviewView() {
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Typography variant="body2" sx={{ lineHeight: 1.75, color: 'var(--muted-foreground)' }}>
-            This will permanently delete the workspace and all related data. Type the workspace name
-            to confirm deletion.
+            {t.deleteModal.body}
           </Typography>
           <Box>
             <label
@@ -909,7 +669,7 @@ export default function WorkspaceOverviewView() {
                 marginBottom: 6,
               }}
             >
-              Workspace name
+              {t.details.name}
             </label>
             <input
               id="delete-workspace-name"

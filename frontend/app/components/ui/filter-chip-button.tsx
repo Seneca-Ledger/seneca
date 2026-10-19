@@ -1,8 +1,8 @@
 'use client';
 
 import Chip from '@mui/material/Chip';
-import { forwardRef } from 'react';
 import type { MouseEventHandler, ReactNode } from 'react';
+import { forwardRef } from 'react';
 
 type FilterChipButtonProps = {
   children: ReactNode;

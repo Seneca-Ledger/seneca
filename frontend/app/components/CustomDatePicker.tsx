@@ -1,9 +1,11 @@
 'use client';
 
-import { FORM_CONTROL_SX } from '@/app/components/ui/input';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { format, isValid, parseISO } from 'date-fns';
 import type React from 'react';
+import { FORM_CONTROL_SX } from '@/app/components/ui/input';
+import { resolvePickerFormat } from '@/app/lib/user-format';
+import { useUserFormat } from '@/app/lib/user-format-store';
 
 interface CustomDatePickerProps {
   value?: string | null;
@@ -12,8 +14,18 @@ interface CustomDatePickerProps {
   placeholder?: string;
   helperText?: string;
   containerTestId?: string;
+  /** Id of the text input, for an external `<label htmlFor>`. */
+  id?: string;
   /** Match the tall form-control sizing used by Input/Select. */
   large?: boolean;
+  /** Field size when not `large`; defaults to small. */
+  size?: 'small' | 'medium';
+  error?: boolean;
+  /** Earliest and latest selectable days, as `yyyy-MM-dd`. */
+  minDate?: string;
+  maxDate?: string;
+  /** A filter-sized field: "Sep 1, 2024" and a small calendar icon. */
+  compact?: boolean;
 }
 
 const DATE_VALUE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -44,9 +56,17 @@ export default function CustomDatePicker({
   placeholder,
   helperText,
   containerTestId,
+  id,
   large,
+  size = 'small',
+  error,
+  minDate,
+  maxDate,
+  compact,
 }: CustomDatePickerProps) {
   const dateValue = normalizeToDate(value);
+  const { preferences } = useUserFormat();
+  const displayFormat = resolvePickerFormat(preferences);
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleChange = (date: Date | null) => {
@@ -63,10 +83,16 @@ export default function CustomDatePicker({
         label={label}
         value={dateValue}
         onChange={handleChange}
+        format={compact ? 'MMM d, yyyy' : displayFormat}
+        minDate={normalizeToDate(minDate) ?? undefined}
+        maxDate={normalizeToDate(maxDate) ?? undefined}
         slotProps={{
+          ...(compact ? { openPickerIcon: { fontSize: 'small' } } : {}),
           textField: {
             fullWidth: true,
-            size: large ? 'medium' : 'small',
+            id,
+            size: large ? 'medium' : size,
+            error,
             sx: large ? { '& .MuiInputBase-root': FORM_CONTROL_SX } : undefined,
             helperText: helperText,
             placeholder: placeholder,

@@ -1,7 +1,7 @@
 'use client';
 
-import { tokens } from '@/lib/theme-tokens';
 import type { ReactNode } from 'react';
+import { tokens } from '@/lib/theme-tokens';
 
 type Props = {
   title: string;

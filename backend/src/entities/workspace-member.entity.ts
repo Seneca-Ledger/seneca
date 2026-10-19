@@ -16,6 +16,11 @@ export enum WorkspaceRole {
   ADMIN = 'admin',
   MEMBER = 'member',
   VIEWER = 'viewer',
+  /**
+   * The tax adviser or bookkeeper: reads everything a viewer reads and may take
+   * exports away (tax pack, DATEV, returns), but changes nothing.
+   */
+  ACCOUNTANT = 'accountant',
 }
 
 export type WorkspaceMemberPermissions = {
@@ -32,7 +37,7 @@ export class WorkspaceMember {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(
@@ -45,7 +50,7 @@ export class WorkspaceMember {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(
@@ -75,7 +80,7 @@ export class WorkspaceMember {
   @Column({ name: 'access_count', type: 'int', default: 0 })
   accessCount: number;
 
-  @Column({ name: 'invited_by_id', nullable: true })
+  @Column({ name: 'invited_by_id', type: 'uuid', nullable: true })
   invitedById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

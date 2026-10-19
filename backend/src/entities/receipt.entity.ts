@@ -8,7 +8,9 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { Transaction } from './transaction.entity';
+import type { EInvoiceSummary } from '../modules/e-invoices/einvoice-summary';
+import { StatementStage } from './statement.entity';
+import { Transaction, type TransactionCategorySource } from './transaction.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 
@@ -29,10 +31,25 @@ export enum ReceiptSource {
   TELEGRAM = 'telegram',
   SCAN = 'scan',
   IMAP = 'imap',
+  /** An e-invoice received over the Peppol network. */
+  PEPPOL = 'peppol',
+}
+
+/** Where a receipt's point on the map came from, in the order auto-detection trusts them. */
+export enum ReceiptLocationSource {
+  MERCHANT_ADDRESS = 'merchant_address',
+  EXIF = 'exif',
+  DEVICE = 'device',
+  MANUAL = 'manual',
+  /** Reserved for the tax-authority QR lookup; nothing writes it yet. */
+  FISCAL_QR = 'fiscal_qr',
+  /** A shop the user picked from the places near them; details in metadata.place. */
+  PLACE = 'place',
 }
 
 @Entity('receipts')
 @Index(['userId'])
+@Index('IDX_receipts_workspace_received_at', ['workspaceId', 'receivedAt'])
 @Index(['status'])
 @Index(['gmailMessageId'])
 @Index(['receivedAt'])
@@ -64,10 +81,10 @@ export class Receipt {
   })
   source: ReceiptSource;
 
-  @Column({ name: 'gmail_message_id', nullable: true })
+  @Column({ type: 'varchar', name: 'gmail_message_id', nullable: true })
   gmailMessageId: string | null;
 
-  @Column({ name: 'gmail_thread_id', nullable: true })
+  @Column({ type: 'varchar', name: 'gmail_thread_id', nullable: true })
   gmailThreadId: string | null;
 
   @Column()
@@ -86,6 +103,19 @@ export class Receipt {
   })
   status: ReceiptStatus;
 
+  /**
+   * Review-workflow stage, shared with statements (Submit → Approve). Separate
+   * from `status`, which tracks parsing and approval into a transaction. Moves go
+   * through `POST /receipts/stage`.
+   */
+  @Column({
+    type: 'enum',
+    enum: StatementStage,
+    enumName: 'receipts_stage_enum',
+    default: StatementStage.SUBMIT,
+  })
+  stage: StatementStage;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: {
     attachments?: Array<{
@@ -97,6 +127,34 @@ export class Receipt {
     labels?: string[];
     snippet?: string;
     potentialDuplicates?: string[];
+    /**
+     * The bank row(s) this receipt most likely documents, found after parsing.
+     * Approve attaches to them instead of booking the expense a second time.
+     */
+    transactionMatch?: {
+      transactionIds: string[];
+      kind: 'single' | 'multi';
+      score: number;
+      computedAt: string;
+    } | null;
+    /**
+     * Raw point captured with the photo, kept apart from the resolved location
+     * so a reset to automatic can recompute without the upload request.
+     */
+    captureLocation?: {
+      lat: number;
+      lng: number;
+      accuracyM?: number;
+      source: 'exif' | 'device';
+      capturedAt: string;
+    };
+    /** The OpenStreetMap place behind a PLACE location. */
+    place?: {
+      name: string;
+      category: string | null;
+      osmType: string;
+      osmId: string;
+    };
   };
 
   @Column({ type: 'jsonb', nullable: true, name: 'parsed_data' })
@@ -104,19 +162,27 @@ export class Receipt {
     amount?: number;
     currency?: string;
     vendor?: string;
+    merchantAddress?: string;
     date?: string;
     category?: string;
     categoryId?: string;
+    /** Which step picked `categoryId`, carried onto the transaction the receipt books. */
+    categorySource?: TransactionCategorySource | null;
+    categoryReason?: string | null;
     tax?: number;
     taxRate?: number;
     subtotal?: number;
     lineItems?: Array<{
       description: string;
       amount: number;
+      /** Set by the line-item split; the category this line was booked under. */
+      categoryId?: string | null;
     }>;
     transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
     confidence?: number;
     validationIssues?: string[];
+    /** Set when the file is a structured e-invoice: what its XML says beyond the fields above. */
+    einvoice?: EInvoiceSummary;
   };
 
   @Column({ type: 'varchar', length: 32, nullable: true, name: 'language' })
@@ -153,6 +219,21 @@ export class Receipt {
 
   @Column({ name: 'is_duplicate', type: 'boolean', default: false })
   isDuplicate: boolean;
+
+  @Column({ name: 'location_lat', type: 'double precision', nullable: true })
+  locationLat: number | null;
+
+  @Column({ name: 'location_lng', type: 'double precision', nullable: true })
+  locationLng: number | null;
+
+  @Column({ name: 'location_source', type: 'varchar', length: 32, nullable: true })
+  locationSource: ReceiptLocationSource | null;
+
+  @Column({ name: 'location_accuracy_m', type: 'integer', nullable: true })
+  locationAccuracyM: number | null;
+
+  @Column({ name: 'location_updated_at', type: 'timestamptz', nullable: true })
+  locationUpdatedAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

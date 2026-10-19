@@ -1,30 +1,35 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
 
   "files": {
-    "ignore": [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/.next/**",
-      "**/out/**",
-      "**/build/**",
-      "**/coverage/**",
-      "frontend/next-env.d.ts",
-      "**/next-env.d.ts",
-      "frontend/public/changelog.json",
-      "**/changelog.json",
-      "frontend/.intlayer/**",
-      ".intlayer/**",
-      "frontend/.next/**",
-      "frontend/out/**",
-      "backend/uploads/**",
-      "**/docs/**",
-      "**/.claude/**",
-      "**/.agent/**",
-      "**/*.spec.{ts,tsx}",
-      "**/*.test.{ts,tsx}",
-      "**/@tests/**",
-      "backend/scripts/**"
+    "includes": [
+      "**",
+      "!**/node_modules/**",
+      "!**/dist/**",
+      "!**/.next/**",
+      "!**/out/**",
+      "!**/build/**",
+      "!**/coverage/**",
+      "!**/storybook-static/**",
+      "!**/frontend/next-env.d.ts",
+      "!**/next-env.d.ts",
+      "!**/frontend/public/**",
+      "!**/public/**",
+      "!**/changelog.json",
+      "!**/frontend/.intlayer/**",
+      "!**/.intlayer/**",
+      "!**/frontend/.next/**",
+      "!**/frontend/out/**",
+      "!**/backend/uploads/**",
+      "!**/docs/**",
+      "!**/.claude/**",
+      "!**/.agent/**",
+      "!**/*.spec.{ts,tsx}",
+      "!**/*.test.{ts,tsx}",
+      "!**/@tests/**",
+      "!**/backend/scripts/**",
+      "!**/backend/src/contracts/**",
+      "!**/frontend/app/lib/contracts/**"
     ]
   },
 
@@ -34,9 +39,7 @@
     "lineWidth": 100
   },
 
-  "organizeImports": {
-    "enabled": true
-  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
 
   "javascript": {
     "formatter": {
@@ -53,10 +56,10 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
 
       "a11y": {
-        "recommended": true,
+        "preset": "recommended",
         "useButtonType": "off",
         "noLabelWithoutControl": "warn",
         "useKeyWithClickEvents": "warn",
@@ -128,10 +131,7 @@
 
   "overrides": [
     {
-      "include": [
-        "frontend/**/*.{ts,tsx,js,jsx}",
-        "app/**/*.{ts,tsx,js,jsx}"
-      ],
+      "includes": ["**/frontend/**/*.{ts,tsx,js,jsx}", "**/app/**/*.{ts,tsx,js,jsx}"],
       "linter": {
         "rules": {
           "a11y": {
@@ -157,20 +157,28 @@
           "style": {
             "noUselessElse": "error",
             "useBlockStatements": "warn",
-            "useTemplate": "error"
+            "useTemplate": "error",
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "effect": "Import a subpath (effect/Schema, effect/Exit): the barrel pulls all of effect into the chunk."
+                }
+              }
+            }
           }
         }
       }
     },
 
     {
-      "include": [
+      "includes": [
         "**/@tests/**/*.{ts,tsx}",
         "**/test/**/*.{ts,tsx}",
         "**/*.spec.{ts,tsx}",
         "**/*.test.{ts,tsx}",
-        "frontend/app/**/*.test.{ts,tsx}",
-        "app/**/*.test.{ts,tsx}"
+        "**/frontend/app/**/*.test.{ts,tsx}",
+        "**/app/**/*.test.{ts,tsx}"
       ],
       "linter": {
         "rules": {
@@ -191,9 +199,7 @@
           }
         }
       },
-      "organizeImports": {
-        "enabled": false
-      }
+      "assist": { "actions": { "source": { "organizeImports": "off" } } }
     }
   ]
 }

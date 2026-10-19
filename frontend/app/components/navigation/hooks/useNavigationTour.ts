@@ -78,7 +78,7 @@ export function useNavigationTour({ tour, isMobile, getText }: UseNavigationTour
 
     return candidates.flatMap<DriveStep>(candidate => {
       const element = document.querySelector(candidate.selector);
-      if (!element || !isElementVisible(element)) {
+      if (!(element && isElementVisible(element))) {
         return [];
       }
 

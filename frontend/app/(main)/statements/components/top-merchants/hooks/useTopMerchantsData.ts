@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import { useMonthFilters } from '@/app/(main)/statements/components/analytics/flow/useMonthFilters';
 import {
   type TopMerchantsAggregationReturn,
   useTopMerchantsAggregation,
@@ -13,7 +15,6 @@ import type {
 } from '@/app/(main)/statements/components/top-merchants/top-merchants.types';
 import { useAnalyticsData } from '@/app/(main)/statements/hooks/useAnalyticsData';
 import { getRecordDate } from '@/app/lib/analytics-common';
-import { useMemo } from 'react';
 
 type WorkspaceLike = { id: string; name?: string | null };
 
@@ -24,6 +25,7 @@ type Params = {
   workspaceCurrency: string;
   resolvedTheme: string | undefined;
   labels: Record<string, string>;
+  month: Date;
   state: ReturnType<typeof useTopMerchantsState>;
 };
 
@@ -57,6 +59,7 @@ export const useTopMerchantsData = ({
   workspaceCurrency,
   resolvedTheme,
   labels,
+  month,
   state,
 }: Params): TopMerchantsDataReturn => {
   const {
@@ -74,6 +77,7 @@ export const useTopMerchantsData = ({
     errorToastMessage: labels.loadError,
   });
   const statements = rawStatements as unknown[];
+  const monthFilters = useMonthFilters(month);
   const transactions = rawTransactions as unknown[];
   const { flowFilteredRecords, flowRecordsWithoutDateFilter, fromOptions, currencyOptions } =
     useTopMerchantsRecords({
@@ -81,7 +85,7 @@ export const useTopMerchantsData = ({
       transactions: transactions as Parameters<typeof useTopMerchantsRecords>[0]['transactions'],
       gmailReceipts,
       workspaceCurrency,
-      appliedFilters: state.filterState.appliedFilters,
+      appliedFilters: monthFilters,
       searchInput: state.searchInput,
       activeFlowType: state.activeFlowType,
     });

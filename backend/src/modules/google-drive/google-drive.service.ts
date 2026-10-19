@@ -1,8 +1,10 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { CloudStorageBaseService } from '../../common/services/cloud-storage-base.service';
 import { FileStorageService } from '../../common/services/file-storage.service';
+import { requireSecret } from '../../common/utils/required-secret.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   ActorType,
@@ -14,6 +16,7 @@ import {
   IntegrationToken,
   Statement,
   User,
+  WorkspaceMember,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
 import { StatementsService } from '../statements/statements.service';
@@ -77,6 +80,8 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
     private readonly statementRepository: Repository<Statement>,
     @InjectRepository(User)
     userRepository: Repository<User>,
+    @InjectRepository(WorkspaceMember)
+    workspaceMemberRepository: Repository<WorkspaceMember>,
     private readonly statementsService: StatementsService,
     private readonly fileStorageService: FileStorageService,
     private readonly auditService: AuditService,
@@ -86,6 +91,7 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
       integrationTokenRepository,
       driveSettingsRepository,
       userRepository,
+      workspaceMemberRepository,
     );
   }
 
@@ -106,7 +112,11 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
   }
 
   protected getStateSecret() {
-    return process.env.GOOGLE_DRIVE_STATE_SECRET || process.env.JWT_SECRET || 'lumio-state';
+    return requireSecret(
+      'GOOGLE_DRIVE_STATE_SECRET or JWT_SECRET',
+      process.env.GOOGLE_DRIVE_STATE_SECRET,
+      process.env.JWT_SECRET,
+    );
   }
 
   protected getProvider(): IntegrationProvider {
@@ -163,17 +173,18 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
     const clientId = this.getClientId();
     const clientSecret = this.getClientSecret();
     const redirectUri = this.getRedirectUri();
-    if (!clientId || !clientSecret || !redirectUri) {
+    if (!(clientId && clientSecret && redirectUri)) {
       throw new BadRequestException('Google Drive OAuth is not configured');
     }
     return { clientId, clientSecret, redirectUri };
   }
 
-  getAuthUrl(user: User): string {
+  getAuthUrl(user: User, workspaceId: string): string {
     const { clientId, redirectUri } = this.getOAuthConfig();
 
     return this.buildProviderAuthUrl(
       user,
+      workspaceId,
       state =>
         `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams({
           client_id: clientId,
@@ -192,14 +203,15 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
     state?: string;
     error?: string;
   }): Promise<string> {
-    const callbackContext = await this.resolveOAuthCallbackUser<
-      Pick<User, 'id' | 'workspaceId' | 'timeZone'>
-    >(params, ['id', 'workspaceId', 'timeZone']);
+    const callbackContext = await this.resolveOAuthCallbackUser<Pick<User, 'id' | 'timeZone'>>(
+      params,
+      ['id', 'timeZone'],
+    );
     if ('redirectUrl' in callbackContext) {
       return callbackContext.redirectUrl;
     }
 
-    const { redirectBase, user } = callbackContext;
+    const { redirectBase, user, workspaceId } = callbackContext;
 
     const token = await this.requestToken({
       grant_type: 'authorization_code',
@@ -208,15 +220,15 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
     const accessToken = token.access_token || '';
     const refreshToken = token.refresh_token || '';
 
-    if (!accessToken && !refreshToken) {
+    if (!(accessToken || refreshToken)) {
       return `${redirectBase}?status=error&reason=missing_tokens`;
     }
 
-    const workspaceId = user.workspaceId || null;
-    const { integration: existing } = await this.findIntegrationForUser(user.id);
+    const existing = await this.findWorkspaceIntegration(workspaceId);
     const savedIntegration = await this.upsertConnectedIntegration(
       existing,
       user,
+      workspaceId,
       token.scope ? token.scope.split(' ') : existing?.scopes || DRIVE_SCOPES,
     );
 
@@ -330,7 +342,7 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: 'Lumio',
+          name: APP_NAME,
           mimeType: 'application/vnd.google-apps.folder',
         }),
       },
@@ -346,10 +358,11 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
     return settings;
   }
 
-  async importFiles(userId: string, dto: ImportDriveFilesDto) {
+  async importFiles(userId: string, workspaceId: string, dto: ImportDriveFilesDto) {
     const uploadsDir = resolveUploadsDir();
     return this.importFilesWithClient({
       userId,
+      workspaceId,
       fileIds: dto.fileIds,
       uploadsDir,
       getClient: integration => this.getDriveClient(integration),
@@ -371,15 +384,7 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
         };
       },
       importFile: (user, file) =>
-        this.statementsService.create(
-          user,
-          user.workspaceId,
-          file,
-          undefined,
-          undefined,
-          undefined,
-          false,
-        ),
+        this.statementsService.create(user, workspaceId, file, undefined, undefined, false),
       getErrorMessage: error => this.getImportErrorMessage(error),
     });
   }

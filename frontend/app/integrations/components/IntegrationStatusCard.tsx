@@ -1,10 +1,10 @@
 'use client';
 
+import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
+import type { ReactNode } from 'react';
 import { CheckCircle2, Link2Off, RefreshCcw, XCircle } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
-import type { ReactNode } from 'react';
 import type { IntegrationStatus } from '../types';
 
 type IntegrationStatusCardProps = {
@@ -54,7 +54,16 @@ export function IntegrationStatusCard({
         boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+      {/* A phone puts the actions under the status: side by side both were squeezed to a few words a line. */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           {status?.connected ? (
             <CheckCircle2 style={{ height: 24, width: 24, color: theme.palette.success.main }} />
@@ -71,7 +80,7 @@ export function IntegrationStatusCard({
           </Box>
         </Box>
 
-        <Stack alignItems="flex-end" spacing={1}>
+        <Stack sx={{ alignItems: { xs: 'flex-start', sm: 'flex-end' } }} spacing={1}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {status?.connected ? (
               <>
@@ -144,11 +153,11 @@ export function IntegrationStatusCard({
 
           {!status?.connected && disconnectedHint && (
             <Typography
-              style={{
+              sx={{
                 fontSize: 12,
                 color: 'var(--muted-foreground)',
                 maxWidth: 280,
-                textAlign: 'right',
+                textAlign: { xs: 'left', sm: 'right' },
               }}
             >
               {disconnectedHint}

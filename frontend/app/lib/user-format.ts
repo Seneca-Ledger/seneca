@@ -140,6 +140,44 @@ export const formatDateTime = (
   return `${formatDate(date, preferences)}, ${time}`;
 };
 
+const PICKER_TOKEN: Record<'day' | 'month' | 'year', string> = {
+  day: 'dd',
+  month: 'MM',
+  year: 'yyyy',
+};
+
+const PICKER_FORMAT: Record<Exclude<DateFormatPreference, 'auto'>, string> = {
+  dmy: 'dd.MM.yyyy',
+  mdy: 'MM/dd/yyyy',
+  ymd: 'yyyy-MM-dd',
+};
+
+/**
+ * date-fns format string for date-input pickers (MUI X DatePicker `format` prop).
+ * Without this, the picker falls back to MUI's built-in en-US default (MM/dd/yyyy)
+ * regardless of the user's locale or dateFormat preference. 'auto' derives the
+ * day/month/year order and separator from Intl, since date-fns has no locale-order
+ * lookup of its own.
+ */
+export const resolvePickerFormat = (preferences: UserFormatPreferences = {}): string => {
+  const preference = preferences.dateFormat ?? 'auto';
+  if (preference !== 'auto') {
+    return PICKER_FORMAT[preference];
+  }
+
+  const parts = new Intl.DateTimeFormat(resolveLocaleTag(preferences.locale)).formatToParts(
+    new Date(2000, 0, 2),
+  );
+  const separator = parts.find(part => part.type === 'literal')?.value ?? '.';
+  return parts
+    .filter(
+      (part): part is Intl.DateTimeFormatPart & { type: 'day' | 'month' | 'year' } =>
+        part.type === 'day' || part.type === 'month' || part.type === 'year',
+    )
+    .map(part => PICKER_TOKEN[part.type])
+    .join(separator);
+};
+
 /** Sunday-first for en/US-style locales, Monday-first otherwise. */
 const localeDefaultFirstDay = (locale?: string | null): number =>
   resolveLocaleTag(locale).startsWith('en') ? 0 : 1;

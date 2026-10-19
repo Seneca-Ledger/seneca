@@ -1,17 +1,17 @@
 'use client';
 
-import { resolveCurrencyCode } from '@/app/lib/format-money';
 import type React from 'react';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { resolveCurrencyCode } from '@/app/lib/format-money';
 import { useWorkspace } from './WorkspaceContext';
 
-const STORAGE_KEY = 'lumio:currencyDisplay';
+const STORAGE_KEY = 'seneca:currencyDisplay';
 
 interface CurrencyDisplayContextType {
   /** When true, show amounts converted to workspaceCurrency. */
   showConverted: boolean;
   toggleShowConverted: () => void;
-  /** Resolved workspace currency code (e.g. 'KZT'). */
+  /** Resolved workspace currency code (e.g. 'EUR'). */
   workspaceCurrency: string;
 }
 
@@ -19,7 +19,9 @@ const CurrencyDisplayContext = createContext<CurrencyDisplayContextType | undefi
 
 export function CurrencyDisplayProvider({
   children,
-}: { children: React.ReactNode }): React.JSX.Element {
+}: {
+  children: React.ReactNode;
+}): React.JSX.Element {
   const { currentWorkspace } = useWorkspace();
   const workspaceCurrency = resolveCurrencyCode(currentWorkspace?.currency);
 
@@ -37,12 +39,13 @@ export function CurrencyDisplayProvider({
     setShowConverted(prev => !prev);
   }, []);
 
+  const value = useMemo(
+    () => ({ showConverted, toggleShowConverted, workspaceCurrency }),
+    [showConverted, toggleShowConverted, workspaceCurrency],
+  );
+
   return (
-    <CurrencyDisplayContext.Provider
-      value={{ showConverted, toggleShowConverted, workspaceCurrency }}
-    >
-      {children}
-    </CurrencyDisplayContext.Provider>
+    <CurrencyDisplayContext.Provider value={value}>{children}</CurrencyDisplayContext.Provider>
   );
 }
 

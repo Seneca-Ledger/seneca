@@ -1,19 +1,6 @@
 'use client';
 
 import {
-  ArrowLeft,
-  ChevronDown,
-  CreditCard,
-  Layers,
-  Mail,
-  Receipt,
-  Send,
-  Share2,
-  Table,
-  TriangleAlert,
-} from '@/app/components/icons';
-import { Spinner } from '@/app/components/ui/spinner';
-import {
   Box,
   Button,
   ButtonGroup,
@@ -27,7 +14,21 @@ import {
 } from '@mui/material';
 import Alert from '@mui/material/Alert';
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  CreditCard,
+  Layers,
+  Mail,
+  Receipt,
+  Send,
+  Share2,
+  Table,
+  TriangleAlert,
+} from '@/app/components/icons';
+import { Spinner } from '@/app/components/ui/spinner';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import type { GmailReceipt, ReceiptCategoryOption } from '../hooks/useGmailReceiptData';
 
 interface GmailReceiptHeaderProps {
@@ -48,7 +49,7 @@ interface GmailReceiptHeaderProps {
   onSubmit: () => Promise<void>;
   onOpenPayable: () => void;
   onExportToGmailDraft: () => Promise<void>;
-  onExportToSheets: () => Promise<void>;
+  onExportToXlsx: () => Promise<void>;
 }
 
 function CategoryButton({
@@ -64,10 +65,12 @@ function CategoryButton({
   selectedCategory: ReceiptCategoryOption | undefined;
   onOpen: () => void;
 }): React.ReactElement {
+  const categoryName = useCategoryName();
+  const selectedName = selectedCategory ? categoryName(selectedCategory.name) : undefined;
   const label = hasDisabledCategory
-    ? `${selectedCategory?.name} — disabled`
+    ? `${selectedName} — disabled`
     : hasCategory
-      ? selectedCategory?.name
+      ? selectedName
       : 'Category';
 
   const issueSx = {
@@ -93,7 +96,7 @@ function CategoryButton({
       variant="outlined"
       startIcon={<Layers size={18} />}
       onClick={onOpen}
-      title={selectedCategory?.name || 'Select category'}
+      title={selectedName || 'Select category'}
       sx={{
         textTransform: 'none',
         fontWeight: 700,
@@ -139,11 +142,11 @@ export function GmailReceiptHeader({
   onSubmit,
   onOpenPayable,
   onExportToGmailDraft,
-  onExportToSheets,
+  onExportToXlsx,
 }: GmailReceiptHeaderProps): React.ReactElement {
   const router = useRouter();
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const exportAnchorRef = useRef<HTMLDivElement>(null);
+  const [exportAnchorEl, setExportAnchorEl] = useState<HTMLDivElement | null>(null);
 
   return (
     <>
@@ -258,7 +261,7 @@ export function GmailReceiptHeader({
 
             <ButtonGroup
               variant="outlined"
-              ref={exportAnchorRef}
+              ref={setExportAnchorEl}
               sx={{ ...sharedOutlinedSx, border: 'none' }}
             >
               <Button
@@ -281,7 +284,7 @@ export function GmailReceiptHeader({
               </Button>
             </ButtonGroup>
             <Menu
-              anchorEl={exportAnchorRef.current}
+              anchorEl={exportAnchorEl}
               open={exportMenuOpen}
               onClose={() => setExportMenuOpen(false)}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -301,13 +304,13 @@ export function GmailReceiptHeader({
               <MenuItem
                 onClick={() => {
                   setExportMenuOpen(false);
-                  onExportToSheets();
+                  onExportToXlsx();
                 }}
               >
                 <ListItemIcon>
                   <Table size={16} />
                 </ListItemIcon>
-                <ListItemText>Export to Sheets</ListItemText>
+                <ListItemText>Export to Excel</ListItemText>
               </MenuItem>
             </Menu>
 

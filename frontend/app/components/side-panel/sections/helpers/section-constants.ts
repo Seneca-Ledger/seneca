@@ -1,5 +1,5 @@
-import { AlertCircle, AlertTriangle, Info } from '@/app/components/icons';
 import React from 'react';
+import { AlertCircle, AlertTriangle, Info } from '@/app/components/icons';
 
 export const STATUS_COLOR_MAP: Record<string, string> = {
   online: '#10b981',

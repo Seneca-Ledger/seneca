@@ -1,13 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, QueryFailedError, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
+import type {
+  CreateDataEntryBody,
+  CreateDataEntryCustomFieldBody,
+  UpdateDataEntryCustomFieldBody,
+} from '../../contracts';
 import { User, WorkspaceMember } from '../../entities';
+import { DataEntry, DataEntryType } from '../../entities/data-entry.entity';
 import { DataEntryCustomField } from '../../entities/data-entry-custom-field.entity';
-import { DataEntry, type DataEntryType } from '../../entities/data-entry.entity';
-import type { CreateDataEntryCustomFieldDto } from './dto/create-data-entry-custom-field.dto';
-import type { CreateDataEntryDto } from './dto/create-data-entry.dto';
-import type { UpdateDataEntryCustomFieldDto } from './dto/update-data-entry-custom-field.dto';
+import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 
 type DriverErrorLike = { driverError?: { code?: string } };
 
@@ -45,6 +50,7 @@ export class DataEntryService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    private readonly workspaceCurrency: WorkspaceCurrencyService,
   ) {}
 
   private async ensureCanEditDataEntry(workspaceId: string, userId: string): Promise<void> {
@@ -53,18 +59,18 @@ export class DataEntryService {
       workspaceId,
       userId,
       'canEditDataEntry',
-      'Недостаточно прав для редактирования ввода данных',
+      'DATA_ENTRY_EDIT_FORBIDDEN',
     );
   }
 
-  async create(workspaceId: string, userId: string, dto: CreateDataEntryDto): Promise<DataEntry> {
+  async create(workspaceId: string, userId: string, dto: CreateDataEntryBody): Promise<DataEntry> {
     await this.ensureCanEditDataEntry(workspaceId, userId);
     const customFieldName = dto.customFieldName?.trim() || null;
     const customFieldValue = dto.customFieldValue?.trim() || null;
     const customFieldIconRaw = dto.customFieldIcon?.trim() || null;
     const customFieldIcon = customFieldName ? customFieldIconRaw : null;
     if (customFieldValue && !customFieldName) {
-      throw new BadRequestException('Укажите название пользовательской колонки');
+      throw new BadRequestException(appError('ENTRY_CUSTOM_COLUMN_TITLE_REQUIRED'));
     }
 
     let customTabId: string | null = null;
@@ -73,7 +79,7 @@ export class DataEntryService {
         where: { id: dto.customTabId, workspaceId },
       });
       if (!customTab) {
-        throw new BadRequestException('Пользовательская вкладка не найдена');
+        throw new BadRequestException(appError('VIEW_NOT_FOUND'));
       }
       customTabId = customTab.id;
     }
@@ -81,11 +87,11 @@ export class DataEntryService {
     const entry = this.dataEntryRepository.create({
       userId,
       workspaceId,
-      type: dto.type,
+      type: toEnum(DataEntryType, dto.type),
       date: dto.date,
       amount: dto.amount,
       note: dto.note || null,
-      currency: dto.currency || 'KZT',
+      currency: await this.workspaceCurrency.resolveFor(workspaceId, dto.currency),
       customFieldName,
       customFieldIcon,
       customFieldValue,
@@ -137,7 +143,7 @@ export class DataEntryService {
     await this.ensureCanEditDataEntry(workspaceId, userId);
     const entry = await this.dataEntryRepository.findOne({ where: { id, workspaceId } });
     if (!entry) {
-      throw new NotFoundException('Запись не найдена');
+      throw new NotFoundException(appError('ENTRY_NOT_FOUND'));
     }
     await this.dataEntryRepository.delete(id);
   }
@@ -189,7 +195,7 @@ export class DataEntryService {
       select: ['id', 'dataEntryHiddenBaseTabs'],
     });
     if (!user) {
-      throw new NotFoundException('Пользователь не найден');
+      throw new NotFoundException(appError('USER_NOT_FOUND'));
     }
 
     const current = Array.isArray(user.dataEntryHiddenBaseTabs) ? user.dataEntryHiddenBaseTabs : [];
@@ -205,12 +211,12 @@ export class DataEntryService {
   async createCustomField(
     workspaceId: string,
     userId: string,
-    dto: CreateDataEntryCustomFieldDto,
+    dto: CreateDataEntryCustomFieldBody,
   ): Promise<DataEntryCustomField> {
     await this.ensureCanEditDataEntry(workspaceId, userId);
     const name = dto.name.trim();
     if (!name.length) {
-      throw new BadRequestException('Укажите название колонки');
+      throw new BadRequestException(appError('COLUMN_TITLE_REQUIRED'));
     }
     const icon = dto.icon?.trim() || null;
     try {
@@ -226,7 +232,7 @@ export class DataEntryService {
       if (error instanceof QueryFailedError) {
         const code = getDriverErrorCode(error);
         if (code === '23505') {
-          throw new BadRequestException('Колонка с таким названием уже существует');
+          throw new BadRequestException(appError('COLUMN_NAME_TAKEN'));
         }
       }
       throw error;
@@ -237,17 +243,17 @@ export class DataEntryService {
     workspaceId: string,
     userId: string,
     id: string,
-    dto: UpdateDataEntryCustomFieldDto,
+    dto: UpdateDataEntryCustomFieldBody,
   ): Promise<DataEntryCustomField> {
     await this.ensureCanEditDataEntry(workspaceId, userId);
     const item = await this.dataEntryCustomFieldRepository.findOne({ where: { id, workspaceId } });
     if (!item) {
-      throw new NotFoundException('Колонка не найдена');
+      throw new NotFoundException(appError('COLUMN_NOT_FOUND'));
     }
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       const name = dto.name.trim();
       if (!name.length) {
-        throw new BadRequestException('Укажите название колонки');
+        throw new BadRequestException(appError('COLUMN_TITLE_REQUIRED'));
       }
       item.name = name;
     }
@@ -260,7 +266,7 @@ export class DataEntryService {
       if (error instanceof QueryFailedError) {
         const code = getDriverErrorCode(error);
         if (code === '23505') {
-          throw new BadRequestException('Колонка с таким названием уже существует');
+          throw new BadRequestException(appError('COLUMN_NAME_TAKEN'));
         }
       }
       throw error;
@@ -271,7 +277,7 @@ export class DataEntryService {
     await this.ensureCanEditDataEntry(workspaceId, userId);
     const item = await this.dataEntryCustomFieldRepository.findOne({ where: { id, workspaceId } });
     if (!item) {
-      throw new NotFoundException('Колонка не найдена');
+      throw new NotFoundException(appError('COLUMN_NOT_FOUND'));
     }
     await this.dataEntryRepository.delete({ workspaceId, customTabId: id });
     await this.dataEntryCustomFieldRepository.delete(id);

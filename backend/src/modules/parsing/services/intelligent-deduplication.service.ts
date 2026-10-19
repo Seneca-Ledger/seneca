@@ -570,7 +570,9 @@ export class IntelligentDeduplicationService {
 
         // Mark all indices as processed
         processed.add(i);
-        potentialDuplicates.forEach(dup => processed.add(dup.index));
+        for (const dup of potentialDuplicates) {
+          processed.add(dup.index);
+        }
       }
     }
 
@@ -807,7 +809,9 @@ export class IntelligentDeduplicationService {
 
     for (const result of highScoringResults) {
       totalScore += result.score * (weights[result.algorithm as keyof typeof weights] || 0);
-      result.fields.forEach(field => allFields.add(field));
+      for (const field of result.fields) {
+        allFields.add(field);
+      }
     }
 
     return {
@@ -1220,6 +1224,38 @@ export class IntelligentDeduplicationService {
   }
 
   /**
+   * A charge and its refund, or amounts in two different currencies, can land
+   * within the same date/amount tolerance window without being the same
+   * transaction. Direction only blocks a match when both sides commit to one
+   * (missing debit/credit data falls through rather than blocking); currency
+   * only blocks when both sides specify one.
+   */
+  private hasDirectionOrCurrencyMismatch(
+    transaction1: ParsedTransaction,
+    transaction2: ParsedTransaction | Transaction,
+  ): boolean {
+    const direction1 =
+      transaction1.debit && transaction1.debit > 0
+        ? 'debit'
+        : transaction1.credit && transaction1.credit > 0
+          ? 'credit'
+          : null;
+    const direction2 =
+      transaction2.debit && transaction2.debit > 0
+        ? 'debit'
+        : transaction2.credit && transaction2.credit > 0
+          ? 'credit'
+          : null;
+    if (direction1 && direction2 && direction1 !== direction2) {
+      return true;
+    }
+
+    const currency1 = transaction1.currency?.trim().toUpperCase();
+    const currency2 = transaction2.currency?.trim().toUpperCase();
+    return Boolean(currency1 && currency2 && currency1 !== currency2);
+  }
+
+  /**
    * Apply tolerant matching rules to compare two transactions.
    * Uses configurable tolerances for date shifts, amount variations, and text similarity.
    *
@@ -1268,6 +1304,10 @@ export class IntelligentDeduplicationService {
 
     if (!amountMatches) {
       // If amounts don't match within tolerance, this is not a match
+      return result;
+    }
+
+    if (this.hasDirectionOrCurrencyMismatch(transaction1, transaction2)) {
       return result;
     }
 

@@ -1,21 +1,20 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import { ArrowLeft, Download, Table } from '@/app/components/icons';
-import type { EditableReceiptParsedData } from '@/app/components/receipts/receipt-types';
-import { DetailActionButton } from '@/app/components/ui/detail-action-button';
-import { Spinner } from '@/app/components/ui/spinner';
-import type { ReceiptRecord } from '@/app/lib/api';
-import { tokens } from '@/lib/theme-tokens';
 import { Box, Typography } from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import { useTheme } from 'next-themes';
 import { useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { ArrowLeft, Download, Table } from '@/app/components/icons';
+import type { EditableReceiptParsedData } from '@/app/components/receipts/receipt-types';
+import { DetailActionButton } from '@/app/components/ui/detail-action-button';
+import { Spinner } from '@/app/components/ui/spinner';
+import type { ReceiptRecord } from '@/app/lib/api';
+import { formatStoredDate } from '@/app/lib/user-format-store';
+import { tokens } from '@/lib/theme-tokens';
 import { buildExportData, createExportTable } from './export-helpers';
 
 interface ExportConfirmDialogProps {
@@ -100,7 +99,10 @@ interface ReceiptActionsProps {
 function useExportToTable({
   receipt,
   formValue,
-}: { receipt: ReceiptRecord; formValue: EditableReceiptParsedData }): {
+}: {
+  receipt: ReceiptRecord;
+  formValue: EditableReceiptParsedData;
+}): {
   exportingToTable: boolean;
   exportConfirmOpen: boolean;
   setExportConfirmOpen: (v: boolean) => void;
@@ -112,18 +114,21 @@ function useExportToTable({
 
   const handleExportToTable = async (): Promise<void> => {
     setExportingToTable(true);
-    try {
+
+    return await (async () => {
       const exportData = buildExportData({ receipt, formValue });
       if (!(exportData.columns.length && exportData.rows.length)) {
         toast.error('There are no parsed receipt fields to export yet');
         return;
       }
       await createExportTable({ receipt, exportData, router });
-    } catch {
-      toast.error('Failed to export to table');
-    } finally {
-      setExportingToTable(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error('Failed to export to table');
+      })
+      .finally(async () => {
+        setExportingToTable(false);
+      });
   };
 
   return { exportingToTable, exportConfirmOpen, setExportConfirmOpen, handleExportToTable };
@@ -141,12 +146,13 @@ export function ReceiptActions({
 
   return (
     <>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
-        <DetailActionButton type="button" onClick={onDownload}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+        <DetailActionButton variant="ghost" type="button" onClick={onDownload}>
           <Download className="h-4 w-4" />
           Download
         </DetailActionButton>
         <DetailActionButton
+          variant="ghost"
           type="button"
           onClick={() => setExportConfirmOpen(true)}
           disabled={exportingToTable}
@@ -154,7 +160,7 @@ export function ReceiptActions({
           <Table className="h-4 w-4" />
           Export to table
         </DetailActionButton>
-        <DetailActionButton type="button" onClick={onApprove} disabled={saving}>
+        <DetailActionButton variant="default" type="button" onClick={onApprove} disabled={saving}>
           {saving ? <Spinner className="size-[18px]" /> : null}
           Approve receipt
         </DetailActionButton>

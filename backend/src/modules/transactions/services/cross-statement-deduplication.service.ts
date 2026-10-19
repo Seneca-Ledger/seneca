@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, type FindOptionsWhere, In, Repository } from 'typeorm';
+import { taxLockedConflict } from '../../../common/utils/tax-lock.util';
+import { Statement } from '../../../entities/statement.entity';
 import { Transaction } from '../../../entities/transaction.entity';
 
 export interface DuplicateCandidate {
@@ -74,6 +76,11 @@ export class CrossStatementDeduplicationService {
       },
     });
 
+    const accountByStatement = await this.loadAccountNumbers([
+      ...transactionsToCheck,
+      ...potentialDuplicates,
+    ]);
+
     const duplicateGroups: DuplicateGroup[] = [];
     const processedIds = new Set<string>();
 
@@ -88,7 +95,8 @@ export class CrossStatementDeduplicationService {
             t.id !== transaction.id &&
             !processedIds.has(t.id) &&
             !t.isDuplicate &&
-            !this.isSameSplitGroup(transaction, t),
+            !this.isSameSplitGroup(transaction, t) &&
+            !this.isDifferentAccount(transaction, t, accountByStatement),
         )
         .map(candidate => ({
           candidate,
@@ -115,7 +123,9 @@ export class CrossStatementDeduplicationService {
         });
 
         processedIds.add(master.id);
-        duplicates.forEach(d => processedIds.add(d.transaction.id));
+        for (const d of duplicates) {
+          processedIds.add(d.transaction.id);
+        }
       }
     }
 
@@ -132,6 +142,11 @@ export class CrossStatementDeduplicationService {
 
     for (const group of duplicateGroups) {
       for (const duplicate of group.duplicates) {
+        // A row on a filed tax return stays counted: flagging it would take it
+        // out of the totals that return was built from.
+        if (duplicate.transaction.taxLocked) {
+          continue;
+        }
         await this.transactionRepository.update(duplicate.transaction.id, {
           isDuplicate: true,
           duplicateOfId: group.master.id,
@@ -149,22 +164,28 @@ export class CrossStatementDeduplicationService {
   /**
    * Merge duplicate transactions into master
    * @param transactionIds IDs of transactions to merge (first is master)
+   * @param workspaceId Workspace ID — scopes the merge to the caller's own transactions
    */
-  async mergeDuplicates(transactionIds: string[]): Promise<Transaction> {
+  async mergeDuplicates(transactionIds: string[], workspaceId: string): Promise<Transaction> {
     if (transactionIds.length < 2) {
-      throw new Error('At least 2 transactions required for merge');
+      throw new BadRequestException('At least 2 transactions required for merge');
     }
 
     const transactions = await this.transactionRepository.findBy({
       id: In(transactionIds),
+      workspaceId,
     });
 
     if (transactions.length !== transactionIds.length) {
-      throw new Error('One or more transactions not found');
+      throw new NotFoundException('One or more transactions not found');
     }
 
-    const master = transactions[0];
-    const duplicates = transactions.slice(1);
+    const master = transactions.find(row => row.id === transactionIds[0]) ?? transactions[0];
+    const duplicates = transactions.filter(row => row.id !== master.id);
+    const locked = duplicates.filter(row => row.taxLocked).length;
+    if (locked > 0) {
+      throw taxLockedConflict(locked);
+    }
 
     // Mark duplicates
     for (const duplicate of duplicates) {
@@ -181,8 +202,14 @@ export class CrossStatementDeduplicationService {
 
   /**
    * Unmark transaction as duplicate
+   * @param workspaceId Workspace ID — scopes the update to the caller's own transaction
    */
-  async unmarkDuplicate(transactionId: string): Promise<Transaction> {
+  async unmarkDuplicate(transactionId: string, workspaceId: string): Promise<Transaction> {
+    const existing = await this.transactionRepository.findOneBy({ id: transactionId, workspaceId });
+    if (!existing) {
+      throw new NotFoundException('Transaction not found');
+    }
+
     await this.transactionRepository.update(transactionId, {
       isDuplicate: false,
       duplicateOfId: null,
@@ -192,7 +219,7 @@ export class CrossStatementDeduplicationService {
 
     const transaction = await this.transactionRepository.findOneBy({ id: transactionId });
     if (!transaction) {
-      throw new Error('Transaction not found');
+      throw new NotFoundException('Transaction not found');
     }
 
     return transaction;
@@ -224,12 +251,77 @@ export class CrossStatementDeduplicationService {
   }
 
   /**
+   * Two cards charged the same coffee on the same day are two coffees. A row
+   * can only duplicate a row from the same account (an overlapping re-import)
+   * or from an account we cannot name. The wallet is not used: classification
+   * puts the default wallet on every row, so it would merge all accounts.
+   */
+  private isDifferentAccount(
+    t1: Transaction,
+    t2: Transaction,
+    accountByStatement: Map<string, string>,
+  ): boolean {
+    const key = (t: Transaction): string | null => {
+      if (t.cryptoWalletId) return `crypto:${t.cryptoWalletId}`;
+      const account = t.statementId ? accountByStatement.get(t.statementId) : undefined;
+      return account ? `account:${account}` : null;
+    };
+    const key1 = key(t1);
+    const key2 = key(t2);
+    return key1 !== null && key2 !== null && key1 !== key2;
+  }
+
+  /** statementId → account number, for the statements the rows came from. */
+  private async loadAccountNumbers(transactions: Transaction[]): Promise<Map<string, string>> {
+    const ids = [...new Set(transactions.map(t => t.statementId).filter(Boolean))] as string[];
+    const result = new Map<string, string>();
+    const manager = this.transactionRepository.manager;
+    // Unit tests hand in a bare repository mock without a manager; without
+    // account numbers every row simply counts as "unknown account".
+    if (ids.length === 0 || typeof manager?.getRepository !== 'function') {
+      return result;
+    }
+    const statements = await manager
+      .getRepository(Statement)
+      .find({ where: { id: In(ids) }, select: ['id', 'accountNumber'] });
+    for (const statement of statements) {
+      const account = statement.accountNumber?.trim();
+      if (account) {
+        result.set(statement.id, account);
+      }
+    }
+    return result;
+  }
+
+  /**
    * Parts of the same split share date, counterparty and purpose by construction,
    * and an even split makes them identical — an exact 1.0 match. They are never
    * duplicates of each other, but they stay comparable against unrelated rows.
    */
   private isSameSplitGroup(t1: Transaction, t2: Transaction): boolean {
     return Boolean(t1.splitGroupId) && t1.splitGroupId === t2.splitGroupId;
+  }
+
+  /**
+   * A charge and its own refund/reversal (or two unrelated payments that
+   * merely net to the same figure) can land within the same date/amount
+   * tolerance window without being the same transaction. Direction and
+   * currency are the two signals that distinguish them, so a mismatch on
+   * either rules out a duplicate regardless of how similar everything else
+   * scores.
+   */
+  private hasDirectionOrCurrencyMismatch(t1: Transaction, t2: Transaction): boolean {
+    const direction1 =
+      t1.debit && t1.debit > 0 ? 'debit' : t1.credit && t1.credit > 0 ? 'credit' : null;
+    const direction2 =
+      t2.debit && t2.debit > 0 ? 'debit' : t2.credit && t2.credit > 0 ? 'credit' : null;
+    if (direction1 && direction2 && direction1 !== direction2) {
+      return true;
+    }
+
+    const currency1 = t1.currency?.trim().toUpperCase();
+    const currency2 = t2.currency?.trim().toUpperCase();
+    return Boolean(currency1 && currency2 && currency1 !== currency2);
   }
 
   /**
@@ -243,6 +335,10 @@ export class CrossStatementDeduplicationService {
     matchType: 'exact' | 'fuzzy' | 'semantic' | 'hybrid';
     matchedFields: string[];
   } {
+    if (this.hasDirectionOrCurrencyMismatch(t1, t2)) {
+      return { similarity: 0, matchType: 'fuzzy', matchedFields: [] };
+    }
+
     const scores: Record<string, number> = {};
     const matchedFields: string[] = [];
 

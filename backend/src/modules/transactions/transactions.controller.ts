@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import {
-  Body,
+  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -17,29 +17,41 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
+import { parseOwnerFilter } from '../../common/utils/transaction-owner.util';
+import type { BulkUpdateItemInput } from '../../contracts';
+import {
+  BulkUpdateRequestBody,
+  DetectTransfersBody,
+  DuplicateGroups,
+  DuplicatesMarked,
+  LinkReimbursementBody,
+  LinkTransferBody,
+  MarkDuplicatesBody,
+  MergeDuplicatesBody,
+  SetTransactionTagsBody,
+  SplitTransactionBody,
+  StorageTagList,
+  TransactionAttachmentList,
+  TransactionCandidates,
+  TransactionListPage,
+  UpdateTransactionBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { BulkUpdateItemDto } from './dto/bulk-update-transaction.dto';
-import { BulkUpdateTransactionDto } from './dto/bulk-update-transaction.dto';
-import { SetTransactionTagsDto } from './dto/set-transaction-tags.dto';
-import { SplitTransactionDto } from './dto/split-transaction.dto';
-import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { CrossStatementDeduplicationService } from './services/cross-statement-deduplication.service';
 import { TransactionAttachmentsService } from './services/transaction-attachments.service';
 import { TransactionTagsService } from './services/transaction-tags.service';
+import { TransferPairingService } from './services/transfer-pairing.service';
 import { TransactionsService } from './transactions.service';
-
-interface LegacyBulkUpdateTransactionDto {
-  ids: string[];
-  updates: UpdateTransactionDto;
-}
 
 /**
  * Aliased on purpose: writing `Express.Multer.File` straight into a decorated
@@ -58,13 +70,16 @@ export class TransactionsController {
     private readonly deduplicationService: CrossStatementDeduplicationService,
     private readonly transactionTagsService: TransactionTagsService,
     private readonly transactionAttachmentsService: TransactionAttachmentsService,
+    private readonly transferPairingService: TransferPairingService,
   ) {}
 
   @Get()
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionListPage)
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
     // Accept both snake_case and camelCase for backward compatibility
     @Query('statement_id') statementIdSnake?: string,
     @Query('statementId') statementIdCamel?: string,
@@ -79,6 +94,7 @@ export class TransactionsController {
     @Query('limit') limit?: string,
     @Query('currency') currency?: string,
     @Query('convert_to') convertTo?: string,
+    @Query('owner') owner?: string,
   ) {
     // Prefer snake_case for backward compatibility, fall back to camelCase
     const statementId = statementIdSnake || statementIdCamel;
@@ -86,17 +102,22 @@ export class TransactionsController {
     const dateTo = dateToSnake || endDateCamel;
     const categoryId = categoryIdSnake || categoryIdCamel;
 
-    const result = await this.transactionsService.findAll(workspaceId, {
-      statementId,
-      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
-      dateTo: dateTo ? new Date(dateTo) : undefined,
-      type,
-      categoryId,
-      currency,
-      convertTo,
-      page: page ? Number.parseInt(page) : 1,
-      limit: limit ? Number.parseInt(limit) : 50,
-    });
+    const result = await this.transactionsService.findAll(
+      workspaceId,
+      {
+        statementId,
+        dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+        dateTo: dateTo ? new Date(dateTo) : undefined,
+        type,
+        categoryId,
+        currency,
+        convertTo,
+        owner: parseOwnerFilter(owner, selfMemberId),
+        page: page ? Number.parseInt(page) : 1,
+        limit: limit ? Number.parseInt(limit) : 50,
+      },
+      selfMemberId,
+    );
 
     // Include 'items' field for backward compatibility
     return {
@@ -111,20 +132,21 @@ export class TransactionsController {
     @Param('id') id: string,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.transactionsService.findOne(id, workspaceId);
+    return this.transactionsService.findOneFor(id, workspaceId, selfMemberId);
   }
 
   @Put(':id')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
-  @Audit({ entityType: EntityType.TRANSACTION, includeDiff: true, isUndoable: true })
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateTransactionDto,
+    @SchemaBody(UpdateTransactionBody) updateDto: UpdateTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.transactionsService.update(id, workspaceId, user.id, updateDto);
+    return this.transactionsService.update(id, workspaceId, user.id, updateDto, null, selfMemberId);
   }
 
   @Get(':id/split')
@@ -140,7 +162,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async split(
     @Param('id') id: string,
-    @Body() splitDto: SplitTransactionDto,
+    @SchemaBody(SplitTransactionBody) splitDto: SplitTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -163,29 +185,33 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_BULK_UPDATE)
   async bulkUpdate(
-    @Body() body: BulkUpdateTransactionDto | LegacyBulkUpdateTransactionDto,
+    @SchemaBody(BulkUpdateRequestBody) body: BulkUpdateRequestBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     // Support both {items} and {ids, updates} formats for backward compatibility
-    let items: BulkUpdateItemDto[];
+    let items: BulkUpdateItemInput[];
 
-    if ('items' in body) {
+    if (body.items) {
       items = body.items;
-    } else if ('ids' in body && 'updates' in body) {
-      // Map {ids, updates} to items array
-      items = body.ids.map(id => ({ id, updates: body.updates }));
+    } else if (body.ids && body.updates) {
+      const updates = body.updates;
+      items = body.ids.map(id => ({ id, updates }));
     } else {
-      throw new Error('Invalid bulk update format. Expected {items} or {ids, updates}');
+      // BadRequestException, not Error: a plain Error leaves the exception
+      // filter with nothing to map and the client gets a 500 for bad input.
+      throw new BadRequestException(
+        'Invalid bulk update format. Expected {items} or {ids, updates}',
+      );
     }
 
-    return this.transactionsService.bulkUpdate(workspaceId, user.id, items);
+    return this.transactionsService.bulkUpdate(workspaceId, user.id, items, selfMemberId);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @WorkspaceAuth(Permission.TRANSACTION_DELETE)
-  @Audit({ entityType: EntityType.TRANSACTION, includeDiff: true, isUndoable: true })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: User,
@@ -196,6 +222,7 @@ export class TransactionsController {
 
   @Get('duplicates/detect')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(DuplicateGroups)
   async detectDuplicates(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -238,8 +265,9 @@ export class TransactionsController {
   @Post('duplicates/mark')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(DuplicatesMarked)
   async markDuplicates(
-    @Body() body: { groups: Array<{ masterId: string; duplicateIds: string[] }> },
+    @SchemaBody(MarkDuplicatesBody) body: MarkDuplicatesBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -262,11 +290,14 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async mergeDuplicates(
-    @Body() body: { transactionIds: string[] },
+    @SchemaBody(MergeDuplicatesBody) body: MergeDuplicatesBody,
     @CurrentUser() _user: User,
-    @WorkspaceId() _workspaceId: string,
+    @WorkspaceId() workspaceId: string,
   ) {
-    const master = await this.deduplicationService.mergeDuplicates(body.transactionIds);
+    const master = await this.deduplicationService.mergeDuplicates(
+      body.transactionIds,
+      workspaceId,
+    );
 
     return {
       success: true,
@@ -285,9 +316,9 @@ export class TransactionsController {
   async unmarkDuplicate(
     @Param('id') id: string,
     @CurrentUser() _user: User,
-    @WorkspaceId() _workspaceId: string,
+    @WorkspaceId() workspaceId: string,
   ) {
-    const transaction = await this.deduplicationService.unmarkDuplicate(id);
+    const transaction = await this.deduplicationService.unmarkDuplicate(id, workspaceId);
 
     return {
       success: true,
@@ -298,8 +329,94 @@ export class TransactionsController {
     };
   }
 
+  /** Pairs the legs of transfers between the user's own accounts and writes them. */
+  @Post('transfers/detect')
+  @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  async detectTransfers(
+    @SchemaBody(DetectTransfersBody) body: DetectTransfersBody,
+    @CurrentUser() _user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.transferPairingService.detectAndApply(workspaceId, body.statementId ?? undefined);
+  }
+
+  @Get(':id/transfer-candidates')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionCandidates)
+  async transferCandidates(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() _user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    const data = await this.transferPairingService.candidates(workspaceId, id);
+    return { data };
+  }
+
+  @Post(':id/link-transfer')
+  @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  async linkTransfer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaBody(LinkTransferBody) body: LinkTransferBody,
+    @CurrentUser() _user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    const transferPairId = await this.transferPairingService.link(workspaceId, id, body.otherId);
+    return { transferPairId };
+  }
+
+  @Post(':id/unlink-transfer')
+  @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  async unlinkTransfer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() _user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    await this.transferPairingService.unlink(workspaceId, id);
+    return { unlinked: true };
+  }
+
+  @Get(':id/reimbursement-candidates')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionCandidates)
+  async reimbursementCandidates(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() _user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    const data = await this.transferPairingService.reimbursementCandidates(workspaceId, id);
+    return { data };
+  }
+
+  @Post(':id/link-reimbursement')
+  @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  async linkReimbursement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaBody(LinkReimbursementBody) body: LinkReimbursementBody,
+    @CurrentUser() _user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.transferPairingService.linkReimbursement(workspaceId, id, body.expenseId);
+  }
+
+  @Post(':id/unlink-reimbursement')
+  @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  async unlinkReimbursement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() _user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    await this.transferPairingService.unlinkReimbursement(workspaceId, id);
+    return { unlinked: true };
+  }
+
   @Get(':id/tags')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(StorageTagList)
   async getTags(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
     return this.transactionTagsService.getTags(id, workspaceId);
   }
@@ -307,9 +424,10 @@ export class TransactionsController {
   @Put(':id/tags')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   @Audit({ entityType: EntityType.TRANSACTION, includeDiff: true })
+  @SchemaResponse(StorageTagList)
   async setTags(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: SetTransactionTagsDto,
+    @SchemaBody(SetTransactionTagsBody) dto: SetTransactionTagsBody,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.transactionTagsService.setTags(id, workspaceId, dto.tagIds);
@@ -317,6 +435,7 @@ export class TransactionsController {
 
   @Get(':id/attachments')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionAttachmentList)
   async listAttachments(
     @Param('id', new ParseUUIDPipe()) id: string,
     @WorkspaceId() workspaceId: string,

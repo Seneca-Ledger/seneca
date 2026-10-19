@@ -14,6 +14,7 @@ import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import type { Repository } from 'typeorm';
+import { Like } from 'typeorm';
 import type { FileStat, WebDAVClient } from 'webdav';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import {
@@ -44,6 +45,7 @@ import { AuditService } from '../audit/audit.service';
 import { GmailReceiptCategoryService } from '../gmail/services/gmail-receipt-category.service';
 import { GmailReceiptDuplicateService } from '../gmail/services/gmail-receipt-duplicate.service';
 import { GmailReceiptParserService } from '../gmail/services/gmail-receipt-parser.service';
+import { sniffStatementFormat } from '../parsing/parsers/statement-formats.util';
 import { StatementsService } from '../statements/statements.service';
 
 type ProtocolStatusResponse = {
@@ -143,9 +145,9 @@ export class OpenProtocolIntegrationsService {
     private readonly auditService: AuditService,
   ) {}
 
-  async s3Status(user: User): Promise<ProtocolStatusResponse> {
+  async s3Status(workspaceId: string): Promise<ProtocolStatusResponse> {
     const { integration, settings } = await this.findProtocolIntegration(
-      user,
+      workspaceId,
       IntegrationProvider.S3_COMPATIBLE,
     );
     const config = settings
@@ -165,24 +167,31 @@ export class OpenProtocolIntegrationsService {
     });
   }
 
-  async saveS3Settings(user: User, input: S3SettingsInput): Promise<ProtocolStatusResponse> {
-    const existing = await this.findProtocolIntegration(user, IntegrationProvider.S3_COMPATIBLE);
+  async saveS3Settings(
+    user: User,
+    workspaceId: string,
+    input: S3SettingsInput,
+  ): Promise<ProtocolStatusResponse> {
+    const existing = await this.findProtocolIntegration(
+      workspaceId,
+      IntegrationProvider.S3_COMPATIBLE,
+    );
     const config = this.mergeS3Config(existing.settings, input);
     await assertPublicEgressUrl(config.endpoint);
     await this.assertS3Connection(config);
-    await this.saveProtocolSettings(user, IntegrationProvider.S3_COMPATIBLE, {
+    await this.saveProtocolSettings(user, workspaceId, IntegrationProvider.S3_COMPATIBLE, {
       config: this.publicS3Config(config),
       secrets: {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
       },
     });
-    return this.s3Status(user);
+    return this.s3Status(workspaceId);
   }
 
-  async webdavStatus(user: User): Promise<ProtocolStatusResponse> {
+  async webdavStatus(workspaceId: string): Promise<ProtocolStatusResponse> {
     const { integration, settings } = await this.findProtocolIntegration(
-      user,
+      workspaceId,
       IntegrationProvider.WEBDAV,
     );
     const config = settings
@@ -201,13 +210,14 @@ export class OpenProtocolIntegrationsService {
 
   async saveWebdavSettings(
     user: User,
+    workspaceId: string,
     input: WebdavSettingsInput,
   ): Promise<ProtocolStatusResponse> {
-    const existing = await this.findProtocolIntegration(user, IntegrationProvider.WEBDAV);
+    const existing = await this.findProtocolIntegration(workspaceId, IntegrationProvider.WEBDAV);
     const config = this.mergeWebdavConfig(existing.settings, input);
     await assertPublicEgressUrl(config.url);
     await this.assertWebdavConnection(config);
-    await this.saveProtocolSettings(user, IntegrationProvider.WEBDAV, {
+    await this.saveProtocolSettings(user, workspaceId, IntegrationProvider.WEBDAV, {
       config: {
         url: config.url,
         rootPath: config.rootPath,
@@ -217,12 +227,12 @@ export class OpenProtocolIntegrationsService {
         password: config.password,
       },
     });
-    return this.webdavStatus(user);
+    return this.webdavStatus(workspaceId);
   }
 
-  async imapStatus(user: User): Promise<ProtocolStatusResponse> {
+  async imapStatus(workspaceId: string): Promise<ProtocolStatusResponse> {
     const { integration, settings } = await this.findProtocolIntegration(
-      user,
+      workspaceId,
       IntegrationProvider.IMAP,
     );
     const config = settings
@@ -241,12 +251,16 @@ export class OpenProtocolIntegrationsService {
     });
   }
 
-  async saveImapSettings(user: User, input: ImapSettingsInput): Promise<ProtocolStatusResponse> {
-    const existing = await this.findProtocolIntegration(user, IntegrationProvider.IMAP);
+  async saveImapSettings(
+    user: User,
+    workspaceId: string,
+    input: ImapSettingsInput,
+  ): Promise<ProtocolStatusResponse> {
+    const existing = await this.findProtocolIntegration(workspaceId, IntegrationProvider.IMAP);
     const config = this.mergeImapConfig(existing.settings, input);
     await assertPublicEgressHost(config.host);
     await this.assertImapConnection(config);
-    await this.saveProtocolSettings(user, IntegrationProvider.IMAP, {
+    await this.saveProtocolSettings(user, workspaceId, IntegrationProvider.IMAP, {
       config: {
         host: config.host,
         port: config.port,
@@ -258,7 +272,7 @@ export class OpenProtocolIntegrationsService {
         pass: config.pass,
       },
     });
-    return this.imapStatus(user);
+    return this.imapStatus(workspaceId);
   }
 
   async listImapFolders(input: {
@@ -287,8 +301,8 @@ export class OpenProtocolIntegrationsService {
     }
   }
 
-  async disconnect(user: User, provider: IntegrationProvider): Promise<{ ok: true }> {
-    const { integration } = await this.findProtocolIntegration(user, provider);
+  async disconnect(workspaceId: string, provider: IntegrationProvider): Promise<{ ok: true }> {
+    const { integration } = await this.findProtocolIntegration(workspaceId, provider);
     if (integration) {
       integration.status = IntegrationStatus.DISCONNECTED;
       await this.integrationRepository.save(integration);
@@ -296,8 +310,8 @@ export class OpenProtocolIntegrationsService {
     return { ok: true };
   }
 
-  async listS3Files(user: User): Promise<{ files: ProtocolFile[] }> {
-    const { client, config } = await this.createS3Client(user);
+  async listS3Files(workspaceId: string): Promise<{ files: ProtocolFile[] }> {
+    const { client, config } = await this.createS3Client(workspaceId);
     const response = await client.send(
       new ListObjectsV2Command({
         Bucket: config.bucket,
@@ -322,9 +336,10 @@ export class OpenProtocolIntegrationsService {
 
   async importS3Files(
     user: User,
+    workspaceId: string,
     fileIds: string[],
   ): Promise<{ ok: true; results: ImportResult[] }> {
-    const { client, config } = await this.createS3Client(user);
+    const { client, config } = await this.createS3Client(workspaceId);
     const results: ImportResult[] = [];
 
     for (const key of fileIds) {
@@ -333,7 +348,7 @@ export class OpenProtocolIntegrationsService {
           new GetObjectCommand({ Bucket: config.bucket, Key: key }),
         );
         const buffer = await this.bodyToBuffer(response.Body);
-        await this.importStatementFile(user, {
+        await this.importStatementFile(user, workspaceId, {
           id: key,
           originalName: path.posix.basename(key),
           mimeType: response.ContentType || this.getMimeType(key),
@@ -348,9 +363,9 @@ export class OpenProtocolIntegrationsService {
     return { ok: true, results };
   }
 
-  async syncS3(user: User): Promise<{ ok: true; uploaded: number }> {
-    const { client, config } = await this.createS3Client(user);
-    const statements = await this.getSyncStatements(user);
+  async syncS3(user: User, workspaceId: string): Promise<{ ok: true; uploaded: number }> {
+    const { client, config } = await this.createS3Client(workspaceId);
+    const statements = await this.getSyncStatements(workspaceId);
     let uploaded = 0;
 
     for (const statement of statements) {
@@ -375,7 +390,7 @@ export class OpenProtocolIntegrationsService {
       }
     }
 
-    await this.auditProtocolSync(user, IntegrationProvider.S3_COMPATIBLE, uploaded);
+    await this.auditProtocolSync(user, workspaceId, IntegrationProvider.S3_COMPATIBLE, uploaded);
     return { ok: true, uploaded };
   }
 
@@ -411,8 +426,8 @@ export class OpenProtocolIntegrationsService {
     );
   }
 
-  async listWebdavFiles(user: User): Promise<{ files: ProtocolFile[] }> {
-    const { client, config } = await this.createWebdavClient(user);
+  async listWebdavFiles(workspaceId: string): Promise<{ files: ProtocolFile[] }> {
+    const { client, config } = await this.createWebdavClient(workspaceId);
     const contents = await client.getDirectoryContents(config.rootPath);
     const entries = Array.isArray(contents) ? contents : [contents];
 
@@ -432,16 +447,17 @@ export class OpenProtocolIntegrationsService {
 
   async importWebdavFiles(
     user: User,
+    workspaceId: string,
     fileIds: string[],
   ): Promise<{ ok: true; results: ImportResult[] }> {
-    const { client } = await this.createWebdavClient(user);
+    const { client } = await this.createWebdavClient(workspaceId);
     const results: ImportResult[] = [];
 
     for (const filePath of fileIds) {
       try {
         const contents = await client.getFileContents(filePath, { format: 'binary' });
         const buffer = Buffer.isBuffer(contents) ? contents : Buffer.from(contents as ArrayBuffer);
-        await this.importStatementFile(user, {
+        await this.importStatementFile(user, workspaceId, {
           id: filePath,
           originalName: path.posix.basename(filePath),
           mimeType: this.getMimeType(filePath),
@@ -456,9 +472,9 @@ export class OpenProtocolIntegrationsService {
     return { ok: true, results };
   }
 
-  async syncWebdav(user: User): Promise<{ ok: true; uploaded: number }> {
-    const { client, config } = await this.createWebdavClient(user);
-    const statements = await this.getSyncStatements(user);
+  async syncWebdav(user: User, workspaceId: string): Promise<{ ok: true; uploaded: number }> {
+    const { client, config } = await this.createWebdavClient(workspaceId);
+    const statements = await this.getSyncStatements(workspaceId);
     let uploaded = 0;
 
     for (const statement of statements) {
@@ -476,12 +492,15 @@ export class OpenProtocolIntegrationsService {
       }
     }
 
-    await this.auditProtocolSync(user, IntegrationProvider.WEBDAV, uploaded);
+    await this.auditProtocolSync(user, workspaceId, IntegrationProvider.WEBDAV, uploaded);
     return { ok: true, uploaded };
   }
 
-  async syncImap(user: User): Promise<{ ok: true; scanned: number; imported: number }> {
-    const config = await this.getImapConfig(user);
+  async syncImap(
+    user: User,
+    workspaceId: string,
+  ): Promise<{ ok: true; scanned: number; imported: number }> {
+    const config = await this.getImapConfig(workspaceId);
     const { lookup } = createPublicEgressHttpAgents();
     const client = new ImapFlow({
       host: config.host,
@@ -522,7 +541,7 @@ export class OpenProtocolIntegrationsService {
           }
 
           const parsed = await simpleParser(source);
-          const receiptId = await this.importImapMessage(user, uid, parsed, config);
+          const receiptId = await this.importImapMessage(user, workspaceId, uid, parsed, config);
           if (receiptId) {
             imported += 1;
             await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
@@ -543,18 +562,27 @@ export class OpenProtocolIntegrationsService {
 
   private async importImapMessage(
     user: User,
+    workspaceId: string,
     uid: number,
     parsed: Awaited<ReturnType<typeof simpleParser>>,
     config: ImapConfig,
   ): Promise<string | null> {
-    const workspaceId = this.getWorkspaceId(user);
     const messageId = parsed.messageId || `uid-${uid}`;
     const syntheticId = `imap:${config.host}:${config.mailbox}:${messageId}`;
+    // Per workspace: the same inbox may be set up in several workspaces.
     const existing = await this.receiptRepository.findOne({
-      where: { gmailMessageId: syntheticId },
+      where: { workspaceId, gmailMessageId: syntheticId },
     });
     if (existing) {
       return null;
+    }
+
+    // A forwarded bank export goes to statement import, not to the receipt pile.
+    const statementAttachment = parsed.attachments.find(attachment =>
+      isStatementAttachment(attachment.filename, attachment.content),
+    );
+    if (statementAttachment) {
+      return this.importStatementAttachment(user, workspaceId, syntheticId, statementAttachment);
     }
 
     const attachments = parsed.attachments.map(attachment => ({
@@ -604,7 +632,8 @@ export class OpenProtocolIntegrationsService {
           labels: ['imap'],
           snippet: parsed.text?.slice(0, 500),
         },
-        parsedData,
+        // Saving turns the omitted column into null, as before.
+        parsedData: parsedData ?? undefined,
         attachmentPaths,
         taxAmount: parsedData?.tax || null,
         isDuplicate: false,
@@ -625,19 +654,55 @@ export class OpenProtocolIntegrationsService {
     }
 
     if (parsedData && receipt.status !== ReceiptStatus.FAILED) {
-      const category = await this.receiptCategoryService.suggestCategory(receipt);
-      if (category) {
-        receipt.parsedData = {
-          ...receipt.parsedData,
-          category: category.name,
-          categoryId: category.id,
-        };
-      }
+      await this.receiptCategoryService.categorize(receipt);
     }
 
     const saved = await this.receiptRepository.save(receipt);
-    await this.auditReceiptImport(user, saved);
+    await this.auditReceiptImport(user, workspaceId, saved);
     return saved.id;
+  }
+
+  /**
+   * Writes the attachment where uploads live and runs it through the same
+   * path as a file dropped on the statements page. Returns the statement id,
+   * which marks the message as handled; the inbox id travels in the file name.
+   */
+  private async importStatementAttachment(
+    user: User,
+    workspaceId: string,
+    syntheticId: string,
+    attachment: Awaited<ReturnType<typeof simpleParser>>['attachments'][number],
+  ): Promise<string | null> {
+    const existing = await this.statementRepository.findOne({
+      where: { workspaceId, fileName: Like(`%${syntheticId.slice(-24)}%`) },
+      select: ['id'],
+    });
+    if (existing) {
+      return null;
+    }
+    const originalName = normalizeFilename(attachment.filename || `statement-${randomUUID()}`);
+    const extension = path.extname(originalName) || '.bin';
+    const filePath = path.join(resolveUploadsDir(), `${randomUUID()}${extension}`);
+    await fs.promises.writeFile(filePath, attachment.content);
+    const file = {
+      fieldname: 'files',
+      originalname: `${path.basename(originalName, extension)}-${syntheticId.slice(-24)}${extension}`,
+      encoding: '7bit',
+      mimetype: attachment.contentType || 'application/octet-stream',
+      size: attachment.content.length,
+      destination: resolveUploadsDir(),
+      filename: path.basename(filePath),
+      path: filePath,
+      buffer: attachment.content,
+    } as Express.Multer.File;
+    try {
+      const statement = await this.statementsService.create(user, workspaceId, file);
+      return statement.id;
+    } catch (error) {
+      this.logger.warn(`IMAP: statement attachment skipped: ${this.getErrorMessage(error)}`);
+      await fs.promises.unlink(filePath).catch(() => undefined);
+      return null;
+    }
   }
 
   private async saveReceiptAttachments(
@@ -658,6 +723,7 @@ export class OpenProtocolIntegrationsService {
 
   private async importStatementFile(
     user: User,
+    workspaceId: string,
     file: { id: string; originalName: string; mimeType: string; contents: Buffer },
   ) {
     const uploadsDir = resolveUploadsDir();
@@ -680,23 +746,16 @@ export class OpenProtocolIntegrationsService {
     } as Express.Multer.File;
 
     validateFile(upload);
-    return this.statementsService.create(user, this.getWorkspaceId(user), upload);
+    return this.statementsService.create(user, workspaceId, upload);
   }
 
-  private async getSyncStatements(user: User): Promise<Statement[]> {
+  private async getSyncStatements(workspaceId: string): Promise<Statement[]> {
     return this.statementRepository
       .createQueryBuilder('statement')
       .where('statement.deletedAt IS NULL')
-      .andWhere('statement.workspaceId = :workspaceId', { workspaceId: this.getWorkspaceId(user) })
+      .andWhere('statement.workspaceId = :workspaceId', { workspaceId })
       .orderBy('statement.createdAt', 'ASC')
       .getMany();
-  }
-
-  private getWorkspaceId(user: User): string {
-    if (!user.workspaceId) {
-      throw new BadRequestException('User workspace is required');
-    }
-    return user.workspaceId;
   }
 
   private buildStatus(
@@ -727,14 +786,16 @@ export class OpenProtocolIntegrationsService {
     };
   }
 
-  private async createS3Client(user: User): Promise<{ client: S3Client; config: S3Config }> {
-    const config = await this.getS3Config(user);
+  private async createS3Client(
+    workspaceId: string,
+  ): Promise<{ client: S3Client; config: S3Config }> {
+    const config = await this.getS3Config(workspaceId);
     return { config, ...this.createS3ClientFromConfig(config) };
   }
 
-  private async getS3Config(user: User): Promise<S3Config> {
+  private async getS3Config(workspaceId: string): Promise<S3Config> {
     const { settings } = await this.findProtocolIntegration(
-      user,
+      workspaceId,
       IntegrationProvider.S3_COMPATIBLE,
     );
     if (settings) {
@@ -793,14 +854,17 @@ export class OpenProtocolIntegrationsService {
   }
 
   private async createWebdavClient(
-    user: User,
+    workspaceId: string,
   ): Promise<{ client: WebDAVClient; config: WebdavConfig }> {
-    const config = await this.getWebdavConfig(user);
+    const config = await this.getWebdavConfig(workspaceId);
     return this.createWebdavClientFromConfig(config);
   }
 
-  private async getWebdavConfig(user: User): Promise<WebdavConfig> {
-    const { settings } = await this.findProtocolIntegration(user, IntegrationProvider.WEBDAV);
+  private async getWebdavConfig(workspaceId: string): Promise<WebdavConfig> {
+    const { settings } = await this.findProtocolIntegration(
+      workspaceId,
+      IntegrationProvider.WEBDAV,
+    );
     if (settings) {
       const config = this.getWebdavConfigFromSettings(settings);
       await assertPublicEgressUrl(config.url);
@@ -846,8 +910,8 @@ export class OpenProtocolIntegrationsService {
     };
   }
 
-  private async getImapConfig(user: User): Promise<ImapConfig> {
-    const { settings } = await this.findProtocolIntegration(user, IntegrationProvider.IMAP);
+  private async getImapConfig(workspaceId: string): Promise<ImapConfig> {
+    const { settings } = await this.findProtocolIntegration(workspaceId, IntegrationProvider.IMAP);
     if (settings) {
       const config = this.getImapConfigFromSettings(settings);
       await assertPublicEgressHost(config.host);
@@ -901,8 +965,12 @@ export class OpenProtocolIntegrationsService {
     };
   }
 
-  private async findProtocolIntegration(user: User, provider: IntegrationProvider) {
-    const workspaceId = this.getWorkspaceId(user);
+  /**
+   * The integration of the workspace open in the request. It used to be the
+   * user's registration workspace, so settings saved while another workspace
+   * was open, and everything imported through them, landed there.
+   */
+  private async findProtocolIntegration(workspaceId: string, provider: IntegrationProvider) {
     const integration = await this.integrationRepository.findOne({
       where: { workspaceId, provider },
       relations: ['openProtocolSettings'],
@@ -916,14 +984,14 @@ export class OpenProtocolIntegrationsService {
 
   private async saveProtocolSettings(
     user: User,
+    workspaceId: string,
     provider: IntegrationProvider,
     payload: {
       config: Record<string, unknown>;
       secrets: Record<string, string | undefined>;
     },
   ): Promise<OpenProtocolSettings> {
-    const workspaceId = this.getWorkspaceId(user);
-    const existing = await this.findProtocolIntegration(user, provider);
+    const existing = await this.findProtocolIntegration(workspaceId, provider);
     const integration =
       existing.integration ||
       this.integrationRepository.create({
@@ -1164,27 +1232,39 @@ export class OpenProtocolIntegrationsService {
 
   private async auditProtocolSync(
     user: User,
+    workspaceId: string,
     provider: IntegrationProvider,
     uploaded: number,
   ): Promise<void> {
-    await this.auditService
-      .createEvent({
-        workspaceId: this.getWorkspaceId(user),
+    try {
+      const { integration } = await this.findProtocolIntegration(workspaceId, provider);
+      // Storage configured from the environment has no integration row to log against.
+      if (!integration) {
+        return;
+      }
+      await this.auditService.createEvent({
+        workspaceId,
         actorType: ActorType.INTEGRATION,
         actorId: user.id,
         actorLabel: `${provider} Sync`,
         entityType: EntityType.INTEGRATION,
-        entityId: null,
+        entityId: integration.id,
         action: AuditAction.EXPORT,
         meta: { provider, uploaded },
-      })
-      .catch(error => this.logger.warn(`Audit event failed: ${this.getErrorMessage(error)}`));
+      });
+    } catch (error) {
+      this.logger.warn(`Audit event failed: ${this.getErrorMessage(error)}`);
+    }
   }
 
-  private async auditReceiptImport(user: User, receipt: Receipt): Promise<void> {
+  private async auditReceiptImport(
+    user: User,
+    workspaceId: string,
+    receipt: Receipt,
+  ): Promise<void> {
     await this.auditService
       .createEvent({
-        workspaceId: this.getWorkspaceId(user),
+        workspaceId,
         actorType: ActorType.INTEGRATION,
         actorId: user.id,
         actorLabel: 'IMAP Import',
@@ -1203,4 +1283,28 @@ export class OpenProtocolIntegrationsService {
   private getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
+}
+
+const STATEMENT_EXTENSIONS = new Set([
+  '.csv',
+  '.xlsx',
+  '.xls',
+  '.ofx',
+  '.qfx',
+  '.qif',
+  '.mt940',
+  '.sta',
+  '.940',
+  '.swi',
+  '.xml',
+]);
+
+/** Bank exports by extension; an .xml only when it is camt, PDFs stay receipts. */
+function isStatementAttachment(filename: string | undefined, content: Buffer): boolean {
+  const extension = path.extname(filename || '').toLowerCase();
+  if (!STATEMENT_EXTENSIONS.has(extension)) return false;
+  if (extension === '.xml') {
+    return sniffStatementFormat(content.subarray(0, 8192).toString('utf-8')) === 'camt';
+  }
+  return true;
 }

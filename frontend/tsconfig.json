@@ -16,6 +16,9 @@
     "plugins": [
       {
         "name": "next"
+      },
+      {
+        "name": "@effect/language-service"
       }
     ],
     "paths": {
@@ -31,7 +34,8 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts",
-    ".intlayer/**/*.ts"
+    ".intlayer/**/*.ts",
+    ".next/dev/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

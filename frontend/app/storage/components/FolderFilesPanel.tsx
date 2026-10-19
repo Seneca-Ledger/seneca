@@ -1,8 +1,8 @@
 'use client';
 
-import { FileX, Search } from '@/app/components/icons';
 import { Box, TextField, Typography } from '@mui/material';
 import React from 'react';
+import { FileX, Search } from '@/app/components/icons';
 import type { StorageFile } from '../storageHelpers';
 import { DraggableModalFileItem } from './DraggableModalFileItem';
 
@@ -45,7 +45,9 @@ const emptyIconSx = {
 
 function FilePanelEmpty({
   modalsFilesEmpty,
-}: { modalsFilesEmpty: React.ReactNode }): React.JSX.Element {
+}: {
+  modalsFilesEmpty: React.ReactNode;
+}): React.JSX.Element {
   return (
     <Box sx={{ px: 3, py: 6, textAlign: 'center' }}>
       <Box sx={emptyIconSx}>

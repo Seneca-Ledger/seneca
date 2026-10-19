@@ -7,6 +7,19 @@
       "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "frontend-docker-backend",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["NEXT_PUBLIC_API_URL=http://localhost:3003/api/v1", "npm", "--prefix", "frontend", "run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "website",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "website", "run", "start", "--", "--port", "3005"],
+      "port": 3005
     }
   ]
 }

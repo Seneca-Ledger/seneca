@@ -1,9 +1,9 @@
 'use client';
 
-import { Check, X } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import { Box, IconButton, TextField } from '@mui/material';
 import React from 'react';
+import { Check, X } from '@/app/components/icons';
+import { tokens } from '@/lib/theme-tokens';
 import type { FolderOption } from '../storageHelpers';
 
 export interface FolderEditRowProps {

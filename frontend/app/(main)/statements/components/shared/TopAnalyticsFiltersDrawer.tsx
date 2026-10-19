@@ -1,8 +1,10 @@
 'use client';
 
 import { FiltersDrawer } from '@/app/(main)/statements/components/filters/FiltersDrawer';
-import type { buildAnalyticsFilterOptions } from '@/app/(main)/statements/helpers/analytics-filter-labels';
-import type { AnalyticsFilterOptionLabels } from '@/app/(main)/statements/helpers/analytics-filter-labels';
+import type {
+  AnalyticsFilterOptionLabels,
+  buildAnalyticsFilterOptions,
+} from '@/app/(main)/statements/helpers/analytics-filter-labels';
 import { buildFiltersDrawerLabels } from '@/app/(main)/statements/helpers/buildFiltersDrawerLabels';
 import type { UseStatementFiltersReturn } from '@/app/(main)/statements/hooks/useStatementFilters';
 

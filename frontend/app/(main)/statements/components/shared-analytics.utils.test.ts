@@ -33,6 +33,12 @@ describe('shared analytics utils', () => {
     expect(resolveSourceChannel({ sourceType: 'statement', fileType: 'expense' })).toBe('bank');
   });
 
+  it('marks wallet-synced rows as crypto instead of bank', () => {
+    expect(
+      resolveSourceChannel({ sourceType: 'statement', fileType: 'expense', isCrypto: true }),
+    ).toBe('crypto');
+  });
+
   it('sorts aggregate rows by selected metric', () => {
     const rows: AggregateRow[] = [
       { id: 'a', count: 7, total: 800, average: 114.28 },

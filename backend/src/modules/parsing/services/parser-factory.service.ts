@@ -4,12 +4,16 @@ import { BankName, FileType } from '../../../entities/statement.entity';
 import type { IParser } from '../interfaces/parser.interface';
 import { BerekeNewParser } from '../parsers/bereke-new.parser';
 import { BerekeOldParser } from '../parsers/bereke-old.parser';
+import { Camt053Parser } from '../parsers/camt053.parser';
 import { CsvParser } from '../parsers/csv.parser';
 import { DocxParser } from '../parsers/docx.parser';
 import { ExcelParser } from '../parsers/excel.parser';
 import { GenericPdfParser } from '../parsers/generic-pdf.parser';
 import { HapoalimParser } from '../parsers/hapoalim.parser';
 import { KaspiParser } from '../parsers/kaspi.parser';
+import { Mt940Parser } from '../parsers/mt940.parser';
+import { OfxParser } from '../parsers/ofx.parser';
+import { QifParser } from '../parsers/qif.parser';
 
 @Injectable()
 export class ParserFactoryService {
@@ -26,6 +30,10 @@ export class ParserFactoryService {
       new ExcelParser(),
       new CsvParser(),
       new DocxParser(),
+      new OfxParser(),
+      new QifParser(),
+      new Camt053Parser(),
+      new Mt940Parser(),
     ];
   }
 
@@ -52,7 +60,7 @@ export class ParserFactoryService {
   }
 
   private looksLikeTransaction(line: string): boolean {
-    const hasDate = /\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}/.test(line);
+    const hasDate = /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/.test(line);
     const hasAmount = /\d[\d\s.,]*\d/.test(line);
     return Boolean(hasDate && hasAmount);
   }

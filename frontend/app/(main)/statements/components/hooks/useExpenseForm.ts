@@ -1,36 +1,41 @@
 /* eslint-disable max-lines */
 'use client';
 
+import { useEffect, useMemo, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { type DeviceLocation, getDeviceLocation } from '@/app/lib/device-location';
+import { getReceiptLocationCapture } from '@/app/lib/receipt-location-capture';
 import {
-  type StatementCategoryNode,
   flattenStatementCategories,
+  type StatementCategoryNode,
 } from '@/app/lib/statement-categories';
 import {
   ALWAYS_ALLOW_STATEMENT_DUPLICATES,
-  type CurrencySearchItem,
-  DEFAULT_RECENT_CURRENCIES,
-  type ManualExpenseDraft,
-  type ManualStep,
-  type StatementExpenseMode,
-  type TaxRateOption,
   buildCurrencySearchIndex,
+  type CurrencySearchItem,
   computeManualAmountFontSize,
   createDefaultManualDraft,
+  DEFAULT_RECENT_CURRENCIES,
   hasPositiveManualAmount,
+  type ManualExpenseDraft,
+  type ManualStep,
   resolveDefaultCurrency,
   resolveExpenseDrawerMode,
+  type StatementExpenseMode,
+  type TaxRateOption,
   validateManualExpenseDraft,
 } from '@/app/lib/statement-expense-drawer';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
 
 type SubmitScanPayload = {
   files: File[];
   allowDuplicates: boolean;
   requireManualCategorySelection: boolean;
+  deviceLocationRequest: Promise<DeviceLocation | null> | null;
 };
+
+export type SelectedFilesOrigin = 'camera' | 'gallery';
 
 type SubmitManualPayload = {
   draft: ManualExpenseDraft;
@@ -94,7 +99,7 @@ export type UseExpenseFormReturn = {
   handleSelectCurrency: (currencyCode: string) => void;
   handleClose: () => void;
   handleBackClick: () => void;
-  handleFilesSelected: (selected: FileList | null) => void;
+  handleFilesSelected: (selected: FileList | File[] | null, origin?: SelectedFilesOrigin) => void;
   handleManualNext: () => void;
   handleSubmitScan: () => Promise<void>;
   handleSubmitManual: () => Promise<void>;
@@ -133,6 +138,7 @@ export function useExpenseForm({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const manualAmountInputRef = useRef<HTMLInputElement>(null);
+  const locationRequestRef = useRef<Promise<DeviceLocation | null> | null>(null);
 
   const currencyItems = useMemo(() => buildCurrencySearchIndex(), []);
   const currencyByCode = useMemo(
@@ -274,10 +280,18 @@ export function useExpenseForm({
     handleClose();
   };
 
-  const handleFilesSelected = (selected: FileList | null): void => {
+  const handleFilesSelected = (
+    selected: FileList | File[] | null,
+    origin: SelectedFilesOrigin = 'gallery',
+  ): void => {
     if (!selected) {
       return;
     }
+    // Only for a fresh camera shot the user agreed to tag (the consent screen
+    // before the first shot, or Settings). A gallery photo may be days old and
+    // taken anywhere, so it never gets a device point.
+    locationRequestRef.current =
+      origin === 'camera' && getReceiptLocationCapture() === 'on' ? getDeviceLocation() : null;
     setFiles(Array.from(selected));
     setError(null);
   };
@@ -298,18 +312,21 @@ export function useExpenseForm({
     }
 
     const filesToUpload = files;
+    const locationRequest = locationRequestRef.current;
+    locationRequestRef.current = null;
     setError(null);
     handleClose();
 
-    try {
-      await onSubmitScan({
-        files: filesToUpload,
-        allowDuplicates: ALWAYS_ALLOW_STATEMENT_DUPLICATES,
-        requireManualCategorySelection: false,
-      });
-    } catch (submitError: unknown) {
+    // Handed over unresolved: the list shows the placeholder rows at once, not
+    // after the location lookup.
+    await onSubmitScan({
+      files: filesToUpload,
+      allowDuplicates: ALWAYS_ALLOW_STATEMENT_DUPLICATES,
+      requireManualCategorySelection: false,
+      deviceLocationRequest: locationRequest,
+    }).catch(async (submitError: unknown) => {
       toast.error(getApiErrorMessage(submitError, 'Failed to upload files'));
-    }
+    });
   };
 
   const handleSubmitManual = async (): Promise<void> => {
@@ -321,7 +338,7 @@ export function useExpenseForm({
     setSubmitting(true);
     setError(null);
 
-    try {
+    await (async () => {
       await onSubmitManual({
         draft: manualDraft,
         date: manualDate,
@@ -329,11 +346,13 @@ export function useExpenseForm({
         allowDuplicates: ALWAYS_ALLOW_STATEMENT_DUPLICATES,
       });
       handleClose();
-    } catch (submitError: unknown) {
-      setError(getApiErrorMessage(submitError, 'Failed to submit manual expense'));
-    } finally {
-      setSubmitting(false);
-    }
+    })()
+      .catch(async (submitError: unknown) => {
+        setError(getApiErrorMessage(submitError, 'Failed to submit manual expense'));
+      })
+      .finally(async () => {
+        setSubmitting(false);
+      });
   };
 
   return {

@@ -1,9 +1,13 @@
 'use client';
 
-import apiClient from '@/app/lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import apiClient from '@/app/lib/api';
+import { apiQuery } from '@/app/lib/query-fn';
+import { queryKeys } from '@/app/lib/query-keys';
 import type { IntegrationStatus, IntegrationStatusMessages } from '../types';
 
 export type UseIntegrationStatusConfig = {
@@ -32,30 +36,31 @@ export function useIntegrationStatus({
   messages,
 }: UseIntegrationStatusConfig): UseIntegrationStatusResult {
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<IntegrationStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
 
   const base = `/integrations/${apiPath}`;
+  const queryKey = queryKeys.integrationStatus({ workspaceId, apiPath });
+
+  const statusQuery = useQuery({
+    queryKey,
+    // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+    queryFn: async ({ signal }) =>
+      (await apiQuery({ url: `${base}/status`, signal })) as IntegrationStatus,
+    enabled: Boolean(user),
+  });
+
+  const loadFailed = statusQuery.isError;
+  const loadFailedMessage = messages.errors.loadStatus;
+  useEffect(() => {
+    if (loadFailed) {
+      toast.error(loadFailedMessage, { id: `integration-status-${apiPath}` });
+    }
+  }, [loadFailed, loadFailedMessage, apiPath]);
 
   const loadStatus = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get(`${base}/status`);
-      setStatus(response.data);
-    } catch {
-      toast.error(messages.errors.loadStatus);
-    } finally {
-      setLoading(false);
-    }
-  }, [base, messages.errors.loadStatus]);
-
-  useEffect(() => {
-    if (user) {
-      void loadStatus();
-    }
-  }, [user, loadStatus]);
+    await queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, workspaceId, apiPath]);
 
   useEffect(() => {
     // eslint-disable-next-line complexity
@@ -78,51 +83,54 @@ export function useIntegrationStatus({
   }, [searchParams, messages]);
 
   const handleConnect = useCallback(async () => {
-    try {
+    return await (async () => {
       toast.success(messages.toasts.connecting);
       const response = await apiClient.get(`${base}/connect`);
-      const url = response.data?.url as string | undefined;
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const url = (response.data as { url?: string } | null)?.url;
       if (!url) {
         toast.error(messages.errors.connectFailed);
         return;
       }
       window.location.href = url;
-    } catch {
+    })().catch(async () => {
       toast.error(messages.errors.connectFailed);
-    }
+    });
   }, [base, messages]);
 
-  const handleDisconnect = useCallback(async () => {
-    try {
-      setSaving(true);
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
       await apiClient.post(`${base}/disconnect`);
-      toast.success(messages.toasts.disconnected);
-      await loadStatus();
-    } catch {
-      toast.error(messages.errors.disconnectFailed);
-    } finally {
-      setSaving(false);
-    }
-  }, [base, messages, loadStatus]);
+    },
+    onSuccess: () => toast.success(messages.toasts.disconnected),
+    onError: () => toast.error(messages.errors.disconnectFailed),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      await apiClient.post(`${base}/sync`);
+    },
+    onSuccess: () => toast.success(messages.toasts.syncStarted),
+    onError: () => toast.error(messages.errors.syncFailed),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const handleDisconnect = useCallback(async () => {
+    disconnectMutation.mutate();
+  }, [disconnectMutation.mutate]);
 
   const handleSync = useCallback(async () => {
-    try {
-      setSyncing(true);
-      await apiClient.post(`${base}/sync`);
-      toast.success(messages.toasts.syncStarted);
-      await loadStatus();
-    } catch {
-      toast.error(messages.errors.syncFailed);
-    } finally {
-      setSyncing(false);
-    }
-  }, [base, messages, loadStatus]);
+    syncMutation.mutate();
+  }, [syncMutation.mutate]);
 
   return {
-    status,
-    loading,
-    saving,
-    syncing,
+    status: statusQuery.data ?? null,
+    // isLoading, а не isPending: без пользователя запрос выключен, и isPending
+    // остался бы true навсегда.
+    loading: statusQuery.isLoading,
+    saving: disconnectMutation.isPending,
+    syncing: syncMutation.isPending,
     loadStatus,
     handleConnect,
     handleDisconnect,

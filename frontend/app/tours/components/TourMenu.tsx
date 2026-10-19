@@ -4,16 +4,16 @@
 
 'use client';
 
-import { Circle, Disc } from '@/app/components/icons';
-import { useIntlayer } from '@/app/i18n';
 import { Divider, ListItemIcon, ListItemText, Menu, MenuItem } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { cloneElement, isValidElement, useCallback, useState } from 'react';
 import type { MouseEvent, ReactElement, ReactNode } from 'react';
+import { cloneElement, isValidElement, useCallback, useState } from 'react';
+import { Circle, Disc } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 import { getTourManager } from '../TourManager';
 import type { TourConfig } from '../types';
-import { useTourCompletedState, useTourRegistration } from './TourMenuHooks';
 import type { TourTextsMap } from './TourMenuHooks';
+import { useTourCompletedState, useTourRegistration } from './TourMenuHooks';
 
 interface TourMenuProps {
   trigger?: ReactNode;
@@ -25,22 +25,25 @@ interface TourNavigationTexts {
   tour: {
     buttons: { next: { value: string }; prev: { value: string }; done: { value: string } };
     progressText?: { value: string };
+    menuLabel: { value: string };
   };
+  shell: { toursNotFound: { value: string } };
 }
 
 function TourTrigger(props: {
   trigger?: ReactNode;
   className?: string;
+  ariaLabel: string;
   onClick: (event: MouseEvent<HTMLElement>) => void;
 }): ReactElement {
-  const { trigger, className, onClick } = props;
+  const { trigger, className, ariaLabel, onClick } = props;
 
   if (!trigger) {
     return (
       <button
         type="button"
         onClick={onClick}
-        aria-label="Tours"
+        aria-label={ariaLabel}
         className={`h-9 w-9 rounded-full flex items-center justify-center shadow-sm ${className ?? ''} bg-primary text-white`}
       >
         <Disc size={16} />
@@ -101,8 +104,6 @@ function useTourMenuTexts(): { statementsTexts: unknown; tourTexts: TourTextsMap
     integrations: useIntlayer('integrations-tour-content'),
     settings: useIntlayer('settings-tour-content'),
     admin: useIntlayer('admin-tour-content'),
-    googleSheetsImport: useIntlayer('google-sheets-import-tour-content'),
-    googleSheetsIntegration: useIntlayer('google-sheets-integration-tour-content'),
   };
   return { statementsTexts, tourTexts };
 }
@@ -158,7 +159,12 @@ export function TourMenu({ trigger, className = '' }: TourMenuProps): ReactEleme
 
   return (
     <>
-      <TourTrigger trigger={trigger} className={className} onClick={handleClick} />
+      <TourTrigger
+        trigger={trigger}
+        className={className}
+        ariaLabel={navigationTexts.tour.menuLabel.value}
+        onClick={handleClick}
+      />
       <Menu
         anchorEl={anchorEl}
         open={open}
@@ -169,7 +175,7 @@ export function TourMenu({ trigger, className = '' }: TourMenuProps): ReactEleme
       >
         {tours.length === 0 && (
           <MenuItem disabled>
-            <ListItemText primary="Tours not found" />
+            <ListItemText primary={navigationTexts.shell.toursNotFound.value} />
           </MenuItem>
         )}
         {tours.map((tour, index) => (

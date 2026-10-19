@@ -10,12 +10,16 @@ import {
   Section,
   Text,
 } from '@react-email/components';
+import { APP_NAME } from '../common/brand';
+import { renderInvitation } from './workspace-invitation.translations';
 
 export type WorkspaceInvitationEmailProps = {
   workspaceName: string;
   invitationLink: string;
   invitedBy?: string | null;
   roleLabel?: string | null;
+  /** Locale of the inviter — the invitee usually has no account yet. */
+  locale: string;
 };
 
 export function WorkspaceInvitationEmail({
@@ -23,8 +27,11 @@ export function WorkspaceInvitationEmail({
   invitationLink,
   invitedBy,
   roleLabel,
+  locale,
 }: WorkspaceInvitationEmailProps) {
-  const previewText = `Приглашение в рабочее пространство ${workspaceName}`;
+  const t = (key: Parameters<typeof renderInvitation>[1], params?: Record<string, string>) =>
+    renderInvitation(locale, key, params);
+  const previewText = t('preview', { workspace: workspaceName });
 
   return (
     <Html>
@@ -33,33 +40,29 @@ export function WorkspaceInvitationEmail({
       <Body style={styles.main}>
         <Container style={styles.container}>
           <Section style={styles.card}>
-            <Text style={styles.brand}>Lumio</Text>
-            <Heading style={styles.h1}>Приглашение в рабочее пространство</Heading>
+            <Text style={styles.brand}>{APP_NAME}</Text>
+            <Heading style={styles.h1}>{t('heading')}</Heading>
             <Text style={styles.text}>
               {invitedBy ? (
-                <>
-                  <strong>{invitedBy}</strong> приглашает вас присоединиться к{' '}
-                </>
+                <>{t('invitedBy', { inviter: invitedBy })} </>
               ) : (
-                <>Вас приглашают присоединиться к </>
+                <>{t('invitedAnon')} </>
               )}
               <strong>{workspaceName}</strong>.
             </Text>
-            {roleLabel ? <Text style={styles.meta}>Роль: {roleLabel}</Text> : null}
+            {roleLabel ? <Text style={styles.meta}>{t('role', { role: roleLabel })}</Text> : null}
 
             <Section style={styles.buttonWrap}>
               <Button href={invitationLink} style={styles.button}>
-                Принять приглашение
+                {t('cta')}
               </Button>
             </Section>
 
-            <Text style={styles.muted}>Если кнопка не открывается, используйте ссылку:</Text>
+            <Text style={styles.muted}>{t('linkHint')}</Text>
             <Text style={styles.link}>{invitationLink}</Text>
 
             <Hr style={styles.hr} />
-            <Text style={styles.footer}>
-              Ссылка действует 7 дней. Если вы не ожидали это письмо — просто проигнорируйте его.
-            </Text>
+            <Text style={styles.footer}>{t('footer')}</Text>
           </Section>
         </Container>
       </Body>
@@ -72,13 +75,14 @@ export function workspaceInvitationEmailText({
   invitationLink,
   invitedBy,
   roleLabel,
+  locale,
 }: WorkspaceInvitationEmailProps) {
-  const invitedByPart = invitedBy
-    ? `${invitedBy} приглашает вас присоединиться к`
-    : 'Вас приглашают присоединиться к';
-  const rolePart = roleLabel ? `\nРоль: ${roleLabel}` : '';
+  const t = (key: Parameters<typeof renderInvitation>[1], params?: Record<string, string>) =>
+    renderInvitation(locale, key, params);
+  const invitedByPart = invitedBy ? t('invitedBy', { inviter: invitedBy }) : t('invitedAnon');
+  const rolePart = roleLabel ? `\n${t('role', { role: roleLabel })}` : '';
 
-  return `${invitedByPart} «${workspaceName}».${rolePart}\n\nПринять приглашение: ${invitationLink}\n\nСсылка действует 7 дней.`;
+  return `${invitedByPart} «${workspaceName}».${rolePart}\n\n${t('cta')}: ${invitationLink}\n\n${t('footer')}`;
 }
 
 const styles = {

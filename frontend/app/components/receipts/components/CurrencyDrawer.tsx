@@ -1,12 +1,40 @@
 'use client';
 
+import { Box, IconButton, Typography } from '@mui/material';
 import { Check, ChevronLeft, Search } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { useIntlayer } from '@/app/i18n';
 import type { CurrencySearchItem } from '@/app/lib/statement-expense-drawer';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, IconButton, Typography } from '@mui/material';
 
-interface CurrencyDrawerProps {
+const SELECTED_ROW_SX = {
+  display: 'flex',
+  width: '100%',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  bgcolor: 'var(--muted)',
+  px: 2,
+  py: 2,
+  textAlign: 'left',
+  border: 'none',
+  cursor: 'pointer',
+} as const;
+
+const ROW_SX = {
+  display: 'flex',
+  width: '100%',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  px: 1.5,
+  py: 1.5,
+  textAlign: 'left',
+  border: 'none',
+  bgcolor: 'transparent',
+  cursor: 'pointer',
+  '&:hover': { bgcolor: 'action.hover' },
+} as const;
+
+export interface CurrencyDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   currencySearch: string;
@@ -18,6 +46,8 @@ interface CurrencyDrawerProps {
   allCurrencyItems: CurrencySearchItem[];
   handleSelectCurrency: (code: string) => void;
   zIndex?: number;
+  /** An extra "no currency" row, for fields where empty is a valid choice. */
+  noneOption?: { label: string; selected: boolean; onSelect: () => void };
 }
 
 export function CurrencyDrawer({
@@ -32,13 +62,18 @@ export function CurrencyDrawer({
   allCurrencyItems,
   handleSelectCurrency,
   zIndex,
+  noneOption,
 }: CurrencyDrawerProps) {
+  const t = useIntlayer('receiptCurrencyDrawer');
+  const noneMatchesSearch =
+    noneOption !== undefined &&
+    (currencyQuery.length === 0 || noneOption.label.toLowerCase().includes(currencyQuery));
   return (
     <DrawerShell
       isOpen={isOpen}
       onClose={onClose}
       position="right"
-      width="lg"
+      width="sm"
       showCloseButton={false}
       zIndex={zIndex}
       title={
@@ -46,12 +81,12 @@ export function CurrencyDrawer({
           <IconButton
             size="small"
             onClick={onClose}
-            aria-label="Close currency drawer"
+            aria-label={t.closeDrawer.value}
             sx={{ borderRadius: tokens.radius.md }}
           >
             <ChevronLeft style={{ width: 20, height: 20 }} />
           </IconButton>
-          <Typography style={{ fontSize: 18, fontWeight: 600 }}>Select a currency</Typography>
+          <Typography style={{ fontSize: 18, fontWeight: 600 }}>{t.title}</Typography>
         </Box>
       }
     >
@@ -83,7 +118,7 @@ export function CurrencyDrawer({
               type="text"
               value={currencySearch}
               onChange={event => setCurrencySearch(event.target.value)}
-              placeholder="Search"
+              placeholder={t.searchPlaceholder.value}
               style={{
                 width: '100%',
                 border: '1px solid var(--border-color)',
@@ -95,23 +130,24 @@ export function CurrencyDrawer({
             />
           </Box>
 
+          {noneOption?.selected && noneMatchesSearch ? (
+            <Box
+              component="button"
+              type="button"
+              onClick={noneOption.onSelect}
+              sx={SELECTED_ROW_SX}
+            >
+              <Typography style={{ fontSize: 16, fontWeight: 600 }}>{noneOption.label}</Typography>
+              <Check style={{ width: 20, height: 20, color: 'var(--color-primary, #168118)' }} />
+            </Box>
+          ) : null}
+
           {selectedCurrencyItem && selectedMatchesSearch ? (
             <Box
               component="button"
               type="button"
               onClick={() => handleSelectCurrency(selectedCurrencyItem.code)}
-              sx={{
-                display: 'flex',
-                width: '100%',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                bgcolor: 'var(--muted)',
-                px: 2,
-                py: 2,
-                textAlign: 'left',
-                border: 'none',
-                cursor: 'pointer',
-              }}
+              sx={SELECTED_ROW_SX}
             >
               <Typography style={{ fontSize: 16, fontWeight: 600 }}>
                 {selectedCurrencyItem.label}
@@ -125,7 +161,7 @@ export function CurrencyDrawer({
               <Typography
                 style={{ paddingLeft: 4, fontSize: 14, color: 'var(--muted-foreground)' }}
               >
-                Recents
+                {t.recents}
               </Typography>
               <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {recentCurrencyItems.map(item => (
@@ -134,19 +170,7 @@ export function CurrencyDrawer({
                     component="button"
                     type="button"
                     onClick={() => handleSelectCurrency(item.code)}
-                    sx={{
-                      display: 'flex',
-                      width: '100%',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      px: 1.5,
-                      py: 1.5,
-                      textAlign: 'left',
-                      border: 'none',
-                      bgcolor: 'transparent',
-                      cursor: 'pointer',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
+                    sx={ROW_SX}
                   >
                     <Typography style={{ fontSize: 16, fontWeight: 600 }}>{item.label}</Typography>
                   </Box>
@@ -157,9 +181,16 @@ export function CurrencyDrawer({
 
           <Box>
             <Typography style={{ paddingLeft: 4, fontSize: 14, color: 'var(--muted-foreground)' }}>
-              All
+              {t.all}
             </Typography>
             <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {noneOption && !noneOption.selected && noneMatchesSearch ? (
+                <Box component="button" type="button" onClick={noneOption.onSelect} sx={ROW_SX}>
+                  <Typography style={{ fontSize: 16, fontWeight: 600 }}>
+                    {noneOption.label}
+                  </Typography>
+                </Box>
+              ) : null}
               {allCurrencyItems.length > 0 ? (
                 allCurrencyItems.map(item => (
                   <Box
@@ -167,19 +198,7 @@ export function CurrencyDrawer({
                     component="button"
                     type="button"
                     onClick={() => handleSelectCurrency(item.code)}
-                    sx={{
-                      display: 'flex',
-                      width: '100%',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      px: 1.5,
-                      py: 1.5,
-                      textAlign: 'left',
-                      border: 'none',
-                      bgcolor: 'transparent',
-                      cursor: 'pointer',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
+                    sx={ROW_SX}
                   >
                     <Typography style={{ fontSize: 16, fontWeight: 600 }}>{item.label}</Typography>
                   </Box>
@@ -193,7 +212,7 @@ export function CurrencyDrawer({
                     color: 'var(--muted-foreground)',
                   }}
                 >
-                  No currencies found
+                  {t.noResults}
                 </Typography>
               )}
             </Box>

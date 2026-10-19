@@ -1,9 +1,9 @@
 'use client';
 
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
-import { getWorkspacesRootRedirectPath } from '@/app/lib/workspace-tabs';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { getWorkspacesRootRedirectPath } from '@/app/lib/workspace-tabs';
 
 export default function WorkspacesPage() {
   const router = useRouter();

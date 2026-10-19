@@ -7,7 +7,10 @@ function createUserRepoMock(users: unknown[]) {
 
 describe('TelegramScheduler.pushInsightDigests', () => {
   it('pushes only the newly-created warn/critical insights, per connected user', async () => {
-    const telegramService = { pushInsightDigest: jest.fn(async () => undefined) } as any;
+    const telegramService = {
+      pushInsightDigest: jest.fn(async () => undefined),
+      resolveWorkspaceId: jest.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
+    } as any;
     const insightsService = {
       refresh: jest.fn(async () => ({
         created: 2,
@@ -40,7 +43,10 @@ describe('TelegramScheduler.pushInsightDigests', () => {
   });
 
   it('skips users with no workspace, since insights are workspace-scoped', async () => {
-    const telegramService = { pushInsightDigest: jest.fn(async () => undefined) } as any;
+    const telegramService = {
+      pushInsightDigest: jest.fn(async () => undefined),
+      resolveWorkspaceId: jest.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
+    } as any;
     const insightsService = { refresh: jest.fn() } as any;
     const userRepository = createUserRepoMock([
       { id: 'user-1', workspaceId: null, telegramChatId: 'chat-1' },
@@ -59,7 +65,10 @@ describe('TelegramScheduler.pushInsightDigests', () => {
   });
 
   it('stays quiet when nothing new crossed the warn/critical bar', async () => {
-    const telegramService = { pushInsightDigest: jest.fn(async () => undefined) } as any;
+    const telegramService = {
+      pushInsightDigest: jest.fn(async () => undefined),
+      resolveWorkspaceId: jest.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
+    } as any;
     const insightsService = {
       refresh: jest.fn(async () => ({
         created: 1,
@@ -85,7 +94,10 @@ describe('TelegramScheduler.pushInsightDigests', () => {
   });
 
   it('keeps checking other users after one fails', async () => {
-    const telegramService = { pushInsightDigest: jest.fn(async () => undefined) } as any;
+    const telegramService = {
+      pushInsightDigest: jest.fn(async () => undefined),
+      resolveWorkspaceId: jest.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
+    } as any;
     const insightsService = {
       refresh: jest
         .fn()

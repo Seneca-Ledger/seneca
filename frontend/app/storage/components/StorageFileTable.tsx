@@ -1,11 +1,11 @@
 /* eslint-disable max-lines */
 'use client';
 
+import { Box, Chip, Typography } from '@mui/material';
+import React from 'react';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Spinner } from '@/app/components/ui/spinner';
-import { Box, Chip, Typography } from '@mui/material';
-import React from 'react';
 import { Checkbox } from '../../components/ui/checkbox';
 import { formatPaginationLabel } from '../helpers/storageFormatters';
 import { getAvailabilityChipStyle, getStatusChipStyle } from '../helpers/storageStyling';
@@ -146,8 +146,10 @@ export function StorageFileTable({
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box
         sx={{
-          bgcolor: 'background.paper',
-          border: '1px solid var(--border-color)',
+          ...((loading || filteredFiles.length > 0) && {
+            bgcolor: 'background.paper',
+            border: '1px solid var(--border-color)',
+          }),
           overflow: 'visible',
         }}
       >
@@ -510,7 +512,6 @@ function PaginationFooter({
   );
 }
 
-// Re-export chip renderers for use in the main component
-export { getAvailabilityChipStyle, getStatusChipStyle };
 export type { TagOption };
-export { Chip };
+// Re-export chip renderers for use in the main component
+export { Chip, getAvailabilityChipStyle, getStatusChipStyle };

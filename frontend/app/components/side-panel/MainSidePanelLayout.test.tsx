@@ -1,7 +1,8 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MainSidePanelLayout } from './MainSidePanelLayout';
+import { MainSidePanelLayout as MainSidePanelLayoutBase } from './MainSidePanelLayout';
+import { SidePanelProvider } from './SidePanelContext';
 import { useSidePanelConfig } from './hooks/useSidePanelConfig';
 import type { SidePanelPageConfig } from './types';
 
@@ -36,6 +37,15 @@ const config: SidePanelPageConfig = {
 
 function FooterProbe({ placement = 'panel' }: { placement?: string }) {
   return <div data-testid="mobile-footer-probe" data-placement={placement} />;
+}
+
+// The provider lives in the root layout in the app.
+function MainSidePanelLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <SidePanelProvider persistState={false}>
+      <MainSidePanelLayoutBase>{children}</MainSidePanelLayoutBase>
+    </SidePanelProvider>
+  );
 }
 
 function ConfigRegistrar() {
@@ -124,7 +134,7 @@ describe('MainSidePanelLayout mobile panel', () => {
 
     await act(async () => {
       window.dispatchEvent(
-        new CustomEvent('lumio-mobile-menu-visibility', { detail: { open: true } }),
+        new CustomEvent('seneca-mobile-menu-visibility', { detail: { open: true } }),
       );
     });
 

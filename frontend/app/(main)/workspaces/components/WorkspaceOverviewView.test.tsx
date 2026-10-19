@@ -13,7 +13,9 @@ const currentWorkspaceMock = vi.hoisted(() => ({
   name: 'Denis workspace',
   description: 'Workspace description',
   currency: 'EUR',
-  backgroundImage: null,
+  backgroundImage: null as string | null,
+  backgroundAttribution: null as string | null,
+  backgroundSourceUrl: null as string | null,
   settings: {},
   memberRole: 'owner',
 }));
@@ -35,6 +37,13 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/app/lib/api', () => ({
   default: {
     delete: deleteMock,
+    // The tax jurisdiction section fetches on mount. Empty responses keep it
+    // out of the way of the tests in this file, which are about the workspace
+    // form; TaxJurisdictionSection.test.tsx covers its behaviour.
+    get: vi.fn(async (url: string) =>
+      url === '/tax/settings' ? { data: { jurisdiction: null } } : { data: [] },
+    ),
+    put: vi.fn(async () => ({ data: {} })),
   },
 }));
 
@@ -46,6 +55,9 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
     updateWorkspaceBackground: updateWorkspaceBackgroundMock,
   }),
 }));
+
+// Reads the VAT status and the reserve through React Query; TaxStatusSection.test.tsx covers it.
+vi.mock('./TaxStatusSection', () => ({ TaxStatusSection: () => null }));
 
 vi.mock('react-hot-toast', () => ({
   default: {
@@ -106,7 +118,7 @@ describe('WorkspaceOverviewView', () => {
     fireEvent.click(screen.getByTestId('workspace-background-trigger'));
 
     expect(await screen.findByText('Select workspace background')).toBeTruthy();
-    expect(screen.getByAltText('ferdinand-stohr-W1FIkdPAB7E-unsplash.jpg')).toBeTruthy();
+    expect(screen.getByAltText('Fjord between grey peaks under clouds')).toBeTruthy();
   });
 
   it('updates the current workspace background by id', async () => {
@@ -115,7 +127,7 @@ describe('WorkspaceOverviewView', () => {
     render(<WorkspaceOverviewView />);
 
     fireEvent.click(screen.getByTestId('workspace-background-trigger'));
-    fireEvent.click(await screen.findByAltText('ferdinand-stohr-W1FIkdPAB7E-unsplash.jpg'));
+    fireEvent.click(await screen.findByAltText('Fjord between grey peaks under clouds'));
 
     await waitFor(() => {
       expect(updateWorkspaceBackgroundMock).toHaveBeenCalledWith({
@@ -123,6 +135,39 @@ describe('WorkspaceOverviewView', () => {
         backgroundImage: 'ferdinand-stohr-W1FIkdPAB7E-unsplash.jpg',
       });
     });
+  });
+
+  it('credits a searched background photo under the preview', async () => {
+    Object.assign(currentWorkspaceMock, {
+      backgroundImage: '/uploads/workspace-backgrounds/photo.jpg',
+      backgroundAttribution: '"Fjord" by Ann is licensed under CC BY 2.0.',
+      backgroundSourceUrl: 'https://www.flickr.com/photos/ann/1',
+    });
+    try {
+      const { default: WorkspaceOverviewView } = await import('./WorkspaceOverviewView');
+
+      render(<WorkspaceOverviewView />);
+
+      const credit = screen.getByTestId('workspace-background-credit');
+      expect(credit.textContent).toContain('"Fjord" by Ann is licensed under CC BY 2.0.');
+      expect(screen.getByRole('link', { name: 'Source' }).getAttribute('href')).toBe(
+        'https://www.flickr.com/photos/ann/1',
+      );
+    } finally {
+      Object.assign(currentWorkspaceMock, {
+        backgroundImage: null,
+        backgroundAttribution: null,
+        backgroundSourceUrl: null,
+      });
+    }
+  });
+
+  it('shows no credit line for a bundled background', async () => {
+    const { default: WorkspaceOverviewView } = await import('./WorkspaceOverviewView');
+
+    render(<WorkspaceOverviewView />);
+
+    expect(screen.queryByTestId('workspace-background-credit')).toBeNull();
   });
 
   it('uses dark-safe text styles in the workspace background drawer', async () => {

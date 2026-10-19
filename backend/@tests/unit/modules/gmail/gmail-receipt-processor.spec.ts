@@ -109,6 +109,19 @@ describe('GmailReceiptProcessor', () => {
     expect((savedReceipt.parsedData as any)?.validationIssues).toEqual(['missing_amount']);
     expect(duplicateService.findPotentialDuplicates).not.toHaveBeenCalled();
     expect(job.status).toBe(ReceiptJobStatus.COMPLETED);
+
+    // The mailbox and the dedupe are the integration's workspace, not the job's user.
+    expect(receiptRepository.findOne).toHaveBeenCalledWith({
+      where: { workspaceId: 'workspace-1', gmailMessageId: 'gmail-message-1' },
+    });
+    expect(gmailService.getMessage).toHaveBeenCalledWith('workspace-1', 'gmail-message-1');
+    expect(gmailService.downloadAttachment).toHaveBeenCalledWith(
+      'workspace-1',
+      'gmail-message-1',
+      'att-1',
+      'receipt.pdf',
+    );
+    expect(savedReceipt.workspaceId).toBe('workspace-1');
   });
 
   it('extracts email body preferring html part', () => {

@@ -1,0 +1,155 @@
+{
+  "metadata": {
+    "accountNumber": "KZ95200979470KZ039LY",
+    "dateFrom": "2025-11-20T00:00:00",
+    "dateTo": "2025-11-20T00:00:00",
+    "balanceStart": 5420147.32,
+    "balanceEnd": 0,
+    "currency": "KZT"
+  },
+  "transactions": [
+    {
+      "transactionDate": "2025-11-20T15:17:00",
+      "documentNumber": "1480",
+      "counterpartyName": "Ахметова Ирина",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ41722C577823393415",
+      "counterpartyBank": "АО \"KASPI BANK\", Г Алматы CASPKZKA",
+      "debit": 556000,
+      "paymentPurpose": "перевод собственных средств на карту Переводы клиентом денег со своего текущего счета в одном банке на свой текущий счет в другом банке",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T15:19:00",
+      "documentNumber": "7327206",
+      "counterpartyName": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области",
+      "counterpartyBin": "059598147320",
+      "counterpartyAccount": "KZ72833217113KZ0028P",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 400,
+      "paymentPurpose": "Внешний перевод в национальной валюте по платежному документу, отправленному через систему ДБО для корпоративных клиентов, поступившему до 12:30 (времени в г. Астана), № 1480 от 20/11/2025, ИП Ирма, БИН 871570539501, ИИК- KZ95200979470KZ039LY",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T15:35:00",
+      "documentNumber": "18306",
+      "counterpartyName": "ИП Ахметов",
+      "counterpartyBin": "224978845743",
+      "counterpartyAccount": "KZ083973301732217773",
+      "counterpartyBank": "АО \"Народный Банк Казахстана\" Г Алматы HSBKKZKX",
+      "credit": 39050,
+      "paymentPurpose": "Оплата за жидкое мыло согласно сверки от 11.11.2025 г, по Договору на продуктов питания №00041 от 01.11.2023 г. Платежи за товары, за исключением недвижимости и товаров с кодами назначения платежей 711, 712 и 713,",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T15:37:00",
+      "documentNumber": "1481",
+      "counterpartyName": "ТОО Единая торговая система - Казахстан",
+      "counterpartyBin": "342517052383",
+      "counterpartyAccount": "KZ50601A299924873074",
+      "counterpartyBank": "АО \"Народный Банк Казахстана\", Г Алматы HSBKKZKX",
+      "debit": 2000000,
+      "paymentPurpose": "оплата согласно счета №WE-5048 от 18.08.2025 Платежи за товары, за исключением недвижимости и товаров с кодами назначения платежа 711, 712 и 713",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T15:39:00",
+      "documentNumber": "7329208",
+      "counterpartyName": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области",
+      "counterpartyBin": "059598147320",
+      "counterpartyAccount": "KZ72833217113KZ0028P",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 600,
+      "paymentPurpose": "Внешний перевод в национальной валюте по платежному документу, отправленному через систему ДБО для корпоративных клиентов, поступившему после 12:30 (времени в г. Астана) или сумма платежа составляет 5 млн. тенге и выше, № 1481 от 20/11/2025, ИП Ирма, БИН 871570539501, ИИК- KZ95200979470KZ039LY",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T23:00:00",
+      "documentNumber": "ПОГ8",
+      "counterpartyName": "ИП Ирма",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ35812574970KZ02Y39",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 62615.52,
+      "paymentPurpose": "Погашение начисленного вознаграждения по кредиту № 23- 118340-04-КЛ 9. Ссудный счет № KZ40047899830KZ00GNC Ирма БИН:871570539501. Счет погашения: KZ95200979470KZ039LY",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T23:00:00",
+      "documentNumber": "ПОГ9",
+      "counterpartyName": "ИП Ирма",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ40047899830KZ00GNC",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 484633.63,
+      "paymentPurpose": "Погашение основного долга по кредиту № 23-118340-04-КЛ 9. Ссудный счет № KZ40047899830KZ00GNC Ирма БИН:871570539501. Счет погашения: KZ95200979470KZ039LY",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T23:00:00",
+      "documentNumber": "ПОГ10",
+      "counterpartyName": "ИП Ирма",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ32942581940KZ02UDV",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 115139.73,
+      "paymentPurpose": "Погашение начисленного вознаграждения по кредиту № 23- 118340-04-КЛ 8. Ссудный счет № KZ89719812832KZ00GFL Ирма БИН:871570539501. Счет погашения: KZ95200979470KZ039LY",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T23:00:00",
+      "documentNumber": "ПОГ11",
+      "counterpartyName": "ИП Ирма",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ89719812832KZ00GFL",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 1606684.86,
+      "paymentPurpose": "Погашение основного долга по кредиту № 23-118340-04-КЛ 8. Ссудный счет № KZ89719812832KZ00GFL Ирма БИН:871570539501. Счет погашения: KZ95200979470KZ039LY",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T23:00:00",
+      "documentNumber": "ПОГ4",
+      "counterpartyName": "ИП Ирма",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ22842512715KZ030N6",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 26951.95,
+      "paymentPurpose": "Погашение начисленного вознаграждения по кредиту № 23- 118340-04-КЛ 10. Ссудный счет № KZ44051348951KZ00GTS Ирма БИН:871570539501. Счет погашения: KZ95200979470KZ039LY",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T23:00:00",
+      "documentNumber": "ПОГ5",
+      "counterpartyName": "ИП Ирма",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ44051348951KZ00GTS",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 159524.23,
+      "paymentPurpose": "Погашение основного долга по кредиту № 23-118340-04-КЛ 10. Ссудный счет № KZ44051348951KZ00GTS Ирма БИН:871570539501. Счет погашения: KZ95200979470KZ039LY",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T23:00:00",
+      "documentNumber": "ПОГ6",
+      "counterpartyName": "ИП Ирма",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ22037537527KZ031F5",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 71141.93,
+      "paymentPurpose": "Погашение начисленного вознаграждения по кредиту № 23- 118340-04-КЛ/11. Ссудный счет № KZ02889588129KZ00GVB Ирма БИН:871570539501. Счет погашения: KZ95200979470KZ039LY Реквизиты контрагента Реквизиты банка контрагента Наименование БИН/№ счета",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-20T23:00:00",
+      "documentNumber": "ПОГ7",
+      "counterpartyName": "ИП Ирма",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ02889588129KZ00GVB",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 375505.47,
+      "paymentPurpose": "Погашение основного долга по кредиту № 23-118340-04-КЛ/11. Ссудный счет № KZ02889588129KZ00GVB Ирма БИН:871570539501. Счет погашения: KZ95200979470KZ039LY",
+      "currency": "KZT"
+    }
+  ]
+}

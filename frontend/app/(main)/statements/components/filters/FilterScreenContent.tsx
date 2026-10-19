@@ -1,11 +1,12 @@
 'use client';
 
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { format, isValid, parseISO } from 'date-fns';
 import React from 'react';
+import { useIntlayer } from '@/app/i18n';
+import { tokens } from '@/lib/theme-tokens';
 import { FilterOptionRow } from './FilterOptionRow';
 import type {
   FilterAvatarOption,
@@ -254,6 +255,7 @@ function KeywordsScreen({
 }
 
 function AmountScreen({ filters, onUpdateFilters }: FilterScreenContentProps): React.ReactElement {
+  const t = useIntlayer('statementFilterControls');
   const parseNum = (v: string): number | null => {
     const n = Number(v);
     return v.trim() && Number.isFinite(n) ? n : null;
@@ -262,7 +264,7 @@ function AmountScreen({ filters, onUpdateFilters }: FilterScreenContentProps): R
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box>
         <Typography variant="body2" fontWeight={500} color="text.secondary">
-          Min
+          {t.min}
         </Typography>
         <input
           inputMode="decimal"
@@ -274,7 +276,7 @@ function AmountScreen({ filters, onUpdateFilters }: FilterScreenContentProps): R
       </Box>
       <Box>
         <Typography variant="body2" fontWeight={500} color="text.secondary">
-          Max
+          {t.max}
         </Typography>
         <input
           inputMode="decimal"

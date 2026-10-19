@@ -1,8 +1,5 @@
 'use client';
 
-import { CheckCircle2, Layers, Save, Trash2 } from '@/app/components/icons';
-import { Spinner } from '@/app/components/ui/spinner';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -11,6 +8,9 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import { CheckCircle2, Layers, Save, Trash2 } from '@/app/components/icons';
+import { Spinner } from '@/app/components/ui/spinner';
+import { tokens } from '@/lib/theme-tokens';
 import type { CategoryOption } from '../editHelpers';
 import { formatLabel, labelValue } from '../editHelpers';
 

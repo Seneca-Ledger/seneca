@@ -1,9 +1,9 @@
 'use client';
 
+import React from 'react';
 import { AlertTriangle } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
-import React from 'react';
 import { ModalFooter, ModalShell } from './ui/modal-shell';
 
 interface ConfirmModalProps {

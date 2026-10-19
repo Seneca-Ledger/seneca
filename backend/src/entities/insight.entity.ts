@@ -31,6 +31,27 @@ export enum InsightType {
   WORKFLOW_TIP = 'workflow.tip',
   /** Written by the local model on the AI analysis page, not by a server analyzer. */
   AI_SUMMARY = 'ai.summary',
+  /** Stoic advice: plan (budget limits) against reality, per Stoic class. */
+  STOIC_INTENT_GAP = 'stoic.intent_gap',
+  STOIC_VIRTUE_NEGLECTED = 'stoic.virtue_neglected',
+  STOIC_REPEATED = 'stoic.repeated',
+  STOIC_UNCLASSIFIED = 'stoic.unclassified',
+  /** Shown only when no other Stoic signal fired — the user is doing well. */
+  STOIC_PRAISE = 'stoic.praise',
+  /** The plan itself: overall overrun, pace, unused or missing budgets. */
+  STOIC_PLAN = 'stoic.plan',
+  /** Spending habits: small purchases, weekends, one dominant merchant. */
+  STOIC_HABIT = 'stoic.habit',
+  /** Income changed; did spending follow? */
+  STOIC_FORTUNE = 'stoic.fortune',
+  STOIC_GOAL = 'stoic.goal',
+  /** Upcoming payments against the projected balance. */
+  STOIC_COMMITMENTS = 'stoic.commitments',
+  STOIC_SUBSCRIPTIONS = 'stoic.subscriptions',
+  /** Earning well, giving little to others. */
+  STOIC_GENEROSITY = 'stoic.generosity',
+  /** A named expert's principle applied to the user's own numbers. */
+  EXPERT_PRINCIPLE = 'expert.principle',
 }
 
 export enum InsightCategory {
@@ -39,6 +60,8 @@ export enum InsightCategory {
   OPERATIONAL = 'operational',
   TREND = 'trend',
   WORKFLOW = 'workflow',
+  STOIC = 'stoic',
+  EXPERT = 'expert',
 }
 
 export enum InsightSeverity {
@@ -103,13 +126,22 @@ export class Insight {
   @Column({ name: 'is_dismissed', type: 'boolean', default: false })
   isDismissed: boolean;
 
+  /** When the person closed it; a refresh brings it back after a week or when its count grows. */
+  @Column({ name: 'dismissed_at', type: 'timestamptz', nullable: true })
+  dismissedAt: Date | null;
+
   @Column({ name: 'is_actioned', type: 'boolean', default: false })
   isActioned: boolean;
 
   @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
   expiresAt: Date | null;
 
-  @Column({ name: 'deduplication_key', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'deduplication_key',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   deduplicationKey: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

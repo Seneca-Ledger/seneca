@@ -1,6 +1,6 @@
 # Tours System
 
-Interactive tours system for Lumio based on Driver.js with three-language support via Intlayer.
+Interactive tours system for Seneca based on Driver.js with three-language support via Intlayer.
 
 ## Structure
 
@@ -42,7 +42,7 @@ frontend/app/tours/
 
 ### ✅ Upload Tour
 - Page: `/upload`
-- Steps: welcome, drag-drop zone, file list, duplicates, upload button, Google Sheets
+- Steps: welcome, drag-drop zone, file list, duplicates, upload button
 
 ### ✅ Storage Tour
 - Page: `/storage`
@@ -66,7 +66,7 @@ frontend/app/tours/
 
 ### ✅ Integrations Tour
 - Page: `/integrations`
-- Steps: welcome, Google Sheets, API keys, webhooks, connection status
+- Steps: welcome, API keys, webhooks, connection status
 
 ### ✅ Settings Tour
 - Page: `/settings`
@@ -460,7 +460,7 @@ getComputedStyle(element).display !== 'none'
 
 ```typescript
 // Check localStorage
-localStorage.getItem('lumio_tour_state')
+localStorage.getItem('seneca_tour_state')
 
 // Clear data
 tourManager.clearAllData()

@@ -5,7 +5,10 @@ import { ApplicationSettingsModule } from '../application-settings/application-s
 import { AuditModule } from '../audit/audit.module';
 import { BalanceModule } from '../balance/balance.module';
 import { CategoriesModule } from '../categories/categories.module';
-import { TaxRatesModule } from '../tax-rates/tax-rates.module';
+import { TaxModule } from '../tax/tax.module';
+import { DemoWorkspaceService } from './demo-workspace/demo-workspace.service';
+import { WorkspaceBackgroundsController } from './workspace-backgrounds.controller';
+import { WorkspaceBackgroundsService } from './workspace-backgrounds.service';
 import { WorkspacesController } from './workspaces.controller';
 import { WorkspacesService } from './workspaces.service';
 
@@ -16,10 +19,11 @@ import { WorkspacesService } from './workspaces.service';
     AuditModule,
     BalanceModule,
     CategoriesModule,
-    TaxRatesModule,
+    TaxModule,
   ],
-  providers: [WorkspacesService],
-  controllers: [WorkspacesController],
+  providers: [WorkspacesService, WorkspaceBackgroundsService, DemoWorkspaceService],
+  // Backgrounds first: its literal `backgrounds/...` paths must not be read as a workspace id.
+  controllers: [WorkspaceBackgroundsController, WorkspacesController],
   exports: [WorkspacesService],
 })
 export class WorkspacesModule {}

@@ -1,25 +1,42 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import AdmZip from 'adm-zip';
+
+import AdmZip = require('adm-zip');
+
+import { Effect, Schema } from 'effect';
+import { HttpClientResponse } from 'effect/http';
 import nodemailer from 'nodemailer';
 import type { Repository } from 'typeorm';
-import { assertPublicEgressHost, assertPublicEgressUrl } from '../../common/utils/egress-url.util';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { getWith } from '../../common/effect/http-json';
+import { assertPublicEgressHost } from '../../common/utils/egress-url.util';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
-import { User, WorkspaceServiceSettings, WorkspaceServiceSettingsKey } from '../../entities';
+import type {
+  SaveAppSettingsBody,
+  SaveInstanceTelegramBotBody,
+  SaveLocalCategorizationBody,
+  SaveSmtpSettingsBody,
+  SaveTelegramSettingsBody,
+  TestLocalCategorizationBody,
+} from '../../contracts';
+import {
+  InstanceSetting,
+  InstanceSettingKey,
+  User,
+  WorkspaceServiceSettings,
+  WorkspaceServiceSettingsKey,
+} from '../../entities';
 import { TransactionCategorizer } from '../classification/helpers/transaction-categorizer';
 
-export type AiRuntimeSettings = {
-  enabled: boolean;
-  baseUrl: string | null;
-  apiKey: string | null;
-  model: string | null;
-  timeoutMs: number;
-  source: 'workspace' | 'env' | 'disabled';
-};
+/** Telegram's `getMe`: `ok` false with a description for a bad token. */
+const TelegramGetMeResponse = Schema.Struct({
+  ok: Schema.Boolean,
+  description: Schema.optional(Schema.String),
+});
 
 export type LocalCategorizationRuntimeSettings = {
   enabled: boolean;
@@ -44,7 +61,8 @@ export type SmtpRuntimeSettings = {
 export type TelegramRuntimeSettings = {
   botToken: string | null;
   timeoutMs: number;
-  source: 'workspace' | 'env' | 'disabled';
+  /** `instance`: the shared bot an instance admin saved; `env`: TELEGRAM_BOT_TOKEN. */
+  source: 'workspace' | 'instance' | 'env' | 'disabled';
 };
 
 export type AppRuntimeSettings = {
@@ -67,49 +85,28 @@ const DEFAULT_LOCAL_CATEGORIZATION_CATEGORIES = [
   'Коммунальные услуги',
 ];
 
+// The upload itself is capped at 500MB compressed (see the controller). These
+// bound what that is allowed to become once expanded.
+const MAX_MODEL_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_MODEL_ARCHIVE_ENTRIES = 10_000;
+
 @Injectable()
 export class ApplicationSettingsService {
   constructor(
     @InjectRepository(WorkspaceServiceSettings)
     private readonly settingsRepository: Repository<WorkspaceServiceSettings>,
+    private readonly effects: EffectRuntime,
+    @InjectRepository(InstanceSetting)
+    private readonly instanceSettingsRepository: Repository<InstanceSetting>,
   ) {}
 
-  async getAiStatus(user: User) {
-    const settings = await this.findSettings(user, WorkspaceServiceSettingsKey.AI);
-    const runtime = await this.getAiSettings(user);
-    return {
-      connected: runtime.source !== 'disabled',
-      status: runtime.source !== 'disabled' ? 'connected' : 'disconnected',
-      source: runtime.source,
-      settings: {
-        enabled: runtime.enabled,
-        baseUrl: runtime.baseUrl,
-        model: runtime.model,
-        timeoutMs: runtime.timeoutMs,
-        apiKeyConfigured: Boolean(settings?.encryptedSecrets?.apiKey || process.env.AI_API_KEY),
-      },
-    };
-  }
-
-  async saveAiSettings(user: User, input: Record<string, unknown>) {
-    const existing = await this.findSettings(user, WorkspaceServiceSettingsKey.AI);
-    const config = {
-      enabled: this.booleanValue(input.enabled, true),
-      baseUrl: this.requiredString(input.baseUrl, 'baseUrl').replace(/\/+$/, ''),
-      model: this.requiredString(input.model, 'model'),
-      timeoutMs: this.positiveNumber(input.timeoutMs, 20000),
-    };
-    const secrets = this.mergeSecrets(existing, ['apiKey'], input);
-    const runtime = this.aiRuntimeFromParts(config, secrets, 'workspace');
-    await assertPublicEgressUrl(runtime.baseUrl);
-    await this.assertAiConnection(runtime);
-    await this.saveSettings(user, WorkspaceServiceSettingsKey.AI, config, secrets);
-    return this.getAiStatus(user);
-  }
-
-  async getSmtpStatus(user: User) {
-    const settings = await this.findSettings(user, WorkspaceServiceSettingsKey.SMTP);
-    const runtime = await this.getSmtpSettings(user);
+  async getSmtpStatus(user: User, requestWorkspaceId?: string) {
+    const settings = await this.findSettings(
+      user,
+      WorkspaceServiceSettingsKey.SMTP,
+      requestWorkspaceId,
+    );
+    const runtime = await this.getSmtpSettings(user, requestWorkspaceId);
     return {
       connected: runtime.source !== 'disabled',
       status: runtime.source !== 'disabled' ? 'connected' : 'disconnected',
@@ -127,8 +124,12 @@ export class ApplicationSettingsService {
     };
   }
 
-  async saveSmtpSettings(user: User, input: Record<string, unknown>) {
-    const existing = await this.findSettings(user, WorkspaceServiceSettingsKey.SMTP);
+  async saveSmtpSettings(user: User, input: SaveSmtpSettingsBody, requestWorkspaceId?: string) {
+    const existing = await this.findSettings(
+      user,
+      WorkspaceServiceSettingsKey.SMTP,
+      requestWorkspaceId,
+    );
     const config = {
       host: this.requiredString(input.host, 'host'),
       port: this.positiveNumber(input.port, 587),
@@ -140,42 +141,100 @@ export class ApplicationSettingsService {
     };
     const secrets = this.mergeSecrets(existing, ['pass'], input);
     const runtime = this.smtpRuntimeFromParts(config, secrets, 'workspace');
-    await assertPublicEgressHost(runtime.host);
+    await assertPublicEgressHost(runtime.host ?? '');
     await this.assertSmtpConnection(runtime);
-    await this.saveSettings(user, WorkspaceServiceSettingsKey.SMTP, config, secrets);
-    return this.getSmtpStatus(user);
+    await this.saveSettings(
+      user,
+      WorkspaceServiceSettingsKey.SMTP,
+      config,
+      secrets,
+      requestWorkspaceId,
+    );
+    return this.getSmtpStatus(user, requestWorkspaceId);
   }
 
-  async getTelegramStatus(user: User) {
-    const settings = await this.findSettings(user, WorkspaceServiceSettingsKey.TELEGRAM);
-    const runtime = await this.getTelegramSettings(user);
+  async getTelegramStatus(user: User, requestWorkspaceId?: string) {
+    const settings = await this.findSettings(
+      user,
+      WorkspaceServiceSettingsKey.TELEGRAM,
+      requestWorkspaceId,
+    );
+    const runtime = await this.getTelegramSettings(user, requestWorkspaceId);
+    const shared = await this.getSharedTelegramSettings();
     return {
       connected: runtime.source !== 'disabled',
       status: runtime.source !== 'disabled' ? 'connected' : 'disconnected',
       source: runtime.source,
       settings: {
         timeoutMs: runtime.timeoutMs,
-        botTokenConfigured: Boolean(
-          settings?.encryptedSecrets?.botToken || process.env.TELEGRAM_BOT_TOKEN,
-        ),
+        botTokenConfigured: Boolean(settings?.encryptedSecrets?.botToken || shared.botToken),
+        sharedBot: shared.source !== 'disabled',
       },
     };
   }
 
-  async saveTelegramSettings(user: User, input: Record<string, unknown>) {
-    const existing = await this.findSettings(user, WorkspaceServiceSettingsKey.TELEGRAM);
+  /** The shared bot, for the instance admin's settings: never the token itself. */
+  async getInstanceTelegramStatus() {
+    const shared = await this.getSharedTelegramSettings();
+    return { source: shared.source };
+  }
+
+  /** Saves the shared bot every workspace without its own token uses, once getMe accepts it. */
+  async saveInstanceTelegramSettings(user: User, input: SaveInstanceTelegramBotBody) {
+    const timeoutMs = this.positiveNumber(process.env.TELEGRAM_TIMEOUT_MS, 10000);
+    await this.assertTelegramConnection({
+      botToken: input.botToken,
+      timeoutMs,
+      source: 'instance',
+    });
+    const existing = await this.instanceSettingsRepository.findOne({
+      where: { key: InstanceSettingKey.TELEGRAM },
+    });
+    await this.instanceSettingsRepository.save(
+      this.instanceSettingsRepository.create({
+        ...existing,
+        key: InstanceSettingKey.TELEGRAM,
+        encryptedSecrets: this.encryptSecrets({ botToken: input.botToken }),
+        updatedByUserId: user.id,
+      }),
+    );
+    return this.getInstanceTelegramStatus();
+  }
+
+  /** Removes the saved shared bot; TELEGRAM_BOT_TOKEN, if set, takes over again. */
+  async clearInstanceTelegramSettings() {
+    await this.instanceSettingsRepository.delete({ key: InstanceSettingKey.TELEGRAM });
+    return this.getInstanceTelegramStatus();
+  }
+
+  async saveTelegramSettings(
+    user: User,
+    input: SaveTelegramSettingsBody,
+    requestWorkspaceId?: string,
+  ) {
+    const existing = await this.findSettings(
+      user,
+      WorkspaceServiceSettingsKey.TELEGRAM,
+      requestWorkspaceId,
+    );
     const config = {
       timeoutMs: this.positiveNumber(input.timeoutMs, 10000),
     };
     const secrets = this.mergeSecrets(existing, ['botToken'], input);
     const runtime = this.telegramRuntimeFromParts(config, secrets, 'workspace');
     await this.assertTelegramConnection(runtime);
-    await this.saveSettings(user, WorkspaceServiceSettingsKey.TELEGRAM, config, secrets);
-    return this.getTelegramStatus(user);
+    await this.saveSettings(
+      user,
+      WorkspaceServiceSettingsKey.TELEGRAM,
+      config,
+      secrets,
+      requestWorkspaceId,
+    );
+    return this.getTelegramStatus(user, requestWorkspaceId);
   }
 
-  async getAppStatus(user: User) {
-    const runtime = await this.getAppSettings(user);
+  async getAppStatus(user: User, requestWorkspaceId?: string) {
+    const runtime = await this.getAppSettings(user, requestWorkspaceId);
     return {
       connected: runtime.source !== 'disabled',
       status: runtime.source !== 'disabled' ? 'connected' : 'disconnected',
@@ -186,20 +245,26 @@ export class ApplicationSettingsService {
     };
   }
 
-  async saveAppSettings(user: User, input: Record<string, unknown>) {
+  async saveAppSettings(user: User, input: SaveAppSettingsBody, requestWorkspaceId?: string) {
     const publicUrl = this.normalizeOrigin(this.requiredString(input.publicUrl, 'publicUrl'));
-    await this.saveSettings(user, WorkspaceServiceSettingsKey.APP, { publicUrl }, {});
-    return this.getAppStatus(user);
+    await this.saveSettings(
+      user,
+      WorkspaceServiceSettingsKey.APP,
+      { publicUrl },
+      {},
+      requestWorkspaceId,
+    );
+    return this.getAppStatus(user, requestWorkspaceId);
   }
 
-  async disconnect(user: User, key: WorkspaceServiceSettingsKey) {
-    const workspaceId = this.requireWorkspaceId(user);
+  async disconnect(user: User, key: WorkspaceServiceSettingsKey, requestWorkspaceId?: string) {
+    const workspaceId = this.requireWorkspaceId(user, requestWorkspaceId);
     await this.settingsRepository.delete({ workspaceId, key });
     return { ok: true };
   }
 
-  async getLocalCategorizationStatus(user: User) {
-    const runtime = await this.getLocalCategorizationSettings(user);
+  async getLocalCategorizationStatus(user: User, requestWorkspaceId?: string) {
+    const runtime = await this.getLocalCategorizationSettings(user, requestWorkspaceId);
     const modelInstalled = runtime.localModelPath
       ? await this.hasLocalCategorizationModelFiles(runtime.localModelPath, runtime.modelId)
       : false;
@@ -218,10 +283,15 @@ export class ApplicationSettingsService {
     };
   }
 
-  async saveLocalCategorizationSettings(user: User, input: Record<string, unknown>) {
+  async saveLocalCategorizationSettings(
+    user: User,
+    input: SaveLocalCategorizationBody,
+    requestWorkspaceId?: string,
+  ) {
     const existing = await this.findSettings(
       user,
       WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
+      requestWorkspaceId,
     );
     const previous = existing
       ? this.localCategorizationRuntimeFromParts(existing.config, 'workspace')
@@ -236,20 +306,30 @@ export class ApplicationSettingsService {
       localModelPath: this.stringValue(input.localModelPath) || previous?.localModelPath || null,
     };
 
-    await this.saveSettings(user, WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION, config, {});
-    return this.getLocalCategorizationStatus(user);
+    await this.saveSettings(
+      user,
+      WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
+      config,
+      {},
+      requestWorkspaceId,
+    );
+    return this.getLocalCategorizationStatus(user, requestWorkspaceId);
   }
 
-  async installLocalCategorizationModel(user: User, file: UploadedModelArchive) {
+  async installLocalCategorizationModel(
+    user: User,
+    file: UploadedModelArchive | undefined,
+    requestWorkspaceId?: string,
+  ) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Model archive is required');
     }
 
-    const existing = await this.getLocalCategorizationSettings(user);
+    const existing = await this.getLocalCategorizationSettings(user, requestWorkspaceId);
     const modelId = existing.modelId || DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID;
     const modelRoot = this.getLocalCategorizationModelRoot();
     const targetDir = this.resolveLocalModelDirectory(modelRoot, modelId);
-    const stagingDir = path.join(os.tmpdir(), `lumio-model-${randomUUID()}`);
+    const stagingDir = path.join(os.tmpdir(), `seneca-model-${randomUUID()}`);
 
     try {
       await fs.mkdir(stagingDir, { recursive: true });
@@ -263,18 +343,26 @@ export class ApplicationSettingsService {
       await fs.rm(stagingDir, { recursive: true, force: true });
     }
 
-    await this.saveLocalCategorizationSettings(user, {
-      enabled: true,
-      modelId,
-      threshold: existing.threshold,
-      localModelPath: modelRoot,
-    });
+    await this.saveLocalCategorizationSettings(
+      user,
+      {
+        enabled: true,
+        modelId,
+        threshold: existing.threshold,
+        localModelPath: modelRoot,
+      },
+      requestWorkspaceId,
+    );
 
-    return this.getLocalCategorizationStatus(user);
+    return this.getLocalCategorizationStatus(user, requestWorkspaceId);
   }
 
-  async testLocalCategorization(user: User, input: Record<string, unknown>) {
-    const runtime = await this.getLocalCategorizationSettings(user);
+  async testLocalCategorization(
+    user: User,
+    input: TestLocalCategorizationBody,
+    requestWorkspaceId?: string,
+  ) {
+    const runtime = await this.getLocalCategorizationSettings(user, requestWorkspaceId);
     const merchantName = this.requiredString(input.merchantName, 'merchantName');
     const categories = this.stringArrayValue(input.categories);
     const categorizer = new TransactionCategorizer({
@@ -295,31 +383,16 @@ export class ApplicationSettingsService {
     };
   }
 
-  async getAiSettings(user?: User | null): Promise<AiRuntimeSettings> {
-    const workspace = user ? await this.findSettings(user, WorkspaceServiceSettingsKey.AI) : null;
-    if (workspace) {
-      return this.aiRuntimeFromParts(
-        workspace.config,
-        this.decryptSecrets(workspace.encryptedSecrets),
-        'workspace',
-      );
-    }
-
-    const env = {
-      enabled: true,
-      baseUrl: process.env.AI_BASE_URL?.replace(/\/+$/, '') || null,
-      apiKey: process.env.AI_API_KEY || null,
-      model: process.env.AI_MODEL || null,
-      timeoutMs: this.positiveNumber(process.env.AI_TIMEOUT_MS, 20000),
-    };
-    return env.baseUrl && env.model ? { ...env, source: 'env' } : { ...env, source: 'disabled' };
-  }
-
   async getLocalCategorizationSettings(
     user?: User | null,
+    requestWorkspaceId?: string,
   ): Promise<LocalCategorizationRuntimeSettings> {
     const workspace = user
-      ? await this.findSettings(user, WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION)
+      ? await this.findSettings(
+          user,
+          WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
+          requestWorkspaceId,
+        )
       : null;
     if (workspace) {
       return this.localCategorizationRuntimeFromParts(workspace.config, 'workspace');
@@ -337,24 +410,13 @@ export class ApplicationSettingsService {
     };
   }
 
-  async getAiSettingsForWorkspaceId(workspaceId?: string | null): Promise<AiRuntimeSettings> {
-    if (workspaceId) {
-      const workspace = await this.settingsRepository.findOne({
-        where: { workspaceId, key: WorkspaceServiceSettingsKey.AI },
-      });
-      if (workspace) {
-        return this.aiRuntimeFromParts(
-          workspace.config,
-          this.decryptSecrets(workspace.encryptedSecrets),
-          'workspace',
-        );
-      }
-    }
-    return this.getAiSettings(null);
-  }
-
-  async getSmtpSettings(user?: User | null): Promise<SmtpRuntimeSettings> {
-    const workspace = user ? await this.findSettings(user, WorkspaceServiceSettingsKey.SMTP) : null;
+  async getSmtpSettings(
+    user?: User | null,
+    requestWorkspaceId?: string,
+  ): Promise<SmtpRuntimeSettings> {
+    const workspace = user
+      ? await this.findSettings(user, WorkspaceServiceSettingsKey.SMTP, requestWorkspaceId)
+      : null;
     if (workspace) {
       return this.smtpRuntimeFromParts(
         workspace.config,
@@ -376,27 +438,92 @@ export class ApplicationSettingsService {
     return env.host && env.from ? { ...env, source: 'env' } : { ...env, source: 'disabled' };
   }
 
-  async getTelegramSettings(user?: User | null): Promise<TelegramRuntimeSettings> {
+  async getTelegramSettings(
+    user?: User | null,
+    requestWorkspaceId?: string,
+  ): Promise<TelegramRuntimeSettings> {
     const workspace = user
-      ? await this.findSettings(user, WorkspaceServiceSettingsKey.TELEGRAM)
+      ? await this.findSettings(user, WorkspaceServiceSettingsKey.TELEGRAM, requestWorkspaceId)
       : null;
     if (workspace) {
-      return this.telegramRuntimeFromParts(
+      const runtime = this.telegramRuntimeFromParts(
         workspace.config,
         this.decryptSecrets(workspace.encryptedSecrets),
         'workspace',
       );
+      // A workspace row without a token (only a timeout) falls through to the shared bot.
+      if (runtime.botToken) {
+        return runtime;
+      }
     }
-
-    const env = {
-      botToken: process.env.TELEGRAM_BOT_TOKEN || null,
-      timeoutMs: this.positiveNumber(process.env.TELEGRAM_TIMEOUT_MS, 10000),
-    };
-    return env.botToken ? { ...env, source: 'env' } : { ...env, source: 'disabled' };
+    return this.getSharedTelegramSettings();
   }
 
-  async getAppSettings(user?: User | null): Promise<AppRuntimeSettings> {
-    const workspace = user ? await this.findSettings(user, WorkspaceServiceSettingsKey.APP) : null;
+  /**
+   * The bot of every workspace without its own: the one an instance admin
+   * saved, else TELEGRAM_BOT_TOKEN.
+   */
+  async getSharedTelegramSettings(): Promise<TelegramRuntimeSettings> {
+    const timeoutMs = this.positiveNumber(process.env.TELEGRAM_TIMEOUT_MS, 10000);
+    const saved = await this.instanceSettingsRepository.findOne({
+      where: { key: InstanceSettingKey.TELEGRAM },
+    });
+    let savedToken: string | undefined;
+    try {
+      savedToken = saved ? this.decryptSecrets(saved.encryptedSecrets).botToken : undefined;
+    } catch {
+      // Encrypted under another key: unusable, so the environment's bot (if any) serves.
+    }
+    if (savedToken) {
+      return { botToken: savedToken, timeoutMs, source: 'instance' };
+    }
+    const envToken = process.env.TELEGRAM_BOT_TOKEN || null;
+    return { botToken: envToken, timeoutMs, source: envToken ? 'env' : 'disabled' };
+  }
+
+  /**
+   * Every bot this server answers for: the shared bot and each workspace's own
+   * token, once per token. A bot comes with the public URL of
+   * its workspace, which is where Telegram has to deliver the bot's updates.
+   */
+  async listTelegramBots(): Promise<Array<{ botToken: string; publicUrl: string | null }>> {
+    const envPublicUrl = (await this.getAppSettings()).publicUrl;
+    const bots = new Map<string, string | null>();
+    const shared = await this.getSharedTelegramSettings();
+    if (shared.botToken) {
+      bots.set(shared.botToken, envPublicUrl);
+    }
+
+    const rows = await this.settingsRepository.find({
+      where: { key: WorkspaceServiceSettingsKey.TELEGRAM },
+    });
+    for (const row of rows) {
+      let botToken: string | null;
+      try {
+        botToken = this.decryptSecrets(row.encryptedSecrets).botToken || null;
+      } catch {
+        // A token encrypted under another key cannot be used; the others still can.
+        continue;
+      }
+      if (!botToken || bots.has(botToken)) {
+        continue;
+      }
+      const app = await this.settingsRepository.findOne({
+        where: { workspaceId: row.workspaceId, key: WorkspaceServiceSettingsKey.APP },
+      });
+      bots.set(botToken, this.stringValue(app?.config.publicUrl) || envPublicUrl);
+    }
+
+    return [...bots].map(([botToken, publicUrl]) => ({ botToken, publicUrl }));
+  }
+
+  async getAppSettings(
+    user?: User | null,
+    requestWorkspaceId?: string,
+  ): Promise<AppRuntimeSettings> {
+    const workspace = user
+      ? await this.findSettings(user, WorkspaceServiceSettingsKey.APP, requestWorkspaceId)
+      : null;
     if (workspace) {
       const publicUrl = this.stringValue(workspace.config.publicUrl);
       return publicUrl
@@ -408,8 +535,12 @@ export class ApplicationSettingsService {
     return publicUrl ? { publicUrl, source: 'env' } : { publicUrl: null, source: 'disabled' };
   }
 
-  private async findSettings(user: User, key: WorkspaceServiceSettingsKey) {
-    const workspaceId = this.requireWorkspaceId(user);
+  private async findSettings(
+    user: User,
+    key: WorkspaceServiceSettingsKey,
+    requestWorkspaceId?: string,
+  ) {
+    const workspaceId = this.requireWorkspaceId(user, requestWorkspaceId);
     return this.settingsRepository.findOne({ where: { workspaceId, key } });
   }
 
@@ -418,8 +549,9 @@ export class ApplicationSettingsService {
     key: WorkspaceServiceSettingsKey,
     config: Record<string, unknown>,
     secrets: Record<string, string>,
+    requestWorkspaceId?: string,
   ) {
-    const workspaceId = this.requireWorkspaceId(user);
+    const workspaceId = this.requireWorkspaceId(user, requestWorkspaceId);
     const existing = await this.settingsRepository.findOne({ where: { workspaceId, key } });
     const entity =
       existing ||
@@ -428,24 +560,31 @@ export class ApplicationSettingsService {
         key,
       });
     entity.config = config;
-    entity.encryptedSecrets = Object.fromEntries(
-      Object.entries(secrets)
-        .filter(([, value]) => value)
-        .map(([secretKey, value]) => [secretKey, encryptText(value)]),
-    );
+    entity.encryptedSecrets = this.encryptSecrets(secrets);
     entity.updatedByUserId = user.id;
     await this.settingsRepository.save(entity);
   }
 
+  private encryptSecrets(secrets: Record<string, string>): Record<string, string> {
+    return Object.fromEntries(
+      Object.entries(secrets)
+        .filter(([, value]) => value)
+        .map(([key, value]) => [key, encryptText(value)]),
+    );
+  }
+
   private mergeSecrets(
-    existing: WorkspaceServiceSettings | null,
+    existing: { encryptedSecrets: Record<string, string> } | null,
     keys: string[],
-    input: Record<string, unknown>,
+    // `object`, not `Record<string, unknown>`: the callers now pass validated
+    // DTO instances, and a class instance has no index signature.
+    input: object,
   ): Record<string, string> {
+    const source = input as Record<string, unknown>;
     const previous = this.decryptSecrets(existing?.encryptedSecrets || {});
     const next: Record<string, string> = {};
     for (const key of keys) {
-      const incoming = this.stringValue(input[key]);
+      const incoming = this.stringValue(source[key]);
       next[key] = incoming === undefined || incoming === '' ? previous[key] || '' : incoming;
     }
     return next;
@@ -455,23 +594,6 @@ export class ApplicationSettingsService {
     return Object.fromEntries(
       Object.entries(encryptedSecrets || {}).map(([key, value]) => [key, decryptText(value)]),
     );
-  }
-
-  private aiRuntimeFromParts(
-    config: Record<string, unknown>,
-    secrets: Record<string, string>,
-    source: AiRuntimeSettings['source'],
-  ): AiRuntimeSettings {
-    const baseUrl = this.stringValue(config.baseUrl)?.replace(/\/+$/, '') || null;
-    const model = this.stringValue(config.model) || null;
-    return {
-      enabled: this.booleanValue(config.enabled, true),
-      baseUrl,
-      apiKey: secrets.apiKey || null,
-      model,
-      timeoutMs: this.positiveNumber(config.timeoutMs, 20000),
-      source: baseUrl && model ? source : 'disabled',
-    };
   }
 
   private smtpRuntimeFromParts(
@@ -548,7 +670,19 @@ export class ApplicationSettingsService {
       throw new BadRequestException('Model archive must be a valid ZIP file');
     }
 
-    for (const entry of zip.getEntries()) {
+    const entries = zip.getEntries();
+    if (entries.length > MAX_MODEL_ARCHIVE_ENTRIES) {
+      throw new BadRequestException('Model archive contains too many files');
+    }
+
+    // A running total of what actually lands on disk, rather than trusting the
+    // archive's declared sizes. assertSafeZipDecompressionRatio deliberately
+    // passes on ZIP shapes it cannot fully model (ZIP64, streamed entries),
+    // which is exactly what large ML archives look like — so the upload path
+    // that accepts 500MB needs a cap that holds regardless of archive shape.
+    let writtenBytes = 0;
+
+    for (const entry of entries) {
       const normalizedName = path.normalize(entry.entryName);
       if (
         path.isAbsolute(normalizedName) ||
@@ -561,10 +695,17 @@ export class ApplicationSettingsService {
       const targetPath = path.join(destination, normalizedName);
       if (entry.isDirectory) {
         await fs.mkdir(targetPath, { recursive: true });
-      } else {
-        await fs.mkdir(path.dirname(targetPath), { recursive: true });
-        await fs.writeFile(targetPath, entry.getData());
+        continue;
       }
+
+      const data = entry.getData();
+      writtenBytes += data.length;
+      if (writtenBytes > MAX_MODEL_UNCOMPRESSED_BYTES) {
+        throw new BadRequestException('Model archive expands beyond the allowed size');
+      }
+
+      await fs.mkdir(path.dirname(targetPath), { recursive: true });
+      await fs.writeFile(targetPath, data);
     }
   }
 
@@ -610,40 +751,6 @@ export class ApplicationSettingsService {
     }
   }
 
-  private async assertAiConnection(settings: AiRuntimeSettings) {
-    if (!(settings.baseUrl && settings.model)) {
-      throw new BadRequestException('AI baseUrl and model are required');
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), settings.timeoutMs);
-    try {
-      const response = await fetch(`${settings.baseUrl}/v1/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          model: settings.model,
-          messages: [{ role: 'user', content: 'Return {"ok":true} as JSON.' }],
-          temperature: 0,
-          response_format: { type: 'json_object' },
-        }),
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        throw new BadRequestException(`AI endpoint returned ${response.status}`);
-      }
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new BadRequestException('Unable to connect to AI endpoint');
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
   private async assertSmtpConnection(settings: SmtpRuntimeSettings) {
     if (!(settings.host && settings.from)) {
       throw new BadRequestException('SMTP host and from are required');
@@ -674,28 +781,36 @@ export class ApplicationSettingsService {
     if (!settings.botToken) {
       throw new BadRequestException('Telegram botToken is required');
     }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), settings.timeoutMs);
-    try {
-      const response = await fetch(`https://api.telegram.org/bot${settings.botToken}/getMe`, {
-        signal: controller.signal,
-      });
-      const payload = (await response.json()) as { ok?: boolean; description?: string };
-      if (!(response.ok && payload.ok)) {
-        throw new BadRequestException(payload.description || 'Telegram bot token is invalid');
-      }
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
+    // Bot tokens are "<digits>:<base64url>"; nothing else may shape the request path.
+    if (!/^\d+:[\w-]+$/.test(settings.botToken)) {
+      throw new BadRequestException('Telegram bot token is invalid');
+    }
+    const outcome = await this.effects.run(
+      getWith(
+        `https://api.telegram.org/bot${settings.botToken}/getMe`,
+        { timeout: settings.timeoutMs },
+        response =>
+          HttpClientResponse.schemaBodyJson(TelegramGetMeResponse)(response).pipe(
+            Effect.map(payload =>
+              response.status >= 200 && response.status < 300 && payload.ok
+                ? ({ ok: true } as const)
+                : ({ ok: false, description: payload.description } as const),
+            ),
+          ),
+      ).pipe(Effect.catch(() => Effect.succeed({ ok: false, unreachable: true } as const))),
+    );
+    if ('unreachable' in outcome) {
       throw new BadRequestException('Unable to connect to Telegram');
-    } finally {
-      clearTimeout(timeout);
+    }
+    if (!outcome.ok) {
+      throw new BadRequestException(outcome.description || 'Telegram bot token is invalid');
     }
   }
 
-  private requireWorkspaceId(user: User): string {
-    const workspaceId = user.workspaceId || user.lastWorkspaceId;
+  private requireWorkspaceId(user: User, requestWorkspaceId?: string): string {
+    // The workspace open in the request; the user's own only for callers
+    // without one (mail, scheduled reports).
+    const workspaceId = requestWorkspaceId || user.workspaceId || user.lastWorkspaceId;
     if (!workspaceId) {
       throw new BadRequestException('Workspace is required');
     }

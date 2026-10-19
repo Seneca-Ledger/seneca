@@ -1,23 +1,36 @@
 import type { AxiosError } from 'axios';
+import { getIntlayer } from 'react-intlayer';
+import { DEFAULT_LOCALE, readLocaleFromCookie } from './locale';
 
 export interface ApiErrorResponse {
   error?: {
     code?: string;
     message?: string;
+    params?: Record<string, string | number>;
     details?: unknown;
   };
   message?: string;
 }
 
+/**
+ * Resolves a user-facing message for an API failure.
+ *
+ * Backend domain errors carry a machine-readable `code` and an English
+ * `message`. We translate by code when the dictionary knows it, and fall back
+ * to the backend's English text otherwise — so an untranslated code degrades
+ * to readable English rather than to a generic placeholder.
+ */
 export function getApiErrorMessage(error: unknown, fallback = 'An error occurred'): string {
   if (isAxiosError(error)) {
-    const message =
-      error.response?.data?.error?.message ??
+    const apiError = error.response?.data?.error;
+
+    return (
+      translateErrorCode(apiError?.code, apiError?.params) ??
+      apiError?.message ??
       error.response?.data?.message ??
       error.message ??
-      fallback;
-
-    return normalizeApiErrorMessage(message, error.response?.data?.error?.code);
+      fallback
+    );
   }
 
   if (error instanceof Error) {
@@ -27,34 +40,47 @@ export function getApiErrorMessage(error: unknown, fallback = 'An error occurred
   return fallback;
 }
 
-function normalizeApiErrorMessage(message: string, code?: string): string {
-  const englishByCode = new Map<string, string>([
-    ['BAD_REQUEST', 'Bad request'],
-    ['UNAUTHORIZED', 'Unauthorized'],
-    ['FORBIDDEN', 'Forbidden'],
-    ['NOT_FOUND', 'Not found'],
-    ['VALIDATION_ERROR', 'Validation error'],
-    ['TOO_MANY_REQUESTS', 'Too many requests'],
-    ['INTERNAL_SERVER_ERROR', 'Internal server error'],
-  ]);
+function translateErrorCode(
+  code: string | undefined,
+  params: Record<string, string | number> | undefined,
+): string | undefined {
+  if (!code) {
+    return undefined;
+  }
 
-  const englishByLocalizedMessage: Record<string, string> = {
-    'Некорректный запрос': 'Bad request',
-    'Не авторизован': 'Unauthorized',
-    'Доступ запрещен': 'Forbidden',
-    'Ресурс не найден': 'Not found',
-    'Ошибка валидации': 'Validation error',
-    'Слишком много запросов': 'Too many requests',
-    'Внутренняя ошибка сервера': 'Internal server error',
-  };
+  try {
+    const dictionary = getIntlayer('apiErrors', readLocaleFromCookie() ?? DEFAULT_LOCALE) as Record<
+      string,
+      { value?: unknown } | string | undefined
+    >;
+    const entry = dictionary[code];
+    const raw = typeof entry === 'string' ? entry : entry?.value;
+    // A missing dictionary yields a path-stringifying Proxy, not undefined —
+    // only a genuine string may win over the backend's English message.
+    const template = typeof raw === 'string' ? raw : undefined;
 
-  return (
-    englishByLocalizedMessage[message] ?? (code ? englishByCode.get(code) : undefined) ?? message
-  );
+    return template && params ? interpolate(template, params) : template;
+  } catch {
+    // An unknown key or a dictionary that failed to load must not mask the
+    // original error — fall through to the backend's English message.
+    return undefined;
+  }
 }
+
+const interpolate = (template: string, params: Record<string, string | number>): string =>
+  template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(params[key] ?? ''));
 
 export function getApiErrorStatus(error: unknown): number | undefined {
   return isAxiosError(error) ? error.response?.status : undefined;
+}
+
+/** A write refused because the open workspace is a past version, which can only be viewed. */
+export function isVersionReadOnlyError(error: unknown): boolean {
+  return (
+    isAxiosError(error) &&
+    error.response?.status === 403 &&
+    error.response.data?.error?.code === 'VERSION_READ_ONLY'
+  );
 }
 
 function isAxiosError(error: unknown): error is AxiosError<ApiErrorResponse> {

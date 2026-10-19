@@ -1,11 +1,15 @@
 'use client';
 
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import type { Transaction } from '../TransactionsView';
 
 export const getTransactionValue = ({
   transaction,
   key,
-}: { transaction: Transaction; key: string }): unknown => {
+}: {
+  transaction: Transaction;
+  key: string;
+}): unknown => {
   const record = transaction as unknown as Record<string, unknown>;
   return record[key];
 };
@@ -16,9 +20,7 @@ export const getNamedObjectLabel = (value: object): string | null => {
 };
 
 export const resolveLocale = (locale: string): string => {
-  if (locale === 'kk') return 'kk-KZ';
-  if (locale === 'ru') return 'ru-RU';
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 const TX_SEARCH_FIELDS: ReadonlyArray<keyof Transaction> = [

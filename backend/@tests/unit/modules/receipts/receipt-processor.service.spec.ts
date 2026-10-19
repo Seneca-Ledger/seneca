@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import {
@@ -11,6 +12,7 @@ import { UniversalExtractorService } from '../../../../src/modules/parsing/servi
 import { ReceiptProcessorService } from '../../../../src/modules/receipts/services/receipt-processor.service';
 import { ReceiptCategoryService } from '../../../../src/modules/receipts/services/receipt-category.service';
 import { ReceiptDuplicateService } from '../../../../src/modules/receipts/services/receipt-duplicate.service';
+import { ReceiptLocationService } from '../../../../src/modules/receipts/services/receipt-location.service';
 
 const mockReadFile = jest.fn().mockResolvedValue(Buffer.from('receipt-binary'));
 
@@ -18,11 +20,34 @@ jest.mock('fs/promises', () => ({
   readFile: (...args: unknown[]) => mockReadFile(...args),
 }));
 
+const mockReadExifGps = jest.fn();
+
+jest.mock('../../../../src/common/utils/exif-gps.util', () => ({
+  readExifGps: (...args: unknown[]) => mockReadExifGps(...args),
+}));
+
+const minimalParse = {
+  totalAmount: 10,
+  currency: 'KZT',
+  vendor: 'Magnum',
+  confidence: 0.8,
+  extractionMethod: 'ocr_hybrid',
+  validationIssues: [],
+  transactionType: 'expense',
+  fieldConfidence: {},
+  documentType: 'receipt',
+  rawText: 'raw',
+  lineItems: [],
+};
+
+const eventEmitter = { emit: jest.fn() };
+
 describe('ReceiptProcessorService', () => {
   let service: ReceiptProcessorService;
   let receiptRepository: { findOne: jest.Mock; save: jest.Mock };
   let jobRepository: { save: jest.Mock };
   let extractor: { extractFromImage: jest.Mock; extractFromPdf: jest.Mock };
+  let locationService: { applyAutoLocation: jest.Mock };
 
   beforeEach(async () => {
     receiptRepository = {
@@ -36,6 +61,9 @@ describe('ReceiptProcessorService', () => {
       extractFromImage: jest.fn(),
       extractFromPdf: jest.fn(),
     };
+    locationService = { applyAutoLocation: jest.fn().mockResolvedValue(undefined) };
+    eventEmitter.emit.mockReset();
+    mockReadExifGps.mockReset().mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -49,8 +77,10 @@ describe('ReceiptProcessorService', () => {
         },
         {
           provide: ReceiptCategoryService,
-          useValue: { suggestCategory: jest.fn().mockResolvedValue(null) },
+          useValue: { categorize: jest.fn().mockResolvedValue(null) },
         },
+        { provide: ReceiptLocationService, useValue: locationService },
+        { provide: EventEmitter2, useValue: eventEmitter },
       ],
     }).compile();
 
@@ -82,6 +112,7 @@ describe('ReceiptProcessorService', () => {
       totalAmount: 42.5,
       currency: 'EUR',
       vendor: 'Lidl',
+      merchantAddress: 'Hauptstraße 5, Berlin',
       date: new Date('2026-03-20'),
       tax: 3.5,
       lineItems: [{ description: 'Milk', amount: 2.5 }],
@@ -108,12 +139,19 @@ describe('ReceiptProcessorService', () => {
           amount: 42.5,
           currency: 'EUR',
           vendor: 'Lidl',
+          merchantAddress: 'Hauptstraße 5, Berlin',
         }),
         extractionMethod: 'ocr_hybrid',
         confidence: 0.86,
       }),
     );
+    expect(locationService.applyAutoLocation).toHaveBeenCalledWith(receipt);
+    expect(locationService.applyAutoLocation.mock.invocationCallOrder[0]).toBeLessThan(
+      receiptRepository.save.mock.invocationCallOrder[0],
+    );
     expect(job.status).toBe(ReceiptJobStatus.COMPLETED);
+    // A readable receipt with no duplicate needs nobody: no review event.
+    expect(eventEmitter.emit).not.toHaveBeenCalledWith('receipt.needs_review', expect.anything());
   });
 
   it('marks receipt as needs_review when amount is missing', async () => {
@@ -158,5 +196,75 @@ describe('ReceiptProcessorService', () => {
         status: ReceiptStatus.NEEDS_REVIEW,
       }),
     );
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'receipt.needs_review',
+      expect.objectContaining({ receiptId: 'receipt-2', reasons: ['missing_amount'] }),
+    );
+  });
+
+  it('records the photo GPS tag as the capture location, replacing the device point', async () => {
+    const receipt = {
+      id: 'receipt-3',
+      source: ReceiptSource.SCAN,
+      status: ReceiptStatus.NEW,
+      subject: 'scan.jpg',
+      language: null,
+      attachmentPaths: ['/tmp/scan.jpg'],
+      metadata: {
+        attachments: [{ mimeType: 'image/jpeg' }],
+        captureLocation: { lat: 1, lng: 2, source: 'device', capturedAt: '2026-09-13' },
+      },
+      parsedData: null,
+    } as unknown as Receipt;
+    const job = {
+      id: 'job-3',
+      userId: 'user-1',
+      receiptId: 'receipt-3',
+      status: ReceiptJobStatus.PENDING,
+      progress: 0,
+      payload: { integrationId: 'manual-scan', gmailMessageId: 'receipt-3', historyId: 'auto' },
+    } as ReceiptProcessingJob;
+
+    receiptRepository.findOne.mockResolvedValue(receipt);
+    extractor.extractFromImage.mockResolvedValue(minimalParse);
+    mockReadExifGps.mockResolvedValue({ lat: 43.2383, lng: 76.9453 });
+
+    await service.processReceipt(job);
+
+    expect(receipt.metadata.captureLocation).toMatchObject({
+      lat: 43.2383,
+      lng: 76.9453,
+      source: 'exif',
+    });
+    expect(receipt.metadata.attachments).toHaveLength(1);
+  });
+
+  it('does not look for EXIF data in PDFs but still resolves a location', async () => {
+    const receipt = {
+      id: 'receipt-4',
+      source: ReceiptSource.UPLOAD,
+      status: ReceiptStatus.NEW,
+      subject: 'receipt.pdf',
+      language: null,
+      attachmentPaths: ['/tmp/receipt.pdf'],
+      metadata: { attachments: [{ mimeType: 'application/pdf' }] },
+      parsedData: null,
+    } as unknown as Receipt;
+    const job = {
+      id: 'job-4',
+      userId: 'user-1',
+      receiptId: 'receipt-4',
+      status: ReceiptJobStatus.PENDING,
+      progress: 0,
+      payload: { integrationId: 'manual-upload', gmailMessageId: 'receipt-4', historyId: 'auto' },
+    } as ReceiptProcessingJob;
+
+    receiptRepository.findOne.mockResolvedValue(receipt);
+    extractor.extractFromPdf.mockResolvedValue(minimalParse);
+
+    await service.processReceipt(job);
+
+    expect(mockReadExifGps).not.toHaveBeenCalled();
+    expect(locationService.applyAutoLocation).toHaveBeenCalledWith(receipt);
   });
 });

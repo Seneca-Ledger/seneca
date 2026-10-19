@@ -1,78 +1,54 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
+import { onlyCounted } from '../../common/utils/counted-transactions.util';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import type {
+  NetWorthAssetLine,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthResponse,
+} from '../../contracts';
 import {
   BalanceAccount,
+  BalanceAccountKind,
   BalanceAccountType,
   BalanceSnapshot,
-  CapitalRole,
   RiskLevel,
-  Statement,
-  StatementStatus,
   Transaction,
-  Wallet,
   Workspace,
-  WorkspaceMember,
 } from '../../entities';
+import type { InvestmentMetal } from '../../entities/investment-holding.entity';
 import { BalanceService, CASH_ACCOUNT_CODE } from '../balance/balance.service';
+import { balanceAccountName } from '../balance/balance-account-name';
+import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
+import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { InvestmentsService } from '../investments/investments.service';
 import type { NetWorthRange } from './dto/net-worth-query.dto';
 
-export interface NetWorthPoint {
-  date: string;
-  value: number;
-}
+export type {
+  NetWorthAssetLine,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthResponse,
+};
 
-export interface NetWorthBreakdownItem {
-  code: string;
-  name: string;
-  amount: number;
-  percent: number;
-}
-
-/** One bucket of a classification split. `key` is null for what is unlabelled. */
-export interface NetWorthClassificationItem {
-  key: string | null;
-  amount: number;
-  percent: number;
-}
-
-/** An asset line the user can classify, with what it is currently worth. */
-export interface NetWorthAssetLine {
-  id: string;
-  code: string;
-  name: string;
-  amount: number;
-  capitalRole: CapitalRole | null;
-  riskLevel: RiskLevel | null;
-  /** False for cash, whose risk is fixed rather than chosen. */
-  isClassifiable: boolean;
-}
-
-export interface NetWorthResponse {
-  range: NetWorthRange;
-  currency: string;
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  assetsTotal: number;
-  liabilitiesTotal: number;
-  series: NetWorthPoint[];
-  breakdown: NetWorthBreakdownItem[];
-  byRisk: NetWorthClassificationItem[];
-  byRole: NetWorthClassificationItem[];
-  /** Share of assets sitting in medium or high risk. */
-  riskyPercent: number;
-  assetLines: NetWorthAssetLine[];
-}
-
-/** Days back from today for each range. `all` is resolved from the data. */
-const RANGE_DAYS: Record<Exclude<NetWorthRange, 'all'>, number> = {
+/** Days back from today for each range. `all` and `ytd` come from elsewhere. */
+const RANGE_DAYS: Record<Exclude<NetWorthRange, 'all' | 'ytd'>, number> = {
   '30d': 30,
   '90d': 90,
+  '180d': 180,
   '1y': 365,
+  '3y': 365 * 3,
   '5y': 365 * 5,
 };
+
+/** Points sampled over the whole history to find the all-time high. */
+const ALL_TIME_HIGH_POINTS = 37;
 
 /**
  * How many points a series carries. Net worth moves when a snapshot is
@@ -101,44 +77,70 @@ export class NetWorthService {
     private readonly balanceAccountRepository: Repository<BalanceAccount>,
     @InjectRepository(BalanceSnapshot)
     private readonly balanceSnapshotRepository: Repository<BalanceSnapshot>,
-    @InjectRepository(Wallet)
-    private readonly walletRepository: Repository<Wallet>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
-    @InjectRepository(Statement)
-    private readonly statementRepository: Repository<Statement>,
-    @InjectRepository(WorkspaceMember)
-    private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
     private readonly balanceService: BalanceService,
+    private readonly exchangeRatesService: ExchangeRatesService,
+    @Optional()
+    private readonly investmentsService?: InvestmentsService,
   ) {}
 
   async getNetWorth(
     workspaceId: string,
     range: NetWorthRange = '90d',
     locale?: string,
+    denominate?: InvestmentMetal,
+    asOf?: string,
   ): Promise<NetWorthResponse> {
     await this.balanceService.seedDefaultAccounts(workspaceId);
 
-    const to = isoDate(new Date());
+    const today = isoDate(new Date());
+    // Net worth as it stood at the end of a past day; nothing is known about later ones.
+    const to = asOf && asOf < today ? asOf : today;
     const from = await this.resolveFrom(workspaceId, range, to);
     const dates = samplePoints(from, to, SERIES_POINTS);
 
     const [accounts, snapshots, cashByDate, currency] = await Promise.all([
       this.balanceAccountRepository.find({ where: { workspaceId } }),
       this.loadSnapshots(workspaceId, to),
-      this.loadCashSeries(workspaceId, dates),
+      this.balanceService.getCashSeries(workspaceId, dates),
       this.resolveCurrency(workspaceId),
     ]);
 
     const leaves = findLeaves(accounts);
     const snapshotsByAccount = groupSnapshots(snapshots);
 
-    const valueAt = (accountId: string, code: string, date: string): number =>
-      code === CASH_ACCOUNT_CODE
-        ? (cashByDate.get(date) ?? 0)
-        : latestOnOrBefore(snapshotsByAccount.get(accountId), date);
+    // Each point is converted at the rate of its own day.
+    const snapshotCurrencies = [
+      ...new Set(snapshots.map(snapshot => normalizeCurrencyCode(snapshot.currency || currency))),
+    ];
+    const converter = await CurrencyConverter.load(
+      this.exchangeRatesService,
+      currency,
+      dates.flatMap(date =>
+        [...(cashByDate.get(date)?.keys() ?? []), ...snapshotCurrencies].map(code => ({
+          currency: code,
+          date,
+        })),
+      ),
+      workspaceId,
+    );
+
+    const valueAt = (accountId: string, code: string, date: string): number => {
+      if (code === CASH_ACCOUNT_CODE) {
+        return converter.convertAll(cashByDate.get(date) ?? new Map(), date);
+      }
+      const snapshot = latestOnOrBefore(snapshotsByAccount.get(accountId), date);
+      return snapshot
+        ? converter.convert(
+            toNumber(snapshot.amount),
+            normalizeCurrencyCode(snapshot.currency || currency),
+            date,
+          )
+        : 0;
+    };
 
     const series = dates.map(date => {
       let assets = 0;
@@ -168,12 +170,28 @@ export class NetWorthService {
     const previous = series[0]?.value ?? 0;
     const change = round2(current - previous);
 
+    // The high is a property of the whole history, not of the window shown.
+    const allTimeHigh = await this.findAllTimeHigh(
+      workspaceId,
+      to,
+      range === 'all' ? series : null,
+      leaves,
+      snapshotsByAccount,
+      currency,
+    );
+    // The split by asset class prices holdings as they are now, which says
+    // nothing true about a past day; it is left out rather than made up.
+    const byAssetClass =
+      to === today
+        ? await this.buildAssetClasses(workspaceId, leaves, valueAt, to, assetsTotal)
+        : [];
+
     const assetLines = leaves
       .filter(leaf => leaf.accountType === BalanceAccountType.ASSET)
       .map(leaf => ({
         id: leaf.id,
         code: leaf.code,
-        name: resolveName(leaf, locale),
+        name: balanceAccountName(leaf, locale),
         amount: round2(valueAt(leaf.id, leaf.code, to)),
         // Cash answers for itself: always low risk, never the user's call.
         capitalRole: leaf.capitalRole,
@@ -210,7 +228,157 @@ export class NetWorthService {
           .reduce((sum, item) => sum + item.percent, 0),
       ),
       assetLines,
+      missingRates: converter.missing,
+      denominated: denominate
+        ? await this.denominate(workspaceId, denominate, currency, series)
+        : null,
+      allTimeHigh,
+      byAssetClass,
     };
+  }
+
+  /** Samples the whole history (unless the `all` series is already at hand) and keeps the peak. */
+  private async findAllTimeHigh(
+    workspaceId: string,
+    to: string,
+    allSeries: NetWorthPoint[] | null,
+    leaves: BalanceAccount[],
+    snapshotsByAccount: Map<string, BalanceSnapshot[]>,
+    currency: string,
+  ): Promise<NetWorthResponse['allTimeHigh']> {
+    let series = allSeries;
+    if (!series) {
+      const from = await this.resolveFrom(workspaceId, 'all', to);
+      const dates = samplePoints(from, to, ALL_TIME_HIGH_POINTS);
+      const cashByDate = await this.balanceService.getCashSeries(workspaceId, dates);
+      const snapshotCurrencies = [
+        ...new Set(
+          [...snapshotsByAccount.values()]
+            .flat()
+            .map(snapshot => normalizeCurrencyCode(snapshot.currency || currency)),
+        ),
+      ];
+      const converter = await CurrencyConverter.load(
+        this.exchangeRatesService,
+        currency,
+        dates.flatMap(date =>
+          [...(cashByDate.get(date)?.keys() ?? []), ...snapshotCurrencies].map(code => ({
+            currency: code,
+            date,
+          })),
+        ),
+        workspaceId,
+      );
+      series = dates.map(date => {
+        let value = 0;
+        for (const leaf of leaves) {
+          const sign =
+            leaf.accountType === BalanceAccountType.ASSET
+              ? 1
+              : leaf.accountType === BalanceAccountType.LIABILITY
+                ? -1
+                : 0;
+          if (sign === 0) continue;
+          if (leaf.code === CASH_ACCOUNT_CODE) {
+            value += sign * converter.convertAll(cashByDate.get(date) ?? new Map(), date);
+            continue;
+          }
+          const snapshot = latestOnOrBefore(snapshotsByAccount.get(leaf.id), date);
+          if (snapshot) {
+            value +=
+              sign *
+              converter.convert(
+                toNumber(snapshot.amount),
+                normalizeCurrencyCode(snapshot.currency || currency),
+                date,
+              );
+          }
+        }
+        return { date, value: round2(value) };
+      });
+    }
+    let best: NetWorthPoint | null = null;
+    for (const point of series) {
+      if (!best || point.value > best.value) best = point;
+    }
+    return best && best.value > 0 ? { value: best.value, date: best.date } : null;
+  }
+
+  /**
+   * The series in troy ounces of a metal, each point at the spot price of its
+   * own day. A day without a quote has no honest answer, so it is left out
+   * rather than filled with today's price; with no quotes at all there is no
+   * denominated view.
+   */
+  private async denominate(
+    workspaceId: string,
+    metal: InvestmentMetal,
+    currency: string,
+    series: NetWorthPoint[],
+  ): Promise<NetWorthDenominated | null> {
+    const points: NetWorthPoint[] = [];
+    for (const point of series) {
+      const quote = await this.exchangeRatesService.getRateQuote(metal, currency, point.date, {
+        workspaceId,
+      });
+      if (!quote || !(quote.rate > 0)) continue;
+      points.push({ date: point.date, value: round4(point.value / quote.rate) });
+    }
+    if (points.length === 0) return null;
+    const current = points[points.length - 1]?.value ?? 0;
+    const previous = points[0]?.value ?? 0;
+    const change = round4(current - previous);
+    return {
+      metal,
+      unit: 'ozt',
+      current,
+      previous,
+      change,
+      changePercent: previous > 0 ? round2((change / previous) * 100) : null,
+      series: points,
+    };
+  }
+
+  /**
+   * Assets by class: investment holdings by their own class, the crypto account
+   * as crypto, the cash line as cash, everything else on the sheet as "other".
+   * The investment accounts' own snapshot lines are left out so their holdings
+   * are not counted twice.
+   */
+  private async buildAssetClasses(
+    workspaceId: string,
+    leaves: BalanceAccount[],
+    valueAt: (accountId: string, code: string, date: string) => number,
+    to: string,
+    assetsTotal: number,
+  ): Promise<NetWorthClassificationItem[]> {
+    const totals = new Map<string, number>();
+    const add = (key: string, amount: number) => totals.set(key, (totals.get(key) ?? 0) + amount);
+    const holdings = this.investmentsService
+      ? await this.investmentsService.valueByAssetClass(workspaceId)
+      : new Map<string, number>();
+    for (const [assetClass, amount] of holdings) add(assetClass, amount);
+    for (const leaf of leaves) {
+      if (leaf.accountType !== BalanceAccountType.ASSET) continue;
+      // The crypto line is one account holding many coins; its class is known
+      // without asking the investments table, which no longer keeps crypto.
+      if (leaf.accountKind === BalanceAccountKind.CRYPTO) {
+        add('crypto', valueAt(leaf.id, leaf.code, to));
+        continue;
+      }
+      if (leaf.accountKind) continue;
+      const amount = valueAt(leaf.id, leaf.code, to);
+      if (amount === 0) continue;
+      add(leaf.code === CASH_ACCOUNT_CODE ? 'cash' : 'other', amount);
+    }
+    return [...totals.entries()]
+      .map(([key, amount]) => ({
+        key,
+        amount: round2(amount),
+        percent: assetsTotal > 0 ? round2((amount / assetsTotal) * 100) : 0,
+      }))
+      .filter(item => item.amount !== 0)
+      .sort((a, b) => b.amount - a.amount);
   }
 
   /** Asset totals grouped under the top-level section each leaf belongs to. */
@@ -243,7 +411,7 @@ export class NetWorthService {
 
     return sections.map(section => ({
       code: section.account.code,
-      name: resolveName(section.account, locale),
+      name: balanceAccountName(section.account, locale),
       amount: section.amount,
       percent: assetsTotal > 0 ? round2((section.amount / assetsTotal) * 100) : 0,
     }));
@@ -254,10 +422,7 @@ export class NetWorthService {
       where: { id: workspaceId },
       select: ['currency'],
     });
-    const normalized = String(workspace?.currency || '')
-      .trim()
-      .toUpperCase();
-    return /^[A-Z]{3}$/.test(normalized) ? normalized : 'KZT';
+    return currencyCodeOrDefault(workspace?.currency);
   }
 
   /**
@@ -270,6 +435,9 @@ export class NetWorthService {
     range: NetWorthRange,
     to: string,
   ): Promise<string> {
+    if (range === 'ytd') {
+      return `${to.slice(0, 4)}-01-01`;
+    }
     if (range !== 'all') {
       return shiftDays(to, -RANGE_DAYS[range]);
     }
@@ -280,11 +448,14 @@ export class NetWorthService {
         .select('MIN(snapshot.snapshotDate)', 'earliest')
         .where('snapshot.workspaceId = :workspaceId', { workspaceId })
         .getRawOne<{ earliest: string | null }>(),
-      this.transactionRepository
-        .createQueryBuilder('transaction')
-        .select('MIN(transaction.transactionDate)', 'earliest')
-        .where('transaction.workspaceId = :workspaceId', { workspaceId })
-        .getRawOne<{ earliest: string | null }>(),
+      // The chart starts at the first confirmed row: unconfirmed ones are not on it.
+      onlyCounted(
+        this.transactionRepository
+          .createQueryBuilder('transaction')
+          .select('MIN(transaction.transactionDate)', 'earliest')
+          .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+        'transaction',
+      ).getRawOne<{ earliest: string | null }>(),
     ]);
 
     const candidates = [snapshot?.earliest, transaction?.earliest]
@@ -301,135 +472,17 @@ export class NetWorthService {
   private async loadSnapshots(workspaceId: string, to: string): Promise<BalanceSnapshot[]> {
     return this.balanceSnapshotRepository
       .createQueryBuilder('snapshot')
-      .select(['snapshot.accountId', 'snapshot.snapshotDate', 'snapshot.amount'])
+      .select([
+        'snapshot.accountId',
+        'snapshot.snapshotDate',
+        'snapshot.amount',
+        'snapshot.currency',
+      ])
       .where('snapshot.workspaceId = :workspaceId', { workspaceId })
       .andWhere('snapshot.snapshotDate <= :to', { to })
       .orderBy('snapshot.snapshotDate', 'ASC')
       .addOrderBy('snapshot.updatedAt', 'ASC')
       .getMany();
-  }
-
-  /**
-   * Cash at each sample date, in one pass instead of one query per point.
-   *
-   * The historical points follow the same rule as the balance sheet's cash
-   * line — wallets when the workspace has any, the latest bank statement
-   * otherwise — but they are a second implementation of it, so today's point
-   * is overwritten with BalanceService's own answer. That keeps the headline
-   * number, the one a user checks against the balance sheet, identical by
-   * construction; only the shape of the line behind it is computed here.
-   */
-  private async loadCashSeries(workspaceId: string, dates: string[]): Promise<Map<string, number>> {
-    const series = await this.loadHistoricalCashSeries(workspaceId, dates);
-
-    const to = dates[dates.length - 1];
-    series.set(to, await this.balanceService.getCashBalance(workspaceId, to));
-
-    return series;
-  }
-
-  private async loadHistoricalCashSeries(
-    workspaceId: string,
-    dates: string[],
-  ): Promise<Map<string, number>> {
-    const members = await this.workspaceMemberRepository.find({
-      where: { workspaceId },
-      select: ['userId'],
-    });
-    const memberIds = [...new Set(members.map(member => member.userId))];
-
-    const wallets =
-      memberIds.length > 0
-        ? await this.walletRepository.find({
-            where: { userId: In(memberIds), isActive: true },
-            select: ['id', 'initialBalance'],
-          })
-        : [];
-
-    return wallets.length > 0
-      ? this.loadWalletCashSeries(workspaceId, wallets, dates)
-      : this.loadStatementCashSeries(workspaceId, dates);
-  }
-
-  private async loadWalletCashSeries(
-    workspaceId: string,
-    wallets: Array<Pick<Wallet, 'id' | 'initialBalance'>>,
-    dates: string[],
-  ): Promise<Map<string, number>> {
-    const walletIds = wallets.map(wallet => wallet.id);
-    const initialBalance = wallets.reduce(
-      (sum, wallet) => sum + toNumber(wallet.initialBalance),
-      0,
-    );
-    const to = dates[dates.length - 1];
-
-    const rows = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .select('transaction.transactionDate', 'date')
-      .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
-      .addSelect('COALESCE(SUM(transaction.debit), 0)', 'debit')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.walletId IN (:...walletIds)', { walletIds })
-      .andWhere('transaction.transactionDate <= :to', { to })
-      .groupBy('transaction.transactionDate')
-      .orderBy('transaction.transactionDate', 'ASC')
-      .getRawMany<{ date: string; credit: string; debit: string }>();
-
-    const deltas = rows.map(row => ({
-      date: isoDate(new Date(row.date)),
-      delta: toNumber(row.credit) - toNumber(row.debit),
-    }));
-
-    const series = new Map<string, number>();
-    let running = initialBalance;
-    let index = 0;
-    for (const date of dates) {
-      while (index < deltas.length && deltas[index].date <= date) {
-        running += deltas[index].delta;
-        index += 1;
-      }
-      series.set(date, round2(running));
-    }
-
-    return series;
-  }
-
-  private async loadStatementCashSeries(
-    workspaceId: string,
-    dates: string[],
-  ): Promise<Map<string, number>> {
-    const rows = await this.statementRepository
-      .createQueryBuilder('statement')
-      .select('statement.statementDateTo', 'date')
-      .addSelect('statement.balanceEnd', 'balanceEnd')
-      .addSelect('statement.createdAt', 'createdAt')
-      .where('statement.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('statement.balanceEnd IS NOT NULL')
-      .andWhere('statement.statementDateTo IS NOT NULL')
-      .andWhere('statement.status IN (:...statuses)', {
-        statuses: [StatementStatus.PARSED, StatementStatus.VALIDATED, StatementStatus.COMPLETED],
-      })
-      .orderBy('statement.statementDateTo', 'ASC')
-      .addOrderBy('statement.createdAt', 'ASC')
-      .getRawMany<{ date: string; balanceEnd: string; createdAt: string }>();
-
-    const balances = rows.map(row => ({
-      date: isoDate(new Date(row.date)),
-      value: toNumber(row.balanceEnd),
-    }));
-
-    const series = new Map<string, number>();
-    let latest = 0;
-    let index = 0;
-    for (const date of dates) {
-      while (index < balances.length && balances[index].date <= date) {
-        latest = balances[index].value;
-        index += 1;
-      }
-      series.set(date, round2(latest));
-    }
-
-    return series;
   }
 }
 
@@ -492,19 +545,18 @@ function groupSnapshots(snapshots: BalanceSnapshot[]): Map<string, BalanceSnapsh
 }
 
 /** Forward fill: an account holds its last entered value until the next one. */
-function latestOnOrBefore(snapshots: BalanceSnapshot[] | undefined, date: string): number {
-  if (!snapshots) {
-    return 0;
-  }
-
-  let value = 0;
-  for (const snapshot of snapshots) {
+function latestOnOrBefore(
+  snapshots: BalanceSnapshot[] | undefined,
+  date: string,
+): BalanceSnapshot | null {
+  let latest: BalanceSnapshot | null = null;
+  for (const snapshot of snapshots ?? []) {
     if (isoDate(new Date(snapshot.snapshotDate)) > date) {
       break;
     }
-    value = toNumber(snapshot.amount);
+    latest = snapshot;
   }
-  return value;
+  return latest;
 }
 
 /** `count` evenly spaced dates from `from` to `to`, inclusive of both ends. */
@@ -539,16 +591,11 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+/** Ounces are small numbers: two decimals would round a silver stack to noise. */
+function round4(value: number): number {
+  return Math.round(value * 10000) / 10000;
 }
 
-function resolveName(account: BalanceAccount, locale?: string): string {
-  if (locale === 'en' && account.nameEn) {
-    return account.nameEn;
-  }
-  if (locale === 'kk' && account.nameKk) {
-    return account.nameKk;
-  }
-  return account.name;
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }

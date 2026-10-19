@@ -27,6 +27,7 @@ const createService = (rows: unknown[] = []) => {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   );
 
   return { service, transactionRepository, queryBuilder };

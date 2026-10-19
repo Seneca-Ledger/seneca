@@ -38,14 +38,12 @@ interface InsightCandidateBase {
 /**
  * Analyzers describe an insight, they do not phrase it: the wording lives in
  * insight-translations.ts and is rendered in the recipient's locale by
- * InsightsService. The literal-text form is the exception, for insights whose
- * text has no key because it was written by a model (see saveExternal).
+ * InsightsService.
  */
-export type InsightCandidate = InsightCandidateBase &
-  (
-    | { messageKey: InsightMessageKey; messageParams: Record<string, string | number> }
-    | { title: string; message: string }
-  );
+export type InsightCandidate = InsightCandidateBase & {
+  messageKey: InsightMessageKey;
+  messageParams: Record<string, string | number>;
+};
 
 export interface InsightAnalyzer {
   analyze(context: AnalysisContext): Promise<InsightCandidate[]>;

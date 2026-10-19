@@ -1,116 +1,150 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
+import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import '../test-setup';
 import { DataHealthTab } from '../DataHealthTab';
 
 type DataHealthTabData = React.ComponentProps<typeof DataHealthTab>['data'];
 
-// Mirrors react-intlayer's renderIntlayerNode: a Proxy over a rendered
-// Fragment whose `.value` is intercepted to return the plain string, so the
-// mock is usable both as a JSX child and via `.value` string access.
-const value = (v: string) =>
-  // biome-ignore lint/complexity/noUselessFragments: Proxy needs an object target — a bare string can't be proxied
-  new Proxy(<>{v}</>, {
-    get(target, prop, receiver) {
-      if (prop === 'value') return v;
-      return Reflect.get(target, prop, receiver);
-    },
-  });
-
-vi.mock('@/app/i18n', () => ({
-  useIntlayer: () => ({
-    uploadParse: value('Upload / Parse'),
-    reviewQueue: value('Review Queue ({count})'),
-    exportButton: value('Export'),
-    dataQualityMetrics: value('DATA QUALITY METRICS'),
-    uncategorizedLabel: value('Uncategorized'),
-    statementErrorsLabel: value('Statement errors'),
-    pendingReviewLabel: value('Pending review'),
-    receiptsPendingLabel: value('Receipts pending'),
-    parsingWarningsLabel: value('Parsing warnings'),
-    allGood: value('All good'),
-    metricNeedsAttention: value('{value} need attention'),
-    lastUpload: value('Last upload'),
-    relativeToday: value('Today'),
-    relativeYesterday: value('Yesterday'),
-    relativeDaysAgo: value('{n} days ago'),
-    relativeOneWeekAgo: value('1 week ago'),
-    relativeWeeksAgo: value('{n} weeks ago'),
-    relativeOneMonthAgo: value('1 month ago'),
-    relativeMonthsAgo: value('{n} months ago'),
-    noDataYet: value('No data yet'),
-    uploadFirstStatement: value('Upload your first statement →'),
-    unapprovedCash: value('Unapproved cash'),
-    allCashApproved: value('ALL CASH APPROVED'),
-    reviewApproveCash: value('Review & approve cash →'),
-    actionRequired: value('Action required'),
-    quickLinkUncategorized: value('Review {count} uncategorized transactions'),
-    quickLinkStatementErrors: value('Fix {count} statement errors'),
-    quickLinkPendingStatements: value('Review {count} pending statements'),
-    quickLinkReceipts: value('Review {count} receipts'),
-  }),
-  useLocale: () => ({ locale: 'en' }),
+vi.mock('next/link', () => ({
+  default: ({ href, children, ...props }: { href: string; children?: React.ReactNode }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
+vi.mock('@/app/lib/user-format-store', () => ({
+  formatStoredDateWithOptions: () => 'May 31, 2025',
+}));
+
+const historyProps = vi.hoisted(() => vi.fn<(props: Record<string, unknown>) => void>());
+
+vi.mock('../MonthlyHistoryCard', async () => {
+  const actual = await vi.importActual<typeof import('../MonthlyHistoryCard')>(
+    '../MonthlyHistoryCard',
+  );
+  return {
+    ...actual,
+    MonthlyHistoryCard: (props: Record<string, unknown>) => {
+      historyProps(props);
+      return <div data-testid="monthly-history" />;
+    },
+  };
+});
+
+const onSelectMonth = vi.fn();
+const displayMonth = new Date(2026, 6, 1);
+
+vi.mock('@/app/i18n', async () => {
+  const { autoDictionary, value } = await import('./intlayer-mock');
+  return {
+    useIntlayer: () =>
+      autoDictionary({
+        summaryAttention: value('{month}: {count} of {total} need attention'),
+        summaryClear: value('{month}: all clear'),
+        uncategorizedLabel: value('Uncategorized'),
+        statementErrorsLabel: value('Statement errors'),
+        pendingReviewLabel: value('Records to review'),
+        receiptsPendingLabel: value('Receipts to check'),
+        parsingWarningsLabel: value('Parsing warnings'),
+        allGood: value('All clear'),
+        notCountedHint: value('Income less spending in records still in review'),
+        allConfirmed: value('Every record is confirmed'),
+        actionReview: value('Review'),
+        actionCategorize: value('Categorize'),
+        actionMatch: value('Match'),
+      }),
+    useLocale: () => ({ locale: 'en' }),
+  };
+});
+
+const health = (fields: Partial<DataHealthTabData['dataHealth']> = {}) => ({
+  uncategorizedTransactions: 0,
+  statementsWithErrors: 0,
+  statementsPendingReview: 0,
+  statementsPendingSubmit: 0,
+  receiptsPendingReview: 0,
+  unapprovedCash: 0,
+  lastUploadDate: '2025-05-31T00:00:00.000Z',
+  parsingWarnings: 0,
+  ...fields,
+});
+
+function renderTab(dataHealth: DataHealthTabData['dataHealth']): void {
+  render(
+    <DataHealthTab
+      data={{ dataHealth } as DataHealthTabData}
+      formatAmount={v => `$${v}`}
+      displayMonth={displayMonth}
+      onSelectMonth={onSelectMonth}
+    />,
+  );
+}
+
 describe('DataHealthTab', () => {
-  it('uses dark-safe metric card surfaces instead of translucent white panels', () => {
-    render(
-      <DataHealthTab
-        data={
-          {
-            dataHealth: {
-              uncategorizedTransactions: 2,
-              statementsWithErrors: 1,
-              statementsPendingReview: 3,
-              statementsPendingSubmit: 2,
-              receiptsPendingReview: 4,
-              unapprovedCash: 0,
-              lastUploadDate: '2025-05-31T00:00:00.000Z',
-              parsingWarnings: 1,
-            },
-          } as DataHealthTabData
-        }
-        formatAmount={value => String(value)}
-        range="30d"
-        isLoading={false}
-      />,
-    );
+  it('shows the by-month history for the picked month with the data-quality metrics', async () => {
+    const { DATA_HEALTH_HISTORY_METRICS } = await import('../MonthlyHistoryCard');
+    renderTab(health());
 
-    const heading = screen.getByText('DATA QUALITY METRICS');
-    const metricCard = heading.parentElement?.querySelector('[class*="dark:bg-card"]');
-
-    expect(metricCard).toBeInTheDocument();
-    expect(metricCard?.className).toContain('dark:bg-card');
-    expect(metricCard?.className).toContain('dark:border-border');
-    expect(metricCard?.className).not.toContain('bg-white/40');
-    expect(metricCard?.className).not.toContain('border-white/60');
+    expect(screen.getByTestId('monthly-history')).toBeInTheDocument();
+    expect(historyProps).toHaveBeenLastCalledWith({
+      displayMonth,
+      metrics: DATA_HEALTH_HISTORY_METRICS,
+      onSelectMonth,
+    });
   });
 
-  it('renders receipts pending metric and action link', () => {
-    render(
-      <DataHealthTab
-        data={
-          {
-            dataHealth: {
-              uncategorizedTransactions: 0,
-              statementsWithErrors: 0,
-              statementsPendingReview: 0,
-              statementsPendingSubmit: 0,
-              receiptsPendingReview: 2,
-              unapprovedCash: 0,
-              lastUploadDate: '2025-05-31T00:00:00.000Z',
-              parsingWarnings: 0,
-            },
-          } as DataHealthTabData
-        }
-        formatAmount={value => String(value)}
-        range="30d"
-        isLoading={false}
-      />,
-    );
+  it('sums the month up in one line and names the checks that are clear', () => {
+    renderTab(health({ uncategorizedTransactions: 6, statementsPendingReview: 2 }));
 
-    expect(screen.getByText(/receipts pending/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Review 2 receipts/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'July 2026: 2 of 5 need attention' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('All clear: Statement errors · Receipts to check · Parsing warnings'),
+    ).toBeInTheDocument();
+  });
+
+  it('lists each open check once, with where to do it', () => {
+    renderTab(health({ uncategorizedTransactions: 6, receiptsPendingReview: 2 }));
+
+    expect(screen.getByText('Uncategorized: 6')).toBeInTheDocument();
+    // Each count is Review's list for the month, so each link opens that list.
+    expect(screen.getByRole('link', { name: /Categorize/ })).toHaveAttribute(
+      'href',
+      '/review?uncategorized=true&month=2026-07',
+    );
+    expect(screen.getByRole('link', { name: /Match/ })).toHaveAttribute(
+      'href',
+      '/review?kind=receipt&month=2026-07',
+    );
+    expect(screen.queryByText('Statement errors: 0')).toBeNull();
+    expect(screen.getByText('May 31, 2025')).toBeInTheDocument();
+  });
+
+  it('shows the money not counted yet while Review has rows, even when it is spending', () => {
+    renderTab(health({ statementsPendingReview: 2, unapprovedCash: -19.63, lastUploadDate: null }));
+
+    expect(screen.getByText('−$19.63')).toBeInTheDocument();
+    expect(screen.getByText(/Income less spending in records still in review/)).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole('link', { name: /Review/ })
+        .every(link => link.getAttribute('href') === '/review?month=2026-07'),
+    ).toBe(true);
+    expect(screen.getByRole('link', { name: 'uploadFirstStatement' })).toHaveAttribute(
+      'href',
+      '/statements/submit',
+    );
+  });
+
+  it('says every record is confirmed and the month is clear when nothing waits', () => {
+    renderTab(health());
+
+    expect(screen.getByRole('heading', { name: 'July 2026: all clear' })).toBeInTheDocument();
+    expect(screen.getByText('Every record is confirmed')).toBeInTheDocument();
+    expect(screen.queryByText('actionRequired')).toBeNull();
   });
 });

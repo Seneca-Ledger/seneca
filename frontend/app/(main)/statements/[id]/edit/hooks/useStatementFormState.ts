@@ -1,4 +1,3 @@
-import type { StatementStage, StatementStageActionId } from '@/app/lib/statement-workflow';
 import { useRef, useState } from 'react';
 import type {
   BranchOption,
@@ -50,18 +49,14 @@ export type StatementFormStateResult = {
   setStatementCategoryDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   statementCategorySaving: boolean;
   setStatementCategorySaving: React.Dispatch<React.SetStateAction<boolean>>;
-  stageActionLoadingId: StatementStageActionId | null;
-  setStageActionLoadingId: React.Dispatch<React.SetStateAction<StatementStageActionId | null>>;
-  currentStage: StatementStage;
-  setCurrentStage: React.Dispatch<React.SetStateAction<StatementStage>>;
   bulkCategoryId: string;
   setBulkCategoryId: React.Dispatch<React.SetStateAction<string>>;
   metadataForm: MetaForm;
   setMetadataForm: React.Dispatch<React.SetStateAction<MetaForm>>;
   exportConfirmOpen: boolean;
   setExportConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  parsingDetailsExpanded: boolean;
-  setParsingDetailsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
+  parsingDetailsExpanded: boolean | null;
+  setParsingDetailsExpanded: React.Dispatch<React.SetStateAction<boolean | null>>;
   balanceStartInputRef: React.RefObject<HTMLInputElement | null>;
   balanceEndInputRef: React.RefObject<HTMLInputElement | null>;
 };
@@ -84,10 +79,6 @@ export function useStatementFormState(): StatementFormStateResult {
   const [bulkCategoryDialogOpen, setBulkCategoryDialogOpen] = useState(false);
   const [statementCategoryDrawerOpen, setStatementCategoryDrawerOpen] = useState(false);
   const [statementCategorySaving, setStatementCategorySaving] = useState(false);
-  const [stageActionLoadingId, setStageActionLoadingId] = useState<StatementStageActionId | null>(
-    null,
-  );
-  const [currentStage, setCurrentStage] = useState<StatementStage>('submit');
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [metadataForm, setMetadataForm] = useState({
     balanceStart: '',
@@ -96,7 +87,8 @@ export function useStatementFormState(): StatementFormStateResult {
     statementDateTo: '',
   });
   const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
-  const [parsingDetailsExpanded, setParsingDetailsExpanded] = useState(true);
+  // null = the user hasn't toggled it yet; the page opens it only when parsing flagged something.
+  const [parsingDetailsExpanded, setParsingDetailsExpanded] = useState<boolean | null>(null);
   const balanceStartInputRef = useRef<HTMLInputElement | null>(null);
   const balanceEndInputRef = useRef<HTMLInputElement | null>(null);
   return {
@@ -134,10 +126,6 @@ export function useStatementFormState(): StatementFormStateResult {
     setStatementCategoryDrawerOpen,
     statementCategorySaving,
     setStatementCategorySaving,
-    stageActionLoadingId,
-    setStageActionLoadingId,
-    currentStage,
-    setCurrentStage,
     bulkCategoryId,
     setBulkCategoryId,
     metadataForm,

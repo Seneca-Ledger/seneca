@@ -1,5 +1,10 @@
 'use client';
 
+import { useDraggable } from '@dnd-kit/core';
+import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
+import { useTheme } from 'next-themes';
+import type { CSSProperties } from 'react';
+import React from 'react';
 import { BankLogoAvatar } from '@/app/components/BankLogoAvatar';
 import { DocumentTypeIcon } from '@/app/components/DocumentTypeIcon';
 import {
@@ -12,12 +17,9 @@ import {
   Trash2,
 } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { Select } from '@/app/components/ui/select';
+import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
-import { useDraggable } from '@dnd-kit/core';
-import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
-import { useTheme } from 'next-themes';
-import React from 'react';
-import type { CSSProperties } from 'react';
 import type { CategoryOption, FileAvailability, StorageFile, TagOption } from '../storageHelpers';
 
 interface DraggableFileRowProps {
@@ -102,6 +104,7 @@ export const DraggableFileRow = React.memo(
     handleDownload,
     confirmDelete,
   }: DraggableFileRowProps) => {
+    const t = useIntlayer('storagePage');
     const { resolvedTheme } = useTheme();
     const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
 
@@ -258,7 +261,7 @@ export const DraggableFileRow = React.memo(
             component="span"
             style={{ fontSize: 14, fontFamily: 'monospace', color: c.ink700 }}
           >
-            {file.metadata?.accountNumber ? `••••${file.metadata.accountNumber.slice(-4)}` : '—'}
+            {file.accountNumber ? `••••${file.accountNumber.slice(-4)}` : '—'}
           </Typography>
         </td>
 
@@ -272,36 +275,25 @@ export const DraggableFileRow = React.memo(
 
         <td style={{ padding: '20px 24px', whiteSpace: 'nowrap', fontSize: 14, color: c.ink800 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <select
+            <Select
               value={file.categoryId || ''}
-              onChange={e => handleCategoryChange(file.id, e.target.value)}
+              onChange={value => handleCategoryChange(file.id, value)}
               disabled={
                 isTrashView ||
                 categoriesLoading ||
                 (!file.isOwner && file.permissionType !== 'editor')
               }
-              style={{
-                minWidth: 160,
-                borderRadius: tokens.radius.md,
-                border: `1px solid ${c.ink150}`,
-                background: 'var(--card-bg)',
-                padding: '8px 12px',
-                fontSize: 14,
-                color: c.ink900,
-              }}
-            >
-              <option value="">{categoryNoneLabel}</option>
-              {categories
-                .filter(cat => cat.isEnabled !== false)
-                .map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-            </select>
+              options={[
+                { value: '', label: categoryNoneLabel },
+                ...categories
+                  .filter(cat => cat.isEnabled !== false)
+                  .map(cat => ({ value: cat.id, label: cat.name })),
+              ]}
+              sx={{ minWidth: 160, backgroundColor: 'var(--card-bg)', color: c.ink900 }}
+            />
             {file.category?.isEnabled === false ? (
               <Typography style={{ fontSize: 12, fontWeight: 500, color: c.danger }}>
-                {file.category.name} - choose category
+                {file.category.name} - {t.categoryCell.chooseCategory}
               </Typography>
             ) : null}
           </Box>

@@ -1,7 +1,7 @@
 'use client';
 
-import { fetchExchangeRate } from '@/app/lib/exchange-rate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { fetchExchangeRate } from '@/app/lib/exchange-rate';
 
 type RecordWithCurrency = { currencyValue?: string | null };
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { RotateCcw, Trash2 } from '@/app/components/icons';
 import { Box, Typography } from '@mui/material';
 import React from 'react';
+import { RotateCcw, Trash2 } from '@/app/components/icons';
 
 const restoreSx = {
   display: 'inline-flex',

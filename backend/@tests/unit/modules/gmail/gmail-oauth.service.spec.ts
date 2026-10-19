@@ -7,6 +7,7 @@ import {
   IntegrationStatus,
 } from '@/entities/integration.entity';
 import type { User } from '@/entities/user.entity';
+import { type WorkspaceMember, WorkspaceRole } from '@/entities/workspace-member.entity';
 import { GmailOAuthService } from '@/modules/gmail/services/gmail-oauth.service';
 import { decryptText } from '@/common/utils/encryption.util';
 
@@ -31,6 +32,7 @@ describe('GmailOAuthService', () => {
   const integrationTokenRepository = createRepoMock<IntegrationToken>();
   const gmailSettingsRepository = createRepoMock<GmailSettings>();
   const userRepository = createRepoMock<User>();
+  const workspaceMemberRepository = createRepoMock<WorkspaceMember>();
 
   let service: GmailOAuthService;
 
@@ -46,16 +48,30 @@ describe('GmailOAuthService', () => {
       integrationTokenRepository,
       gmailSettingsRepository,
       userRepository,
+      workspaceMemberRepository,
     );
   });
 
   it('reuses signed state helpers when building the auth url', () => {
     expect(service).toBeInstanceOf(OAuthIntegrationBaseService);
 
-    const url = service.getAuthUrl({ id: 'user-1', workspaceId: 'ws-1' } as unknown as User);
+    const url = service.getAuthUrl({ id: 'user-1', workspaceId: 'ws-1' } as unknown as User, 'ws-1');
 
     expect(url).toContain('state=');
     expect(url).toContain('access_type=offline');
+  });
+
+  it('carries the workspace the user connects from, not the one they registered with', () => {
+    const url = service.getAuthUrl(
+      { id: 'user-1', workspaceId: 'ws-home' } as unknown as User,
+      'ws-open',
+    );
+
+    const state = new URL(url).searchParams.get('state');
+    expect((service as any).parseState(state)).toMatchObject({
+      userId: 'user-1',
+      workspaceId: 'ws-open',
+    });
   });
 
   it('disconnects gmail integration and clears token plus settings', async () => {
@@ -68,8 +84,11 @@ describe('GmailOAuthService', () => {
       gmailSettings: { integrationId: 'integration-1' },
     });
 
-    await service.disconnect('user-1');
+    await service.disconnect('ws-1');
 
+    expect(integrationRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { workspaceId: 'ws-1', provider: IntegrationProvider.GMAIL } }),
+    );
     expect(integrationTokenRepository.delete).toHaveBeenCalledWith({
       integrationId: 'integration-1',
     });
@@ -83,8 +102,9 @@ describe('GmailOAuthService', () => {
   });
 
   it('stores Gmail callback tokens only in encrypted fields', async () => {
-    const state = (service as any).buildState({ userId: 'user-1' });
+    const state = (service as any).buildState({ userId: 'user-1', workspaceId: 'ws-1' });
     userRepository.findOne.mockResolvedValue({ id: 'user-1', workspaceId: 'ws-1' });
+    workspaceMemberRepository.findOne.mockResolvedValue({ role: WorkspaceRole.OWNER });
     integrationRepository.findOne.mockResolvedValue(null);
     integrationRepository.create.mockReturnValue({
       id: 'integration-1',
@@ -111,5 +131,47 @@ describe('GmailOAuthService', () => {
     expect(savedToken.encryptedRefreshToken).toMatch(/^enc:/);
     expect(decryptText(savedToken.encryptedAccessToken!)).toBe('access-1');
     expect(decryptText(savedToken.encryptedRefreshToken!)).toBe('refresh-1');
+  });
+
+  it('connects the workspace the state carries', async () => {
+    const state = (service as any).buildState({ userId: 'user-1', workspaceId: 'ws-open' });
+    userRepository.findOne.mockResolvedValue({ id: 'user-1', workspaceId: 'ws-home' });
+    workspaceMemberRepository.findOne.mockResolvedValue({ role: WorkspaceRole.ADMIN });
+    integrationRepository.findOne.mockResolvedValue(null);
+    integrationRepository.save.mockImplementation(async data => data as Integration);
+    (service as any).requestToken = jest.fn(async () => ({ access_token: 'access-1' }));
+
+    const result = await service.handleCallback({ code: 'code-1', state });
+
+    expect(result.redirectUrl).toContain('status=success');
+    expect(workspaceMemberRepository.findOne).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws-open', userId: 'user-1' },
+    });
+    expect(integrationRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workspaceId: 'ws-open', provider: IntegrationProvider.GMAIL },
+      }),
+    );
+    expect(integrationRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: 'ws-open', connectedByUserId: 'user-1' }),
+    );
+  });
+
+  it.each([
+    ['a plain member of the workspace', { role: WorkspaceRole.MEMBER }, 'ws-open'],
+    ['no longer a member', null, 'ws-open'],
+    ['a state without a workspace', { role: WorkspaceRole.OWNER }, undefined],
+  ])('refuses the callback for %s', async (_case, membership, workspaceId) => {
+    const state = (service as any).buildState({ userId: 'user-1', workspaceId });
+    userRepository.findOne.mockResolvedValue({ id: 'user-1' });
+    workspaceMemberRepository.findOne.mockResolvedValue(membership);
+    const requestToken = jest.fn();
+    (service as any).requestToken = requestToken;
+
+    const result = await service.handleCallback({ code: 'code-1', state });
+
+    expect(result.redirectUrl).toContain('reason=workspace_forbidden');
+    expect(requestToken).not.toHaveBeenCalled();
+    expect(integrationRepository.save).not.toHaveBeenCalled();
   });
 });

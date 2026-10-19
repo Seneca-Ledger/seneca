@@ -1,16 +1,27 @@
 'use client';
 
+import { Fragment, useState } from 'react';
 import { ArrowDown } from '@/app/components/icons';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Spinner } from '@/app/components/ui/spinner';
+import { useIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
 import {
   getStatementDisplayMerchant,
   getStatementMerchantLabel,
   isManualExpenseStatement,
 } from '@/app/lib/statement-status';
+import {
+  DEFAULT_STATEMENT_COLUMNS,
+  type StatementColumn,
+  type StatementColumnId,
+  statementColumnWidthStyle,
+} from './columns/statement-columns';
+import { type CategoryTarget, DocumentCategoryDrawer } from './DocumentCategoryDrawer';
+import type { DuplicateMeta } from './hooks/useStatementSelection';
 import { StatementsGmailSync } from './StatementsGmailSync';
 import { StatementsListItem } from './StatementsListItem';
 import {
@@ -21,13 +32,9 @@ import {
   isGmailStatement,
   isReceiptProcessing,
   isStatementParsingInProgress,
+  resolvePendingReview,
 } from './StatementsListView.utils';
-import {
-  DEFAULT_STATEMENT_COLUMNS,
-  type StatementColumn,
-  type StatementColumnId,
-} from './columns/statement-columns';
-import type { DuplicateMeta } from './hooks/useStatementSelection';
+import { StatementTransactionsPanel } from './StatementTransactionsPanel';
 
 interface StatementForTable {
   id: string;
@@ -40,7 +47,7 @@ interface StatementForTable {
   sender?: string;
   exported?: boolean | null;
   paid?: boolean | null;
-  processedAt?: string;
+  processedAt?: string | null;
   receivedAt?: string;
   createdAt: string;
   parsedData?: {
@@ -59,7 +66,7 @@ interface StatementForTable {
     icon?: string | null;
   } | null;
   tags?: Array<{ id?: string; name?: string; color?: string | null }>;
-  googleSheet?: { id?: string; sheetName?: string | null; worksheetName?: string | null } | null;
+  totalTransactions?: number | string | null;
   transactionSummary?: {
     description?: string | null;
     exchangeRate?: string | number | null;
@@ -72,14 +79,7 @@ interface StatementForTable {
     email?: string | null;
     avatarUrl?: string | null;
   } | null;
-  parsingDetails?: {
-    importPreview?: {
-      attachments?: number;
-      description?: string;
-      merchant?: string;
-      categoryId?: string;
-    };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 interface TableLabels {
@@ -96,6 +96,8 @@ interface TableLabels {
 }
 
 interface Props {
+  /** The list's own toolbar, drawn inside the white block above the rows. */
+  toolbar?: React.ReactNode;
   loading: boolean;
   displayStatements: StatementForTable[];
   paginatedStatements: StatementForTable[];
@@ -110,6 +112,8 @@ interface Props {
   rangeEnd: number;
   total: number;
   duplicateMetaById: Map<string, DuplicateMeta>;
+  /** Rows each statement still has in Review, by statement id. */
+  statementReviewCounts?: Record<string, number>;
   columns?: StatementColumn[];
   currentExchangeRateLabels?: Record<string, string>;
   workspaceCurrency?: string | null;
@@ -125,65 +129,19 @@ interface Props {
 }
 
 const NUMERIC_COLUMN_IDS = new Set<StatementColumnId>(['amount', 'exchangeRate']);
-const BOOLEAN_COLUMN_IDS = new Set<StatementColumnId>(['approved', 'billable', 'exported']);
-const COLUMN_MIN_WIDTHS: Record<StatementColumnId, number> = {
-  receipt: 48,
-  date: 124,
-  merchant: 260,
-  from: 136,
-  to: 136,
-  category: 136,
-  tag: 136,
-  amount: 148,
-  action: 128,
-  approved: 96,
-  billable: 96,
-  card: 136,
-  description: 220,
-  exchangeRate: 156,
-  exported: 96,
-  exportedTo: 136,
-};
-
-const columnHeaderStyle = (columnId: StatementColumnId): React.CSSProperties => {
-  const common: React.CSSProperties = {
-    minWidth: 0,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    color: 'var(--muted-foreground)',
-    textAlign: NUMERIC_COLUMN_IDS.has(columnId) ? 'right' : 'left',
-  };
-
-  if (columnId === 'receipt') {
-    return { ...common, width: 48, flex: '0 0 48px', textAlign: 'center' };
-  }
-  if (columnId === 'merchant') {
-    return { ...common, minWidth: 220, flex: '1 1 260px' };
-  }
-  if (columnId === 'description') {
-    return { ...common, minWidth: 180, flex: '1 1 220px' };
-  }
-  if (columnId === 'action') {
-    return { ...common, width: 128, flex: '0 0 128px', textAlign: 'right' };
-  }
-  if (columnId === 'amount') {
-    return { ...common, width: 148, flex: '0 0 148px', textAlign: 'right' };
-  }
-  if (columnId === 'date') {
-    return { ...common, width: 124, flex: '0 0 124px' };
-  }
-  if (columnId === 'exchangeRate') {
-    return { ...common, width: 156, flex: '0 0 156px', textAlign: 'right' };
-  }
-  if (NUMERIC_COLUMN_IDS.has(columnId)) {
-    return { ...common, width: 116, flex: '0 0 116px', textAlign: 'right' };
-  }
-  if (BOOLEAN_COLUMN_IDS.has(columnId)) {
-    return { ...common, width: 96, flex: '0 0 96px' };
-  }
-  return { ...common, width: 136, flex: '0 0 136px' };
-};
+const columnHeaderStyle = (columnId: StatementColumnId): React.CSSProperties => ({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  color: 'var(--muted-foreground)',
+  textAlign:
+    columnId === 'receipt'
+      ? 'center'
+      : NUMERIC_COLUMN_IDS.has(columnId) || columnId === 'action'
+        ? 'right'
+        : 'left',
+  ...statementColumnWidthStyle(columnId),
+});
 
 const getRenderedColumns = (
   columns: StatementColumn[] = DEFAULT_STATEMENT_COLUMNS,
@@ -192,14 +150,27 @@ const getRenderedColumns = (
   return visibleColumns.length > 0 ? visibleColumns : columns.slice(0, 1);
 };
 
-const calculateTableMinWidth = (columns: StatementColumn[] = DEFAULT_STATEMENT_COLUMNS): number => {
-  const renderedColumns = getRenderedColumns(columns);
-  const columnsWidth = renderedColumns.reduce(
-    (sum, column) => sum + COLUMN_MIN_WIDTHS[column.id],
-    0,
-  );
-  const gapWidth = Math.max(0, renderedColumns.length - 1) * 24;
-  return 32 + columnsWidth + gapWidth + 64;
+const NO_REVIEW_COUNTS: Record<string, number> = {};
+
+/** What the From column shows for a row; mirrors the cell in StatementsListItem. */
+const fromValue = (statement: StatementForTable): string =>
+  (statement.user?.name || statement.user?.email || statement.sender || '').trim();
+
+/**
+ * From says nothing when every row on the page has the same value there (all
+ * "camera-scan", say), so the column steps aside until the rows differ.
+ */
+const withoutUniformFrom = (
+  columns: StatementColumn[] | undefined,
+  statements: StatementForTable[],
+): StatementColumn[] | undefined => {
+  if (!columns?.some(column => column.id === 'from' && column.visible)) {
+    return columns;
+  }
+  if (new Set(statements.map(fromValue)).size > 1) {
+    return columns;
+  }
+  return columns.map(column => (column.id === 'from' ? { ...column, visible: false } : column));
 };
 
 interface StatementRowData {
@@ -253,6 +224,7 @@ function TableDesktopHeader({
   dateSortDirection,
   columns = DEFAULT_STATEMENT_COLUMNS,
   labels,
+  reviewLabel,
   onToggleSelectAll,
   onToggleSortDirection,
 }: {
@@ -261,13 +233,15 @@ function TableDesktopHeader({
   dateSortDirection: 'asc' | 'desc';
   columns?: StatementColumn[];
   labels: TableLabels;
+  reviewLabel: string;
   onToggleSelectAll: (checked: boolean) => void;
   onToggleSortDirection: () => void;
 }): React.JSX.Element {
   const renderedColumns = getRenderedColumns(columns);
+  const listText = useIntlayer('statementsListUi');
 
   return (
-    <div className="lumio-stmt-list-view__desktop-header">
+    <div className="seneca-stmt-list-view__desktop-header">
       <div
         style={{
           width: 16,
@@ -282,40 +256,62 @@ function TableDesktopHeader({
           checked={allVisibleSelected}
           indeterminate={selectedCount > 0 && !allVisibleSelected}
           onCheckedChange={onToggleSelectAll}
-          aria-label="Select all statements"
+          aria-label={listText.selectAllStatements.value}
         />
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 24, flex: 1, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
         {renderedColumns.map(column => (
-          <div key={column.id} style={columnHeaderStyle(column.id)}>
-            {column.id === 'date' ? (
-              <button
-                type="button"
-                data-testid="statements-date-sort"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  cursor: 'pointer',
-                  background: 'none',
-                  border: 'none',
-                  color: 'inherit',
-                  padding: 0,
-                }}
-                onClick={onToggleSortDirection}
-                aria-label={`Sort by date ${dateSortDirection === 'desc' ? 'ascending' : 'descending'}`}
-              >
-                {column.label || labels.date}
-                <ArrowDown
-                  size={12}
+          <div key={column.id} data-column-id={column.id} style={columnHeaderStyle(column.id)}>
+            {column.id === 'merchant' ? (
+              // Dates live under each merchant name, so the date sort sits here
+              // instead of in a column of its own.
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {column.label}
+                <button
+                  type="button"
+                  data-testid="statements-date-sort"
                   style={{
-                    transition: 'transform 0.2s',
-                    transform: dateSortDirection === 'asc' ? 'rotate(180deg)' : 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    cursor: 'pointer',
+                    background: 'none',
+                    border: 'none',
+                    color: 'inherit',
+                    padding: 0,
+                    opacity: 0.75,
                   }}
-                />
-              </button>
-            ) : column.id === 'receipt' ? (
-              <span className="sr-only">{column.label || labels.receipt}</span>
+                  onClick={onToggleSortDirection}
+                  aria-label={
+                    dateSortDirection === 'desc'
+                      ? listText.sortByDateAsc.value
+                      : listText.sortByDateDesc.value
+                  }
+                >
+                  · {labels.date}
+                  <ArrowDown
+                    size={12}
+                    style={{
+                      transition: 'transform 0.2s',
+                      transform: dateSortDirection === 'asc' ? 'rotate(180deg)' : 'none',
+                    }}
+                  />
+                </button>
+              </span>
+            ) : column.id === 'receipt' || column.id === 'action' ? (
+              // The arrow column needs no visible title; screen readers keep it.
+              <>
+                <span className="u-visually-hidden">{column.label || labels.receipt}</span>
+                {column.id === 'action' ? (
+                  // Gives the column the width the rows' Review label takes.
+                  <span
+                    aria-hidden
+                    className="seneca-stmt-list-item__view-btn seneca-stmt-list-item__action-sizer"
+                  >
+                    {reviewLabel}
+                  </span>
+                ) : null}
+              </>
             ) : (
               column.label
             )}
@@ -327,6 +323,7 @@ function TableDesktopHeader({
 }
 
 export function StatementsListTable({
+  toolbar,
   loading,
   displayStatements,
   paginatedStatements,
@@ -341,6 +338,7 @@ export function StatementsListTable({
   rangeEnd,
   total,
   duplicateMetaById,
+  statementReviewCounts = NO_REVIEW_COUNTS,
   columns,
   currentExchangeRateLabels,
   workspaceCurrency,
@@ -354,49 +352,58 @@ export function StatementsListTable({
   onIconClick,
   onPageChange,
 }: Props): React.JSX.Element {
+  const listText = useIntlayer('statementsListUi');
+  // Statements whose rows are open under their line; each loads its rows on opening.
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
+  // The document whose "Add category" opened the category drawer.
+  const [categoryTarget, setCategoryTarget] = useState<CategoryTarget | null>(null);
+  const toggleExpanded = (id: string): void =>
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const shownColumns = withoutUniformFrom(columns, paginatedStatements);
   if (loading && gmailSyncSkeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__loading">
-        <Spinner style={{ height: 80, width: 80, color: 'var(--primary)' }} />
+      <div className="seneca-stmt-list-view__table">
+        {toolbar}
+        <div className="seneca-stmt-list-view__loading">
+          <Spinner style={{ height: 80, width: 80, color: 'var(--primary)' }} />
+        </div>
       </div>
     );
   }
 
   if (displayStatements.length === 0 && gmailSyncSkeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__empty">
-        <EmptyStateIllustration name="statements" size="lg" />
-        <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--foreground)' }}>
-          {labels.emptyTitle}
-        </h3>
-        <p style={{ marginTop: 4, color: 'var(--muted-foreground)' }}>{labels.emptyDescription}</p>
+      <div className="seneca-stmt-list-view__table">
+        {toolbar}
+        <div className="seneca-stmt-list-view__empty">
+          <EmptyStateIllustration name="statements" size="lg" />
+          <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--foreground)' }}>
+            {labels.emptyTitle}
+          </h3>
+          <p style={{ marginTop: 4, color: 'var(--muted-foreground)' }}>
+            {labels.emptyDescription}
+          </p>
+        </div>
       </div>
     );
   }
 
-  const tableMinWidth = calculateTableMinWidth(columns);
-
   return (
     <>
-      <div className="lumio-stmt-list-view__table-scroll">
-        <div className="lumio-stmt-list-view__table" style={{ minWidth: tableMinWidth }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px' }}>
-            <Checkbox
-              checked={allVisibleSelected}
-              indeterminate={selectedCount > 0 && !allVisibleSelected}
-              onCheckedChange={onToggleSelectAll}
-              aria-label="Select all statements"
-            />
-            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)' }}>
-              Select all
-            </span>
-          </div>
+      <div className="seneca-stmt-list-view__table-scroll">
+        <div className="seneca-stmt-list-view__table">
+          {toolbar}
           <TableDesktopHeader
             allVisibleSelected={allVisibleSelected}
             selectedCount={selectedCount}
             dateSortDirection={dateSortDirection}
-            columns={columns}
+            columns={shownColumns}
             labels={labels}
+            reviewLabel={reviewDuplicateLabel}
             onToggleSelectAll={onToggleSelectAll}
             onToggleSortDirection={onToggleSortDirection}
           />
@@ -404,41 +411,66 @@ export function StatementsListTable({
           {paginatedStatements.map((statement, index) => {
             const rowData = resolveStatementRowData(statement, labels.scanning);
             const duplicateMeta = duplicateMetaById.get(statement.id);
+            // Neighbours in the same group share one unbroken line on the left.
+            const sameGroup = (other: StatementForTable | undefined): boolean =>
+              Boolean(
+                duplicateMeta &&
+                  other &&
+                  duplicateMetaById.get(other.id)?.groupKey === duplicateMeta.groupKey,
+              );
+            const transactionCount = rowData.isReceipt
+              ? 0
+              : Number(statement.totalTransactions ?? 0);
+            const expanded = transactionCount > 1 && expandedIds.has(statement.id);
             return (
-              <StatementsListItem
-                key={statement.id}
-                dataTourId={index === 0 ? 'statement-row-primary' : undefined}
-                statement={statement as Parameters<typeof StatementsListItem>[0]['statement']}
-                viewLabel={viewLabel}
-                isReceipt={rowData.isReceipt}
-                isProcessing={rowData.isProcessingReceipt}
-                merchantLabel={rowData.merchantLabel}
-                amountLabel={rowData.amountLabel}
-                dateLabel={rowData.dateLabel}
-                isPossibleDuplicate={Boolean(duplicateMeta)}
-                duplicatePosition={duplicateMeta?.position}
-                duplicateGroupSize={duplicateMeta?.total}
-                duplicateRole={duplicateMeta?.role}
-                duplicateGroupLabel={duplicateMeta?.groupLabel}
-                duplicateGroupTone={duplicateMeta?.groupTone}
-                duplicateReason={duplicateMeta?.reason}
-                duplicateActionLabel={reviewDuplicateLabel}
-                typeLabel={rowData.isReceipt ? 'Receipt' : statement.fileType}
-                isManualExpense={rowData.isManualExpense}
-                viewDisabled={rowData.isProcessingStatement}
-                onView={() => onView(statement)}
-                onIconClick={() => onIconClick(statement)}
-                onToggleSelect={() => onToggleStatement(statement.id)}
-                selected={selectedStatementIds.includes(statement.id)}
-                columns={columns}
-                currentExchangeRateLabels={currentExchangeRateLabels}
-                workspaceCurrency={workspaceCurrency}
-              />
+              <Fragment key={statement.id}>
+                <StatementsListItem
+                  key={statement.id}
+                  dataTourId={index === 0 ? 'statement-row-primary' : undefined}
+                  statement={statement as Parameters<typeof StatementsListItem>[0]['statement']}
+                  viewLabel={viewLabel}
+                  isReceipt={rowData.isReceipt}
+                  isProcessing={rowData.isProcessingReceipt}
+                  merchantLabel={rowData.merchantLabel}
+                  amountLabel={rowData.amountLabel}
+                  dateLabel={rowData.dateLabel}
+                  isPossibleDuplicate={Boolean(duplicateMeta)}
+                  duplicatePosition={duplicateMeta?.position}
+                  duplicateGroupSize={duplicateMeta?.total}
+                  duplicateRole={duplicateMeta?.role}
+                  duplicateGroupLabel={duplicateMeta?.groupLabel}
+                  duplicateGroupStart={!sameGroup(paginatedStatements[index - 1])}
+                  duplicateGroupEnd={!sameGroup(paginatedStatements[index + 1])}
+                  duplicateReason={duplicateMeta?.reason}
+                  duplicateActionLabel={reviewDuplicateLabel}
+                  pendingReview={resolvePendingReview(
+                    statement,
+                    rowData.isReceipt,
+                    statementReviewCounts,
+                  )}
+                  typeLabel={rowData.isReceipt ? listText.typeReceipt.value : statement.fileType}
+                  isManualExpense={rowData.isManualExpense}
+                  viewDisabled={rowData.isProcessingStatement}
+                  onView={() => onView(statement)}
+                  onIconClick={() => onIconClick(statement)}
+                  onToggleSelect={() => onToggleStatement(statement.id)}
+                  selected={selectedStatementIds.includes(statement.id)}
+                  columns={shownColumns}
+                  currentExchangeRateLabels={currentExchangeRateLabels}
+                  workspaceCurrency={workspaceCurrency}
+                  transactionCount={transactionCount}
+                  expanded={expanded}
+                  onToggleExpand={() => toggleExpanded(statement.id)}
+                  onAddCategory={() => setCategoryTarget(statement)}
+                />
+                {expanded ? <StatementTransactionsPanel statementId={statement.id} /> : null}
+              </Fragment>
             );
           })}
         </div>
       </div>
-      <div className="lumio-stmt-list-view__pagination" style={{ marginTop: 24 }}>
+      <DocumentCategoryDrawer target={categoryTarget} onClose={() => setCategoryTarget(null)} />
+      <div className="seneca-stmt-list-view__pagination" style={{ marginTop: 24 }}>
         <div style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
           {formatPaginationLabel(labels.paginationShown, {
             from: rangeStart,

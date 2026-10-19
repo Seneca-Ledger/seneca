@@ -51,8 +51,8 @@ export function BrandLogoAvatar({ sender, vendorName, size = 32 }: Props) {
       src={logoUrl}
       alt={vendorName || 'Brand'}
       size={size}
-      imgClassName="lumio-brand-logo-avatar__img"
-      className="lumio-brand-logo-avatar"
+      imgClassName="seneca-brand-logo-avatar__img"
+      className="seneca-brand-logo-avatar"
       fallbackStyle={{ fontSize: size * 0.35 }}
       fallback={initials}
     />

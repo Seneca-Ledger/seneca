@@ -1,5 +1,5 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module, forwardRef } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 // import { DataQualityFramework } from '../../common/utils/data-quality-framework.util';
 import { ParsingRule } from '../../entities/parsing-rule.entity';
@@ -7,12 +7,11 @@ import { Statement } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
 import { ClassificationModule } from '../classification/classification.module';
-import { GoogleSheetsModule } from '../google-sheets/google-sheets.module';
 import { ImportModule } from '../import/import.module';
 import { ObservabilityModule } from '../observability/observability.module';
+import { TaxModule } from '../tax/tax.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { ParsingController } from './controllers/parsing.controller';
-import { AiDocumentExtractor } from './helpers/ai-document-extractor.helper';
 import {
   StaleStatementReaper,
   StatementParsingProcessor,
@@ -68,11 +67,11 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
   imports: [
     TypeOrmModule.forFeature([Statement, Transaction, ParsingRule, User]),
     ClassificationModule,
-    forwardRef(() => GoogleSheetsModule),
     forwardRef(() => ImportModule),
     ObservabilityModule,
     forwardRef(() => TransactionsModule),
     BullModule.registerQueue({ name: STATEMENT_PARSING_QUEUE }),
+    TaxModule,
   ],
   controllers: [ParsingController],
   providers: [
@@ -104,10 +103,6 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
     OcrService,
     TransactionTypeDetectorService,
     UniversalExtractorService,
-    {
-      provide: 'AI_DOCUMENT_EXTRACTOR',
-      useFactory: () => new AiDocumentExtractor(process.env.AI_API_KEY),
-    },
   ],
   exports: [
     ParserFactoryService,

@@ -1,3 +1,5 @@
+import { createTestQueryClient } from '@/app/test/query-wrapper';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -55,13 +57,21 @@ vi.mock('next-themes', () => ({
   useTheme: () => themeMock,
 }));
 
-vi.mock('@/app/i18n', () => ({
-  useIntlayer: () => ({
-    common: {
-      close: { value: 'Close' },
-    },
-  }),
-}));
+vi.mock('@/app/i18n', async () => {
+  const actual = await vi.importActual<typeof import('react-intlayer')>('react-intlayer');
+  const realKeys = new Set(['statementsTablesReports']);
+  return {
+    useLocale: () => ({ locale: 'en' }),
+    useIntlayer: (key: string) =>
+      realKeys.has(key)
+        ? actual.useIntlayer(key as never)
+        : {
+            common: {
+              close: { value: 'Close' },
+            },
+          },
+  };
+});
 
 vi.mock('@/app/components/ui/spinner', () => ({
   Spinner: () => <div data-testid="loading-animation" />,
@@ -86,8 +96,8 @@ describe('TablesReportsView', () => {
             { id: 'table-1', name: 'Manual Table', source: 'manual', rowCount: 3 },
             {
               id: 'table-2',
-              name: 'Google Sheet',
-              source: 'google_sheets_import',
+              name: 'Second Table',
+              source: 'manual',
               rowCount: 7,
             },
           ],
@@ -103,8 +113,7 @@ describe('TablesReportsView', () => {
           data: {
             totals: {
               total: 225,
-              manualTotal: 175,
-              googleSheetsTotal: 50,
+              manualTotal: 225,
               operations: 3,
             },
             comparison: {
@@ -114,9 +123,6 @@ describe('TablesReportsView', () => {
               manualDelta: 5,
               manualPercentage: 3,
               manualTrend: 'up',
-              googleSheetsDelta: 5,
-              googleSheetsPercentage: 10,
-              googleSheetsTrend: 'up',
               operationsDelta: 1,
               operationsPercentage: 50,
               operationsTrend: 'up',
@@ -125,7 +131,7 @@ describe('TablesReportsView', () => {
               { date: '2026-03-10', amount: 100 },
               { date: '2026-03-11', amount: 50 },
             ],
-            sourceSplit: { manual: 175, googleSheets: 50 },
+            sourceSplit: { manual: 225 },
             aggregatedRows: [
               {
                 counterparty: 'Vendor A',
@@ -188,7 +194,11 @@ describe('TablesReportsView', () => {
 
   it('loads tables report data and renders summary content', async () => {
     await act(async () => {
-      root.render(<TablesReportsView />);
+      root.render(
+        <QueryClientProvider client={createTestQueryClient()}>
+          <TablesReportsView />
+        </QueryClientProvider>,
+      );
     });
 
     await act(async () => {
@@ -216,7 +226,11 @@ describe('TablesReportsView', () => {
 
   it('opens tables dropdown and refetches report with selected tables', async () => {
     await act(async () => {
-      root.render(<TablesReportsView />);
+      root.render(
+        <QueryClientProvider client={createTestQueryClient()}>
+          <TablesReportsView />
+        </QueryClientProvider>,
+      );
     });
 
     await act(async () => {
@@ -230,10 +244,10 @@ describe('TablesReportsView', () => {
       fireEvent.click(dropdownTrigger);
     });
 
-    expect(screen.getByText('Google Sheet')).toBeInTheDocument();
+    expect(screen.getByText('Second Table')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByLabelText(/select table google sheet/i));
+      fireEvent.click(screen.getByLabelText(/select table second table/i));
     });
 
     await act(async () => {
@@ -257,7 +271,11 @@ describe('TablesReportsView', () => {
 
   it('opens drill-down modal when clicking a leaderboard row', async () => {
     await act(async () => {
-      root.render(<TablesReportsView />);
+      root.render(
+        <QueryClientProvider client={createTestQueryClient()}>
+          <TablesReportsView />
+        </QueryClientProvider>,
+      );
     });
 
     await act(async () => {
@@ -286,11 +304,48 @@ describe('TablesReportsView', () => {
     expect(screen.getAllByText('Manual')).toHaveLength(2);
   });
 
+  it('keeps focus inside the drill-down and closes it with Escape', async () => {
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={createTestQueryClient()}>
+          <TablesReportsView />
+        </QueryClientProvider>,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('row', { name: /Vendor A/i }));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const dialog = screen.getByRole('dialog', { name: /Vendor A — Drill-down/i });
+    expect(dialog.parentElement?.contains(document.activeElement)).toBe(true);
+
+    await act(async () => {
+      fireEvent.keyDown(dialog, { key: 'Escape' });
+    });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('includes dark theme surface classes for the main controls and cards', async () => {
     themeMock.resolvedTheme = 'dark';
 
     await act(async () => {
-      root.render(<TablesReportsView />);
+      root.render(
+        <QueryClientProvider client={createTestQueryClient()}>
+          <TablesReportsView />
+        </QueryClientProvider>,
+      );
     });
 
     await act(async () => {

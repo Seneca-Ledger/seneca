@@ -1,9 +1,15 @@
 import * as crypto from 'node:crypto';
 import { promisify } from 'node:util';
+
 import AdmZip = require('adm-zip');
 
 const scrypt = promisify(crypto.scrypt);
 const ARCHIVE_FORMAT_VERSION = 1;
+/** Archives made before the rename to Seneca say 'lumio-backup'; they restore the same way. */
+const ARCHIVE_FORMATS = ['seneca-backup', 'lumio-backup'] as const;
+export const BACKUP_FILE_EXTENSION = '.seneca-backup';
+export const isBackupFileName = (name: string): boolean =>
+  name.endsWith(BACKUP_FILE_EXTENSION) || name.endsWith('.lumio-backup');
 const DATA_KEY_LENGTH = 32;
 
 type ArchiveInput = {
@@ -31,7 +37,7 @@ export type BackupEncryptionMaterial = {
 };
 
 export type BackupManifest = {
-  format: 'lumio-backup';
+  format: (typeof ARCHIVE_FORMATS)[number];
   formatVersion: number;
   createdAt: string;
   collections: Record<string, number>;
@@ -88,7 +94,7 @@ export class BackupArchiveService {
     const encryption = input.encryption || (await this.initializeEncryption(input.password || ''));
     const encryptedPayload = this.encrypt(payload.toBuffer(), encryption.dataKey);
     const manifest: BackupManifest = {
-      format: 'lumio-backup',
+      format: 'seneca-backup',
       formatVersion: ARCHIVE_FORMAT_VERSION,
       createdAt: new Date().toISOString(),
       collections: collectionCounts,
@@ -198,7 +204,7 @@ export class BackupArchiveService {
 
   private validateManifest(manifest: BackupManifest): void {
     if (
-      manifest?.format !== 'lumio-backup' ||
+      !ARCHIVE_FORMATS.includes(manifest?.format) ||
       manifest.formatVersion !== ARCHIVE_FORMAT_VERSION ||
       manifest.encryption?.algorithm !== 'aes-256-gcm' ||
       manifest.encryption.kdf?.algorithm !== 'scrypt' ||

@@ -1,7 +1,7 @@
+import { useMemo } from 'react';
 import { useAnalyticsData } from '@/app/(main)/statements/hooks/useAnalyticsData';
 import type { TopAnalyticsStateReturn } from '@/app/(main)/statements/hooks/useTopAnalyticsState';
 import { getRecordDate } from '@/app/lib/analytics-common';
-import { useMemo } from 'react';
 
 type WorkspaceLike = { id: string; name?: string | null };
 

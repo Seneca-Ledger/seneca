@@ -1,7 +1,7 @@
 'use client';
 
-import { AnalyticsChartCard } from '@/app/(main)/statements/components/analytics/AnalyticsChartCard';
 import dynamic from 'next/dynamic';
+import { AnalyticsChartCard } from '@/app/(main)/statements/components/analytics/AnalyticsChartCard';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 

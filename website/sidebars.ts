@@ -20,8 +20,13 @@ const sidebars: SidebarsConfig = {
         'guides/importing-statements',
         'guides/workspaces-and-rbac',
         'guides/integrations',
-        'guides/ai-categorization',
+        'guides/webhooks',
+        'guides/categorization',
+        'guides/receipt-maps',
+        'guides/income-tax-declaration',
         'guides/observability',
+        'guides/mcp',
+        'guides/security-posture',
       ],
     },
     {
@@ -50,7 +55,6 @@ const sidebars: SidebarsConfig = {
       label: 'Deployment',
       items: [
         'deployment/docker',
-        'deployment/railway',
         'deployment/ci-cd',
       ],
     },

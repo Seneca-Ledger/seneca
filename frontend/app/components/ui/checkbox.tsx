@@ -39,6 +39,8 @@ const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
       label,
       className,
       style,
+      'aria-label': ariaLabel,
+      'aria-labelledby': ariaLabelledBy,
       ...props
     },
     ref,
@@ -62,6 +64,10 @@ const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
         size={muiSize}
         className={className}
         style={style}
+        // MUI раскладывает неизвестные пропы на корневой span, поэтому подпись
+        // нужно адресовать самому input — иначе чекбокс остаётся без имени и для
+        // скринридеров, и для getByLabelText.
+        slotProps={{ input: { 'aria-label': ariaLabel, 'aria-labelledby': ariaLabelledBy } }}
         {...props}
       />
     );

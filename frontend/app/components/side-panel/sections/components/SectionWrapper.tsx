@@ -1,7 +1,7 @@
 'use client';
 
-import { ChevronDown } from '@/app/components/icons';
 import React from 'react';
+import { ChevronDown } from '@/app/components/icons';
 import { useSidePanel } from '../../SidePanelContext';
 import type { SidePanelSection } from '../../types';
 import { RenderIcon } from './RenderIcon';
@@ -23,7 +23,8 @@ export function SectionWrapper({
   if (section.hidden) return null;
 
   return (
-    <div style={{ marginBottom: 4 }} className={section.className}>
+    // Dense rows, generous gaps between groups.
+    <div style={{ marginBottom: 32 }} className={section.className}>
       {section.title && (
         <button
           type="button"
@@ -35,10 +36,12 @@ export function SectionWrapper({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '8px 16px',
-            marginTop: section.collapsible ? 12 : 4,
-            fontSize: 14,
-            fontWeight: 400,
+            // Lines the title up with the row labels (content 6px + row 10px).
+            padding: '6px 16px',
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
             color: 'var(--muted-foreground)',
             background: 'none',
             border: 'none',
@@ -60,16 +63,18 @@ export function SectionWrapper({
           )}
         </button>
       )}
+      {/* Clip only while collapsed: an always-on overflow cuts the focus ring of the first row. */}
       <div
         style={{
           transition: 'all 200ms',
-          overflow: 'hidden',
+          overflow: isCollapsed ? 'hidden' : 'visible',
           maxHeight: isCollapsed ? 0 : 2000,
           opacity: isCollapsed ? 0 : 1,
         }}
+        inert={isCollapsed}
       >
         <div
-          style={{ padding: section.title ? '0 16px 12px' : '12px 16px' }}
+          style={{ padding: section.title ? '0 6px' : '12px 6px 0' }}
           className={section.contentClassName}
         >
           {children}

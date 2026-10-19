@@ -1,0 +1,215 @@
+@use '../abstracts' as *;
+
+/* BEM block: seneca-notification-panel — the drawer the account menu opens.
+   A short to-do list rather than a feed of alerts: rows on the card, hairlines
+   between them, one dot of state on the left, no icons and no fills. */
+
+.seneca-notification-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  // Cancels the drawer's body padding: the rows run edge to edge, as list rows do.
+  margin: 0 -16px;
+
+  // The drawer title with "Mark all as read" on the same line.
+  &__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+  }
+
+  &__mark-all {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--primary);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    &:disabled {
+      color: var(--muted-foreground);
+      cursor: default;
+    }
+  }
+
+  &__list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  &__empty {
+    padding: 32px 16px;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    text-align: center;
+  }
+
+  &__group + &__group {
+    margin-top: 8px;
+  }
+
+  &__group-title {
+    margin: 0;
+    padding: 12px 16px 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: $seneca-color-text-muted;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+    border-top: 1px solid $seneca-color-hairline;
+    transition: background-color 150ms;
+
+    @include dark {
+      border-top-color: $seneca-color-border-dk;
+    }
+
+    &:hover {
+      background: $seneca-color-slot-bg;
+
+      @include dark {
+        background: $seneca-color-ink-100-dk;
+      }
+    }
+  }
+
+  // The one mark of state: a slot always there, so titles line up.
+  &__dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    margin-top: 6px;
+    border-radius: 50%;
+
+    &--unread {
+      background: $seneca-color-empty-icon;
+    }
+
+    &--attention {
+      background: $seneca-color-attention;
+
+      @include dark {
+        background: $seneca-color-warning-dk;
+      }
+    }
+
+    &--error {
+      background: $seneca-color-money-down;
+
+      @include dark {
+        background: $seneca-color-danger-dk;
+      }
+    }
+  }
+
+  &__item-content {
+    min-width: 0;
+    flex: 1;
+  }
+
+  &__item-main {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  &__item-title {
+    display: block;
+    font-size: 14px;
+    font-weight: 400;
+    color: $seneca-color-figure;
+
+    @include dark {
+      color: $color-foreground-dk;
+    }
+  }
+
+  // Unread: the title's weight says it, together with the dot.
+  &__item--unread &__item-title {
+    font-weight: 500;
+  }
+
+  &__item-message {
+    display: -webkit-box;
+    margin-top: 2px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: $seneca-color-text-muted;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__item-meta {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: $seneca-color-text-muted;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__item-action {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: 500;
+    color: var(--primary);
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
+
+  &__footer {
+    flex-shrink: 0;
+    padding: 10px 16px 0;
+  }
+
+  &__settings-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
+}

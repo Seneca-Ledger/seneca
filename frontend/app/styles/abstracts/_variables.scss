@@ -3,140 +3,171 @@
 // Dark equivalents are in _variables-dark.scss.
 
 // ── Brand / Primary ──────────────────────────────────────────
-$lumio-color-primary:          #168118;
-$lumio-color-primary-hover:    #157811;
-$lumio-color-primary-dark:     #036704;
-$lumio-color-primary-50:       #edf7ed;
-$lumio-color-primary-100:      #d4edd4;
-$lumio-color-primary-200:      #a8d5a8;
-$lumio-color-primary-contrast: #ffffff;
-$lumio-color-forest:           #0e2a10;
-$lumio-color-lime:             #9fe870;
+$seneca-color-primary:          #5b7b6a;
+$seneca-color-primary-hover:    #4e6b5c;
+$seneca-color-primary-dark:     #3f574a;
+$seneca-color-primary-50:       #eef3f0;
+$seneca-color-primary-100:      #dce6e0;
+$seneca-color-primary-200:      #b9cbc1;
+$seneca-color-primary-contrast: #ffffff;
+$seneca-color-forest:           #0e2a10;
+$seneca-color-lime:             #9fe870;
 
 // ── Ink neutrals ─────────────────────────────────────────────
-$lumio-color-ink-900: #0b0b10;
-$lumio-color-ink-800: #171720;
-$lumio-color-ink-700: #2a2a35;
-$lumio-color-ink-600: #4a4a58;
-$lumio-color-ink-500: #6b6b78;
-$lumio-color-ink-400: #8e8e9a;
-$lumio-color-ink-300: #b7b7c0;
-$lumio-color-ink-200: #dcdce1;
-$lumio-color-ink-150: #ececef;
-$lumio-color-ink-100: #f2f2f4;
-$lumio-color-ink-50:  #f8f8f9;
-$lumio-color-white:   #ffffff;
+$seneca-color-ink-900: #0b0b10;
+$seneca-color-ink-800: #171720;
+$seneca-color-ink-700: #2a2a35;
+$seneca-color-ink-600: #4a4a58;
+$seneca-color-ink-500: #6b6b78;
+$seneca-color-ink-400: #8e8e9a;
+$seneca-color-ink-300: #b7b7c0;
+$seneca-color-ink-200: #dcdce1;
+$seneca-color-ink-150: #ececef;
+$seneca-color-ink-100: #f2f2f4;
+$seneca-color-ink-50:  #f8f8f9;
+$seneca-color-white:   #ffffff;
 
 // ── Semantic ─────────────────────────────────────────────────
-$lumio-color-success:       #10b981;
-$lumio-color-success-soft:  #ecfdf5;
-$lumio-color-warning:       #f59e0b;
-$lumio-color-warning-soft:  #fffbeb;
-$lumio-color-danger:        #e11d48;
-$lumio-color-danger-soft:   #fff1f2;
-$lumio-color-info:          #0ea5e9;
-$lumio-color-info-soft:     #f0f9ff;
+$seneca-color-success:       #10b981;
+$seneca-color-success-soft:  #ecfdf5;
+$seneca-color-warning:       #f59e0b;
+$seneca-color-warning-soft:  #fffbeb;
+$seneca-color-danger:        #e11d48;
+$seneca-color-danger-soft:   #fff1f2;
+$seneca-color-info:          #0ea5e9;
+$seneca-color-info-soft:     #f0f9ff;
+// Money up/down on the dashboard: earthy rather than neon, both ≥4.5:1 on white.
+// The app-wide success/danger above stay for alerts and destructive actions.
+$seneca-color-money-up:      #3f7d5c;
+$seneca-color-money-down:    #b4493f;
+// Big figures: a warm near-black, softer than ink-900 on the warm page.
+$seneca-color-figure:        #24211e;
+// Attention that isn't an error (an unconfirmed item): ochre, not orange.
+$seneca-color-attention:     #c79a3b;
+// The one neutral circle behind every category icon.
+$seneca-color-icon-badge-bg: #efebe4;
+// Row dividers in lists: a warm hairline that barely separates.
+$seneca-color-hairline:      #ede9e2;
+// Grey text that has to be read (descriptions, hints): #6b665d is ~5.7:1 on
+// white. #8a857c below (~3.7:1) is for decorative captions only.
+$seneca-color-text-muted:    #6b665d;
+// An empty slot waiting for input ("Add category"): grey at rest, a chip on hover.
+$seneca-color-slot-text:     #8a857c;
+$seneca-color-slot-dash:     #cfc9be;
+$seneca-color-slot-border:   #e3ded5;
+$seneca-color-slot-bg:       #f4f1eb;
+// A tab's count when there is nothing in it.
+$seneca-color-tab-count-zero: #b5afa4;
+// The line icon of an empty state, on the $seneca-color-icon-badge-bg circle.
+$seneca-color-empty-icon:    #6f8f7b;
 
 // ── Legacy aliases ────────────────────────────────────────────
-$lumio-color-secondary:          $lumio-color-ink-600;
-$lumio-color-secondary-contrast: $lumio-color-white;
-$lumio-color-danger-contrast:    $lumio-color-white;
+$seneca-color-secondary:          $seneca-color-ink-600;
+$seneca-color-secondary-contrast: $seneca-color-white;
+$seneca-color-danger-contrast:    $seneca-color-white;
 
 // ── Category colors ───────────────────────────────────────────
-$lumio-color-cat-food:      #f59e0b;
-$lumio-color-cat-transport: #0ea5e9;
-$lumio-color-cat-housing:   #8b5cf6;
-$lumio-color-cat-shopping:  #ec4899;
-$lumio-color-cat-income:    #10b981;
-$lumio-color-cat-other:     #64748b;
+$seneca-color-cat-food:      #f59e0b;
+$seneca-color-cat-transport: #0ea5e9;
+$seneca-color-cat-housing:   #8b5cf6;
+$seneca-color-cat-shopping:  #ec4899;
+$seneca-color-cat-income:    #10b981;
+$seneca-color-cat-other:     #64748b;
 
 // ── Surface / background ──────────────────────────────────────
-$lumio-color-bg:              #f7f8f7;
-$lumio-color-surface:         #ffffff;
-$lumio-color-surface-muted:   #f2f2f4;
-$lumio-color-surface-warning: #fffbeb;
-$lumio-color-surface-error:   #fff1f2;
+$seneca-color-bg:              #faf8f5;
+$seneca-color-surface:         #ffffff;
+$seneca-color-surface-muted:   #f2f2f4;
+$seneca-color-surface-warning: #fffbeb;
+$seneca-color-surface-error:   #fff1f2;
 
 // ── Text ──────────────────────────────────────────────────────
-$lumio-color-text-primary:   #0b0b10;
-$lumio-color-text-secondary: #4a4a58;
+$seneca-color-text-primary:   #0b0b10;
+$seneca-color-text-secondary: #4a4a58;
 
 // ── Borders ───────────────────────────────────────────────────
-$lumio-color-border:        #ececef;
-$lumio-color-border-strong: #dcdce1;
+$seneca-color-border:        #ececef;
+$seneca-color-border-strong: #dcdce1;
 
 // ── Spacing (4px base) ────────────────────────────────────────
-$lumio-space-0:  0;
-$lumio-space-1:  4px;
-$lumio-space-2:  8px;
-$lumio-space-3:  12px;
-$lumio-space-4:  16px;
-$lumio-space-5:  20px;
-$lumio-space-6:  24px;
-$lumio-space-8:  32px;
-$lumio-space-10: 40px;
-$lumio-space-12: 48px;
+$seneca-space-0:  0;
+$seneca-space-1:  4px;
+$seneca-space-2:  8px;
+$seneca-space-3:  12px;
+$seneca-space-4:  16px;
+$seneca-space-5:  20px;
+$seneca-space-6:  24px;
+$seneca-space-8:  32px;
+$seneca-space-10: 40px;
+$seneca-space-12: 48px;
 
 // ── Typography ────────────────────────────────────────────────
-$lumio-font-family:      var(--font-geist), "Geist", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-$lumio-font-family-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
-$lumio-font-size-xs:   12px;
-$lumio-font-size-sm:   13px;
-$lumio-font-size-base: 14px;
-$lumio-font-size-md:   15px;
-$lumio-font-size-lg:   16px;
-$lumio-font-size-xl:   18px;
-$lumio-font-weight-regular:  400;
-$lumio-font-weight-medium:   500;
-$lumio-font-weight-semibold: 600;
-$lumio-font-weight-bold:     700;
-$lumio-line-height-tight:  1.25;
-$lumio-line-height-normal: 1.5;
+$seneca-font-family:      var(--font-geist), "Geist", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+$seneca-font-family-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+$seneca-font-size-xs:   12px;
+$seneca-font-size-sm:   13px;
+$seneca-font-size-base: 14px;
+$seneca-font-size-md:   15px;
+$seneca-font-size-lg:   16px;
+$seneca-font-size-xl:   18px;
+$seneca-font-weight-regular:  400;
+$seneca-font-weight-medium:   500;
+$seneca-font-weight-semibold: 600;
+$seneca-font-weight-bold:     700;
+$seneca-line-height-tight:  1.25;
+$seneca-line-height-normal: 1.5;
 
 // ── Shape / border-radius ─────────────────────────────────────
-$lumio-radius-none: 0;
-$lumio-radius-xs:   6px;
-$lumio-radius-sm:   8px;
-$lumio-radius-md:   12px;
-$lumio-radius-lg:   16px;
-$lumio-radius-xl:   20px;
-$lumio-radius-full: 999px;
+$seneca-radius-none: 0;
+$seneca-radius-xs:   6px;
+$seneca-radius-sm:   8px;
+$seneca-radius-md:   12px;
+$seneca-radius-lg:   16px;
+$seneca-radius-xl:   20px;
+$seneca-radius-full: 999px;
+
+// ── Keyboard focus ring ───────────────────────────────────────
+// Drawn outside the element (utils/_focus.scss). Containers that clip their children leave
+// $seneca-focus-ring-reach of room around focusable items (@mixin focus-room).
+$seneca-focus-ring-width:  2px;
+$seneca-focus-ring-offset: 2px;
+$seneca-focus-ring-reach:  $seneca-focus-ring-width + $seneca-focus-ring-offset;
 
 // ── Shadows ───────────────────────────────────────────────────
-$lumio-shadow-xs: 0 1px 0 0 rgba(12, 12, 20, 0.04);
-$lumio-shadow-sm: 0 1px 2px 0 rgba(12, 12, 20, 0.05), 0 1px 0 0 rgba(12, 12, 20, 0.02);
-$lumio-shadow-md: 0 4px 16px -4px rgba(12, 12, 20, 0.08), 0 1px 2px rgba(12, 12, 20, 0.04);
-$lumio-shadow-lg: 0 20px 40px -12px rgba(12, 12, 20, 0.12), 0 2px 6px rgba(12, 12, 20, 0.04);
+$seneca-shadow-xs: 0 1px 0 0 rgba(12, 12, 20, 0.04);
+$seneca-shadow-sm: 0 1px 2px 0 rgba(12, 12, 20, 0.05), 0 1px 0 0 rgba(12, 12, 20, 0.02);
+$seneca-shadow-md: 0 4px 16px -4px rgba(12, 12, 20, 0.08), 0 1px 2px rgba(12, 12, 20, 0.04);
+$seneca-shadow-lg: 0 20px 40px -12px rgba(12, 12, 20, 0.12), 0 2px 6px rgba(12, 12, 20, 0.04);
 
 // ── Z-index ───────────────────────────────────────────────────
-$lumio-z-dropdown: 1000;
-$lumio-z-modal:    1300;
-$lumio-z-popover:  1400;
-$lumio-z-tooltip:  1500;
+$seneca-z-dropdown: 1000;
+$seneca-z-modal:    1300;
+$seneca-z-popover:  1400;
+$seneca-z-tooltip:  1500;
 
 // ── Theme tokens (globals / Tailwind layer) ───────────────────
-$color-background:           #f7f8f7;
+$color-background:           #faf8f5;
 $color-foreground:           #0b0b10;
-$color-primary:              #168118;
-$color-primary-hover:        #157811;
+$color-primary:              #5b7b6a;
+$color-primary-hover:        #4e6b5c;
 $color-primary-foreground:   #ffffff;
-$color-secondary:            $lumio-color-ink-600;
+$color-secondary:            $seneca-color-ink-600;
 $color-secondary-foreground: #ffffff;
-$color-muted:                $lumio-color-ink-100;
-$color-muted-foreground:     $lumio-color-ink-500;
+$color-muted:                $seneca-color-ink-100;
+$color-muted-foreground:     $seneca-color-ink-500;
 $color-card-bg:              #ffffff;
-$color-card-foreground:      $lumio-color-ink-900;
-$color-border:               $lumio-color-ink-150;
-$color-input:                $lumio-color-ink-200;
+$color-card-foreground:      $seneca-color-ink-900;
+$color-border:               $seneca-color-ink-150;
+$color-input:                $seneca-color-ink-200;
 $color-ring:                 $color-primary;
-$color-destructive:          $lumio-color-danger;
+$color-destructive:          $seneca-color-danger;
 $color-destructive-foreground: #ffffff;
-$color-surface-glow:           rgba(22, 129, 24, 0.14);
+$color-surface-glow:           rgba(91, 123, 106, 0.14);
 $color-surface-success-glow:   rgba(16, 185, 129, 0.12);
 
 // Dashboard palette
-$ff-dash-primary:       #168118;
-$ff-dash-primary-soft:  #a8d5a8;
+$ff-dash-primary:       #5b7b6a;
+$ff-dash-primary-soft:  #b9cbc1;
 $ff-dash-cta:           #084f09;
 $ff-dash-surface:       #ffffff;
 $ff-dash-foreground:    #0b0b10;

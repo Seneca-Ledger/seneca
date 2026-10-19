@@ -1,3 +1,5 @@
+import { getIntlayer } from 'react-intlayer';
+import { normalizeLocale } from './locale';
 export type StatementCategorySource = 'system' | 'user' | 'parsing';
 
 export interface StatementCategoryNode {
@@ -15,132 +17,168 @@ export interface StatementCategoryOption {
   isSystem?: boolean;
 }
 
-type SupportedLocale = 'ru' | 'en' | 'kk';
+/**
+ * Category rows store a plain name, and the parser creates categories with
+ * names of its own, so a name is the only stable join key available — there is
+ * no system_key column to rely on. Aliases cover the Russian, English and
+ * Kazakh spellings a workspace may already have persisted.
+ */
+const NAME_TO_SLUG = new Map<string, string>([
+  ['advertising', 'advertising'],
+  ['bank fees', 'bankFees'],
+  ['benefits and compensation', 'benefits'],
+  ['equipment', 'equipment'],
+  ['fees and charges', 'feesAndCharges'],
+  ['home office', 'homeOffice'],
+  ['income', 'income'],
+  ['insurance', 'insurance'],
+  ['interest', 'interest'],
+  ['interest income', 'interestIncome'],
+  ['internal transfers', 'internalTransfers'],
+  ['inventory purchases', 'inventoryPurchases'],
+  ['it services', 'itServices'],
+  ['it услуги', 'itServices'],
+  ['it қызметтері', 'itServices'],
+  ['kaspi fees', 'kaspiFees'],
+  ['kaspi red payments', 'kaspiRedPayments'],
+  ['kaspi red төлемдері', 'kaspiRedPayments'],
+  ['kaspi sales', 'kaspiSales'],
+  ['kaspi комиссиялары', 'kaspiFees'],
+  ['kaspi сатылымдары', 'kaspiSales'],
+  ['loans and borrowings', 'loans'],
+  ['logistics and delivery', 'logistics'],
+  ['maintenance and repairs', 'maintenance'],
+  ['marketing and advertising', 'marketing'],
+  ['materials', 'materials'],
+  ['meals and entertainment', 'meals'],
+  ['office supplies', 'officeSupplies'],
+  ['other expenses', 'otherExpenses'],
+  ['other income', 'otherIncome'],
+  ['payroll', 'payroll'],
+  ['payroll expenses', 'employeeSalaries'],
+  ['professional services', 'professionalServices'],
+  ['rent', 'rent'],
+  ['sales', 'sales'],
+  ['service payments', 'servicePayments'],
+  ['services', 'services'],
+  ['taxes', 'taxes'],
+  ['travel', 'travel'],
+  ['uncategorized', 'uncategorized'],
+  ['utilities', 'utilities'],
+  ['vehicle expenses', 'vehicleExpenses'],
+  ['автомобильные расходы', 'vehicleExpenses'],
+  ['аренда', 'rent'],
+  ['банк комиссиялары', 'bankFees'],
+  ['без категории', 'uncategorized'],
+  ['внутренние переводы', 'internalTransfers'],
+  ['домашний офис', 'homeOffice'],
+  ['еңбекақы', 'payroll'],
+  ['жабдық', 'equipment'],
+  ['жалға алу', 'rent'],
+  ['жарнама', 'advertising'],
+  ['жеңілдіктер мен өтемақылар', 'benefits'],
+  ['закупки товаров', 'inventoryPurchases'],
+  ['зарплаты сотрудникам', 'employeeSalaries'],
+  ['канцелярские товары', 'officeSupplies'],
+  ['кеңсе тауарлары', 'officeSupplies'],
+  ['командировки', 'travel'],
+  ['комиссии kaspi', 'kaspiFees'],
+  ['комиссии банка', 'bankFees'],
+  ['комиссии и сборы', 'feesAndCharges'],
+  ['комиссиялар мен алымдар', 'feesAndCharges'],
+  ['коммуналдық қызметтер', 'utilities'],
+  ['коммунальные услуги', 'utilities'],
+  ['кредиты и займы', 'loans'],
+  ['кіріс', 'income'],
+  ['кәсіби қызметтер', 'professionalServices'],
+  ['көлік шығындары', 'vehicleExpenses'],
+  ['логистика және жеткізу', 'logistics'],
+  ['логистика и доставка', 'logistics'],
+  ['льготы и компенсации', 'benefits'],
+  ['маркетинг және жарнама', 'marketing'],
+  ['маркетинг и реклама', 'marketing'],
+  ['материалдар', 'materials'],
+  ['материалы', 'materials'],
+  ['налоги', 'taxes'],
+  ['несиелер мен қарыздар', 'loans'],
+  ['оборудование', 'equipment'],
+  ['обслуживание и ремонт', 'maintenance'],
+  ['оплата труда', 'payroll'],
+  ['оплата услуг', 'servicePayments'],
+  ['пайыздар', 'interest'],
+  ['пайыздық табыс', 'interestIncome'],
+  ['питание и представительские расходы', 'meals'],
+  ['платежи kaspi red', 'kaspiRedPayments'],
+  ['приход', 'income'],
+  ['продажи', 'sales'],
+  ['продажи kaspi', 'kaspiSales'],
+  ['профессиональные услуги', 'professionalServices'],
+  ['процентный доход', 'interestIncome'],
+  ['проценты', 'interest'],
+  ['прочие расходы', 'otherExpenses'],
+  ['прочий доход', 'otherIncome'],
+  ['реклама', 'advertising'],
+  ['салықтар', 'taxes'],
+  ['санатсыз', 'uncategorized'],
+  ['сатылымдар', 'sales'],
+  ['сақтандыру', 'insurance'],
+  ['страхование', 'insurance'],
+  ['тамақтану және өкілдік шығыстар', 'meals'],
+  ['тауар сатып алу', 'inventoryPurchases'],
+  ['услуги', 'services'],
+  ['іссапарлар', 'travel'],
+  ['ішкі аударымдар', 'internalTransfers'],
+  ['қызмет ақылары', 'servicePayments'],
+  ['қызмет көрсету және жөндеу', 'maintenance'],
+  ['қызметкерлердің жалақысы', 'employeeSalaries'],
+  ['қызметтер', 'services'],
+  ['үй кеңсесі', 'homeOffice'],
+  ['өзге табыс', 'otherIncome'],
+  ['өзге шығыстар', 'otherExpenses'],
+]);
 
-type CategoryLabels = {
-  ru: string;
-  en: string;
-  kk: string;
+/** System-category slug for a stored name (any supported language), or `null` for user-defined names. */
+export function resolveCategorySlug(name: string | null | undefined): string | null {
+  if (!name) {
+    return null;
+  }
+  return NAME_TO_SLUG.get(name.trim().toLowerCase()) ?? null;
+}
+
+type CategoryDictionary = Record<string, { value?: unknown } | string | undefined>;
+
+/**
+ * getIntlayer returns a path-stringifying Proxy when a dictionary is missing,
+ * so only a genuine string counts as a hit — anything else must fall through
+ * to the stored category name.
+ */
+const readValue = (node: { value?: unknown } | string | undefined): string | undefined => {
+  if (typeof node === 'string') {
+    return node;
+  }
+  const value = node?.value;
+  return typeof value === 'string' ? value : undefined;
 };
 
-const SYSTEM_CATEGORY_TRANSLATIONS: Record<string, CategoryLabels> = {
-  Продажи: { ru: 'Продажи', en: 'Sales', kk: 'Сатылымдар' },
-  Услуги: { ru: 'Услуги', en: 'Services', kk: 'Қызметтер' },
-  'Процентный доход': { ru: 'Процентный доход', en: 'Interest income', kk: 'Пайыздық табыс' },
-  'Прочий доход': { ru: 'Прочий доход', en: 'Other income', kk: 'Өзге табыс' },
-  Реклама: { ru: 'Реклама', en: 'Advertising', kk: 'Жарнама' },
-  'Льготы и компенсации': {
-    ru: 'Льготы и компенсации',
-    en: 'Benefits and compensation',
-    kk: 'Жеңілдіктер мен өтемақылар',
-  },
-  'Автомобильные расходы': {
-    ru: 'Автомобильные расходы',
-    en: 'Vehicle expenses',
-    kk: 'Көлік шығындары',
-  },
-  Оборудование: { ru: 'Оборудование', en: 'Equipment', kk: 'Жабдық' },
-  'Комиссии и сборы': {
-    ru: 'Комиссии и сборы',
-    en: 'Fees and charges',
-    kk: 'Комиссиялар мен алымдар',
-  },
-  'Домашний офис': { ru: 'Домашний офис', en: 'Home office', kk: 'Үй кеңсесі' },
-  Страхование: { ru: 'Страхование', en: 'Insurance', kk: 'Сақтандыру' },
-  Проценты: { ru: 'Проценты', en: 'Interest', kk: 'Пайыздар' },
-  'Оплата труда': { ru: 'Оплата труда', en: 'Payroll', kk: 'Еңбекақы' },
-  'Обслуживание и ремонт': {
-    ru: 'Обслуживание и ремонт',
-    en: 'Maintenance and repairs',
-    kk: 'Қызмет көрсету және жөндеу',
-  },
-  Материалы: { ru: 'Материалы', en: 'Materials', kk: 'Материалдар' },
-  'Питание и представительские расходы': {
-    ru: 'Питание и представительские расходы',
-    en: 'Meals and entertainment',
-    kk: 'Тамақтану және өкілдік шығыстар',
-  },
-  'Канцелярские товары': {
-    ru: 'Канцелярские товары',
-    en: 'Office supplies',
-    kk: 'Кеңсе тауарлары',
-  },
-  'Прочие расходы': { ru: 'Прочие расходы', en: 'Other expenses', kk: 'Өзге шығыстар' },
-  'Профессиональные услуги': {
-    ru: 'Профессиональные услуги',
-    en: 'Professional services',
-    kk: 'Кәсіби қызметтер',
-  },
-  Аренда: { ru: 'Аренда', en: 'Rent', kk: 'Жалға алу' },
-  Налоги: { ru: 'Налоги', en: 'Taxes', kk: 'Салықтар' },
-  Командировки: { ru: 'Командировки', en: 'Travel', kk: 'Іссапарлар' },
-  'Коммунальные услуги': {
-    ru: 'Коммунальные услуги',
-    en: 'Utilities',
-    kk: 'Коммуналдық қызметтер',
-  },
-  'Логистика и доставка': {
-    ru: 'Логистика и доставка',
-    en: 'Logistics and delivery',
-    kk: 'Логистика және жеткізу',
-  },
-  'Маркетинг и реклама': {
-    ru: 'Маркетинг и реклама',
-    en: 'Marketing and advertising',
-    kk: 'Маркетинг және жарнама',
-  },
-  'IT услуги': { ru: 'IT услуги', en: 'IT services', kk: 'IT қызметтері' },
-  'Комиссии банка': {
-    ru: 'Комиссии банка',
-    en: 'Bank fees',
-    kk: 'Банк комиссиялары',
-  },
-  'Комиссии Kaspi': { ru: 'Комиссии Kaspi', en: 'Kaspi fees', kk: 'Kaspi комиссиялары' },
-  'Продажи Kaspi': { ru: 'Продажи Kaspi', en: 'Kaspi sales', kk: 'Kaspi сатылымдары' },
-  'Платежи Kaspi Red': {
-    ru: 'Платежи Kaspi Red',
-    en: 'Kaspi Red payments',
-    kk: 'Kaspi Red төлемдері',
-  },
-  'Зарплаты сотрудникам': {
-    ru: 'Зарплаты сотрудникам',
-    en: 'Payroll expenses',
-    kk: 'Қызметкерлердің жалақысы',
-  },
-  'Оплата услуг': { ru: 'Оплата услуг', en: 'Service payments', kk: 'Қызмет ақылары' },
-  'Закупки товаров': {
-    ru: 'Закупки товаров',
-    en: 'Inventory purchases',
-    kk: 'Тауар сатып алу',
-  },
-  'Кредиты и займы': {
-    ru: 'Кредиты и займы',
-    en: 'Loans and borrowings',
-    kk: 'Несиелер мен қарыздар',
-  },
-  'Внутренние переводы': {
-    ru: 'Внутренние переводы',
-    en: 'Internal transfers',
-    kk: 'Ішкі аударымдар',
-  },
-  Приход: { ru: 'Приход', en: 'Income', kk: 'Кіріс' },
-  'Без категории': { ru: 'Без категории', en: 'Uncategorized', kk: 'Санатсыз' },
-  Uncategorized: { ru: 'Без категории', en: 'Uncategorized', kk: 'Санатсыз' },
-};
+/**
+ * getIntlayer rebuilds the dictionary on every call, and this runs once per
+ * category row, so memoise per locale.
+ */
+const dictionaryByLocale = new Map<string, CategoryDictionary | null>();
 
-const TRANSLATION_LOOKUP = new Map(
-  Object.values(SYSTEM_CATEGORY_TRANSLATIONS).flatMap(labels => [
-    [labels.ru.toLowerCase(), labels] as const,
-    [labels.en.toLowerCase(), labels] as const,
-    [labels.kk.toLowerCase(), labels] as const,
-  ]),
-);
-
-const resolveSupportedLocale = (locale: string): SupportedLocale => {
-  const normalized = locale.trim().toLowerCase();
-  if (normalized.startsWith('kk')) return 'kk';
-  if (normalized.startsWith('en')) return 'en';
-  return 'ru';
+const getCategoryDictionary = (locale: string): CategoryDictionary | null => {
+  const cached = dictionaryByLocale.get(locale);
+  if (cached !== undefined) {
+    return cached;
+  }
+  let dictionary: CategoryDictionary | null = null;
+  try {
+    dictionary = getIntlayer('systemCategories', locale) as CategoryDictionary;
+  } catch {
+    dictionary = null;
+  }
+  dictionaryByLocale.set(locale, dictionary);
+  return dictionary;
 };
 
 const shouldLocalizeCategory = (
@@ -154,17 +192,17 @@ const shouldLocalizeCategory = (
     return false;
   }
 
-  return TRANSLATION_LOOKUP.has(category.name.trim().toLowerCase());
+  return NAME_TO_SLUG.has(category.name.trim().toLowerCase());
 };
 
 export const localizeStatementCategoryName = (name: string, locale: string): string => {
-  const normalized = name.trim().toLowerCase();
-  const labels = TRANSLATION_LOOKUP.get(normalized);
-  if (!labels) {
+  const slug = NAME_TO_SLUG.get(name.trim().toLowerCase());
+  if (!slug) {
     return name;
   }
 
-  return labels[resolveSupportedLocale(locale)];
+  const dictionary = getCategoryDictionary(normalizeLocale(locale));
+  return (dictionary ? readValue(dictionary[slug]) : undefined) ?? name;
 };
 
 export const getCategoryDisplayName = (

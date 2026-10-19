@@ -1,0 +1,231 @@
+@use '../abstracts' as *;
+
+/* BEM block: seneca-auth — the sign-in pages' backdrop and hero.
+   Light by day, dark by night: the theme follows the app's auto schedule. */
+
+.seneca-auth-backdrop {
+  // A flat warm page with a grid you only notice when you look for it, and a
+  // breath of sage behind the hero instead of a cold mint glow.
+  --auth-grid-line: rgba(237, 233, 226, 0.5);
+  --auth-submit: #4f6f5e;
+  --auth-submit-hover: #45614f;
+  min-height: 100vh;
+  // Not 100vw: that counts the scrollbar gutter.
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background-color: $seneca-color-slot-bg;
+  background-image:
+    radial-gradient(ellipse 55% 45% at 75% 45%, #eef3ef, transparent 70%),
+    linear-gradient(var(--auth-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--auth-grid-line) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+
+  @include dark {
+    --auth-grid-line: rgba(255, 255, 255, 0.025);
+    --auth-submit: var(--primary);
+    --auth-submit-hover: var(--primary);
+    background-color: var(--background);
+    background-image:
+      linear-gradient(var(--auth-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--auth-grid-line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+  }
+}
+
+.seneca-auth-hero {
+  color: $seneca-color-figure;
+
+  @include dark { color: var(--foreground); }
+
+  &__tagline {
+    color: var(--text-muted);
+  }
+
+  &__lead {
+    color: $seneca-color-figure;
+
+    @include dark { color: var(--foreground); }
+  }
+
+  &__check {
+    color: var(--primary);
+  }
+}
+
+/* Login form: one heading, labels above the fields, 8px corners everywhere. */
+.seneca-auth-title {
+  margin: 0 0 32px !important;
+  text-align: center;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: var(--foreground);
+}
+
+.seneca-auth-title--with-lead {
+  margin-bottom: 8px !important;
+}
+
+.seneca-auth-lead {
+  margin: 0 0 32px;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+// A done state ("link sent", "password updated"): a quiet line with a sage tick.
+.seneca-auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--foreground);
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--primary);
+  }
+
+  &--plain {
+    align-items: center;
+    background: none;
+    padding: 0;
+    color: var(--text-muted);
+  }
+}
+
+.seneca-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.seneca-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  &__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .MuiOutlinedInput-root {
+    border-radius: 8px;
+    background-color: var(--card-bg);
+
+    .MuiOutlinedInput-notchedOutline {
+      border-color: $seneca-color-slot-border;
+
+      @include dark { border-color: $seneca-color-ink-200-dk; }
+    }
+
+    &.Mui-focused .MuiOutlinedInput-notchedOutline {
+      border-color: var(--primary);
+      border-width: 1.5px;
+    }
+
+    &.Mui-error .MuiOutlinedInput-notchedOutline {
+      border-color: $seneca-color-money-down;
+    }
+  }
+}
+
+// The reason a sign-in failed, under the field it is about: text, no banner.
+.seneca-auth-error {
+  margin: 0;
+  font-size: 13px;
+  color: $seneca-color-money-down;
+
+  @include dark { color: #e08a80; }
+
+  &--block {
+    font-size: 14px;
+    text-align: center;
+  }
+}
+
+.seneca-auth-submit.MuiButton-root {
+  margin-top: 4px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background-color: var(--auth-submit);
+  box-shadow: none;
+  font-size: 16px;
+  font-weight: 500;
+  text-transform: none;
+
+  &:hover {
+    background-color: var(--auth-submit-hover);
+    box-shadow: none;
+  }
+}
+
+.seneca-auth-footnote {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+// Below a form, a notice or an error rather than inside the form's own gaps.
+.seneca-auth-form + .seneca-auth-footnote,
+.seneca-auth-notice + .seneca-auth-footnote,
+.seneca-auth-error + .seneca-auth-footnote {
+  margin-top: 24px;
+}
+
+// One link style on the page: 14px, regular weight; only "Sign up" in sage.
+.seneca-auth-link {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--foreground);
+    text-decoration: underline;
+  }
+
+  &--accent {
+    font-size: 14px;
+    color: var(--primary);
+
+    &:hover,
+    &:focus-visible {
+      color: var(--primary);
+    }
+  }
+}
+
+/* The form panel: a hairline seam by day, a soft shadow by night. */
+.seneca-auth-form-panel {
+  border-right: 1px solid $color-border;
+
+  @include dark {
+    border-right-color: transparent;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.25);
+  }
+}

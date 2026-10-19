@@ -3,8 +3,8 @@
 import { DateFilterDropdown } from '@/app/(main)/statements/components/filters/DateFilterDropdown';
 import { FromFilterDropdown } from '@/app/(main)/statements/components/filters/FromFilterDropdown';
 import { StatusFilterDropdown } from '@/app/(main)/statements/components/filters/StatusFilterDropdown';
-import { TypeFilterDropdown } from '@/app/(main)/statements/components/filters/TypeFilterDropdown';
 import type { StatementFilters } from '@/app/(main)/statements/components/filters/statement-filters';
+import { TypeFilterDropdown } from '@/app/(main)/statements/components/filters/TypeFilterDropdown';
 import { ChevronDown, Columns2, Search, SlidersHorizontal } from '@/app/components/icons';
 import { FilterChipButton } from '@/app/components/ui/filter-chip-button';
 import { tokens } from '@/lib/theme-tokens';
@@ -122,15 +122,15 @@ function SearchBar({
   onSearchChange: (v: string) => void;
 }): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__search" data-tour-id="search-bar">
-      <Search className="lumio-stmt-list-view__search-icon" size={16} />
+    <div className="seneca-stmt-list-view__search" data-tour-id="search-bar">
+      <Search className="seneca-stmt-list-view__search-icon" size={16} />
       <input
         type="text"
         value={searchInput}
         onChange={e => onSearchChange(e.target.value)}
         placeholder={searchPlaceholder}
         aria-label={searchPlaceholder}
-        className="lumio-stmt-list-view__search-input"
+        className="seneca-stmt-list-view__search-input"
       />
     </div>
   );
@@ -442,7 +442,7 @@ export function StatementsListHeader({
 }: StatementsListHeaderProps): React.JSX.Element {
   return (
     <div
-      className="lumio-stmt-list-view__header"
+      className="seneca-stmt-list-view__header"
       style={{
         marginBottom: 24,
         flexShrink: 0,

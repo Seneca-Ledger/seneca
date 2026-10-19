@@ -1,19 +1,24 @@
-import * as crypto from 'crypto';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import {
   Integration,
   IntegrationProvider,
   IntegrationStatus,
   IntegrationToken,
   User,
+  WorkspaceMember,
+  WorkspaceRole,
 } from '../../entities';
 import { decryptText, encryptText } from '../utils/encryption.util';
+import { secretsMatch } from '../utils/secret-compare.util';
 
+// Method syntax on purpose: method parameters are checked bivariantly, so a
+// TypeORM Repository (whose methods take narrower option types) fits.
 export type OAuthRepositoryLike<T> = {
-  findOne: (args: unknown) => Promise<T | null>;
-  create?: (data: Partial<T>) => T;
-  save: (entity: T) => Promise<T>;
-  delete: (criteria: unknown) => Promise<unknown>;
+  findOne(args: unknown): Promise<T | null>;
+  create(data: Partial<T>): T;
+  save(entity: T): Promise<T>;
+  delete(criteria: unknown): Promise<unknown>;
 };
 
 export type OAuthIntegrationSettingsRelationName = Exclude<keyof Integration, number | symbol>;
@@ -28,6 +33,7 @@ export abstract class OAuthIntegrationBaseService {
     protected readonly integrationRepository: OAuthRepositoryLike<Integration>,
     protected readonly integrationTokenRepository: OAuthRepositoryLike<IntegrationToken>,
     protected readonly userRepository: OAuthRepositoryLike<User>,
+    protected readonly workspaceMemberRepository?: OAuthRepositoryLike<WorkspaceMember>,
   ) {}
 
   protected abstract getProvider(): IntegrationProvider;
@@ -61,43 +67,51 @@ export abstract class OAuthIntegrationBaseService {
     }
 
     const expected = this.signState(encoded);
-    if (expected !== signature) {
+    if (!secretsMatch(signature, expected)) {
       throw new BadRequestException('Invalid OAuth state signature');
     }
 
     return JSON.parse(this.base64UrlDecode(encoded));
   }
 
-  protected async getWorkspaceId(userId: string): Promise<string | null> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      select: ['id', 'workspaceId'],
-    });
-
-    return user?.workspaceId ?? null;
-  }
-
-  protected async findIntegrationForUser(userId: string) {
-    const workspaceId = await this.getWorkspaceId(userId);
-    const where = workspaceId
-      ? { workspaceId, provider: this.getProvider() }
-      : { connectedByUserId: userId, provider: this.getProvider() };
-
-    const integration = await this.integrationRepository.findOne({
-      where,
+  /** A workspace has at most one integration per provider (UQ_integrations_workspace_provider). */
+  protected findWorkspaceIntegration(workspaceId: string): Promise<Integration | null> {
+    return this.integrationRepository.findOne({
+      where: { workspaceId, provider: this.getProvider() },
       relations: ['token', this.getSettingsRelationName()],
     });
-
-    return { integration, workspaceId };
   }
 
-  protected async ensureIntegration(userId: string) {
-    const { integration } = await this.findIntegrationForUser(userId);
+  protected async ensureWorkspaceIntegration(workspaceId: string): Promise<Integration> {
+    const integration = await this.findWorkspaceIntegration(workspaceId);
     if (!integration) {
       throw new NotFoundException(`${this.getProviderName()} integration not found`);
     }
 
     return integration;
+  }
+
+  /**
+   * The workspace an OAuth callback connects: the one the signed state carries,
+   * as long as the user still manages that workspace's integrations. The
+   * provider redirects back without the workspace header, so the state is the
+   * only record of where the connection was started.
+   */
+  protected async resolveStateWorkspaceId(
+    state: Record<string, unknown>,
+    userId: string,
+  ): Promise<string | null> {
+    const workspaceId = typeof state.workspaceId === 'string' ? state.workspaceId : null;
+    if (!(workspaceId && this.workspaceMemberRepository)) {
+      return null;
+    }
+
+    const membership = await this.workspaceMemberRepository.findOne({
+      where: { workspaceId, userId },
+    });
+    const canManage =
+      membership && [WorkspaceRole.OWNER, WorkspaceRole.ADMIN].includes(membership.role);
+    return canManage ? workspaceId : null;
   }
 
   protected async ensureValidAccessToken(integration: Integration): Promise<string> {
@@ -129,13 +143,15 @@ export abstract class OAuthIntegrationBaseService {
     }
   }
 
+  /** The integration is bound to `workspaceId`, the workspace the user connects from. */
   protected buildProviderAuthUrl(
-    user: Pick<User, 'id' | 'workspaceId'>,
+    user: Pick<User, 'id'>,
+    workspaceId: string,
     buildUrl: (state: string) => string,
   ): string {
     const state = this.buildState({
       userId: user.id,
-      workspaceId: user.workspaceId || null,
+      workspaceId,
       redirect: `${this.getFrontendBaseUrl()}/integrations/${this.getProviderRouteSegment()}`,
     });
 
@@ -155,8 +171,14 @@ export abstract class OAuthIntegrationBaseService {
     params: { code?: string; state?: string; error?: string },
     select: Array<keyof User>,
   ): Promise<
-    | { redirectBase: string; user: TUser }
-    | { redirectUrl: string; code?: undefined; user?: undefined; redirectBase?: undefined }
+    | { redirectBase: string; user: TUser; workspaceId: string }
+    | {
+        redirectUrl: string;
+        code?: undefined;
+        user?: undefined;
+        redirectBase?: undefined;
+        workspaceId?: undefined;
+      }
   > {
     const redirectBase = `${this.getFrontendBaseUrl()}/integrations/${this.getProviderRouteSegment()}`;
 
@@ -189,24 +211,30 @@ export abstract class OAuthIntegrationBaseService {
       return { redirectUrl: this.buildIntegrationRedirect('error', 'user_not_found') };
     }
 
-    return { redirectBase, user: user as unknown as TUser };
+    const workspaceId = await this.resolveStateWorkspaceId(state, userId);
+    if (!workspaceId) {
+      return { redirectUrl: this.buildIntegrationRedirect('error', 'workspace_forbidden') };
+    }
+
+    return { redirectBase, user: user as unknown as TUser, workspaceId };
   }
 
   protected async upsertConnectedIntegration(
     existing: Integration | null,
-    user: Pick<User, 'id' | 'workspaceId'>,
+    user: Pick<User, 'id'>,
+    workspaceId: string,
     scopes: string[],
   ): Promise<Integration> {
     const integration =
       existing ||
       this.integrationRepository.create?.({
         provider: this.getProvider(),
-        workspaceId: user.workspaceId || null,
+        workspaceId,
         connectedByUserId: user.id,
       }) ||
       ({
         provider: this.getProvider(),
-        workspaceId: user.workspaceId || null,
+        workspaceId,
         connectedByUserId: user.id,
       } as Integration);
 

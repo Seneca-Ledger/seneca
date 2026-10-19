@@ -4,8 +4,10 @@ import { WebhookDelivery } from '../../entities/webhook-delivery.entity';
 import { WebhookEndpoint } from '../../entities/webhook-endpoint.entity';
 import { WebhookSubscription } from '../../entities/webhook-subscription.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
+import { AuditModule } from '../audit/audit.module';
 import { ReceiptsModule } from '../receipts/receipts.module';
 import { StatementsModule } from '../statements/statements.module';
+import { WorkspacePluginsModule } from '../workspaces/workspace-plugins.module';
 import { WebhookTokenGuard } from './guards/webhook-token.guard';
 import { WebhookDeliveryService } from './services/webhook-delivery.service';
 import { WebhookDispatcherService } from './services/webhook-dispatcher.service';
@@ -29,6 +31,8 @@ import { WebhookSubscriptionsController } from './webhook-subscriptions.controll
     ]),
     StatementsModule,
     ReceiptsModule,
+    AuditModule,
+    WorkspacePluginsModule,
   ],
   controllers: [
     WebhookInboundController,

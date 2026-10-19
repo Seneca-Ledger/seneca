@@ -1,8 +1,8 @@
-import { createHmac, randomUUID } from 'crypto';
 import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -10,9 +10,14 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { createHmac, randomUUID } from 'crypto';
 import type { StringValue } from 'ms';
 import { IsNull, type Repository } from 'typeorm';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { DEV_DEFAULTS } from '../../common/utils/dev-defaults';
+import { hashPassword } from '../../common/utils/password-hash.util';
+import { requireSecret } from '../../common/utils/required-secret.util';
+import type { LoginBody, RegisterBody } from '../../contracts';
 import {
   AuthSession,
   User,
@@ -23,12 +28,13 @@ import {
   WorkspaceMember,
   WorkspaceRole,
 } from '../../entities';
+import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
+import { AuditService } from '../audit/audit.service';
 import { CategoriesService } from '../categories/categories.service';
 import type { AuthResponseDto, LoginResultDto } from './dto/auth-response.dto';
-import type { LoginDto } from './dto/login.dto';
-import type { RegisterDto } from './dto/register.dto';
-import type { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
+import { recordSecurityEvent } from './security-audit.util';
 import type { JwtPayload } from './strategies/jwt.strategy';
+import type { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
 import { TwoFactorService } from './two-factor.service';
 
 export interface SessionContext {
@@ -50,7 +56,10 @@ export interface UserSessionDto {
 const toJwtExpiresIn = (value: string | undefined, fallback: StringValue): StringValue =>
   (value || fallback) as StringValue;
 
-const DEFAULT_AUTH_SESSION_EXPIRES_IN = '30d' as const;
+// Access-токен короткоживущий (см. .claude/rules/security.md §1: 15–30 минут);
+// длинная сессия живёт в refresh-токене, который ротируется на каждом /refresh.
+const DEFAULT_ACCESS_TOKEN_EXPIRES_IN = '30m' as const;
+const DEFAULT_REFRESH_TOKEN_EXPIRES_IN = '30d' as const;
 
 const jwtSecret = () =>
   process.env.JWT_SECRET ||
@@ -62,6 +71,8 @@ const jwtRefreshSecret = () =>
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -77,6 +88,7 @@ export class AuthService {
     private readonly twoFactorService: TwoFactorService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {}
 
   async ensureDevAdminUser(): Promise<void> {
@@ -90,7 +102,7 @@ export class AuthService {
       select: ['id', 'email', 'passwordHash', 'role', 'isActive', 'name', 'workspaceId'],
     });
 
-    const passwordHash = await bcrypt.hash(DEV_DEFAULTS.ADMIN_PASSWORD, 10);
+    const passwordHash = await hashPassword(DEV_DEFAULTS.ADMIN_PASSWORD);
 
     if (!existing) {
       const created = await this.userRepository.save(
@@ -145,6 +157,7 @@ export class AuthService {
         this.workspaceRepository.create({
           name: `${user.name || user.email} workspace`,
           ownerId: user.id,
+          currency: currencyCodeOrDefault(null),
         }),
       );
 
@@ -174,7 +187,7 @@ export class AuthService {
   }
 
   async register(
-    registerDto: RegisterDto,
+    registerDto: RegisterBody,
     sessionContext?: SessionContext,
   ): Promise<AuthResponseDto> {
     const normalizedEmail = registerDto.email.trim().toLowerCase();
@@ -190,7 +203,7 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
-    const passwordHash = await bcrypt.hash(registerDto.password, 10);
+    const passwordHash = await hashPassword(registerDto.password);
 
     const user = this.userRepository.create({
       email: normalizedEmail,
@@ -219,7 +232,7 @@ export class AuthService {
     return this.generateTokens(savedUser, sessionContext);
   }
 
-  async login(loginDto: LoginDto, sessionContext?: SessionContext): Promise<LoginResultDto> {
+  async login(loginDto: LoginBody, sessionContext?: SessionContext): Promise<LoginResultDto> {
     const normalizedEmail = loginDto.email.trim().toLowerCase();
     const user = await this.userRepository.findOne({
       where: { email: normalizedEmail },
@@ -230,9 +243,11 @@ export class AuthService {
         'name',
         'role',
         'workspaceId',
+        'lastWorkspaceId',
         'locale',
         'timeZone',
         'themePreference',
+        'mapStylePreference',
         'onboardingCompletedAt',
         'avatarUrl',
         'isActive',
@@ -302,6 +317,7 @@ export class AuthService {
     const workspace = this.workspaceRepository.create({
       name: workspaceName,
       ownerId: user.id,
+      currency: currencyCodeOrDefault(null),
     });
 
     const savedWorkspace = await this.workspaceRepository.save(workspace);
@@ -324,7 +340,7 @@ export class AuthService {
   async refreshToken(
     refreshToken: string,
     sessionContext?: SessionContext,
-  ): Promise<{ access_token: string }> {
+  ): Promise<{ access_token: string; refresh_token: string }> {
     try {
       const payload = this.jwtService.verify<JwtRefreshPayload>(refreshToken, {
         secret: jwtRefreshSecret(),
@@ -372,9 +388,29 @@ export class AuthService {
         sessionContext?.userAgent || session.userAgent || null,
       );
 
+      // Ротация: каждый /refresh выдаёт новый refresh-токен и перепривязывает
+      // сессию к нему — украденный старый токен перестаёт работать после первого
+      // легитимного обновления (см. .claude/rules/security.md §1).
+      // ponytail: повтор старого токена просто отвергается; авто-отзыв сессии как
+      // сигнал кражи не делаем — конкурирующие вкладки дали бы ложные разлогины.
+      const newRefreshPayload: JwtRefreshPayload = {
+        sub: user.id,
+        type: 'refresh',
+        tokenVersion: user.tokenVersion ?? 0,
+        sessionId: payload.sessionId,
+      };
+      const newRefreshToken = this.jwtService.sign(newRefreshPayload, {
+        secret: jwtRefreshSecret(),
+        expiresIn: toJwtExpiresIn(
+          process.env.JWT_REFRESH_EXPIRES_IN,
+          DEFAULT_REFRESH_TOKEN_EXPIRES_IN,
+        ),
+      });
+
       await this.authSessionRepository.update(
         { id: session.id },
         {
+          refreshTokenHash: this.hashRefreshToken(newRefreshToken),
           lastUsedAt: new Date(),
           userAgent: sessionContext?.userAgent || session.userAgent,
           ipAddress: this.resolveIpAddress(sessionContext?.ipAddress) || session.ipAddress,
@@ -394,12 +430,12 @@ export class AuthService {
 
       const accessTokenOptions: JwtSignOptions = {
         secret: jwtSecret(),
-        expiresIn: toJwtExpiresIn(process.env.JWT_EXPIRES_IN, DEFAULT_AUTH_SESSION_EXPIRES_IN),
+        expiresIn: toJwtExpiresIn(process.env.JWT_EXPIRES_IN, DEFAULT_ACCESS_TOKEN_EXPIRES_IN),
       };
 
       const accessToken = this.jwtService.sign(accessTokenPayload, accessTokenOptions);
 
-      return { access_token: accessToken };
+      return { access_token: accessToken, refresh_token: newRefreshToken };
     } catch (_error) {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -434,6 +470,7 @@ export class AuthService {
     );
 
     await this.userRepository.increment({ id: userId }, 'tokenVersion', 1);
+    await this.recordSessionRevocation(userId, { sessions: 'all-revoked' });
     return { message: 'Logged out from all devices successfully' };
   }
 
@@ -476,7 +513,27 @@ export class AuthService {
       throw new NotFoundException('Session not found');
     }
 
+    await this.recordSessionRevocation(userId, { sessions: 'revoked', sessionId });
     return { message: 'Session logged out successfully' };
+  }
+
+  private async recordSessionRevocation(
+    userId: string,
+    meta: { sessions: string; sessionId?: string },
+  ): Promise<void> {
+    // The sessions are already revoked; a failed lookup must not undo that answer.
+    const user = await this.userRepository
+      .findOne({ where: { id: userId }, select: ['id', 'workspaceId'] })
+      .catch(() => null);
+    await recordSecurityEvent(this.auditService, this.logger, {
+      workspaceId: user?.workspaceId,
+      actorId: userId,
+      entityType: EntityType.USER,
+      entityId: userId,
+      action: AuditAction.UPDATE,
+      severity: Severity.INFO,
+      meta,
+    });
   }
 
   private async generateTokens(
@@ -502,12 +559,15 @@ export class AuthService {
 
     const accessTokenOptions: JwtSignOptions = {
       secret: jwtSecret(),
-      expiresIn: toJwtExpiresIn(process.env.JWT_EXPIRES_IN, DEFAULT_AUTH_SESSION_EXPIRES_IN),
+      expiresIn: toJwtExpiresIn(process.env.JWT_EXPIRES_IN, DEFAULT_ACCESS_TOKEN_EXPIRES_IN),
     };
 
     const refreshTokenOptions: JwtSignOptions = {
       secret: jwtRefreshSecret(),
-      expiresIn: toJwtExpiresIn(process.env.JWT_REFRESH_EXPIRES_IN, '30d'),
+      expiresIn: toJwtExpiresIn(
+        process.env.JWT_REFRESH_EXPIRES_IN,
+        DEFAULT_REFRESH_TOKEN_EXPIRES_IN,
+      ),
     };
 
     const accessToken = this.jwtService.sign(payload, accessTokenOptions);
@@ -535,9 +595,13 @@ export class AuthService {
         name: user.name,
         role: user.role,
         workspaceId: user.workspaceId || null,
+        // The workspace open at the last switch: the client reopens it after
+        // login when the user still belongs to it, and the home one otherwise.
+        lastWorkspaceId: user.lastWorkspaceId ?? null,
         locale: user.locale,
         timeZone: user.timeZone ?? null,
         themePreference: user.themePreference,
+        mapStylePreference: user.mapStylePreference ?? null,
         avatarUrl: user.avatarUrl ?? null,
         onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
       },
@@ -547,10 +611,11 @@ export class AuthService {
   }
 
   private hashRefreshToken(refreshToken: string): string {
-    const secret =
-      this.configService.get<string>('SESSION_TOKEN_SALT') ||
-      this.configService.get<string>('JWT_REFRESH_SECRET') ||
-      'session-default-secret';
+    const secret = requireSecret(
+      'SESSION_TOKEN_SALT or JWT_REFRESH_SECRET',
+      this.configService.get<string>('SESSION_TOKEN_SALT'),
+      this.configService.get<string>('JWT_REFRESH_SECRET'),
+    );
 
     return createHmac('sha256', secret).update(refreshToken).digest('hex');
   }

@@ -1,115 +1,81 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { WorkspaceStep } from './WorkspaceStep';
 
 vi.mock('@/app/i18n', () => ({
-  useIntlayer: () => ({
-    navigation: {
-      back: {
-        value: {
-          ru: 'Back',
-          en: 'Back',
-          kk: 'Back',
-        },
-      },
-    },
-    workspace: {
-      title: {
-        value: {
-          ru: 'Set up your first workspace (RU)',
-          en: 'Set up your first workspace',
-          kk: 'Set up your first workspace (KK)',
-        },
-      },
-      subtitle: {
-        value: {
-          ru: 'RU subtitle',
-          en: 'EN subtitle',
-          kk: 'KK subtitle',
-        },
-      },
-      nameLabel: {
-        value: {
-          ru: 'Workspace name',
-          en: 'Workspace name',
-          kk: 'Workspace name',
-        },
-      },
-      namePlaceholder: {
-        value: {
-          ru: 'For example: My Company workspace',
-          en: 'For example: My Company workspace',
-          kk: 'For example: My Company workspace',
-        },
-      },
-      currencyHint: {
-        value: {
-          ru: 'RU currency hint',
-          en: 'EN currency hint',
-          kk: 'KK currency hint',
-        },
-      },
-      backgroundLabel: {
-        value: {
-          ru: 'Workspace background',
-          en: 'Workspace background',
-          kk: 'Workspace background',
-        },
-      },
-      customBackgroundLabel: {
-        value: {
-          ru: 'Custom image (URL)',
-          en: 'Custom image (URL)',
-          kk: 'Custom image (URL)',
-        },
-      },
-      customBackgroundPlaceholder: {
-        value: {
-          ru: 'https://example.com/ru.jpg',
-          en: 'https://example.com/en.jpg',
-          kk: 'https://example.com/kk.jpg',
-        },
-      },
-      customBackgroundHint: {
-        value: {
-          ru: 'English background hint',
-          en: 'EN background hint',
-          kk: 'English background hint',
-        },
-      },
-    },
-  }),
+  useIntlayer: (key: string) =>
+    key === 'onboardingPage'
+      ? {
+          workspace: {
+            title: { value: { en: 'Set up your first workspace', ru: 'RU title' } },
+            profileLabel: 'What is this workspace for?',
+            profileRequired: 'Choose one to continue.',
+          },
+        }
+      : { workspaceProfileCard: { home: 'Home', business: 'Business' } },
 }));
 
 vi.mock('@/app/(main)/workspaces/components/CurrencySelector', () => ({
   CurrencySelector: () => <div>Currency selector</div>,
 }));
 
-vi.mock('@/app/(main)/workspaces/components/BackgroundSelector', () => ({
-  BackgroundSelector: () => <div>Background selector</div>,
-}));
+const props = {
+  locale: 'en' as const,
+  workspaceName: '',
+  workspaceCurrency: 'USD',
+  profile: null,
+  onWorkspaceNameChange: vi.fn(),
+  onWorkspaceCurrencyChange: vi.fn(),
+  onProfileChange: vi.fn(),
+};
 
-describe('WorkspaceStep localization', () => {
-  it('renders labels using the selected onboarding locale instead of the active app locale', () => {
-    render(
-      <WorkspaceStep
-        locale="en"
-        workspaceName=""
-        workspaceCurrency="USD"
-        workspaceBackgroundImage={null}
-        onWorkspaceNameChange={vi.fn()}
-        onWorkspaceCurrencyChange={vi.fn()}
-        onWorkspaceBackgroundImageChange={vi.fn()}
-      />,
-    );
+describe('WorkspaceStep', () => {
+  it('renders labels in the locale picked on the first step', () => {
+    render(<WorkspaceStep {...props} />);
 
-    expect(screen.getByText('Set up your first workspace')).toBeTruthy();
-    expect(screen.getByText('English background hint')).toBeTruthy();
-    expect(screen.getByText('Workspace background')).toBeTruthy();
-    expect(screen.getByText('Custom image (URL)')).toBeTruthy();
-    expect(screen.getByPlaceholderText('https://example.com/en.jpg')).toBeTruthy();
-    expect(screen.queryByText('Set up your first workspace (RU)')).toBeNull();
+    expect(screen.getByText('Set up your first workspace')).toBeInTheDocument();
+    expect(screen.queryByText('RU title')).toBeNull();
+  });
+
+  it('asks home or business with nothing pre-selected', () => {
+    render(<WorkspaceStep {...props} />);
+
+    const group = screen.getByRole('radiogroup', { name: 'What is this workspace for?' });
+    expect(group).toBeInTheDocument();
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio).toHaveAttribute('aria-checked', 'false');
+    }
+  });
+
+  it('reports the chosen profile', () => {
+    const onProfileChange = vi.fn();
+    render(<WorkspaceStep {...props} onProfileChange={onProfileChange} />);
+
+    fireEvent.click(screen.getByRole('radio', { name: /Home/ }));
+    expect(onProfileChange).toHaveBeenCalledWith('home');
+  });
+
+  it('says why Next is unavailable until the profile is chosen', () => {
+    const { rerender } = render(<WorkspaceStep {...props} />);
+    expect(screen.getByText('Choose one to continue.')).toBeInTheDocument();
+
+    rerender(<WorkspaceStep {...props} profile="business" />);
+    expect(screen.queryByText('Choose one to continue.')).toBeNull();
+  });
+
+  it('asks for the language only when the flow has no language step of its own', () => {
+    const { rerender } = render(<WorkspaceStep {...props} />);
+    expect(document.getElementById('onboarding-locale')).toBeNull();
+
+    rerender(<WorkspaceStep {...props} onLocaleChange={vi.fn()} />);
+    expect(document.getElementById('onboarding-locale')).not.toBeNull();
+  });
+
+  it('no longer asks for a background image', () => {
+    render(<WorkspaceStep {...props} />);
+
+    expect(screen.queryByText(/background/i)).toBeNull();
   });
 });

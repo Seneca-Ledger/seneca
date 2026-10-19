@@ -1,14 +1,13 @@
 'use client';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-
-import { type ChangelogEntry, ChangelogModal } from '@/app/components/ChangelogModal';
-import { CalendarDays, Clock3, FileText } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useTheme } from 'next-themes';
+import { type ChangelogEntry, ChangelogModal } from '@/app/components/ChangelogModal';
+import { CalendarDays, Clock3, FileText } from '@/app/components/icons';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
+import { tokens } from '@/lib/theme-tokens';
 
 type Props = {
   tx: (path: string[], fallback: string) => string;

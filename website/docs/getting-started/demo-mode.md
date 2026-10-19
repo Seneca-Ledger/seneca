@@ -1,28 +1,32 @@
 ---
 title: Demo Mode
-description: Explore Lumio with seeded data
+description: Explore Seneca with a demo account
 ---
 
-Lumio includes a demo workspace to help you explore the product quickly.
+Seneca ships a demo account so you can log in and explore right away.
 
-## Create demo data
+## Create the demo account
+
+`make quick-dev` and the `npm run setup:dev*` scripts create it for you. To create it again:
 
 ```bash
 make seed-demo
 ```
 
-This command creates a demo user and workspace with sample statements and transactions.
+The seed creates a regular user and a workspace they own, with the default categories, tax rates
+and balance accounts. It adds no statements or transactions — upload a file to see the dashboard
+and reports fill in. Running it again resets the demo password.
 
 ## Demo credentials
 
-- Email: `demo@lumio.dev`
+- Email: `demo@seneca.dev`
 - Password: `demo123`
 
 ## What to try
 
-- Open the Dashboard to review trends
-- Upload a new statement file
+- Upload a statement file from the Statements page
+- Review the import preview and resolve any duplicates
+- Open the Dashboard and Reports once transactions are in
 - Browse the Audit Log to see change history
-- Explore Reports for spending summaries
 
 Next: [Importing Statements](../guides/importing-statements)

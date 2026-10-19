@@ -1,13 +1,13 @@
 'use client';
 
+import { Box, Typography } from '@mui/material';
+import { useTheme } from 'next-themes';
 import { ReceiptParsedDataForm } from '@/app/components/receipts/ReceiptParsedDataForm';
 import type {
   EditableReceiptParsedData,
   ReceiptCategoryOption,
 } from '@/app/components/receipts/receipt-types';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, Typography } from '@mui/material';
-import { useTheme } from 'next-themes';
 
 interface ReceiptMetadataPanelProps {
   formValue: EditableReceiptParsedData;

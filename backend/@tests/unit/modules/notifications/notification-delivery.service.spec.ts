@@ -6,6 +6,7 @@ import { Notification } from '@/entities/notification.entity';
 import { User } from '@/entities/user.entity';
 import { MailerService } from '@/modules/mailer/mailer.service';
 import { NotificationDeliveryService } from '@/modules/notifications/notification-delivery.service';
+import { PushService } from '@/modules/push/push.service';
 import { TelegramService } from '@/modules/telegram/telegram.service';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -54,6 +55,7 @@ describe('NotificationDeliveryService', () => {
         { provide: getRepositoryToken(User), useValue: { findOne: jest.fn() } },
         { provide: MailerService, useValue: mailerService },
         { provide: TelegramService, useValue: telegramService },
+        { provide: PushService, useValue: { sendToUser: jest.fn(async () => true) } },
       ],
     }).compile();
 

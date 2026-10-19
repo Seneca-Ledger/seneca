@@ -10,6 +10,7 @@ import {
   WorkspaceMember,
 } from '../../entities';
 import { AuditModule } from '../audit/audit.module';
+import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { BalanceController } from './balance.controller';
 import { BalanceService } from './balance.service';
 
@@ -25,6 +26,7 @@ import { BalanceService } from './balance.service';
       WorkspaceMember,
     ]),
     AuditModule,
+    ExchangeRatesModule,
   ],
   controllers: [BalanceController],
   providers: [BalanceService],

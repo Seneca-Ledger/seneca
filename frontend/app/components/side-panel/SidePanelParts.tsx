@@ -1,9 +1,9 @@
 'use client';
 
+import React from 'react';
 import { AlertCircle, PanelLeftClose, PanelLeftOpen, RefreshCw } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
 import { tokens } from '@/lib/theme-tokens';
-import React from 'react';
 import { SectionRenderer } from './sections';
 import { RenderIcon } from './sections/components/RenderIcon';
 import type { ActionItem, SidePanelProps, SidePanelSection } from './types';
@@ -302,8 +302,8 @@ export function PanelHeader({
 }
 
 type FooterProps = { footer: NonNullable<SidePanelProps['config']>['footer'] };
-export function PanelFooter({ footer }: FooterProps): React.JSX.Element {
-  if (!footer) return <></>;
+export function PanelFooter({ footer }: FooterProps): React.JSX.Element | null {
+  if (!footer) return null;
   const actions = footer.actions ?? [];
   return (
     <div style={{ padding: '12px 16px', flexShrink: 0, overflow: 'visible' }}>

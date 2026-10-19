@@ -64,9 +64,11 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 
 ---
 
-## Project Context (Lumio)
+## Project Context (Seneca)
 
-Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, api-standards, clean-architecture, frontend-perf, observability, best-practices). Read those before changes in those domains.
+Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, api-standards, clean-architecture, frontend-perf, observability, best-practices, effect, design-tokens). Read those before changes in those domains.
+
+**Styling:** every colour, size and weight follows the light and dark theme tokens; no raw hex, MUI colour defaults or Tailwind palette classes. See `.claude/rules/design-tokens.md`.
 
 ## Quick Commands
 
@@ -93,6 +95,11 @@ npm run migration:generate -- src/migrations/<Name>
 
 - Frontend lint runs **both** Biome and ESLint — fixing one but not the other leaves CI red.
 - `prebuild` and `postinstall` on the frontend run `intlayer build`; deleting the intlayer config or skipping it breaks both install and build.
-- Backend dev uses a manual nodemon command, not `nest start`, and bumps Node heap to 2 GB.
+- Backend dev uses a manual nodemon command, not `nest start`, and bumps Node heap to 2 GB. Dev scripts (`migration:run:dev`, `seed:demo:dev`, `create-admin:dev`) run ts-node with `--transpile-only`; type-checking is `npm run typecheck`.
+- SWC was evaluated for the backend dev loop and rejected: its CommonJS getter exports hit a TDZ on circular entity imports with `emitDecoratorMetadata`. Adopting it needs the TypeORM `Relation<>` wrapper on every relation property first.
+- Docker dev: `node_modules` and `.next` are named volumes; `scripts/dev-entrypoint.sh` in each app re-runs `npm ci` only when `package-lock.json` changed. Dev images never compile source (bind mount).
+- TypeORM SQL logging is off unless `DB_QUERY_LOGGING=true`.
 - Always run migrations via the npm scripts, not raw `typeorm` — `migration:run` acquires a lock to prevent concurrent runs in deployment.
+- Product name comes from `APP_NAME` (root `.env`): never write the name into UI text, e-mails or bot replies — use `APP_NAME`/`APP_SLUG` from `frontend/app/lib/brand.ts` or `backend/src/common/brand.ts` (in `*.content.ts` as a template literal). Seneca inside the Stoic quotes is the philosopher, not the product.
 - Tenant isolation: every backend query must filter by `workspaceId`. See `.claude/rules/security.md`.
+- API schemas live in `packages/contracts/src`; `backend/src/contracts` and `frontend/app/lib/contracts` are generated copies. Edit the source, then `npm run contracts:sync` (pre-commit and CI run `contracts:check`). See `.claude/rules/effect.md`.

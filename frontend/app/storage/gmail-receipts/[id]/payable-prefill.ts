@@ -1,3 +1,4 @@
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { CreatePayableInput } from '@/app/lib/payables-api';
 
 type ReceiptLike = {
@@ -71,7 +72,7 @@ export const buildPayablePrefillFromReceipt = ({
   return {
     vendor: editedData.vendor || receipt.parsedData?.vendor || receipt.subject,
     amount,
-    currency: editedData.currency || receipt.parsedData?.currency || 'KZT',
+    currency: editedData.currency || receipt.parsedData?.currency || FALLBACK_CURRENCY,
     dueDate: toDateOnly(editedData.date || receipt.parsedData?.date || receipt.receivedAt),
     source: 'invoice',
     comment: `Created from Gmail receipt ${receipt.subject}`,

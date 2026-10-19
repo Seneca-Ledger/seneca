@@ -1,0 +1,64 @@
+import * as Schema from 'effect/Schema';
+import { NumericInput, optionalNullable } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+/**
+ * These bodies used to be typed `Record<string, unknown>`, which makes the
+ * global ValidationPipe a no-op: with an `Object` metatype there is nothing for
+ * `whitelist`/`forbidNonWhitelisted` to check against, so unknown properties
+ * flowed through untouched.
+ *
+ * The service still coerces every field it reads (requiredString, positiveNumber
+ * and friends) and builds its config objects from named fields, so this is the
+ * boundary check those helpers never replaced — it rejects unknown properties
+ * and returns a proper 400 instead of surfacing a coercion error later.
+ */
+export const SaveLocalCategorizationBody = Schema.Struct({
+  enabled: optionalNullable(Schema.Boolean),
+  modelId: optionalNullable(Schema.String),
+  threshold: optionalNullable(
+    NumericInput.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+  ),
+  localModelPath: optionalNullable(Schema.String),
+});
+export type SaveLocalCategorizationBody = Wire<typeof SaveLocalCategorizationBody>;
+
+export const TestLocalCategorizationBody = Schema.Struct({
+  merchantName: Schema.String,
+  categories: optionalNullable(Schema.Array(Schema.String)),
+});
+export type TestLocalCategorizationBody = Wire<typeof TestLocalCategorizationBody>;
+
+export const SaveSmtpSettingsBody = Schema.Struct({
+  host: Schema.String,
+  port: optionalNullable(
+    NumericInput.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(1),
+      Schema.isLessThanOrEqualTo(65535),
+    ),
+  ),
+  secure: optionalNullable(Schema.Boolean),
+  user: optionalNullable(Schema.String),
+  pass: optionalNullable(Schema.String),
+  from: Schema.String,
+  replyTo: optionalNullable(Schema.String),
+  timeoutMs: optionalNullable(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
+});
+export type SaveSmtpSettingsBody = Wire<typeof SaveSmtpSettingsBody>;
+
+export const SaveTelegramSettingsBody = Schema.Struct({
+  botToken: optionalNullable(Schema.String),
+  timeoutMs: optionalNullable(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
+});
+export type SaveTelegramSettingsBody = Wire<typeof SaveTelegramSettingsBody>;
+
+export const SaveInstanceTelegramBotBody = Schema.Struct({
+  botToken: Schema.String.check(Schema.isMinLength(1)),
+});
+export type SaveInstanceTelegramBotBody = Wire<typeof SaveInstanceTelegramBotBody>;
+
+export const SaveAppSettingsBody = Schema.Struct({
+  publicUrl: Schema.String,
+});
+export type SaveAppSettingsBody = Wire<typeof SaveAppSettingsBody>;

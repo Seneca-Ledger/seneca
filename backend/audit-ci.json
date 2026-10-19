@@ -1,11 +1,8 @@
 {
-  "severity": "high",
-  "allowlistedAdvisories": [
-    "GHSA-cf4h-3jhx-xvhq",
-    "GHSA-h6q6-9hqw-rwfv",
-    "GHSA-crh6-fp67-6883",
-    "GHSA-5fg8-2547-mr8q",
-    "GHSA-4r6h-8v6p-xvw6",
-    "GHSA-5pgg-2g8v-p4x9"
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  "moderate": true,
+  "allowlist": [
+    "GHSA-vfj7-8cjw-p6xm",
+    "GHSA-hp3w-g68c-fv3c"
   ]
 }

@@ -1,7 +1,8 @@
 'use client';
 
-import apiClient, { receiptsApi, type ReceiptRecord } from '@/app/lib/api';
 import toast from 'react-hot-toast';
+import apiClient, { type ReceiptRecord, receiptsApi } from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { buildParsedDataPayload } from '../helpers/receipt-builders';
 import type { EditableReceiptParsedData } from '../receipt-types';
 
@@ -22,7 +23,7 @@ interface UseReceiptActionsReturn {
 }
 
 const patchReceipt = (id: string, data: Record<string, unknown>): Promise<unknown> =>
-  apiClient.patch(`/receipts/${id}`, data);
+  apiClient.patch(`/receipts/${id}`, data satisfies ContractInput<'UpdateReceiptBody'>);
 
 const withSaving = async (
   setSaving: (v: boolean) => void,

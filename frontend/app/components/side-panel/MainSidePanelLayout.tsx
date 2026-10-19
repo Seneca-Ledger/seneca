@@ -1,17 +1,18 @@
 /* eslint-disable max-lines */
 'use client';
 
-import { X } from '@/app/components/icons';
-import { useLockBodyScroll } from '@/app/hooks/useLockBodyScroll';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { usePathname } from 'next/navigation';
 import React from 'react';
-import { SidePanel, SidePanelProvider, useCurrentSidePanelConfig, useSidePanel } from './index';
+import { X } from '@/app/components/icons';
+import { useLockBodyScroll } from '@/app/hooks/useLockBodyScroll';
+import { useIntlayer } from '@/app/i18n';
+import { SidePanel, useCurrentSidePanelConfig, useSidePanel } from './index';
 
 type ClonableProps = Record<string, unknown>;
-const MOBILE_MENU_VISIBILITY_EVENT = 'lumio-mobile-menu-visibility';
+const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
 const SIDEPANEL_ACTIVE_BODY_ATTRIBUTE = 'data-side-panel-active';
 
 function useMountAnimation(
@@ -81,6 +82,7 @@ function computeDragX(
 function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
   const config = useCurrentSidePanelConfig();
   const sidePanel = useSidePanel();
+  const t = useIntlayer('sidePanel');
   const pathname = usePathname();
   const isStatementsPage = pathname?.startsWith('/statements');
   const [mobileSidePanelOpen, setMobileSidePanelOpen] = React.useState(false);
@@ -261,24 +263,16 @@ function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
           : {}),
       }}
     >
-      {config ? (
-        <>
-          <Box
-            sx={{
-              display: { xs: 'none', lg: 'flex' },
-              flexShrink: 0,
-              ...(isStatementsPage ? { height: '100%' } : {}),
-            }}
-          >
-            <SidePanel
-              config={config}
-              showCollapseToggle={false}
-              style={isStatementsPage ? { height: '100%' } : undefined}
-            />
-          </Box>
-        </>
-      ) : null}
-      <div style={{ flex: 1, ...(isStatementsPage ? { height: '100%', overflow: 'hidden' } : {}) }}>
+      <div
+        className={isStatementsPage ? 'seneca-statements-shell' : undefined}
+        style={{
+          flex: 1,
+          // A flex item defaults to min-width:auto; without this, wide nowrap
+          // content (month chips, tables) pushes the page past the viewport.
+          minWidth: 0,
+          ...(isStatementsPage ? { height: '100%', overflow: 'hidden' } : {}),
+        }}
+      >
         {children}
       </div>
 
@@ -305,7 +299,7 @@ function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
               cursor: 'pointer',
               width: '100%',
             }}
-            aria-label="Close side panel"
+            aria-label={t.closeSidePanel.value}
             onClick={() => setMobileSidePanelOpen(false)}
           />
 
@@ -352,12 +346,12 @@ function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
                 }}
               >
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {mobileDialogConfig.header?.title ?? 'Sections'}
+                  {mobileDialogConfig.header?.title ?? t.sections}
                 </Typography>
                 <IconButton
                   size="small"
                   onClick={() => setMobileSidePanelOpen(false)}
-                  aria-label="Close side panel"
+                  aria-label={t.closeSidePanel.value}
                 >
                   <X size={18} />
                 </IconButton>
@@ -397,15 +391,6 @@ function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function MainSidePanelLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <SidePanelProvider
-      defaultWidth="md"
-      defaultPosition="left"
-      defaultCollapsed={false}
-      persistState={true}
-      storageKey="lumio-side-panel"
-    >
-      <MainSidePanelLayoutInner>{children}</MainSidePanelLayoutInner>
-    </SidePanelProvider>
-  );
+  // SidePanelProvider sits in the root layout so the shell can render the panel.
+  return <MainSidePanelLayoutInner>{children}</MainSidePanelLayoutInner>;
 }

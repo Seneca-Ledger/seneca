@@ -1,9 +1,4 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import { Copy, Lock, Plus, Trash2 } from '@/app/components/icons';
-import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import { tokens } from '@/lib/theme-tokens';
 import {
   Box,
   Button,
@@ -15,13 +10,32 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { Copy, Lock, Plus, Trash2 } from '@/app/components/icons';
+import { PanelBackTitle } from '@/app/components/panels/panel-ui';
+import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { useAuth } from '@/app/hooks/useAuth';
+import { useIntlayer } from '@/app/i18n';
+import { apiBaseUrl } from '@/app/lib/api';
+import type { ApiKeyScope } from '@/app/lib/contracts';
+import { formatStoredDate } from '@/app/lib/user-format-store';
+import { tokens } from '@/lib/theme-tokens';
+import { PluginOffBanner } from '../components/PluginOffBanner';
+import {
+  claudeCodeCommand,
+  KEY_PLACEHOLDER,
+  mcpEndpointUrl,
+  mcpJsonConfig,
+} from './mcp-connection';
 import { useApiKeys } from './useApiKeys';
 
 interface McpServerDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Set when the drawer is the second layer of the plugins panel. */
+  onBack?: () => void;
+  zIndex?: number;
 }
 
 const sectionLabelStyle = {
@@ -31,8 +45,10 @@ const sectionLabelStyle = {
   mb: 1.5,
 };
 
+const stepLabelStyle = { fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 };
+
 const codeBlockStyle = {
-  background: 'var(--muted, #f4f4f5)',
+  background: 'var(--muted)',
   borderRadius: tokens.radius.sm,
   p: 1.5,
   fontFamily: 'monospace',
@@ -43,9 +59,12 @@ const codeBlockStyle = {
   position: 'relative' as const,
 };
 
+type McpServerText = ReturnType<typeof useIntlayer<'mcpServerDrawer'>>;
+
 function CopyButton({ text }: { text: string }) {
+  const t = useIntlayer('mcpServerDrawer');
   const handle = () => {
-    void navigator.clipboard.writeText(text).then(() => toast.success('Copied'));
+    void navigator.clipboard.writeText(text).then(() => toast.success(t.copied.value));
   };
   return (
     <button
@@ -63,47 +82,48 @@ function CopyButton({ text }: { text: string }) {
         display: 'flex',
         alignItems: 'center',
       }}
-      title="Copy"
+      title={t.copy.value}
     >
       <Copy size={14} />
     </button>
   );
 }
 
-const MCP_JSON = `{
-  "mcpServers": {
-    "lumio": {
-      "command": "node",
-      "args": ["mcp-server/dist/index.js"],
-      "env": {
-        "LUMIO_BASE_URL": "http://localhost:3001/api/v1",
-        "LUMIO_API_KEY": "lum_<your-api-key>",
-        "LUMIO_WORKSPACE_ID": "<workspace-uuid>"
-      }
-    }
-  }
-}`;
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return 'Never used';
+function timeAgo(dateStr: string | null, t: McpServerText): string {
+  if (!dateStr) return t.neverUsed.value;
   const diff = Date.now() - new Date(dateStr).getTime();
   const d = Math.floor(diff / 86400000);
-  if (d === 0) return 'Today';
-  if (d === 1) return '1 day ago';
-  if (d < 30) return `${d} days ago`;
+  if (d === 0) return t.today.value;
+  if (d === 1) return t.oneDayAgo.value;
+  if (d < 30) return t.daysAgo.value.replace('{count}', String(d));
   return formatStoredDate(dateStr);
 }
 
-export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
-  const { keys, loading, newKey, isActive, create, revoke, clearNewKey } = useApiKeys();
+export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDrawerProps) {
+  const t = useIntlayer('mcpServerDrawer');
+  const pluginsText = useIntlayer('pluginsPage');
+  const { user } = useAuth();
+  const { keys, loading, newKey, isActive, scopes, create, revoke, clearNewKey } = useApiKeys();
+  // Creating keys needs api_key.manage, which only the instance admin role carries.
+  const canCreateKeys = user?.role === 'admin';
+  const endpoint = useMemo(
+    () => (typeof window === 'undefined' ? '' : mcpEndpointUrl(apiBaseUrl, window.location.origin)),
+    [],
+  );
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [keyName, setKeyName] = useState('');
+  // Read-only is the safe default; a wider key is a deliberate choice.
+  const [scopeMode, setScopeMode] = useState<'read' | 'write' | 'custom'>('read');
+  const [customScopes, setCustomScopes] = useState<ApiKeyScope[]>([]);
+  const selectedScopes = scopeMode === 'custom' ? customScopes : (scopes?.presets[scopeMode] ?? []);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (!keyName.trim()) return;
-    await create(keyName.trim());
+    if (!keyName.trim() || selectedScopes.length === 0) return;
+    await create(keyName.trim(), selectedScopes);
     setKeyName('');
+    setScopeMode('read');
+    setCustomScopes([]);
     setShowCreateForm(false);
   };
 
@@ -115,11 +135,18 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
 
   return (
     <>
-      <DrawerShell isOpen={isOpen} onClose={onClose} title="MCP Server" width="md">
+      <DrawerShell
+        isOpen={isOpen}
+        onClose={onClose}
+        title={onBack ? <PanelBackTitle title={t.title} onBack={onBack} /> : t.title}
+        width="md"
+        zIndex={zIndex}
+      >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto', flex: 1 }}>
+          <PluginOffBanner plugin="mcp-server" message={pluginsText.offBanner.mcp} />
           {/* ── Status ── */}
           <Box>
-            <Typography sx={sectionLabelStyle}>Status</Typography>
+            <Typography sx={sectionLabelStyle}>{t.status}</Typography>
             <Box
               sx={theme => ({
                 display: 'flex',
@@ -151,44 +178,36 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
                 }}
               >
                 {isActive
-                  ? `Connected — ${keys.length} active key${keys.length !== 1 ? 's' : ''}`
-                  : 'Not configured — create an API key to get started'}
+                  ? t.connectedKeys.value.replace('{count}', String(keys.length))
+                  : t.notConfigured}
               </Typography>
             </Box>
           </Box>
 
           {/* ── Setup ── */}
           <Box>
-            <Typography sx={sectionLabelStyle}>Setup</Typography>
+            <Typography sx={sectionLabelStyle}>{t.setup}</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                1. Build the MCP server
-              </Typography>
+              <Typography sx={stepLabelStyle}>{t.endpointLabel}</Typography>
               <Box sx={codeBlockStyle}>
-                cd mcp-server && npm install && npm run build
-                <CopyButton text="cd mcp-server && npm install && npm run build" />
+                {endpoint}
+                <CopyButton text={endpoint} />
               </Box>
 
-              <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                2. Add to{' '}
-                <code
-                  style={{
-                    background: 'var(--muted)',
-                    borderRadius: tokens.radius.xs,
-                    padding: '1px 4px',
-                  }}
-                >
-                  .mcp.json
-                </code>{' '}
-                in your project root
-              </Typography>
+              <Typography sx={stepLabelStyle}>{t.claudeCodeLabel}</Typography>
               <Box sx={codeBlockStyle}>
-                {MCP_JSON}
-                <CopyButton text={MCP_JSON} />
+                {claudeCodeCommand(endpoint, KEY_PLACEHOLDER)}
+                <CopyButton text={claudeCodeCommand(endpoint, KEY_PLACEHOLDER)} />
               </Box>
 
-              <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                3. Restart Claude Code — Lumio tools will appear automatically
+              <Typography sx={stepLabelStyle}>{t.jsonConfigLabel}</Typography>
+              <Box sx={codeBlockStyle}>
+                {mcpJsonConfig(endpoint, KEY_PLACEHOLDER)}
+                <CopyButton text={mcpJsonConfig(endpoint, KEY_PLACEHOLDER)} />
+              </Box>
+
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                {t.workspaceBoundHint}
               </Typography>
             </Box>
           </Box>
@@ -203,8 +222,8 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
                 mb: 1.5,
               }}
             >
-              <Typography sx={sectionLabelStyle}>API Keys</Typography>
-              {!showCreateForm && (
+              <Typography sx={sectionLabelStyle}>{t.apiKeys}</Typography>
+              {canCreateKeys && !showCreateForm && (
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(true)}
@@ -222,76 +241,146 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
                     cursor: 'pointer',
                   }}
                 >
-                  <Plus size={13} />
-                  Create key
+                  <Plus size={14} aria-hidden />
+                  {t.createKey}
                 </button>
               )}
             </Box>
 
             {/* Create form */}
+            {!canCreateKeys && (
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mb: 1.5 }}>
+                {t.adminOnlyKeys}
+              </Typography>
+            )}
             {showCreateForm && (
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <TextField
-                  size="small"
-                  placeholder="Key name (e.g. Claude Code)"
-                  value={keyName}
-                  onChange={e => setKeyName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') void handleCreate();
-                  }}
-                  autoFocus
-                  fullWidth
-                  sx={{ fontSize: 13 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleCreate()}
-                  disabled={!keyName.trim()}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: tokens.radius.full,
-                    border: 'none',
-                    background: 'var(--primary-fill)',
-                    color: tokens.color.primaryContrast,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: keyName.trim() ? 'pointer' : 'not-allowed',
-                    opacity: keyName.trim() ? 1 : 0.5,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Create
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setKeyName('');
-                  }}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: tokens.radius.full,
-                    border: '1px solid var(--border-color, #e5e7eb)',
-                    background: 'transparent',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  Cancel
-                </button>
+              <Box sx={{ display: 'grid', gap: 1, mb: 2 }}>
+                <Typography variant="caption" sx={{ color: 'var(--text-secondary)' }}>
+                  {t.scopeLabel} · {t.scopeHint}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }} role="radiogroup">
+                  {(['read', 'write', 'custom'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={scopeMode === mode}
+                      onClick={() => setScopeMode(mode)}
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: tokens.radius.full,
+                        border: '1px solid var(--border-color)',
+                        background: scopeMode === mode ? 'var(--primary-fill)' : 'transparent',
+                        color:
+                          scopeMode === mode
+                            ? tokens.color.primaryContrast
+                            : 'var(--text-secondary)',
+                        fontSize: 12,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {mode === 'read'
+                        ? t.scopeRead
+                        : mode === 'write'
+                          ? t.scopeWrite
+                          : t.scopeCustom}
+                    </button>
+                  ))}
+                </Box>
+                {scopeMode === 'custom' && scopes && (
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {scopes.all.map(scope => {
+                      const on = customScopes.includes(scope);
+                      return (
+                        <button
+                          key={scope}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={on}
+                          onClick={() =>
+                            setCustomScopes(current =>
+                              on ? current.filter(item => item !== scope) : [...current, scope],
+                            )
+                          }
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: tokens.radius.full,
+                            border: '1px solid var(--border-color)',
+                            background: on ? 'var(--primary-fill)' : 'transparent',
+                            color: on ? tokens.color.primaryContrast : 'var(--text-secondary)',
+                            fontSize: 11,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {scope}
+                        </button>
+                      );
+                    })}
+                  </Box>
+                )}
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <TextField
+                    size="small"
+                    placeholder={t.keyNamePlaceholder.value}
+                    value={keyName}
+                    onChange={e => setKeyName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') void handleCreate();
+                    }}
+                    autoFocus
+                    fullWidth
+                    sx={{ fontSize: 13 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleCreate()}
+                    disabled={!keyName.trim() || selectedScopes.length === 0}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: tokens.radius.full,
+                      border: 'none',
+                      background: 'var(--primary-fill)',
+                      color: tokens.color.primaryContrast,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: keyName.trim() ? 'pointer' : 'not-allowed',
+                      opacity: keyName.trim() ? 1 : 0.5,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t.create}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setKeyName('');
+                    }}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: tokens.radius.full,
+                      border: '1px solid var(--border-color)',
+                      background: 'transparent',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    {t.cancel}
+                  </button>
+                </Box>
               </Box>
             )}
 
             {/* Keys list */}
             {loading ? (
               <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                Loading...
+                {t.loading}
               </Typography>
             ) : keys.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 3, color: 'var(--text-secondary)' }}>
                 <Lock size={24} style={{ opacity: 0.3, marginBottom: 6 }} />
-                <Typography sx={{ fontSize: 13 }}>No API keys yet</Typography>
+                <Typography sx={{ fontSize: 13 }}>{t.noKeys}</Typography>
               </Box>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -304,7 +393,7 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
                       justifyContent: 'space-between',
                       p: 1.5,
                       borderRadius: tokens.radius.md,
-                      border: '1px solid var(--border-color, #e5e7eb)',
+                      border: '1px solid var(--border-color)',
                     }}
                   >
                     <Box>
@@ -316,7 +405,10 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
                           fontFamily: 'monospace',
                         }}
                       >
-                        lum_{key.prefix}•••• · {timeAgo(key.lastUsedAt)}
+                        lum_{key.prefix}•••• · {timeAgo(key.lastUsedAt, t)} ·{' '}
+                        {key.scopes
+                          ? t.scopeCount.value.replace('{count}', String(key.scopes.length))
+                          : t.scopeLegacy.value}
                       </Typography>
                     </Box>
                     <button
@@ -331,7 +423,7 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
                         display: 'flex',
                         alignItems: 'center',
                       }}
-                      title="Revoke key"
+                      title={t.revokeKey.value}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -345,14 +437,19 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
 
       {/* New key dialog — shown only once */}
       <Dialog open={Boolean(newKey)} onClose={clearNewKey} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Save your API key</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t.saveKeyTitle}</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', mb: 2 }}>
-            Copy this key now — it won't be shown again.
+            {t.saveKeyHint}
           </Typography>
           <Box sx={{ ...codeBlockStyle, wordBreak: 'break-all', whiteSpace: 'normal' }}>
             {newKey?.key}
             <CopyButton text={newKey?.key ?? ''} />
+          </Box>
+          <Typography sx={{ ...stepLabelStyle, mt: 2, mb: 1 }}>{t.claudeCodeLabel}</Typography>
+          <Box sx={{ ...codeBlockStyle, wordBreak: 'break-all', whiteSpace: 'normal' }}>
+            {claudeCodeCommand(endpoint, newKey?.key ?? KEY_PLACEHOLDER)}
+            <CopyButton text={claudeCodeCommand(endpoint, newKey?.key ?? KEY_PLACEHOLDER)} />
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -360,12 +457,12 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
             variant="contained"
             onClick={() => {
               void navigator.clipboard.writeText(newKey?.key ?? '').then(() => {
-                toast.success('Copied to clipboard');
+                toast.success(t.copiedToClipboard.value);
                 clearNewKey();
               });
             }}
           >
-            Copy & Close
+            {t.copyAndClose}
           </Button>
         </DialogActions>
       </Dialog>
@@ -377,18 +474,18 @@ export function McpServerDrawer({ isOpen, onClose }: McpServerDrawerProps) {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Revoke API key?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t.revokeTitle}</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Any agents using this key will lose access immediately.
+            {t.revokeHint}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setConfirmRevokeId(null)} sx={{ color: 'var(--text-secondary)' }}>
-            Cancel
+            {t.cancel}
           </Button>
           <Button variant="contained" color="error" onClick={() => void handleRevoke()}>
-            Revoke
+            {t.revoke}
           </Button>
         </DialogActions>
       </Dialog>

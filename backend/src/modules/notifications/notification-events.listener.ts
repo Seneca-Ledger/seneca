@@ -12,14 +12,24 @@ import type {
   ImportFailedEvent,
   MemberInvitedEvent,
   MemberJoinedEvent,
+  NoteMentionedEvent,
+  OfficialVatRatesChangedEvent,
   ParsingErrorEvent,
   ReceiptUncategorizedEvent,
   StatementUploadedEvent,
+  TaxDeadlineResolvedEvent,
+  TaxDeadlineUpcomingEvent,
+  TaxThresholdReachedEvent,
   TransactionsUncategorizedEvent,
   WorkspaceUpdatedEvent,
 } from './events/notification-events';
 import type { NotificationMessageKey } from './notification-translations';
 import { NotificationsService } from './notifications.service';
+
+const TAX_DEADLINE_TYPES = [
+  NotificationType.TAX_DEADLINE_UPCOMING,
+  NotificationType.TAX_DEADLINE_OVERDUE,
+];
 
 @Injectable()
 export class NotificationEventsListener {
@@ -40,6 +50,29 @@ export class NotificationEventsListener {
       entityId: event.statementId,
       meta: { bankName: event.bankName ?? null },
     });
+  }
+
+  /** Упоминание адресное: уведомляем только названных, а не весь воркспейс. */
+  @OnEvent('note.mentioned')
+  async onNoteMentioned(event: NoteMentionedEvent): Promise<void> {
+    await Promise.all(
+      event.mentionedUserIds.map(recipientId =>
+        this.notificationsService.create({
+          recipientId,
+          workspaceId: event.workspaceId,
+          actorId: event.actorId,
+          actorName: event.actorName,
+          type: NotificationType.NOTE_MENTIONED,
+          category: NotificationCategory.WORKSPACE_ACTIVITY,
+          severity: NotificationSeverity.INFO,
+          messageKey: 'note.mentioned',
+          messageParams: { actorName: event.actorName, excerpt: event.excerpt },
+          entityType: event.entityType,
+          entityId: event.entityId,
+          meta: { noteId: event.noteId },
+        }),
+      ),
+    );
   }
 
   @OnEvent('import.committed')
@@ -237,6 +270,107 @@ export class NotificationEventsListener {
       messageParams: { receiptName: event.receiptName ?? '' },
       entityType: 'receipt',
       entityId: event.receiptId ?? null,
+    });
+  }
+
+  @OnEvent('tax.threshold.reached')
+  async onTaxThresholdReached(event: TaxThresholdReachedEvent): Promise<void> {
+    const isBreach = event.level >= 100;
+
+    await this.notificationsService.createForWorkspaceMembers({
+      workspaceId: event.workspaceId,
+      type: isBreach
+        ? NotificationType.TAX_THRESHOLD_REACHED
+        : NotificationType.TAX_THRESHOLD_WARNING,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      severity: isBreach ? NotificationSeverity.ERROR : NotificationSeverity.WARN,
+      messageKey: (isBreach
+        ? 'tax.threshold.reached'
+        : 'tax.threshold.warning') as NotificationMessageKey,
+      messageParams: {
+        percentUsed: event.percentUsed,
+        threshold: event.threshold,
+        currency: event.currency,
+      },
+      entityType: 'workspace',
+      entityId: event.workspaceId,
+      meta: {
+        turnover: event.turnover,
+        threshold: event.threshold,
+        currency: event.currency,
+        percentUsed: event.percentUsed,
+        periodStart: event.periodStart,
+        periodEnd: event.periodEnd,
+      },
+    });
+  }
+
+  @OnEvent('tax.rates.official_changed')
+  async onOfficialVatRatesChanged(event: OfficialVatRatesChangedEvent): Promise<void> {
+    await this.notificationsService.createForWorkspaceMembers({
+      workspaceId: event.workspaceId,
+      type: NotificationType.TAX_RATES_OFFICIAL_CHANGED,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      severity: NotificationSeverity.WARN,
+      messageKey: 'tax.rates.official',
+      messageParams: { country: { kind: 'region', code: event.country }, count: event.count },
+      entityType: 'workspace',
+      entityId: event.workspaceId,
+      meta: { country: event.country, count: event.count },
+    });
+  }
+
+  @OnEvent('tax.deadline.upcoming')
+  async onTaxDeadlineUpcoming(event: TaxDeadlineUpcomingEvent): Promise<void> {
+    const overdue = event.daysLeft < 0;
+    const messageKey = (
+      event.kind === 'vat_return'
+        ? overdue
+          ? 'tax.deadline.vat.overdue'
+          : 'tax.deadline.vat'
+        : 'tax.deadline.income'
+    ) as NotificationMessageKey;
+
+    // One live reminder per return: the "due in a week" one gives way to "due
+    // tomorrow", and that to "overdue", instead of contradicting each other.
+    await this.notificationsService.removeForWorkspace(event.workspaceId, TAX_DEADLINE_TYPES, {
+      kind: event.kind,
+      dueDate: event.dueDate,
+    });
+
+    await this.notificationsService.createForWorkspaceMembers({
+      workspaceId: event.workspaceId,
+      type: overdue
+        ? NotificationType.TAX_DEADLINE_OVERDUE
+        : NotificationType.TAX_DEADLINE_UPCOMING,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      severity:
+        overdue || event.daysLeft <= 1 ? NotificationSeverity.WARN : NotificationSeverity.INFO,
+      messageKey,
+      messageParams: {
+        returnName: event.returnName,
+        period: { kind: 'taxPeriod', start: event.periodStart, end: event.periodEnd },
+        range: { kind: 'dateRange', start: event.periodStart, end: event.periodEnd },
+        taxYear: event.periodStart.slice(0, 4),
+        dueDate: { kind: 'date', value: event.dueDate },
+      },
+      entityType: 'workspace',
+      entityId: event.workspaceId,
+      meta: {
+        kind: event.kind,
+        periodStart: event.periodStart,
+        periodEnd: event.periodEnd,
+        dueDate: event.dueDate,
+        daysLeft: event.daysLeft,
+      },
+    });
+  }
+
+  @OnEvent('tax.deadline.resolved')
+  async onTaxDeadlineResolved(event: TaxDeadlineResolvedEvent): Promise<void> {
+    await this.notificationsService.removeForWorkspace(event.workspaceId, TAX_DEADLINE_TYPES, {
+      kind: event.kind,
+      periodEnd: event.periodEnd,
     });
   }
 }

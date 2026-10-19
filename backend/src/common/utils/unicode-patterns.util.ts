@@ -311,8 +311,8 @@ export namespace UnicodeTextProcessor {
 
     // Standard date formats
     const datePatterns = [
-      /\b\d{1,2}[\/\-\.\,]\d{1,2}[\/\-\.\,]\d{2,4}\b/g,
-      /\b\d{4}[\/\-\.\,]\d{1,2}[\/\-\.\,]\d{1,2}\b/g,
+      /\b\d{1,2}[/\-.,]\d{1,2}[/\-.,]\d{2,4}\b/g,
+      /\b\d{4}[/\-.,]\d{1,2}[/\-.,]\d{1,2}\b/g,
       // Match with month names (Unicode-aware)
       /\b\d{1,2}\s+[a-z\u00c0-\u017f\u0400-\u04ff]+\s+\d{2,4}\b/giu,
       /\b[a-z\u00c0-\u017f\u0400-\u04ff]+\s+\d{1,2},?\s+\d{2,4}\b/giu,

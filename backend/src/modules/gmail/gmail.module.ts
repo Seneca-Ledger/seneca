@@ -11,15 +11,17 @@ import {
   Transaction,
   User,
   Workspace,
+  WorkspaceMember,
 } from '../../entities';
 import { AuditModule } from '../audit/audit.module';
 import { ParsingModule } from '../parsing/parsing.module';
 import { ReceiptsModule } from '../receipts/receipts.module';
-import { GmailReceiptProcessor } from './gmail-receipt-processor';
-import { GmailWebhookController } from './gmail-webhook.controller';
+import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { GmailController } from './gmail.controller';
 import { GmailScheduler } from './gmail.scheduler';
-import { AiMerchantExtractor } from './helpers/ai-merchant-extractor.helper';
+import { GmailReceiptProcessor } from './gmail-receipt-processor';
+import { GmailWebhookController } from './gmail-webhook.controller';
+import { GmailService } from './services/gmail.service';
 import { GmailMerchantReparseService } from './services/gmail-merchant-reparse.service';
 import { GmailOAuthService } from './services/gmail-oauth.service';
 import { GmailReceiptCategoryService } from './services/gmail-receipt-category.service';
@@ -29,7 +31,6 @@ import { GmailReceiptParserService } from './services/gmail-receipt-parser.servi
 import { GmailSyncService } from './services/gmail-sync.service';
 import { GmailWatchService } from './services/gmail-watch.service';
 import { GmailWebhookService } from './services/gmail-webhook.service';
-import { GmailService } from './services/gmail.service';
 
 @Module({
   imports: [
@@ -43,12 +44,14 @@ import { GmailService } from './services/gmail.service';
       User,
       Transaction,
       Workspace,
+      WorkspaceMember,
       Category,
     ]),
     AuditModule,
     ParsingModule,
     ReceiptsModule,
     // GoogleDriveModule removed: GmailReceiptExportService now uses GmailOAuthService
+    WorkspaceCurrencyModule,
   ],
   controllers: [GmailController, GmailWebhookController],
   providers: [
@@ -57,10 +60,6 @@ import { GmailService } from './services/gmail.service';
     GmailWatchService,
     GmailWebhookService,
     GmailSyncService,
-    {
-      provide: AiMerchantExtractor,
-      useFactory: () => new AiMerchantExtractor(process.env.AI_API_KEY),
-    },
     GmailReceiptParserService,
     GmailReceiptDuplicateService,
     GmailReceiptCategoryService,

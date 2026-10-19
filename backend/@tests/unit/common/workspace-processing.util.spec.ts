@@ -5,21 +5,29 @@ import {
 } from '@/common/utils/workspace-processing.util';
 
 describe('readProcessingSettings', () => {
-  it('reproduces the previously hardcoded behaviour when nothing is set', () => {
+  it('falls back to the defaults', () => {
     expect(readProcessingSettings(null)).toEqual({
       categorizationThreshold: 0.7,
       duplicateResolution: 'skip',
+      merchantLearning: true,
     });
     expect(readProcessingSettings({ settings: null })).toEqual(DEFAULT_PROCESSING_SETTINGS);
     expect(readProcessingSettings({ settings: {} })).toEqual(DEFAULT_PROCESSING_SETTINGS);
   });
 
   it('reads stored values', () => {
-    const settings = { processing: { categorizationThreshold: 0.4, duplicateResolution: 'skip' } };
+    const settings = {
+      processing: {
+        categorizationThreshold: 0.4,
+        duplicateResolution: 'skip',
+        merchantLearning: false,
+      },
+    };
 
     expect(readProcessingSettings({ settings })).toEqual({
       categorizationThreshold: 0.4,
       duplicateResolution: 'skip',
+      merchantLearning: false,
     });
   });
 
@@ -59,6 +67,7 @@ describe('mergeProcessingSettings', () => {
     expect(merged.processing).toEqual({
       categorizationThreshold: 0.5,
       duplicateResolution: 'mark_duplicate',
+      merchantLearning: true,
     });
   });
 
@@ -66,6 +75,7 @@ describe('mergeProcessingSettings', () => {
     expect(mergeProcessingSettings(null, { categorizationThreshold: 0.9 }).processing).toEqual({
       categorizationThreshold: 0.9,
       duplicateResolution: 'skip',
+      merchantLearning: true,
     });
   });
 

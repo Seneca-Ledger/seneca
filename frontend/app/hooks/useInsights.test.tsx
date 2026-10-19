@@ -1,5 +1,4 @@
-import { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiMocks = vi.hoisted(() => ({
@@ -18,18 +17,13 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
   useWorkspace: () => ({ currentWorkspace: { id: 'workspace-1' } }),
 }));
 
-import { type InsightSeverity, useInsights } from './useInsights';
+vi.mock('@/app/i18n', () => ({
+  useLocale: () => ({ locale: 'de' }),
+}));
 
-type HookSnapshot = ReturnType<typeof useInsights>;
-
-let latestHook: HookSnapshot | null = null;
-
-function makeProbe(severities: InsightSeverity[], refreshFirst = false) {
-  return function HookProbe() {
-    latestHook = useInsights({ severities, refreshFirst });
-    return <div data-testid="insights-hook-probe" />;
-  };
-}
+import { createTestQueryClient, renderHookWithQuery } from '../test/query-wrapper';
+import { type InsightSeverity, useInsights, useRefreshInsights } from './useInsights';
+import { insightPage } from '@/app/test/fixtures/contracts';
 
 function insight(id: string, severity: InsightSeverity) {
   return {
@@ -46,24 +40,8 @@ function insight(id: string, severity: InsightSeverity) {
   };
 }
 
-async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
-async function renderProbe(Probe: () => React.JSX.Element) {
-  const root = createRoot(document.createElement('div'));
-  await act(async () => {
-    root.render(<Probe />);
-    await flushPromises();
-  });
-  return root;
-}
-
 describe('useInsights', () => {
   beforeEach(() => {
-    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-    latestHook = null;
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     apiMocks.post.mockResolvedValue({ data: {} });
@@ -71,51 +49,136 @@ describe('useInsights', () => {
 
   it('keeps only the requested severities, so alerts and advice stay apart', async () => {
     apiMocks.get.mockResolvedValue({
-      data: {
-        items: [insight('a', 'warn'), insight('b', 'info'), insight('c', 'critical')],
-      },
+      data: insightPage([insight('a', 'warn'), insight('b', 'info'), insight('c', 'critical')]),
     });
 
-    await renderProbe(makeProbe(['warn', 'critical']));
+    const { result } = renderHookWithQuery(() => useInsights({ severities: ['warn', 'critical'] }));
 
-    expect(latestHook?.items.map(item => item.id)).toEqual(['a', 'c']);
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+    expect(result.current.items.map(item => item.id)).toEqual(['a', 'c']);
+  });
+
+  it('names a system category in the reader\'s language inside the text', async () => {
+    const meals = {
+      ...insight('m', 'info'),
+      title: '"Meals and entertainment" takes most of leisure',
+      message: '84% went to "Meals and entertainment".',
+      messageParams: { category: 'Meals and entertainment', percent: 84 },
+    };
+    const own = { ...insight('o', 'info'), messageParams: { category: 'Studio rent' } };
+    apiMocks.get.mockResolvedValue({ data: insightPage([meals, own]) });
+
+    const { result } = renderHookWithQuery(() => useInsights({ severities: ['info'] }));
+
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+    const [localized, untouched] = result.current.items;
+    expect(localized?.title).toBe('"Bewirtung und Repräsentation" takes most of leisure');
+    expect(localized?.message).toBe('84% went to "Bewirtung und Repräsentation".');
+    // A category the user named has no translation and stays as typed.
+    expect(untouched).toEqual(own);
+  });
+
+  it('asks for the feed in the interface language, not the profile one', async () => {
+    apiMocks.get.mockResolvedValue({ data: insightPage([]) });
+
+    const { result } = renderHookWithQuery(() => useInsights({ severities: ['info'] }));
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(apiMocks.get).toHaveBeenCalledWith(
+      '/insights',
+      expect.objectContaining({ params: { limit: 50, locale: 'de' } }),
+    );
+  });
+
+  it('serves both consumers of the shared feed from a single request', async () => {
+    apiMocks.get.mockResolvedValue({
+      data: insightPage([insight('a', 'warn'), insight('b', 'info')]),
+    });
+    const client = createTestQueryClient();
+
+    const banner = renderHookWithQuery(() => useInsights({ severities: ['warn', 'critical'] }), {
+      client,
+    });
+    const advice = renderHookWithQuery(() => useInsights({ severities: ['info'] }), { client });
+
+    await waitFor(() => expect(banner.result.current.items).toHaveLength(1));
+    await waitFor(() => expect(advice.result.current.items).toHaveLength(1));
+
+    // Раньше AlertBanner и страница советов слали два одинаковых запроса.
+    expect(apiMocks.get).toHaveBeenCalledTimes(1);
+    expect(banner.result.current.items[0]?.id).toBe('a');
+    expect(advice.result.current.items[0]?.id).toBe('b');
   });
 
   it('does not recompute insights when only reading them', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([]) });
 
-    await renderProbe(makeProbe(['warn']));
+    const { result } = renderHookWithQuery(() => useInsights({ severities: ['warn'] }));
 
+    await waitFor(() => expect(result.current.isPending).toBe(false));
     expect(apiMocks.post).not.toHaveBeenCalled();
   });
 
-  it('recomputes first when the caller asks for a fresh read', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [] } });
+  it('recomputes on demand and then re-reads the feed', async () => {
+    apiMocks.get.mockResolvedValue({ data: insightPage([]) });
+    const client = createTestQueryClient();
 
-    await renderProbe(makeProbe(['info'], true));
+    const feed = renderHookWithQuery(() => useInsights({ severities: ['info'] }), { client });
+    await waitFor(() => expect(feed.result.current.isPending).toBe(false));
+    apiMocks.get.mockClear();
 
-    expect(apiMocks.post).toHaveBeenCalledWith('/insights/refresh');
+    const refresh = renderHookWithQuery(() => useRefreshInsights(), { client });
+    refresh.result.current.mutate('de');
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/insights/refresh', undefined, {
+        params: { locale: 'de' },
+      }),
+    );
+    await waitFor(() => expect(apiMocks.get).toHaveBeenCalled());
   });
 
   it('removes a dismissed insight from view before the server answers', async () => {
-    apiMocks.get.mockResolvedValue({ data: { items: [insight('a', 'warn')] } });
+    apiMocks.get.mockResolvedValue({ data: insightPage([insight('a', 'warn')]) });
+    // POST висит: только так наблюдаемо промежуточное оптимистичное состояние.
+    let settleDismiss!: () => void;
+    apiMocks.post.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          settleDismiss = () => resolve({ data: {} });
+        }),
+    );
 
-    await renderProbe(makeProbe(['warn']));
-    await act(async () => {
-      void latestHook?.dismiss('a');
-      await flushPromises();
-    });
+    const { result } = renderHookWithQuery(() => useInsights({ severities: ['warn'] }));
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
 
-    expect(latestHook?.items).toEqual([]);
+    result.current.dismiss('a');
+
+    await waitFor(() => expect(result.current.items).toEqual([]));
     expect(apiMocks.post).toHaveBeenCalledWith('/insights/a/dismiss');
+    settleDismiss();
+  });
+
+  it('brings a dismissed insight back when the server rejects the dismissal', async () => {
+    apiMocks.get.mockResolvedValue({ data: insightPage([insight('a', 'warn')]) });
+    apiMocks.post.mockRejectedValue(new Error('nope'));
+
+    const { result } = renderHookWithQuery(() => useInsights({ severities: ['warn'] }));
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+
+    result.current.dismiss('a');
+
+    // Откат снапшота плюс инвалидация: сервер не согласился — элемент возвращается.
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/insights/a/dismiss'));
+    await waitFor(() => expect(result.current.items.map(i => i.id)).toEqual(['a']));
   });
 
   it('shows an empty feed rather than failing the page when the request errors', async () => {
     apiMocks.get.mockRejectedValue(new Error('boom'));
 
-    await renderProbe(makeProbe(['warn']));
+    const { result } = renderHookWithQuery(() => useInsights({ severities: ['warn'] }));
 
-    expect(latestHook?.items).toEqual([]);
-    expect(latestHook?.loading).toBe(false);
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(result.current.items).toEqual([]);
   });
 });

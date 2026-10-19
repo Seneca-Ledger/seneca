@@ -1,8 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { USER_FORMAT_EVENT } from '@/app/lib/user-format-store';
 import type { UiDensity } from '@/app/theme';
-import { useEffect, useState } from 'react';
 
 export type AppearancePreferences = {
   density: UiDensity;
@@ -38,7 +38,15 @@ export function useAppearancePreferences(): AppearancePreferences {
   const [preferences, setPreferences] = useState<AppearancePreferences>(DEFAULTS);
 
   useEffect(() => {
-    const sync = () => setPreferences(readStored());
+    // Bail out when nothing changed: this hook sits at the root of <Providers>,
+    // so a fresh object here would re-render the whole tree on every event.
+    const sync = () =>
+      setPreferences(prev => {
+        const next = readStored();
+        return prev.density === next.density && prev.reduceMotion === next.reduceMotion
+          ? prev
+          : next;
+      });
     sync();
 
     window.addEventListener(USER_FORMAT_EVENT, sync);

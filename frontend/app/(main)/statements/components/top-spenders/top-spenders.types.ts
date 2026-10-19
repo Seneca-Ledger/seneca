@@ -1,12 +1,12 @@
 import type { StatementFilterItem } from '@/app/(main)/statements/components/filters/statement-filters';
-import {
-  resolveAmountFlow,
-  resolveSourceChannel as resolveSourceChannelBase,
-} from '@/app/(main)/statements/components/shared-analytics.utils';
 import type {
   AggregateSortKey,
   SourceChannel,
   SourceType,
+} from '@/app/(main)/statements/components/shared-analytics.utils';
+import {
+  resolveAmountFlow,
+  resolveSourceChannel as resolveSourceChannelBase,
 } from '@/app/(main)/statements/components/shared-analytics.utils';
 
 export type { AggregateSortKey };

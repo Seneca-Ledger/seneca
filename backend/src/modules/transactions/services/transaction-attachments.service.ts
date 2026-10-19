@@ -6,8 +6,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { validateFile } from '../../../common/utils/file-validator.util';
 import { resolveUploadsDir } from '../../../common/utils/uploads.util';
-import { TransactionAttachment } from '../../../entities/transaction-attachment.entity';
 import { Transaction } from '../../../entities/transaction.entity';
+import { TransactionAttachment } from '../../../entities/transaction-attachment.entity';
 
 /** Subdirectory of the uploads dir that holds every transaction attachment. */
 const ATTACHMENTS_SUBDIR = 'transaction-attachments';
@@ -67,7 +67,10 @@ export class TransactionAttachmentsService {
       fileSize: file.size,
     });
 
-    return this.attachmentRepository.save(attachment);
+    const saved = await this.attachmentRepository.save(attachment);
+    // bigint: a read answers it as a string, so the upload answers the same.
+    saved.fileSize = String(saved.fileSize) as unknown as number;
+    return saved;
   }
 
   async getForDownload(attachmentId: string, workspaceId: string): Promise<AttachmentDownload> {

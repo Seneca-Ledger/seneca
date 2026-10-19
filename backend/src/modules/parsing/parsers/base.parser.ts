@@ -8,8 +8,8 @@ import {
   detectLocaleFromText,
 } from '../../../common/utils/language-detector.util';
 import {
-  type FieldType,
   detectFieldType,
+  type FieldType,
   getFieldSynonyms,
   getLanguagePatterns,
 } from '../../../common/utils/language-patterns.util';
@@ -93,12 +93,20 @@ export abstract class BaseParser implements IParser {
 
   protected extractBalance(text: string, label: string): number | null {
     // Look for balance values after labels like "Opening balance:" or "Closing balance:"
-    const regex = new RegExp(`${label}[\\s:]*([\\d\\s,.-]+)`, 'gi');
+    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // The captured amount is deliberately a single well-formed number (an
+    // optional sign, digits with optional space/dot/comma thousands
+    // grouping, an optional 1-2 digit decimal tail) rather than an
+    // open-ended `[\d\s,.-]+` run: the old pattern's `\s` matched newlines,
+    // so any purely-numeric content on the next line (a page number, an
+    // account digit run, another balance) got silently appended into this
+    // one, corrupting it.
+    const regex = new RegExp(
+      `${escapedLabel}[\\s:]*(-?\\d{1,3}(?:[ .,]\\d{3})*(?:[.,]\\d{1,2})?)`,
+      'i',
+    );
     const match = text.match(regex);
-    if (match) {
-      return this.normalizeNumberValue(match[0].replace(label, '').trim());
-    }
-    return null;
+    return match ? this.normalizeNumberValue(match[1]) : null;
   }
 
   protected detectCurrency(text: string): string | null {

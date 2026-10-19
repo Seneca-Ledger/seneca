@@ -1,6 +1,5 @@
 import { extractTablesFromPdf, extractTextFromPdf } from '@/common/utils/pdf-parser.util';
 import { BankName, FileType } from '@/entities/statement.entity';
-import { AiTransactionExtractor } from '@/modules/parsing/helpers/ai-transaction-extractor.helper';
 import { KaspiParser } from '@/modules/parsing/parsers/kaspi.parser';
 
 jest.mock('@/common/utils/advanced-language-detector.util', () => ({
@@ -20,7 +19,6 @@ jest.mock('@/common/utils/pdf-parser.util', () => ({
 }));
 
 describe('KaspiParser', () => {
-  let aiAvailableSpy: jest.SpyInstance;
   const expectDateParts = (date: Date | null | undefined, expected: string) => {
     expect(date).toBeInstanceOf(Date);
     if (!date) {
@@ -34,13 +32,6 @@ describe('KaspiParser', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    aiAvailableSpy = jest
-      .spyOn(AiTransactionExtractor.prototype, 'isAvailable')
-      .mockReturnValue(false);
-  });
-
-  afterEach(() => {
-    aiAvailableSpy.mockRestore();
   });
 
   describe('canParse', () => {
@@ -180,7 +171,7 @@ describe('KaspiParser', () => {
       ].join('\n');
 
       (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 
@@ -199,6 +190,62 @@ describe('KaspiParser', () => {
         debit: 1500,
         paymentPurpose: 'ТОО Ромашка БИН/ИИН 123456789012 Оплата услуг',
         currency: 'KZT',
+      });
+    });
+
+    it('classifies an incoming transfer as credit, not debit, in the text fallback path', async () => {
+      const parser = new KaspiParser();
+      const text = [
+        'Kaspi Bank',
+        'Период: 01.01.2024 - 31.01.2024',
+        'Входящий остаток 1 000,00',
+        'Исходящий остаток 2 500,00',
+        'KZ12722S123456789012',
+        '80000002',
+        '02.01.2024',
+        '1 500,00',
+        'ТОО Ромашка БИН/ИИН 123456789012',
+        'KZ127220000000000000',
+        'KZKOKZKX',
+        '101',
+        'Зачисление перевода',
+      ].join('\n');
+
+      (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
+      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
+
+      const result = await parser.parse('/tmp/mock.pdf');
+
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0]).toMatchObject({
+        debit: undefined,
+        credit: 1500,
+      });
+    });
+
+    it('keeps an outgoing mobile-balance top-up as debit despite containing "Пополнение"', async () => {
+      const parser = new KaspiParser();
+      const text = [
+        'Kaspi Bank',
+        'Период: 01.01.2024 - 31.01.2024',
+        'Входящий остаток 1 000,00',
+        'Исходящий остаток 500,00',
+        'KZ12722S123456789012',
+        '80000003',
+        '03.01.2024',
+        '500,00',
+        'Пополнение баланса телефона',
+      ].join('\n');
+
+      (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
+      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
+
+      const result = await parser.parse('/tmp/mock.pdf');
+
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0]).toMatchObject({
+        debit: 500,
+        credit: undefined,
       });
     });
   });

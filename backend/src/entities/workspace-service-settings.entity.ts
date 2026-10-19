@@ -12,11 +12,22 @@ import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 
 export enum WorkspaceServiceSettingsKey {
-  AI = 'ai',
   LOCAL_CATEGORIZATION = 'local_categorization',
   SMTP = 'smtp',
   TELEGRAM = 'telegram',
   APP = 'app',
+  /** Precious metals: what a dealer pays below spot, per metal. */
+  METALS = 'metals',
+  /** Tax reserve: the share of income to set aside, and where tax payments are booked. */
+  TAX_RESERVE = 'tax_reserve',
+  /** How often the workspace files VAT returns, and whether it holds a standing extension. */
+  VAT_FILING = 'vat_filing',
+  /** Which tax-deadline reminders were already sent, so each goes out once. */
+  TAX_REMINDERS = 'tax_reminders',
+  /** DATEV export: chart, adviser and client numbers, bank account, category → account mapping. */
+  DATEV = 'datev',
+  /** Differences from the EU's official VAT rates: which were announced and which were dismissed. */
+  OFFICIAL_RATES = 'official_rates',
 }
 
 @Entity('workspace_service_settings')
@@ -29,7 +40,7 @@ export class WorkspaceServiceSettings {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @Column({ type: 'varchar', length: 64 })
@@ -45,7 +56,7 @@ export class WorkspaceServiceSettings {
   @JoinColumn({ name: 'updated_by_user_id' })
   updatedByUser: User | null;
 
-  @Column({ name: 'updated_by_user_id', nullable: true })
+  @Column({ name: 'updated_by_user_id', type: 'uuid', nullable: true })
   updatedByUserId: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

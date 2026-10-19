@@ -1,5 +1,4 @@
 import { BankName, FileType } from '@/entities/statement.entity';
-import { AiTransactionExtractor } from '@/modules/parsing/helpers/ai-transaction-extractor.helper';
 import { BerekeBaseParser } from '@/modules/parsing/parsers/bereke-base.parser';
 import type { ParsedTransaction } from '@/modules/parsing/interfaces/parsed-statement.interface';
 import {
@@ -105,7 +104,6 @@ class TestBerekeParser extends BerekeBaseParser<TestColumnKey> {
 }
 
 describe('BerekeBaseParser', () => {
-  let aiAvailableSpy: jest.SpyInstance;
   const parser = new TestBerekeParser();
 
   const expectDateParts = (date: Date | null | undefined, expected: string) => {
@@ -122,13 +120,6 @@ describe('BerekeBaseParser', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    aiAvailableSpy = jest
-      .spyOn(AiTransactionExtractor.prototype, 'isAvailable')
-      .mockReturnValue(false);
-  });
-
-  afterEach(() => {
-    aiAvailableSpy.mockRestore();
   });
 
   it('uses cached text in canParse and skips PDF extraction', async () => {
@@ -191,7 +182,7 @@ describe('BerekeBaseParser', () => {
         },
       ],
     });
-    (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+    (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
 
     const result = await parser.parse('/tmp/mock.pdf');
 
@@ -199,6 +190,18 @@ describe('BerekeBaseParser', () => {
     expect(result.metadata.balanceEnd).toBe(2500);
     expectDateParts(result.metadata.dateFrom, '2024-02-15');
     expectDateParts(result.metadata.dateTo, '2024-02-20');
+  });
+
+  it('preserves a legitimate zero opening balance instead of dropping it', async () => {
+    const text = ['Bereke statement', 'Opening balance 0,00', 'Closing balance 500,00'].join('\n');
+
+    (extractTextAndLayoutFromPdf as jest.Mock).mockResolvedValue({ text, rows: [] });
+    (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
+
+    const result = await parser.parse('/tmp/mock.pdf');
+
+    expect(result.metadata.balanceStart).toBe(0);
+    expect(result.metadata.balanceEnd).toBe(500);
   });
 
   it('groups rows into transactions until the table footer', () => {

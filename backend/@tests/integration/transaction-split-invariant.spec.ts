@@ -52,12 +52,16 @@ import { ClassificationService } from '../../src/modules/classification/services
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { NotificationsService } from '../../src/modules/notifications/notifications.service';
+import { BudgetVsActualReport } from '../../src/modules/reports/budget-vs-actual.report';
+import { HoldingsSnapshotReport } from '../../src/modules/reports/holdings-snapshot.report';
 import { ReportsService } from '../../src/modules/reports/reports.service';
 import { TransactionsService } from '../../src/modules/transactions/transactions.service';
+import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
+import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace-currency.service';
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_split_invariant_${process.pid}`;
+const SCRATCH_DB = `seneca_split_invariant_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -202,6 +206,8 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
       getRate: jest.fn(() => {
         throw new Error('unexpected FX conversion in a single-currency fixture');
       }),
+      // The dashboard lists currencies without a rate; a KZT-only fixture has none.
+      coverageForWorkspace: jest.fn(async () => []),
     };
 
     moduleRef = await Test.createTestingModule({
@@ -210,10 +216,15 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
         BalanceService,
         DashboardService,
         BudgetsService,
+        WorkspaceCurrencyService,
         ReportsService,
+        { provide: TaxAssignmentService, useValue: { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } },
         { provide: AuditService, useValue: auditStub },
         { provide: CACHE_MANAGER, useValue: cacheStub },
         { provide: ExchangeRatesService, useValue: exchangeStub },
+        // The P&L totals compared here never reach these two templates.
+        { provide: BudgetVsActualReport, useValue: {} },
+        { provide: HoldingsSnapshotReport, useValue: {} },
         { provide: ClassificationService, useValue: {} },
         { provide: NotificationsService, useValue: { create: jest.fn() } },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
@@ -308,6 +319,8 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
       debit: amount,
       credit: null,
       currency: 'KZT',
+      // Only confirmed rows count in any aggregate.
+      isVerified: true,
       categoryId,
     });
 
@@ -328,6 +341,7 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
         debit: null,
         credit: 50000,
         currency: 'KZT',
+        isVerified: true,
       }),
     );
 

@@ -3,7 +3,9 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, type Repository } from 'typeorm';
+import { getAuditActor } from '../../common/audit-actor.context';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import { ACCOUNT_KEYS, recordWithoutKeys } from '../../common/utils/sensitive-keys.util';
 import {
   ActorType,
   AuditAction,
@@ -14,15 +16,38 @@ import {
 } from '../../entities/audit-event.entity';
 import { User } from '../../entities/user.entity';
 import { Workspace } from '../../entities/workspace.entity';
-import { AuditDescriptionService } from './description/audit-description.service';
+import {
+  AuditDescriptionService,
+  renderAuditDescriptionEnglish,
+} from './description/audit-description.service';
 import type {
   AuditEventFilter,
   CreateAuditEventDto,
   RollbackResult,
 } from './interfaces/audit-event.interface';
 import { RollbackService } from './rollback/rollback.service';
+import {
+  HOUSEHOLD_ENTITY_TYPES,
+  toActivityEntry,
+  type WorkspaceActivityEntry,
+} from './workspace-activity';
 
 const AUDIT_RETENTION_YEARS = 1;
+
+/**
+ * A before/after snapshot as the trail keeps it: entity rows come with their
+ * relations, and a joined account (Google and Telegram ids, last login, token
+ * version) or a file's path and bytes are not what an audit reader may see.
+ * Rollback restores only the keys a snapshot has, so nothing it needs is lost.
+ */
+function snapshotForTrail(diff: AuditEventDiff | null | undefined): AuditEventDiff | null {
+  if (!diff) return null;
+  if (Array.isArray(diff)) return diff;
+  return {
+    before: diff.before === null ? null : recordWithoutKeys(diff.before, ACCOUNT_KEYS),
+    after: diff.after === null ? null : recordWithoutKeys(diff.after, ACCOUNT_KEYS),
+  };
+}
 
 @Injectable()
 export class AuditService {
@@ -54,9 +79,29 @@ export class AuditService {
       }
     }
 
+    // An API key or the assistant signs everything written in its request,
+    // wherever the event is emitted; and what they changed can always be undone
+    // where rollback knows the entity.
+    const actor = getAuditActor();
+    if (actor && dto.actorType === ActorType.USER) {
+      dto = {
+        ...dto,
+        actorType: actor.actorType,
+        actorLabel: actor.actorLabel,
+        meta: { ...(dto.meta ?? {}), ...(actor.meta ?? {}), onBehalfOfUserId: dto.actorId ?? null },
+        isUndoable: RollbackService.supports(dto.entityType) ? true : dto.isUndoable,
+      };
+    }
     const actorLabel = await this.resolveActorLabel(dto);
-    const isUndoable = dto.isUndoable ?? this.isUndoable(dto.action, dto.entityType);
-    const description = dto.description?.trim() || this.descriptionService.generate(dto);
+    const isUndoable = this.isUndoable(dto.action, dto.entityType, dto.isUndoable);
+    // A caller-supplied description wins; otherwise emit a locale-independent
+    // descriptor for clients and an English rendering for the stored column.
+    const customDescription = dto.description?.trim();
+    const descriptor = customDescription ? null : this.descriptionService.generate(dto);
+    const description = descriptor ? renderAuditDescriptionEnglish(descriptor) : customDescription;
+    const meta = descriptor
+      ? { ...(dto.meta ?? {}), auditDescription: descriptor }
+      : (dto.meta ?? null);
 
     const event = this.auditEventRepository.create({
       workspaceId: dto.workspaceId ?? null,
@@ -67,8 +112,8 @@ export class AuditService {
       entityId: dto.entityId,
       action: dto.action,
       description,
-      diff: dto.diff ?? null,
-      meta: dto.meta ?? null,
+      diff: snapshotForTrail(dto.diff),
+      meta,
       batchId: dto.batchId ?? null,
       severity: dto.severity ?? Severity.INFO,
       isUndoable,
@@ -162,6 +207,28 @@ export class AuditService {
     const [data, total] = await qb.getManyAndCount();
 
     return { data, total, page, limit };
+  }
+
+  /**
+   * The household's own feed: who touched the money lately.
+   *
+   * Narrower than `findEvents` on purpose — it answers "did you change this?",
+   * not "what happened on this account", so it never reaches the events that
+   * only the owner should see.
+   */
+  async findWorkspaceActivity(workspaceId: string, limit = 20): Promise<WorkspaceActivityEntry[]> {
+    const events = await this.auditEventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.actor', 'actor')
+      .where('event.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('event.entityType IN (:...entityTypes)', {
+        entityTypes: HOUSEHOLD_ENTITY_TYPES,
+      })
+      .orderBy('event.createdAt', 'DESC')
+      .take(Math.min(Math.max(limit, 1), 100))
+      .getMany();
+
+    return events.map(toActivityEntry);
   }
 
   async findEventById(id: string, workspaceId?: string): Promise<AuditEvent | null> {
@@ -286,10 +353,21 @@ export class AuditService {
       return 'Integration';
     }
 
+    if (dto.actorType === ActorType.AI) {
+      return 'AI assistant';
+    }
+
     return 'System';
   }
 
-  private isUndoable(action: AuditAction, entityType: EntityType): boolean {
+  private isUndoable(action: AuditAction, entityType: EntityType, requested?: boolean): boolean {
+    // An undo button on an event that rollback cannot handle only fails when pressed.
+    if (!RollbackService.supports(entityType)) {
+      return false;
+    }
+    if (requested !== undefined) {
+      return requested;
+    }
     if (action === AuditAction.ROLLBACK) {
       return false;
     }

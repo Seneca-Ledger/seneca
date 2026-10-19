@@ -1,13 +1,14 @@
 'use client';
 
-import CustomDatePicker from '@/app/components/CustomDatePicker';
-import { ChevronLeft } from '@/app/components/icons';
-import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import MuiButton from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { ChevronLeft } from '@/app/components/icons';
+import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { useIntlayer } from '@/app/i18n';
+import { tokens } from '@/lib/theme-tokens';
 import { ActiveRouteFilter } from './ActiveRouteFilter';
 import { FilterOptionRow } from './FilterOptionRow';
 import { FilterRow } from './FilterRow';
@@ -507,13 +508,14 @@ function AmountFilterScreen({
   onUpdateFilters: (next: Partial<StatementFilters>) => void;
   inputStyle: React.CSSProperties;
 }) {
+  const t = useIntlayer('statementFilterControls');
   const amountMinValue = filters.amountMin !== null ? String(filters.amountMin) : '';
   const amountMaxValue = filters.amountMax !== null ? String(filters.amountMax) : '';
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box>
         <Typography variant="body2" fontWeight={500} color="text.secondary">
-          Min
+          {t.min}
         </Typography>
         <input
           inputMode="decimal"
@@ -525,7 +527,7 @@ function AmountFilterScreen({
       </Box>
       <Box>
         <Typography variant="body2" fontWeight={500} color="text.secondary">
-          Max
+          {t.max}
         </Typography>
         <input
           inputMode="decimal"

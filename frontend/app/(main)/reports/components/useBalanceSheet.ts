@@ -1,6 +1,10 @@
+import { useCallback, useState } from 'react';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { useCallback, useState } from 'react';
+import { blobOf } from '@/app/lib/blob-of';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { unwrapEnvelope } from '@/app/lib/query-fn';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type { EditableChangeArgs } from './BalanceAccountRow';
 import {
   type BalanceExportFormat,
@@ -79,19 +83,26 @@ type SheetSetters = {
   setExportingFormat: (v: BalanceExportFormat | null) => void;
 };
 
-function useLoadSheet(opts: { locale: string; errorMessage: string; setters: SheetSetters }): (
-  date?: string,
-) => Promise<void> {
+function useLoadSheet(opts: {
+  locale: string;
+  errorMessage: string;
+  setters: SheetSetters;
+}): (date?: string) => Promise<void> {
   const { locale, errorMessage, setters } = opts;
   return useCallback(
     async (date?: string): Promise<void> => {
       setters.setLoading(true);
       setters.setError(null);
-      try {
+
+      await (async () => {
         const response = await apiClient.get('/reports/balance/sheet', {
           params: { ...(date ? { date } : {}), locale },
         });
-        const payload: BalanceSheetResponse = response.data?.data || response.data;
+        const payload = await checkContract(
+          'BalanceSheetResponse',
+          unwrapEnvelope(response.data),
+          '/reports/balance/sheet',
+        );
         setters.setSheet(payload);
         setters.setEditableValues({
           ...buildEditableValues(payload.assets.sections),
@@ -109,11 +120,13 @@ function useLoadSheet(opts: { locale: string; errorMessage: string; setters: She
           }
           return merged;
         });
-      } catch (err: unknown) {
-        setters.setError(getApiErrorMessage(err, errorMessage));
-      } finally {
-        setters.setLoading(false);
-      }
+      })()
+        .catch(async (err: unknown) => {
+          setters.setError(getApiErrorMessage(err, errorMessage));
+        })
+        .finally(async () => {
+          setters.setLoading(false);
+        });
     },
     [locale, errorMessage, setters],
   );
@@ -145,21 +158,24 @@ function useSaveSnapshot(opts: SaveSnapshotOpts): (accountId: string) => Promise
       setters.setSavingAccountId(accountId);
       setters.setSaveHint(text('savingBalance', 'Saving...'));
       setters.setError(null);
-      try {
+
+      await (async () => {
         await apiClient.put('/reports/balance/snapshot', {
           accountId,
           amount: parsed,
           date: effectiveDate,
-          currency: sheet?.currency || 'KZT',
-        });
+          currency: sheet?.currency || FALLBACK_CURRENCY,
+        } satisfies ContractInput<'UpdateBalanceSnapshotBody'>);
         setters.setSaveHint(text('balanceSaved', 'Balance saved'));
         await loadSheet(effectiveDate);
-      } catch (err: unknown) {
-        setters.setError(getApiErrorMessage(err, errorMessage));
-        setters.setSaveHint('');
-      } finally {
-        setters.setSavingAccountId(null);
-      }
+      })()
+        .catch(async (err: unknown) => {
+          setters.setError(getApiErrorMessage(err, errorMessage));
+          setters.setSaveHint('');
+        })
+        .finally(async () => {
+          setters.setSavingAccountId(null);
+        });
     },
     [editableValues, effectiveDate, sheet, errorMessage, text, loadSheet, setters],
   );
@@ -182,7 +198,8 @@ function useDownloadExport(
       setters.setExportingFormat(format);
       setters.setExportMenuOpen(false);
       setters.setError(null);
-      try {
+
+      await (async () => {
         const params = { format, ...(effectiveDate ? { date: effectiveDate } : {}), locale };
         const response = await apiClient.get('/reports/balance/export', {
           params,
@@ -190,15 +207,17 @@ function useDownloadExport(
         });
         const headers = response.headers as Record<string, string>;
         const fileName = resolveExportFileName(sheet, format, headers['content-disposition']);
-        const blob = new Blob([response.data], {
+        const blob = new Blob([blobOf(response)], {
           type: headers['content-type'] || 'application/octet-stream',
         });
         triggerDownload(blob, fileName);
-      } catch (err: unknown) {
-        setters.setError(getApiErrorMessage(err, errorMessage));
-      } finally {
-        setters.setExportingFormat(null);
-      }
+      })()
+        .catch(async (err: unknown) => {
+          setters.setError(getApiErrorMessage(err, errorMessage));
+        })
+        .finally(async () => {
+          setters.setExportingFormat(null);
+        });
     },
     [effectiveDate, locale, sheet, errorMessage, setters],
   );

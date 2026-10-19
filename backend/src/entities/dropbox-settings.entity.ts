@@ -22,7 +22,7 @@ export class DropboxSettings {
   @JoinColumn({ name: 'integration_id' })
   integration: Integration;
 
-  @Column({ name: 'integration_id' })
+  @Column({ name: 'integration_id', type: 'uuid' })
   integrationId: string;
 
   @Column({ name: 'folder_id', type: 'varchar', nullable: true })

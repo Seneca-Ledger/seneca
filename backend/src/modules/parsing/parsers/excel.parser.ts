@@ -1,10 +1,20 @@
+import * as fs from 'fs';
 import * as xlsx from 'xlsx';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
+import { assertSafeZipDecompressionRatio } from '../../../common/utils/zip-bomb-guard.util';
 import { type BankName, FileType } from '../../../entities/statement.entity';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { BaseTabularParser } from './base-tabular.parser';
 
 type ExcelCellValue = string | number | boolean | Date | null;
 type ExcelRow = ExcelCellValue[];
+
+// `sheetRows` (below) only skips converting rows into JS objects — the xlsx
+// library still fully inflates every ZIP entry before that cap ever applies,
+// so it does NOT bound decompression cost. assertSafeZipDecompressionRatio
+// runs first and does: no real bank statement's worksheet XML compresses at
+// anywhere near a decompression-bomb ratio.
+const MAX_SHEET_ROWS = 50_000;
 
 export class ExcelParser extends BaseTabularParser {
   async canParse(
@@ -13,17 +23,43 @@ export class ExcelParser extends BaseTabularParser {
     _filePath: string,
     _cachedText?: string,
   ): Promise<boolean> {
-    return fileType === FileType.XLSX || fileType === FileType.CSV;
+    // CSV is CsvParser's job: xlsx.readFile reads CSV files without an
+    // explicit encoding, garbling any non-ASCII (Cyrillic) text, and its
+    // auto-number-conversion misreads a comma-decimal amount like "1500,00"
+    // as 150000. CsvParser reads UTF-8 explicitly and leaves amounts as
+    // strings for the shared normalizer to parse correctly.
+    return fileType === FileType.XLSX;
   }
 
   async parse(filePath: string, _cachedText?: string): Promise<ParsedStatement> {
-    const workbook = xlsx.readFile(filePath);
+    assertSafeZipDecompressionRatio(fs.readFileSync(filePath));
+    // Deliberately NOT raw:false. sheet_to_json returns the raw underlying
+    // value for a cell regardless of whether it's a genuinely date-typed
+    // cell or a plain untyped number (Excel stores both as a numeric serial
+    // day-count either way) — e.g. 45306 for both. raw:false would format
+    // only the properly-typed case into a date string; an untyped serial
+    // number (common in exports that never bothered to set a date format)
+    // would instead be stringified through "General" format ("45306"),
+    // which normalizeCellDate's string fallback then correctly rejects as
+    // implausible rather than misreading it as a date. Reading the raw
+    // number and letting normalizeCellDate's own serial-date branch
+    // (below, via parseRow) interpret it handles both cases uniformly.
+    const workbook = xlsx.readFile(filePath, { sheetRows: MAX_SHEET_ROWS });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = xlsx.utils.sheet_to_json<ExcelCellValue[]>(worksheet, { header: 1, defval: '' });
+    const data = xlsx.utils.sheet_to_json<ExcelCellValue[]>(worksheet, {
+      header: 1,
+      defval: '',
+    });
 
     if (data.length < 2) {
       throw new Error('Excel file is empty or has no data rows');
+    }
+
+    if (data.length >= MAX_SHEET_ROWS) {
+      this.logger.warn(
+        `Sheet hit the ${MAX_SHEET_ROWS}-row parse cap — rows beyond that were not read`,
+      );
     }
 
     // Real statements often have title/summary rows above the transaction
@@ -40,7 +76,7 @@ export class ExcelParser extends BaseTabularParser {
       .slice(0, 5)
       .map(r => (r || []).join(' '))
       .join(' ');
-    const detectedCurrency = this.detectCurrency(headerSample) || 'KZT';
+    const detectedCurrency = this.detectCurrency(headerSample) || appDefaultCurrency();
 
     // Extract metadata from first few rows or filename
     const metadata = this.extractMetadata(filePath, data, detectedCurrency);
@@ -73,7 +109,7 @@ export class ExcelParser extends BaseTabularParser {
   private extractMetadata(
     _filePath: string,
     data: ExcelRow[],
-    detectedCurrency = 'KZT',
+    detectedCurrency = appDefaultCurrency(),
   ): ParsedStatement['metadata'] {
     // Try to extract from first rows or use defaults
     const accountNumber = this.extractAccountNumberFromData(data) || 'Unknown';

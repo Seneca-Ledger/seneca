@@ -1,9 +1,9 @@
 'use client';
 
-import type { ReceiptRecord } from '@/app/lib/api';
-import { tokens } from '@/lib/theme-tokens';
 import { Box, Typography } from '@mui/material';
 import { useTheme } from 'next-themes';
+import type { ReceiptRecord } from '@/app/lib/api';
+import { tokens } from '@/lib/theme-tokens';
 
 function CenteredMessage({ children }: { children: React.ReactNode }): React.ReactElement {
   const { resolvedTheme } = useTheme();

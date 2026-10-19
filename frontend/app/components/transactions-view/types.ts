@@ -1,7 +1,7 @@
 'use client';
 
-import type { useIntlayer } from '@/app/i18n';
 import type React from 'react';
+import type { useIntlayer } from '@/app/i18n';
 
 export type TransactionsViewT = ReturnType<typeof useIntlayer<'transactionsView'>>;
 

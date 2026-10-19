@@ -1,18 +1,23 @@
 /* eslint-disable max-lines */
+
+import { resolveBankLogo } from '@bank-logos';
+import { getCachedIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
+import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import type { StatementCategoryNode } from '@/app/lib/statement-categories';
 import { formatStoredDate } from '@/app/lib/user-format-store';
-import { resolveBankLogo } from '@bank-logos';
 import {
-  type StatementColumn,
-  type StatementColumnId,
   getAllowedStatementFilterKeys,
   resetDisallowedStatementFilters,
+  type StatementColumn,
+  type StatementColumnId,
 } from './columns/statement-columns';
 import {
-  type StatementFilterScreen,
   getVisibleFilterScreens,
   resetHiddenStatementFilters,
+  type StatementFilterScreen,
+  type StatementsQueryParams,
   serializeStatementFiltersToQuery,
 } from './filters/server-statement-filters';
 import type { StatementFilters } from './filters/statement-filters';
@@ -44,6 +49,7 @@ export type FilterOptionLabels = {
   typeChat: string;
   typeTrip: string;
   typeTask: string;
+  typeImage: string;
   statusUploaded: string;
   statusProcessing: string;
   statusParsed: string;
@@ -94,7 +100,6 @@ export type FilterOptionLabels = {
   columnDescription: string;
   columnExchangeRate: string;
   columnExported: string;
-  columnExportedTo: string;
   columnsTitle: string;
   paid: string;
 };
@@ -126,19 +131,7 @@ export type StatementLike = {
   statementDateTo?: string | null;
   receivedAt?: string;
   createdAt?: string;
-  parsingDetails?: {
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: { currencyDisplay?: string };
-    };
-    importPreview?: {
-      source?: string;
-      attachments?: number;
-      description?: string;
-      merchant?: string;
-      categoryId?: string;
-    };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 export type DuplicateGroupTone = 'sky' | 'blue' | 'indigo' | 'slate' | 'zinc' | 'stone';
@@ -149,12 +142,7 @@ export type StatementCategoryWithEnabled = StatementCategoryNode & {
 };
 
 type ReceiptDerivedStatementCandidate = {
-  parsingDetails?: {
-    detectedBy?: string;
-    importPreview?: {
-      source?: string;
-    };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 type StatementViewCandidate = {
@@ -202,9 +190,7 @@ export const isStoreReceiptStatement = (
 type StatementCurrencyLike = {
   parsedData?: { currency?: string };
   currency?: string | null;
-  parsingDetails?: {
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 // eslint-disable-next-line complexity
@@ -313,6 +299,10 @@ export const getBankDisplayName = (bankName: string): string => {
 // Duplicate detection helpers
 // ---------------------------------------------------------------------------
 
+/** Module-level helpers cannot use hooks; read the dictionary for the cookie locale. */
+const listUiText = () =>
+  getCachedIntlayer('statementsListUi', readLocaleFromCookie() ?? DEFAULT_LOCALE);
+
 export const toDuplicateGroupLabel = (index: number): string => {
   let current = index + 1;
   let label = '';
@@ -321,7 +311,7 @@ export const toDuplicateGroupLabel = (index: number): string => {
     label = String.fromCharCode(65 + code) + label;
     current = Math.floor((current - 1) / 26);
   }
-  return `Group ${label}`;
+  return listUiText().groupLabel.value.replace('{label}', label);
 };
 
 export const DUPLICATE_GROUP_TONES: DuplicateGroupTone[] = [
@@ -380,7 +370,7 @@ export const buildStatementRequestParams = ({
   appliedFilters: StatementFilters;
   categoryId?: string | null;
   search?: string;
-}): Record<string, unknown> => {
+}): StatementsQueryParams => {
   const serverSafeFilters: StatementFilters = {
     ...appliedFilters,
     type:
@@ -398,7 +388,6 @@ export const buildStatementRequestParams = ({
   };
 };
 
-// eslint-disable-next-line complexity
 export const isReceiptDerivedStatement = (statement: ReceiptDerivedStatementCandidate): boolean => {
   return (
     statement.parsingDetails?.detectedBy === 'receipt-scan' ||
@@ -430,6 +419,58 @@ export const resolveStatementViewAction = (
   }
 
   return { type: 'route', href: `/storage/${statement.id}` };
+};
+
+const SETTLED_RECEIPT_STATUSES = new Set(['approved', 'rejected', 'failed']);
+
+/**
+ * How much of a document still waits in Review: a statement's undecided rows,
+ * or one for a receipt that has not been approved (or dropped) yet.
+ */
+export const resolvePendingReview = (
+  document: { id: string; status: string },
+  isReceipt: boolean,
+  statementReviewCounts: Record<string, number>,
+): number => {
+  if (isReceipt) {
+    return SETTLED_RECEIPT_STATUSES.has(document.status) ? 0 : 1;
+  }
+  return statementReviewCounts[document.id] ?? 0;
+};
+
+const PARSED_STATEMENT_STATUSES = new Set(['completed', 'parsed', 'validated']);
+
+/**
+ * The Approved column: a person has confirmed the document. A receipt once it
+ * is approved; a statement once its file is parsed and none of its rows still
+ * waits in Review. A receipt's status is the receipt's own, never a parse status.
+ */
+export const isDocumentApproved = (
+  status: string,
+  isReceipt: boolean,
+  pendingReview: number,
+): boolean => {
+  const normalized = status.toLowerCase();
+  if (isReceipt) {
+    return normalized === 'approved';
+  }
+  return PARSED_STATEMENT_STATUSES.has(normalized) && pendingReview === 0;
+};
+
+/** The Approved filter, by the same rule as the Approved column. */
+export const filterByApproved = <T extends { id: string; status: string; source?: string }>(
+  documents: T[],
+  approved: boolean | null,
+  statementReviewCounts: Record<string, number>,
+): T[] => {
+  if (approved === null) {
+    return documents;
+  }
+  return documents.filter(document => {
+    const isReceipt = document.source === 'gmail' || document.source === 'scan';
+    const pending = resolvePendingReview(document, isReceipt, statementReviewCounts);
+    return isDocumentApproved(document.status, isReceipt, pending) === approved;
+  });
 };
 
 export const paginateStatements = <T>(statements: T[], page: number, pageSize: number): T[] => {
@@ -516,14 +557,13 @@ export const buildPaginationLabels = (tx: TxFn): Record<string, string> => ({
   pageOf: tx(['pagination', 'pageOf'], 'Page {page} of {count}'),
 });
 
-// eslint-disable-next-line complexity
 export const buildUploadLabels = (t: IntlayerDict): StatementUploadLabels => ({
   pickAtLeastOne: resolveLabel(t.uploadModal?.pickAtLeastOne, 'Select at least one file'),
   uploadedProcessing: resolveLabel(t.uploadModal?.uploadedProcessing, 'Files uploaded'),
   uploadFailed: resolveLabel(t.uploadModal?.uploadFailed, 'Failed to upload files'),
 });
 
-// eslint-disable-next-line complexity, max-lines-per-function, max-params
+// eslint-disable-next-line max-lines-per-function
 export const buildFilterOptionLabels = (_t: IntlayerDict, tx: TxFn): FilterOptionLabels => ({
   apply: tx(['filters', 'apply'], 'Apply'),
   reset: tx(['filters', 'reset'], 'Reset'),
@@ -539,6 +579,7 @@ export const buildFilterOptionLabels = (_t: IntlayerDict, tx: TxFn): FilterOptio
   typeChat: tx(['filters', 'typeChat'], 'Chat'),
   typeTrip: tx(['filters', 'typeTrip'], 'Trip'),
   typeTask: tx(['filters', 'typeTask'], 'Task'),
+  typeImage: tx(['filters', 'typeImage'], 'Image'),
   statusUploaded: tx(['filters', 'statusUploaded'], 'Uploaded'),
   statusProcessing: tx(['filters', 'statusProcessing'], 'Processing'),
   statusParsed: tx(['filters', 'statusParsed'], 'Parsed'),
@@ -589,7 +630,6 @@ export const buildFilterOptionLabels = (_t: IntlayerDict, tx: TxFn): FilterOptio
   columnDescription: tx(['filters', 'columnDescription'], 'Description'),
   columnExchangeRate: tx(['filters', 'columnExchangeRate'], 'Exchange rate'),
   columnExported: tx(['filters', 'columnExported'], 'Exported'),
-  columnExportedTo: tx(['filters', 'columnExportedTo'], 'Exported to'),
   columnsTitle: tx(['filters', 'columnsTitle'], 'Columns'),
   paid: tx(['filters', 'paid'], 'Paid'),
 });
@@ -597,7 +637,7 @@ export const buildFilterOptionLabels = (_t: IntlayerDict, tx: TxFn): FilterOptio
 export const buildTypeOptions = (
   labels: Record<string, string>,
 ): Array<{ value: string; label: string }> => [
-  { value: 'receipt', label: 'Receipt' },
+  { value: 'receipt', label: labels.columnReceipt },
   { value: 'expense', label: labels.typeExpense },
   { value: 'expense_report', label: labels.typeReport },
   { value: 'chat', label: labels.typeChat },
@@ -607,7 +647,7 @@ export const buildTypeOptions = (
   { value: 'pdf', label: 'PDF' },
   { value: 'xlsx', label: 'Excel' },
   { value: 'csv', label: 'CSV' },
-  { value: 'image', label: 'Image' },
+  { value: 'image', label: labels.typeImage },
 ];
 
 export const buildStatusOptions = (
@@ -660,7 +700,6 @@ export const buildHasOptions = (
 
 export const buildColumnLabels = (labels: Record<string, string>): Record<string, string> => ({
   receipt: labels.columnReceipt,
-  date: labels.columnDate,
   merchant: labels.columnMerchant,
   from: labels.columnFrom,
   to: labels.columnTo,
@@ -674,7 +713,6 @@ export const buildColumnLabels = (labels: Record<string, string>): Record<string
   description: labels.columnDescription,
   exchangeRate: labels.columnExchangeRate,
   exported: labels.columnExported,
-  exportedTo: labels.columnExportedTo,
 });
 
 interface StatementForFromOptions {
@@ -700,6 +738,7 @@ export const buildFromOptions = (
   iconUrl?: string | null;
   bankName?: string | null;
 }> => {
+  const text = listUiText();
   const seen = new Map<
     string,
     {
@@ -718,7 +757,7 @@ export const buildFromOptions = (
       if (!seen.has(key)) {
         seen.set(key, {
           id: key,
-          label: statement.user.name ?? statement.user.email ?? 'User',
+          label: statement.user.name ?? statement.user.email ?? text.user.value,
           description: statement.user.email ? `@${statement.user.email.split('@')[0]}` : null,
           avatarUrl: statement.user.avatarUrl ?? null,
         });
@@ -733,7 +772,11 @@ export const buildFromOptions = (
           statement.source === 'scan' && statement.receiptSource !== 'gmail' && !hasRealBank;
         seen.set(key, {
           id: key,
-          label: isGmail ? 'Gmail' : isStore ? 'Receipt' : getBankDisplayName(statement.bankName),
+          label: isGmail
+            ? 'Gmail'
+            : isStore
+              ? text.typeReceipt.value
+              : getBankDisplayName(statement.bankName),
           description: null,
           iconUrl: isGmail ? '/icons/gmail.png' : null,
           bankName: statement.bankName,
@@ -749,9 +792,7 @@ export const buildFromOptions = (
 interface StatementForCurrencyOptions {
   parsedData?: { currency?: string };
   currency?: string | null;
-  parsingDetails?: {
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 export const buildCurrencyOptions = (stagedStatements: StatementForCurrencyOptions[]): string[] => {

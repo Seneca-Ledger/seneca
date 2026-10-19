@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { secretsMatch } from '../../../common/utils/secret-compare.util';
 
 @Injectable()
 export class GmailWebhookGuard implements CanActivate {
@@ -28,11 +29,15 @@ export class GmailWebhookGuard implements CanActivate {
     const expectedToken = process.env.PUBSUB_WEBHOOK_TOKEN || '';
 
     if (!expectedToken) {
-      this.logger.warn('PUBSUB_WEBHOOK_TOKEN not configured');
-      return true; // Allow in development if not configured
+      // Deny by default (.claude/rules/security.md §3). This used to pass
+      // whenever NODE_ENV was not exactly 'production', which left the endpoint
+      // wide open on staging — a deployment that holds real data. Configure
+      // PUBSUB_WEBHOOK_TOKEN to use the webhook in any environment.
+      this.logger.error('PUBSUB_WEBHOOK_TOKEN not configured — rejecting webhook');
+      throw new UnauthorizedException('Invalid webhook authentication');
     }
 
-    if (token !== expectedToken) {
+    if (!secretsMatch(token, expectedToken)) {
       this.logger.warn('Invalid webhook token');
       throw new UnauthorizedException('Invalid webhook authentication');
     }

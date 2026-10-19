@@ -1,34 +1,11 @@
 // @vitest-environment jsdom
+import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import StatementsCircularUploadMenu from '@/app/(main)/statements/components/StatementsCircularUploadMenu';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createStatementsTour } from './statements-tour';
 
 type StatementsTourPayload = Parameters<typeof createStatementsTour>[0];
-
-vi.mock('next/image', () => ({
-  default: ({ alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => (
-    <img {...props} alt={alt ?? ''} />
-  ),
-}));
-
-function setDesktopMatchMedia(matches: boolean) {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation(() => ({
-      matches,
-      media: '(min-width: 1024px)',
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-}
 
 const readSource = (...segments: string[]) =>
   readFileSync(path.join(process.cwd(), ...segments), 'utf8');
@@ -76,14 +53,13 @@ describe('createStatementsTour', () => {
     expect(tour.steps.map(step => step.selector)).toEqual([
       'body',
       '[data-tour-id="statements-upload-trigger"]',
-      '[data-tour-id="search-bar"]',
       '[data-tour-id="statements-filters"]',
       '[data-tour-id="statements-table"]',
       '[data-tour-id="statement-row-primary"]',
       'body',
     ]);
-    expect(tour.steps[3]?.optional).toBe(true);
-    expect(tour.steps[5]?.optional).toBe(true);
+    expect(tour.steps[2]?.optional).toBe(true);
+    expect(tour.steps[4]?.optional).toBe(true);
   });
 
   it('supports intlayer payloads with content-wrapped steps', () => {
@@ -135,9 +111,9 @@ describe('createStatementsTour', () => {
     const tour = createStatementsTour(legacyTexts as StatementsTourPayload);
 
     expect(tour.steps[1]?.title).toBe('Upload actions');
-    expect(tour.steps[3]?.title).toBe('Filters');
-    expect(tour.steps[4]?.title).toBe('List');
-    expect(tour.steps[5]?.title).toBe('Row');
+    expect(tour.steps[2]?.title).toBe('Filters');
+    expect(tour.steps[3]?.title).toBe('List');
+    expect(tour.steps[4]?.title).toBe('Row');
   });
 
   it('ships the updated content keys for all locales', () => {
@@ -196,7 +172,6 @@ describe('createStatementsTour', () => {
       'StatementsListItem.tsx',
     );
 
-    expect(listViewSource).toContain('data-tour-id="search-bar"');
     expect(listViewSource).toContain('data-tour-id="statements-filters"');
     expect(listViewSource).toContain('data-tour-id="statements-table"');
     expect(listViewSource).toContain(
@@ -206,106 +181,27 @@ describe('createStatementsTour', () => {
   });
 });
 
-describe('StatementsCircularUploadMenu', () => {
-  it('keeps the upload tour anchor on the visible desktop sidebar trigger only', () => {
-    setDesktopMatchMedia(true);
-
-    const { container: panelContainer } = render(
-      <StatementsCircularUploadMenu
-        providers={{ googleDriveConnected: false, dropboxConnected: false, gmailConnected: false }}
-        onScan={vi.fn()}
-        onCloudImport={vi.fn()}
-        onGmail={vi.fn()}
-        onLocalUpload={vi.fn()}
-        placement="panel"
-      />,
+describe('StatementsUploadButton', () => {
+  it('is the single carrier of the upload tour anchor', () => {
+    const buttonSource = readSource(
+      'app',
+      '(main)',
+      'statements',
+      'components',
+      'StatementsUploadButton.tsx',
     );
 
-    render(
-      <StatementsCircularUploadMenu
-        providers={{ googleDriveConnected: false, dropboxConnected: false, gmailConnected: false }}
-        onScan={vi.fn()}
-        onCloudImport={vi.fn()}
-        onGmail={vi.fn()}
-        onLocalUpload={vi.fn()}
-        placement="floating"
-      />,
-    );
+    expect(buttonSource).toContain('data-tour-id="statements-upload-trigger"');
 
-    expect(
-      panelContainer
-        .querySelector('[aria-label="Open upload actions"]')
-        ?.getAttribute('data-tour-id'),
-    ).toBe('statements-upload-trigger');
+    // One trigger, rendered in the page header of every statements view: no
+    // placement variants left to pick an anchor between.
+    const anchors = execSync(
+      'grep -rl \'data-tour-id="statements-upload-trigger"\' app --include=*.tsx',
+      { cwd: process.cwd(), encoding: 'utf8' },
+    )
+      .split('\n')
+      .filter(line => line && !line.endsWith('.test.tsx'));
 
-    const anchoredButtons = Array.from(
-      document.body.querySelectorAll('[data-tour-id="statements-upload-trigger"]'),
-    );
-
-    expect(anchoredButtons).toHaveLength(1);
-    expect((anchoredButtons[0] as HTMLElement | undefined)?.getAttribute('aria-label')).toBe(
-      'Open upload actions',
-    );
-  });
-
-  it('keeps the upload tour anchor on the active mobile footer trigger only', () => {
-    setDesktopMatchMedia(false);
-
-    const { container: panelContainer } = render(
-      <StatementsCircularUploadMenu
-        providers={{ googleDriveConnected: false, dropboxConnected: false, gmailConnected: false }}
-        onScan={vi.fn()}
-        onCloudImport={vi.fn()}
-        onGmail={vi.fn()}
-        onLocalUpload={vi.fn()}
-        placement="panel"
-      />,
-    );
-
-    render(
-      <StatementsCircularUploadMenu
-        providers={{ googleDriveConnected: false, dropboxConnected: false, gmailConnected: false }}
-        onScan={vi.fn()}
-        onCloudImport={vi.fn()}
-        onGmail={vi.fn()}
-        onLocalUpload={vi.fn()}
-        placement="floating"
-      />,
-    );
-
-    expect(
-      panelContainer
-        .querySelector('[aria-label="Open upload actions"]')
-        ?.getAttribute('data-tour-id'),
-    ).toBeNull();
-
-    const anchoredButtons = Array.from(
-      document.body.querySelectorAll('[data-tour-id="statements-upload-trigger"]'),
-    );
-
-    expect(anchoredButtons).toHaveLength(1);
-    expect((anchoredButtons[0] as HTMLElement | undefined)?.getAttribute('aria-label')).toBe(
-      'Open upload actions',
-    );
-  });
-
-  it('attaches the statements upload tour anchor to the plus menu trigger', () => {
-    setDesktopMatchMedia(true);
-
-    render(
-      <StatementsCircularUploadMenu
-        providers={{ googleDriveConnected: false, dropboxConnected: false, gmailConnected: false }}
-        onScan={vi.fn()}
-        onCloudImport={vi.fn()}
-        onGmail={vi.fn()}
-        onLocalUpload={vi.fn()}
-      />,
-    );
-
-    const openActionsButton = screen.getByLabelText('Open upload actions');
-    const scanButton = screen.getByLabelText('Scan');
-
-    expect(openActionsButton).toHaveAttribute('data-tour-id', 'statements-upload-trigger');
-    expect(scanButton).not.toHaveAttribute('data-tour-id', 'statements-upload-trigger');
+    expect(anchors).toEqual(['app/(main)/statements/components/StatementsUploadButton.tsx']);
   });
 });

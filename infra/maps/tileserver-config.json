@@ -1,0 +1,20 @@
+{
+  "options": {
+    "paths": {
+      "root": "/data",
+      "fonts": "fonts",
+      "styles": "styles",
+      "mbtiles": ""
+    },
+    "maxScaleFactor": 2
+  },
+  "styles": {
+    "osm-bright": { "style": "osm-bright/style.json" },
+    "positron": { "style": "positron/style.json" },
+    "dark-matter": { "style": "dark-matter/style.json" },
+    "basic": { "style": "basic/style.json" }
+  },
+  "data": {
+    "v3": { "mbtiles": "region.mbtiles" }
+  }
+}

@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
@@ -18,35 +17,49 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { APP_SLUG } from '../../common/brand';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
+import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { IdempotencyService } from '../../common/services/idempotency.service';
-import { validateFile } from '../../common/utils/file-validator.util';
+import { toCaptureLocation } from '../../common/utils/capture-location.util';
+import {
+  assertReceiptFileSupported,
+  unlinkAll,
+  validateFile,
+  validateFiles,
+} from '../../common/utils/file-validator.util';
 import { pipeFileStreamResponse } from '../../common/utils/stream-response.util';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { multerConfig } from '../../config/multer.config';
+import {
+  ConvertDroppedSampleBody,
+  CreateManualExpenseBody,
+  StatementDetail,
+  StatementListPage,
+  StatementsQuery,
+  UpdateStatementBody,
+  UpdateStatementStageBody,
+  UploadReceiptScanBody,
+  UploadStatementBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
+import { StatementStage } from '../../entities/statement.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ConvertDroppedSampleDto } from './dto/convert-dropped-sample.dto';
-import { CreateManualExpenseDto } from './dto/create-manual-expense.dto';
-import { FilterStatementsDto } from './dto/filter-statements.dto';
-import { UpdateStatementDto } from './dto/update-statement.dto';
-import { UploadReceiptScanDto } from './dto/upload-receipt-scan.dto';
-import { UploadStatementDto } from './dto/upload-statement.dto';
+import { UpdateStatementStageResultDto } from './dto/update-statement-stage.dto';
 import { ReceiptStatementService } from './services/receipt-statement.service';
+import { StatementStageService } from './services/statement-stage.service';
 import { StatementsService } from './statements.service';
-
-const SUPPORTED_RECEIPT_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/bmp',
-  'image/tiff',
-  'application/pdf',
-]);
 
 interface ThumbnailErrorLike {
   getStatus?: () => number;
@@ -55,6 +68,7 @@ interface ThumbnailErrorLike {
 }
 
 @Controller('statements')
+@UseInterceptors(HideInternalColumnsInterceptor)
 export class StatementsController {
   private readonly logger = new Logger(StatementsController.name);
 
@@ -62,6 +76,7 @@ export class StatementsController {
     private readonly statementsService: StatementsService,
     private readonly receiptStatementService: ReceiptStatementService,
     private readonly idempotencyService: IdempotencyService,
+    private readonly statementStageService: StatementStageService,
   ) {}
 
   private toObjectRecord(value: unknown): Record<string, unknown> {
@@ -86,11 +101,10 @@ export class StatementsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
-  @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
   @UseInterceptors(FilesInterceptor('file', 1, multerConfig))
   async uploadLegacy(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() uploadDto: UploadStatementDto,
+    @SchemaBody(UploadStatementBody) uploadDto: UploadStatementBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Headers('idempotency-key') idempotencyKey?: string,
@@ -101,11 +115,10 @@ export class StatementsController {
   @Post('upload')
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
-  @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
   @UseInterceptors(FilesInterceptor('files', 2, multerConfig))
   async upload(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() uploadDto: UploadStatementDto,
+    @SchemaBody(UploadStatementBody) uploadDto: UploadStatementBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Headers('idempotency-key') idempotencyKey?: string,
@@ -116,11 +129,10 @@ export class StatementsController {
   @Post('manual-expense')
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
-  @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
   @UseInterceptors(FilesInterceptor('files', 5, multerConfig))
   async createManualExpense(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() payload: CreateManualExpenseDto,
+    @SchemaBody(CreateManualExpenseBody) payload: CreateManualExpenseBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Headers('idempotency-key') idempotencyKey?: string,
@@ -152,11 +164,10 @@ export class StatementsController {
   @Post('upload-receipt')
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
-  @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
   @UseInterceptors(FilesInterceptor('files', 5, multerConfig))
   async uploadReceipt(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() body: UploadReceiptScanDto,
+    @SchemaBody(UploadReceiptScanBody) body: UploadReceiptScanBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -164,16 +175,22 @@ export class StatementsController {
       throw new BadRequestException('No files provided');
     }
 
-    files.forEach(file => {
-      validateFile(file);
-      this.assertReceiptFileSupported(file);
-    });
+    try {
+      for (const file of files) {
+        validateFile(file, { allowEInvoiceXml: true });
+        assertReceiptFileSupported(file);
+      }
+    } catch (error) {
+      await unlinkAll(files);
+      throw error;
+    }
 
     const data = await this.receiptStatementService.createFromReceiptScan({
       user,
       workspaceId,
       files,
-      language: body?.language,
+      language: body?.language ?? undefined,
+      captureLocation: toCaptureLocation(body && withoutNulls(body)),
     });
 
     return { data };
@@ -194,24 +211,24 @@ export class StatementsController {
       throw new BadRequestException('No file provided');
     }
 
-    validateFile(file);
+    await validateFiles([file]);
     return this.statementsService.attachFile(id, user.id, workspaceId, file);
   }
 
   private async handleUpload(
     files: Express.Multer.File[],
-    uploadDto: UploadStatementDto,
+    uploadDto: UploadStatementBody,
     user: User,
     workspaceId: string,
     idempotencyKey: string | undefined,
     returnUnwrappedSingle: boolean,
   ) {
     if (!files || files.length === 0) {
-      throw new Error('No files provided');
+      throw new BadRequestException('No files provided');
     }
 
     if (files.length > 2) {
-      throw new Error('Maximum 2 files allowed');
+      throw new BadRequestException('Maximum 2 files allowed');
     }
 
     // Check idempotency key if provided
@@ -226,7 +243,7 @@ export class StatementsController {
     }
 
     // Validate each file
-    files.forEach(validateFile);
+    await validateFiles(files);
 
     // Process each file
     const results = await Promise.all(
@@ -235,7 +252,6 @@ export class StatementsController {
           user,
           workspaceId,
           file,
-          uploadDto.googleSheetId || undefined,
           uploadDto.walletId || undefined,
           uploadDto.branchId || undefined,
           uploadDto.allowDuplicates ?? false,
@@ -280,16 +296,17 @@ export class StatementsController {
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async exportZip(@WorkspaceId() workspaceId: string, @Res() res: Response) {
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename="lumio-export.zip"');
+    res.setHeader('Content-Disposition', `attachment; filename="${APP_SLUG}-export.zip"`);
     await this.statementsService.exportZip(workspaceId, res);
   }
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(StatementListPage)
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() filters: FilterStatementsDto,
+    @SchemaQuery(StatementsQuery) filters: StatementsQuery,
   ) {
     const result = await this.statementsService.findAll(workspaceId, filters);
 
@@ -322,12 +339,6 @@ export class StatementsController {
     });
   }
 
-  private assertReceiptFileSupported(file: Express.Multer.File): void {
-    if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException('Only image and PDF receipt files are supported');
-    }
-  }
-
   @Get(':id/view')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async viewFile(
@@ -355,7 +366,7 @@ export class StatementsController {
     @Param('id') id: string,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('width') width: string | undefined,
+    @Query('width') width: string,
     @Res() res: Response,
   ) {
     try {
@@ -418,6 +429,25 @@ export class StatementsController {
     }
   }
 
+  // Audited per statement inside the service (one batch), since the body can hold many ids.
+  @Post('stage')
+  @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @ApiOperation({ summary: 'Move one or more statements to a review-workflow stage' })
+  @ApiResponse({ status: 200, type: UpdateStatementStageResultDto })
+  async updateStage(
+    @SchemaBody(UpdateStatementStageBody) dto: UpdateStatementStageBody,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ): Promise<UpdateStatementStageResultDto> {
+    return this.statementStageService.updateStage(
+      dto.statementIds,
+      toEnum(StatementStage, dto.stage),
+      user.id,
+      workspaceId,
+    );
+  }
+
   @Post(':id/trash')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.STATEMENT_DELETE)
@@ -441,12 +471,17 @@ export class StatementsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(StatementDetail)
   async findOne(
     @Param('id') id: string,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.statementsService.findOne(id, workspaceId);
+    const statement = await this.statementsService.findOne(id, workspaceId);
+    // A private row reads as a placeholder to all but its owner, here as in the list.
+    redactPrivateRows(statement.transactions ?? [], selfMemberId);
+    return statement;
   }
 
   @Patch(':id')
@@ -454,7 +489,7 @@ export class StatementsController {
   @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateStatementDto,
+    @SchemaBody(UpdateStatementBody) updateDto: UpdateStatementBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -465,7 +500,7 @@ export class StatementsController {
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async convertDroppedSample(
     @Param('id') id: string,
-    @Body() payload: ConvertDroppedSampleDto,
+    @SchemaBody(ConvertDroppedSampleBody) payload: ConvertDroppedSampleBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -480,7 +515,6 @@ export class StatementsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @WorkspaceAuth(Permission.STATEMENT_DELETE)
-  @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: User,

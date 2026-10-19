@@ -3,12 +3,12 @@
 import { useCurrencyDisplay } from '@/app/contexts/CurrencyDisplayContext';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { useTransactionFormatters } from './hooks/useTransactionFormatters';
+import { useTransactionsTable } from './hooks/useTransactionsTable';
 import { TransactionDesktopTable } from './TransactionDesktopTable';
 import { TransactionFiltersBar } from './TransactionFiltersBar';
 import { TransactionMobileList } from './TransactionMobileList';
 import { TransactionPagination } from './TransactionPagination';
-import { useTransactionFormatters } from './hooks/useTransactionFormatters';
-import { useTransactionsTable } from './hooks/useTransactionsTable';
 import type { Category, FilterState, Transaction, UpdateCategoryFn } from './types';
 
 interface TransactionsTableProps {
@@ -20,6 +20,7 @@ interface TransactionsTableProps {
   onUpdateCategory?: UpdateCategoryFn;
   filters: FilterState;
   onFilterChange: (filters: FilterState) => void;
+  toolbarExtra?: React.ReactNode;
 }
 
 export default function TransactionsTable({
@@ -31,6 +32,7 @@ export default function TransactionsTable({
   onUpdateCategory,
   filters,
   onFilterChange,
+  toolbarExtra,
 }: TransactionsTableProps): React.ReactElement {
   const { locale } = useLocale();
   const t = useIntlayer('transactionsTable');
@@ -79,6 +81,7 @@ export default function TransactionsTable({
         onToggleFilters={() => state.setShowFilters(!state.showFilters)}
         onClearFilters={state.clearFilters}
         t={t}
+        toolbarExtra={toolbarExtra}
       />
       {isMobile ? (
         <TransactionMobileList

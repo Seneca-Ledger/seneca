@@ -1,9 +1,11 @@
-import * as path from 'path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as path from 'path';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { CloudStorageBaseService } from '../../common/services/cloud-storage-base.service';
 import { FileStorageService } from '../../common/services/file-storage.service';
+import { requireSecret } from '../../common/utils/required-secret.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   ActorType,
@@ -15,6 +17,7 @@ import {
   IntegrationToken,
   Statement,
   User,
+  WorkspaceMember,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
 import { StatementsService } from '../statements/statements.service';
@@ -81,6 +84,8 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
     private readonly statementRepository: Repository<Statement>,
     @InjectRepository(User)
     userRepository: Repository<User>,
+    @InjectRepository(WorkspaceMember)
+    workspaceMemberRepository: Repository<WorkspaceMember>,
     private readonly statementsService: StatementsService,
     private readonly fileStorageService: FileStorageService,
     private readonly auditService: AuditService,
@@ -90,6 +95,7 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
       integrationTokenRepository,
       dropboxSettingsRepository,
       userRepository,
+      workspaceMemberRepository,
     );
   }
 
@@ -110,7 +116,11 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
   }
 
   protected getStateSecret() {
-    return process.env.DROPBOX_STATE_SECRET || process.env.JWT_SECRET || 'lumio-state';
+    return requireSecret(
+      'DROPBOX_STATE_SECRET or JWT_SECRET',
+      process.env.DROPBOX_STATE_SECRET,
+      process.env.JWT_SECRET,
+    );
   }
 
   protected getProvider(): IntegrationProvider {
@@ -176,7 +186,7 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
     return { clientId, clientSecret };
   }
 
-  getAuthUrl(user: User): string {
+  getAuthUrl(user: User, workspaceId: string): string {
     const clientId = this.getClientId();
     const redirectUri = this.getRedirectUri();
     if (!(clientId && redirectUri)) {
@@ -185,6 +195,7 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
 
     return this.buildProviderAuthUrl(
       user,
+      workspaceId,
       state =>
         `https://www.dropbox.com/oauth2/authorize?${new URLSearchParams({
           client_id: clientId,
@@ -201,14 +212,15 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
     state?: string;
     error?: string;
   }): Promise<string> {
-    const callbackContext = await this.resolveOAuthCallbackUser<
-      Pick<User, 'id' | 'workspaceId' | 'timeZone'>
-    >(params, ['id', 'workspaceId', 'timeZone']);
+    const callbackContext = await this.resolveOAuthCallbackUser<Pick<User, 'id' | 'timeZone'>>(
+      params,
+      ['id', 'timeZone'],
+    );
     if ('redirectUrl' in callbackContext) {
       return callbackContext.redirectUrl;
     }
 
-    const { redirectBase, user } = callbackContext;
+    const { redirectBase, user, workspaceId } = callbackContext;
 
     const redirectUri = this.getRedirectUri();
 
@@ -231,8 +243,8 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
       return `${redirectBase}?status=error&reason=missing_tokens`;
     }
 
-    const { integration: existing } = await this.findIntegrationForUser(user.id);
-    const savedIntegration = await this.upsertConnectedIntegration(existing, user, [
+    const existing = await this.findWorkspaceIntegration(workspaceId);
+    const savedIntegration = await this.upsertConnectedIntegration(existing, user, workspaceId, [
       'files.content.read',
       'files.content.write',
     ]);
@@ -383,7 +395,7 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
         this.requireAccessToken(client),
         'files/create_folder_v2',
         {
-          path: '/Lumio',
+          path: `/${APP_NAME}`,
           autorename: false,
         },
       );
@@ -397,8 +409,8 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
       }
     } catch (error) {
       if (this.getDropboxErrorMessage(error).includes('path/conflict/folder')) {
-        settings.folderId = '/lumio';
-        settings.folderName = 'Lumio';
+        settings.folderId = `/${APP_NAME}`.toLowerCase();
+        settings.folderName = APP_NAME;
         return this.dropboxSettingsRepository.save(settings);
       }
       throw error;
@@ -406,10 +418,11 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
     return settings;
   }
 
-  async importFiles(userId: string, dto: ImportDropboxFilesDto) {
+  async importFiles(userId: string, workspaceId: string, dto: ImportDropboxFilesDto) {
     const uploadsDir = resolveUploadsDir();
     return this.importFilesWithClient({
       userId,
+      workspaceId,
       fileIds: dto.fileIds,
       uploadsDir,
       getClient: integration => this.getDropboxClientWithAuth(integration),
@@ -445,15 +458,7 @@ export class DropboxService extends CloudStorageBaseService<DropboxSettings> {
         };
       },
       importFile: (user, file) =>
-        this.statementsService.create(
-          user,
-          user.workspaceId,
-          file,
-          undefined,
-          undefined,
-          undefined,
-          false,
-        ),
+        this.statementsService.create(user, workspaceId, file, undefined, undefined, false),
       getErrorMessage: error => this.getDropboxErrorMessage(error),
     });
   }

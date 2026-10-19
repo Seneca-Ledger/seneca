@@ -1,8 +1,9 @@
 'use client';
 
-import apiClient from '@/app/lib/api';
-import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 import { useCallback, useEffect, useState } from 'react';
+import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 export type TwoFactorStatus = {
   enabled: boolean;
@@ -41,7 +42,6 @@ export type UseTwoFactorReturn = {
 
 export function useTwoFactor(
   isAuthenticated: boolean,
-  activeSection: string,
   messages: UseTwoFactorMessages,
 ): UseTwoFactorReturn {
   const [status, setStatus] = useState<TwoFactorStatus | null>(null);
@@ -53,37 +53,40 @@ export function useTwoFactor(
   const [message, setMessage] = useState<string | null>(null);
 
   const loadStatus = useCallback(async () => {
-    try {
+    await (async () => {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get<TwoFactorStatus>('/auth/2fa');
-      setStatus(response.data);
-    } catch (err: unknown) {
-      setError(getApiErrorMessage(err, messages.loadError));
-    } finally {
-      setLoading(false);
-    }
+      setStatus(await apiQueryDecoded({ url: '/auth/2fa', contract: 'TwoFactorStatus' }));
+    })()
+      .catch(async (err: unknown) => {
+        setError(getApiErrorMessage(err, messages.loadError));
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
   }, [messages.loadError]);
 
   useEffect(() => {
-    if (!isAuthenticated || activeSection !== 'security') return;
+    if (!isAuthenticated) return;
     loadStatus();
-  }, [activeSection, isAuthenticated, loadStatus]);
+  }, [isAuthenticated, loadStatus]);
 
   /** Every action shares the same guard: clear feedback, run, refresh status. */
   const run = useCallback(
     async (action: () => Promise<void>) => {
-      try {
+      await (async () => {
         setBusy(true);
         setError(null);
         setMessage(null);
         await action();
         await loadStatus();
-      } catch (err: unknown) {
-        setError(getApiErrorMessage(err, messages.errorFallback));
-      } finally {
-        setBusy(false);
-      }
+      })()
+        .catch(async (err: unknown) => {
+          setError(getApiErrorMessage(err, messages.errorFallback));
+        })
+        .finally(async () => {
+          setBusy(false);
+        });
     },
     [loadStatus, messages.errorFallback],
   );
@@ -91,8 +94,10 @@ export function useTwoFactor(
   const startSetup = useCallback(
     (password: string) =>
       run(async () => {
-        const response = await apiClient.post<TwoFactorSetup>('/auth/2fa/setup', { password });
-        setSetup(response.data);
+        const response = await apiClient.post('/auth/2fa/setup', {
+          password,
+        } satisfies ContractInput<'TwoFactorPasswordBody'>);
+        setSetup(await checkContract('TwoFactorSetup', response.data, '/auth/2fa/setup'));
       }),
     [run],
   );
@@ -100,11 +105,16 @@ export function useTwoFactor(
   const confirmSetup = useCallback(
     (code: string) =>
       run(async () => {
-        const response = await apiClient.post<{ recoveryCodes: string[] }>('/auth/2fa/enable', {
+        const response = await apiClient.post('/auth/2fa/enable', {
           code: code.trim(),
-        });
+        } satisfies ContractInput<'TwoFactorCodeBody'>);
+        const { recoveryCodes } = await checkContract(
+          'RecoveryCodes',
+          response.data,
+          '/auth/2fa/enable',
+        );
         setSetup(null);
-        setRecoveryCodes(response.data.recoveryCodes);
+        setRecoveryCodes(recoveryCodes);
         setMessage(messages.enabledMessage);
       }),
     [messages.enabledMessage, run],
@@ -113,7 +123,9 @@ export function useTwoFactor(
   const disable = useCallback(
     (password: string) =>
       run(async () => {
-        await apiClient.post('/auth/2fa/disable', { password });
+        await apiClient.post('/auth/2fa/disable', {
+          password,
+        } satisfies ContractInput<'TwoFactorPasswordBody'>);
         setSetup(null);
         setRecoveryCodes(null);
         setMessage(messages.disabledMessage);
@@ -124,11 +136,15 @@ export function useTwoFactor(
   const regenerateRecoveryCodes = useCallback(
     (password: string) =>
       run(async () => {
-        const response = await apiClient.post<{ recoveryCodes: string[] }>(
+        const response = await apiClient.post('/auth/2fa/recovery-codes', {
+          password,
+        } satisfies ContractInput<'TwoFactorPasswordBody'>);
+        const { recoveryCodes } = await checkContract(
+          'RecoveryCodes',
+          response.data,
           '/auth/2fa/recovery-codes',
-          { password },
         );
-        setRecoveryCodes(response.data.recoveryCodes);
+        setRecoveryCodes(recoveryCodes);
       }),
     [run],
   );

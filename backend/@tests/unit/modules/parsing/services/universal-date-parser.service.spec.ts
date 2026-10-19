@@ -68,12 +68,11 @@ describe('UniversalDateParser', () => {
       });
     });
 
-    it('YYYY.MM.DD is not parsed correctly (known limitation in parseDottedFormats)', async () => {
-      // BUG: The destructuring in parseDottedFormats uses match[1-3] for the YYYY.MM.DD branch
-      // but the regex puts YYYY in match[4], leading to null result.
-      // This test documents the bug so it can be fixed later.
-      const result = await service.parseDate('2026.04.04');
-      expect(result).toBeNull();
+    it('parses YYYY.MM.DD', async () => {
+      await expect(service.parseDate('2026.04.04')).resolves.toMatchObject({
+        format: 'DOTTED',
+        date: new Date(2026, 3, 4),
+      });
     });
 
     it('parses DD.MM.YY (2-digit year)', async () => {
@@ -137,11 +136,11 @@ describe('UniversalDateParser', () => {
       });
     });
 
-    it('Russian/Cyrillic months fail due to \\b word boundary not supporting Unicode (known bug)', async () => {
-      // BUG: parseTextualMonth uses \\b (ASCII word boundary) in regex,
-      // which doesn't match Cyrillic characters. Needs unicode-aware boundary.
-      const result = await service.parseDate('15 январь 2026', 'ru');
-      expect(result).toBeNull(); // documents the bug
+    it('parses Russian/Cyrillic month names', async () => {
+      await expect(service.parseDate('15 январь 2026', 'ru')).resolves.toMatchObject({
+        format: 'TEXTUAL_MONTH',
+        date: new Date(2026, 0, 15),
+      });
     });
 
     it('parses German month names', async () => {

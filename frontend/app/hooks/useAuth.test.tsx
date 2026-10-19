@@ -2,12 +2,16 @@
 
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { currentUser } from '@/app/test/fixtures/contracts';
+import { AuthProvider } from '../contexts/AuthContext';
 
-const push = vi.fn();
-const get = vi.fn();
+// Hoisted: the static AuthProvider import evaluates the api mock factory before
+// module-level consts would be initialised.
+const { push, get } = vi.hoisted(() => ({ push: vi.fn(), get: vi.fn() }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
+  usePathname: () => '/dashboard',
 }));
 
 vi.mock('@/app/lib/api', () => ({
@@ -31,21 +35,18 @@ describe('useAuth', () => {
   });
 
   it('syncs the saved user locale into the i18n cookie after auth bootstrap', async () => {
-    localStorage.setItem('access_token', 'token');
+    document.cookie = 'csrf_token=csrf-token';
     get.mockResolvedValue({
-      data: {
-        id: 'user-1',
-        email: 'user@example.com',
-        name: 'User',
+      data: currentUser({
         role: 'admin',
         locale: 'en',
         onboardingCompletedAt: '2026-01-01T00:00:00.000Z',
-      },
+      }),
     });
 
     const { useAuth } = await import('./useAuth');
 
-    renderHook(() => useAuth());
+    renderHook(() => useAuth(), { wrapper: AuthProvider });
 
     await waitFor(() => {
       expect(document.cookie).toContain('INTLAYER_LOCALE=en');
@@ -53,23 +54,20 @@ describe('useAuth', () => {
   });
 
   it('does not overwrite an explicitly selected locale during auth bootstrap', async () => {
-    localStorage.setItem('access_token', 'token');
+    document.cookie = 'csrf_token=csrf-token';
     document.cookie = 'INTLAYER_LOCALE=kk; path=/';
 
     get.mockResolvedValue({
-      data: {
-        id: 'user-1',
-        email: 'user@example.com',
-        name: 'User',
+      data: currentUser({
         role: 'admin',
         locale: 'ru',
         onboardingCompletedAt: '2026-01-01T00:00:00.000Z',
-      },
+      }),
     });
 
     const { useAuth } = await import('./useAuth');
 
-    renderHook(() => useAuth());
+    renderHook(() => useAuth(), { wrapper: AuthProvider });
 
     await waitFor(() => {
       expect(get).toHaveBeenCalledWith('/auth/me');

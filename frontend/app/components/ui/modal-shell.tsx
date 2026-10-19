@@ -1,7 +1,5 @@
 'use client';
 
-import { X } from '@/app/components/icons';
-import { Spinner } from '@/app/components/ui/spinner';
 import type { SxProps, Theme } from '@mui/material';
 import MuiButton from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -9,6 +7,9 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import * as React from 'react';
+import { X } from '@/app/components/icons';
+import { Spinner } from '@/app/components/ui/spinner';
+import { useIntlayer } from '@/app/i18n';
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
@@ -57,6 +58,7 @@ function TitleBar(props: {
   showClose: boolean;
   onClose: () => void;
 }): React.JSX.Element {
+  const t = useIntlayer('uiShell');
   return (
     <DialogTitle
       id="modal-title"
@@ -67,7 +69,7 @@ function TitleBar(props: {
         <IconButton
           type="button"
           onClick={props.onClose}
-          aria-label="Close modal"
+          aria-label={t.closeModal.value}
           size="small"
           sx={{ ml: 'auto' }}
         >
@@ -137,6 +139,8 @@ export function ModalShell({
       fullWidth
       fullScreen={size === 'full'}
       PaperProps={renderPaperProps(className, paperSx)}
+      // A light warm veil, not a heavy grey sheet: no blur, which read as murk.
+      slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(36, 33, 30, 0.2)' } } }}
       aria-labelledby={title ? 'modal-title' : undefined}
     >
       {(title || showCloseButton) && (
@@ -205,7 +209,13 @@ export function ModalFooter({
   return (
     <>
       {onCancel && (
-        <MuiButton type="button" onClick={onCancel} variant="outlined" color="inherit">
+        // A quiet way out: no frame that would outweigh the main button.
+        <MuiButton
+          type="button"
+          onClick={onCancel}
+          variant="text"
+          sx={{ color: 'var(--text-muted)', fontWeight: 500 }}
+        >
           {cancelText}
         </MuiButton>
       )}

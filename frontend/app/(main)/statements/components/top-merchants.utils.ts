@@ -1,15 +1,15 @@
+import type {
+  AggregateSortKey as SharedAggregateSortKey,
+  ComparisonTrend as SharedComparisonTrend,
+  SourceChannel,
+  SourceType,
+} from './shared-analytics.utils';
 import {
   buildPreviousPeriodRange as buildPreviousPeriodRangeBase,
   getComparisonDelta as getComparisonDeltaBase,
   resolveAmountFlow,
   resolveSourceChannel as resolveSourceChannelBase,
   sortAggregateRows as sortAggregateRowsBase,
-} from './shared-analytics.utils';
-import type {
-  AggregateSortKey as SharedAggregateSortKey,
-  ComparisonTrend as SharedComparisonTrend,
-  SourceChannel,
-  SourceType,
 } from './shared-analytics.utils';
 
 export type TopMerchantFlowType = 'spend' | 'income';
@@ -43,6 +43,7 @@ type ResolveMerchantFlowInput = {
 type ResolveSourceChannelInput = {
   sourceType: TopMerchantSourceType;
   fileType?: string | null;
+  isCrypto?: boolean;
 };
 
 export const resolveMerchantFlow = (

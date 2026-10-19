@@ -13,6 +13,8 @@ export enum NotificationChannel {
   IN_APP = 'inApp',
   EMAIL = 'email',
   TELEGRAM = 'telegram',
+  /** Web push to the browsers and installed apps the user subscribed. */
+  PUSH = 'push',
 }
 
 export enum NotificationDigestMode {
@@ -26,6 +28,8 @@ export type NotificationChannelSet = {
   inApp: boolean;
   email: boolean;
   telegram: boolean;
+  /** Optional: rows written before the push channel existed have no key. */
+  push?: boolean;
 };
 
 export type NotificationChannelMatrix = Record<string, NotificationChannelSet>;
@@ -69,6 +73,10 @@ export class NotificationPreference {
 
   @Column({ name: 'uncategorized_items', type: 'boolean', default: true })
   uncategorizedItems: boolean;
+
+  /** "Looks like a subscription — confirm?" prompts after an import. */
+  @Column({ name: 'subscription_prompts', type: 'boolean', default: true })
+  subscriptionPrompts: boolean;
 
   /**
    * Per-event delivery matrix, the source of truth since the channels migration.

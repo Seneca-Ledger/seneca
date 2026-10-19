@@ -1,10 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { CreateWebhookEndpointDto } from './dto/create-webhook-endpoint.dto';
-import { UpdateWebhookEndpointDto } from './dto/update-webhook-endpoint.dto';
+import {
+  CreatedWebhookEndpoint,
+  CreateWebhookEndpointBody,
+  UpdateWebhookEndpointBody,
+  WebhookEndpointList,
+} from '../../contracts';
+import { User } from '../../entities/user.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { WebhookEndpointsService } from './services/webhook-endpoints.service';
 
 @ApiTags('Webhook Endpoints')
@@ -15,12 +23,18 @@ export class WebhookEndpointsController {
   @Post()
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
   @ApiOperation({ summary: 'Create inbound webhook endpoint' })
-  async create(@WorkspaceId() workspaceId: string, @Body() dto: CreateWebhookEndpointDto) {
-    return this.service.create(workspaceId, dto); // token returned only on creation
+  @SchemaResponse(CreatedWebhookEndpoint)
+  async create(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(CreateWebhookEndpointBody) dto: CreateWebhookEndpointBody,
+    @CurrentUser() user: User,
+  ) {
+    return this.service.create(workspaceId, dto, user.id); // token returned only on creation
   }
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(WebhookEndpointList)
   async findAll(@WorkspaceId() workspaceId: string) {
     const endpoints = await this.service.findAll(workspaceId);
     return endpoints.map(({ token, ...rest }) => ({
@@ -41,16 +55,21 @@ export class WebhookEndpointsController {
   async update(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpdateWebhookEndpointDto,
+    @SchemaBody(UpdateWebhookEndpointBody) dto: UpdateWebhookEndpointBody,
+    @CurrentUser() user: User,
   ) {
-    const { token, ...rest } = await this.service.update(id, workspaceId, dto);
+    const { token, ...rest } = await this.service.update(id, workspaceId, dto, user.id);
     return { ...rest, tokenPreview: `${token.slice(0, 8)}...` };
   }
 
   @Delete(':id')
   @WorkspaceAuth(Permission.STATEMENT_DELETE)
-  async delete(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
-    await this.service.delete(id, workspaceId);
+  async delete(
+    @Param('id') id: string,
+    @WorkspaceId() workspaceId: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.service.delete(id, workspaceId, user.id);
     return { success: true };
   }
 }

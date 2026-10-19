@@ -12,19 +12,17 @@ describe('BackupDataService', () => {
         {
           id: 'setting-1',
           workspaceId: 'ws-1',
-          key: 'ai',
-          config: { model: 'local' },
+          key: 'smtp',
+          config: { host: 'mail.example.com' },
           encryptedSecrets: { token: 'enc:secret' },
         },
       ]),
     };
     const integrations = { find: jest.fn() };
-    const googleSheets = { find: jest.fn() };
     const repositories = new Map([
       ['Category', categories],
       ['WorkspaceServiceSettings', serviceSettings],
       ['Integration', integrations],
-      ['GoogleSheet', googleSheets],
     ]);
     const service = new BackupDataService({
       entityMetadatas: [
@@ -37,7 +35,6 @@ describe('BackupDataService', () => {
           'encryptedSecrets',
         ]),
         metadata('integrations', 'Integration', ['id', 'workspaceId', 'provider']),
-        metadata('google_sheets', 'GoogleSheet', ['id', 'workspaceId', 'accessToken', 'refreshToken']),
       ],
       getRepository: (target: string) => repositories.get(target),
     } as never);
@@ -46,13 +43,11 @@ describe('BackupDataService', () => {
 
     expect(snapshot.collections.categories).toEqual([{ id: 'cat-1', workspaceId: 'ws-1', name: 'Travel' }]);
     expect(snapshot.collections.workspace_service_settings).toEqual([
-      { id: 'setting-1', workspaceId: 'ws-1', key: 'ai', config: { model: 'local' } },
+      { id: 'setting-1', workspaceId: 'ws-1', key: 'smtp', config: { host: 'mail.example.com' } },
     ]);
     expect(snapshot.collections.integrations).toBeUndefined();
-    expect(snapshot.collections.google_sheets).toBeUndefined();
     expect(snapshot.files).toEqual([]);
     expect(integrations.find).not.toHaveBeenCalled();
-    expect(googleSheets.find).not.toHaveBeenCalled();
   });
 
   it('adds original statement files and replaces local paths with portable backup paths', async () => {
@@ -90,7 +85,7 @@ describe('BackupDataService', () => {
   });
 
   it('includes receipt attachments and replaces machine-specific attachment paths', async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'lumio-receipt-'));
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'seneca-receipt-'));
     const attachment = path.join(directory, 'receipt.jpg');
     await fs.writeFile(attachment, 'receipt image');
     const receipts = {
@@ -156,5 +151,6 @@ function metadata(tableName: string, target: string, properties: string[]) {
     tableName,
     target,
     columns: properties.map(propertyName => ({ propertyName })),
+    primaryColumns: [{ propertyName: 'id' }],
   };
 }

@@ -1,8 +1,8 @@
 'use client';
 
-import type { User } from '@/app/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import type { User } from '@/app/hooks/useAuth';
 
 type RedirectParams = {
   user: User | null | undefined;

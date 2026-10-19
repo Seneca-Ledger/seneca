@@ -10,6 +10,7 @@
  */
 
 type FrancFn = typeof import('franc').franc;
+
 import { detectLocaleFromText as legacyDetectLocale } from './language-detector.util';
 
 export interface AdvancedDetectionResult {

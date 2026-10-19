@@ -4,11 +4,17 @@ const ENCRYPTION_PREFIX = 'enc:';
 const ALGORITHM = 'aes-256-gcm';
 
 const getEncryptionKey = () => {
-  const secret = process.env.INTEGRATIONS_ENCRYPTION_KEY;
-  if (!secret && process.env.NODE_ENV === 'production') {
-    throw new Error('Missing required environment variable: INTEGRATIONS_ENCRYPTION_KEY');
+  // No literal fallback. The previous `|| 'lumio'` meant that outside production
+  // every integration secret — OAuth refresh tokens, SMTP passwords, per-user AI
+  // API keys, TOTP secrets — was encrypted under sha256("lumio"), a key anyone
+  // reading this repository knows. Staging deployments stored them in the clear
+  // in all but name.
+  const resolvedSecret = process.env.INTEGRATIONS_ENCRYPTION_KEY || process.env.JWT_SECRET;
+  if (!resolvedSecret) {
+    throw new Error(
+      'Missing required environment variable: INTEGRATIONS_ENCRYPTION_KEY (or JWT_SECRET)',
+    );
   }
-  const resolvedSecret = secret || process.env.JWT_SECRET || 'lumio';
   return crypto.createHash('sha256').update(resolvedSecret).digest();
 };
 
@@ -40,7 +46,7 @@ export const decryptText = (value: string): string => {
     const payload = value.slice(ENCRYPTION_PREFIX.length);
     const data = Buffer.from(payload, 'base64');
     if (data.length < 12 + 16) {
-      return value;
+      throw new Error('ciphertext is too short to contain an IV and auth tag');
     }
 
     const iv = data.subarray(0, 12);
@@ -50,7 +56,15 @@ export const decryptText = (value: string): string => {
     decipher.setAuthTag(tag);
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
     return decrypted.toString('utf8');
-  } catch {
-    return value;
+  } catch (error) {
+    // Fail closed. Returning the ciphertext as though it were the plaintext
+    // handed callers a value that looks usable but is not, so a rotated or
+    // mismatched key showed up as a confusing downstream auth failure instead
+    // of the key problem it actually is.
+    throw new Error(
+      `Failed to decrypt stored secret — the encryption key may have changed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 };

@@ -2,14 +2,13 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Branch, User, WorkspaceMember } from '../../entities';
 import { CategorizationRule } from '../../entities/categorization-rule.entity';
-import { CategoryLearning } from '../../entities/category-learning.entity';
 import { Category } from '../../entities/category.entity';
+import { Payee } from '../../entities/payee.entity';
+import { PayeeAlias } from '../../entities/payee-alias.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
-import { ApplicationSettingsModule } from '../application-settings/application-settings.module';
 import { AuditModule } from '../audit/audit.module';
-import { CategoriesModule } from '../categories/categories.module';
 import { CategorizationRulesController } from './categorization-rules.controller';
 import { ClassificationController } from './classification.controller';
 import { ClassificationService } from './services/classification.service';
@@ -18,7 +17,8 @@ import { ClassificationService } from './services/classification.service';
   imports: [
     TypeOrmModule.forFeature([
       Category,
-      CategoryLearning,
+      Payee,
+      PayeeAlias,
       Branch,
       Wallet,
       Transaction,
@@ -28,8 +28,6 @@ import { ClassificationService } from './services/classification.service';
       User,
     ]),
     AuditModule,
-    ApplicationSettingsModule,
-    CategoriesModule,
   ],
   controllers: [ClassificationController, CategorizationRulesController],
   providers: [ClassificationService],

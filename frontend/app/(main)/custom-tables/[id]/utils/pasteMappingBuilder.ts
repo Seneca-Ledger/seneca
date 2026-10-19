@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function -- ESLint 9.39.4 crashes on this file (rule bug) */
 import { matchFieldByName, normalizeToken } from './pasteParser';
 import type {
   PasteColumn,
@@ -6,7 +5,8 @@ import type {
   PasteFieldKey,
   PasteMappingSelection,
 } from './pasteTypes';
-import type { ColumnType } from './stylingUtils';
+import { optionValues } from './selectOptions';
+import type { ColumnType } from './types';
 
 // ---------------------------------------------------------------------------
 // Column inference helpers
@@ -189,7 +189,7 @@ const toExistingMapping = (
   field,
   columnKey: column.key,
   label: column.title || column.key,
-  options: column.config?.options,
+  options: optionValues(column.config),
   mode: 'existing',
 });
 
@@ -242,6 +242,8 @@ const buildNewColumnMapping = ({
     mode: 'new',
     newTitle: resolvedTitle,
     newType: selection.newType ?? inferNewColumnType(field),
+    ...(selection.newConfig ? { newConfig: selection.newConfig } : {}),
+    ...(selection.formula ? { formula: selection.formula } : {}),
   };
 };
 

@@ -49,14 +49,14 @@ export class GmailMerchantReparseService {
   ) {}
 
   async reparseAll(
-    userId: string,
+    workspaceId: string,
     options: ReparseMerchantsOptions = {},
   ): Promise<ReparseMerchantsResult> {
     const limit = Math.min(Math.max(options.limit || DEFAULT_REPARSE_LIMIT, 1), MAX_REPARSE_LIMIT);
     const dryRun = options.dryRun ?? false;
 
     const receipts = await this.receiptRepository.find({
-      where: { userId },
+      where: { workspaceId },
       order: { createdAt: 'DESC' },
       take: limit,
     });

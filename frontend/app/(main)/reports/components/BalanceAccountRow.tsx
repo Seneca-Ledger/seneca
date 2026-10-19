@@ -1,8 +1,8 @@
 'use client';
 
-import { ChevronDown, ChevronRight } from '@/app/components/icons';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
+import { ChevronDown, ChevronRight } from '@/app/components/icons';
 import { sortedByPosition } from './balance-sheet-utils';
 
 export type BalanceAccountNode = {

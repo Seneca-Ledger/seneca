@@ -1,10 +1,11 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
 import { MAX_AVATAR_SIZE_BYTES } from '@/app/lib/constants';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
-import { useEffect, useRef, useState } from 'react';
 
 export type UseAvatarUploadMessages = {
   sizeError: string;
@@ -54,26 +55,33 @@ export function useAvatarUpload(
 
     setAvatarUploading(true);
 
-    try {
+    await (async () => {
       const formData = new FormData();
       formData.append('avatar', file);
       const response = await apiClient.post('/users/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const nextUser = response.data?.user || user;
+      const { user: updatedUser } = await checkContract(
+        'UserUpdateResponse',
+        response.data,
+        '/users/me/avatar',
+      );
+      const nextUser = updatedUser || user;
       if (nextUser) {
         setUser(nextUser);
         localStorage.setItem('user', JSON.stringify(nextUser));
       }
       setAvatarMessage(messages.updated);
-    } catch (error: unknown) {
-      setAvatarErrorMessage(getApiErrorMessage(error, messages.errorFallback));
-    } finally {
-      setAvatarUploading(false);
-      if (avatarInputRef.current) {
-        avatarInputRef.current.value = '';
-      }
-    }
+    })()
+      .catch(async (error: unknown) => {
+        setAvatarErrorMessage(getApiErrorMessage(error, messages.errorFallback));
+      })
+      .finally(async () => {
+        setAvatarUploading(false);
+        if (avatarInputRef.current) {
+          avatarInputRef.current.value = '';
+        }
+      });
   };
 
   return {

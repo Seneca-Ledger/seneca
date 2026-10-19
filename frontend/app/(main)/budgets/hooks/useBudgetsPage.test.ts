@@ -24,6 +24,7 @@ describe('budget number normalization', () => {
       currency: 'USD',
       workspaceCurrency: 'USD',
       periodType: 'monthly',
+      goalId: '',
       spentAmount: '24.00' as unknown as number,
       percentUsed: '2.40' as unknown as number,
       createdAt: '2026-05-09T00:00:00.000Z',
@@ -45,10 +46,38 @@ describe('budget number normalization', () => {
         manualSpentAmount: 24,
         currency: 'USD',
         periodType: 'monthly',
+        rolloverMode: 'none',
+        goalId: '',
+        startsOn: '',
+        endsOn: '',
       },
       'spending',
     );
 
     expect(payload).toEqual({ manualSpentAmount: 24 });
+  });
+
+  // A project budget without its window is just an ordinary one, so the dates
+  // have to survive the trip from the form to the request body.
+  it('carries the budget window on a full edit', () => {
+    const payload = buildBudgetUpdatePayload(
+      {
+        name: 'Moving costs',
+        categoryId: 'category-1',
+        limitAmount: 300000,
+        manualSpentAmount: 0,
+        currency: 'KZT',
+        periodType: 'monthly',
+        rolloverMode: 'none',
+        goalId: 'goal-1',
+        startsOn: '2026-02-01',
+        endsOn: '2026-08-31',
+      },
+      'edit',
+    );
+
+    expect(payload).toEqual(
+      expect.objectContaining({ startsOn: '2026-02-01', endsOn: '2026-08-31' }),
+    );
   });
 });

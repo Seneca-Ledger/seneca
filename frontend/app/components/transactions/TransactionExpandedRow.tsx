@@ -1,5 +1,6 @@
 'use client';
 
+import { useIntlayer } from '@/app/i18n';
 import type { Transaction } from './types';
 
 interface TransactionExpandedRowProps {
@@ -17,7 +18,7 @@ interface FieldProps {
 
 function ExpandedField({ label, value, mono }: FieldProps): React.ReactElement {
   return (
-    <div className="lumio-tx-table__expanded-field">
+    <div className="seneca-tx-table__expanded-field">
       <label>{label}</label>
       <span
         style={{ fontFamily: mono ? 'var(--font-mono)' : undefined, color: 'var(--foreground)' }}
@@ -34,14 +35,15 @@ export function TransactionExpandedRow({
   columnBinLabel,
   columnDateLabel,
 }: TransactionExpandedRowProps): React.ReactElement {
+  const t = useIntlayer('transactionsTable');
   return (
-    <tr className="lumio-tx-table__expanded-row">
+    <tr className="seneca-tx-table__expanded-row">
       <td colSpan={2} />
       <td colSpan={7} style={{ padding: '12px 16px' }}>
-        <div className="lumio-tx-table__expanded-content">
+        <div className="seneca-tx-table__expanded-content">
           <ExpandedField label={columnBinLabel} value={tx.counterpartyBin ?? '—'} mono />
-          <ExpandedField label="Currency" value={tx.currency ?? '—'} />
-          <ExpandedField label="Doc Number" value={tx.documentNumber ?? '—'} />
+          <ExpandedField label={t.columnCurrency.value} value={tx.currency ?? '—'} />
+          <ExpandedField label={t.columnDocNumber.value} value={tx.documentNumber ?? '—'} />
           <ExpandedField label={columnDateLabel} value={formatDate(tx.transactionDate)} />
         </div>
       </td>

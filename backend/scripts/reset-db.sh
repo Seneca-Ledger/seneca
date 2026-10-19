@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script to reset database and run migrations fresh
-# Usage: railway exec bash scripts/reset-db.sh
+# Usage: docker compose exec backend bash scripts/reset-db.sh
 
 set -e
 

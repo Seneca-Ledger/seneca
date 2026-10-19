@@ -8,6 +8,7 @@ import {
 } from '@/entities/integration.entity';
 import type { Statement } from '@/entities/statement.entity';
 import type { User } from '@/entities/user.entity';
+import type { WorkspaceMember } from '@/entities/workspace-member.entity';
 import type { AuditService } from '@/modules/audit/audit.service';
 import { DropboxService } from '@/modules/dropbox/dropbox.service';
 import type { StatementsService } from '@/modules/statements/statements.service';
@@ -48,6 +49,7 @@ describe('DropboxService', () => {
   const dropboxSettingsRepository = createRepoMock<DropboxSettings>();
   const statementRepository = createRepoMock<Statement>();
   const userRepository = createRepoMock<User>();
+  const workspaceMemberRepository = createRepoMock<WorkspaceMember>();
   const statementsService = { create: jest.fn() };
   const fileStorageService = { getStatementFileStream: jest.fn() };
   const auditService = { createEvent: jest.fn() };
@@ -65,6 +67,7 @@ describe('DropboxService', () => {
       dropboxSettingsRepository as unknown as Repository<DropboxSettings>,
       statementRepository as unknown as Repository<Statement>,
       userRepository as unknown as Repository<User>,
+      workspaceMemberRepository as unknown as Repository<WorkspaceMember>,
       statementsService as unknown as StatementsService,
       fileStorageService as unknown as FileStorageService,
       auditService as unknown as AuditService,
@@ -72,9 +75,7 @@ describe('DropboxService', () => {
   });
 
   it('returns an error result for unsupported dropbox file types', async () => {
-    userRepository.findOne
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' })
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
+    userRepository.findOne.mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.DROPBOX,
@@ -95,7 +96,7 @@ describe('DropboxService', () => {
         }),
       });
 
-    await expect(service.importFiles('user-1', { fileIds: ['file-1'] })).resolves.toEqual({
+    await expect(service.importFiles('user-1', 'ws-open', { fileIds: ['file-1'] })).resolves.toEqual({
       ok: true,
       results: [
         {
@@ -109,9 +110,7 @@ describe('DropboxService', () => {
   });
 
   it('returns an error result for oversized dropbox files', async () => {
-    userRepository.findOne
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' })
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
+    userRepository.findOne.mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.DROPBOX,
@@ -132,7 +131,7 @@ describe('DropboxService', () => {
         }),
       });
 
-    await expect(service.importFiles('user-1', { fileIds: ['file-1'] })).resolves.toEqual({
+    await expect(service.importFiles('user-1', 'ws-open', { fileIds: ['file-1'] })).resolves.toEqual({
       ok: true,
       results: [
         {
@@ -146,9 +145,7 @@ describe('DropboxService', () => {
   });
 
   it('imports a supported dropbox file successfully', async () => {
-    userRepository.findOne
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' })
-      .mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
+    userRepository.findOne.mockResolvedValueOnce({ id: 'user-1', workspaceId: 'ws-1' });
     integrationRepository.findOne.mockResolvedValue({
       id: 'integration-1',
       provider: IntegrationProvider.DROPBOX,
@@ -166,7 +163,7 @@ describe('DropboxService', () => {
     });
     const filesDownload = jest.fn().mockResolvedValue({
       result: {
-        fileBinary: Buffer.from('pdf-data'),
+        fileBinary: Buffer.from('%PDF-1.4\npdf-data'),
       },
     });
     jest
@@ -176,20 +173,19 @@ describe('DropboxService', () => {
         filesDownload,
       });
 
-    await expect(service.importFiles('user-1', { fileIds: ['file-1'] })).resolves.toEqual({
+    await expect(service.importFiles('user-1', 'ws-open', { fileIds: ['file-1'] })).resolves.toEqual({
       ok: true,
       results: [{ fileId: 'file-1', status: 'ok' }],
     });
     expect(filesDownload).toHaveBeenCalledWith({ path: 'file-1' });
     expect(statementsService.create).toHaveBeenCalledTimes(1);
     expect(statementsService.create).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'user-1', workspaceId: 'ws-1' }),
-      'ws-1',
+      expect.objectContaining({ id: 'user-1' }),
+      'ws-open',
       expect.objectContaining({
         originalname: 'statement.pdf',
         mimetype: 'application/pdf',
       }),
-      undefined,
       undefined,
       undefined,
       false,

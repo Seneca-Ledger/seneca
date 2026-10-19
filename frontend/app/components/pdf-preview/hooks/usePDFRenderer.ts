@@ -1,4 +1,5 @@
 import { type ComponentType, useEffect, useState } from 'react';
+import { configureBundledPdfWorker } from '../pdf-worker';
 
 type ReactPdfModule = {
   Document: ComponentType<Record<string, unknown>>;
@@ -12,7 +13,7 @@ const isJsdomEnvironment = typeof navigator !== 'undefined' && /jsdom/i.test(nav
 
 async function loadReactPdf(): Promise<ReactPdfModule> {
   const module = (await import('react-pdf')) as ReactPdfModule;
-  module.pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${module.pdfjs.version}/build/pdf.worker.min.mjs`;
+  configureBundledPdfWorker(module.pdfjs);
   return module;
 }
 

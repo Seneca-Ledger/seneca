@@ -1,8 +1,8 @@
 'use client';
 
-import { useLocale } from '@/app/i18n';
 import { getHTMLTextDir } from 'intlayer';
 import { useEffect } from 'react';
+import { useLocale } from '@/app/i18n';
 
 export function useHTMLLanguage(): void {
   const { locale } = useLocale();

@@ -1,13 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import StatementsListView from '../components/StatementsListView';
-import StatementsSidePanel from '../components/StatementsSidePanel';
-
-export default function StatementsApprovePage() {
-  return (
-    <>
-      <StatementsSidePanel activeItem="approve" />
-      <StatementsListView stage="approve" />
-    </>
-  );
+// Everything waiting for a decision lives in Review now; old links land there.
+export default function StatementsReviewRedirect(): never {
+  redirect('/review');
 }

@@ -15,7 +15,7 @@ paths:
 - **Trace Context**: Use OpenTelemetry or similar standards to trace complex operations across distributed components.
 
 ## 3. Health Monitoring
-- **Health Checks**: Implement `/health` and `/ready` endpoints for container orchestration (Kubernetes/Railway).
+- **Health Checks**: Implement `/health` and `/ready` endpoints for container orchestration (Docker health checks, Kubernetes).
 - **Proactive Alerts**: Set up alerts for high error rates (5xx > 1%), high p99 latency, and database connection failures.
 
 ## 4. Metrics

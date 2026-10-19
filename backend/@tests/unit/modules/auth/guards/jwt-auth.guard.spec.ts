@@ -79,7 +79,7 @@ describe('JwtAuthGuard', () => {
       });
       const context = createMockExecutionContext({
         headers: {
-          'x-api-key': 'lumio_test_key',
+          'x-api-key': 'seneca_test_key',
         },
       });
       jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
@@ -98,7 +98,7 @@ describe('JwtAuthGuard', () => {
       });
       const context = createMockExecutionContext({
         headers: {
-          'x-api-key': 'lumio_test_key',
+          'x-api-key': 'seneca_test_key',
           'x-workspace-id': 'workspace-other',
         },
       });
@@ -107,6 +107,22 @@ describe('JwtAuthGuard', () => {
       await expect(guard.canActivate(context)).rejects.toThrow(
         'API key is not valid for the requested workspace',
       );
+    });
+
+    it('refuses the API key of a deactivated user, as it refuses their session', async () => {
+      apiKeysService.validate.mockResolvedValue({
+        workspaceId: 'workspace-key',
+        user: { id: 'user-1', isActive: false },
+      });
+      const context = createMockExecutionContext({
+        headers: {
+          'x-api-key': 'seneca_test_key',
+        },
+      });
+      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+
+      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+      expect((context.switchToHttp().getRequest() as any).apiKey).toBeUndefined();
     });
 
     it('should throw UnauthorizedException for invalid token', async () => {

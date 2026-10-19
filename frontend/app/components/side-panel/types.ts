@@ -1,5 +1,5 @@
-import type { LucideIcon } from '@/app/components/icons';
 import type { CSSProperties, ReactNode } from 'react';
+import type { LucideIcon } from '@/app/components/icons';
 
 // ============================================================================
 // Core Configuration Types

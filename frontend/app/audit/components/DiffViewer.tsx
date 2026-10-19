@@ -1,21 +1,13 @@
 'use client';
 
-import { getRecord } from '@/app/lib/side-panel-utils';
-import type { AuditEventDiff } from '@/lib/api/audit';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import React from 'react';
+import { useIntlayer } from '@/app/i18n';
+import { getRecord } from '@/app/lib/side-panel-utils';
+import type { AuditEventDiff } from '@/lib/api/audit';
 
 const TECHNICAL_FIELDS = new Set(['id', 'createdAt', 'updatedAt', 'workspaceId', 'userId']);
-
-const FIELD_LABELS: Record<string, string> = {
-  backgroundImage: 'Background image',
-  color: 'Color',
-  name: 'Name',
-  description: 'Description',
-  title: 'Title',
-  position: 'Position',
-};
 
 const formatScalarValue = (value: string | number | boolean): string => String(value);
 
@@ -93,6 +85,15 @@ function DiffObjectView({
   after: Record<string, unknown>;
   keys: string[];
 }): React.JSX.Element {
+  const t = useIntlayer('auditUi');
+  const fieldLabels: Record<string, string> = {
+    backgroundImage: t.fieldLabels.backgroundImage.value,
+    color: t.fieldLabels.color.value,
+    name: t.fieldLabels.name.value,
+    description: t.fieldLabels.description.value,
+    title: t.fieldLabels.title.value,
+    position: t.fieldLabels.position.value,
+  };
   return (
     <Box sx={{ overflow: 'hidden', border: '1px solid var(--border-color)' }}>
       <Box
@@ -106,16 +107,16 @@ function DiffObjectView({
           color: 'var(--muted-foreground)',
         }}
       >
-        <Box sx={{ px: 1.5, py: 1 }}>Field</Box>
-        <Box sx={{ px: 1.5, py: 1 }}>Before</Box>
-        <Box sx={{ px: 1.5, py: 1 }}>After</Box>
+        <Box sx={{ px: 1.5, py: 1 }}>{t.field}</Box>
+        <Box sx={{ px: 1.5, py: 1 }}>{t.before}</Box>
+        <Box sx={{ px: 1.5, py: 1 }}>{t.after}</Box>
       </Box>
       <Box>
         {keys.map(key => {
           const beforeValue = getRecord(before)?.[key];
           const afterValue = getRecord(after)?.[key];
-          const hadBefore = Object.prototype.hasOwnProperty.call(before, key);
-          const hadAfter = Object.prototype.hasOwnProperty.call(after, key);
+          const hadBefore = Object.hasOwn(before, key);
+          const hadAfter = Object.hasOwn(after, key);
           const changed = JSON.stringify(beforeValue) !== JSON.stringify(afterValue);
           const rowBg = getRowBackground(hadBefore, hadAfter, changed);
           return (
@@ -130,7 +131,7 @@ function DiffObjectView({
               }}
             >
               <Box sx={{ px: 1.5, py: 1, fontWeight: 500, color: 'var(--foreground)' }}>
-                {FIELD_LABELS[key] ?? key}
+                {fieldLabels[key] ?? key}
               </Box>
               <Box sx={{ px: 1.5, py: 1, color: 'var(--text-secondary)' }}>
                 <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, margin: 0 }}>
@@ -151,10 +152,11 @@ function DiffObjectView({
 }
 
 export function DiffViewer({ diff }: { diff: AuditEventDiff | null }): React.JSX.Element {
+  const t = useIntlayer('auditUi');
   if (!diff) {
     return (
       <Typography variant="body2" style={{ color: 'var(--muted-foreground)' }}>
-        No diff available.
+        {t.noDiff}
       </Typography>
     );
   }
@@ -172,7 +174,7 @@ export function DiffViewer({ diff }: { diff: AuditEventDiff | null }): React.JSX
   if (keys.length === 0) {
     return (
       <Typography variant="body2" style={{ color: 'var(--muted-foreground)' }}>
-        No user-facing changes available.
+        {t.noChanges}
       </Typography>
     );
   }

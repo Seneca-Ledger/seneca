@@ -1,0 +1,2 @@
+# The API schemas live in packages/contracts; each app commits a generated copy.
+node scripts/sync-contracts.mjs --check

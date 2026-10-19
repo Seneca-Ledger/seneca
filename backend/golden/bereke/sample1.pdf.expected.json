@@ -1,0 +1,56 @@
+{
+  "metadata": {
+    "accountNumber": "KZ20673413836KZ039LY",
+    "dateFrom": "2025-11-27T00:00:00",
+    "dateTo": "2025-11-27T00:00:00",
+    "balanceStart": 687323.23,
+    "balanceEnd": 201418.11,
+    "currency": "KZT"
+  },
+  "transactions": [
+    {
+      "transactionDate": "2025-11-27T09:22:00",
+      "documentNumber": "082908469",
+      "counterpartyName": "ИП Ахметова",
+      "counterpartyBin": "309646647742",
+      "counterpartyAccount": "KZ38722S703968707255",
+      "counterpartyBank": "АО \"KASPI BANK\", Г Алматы CASPKZKA",
+      "debit": 385120,
+      "paymentPurpose": "оплата согласно счета №6686 от 26.11.2025 Платежи за товары, за исключением недвижимости и товаров с кодами назначения платежа 711, 712 и 713",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-27T09:24:00",
+      "documentNumber": "7343263",
+      "counterpartyName": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области",
+      "counterpartyBin": "320556340955",
+      "counterpartyAccount": "KZ61089522442KZ0028P",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 385.12,
+      "paymentPurpose": "Внешний перевод в национальной валюте по платежному документу, отправленному через систему ДБО для корпоративных клиентов, поступившему до 12:30 (времени в г. Астана), № 082908469 от 27/11/2025, ИП Ирма, БИН 191776200743, ИИК- KZ20673413836KZ039LY",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-27T16:22:00",
+      "documentNumber": "1541",
+      "counterpartyName": "АО \"KASPI BANK\"",
+      "counterpartyBin": "765176558245",
+      "counterpartyAccount": "KZ24722S733398047545",
+      "counterpartyBank": "АО \"KASPI BANK\", Г Алматы CASPKZKA",
+      "debit": 100000,
+      "paymentPurpose": "Для зачисления на картсчета сотрудникам согласно спи скам 100 000-00 тенге. Перечисление юридическим лицом в банк заработной платы, оплаты трудового отпуска для последующего зачисления на банковские счета работников данного юридического лица",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-27T16:24:00",
+      "documentNumber": "7343683",
+      "counterpartyName": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области",
+      "counterpartyBin": "320556340955",
+      "counterpartyAccount": "KZ61089522442KZ0028P",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 400,
+      "paymentPurpose": "Внешний перевод в национальной валюте по платежному документу, отправленному через систему ДБО для корпоративных клиентов, поступившему после 12:30 (времени в г. Астана) или сумма платежа составляет 5 млн. тенге и выше, № 1541 от 27/11/2025, ИП Ирма, БИН 191776200743, ИИК- KZ20673413836KZ039LY",
+      "currency": "KZT"
+    }
+  ]
+}

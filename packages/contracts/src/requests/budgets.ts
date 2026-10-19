@@ -1,0 +1,35 @@
+import * as Schema from 'effect/Schema';
+import { IsoDateString, optionalNullable } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+export const CreateBudgetBody = Schema.Struct({
+  name: Schema.String,
+  categoryId: Schema.String.check(Schema.isUUID()),
+  limitAmount: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
+  periodType: Schema.Literals(['weekly', 'monthly', 'quarterly', 'annual']),
+  currency: optionalNullable(Schema.String),
+  /** What the unspent part of a period does; omitted means "none". */
+  rolloverMode: optionalNullable(Schema.Literals(['none', 'carry', 'refill'])),
+  /** The goal this budget serves. Omitted or null leaves it unattached. */
+  goalId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /**
+   * The window the budget applies in, `YYYY-MM-DD`. Both omitted — the norm —
+   * means it runs forever, which is how budgets behaved before these existed.
+   */
+  startsOn: optionalNullable(IsoDateString),
+  endsOn: optionalNullable(IsoDateString),
+});
+export type CreateBudgetBody = Wire<typeof CreateBudgetBody>;
+
+export const UpdateBudgetBody = Schema.Struct({
+  name: optionalNullable(Schema.String),
+  limitAmount: optionalNullable(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
+  currency: optionalNullable(Schema.String),
+  rolloverMode: optionalNullable(Schema.Literals(['none', 'carry', 'refill'])),
+  /** Explicit null detaches the budget from its goal; omitting it changes nothing. */
+  goalId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** Explicit null makes the budget open-ended again; omitting it changes nothing. */
+  startsOn: optionalNullable(IsoDateString),
+  endsOn: optionalNullable(IsoDateString),
+});
+export type UpdateBudgetBody = Wire<typeof UpdateBudgetBody>;

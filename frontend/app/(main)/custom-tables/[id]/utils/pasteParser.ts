@@ -138,6 +138,13 @@ export const parseDateCell = (raw: string): ParsedCell<string> => {
   }
   const parts = parseDateFromIso(trimmed) ?? parseDateFromDmy(trimmed);
   if (!parts) {
+    // «1500», «12%», «$80» — числа, а не даты: new Date('1500') охотно даёт 1500 год.
+    // Свободный разбор оставляем текстам вроде «15 Sep 2026» или «2026/9/15 10:00».
+    const looksLikeDate =
+      /[A-Za-zА-Яа-я]/.test(trimmed) || (trimmed.match(/[./-]/g)?.length ?? 0) >= 2;
+    if (!looksLikeDate) {
+      return { value: null, error: true };
+    }
     const fallback = new Date(trimmed);
     if (Number.isNaN(fallback.getTime())) {
       return { value: null, error: true };
@@ -182,20 +189,95 @@ const normalizeStripped = (stripped: string): string => {
   return stripped.replace(/[.,]/g, '');
 };
 
+export type ParsedNumberDetails = ParsedCell<number> & {
+  /** Код валюты, если он стоял рядом с числом: «$1,234», «1 500 KZT», «200 руб.». */
+  currency: string | null;
+  /** «12%» — число 12 с пометкой; колонка сама решит, показывать ли его как процент. */
+  percent: boolean;
+  /** Сколько знаков после запятой было в исходнике. */
+  decimals: number;
+};
+
+const NUMBER_FAILURE: ParsedNumberDetails = {
+  value: null,
+  error: true,
+  currency: null,
+  percent: false,
+  decimals: 0,
+};
+
+const stripNumberNoise = (raw: string): string =>
+  raw
+    .replace(/[\s\u00A0\u202F]/g, '')
+    .replace(/[\u2212\u2012\u2013]/g, '-')
+    .replace(/[\u2019']/g, '');
+
+const currencyFromAffix = (affix: string): string | null => {
+  const cleaned = affix.replace(/[.,:]/g, '').trim();
+  return cleaned ? resolveCurrencyCode(cleaned) : null;
+};
+
+/**
+ * Разбирает число так, как его пишут в таблицах: с пробелами тысяч, знаком
+ * валюты с любой стороны, процентом, скобками и хвостовым минусом для отрицательных.
+ */
+export const parseNumberCellDetailed = (raw: string): ParsedNumberDetails => {
+  let text = stripNumberNoise(raw);
+  if (!text) {
+    return { value: null, error: false, currency: null, percent: false, decimals: 0 };
+  }
+  let negative = false;
+  if (text.startsWith('(') && text.endsWith(')')) {
+    negative = true;
+    text = text.slice(1, -1);
+  }
+  const percent = text.includes('%');
+  text = text.replace(/%/g, '');
+  if (text.endsWith('-')) {
+    negative = true;
+    text = text.slice(0, -1);
+  }
+  // «-$100»: знак перед символом валюты, а не перед цифрами.
+  if (text.startsWith('-') || text.startsWith('+')) {
+    negative = negative || text.startsWith('-');
+    text = text.slice(1);
+  }
+  const parts = text.match(/^([^\d]*?)([-+]?[\d.,]+)([^\d]*)$/u);
+  if (!parts) {
+    return NUMBER_FAILURE;
+  }
+  const [, prefix, body, suffix] = parts;
+  const affix = prefix || suffix;
+  let currency: string | null = null;
+  if (affix) {
+    currency = currencyFromAffix(affix);
+    if (!currency) {
+      return NUMBER_FAILURE;
+    }
+  }
+  const sign = body.startsWith('-') ? -1 : 1;
+  const digits = body.replace(/^[-+]/, '');
+  const normalized = normalizeStripped(digits);
+  if (!/^\d+(\.\d+)?$/.test(normalized)) {
+    return NUMBER_FAILURE;
+  }
+  const magnitude = Number(normalized);
+  if (!Number.isFinite(magnitude)) {
+    return NUMBER_FAILURE;
+  }
+  const decimals = normalized.includes('.') ? normalized.length - normalized.indexOf('.') - 1 : 0;
+  return {
+    value: (negative ? -1 : 1) * sign * magnitude,
+    error: false,
+    currency,
+    percent,
+    decimals,
+  };
+};
+
 export const parseNumberCell = (raw: string): ParsedCell<number> => {
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return { value: null, error: false };
-  }
-  const normalized = normalizeStripped(trimmed.replace(/\s/g, ''));
-  if (!/^[-+]?\d+(\.\d+)?$/.test(normalized)) {
-    return { value: null, error: true };
-  }
-  const value = Number(normalized);
-  if (!Number.isFinite(value)) {
-    return { value: null, error: true };
-  }
-  return { value, error: false };
+  const { value, error } = parseNumberCellDetailed(raw);
+  return { value, error };
 };
 
 // ---------------------------------------------------------------------------
@@ -287,7 +369,21 @@ export const parseCurrencyCell = (raw: string, options?: string[]): ParsedCell<s
 // Paid cell parsing
 // ---------------------------------------------------------------------------
 
-const PAID_POSITIVE = ['true', '1', 'yes', 'y', 't', 'да', 'оплачено', 'paid'];
+const PAID_POSITIVE = [
+  'true',
+  '1',
+  'yes',
+  'y',
+  't',
+  'да',
+  'оплачено',
+  'paid',
+  '✓',
+  '✔',
+  '☑',
+  'x',
+  '+',
+];
 const PAID_NEGATIVE = [
   'false',
   '0',
@@ -299,6 +395,11 @@ const PAID_NEGATIVE = [
   'не оплачено',
   'не оплачен',
   'unpaid',
+  '✗',
+  '✘',
+  '☐',
+  '-',
+  '—',
 ];
 
 export const parsePaidCell = (raw: string): ParsedCell<boolean> => {

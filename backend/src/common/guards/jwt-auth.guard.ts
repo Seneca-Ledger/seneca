@@ -46,19 +46,31 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     rawKey: string,
     request: AuthenticatedRequest,
   ): Promise<boolean> {
-    if (!this.apiKeysService) {
+    let apiKeysService = this.apiKeysService;
+    if (!apiKeysService) {
       const { ApiKeysService } = await import('../../modules/api-keys/api-keys.service');
-      this.apiKeysService = this.moduleRef.get(ApiKeysService, { strict: false });
+      apiKeysService = this.moduleRef.get<ApiKeysService>(ApiKeysService, { strict: false });
+      this.apiKeysService = apiKeysService;
     }
 
-    const apiKey = await this.apiKeysService.validate(rawKey);
+    const apiKey = await apiKeysService.validate(rawKey);
 
     if (!apiKey) {
       throw new UnauthorizedException('Invalid or revoked API key');
     }
+    // A deactivated account loses its keys too, as it loses its sessions (JwtStrategy).
+    if (apiKey.user?.isActive === false) {
+      throw new UnauthorizedException('User is inactive');
+    }
 
     request.user = apiKey.user as AuthenticatedUser;
     request.apiKeyWorkspaceId = apiKey.workspaceId;
+    request.apiKey = {
+      id: apiKey.id,
+      name: apiKey.name,
+      prefix: apiKey.prefix,
+      scopes: apiKey.scopes ?? null,
+    };
 
     const requestedWorkspaceId = request.headers['x-workspace-id'];
     if (requestedWorkspaceId && String(requestedWorkspaceId) !== apiKey.workspaceId) {

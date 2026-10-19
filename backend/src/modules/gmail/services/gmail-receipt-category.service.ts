@@ -6,7 +6,11 @@ import { ReceiptCategoryService } from '../../receipts/services/receipt-category
 export class GmailReceiptCategoryService {
   constructor(private readonly receiptCategoryService: ReceiptCategoryService) {}
 
-  suggestCategory(receipt: Receipt) {
-    return this.receiptCategoryService.suggestCategory(receipt, 'via-statement');
+  async suggestCategory(receipt: Receipt) {
+    return (await this.receiptCategoryService.suggest(receipt))?.category ?? null;
+  }
+
+  categorize(receipt: Receipt) {
+    return this.receiptCategoryService.categorize(receipt);
   }
 }

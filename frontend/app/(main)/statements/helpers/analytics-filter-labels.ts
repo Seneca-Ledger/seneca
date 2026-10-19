@@ -19,6 +19,7 @@ export function buildAnalyticsFilterLabels(tx: TxFn): Record<string, string> {
     typeChat: tx(['filters', 'typeChat'], 'Chat'),
     typeTrip: tx(['filters', 'typeTrip'], 'Trip'),
     typeTask: tx(['filters', 'typeTask'], 'Task'),
+    typeImage: tx(['filters', 'typeImage'], 'Image'),
     statusUnreported: tx(['filters', 'statusUnreported'], 'Unreported'),
     statusDraft: tx(['filters', 'statusDraft'], 'Draft'),
     statusOutstanding: tx(['filters', 'statusOutstanding'], 'Outstanding'),
@@ -84,7 +85,7 @@ export function buildAnalyticsFilterOptions(
     { value: 'pdf', label: 'PDF' },
     { value: 'xlsx', label: 'Excel' },
     { value: 'csv', label: 'CSV' },
-    { value: 'image', label: 'Image' },
+    { value: 'image', label: labels.typeImage },
   ];
 
   const statusOptions = [
@@ -128,4 +129,4 @@ export function buildAnalyticsFilterOptions(
   return { typeOptions, statusOptions, datePresets, dateModes, groupByOptions, hasOptions };
 }
 
-export const filterLinkClassName = 'lumio-view-page__filter-link';
+export const filterLinkClassName = 'seneca-view-page__filter-link';

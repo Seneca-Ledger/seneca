@@ -8,7 +8,18 @@ type UseAutoSaveOptions<T> = {
   isEqual?: (a: T, b: T) => boolean;
 };
 
-const defaultIsEqual = <T>(a: T, b: T) => JSON.stringify(a) === JSON.stringify(b);
+// Shallow comparison for the common flat-form case; JSON.stringify on every
+// render was measurable on the statement editor. Nested values fall back to
+// reference equality, callers with deep shapes pass their own `isEqual`.
+const defaultIsEqual = <T>(a: T, b: T): boolean => {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every(key => Object.is(left[key], right[key]));
+};
 
 export function useAutoSave<T>({
   data,
@@ -33,7 +44,7 @@ export function useAutoSave<T>({
       return;
     }
 
-    if (!wasEnabledRef.current || !initializedRef.current) {
+    if (!(wasEnabledRef.current && initializedRef.current)) {
       lastSavedRef.current = data;
       initializedRef.current = true;
       wasEnabledRef.current = true;

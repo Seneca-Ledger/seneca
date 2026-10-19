@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStatementRequestParams,
   deriveVisibleFilterScreens,
+  filterByApproved,
+  isDocumentApproved,
   isReceiptDerivedStatement,
   paginateStatements,
   reconcileFiltersWithColumns,
+  resolvePendingReview,
   resolveStatementViewAction,
 } from './StatementsListView.utils';
 import { DEFAULT_STATEMENT_FILTERS } from './filters/statement-filters';
@@ -195,7 +198,6 @@ describe('StatementsListView utils', () => {
   it('derives visible filter screens from currently visible columns', () => {
     const result = deriveVisibleFilterScreens([
       { id: 'receipt', visible: true },
-      { id: 'date', visible: true },
       { id: 'amount', visible: true },
       { id: 'approved', visible: false },
     ]);
@@ -216,7 +218,6 @@ describe('StatementsListView utils', () => {
     const result = reconcileFiltersWithColumns({
       columns: [
         { id: 'receipt', label: 'Receipt', visible: true, order: 0 },
-        { id: 'date', label: 'Date', visible: true, order: 1 },
         { id: 'amount', label: 'Amount', visible: false, order: 2 },
         { id: 'approved', label: 'Approved', visible: false, order: 3 },
       ],
@@ -254,6 +255,67 @@ describe('StatementsListView utils', () => {
     expect(result.nextDraftFilters).toEqual({
       ...DEFAULT_STATEMENT_FILTERS,
       keywords: 'keep',
+    });
+  });
+
+  describe('resolvePendingReview', () => {
+    const counts = { 'statement-1': 3 };
+
+    it("counts a statement's rows still waiting in Review", () => {
+      expect(resolvePendingReview({ id: 'statement-1', status: 'completed' }, false, counts)).toBe(3);
+      expect(resolvePendingReview({ id: 'statement-2', status: 'completed' }, false, counts)).toBe(0);
+    });
+
+    it('counts a receipt as one until it is approved, rejected or failed', () => {
+      for (const status of ['new', 'parsed', 'needs_review', 'draft', 'reviewed']) {
+        expect(resolvePendingReview({ id: 'r', status }, true, counts)).toBe(1);
+      }
+      for (const status of ['approved', 'rejected', 'failed']) {
+        expect(resolvePendingReview({ id: 'r', status }, true, counts)).toBe(0);
+      }
+    });
+  });
+
+  describe('isDocumentApproved', () => {
+    it('reads a receipt by its own status, not by a parse status', () => {
+      expect(isDocumentApproved('approved', true, 0)).toBe(true);
+      for (const status of ['draft', 'new', 'parsed', 'needs_review', 'rejected', 'completed']) {
+        expect(isDocumentApproved(status, true, 0)).toBe(false);
+      }
+    });
+
+    it('counts a parsed statement as approved only once Review holds none of its rows', () => {
+      expect(isDocumentApproved('completed', false, 0)).toBe(true);
+      expect(isDocumentApproved('COMPLETED', false, 0)).toBe(true);
+      expect(isDocumentApproved('completed', false, 2)).toBe(false);
+      expect(isDocumentApproved('uploaded', false, 0)).toBe(false);
+      expect(isDocumentApproved('error', false, 0)).toBe(false);
+    });
+  });
+
+  describe('filterByApproved', () => {
+    const documents = [
+      { id: 'receipt-approved', status: 'approved', source: 'scan' },
+      { id: 'receipt-draft', status: 'draft', source: 'scan' },
+      { id: 'gmail-approved', status: 'approved', source: 'gmail' },
+      { id: 'statement-done', status: 'completed', source: 'statement' },
+      { id: 'statement-waiting', status: 'completed', source: 'statement' },
+      { id: 'statement-uploading', status: 'uploaded', source: 'statement' },
+    ];
+    const reviewCounts = { 'statement-waiting': 2 };
+    const ids = (approved: boolean | null) =>
+      filterByApproved(documents, approved, reviewCounts).map(document => document.id);
+
+    it('keeps approved receipts and statements Review is done with', () => {
+      expect(ids(true)).toEqual(['receipt-approved', 'gmail-approved', 'statement-done']);
+    });
+
+    it('keeps drafts, statements with rows in Review and unparsed files as not approved', () => {
+      expect(ids(false)).toEqual(['receipt-draft', 'statement-waiting', 'statement-uploading']);
+    });
+
+    it('leaves the list alone without the filter', () => {
+      expect(ids(null)).toHaveLength(documents.length);
     });
   });
 });

@@ -4,7 +4,6 @@ name: Changelog
   push:
     branches:
       - main
-      - staging
 
 concurrency:
   group: changelog-${{ github.ref }}

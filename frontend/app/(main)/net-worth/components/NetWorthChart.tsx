@@ -1,57 +1,40 @@
 'use client';
 
-import { tokens } from '@/lib/theme-tokens';
-import { useTheme } from 'next-themes';
-import dynamic from 'next/dynamic';
-import { useMemo } from 'react';
+import { ChartRangeFooter } from '@/app/components/charts/ChartParts';
+import { formatDayLabel } from '@/app/components/charts/chart-format';
+import { LazyNetWorthArea } from '@/app/components/charts/lazy-charts';
+import { useLocale } from '@/app/i18n';
 import type { NetWorthPoint } from '../hooks/useNetWorth';
-
-const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
 interface NetWorthChartProps {
   points: NetWorthPoint[];
   /** Colours the line: growth reads as success, decline as danger. */
   positive: boolean;
+  formatValue: (value: number) => string;
+  /** Labels for three value lines; left out on small charts, which go without a scale. */
+  formatTick?: (value: number) => string;
 }
 
-export function NetWorthChart({ points, positive }: NetWorthChartProps) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
-  const color = isDark ? tokens.dark.color : tokens.color;
+export function NetWorthChart({ points, positive, formatValue, formatTick }: NetWorthChartProps) {
+  const { locale } = useLocale();
 
-  const option = useMemo(() => {
-    const lineColor = positive ? color.success : color.danger;
-
-    return {
-      backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis' },
-      grid: { top: 16, left: 8, right: 16, bottom: 8, containLabel: true },
-      xAxis: {
-        type: 'category',
-        data: points.map(point => point.date),
-        boundaryGap: false,
-        axisLabel: { fontSize: 10, color: color.textSecondary },
-        axisLine: { lineStyle: { color: color.border } },
-      },
-      yAxis: {
-        type: 'value',
-        scale: true,
-        axisLabel: { fontSize: 10, color: color.textSecondary },
-        splitLine: { lineStyle: { color: color.border } },
-      },
-      series: [
-        {
-          type: 'line',
-          smooth: true,
-          showSymbol: false,
-          data: points.map(point => point.value),
-          lineStyle: { color: lineColor, width: 2 },
-          itemStyle: { color: lineColor },
-          areaStyle: { color: lineColor, opacity: isDark ? 0.18 : 0.1 },
-        },
-      ],
-    };
-  }, [points, positive, color, isDark]);
-
-  return <ReactECharts option={option} style={{ height: 280, width: '100%' }} notMerge />;
+  return (
+    <>
+      <div className="seneca-chart__box">
+        <LazyNetWorthArea
+          points={points}
+          positive={positive}
+          locale={locale}
+          formatValue={formatValue}
+          formatTick={formatTick}
+        />
+      </div>
+      {points.length > 1 && (
+        <ChartRangeFooter
+          start={formatDayLabel(points[0].date, locale)}
+          end={formatDayLabel(points[points.length - 1].date, locale)}
+        />
+      )}
+    </>
+  );
 }

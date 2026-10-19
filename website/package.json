@@ -1,5 +1,5 @@
 {
-  "name": "lumio-docs",
+  "name": "seneca-docs",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -42,5 +42,16 @@
   },
   "engines": {
     "node": ">=18.0"
+  },
+  "overrides": {
+    "webpack-bundle-analyzer": {
+      "ws": "^7.5.11"
+    },
+    "copy-webpack-plugin": {
+      "serialize-javascript": "^7.0.5"
+    },
+    "css-minimizer-webpack-plugin": {
+      "serialize-javascript": "^7.0.5"
+    }
   }
 }

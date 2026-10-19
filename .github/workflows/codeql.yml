@@ -5,12 +5,10 @@ name: CodeQL
     branches:
       - main
       - develop
-      - staging
   pull_request:
     branches:
       - main
       - develop
-      - staging
   schedule:
     - cron: "0 3 * * 0"
 

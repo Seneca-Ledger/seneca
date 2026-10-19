@@ -1,11 +1,12 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+import { monthDeepLinkFilters } from '@/app/(main)/statements/components/filters/month-deep-link';
 import {
   DEFAULT_STATEMENT_FILTERS,
-  type StatementFilters,
   resetSingleStatementFilter,
+  type StatementFilters,
 } from '@/app/(main)/statements/components/filters/statement-filters';
-import { useEffect, useMemo, useState } from 'react';
 
 const loadFilters = (storageKey: string): StatementFilters => {
   if (typeof window === 'undefined') {
@@ -54,7 +55,16 @@ export type UseStatementFiltersReturn = {
   resetAllFilters: () => void;
 };
 
-export const useStatementFilters = (storageKey: string): UseStatementFiltersReturn => {
+/**
+ * `deepLinkMonth` is the `?month=YYYY-MM` an advice or notification link
+ * carries. It wins over the stored filters for that visit: the stored ones are
+ * the user's own last view and would hide the very rows the link is about.
+ * Nothing is written back, so the next plain visit is theirs again.
+ */
+export const useStatementFilters = (
+  storageKey: string,
+  deepLinkMonth?: string | null,
+): UseStatementFiltersReturn => {
   const [draftFilters, setDraftFilters] = useState<StatementFilters>(DEFAULT_STATEMENT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<StatementFilters>(DEFAULT_STATEMENT_FILTERS);
   const [filtersDrawerScreen, setFiltersDrawerScreen] = useState('root');
@@ -65,10 +75,10 @@ export const useStatementFilters = (storageKey: string): UseStatementFiltersRetu
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
   useEffect(() => {
-    const stored = loadFilters(storageKey);
-    setDraftFilters(stored);
-    setAppliedFilters(stored);
-  }, [storageKey]);
+    const next = monthDeepLinkFilters(deepLinkMonth) ?? loadFilters(storageKey);
+    setDraftFilters(next);
+    setAppliedFilters(next);
+  }, [storageKey, deepLinkMonth]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;

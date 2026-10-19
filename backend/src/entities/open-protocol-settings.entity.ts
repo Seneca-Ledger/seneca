@@ -22,7 +22,7 @@ export class OpenProtocolSettings {
   @JoinColumn({ name: 'integration_id' })
   integration: Integration;
 
-  @Column({ name: 'integration_id' })
+  @Column({ name: 'integration_id', type: 'uuid' })
   integrationId: string;
 
   @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })

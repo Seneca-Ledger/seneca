@@ -21,14 +21,14 @@ export class ApiKey {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @Column({ type: 'varchar', length: 255 })
@@ -48,6 +48,10 @@ export class ApiKey {
 
   @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true, default: null })
   revokedAt: Date | null;
+
+  /** Permission strings the key is limited to; null = the owner's full reach (keys made before scopes). */
+  @Column({ type: 'jsonb', nullable: true, default: null })
+  scopes: string[] | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -1,10 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { AlertCircle, FileText } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
 import { apiBaseUrl } from '@/app/lib/api';
+import { hasSessionCookie } from '@/app/lib/csrf';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
-import { useEffect, useState } from 'react';
 
 interface PdfThumbnailProps {
   fileId: string;
@@ -17,6 +18,10 @@ interface PdfThumbnailProps {
   className?: string;
   errorMessage?: string;
   preservePageAspect?: boolean;
+  /** Desaturates the preview and drops the frame's shadow, for small inline
+   * thumbnails (e.g. a list row) where a full-colour, framed crop would
+   * outweigh the row's own content. */
+  muted?: boolean;
 }
 
 const DEFAULT_THUMBNAIL_WIDTH = 200;
@@ -83,7 +88,7 @@ async function fetchThumbnail(params: FetchThumbnailParams): Promise<void> {
 
   try {
     const headers = getWorkspaceHeaders();
-    if (!headers.Authorization) {
+    if (!hasSessionCookie()) {
       setError(true);
       setLoading(false);
       return;
@@ -178,8 +183,7 @@ function useThumbnailFetch(
     return (): void => {
       mounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileId, source, requestedWidth]);
+  }, [fileId, source, requestedWidth, setThumbnailDataUrl, setError, setLoading]);
 }
 
 interface PdfErrorViewProps {
@@ -251,6 +255,7 @@ export function PDFThumbnail(props: PdfThumbnailProps): React.ReactElement {
     className = '',
     errorMessage,
     preservePageAspect = false,
+    muted = false,
   } = props;
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -284,7 +289,7 @@ export function PDFThumbnail(props: PdfThumbnailProps): React.ReactElement {
       data-testid="pdf-thumbnail-frame"
       style={{
         position: 'relative',
-        boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+        boxShadow: muted ? undefined : '0 1px 2px 0 rgba(0,0,0,0.05)',
         borderRadius: 0,
         overflow: 'hidden',
         width: frameWidth,
@@ -315,6 +320,7 @@ export function PDFThumbnail(props: PdfThumbnailProps): React.ReactElement {
             objectFit: 'contain',
             imageRendering: 'auto',
             transition: 'opacity 0.2s',
+            filter: muted ? 'grayscale(0.55) opacity(0.85)' : undefined,
           }}
         />
       )}

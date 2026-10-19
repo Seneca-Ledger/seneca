@@ -1,56 +1,63 @@
 import type { DashboardData } from '@/app/hooks/useDashboard';
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { type render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { budgetItem, categoryRef } from '@/app/test/fixtures/contracts';
+import { renderWithQuery } from '@/app/test/query-wrapper';
 import '../test-setup';
 import { OverviewTab } from '../OverviewTab';
 
-// Mirrors react-intlayer's renderIntlayerNode: a Proxy over a rendered
-// Fragment whose `.value` is intercepted to return the plain string, so the
-// mock is usable both as a JSX child and via `.value` string access.
-const value = (v: string) =>
-  // biome-ignore lint/complexity/noUselessFragments: Proxy needs an object target — a bare string can't be proxied
-  new Proxy(<>{v}</>, {
-    get(target, prop, receiver) {
-      if (prop === 'value') return v;
-      return Reflect.get(target, prop, receiver);
-    },
-  });
+const apiGet = vi.hoisted(() => vi.fn());
 
-vi.mock('@/app/i18n', () => ({
-  useIntlayer: () => ({
-    emptyTitle: value('Upload your first statement'),
-    emptyDescription: value(
-      "Start tracking your finances by uploading a bank statement. We'll parse it automatically and show your cash flow, categories, and insights.",
-    ),
-    emptyCta: value('Parse statement'),
-    periodBanner: value('Showing latest available period: {period}'),
-    cashFlowTitle: value('Cash flow'),
-    cashFlowSubtitle: value('Income vs. expenses · {range}'),
-    cashFlowEmpty: value('No cash flow data yet'),
-    income: value('Income'),
-    expense: value('Expense'),
-    spentLabel: value('Spent'),
-    netLabel: value('Net'),
-    savingsRateLabel: value('Savings rate'),
-    topCategoriesTitle: value('Top categories'),
-    viewAll: value('View all'),
-    quickActionsTitle: value('Quick actions'),
-    noActionsNeeded: value('No actions needed'),
-    itemsToReview: value('{count} items to review'),
-    parsingIssuesFound: value('Parsing issues found'),
-    uploadDropTitle: value('Drop a statement here'),
-    uploadDropSub: value('PDF, CSV, XLSX up to 10 MB'),
-    noCategoryData: value('No category data'),
-    uncategorized: value('Uncategorized'),
-    other: value('Other'),
-    title: value('Recent transactions'),
-    empty: value('No transactions this period'),
-  }),
-  useLocale: () => ({ locale: 'en' }),
+// `apiBaseUrl` is read at module load by the goal cover thumbnail.
+vi.mock('@/app/lib/api', () => ({ default: { get: apiGet }, apiBaseUrl: 'http://api.test/api/v1' }));
+
+vi.mock('@/app/contexts/WorkspaceContext', () => ({
+  useWorkspace: () => ({ currentWorkspace: { id: 'workspace-1' }, loading: false }),
 }));
 
-const emptyDashboardData: DashboardData = {
+vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }));
+
+// The spend calendar has its own test; here it only needs an authenticated user.
+vi.mock('@/app/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' } }) }));
+
+vi.mock('next/dynamic', () => ({
+  default: () => () => <div data-testid="mock-echarts" />,
+}));
+
+vi.mock('next/link', () => ({
+  default: ({ href, children, ...props }: { href: string; children?: React.ReactNode }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}));
+
+vi.mock('@/app/i18n', async () => {
+  const { autoDictionary, value } = await import('./intlayer-mock');
+  return {
+    useIntlayer: () =>
+      autoDictionary({
+        emptyTitle: value('Upload your first statement'),
+        emptyCta: value('Parse statement'),
+        income: value('Income'),
+        spentLabel: value('Spent'),
+        netLabel: value('Net'),
+        savingsRateLabel: value('Savings rate'),
+        monthInProgress: value('Month in progress'),
+        topCategoriesTitle: value('Spending by category'),
+        viewAll: value('View all'),
+        title: value('Recent transactions'),
+        empty: value('No transactions this period'),
+        noCategoryData: value('No category data'),
+        emptyDescription: value('Nothing here yet'),
+      }),
+    useLocale: () => ({ locale: 'en' }),
+  };
+});
+
+const baseData: DashboardData = {
   snapshot: {
     totalBalance: 0,
     income30d: 0,
@@ -60,6 +67,7 @@ const emptyDashboardData: DashboardData = {
     totalOverdue: 0,
     unapprovedCash: 0,
     currency: 'KZT',
+    missingRates: [],
   },
   actions: [],
   cashFlow: [],
@@ -67,7 +75,7 @@ const emptyDashboardData: DashboardData = {
   topCategories: [],
   recentTransactions: [],
   role: 'owner',
-  range: '30d',
+  range: 'month',
   dataHealth: {
     uncategorizedTransactions: 0,
     statementsWithErrors: 0,
@@ -75,194 +83,230 @@ const emptyDashboardData: DashboardData = {
     statementsPendingSubmit: 0,
     receiptsPendingReview: 0,
     unapprovedCash: 0,
-    lastUploadDate: null,
-    parsingWarnings: 0,
+    lastUploadDate: '2026-02-01T00:00:00.000Z',
+    parsingWarnings: 2,
   },
 };
 
-describe('OverviewTab', () => {
-  it('renders formatted snapshot amounts without duplicating currency code', () => {
-    render(
-      <OverviewTab
-        data={{
-          ...emptyDashboardData,
-          snapshot: {
-            ...emptyDashboardData.snapshot,
-            totalBalance: 1025215,
-          },
-        }}
-        formatAmount={() => 'KZT 1,025,215'}
-        range="30d"
-        isLoading={false}
-        displayMonth={new Date('2026-03-15')}
-        changeMonth={() => {}}
-      />,
-    );
+function renderTab(
+  data: DashboardData,
+  formatAmount: (value: number) => string = value => String(value),
+  displayMonth: Date = new Date(2026, 1, 15),
+): ReturnType<typeof render> {
+  return renderWithQuery(
+    <OverviewTab
+      data={data}
+      formatAmount={formatAmount}
+      isLoading={false}
+      displayMonth={displayMonth}
+    />,
+  );
+}
 
-    expect(document.body.textContent).toContain('KZT 1,025,215');
-    expect(document.body.textContent).not.toContain('KZT KZT 1,025,215');
+describe('OverviewTab', () => {
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiGet.mockImplementation((url: string) =>
+      Promise.resolve({ data: { data: url === '/budgets' ? [] : null } }),
+    );
   });
 
-  it('links parse statement CTA to statements with scan drawer', () => {
-    render(
-      <OverviewTab
-        data={emptyDashboardData}
-        formatAmount={value => String(value)}
-        range="30d"
-        isLoading={false}
-        displayMonth={new Date('2026-03-15')}
-        changeMonth={() => {}}
-      />,
-    );
+  it('shows the onboarding CTA only for a workspace that never uploaded anything', () => {
+    renderTab({ ...baseData, dataHealth: { ...baseData.dataHealth, lastUploadDate: null } });
 
     const parseLink = screen.getByRole('link', { name: /parse statement/i });
-
-    expect(parseLink).toBeTruthy();
-    expect(parseLink?.getAttribute('href')).toBe('/statements?openExpenseDrawer=scan');
+    expect(parseLink.getAttribute('href')).toBe('/statements?openExpenseDrawer=scan');
+    expect(screen.queryByText('Income')).not.toBeInTheDocument();
   });
 
-  it('shows the effective period banner when backend auto-shifts the window', () => {
-    render(
-      <OverviewTab
-        data={{
-          ...emptyDashboardData,
-          effectiveSince: '2025-05-01',
-          effectiveEndDate: '2025-05-31',
-          snapshot: {
-            ...emptyDashboardData.snapshot,
-            totalBalance: 100,
-          },
-        }}
-        formatAmount={value => String(value)}
-        range="30d"
-        isLoading={false}
-        displayMonth={new Date('2026-03-15')}
-        changeMonth={() => {}}
-        effectivePeriod="2025-05-01 - 2025-05-31"
-      />,
-    );
+  it('renders the four KPI cards with formatted amounts for a month without transactions', () => {
+    renderTab(baseData, () => 'KZT 1,025,215');
+
+    for (const label of ['Income', 'Spent', 'Net', 'Savings rate']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(document.body.textContent).toContain('KZT 1,025,215');
+    expect(document.body.textContent).not.toContain('KZT KZT 1,025,215');
+    expect(screen.queryByRole('link', { name: /parse statement/i })).not.toBeInTheDocument();
+    expect(screen.getByText('No category data')).toBeInTheDocument();
+    expect(screen.getByText('No transactions this period')).toBeInTheDocument();
+  });
+
+  it('marks net and savings rate by sign with a dot, keeping the figure ink', () => {
+    renderTab({
+      ...baseData,
+      snapshot: { ...baseData.snapshot, income30d: 1000, expense30d: 1500 },
+    });
 
     expect(
-      screen.getByText('Showing latest available period: 2025-05-01 - 2025-05-31'),
-    ).toBeInTheDocument();
+      screen.getByText('−500').closest('.seneca-dashboard__stat')?.querySelector(
+        '.seneca-dashboard__stat-dot--negative',
+      ),
+    ).not.toBeNull();
+    expect(
+      screen.getByText('-50%').closest('.seneca-dashboard__stat')?.querySelector(
+        '.seneca-dashboard__stat-dot--negative',
+      ),
+    ).not.toBeNull();
   });
 
-  it('does not render the spending categories section', () => {
-    render(
-      <OverviewTab
-        data={{
-          ...emptyDashboardData,
-          snapshot: {
-            ...emptyDashboardData.snapshot,
-            totalBalance: 100,
-          },
-          topCategories: [
-            {
-              id: 'cat-1',
-              name: 'Office',
-              color: '#3b82f6',
-              icon: null,
-              amount: 100,
-              percent: 100,
-              count: 1,
-            },
-          ],
-        }}
-        formatAmount={value => String(value)}
-        range="30d"
-        isLoading={false}
-        displayMonth={new Date('2026-03-15')}
-        changeMonth={() => {}}
-      />,
-    );
+  it('leaves zero figures neutral', () => {
+    renderTab({
+      ...baseData,
+      snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
+    });
 
-    expect(screen.queryByText('SPENDING CATEGORIES')).not.toBeInTheDocument();
+    expect(document.querySelector('.seneca-dashboard__stat-dot')).toBeNull();
   });
 
-  it('uses the updated cash flow panel background color', () => {
-    render(
-      <OverviewTab
-        data={{
-          ...emptyDashboardData,
-          snapshot: {
-            ...emptyDashboardData.snapshot,
-            totalBalance: 100,
-          },
-        }}
-        formatAmount={value => String(value)}
-        range="30d"
-        isLoading={false}
-        displayMonth={new Date('2026-03-15')}
-        changeMonth={() => {}}
-      />,
-    );
+  it('shows a 0% savings rate when there is no income', () => {
+    renderTab({
+      ...baseData,
+      snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
+    });
 
-    const root = document.documentElement;
-    root.classList.add('dark');
-
-    const cashFlowTitle = screen.getByText('CASH FLOW (30D)');
-    const cashFlowCard = cashFlowTitle.closest('[class*="dark:bg-card"]');
-
-    expect(cashFlowCard?.className).toContain('dark:bg-card');
-    expect(cashFlowCard?.className).toContain('dark:border-border');
-    expect(cashFlowCard?.className).not.toContain('bg-white/40');
-    expect(cashFlowCard?.className).not.toContain('border-white/60');
-
-    root.classList.remove('dark');
+    expect(screen.getByText('0%').className).toBe('seneca-dashboard__stat-value');
   });
 
-  it('renders enlarged lower analytics panels like trends layout', () => {
-    render(
-      <OverviewTab
-        data={{
-          ...emptyDashboardData,
-          snapshot: {
-            ...emptyDashboardData.snapshot,
-            totalBalance: 100,
-          },
-        }}
-        formatAmount={value => String(value)}
-        range="30d"
-        isLoading={false}
-        displayMonth={new Date('2026-03-15')}
-        changeMonth={() => {}}
-      />,
+  it('says under the savings rate that the current month is not over yet', () => {
+    const now = new Date();
+    renderTab(
+      { ...baseData, snapshot: { ...baseData.snapshot, income30d: 1941, expense30d: 18 } },
+      undefined,
+      new Date(now.getFullYear(), now.getMonth(), 1),
     );
 
-    const actionRequiredTitle = screen.getByText('ACTION REQUIRED');
-    const actionRequiredPanel = actionRequiredTitle.closest('div[class*="bg-"]');
-    const cashFlowTitle = screen.getByText('CASH FLOW (30D)');
-    const cashFlowPanel = cashFlowTitle.closest('div[class*="bg-"]');
-    const analyticsGrid = actionRequiredPanel?.parentElement;
+    const note = screen.getByText('Month in progress');
+    expect(note.className).toBe('seneca-dashboard__stat-note');
+    expect(note.closest('.seneca-dashboard__stat')?.textContent).toContain('Savings rate');
+  });
 
-    expect(analyticsGrid?.className).toContain('lg:grid-cols-12');
-    expect(actionRequiredPanel?.className).toContain('lg:col-span-4');
-    expect(actionRequiredPanel?.className).toContain('min-h-[320px]');
-    expect(cashFlowPanel?.className).toContain('lg:col-span-8');
-    expect(cashFlowPanel?.className).toContain('min-h-[320px]');
+  it('leaves a past month without the in-progress note', () => {
+    renderTab(baseData);
+
+    expect(screen.queryByText('Month in progress')).not.toBeInTheDocument();
+  });
+
+  it('no longer hosts cash flow, quick actions or the upload zone', () => {
+    renderTab(baseData);
+
+    expect(document.body.textContent).not.toMatch(/cash flow/i);
+    expect(document.body.textContent).not.toMatch(/quick actions|parsingIssuesFound/i);
+    expect(screen.queryByRole('link', { name: /openExpenseDrawer/ })).not.toBeInTheDocument();
   });
 
   it('deep-links the recent-transactions "view all" link to the selected month, not today', () => {
-    render(
-      <OverviewTab
-        data={{
-          ...emptyDashboardData,
-          snapshot: { ...emptyDashboardData.snapshot, totalBalance: 100 },
-        }}
-        formatAmount={value => String(value)}
-        range="month"
-        isLoading={false}
-        displayMonth={new Date('2026-02-15')}
-        changeMonth={() => {}}
-      />,
-    );
+    renderTab(baseData);
 
     const links = screen.getAllByRole('link', { name: /view all/i });
     const recentTransactionsLink = links.find(link =>
-      link.getAttribute('href')?.startsWith('/statements/transactions'),
+      link.getAttribute('href')?.startsWith('/statements/submit'),
     );
-    expect(recentTransactionsLink?.getAttribute('href')).toBe(
-      '/statements/transactions?startDate=2026-02-01&endDate=2026-02-28',
-    );
+    expect(recentTransactionsLink?.getAttribute('href')).toBe('/statements/submit?month=2026-02');
+  });
+
+  it('renders budget and cash runway cards below the main row once their fetches resolve', async () => {
+    apiGet.mockImplementation((url: string) => {
+      if (url === '/budgets') {
+        return Promise.resolve({
+          data: {
+            data: [
+              budgetItem({
+                id: 'b1',
+                name: 'Marketing',
+                category: categoryRef({ id: 'c1', name: 'Marketing' }),
+                spentAmount: 90,
+                percentUsed: 90,
+                currency: 'KZT',
+              }),
+            ],
+          },
+        });
+      }
+      if (url === '/dashboard/commitments') {
+        return Promise.resolve({
+          data: {
+            data: {
+              currency: 'KZT',
+              horizonDays: 60,
+              openingBalance: 1000,
+              totalCommitted: 200,
+              unscheduledCommitted: 0,
+              days: [{ date: '2026-03-01', outflow: 200, balance: 800 }],
+              items: [
+                {
+                  date: '2026-03-01',
+                  label: 'Office rent',
+                  amount: 200,
+                  source: 'payable',
+                  sourceId: 'p1',
+                  isOverdue: false,
+                },
+              ],
+              lowestBalance: 800,
+              lowestBalanceDate: '2026-03-01',
+              shortfallDate: null,
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: null });
+    });
+
+    renderTab(baseData);
+
+    await waitFor(() => {
+      expect(screen.getByText('Marketing')).toBeInTheDocument();
+      expect(screen.getByText('Office rent')).toBeInTheDocument();
+    });
+    // The figure stays neutral; a budget in its last tenth marks its bar instead.
+    expect(screen.getByText('90%').className).toBe('seneca-dashboard__budget-pct');
+    expect(
+      screen.getByText('90%').closest('.seneca-dashboard__budget-row')?.querySelector('[data-tone]')
+        ?.getAttribute('data-tone'),
+    ).toBe('near');
+  });
+});
+
+describe('OverviewTab getting started checklist', () => {
+  const progress = {
+    hasUpload: false,
+    hasCustomCategories: false,
+    hasBudget: false,
+    hasGoal: false,
+    telegramAvailable: false,
+    hasTelegram: false,
+  };
+
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiGet.mockImplementation((url: string) => {
+      if (url === '/dashboard/setup-progress') {
+        return Promise.resolve({ data: progress });
+      }
+      if (url === '/view-preferences/onboarding') {
+        return Promise.resolve({ data: { state: null } });
+      }
+      return Promise.resolve({ data: { data: url === '/budgets' ? [] : null } });
+    });
+  });
+
+  it('sits above the empty state of a workspace that never uploaded anything', async () => {
+    renderTab({ ...baseData, dataHealth: { ...baseData.dataHealth, lastUploadDate: null } });
+
+    expect(await screen.findByText('exploreOnMyOwn')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /parse statement/i })).toBeInTheDocument();
+  });
+
+  it('is not shown to a viewer', async () => {
+    renderTab({
+      ...baseData,
+      role: 'viewer',
+      dataHealth: { ...baseData.dataHealth, lastUploadDate: null },
+    });
+
+    await waitFor(() => expect(apiGet).toHaveBeenCalled());
+    expect(apiGet).not.toHaveBeenCalledWith('/dashboard/setup-progress', expect.anything());
+    expect(screen.queryByText('exploreOnMyOwn')).not.toBeInTheDocument();
   });
 });

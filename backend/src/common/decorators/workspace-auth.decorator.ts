@@ -1,4 +1,4 @@
-import { UseGuards, applyDecorators } from '@nestjs/common';
+import { applyDecorators, UseGuards } from '@nestjs/common';
 import type { Permission } from '../enums/permissions.enum';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { PermissionsGuard } from '../guards/permissions.guard';

@@ -1,15 +1,17 @@
 'use client';
-import { formatStoredDateTime } from '@/app/lib/user-format-store';
-
+import { Alert, Box, Button, Card, CardContent, Container, Stack, Typography } from '@mui/material';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { hasSessionCookie } from '@/app/lib/csrf';
+import { checkContract, reportContractDrift } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
-import { Alert, Box, Button, Card, CardContent, Container, Stack, Typography } from '@mui/material';
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { forgetStoredUser } from '@/app/lib/theme-preference';
+import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
 type InvitationStatus = 'pending' | 'accepted' | 'cancelled' | 'expired';
 
@@ -56,8 +58,11 @@ export default function AcceptInvitePage() {
 
     apiClient
       .get(`/workspaces/invitations/${token}`)
-      .then(response => {
-        setInvitation(response.data);
+      .then(response =>
+        checkContract('InvitationPreview', response.data, '/workspaces/invitations/:token'),
+      )
+      .then(preview => {
+        setInvitation(preview);
       })
       .catch((err: unknown) => {
         setInvitationError(getApiErrorMessage(err, t.errors.loadFailed.value));
@@ -68,19 +73,17 @@ export default function AcceptInvitePage() {
   }, [token, t.errors.loadFailed.value]);
 
   useEffect(() => {
-    const accessToken = localStorage.getItem('access_token');
-    if (!accessToken) return;
+    if (!hasSessionCookie()) return;
 
     setAuthLoading(true);
     apiClient
       .get('/auth/me')
-      .then(response => {
-        setUser(response.data);
+      .then(response => reportContractDrift('CurrentUser', response.data, '/auth/me'))
+      .then(currentUser => {
+        setUser(currentUser);
       })
       .catch(() => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
+        forgetStoredUser();
         setUser(null);
       })
       .finally(() => {
@@ -88,10 +91,12 @@ export default function AcceptInvitePage() {
       });
   }, []);
 
+  const userEmail = user?.email;
+  const invitationEmail = invitation?.email;
   const isEmailMatch = useMemo(() => {
-    if (!user?.email || !invitation?.email) return false;
-    return user.email.trim().toLowerCase() === invitation.email.trim().toLowerCase();
-  }, [invitation?.email, user?.email]);
+    if (!(userEmail && invitationEmail)) return false;
+    return userEmail.trim().toLowerCase() === invitationEmail.trim().toLowerCase();
+  }, [invitationEmail, userEmail]);
 
   const loginHref = useMemo(() => {
     const safeNext = safeInternalPath(nextPath);
@@ -100,7 +105,7 @@ export default function AcceptInvitePage() {
 
   const registerHref = useMemo(() => {
     const safeNext = safeInternalPath(nextPath);
-    if (!safeNext || !token) return '/register';
+    if (!(safeNext && token)) return '/register';
     return `/register?next=${encodeURIComponent(safeNext)}&invite=${encodeURIComponent(token)}`;
   }, [nextPath, token]);
 
@@ -111,15 +116,19 @@ export default function AcceptInvitePage() {
     setAcceptError(null);
     setAcceptSuccess(null);
 
-    try {
+    await (async () => {
       const response = await apiClient.post(`/workspaces/invitations/${token}/accept`);
 
-      const message = response.data?.message || t.messages.acceptedFallback.value;
-      const workspaceId = response.data?.workspaceId || null;
+      const { workspaceId } = await checkContract(
+        'InvitationAccepted',
+        response.data,
+        '/workspaces/invitations/:token/accept',
+      );
 
-      setAcceptSuccess(message);
+      // The server's sentence is English only.
+      setAcceptSuccess(t.messages.acceptedFallback.value);
 
-      try {
+      await (async () => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
           const parsed = JSON.parse(storedUser) as Record<string, unknown>;
@@ -127,22 +136,25 @@ export default function AcceptInvitePage() {
         } else if (user) {
           localStorage.setItem('user', JSON.stringify({ ...user, workspaceId }));
         }
-      } catch {
+      })().catch(async () => {
         // ignore localStorage update issues
-      }
+      });
 
       window.location.href = '/settings/workspace';
-    } catch (err) {
-      setAcceptError(getApiErrorMessage(err, t.errors.acceptFailed.value));
-    } finally {
-      setAccepting(false);
-    }
+    })()
+      .catch(async err => {
+        setAcceptError(getApiErrorMessage(err, t.errors.acceptFailed.value));
+      })
+      .finally(async () => {
+        setAccepting(false);
+      });
   };
 
-  const handleLoginAsAnother = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+  const handleLoginAsAnother = async () => {
+    // Session cookies are httpOnly — only the server can drop them, so a local
+    // cleanup is no longer enough to switch accounts.
+    await apiClient.post('/auth/logout').catch(() => undefined);
+    forgetStoredUser();
     router.push(loginHref);
   };
 
@@ -220,7 +232,7 @@ export default function AcceptInvitePage() {
                   <Alert severity="warning" sx={{ flex: 1 }}>
                     {t.messages.wrongAccount.value} <b>{invitation.email}</b>
                   </Alert>
-                  <Button variant="contained" onClick={handleLoginAsAnother}>
+                  <Button variant="contained" onClick={() => void handleLoginAsAnother()}>
                     {t.actions.loginAnother}
                   </Button>
                 </>

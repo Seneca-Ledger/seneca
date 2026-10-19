@@ -3,50 +3,89 @@ title: Makefile Commands
 description: Full reference of developer commands
 ---
 
-Lumio ships with a comprehensive Makefile for common workflows.
+Run `make help` for the same list in your terminal. Docker targets use `docker compose` (v2) and the
+`finflow-*` container names.
 
-## Core
+## Setup
 
-- `make start` - Start production-like Docker services
-- `make dev` - Start dev containers with hot reload
-- `make stop` - Stop all Docker services
-- `make restart` - Restart services
-- `make clean` - Remove containers, volumes, and build artifacts
+- `make setup` - Initial setup: create env files and generate secrets
+- `make install` - Install dependencies for local development
 
-## Quick start
+## Quick actions
 
-- `make quick-dev` - Zero-config dev startup + demo seed
-- `make quick-start` - Alias for `quick-dev`
+- `make quick-dev` - Zero-config startup: dev containers + demo user (`npm run setup:dev:docker`)
+- `make quick-start` - Legacy alias for `quick-dev`
+- `make reset` - Run `clean`, `setup`, and `start`
+- `make update` - Run `npm update` in backend and frontend
 
-## Development
+## Docker operations
 
-- `make backend-dev` - Run backend locally
-- `make frontend-dev` - Run frontend locally
-- `make db-start` - Start only Postgres + Redis
+- `make start` - Start all services in production mode; builds the images locally (`docker compose up -d --build`)
+- `make dev` - Start all services in development mode with hot reload
+- `make stop` - Stop all services
+- `make restart` - Restart all services
+- `make clean` - Stop services and remove volumes, including the dev `node_modules` volumes
+- `make clean-build-cache` - Remove unused Docker build cache
+
+To run the published images instead of building them, use `docker compose pull && docker compose up -d` and pin a
+release with `IMAGE_TAG`.
+
+## Logs
+
+- `make logs` - Logs from all services
+- `make logs-backend`, `make logs-frontend`, `make logs-db`, `make logs-redis` - Logs from one service
+
+## Development (local)
+
+- `make backend-dev` - Start the backend locally (`npm run start:dev`)
+- `make frontend-dev` - Start the frontend locally (`npm run dev`)
+- `make db-start` - Start only PostgreSQL and Redis (needs a root `.env`; run `make setup` first)
 
 ## Database
 
-- `make migrate` - Run migrations
-- `make migrate-generate name=X` - Generate migration
-- `make migrate-revert` - Revert last migration
-- `make db-shell` - Open psql shell
+These run inside the running `finflow-backend` container. The production backend image ships without npm, so use
+`migrate*` against the dev stack; in production, migrations run automatically on start.
 
-## Testing and quality
+- `make migrate` - Run database migrations
+- `make migrate-revert` - Revert the last migration
+- `make migrate-generate name=MigrationName` - Generate a new migration
+- `make db-shell` - Open a PostgreSQL shell
+- `make db-backup` - Dump the database to `backup_<timestamp>.sql`
+- `make db-restore file=backup.sql` - Restore a dump
 
-- `make lint` - Biome lint
-- `make format` - Biome format
-- `make type-check` - TypeScript checks
-- `make test` - All tests
-- `make test-e2e` - End-to-end tests
+## User management
 
-## Observability
+- `make admin email=admin@example.com password=admin123 name="Admin"` - Create an admin user
+- `make seed-demo` - Create the demo user (`demo@seneca.dev` / `demo123`)
 
-- `make observability` - Start Prometheus + Grafana
-- `make observability-stop` - Stop observability stack
+## Testing
 
-## Docs and Storybook
+- `make test` - Backend unit tests (Jest) and frontend tests (Vitest)
+- `make test-backend` - Backend unit tests
+- `make test-frontend` - Frontend tests
+- `make test-watch` - Backend tests in watch mode
+- `make test-cov` - Backend tests with coverage
+- `make test-e2e` - Backend end-to-end tests (need PostgreSQL and Redis)
 
-- `make docs` - Open Swagger docs
-- `make storybook` - Start Storybook
+## Code quality
+
+- `make lint` - Runs each app's `lint` script, which only checks (backend: Biome; frontend: Biome + ESLint).
+  To auto-fix, run `npm --prefix backend run lint:fix` and `npm --prefix frontend run lint:fix`.
+- `make lint-check` - Check linting without fixing
+- `make format` - Format code with Biome
+- `make type-check` - Backend build plus frontend `type-check`
+
+## Build
+
+- `make build` - Build backend and frontend for production
+- `make build-docker` - Build Docker images
+
+## Utilities
+
+- `make shell-backend`, `make shell-frontend`, `make shell-db` - Open a shell in a container
+- `make health` - Check the backend (`/api/v1/health`), frontend, PostgreSQL, and Redis
+- `make ps` - Show running containers
+- `make stats` - Show container resource usage
+- `make docs` - Open the Swagger docs at `http://localhost:3001/api/docs`
 
 For full details, inspect `Makefile` in the repository root.

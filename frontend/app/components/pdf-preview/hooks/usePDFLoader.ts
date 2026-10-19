@@ -1,5 +1,6 @@
-import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { useEffect, useState } from 'react';
+import { hasSessionCookie } from '@/app/lib/csrf';
+import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { getFileEndpoint } from '../helpers/pdf-endpoints';
 
 export type PDFLoaderState = {
@@ -23,7 +24,7 @@ async function loadPdfFile({
   fileLoadError,
 }: LoadParams): Promise<LoadResult> {
   const headers = getWorkspaceHeaders();
-  if (!headers.Authorization) throw new Error(authRequired);
+  if (!hasSessionCookie()) throw new Error(authRequired);
   const endpoint = getFileEndpoint(source as 'statement' | 'gmail' | 'receipt', fileId);
   const res = await fetch(endpoint, { method: 'GET', headers, credentials: 'include' });
   if (!res.ok) throw new Error(`${fileLoadError}: ${res.status}`);

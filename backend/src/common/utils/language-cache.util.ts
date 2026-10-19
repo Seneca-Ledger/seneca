@@ -138,7 +138,7 @@ export class LanguageCacheService {
     }
 
     // Handle file paths - extract directory or bank name
-    const parts = source.split(/[\/\\]/);
+    const parts = source.split(/[/\\]/);
 
     // Look for bank name in path
     const bankKeywords = ['bank', 'kaspi', 'bereke', 'halyk', 'alfa', 'vtb', 'tinkoff'];

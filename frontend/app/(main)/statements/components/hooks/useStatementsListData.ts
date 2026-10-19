@@ -1,34 +1,27 @@
-import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
-import { hasProcessingStatements } from '@/app/lib/statement-status';
-import {
-  type GmailSyncSkeletonMeta,
-  STATEMENTS_GMAIL_SYNC_EVENT,
-  STATEMENTS_GMAIL_SYNC_STORAGE_KEY,
-} from '@/app/lib/statement-upload-actions';
+'use client';
+
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { buildStatementRequestParams } from '../StatementsListView.utils';
 import type { StatementFilters } from '../filters/statement-filters';
-import { type GmailReceipt, hasGmailReceiptAmount } from '../gmail-receipt-mapping';
+import type { GmailReceipt } from '../gmail-receipt-mapping';
+import { useAutoOpenParsedStatement } from './useAutoOpenParsedStatement';
+import { useGmailReceiptsQuery } from './useGmailReceiptsQuery';
+import { useGmailSyncSkeletons } from './useGmailSyncSkeletons';
+import { type StatementRecord, useStatementsQuery } from './useStatementsQuery';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+export type { StatementRecord } from './useStatementsQuery';
 
-/** Minimal shape required by the data-loading hook. */
-interface StatementRecord {
-  id: string;
-  fileName: string;
-  status: string;
-}
+// Stable fallbacks: `data ?? []` would mint a new array on every render while a
+// query has no data, re-running every memo and effect keyed on the list.
+const NO_STATEMENTS: never[] = [];
+const NO_GMAIL_RECEIPTS: GmailReceipt[] = [];
 
 interface UseStatementsListDataParams {
   appliedFilters: StatementFilters;
   categoryId?: string | null;
   receiptStatus?: string | null;
   search: string;
-  stage: string;
   user: unknown;
   page: number;
   pageSize: number;
@@ -39,251 +32,89 @@ interface UseStatementsListDataParams {
   refreshFailedLabel: string;
 }
 
-export interface UseStatementsListDataResult<T extends StatementRecord = StatementRecord> {
-  statements: T[];
-  setStatements: React.Dispatch<React.SetStateAction<T[]>>;
+export interface UseStatementsListDataResult {
+  statements: StatementRecord[];
   gmailReceipts: GmailReceipt[];
-  loading: boolean;
-  gmailLoading: boolean;
+  isPending: boolean;
+  isFetching: boolean;
+  gmailIsPending: boolean;
   gmailSyncSkeletonKeys: string[];
   setGmailSyncSkeletonKeys: React.Dispatch<React.SetStateAction<string[]>>;
-  loadStatements: (opts?: {
-    silent?: boolean;
-    notifyOnCompletion?: boolean;
-    search?: string;
-    showErrorToast?: boolean;
-  }) => Promise<boolean>;
-  loadGmailReceipts: (opts?: { silent?: boolean; showErrorToast?: boolean }) => Promise<void>;
+  refetchStatements: () => void;
+  refetchGmailReceipts: () => void;
   refreshActiveStatements: () => Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
-
-export function useStatementsListData<T extends StatementRecord = StatementRecord>({
+export function useStatementsListData({
   appliedFilters,
   categoryId,
   receiptStatus,
   search,
-  stage,
   user,
   page,
   pageSize,
   router,
   loadListErrorLabel,
   refreshFailedLabel,
-}: UseStatementsListDataParams): UseStatementsListDataResult<T> {
-  const [statements, setStatements] = useState<T[]>([]);
-  const [gmailReceipts, setGmailReceipts] = useState<GmailReceipt[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [gmailLoading, setGmailLoading] = useState(false);
-  const [gmailSyncSkeletonKeys, setGmailSyncSkeletonKeys] = useState<string[]>([]);
+}: UseStatementsListDataParams): UseStatementsListDataResult {
+  const statementsQuery = useStatementsQuery({
+    appliedFilters,
+    categoryId,
+    search,
+    enabled: Boolean(user),
+  });
 
-  const statementsRef = useRef<T[]>([]);
-  const lastAutoOpenedIdRef = useRef<string | null>(null);
+  const gmailQuery = useGmailReceiptsQuery({
+    categoryId,
+    receiptStatus,
+    page,
+    pageSize,
+    enabled: Boolean(user),
+  });
 
-  const shouldPollStatements = useMemo(
-    () =>
-      hasProcessingStatements(
-        statements as unknown as Parameters<typeof hasProcessingStatements>[0],
-      ),
-    [statements],
-  );
+  const { gmailSyncSkeletonKeys, setGmailSyncSkeletonKeys } = useGmailSyncSkeletons({
+    pageSize,
+  });
 
-  // Keep ref in sync for external callers that need non-stale access
+  const statements: StatementRecord[] = statementsQuery.data ?? NO_STATEMENTS;
+
+  useAutoOpenParsedStatement({ statements, enabled: Boolean(user), router });
+
+  // Тост об ошибке загрузки: раньше его печатал каждый вызов загрузчика,
+  // теперь — одна реакция на состояние запроса.
+  const statementsIsError = statementsQuery.isError;
+  const gmailIsError = gmailQuery.isError;
   useEffect(() => {
-    statementsRef.current = statements;
-  }, [statements]);
-
-  const buildGmailSyncSkeletonKeys = (count: number) =>
-    Array.from({ length: count }, (_, index) => `gmail-sync-${Date.now()}-${index}`);
-
-  const loadStatements = async (opts?: {
-    silent?: boolean;
-    notifyOnCompletion?: boolean;
-    search?: string;
-    showErrorToast?: boolean;
-  }): Promise<boolean> => {
-    const { silent, notifyOnCompletion, search: searchOverride, showErrorToast } = opts || {};
-    if (!silent) {
-      setLoading(true);
+    if (statementsIsError || gmailIsError) {
+      toast.error(loadListErrorLabel);
     }
+  }, [statementsIsError, gmailIsError, loadListErrorLabel]);
 
-    let didLoad = true;
-    try {
-      const response = await apiClient.get('/statements', {
-        params: buildStatementRequestParams({ appliedFilters, categoryId, search: searchOverride }),
-      });
+  const refetchStatements = useCallback((): void => {
+    void statementsQuery.refetch();
+  }, [statementsQuery.refetch]);
 
-      const rawData = response.data?.data || response.data || [];
-      const statementsWithFileType = rawData.map((stmt: StatementRecord) => ({
-        ...stmt,
-        fileType: stmt.fileName?.toLowerCase().includes('pdf') ? 'pdf' : 'file',
-      })) as T[];
-      setStatements(statementsWithFileType);
+  const refetchGmailReceipts = useCallback((): void => {
+    void gmailQuery.refetch();
+  }, [gmailQuery.refetch]);
 
-      if (notifyOnCompletion && Array.isArray(statementsWithFileType)) {
-        const firstFinished = statementsWithFileType.find(s => s.status === 'parsed');
-        if (firstFinished && lastAutoOpenedIdRef.current !== firstFinished.id) {
-          lastAutoOpenedIdRef.current = firstFinished.id;
-          router.push(`/statements/${firstFinished.id}/edit`);
-        }
-      }
-    } catch (error) {
-      didLoad = false;
-      console.error('Failed to load statements:', error);
-      if (showErrorToast !== false) {
-        toast.error(loadListErrorLabel);
-      }
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-
-    return didLoad;
-  };
-
-  const loadGmailReceipts = async (opts?: {
-    silent?: boolean;
-    showErrorToast?: boolean;
-  }): Promise<void> => {
-    const { silent, showErrorToast } = opts || {};
-    if (!silent) {
-      setGmailLoading(true);
-    }
-
-    try {
-      const response = await gmailReceiptsApi.listReceipts({
-        limit: pageSize,
-        offset: Math.max(0, (page - 1) * pageSize),
-        includeInvalid: false,
-        ...(categoryId ? { categoryId } : {}),
-        ...(receiptStatus ? { status: receiptStatus } : {}),
-      });
-      const receipts = Array.isArray(response.data?.receipts) ? response.data.receipts : [];
-      // When a specific status is requested (e.g. needs_review), show all matching receipts
-      // regardless of whether an amount was parsed. Otherwise filter to amount-present only.
-      const filtered = receiptStatus ? receipts : receipts.filter(hasGmailReceiptAmount);
-      setGmailReceipts(filtered);
-    } catch (error) {
-      console.error('Failed to load Gmail receipts:', error);
-      if (showErrorToast !== false) {
-        toast.error(loadListErrorLabel);
-      }
-    } finally {
-      if (!silent) {
-        setGmailLoading(false);
-      }
-    }
-  };
-
-  const refreshActiveStatements = async (): Promise<void> => {
-    const didLoad = await loadStatements({ silent: true, search, showErrorToast: false });
-
-    if (stage === 'submit') {
-      await loadGmailReceipts({ silent: true, showErrorToast: false });
-    }
-
-    if (!didLoad) {
+  const refreshActiveStatements = useCallback(async (): Promise<void> => {
+    const results = await Promise.all([statementsQuery.refetch(), gmailQuery.refetch()]);
+    if (results[0]?.isError) {
       toast.error(refreshFailedLabel);
     }
-  };
-
-  // Initial load when user/search/filters/stage change
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-    void loadStatements({ search });
-    if (stage === 'submit') {
-      void loadGmailReceipts({ silent: true, showErrorToast: false });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, search, appliedFilters, categoryId, receiptStatus, stage]);
-
-  // Read gmail sync skeleton count from sessionStorage on mount/stage change
-  useEffect(() => {
-    if (typeof window === 'undefined' || stage !== 'submit') {
-      return;
-    }
-    const raw = sessionStorage.getItem(STATEMENTS_GMAIL_SYNC_STORAGE_KEY);
-    if (!raw) {
-      return;
-    }
-    try {
-      const parsed = JSON.parse(raw) as GmailSyncSkeletonMeta | null;
-      if (parsed && parsed.count > 0) {
-        setGmailSyncSkeletonKeys(buildGmailSyncSkeletonKeys(Math.min(parsed.count, pageSize)));
-      }
-    } catch {
-      sessionStorage.removeItem(STATEMENTS_GMAIL_SYNC_STORAGE_KEY);
-    }
-  }, [stage]);
-
-  // Listen for live gmail sync events to show skeleton placeholders
-  useEffect(() => {
-    if (typeof window === 'undefined' || stage !== 'submit') {
-      return;
-    }
-
-    const handleGmailSyncEvent = (event: Event) => {
-      const detail = (event as CustomEvent<GmailSyncSkeletonMeta>).detail;
-      if (!detail || detail.count <= 0) {
-        return;
-      }
-      setGmailSyncSkeletonKeys(buildGmailSyncSkeletonKeys(Math.min(detail.count, pageSize)));
-    };
-
-    window.addEventListener(STATEMENTS_GMAIL_SYNC_EVENT, handleGmailSyncEvent);
-    return () => {
-      window.removeEventListener(STATEMENTS_GMAIL_SYNC_EVENT, handleGmailSyncEvent);
-    };
-  }, [stage]);
-
-  // Poll statements when any are processing
-  useEffect(() => {
-    if (!(user && shouldPollStatements)) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      void loadStatements({ silent: true, search, showErrorToast: false }).catch(err => {
-        console.error('Failed to poll statements:', err);
-      });
-    }, 4000);
-
-    return () => window.clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, shouldPollStatements, search, appliedFilters, categoryId]);
-
-  // Poll gmail receipts when on submit stage
-  useEffect(() => {
-    if (!user || stage !== 'submit') {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      void loadGmailReceipts({ silent: true, showErrorToast: false }).catch(err => {
-        console.error('Failed to poll Gmail receipts:', err);
-      });
-    }, 6000);
-
-    return () => window.clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, stage, categoryId]);
+  }, [statementsQuery.refetch, gmailQuery.refetch, refreshFailedLabel]);
 
   return {
     statements,
-    setStatements,
-    gmailReceipts,
-    loading,
-    gmailLoading,
+    gmailReceipts: gmailQuery.data ?? NO_GMAIL_RECEIPTS,
+    isPending: statementsQuery.isPending,
+    isFetching: statementsQuery.isFetching,
+    gmailIsPending: gmailQuery.isPending,
     gmailSyncSkeletonKeys,
     setGmailSyncSkeletonKeys,
-    loadStatements,
-    loadGmailReceipts,
+    refetchStatements,
+    refetchGmailReceipts,
     refreshActiveStatements,
   };
 }

@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.focus-audit
 
 # next.js
 /.next/
@@ -42,3 +43,6 @@ next-env.d.ts
 
 # Intlayer
 .intlayer
+
+# Storybook build output
+storybook-static/

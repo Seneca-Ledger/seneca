@@ -14,11 +14,14 @@ export type WorkspaceProcessingSettings = {
   categorizationThreshold: number;
   /** What to do with a row that looks like an existing transaction. */
   duplicateResolution: DuplicateResolution;
+  /** Remember manual corrections and reuse them on later imports. */
+  merchantLearning: boolean;
 };
 
 export const DEFAULT_PROCESSING_SETTINGS: WorkspaceProcessingSettings = {
   categorizationThreshold: 0.7,
   duplicateResolution: 'skip',
+  merchantLearning: true,
 };
 
 const PROCESSING_KEY = 'processing';
@@ -31,6 +34,9 @@ const clampThreshold = (value: unknown, fallback: number): number => {
   // A threshold outside 0..1 would either categorise everything or nothing.
   return Math.min(1, Math.max(0, parsed));
 };
+
+const readFlag = (value: unknown, fallback: boolean): boolean =>
+  typeof value === 'boolean' ? value : fallback;
 
 /** Reads the settings off a workspace, falling back to today's behaviour. */
 export const readProcessingSettings = (
@@ -52,6 +58,10 @@ export const readProcessingSettings = (
     duplicateResolution: duplicateResolutions.includes(resolution as DuplicateResolution)
       ? (resolution as DuplicateResolution)
       : DEFAULT_PROCESSING_SETTINGS.duplicateResolution,
+    merchantLearning: readFlag(
+      stored.merchantLearning,
+      DEFAULT_PROCESSING_SETTINGS.merchantLearning,
+    ),
   };
 };
 

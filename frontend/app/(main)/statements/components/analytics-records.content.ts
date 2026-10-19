@@ -1,0 +1,46 @@
+import { type Dictionary, t } from 'intlayer';
+
+const content = {
+  key: 'statementsAnalyticsRecords',
+  content: {
+    userFallback: t({
+      ru: 'Пользователь',
+      en: 'User',
+      kk: 'Пайдаланушы',
+      de: 'Benutzer',
+      fr: 'Utilisateur',
+      es: 'Usuario',
+      pt: 'Usuário',
+      tr: 'Kullanıcı',
+      uk: 'Користувач',
+      zh: '用户',
+      pl: 'Użytkownik',
+      it: 'Utente',
+      sk: 'Používateľ',
+      ja: 'ユーザー',
+      ko: '사용자',
+      hi: 'उपयोगकर्ता',
+      nl: 'Gebruiker',
+      sv: 'Användare',
+      vi: 'Người dùng',
+      id: 'Pengguna',
+      da: 'Bruger',
+      nb: 'Bruker',
+      nn: 'Brukar',
+      fi: 'Käyttäjä',
+      is: 'Notandi',
+      fo: 'Brúkari',
+      cs: 'Uživatel',
+      bg: 'Потребител',
+      hr: 'Korisnik',
+      sr: 'Корисник',
+      sl: 'Uporabnik',
+      mk: 'Корисник',
+      be: 'Карыстальнік',
+      bs: 'Korisnik',
+      hsb: 'Wužiwar',
+    }),
+  },
+} satisfies Dictionary;
+
+export default content;

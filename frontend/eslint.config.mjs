@@ -6,12 +6,12 @@
 // exhaustive deps, no-delete, no-accumulating-spread.
 // ESLint handles: everything below that requires AST traversal + type info.
 
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
 import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
+import { dirname } from 'path';
 import tseslint from 'typescript-eslint';
+import { fileURLToPath } from 'url';
 
 const Dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -25,8 +25,15 @@ export default tseslint.config(
       'build/**',
       'coverage/**',
       '.intlayer/**',
+      'storybook-static/**',
       '**/*.config.{js,mjs,cjs,ts}',
       'next-env.d.ts',
+      // Node dev tooling (plain .mjs, outside the TS project); Biome still checks it.
+      'scripts/**',
+      // The service worker is plain browser JS outside the TS project; Biome still checks it.
+      'public/sw.js',
+      // Generated from packages/contracts by scripts/sync-contracts.mjs.
+      'app/lib/contracts/**',
     ],
   },
 
@@ -153,12 +160,29 @@ export default tseslint.config(
       // Components must not take more than 2 props inline — use a Props type.
       // (This counts function params, not object keys inside the props type.)
       'max-params': ['warn', { max: 1 }],
+
+      // MUI 7's Switch overwrites `inputProps` with its own `slotProps.input`
+      // ({ role: 'switch' }), so an aria-label passed there never reaches the input.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXOpeningElement[name.name='Switch'] > JSXAttribute[name.name='inputProps']",
+          message:
+            "MUI's Switch drops `inputProps`; pass input attributes through `slotProps={{ input: { ... } }}`.",
+        },
+      ],
     },
   },
 
   // ── Test files — relax structural rules ───────────────────────────────────
   {
-    files: ['**/*.spec.{ts,tsx}', '**/*.test.{ts,tsx}', '**/@tests/**/*.{ts,tsx}'],
+    files: [
+      '**/*.spec.{ts,tsx}',
+      '**/*.test.{ts,tsx}',
+      '**/@tests/**/*.{ts,tsx}',
+      // Тестовые хелперы не заканчиваются на .test.tsx, но подчиняются тем же правилам.
+      'app/test/**/*.{ts,tsx}',
+    ],
     rules: {
       'max-lines': 'off',
       'max-lines-per-function': 'off',

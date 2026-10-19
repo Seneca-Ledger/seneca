@@ -1,5 +1,6 @@
 'use client';
 
+import { Select } from '@/app/components/ui/select';
 import { tokens } from '@/lib/theme-tokens';
 import type { SettingsSection, SettingsSelectItem, SettingsToggleItem } from '../types';
 import { RenderIcon } from './components/RenderIcon';
@@ -108,26 +109,14 @@ function SettingsSelectComponent({ item }: { item: SettingsSelectItem }) {
           {item.description}
         </p>
       )}
-      <select
+      <Select
+        fullWidth
         value={item.value}
-        onChange={e => item.onChange(e.target.value)}
+        onChange={item.onChange}
         disabled={item.disabled}
-        style={{
-          width: '100%',
-          padding: '8px 12px',
-          fontSize: 14,
-          border: '1px solid var(--border-color)',
-          backgroundColor: 'var(--card-bg)',
-          color: 'var(--foreground)',
-          opacity: item.disabled ? 0.5 : 1,
-        }}
-      >
-        {item.options.map(option => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        options={item.options}
+        sx={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}
+      />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 
-import apiClient, { type ReceiptRecord } from '@/app/lib/api';
 import { useEffect, useMemo, useState } from 'react';
+import { type ReceiptRecord } from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { buildInitialForm, buildParsedDataPayload } from '../helpers/receipt-builders';
 import type { EditableReceiptParsedData, ReceiptCategoryOption } from '../receipt-types';
 import { useReceiptActions } from './useReceiptActions';
@@ -45,10 +46,9 @@ export function useReceiptDetail({
   useEffect(() => {
     if (!isOpen) return;
     let active = true;
-    apiClient
-      .get('/categories')
-      .then(r => {
-        if (active) setCategories(r.data ?? []);
+    apiQueryDecoded({ url: '/categories', contract: 'CategoryList' })
+      .then(categories => {
+        if (active) setCategories(categories);
       })
       .catch(() => {
         if (active) setCategories([]);

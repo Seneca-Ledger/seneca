@@ -1,22 +1,19 @@
 'use client';
 
-import { Grid, List, Search, SortAsc } from '@/app/components/icons';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import React from 'react';
+import { Grid, List, Search, SortAsc } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
+import { tokens } from '@/lib/theme-tokens';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'alphabetical' | 'recent' | 'favorites';
 
-const SORT_OPTIONS: { key: SortOption; label: string }[] = [
-  { key: 'favorites', label: 'Favorites First' },
-  { key: 'alphabetical', label: 'Alphabetical' },
-  { key: 'recent', label: 'Recently Created' },
-];
+const SORT_OPTIONS: SortOption[] = ['favorites', 'alphabetical', 'recent'];
 
-const VIEW_MODES: { mode: ViewMode; Icon: typeof Grid; title: string }[] = [
-  { mode: 'grid', Icon: Grid, title: 'Grid view' },
-  { mode: 'list', Icon: List, title: 'List view' },
+const VIEW_MODES: { mode: ViewMode; Icon: typeof Grid }[] = [
+  { mode: 'grid', Icon: Grid },
+  { mode: 'list', Icon: List },
 ];
 
 type SortMenuProps = {
@@ -31,6 +28,7 @@ function SortMenu({
   onToggle,
   onSelect,
 }: SortMenuProps): React.JSX.Element {
+  const t = useIntlayer('workspacesListView');
   return (
     <Box sx={{ position: 'relative' }}>
       <button
@@ -44,7 +42,7 @@ function SortMenu({
           cursor: 'pointer',
           borderRadius: tokens.radius.md,
         }}
-        title="Sort options"
+        title={t.sort.button.value}
       >
         <SortAsc size={20} />
       </button>
@@ -65,9 +63,9 @@ function SortMenu({
         >
           {SORT_OPTIONS.map(opt => (
             <button
-              key={opt.key}
+              key={opt}
               type="button"
-              onClick={() => onSelect(opt.key)}
+              onClick={() => onSelect(opt)}
               style={{
                 display: 'block',
                 width: '100%',
@@ -77,11 +75,11 @@ function SortMenu({
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                fontWeight: sortOption === opt.key ? 600 : 400,
-                color: sortOption === opt.key ? 'var(--primary)' : 'var(--foreground)',
+                fontWeight: sortOption === opt ? 600 : 400,
+                color: sortOption === opt ? 'var(--primary)' : 'var(--foreground)',
               }}
             >
-              {opt.label}
+              {t.sort[opt]}
             </button>
           ))}
         </Box>
@@ -92,9 +90,10 @@ function SortMenu({
 
 type ViewToggleProps = { viewMode: ViewMode; onSelect: (mode: ViewMode) => void };
 function ViewToggle({ viewMode, onSelect }: ViewToggleProps): React.JSX.Element {
+  const t = useIntlayer('workspacesListView');
   return (
     <>
-      {VIEW_MODES.map(({ mode, Icon, title }) => (
+      {VIEW_MODES.map(({ mode, Icon }) => (
         <button
           key={mode}
           type="button"
@@ -108,7 +107,7 @@ function ViewToggle({ viewMode, onSelect }: ViewToggleProps): React.JSX.Element 
             cursor: 'pointer',
             borderRadius: tokens.radius.md,
           }}
-          title={title}
+          title={t.view[mode].value}
         >
           <Icon size={20} />
         </button>
@@ -143,13 +142,14 @@ export function WorkspaceListFilters({
   onViewModeSelect,
 }: WorkspaceListFiltersProps): React.JSX.Element {
   return (
-    <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      <Box sx={{ position: 'relative', flex: 1 }} data-tour-id="search-bar">
+    // Search sized to what it holds, in one row with sort and view.
+    <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
+      <Box sx={{ position: 'relative', width: { xs: '100%', sm: 320 } }} data-tour-id="search-bar">
         <Search
           size={16}
           style={{
             position: 'absolute',
-            left: 16,
+            left: 12,
             top: '50%',
             transform: 'translateY(-50%)',
             color: 'var(--muted-foreground)',
@@ -163,18 +163,19 @@ export function WorkspaceListFilters({
           aria-label={searchPlaceholder}
           style={{
             width: '100%',
-            border: '1px solid var(--border-color)',
-            background: 'var(--card-bg)',
-            padding: '12px 16px 12px 44px',
+            border: '1px solid var(--border)',
+            background: 'transparent',
+            padding: '8px 12px 8px 36px',
             fontSize: 14,
+            fontFamily: 'inherit',
             color: 'var(--foreground)',
-            borderRadius: tokens.radius.md,
+            borderRadius: tokens.radius.sm,
             boxSizing: 'border-box',
           }}
         />
       </Box>
       {!embedded && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
           <SortMenu
             sortOption={sortOption}
             showSortMenu={showSortMenu}
@@ -188,4 +189,4 @@ export function WorkspaceListFilters({
   );
 }
 
-export type { ViewMode, SortOption };
+export type { SortOption, ViewMode };

@@ -1,12 +1,13 @@
+import { resolveBankLogo } from '@bank-logos';
 import type { StatementFilterItem } from '@/app/(main)/statements/components/filters/statement-filters';
+import type {
+  TopCategoryRecord,
+  TopCategorySourceChannel,
+} from '@/app/(main)/statements/components/top-categories.utils';
 import {
   resolveCategoryFlow,
   resolveCategoryName,
   resolveCategorySourceChannel,
-} from '@/app/(main)/statements/components/top-categories.utils';
-import type {
-  TopCategoryRecord,
-  TopCategorySourceChannel,
 } from '@/app/(main)/statements/components/top-categories.utils';
 import type {
   GmailReceipt,
@@ -19,7 +20,6 @@ import {
   resolveCurrencyCode,
 } from '@/app/lib/analytics-common';
 import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
-import { resolveBankLogo } from '@bank-logos';
 
 export const getBankDisplayName = (bankName?: string | null): string => {
   const raw = (bankName ?? '').trim();
@@ -111,7 +111,11 @@ const buildTransactionCategoryRecord = ({
   const pu = getMetaParsingUser(meta);
   const ws = getMetaWorkspace(meta, item);
   const ci = getItemColorIcon(item);
-  const ch = resolveCategorySourceChannel({ sourceType: 'statement', fileType });
+  const ch = resolveCategorySourceChannel({
+    sourceType: 'statement',
+    fileType,
+    isCrypto: Boolean(item.cryptoWalletId),
+  });
   return {
     id: item.id,
     source: 'statement',

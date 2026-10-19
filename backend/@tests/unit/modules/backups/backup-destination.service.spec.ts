@@ -8,7 +8,7 @@ describe('BackupDestinationService', () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), 'lumio-destination-'));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'seneca-destination-'));
   });
 
   afterEach(async () => {
@@ -24,12 +24,12 @@ describe('BackupDestinationService', () => {
       workspaceId: 'workspace-1',
     } as never;
 
-    await service.store(config, 'backup-1.lumio-backup', Buffer.from('first'));
-    const saved = await service.store(config, 'backup-2.lumio-backup', Buffer.from('second'));
+    await service.store(config, 'backup-1.seneca-backup', Buffer.from('first'));
+    const saved = await service.store(config, 'backup-2.seneca-backup', Buffer.from('second'));
 
-    expect(saved).toBe('nightly-workspace-1/backup-2.lumio-backup');
+    expect(saved).toBe('nightly-workspace-1/backup-2.seneca-backup');
     await expect(fs.readdir(path.join(root, 'nightly-workspace-1'))).resolves.toEqual([
-      'backup-2.lumio-backup',
+      'backup-2.seneca-backup',
     ]);
   });
 
@@ -37,22 +37,22 @@ describe('BackupDestinationService', () => {
     const service = new BackupDestinationService(root, { findOne: jest.fn() } as never);
     const client = {
       getDirectoryContents: jest.fn().mockResolvedValue([
-        { type: 'directory', filename: '/lumio/workspace/folder' },
-        { type: 'file', filename: '/lumio/workspace/readme.txt' },
-        { type: 'file', filename: '/lumio/workspace/backup-1.lumio-backup' },
-        { type: 'file', filename: '/lumio/workspace/backup-2.lumio-backup' },
-        { type: 'file', filename: '/lumio/workspace/backup-3.lumio-backup' },
+        { type: 'directory', filename: '/seneca/workspace/folder' },
+        { type: 'file', filename: '/seneca/workspace/readme.txt' },
+        { type: 'file', filename: '/seneca/workspace/backup-1.seneca-backup' },
+        { type: 'file', filename: '/seneca/workspace/backup-2.seneca-backup' },
+        { type: 'file', filename: '/seneca/workspace/backup-3.seneca-backup' },
       ]),
       deleteFile: jest.fn(),
     };
 
     await (service as never as { retainNextcloud: (client: unknown, directory: string, keep: number) => Promise<void> }).retainNextcloud(
       client,
-      '/lumio/workspace',
+      '/seneca/workspace',
       2,
     );
 
     expect(client.deleteFile).toHaveBeenCalledTimes(1);
-    expect(client.deleteFile).toHaveBeenCalledWith('/lumio/workspace/backup-1.lumio-backup');
+    expect(client.deleteFile).toHaveBeenCalledWith('/seneca/workspace/backup-1.seneca-backup');
   });
 });

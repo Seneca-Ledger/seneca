@@ -14,7 +14,7 @@ export class FileVersion {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'statement_id' })
+  @Column({ name: 'statement_id', type: 'uuid' })
   statementId: string;
 
   @ManyToOne(() => Statement, { onDelete: 'CASCADE' })

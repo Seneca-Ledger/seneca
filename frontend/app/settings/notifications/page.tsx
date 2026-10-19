@@ -1,15 +1,5 @@
-'use client';
-
-import Box from '@mui/material/Box';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { redirect } from 'next/navigation';
 
 export default function NotificationSettingsRedirectPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/settings/profile#notifications');
-  }, [router]);
-
-  return <Box className="container-shared" sx={{ py: 3 }} />;
+  redirect('/settings/profile?tab=notifications');
 }

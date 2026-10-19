@@ -1,33 +1,66 @@
 'use client';
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useMemo } from 'react';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
-import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useDashboard } from '@/app/hooks/useDashboard';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { usePullToRefresh } from '@/app/hooks/usePullToRefresh';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { resolveDashboardEffectivePeriod } from '@/app/lib/dashboard-effective-window';
-import { resolveDashboardStatusHeading } from '@/app/lib/dashboard-status-heading';
-import { useCallback, useMemo, useState } from 'react';
 import {
   fillTemplate,
   formatDateOnly,
   parseDateOnly,
-  resolveDashboardGreetingData,
-  resolveGreetingState,
   resolveLocale,
-  statusHeadingFallback,
-  text,
 } from '../helpers/dashboard-helpers';
+import {
+  type DashboardTabId,
+  DEFAULT_DASHBOARD_TAB,
+  formatMonthParam,
+  parseMonthParam,
+  parseTabParam,
+  withDashboardParams,
+} from '../helpers/dashboard-url-state';
 import { useDashboardRedirect } from './useDashboardRedirect';
 
-export type DashboardTabId = 'finance-ops' | 'overview' | 'trends' | 'data-health';
+export type { DashboardTabId } from '../helpers/dashboard-url-state';
 
-type DashboardPageText = {
-  greeting?: Record<string, unknown> & { fallbackName?: unknown };
-  statusHeading?: Record<string, unknown>;
-};
+/** Month and active tab live in the URL so a reload or shared link restores the view. */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+function useDashboardUrlState() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const query = searchParams?.toString() ?? '';
+  // `null` means "no explicit month picked yet" — the backend defaults to the
+  // current month and auto-shifts to the latest month with data. Once the
+  // user picks a month, auto-shift is disabled for good.
+  const pickedMonth = useMemo(() => parseMonthParam(searchParams?.get('month')), [searchParams]);
+  const activeTab = parseTabParam(searchParams?.get('tab'));
+  const navigate = useCallback(
+    (patch: { month?: string | null; tab?: string | null }): void => {
+      const next = withDashboardParams(query, patch);
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    },
+    [router, pathname, query],
+  );
+  const changeMonth = useCallback(
+    (year: number, month: number): void => {
+      navigate({ month: formatMonthParam(new Date(year, month, 1)) });
+    },
+    [navigate],
+  );
+  const setActiveTab = useCallback(
+    (tab: DashboardTabId): void => {
+      navigate({ tab: tab === DEFAULT_DASHBOARD_TAB ? null : tab });
+    },
+    [navigate],
+  );
+  return { pickedMonth, activeTab, changeMonth, setActiveTab };
+}
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function useDashboardPage() {
@@ -36,27 +69,20 @@ export function useDashboardPage() {
   const { locale } = useLocale();
   const t = useIntlayer('dashboardPage');
   const headerT = useIntlayer('dashboardHeader');
-  const dashboardText = t as unknown as DashboardPageText;
   const isMobile = useIsMobile();
-  // `null` means "no explicit month picked yet" — the backend defaults to the
-  // current month and auto-shifts to the latest month with data. Once the
-  // user picks a month, auto-shift is disabled for good (see changeMonth).
-  const [pickedMonth, setPickedMonth] = useState<Date | null>(null);
+  const { pickedMonth, activeTab, changeMonth, setActiveTab } = useDashboardUrlState();
   const targetDateParam = pickedMonth ? formatDateOnly(pickedMonth) : undefined;
-  const { data, loading, error, refresh, range } = useDashboard('month', targetDateParam);
+  const { data, isPending, error, refetch, range } = useDashboard('month', targetDateParam);
+  const effectiveSince = data?.effectiveSince;
   const displayMonth = useMemo(() => {
     if (pickedMonth) {
       return pickedMonth;
     }
-    if (data?.effectiveSince) {
-      return parseDateOnly(data.effectiveSince);
+    if (effectiveSince) {
+      return parseDateOnly(effectiveSince);
     }
     return new Date();
-  }, [pickedMonth, data?.effectiveSince]);
-  const changeMonth = useCallback((year: number, month: number): void => {
-    setPickedMonth(new Date(year, month, 1));
-  }, []);
-  const [activeTab, setActiveTab] = useState<DashboardTabId>('overview');
+  }, [pickedMonth, effectiveSince]);
   const isRedirecting = useDashboardRedirect({
     user,
     authLoading,
@@ -71,46 +97,33 @@ export function useDashboardPage() {
   } = usePullToRefresh({
     enabled: isMobile,
     onRefresh: () => {
-      void refresh();
+      void refetch();
     },
   });
-  const formatAmount = useCallback(
-    (value: number): string =>
+  // One formatter per locale/currency: Intl.NumberFormat construction is
+  // expensive and this runs once per row in several dashboard cards.
+  const currency = data?.snapshot?.currency ?? FALLBACK_CURRENCY;
+  const amountFormatter = useMemo(
+    () =>
       new Intl.NumberFormat(resolveLocale(locale), {
         style: 'currency',
-        currency: data?.snapshot?.currency ?? 'KZT',
+        currency,
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(value),
-    [locale, data?.snapshot?.currency],
+      }),
+    [locale, currency],
   );
-  // eslint-disable-next-line complexity
-  const { statusHeading, greetingSubtitle, effectivePeriod } = useMemo(() => {
-    const greetingData = resolveDashboardGreetingData({
-      lastUploadDate: data?.dataHealth?.lastUploadDate ?? null,
-      pendingReviewCount: data?.dataHealth?.statementsPendingReview ?? 0,
-    });
-    const greetingState = resolveGreetingState(greetingData);
-    const greetingName = user?.name ?? text(dashboardText.greeting?.fallbackName) ?? 'User';
-    const count = String(data?.dataHealth?.statementsPendingReview ?? 0);
-    const greetingCopy = dashboardText.greeting?.[greetingState] as
-      | { subtitle?: unknown }
-      | undefined;
-    const subtitle = fillTemplate(text(greetingCopy?.subtitle), {
-      name: greetingName,
-      count,
-      days: '14',
-    });
-    const headingKey = resolveDashboardStatusHeading({
-      data: data as DashboardData | null,
-      error,
-      loading,
-    });
-    const heading =
-      text(dashboardText.statusHeading?.[headingKey]) || statusHeadingFallback[headingKey];
-    const period = resolveDashboardEffectivePeriod(data?.effectiveSince, data?.effectiveEndDate);
-    return { statusHeading: heading, greetingSubtitle: subtitle, effectivePeriod: period };
-  }, [dashboardText.greeting, dashboardText.statusHeading, data, error, loading, user?.name]);
+  const formatAmount = useCallback(
+    (value: number): string => amountFormatter.format(value),
+    [amountFormatter],
+  );
+  const effectivePeriod = useMemo(
+    () => resolveDashboardEffectivePeriod(data?.effectiveSince, data?.effectiveEndDate),
+    [data?.effectiveSince, data?.effectiveEndDate],
+  );
+  const periodBanner = effectivePeriod
+    ? fillTemplate(headerT.periodBanner.value, { period: effectivePeriod })
+    : null;
   const headerLabels = {
     tabs: {
       financeOps: t.tabs.financeOps.value,
@@ -118,13 +131,17 @@ export function useDashboardPage() {
       trends: t.tabs.trends.value,
       dataHealth: t.tabs.dataHealth.value,
     },
-    uploadStatement: headerT.uploadStatement.value,
+    monthStrip: {
+      group: headerT.monthStripLabel.value,
+      previousYear: headerT.previousYear.value,
+      nextYear: headerT.nextYear.value,
+    },
   };
   return {
     data,
-    loading,
+    isPending,
     error,
-    refresh,
+    refetch,
     range,
     activeTab,
     setActiveTab,
@@ -135,11 +152,10 @@ export function useDashboardPage() {
     isReadyToRefresh,
     isRedirecting,
     formatAmount,
-    statusHeading,
-    greetingSubtitle,
-    effectivePeriod,
+    periodBanner,
     displayMonth,
     changeMonth,
+    locale,
     headerLabels,
     t,
   };

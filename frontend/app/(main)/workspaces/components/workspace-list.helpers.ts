@@ -1,6 +1,6 @@
 export type SortOption = 'alphabetical' | 'recent' | 'favorites';
 
-export type SortableWorkspace = { isFavorite: boolean; name: string; createdAt: Date };
+export type SortableWorkspace = { isFavorite: boolean; name: string; createdAt: string };
 
 function compareFavorites(a: SortableWorkspace, b: SortableWorkspace): number {
   if (a.isFavorite !== b.isFavorite) {

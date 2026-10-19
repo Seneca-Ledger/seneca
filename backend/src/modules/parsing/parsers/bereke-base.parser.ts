@@ -1,13 +1,15 @@
 import {
-  type PdfTextItem,
-  type PdfTextRow,
   extractTablesFromPdf,
   extractTextAndLayoutFromPdf,
   extractTextFromPdf,
+  type PdfTextItem,
+  type PdfTextRow,
 } from '../../../common/utils/pdf-parser.util';
 import { type BankName, FileType } from '../../../entities/statement.entity';
-import { AiTransactionExtractor } from '../helpers/ai-transaction-extractor.helper';
-import { mapPdfTableRowsToTransactions, mergeTransactions } from '../helpers/pdf-table.helper';
+import {
+  mapPdfTableRowsToTransactions,
+  pickReconciledTransactions,
+} from '../helpers/pdf-table.helper';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { BaseParser } from './base.parser';
 
@@ -39,8 +41,6 @@ type TransactionGroupContext<ColumnKey extends string> = {
 };
 
 export abstract class BerekeBaseParser<ColumnKey extends string> extends BaseParser {
-  private readonly aiExtractor = new AiTransactionExtractor();
-
   protected abstract readonly parserName: string;
 
   protected abstract getSupportedBankName(): BankName;
@@ -117,13 +117,13 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
 
     const { text, rows } = await extractTextAndLayoutFromPdf(filePath);
     const normalizedText = cachedText ?? text;
-    const { rows: tableRows } = await extractTablesFromPdf(filePath);
+    const { rowSets } = await extractTablesFromPdf(filePath);
     const extractTime = Date.now() - extractStartTime;
     this.logger.debug(
       `PDF text extracted in ${extractTime}ms, length: ${normalizedText.length} characters, rows: ${rows.length}`,
     );
 
-    this.logger.debug(`Extracting metadata...`);
+    this.logger.debug('Extracting metadata...');
     const accountNumber = this.extractAccountNumber(normalizedText) || '';
     const dateRange = this.extractDateRange(normalizedText);
     const balanceStart = this.extractFirstBalance(normalizedText, this.getBalanceStartLabels());
@@ -143,40 +143,19 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
     const detectedCurrency = this.detectCurrency(normalizedText) || 'KZT';
 
     const transactionStartTime = Date.now();
-    this.logger.debug(`Extracting transactions from pdf2table rows...`);
-    const tableTransactions = mapPdfTableRowsToTransactions(tableRows, {
-      defaultCurrency: detectedCurrency,
-      stopWords: ['итого', 'оборот', 'остаток'],
-    });
-    this.logger.debug(`pdf2table extracted ${tableTransactions.length} transactions`);
-
-    this.logger.debug(`Extracting transactions from structured text...`);
-    const { transactions: structuredTransactions, groupsDetected } = this.extractTransactions(
-      normalizedText,
-      rows,
+    this.logger.debug('Extracting transactions from pdf2table rows...');
+    const tableAttempts = rowSets.map(tableRows =>
+      mapPdfTableRowsToTransactions(tableRows, {
+        defaultCurrency: detectedCurrency,
+        stopWords: ['итого', 'оборот', 'остаток'],
+      }),
     );
 
-    let transactions = mergeTransactions(tableTransactions, structuredTransactions);
-    const detectedGroups = Math.max(groupsDetected, transactions.length);
+    this.logger.debug('Extracting transactions from structured text...');
+    const { transactions: structuredTransactions } = this.extractTransactions(normalizedText, rows);
 
-    if (
-      (transactions.length === 0 || transactions.length < detectedGroups) &&
-      this.aiExtractor.isAvailable()
-    ) {
-      this.logger.debug(
-        `Structured parsing incomplete (${transactions.length}/${detectedGroups}), trying AI extraction...`,
-      );
-      const aiTransactions = await this.aiExtractor.extractTransactions(normalizedText);
-      if (aiTransactions.length) {
-        transactions =
-          transactions.length > 0
-            ? mergeTransactions(transactions, aiTransactions)
-            : aiTransactions;
-        this.logger.debug(`AI extraction succeeded with ${transactions.length} transactions`);
-      } else {
-        this.logger.debug(`AI extraction did not return transactions`);
-      }
-    }
+    const attempts = [...tableAttempts, structuredTransactions];
+    const transactions = pickReconciledTransactions(attempts, balanceStart, balanceEnd);
 
     const { from, to } = this.getDefaultMetadataDates(dateRange, transactions);
     const transactionTime = Date.now() - transactionStartTime;
@@ -187,12 +166,28 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
         accountNumber,
         dateFrom: from,
         dateTo: to,
-        balanceStart: balanceStart || undefined,
-        balanceEnd: balanceEnd || undefined,
+        balanceStart: balanceStart ?? undefined,
+        balanceEnd: balanceEnd ?? undefined,
         currency: detectedCurrency,
       },
       transactions,
     };
+  }
+
+  /** The statement's own account follows "Счет №"; the first IBAN in the text may be a counterparty's. */
+  protected extractAccountNumber(text: string): string | null {
+    const match = text.match(/Сч[её]т\s*№\s*(KZ[0-9A-Z]{18})/i);
+    return match ? match[1].toUpperCase() : super.extractAccountNumber(text);
+  }
+
+  /** Bereke prints the period as "за период с 27.11.2025 по 27.11.2025". */
+  protected extractDateRange(text: string): { from: Date | null; to: Date | null } {
+    const match = text.match(
+      /за\s+период\s+с\s*(\d{2}\.\d{2}\.\d{4})\s*по\s*(\d{2}\.\d{2}\.\d{4})/i,
+    );
+    return match
+      ? { from: this.normalizeDate(match[1]), to: this.normalizeDate(match[2]) }
+      : super.extractDateRange(text);
   }
 
   protected inferDateRangeFromTransactions(transactions: ParsedTransaction[]): {
@@ -236,7 +231,7 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
         .join('; ');
       this.logger.debug(`Column boundaries detected: ${mapping}`);
     } else {
-      this.logger.debug(`Column boundaries not detected, using heuristics`);
+      this.logger.debug('Column boundaries not detected, using heuristics');
     }
 
     const groups = this.groupRowsIntoTransactions(dataRows);

@@ -1,10 +1,11 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
+import { Box, Chip, Paper, Typography } from '@mui/material';
 
 import { Camera, FileImage, FileText, Mail, UploadCloud } from '@/app/components/icons';
+import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import type { ReceiptRecord } from '@/app/lib/api';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, Chip, Paper, Typography } from '@mui/material';
 
 const statusColorMap: Record<string, { bgcolor: string; color: string }> = {
   approved: { bgcolor: '#dcfce7', color: '#166534' },
@@ -120,6 +121,7 @@ export function ReceiptCard({ receipt, onOpen }: ReceiptCardProps) {
                   }}
                 >
                   {receipt.subject}
+                  <NotesBadge entityId={receipt.id} />
                 </Typography>
               </Box>
             </Box>

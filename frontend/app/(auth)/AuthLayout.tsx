@@ -3,6 +3,7 @@
 import { Box, Grid } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ReactNode } from 'react';
+
 interface AuthLayoutProps {
   children: ReactNode;
   sideContent: ReactNode;
@@ -13,19 +14,27 @@ interface AuthLayoutProps {
 export default function AuthLayout({ children, sideContent, topRightAction }: AuthLayoutProps) {
   return (
     <Grid container sx={{ minHeight: '100vh', overflow: 'hidden' }}>
-      {/* Left Side - Form (White/Light) */}
+      {/* Left Side - Form */}
       <Grid
-        size={{ xs: 12, md: 5, lg: 4 }}
+        size={{ xs: 12, md: 6 }}
+        className="seneca-auth-form-panel"
         sx={{
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          bgcolor: 'background.paper',
+          // The CSS variable, not the MUI palette: next-themes sets the theme
+          // class on <html> in a blocking script before the first paint, while
+          // the MUI theme is built light until Providers flips `mounted` after
+          // its first effect. Reading the palette here painted this panel white
+          // for a frame on every load in dark mode.
+          bgcolor: 'var(--card-bg)',
+          color: 'var(--foreground)',
           p: 6,
+          // A little above the geometric centre: the optical one.
+          pb: { md: '12vh' },
           position: 'relative',
           zIndex: 20,
-          boxShadow: { md: '10px 0 30px rgba(0,0,0,0.1)' },
         }}
       >
         {topRightAction ? (
@@ -44,9 +53,9 @@ export default function AuthLayout({ children, sideContent, topRightAction }: Au
         </motion.div>
       </Grid>
 
-      {/* Right Side - Visual (Deep Blue) */}
+      {/* Right side — the hero over the layout's grid-and-glow backdrop */}
       <Grid
-        size={{ xs: 0, md: 7, lg: 8 }}
+        size={{ xs: 0, md: 6 }}
         sx={{
           display: { xs: 'none', md: 'flex' },
           flexDirection: 'column',
@@ -61,7 +70,7 @@ export default function AuthLayout({ children, sideContent, topRightAction }: Au
         }}
       >
         {/* Content Overlay */}
-        <Box sx={{ position: 'relative', zIndex: 10, textAlign: 'center', maxWidth: '600px' }}>
+        <Box sx={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '600px' }}>
           <AnimatePresence mode="wait">
             <motion.div
               initial={{ opacity: 0, y: 20 }}

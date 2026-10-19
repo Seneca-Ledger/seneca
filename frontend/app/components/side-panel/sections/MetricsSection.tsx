@@ -2,8 +2,8 @@
 
 import React from 'react';
 import type { ChartItem, MetricsSection, SummaryItem } from '../types';
-import { SummaryItemComponent } from './SummarySection';
 import { SectionWrapper } from './components/SectionWrapper';
+import { SummaryItemComponent } from './SummarySection';
 
 // eslint-disable-next-line max-lines-per-function, complexity
 export function ChartItemComponent({ item }: { item: ChartItem }): React.JSX.Element | null {
@@ -87,7 +87,9 @@ export function isChartItem(item: SummaryItem | ChartItem): item is ChartItem {
 
 export function MetricsSectionRenderer({
   section,
-}: { section: MetricsSection }): React.JSX.Element {
+}: {
+  section: MetricsSection;
+}): React.JSX.Element {
   return (
     <SectionWrapper section={section}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

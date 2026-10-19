@@ -1,93 +1,60 @@
 'use client';
 
-import { AlertTriangle, CalendarClock } from '@/app/components/icons';
+import EventAvailableOutlined from '@mui/icons-material/EventAvailableOutlined';
+import { useQuery } from '@tanstack/react-query';
+import clsx from 'clsx';
+import type React from 'react';
+import { NetWorthChart } from '@/app/(main)/net-worth/components/NetWorthChart';
+import { useTodayNote } from '@/app/components/dashboard/overview-month';
+import { useIsWideSection } from '@/app/components/dashboard/section-span';
+import { CardEmpty, CardLink, DashboardCard, ListRow } from '@/app/components/dashboard/ui';
+import { AlertTriangle } from '@/app/components/icons';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import type { DashboardCommitmentsResponse } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
 import { fillTemplate, text } from '../helpers/dashboard-helpers';
 
-interface CommitmentItem {
-  date: string;
-  label: string;
-  amount: number;
-  source: 'payable' | 'subscription';
-  sourceId: string;
-  isOverdue: boolean;
-}
-
-interface Commitments {
-  currency: string;
-  horizonDays: number;
-  openingBalance: number;
-  totalCommitted: number;
-  unscheduledCommitted: number;
-  items: CommitmentItem[];
-  lowestBalance: number;
-  lowestBalanceDate: string;
-  shortfallDate: string | null;
-}
+type Commitments = DashboardCommitmentsResponse;
 
 const HORIZON_DAYS = 60;
 const VISIBLE_ITEMS = 5;
-
-const CARD_SX = {
-  p: 2.5,
-  borderRadius: 2,
-  border: '1px solid',
-  borderColor: 'divider',
-  bgcolor: 'background.paper',
-};
+/** With the row to itself the card has room for the balance line and a longer list. */
+const WIDE_VISIBLE_ITEMS = 10;
 
 type CashRunwayWidgetProps = {
   formatAmount: (value: number) => string;
 };
 
-export function CashRunwayWidget({ formatAmount }: CashRunwayWidgetProps) {
+/** Cached, so the widget is drawn at once when Overview is opened again. */
+function useCommitments(): { data: Commitments | null; loaded: boolean } {
+  const workspaceId = useWorkspaceId();
+  const { data, isPending } = useQuery({
+    queryKey: queryKeys.dashboardCommitments(workspaceId, HORIZON_DAYS),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        contract: 'DashboardCommitmentsResponse',
+        url: '/dashboard/commitments',
+        params: { days: HORIZON_DAYS },
+        signal,
+      }),
+    enabled: Boolean(workspaceId),
+  });
+  // A failed projection shows the empty state rather than breaking the dashboard.
+  return { data: data ?? null, loaded: !isPending };
+}
+
+function RunwayBody({
+  data,
+  formatAmount,
+}: {
+  data: Commitments;
+  formatAmount: (value: number) => string;
+}): React.JSX.Element {
   const t = useIntlayer('cashRunwayWidget');
-  const [data, setData] = useState<Commitments | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    apiClient
-      .get('/dashboard/commitments', { params: { days: HORIZON_DAYS } })
-      .then(res => setData(res.data?.data ?? res.data ?? null))
-      .catch(() => {
-        // A failed projection hides the card rather than breaking the dashboard.
-      })
-      .finally(() => setLoaded(true));
-  }, []);
-
-  if (!loaded) {
-    return null;
-  }
-
-  const header = (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-      <CalendarClock size={18} />
-      <Typography variant="subtitle2" fontWeight={600}>
-        {t.title}
-      </Typography>
-    </Box>
-  );
-
-  if (!data || (data.items.length === 0 && data.unscheduledCommitted === 0)) {
-    return (
-      <Box sx={CARD_SX}>
-        {header}
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {t.emptyDescription}
-        </Typography>
-        <Button component={Link} href="/statements/pay" size="small" variant="text">
-          {t.openPayables}
-        </Button>
-      </Box>
-    );
-  }
-
+  const wideText = useIntlayer('dashboardWideView');
+  const wide = useIsWideSection();
   const hasShortfall = data.shortfallDate !== null;
   const summary = hasShortfall
     ? fillTemplate(text(t.shortfallSummary), {
@@ -98,53 +65,85 @@ export function CashRunwayWidget({ formatAmount }: CashRunwayWidgetProps) {
         amount: formatAmount(data.lowestBalance),
         days: String(data.horizonDays),
       });
-
+  const items = (limit: number): React.JSX.Element => (
+    <div className="seneca-dashboard__list">
+      {data.items.slice(0, limit).map(item => (
+        <ListRow
+          key={`${item.source}-${item.sourceId}-${item.date}`}
+          primary={item.label}
+          secondary={
+            item.isOverdue ? (
+              <span className="seneca-dashboard__amount--negative">{t.overdue}</span>
+            ) : (
+              item.date
+            )
+          }
+          trailing={formatAmount(item.amount)}
+        />
+      ))}
+    </div>
+  );
   return (
-    <Box sx={CARD_SX}>
-      {header}
-
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
-        {hasShortfall && (
-          <Box sx={{ color: 'error.main', display: 'flex', pt: '2px' }}>
-            <AlertTriangle size={16} />
-          </Box>
+    <>
+      <p
+        className={clsx(
+          'seneca-dashboard__card-note',
+          hasShortfall && 'seneca-dashboard__card-note--danger',
         )}
-        <Typography variant="body2" color={hasShortfall ? 'error.main' : 'text.secondary'}>
-          {summary}
-        </Typography>
-      </Box>
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {data.items.slice(0, VISIBLE_ITEMS).map(item => (
-          <Box
-            key={`${item.source}-${item.sourceId}-${item.date}`}
-            sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}
+      >
+        {hasShortfall && <AlertTriangle size={15} />}
+        <span>{summary}</span>
+      </p>
+      {wide && data.days.length > 1 ? (
+        // With room: the projected balance day by day, beside what pulls it down.
+        <div className="seneca-dashboard__chart-aside">
+          <figure
+            className="seneca-dashboard__chart-aside-main"
+            aria-label={wideText.balanceByDay.value}
           >
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="caption" noWrap display="block">
-                {item.label}
-              </Typography>
-              <Typography
-                variant="caption"
-                color={item.isOverdue ? 'error.main' : 'text.secondary'}
-              >
-                {item.isOverdue ? t.overdue : item.date}
-              </Typography>
-            </Box>
-            <Typography variant="caption" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
-              {formatAmount(item.amount)}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-
+            <NetWorthChart
+              points={data.days.map(day => ({ date: day.date, value: day.balance }))}
+              positive={!hasShortfall}
+              formatValue={formatAmount}
+            />
+          </figure>
+          {items(WIDE_VISIBLE_ITEMS)}
+        </div>
+      ) : (
+        items(VISIBLE_ITEMS)
+      )}{' '}
       {data.unscheduledCommitted > 0 && (
-        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1.5 }}>
-          {fillTemplate(text(t.unscheduled), {
-            amount: formatAmount(data.unscheduledCommitted),
-          })}
-        </Typography>
+        <p className="seneca-dashboard__card-note seneca-dashboard__card-note--footer">
+          {fillTemplate(text(t.unscheduled), { amount: formatAmount(data.unscheduledCommitted) })}
+        </p>
       )}
-    </Box>
+    </>
+  );
+}
+
+export function CashRunwayWidget({
+  formatAmount,
+}: CashRunwayWidgetProps): React.JSX.Element | null {
+  const t = useIntlayer('cashRunwayWidget');
+  const today = useTodayNote();
+  const { data, loaded } = useCommitments();
+
+  if (!loaded) {
+    return null;
+  }
+
+  const isEmpty = !data || (data.items.length === 0 && data.unscheduledCommitted === 0);
+  return (
+    <DashboardCard
+      title={t.title}
+      subtitle={today}
+      action={<CardLink href="/forecast">{t.openForecast}</CardLink>}
+    >
+      {isEmpty ? (
+        <CardEmpty icon={EventAvailableOutlined}>{t.emptyDescription}</CardEmpty>
+      ) : (
+        <RunwayBody data={data} formatAmount={formatAmount} />
+      )}
+    </DashboardCard>
   );
 }

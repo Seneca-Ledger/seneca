@@ -1,11 +1,21 @@
 import { randomUUID } from 'node:crypto';
-import { Body, Controller, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
-import { Transaction } from '../../entities/transaction.entity';
+import { ClassifyBulkBody } from '../../contracts';
+import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ClassificationService } from './services/classification.service';
@@ -31,7 +41,7 @@ export class ClassificationController {
     });
 
     if (!transaction) {
-      throw new Error('Transaction not found');
+      throw new NotFoundException('Transaction not found');
     }
 
     const classification = await this.classificationService.classifyTransaction(
@@ -48,7 +58,7 @@ export class ClassificationController {
   @Post('bulk')
   @HttpCode(HttpStatus.OK)
   async classifyBulk(
-    @Body() body: { transactionIds: string[] },
+    @SchemaBody(ClassifyBulkBody) body: ClassifyBulkBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -59,6 +69,8 @@ export class ClassificationController {
       successful: 0,
       failed: 0,
       notFound: 0,
+      /** Rows whose category the user picked by hand; re-classification never touches them. */
+      keptManual: 0,
       errors: [] as { transactionId: string; error: string }[],
     };
 
@@ -77,10 +89,17 @@ export class ClassificationController {
           continue;
         }
 
+        if (transaction.categorySource === TransactionCategorySource.MANUAL) {
+          results.keptManual++;
+          continue;
+        }
+
+        // Bypass the 5-minute cache: the point of a re-run is new rules or patterns.
         const classification = await this.classificationService.classifyTransaction(
           transaction,
           user.id,
           batchId,
+          { bypassCache: true },
         );
 
         // Check if categoryId was actually assigned
@@ -100,31 +119,11 @@ export class ClassificationController {
         results.failed++;
         results.errors.push({
           transactionId,
-          error: error.message || 'Unknown error',
+          error: (error instanceof Error && error.message) || 'Unknown error',
         });
       }
     }
 
     return results;
-  }
-
-  @Post('learn')
-  @HttpCode(HttpStatus.OK)
-  async recordLearning(
-    @Body() body: { transactionId: string; categoryId: string },
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    const transaction = await this.transactionRepository.findOne({
-      where: { id: body.transactionId, workspaceId },
-    });
-
-    if (!transaction) {
-      throw new Error('Transaction not found');
-    }
-
-    await this.classificationService.learnFromCorrection(transaction, body.categoryId, user.id);
-
-    return { message: 'Learning recorded successfully' };
   }
 }

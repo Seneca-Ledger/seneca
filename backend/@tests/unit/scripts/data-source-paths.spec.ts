@@ -12,7 +12,12 @@ describe('data source compiled path resolution', () => {
 
     expect(source).toContain("path.join(__dirname, 'src', compiledDirName)");
     expect(source).toContain("migrations: [resolveCompiledGlob('migrations', 'migrations')]");
-    expect(source).toContain("entities: [resolveCompiledGlob('entities', 'entities')]");
+    expect(source).toContain("resolveCompiledGlob('entities', 'entities')");
+    // ApiKey живёт вне src/entities — без этого глоба migration:generate
+    // предложил бы удалить таблицу api_keys.
+    expect(source).toContain(
+      "resolveCompiledGlob('modules/api-keys/entities', 'modules/api-keys/entities')",
+    );
   });
 
   it('loads dist/src data source in the migration lock runner when present', () => {

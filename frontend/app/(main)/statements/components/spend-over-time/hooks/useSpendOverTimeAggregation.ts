@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   buildPreviousPeriodRange,
   getComparisonDelta,
@@ -7,7 +8,6 @@ import {
   buildSpendOverTimeSourceChart,
   buildSpendOverTimeTrendChart,
 } from '@/app/(main)/statements/components/spend-over-time.chart';
-import { buildSpendOverTimeReport } from '@/app/(main)/statements/components/spend-over-time.utils';
 import type {
   SpendOverTimeFlowType,
   SpendOverTimeGroupBy,
@@ -15,8 +15,8 @@ import type {
   SpendOverTimeRecord,
   SpendOverTimeTotals,
 } from '@/app/(main)/statements/components/spend-over-time.utils';
+import { buildSpendOverTimeReport } from '@/app/(main)/statements/components/spend-over-time.utils';
 import { getRecordDate } from '@/app/lib/analytics-common';
-import { useMemo } from 'react';
 
 type SortKey = 'amount' | 'average' | 'operations';
 

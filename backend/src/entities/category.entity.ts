@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -23,7 +24,29 @@ export enum CategorySource {
   PARSING = 'parsing',
 }
 
+/**
+ * How a category's spending is judged on the Budgets page and in the Stoic
+ * advice: what life requires, what the work requires, what makes a person
+ * better or helps others, and what is merely pleasant.
+ */
+export enum StoicClass {
+  NECESSITY = 'necessity',
+  WORK = 'work',
+  VIRTUE = 'virtue',
+  LEISURE = 'leisure',
+}
+
 @Entity('categories')
+// One fallback category per workspace and type (migration 1786810000000).
+@Index('UQ_categories_uncategorized', ['workspaceId', 'type'], {
+  unique: true,
+  where: "name = 'Uncategorized' AND parent_id IS NULL",
+})
+// Where private rows are counted, one per workspace and type (migration 1787010000000).
+@Index('UQ_categories_private', ['workspaceId', 'type'], {
+  unique: true,
+  where: "name = 'Private' AND parent_id IS NULL",
+})
 export class Category {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -36,14 +59,14 @@ export class Category {
   @JoinColumn({ name: 'user_id' })
   user: User | null;
 
-  @Column({ name: 'user_id', nullable: true })
+  @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string | null;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @Column()
@@ -63,7 +86,7 @@ export class Category {
   @JoinColumn({ name: 'parent_id' })
   parent: Category | null;
 
-  @Column({ name: 'parent_id', nullable: true })
+  @Column({ name: 'parent_id', type: 'uuid', nullable: true })
   parentId: string | null;
 
   @Column({ name: 'is_system', default: false })
@@ -78,8 +101,39 @@ export class Category {
   @Column({ nullable: true })
   color: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   icon: string | null;
+
+  /**
+   * Set only by the user. Null means "not decided yet": the Stoic ledger then
+   * falls back to a suggestion computed from the name (see stoic-classifier).
+   */
+  @Column({ name: 'stoic_class', type: 'varchar', length: 16, nullable: true })
+  stoicClass: StoicClass | null;
+
+  /**
+   * Whether this spending is help given to others — charity, donations,
+   * gifts. Null means the user has not said; the Stoic advice then guesses
+   * from the name (see suggestHelpsOthers).
+   */
+  @Column({ name: 'helps_others', type: 'boolean', nullable: true })
+  helpsOthers: boolean | null;
+
+  /**
+   * Spending here matters for the tax return: deductible, or a record the
+   * user wants at hand when filing. Drives the tax-year report and the
+   * "relevant only" tax pack; it does not decide any figure on a return.
+   */
+  @Column({ name: 'tax_relevant', type: 'boolean', default: false })
+  taxRelevant: boolean;
+
+  /**
+   * The income or expense account this category books to. Set on root
+   * categories when the chart is seeded; a child without one books to its
+   * parent's account.
+   */
+  @Column({ name: 'ledger_account_id', type: 'uuid', nullable: true })
+  ledgerAccountId: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

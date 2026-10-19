@@ -1,15 +1,15 @@
 /* eslint-disable max-lines */
 'use client';
 
-import { FileImage, FileText, UploadCloud, X } from '@/app/components/icons';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { ModalShell } from '@/app/components/ui/modal-shell';
-import { Select } from '@/app/components/ui/select';
-import { tokens } from '@/lib/theme-tokens';
 import { Box, IconButton, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { FileImage, FileText, UploadCloud, X } from '@/app/components/icons';
+import { Button } from '@/app/components/ui/button';
+import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
+import { ModalShell } from '@/app/components/ui/modal-shell';
+import { Select } from '@/app/components/ui/select';
+import { tokens } from '@/lib/theme-tokens';
 import { useReceiptUpload } from './hooks/useReceiptUpload';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -88,15 +88,15 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
       return;
     }
 
-    try {
+    await (async () => {
       await uploadReceipts(files, language);
       toast.success('Receipts uploaded and queued for processing.');
       resetState();
       onClose();
       onUploaded?.();
-    } catch {
+    })().catch(async () => {
       // handled by hook state
-    }
+    });
   };
 
   return (
@@ -176,7 +176,7 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
               whiteSpace: 'nowrap',
             }}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,application/pdf"
+            accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,application/pdf,.xml,application/xml,text/xml"
             multiple
             aria-label="Select receipt files"
             onChange={event => {
@@ -193,17 +193,14 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
             OCR language
           </label>
           <Select
+            fullWidth
             id="receipt-language"
-            aria-label="OCR language"
+            inputProps={{ 'aria-label': 'OCR language' }}
             value={language}
-            onChange={event => setLanguage(event.target.value)}
-          >
-            {LANGUAGE_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+            onChange={setLanguage}
+            options={LANGUAGE_OPTIONS}
+            sx={FORM_CONTROL_SX}
+          />
         </Box>
 
         {visibleError ? (

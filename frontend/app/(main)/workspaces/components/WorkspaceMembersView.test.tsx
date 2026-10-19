@@ -57,6 +57,14 @@ describe('WorkspaceMembersView', () => {
             role: 'viewer',
             joinedAt: '2026-01-05T00:00:00.000Z',
           },
+          {
+            id: 'member-1',
+            email: 'member@example.com',
+            name: 'Plain Member',
+            role: 'member',
+            permissions: { canEditStatements: true, canEditCategories: false },
+            joinedAt: '2026-01-06T00:00:00.000Z',
+          },
         ],
         invitations: [],
       },
@@ -76,10 +84,139 @@ describe('WorkspaceMembersView', () => {
       await flushPromises();
     });
 
-    expect(container.textContent).toContain('Members');
     expect(container.textContent).toContain('Sort: Name');
     expect(container.textContent).toContain('Role: All roles');
-    expect(container.textContent).toContain('Invitations expire in 7 days.');
+    expect(container.textContent).not.toContain('Invitations expire in 7 days.');
     expect(container.textContent).toContain('No active invitations.');
+  });
+
+  it('hides search, sort and role filter while the owner is alone', async () => {
+    apiGet.mockResolvedValue({
+      data: {
+        workspace: {
+          id: 'ws-1',
+          name: 'Workspace',
+          ownerId: 'owner-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+        members: [
+          {
+            id: 'owner-1',
+            memberId: 'member-owner-1',
+            email: 'owner@example.com',
+            name: 'Owner',
+            role: 'owner',
+            permissions: null,
+            joinedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        invitations: [],
+      },
+    });
+    const { default: WorkspaceMembersView } = await import('./WorkspaceMembersView');
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspaceMembersView />);
+    });
+
+    await act(async () => {
+      await flushPromises();
+    });
+
+    expect(container.textContent).toContain('owner@example.com');
+    expect(container.textContent).not.toContain('Sort: Name');
+    expect(container.textContent).not.toContain('Role: All roles');
+    expect(container.querySelector('input[placeholder="Search by email"]')).toBeNull();
+  });
+
+  it('says what the chosen role can do in the invite form', async () => {
+    const { default: WorkspaceMembersView } = await import('./WorkspaceMembersView');
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspaceMembersView />);
+    });
+
+    await act(async () => {
+      await flushPromises();
+    });
+
+    const inviteButton = Array.from(container.querySelectorAll('button')).find(
+      button => button.textContent === 'Invite member',
+    );
+    await act(async () => {
+      inviteButton?.click();
+    });
+
+    const form = container.querySelector('form');
+    expect(form?.textContent).toContain(
+      'Can work with workspace data based on assigned permissions.',
+    );
+  });
+
+  it('counts only the toggles a member actually carries', async () => {
+    const { default: WorkspaceMembersView } = await import('./WorkspaceMembersView');
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspaceMembersView />);
+    });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    // One of the five is true; the other four are absent or false, and a
+    // missing toggle is a right the member does not have.
+    expect(container.textContent).toContain('Access permissions · 1/5');
+    // Viewers and owners have no toggles to show.
+    expect(container.textContent).not.toContain('Access permissions · 0/5');
+  });
+
+  it('sends the whole toggle set when one is flipped', async () => {
+    apiPatch.mockResolvedValue({ data: {} });
+    const { default: WorkspaceMembersView } = await import('./WorkspaceMembersView');
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspaceMembersView />);
+    });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    const trigger = Array.from(container.querySelectorAll('button')).find(button =>
+      button.textContent?.includes('Access permissions · 1/5'),
+    );
+    expect(trigger).toBeTruthy();
+
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await flushPromises();
+    });
+
+    const categoriesItem = Array.from(document.querySelectorAll('li')).find(item =>
+      item.textContent?.includes('Categories'),
+    );
+    expect(categoriesItem).toBeTruthy();
+
+    await act(async () => {
+      categoriesItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await flushPromises();
+    });
+
+    expect(apiPatch).toHaveBeenCalledWith('/workspaces/ws-1/members/member-1/permissions', {
+      permissions: {
+        canEditStatements: true,
+        canEditCustomTables: false,
+        canEditCategories: true,
+        canEditDataEntry: false,
+        canShareFiles: false,
+      },
+    });
   });
 });

@@ -34,6 +34,7 @@ export const DroppableFolderButton = React.memo(
 
     return (
       <div ref={setNodeRef} className={`relative rounded-lg ${highlightClass}`} role="presentation">
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: role, tabIndex and onKeyDown are all set below, but role is computed from `onClick`, so the rule cannot see that it is non-generic. */}
         <div
           onClick={onClick}
           onContextMenu={onContextMenu}

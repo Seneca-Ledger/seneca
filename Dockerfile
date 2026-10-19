@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -21,6 +21,9 @@ ENV API_PORT=${API_PORT}
 ARG API_PROXY_TARGET=http://127.0.0.1:${API_PORT}
 ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 ENV NEXT_PUBLIC_API_URL=/api/v1
+# Product name; the frontend bakes it in, the backend reads APP_NAME at runtime
+ARG APP_NAME=Seneca
+ENV NEXT_PUBLIC_APP_NAME=${APP_NAME}
 RUN npm run build --prefix frontend
 
 # Build backend
@@ -30,7 +33,7 @@ RUN npm run build --prefix backend
 RUN npm --prefix backend prune --omit=dev
 
 # Runtime image
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
@@ -39,9 +42,19 @@ ENV API_PORT=4000
 ENV HOSTNAME=0.0.0.0
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
-# Install Python + pdfplumber for PDF parsing + pdf2image for thumbnails
-RUN apk add --no-cache python3 py3-pip py3-pillow poppler-utils && \
-    pip3 install --no-cache-dir --break-system-packages pdfplumber==0.11.4 pdf2image==1.17.0
+# Install Python + pdfplumber for PDF parsing + pdf2image for thumbnails.
+# Pillow comes from requirements.txt rather than Alpine's py3-pillow so the
+# pinned version is the one that actually ships.
+# `apk upgrade` takes OS security fixes newer than the base image (e.g. OpenSSL).
+COPY backend/requirements.txt ./backend/requirements.txt
+RUN apk upgrade --no-cache && \
+    apk add --no-cache python3 py3-pip poppler-utils && \
+    pip3 install --no-cache-dir --break-system-packages -r ./backend/requirements.txt
+
+# The runtime only runs `node`. npm and corepack, with npm's bundled tar,
+# sigstore and pacote, would only add image-scan findings.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 # Backend runtime dependencies (already pruned)
 COPY --from=builder /app/backend/package*.json ./backend/

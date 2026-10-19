@@ -1,0 +1,4 @@
+# base64 of "https://bridge", a stand-in SimpleFIN setup token in a test; the
+# test now builds it with btoa(), these fingerprints only cover the old commit.
+b9fc1bb9699a37b821cf019f359674f54aa6775f:frontend/app/integrations/bank-sync/BankSyncPanel.test.tsx:generic-api-key:80
+b9fc1bb9699a37b821cf019f359674f54aa6775f:frontend/app/integrations/bank-sync/BankSyncPanel.test.tsx:generic-api-key:92

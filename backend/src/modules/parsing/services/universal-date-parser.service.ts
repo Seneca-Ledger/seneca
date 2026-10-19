@@ -361,6 +361,10 @@ export class UniversalDateParser {
   private parseTextualMonth(dateString: string, locale?: string): DateParseResult | null {
     // Try to parse dates with textual months in different languages
     const locales = locale ? [locale, 'en'] : ['en'];
+    // \b is an ASCII word boundary and never matches around Cyrillic/CJK/Arabic
+    // month names, so non-Latin locales need a Unicode-aware boundary instead.
+    const wordStart = '(?<![\\p{L}\\p{N}_])';
+    const wordEnd = '(?![\\p{L}\\p{N}_])';
 
     for (const loc of locales) {
       const monthData = this.monthNames[loc];
@@ -369,8 +373,9 @@ export class UniversalDateParser {
       }
 
       for (const [monthName, monthNumber] of Object.entries(monthData)) {
+        const escapedMonth = monthName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         // Create regex for this month name
-        const monthRegex = new RegExp(`\\b${monthName}\\b`, 'i');
+        const monthRegex = new RegExp(`${wordStart}${escapedMonth}${wordEnd}`, 'iu');
         if (!monthRegex.test(dateString)) {
           continue;
         }
@@ -378,11 +383,11 @@ export class UniversalDateParser {
         // Try different patterns with this month
         const patterns = [
           // Month DD, YYYY
-          new RegExp(`\\b${monthName}\\s+(\\d{1,2})[,\\s]+(\\d{4})\\b`, 'i'),
+          new RegExp(`${wordStart}${escapedMonth}\\s+(\\d{1,2})[,\\s]+(\\d{4})\\b`, 'iu'),
           // DD Month YYYY
-          new RegExp(`(\\d{1,2})\\s+${monthName}\\s+(\\d{4})\\b`, 'i'),
+          new RegExp(`(\\d{1,2})\\s+${escapedMonth}\\s+(\\d{4})\\b`, 'iu'),
           // YYYY Month DD
-          new RegExp(`(\\d{4})\\s+${monthName}\\s+(\\d{1,2})\\b`, 'i'),
+          new RegExp(`(\\d{4})\\s+${escapedMonth}\\s+(\\d{1,2})\\b`, 'iu'),
         ];
 
         for (const pattern of patterns) {
@@ -412,7 +417,7 @@ export class UniversalDateParser {
 
   private parseSlashedFormats(dateString: string): DateParseResult | null {
     // MM/DD/YYYY, DD/MM/YYYY, YYYY/MM/DD
-    const slashRegex = /^(?:(\d{1,2})[\/](\d{1,2})[\/](\d{4})|(\d{4})[\/](\d{1,2})[\/](\d{1,2}))$/;
+    const slashRegex = /^(?:(\d{1,2})[/](\d{1,2})[/](\d{4})|(\d{4})[/](\d{1,2})[/](\d{1,2}))$/;
     const match = dateString.match(slashRegex);
 
     if (match) {
@@ -455,7 +460,9 @@ export class UniversalDateParser {
 
       if (match[4]) {
         // YYYY.MM.DD
-        [, yearStr, monthStr, dayStr] = match;
+        yearStr = match[4];
+        monthStr = match[5];
+        dayStr = match[6];
       } else {
         // DD.MM.YYYY or DD.MM.YY
         [, dayStr, monthStr, yearStr] = match;
@@ -505,11 +512,6 @@ export class UniversalDateParser {
 
   private isValidDate(date: Date): boolean {
     return !Number.isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100;
-  }
-
-  // Helper method to get current year for 2-digit year parsing
-  private getCurrentYear(): number {
-    return new Date().getFullYear();
   }
 
   // Method to add support for new languages

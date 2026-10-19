@@ -1,11 +1,11 @@
 'use client';
 
-import { useIntlayer } from '@/app/i18n';
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { useIntlayer } from '@/app/i18n';
+import { tokens } from '@/lib/theme-tokens';
 
 type PreviewCell = string | number;
 
@@ -18,6 +18,8 @@ export interface ReportPreviewData {
     rows: PreviewCell[][];
     total?: PreviewCell[];
   }>;
+  /** Caveats about the figures, e.g. amounts left out for want of a rate. */
+  notes?: string[];
   footer?: PreviewCell[][];
   /** Some section had more rows than the preview shows. */
   truncated: boolean;
@@ -50,7 +52,11 @@ const headCellSx = {
 const alignFor = (index: number): 'left' | 'right' => (index === 0 ? 'left' : 'right');
 
 // eslint-disable-next-line max-lines-per-function, complexity
-export function ReportPreview({ data, loading, error }: ReportPreviewProps): React.JSX.Element {
+export function ReportPreview({
+  data,
+  loading,
+  error,
+}: ReportPreviewProps): React.JSX.Element | null {
   const t = useIntlayer('reportsPage');
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   // eslint-disable-next-line max-params
@@ -76,7 +82,7 @@ export function ReportPreview({ data, loading, error }: ReportPreviewProps): Rea
   }
 
   if (!data) {
-    return <></>;
+    return null;
   }
 
   const isEmpty = data.sections.every(section => section.rows.length === 0);
@@ -97,6 +103,16 @@ export function ReportPreview({ data, loading, error }: ReportPreviewProps): Rea
       <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
         {data.subtitle}
       </Typography>
+
+      {(data.notes ?? []).map(note => (
+        <Typography
+          key={note}
+          variant="caption"
+          sx={{ display: 'block', color: 'var(--color-warning-soft-text)' }}
+        >
+          {note}
+        </Typography>
+      ))}
 
       {isEmpty ? (
         <Typography variant="body2" sx={{ mt: 1, color: 'var(--muted-foreground)' }}>

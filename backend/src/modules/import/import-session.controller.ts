@@ -1,23 +1,24 @@
 import {
   BadRequestException,
-  Body,
   Controller,
+  forwardRef,
   Get,
   Inject,
   NotFoundException,
   Param,
   Post,
-  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
-import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { CommitImportBody } from '../../contracts';
 import { Statement, StatementStatus } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
-import { ConflictResolutionMap, ImportSessionService } from './services/import-session.service';
+import { ImportSessionService } from './services/import-session.service';
 
 @Controller()
 export class ImportSessionController {
@@ -52,39 +53,13 @@ export class ImportSessionController {
       throw new NotFoundException('Statement not found');
     }
 
-    if (statement.parsingDetails?.importPreview) {
-      return {
-        statementId: statement.id,
-        status: statement.status,
-        importPreview: statement.parsingDetails.importPreview,
-      };
-    }
-
-    if (statement.status === StatementStatus.COMPLETED) {
-      return {
-        statementId: statement.id,
-        status: statement.status,
-        importPreview: null,
-      };
-    }
-
-    const transactionCount = await this.transactionRepository.count({
-      where: { statementId: statement.id },
-    });
-
-    if (transactionCount > 0) {
-      return {
-        statementId: statement.id,
-        status: statement.status,
-        importPreview: null,
-      };
-    }
-
-    const processed = await this.statementProcessingService.processStatement(statement.id);
+    // Nothing else to check: this is a read endpoint (STATEMENT_VIEW), so it
+    // must not trigger parsing itself if no preview was recorded — statement
+    // processing is kicked off by the upload flow, not by viewing a preview.
     return {
-      statementId: processed.id,
-      status: processed.status,
-      importPreview: processed.parsingDetails?.importPreview ?? null,
+      statementId: statement.id,
+      status: statement.status,
+      importPreview: statement.parsingDetails?.importPreview ?? null,
     };
   }
 
@@ -92,7 +67,7 @@ export class ImportSessionController {
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async commitImport(
     @Param('id') id: string,
-    @Body() body: { resolutions?: ConflictResolutionMap },
+    @SchemaBody(CommitImportBody) body: CommitImportBody,
     @WorkspaceId() workspaceId: string,
   ) {
     const statement = await this.statementRepository.findOne({
@@ -133,7 +108,7 @@ export class ImportSessionController {
       await this.importSessionService.resolveConflicts(importPreview.sessionId, body.resolutions);
     }
 
-    const committed = await this.statementProcessingService.commitImport(statement.id);
+    const committed = await this.statementProcessingService.commitImport(statement.id, workspaceId);
 
     return {
       statementId: committed.id,

@@ -1,7 +1,8 @@
 'use client';
 
-import type { ReceiptRecord } from '@/app/lib/api';
 import { Box, Typography } from '@mui/material';
+import { NoteCountsProvider } from '@/app/components/notes/NoteCountsContext';
+import type { ReceiptRecord } from '@/app/lib/api';
 import { ReceiptCard } from './ReceiptCard';
 
 export interface ReceiptsListProps {
@@ -77,9 +78,11 @@ export function ReceiptsList({ receipts, isLoading = false, onOpenReceipt }: Rec
         gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' },
       }}
     >
-      {receipts.map(receipt => (
-        <ReceiptCard key={receipt.id} receipt={receipt} onOpen={onOpenReceipt} />
-      ))}
+      <NoteCountsProvider entityType="receipt" entityIds={receipts.map(receipt => receipt.id)}>
+        {receipts.map(receipt => (
+          <ReceiptCard key={receipt.id} receipt={receipt} onOpen={onOpenReceipt} />
+        ))}
+      </NoteCountsProvider>
     </Box>
   );
 }

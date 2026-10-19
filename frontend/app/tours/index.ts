@@ -2,17 +2,15 @@
  * Export all tours
  */
 
-export * from './types';
-export * from './TourManager';
-export * from './statements-tour';
-export * from './custom-tables-tour';
-export * from './reports-tour';
-export * from './categories-tour';
-export * from './integrations-tour';
-export * from './google-sheets-import-tour';
-export * from './google-sheets-integration-tour';
-export * from './settings-tour';
 export * from './admin-tour';
+export * from './categories-tour';
 export { TourButton } from './components/TourButton';
-export { TourProgress } from './components/TourProgress';
 export { TourMenu } from './components/TourMenu';
+export { TourProgress } from './components/TourProgress';
+export * from './custom-tables-tour';
+export * from './integrations-tour';
+export * from './reports-tour';
+export * from './settings-tour';
+export * from './statements-tour';
+export * from './TourManager';
+export * from './types';

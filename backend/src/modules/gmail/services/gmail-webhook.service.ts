@@ -87,11 +87,7 @@ export class GmailWebhookService {
       }
 
       // Process history update for this specific integration only
-      await this.gmailWatchService.processHistoryUpdate(
-        integration,
-        notification.historyId,
-        integration.connectedByUserId,
-      );
+      await this.gmailWatchService.processHistoryUpdate(integration, notification.historyId);
     } catch (error) {
       this.logger.error('Failed to handle Pub/Sub notification', error);
       throw error;

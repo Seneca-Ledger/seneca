@@ -68,16 +68,24 @@ describe('GmailWebhookGuard', () => {
     });
   });
 
-  describe('when PUBSUB_WEBHOOK_TOKEN is NOT configured (dev mode bypass)', () => {
+  describe('when PUBSUB_WEBHOOK_TOKEN is NOT configured', () => {
     beforeEach(() => {
       delete process.env.PUBSUB_WEBHOOK_TOKEN;
     });
 
-    it('allows request even with valid Bearer token when env not set', () => {
+    // Deny by default. The guard used to pass any request whenever NODE_ENV was
+    // not exactly 'production', which left this public endpoint open on staging.
+    it('rejects a request even with a Bearer token when the env var is unset', () => {
       const context = makeContext({ authorization: 'Bearer any-token' });
 
-      // ⚠️ Security: dev bypass — allows all requests when token not configured
-      expect(guard.canActivate(context)).toBe(true);
+      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+    });
+
+    it('rejects outside production too', () => {
+      process.env.NODE_ENV = 'development';
+      const context = makeContext({ authorization: 'Bearer any-token' });
+
+      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException when Authorization header is completely missing', () => {
@@ -93,11 +101,10 @@ describe('GmailWebhookGuard', () => {
       process.env.PUBSUB_WEBHOOK_TOKEN = '';
     });
 
-    it('applies dev bypass (empty string is falsy)', () => {
+    it('treats an empty value as unconfigured and rejects', () => {
       const context = makeContext({ authorization: 'Bearer any-token' });
 
-      // Empty string token is treated as "not configured"
-      expect(guard.canActivate(context)).toBe(true);
+      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
     });
   });
 });

@@ -1,703 +1,262 @@
-/* eslint-disable max-lines */
 'use client';
 
-import { Spinner } from '@/app/components/ui/spinner';
-import type { DashboardData, DashboardRange } from '@/app/hooks/useDashboard';
+import CategoryOutlined from '@mui/icons-material/CategoryOutlined';
+import TimelineOutlined from '@mui/icons-material/TimelineOutlined';
+import Skeleton from '@mui/material/Skeleton';
+import type { SvgIconProps } from '@mui/material/SvgIcon';
+import type React from 'react';
+import { useMemo } from 'react';
+import {
+  formatMonthParam,
+  parseMonthParam,
+} from '@/app/(main)/dashboard/helpers/dashboard-url-state';
+import { formatAxisAmount } from '@/app/components/charts/chart-format';
+import { categoryTones } from '@/app/components/charts/chart-theme';
+import { LazyCategoryDonut, LazySpendTrendBars } from '@/app/components/charts/lazy-charts';
+import type { DashboardTrends } from '@/app/hooks/useDashboard';
 import { useDashboardTrends } from '@/app/hooks/useDashboard';
-import { useIntlayer } from '@/app/i18n';
-import { resolveDashboardEffectivePeriod } from '@/app/lib/dashboard-effective-window';
-import { tokens } from '@/lib/theme-tokens';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import { useTheme } from 'next-themes';
-import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
+import { CashFlowCard } from './CashFlowCard';
+import { CategoryIconBadge } from './CategoryIconBadge';
+import { CardEmpty, DashboardCard, KpiCard, ListRow } from './ui';
+import { useMonthLabel } from './use-month-label';
 
-const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
+const LEGEND_LIMIT = 10;
+/**
+ * Below this many categories a ring says nothing a list cannot: one slice
+ * fills it. Rows with a bar of their share say it plainly.
+ */
+const DONUT_MIN_CATEGORIES = 3;
 
 interface TrendsTabProps {
-  data: DashboardData;
   formatAmount: (value: number) => string;
-  range: DashboardRange;
-  isLoading?: boolean;
+  /** The dashboard's picked month; every section below the cash flow card is scoped to it. */
+  displayMonth: Date;
+  /** Switches the dashboard month (0-based `month`), as the header month strip does. */
+  onSelectMonth: (year: number, month: number) => void;
 }
 
-const DAY_OPTIONS: { label: string; value: number }[] = [
-  { label: '7D', value: 7 },
-  { label: '30D', value: 30 },
-  { label: '90D', value: 90 },
-];
+type Formatter = (value: number) => string;
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
-export function TrendsTab({ formatAmount }: TrendsTabProps) {
+/** The month's figures; each card names the month, so none reads as all time. */
+function TrendsKpis({
+  trends,
+  monthLabel,
+  formatAmount,
+}: {
+  trends: DashboardTrends;
+  monthLabel: string;
+  formatAmount: Formatter;
+}): React.JSX.Element {
   const t = useIntlayer('trendsTab');
-  const [days, setDays] = useState<number>(30);
-  const { resolvedTheme } = useTheme();
-  const { data: trendsData, loading, error } = useDashboardTrends(days);
-  const effectivePeriod = resolveDashboardEffectivePeriod(
-    trendsData?.effectiveSince,
-    trendsData?.effectiveEndDate,
+  const { income, expense } = trends.sources.statements;
+  const net = income - expense;
+  return (
+    <div className="seneca-dashboard__stat-grid seneca-dashboard__stat-grid--auto">
+      <KpiCard
+        label={t.income.value}
+        value={formatAmount(income)}
+        caption={`${t.expense.value} ${formatAmount(expense)} · ${monthLabel}`}
+      />
+      <KpiCard
+        label={t.netFlowTitle.value}
+        value={net < 0 ? `−${formatAmount(Math.abs(net))}` : formatAmount(net)}
+        caption={`${t.categories.value}: ${trends.categories.length} · ${monthLabel}`}
+      />
+      <KpiCard
+        label={t.counterpartiesTitle.value}
+        value={trends.counterparties.length}
+        caption={`${t.totalFound.value} · ${monthLabel}`}
+      />
+    </div>
   );
+}
 
-  // eslint-disable-next-line max-lines-per-function, complexity
-  const dailyTrendOption = useMemo(() => {
-    if (!trendsData?.dailyTrend?.length) return null;
-    const isDark = resolvedTheme === 'dark';
+interface SectionState {
+  loading: boolean;
+  error: string | null;
+  trends: DashboardTrends | null;
+}
 
-    const actual = trendsData.dailyTrend;
-    const forecast = trendsData.forecast ?? [];
-    const hasForecast = forecast.length > 0;
-    const lastActual = actual[actual.length - 1];
+/** Shared loading / error / empty rendering for the two chart cards. */
+function CardState({
+  state,
+  emptyLabel,
+  emptyIcon,
+  children,
+}: {
+  state: SectionState;
+  emptyLabel: React.ReactNode;
+  /** What the card would draw, as the empty state's icon. */
+  emptyIcon: React.ComponentType<SvgIconProps>;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  // Та же коробка, что у загруженного графика (min-height 260 против 160 у
+  // __card-empty), иначе карточка меняет высоту дважды за загрузку.
+  if (state.loading) {
+    return (
+      <div className="seneca-dashboard__chart">
+        <Skeleton variant="rounded" width="100%" height="100%" />
+      </div>
+    );
+  }
+  if (state.error) {
+    return (
+      <div className="seneca-dashboard__card-empty seneca-dashboard__amount--negative">
+        {state.error}
+      </div>
+    );
+  }
+  if (!state.trends) {
+    return <CardEmpty icon={emptyIcon}>{emptyLabel}</CardEmpty>;
+  }
+  return <>{children}</>;
+}
 
-    const allDates = [...actual.map(p => p.date), ...forecast.map(p => p.date)];
+function SpendTrendCard({
+  state,
+  monthLabel,
+  formatAmount,
+}: {
+  state: SectionState;
+  monthLabel: string;
+  formatAmount: Formatter;
+}): React.JSX.Element {
+  const t = useIntlayer('trendsTab');
+  const { locale } = useLocale();
+  return (
+    <DashboardCard title={t.spendTrendTitle} subtitle={monthLabel}>
+      <CardState state={state} emptyLabel={t.noTrendDataForPeriod} emptyIcon={TimelineOutlined}>
+        {state.trends?.dailyTrend.length ? (
+          <div className="seneca-dashboard__chart">
+            <LazySpendTrendBars
+              actual={state.trends.dailyTrend}
+              forecast={state.trends.forecast ?? []}
+              locale={locale}
+              labels={{
+                income: t.income.value,
+                expense: t.expense.value,
+                forecastSuffix: t.forecastSuffix.value,
+                forecastLabel: t.forecastLabel.value,
+              }}
+              formatAmount={formatAmount}
+              formatTick={value => formatAxisAmount(value, locale)}
+            />
+          </div>
+        ) : (
+          <CardEmpty icon={TimelineOutlined}>{t.noTrendDataForRange}</CardEmpty>
+        )}
+      </CardState>
+    </DashboardCard>
+  );
+}
 
-    const incomeActual = [...actual.map(p => p.income), ...forecast.map(() => null)];
-    const expenseActual = [...actual.map(p => p.expense), ...forecast.map(() => null)];
+function CategoryBreakdownCard({
+  state,
+  monthLabel,
+  formatAmount,
+}: {
+  state: SectionState;
+  monthLabel: string;
+  formatAmount: Formatter;
+}): React.JSX.Element {
+  const t = useIntlayer('trendsTab');
+  const { locale } = useLocale();
+  const top = useMemo(() => state.trends?.categories.slice(0, LEGEND_LIMIT) ?? [], [state.trends]);
+  const slices = useMemo(() => {
+    const tones = categoryTones(top.map(c => ({ key: c.name })));
+    return top.map((c, index) => ({
+      key: c.name,
+      // A system category reads in the interface's language ("Professional services").
+      name: localizeStatementCategoryName(c.name, locale),
+      value: c.amount,
+      color: tones[index],
+    }));
+  }, [top, locale]);
+  const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+  const asBars = slices.length < DONUT_MIN_CATEGORIES;
+  return (
+    <DashboardCard title={t.categoryBreakdownTitle} subtitle={monthLabel}>
+      <CardState state={state} emptyLabel={t.noTrendDataForPeriod} emptyIcon={CategoryOutlined}>
+        {slices.length > 0 ? (
+          <>
+            {!asBars && (
+              <div className="seneca-dashboard__donut seneca-dashboard__donut--wide">
+                <LazyCategoryDonut slices={slices} formatAmount={formatAmount} />
+              </div>
+            )}
+            <div className="seneca-dashboard__list">
+              {top.map((c, rank) => (
+                <ListRow
+                  key={c.name}
+                  leading={
+                    <CategoryIconBadge name={c.name} color={c.color} icon={c.icon} size={28} />
+                  }
+                  primary={
+                    <>
+                      {!asBars && (
+                        <span
+                          className="seneca-dashboard__legend-dot"
+                          style={{ background: slices[rank].color }}
+                          aria-hidden="true"
+                        />
+                      )}
+                      {slices[rank].name}
+                    </>
+                  }
+                  secondary={
+                    asBars && total > 0 ? (
+                      <span className="seneca-dashboard__share-bar" aria-hidden="true">
+                        <span
+                          style={{
+                            width: `${(slices[rank].value / total) * 100}%`,
+                            background: slices[rank].color,
+                          }}
+                        />
+                      </span>
+                    ) : undefined
+                  }
+                  trailing={formatAmount(c.amount)}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <CardEmpty icon={CategoryOutlined}>{t.noCategorizedTransactions}</CardEmpty>
+        )}
+      </CardState>
+    </DashboardCard>
+  );
+}
 
-    const incomeForecast = hasForecast
-      ? [...actual.slice(0, -1).map(() => null), lastActual.income, ...forecast.map(p => p.income)]
-      : [];
-    const expenseForecast = hasForecast
-      ? [
-          ...actual.slice(0, -1).map(() => null),
-          lastActual.expense,
-          ...forecast.map(p => p.expense),
-        ]
-      : [];
-
-    const incomeColor = isDark ? '#34D399' : '#1a1a1a';
-    const expenseColor = '#D13D56';
-    const showPointSymbols = actual.length <= 2;
-
-    const series: object[] = [
-      {
-        name: t.income.value,
-        type: 'line',
-        smooth: true,
-        symbol: showPointSymbols ? 'circle' : 'none',
-        symbolSize: showPointSymbols ? 7 : 0,
-        showSymbol: showPointSymbols,
-        data: incomeActual,
-        areaStyle: { color: isDark ? 'rgba(52,211,153,0.1)' : 'rgba(26,26,26,0.05)' },
-        lineStyle: { color: incomeColor, width: 2 },
-        itemStyle: { color: incomeColor },
-        ...(hasForecast
-          ? {
-              markLine: {
-                data: [{ xAxis: lastActual.date }],
-                lineStyle: {
-                  color: isDark ? '#4A5568' : '#A0AEC0',
-                  type: 'dashed' as const,
-                  width: 1,
-                },
-                label: {
-                  show: true,
-                  formatter: t.forecastLabel.value,
-                  fontSize: 10,
-                  color: isDark ? '#8899AA' : '#718096',
-                  fontFamily: 'var(--font-dashboard-sans)',
-                },
-                symbol: 'none',
-                silent: true,
-              },
-            }
-          : {}),
-      },
-      {
-        name: t.expense.value,
-        type: 'line',
-        smooth: true,
-        symbol: showPointSymbols ? 'circle' : 'none',
-        symbolSize: showPointSymbols ? 7 : 0,
-        showSymbol: showPointSymbols,
-        data: expenseActual,
-        areaStyle: { color: 'rgba(209,61,86,0.08)' },
-        lineStyle: { color: expenseColor, width: 2 },
-        itemStyle: { color: expenseColor },
-      },
-    ];
-
-    if (hasForecast) {
-      series.push(
-        {
-          name: `${t.income.value}${t.forecastSuffix.value}`,
-          type: 'line',
-          smooth: true,
-          symbol: 'none',
-          data: incomeForecast,
-          areaStyle: { color: isDark ? 'rgba(52,211,153,0.05)' : 'rgba(26,26,26,0.02)' },
-          lineStyle: { color: incomeColor, width: 2, type: 'dashed' as const },
-          itemStyle: { color: incomeColor },
-          legendHoverLink: false,
-        },
-        {
-          name: `${t.expense.value}${t.forecastSuffix.value}`,
-          type: 'line',
-          smooth: true,
-          symbol: 'none',
-          data: expenseForecast,
-          areaStyle: { color: 'rgba(209,61,86,0.04)' },
-          lineStyle: { color: expenseColor, width: 2, type: 'dashed' as const },
-          itemStyle: { color: expenseColor },
-          legendHoverLink: false,
-        },
-      );
-    }
-
-    return {
-      backgroundColor: 'transparent',
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: isDark ? '#151C24' : '#1a1a1a',
-        borderColor: 'transparent',
-        textStyle: { color: isDark ? '#E2E8F0' : '#F5F3EF', fontSize: 12 },
-      },
-      legend: {
-        data: [t.income.value, t.expense.value],
-        top: 0,
-        right: 0,
-        textStyle: {
-          color: isDark ? '#8899AA' : 'var(--muted-foreground)',
-          fontSize: 11,
-          fontFamily: 'var(--font-dashboard-sans)',
-        },
-        icon: 'rect',
-        itemWidth: 12,
-        itemHeight: 6,
-      },
-      grid: { left: 40, right: 0, top: 40, bottom: 24 },
-      xAxis: {
-        type: 'category',
-        data: allDates,
-        axisLabel: {
-          color: isDark ? '#8899AA' : 'var(--muted-foreground)',
-          fontSize: 10,
-          fontFamily: 'var(--font-dashboard-sans)',
-        },
-        axisLine: { lineStyle: { color: isDark ? '#2A3442' : '#D1CCC4' } },
-      },
-      yAxis: {
-        type: 'value',
-        axisLabel: {
-          color: isDark ? '#8899AA' : 'var(--muted-foreground)',
-          fontSize: 10,
-          fontFamily: 'var(--font-dashboard-sans)',
-        },
-        splitLine: { lineStyle: { color: isDark ? '#2A3442' : '#D1CCC4' } },
-      },
-      series,
-    };
-  }, [resolvedTheme, trendsData, t]);
-
-  // eslint-disable-next-line max-lines-per-function, complexity
-  const rosePieOption = useMemo(() => {
-    if (!trendsData?.categories?.length) return null;
-    const top10 = trendsData.categories.slice(0, 10);
-    const isDark = resolvedTheme === 'dark';
-    return {
-      backgroundColor: 'transparent',
-      tooltip: {
-        trigger: 'item',
-        backgroundColor: isDark ? '#151C24' : '#1a1a1a',
-        borderColor: 'transparent',
-        textStyle: { color: isDark ? '#E2E8F0' : '#F5F3EF', fontSize: 12 },
-      },
-      legend: {
-        bottom: 0,
-        textStyle: {
-          color: isDark ? '#8899AA' : 'var(--muted-foreground)',
-          fontSize: 11,
-          fontFamily: 'var(--font-dashboard-sans)',
-        },
-        itemWidth: 10,
-        itemHeight: 10,
-      },
-      series: [
-        {
-          name: t.expenseCategoriesSeriesName.value,
-          type: 'pie',
-          radius: ['20%', '60%'],
-          center: ['50%', '45%'],
-          roseType: 'radius',
-          label: { show: false },
-          data: top10.map(c => ({ name: c.name, value: Number(c.amount.toFixed(2)) })),
-        },
-      ],
-    };
-  }, [resolvedTheme, trendsData, t]);
+export function TrendsTab({
+  formatAmount,
+  displayMonth,
+  onSelectMonth,
+}: TrendsTabProps): React.JSX.Element {
+  const month = formatMonthParam(displayMonth);
+  const monthLabel = useMonthLabel(displayMonth);
+  const { data: trends, isPending, error } = useDashboardTrends({ month });
+  const state: SectionState = { loading: isPending, error, trends: trends ?? null };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%', pb: '40px' }}>
-      {effectivePeriod ? (
-        <Box
-          sx={{
-            border: '1px solid var(--border)',
-            borderRadius: tokens.radius.sm,
-            bgcolor: 'var(--muted)',
-            px: 2,
-            py: 1.5,
-            fontSize: 12,
-            color: 'text.secondary',
-            fontFamily: 'var(--font-dashboard-sans)',
-          }}
-        >
-          {`${t.showingPeriodPrefix.value} ${effectivePeriod}`}
-        </Box>
-      ) : null}
-
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography
-          component="h1"
-          sx={{
-            fontSize: 30,
-            fontWeight: 700,
-            color: 'text.primary',
-            fontFamily: 'var(--font-dashboard-mono)',
-          }}
-        >
-          {t.title}
-        </Typography>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {DAY_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => setDays(opt.value)}
-            style={{
-              padding: '6px 12px',
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: '1px',
-              transition: 'background-color 150ms, color 150ms',
-              cursor: 'pointer',
-              border: days === opt.value ? 'none' : '1px solid var(--border)',
-              borderRadius: tokens.radius.xs,
-              backgroundColor: days === opt.value ? 'var(--primary-fill)' : 'var(--card)',
-              color: days === opt.value ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
-              fontFamily: 'var(--font-dashboard-mono)',
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </Box>
-
-      {loading && (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
-          <Spinner size={32} />
-        </Box>
-      )}
-
-      {!loading && error && (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
-          <Typography
-            sx={{ fontSize: 13, color: 'error.main', fontFamily: 'var(--font-dashboard-sans)' }}
-          >
-            {error}
-          </Typography>
-        </Box>
-      )}
-
-      {!loading && !error && !trendsData && (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
-          <Typography
-            sx={{ fontSize: 13, color: 'text.secondary', fontFamily: 'var(--font-dashboard-sans)' }}
-          >
-            {t.noTrendDataForPeriod}
-          </Typography>
-        </Box>
-      )}
-
-      {!loading && !error && trendsData && (
-        <>
-          <Box
-            component="section"
-            sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2 }}
-          >
-            <Typography
-              component="h2"
-              sx={{
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: '1px',
-                color: 'text.secondary',
-                textTransform: 'uppercase',
-                fontFamily: 'var(--font-dashboard-mono)',
-              }}
-            >
-              {t.dataSourcesTitle}
-            </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-                gap: 2.5,
-              }}
-            >
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1.5,
-                  border: '1px solid var(--border)',
-                  borderRadius: tokens.radius.sm,
-                  bgcolor: 'var(--card)',
-                  p: 3,
-                }}
-              >
-                <Typography
-                  component="h3"
-                  sx={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: 'text.primary',
-                    fontFamily: 'var(--font-dashboard-mono)',
-                  }}
-                >
-                  {t.statementsTitle}
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {t.income}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {formatAmount(trendsData.sources.statements.income)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {t.expense}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {formatAmount(trendsData.sources.statements.expense)}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ mt: 'auto', pt: 1 }}>
-                  <Typography
-                    component="span"
-                    sx={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: '#34d399',
-                      letterSpacing: '1px',
-                      textTransform: 'uppercase',
-                      fontFamily: 'var(--font-dashboard-mono)',
-                    }}
-                  >
-                    {t.syncedBadge}
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1.5,
-                  border: '1px solid var(--border)',
-                  borderRadius: tokens.radius.sm,
-                  bgcolor: 'var(--card)',
-                  p: 3,
-                }}
-              >
-                <Typography
-                  component="h3"
-                  sx={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: 'text.primary',
-                    fontFamily: 'var(--font-dashboard-mono)',
-                  }}
-                >
-                  {t.netFlowTitle}
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {t.net}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {formatAmount(
-                        Math.abs(
-                          trendsData.sources.statements.income -
-                            trendsData.sources.statements.expense,
-                        ),
-                      )}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {t.categories}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {trendsData.categories.length}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ mt: 'auto', pt: 1 }}>
-                  <Typography
-                    component="span"
-                    sx={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: 'var(--primary)',
-                      letterSpacing: '1px',
-                      textTransform: 'uppercase',
-                      fontFamily: 'var(--font-dashboard-mono)',
-                    }}
-                  >
-                    {t.activeBadge}
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1.5,
-                  border: '1px solid var(--border)',
-                  borderRadius: tokens.radius.sm,
-                  bgcolor: 'var(--card)',
-                  p: 3,
-                }}
-              >
-                <Typography
-                  component="h3"
-                  sx={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: 'text.primary',
-                    fontFamily: 'var(--font-dashboard-mono)',
-                  }}
-                >
-                  {t.counterpartiesTitle}
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {t.totalFound}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.secondary',
-                        fontFamily: 'var(--font-dashboard-sans)',
-                      }}
-                    >
-                      {trendsData.counterparties.length}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ mt: 'auto', pt: 1 }}>
-                  <Typography
-                    component="span"
-                    sx={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: 'text.secondary',
-                      letterSpacing: '1px',
-                      textTransform: 'uppercase',
-                      fontFamily: 'var(--font-dashboard-mono)',
-                    }}
-                  >
-                    {t.readyBadge}
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          </Box>
-
-          <Box
-            component="section"
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', lg: 'repeat(12, 1fr)' },
-              gap: 2.5,
-              alignItems: 'start',
-              mt: 2,
-            }}
-          >
-            <Box
-              sx={{
-                gridColumn: { xs: '1', lg: 'span 8' },
-                display: 'flex',
-                height: '100%',
-                flexDirection: 'column',
-                gap: 1.5,
-                border: '1px solid var(--border)',
-                bgcolor: 'var(--card)',
-                p: 3,
-              }}
-            >
-              <Typography
-                component="h3"
-                sx={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  color: 'text.primary',
-                  textTransform: 'uppercase',
-                  fontFamily: 'var(--font-dashboard-mono)',
-                }}
-              >
-                {t.spendTrendTitle}
-              </Typography>
-              {dailyTrendOption ? (
-                <Box sx={{ flex: 1, minHeight: 280 }}>
-                  <ReactECharts
-                    option={dailyTrendOption}
-                    style={{ height: '100%', width: '100%' }}
-                    notMerge
-                    lazyUpdate
-                  />
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    height: 280,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      fontSize: 13,
-                      color: 'text.secondary',
-                      fontFamily: 'var(--font-dashboard-sans)',
-                    }}
-                  >
-                    {t.noTrendDataForRange}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            <Box
-              sx={{
-                gridColumn: { xs: '1', lg: 'span 4' },
-                display: 'flex',
-                height: '100%',
-                flexDirection: 'column',
-                gap: 1.5,
-                border: '1px solid var(--border)',
-                bgcolor: 'var(--card)',
-                p: 3,
-              }}
-            >
-              <Typography
-                component="h3"
-                sx={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  color: 'text.primary',
-                  textTransform: 'uppercase',
-                  fontFamily: 'var(--font-dashboard-mono)',
-                }}
-              >
-                {t.categoryBreakdownTitle}
-              </Typography>
-              {rosePieOption ? (
-                <Box sx={{ flex: 1, minHeight: 280 }}>
-                  <ReactECharts
-                    option={rosePieOption}
-                    style={{ height: '100%', width: '100%' }}
-                    notMerge
-                    lazyUpdate
-                  />
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    height: 280,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      fontSize: 13,
-                      color: 'text.secondary',
-                      fontFamily: 'var(--font-dashboard-sans)',
-                    }}
-                  >
-                    {t.noCategorizedTransactions}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </Box>
-        </>
-      )}
-    </Box>
+    <div className="seneca-dashboard__tab">
+      <CashFlowCard
+        formatAmount={formatAmount}
+        activeMonth={month}
+        onSelectMonth={key => {
+          const picked = parseMonthParam(key);
+          if (picked) {
+            onSelectMonth(picked.getFullYear(), picked.getMonth());
+          }
+        }}
+      />
+      {trends && <TrendsKpis trends={trends} monthLabel={monthLabel} formatAmount={formatAmount} />}
+      <div className="seneca-dashboard__grid seneca-dashboard__grid--wide">
+        <SpendTrendCard state={state} monthLabel={monthLabel} formatAmount={formatAmount} />
+        <CategoryBreakdownCard state={state} monthLabel={monthLabel} formatAmount={formatAmount} />
+      </div>
+    </div>
   );
 }

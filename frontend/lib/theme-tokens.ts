@@ -1,6 +1,6 @@
 // lib/theme-tokens.ts
 // JS/TS token constants — mirrors abstracts/_variables.scss and _variables-dark.scss.
-// Use these wherever CSS custom properties (var(--lumio-*)) were used in JS/TSX.
+// Use these wherever CSS custom properties (var(--seneca-*)) were used in JS/TSX.
 //
 // For dark-mode-aware colors in client components:
 //   import { useTheme } from 'next-themes';
@@ -19,6 +19,9 @@ export const tokens = {
     xl: '20px',
     full: '999px',
   },
+  /** Keyboard focus ring (mirrors $seneca-focus-ring-* in _variables.scss). `reach` is how far,
+   *  in px, it extends outside an element: the room a clipping container leaves its items. */
+  focusRing: { reach: 4 },
   space: {
     0: '0',
     1: '4px',
@@ -60,18 +63,18 @@ export const tokens = {
 
   // ── Light theme colors (default) ────────────────────────────
   color: {
-    primary: '#168118',
+    primary: '#5b7b6a',
     // Background of a filled control carrying white text. Same as `primary`
     // here; deliberately different in `dark` below — see the note there.
-    primaryFill: '#168118',
-    primaryFillHover: '#157811',
-    primaryHover: '#157811',
-    primaryDark: '#036704',
+    primaryFill: '#5b7b6a',
+    primaryFillHover: '#4e6b5c',
+    primaryHover: '#4e6b5c',
+    primaryDark: '#3f574a',
     forest: '#0e2a10',
     lime: '#9fe870',
-    primary50: '#edf7ed',
-    primary100: '#d4edd4',
-    primary200: '#a8d5a8',
+    primary50: '#eef3f0',
+    primary100: '#dce6e0',
+    primary200: '#b9cbc1',
     primaryContrast: '#ffffff',
     ink900: '#0b0b10',
     ink800: '#171720',
@@ -93,7 +96,7 @@ export const tokens = {
     dangerSoft: '#fff1f2',
     info: '#0ea5e9',
     infoSoft: '#f0f9ff',
-    bg: '#f7f8f7',
+    bg: '#faf8f5',
     surface: '#ffffff',
     surfaceMuted: '#f2f2f4',
     surfaceWarning: '#fffbeb',
@@ -120,50 +123,50 @@ export const tokens = {
   // ── Dark theme colors ───────────────────────────────────────
   dark: {
     color: {
-      primary: '#5cc462',
-      // Not `primary`: white text on #5cc462 is 2.2:1, well under the 4.5:1
-      // minimum. Filled controls (buttons, badges) use this instead — same
-      // brand green as the light theme, 5.2:1 with white text. Mirrors
-      // --primary-fill in styles/themes/_globals.scss; keep both in step.
-      primaryFill: '#168118',
-      primaryFillHover: '#1c9c22',
-      primaryHover: '#3e9c35',
-      primaryDark: '#168118',
+      primary: '#8fb39f',
+      // Not `primary`: white text on #8fb39f is ~1.9:1, well under the 4.5:1
+      // minimum. Filled controls (buttons, badges) use this instead — a
+      // deeper, less saturated step of the same hue, 5.4:1 with white text.
+      // Mirrors --primary-fill in styles/themes/_globals.scss; keep both in step.
+      primaryFill: '#3f5e4e',
+      primaryFillHover: '#4a6b5a',
+      primaryHover: '#a3c2b0',
+      primaryDark: '#3f5e4e',
       forest: '#0e2a10',
       lime: '#9fe870',
-      primary50: 'rgba(62, 156, 53, 0.1)',
-      primary100: 'rgba(62, 156, 53, 0.2)',
-      primary200: 'rgba(62, 156, 53, 0.35)',
-      primaryContrast: '#ffffff',
-      ink900: '#f0f0f5',
-      ink800: '#d4d4de',
-      ink700: '#a8a8b8',
-      ink600: '#7c7c8e',
-      ink500: '#5c5c6e',
-      ink400: '#3e4240',
-      ink300: '#2c302d',
-      ink200: '#222622',
-      ink150: '#1e221f',
-      ink100: '#181c19',
-      ink50: '#121513',
-      white: '#1e221f',
-      success: '#34d399',
-      successSoft: 'rgba(52, 211, 153, 0.12)',
-      warning: '#fbbf24',
-      warningSoft: 'rgba(251, 191, 36, 0.12)',
-      danger: '#fb7185',
-      dangerSoft: 'rgba(251, 113, 133, 0.12)',
-      info: '#38bdf8',
-      infoSoft: 'rgba(56, 189, 248, 0.12)',
-      bg: '#0f1210',
-      surface: '#161b17',
-      surfaceMuted: '#1c211d',
-      surfaceWarning: 'rgba(251, 191, 36, 0.12)',
-      surfaceError: 'rgba(251, 113, 133, 0.12)',
-      textPrimary: '#e8e8f0',
-      textSecondary: '#a0a0b4',
-      border: '#252b26',
-      borderStrong: '#333b34',
+      primary50: 'rgba(143, 179, 159, 0.1)',
+      primary100: 'rgba(143, 179, 159, 0.2)',
+      primary200: 'rgba(143, 179, 159, 0.35)',
+      primaryContrast: '#ece7de',
+      ink900: '#ece7de',
+      ink800: '#d6d0c5',
+      ink700: '#bdb6aa',
+      ink600: '#b0a99d',
+      ink500: '#a8a196',
+      ink400: '#857f75',
+      ink300: '#5f5a53',
+      ink200: '#3a3733',
+      ink150: '#2e2c29',
+      ink100: '#2b2926',
+      ink50: '#262523',
+      white: '#2e2c29',
+      success: '#8fb39f',
+      successSoft: 'rgba(143, 179, 159, 0.12)',
+      warning: '#d4a94f',
+      warningSoft: 'rgba(212, 169, 79, 0.12)',
+      danger: '#d9806f',
+      dangerSoft: 'rgba(217, 128, 111, 0.12)',
+      info: '#8fa5b8',
+      infoSoft: 'rgba(143, 165, 184, 0.12)',
+      bg: '#1b1a18',
+      surface: '#232220',
+      surfaceMuted: '#1f1e1c',
+      surfaceWarning: 'rgba(212, 169, 79, 0.12)',
+      surfaceError: 'rgba(217, 128, 111, 0.12)',
+      textPrimary: '#ece7de',
+      textSecondary: '#a8a196',
+      border: '#2e2c29',
+      borderStrong: '#3a3733',
       catFood: '#f59e0b',
       catTransport: '#38bdf8',
       catHousing: '#a78bfa',

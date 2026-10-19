@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import apiClient from '../../../lib/api';
+import { checkContract } from '../../../lib/query-fn-schema';
 
 interface User {
   id: string;
@@ -27,7 +28,12 @@ export interface PermissionsHandlers {
 
 async function fetchUserPermissions(userId: string): Promise<string[]> {
   const response = await apiClient.get(`/users/${userId}/permissions`);
-  return response.data.customPermissions || [];
+  const { customPermissions } = await checkContract(
+    'UserPermissions',
+    response.data,
+    '/users/:id/permissions',
+  );
+  return [...customPermissions];
 }
 
 export function usePermissionsHandlers({
@@ -43,13 +49,13 @@ export function usePermissionsHandlers({
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
 
   const handleEditPermissions = async (user: User): Promise<void> => {
-    try {
+    await (async () => {
       setSelectedPermissions(await fetchUserPermissions(user.id));
       setEditingUser(user);
       setPermissionsDialogOpen(true);
-    } catch {
+    })().catch(async () => {
       console.error(errorMessages.loadPermissions);
-    }
+    });
   };
 
   const handleSavePermissions = async (): Promise<void> => {
@@ -57,18 +63,21 @@ export function usePermissionsHandlers({
       return;
     }
     setSaving(true);
-    try {
+
+    await (async () => {
       await apiClient.put(`/users/${editingUser.id}/permissions`, {
         permissions: selectedPermissions,
       });
       setPermissionsDialogOpen(false);
       setEditingUser(null);
       void loadUsers();
-    } catch {
-      console.error(errorMessages.savePermissions);
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async () => {
+        console.error(errorMessages.savePermissions);
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleResetPermissions = async (): Promise<void> => {
@@ -76,16 +85,19 @@ export function usePermissionsHandlers({
       return;
     }
     setSaving(true);
-    try {
+
+    await (async () => {
       await apiClient.post(`/users/${editingUser.id}/permissions/reset`);
       setPermissionsDialogOpen(false);
       setEditingUser(null);
       void loadUsers();
-    } catch {
-      console.error(errorMessages.resetPermissions);
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async () => {
+        console.error(errorMessages.resetPermissions);
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   return {

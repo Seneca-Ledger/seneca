@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { ExtractedMetadata as EnhancedExtractedMetadata } from '../interfaces/enhanced-parsed-statement.interface';
 import { ParsedStatementMetadata } from '../interfaces/parsed-statement.interface';
 
@@ -61,7 +62,7 @@ export interface HeaderPattern {
   patterns: RegExp[];
   languages: string[];
   priority: number;
-  extractor: (match: RegExpMatchArray) => PatternExtractionResult;
+  extractor: (match: RegExpExecArray) => PatternExtractionResult;
 }
 
 export interface InstitutionProfile {
@@ -312,9 +313,10 @@ export class MetadataExtractionService {
     metadata.headerInfo = this.extractHeaderInfo(metadata, locale);
 
     // Determine extraction method based on confidence
-    if (metadata.confidence > 0.8) {
+    const confidence = metadata.confidence ?? 0;
+    if (confidence > 0.8) {
       metadata.extractionMethod = 'regex';
-    } else if (metadata.confidence > 0.5) {
+    } else if (confidence > 0.5) {
       metadata.extractionMethod = 'heuristic';
     } else {
       metadata.extractionMethod = 'ml'; // Would use ML in production
@@ -400,7 +402,7 @@ export class MetadataExtractionService {
         }
         break;
       case 'institution':
-        if (result && 'name' in result) {
+        if (result && 'name' in result && !('number' in result)) {
           metadata.institution = { ...metadata.institution, ...result };
         }
         break;
@@ -433,7 +435,7 @@ export class MetadataExtractionService {
     // Default currency
     if (!metadata.currency) {
       metadata.currency = {
-        code: locale === 'ru' ? 'RUB' : 'KZT',
+        code: locale === 'ru' ? 'RUB' : appDefaultCurrency(),
       };
     }
 
@@ -533,7 +535,7 @@ export class MetadataExtractionService {
   private mapCurrencyCode(code: string): { code: string; symbol?: string } {
     const currencyMap: { [key: string]: { code: string; symbol?: string } } = {
       // ISO codes
-      KZT: { code: 'KZT', symbol: '₽' },
+      KZT: { code: 'KZT', symbol: '₸' },
       USD: { code: 'USD', symbol: '$' },
       EUR: { code: 'EUR', symbol: '€' },
       RUB: { code: 'RUB', symbol: '₽' },
@@ -758,7 +760,7 @@ export class MetadataExtractionService {
       accountNumber: extracted.account?.number || '',
       dateFrom: extracted.period?.dateFrom || new Date(),
       dateTo: extracted.period?.dateTo || new Date(),
-      currency: extracted.currency?.code || 'KZT',
+      currency: extracted.currency?.code || appDefaultCurrency(),
       rawHeader: extracted.rawHeader,
       normalizedHeader: extracted.normalizedHeader,
       periodLabel: extracted.period?.label,

@@ -1,31 +1,37 @@
 'use client';
 
+import DonutLargeOutlined from '@mui/icons-material/DonutLargeOutlined';
+import clsx from 'clsx';
+import { useMemo } from 'react';
+import type { DonutSlice } from '@/app/components/charts/CategoryDonut';
+import { categoryTones } from '@/app/components/charts/chart-theme';
+import { LazyCategoryDonut } from '@/app/components/charts/lazy-charts';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer } from '@/app/i18n';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import { useTheme } from 'next-themes';
-import dynamic from 'next/dynamic';
-import { useMemo } from 'react';
+import { categoryReportHref } from '@/app/lib/category-report-href';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { CategoryIconBadge } from './CategoryIconBadge';
-
-const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
+import { useIsWideSection } from './section-span';
+import { CardEmpty, ListRow } from './ui';
 
 type TopCategory = NonNullable<DashboardData['topCategories']>[number];
 
 interface TopCategoriesCardProps {
   categories: NonNullable<DashboardData['topCategories']>;
   formatAmount: (value: number) => string;
+  /** `YYYY-MM` the card shows, so the report opens on the same month. */
+  month?: string;
 }
 
 function categoryDisplayName(
   cat: TopCategory,
   labels: { uncategorized: string; other: string },
+  nameOf: (name: string) => string,
 ): string {
   if (cat.isOther) {
     return labels.other;
   }
-  return cat.name ?? labels.uncategorized;
+  return cat.name ? nameOf(cat.name) : labels.uncategorized;
 }
 
 function categoryKey(cat: TopCategory): string {
@@ -35,111 +41,87 @@ function categoryKey(cat: TopCategory): string {
   return cat.id ?? '__uncategorized__';
 }
 
-export function TopCategoriesCard({ categories, formatAmount }: TopCategoriesCardProps) {
+/**
+ * A named category opens its row in the report on the card's month; "uncategorized"
+ * and the "other" rollup have no row of their own to ring there.
+ */
+function categoryHref(cat: TopCategory, month: string | undefined): string | undefined {
+  return cat.name && !cat.isOther ? categoryReportHref(cat.name, month) : undefined;
+}
+
+export function TopCategoriesCard({ categories, formatAmount, month }: TopCategoriesCardProps) {
   const t = useIntlayer('topCategoriesCard');
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
+  const wideText = useIntlayer('dashboardWideView');
+  // With the row to itself the list can say how each total came about.
+  const wide = useIsWideSection();
+  const categoryName = useCategoryName();
   const labels = useMemo(
     () => ({ uncategorized: t.uncategorized.value, other: t.other.value }),
     [t.uncategorized, t.other],
   );
 
-  const option = useMemo(() => {
-    if (!categories.length) {
-      return null;
-    }
-
-    return {
-      backgroundColor: 'transparent',
-      tooltip: {
-        trigger: 'item',
-        backgroundColor: isDark ? '#151C24' : '#1a1a1a',
-        textStyle: { color: isDark ? '#E2E8F0' : '#F5F3EF', fontSize: 12 },
-        borderRadius: 8,
-        padding: [10, 12],
-        formatter: (params: { name: string; value: number; percent: number }) =>
-          `${params.name}: ${formatAmount(params.value)} (${params.percent}%)`,
-      },
-      series: [
-        {
-          name: 'Categories',
-          type: 'pie',
-          radius: ['62%', '85%'],
-          avoidLabelOverlap: false,
-          itemStyle: { borderColor: isDark ? '#151C24' : '#ffffff', borderWidth: 2 },
-          label: { show: false },
-          emphasis: {
-            label: { show: true, fontSize: 14, fontWeight: 'bold' },
-          },
-          data: categories.map(cat => ({
-            value: cat.amount,
-            name: categoryDisplayName(cat, labels),
-            itemStyle: { color: cat.color },
-          })),
-        },
-      ],
-      animationDuration: 1400,
-      animationEasing: 'cubicOut',
-    };
-  }, [categories, labels, isDark, formatAmount]);
-
-  if (!option) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          height: '100%',
-          width: '100%',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 13,
-          color: 'var(--muted-foreground)',
-          fontFamily: 'var(--font-dashboard-sans)',
-        }}
-      >
-        {t.noCategoryData}
-      </Box>
+  const slices = useMemo<DonutSlice[]>(() => {
+    // Tones follow the category, not this month's rank (see categoryTones).
+    const tones = categoryTones(
+      // By name, as on the Trends tab, so a category has one colour on both.
+      categories.map(cat => ({ key: cat.name ?? '__uncategorized__', isOther: cat.isOther })),
     );
+    return categories.map((cat, index) => ({
+      key: categoryKey(cat),
+      name: categoryDisplayName(cat, labels, categoryName),
+      value: cat.amount,
+      color: tones[index],
+      href: categoryHref(cat, month),
+    }));
+  }, [categories, labels, categoryName, month]);
+
+  if (!categories.length) {
+    return <CardEmpty icon={DonutLargeOutlined}>{t.noCategoryData}</CardEmpty>;
   }
 
   return (
-    <Box sx={{ display: 'flex', height: '100%', width: '100%', gap: 2 }}>
-      <Box sx={{ flex: '0 0 140px', minWidth: 0, height: '100%' }}>
-        <ReactECharts
-          style={{ height: '100%', width: '100%' }}
-          option={option}
-          notMerge
-          lazyUpdate
-        />
-      </Box>
-      <Box
-        sx={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-          overflowY: 'auto',
-        }}
-      >
-        {categories.map(cat => (
-          <Box key={categoryKey(cat)} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CategoryIconBadge color={cat.color} icon={cat.icon} isOther={cat.isOther} />
-            <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
-              {categoryDisplayName(cat, labels)}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', flexShrink: 0 }}>
-              {cat.percent}%
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 600, flexShrink: 0, minWidth: 90, textAlign: 'right' }}
-            >
-              {formatAmount(cat.amount)}
-            </Typography>
-          </Box>
+    <div className="seneca-dashboard__categories">
+      <div className="seneca-dashboard__donut">
+        <LazyCategoryDonut slices={slices} formatAmount={formatAmount} />
+      </div>
+      <div className={clsx('seneca-dashboard__list', wide && 'seneca-dashboard__list--columns')}>
+        {categories.map((cat, rank) => (
+          <ListRow
+            key={categoryKey(cat)}
+            href={categoryHref(cat, month)}
+            leading={
+              <CategoryIconBadge
+                name={cat.name}
+                color={cat.color}
+                icon={cat.icon}
+                isOther={cat.isOther}
+                size={32}
+              />
+            }
+            primary={
+              <>
+                <span
+                  className="seneca-dashboard__legend-dot"
+                  style={{ background: slices[rank].color }}
+                  aria-hidden="true"
+                />
+                {categoryDisplayName(cat, labels, categoryName)}
+              </>
+            }
+            secondary={
+              wide && cat.count > 0
+                ? `${wideText.operations.value}: ${cat.count} · ${wideText.averageOperation.value}: ${formatAmount(cat.amount / cat.count)}`
+                : undefined
+            }
+            trailing={
+              <>
+                <span className="seneca-dashboard__muted">{cat.percent}%</span>
+                <span>{formatAmount(cat.amount)}</span>
+              </>
+            }
+          />
         ))}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }

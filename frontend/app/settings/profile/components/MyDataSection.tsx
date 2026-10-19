@@ -1,15 +1,15 @@
 'use client';
 
-import { Alert } from '@/app/components/ui/alert';
-import { Spinner } from '@/app/components/ui/spinner';
-import apiClient from '@/app/lib/api';
-import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { Alert } from '@/app/components/ui/alert';
+import { Spinner } from '@/app/components/ui/spinner';
+import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 type Props = {
   tx: (path: string[], fallback: string) => string;
@@ -40,31 +40,40 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
     setExporting(true);
     setError(null);
     setMessage(null);
-    try {
+
+    await (async () => {
       const response = await apiClient.get('/users/me/export');
-      downloadJson(response.data?.data ?? response.data, 'lumio-account-export.json');
+      downloadJson(response.data, 'seneca-account-export.json');
       setMessage(tx(['myDataCard', 'exportSuccess'], 'Your data has been downloaded.'));
-    } catch (caught) {
-      setError(getApiErrorMessage(caught, tx(['myDataCard', 'exportFailed'], 'Export failed.')));
-    } finally {
-      setExporting(false);
-    }
+    })()
+      .catch(async caught => {
+        setError(getApiErrorMessage(caught, tx(['myDataCard', 'exportFailed'], 'Export failed.')));
+      })
+      .finally(async () => {
+        setExporting(false);
+      });
   };
 
   const handleDelete = async (): Promise<void> => {
     setDeleting(true);
     setError(null);
-    try {
+
+    await (async () => {
       await apiClient.delete('/users/me', { data: { currentPassword: password } });
       onAccountDeleted();
-    } catch (caught) {
-      setError(
-        getApiErrorMessage(caught, tx(['myDataCard', 'deleteFailed'], 'Account deletion failed.')),
-      );
-    } finally {
-      setDeleting(false);
-      setPassword('');
-    }
+    })()
+      .catch(async caught => {
+        setError(
+          getApiErrorMessage(
+            caught,
+            tx(['myDataCard', 'deleteFailed'], 'Account deletion failed.'),
+          ),
+        );
+      })
+      .finally(async () => {
+        setDeleting(false);
+        setPassword('');
+      });
   };
 
   return (

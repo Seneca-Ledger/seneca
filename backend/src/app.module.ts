@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { BullModule } from '@nestjs/bullmq';
 import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
@@ -12,10 +13,16 @@ import * as redisStore from 'cache-manager-redis-store';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommonModule } from './common/common.module';
+import { EffectRuntimeModule } from './common/effect/effect-runtime';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { CsrfGuard } from './common/guards/csrf.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { AuditActorInterceptor } from './common/interceptors/audit-actor.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { StripKeysInterceptor } from './common/interceptors/strip-keys.interceptor';
+import { SERVER_ONLY_KEYS } from './common/utils/sensitive-keys.util';
 import { getDatabaseConfig } from './config/database.config';
+import { validateEnv } from './config/env.schema';
 import {
   ApiKey,
   AuditEvent,
@@ -25,7 +32,6 @@ import {
   Branch,
   Budget,
   Category,
-  CategoryLearning,
   CustomTable,
   CustomTableColumn,
   CustomTableRow,
@@ -36,8 +42,6 @@ import {
   FilePermission,
   GmailSettings,
   GmailWatchSubscription,
-  GoogleSheet,
-  GoogleSheetRow,
   Insight,
   Integration,
   IntegrationToken,
@@ -46,6 +50,8 @@ import {
   OpenProtocolSettings,
   ParsingRule,
   Payable,
+  Payee,
+  PayeeAlias,
   Receipt,
   ReceiptProcessingJob,
   SharedLink,
@@ -63,7 +69,6 @@ import {
   WorkspaceMember,
   WorkspaceServiceSettings,
 } from './entities';
-import { AiAnalysisModule } from './modules/ai-analysis/ai-analysis.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { ApplicationSettingsModule } from './modules/application-settings/application-settings.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -71,38 +76,60 @@ import { AuditInterceptor } from './modules/audit/interceptors/audit.interceptor
 import { AuthModule } from './modules/auth/auth.module';
 import { BackupsModule } from './modules/backups/backups.module';
 import { BalanceModule } from './modules/balance/balance.module';
+import { BankSyncModule } from './modules/bank-sync/bank-sync.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { BudgetsModule } from './modules/budgets/budgets.module';
+import { BusinessProfileModule } from './modules/business-profile/business-profile.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ClassificationModule } from './modules/classification/classification.module';
 import { CryptoModule } from './modules/crypto/crypto.module';
 import { CustomTablesModule } from './modules/custom-tables/custom-tables.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DataEntryModule } from './modules/data-entry/data-entry.module';
+import { DatevModule } from './modules/datev/datev.module';
 import { DropboxModule } from './modules/dropbox/dropbox.module';
+import { EntityImportsModule } from './modules/entity-imports/entity-imports.module';
 import { ExchangeRatesModule } from './modules/exchange-rates/exchange-rates.module';
+import { ForecastModule } from './modules/forecast/forecast.module';
 import { GmailModule } from './modules/gmail/gmail.module';
 import { GoalsModule } from './modules/goals/goals.module';
 import { GoogleDriveModule } from './modules/google-drive/google-drive.module';
-import { GoogleSheetsModule } from './modules/google-sheets/google-sheets.module';
+import { IncomeTaxModule } from './modules/income-tax/income-tax.module';
 import { InsightsModule } from './modules/insights/insights.module';
+import { InvestmentsModule } from './modules/investments/investments.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
+import { LedgerModule } from './modules/ledger/ledger.module';
+import { MapsModule } from './modules/maps/maps.module';
+import { McpModule } from './modules/mcp/mcp.module';
 import { NetWorthModule } from './modules/net-worth/net-worth.module';
+import { NotesModule } from './modules/notes/notes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { HttpMetricsInterceptor } from './modules/observability/http-metrics.interceptor';
 import { ObservabilityModule } from './modules/observability/observability.module';
 import { OpenProtocolIntegrationsModule } from './modules/open-protocol-integrations/open-protocol-integrations.module';
 import { ParsingModule } from './modules/parsing/parsing.module';
 import { PayablesModule } from './modules/payables/payables.module';
+import { PayeesModule } from './modules/payees/payees.module';
+import { PeppolModule } from './modules/peppol/peppol.module';
+import { PushModule } from './modules/push/push.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { ReviewInboxModule } from './modules/review-inbox/review-inbox.module';
 import { SearchModule } from './modules/search/search.module';
+import { SmbModule } from './modules/smb/smb.module';
 import { StatementsModule } from './modules/statements/statements.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
-import { TaxRatesModule } from './modules/tax-rates/tax-rates.module';
+import { SystemUpdateModule } from './modules/system-update/system-update.module';
+import { TaxModule } from './modules/tax/tax.module';
+import { TaxPackModule } from './modules/tax-pack/tax-pack.module';
+import { TaxRemindersModule } from './modules/tax-reminders/tax-reminders.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { UsersModule } from './modules/users/users.module';
+import { VendorIconsModule } from './modules/vendor-icons/vendor-icons.module';
+import { VersionsModule } from './modules/versions/versions.module';
+import { ViewPreferencesModule } from './modules/view-preferences/view-preferences.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
@@ -112,15 +139,30 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '../.env')],
+      validate: validateEnv,
     }),
+    EffectRuntimeModule,
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // 1 minute
-        limit: 500, // 500 requests per minute for authenticated users
+    // Counters live in Redis when it is configured. The default in-memory
+    // storage is per-process, so every additional instance multiplied every
+    // limit — the 5/min on login became 5 per instance per minute.
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const redisUrl = configService.get<string>('REDIS_URL');
+        return {
+          throttlers: [
+            {
+              ttl: 60000, // 1 minute
+              limit: 500, // 500 requests per minute for authenticated users
+            },
+          ],
+          ...(redisUrl ? { storage: new ThrottlerStorageRedisService(redisUrl) } : {}),
+        };
       },
-    ]),
+    }),
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],
@@ -152,11 +194,10 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
       Statement,
       Transaction,
       Category,
-      CategoryLearning,
+      Payee,
+      PayeeAlias,
       Branch,
       Wallet,
-      GoogleSheet,
-      GoogleSheetRow,
       TelegramReport,
       ParsingRule,
       Notification,
@@ -195,20 +236,21 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     ]),
     CommonModule,
     ApplicationSettingsModule,
-    AiAnalysisModule,
+    SystemUpdateModule,
     BackupsModule,
+    VersionsModule,
     AuthModule,
     AuditModule,
     BalanceModule,
     NetWorthModule,
     UsersModule,
     StatementsModule,
-    GoogleSheetsModule,
     GoogleDriveModule,
     GmailModule,
     DropboxModule,
     ParsingModule,
     ClassificationModule,
+    PayeesModule,
     ReceiptsModule,
     CategoriesModule,
     BranchesModule,
@@ -216,25 +258,45 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     GoalsModule,
     WalletsModule,
     TransactionsModule,
+    ViewPreferencesModule,
     ReportsModule,
     StorageModule,
     TelegramModule,
-    TaxRatesModule,
+    TaxModule,
+    IncomeTaxModule,
+    TaxPackModule,
+    TaxRemindersModule,
+    DatevModule,
+    LedgerModule,
     DataEntryModule,
     CustomTablesModule,
+    EntityImportsModule,
     WorkspacesModule,
+    NotesModule,
+    MapsModule,
+    VendorIconsModule,
     NotificationsModule,
     InsightsModule,
     ObservabilityModule,
     OpenProtocolIntegrationsModule,
+    BankSyncModule,
     DashboardModule,
     SearchModule,
     PayablesModule,
+    InvoicesModule,
+    PeppolModule,
+    BusinessProfileModule,
     ExchangeRatesModule,
     SubscriptionsModule,
+    ReviewInboxModule,
+    ForecastModule,
+    InvestmentsModule,
+    SmbModule,
+    PushModule,
     CryptoModule,
     WebhooksModule,
     ApiKeysModule,
+    McpModule,
   ],
   controllers: [AppController],
   providers: [
@@ -242,6 +304,11 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
+    },
+    // Outermost, so it sees every answer last: nothing leaves with a file path or a credential.
+    {
+      provide: APP_INTERCEPTOR,
+      useValue: new StripKeysInterceptor(SERVER_ONLY_KEYS),
     },
     {
       provide: APP_INTERCEPTOR,
@@ -251,9 +318,20 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
       provide: APP_INTERCEPTOR,
       useClass: HttpMetricsInterceptor,
     },
+    // Before AuditInterceptor: the actor must be known when events are written.
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditActorInterceptor,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditInterceptor,
+    },
+    // Registered before JwtAuthGuard: a forged cross-site request should be
+    // rejected before it reaches authentication or any handler.
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
     },
     {
       provide: APP_GUARD,

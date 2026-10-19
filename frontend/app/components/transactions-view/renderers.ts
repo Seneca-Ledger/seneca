@@ -1,6 +1,7 @@
 'use client';
 
 import type React from 'react';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { Transaction } from '../TransactionsView';
 import { getNamedObjectLabel, getTransactionValue, resolveLocale } from './column-helpers';
 
@@ -27,27 +28,29 @@ export const buildDateRenderer =
 export const buildDebitRenderer =
   (cfg: RendererConfig) =>
   (tx: Transaction): React.ReactNode =>
-    tx.debit > 0
-      ? cfg.formatAmount({ amount: tx.debit, currency: tx.currency })
+    Number(tx.debit) > 0
+      ? cfg.formatAmount({ amount: Number(tx.debit), currency: tx.currency })
       : getDashValue(cfg);
 
 export const buildCreditRenderer =
   (cfg: RendererConfig) =>
   (tx: Transaction): React.ReactNode =>
-    tx.credit > 0
-      ? cfg.formatAmount({ amount: tx.credit, currency: tx.currency })
+    Number(tx.credit) > 0
+      ? cfg.formatAmount({ amount: Number(tx.credit), currency: tx.currency })
       : getDashValue(cfg);
 
 export const buildCurrencyRenderer =
   () =>
   (tx: Transaction): React.ReactNode =>
-    tx.currency ?? 'KZT';
+    tx.currency ?? FALLBACK_CURRENCY;
 
 export const buildExchangeRateRenderer =
   (cfg: RendererConfig) =>
   (tx: Transaction): React.ReactNode => {
     if (!tx.exchangeRate) return getDashValue(cfg);
-    return tx.exchangeRate.toLocaleString(resolveLocale(cfg.locale), { minimumFractionDigits: 2 });
+    return Number(tx.exchangeRate).toLocaleString(resolveLocale(cfg.locale), {
+      minimumFractionDigits: 2,
+    });
   };
 
 export const buildBranchRenderer =
@@ -64,7 +67,9 @@ export const buildAmountForeignRenderer =
   (cfg: RendererConfig) =>
   (tx: Transaction): React.ReactNode => {
     if (!tx.amountForeign) return getDashValue(cfg);
-    return tx.amountForeign.toLocaleString(resolveLocale(cfg.locale), { minimumFractionDigits: 2 });
+    return Number(tx.amountForeign).toLocaleString(resolveLocale(cfg.locale), {
+      minimumFractionDigits: 2,
+    });
   };
 
 export const buildFallbackRenderer =

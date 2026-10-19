@@ -35,6 +35,18 @@ export enum Permission {
   PAYABLE_EDIT = 'payable.edit',
   PAYABLE_DELETE = 'payable.delete',
 
+  // Invoices
+  INVOICE_VIEW = 'invoice.view',
+  INVOICE_CREATE = 'invoice.create',
+  INVOICE_EDIT = 'invoice.edit',
+  INVOICE_DELETE = 'invoice.delete',
+
+  // Clients
+  CLIENT_VIEW = 'client.view',
+  CLIENT_CREATE = 'client.create',
+  CLIENT_EDIT = 'client.edit',
+  CLIENT_DELETE = 'client.delete',
+
   // Reports
   REPORT_VIEW = 'report.view',
   REPORT_EXPORT = 'report.export',
@@ -43,11 +55,6 @@ export enum Permission {
   TELEGRAM_VIEW = 'telegram.view',
   TELEGRAM_CONNECT = 'telegram.connect',
   TELEGRAM_SEND = 'telegram.send',
-
-  // Google Sheets
-  GOOGLE_SHEET_VIEW = 'google_sheet.view',
-  GOOGLE_SHEET_CONNECT = 'google_sheet.connect',
-  GOOGLE_SHEET_SYNC = 'google_sheet.sync',
 
   // Admin
   USER_MANAGE = 'user.manage',
@@ -76,6 +83,11 @@ export enum Permission {
   // API Keys
   API_KEY_MANAGE = 'api_key.manage',
 
+  // Ledger (double-entry)
+  LEDGER_VIEW = 'ledger.view',
+  LEDGER_POST = 'ledger.post',
+  LEDGER_MANAGE_ACCOUNTS = 'ledger.manage_accounts',
+
   // Workspace configuration
   WORKSPACE_SETTINGS_MANAGE = 'workspace_settings.manage',
   INTEGRATION_MANAGE = 'integration.manage',
@@ -93,14 +105,16 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.BRANCH_VIEW,
     Permission.WALLET_VIEW,
     Permission.PAYABLE_VIEW,
+    Permission.INVOICE_VIEW,
+    Permission.CLIENT_VIEW,
     Permission.REPORT_VIEW,
-    Permission.GOOGLE_SHEET_VIEW,
     Permission.TELEGRAM_VIEW,
     Permission.TELEGRAM_CONNECT,
     Permission.TELEGRAM_SEND,
     Permission.BUDGET_VIEW,
     Permission.GOAL_VIEW,
     Permission.SUBSCRIPTION_VIEW,
+    Permission.LEDGER_VIEW,
   ],
   viewer: [
     // Read-only permissions
@@ -110,10 +124,13 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.BRANCH_VIEW,
     Permission.WALLET_VIEW,
     Permission.PAYABLE_VIEW,
+    Permission.INVOICE_VIEW,
+    Permission.CLIENT_VIEW,
     Permission.REPORT_VIEW,
     Permission.TELEGRAM_VIEW,
     Permission.BUDGET_VIEW,
     Permission.GOAL_VIEW,
     Permission.SUBSCRIPTION_VIEW,
+    Permission.LEDGER_VIEW,
   ],
 };

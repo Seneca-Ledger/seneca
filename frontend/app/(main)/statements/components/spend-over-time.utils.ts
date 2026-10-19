@@ -3,7 +3,7 @@ import { formatDateISO, resolveAmountFlow } from './shared-analytics.utils';
 
 export type SpendOverTimeFlowType = 'expense' | 'income';
 export type SpendOverTimeSourceType = 'statement' | 'gmail';
-export type SpendOverTimeSourceChannel = 'bank' | 'receipt' | 'gmail';
+export type SpendOverTimeSourceChannel = 'bank' | 'receipt' | 'gmail' | 'crypto';
 export type SpendOverTimeGroupBy = 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 export type SpendOverTimeRecord = StatementFilterItem & {
@@ -18,6 +18,8 @@ export type SpendOverTimeRecord = StatementFilterItem & {
   workspaceName?: string;
   merchant?: string | null;
   paymentPurpose?: string | null;
+  /** The document behind the operation, opened the way the Documents list opens it. */
+  href?: string | null;
 };
 
 export type SpendOverTimePoint = {

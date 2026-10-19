@@ -1,10 +1,9 @@
 'use client';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-
-import { tokens } from '@/lib/theme-tokens';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
+import { tokens } from '@/lib/theme-tokens';
 import type { WorkspaceInvitation } from './hooks/useMemberManagement';
 
 const ROLE_LABELS: Record<string, string> = {

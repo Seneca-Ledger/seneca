@@ -1,30 +1,27 @@
 'use client';
 
-import apiClient from '@/app/lib/api';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
+import apiClient from '@/app/lib/api';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { isAbortError } from '../utils/pasteUtils';
-import type { CustomTableGridRow } from '../utils/stylingUtils';
+import { toGridRow } from '../utils/tableHelpers';
+import type { CustomTableGridRow } from '../utils/types';
 
-const getRowIdentity = (row: unknown): string => {
-  if (!row || typeof row !== 'object') {
-    return '';
-  }
-  const record = row as Record<string, unknown>;
-  if (typeof record.id === 'string') {
-    return record.id;
-  }
-  if (typeof record.rowNumber === 'number') {
-    return String(record.rowNumber);
-  }
-  return '';
-};
+const getRowIdentity = (row: CustomTableGridRow): string => row.id || String(row.rowNumber);
+
+export interface TableSortState {
+  col: string;
+  dir: 'asc' | 'desc';
+}
 
 export interface UseTableGridReturn {
   rows: CustomTableGridRow[];
   setRows: React.Dispatch<React.SetStateAction<CustomTableGridRow[]>>;
   loadingRows: boolean;
   hasMore: boolean;
+  /** Server-side total for the current filters; null until the first reply. */
+  total: number | null;
   loadRows: (opts?: { reset?: boolean; filtersParam?: string }) => Promise<void>;
 }
 
@@ -32,6 +29,7 @@ interface UseTableGridParams {
   tableId: string | null;
   isAuthenticated: boolean;
   combinedFiltersParam: string | undefined;
+  sort?: TableSortState | null;
   loadRowsFailedMessage: string;
 }
 
@@ -39,17 +37,30 @@ export function useTableGrid({
   tableId,
   isAuthenticated,
   combinedFiltersParam,
+  sort,
   loadRowsFailedMessage,
 }: UseTableGridParams): UseTableGridReturn {
   const [rows, setRows] = useState<CustomTableGridRow[]>([]);
-  const [loadingRows, setLoadingRows] = useState(false);
+  // Loading from the start, so the grid shows its skeleton, not the empty state,
+  // before the first request goes out.
+  const [loadingRows, setLoadingRows] = useState(Boolean(tableId));
   const [hasMore, setHasMore] = useState(true);
+  const [total, setTotal] = useState<number | null>(null);
 
   const rowsRef = useRef<CustomTableGridRow[]>([]);
   const rowsRequestSeqRef = useRef(0);
   const rowsAbortControllerRef = useRef<AbortController | null>(null);
   const loadingRowsRef = useRef(false);
   const combinedFiltersRef = useRef<string | undefined>(undefined);
+  const sortRef = useRef<TableSortState | null | undefined>(sort);
+
+  // Сортировка сериализуется в строку, чтобы не перезапускать загрузку
+  // на каждый новый литерал объекта с теми же полями.
+  const sortParam = sort ? JSON.stringify({ col: sort.col, dir: sort.dir }) : undefined;
+
+  useEffect(() => {
+    sortRef.current = sort;
+  }, [sort]);
 
   // Keep rowsRef in sync for cursor-based pagination
   useEffect(() => {
@@ -74,16 +85,9 @@ export function useTableGrid({
     }
   };
 
-  const extractRows = (response: {
-    data?: { items?: unknown[]; data?: { items?: unknown[] } };
-  }): unknown[] => {
-    const items = response.data?.items || response.data?.data?.items || [];
-    return Array.isArray(items) ? items : [];
-  };
-
-  const dedupeRows = <T>(merged: T[]): T[] => {
+  const dedupeRows = (merged: CustomTableGridRow[]): CustomTableGridRow[] => {
     const seen = new Set<string>();
-    const result: T[] = [];
+    const result: CustomTableGridRow[] = [];
     for (const row of merged) {
       const id = getRowIdentity(row);
       if (!id || seen.has(id)) {
@@ -95,11 +99,11 @@ export function useTableGrid({
     return result;
   };
 
-  const applyFetchedRows = (fetched: unknown[], reset: boolean): void => {
+  const applyFetchedRows = (fetched: CustomTableGridRow[], reset: boolean): void => {
     if (reset) {
-      setRows(() => dedupeRows(fetched as CustomTableGridRow[]));
+      setRows(() => dedupeRows(fetched));
     } else {
-      setRows(prev => dedupeRows([...prev, ...(fetched as CustomTableGridRow[])]));
+      setRows(prev => dedupeRows([...prev, ...fetched]));
     }
   };
 
@@ -135,41 +139,72 @@ export function useTableGrid({
       loadingRowsRef.current = true;
       setLoadingRows(true);
 
-      const cursor = shouldReset ? undefined : rowsRef.current.at(-1)?.rowNumber;
       const filters = opts?.filtersParam ?? combinedFiltersRef.current;
+      const activeSort = sortRef.current;
+      // При произвольной сортировке keyset-курсор по rowNumber неверен:
+      // порядок больше не совпадает с полем курсора, поэтому идём смещением.
+      const cursor = activeSort || shouldReset ? undefined : rowsRef.current.at(-1)?.rowNumber;
+      const offset = activeSort && !shouldReset ? rowsRef.current.length : undefined;
 
-      try {
+      return await (async () => {
         const response = await apiClient.get(`/custom-tables/${tableId}/rows`, {
           signal: controller.signal,
-          params: { cursor, limit: 50, filters },
+          params: {
+            cursor,
+            offset,
+            limit: 50,
+            filters,
+            sort: activeSort
+              ? JSON.stringify({ col: activeSort.col, dir: activeSort.dir })
+              : undefined,
+          },
         });
+        const page = await checkContract(
+          'CustomTableRowPage',
+          response.data,
+          '/custom-tables/:id/rows',
+        );
         if (isStaleRequest(controller, requestId)) {
           return;
         }
-        const next = extractRows(response);
+        const next = page.items.map(toGridRow);
         applyFetchedRows(next, shouldReset);
+        setTotal(page.meta.total);
         setHasMore(next.length >= 50);
-      } catch (error) {
-        handleLoadError(error);
-      } finally {
-        cleanupLoadState(controller, requestId);
-      }
+      })()
+        .catch(async error => {
+          handleLoadError(error);
+        })
+        .finally(async () => {
+          cleanupLoadState(controller, requestId);
+        });
     },
+    // Помощники пересоздаются каждый рендер, поэтому в зависимостях лежат
+    // только значения, которые они замыкают: иначе loadRows меняет идентичность
+    // на каждый рендер и эффект сброса ниже уходит в бесконечный цикл.
     [tableId, loadRowsFailedMessage], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  // Reset and reload when filters or tableId changes
+  // Reset and reload when filters, sort or tableId changes
+  // The table whose rows are on screen: a new table starts empty, while a
+  // re-sort or re-filter keeps the current rows until the new ones arrive —
+  // clearing them flashed "No rows yet" for the length of the request.
+  const shownTableRef = useRef(tableId);
   useEffect(() => {
     if (!(isAuthenticated && tableId)) {
       return;
     }
     setHasMore(true);
-    setRows([]);
+    if (shownTableRef.current !== tableId) {
+      shownTableRef.current = tableId;
+      setRows([]);
+    }
+    setLoadingRows(true);
     const timer = window.setTimeout(() => {
       loadRows({ reset: true, filtersParam: combinedFiltersParam });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [combinedFiltersParam, loadRows, tableId, isAuthenticated]);
+  }, [combinedFiltersParam, sortParam, loadRows, tableId, isAuthenticated]);
 
   // Abort in-flight requests on unmount
   useEffect(() => {
@@ -178,5 +213,5 @@ export function useTableGrid({
     };
   }, []);
 
-  return { rows, setRows, loadingRows, hasMore, loadRows };
+  return { rows, setRows, loadingRows, hasMore, total, loadRows };
 }

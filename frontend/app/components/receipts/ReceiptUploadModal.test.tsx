@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { selectOption } from '@/app/test/select';
 import { ReceiptUploadModal } from './ReceiptUploadModal';
 
 const uploadHookMocks = vi.hoisted(() => ({
@@ -52,7 +53,7 @@ describe('ReceiptUploadModal', () => {
     const file = new File(['ok'], 'receipt.jpg', { type: 'image/jpeg' });
 
     fireEvent.change(input, { target: { files: [file] } });
-    fireEvent.change(screen.getByLabelText('OCR language'), { target: { value: 'deu' } });
+    selectOption(screen.getByLabelText('OCR language'), 'German');
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Upload 1 receipt' }));
       await Promise.resolve();

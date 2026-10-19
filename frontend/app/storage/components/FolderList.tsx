@@ -5,8 +5,8 @@ import React from 'react';
 import type { FolderOption, StorageFile, TagOption } from '../storageHelpers';
 import { NO_FOLDER } from '../storageHelpers';
 import { DroppableFolderButton } from './DroppableFolderButton';
-import { FolderItem } from './FolderItem';
 import type { FolderItemProps } from './FolderItem';
+import { FolderItem } from './FolderItem';
 
 export interface FolderListProps {
   folders: FolderOption[];
@@ -96,7 +96,10 @@ function FolderListHeader({
 function buildItemProps({
   props,
   folder,
-}: { props: FolderListProps; folder: FolderOption }): FolderItemProps {
+}: {
+  props: FolderListProps;
+  folder: FolderOption;
+}): FolderItemProps {
   return {
     folder,
     tags: props.tags,
@@ -173,9 +176,9 @@ function FolderListBody(props: FolderListProps): React.JSX.Element {
         onClick={() => onSetActiveFolderId('')}
         sx={{
           ...allBtnBaseSx,
-          bgcolor: isAllActive ? 'rgba(22,129,24,0.1)' : 'transparent',
+          bgcolor: isAllActive ? 'rgba(var(--primary-rgb),0.1)' : 'transparent',
           color: isAllActive ? 'primary.main' : 'var(--foreground)',
-          borderColor: isAllActive ? 'rgba(22,129,24,0.4)' : 'var(--muted)',
+          borderColor: isAllActive ? 'rgba(var(--primary-rgb),0.4)' : 'var(--muted)',
         }}
       >
         <Box component="span">{foldersAllLabel}</Box>
@@ -196,8 +199,8 @@ function FolderListBody(props: FolderListProps): React.JSX.Element {
           fontSize: 14,
           fontWeight: 500,
           cursor: 'pointer',
-          background: isNoFolderActive ? 'rgba(22,129,24,0.05)' : 'transparent',
-          color: isNoFolderActive ? '#168118' : 'var(--foreground)',
+          background: isNoFolderActive ? 'rgba(var(--primary-rgb),0.05)' : 'transparent',
+          color: isNoFolderActive ? 'var(--primary)' : 'var(--foreground)',
           border: 'none',
         }}
       >

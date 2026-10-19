@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import api from '../../lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import type { CategoryOption } from '../storageHelpers';
 import {
   DEFAULT_FILTERS,
@@ -64,16 +64,17 @@ export function useStorageFilters(
   }, [searchQuery, filters, sort, activeList]);
 
   const loadCategories = async () => {
-    try {
+    await (async () => {
       setCategoriesLoading(true);
-      const response = await api.get('/categories');
-      setCategories(response.data || []);
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-      toast.error(messages.loadCategoriesFailed);
-    } finally {
-      setCategoriesLoading(false);
-    }
+      setCategories(await apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }));
+    })()
+      .catch(async error => {
+        console.error('Failed to load categories:', error);
+        toast.error(messages.loadCategoriesFailed);
+      })
+      .finally(async () => {
+        setCategoriesLoading(false);
+      });
   };
 
   const handleSortChange = (value: string) => {

@@ -1,16 +1,18 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
-import { FileImage, FileText } from '@/app/components/icons';
-import { Button } from '@/app/components/ui/button';
-import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import apiClient, { apiBaseUrl, receiptsApi, type ReceiptRecord } from '@/app/lib/api';
-import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
-import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { Box, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { FileImage, FileText } from '@/app/components/icons';
+import { NotesPanel } from '@/app/components/notes/NotesPanel';
+import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
+import { Button } from '@/app/components/ui/button';
+import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { formatStoredDate } from '@/app/lib/user-format-store';
+import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { ReceiptParsedDataForm } from './ReceiptParsedDataForm';
 import type {
   EditableReceiptLineItem,
@@ -37,7 +39,7 @@ function buildInitialForm(receipt: ReceiptRecord | null): EditableReceiptParsedD
   return {
     vendor: receipt?.parsedData?.vendor ?? '',
     amount: receipt?.parsedData?.amount ?? '',
-    currency: receipt?.parsedData?.currency ?? 'KZT',
+    currency: receipt?.parsedData?.currency ?? FALLBACK_CURRENCY,
     date: receipt?.parsedData?.date?.split('T')[0] ?? '',
     tax: receipt?.parsedData?.tax ?? '',
     paymentMethod: receipt?.parsedData?.paymentMethod ?? '',
@@ -81,7 +83,7 @@ export function ReceiptDetailPanel({
   }, [receipt]);
 
   useEffect(() => {
-    if (!isOpen || !receipt) {
+    if (!(isOpen && receipt)) {
       setPreviewUrl(currentUrl => {
         if (currentUrl) {
           URL.revokeObjectURL(currentUrl);
@@ -106,7 +108,7 @@ export function ReceiptDetailPanel({
     let objectUrl: string | null = null;
 
     const loadPreview = async () => {
-      try {
+      return await (async () => {
         const response = await fetch(`${apiBaseUrl}/receipts/${receipt.id}/file`, {
           method: 'GET',
           headers: getWorkspaceHeaders(),
@@ -128,9 +130,9 @@ export function ReceiptDetailPanel({
             return objectUrl;
           });
         }
-      } catch {
+      })().catch(async () => {
         // ignore preview errors and keep fallback card visible
-      }
+      });
     };
 
     void loadPreview();
@@ -150,11 +152,10 @@ export function ReceiptDetailPanel({
 
     let active = true;
 
-    apiClient
-      .get('/categories')
-      .then(response => {
+    apiQueryDecoded({ url: '/categories', contract: 'CategoryList' })
+      .then(categories => {
         if (active) {
-          setCategories(response.data ?? []);
+          setCategories(categories);
         }
       })
       .catch(() => {
@@ -180,14 +181,14 @@ export function ReceiptDetailPanel({
   const handleCurrencyChange = async (nextValue: EditableReceiptParsedData) => {
     if (!receipt) return;
 
-    try {
+    await (async () => {
       await apiClient.patch(`/receipts/${receipt.id}`, {
         parsedData: buildParsedDataPayload(nextValue),
-      });
+      } satisfies ContractInput<'UpdateReceiptBody'>);
       onUpdated?.();
-    } catch {
+    })().catch(async () => {
       toast.error('Failed to save receipt currency.');
-    }
+    });
   };
 
   if (!receipt) {
@@ -197,52 +198,58 @@ export function ReceiptDetailPanel({
   const handleSaveDraft = async () => {
     setSaving(true);
 
-    try {
+    await (async () => {
       await apiClient.patch(`/receipts/${receipt.id}`, {
         parsedData: payload,
-      });
+      } satisfies ContractInput<'UpdateReceiptBody'>);
       toast.success('Receipt draft saved.');
       onUpdated?.();
-    } catch {
-      toast.error('Failed to save receipt draft.');
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error('Failed to save receipt draft.');
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleReject = async () => {
     setSaving(true);
 
-    try {
+    await (async () => {
       await apiClient.patch(`/receipts/${receipt.id}`, {
         status: 'rejected',
-      });
+      } satisfies ContractInput<'UpdateReceiptBody'>);
       toast.success('Receipt rejected.');
       onUpdated?.();
       onClose();
-    } catch {
-      toast.error('Failed to reject receipt.');
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error('Failed to reject receipt.');
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleApprove = async () => {
     setSaving(true);
 
-    try {
+    await (async () => {
       await apiClient.patch(`/receipts/${receipt.id}`, {
         parsedData: payload,
-      });
+      } satisfies ContractInput<'UpdateReceiptBody'>);
       await receiptsApi.approveReceipt(receipt.id);
       toast.success('Receipt approved.');
       onUpdated?.();
       onClose();
-    } catch {
-      toast.error('Failed to approve receipt.');
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error('Failed to approve receipt.');
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   return (
@@ -371,6 +378,10 @@ export function ReceiptDetailPanel({
               onChange={handleFormChange}
               onCurrencyChange={handleCurrencyChange}
             />
+
+            <Box sx={{ mt: 3, borderTop: '1px solid var(--border-color)', pt: 2.5 }}>
+              <NotesPanel entityType="receipt" entityId={receipt.id} />
+            </Box>
           </Box>
 
           <Box

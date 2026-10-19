@@ -1,8 +1,8 @@
 'use client';
 
-import { type ReceiptRecord, apiBaseUrl } from '@/app/lib/api';
-import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { useEffect, useState } from 'react';
+import { apiBaseUrl, type ReceiptRecord } from '@/app/lib/api';
+import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 
 interface UseReceiptPreviewParams {
   isOpen: boolean;

@@ -1,24 +1,33 @@
 'use client';
 
-import { ChevronLeft } from '@/app/components/icons';
-import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
-import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import apiClient from '@/app/lib/api';
 import {
-  type CurrencySearchItem,
-  DEFAULT_RECENT_CURRENCIES,
-  buildCurrencySearchIndex,
-} from '@/app/lib/statement-expense-drawer';
-import { Button, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { BudgetDrawerIntent, BudgetFormData, BudgetItem } from '../hooks/useBudgetsPage';
+  Button,
+  FormControl,
+  FormHelperText,
+  InputLabel,
+  Link,
+  MenuItem,
+  Select,
+  TextField,
+} from '@mui/material';
+import NextLink from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
+import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { ChevronLeft } from '@/app/components/icons';
+import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
+import type { BudgetFormData, BudgetItem } from '../hooks/useBudgetsPage';
 
 type CategoryOption = { id: string; name: string; type: string };
+type GoalOption = { id: string; name: string };
+
+const NO_GOAL = '';
 
 interface BudgetFormDrawerProps {
   open: boolean;
   editing: BudgetItem | null;
-  intent: BudgetDrawerIntent;
   formData: BudgetFormData;
   saving: boolean;
   onFormChange: (data: BudgetFormData) => void;
@@ -27,75 +36,6 @@ interface BudgetFormDrawerProps {
 }
 
 type FieldChange = { field: keyof BudgetFormData; value: string | number };
-type FormFieldsProps = Pick<BudgetFormDrawerProps, 'editing' | 'formData' | 'intent'> & {
-  categories: CategoryOption[];
-  onChange: (change: FieldChange) => void;
-  onOpenCurrencyDrawer: () => void;
-};
-
-function useCurrencyPickerState(currency: string): {
-  currencyDrawerOpen: boolean;
-  setCurrencyDrawerOpen: (open: boolean) => void;
-  currencySearch: string;
-  setCurrencySearch: (value: string) => void;
-  selectedCurrencyItem: CurrencySearchItem | undefined;
-  selectedMatchesSearch: boolean;
-  currencyQuery: string;
-  recentCurrencyItems: CurrencySearchItem[];
-  allCurrencyItems: CurrencySearchItem[];
-  pushRecentCurrency: (code: string) => void;
-} {
-  const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
-  const [currencySearch, setCurrencySearch] = useState('');
-  const [recentCurrencies, setRecentCurrencies] = useState<string[]>([
-    ...DEFAULT_RECENT_CURRENCIES,
-  ]);
-  const currencyItems = useMemo(() => buildCurrencySearchIndex(), []);
-  const currencyByCode = useMemo(
-    () => new Map(currencyItems.map(item => [item.code, item])),
-    [currencyItems],
-  );
-  const normalizedCurrency = currency.trim().toUpperCase();
-  const selectedCurrencyItem = currencyByCode.get(normalizedCurrency);
-  const currencyQuery = currencySearch.trim().toLowerCase();
-  const selectedMatchesSearch = selectedCurrencyItem
-    ? currencyQuery.length === 0 || selectedCurrencyItem.searchText.includes(currencyQuery)
-    : false;
-  const recentCurrencyItems = useMemo(
-    () =>
-      recentCurrencies
-        .map(code => currencyByCode.get(code))
-        .filter((item): item is CurrencySearchItem => Boolean(item))
-        .filter(item => item.code !== normalizedCurrency),
-    [currencyByCode, normalizedCurrency, recentCurrencies],
-  );
-  const allCurrencyItems = useMemo(() => {
-    const source =
-      currencyQuery.length > 0
-        ? currencyItems.filter(item => item.searchText.includes(currencyQuery))
-        : currencyItems;
-    return source.filter(item => item.code !== normalizedCurrency);
-  }, [currencyItems, currencyQuery, normalizedCurrency]);
-
-  const pushRecentCurrency = (code: string): void => {
-    setRecentCurrencies(prev => [code, ...prev.filter(item => item !== code)]);
-    setCurrencySearch('');
-    setCurrencyDrawerOpen(false);
-  };
-
-  return {
-    currencyDrawerOpen,
-    setCurrencyDrawerOpen,
-    currencySearch,
-    setCurrencySearch,
-    selectedCurrencyItem,
-    selectedMatchesSearch,
-    currencyQuery,
-    recentCurrencyItems,
-    allCurrencyItems,
-    pushRecentCurrency,
-  };
-}
 
 function useExpenseCategories(open: boolean): CategoryOption[] {
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -105,11 +45,9 @@ function useExpenseCategories(open: boolean): CategoryOption[] {
       return;
     }
 
-    apiClient
-      .get('/categories')
-      .then(res => {
-        const data = res.data?.data ?? res.data ?? [];
-        setCategories(data.filter((category: CategoryOption) => category.type === 'expense'));
+    apiQueryDecoded({ url: '/categories', contract: 'CategoryList' })
+      .then(categories => {
+        setCategories(categories.filter(category => category.type === 'expense'));
       })
       .catch(() => {
         setCategories([]);
@@ -119,43 +57,62 @@ function useExpenseCategories(open: boolean): CategoryOption[] {
   return categories;
 }
 
+// null until the goals request settles, so the empty-state hint below never
+// flashes while they are still loading.
+function useGoals(open: boolean): GoalOption[] | null {
+  const [goals, setGoals] = useState<GoalOption[] | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    apiQueryDecoded({ url: '/goals', contract: 'GoalList' })
+      .then(setGoals)
+      // A member without goal.view keeps the picker empty and unexplained —
+      // the budget is still saveable without a goal.
+      .catch(() => {});
+  }, [open]);
+
+  return goals;
+}
+
 function DrawerTitle({
   editing,
-  intent,
   onClose,
-}: Pick<BudgetFormDrawerProps, 'editing' | 'intent' | 'onClose'>): React.JSX.Element {
-  const title = intent === 'spending' ? 'Update Spending' : editing ? 'Edit Budget' : 'New Budget';
-
+}: Pick<BudgetFormDrawerProps, 'editing' | 'onClose'>): React.JSX.Element {
+  const t = useIntlayer('budgetsPage');
   return (
-    <div className="lumio-payable-drawer__title-wrap">
+    <div className="seneca-payable-drawer__title-wrap">
       <button
         type="button"
         onClick={onClose}
-        className="lumio-payable-drawer__back-btn"
-        aria-label="Cancel"
+        className="seneca-payable-drawer__back-btn"
+        aria-label={t.cancel.value}
       >
         <ChevronLeft size={20} />
       </button>
-      <span style={{ fontSize: 18, fontWeight: 600, color: 'var(--foreground)' }}>{title}</span>
+      <span style={{ fontSize: 18, fontWeight: 600, color: 'var(--foreground)' }}>
+        {editing ? t.editBudget : t.newBudget}
+      </span>
     </div>
   );
 }
 
-function CurrencyField({
+function NameField({
   value,
-  onClick,
+  onChange,
 }: {
   value: string;
-  onClick: () => void;
+  onChange: (value: string) => void;
 }): React.JSX.Element {
+  const t = useIntlayer('budgetsPage');
   return (
     <TextField
-      label="Currency"
+      label={t.fieldName.value}
       value={value}
+      onChange={event => onChange(event.target.value)}
       fullWidth
-      inputProps={{ readOnly: true }}
-      onClick={onClick}
-      sx={{ cursor: 'pointer', '& input': { cursor: 'pointer' } }}
     />
   );
 }
@@ -171,29 +128,44 @@ function CategoryField({
   categories: CategoryOption[];
   onChange: (value: string) => void;
 }): React.JSX.Element {
-  const hasSelectedCategory = categories.some(category => category.id === value);
-
+  const t = useIntlayer('budgetsPage');
+  const { locale } = useLocale();
   return (
     <FormControl fullWidth>
-      <InputLabel>Category</InputLabel>
+      <InputLabel>{t.fieldCategory}</InputLabel>
       <Select
         value={value}
-        label="Category"
+        label={t.fieldCategory.value}
         onChange={event => onChange(event.target.value)}
         disabled={disabled}
       >
-        {value && !hasSelectedCategory ? (
-          <MenuItem value={value}>
-            {disabled ? 'Selected category' : 'Loading category...'}
-          </MenuItem>
-        ) : null}
         {categories.map(category => (
           <MenuItem key={category.id} value={category.id}>
-            {category.name}
+            {localizeStatementCategoryName(category.name, locale)}
           </MenuItem>
         ))}
       </Select>
     </FormControl>
+  );
+}
+
+function LimitAmountField({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+}): React.JSX.Element {
+  const t = useIntlayer('budgetsPage');
+  return (
+    <TextField
+      label={t.fieldLimitAmount.value}
+      type="number"
+      value={value || ''}
+      onChange={event => onChange(Number(event.target.value))}
+      fullWidth
+      inputProps={{ min: 0, step: 1000 }}
+    />
   );
 }
 
@@ -206,75 +178,128 @@ function PeriodField({
   disabled: boolean;
   onChange: (value: BudgetFormData['periodType']) => void;
 }): React.JSX.Element {
+  const t = useIntlayer('budgetsPage');
   return (
     <FormControl fullWidth>
-      <InputLabel>Period</InputLabel>
+      <InputLabel>{t.fieldPeriod}</InputLabel>
       <Select
         value={value}
-        label="Period"
+        label={t.fieldPeriod.value}
         onChange={event => onChange(event.target.value as BudgetFormData['periodType'])}
         disabled={disabled}
       >
-        <MenuItem value="weekly">Weekly</MenuItem>
-        <MenuItem value="monthly">Monthly</MenuItem>
-        <MenuItem value="quarterly">Quarterly</MenuItem>
-        <MenuItem value="annual">Annual</MenuItem>
+        <MenuItem value="weekly">{t.periodWeekly}</MenuItem>
+        <MenuItem value="monthly">{t.periodMonthly}</MenuItem>
+        <MenuItem value="quarterly">{t.periodQuarterly}</MenuItem>
+        <MenuItem value="annual">{t.periodAnnual}</MenuItem>
       </Select>
     </FormControl>
   );
 }
 
-function NameField({
+function RolloverField({
+  value,
+  onChange,
+}: {
+  value: BudgetFormData['rolloverMode'];
+  onChange: (value: BudgetFormData['rolloverMode']) => void;
+}): React.JSX.Element {
+  const t = useIntlayer('budgetsPage');
+  return (
+    <FormControl fullWidth>
+      <InputLabel>{t.fieldRollover}</InputLabel>
+      <Select
+        value={value}
+        label={t.fieldRollover.value}
+        onChange={event => onChange(event.target.value as BudgetFormData['rolloverMode'])}
+      >
+        <MenuItem value="none">{t.rolloverNone}</MenuItem>
+        <MenuItem value="carry">{t.rolloverCarry}</MenuItem>
+        <MenuItem value="refill">{t.rolloverRefill}</MenuItem>
+      </Select>
+    </FormControl>
+  );
+}
+
+function GoalField({
+  value,
+  goals,
+  onChange,
+  onClose,
+}: {
+  value: string;
+  goals: GoalOption[] | null;
+  onChange: (value: string) => void;
+  onClose: () => void;
+}): React.JSX.Element {
+  const t = useIntlayer('budgetsPage');
+  return (
+    <FormControl fullWidth>
+      <InputLabel>{t.fieldGoal}</InputLabel>
+      <Select
+        value={value}
+        label={t.fieldGoal.value}
+        onChange={event => onChange(event.target.value)}
+      >
+        <MenuItem value={NO_GOAL}>
+          <em>{t.noGoal}</em>
+        </MenuItem>
+        {(goals ?? []).map(goal => (
+          <MenuItem key={goal.id} value={goal.id}>
+            {goal.name}
+          </MenuItem>
+        ))}
+      </Select>
+      {/* Budgets only link to goals; goals themselves are created on their
+          own page, so an empty picker points the way there. */}
+      {goals?.length === 0 && (
+        <FormHelperText>
+          {t.noGoalsYet}{' '}
+          <Link component={NextLink} href="/goals" onClick={onClose}>
+            {t.createGoalLink}
+          </Link>
+        </FormHelperText>
+      )}
+    </FormControl>
+  );
+}
+
+function StartsOnField({
   value,
   onChange,
 }: {
   value: string;
   onChange: (value: string) => void;
 }): React.JSX.Element {
+  const t = useIntlayer('budgetsPage');
   return (
-    <TextField
-      label="Name"
+    <CustomDatePicker
+      label={t.fieldStartsOn.value}
       value={value}
-      onChange={event => onChange(event.target.value)}
-      fullWidth
+      onChange={onChange}
+      size="medium"
     />
   );
 }
 
-function LimitAmountField({
+function EndsOnField({
   value,
+  invalid,
   onChange,
 }: {
-  value: number;
-  onChange: (value: number) => void;
+  value: string;
+  invalid: boolean;
+  onChange: (value: string) => void;
 }): React.JSX.Element {
+  const t = useIntlayer('budgetsPage');
   return (
-    <TextField
-      label="Limit Amount"
-      type="number"
-      value={value || ''}
-      onChange={event => onChange(Number(event.target.value))}
-      fullWidth
-      inputProps={{ min: 0, step: 1000 }}
-    />
-  );
-}
-
-function ManualSpentAmountField({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-}): React.JSX.Element {
-  return (
-    <TextField
-      label="Manual spent"
-      type="number"
-      value={value || ''}
-      onChange={event => onChange(Number(event.target.value))}
-      fullWidth
-      inputProps={{ min: 0, step: 1000 }}
+    <CustomDatePicker
+      label={t.fieldEndsOn.value}
+      value={value}
+      onChange={onChange}
+      size="medium"
+      error={invalid}
+      helperText={invalid ? t.endBeforeStart.value : undefined}
     />
   );
 }
@@ -282,26 +307,32 @@ function ManualSpentAmountField({
 function FormFields({
   editing,
   formData,
-  intent,
   categories,
+  goals,
+  hasBackwardsWindow,
   onChange,
-  onOpenCurrencyDrawer,
-}: FormFieldsProps): React.JSX.Element {
+  onClose,
+}: Pick<BudgetFormDrawerProps, 'editing' | 'formData' | 'onClose'> & {
+  categories: CategoryOption[];
+  goals: GoalOption[] | null;
+  hasBackwardsWindow: boolean;
+  onChange: (change: FieldChange) => void;
+}): React.JSX.Element {
   const isEditing = Boolean(editing);
 
-  if (intent === 'spending') {
-    return (
-      <div style={{ display: 'grid', gap: 16 }}>
-        <ManualSpentAmountField
-          value={formData.manualSpentAmount}
-          onChange={value => onChange({ field: 'manualSpentAmount', value })}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
+    // The scroll container would clip the first field's floating label, which
+    // sits above the input, so the padding keeps it inside.
+    <div
+      style={{
+        display: 'grid',
+        gap: 16,
+        flex: 1,
+        overflowY: 'auto',
+        minHeight: 0,
+        padding: '10px 4px 4px',
+      }}
+    >
       <NameField value={formData.name} onChange={value => onChange({ field: 'name', value })} />
       <CategoryField
         value={formData.categoryId}
@@ -313,15 +344,33 @@ function FormFields({
         value={formData.limitAmount}
         onChange={value => onChange({ field: 'limitAmount', value })}
       />
-      <ManualSpentAmountField
-        value={formData.manualSpentAmount}
-        onChange={value => onChange({ field: 'manualSpentAmount', value })}
-      />
-      <CurrencyField value={formData.currency} onClick={onOpenCurrencyDrawer} />
       <PeriodField
         value={formData.periodType}
         disabled={isEditing}
         onChange={value => onChange({ field: 'periodType', value })}
+      />
+      {/* Where the unspent part of a period goes: nowhere, into the next
+          period, or back up to the limit. */}
+      <RolloverField
+        value={formData.rolloverMode}
+        onChange={value => onChange({ field: 'rolloverMode', value })}
+      />
+      <GoalField
+        value={formData.goalId}
+        goals={goals}
+        onChange={value => onChange({ field: 'goalId', value })}
+        onClose={onClose}
+      />
+      {/* A project budget runs only while the project does. Left empty — the
+          normal case — the budget behaves as it always has and never ends. */}
+      <StartsOnField
+        value={formData.startsOn}
+        onChange={value => onChange({ field: 'startsOn', value })}
+      />
+      <EndsOnField
+        value={formData.endsOn}
+        invalid={hasBackwardsWindow}
+        onChange={value => onChange({ field: 'endsOn', value })}
       />
     </div>
   );
@@ -335,129 +384,69 @@ function DrawerFooter({
 }: Pick<BudgetFormDrawerProps, 'saving' | 'onSave' | 'onClose'> & {
   canSave: boolean;
 }): React.JSX.Element {
+  const t = useIntlayer('budgetsPage');
   return (
-    <div className="lumio-payable-drawer__footer">
+    <div className="seneca-payable-drawer__footer">
       <Button variant="outlined" sx={{ flex: 1 }} onClick={onClose} disabled={saving}>
-        Cancel
+        {t.cancel}
       </Button>
       <Button variant="contained" sx={{ flex: 1 }} onClick={onSave} disabled={saving || !canSave}>
-        {saving ? 'Saving...' : 'Save'}
+        {saving ? t.saving : t.save}
       </Button>
-    </div>
-  );
-}
-
-function DrawerBody({
-  editing,
-  intent,
-  formData,
-  saving,
-  onSave,
-  onClose,
-  categories,
-  onChange,
-  onOpenCurrencyDrawer,
-}: Pick<
-  BudgetFormDrawerProps,
-  'editing' | 'intent' | 'formData' | 'saving' | 'onSave' | 'onClose'
-> & {
-  categories: CategoryOption[];
-  onChange: (change: FieldChange) => void;
-  onOpenCurrencyDrawer: () => void;
-}): React.JSX.Element {
-  const canSave =
-    intent === 'spending'
-      ? Number.isFinite(formData.manualSpentAmount) && formData.manualSpentAmount >= 0
-      : Boolean(formData.name.trim() && formData.categoryId && formData.limitAmount > 0);
-
-  return (
-    <div className="lumio-payable-drawer__body">
-      <FormFields
-        editing={editing}
-        intent={intent}
-        formData={formData}
-        categories={categories}
-        onChange={onChange}
-        onOpenCurrencyDrawer={onOpenCurrencyDrawer}
-      />
-      <DrawerFooter saving={saving} onSave={onSave} onClose={onClose} canSave={canSave} />
     </div>
   );
 }
 
 export function BudgetFormDrawer(props: BudgetFormDrawerProps): React.JSX.Element {
   const categories = useExpenseCategories(props.open);
-  const currencyPicker = useCurrencyPickerState(props.formData.currency || 'KZT');
-  const {
-    currencyDrawerOpen,
-    setCurrencyDrawerOpen,
-    currencySearch,
-    setCurrencySearch,
-    selectedCurrencyItem,
-    selectedMatchesSearch,
-    currencyQuery,
-    recentCurrencyItems,
-    allCurrencyItems,
-    pushRecentCurrency,
-  } = currencyPicker;
+  const goals = useGoals(props.open);
+  const { formData, onFormChange } = props;
   const handleChange = useCallback(
     (change: FieldChange): void => {
-      props.onFormChange({ ...props.formData, [change.field]: change.value });
+      onFormChange({ ...formData, [change.field]: change.value });
     },
-    [props],
+    [formData, onFormChange],
   );
 
-  useEffect(() => {
-    if (!props.open) {
-      setCurrencyDrawerOpen(false);
-      setCurrencySearch('');
-    }
-  }, [props.open, setCurrencyDrawerOpen, setCurrencySearch]);
-
-  const handleSelectCurrency = (code: string): void => {
-    props.onFormChange({ ...props.formData, currency: code });
-    pushRecentCurrency(code);
-  };
+  const hasBackwardsWindow = Boolean(
+    formData.startsOn && formData.endsOn && formData.startsOn > formData.endsOn,
+  );
+  const canSave = Boolean(
+    formData.name.trim() && formData.categoryId && formData.limitAmount > 0 && !hasBackwardsWindow,
+  );
 
   return (
-    <>
-      <DrawerShell
-        isOpen={props.open}
-        onClose={props.onClose}
-        position="right"
-        width="lg"
-        showCloseButton={false}
-        sx={{
-          maxWidth: '100%',
-          borderLeft: 0,
-          bgcolor: 'background.paper',
-          '@media (min-width:600px)': { maxWidth: 512 },
-        }}
-        title={
-          <DrawerTitle editing={props.editing} intent={props.intent} onClose={props.onClose} />
-        }
-      >
-        <DrawerBody
-          {...props}
+    <DrawerShell
+      isOpen={props.open}
+      onClose={props.onClose}
+      position="right"
+      width="lg"
+      showCloseButton={false}
+      sx={{
+        maxWidth: '100%',
+        borderLeft: 0,
+        bgcolor: 'background.paper',
+        '@media (min-width:600px)': { maxWidth: 512 },
+      }}
+      title={<DrawerTitle editing={props.editing} onClose={props.onClose} />}
+    >
+      <div className="seneca-payable-drawer__body">
+        <FormFields
+          editing={props.editing}
+          formData={formData}
           categories={categories}
+          goals={goals}
+          hasBackwardsWindow={hasBackwardsWindow}
           onChange={handleChange}
-          onOpenCurrencyDrawer={() => setCurrencyDrawerOpen(true)}
+          onClose={props.onClose}
         />
-      </DrawerShell>
-
-      <CurrencyDrawer
-        isOpen={props.open && currencyDrawerOpen}
-        onClose={() => setCurrencyDrawerOpen(false)}
-        currencySearch={currencySearch}
-        setCurrencySearch={setCurrencySearch}
-        selectedCurrencyItem={selectedCurrencyItem}
-        selectedMatchesSearch={selectedMatchesSearch}
-        currencyQuery={currencyQuery}
-        recentCurrencyItems={recentCurrencyItems}
-        allCurrencyItems={allCurrencyItems}
-        handleSelectCurrency={handleSelectCurrency}
-        zIndex={1400}
-      />
-    </>
+        <DrawerFooter
+          saving={props.saving}
+          onSave={props.onSave}
+          onClose={props.onClose}
+          canSave={canSave}
+        />
+      </div>
+    </DrawerShell>
   );
 }

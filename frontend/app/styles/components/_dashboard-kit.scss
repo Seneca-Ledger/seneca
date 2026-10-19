@@ -1,0 +1,496 @@
+@use '../abstracts' as *;
+
+/* Shared dashboard primitives: chips, list rows, section headers.
+   Cards and KPI tiles live in _dashboard.scss under the same block. */
+
+/* ── Chips ── */
+.seneca-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: $seneca-radius-full;
+  border: 1px solid $seneca-color-ink-150;
+  background: $seneca-color-surface;
+  color: $seneca-color-ink-700;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: $seneca-font-weight-medium;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 120ms, border-color 120ms, color 120ms;
+
+  @include dark {
+    border-color: $seneca-color-ink-150-dk;
+    background: $seneca-color-surface-dk;
+    color: $seneca-color-ink-700-dk;
+  }
+
+  &:hover:not(:disabled):not(.seneca-chip--active) {
+    background: $seneca-color-ink-50;
+    border-color: $seneca-color-ink-200;
+
+    @include dark {
+      background: $seneca-color-ink-50-dk;
+      border-color: $seneca-color-ink-200-dk;
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+
+    @include dark {
+      outline-color: $seneca-color-primary-dk;
+    }
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &--active {
+    background: var(--primary-fill);
+    border-color: var(--primary-fill);
+    color: $seneca-color-primary-contrast;
+
+    @include dark {
+      background: $seneca-color-primary-fill-dk;
+      border-color: $seneca-color-primary-fill-dk;
+      color: $seneca-color-primary-contrast;
+    }
+  }
+
+  &--muted {
+    opacity: 0.45;
+  }
+
+  &--sm {
+    height: 26px;
+    padding: 0 10px;
+    font-size: 11.5px;
+  }
+
+  &--tone-success {
+    background: $seneca-color-success-soft;
+    border-color: transparent;
+    color: $seneca-color-success;
+
+    @include dark {
+      background: $seneca-color-success-soft-dk;
+      color: $seneca-color-success-dk;
+    }
+  }
+
+  &--tone-warning {
+    background: $seneca-color-warning-soft;
+    border-color: transparent;
+    color: $seneca-color-warning;
+
+    @include dark {
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
+    }
+  }
+
+  &--tone-danger {
+    background: $seneca-color-danger-soft;
+    border-color: transparent;
+    color: $seneca-color-danger;
+
+    @include dark {
+      background: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
+    }
+  }
+
+  &--tone-info {
+    background: $seneca-color-info-soft;
+    border-color: transparent;
+    color: $seneca-color-info;
+
+    @include dark {
+      background: $seneca-color-info-soft-dk;
+      color: $seneca-color-info-dk;
+    }
+  }
+
+  &__count {
+    color: $seneca-color-ink-500;
+    font-weight: $seneca-font-weight-regular;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &--active &__count {
+    color: inherit;
+    opacity: 0.8;
+  }
+}
+
+.seneca-chip-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &--wrap {
+    flex-wrap: wrap;
+  }
+
+  &--scroll {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    @include focus-room;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &--sm {
+    gap: 6px;
+  }
+}
+
+/* ── List rows & section headers (dashboard block) ── */
+.seneca-dashboard {
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    color: inherit;
+    text-decoration: none;
+
+    & + & {
+      border-top: 1px solid $seneca-color-ink-150;
+
+      @include dark {
+        border-top-color: $seneca-color-ink-150-dk;
+      }
+    }
+
+    &:first-child {
+      padding-top: 0;
+    }
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    &--link {
+      cursor: pointer;
+      transition: color 120ms;
+
+      &:hover .seneca-dashboard__row-primary {
+        color: var(--primary);
+
+        @include dark {
+          color: $seneca-color-primary-dk;
+        }
+      }
+    }
+  }
+
+  &__row-leading {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  &__row-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__row-primary {
+    font-size: 14px;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-ink-900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    @include dark {
+      color: $seneca-color-ink-900-dk;
+    }
+  }
+
+  &__row-secondary {
+    font-size: 12px;
+    color: $seneca-color-ink-500;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__row-trailing {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: $seneca-font-weight-semibold;
+    color: $seneca-color-ink-900;
+    font-variant-numeric: tabular-nums;
+
+    @include dark {
+      color: $seneca-color-ink-900-dk;
+    }
+  }
+
+  &__amount--positive {
+    color: $seneca-color-money-up;
+
+    @include dark {
+      color: $seneca-color-success-dk;
+    }
+  }
+
+  &__amount--negative {
+    color: $seneca-color-money-down;
+
+    @include dark {
+      color: $seneca-color-danger-dk;
+    }
+  }
+
+  &__muted {
+    color: $seneca-color-ink-500;
+    font-weight: $seneca-font-weight-regular;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__section-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 8px 0 12px;
+  }
+
+  &__section-title {
+    margin: 0;
+    font-size: 11.5px;
+    font-weight: $seneca-font-weight-semibold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $seneca-color-ink-500;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__section-sub {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    color: $seneca-color-ink-500;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+  }
+
+  &__section-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* Inline empty/loading message inside a card body. */
+  &__card-empty {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px;
+    padding: 16px;
+    font-size: 13px;
+    color: $seneca-color-ink-500;
+    text-align: center;
+
+    @include dark {
+      color: $seneca-color-ink-500-dk;
+    }
+
+    /* Inside a chart's box: as tall as the chart it stands in for. */
+    &--fill {
+      height: 100%;
+      min-height: 0;
+    }
+  }
+
+  &__card-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--muted);
+    color: var(--muted-foreground);
+
+    /* The whole Overview with nothing imported yet. */
+    &--lg {
+      width: 96px;
+      height: 96px;
+    }
+  }
+
+  &__card-empty-text {
+    max-width: 320px;
+    margin: 0;
+    line-height: 1.5;
+  }
+}
+
+/* ── Unconfirmed notice: a quiet hairline row, not an alert ── */
+.seneca-unconfirmed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid $seneca-color-ink-150;
+  border-radius: $seneca-radius-md;
+  font-size: 13px;
+  line-height: 1.4;
+  color: $seneca-color-ink-500;
+
+  @include dark {
+    border-color: $seneca-color-ink-150-dk;
+    color: $seneca-color-ink-500-dk;
+  }
+
+  &__dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $seneca-color-attention;
+
+    @include dark {
+      background: $seneca-color-warning-dk;
+    }
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-ink-900;
+    text-decoration: none;
+    transition: color 120ms;
+
+    @include dark {
+      color: $seneca-color-ink-900-dk;
+    }
+
+    &:hover {
+      color: $seneca-color-ink-600;
+
+      @include dark {
+        color: $seneca-color-ink-600-dk;
+      }
+    }
+  }
+}
+
+// Advice page: one list with hairlines instead of a stack of framed cards.
+.seneca-advice {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: $seneca-radius-md;
+  border: 1px solid $seneca-color-hairline;
+  background: var(--card-bg);
+
+  @include dark {
+    border-color: $seneca-color-border-dk;
+  }
+
+  &__row {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+
+    & + & {
+      border-top: 1px solid $seneca-color-hairline;
+
+      @include dark {
+        border-top-color: $seneca-color-border-dk;
+      }
+    }
+  }
+
+  &__main {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: flex-start !important;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+    padding: 16px 48px 16px 16px !important;
+    text-align: left;
+    color: inherit;
+    border-radius: $seneca-radius-md;
+  }
+
+  &__arrow {
+    flex-shrink: 0;
+    margin-top: 3px;
+    color: var(--muted-foreground);
+  }
+
+  // The ochre dot of a line that asks for something.
+  &__dot {
+    width: 7px;
+    height: 7px;
+    margin-top: 6px;
+    border-radius: 50%;
+    background: $seneca-color-attention;
+
+    @include dark {
+      background: $seneca-color-warning-dk;
+    }
+  }
+
+  // Dismiss shows on the line under the pointer or the keyboard, not on every line.
+  &__dismiss {
+    position: absolute !important;
+    top: 12px;
+    right: 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  &__row:hover &__dismiss,
+  &__row:focus-within &__dismiss {
+    opacity: 1;
+  }
+}

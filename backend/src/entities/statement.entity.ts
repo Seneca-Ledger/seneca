@@ -13,10 +13,10 @@ import {
 } from 'typeorm';
 
 type JsonObject = Record<string, unknown>;
+
 import { normalizeFilename } from '../common/utils/filename.util';
 import { Category } from './category.entity';
 import { Folder } from './folder.entity';
-import { GoogleSheet } from './google-sheet.entity';
 import { Tag } from './tag.entity';
 import { Transaction } from './transaction.entity';
 import { User } from './user.entity';
@@ -36,6 +36,17 @@ export enum StatementStatus {
   ERROR = 'error',
 }
 
+/**
+ * Where a statement sits in the review workflow (Submit → Approve → Pay).
+ * Separate from `status`, which tracks parsing. Moves go through
+ * `POST /statements/stage`, which enforces the allowed transitions.
+ */
+export enum StatementStage {
+  SUBMIT = 'submit',
+  APPROVE = 'approve',
+  PAY = 'pay',
+}
+
 export enum BankName {
   BEREKE_NEW = 'bereke_new',
   BEREKE_OLD = 'bereke_old',
@@ -50,6 +61,13 @@ export enum FileType {
   CSV = 'csv',
   IMAGE = 'image',
   DOCX = 'docx',
+  /** Interchange formats banks export besides CSV; detected by extension and content. */
+  OFX = 'ofx',
+  QIF = 'qif',
+  CAMT = 'camt',
+  MT940 = 'mt940',
+  /** A structured e-invoice (XRechnung, UBL or CII) uploaded as the XML itself. */
+  XML = 'xml',
 }
 
 @Entity('statements')
@@ -64,32 +82,21 @@ export class Statement {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
-
-  @ManyToOne(
-    () => GoogleSheet,
-    sheet => sheet.statements,
-    { nullable: true },
-  )
-  @JoinColumn({ name: 'google_sheet_id' })
-  googleSheet: GoogleSheet | null;
-
-  @Column({ name: 'google_sheet_id', nullable: true })
-  googleSheetId: string | null;
 
   @ManyToOne(() => Folder, { nullable: true })
   @JoinColumn({ name: 'folder_id' })
   folder: Folder | null;
 
-  @Column({ name: 'folder_id', nullable: true })
+  @Column({ name: 'folder_id', type: 'uuid', nullable: true })
   folderId: string | null;
 
   @Column({ name: 'file_name' })
@@ -121,7 +128,7 @@ export class Statement {
   })
   bankName: BankName;
 
-  @Column({ name: 'account_number', nullable: true })
+  @Column({ type: 'varchar', name: 'account_number', nullable: true })
   accountNumber: string | null;
 
   @Column({ name: 'statement_date_from', type: 'date', nullable: true })
@@ -136,6 +143,14 @@ export class Statement {
     default: StatementStatus.UPLOADED,
   })
   status: StatementStatus;
+
+  @Column({
+    type: 'enum',
+    enum: StatementStage,
+    enumName: 'statements_stage_enum',
+    default: StatementStage.SUBMIT,
+  })
+  stage: StatementStage;
 
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage: string | null;
@@ -179,14 +194,14 @@ export class Statement {
   })
   balanceEnd: number | null;
 
-  @Column({ default: 'KZT' })
+  @Column()
   currency: string;
 
   @ManyToOne(() => Category, { nullable: true })
   @JoinColumn({ name: 'category_id' })
   category: Category | null;
 
-  @Column({ name: 'category_id', nullable: true })
+  @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
@@ -195,7 +210,7 @@ export class Statement {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @Column({ name: 'processed_at', nullable: true })
+  @Column({ type: 'timestamp', name: 'processed_at', nullable: true })
   processedAt: Date | null;
 
   @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
@@ -255,6 +270,11 @@ export class Statement {
       groups: number;
       marked: number;
     };
+    /** Transfer legs paired right after the import; see TransferPairingService. */
+    transferPairs?: {
+      found: number;
+      paired: number;
+    };
     importPreview?: JsonObject;
     importCommit?: JsonObject;
     processingTime?: number; // milliseconds
@@ -282,7 +302,7 @@ export class Statement {
   tags: Tag[];
 
   @AfterLoad()
-  private normalizeFileNameAfterLoad() {
+  normalizeFileNameAfterLoad() {
     if (this.fileName) {
       this.fileName = normalizeFilename(this.fileName);
     }

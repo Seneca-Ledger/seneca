@@ -39,8 +39,8 @@ Fixes # (issue number)
 
 ### Tests Performed
 - [ ] Unit tests pass (`npm test`)
-- [ ] Linting passes (`npm run lint`)
-- [ ] Type checking passes (TypeScript)
+- [ ] Linting passes (`npm --prefix backend run lint:check`, `npm --prefix frontend run lint:check`)
+- [ ] Type checking passes (`npm --prefix backend run typecheck`, `npm --prefix frontend run type-check`)
 - [ ] Manual testing performed
 - [ ] E2E tests pass (if applicable)
 
@@ -72,6 +72,12 @@ Fixes # (issue number)
 - [ ] No database changes
 - [ ] Migration included (describe):
 - [ ] Seeds updated (if applicable)
+
+## Security Impact
+
+- [ ] No auth, session, CSRF or permission changes
+- [ ] Every new query filters by `workspaceId`
+- [ ] New cookie-authenticated write routes pass the CSRF check (or are `@SkipCsrf()` because they start a session)
 
 ## API Changes
 

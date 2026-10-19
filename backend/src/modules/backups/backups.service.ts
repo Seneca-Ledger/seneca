@@ -4,10 +4,13 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { APP_SLUG } from '../../common/brand';
+import type { UpdateBackupConfigurationBody } from '../../contracts';
 import {
   BackupConfiguration,
   BackupDestinationKind,
@@ -16,24 +19,23 @@ import {
   BackupRunTrigger,
   Workspace,
 } from '../../entities';
+import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
-import { BackupArchiveService } from './backup-archive.service';
+import { AuditService } from '../audit/audit.service';
+import { recordSecurityEvent } from '../auth/security-audit.util';
+import { BACKUP_FILE_EXTENSION, BackupArchiveService } from './backup-archive.service';
 import { BackupDataService } from './backup-data.service';
 import { BackupDestinationService } from './backup-destination.service';
 import { BackupKeyService } from './backup-key.service';
 
-export type UpdateBackupConfiguration = {
+export type UpdateBackupConfiguration = Omit<UpdateBackupConfigurationBody, 'destinationKind'> & {
   destinationKind: BackupDestinationKind;
-  destinationPath?: string;
-  dailyTime?: string;
-  timeZone?: string;
-  retentionCount?: number;
-  enabled?: boolean;
-  password?: string;
 };
 
 @Injectable()
 export class BackupsService {
+  private readonly logger = new Logger(BackupsService.name);
+
   constructor(
     @InjectRepository(BackupConfiguration)
     private readonly configurationRepository: Repository<BackupConfiguration>,
@@ -45,30 +47,31 @@ export class BackupsService {
     private readonly keyService: BackupKeyService,
     private readonly dataService: BackupDataService,
     private readonly destinationService: BackupDestinationService,
+    private readonly auditService: AuditService,
   ) {}
 
-  async getConfiguration(user: User) {
-    const workspace = await this.requireOwner(user);
+  async getConfiguration(user: User, workspaceId: string) {
+    const workspace = await this.requireOwner(user, workspaceId);
     const configuration = await this.configurationRepository.findOne({
       where: { workspaceId: workspace.id },
     });
     return configuration ? this.publicConfiguration(configuration) : null;
   }
 
-  async configure(user: User, input: UpdateBackupConfiguration) {
-    const workspace = await this.requireOwner(user);
+  async configure(user: User, workspaceId: string, input: UpdateBackupConfiguration) {
+    const workspace = await this.requireOwner(user, workspaceId);
     this.validateConfiguration(input);
     const existing = await this.configurationRepository.findOne({
       where: { workspaceId: workspace.id },
     });
-    if (!existing && !input.password) {
+    if (!(existing || input.password)) {
       throw new BadRequestException('A backup password is required for the first configuration');
     }
 
     const configuration =
       existing || this.configurationRepository.create({ workspaceId: workspace.id });
     configuration.destinationKind = input.destinationKind;
-    configuration.destinationPath = input.destinationPath || 'lumio-backups';
+    configuration.destinationPath = input.destinationPath || `${APP_SLUG}-backups`;
     configuration.dailyTime = input.dailyTime || existing?.dailyTime || '03:00';
     configuration.timeZone = input.timeZone || existing?.timeZone || 'UTC';
     configuration.retentionCount = input.retentionCount ?? existing?.retentionCount ?? 7;
@@ -85,11 +88,30 @@ export class BackupsService {
     }
 
     const saved = await this.configurationRepository.save(configuration);
+    // Whitelisted settings only; the password and the wrapped keys stay out.
+    await recordSecurityEvent(this.auditService, this.logger, {
+      workspaceId: workspace.id,
+      actorId: user.id,
+      entityType: EntityType.BACKUP,
+      entityId: saved.id,
+      action: AuditAction.UPDATE,
+      severity: Severity.INFO,
+      meta: {
+        destinationKind: saved.destinationKind,
+        destinationPath: saved.destinationPath,
+        dailyTime: saved.dailyTime,
+        timeZone: saved.timeZone,
+        retentionCount: saved.retentionCount,
+        enabled: saved.enabled,
+        passwordChanged: Boolean(input.password),
+        firstConfiguration: !existing,
+      },
+    });
     return this.publicConfiguration(saved);
   }
 
-  async listRuns(user: User): Promise<BackupRun[]> {
-    const workspace = await this.requireOwner(user);
+  async listRuns(user: User, workspaceId: string): Promise<BackupRun[]> {
+    const workspace = await this.requireOwner(user, workspaceId);
     return this.runRepository.find({
       where: { workspaceId: workspace.id },
       order: { createdAt: 'DESC' },
@@ -99,20 +121,35 @@ export class BackupsService {
 
   async createRun(
     user: User,
+    workspaceId: string,
     trigger: BackupRunTrigger = BackupRunTrigger.MANUAL,
   ): Promise<BackupRun> {
-    const workspace = await this.requireOwner(user);
+    const workspace = await this.requireOwner(user, workspaceId);
     const configuration = await this.configurationRepository.findOne({
       where: { workspaceId: workspace.id },
     });
     if (!configuration) {
       throw new BadRequestException('Backup is not configured');
     }
-    return this.runConfiguration(workspace, configuration, trigger);
+    const run = await this.runConfiguration(workspace, configuration, trigger);
+    await recordSecurityEvent(this.auditService, this.logger, {
+      workspaceId: workspace.id,
+      actorId: user.id,
+      entityType: EntityType.BACKUP,
+      entityId: run.id,
+      action: AuditAction.CREATE,
+      severity: Severity.INFO,
+      meta: { trigger, status: run.status },
+    });
+    return run;
   }
 
-  async downloadRun(user: User, runId: string): Promise<{ fileName: string; contents: Buffer }> {
-    const workspace = await this.requireOwner(user);
+  async downloadRun(
+    user: User,
+    workspaceId: string,
+    runId: string,
+  ): Promise<{ fileName: string; contents: Buffer }> {
+    const workspace = await this.requireOwner(user, workspaceId);
     const run = await this.runRepository.findOne({
       where: { id: runId, workspaceId: workspace.id },
     });
@@ -125,7 +162,7 @@ export class BackupsService {
     if (!configuration) throw new NotFoundException('Backup configuration was not found');
 
     return {
-      fileName: run.destinationFile.split('/').pop() || 'backup.lumio-backup',
+      fileName: run.destinationFile.split('/').pop() || `backup${BACKUP_FILE_EXTENSION}`,
       contents: await this.destinationService.load(configuration, run.destinationFile),
     };
   }
@@ -175,7 +212,7 @@ export class BackupsService {
           passwordEnvelope: configuration.passwordEnvelope,
         },
       });
-      const fileName = `backup-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.lumio-backup`;
+      const fileName = `backup-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}${BACKUP_FILE_EXTENSION}`;
       savedRun.destinationFile = await this.destinationService.store(
         configuration,
         fileName,
@@ -197,9 +234,9 @@ export class BackupsService {
     }
   }
 
-  private async requireOwner(user: User): Promise<Workspace> {
-    if (!user.workspaceId) throw new BadRequestException('User workspace is required');
-    const workspace = await this.workspaceRepository.findOne({ where: { id: user.workspaceId } });
+  /** Backups are the open workspace's, and only its owner manages them. */
+  private async requireOwner(user: User, workspaceId: string): Promise<Workspace> {
+    const workspace = await this.workspaceRepository.findOne({ where: { id: workspaceId } });
     if (!workspace) throw new NotFoundException('Workspace not found');
     if (workspace.ownerId !== user.id) {
       throw new ForbiddenException('Only the workspace owner can manage backups');
@@ -222,7 +259,7 @@ export class BackupsService {
       }
     }
     if (
-      input.retentionCount !== undefined &&
+      input.retentionCount != null &&
       (!Number.isInteger(input.retentionCount) || input.retentionCount < 1)
     ) {
       throw new BadRequestException('Retention count must be at least one');

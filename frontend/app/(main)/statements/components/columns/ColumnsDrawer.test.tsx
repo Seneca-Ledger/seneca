@@ -47,7 +47,7 @@ describe('ColumnsDrawer', () => {
         columns={
           [
             { id: 'receipt', label: 'Receipt', visible: true },
-            { id: 'date', label: 'Date', visible: true },
+            { id: 'merchant', label: 'Merchant', visible: true },
           ] as ColumnsDrawerProps['columns']
         }
       />,

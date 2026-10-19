@@ -9,12 +9,15 @@ import { User } from '../../../../src/entities/user.entity';
 import { WorkspaceMember } from '../../../../src/entities/workspace-member.entity';
 import { Category } from '../../../../src/entities/category.entity';
 import { TaxRate } from '../../../../src/entities/tax-rate.entity';
+import { Wallet } from '../../../../src/entities/wallet.entity';
 import { AuditService } from '../../../../src/modules/audit/audit.service';
 import { StatementParsingQueue } from '../../../../src/modules/parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../../../../src/modules/parsing/services/statement-processing.service';
 import { ReceiptStatementService } from '../../../../src/modules/statements/services/receipt-statement.service';
 import { StatementsService } from '../../../../src/modules/statements/statements.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 // Mock the file hash calculation
 jest.mock('../../../../src/common/utils/file-hash.util', () => ({
@@ -43,13 +46,23 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
     mimetype: 'application/pdf',
   } as Express.Multer.File;
 
+  // create() оборачивает проверку дубликатов и вставку в транзакцию с advisory-lock;
+  // менеджер прокидывает вызовы в тот же мок-репозиторий, чтобы ассерты не менялись.
+  const mockStatementRepository: Record<string, jest.Mock | unknown> = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+  const mockManager = {
+    query: jest.fn(),
+    getRepository: jest.fn(() => mockStatementRepository),
+    transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(mockManager)),
+  };
+  mockStatementRepository.manager = mockManager;
+
   const mockRepositories = {
-    statement: {
-      findOne: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-      createQueryBuilder: jest.fn(),
-    },
+    statement: mockStatementRepository,
     transaction: {},
     auditService: { createEvent: jest.fn() },
     user: {},
@@ -62,6 +75,7 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StatementsService,
+        workspaceCurrencyProvider(),
         {
           provide: getRepositoryToken(Statement),
           useValue: mockRepositories.statement,
@@ -69,6 +83,10 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
         {
           provide: getRepositoryToken(Transaction),
           useValue: mockRepositories.transaction,
+        },
+        {
+          provide: TaxAssignmentService,
+          useValue: { resolve: jest.fn(async () => ({})) },
         },
         {
           provide: AuditService,
@@ -85,6 +103,10 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
         {
           provide: getRepositoryToken(TaxRate),
           useValue: mockRepositories.taxRate,
+        },
+        {
+          provide: getRepositoryToken(Wallet),
+          useValue: { findOne: jest.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
@@ -137,7 +159,7 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
       mockRepositories.workspaceMember.findOne.mockResolvedValue(null); // No workspace restrictions
 
       await expect(
-        service.create(mockUser, mockWorkspaceId, mockFile, undefined, undefined, undefined, false),
+        service.create(mockUser, mockWorkspaceId, mockFile, undefined, undefined, false),
       ).rejects.toThrow(ConflictException);
 
       try {
@@ -147,12 +169,11 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
           mockFile,
           undefined,
           undefined,
-          undefined,
           false,
         );
       } catch (error) {
         expect(error.response).toMatchObject({
-          message: 'Такая выписка уже загружена (дубликат файла)',
+          code: 'STATEMENT_DUPLICATE_FILE',
           duplicateStatementId: 'existing-statement-id',
         });
       }
@@ -191,7 +212,6 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
         mockFile,
         undefined,
         undefined,
-        undefined,
         true, // allowDuplicates
       );
 
@@ -223,7 +243,7 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
       mockRepositories.statement.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
       await expect(
-        service.create(mockUser, mockWorkspaceId, mockFile, undefined, undefined, undefined, false),
+        service.create(mockUser, mockWorkspaceId, mockFile, undefined, undefined, false),
       ).rejects.toThrow(ConflictException);
 
       try {
@@ -233,12 +253,11 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
           mockFile,
           undefined,
           undefined,
-          undefined,
           false,
         );
       } catch (error) {
         expect(error.response).toMatchObject({
-          message: 'Аналогичная выписка была недавно загружена',
+          code: 'STATEMENT_DUPLICATE_RECENT',
           duplicateStatementId: 'recent-statement-id',
         });
       }
@@ -280,7 +299,6 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
         mockFile,
         undefined,
         undefined,
-        undefined,
         false,
       );
 
@@ -306,7 +324,6 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
         mockUser,
         mockWorkspaceId,
         mockFile,
-        undefined,
         undefined,
         undefined,
         false,

@@ -1,8 +1,5 @@
 'use client';
 
-import { Alert } from '@/app/components/ui/alert';
-import { Spinner } from '@/app/components/ui/spinner';
-import type { UseTwoFactorReturn } from '@/app/settings/profile/hooks/useTwoFactor';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -11,6 +8,11 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { type FormEvent, useState } from 'react';
+import { Alert } from '@/app/components/ui/alert';
+import { Spinner } from '@/app/components/ui/spinner';
+import type { UserFormatPreferences } from '@/app/lib/user-format';
+import { RecoveryCodesDownloadButton } from '@/app/settings/profile/components/RecoveryCodesDownloadButton';
+import type { UseTwoFactorReturn } from '@/app/settings/profile/hooks/useTwoFactor';
 
 export type Tx = (path: string[], fallback: string) => string;
 
@@ -75,8 +77,16 @@ export function PasswordPrompt({
 export function RecoveryCodesPanel({
   tx,
   codes,
+  email,
+  formatPreferences,
   onDone,
-}: { tx: Tx; codes: string[]; onDone: () => void }) {
+}: {
+  tx: Tx;
+  codes: string[];
+  email: string;
+  formatPreferences: UserFormatPreferences;
+  onDone: () => void;
+}) {
   return (
     <Card variant="outlined">
       <CardContent sx={{ display: 'grid', gap: 1.5 }}>
@@ -103,13 +113,19 @@ export function RecoveryCodesPanel({
             </Typography>
           ))}
         </Box>
-        <Stack direction="row" spacing={1} justifyContent="flex-end">
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" justifyContent="flex-end">
           <Button
             onClick={() => navigator.clipboard?.writeText(codes.join('\n'))}
             variant="outlined"
           >
             {tx(['securityCard', 'copyButton'], 'Copy')}
           </Button>
+          <RecoveryCodesDownloadButton
+            tx={tx}
+            codes={codes}
+            email={email}
+            formatPreferences={formatPreferences}
+          />
           <Button onClick={onDone} variant="contained" color="secondary">
             {tx(['securityCard', 'doneButton'], 'Done')}
           </Button>

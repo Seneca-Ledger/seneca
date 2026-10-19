@@ -66,8 +66,11 @@ describe('GmailMerchantReparseService', () => {
 
     const service = new GmailMerchantReparseService(receiptRepository as any, parserService as any);
 
-    const result = await service.reparseAll('user-1');
+    const result = await service.reparseAll('ws-1');
 
+    expect(receiptRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { workspaceId: 'ws-1' } }),
+    );
     expect(parserService.parseReceipt).toHaveBeenCalled();
     expect(receiptRepository.save).toHaveBeenCalled();
     expect(result.reparsed).toBe(1);
@@ -92,7 +95,7 @@ describe('GmailMerchantReparseService', () => {
 
     const service = new GmailMerchantReparseService(receiptRepository as any, parserService as any);
 
-    const result = await service.reparseAll('user-1', { dryRun: true });
+    const result = await service.reparseAll('ws-1', { dryRun: true });
 
     expect(receiptRepository.save).not.toHaveBeenCalled();
     expect(result.reparsed).toBe(1);
@@ -117,7 +120,7 @@ describe('GmailMerchantReparseService', () => {
 
     const service = new GmailMerchantReparseService(receiptRepository as any, parserService as any);
 
-    const result = await service.reparseAll('user-1');
+    const result = await service.reparseAll('ws-1');
 
     expect(parserService.parseReceipt).not.toHaveBeenCalled();
     expect(parserService.parseFromEmailOnly).toHaveBeenCalled();
@@ -142,7 +145,7 @@ describe('GmailMerchantReparseService', () => {
 
     const service = new GmailMerchantReparseService(receiptRepository as any, parserService as any);
 
-    const result = await service.reparseAll('user-1');
+    const result = await service.reparseAll('ws-1');
 
     expect(result.skipped).toBe(1);
     expect(parserService.parseReceipt).not.toHaveBeenCalled();

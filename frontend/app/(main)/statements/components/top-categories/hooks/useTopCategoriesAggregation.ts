@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   buildPreviousPeriodRange,
   getComparisonDelta,
@@ -7,19 +8,18 @@ import {
   buildTopCategoriesSourceChart,
   buildTopCategoriesTrendChart,
 } from '@/app/(main)/statements/components/top-categories.chart';
-import {
-  createCategoryAggregateRows,
-  sortCategoryRows,
-} from '@/app/(main)/statements/components/top-categories.utils';
 import type {
   CategorySortKey,
   TopCategoryAggregateRow,
   TopCategoryFlowType,
   TopCategoryRecord,
 } from '@/app/(main)/statements/components/top-categories.utils';
+import {
+  createCategoryAggregateRows,
+  sortCategoryRows,
+} from '@/app/(main)/statements/components/top-categories.utils';
 import { getRecordDate, resolveCurrencyCode } from '@/app/lib/analytics-common';
 import { useCurrencyConversion } from '@/app/lib/useCurrencyConversion';
-import { useMemo } from 'react';
 
 type Params = {
   flowFilteredRecords: TopCategoryRecord[];

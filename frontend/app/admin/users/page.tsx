@@ -1,9 +1,4 @@
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import { Pencil } from '@/app/components/icons';
-import { Checkbox } from '@/app/components/ui/checkbox';
-import { useIntlayer, useLocale } from '@/app/i18n';
 import {
   Alert,
   Box,
@@ -32,8 +27,17 @@ import {
 } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import Skeleton from '@mui/material/Skeleton';
-import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Pencil } from '@/app/components/icons';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { resolveLocaleTag } from '@/app/lib/user-format';
+import { formatStoredDate } from '@/app/lib/user-format-store';
+import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import apiClient from '../../lib/api';
+import { queryKeys } from '../../lib/query-keys';
 
 const USER_ROW_SKELETON_KEYS = ['user-0', 'user-1', 'user-2', 'user-3', 'user-4', 'user-5'];
 
@@ -75,10 +79,16 @@ interface User {
   createdAt: string;
 }
 
+type AdminPermission = ContractInput<'UpdatePermissionsBody'>['permissions'][number];
+type UserRole = NonNullable<ContractInput<'UpdateUserBody'>['role']>;
+
+const USER_ROLES: readonly UserRole[] = ['admin', 'user', 'viewer'];
+const isUserRole = (value: string): value is UserRole => USER_ROLES.some(role => role === value);
+
 export default function UsersManagementPage() {
   const t = useIntlayer('adminUsersPage');
   const { locale } = useLocale();
-  const ALL_PERMISSIONS = [
+  const ALL_PERMISSIONS: Array<{ value: AdminPermission; label: string }> = [
     { value: 'statement.view', label: t.permissions.statementView.value },
     { value: 'statement.upload', label: t.permissions.statementUpload.value },
     { value: 'statement.delete', label: t.permissions.statementDelete.value },
@@ -107,51 +117,42 @@ export default function UsersManagementPage() {
     { value: 'wallet.delete', label: t.permissions.walletDelete.value },
     { value: 'report.view', label: t.permissions.reportView.value },
     { value: 'report.export', label: t.permissions.reportExport.value },
-    { value: 'google_sheet.view', label: t.permissions.googleSheetView.value },
-    {
-      value: 'google_sheet.connect',
-      label: t.permissions.googleSheetConnect.value,
-    },
-    { value: 'google_sheet.sync', label: t.permissions.googleSheetSync.value },
   ];
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [selectedPermissions, setSelectedPermissions] = useState<AdminPermission[]>([]);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
 
-  const loadUsers = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await apiClient.get<{ data: User[] }>('/users');
-      setUsers(response.data.data || []);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || t.errors.loadUsers.value);
-    } finally {
-      setLoading(false);
-    }
+  const usersQuery = useQuery({
+    queryKey: queryKeys.adminUsers(workspaceId),
+    queryFn: ({ signal }) => apiQueryDecoded({ url: '/users', signal, contract: 'AdminUserList' }),
+    enabled: Boolean(workspaceId),
+  });
+
+  const users = usersQuery.data ?? [];
+  const loadUsers = (): void => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers(workspaceId) });
   };
 
   const handleEditPermissions = async (user: User) => {
-    try {
-      const response = await apiClient.get(`/users/${user.id}/permissions`);
-      setSelectedPermissions(response.data.customPermissions || []);
+    await (async () => {
+      const permissions = await apiQueryDecoded({
+        url: `/users/${user.id}/permissions`,
+        contract: 'UserPermissions',
+      });
+      setSelectedPermissions(permissions.customPermissions);
       setEditingUser(user);
       setPermissionsDialogOpen(true);
-    } catch (err: unknown) {
+    })().catch(async (err: unknown) => {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || t.errors.loadPermissions.value);
-    }
+    });
   };
 
   const handleSavePermissions = async () => {
@@ -160,19 +161,22 @@ export default function UsersManagementPage() {
     }
 
     setSaving(true);
-    try {
+
+    await (async () => {
       await apiClient.put(`/users/${editingUser.id}/permissions`, {
         permissions: selectedPermissions,
-      });
+      } satisfies ContractInput<'UpdatePermissionsBody'>);
       setPermissionsDialogOpen(false);
       setEditingUser(null);
       loadUsers();
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || t.errors.savePermissions.value);
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async (err: unknown) => {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || t.errors.savePermissions.value);
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
   const handleResetPermissions = async () => {
@@ -181,43 +185,50 @@ export default function UsersManagementPage() {
     }
 
     setSaving(true);
-    try {
+
+    await (async () => {
       await apiClient.post(`/users/${editingUser.id}/permissions/reset`);
       setPermissionsDialogOpen(false);
       setEditingUser(null);
       loadUsers();
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || t.errors.resetPermissions.value);
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async (err: unknown) => {
+        const error = err as { response?: { data?: { message?: string } } };
+        setError(error.response?.data?.message || t.errors.resetPermissions.value);
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
 
-  const handleTogglePermission = (permission: string) => {
+  const handleTogglePermission = (permission: AdminPermission) => {
     setSelectedPermissions(prev =>
       prev.includes(permission) ? prev.filter(p => p !== permission) : [...prev, permission],
     );
   };
 
-  const handleUpdateRole = async (userId: string, newRole: string) => {
-    try {
-      await apiClient.put(`/users/${userId}`, { role: newRole });
+  const handleUpdateRole = async (userId: string, newRole: UserRole) => {
+    await (async () => {
+      await apiClient.put(`/users/${userId}`, {
+        role: newRole,
+      } satisfies ContractInput<'UpdateUserBody'>);
       loadUsers();
-    } catch (err: unknown) {
+    })().catch(async (err: unknown) => {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || t.errors.updateRole.value);
-    }
+    });
   };
 
   const handleToggleActive = async (user: User) => {
-    try {
-      await apiClient.put(`/users/${user.id}`, { isActive: !user.isActive });
+    await (async () => {
+      await apiClient.put(`/users/${user.id}`, {
+        isActive: !user.isActive,
+      } satisfies ContractInput<'UpdateUserBody'>);
       loadUsers();
-    } catch (err: unknown) {
+    })().catch(async (err: unknown) => {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || t.errors.updateStatus.value);
-    }
+    });
   };
 
   const filteredUsers = users.filter(
@@ -234,9 +245,9 @@ export default function UsersManagementPage() {
 
       <Paper sx={{ mt: 3 }}>
         <Box sx={{ p: 3 }}>
-          {error && (
+          {(error || usersQuery.isError) && (
             <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
+              {error ?? t.errors.loadUsers.value}
             </Alert>
           )}
 
@@ -247,12 +258,12 @@ export default function UsersManagementPage() {
               onChange={e => setSearchTerm(e.target.value)}
               sx={{ flexGrow: 1 }}
             />
-            <Button variant="outlined" onClick={loadUsers} disabled={loading}>
+            <Button variant="outlined" onClick={loadUsers} disabled={usersQuery.isFetching}>
               {t.refresh}
             </Button>
           </Box>
 
-          {loading ? (
+          {usersQuery.isPending ? (
             <TableContainer>
               <Table>
                 <TableHead>
@@ -274,7 +285,10 @@ export default function UsersManagementPage() {
               </Table>
             </TableContainer>
           ) : (
-            <TableContainer>
+            // Мутации перезагружают список в фоне: таблица остаётся на месте.
+            <TableContainer
+              sx={{ opacity: usersQuery.isFetching ? 0.6 : 1, transition: 'opacity 150ms ease' }}
+            >
               <Table>
                 <TableHead>
                   <TableRow>
@@ -296,7 +310,10 @@ export default function UsersManagementPage() {
                         <FormControl size="small" sx={{ minWidth: 120 }}>
                           <Select
                             value={user.role}
-                            onChange={e => handleUpdateRole(user.id, e.target.value)}
+                            onChange={e => {
+                              if (isUserRole(e.target.value))
+                                void handleUpdateRole(user.id, e.target.value);
+                            }}
                           >
                             <MenuItem value="admin">{t.roles.admin}</MenuItem>
                             <MenuItem value="user">{t.roles.user}</MenuItem>
@@ -321,10 +338,7 @@ export default function UsersManagementPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        {formatStoredDate(
-                          user.createdAt,
-                          locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-                        )}
+                        {formatStoredDate(user.createdAt, resolveLocaleTag(locale))}
                       </TableCell>
                       <TableCell>
                         <IconButton

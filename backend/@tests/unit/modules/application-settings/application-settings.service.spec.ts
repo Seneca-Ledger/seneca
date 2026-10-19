@@ -4,8 +4,9 @@ jest.mock('nodemailer', () => ({
   })),
 }));
 jest.mock('../../../../src/common/utils/egress-url.util', () => ({
+  // Egress policy is covered by common/utils/egress-url.util.spec.ts; here the
+  // provider hostnames are fixtures that no DNS server can resolve.
   assertPublicEgressHost: jest.fn().mockResolvedValue(undefined),
-  assertPublicEgressUrl: jest.fn().mockResolvedValue(new URL('https://example.com')),
 }));
 
 const mockCategorize = jest.fn();
@@ -24,13 +25,13 @@ jest.mock('../../../../src/modules/classification/helpers/transaction-categorize
 
 import { ApplicationSettingsService } from '../../../../src/modules/application-settings/application-settings.service';
 import { WorkspaceServiceSettingsKey } from '../../../../src/entities';
-import {
-  assertPublicEgressHost,
-  assertPublicEgressUrl,
-} from '../../../../src/common/utils/egress-url.util';
+import { assertPublicEgressHost } from '../../../../src/common/utils/egress-url.util';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
+import { encryptText } from '@/common/utils/encryption.util';
+import { APP_NAME } from '../../../../src/common/brand';
 
 describe('ApplicationSettingsService', () => {
   const originalEnv = process.env;
@@ -46,7 +47,25 @@ describe('ApplicationSettingsService', () => {
     delete: jest.fn(),
   };
 
-  const createService = () => new ApplicationSettingsService(repository as never);
+  let instanceSaved: Record<string, unknown> | null = null;
+  const instanceRepository = {
+    findOne: jest.fn(async () => instanceSaved),
+    create: jest.fn(input => input),
+    save: jest.fn(async entity => {
+      instanceSaved = entity;
+      return entity;
+    }),
+    delete: jest.fn(async () => {
+      instanceSaved = null;
+    }),
+  };
+
+  const createService = () =>
+    new ApplicationSettingsService(
+      repository as never,
+      new EffectRuntime(),
+      instanceRepository as never,
+    );
 
   beforeEach(() => {
     process.env = { ...originalEnv };
@@ -60,10 +79,10 @@ describe('ApplicationSettingsService', () => {
     mockGetModelLoadError.mockReset();
     mockTransactionCategorizerConstructor.mockClear();
     (assertPublicEgressHost as jest.Mock).mockResolvedValue(undefined);
-    (assertPublicEgressUrl as jest.Mock).mockResolvedValue(new URL('https://example.com'));
     (assertPublicEgressHost as jest.Mock).mockClear();
-    (assertPublicEgressUrl as jest.Mock).mockClear();
     Object.keys(saved).forEach(key => delete saved[key]);
+    instanceSaved = null;
+    instanceRepository.save.mockClear();
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({ ok: true }),
@@ -74,25 +93,191 @@ describe('ApplicationSettingsService', () => {
     process.env = originalEnv;
   });
 
-  it('saves AI settings without returning the API key', async () => {
-    const result = await createService().saveAiSettings(user, {
-      baseUrl: 'http://localhost:11434/',
-      model: 'llama3.1',
-      apiKey: 'secret-key',
-      timeoutMs: 15000,
+  describe('Telegram connection check', () => {
+    const botToken = '123456:abc-DEF_ghi';
+    const telegramAnswer = (status: number, body: unknown) =>
+      (global.fetch as jest.Mock).mockImplementation(
+        async () =>
+          new Response(JSON.stringify(body), {
+            status,
+            headers: { 'content-type': 'application/json' },
+          }),
+      );
+
+    it('saves the bot token once getMe accepts it', async () => {
+      telegramAnswer(200, { ok: true, result: { id: 1 } });
+
+      await createService().saveTelegramSettings(user, { botToken, timeoutMs: 1000 });
+
+      const [input] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(String(input)).toBe(`https://api.telegram.org/bot${botToken}/getMe`);
+      expect(saved[WorkspaceServiceSettingsKey.TELEGRAM]).toBeDefined();
     });
 
-    expect(result.connected).toBe(true);
-    expect(result.settings).toMatchObject({
-      baseUrl: 'http://localhost:11434',
-      model: 'llama3.1',
-      apiKeyConfigured: true,
+    it("answers Telegram's own reason when it rejects the token", async () => {
+      telegramAnswer(401, { ok: false, description: 'Unauthorized' });
+
+      await expect(
+        createService().saveTelegramSettings(user, { botToken, timeoutMs: 1000 }),
+      ).rejects.toThrow('Unauthorized');
     });
-    expect(result.settings).not.toHaveProperty('apiKey');
-    expect(assertPublicEgressUrl).toHaveBeenCalledWith('http://localhost:11434');
-    expect(saved[WorkspaceServiceSettingsKey.AI]).toMatchObject({
-      workspaceId: 'workspace-1',
-      key: WorkspaceServiceSettingsKey.AI,
+
+    it('reports an unreachable Telegram instead of an invalid token', async () => {
+      (global.fetch as jest.Mock).mockRejectedValue(new Error('connect ECONNREFUSED'));
+
+      await expect(
+        createService().saveTelegramSettings(user, { botToken, timeoutMs: 1000 }),
+      ).rejects.toThrow('Unable to connect to Telegram');
+    });
+
+    it('never sends a token that could reshape the request path', async () => {
+      await expect(
+        createService().saveTelegramSettings(user, { botToken: '1:a/../x', timeoutMs: 1000 }),
+      ).rejects.toThrow('Telegram bot token is invalid');
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Telegram bots the server answers for', () => {
+    const row = (workspaceId: string, botToken: string | null) => ({
+      workspaceId,
+      key: WorkspaceServiceSettingsKey.TELEGRAM,
+      config: {},
+      encryptedSecrets: botToken ? { botToken: encryptText(botToken) } : {},
+    });
+
+    beforeEach(() => {
+      process.env.INTEGRATIONS_ENCRYPTION_KEY = 'unit-test-key';
+      process.env.APP_URL = 'http://127.0.0.1:3000';
+      delete process.env.TELEGRAM_BOT_TOKEN;
+    });
+
+    afterEach(() => {
+      delete (repository as { find?: unknown }).find;
+    });
+
+    it('lists the server bot and each workspace bot once, each with its public address', async () => {
+      process.env.TELEGRAM_BOT_TOKEN = '1:env';
+      Object.assign(repository, {
+        find: jest.fn(async () => [row('ws-a', '2:a'), row('ws-b', '1:env'), row('ws-c', null)]),
+      });
+      repository.findOne.mockImplementation(async ({ where }: { where: { workspaceId: string } }) =>
+        where.workspaceId === 'ws-a' ? { config: { publicUrl: 'https://a.example' } } : null,
+      );
+
+      await expect(createService().listTelegramBots()).resolves.toEqual([
+        { botToken: '1:env', publicUrl: 'http://127.0.0.1:3000' },
+        { botToken: '2:a', publicUrl: 'https://a.example' },
+      ]);
+    });
+
+    it('skips a token it cannot decrypt and keeps the others', async () => {
+      const broken = { ...row('ws-a', null), encryptedSecrets: { botToken: `enc:${Buffer.alloc(40, 7).toString('base64')}` } };
+      Object.assign(repository, { find: jest.fn(async () => [broken, row('ws-b', '3:b')]) });
+      repository.findOne.mockResolvedValue(null);
+
+      await expect(createService().listTelegramBots()).resolves.toEqual([
+        { botToken: '3:b', publicUrl: 'http://127.0.0.1:3000' },
+      ]);
+    });
+
+    it('lists the bot an instance admin saved as the shared one, instead of TELEGRAM_BOT_TOKEN', async () => {
+      process.env.TELEGRAM_BOT_TOKEN = '1:env';
+      instanceSaved = { key: 'telegram', encryptedSecrets: { botToken: encryptText('4:shared') } };
+      Object.assign(repository, { find: jest.fn(async () => []) });
+
+      await expect(createService().listTelegramBots()).resolves.toEqual([
+        { botToken: '4:shared', publicUrl: 'http://127.0.0.1:3000' },
+      ]);
+    });
+  });
+
+  describe('shared Telegram bot', () => {
+    const getMeAnswers = (status: number, body: unknown) =>
+      (global.fetch as jest.Mock).mockImplementation(
+        async () =>
+          new Response(JSON.stringify(body), {
+            status,
+            headers: { 'content-type': 'application/json' },
+          }),
+      );
+
+    beforeEach(() => {
+      process.env.INTEGRATIONS_ENCRYPTION_KEY = 'unit-test-key';
+      delete process.env.TELEGRAM_BOT_TOKEN;
+    });
+
+    it('serves a workspace its own bot first, then the admin’s shared bot, then TELEGRAM_BOT_TOKEN', async () => {
+      process.env.TELEGRAM_BOT_TOKEN = '1:env';
+      const service = createService();
+      await expect(service.getTelegramSettings(user)).resolves.toMatchObject({
+        botToken: '1:env',
+        source: 'env',
+      });
+
+      instanceSaved = { key: 'telegram', encryptedSecrets: { botToken: encryptText('4:shared') } };
+      await expect(service.getTelegramSettings(user)).resolves.toMatchObject({
+        botToken: '4:shared',
+        source: 'instance',
+      });
+
+      saved[WorkspaceServiceSettingsKey.TELEGRAM] = {
+        config: {},
+        encryptedSecrets: { botToken: encryptText('2:own') },
+      };
+      await expect(service.getTelegramSettings(user)).resolves.toMatchObject({
+        botToken: '2:own',
+        source: 'workspace',
+      });
+    });
+
+    it('falls through to the shared bot when the workspace row has no token', async () => {
+      instanceSaved = { key: 'telegram', encryptedSecrets: { botToken: encryptText('4:shared') } };
+      saved[WorkspaceServiceSettingsKey.TELEGRAM] = { config: { timeoutMs: 5000 }, encryptedSecrets: {} };
+
+      await expect(createService().getTelegramSettings(user)).resolves.toMatchObject({
+        botToken: '4:shared',
+        source: 'instance',
+      });
+    });
+
+    it('tells the settings page whether a shared bot exists', async () => {
+      const service = createService();
+      await expect(service.getTelegramStatus(user)).resolves.toMatchObject({
+        source: 'disabled',
+        settings: { botTokenConfigured: false, sharedBot: false },
+      });
+
+      process.env.TELEGRAM_BOT_TOKEN = '1:env';
+      await expect(service.getTelegramStatus(user)).resolves.toMatchObject({
+        source: 'env',
+        settings: { botTokenConfigured: true, sharedBot: true },
+      });
+    });
+
+    it('saves the shared bot encrypted once getMe accepts it, and removes it again', async () => {
+      getMeAnswers(200, { ok: true, result: { id: 4 } });
+      const service = createService();
+
+      await expect(service.saveInstanceTelegramSettings(user, { botToken: '4:shared' })).resolves.toEqual({
+        source: 'instance',
+      });
+      const [input] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(String(input)).toBe('https://api.telegram.org/bot4:shared/getMe');
+      const stored = instanceSaved as { encryptedSecrets: { botToken: string }; updatedByUserId: string };
+      expect(stored.encryptedSecrets.botToken).not.toBe('4:shared');
+      expect(stored.updatedByUserId).toBe('user-1');
+
+      await expect(service.clearInstanceTelegramSettings()).resolves.toEqual({ source: 'disabled' });
+    });
+
+    it('keeps the old shared bot when Telegram rejects the new token', async () => {
+      getMeAnswers(401, { ok: false, description: 'Unauthorized' });
+
+      await expect(
+        createService().saveInstanceTelegramSettings(user, { botToken: '4:wrong' }),
+      ).rejects.toThrow('Unauthorized');
+      expect(instanceRepository.save).not.toHaveBeenCalled();
     });
   });
 
@@ -100,22 +285,35 @@ describe('ApplicationSettingsService', () => {
     await createService().saveSmtpSettings(user, {
       host: 'mail.example.com',
       port: 587,
-      user: 'lumio@example.com',
+      user: 'seneca@example.com',
       pass: 'initial-secret',
-      from: 'Lumio <noreply@example.com>',
+      from: `${APP_NAME} <noreply@example.com>`,
     });
 
     const result = await createService().saveSmtpSettings(user, {
       host: 'mail.example.com',
       port: 587,
-      user: 'lumio@example.com',
+      user: 'seneca@example.com',
       pass: '',
-      from: 'Lumio <noreply@example.com>',
+      from: `${APP_NAME} <noreply@example.com>`,
     });
 
     expect(result.settings.passConfigured).toBe(true);
     expect(result.settings).not.toHaveProperty('pass');
     expect(assertPublicEgressHost).toHaveBeenCalledWith('mail.example.com');
+  });
+
+  it('writes to the workspace of the request, not the one the user registered with', async () => {
+    const service = createService();
+
+    await service.saveAppSettings(user, { publicUrl: 'https://b.example.com' }, 'workspace-2');
+    await service.disconnect(user, WorkspaceServiceSettingsKey.TELEGRAM, 'workspace-2');
+
+    expect(saved[WorkspaceServiceSettingsKey.APP]).toMatchObject({ workspaceId: 'workspace-2' });
+    expect(repository.delete).toHaveBeenCalledWith({
+      workspaceId: 'workspace-2',
+      key: WorkspaceServiceSettingsKey.TELEGRAM,
+    });
   });
 
   it('deletes workspace settings on disconnect', async () => {
@@ -152,7 +350,7 @@ describe('ApplicationSettingsService', () => {
       enabled: true,
       modelId: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
       threshold: 0.35,
-      localModelPath: '/tmp/lumio-models',
+      localModelPath: '/tmp/seneca-models',
     });
     mockCategorize.mockResolvedValue('Продукты');
     mockGetModelLoadError.mockReturnValue(null);
@@ -173,14 +371,14 @@ describe('ApplicationSettingsService', () => {
         categories: ['Продукты', 'Транспорт'],
         threshold: 0.35,
         allowRemoteModels: false,
-        localModelPath: '/tmp/lumio-models',
+        localModelPath: '/tmp/seneca-models',
       }),
     );
   });
 
   it('installs a local categorization model archive into workspace storage', async () => {
     const AdmZip = require('adm-zip');
-    const tempRoot = mkdtempSync(path.join(tmpdir(), 'lumio-model-test-'));
+    const tempRoot = mkdtempSync(path.join(tmpdir(), 'seneca-model-test-'));
     process.env.LOCAL_CATEGORIZATION_MODEL_ROOT = tempRoot;
 
     const zip = new AdmZip();

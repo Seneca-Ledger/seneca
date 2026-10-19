@@ -30,27 +30,27 @@ export class SubscriptionDecision {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Subscription, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'subscription_id' })
   subscription: Subscription;
 
-  @Column({ name: 'subscription_id' })
+  @Column({ name: 'subscription_id', type: 'uuid' })
   subscriptionId: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'actor_id' })
   actor: User | null;
 
-  @Column({ name: 'actor_id', nullable: true })
+  @Column({ name: 'actor_id', type: 'uuid', nullable: true })
   actorId: string | null;
 
   @Column({ type: 'enum', enum: SubscriptionDecisionType })
   decision: SubscriptionDecisionType;
 
-  @Column({ name: 'owner_id', nullable: true })
+  @Column({ name: 'owner_id', type: 'uuid', nullable: true })
   ownerId: string | null;
 
   @Column({ type: 'text', nullable: true })

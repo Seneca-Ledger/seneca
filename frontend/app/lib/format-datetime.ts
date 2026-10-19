@@ -1,6 +1,6 @@
 import {
-  type UserFormatPreferences,
   formatDateTime as formatWithPreferences,
+  type UserFormatPreferences,
 } from '@/app/lib/user-format';
 
 /**

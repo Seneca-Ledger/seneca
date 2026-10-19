@@ -1,39 +1,38 @@
 'use client';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-
+import { resolveBankLogo } from '@bank-logos';
+import Skeleton from '@mui/material/Skeleton';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTheme } from 'next-themes';
+import { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import { RotateCcw, Search, Trash2 } from '@/app/components/icons';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import {
   areAllVisibleSelected,
   toggleSelectAllVisible,
   toggleStatementSelection,
 } from '@/app/lib/statement-selection';
+import { resolveLocaleTag } from '@/app/lib/user-format';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
-import { resolveBankLogo } from '@bank-logos';
-import Skeleton from '@mui/material/Skeleton';
-import { useTheme } from 'next-themes';
-import { useEffect, useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
 import { TrashListItem, type TrashListItemModel } from './TrashListItem';
 import {
-  type TrashEntityType,
   resolvePermanentDeletionDate,
   resolveTrashEntityType,
+  type TrashEntityType,
 } from './trash-utils';
 
 const PAGE_SIZE = 30;
 const DEFAULT_TRASH_TTL_DAYS = 30;
-
-type Props = {
-  onCountChange?: (count: number) => void;
-};
 
 type TrashFile = TrashListItemModel & {
   status?: string;
@@ -83,13 +82,14 @@ function TrashListRowSkeleton(): React.JSX.Element {
   );
 }
 
-export default function TrashListView({ onCountChange }: Props) {
+export default function TrashListView() {
   const t = useIntlayer('statementsPage');
   const { locale } = useLocale();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
-  const localeCode = locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US';
+  const localeCode = resolveLocaleTag(locale);
   const trashTtlDays = useMemo(() => {
     const parsed = Number.parseInt(process.env.NEXT_PUBLIC_STORAGE_TRASH_TTL_DAYS || '', 10);
     if (Number.isFinite(parsed) && parsed > 0) {
@@ -245,25 +245,23 @@ export default function TrashListView({ onCountChange }: Props) {
   }, [searchInput]);
 
   const loadTrashFiles = async () => {
-    try {
+    await (async () => {
       setLoading(true);
-      const response = await apiClient.get('/storage/files', {
-        params: { deleted: 'only' },
+      setFiles(
+        await apiQueryDecoded({
+          url: '/storage/files',
+          params: { deleted: 'only' },
+          contract: 'StorageFileList',
+        }),
+      );
+    })()
+      .catch(async error => {
+        console.error('Failed to load trash files:', error);
+        toast.error(labels.loadError);
+      })
+      .finally(async () => {
+        setLoading(false);
       });
-      const payload = response.data;
-      const nextFiles = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.data)
-          ? payload.data
-          : [];
-
-      setFiles(nextFiles);
-    } catch (error) {
-      console.error('Failed to load trash files:', error);
-      toast.error(labels.loadError);
-    } finally {
-      setLoading(false);
-    }
   };
 
   useEffect(() => {
@@ -272,10 +270,6 @@ export default function TrashListView({ onCountChange }: Props) {
     }
     void loadTrashFiles();
   }, [user]);
-
-  useEffect(() => {
-    onCountChange?.(files.length);
-  }, [files, onCountChange]);
 
   const filteredFiles = useMemo(() => {
     const filtered = search
@@ -346,14 +340,16 @@ export default function TrashListView({ onCountChange }: Props) {
   const handleRestore = async (id: string) => {
     const toastId = toast.loading(labels.restoreLoading);
 
-    try {
+    await (async () => {
       await apiClient.post(`/storage/files/${id}/trash/restore`);
       removeFilesFromState([id]);
+      // A restored statement's rows count again in every figure.
+      invalidateFinancialData();
       toast.success(labels.restoreSuccess, { id: toastId });
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to restore trash file:', error);
       toast.error(labels.restoreFailed, { id: toastId });
-    }
+    });
   };
 
   const handleBulkRestore = async () => {
@@ -362,16 +358,18 @@ export default function TrashListView({ onCountChange }: Props) {
     }
     const toastId = toast.loading(labels.restoreLoading);
 
-    try {
+    await (async () => {
       await apiClient.post('/storage/files/trash/bulk/restore', {
         statementIds: selectedIds,
-      });
+      } satisfies ContractInput<'BulkFileActionBody'>);
       removeFilesFromState(selectedIds);
+      // A restored statement's rows count again in every figure.
+      invalidateFinancialData();
       toast.success(labels.restoreSuccess, { id: toastId });
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to bulk restore trash files:', error);
       toast.error(labels.restoreFailed, { id: toastId });
-    }
+    });
   };
 
   const openDeleteConfirm = (ids: string[]) => {
@@ -391,25 +389,27 @@ export default function TrashListView({ onCountChange }: Props) {
     const toastId = toast.loading(labels.deleteLoading);
     setConfirmLoading(true);
 
-    try {
+    await (async () => {
       if (ids.length === 1) {
         await apiClient.delete(`/storage/files/${ids[0]}/trash`);
       } else {
         await apiClient.post('/storage/files/bulk/trash/delete', {
           statementIds: ids,
-        });
+        } satisfies ContractInput<'BulkFileActionBody'>);
       }
 
       removeFilesFromState(ids);
       setDeleteConfirmOpen(false);
       setPendingDeleteIds([]);
       toast.success(labels.deleteSuccess, { id: toastId });
-    } catch (error) {
-      console.error('Failed to permanently delete trash files:', error);
-      toast.error(labels.deleteFailed, { id: toastId });
-    } finally {
-      setConfirmLoading(false);
-    }
+    })()
+      .catch(async error => {
+        console.error('Failed to permanently delete trash files:', error);
+        toast.error(labels.deleteFailed, { id: toastId });
+      })
+      .finally(async () => {
+        setConfirmLoading(false);
+      });
   };
 
   const handleConfirmEmptyTrash = async () => {
@@ -422,19 +422,21 @@ export default function TrashListView({ onCountChange }: Props) {
     const toastId = toast.loading(labels.deleteLoading);
     setConfirmLoading(true);
 
-    try {
+    await (async () => {
       await apiClient.post('/storage/files/bulk/trash/delete', {
         statementIds: ids,
-      });
+      } satisfies ContractInput<'BulkFileActionBody'>);
       removeFilesFromState(ids);
       setEmptyConfirmOpen(false);
       toast.success(labels.deleteSuccess, { id: toastId });
-    } catch (error) {
-      console.error('Failed to empty trash:', error);
-      toast.error(labels.deleteFailed, { id: toastId });
-    } finally {
-      setConfirmLoading(false);
-    }
+    })()
+      .catch(async error => {
+        console.error('Failed to empty trash:', error);
+        toast.error(labels.deleteFailed, { id: toastId });
+      })
+      .finally(async () => {
+        setConfirmLoading(false);
+      });
   };
 
   const formatDateTime = (value?: string | Date | null) => {
@@ -480,34 +482,29 @@ export default function TrashListView({ onCountChange }: Props) {
   );
 
   return (
-    <div className="container-shared lumio-trash-list">
-      <div className="lumio-trash-list__header">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: c.ink900 }}>{labels.title}</h1>
-          <p style={{ fontSize: 14, color: c.ink500 }}>{labels.retentionPolicy}</p>
-        </div>
-
-        <div className="lumio-trash-list__search-row">
-          <div className="lumio-trash-list__search">
-            <Search className="lumio-trash-list__search-icon" size={16} />
+    <div className="container-shared seneca-trash-list">
+      <div className="seneca-trash-list__header">
+        <div className="seneca-trash-list__search-row">
+          <div className="seneca-trash-list__search">
+            <Search className="seneca-trash-list__search-icon" size={16} />
             <input
               type="text"
               value={searchInput}
               onChange={event => setSearchInput(event.target.value)}
               placeholder={labels.searchPlaceholder}
               aria-label={labels.searchPlaceholder}
-              className="lumio-trash-list__search-input"
+              className="seneca-trash-list__search-input"
             />
           </div>
         </div>
 
-        <div className="lumio-trash-list__actions-row">
+        <div className="seneca-trash-list__actions-row">
           <span style={{ fontSize: 12, fontWeight: 500, color: c.ink500 }}>{selectedLabel}</span>
           <button
             type="button"
             onClick={() => void handleBulkRestore()}
             disabled={selectedCount === 0}
-            className="lumio-trash-list__restore-btn"
+            className="seneca-trash-list__restore-btn"
           >
             <RotateCcw size={14} />
             {labels.restore}
@@ -517,7 +514,7 @@ export default function TrashListView({ onCountChange }: Props) {
             type="button"
             onClick={() => openDeleteConfirm(selectedIds)}
             disabled={selectedCount === 0}
-            className="lumio-trash-list__delete-btn"
+            className="seneca-trash-list__delete-btn"
           >
             <Trash2 size={14} />
             {labels.delete}
@@ -527,7 +524,7 @@ export default function TrashListView({ onCountChange }: Props) {
             type="button"
             onClick={() => setEmptyConfirmOpen(true)}
             disabled={files.length === 0}
-            className="lumio-trash-list__empty-btn"
+            className="seneca-trash-list__empty-btn"
           >
             <Trash2 size={14} />
             {labels.emptyTrash}
@@ -535,23 +532,23 @@ export default function TrashListView({ onCountChange }: Props) {
         </div>
       </div>
 
-      <div className="lumio-trash-list__body">
+      <div className="seneca-trash-list__body">
         {loading ? (
-          <div className="lumio-trash-list__items">
+          <div className="seneca-trash-list__items">
             {TRASH_ROW_SKELETON_KEYS.map(key => (
               <TrashListRowSkeleton key={key} />
             ))}
           </div>
         ) : filteredFiles.length === 0 ? (
-          <div className="lumio-trash-list__empty-state">
+          <div className="seneca-trash-list__empty-state">
             <EmptyStateIllustration name="trash" size="lg" />
             <h3 style={{ fontSize: 18, fontWeight: 500, color: c.ink900 }}>{labels.emptyTitle}</h3>
             <p style={{ marginTop: 4, color: c.ink500 }}>{labels.emptyDescription}</p>
           </div>
         ) : (
           <>
-            <div className="lumio-trash-list__items">
-              <div className="lumio-trash-list__select-all-mobile">
+            <div className="seneca-trash-list__items">
+              <div className="seneca-trash-list__select-all-mobile">
                 <Checkbox
                   checked={allVisibleSelected}
                   indeterminate={selectedIds.length > 0 && !allVisibleSelected}
@@ -566,7 +563,7 @@ export default function TrashListView({ onCountChange }: Props) {
                 </span>
               </div>
 
-              <div className="lumio-trash-list__thead">
+              <div className="seneca-trash-list__thead">
                 <div style={{ width: 16 }}>
                   <Checkbox
                     checked={allVisibleSelected}
@@ -624,9 +621,9 @@ export default function TrashListView({ onCountChange }: Props) {
               })}
             </div>
 
-            <div className="lumio-trash-list__pagination">
+            <div className="seneca-trash-list__pagination">
               <div style={{ fontSize: 14, color: c.ink500 }}>{shownLabel}</div>
-              <div className="lumio-trash-list__pagination-info">
+              <div className="seneca-trash-list__pagination-info">
                 <span style={{ fontSize: 14, color: c.ink700, minWidth: 120, textAlign: 'center' }}>
                   {pageOfLabel}
                 </span>

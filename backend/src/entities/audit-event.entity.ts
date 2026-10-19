@@ -17,6 +17,8 @@ export enum ActorType {
   USER = 'user',
   SYSTEM = 'system',
   INTEGRATION = 'integration',
+  /** The in-app assistant acting on the user's behalf. */
+  AI = 'ai',
 }
 
 export enum EntityType {
@@ -24,6 +26,8 @@ export enum EntityType {
   STATEMENT = 'statement',
   RECEIPT = 'receipt',
   PAYABLE = 'payable',
+  INVOICE = 'invoice',
+  CLIENT = 'client',
   CATEGORY = 'category',
   RULE = 'rule',
   WORKSPACE = 'workspace',
@@ -36,6 +40,19 @@ export enum EntityType {
   CUSTOM_TABLE_COLUMN = 'custom_table_column',
   BUDGET = 'budget',
   SUBSCRIPTION = 'subscription',
+  LEDGER_ACCOUNT = 'ledger_account',
+  JOURNAL_ENTRY = 'journal_entry',
+  GOAL = 'goal',
+  CRYPTO_WALLET = 'crypto_wallet',
+  TAX_RATE = 'tax_rate',
+  TAX_RULE = 'tax_rule',
+  TAX_RETURN = 'tax_return',
+  WORKSPACE_MEMBER = 'workspace_member',
+  API_KEY = 'api_key',
+  WEBHOOK = 'webhook',
+  BACKUP = 'backup',
+  USER = 'user',
+  PAYEE = 'payee',
 }
 
 export enum AuditAction {
@@ -73,6 +90,12 @@ export type PatchOperation = {
 export type AuditEventDiff = BeforeAfterDiff | PatchOperation[];
 
 export interface AuditEventMeta {
+  /**
+   * Locale-independent description emitted by AuditDescriptionService.
+   * Clients render it in the viewer's locale; `description` holds the English
+   * rendering so historic rows and exports stay readable.
+   */
+  auditDescription?: { key: string; params: Record<string, string | number> };
   reason?: string;
   source?: string;
   confidence?: number;
@@ -80,8 +103,6 @@ export interface AuditEventMeta {
   provider?: string;
   fileId?: string;
   rowsCount?: number;
-  sheetId?: string;
-  spreadsheetId?: string;
   cell?: {
     row?: number;
     column?: string;
@@ -101,12 +122,13 @@ export class AuditEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Workspace)
+  // SET NULL, не CASCADE: аудит обязан переживать воркспейс, который описывает.
+  @ManyToOne(() => Workspace, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Workspace | null;
 
-  @Column({ name: 'workspace_id', type: 'uuid' })
-  workspaceId: string;
+  @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
+  workspaceId: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

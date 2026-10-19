@@ -3,27 +3,43 @@ title: Coding Standards
 description: TypeScript conventions and formatting
 ---
 
-Lumio uses Biome for linting and formatting. Follow existing naming conventions across the codebase.
+Seneca uses Biome for linting and formatting in both apps. The frontend also runs ESLint, and its SCSS is checked
+with stylelint. Follow the conventions of the surrounding code.
 
 ## Language and formatting
 
 - TypeScript everywhere
-- Prefer `const`
-- Avoid `any`
+- Biome formatting: 2 spaces, single quotes, semicolons, 100-character lines
+- Prefer `const` (`useConst` is an error)
+- Avoid `any` (`noExplicitAny` warns)
 - Keep functions small and focused
 
 ## Naming conventions
 
 - `camelCase` for variables and functions
-- `PascalCase` for classes and types
+- `PascalCase` for classes, types, and React component files (for example `AppChrome.tsx`)
+- `kebab-case` for other files (for example `password-reset.service.ts`)
 - `UPPER_SNAKE_CASE` for constants
+
+Biome does not enforce naming (`useNamingConvention` is off), so match the files next to yours.
 
 ## Lint and format
 
 ```bash
-make lint
+npm --prefix backend run lint:check
+npm --prefix frontend run lint:check   # Biome + ESLint
+npm --prefix backend run lint:fix
+npm --prefix frontend run lint:fix
 make format
 ```
+
+On the frontend, fixing only Biome or only ESLint leaves CI red.
+
+## Backend rules
+
+- Every tenant-owned query filters by `workspaceId`
+- Keep controllers thin: logic in services, input validation in DTOs
+- Schema changes only through migrations
 
 ## Code review expectations
 

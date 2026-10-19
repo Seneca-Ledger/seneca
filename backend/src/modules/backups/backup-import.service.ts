@@ -1,6 +1,9 @@
 import * as crypto from 'node:crypto';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
+import { AuditService } from '../audit/audit.service';
+import { recordSecurityEvent } from '../auth/security-audit.util';
 import { BackupRestoreService } from './backup-restore.service';
 
 type PendingImport = {
@@ -13,7 +16,12 @@ type PendingImport = {
 export class BackupImportService {
   private readonly imports = new Map<string, PendingImport>();
 
-  constructor(private readonly restoreService: BackupRestoreService) {}
+  private readonly logger = new Logger(BackupImportService.name);
+
+  constructor(
+    private readonly restoreService: BackupRestoreService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async preview(user: User, archive: Buffer, password: string) {
     const preview = await this.restoreService.preview(archive, password);
@@ -42,7 +50,20 @@ export class BackupImportService {
       );
     }
     this.imports.delete(importId);
-    return this.restoreService.restore(archive, password, user, workspaceName);
+    const workspace = await this.restoreService.restore(archive, password, user, workspaceName);
+
+    // Logged into the workspace the restore created — the one it concerns.
+    await recordSecurityEvent(this.auditService, this.logger, {
+      workspaceId: workspace.id,
+      actorId: user.id,
+      entityType: EntityType.BACKUP,
+      entityId: importId,
+      action: AuditAction.IMPORT,
+      severity: Severity.CRITICAL,
+      meta: { source: 'backup archive', workspaceName: workspace.name },
+    });
+
+    return workspace;
   }
 
   private removeExpired(): void {

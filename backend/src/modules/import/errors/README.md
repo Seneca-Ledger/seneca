@@ -120,45 +120,13 @@ PostgreSQL errors are automatically classified:
 | 503 Service Unavailable | Transient | ✅ Yes |
 | 504 Gateway Timeout | Transient | ✅ Yes |
 
-## Usage with ImportRetryService
-
-```typescript
-import { ImportRetryService } from '../services/import-retry.service';
-import { classifyError } from '../errors/import-errors';
-
-@Injectable()
-class MyImportService {
-  constructor(private readonly retryService: ImportRetryService) {}
-
-  async processImport(sessionId: string) {
-    try {
-      // Attempt import
-      await this.doImport(sessionId);
-    } catch (error) {
-      // Check if error is retryable
-      if (this.retryService.shouldRetry(error)) {
-        // Schedule retry with exponential backoff
-        await this.retryService.scheduleRetry(sessionId, 0);
-      } else {
-        // Mark as permanently failed
-        await this.retryService.markAsPermanentlyFailed(sessionId, error);
-      }
-
-      // Re-throw classified error
-      throw classifyError(error);
-    }
-  }
-}
-```
-
 ## Best Practices
 
 1. **Always use specific error types**: Don't use generic `Error` - use the appropriate import error class
 2. **Provide context**: Include details object with relevant information for debugging
 3. **User-friendly messages**: Error messages are shown to users, so make them helpful
 4. **Classify unknown errors**: Use `classifyError()` when catching errors from external libraries
-5. **Check retry eligibility**: Use `shouldRetry()` before scheduling retries
-6. **Log appropriately**: Use different log levels based on error severity
+5. **Log appropriately**: Use different log levels based on error severity
    - Transient errors: `logger.warn()` (temporary issue)
    - Validation/Conflict errors: `logger.debug()` (user error)
    - Fatal errors: `logger.error()` (system issue)

@@ -1,6 +1,7 @@
 'use client';
 
 import { EntityHistoryTimeline } from '@/app/audit/components/EntityHistoryTimeline';
+import { useIntlayer } from '@/app/i18n';
 import type { AuditEvent } from '@/lib/api/audit';
 
 interface TransactionHistoryTabProps {
@@ -10,6 +11,7 @@ interface TransactionHistoryTabProps {
 }
 
 export function TransactionHistoryTab({ events, loading, onSelect }: TransactionHistoryTabProps) {
+  const t = useIntlayer('transactionsDrawer');
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -22,10 +24,15 @@ export function TransactionHistoryTab({ events, loading, onSelect }: Transaction
             color: 'var(--muted-foreground)',
           }}
         >
-          Loading history...
+          {t.loadingHistory}
         </div>
       </div>
     );
+  }
+
+  // Says what will show up here, rather than only that nothing has yet.
+  if (events.length === 0) {
+    return <p className="seneca-tx-drawer__empty">{t.sheet.historyEmpty}</p>;
   }
 
   return (

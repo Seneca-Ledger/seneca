@@ -1,3 +1,10 @@
+import { useMemo } from 'react';
+import type {
+  AggregateSortKey,
+  TopSpenderAggregateRow,
+  TopSpenderFlowType,
+  TopSpenderRecord,
+} from '@/app/(main)/statements/components/top-spenders/top-spenders.types';
 import {
   buildTopSpendersBarChart,
   buildTopSpendersSourceChart,
@@ -8,15 +15,8 @@ import {
   getComparisonDelta,
   sortAggregateRows,
 } from '@/app/(main)/statements/components/top-spenders.utils';
-import type {
-  AggregateSortKey,
-  TopSpenderAggregateRow,
-  TopSpenderFlowType,
-  TopSpenderRecord,
-} from '@/app/(main)/statements/components/top-spenders/top-spenders.types';
 import { getRecordDate, resolveCurrencyCode } from '@/app/lib/analytics-common';
 import { useCurrencyConversion } from '@/app/lib/useCurrencyConversion';
-import { useMemo } from 'react';
 
 type Params = {
   flowFilteredRecords: TopSpenderRecord[];

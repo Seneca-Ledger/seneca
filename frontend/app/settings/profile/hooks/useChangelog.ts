@@ -1,8 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { ChangelogEntry } from '@/app/components/ChangelogModal';
 import type { ChangelogPayload } from '@/app/settings/profile/profileHelpers';
-import { useEffect, useState } from 'react';
 
 export type UseChangelogReturn = {
   changelogEntries: ChangelogEntry[];
@@ -13,7 +13,6 @@ export type UseChangelogReturn = {
 
 export function useChangelog(
   isAuthenticated: boolean,
-  activeSection: string,
   workspaceReady: boolean,
 ): UseChangelogReturn {
   const [changelogEntries, setChangelogEntries] = useState<ChangelogEntry[]>([]);
@@ -21,13 +20,13 @@ export function useChangelog(
   const [changelogSelectedEntry, setChangelogSelectedEntry] = useState<ChangelogEntry | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || activeSection !== 'changelog') return;
+    if (!isAuthenticated) return;
     if (!workspaceReady) return;
 
     let cancelled = false;
 
     const loadChangelog = async () => {
-      try {
+      await (async () => {
         setChangelogLoading(true);
         const response = await fetch('/changelog.json', { cache: 'no-store' });
 
@@ -39,15 +38,17 @@ export function useChangelog(
         if (!cancelled) {
           setChangelogEntries(Array.isArray(payload.entries) ? payload.entries : []);
         }
-      } catch {
-        if (!cancelled) {
-          setChangelogEntries([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setChangelogLoading(false);
-        }
-      }
+      })()
+        .catch(async () => {
+          if (!cancelled) {
+            setChangelogEntries([]);
+          }
+        })
+        .finally(async () => {
+          if (!cancelled) {
+            setChangelogLoading(false);
+          }
+        });
     };
 
     void loadChangelog();
@@ -55,7 +56,7 @@ export function useChangelog(
     return () => {
       cancelled = true;
     };
-  }, [activeSection, isAuthenticated, workspaceReady]);
+  }, [isAuthenticated, workspaceReady]);
 
   return {
     changelogEntries,

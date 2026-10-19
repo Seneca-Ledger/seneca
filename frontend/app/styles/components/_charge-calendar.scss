@@ -1,0 +1,101 @@
+// Vendor x month matrix of expected subscription charges.
+.seneca-charge-calendar {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  overflow-x: auto;
+
+  // Visible to screen readers only: used for the caption, which the on-screen
+  // heading already covers, and for cells whose dash carries no meaning aloud.
+  &__caption,
+  &__sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th,
+  td {
+    padding: 10px 12px;
+    text-align: right;
+    white-space: nowrap;
+    border-top: 1px solid var(--border);
+  }
+
+  // Month headers carry the timeline, so they read brighter than the column labels
+  // of other tables, and a heavier rule separates them from the first amounts.
+  thead th {
+    border-top: 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+
+  thead th.seneca-charge-calendar__vendor {
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+
+  tbody tr:hover > * {
+    background: var(--muted);
+  }
+
+  &__vendor {
+    // Pinned so the labels survive horizontal scrolling on a narrow screen.
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    text-align: left;
+    font-weight: 600;
+    background: var(--card-bg);
+  }
+
+  &__vendor-inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__empty {
+    color: var(--muted-foreground);
+    opacity: 0.5;
+  }
+
+  &__peak {
+    font-weight: 700;
+  }
+
+  tfoot th,
+  tfoot td {
+    font-weight: 600;
+  }
+}
+
+.seneca-vendor-icon {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  object-fit: contain;
+
+  &--initials {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted-foreground);
+    background: var(--muted);
+  }
+}

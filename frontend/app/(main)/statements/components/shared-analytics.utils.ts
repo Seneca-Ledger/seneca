@@ -1,6 +1,6 @@
 export type ComparisonTrend = 'up' | 'down' | 'flat';
 export type SourceType = 'statement' | 'gmail';
-export type SourceChannel = 'bank' | 'receipt' | 'gmail';
+export type SourceChannel = 'bank' | 'receipt' | 'gmail' | 'crypto';
 export type AggregateSortKey = 'amount' | 'average' | 'operations';
 export type AnalyticsFromOption = {
   id: string;
@@ -18,6 +18,8 @@ type AggregateRow = {
 type ResolveSourceChannelInput = {
   sourceType: SourceType;
   fileType?: string | null;
+  /** Wallet-synced rows carry no statement and must not read as a bank export. */
+  isCrypto?: boolean;
 };
 
 type ResolveAmountFlowInput<TExpenseFlowType extends string> = {
@@ -44,6 +46,9 @@ export const parseAmount = (value?: number | string | null): number => {
 };
 
 export const resolveSourceChannel = (input: ResolveSourceChannelInput): SourceChannel => {
+  if (input.isCrypto) {
+    return 'crypto';
+  }
   if (input.sourceType === 'gmail') {
     return 'gmail';
   }

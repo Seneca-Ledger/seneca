@@ -1,0 +1,289 @@
+// app/styles/components/_charts.scss
+// Chart design adapted from Aurum by ZProger (https://github.com/ZProger/Aurum).
+// Reimplemented for Seneca; no Aurum source code was copied.
+// Colours come from theme CSS variables, which already carry the `.dark` overrides.
+@use '../abstracts' as *;
+
+.seneca-chart {
+  &__box {
+    position: relative;
+    width: 100%;
+    height: 256px;
+
+    @media (max-width: 640px) {
+      height: 224px;
+    }
+
+    &--compact {
+      height: 200px;
+    }
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    text-align: center;
+  }
+
+  &__total {
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+
+    @media (max-width: 640px) {
+      font-size: 24px;
+    }
+  }
+
+  &__breakdown {
+    margin: 4px 0 12px;
+    font-size: 14px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+
+    &-income {
+      color: var(--money-up);
+    }
+
+    &-expense {
+      color: var(--money-down);
+    }
+
+    // "Income $1,939 · Expense $122" under a chart of both: figures in ink, the
+    // colour only in the square that ties each to its bars.
+    &-series {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--foreground);
+
+      &::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+
+      &--income::before {
+        background: var(--cat-tone-1);
+      }
+
+      &--expense::before {
+        background: var(--cat-tone-2);
+      }
+
+      & + & {
+        margin-left: 16px;
+      }
+    }
+  }
+
+  &__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  &__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__legend-value {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  &__swatch {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  &__tooltip {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--foreground);
+    font-family: var(--font-dashboard-sans);
+    font-size: 13px;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 8%);
+  }
+
+  &__tooltip-title {
+    margin-bottom: 2px;
+    color: var(--text-muted);
+  }
+
+  // Text in ink; income and spending carry their bar colour as a small square.
+  &__tooltip-row {
+    font-variant-numeric: tabular-nums;
+
+    &--positive,
+    &--negative {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      &::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+    }
+
+    &--positive::before {
+      background: var(--cat-tone-1);
+    }
+
+    &--negative::before {
+      background: var(--cat-tone-2);
+    }
+
+    &--strong {
+      font-weight: 500;
+    }
+  }
+}
+
+// Text tabs for a card's own switch (chart period, allocation cut): no frames,
+// the picked one in ink over a sage underline, the rest grey.
+.seneca-text-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+
+  &__tab {
+    padding: 4px 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    // The readable grey: an unpicked tab must not fade out of sight.
+    color: var(--text-muted);
+    cursor: pointer;
+    // A text underline, not an inset shadow: the app rounds every button's
+    // corners, and a shadow follows them into a curve.
+    text-decoration: underline 2px transparent;
+    text-underline-offset: 6px;
+    transition: color 0.15s, text-decoration-color 0.15s;
+
+    &:hover {
+      color: var(--foreground);
+    }
+
+    &[aria-selected='true'] {
+      color: var(--foreground);
+      text-decoration-color: var(--primary);
+    }
+  }
+}
+
+// Forecast "What is ahead": a quiet 16px outline box that fills sage only when
+// ticked; the app's filled 24px checkbox made the list a green column.
+.seneca-forecast-check.MuiCheckbox-root {
+  padding: 6px;
+
+  .MuiSvgIcon-root {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:not(.Mui-checked) .MuiSvgIcon-root rect {
+    fill: transparent;
+    stroke: $seneca-color-slot-dash;
+    stroke-width: 1.5;
+  }
+}
+
+// "overdue" in the forecast list: the one status that matters, behind an ochre dot.
+.seneca-forecast-overdue {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--foreground);
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $seneca-color-attention;
+
+    @include dark {
+      background: $seneca-color-warning-dk;
+    }
+  }
+}
+
+// Crypto realized gains: "needs attention" without alarm — a small ochre dot
+// before the word ("Unknown" purchase, the incomplete-basis note).
+.seneca-crypto-attention {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &::before {
+    content: '';
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $seneca-color-attention;
+
+    @include dark {
+      background: $seneca-color-warning-dk;
+    }
+  }
+}
+
+// A year with one or two busy months, as "September: 1 · October: 8" instead of a chart.
+.seneca-history-line {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+
+  &__separator {
+    color: var(--text-muted);
+  }
+
+  &__month {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--primary);
+    }
+  }
+}

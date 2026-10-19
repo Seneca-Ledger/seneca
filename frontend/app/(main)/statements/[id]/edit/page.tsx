@@ -1,39 +1,17 @@
 /* eslint-disable max-lines */
 'use client';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-
-import {
-  ArrowLeft,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Layers,
-  Pencil,
-  Receipt,
-  Save,
-  Table2,
-  Trash2,
-  TriangleAlert,
-  XCircle,
-} from '@/app/components/icons';
-import { Checkbox } from '@/app/components/ui/checkbox';
-import { DetailActionButton } from '@/app/components/ui/detail-action-button';
-import { useAuth } from '@/app/hooks/useAuth';
-import { flattenStatementCategories, getCategoryDisplayName } from '@/app/lib/statement-categories';
 import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
   Box,
   Button,
-  Chip,
   Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
-  IconButton,
   MenuItem,
   Paper,
   Table,
@@ -43,35 +21,35 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import Alert from '@mui/material/Alert';
 import Skeleton from '@mui/material/Skeleton';
-
-import { useIntlayer, useLocale } from '@/app/i18n';
 import { useParams, useRouter } from 'next/navigation';
-
+import { buildSourceColumnTitles } from '@/app/(main)/custom-tables/labels';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { ArrowLeft, CheckCircle2, ChevronDown, Layers, Save, Trash2 } from '@/app/components/icons';
+import { NotesPanel } from '@/app/components/notes/NotesPanel';
+import { DetailActionButton } from '@/app/components/ui/detail-action-button';
 import { Spinner } from '@/app/components/ui/spinner';
-import {
-  type StatementStageActionId,
-  getStatementStageActions,
-  isStageActionBlocked,
-} from '@/app/lib/statement-workflow';
+import { useAuth } from '@/app/hooks/useAuth';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { flattenStatementCategories, getCategoryDisplayName } from '@/app/lib/statement-categories';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
-import { ParsingWarningsPanel } from './ParsingWarningsPanel';
-import StatementCategoryDrawer from './StatementCategoryDrawer';
 import { BalanceReviewAlert } from './components/BalanceReviewAlert';
+import { EditTransactionsTable } from './components/EditTransactionsTable';
 import {
-  type Transaction,
   filterEnabledCategories,
   formatLabel,
   formatNumber as formatNumberHelper,
   isIdEmpty,
   resolveLocale,
 } from './editHelpers';
+import { useConfirmStatement } from './hooks/useConfirmStatement';
 import { useStatementEditForm } from './hooks/useStatementEditForm';
+import { ParsingWarningsPanel } from './ParsingWarningsPanel';
+import StatementCategoryDrawer from './StatementCategoryDrawer';
 
 function EditStatementSkeleton(): React.JSX.Element {
   const rows = Array.from({ length: 7 });
@@ -171,6 +149,7 @@ export default function EditStatementPage(): React.JSX.Element {
   const router = useRouter();
   const { user } = useAuth();
   const t = useIntlayer('statementEditPage');
+  const tablesDictionary = useIntlayer('customTablesPage');
   const labels = t.labels as Record<string, { value?: string }>;
   const columns = t.columns as Record<string, { value?: string }>;
   const { locale } = useLocale();
@@ -201,8 +180,6 @@ export default function EditStatementPage(): React.JSX.Element {
     statementCategoryDrawerOpen,
     setStatementCategoryDrawerOpen,
     statementCategorySaving,
-    stageActionLoadingId,
-    currentStage,
     bulkCategoryId,
     setBulkCategoryId,
     metadataForm,
@@ -229,7 +206,6 @@ export default function EditStatementPage(): React.JSX.Element {
     handleBulkDelete,
     handleOpenBulkCategory,
     handleApplyBulkCategory,
-    handleStageAction,
     handleStatementCategorySelect,
   } = useStatementEditForm({
     statementId,
@@ -250,132 +226,16 @@ export default function EditStatementPage(): React.JSX.Element {
       categoryUpdated: labels.categoryUpdated?.value || 'Category updated',
       categoryUpdateFailed: labels.categoryUpdateFailed?.value || 'Failed to update category',
     },
+    sourceColumnTitles: buildSourceColumnTitles(tablesDictionary),
   });
 
   const formatNumber = (num?: number | null): string => formatNumberHelper(num, locale);
 
-  // eslint-disable-next-line max-lines-per-function
-  const renderEditCell = (
-    transaction: Transaction,
-    edited: Partial<Transaction>,
-    field: keyof Transaction,
-    // eslint-disable-next-line max-params, complexity
-  ): React.JSX.Element => {
-    const commonTextFieldProps = {
-      size: 'small' as const,
-      fullWidth: true,
-      multiline: field === 'paymentPurpose' || field === 'comments',
-    };
-
-    if (field === 'categoryId') {
-      return (
-        <TextField
-          {...commonTextFieldProps}
-          select
-          value={edited.categoryId || transaction.categoryId || ''}
-          onChange={e => handleFieldChange(transaction.id, 'categoryId', e.target.value)}
-        >
-          <MenuItem value="">{t.labels.notSelected}</MenuItem>
-          {flattenedEnabledStatementCategories.map(cat => (
-            <MenuItem key={cat.id} value={cat.id}>
-              {cat.name}
-            </MenuItem>
-          ))}
-        </TextField>
-      );
-    }
-
-    if (field === 'branchId') {
-      return (
-        <TextField
-          {...commonTextFieldProps}
-          select
-          value={edited.branchId || transaction.branchId || ''}
-          onChange={e => handleFieldChange(transaction.id, 'branchId', e.target.value)}
-        >
-          <MenuItem value="">{t.labels.notSelected}</MenuItem>
-          {branches.map(branch => (
-            <MenuItem key={branch.id} value={branch.id}>
-              {branch.name}
-            </MenuItem>
-          ))}
-        </TextField>
-      );
-    }
-
-    if (field === 'walletId') {
-      return (
-        <TextField
-          {...commonTextFieldProps}
-          select
-          value={edited.walletId || transaction.walletId || ''}
-          onChange={e => handleFieldChange(transaction.id, 'walletId', e.target.value)}
-        >
-          <MenuItem value="">{t.labels.notSelected}</MenuItem>
-          {wallets.map(wallet => (
-            <MenuItem key={wallet.id} value={wallet.id}>
-              {wallet.name}
-            </MenuItem>
-          ))}
-        </TextField>
-      );
-    }
-
-    return (
-      <TextField
-        {...commonTextFieldProps}
-        value={edited[field] ?? transaction[field] ?? ''}
-        onChange={e => handleFieldChange(transaction.id, field, e.target.value)}
-      />
-    );
-  };
-
-  // eslint-disable-next-line max-params, complexity
-  const renderDisplayCell = (
-    transaction: Transaction,
-    field: keyof Transaction,
-  ): React.ReactNode => {
-    if (field === 'transactionDate') {
-      return formatStoredDate(transaction.transactionDate, resolveLocale(locale));
-    }
-    if (field === 'debit' || field === 'credit') {
-      const value = transaction[field];
-      return value ? formatNumber(value) : '—';
-    }
-    if (field === 'categoryId') {
-      return transaction.category?.name
-        ? getCategoryDisplayName(
-            {
-              name: transaction.category.name,
-              source: transaction.category.source,
-              isSystem: transaction.category.isSystem,
-            },
-            locale,
-          )
-        : '—';
-    }
-    if (field === 'branchId') {
-      return transaction.branch?.name || '—';
-    }
-    if (field === 'walletId') {
-      return transaction.wallet?.name || '—';
-    }
-    return (transaction[field] || '—') as unknown as React.ReactNode;
-  };
-
-  const stageActionLabels: Record<StatementStageActionId, string> = {
-    submitForApproval: labels.submitForApproval?.value || 'Submit',
-    unapprove: labels.unapprove?.value || 'Unapprove',
-    pay: labels.pay?.value || 'Pay',
-    rollbackToApprove: labels.rollbackToApprove?.value || 'Return to approve',
-  };
-
-  const stageActionToasts: Record<StatementStageActionId, string> = {
-    submitForApproval: labels.submitSuccess?.value || 'Statement submitted for approval',
-    unapprove: labels.unapproveSuccess?.value || 'Statement moved back to submit',
-    pay: labels.paySuccess?.value || 'Statement moved to pay',
-    rollbackToApprove: labels.rollbackToApproveSuccess?.value || 'Statement moved back to approve',
-  };
+  const { confirming, confirmAll } = useConfirmStatement(statementId, LoadData, {
+    done: labels.confirmAllDone?.value || 'Confirmed {count} rows',
+    uncategorized: labels.confirmAllUncategorized?.value || '{count} rows still need a category',
+    failed: labels.confirmAllFailed?.value || 'Could not confirm the rows',
+  });
 
   const enabledStatementCategories = filterEnabledCategories(categories);
   const flattenedStatementCategories = flattenStatementCategories(categories, '', locale);
@@ -385,12 +245,11 @@ export default function EditStatementPage(): React.JSX.Element {
     locale,
   );
 
-  const stageActions = getStatementStageActions(currentStage);
-
   if (loading) {
     return <EditStatementSkeleton />;
   }
 
+  const hasUnconfirmedRows = transactions.some(transaction => transaction.isVerified === false);
   const missingCategoryCount = transactions.filter(transaction => {
     const noCategory = isIdEmpty(transaction.categoryId) && isIdEmpty(transaction.category?.id);
     return noCategory || transaction.category?.isEnabled === false;
@@ -500,6 +359,27 @@ export default function EditStatementPage(): React.JSX.Element {
 
   const readinessInlineText = `${readinessTitle}: ${readinessMessage}`;
 
+  const statementCurrency =
+    transactions.find(transaction => transaction.currency)?.currency ??
+    statement?.parsingDetails?.metadataExtracted?.headerDisplay?.currencyDisplay ??
+    null;
+  const toAmount = (value: unknown): number | null =>
+    value === null || value === undefined || value === '' || Number.isNaN(Number(value))
+      ? null
+      : Number(value);
+  const openingBalance = toAmount(statement?.balanceStart);
+  const safeExpense = !Number.isNaN(totalExpense) && totalExpense >= 0 ? totalExpense : 0;
+  const safeIncome = !Number.isNaN(totalIncome) && totalIncome >= 0 ? totalIncome : 0;
+  const closingBalance =
+    openingBalance === null
+      ? null
+      : Math.round((openingBalance - safeExpense + safeIncome) * 100) / 100;
+  const bankClosing = toAmount(statement?.balanceEnd);
+  const closingMatches =
+    closingBalance !== null &&
+    bankClosing !== null &&
+    Math.abs(closingBalance - bankClosing) < 0.01;
+
   return (
     <Container
       maxWidth={false}
@@ -534,223 +414,135 @@ export default function EditStatementPage(): React.JSX.Element {
               variant="h4"
               component="h1"
               sx={{
-                fontWeight: 600,
-                mb: 1,
+                fontWeight: 500,
+                mb: 0.5,
                 color: 'text.primary',
                 letterSpacing: '-0.02em',
               }}
             >
               {statement?.fileName}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Chip
-                icon={<Receipt />}
-                label={`${statement?.totalTransactions} ${t.labels.transactionsCount.value || 'transactions'}`}
-                size="small"
-                data-testid="statement-transactions-chip"
-                style={{
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--muted)',
-                  color: 'var(--muted-foreground)',
-                }}
-                sx={{
-                  fontWeight: 500,
-                  '& .MuiChip-icon': { color: 'text.secondary' },
-                }}
-              />
-              {missingCategoryCount > 0 && (
-                <Chip
-                  icon={<TriangleAlert size={18} />}
-                  label={t.labels.requireCategory.value.replace(
-                    '{{count}}',
-                    String(missingCategoryCount),
-                  )}
-                  size="small"
-                  sx={{
-                    bgcolor: 'error.50',
-                    color: 'error.800',
-                    border: '1px solid',
-                    borderColor: 'error.200',
-                    fontWeight: 600,
-                    '& .MuiChip-icon': { color: 'error.700' },
-                  }}
-                />
-              )}
-            </Box>
-            {missingCategoryCount > 0 ? (
-              <Typography sx={{ mt: 1, color: 'error.main', fontSize: '0.75rem', fontWeight: 500 }}>
-                {t.labels.selectCategoryHint.value}
-              </Typography>
-            ) : null}
+            {/* Period, size and currency in one quiet line: no chip, no fourth card. */}
+            <Typography
+              data-testid="statement-transactions-chip"
+              sx={{ fontSize: 14, color: 'var(--text-muted)' }}
+            >
+              {[
+                statement?.statementDateFrom && statement?.statementDateTo
+                  ? `${formatStoredDate(statement.statementDateFrom)} – ${formatStoredDate(statement.statementDateTo)}`
+                  : null,
+                `${statement?.totalTransactions} ${t.labels.transactionsCount.value || 'transactions'}`,
+                statementCurrency,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            {hasDisabledStatementCategory ||
-            (isIdEmpty(statement?.categoryId) && isIdEmpty(statement?.category?.id)) ? (
-              <Button
-                variant="outlined"
-                startIcon={statementCategorySaving ? <Spinner size={18} /> : <Layers size={18} />}
-                onClick={() => setStatementCategoryDrawerOpen(true)}
-                disabled={statementCategorySaving || optionsLoading}
-                title={selectedStatementCategoryName}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  minWidth: 0,
-                  maxWidth: { xs: '100%', md: 280 },
-                  overflow: 'hidden',
-                  borderColor: 'var(--destructive) !important',
-                  color: 'var(--destructive) !important',
-                  bgcolor: 'var(--color-error-soft-bg) !important',
-                  borderWidth: '2px !important',
-                  '& .MuiButton-startIcon': {
-                    color: 'var(--destructive) !important',
-                  },
-                  '&:hover': {
-                    bgcolor: '#fee2e2 !important',
-                    borderColor: 'var(--destructive) !important',
-                  },
-                }}
-              >
-                <Box
-                  component="span"
-                  sx={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {hasDisabledStatementCategory
-                    ? `${selectedStatementCategoryName}${t.labels.disabledSuffix.value}`
-                    : selectedStatementCategoryName}
-                </Box>
-              </Button>
-            ) : (
-              <DetailActionButton
-                onClick={() => setStatementCategoryDrawerOpen(true)}
-                disabled={statementCategorySaving || optionsLoading}
-                title={selectedStatementCategoryName}
-                style={{
-                  minWidth: 0,
-                  maxWidth: '100%',
-                  justifyContent: 'flex-start',
-                  padding: '8px 16px',
-                  fontWeight: 700,
-                }}
-              >
-                {statementCategorySaving ? <Spinner size={18} /> : <Layers size={18} />}
-                <span
-                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                >
-                  {selectedStatementCategoryName}
-                </span>
-              </DetailActionButton>
-            )}
+            {/* A missing category is already called out by the readiness card and the
+                "require category" chip, so the button stays neutral beside its siblings
+                and only its icon carries the warning colour. */}
+            <DetailActionButton
+              onClick={() => setStatementCategoryDrawerOpen(true)}
+              disabled={statementCategorySaving || optionsLoading}
+              title={selectedStatementCategoryName}
+              style={{
+                minWidth: 0,
+                maxWidth: 280,
+                justifyContent: 'flex-start',
+                padding: '8px 16px',
+                fontWeight: 500,
+              }}
+            >
+              {statementCategorySaving ? (
+                <Spinner size={18} />
+              ) : (
+                <Layers size={18} style={{ color: 'var(--text-muted)' }} />
+              )}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {hasDisabledStatementCategory
+                  ? `${selectedStatementCategoryName}${t.labels.disabledSuffix.value}`
+                  : selectedStatementCategoryName}
+              </span>
+            </DetailActionButton>
             <DetailActionButton
               onClick={() => setExportConfirmOpen(true)}
               disabled={exportingToTable || !transactions.length}
             >
-              {exportingToTable ? <Spinner size={18} /> : <Table2 size={18} />}
+              {exportingToTable ? <Spinner size={18} /> : null}
               {t.labels.exportButton.value}
             </DetailActionButton>
-            {/* eslint-disable-next-line max-lines-per-function, complexity */}
-            {stageActions.map(action => {
-              const isLoading = stageActionLoadingId === action.id;
-              const isPrimary = action.id === 'pay';
-              const isSubmitBlocked = isStageActionBlocked(action.id, missingCategoryCount);
-              const isDisabled = stageActionLoadingId !== null || isSubmitBlocked;
-              const tooltipTitle = isSubmitBlocked
-                ? labels.submitBlockedTooltip?.value ||
-                  'Assign categories to all transactions before submitting'
-                : '';
-
-              return (
-                <Tooltip key={action.id} title={tooltipTitle} placement="top">
-                  <span style={{ display: 'inline-flex' }}>
-                    {isPrimary ? (
-                      <Button
-                        variant="contained"
-                        startIcon={isLoading ? <Spinner size={18} /> : <Check />}
-                        onClick={() =>
-                          handleStageAction(action, stageActionToasts, missingCategoryCount)
-                        }
-                        disabled={isDisabled}
-                        sx={{
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          boxShadow: 'none',
-                          '&:hover': { boxShadow: 'none' },
-                        }}
-                      >
-                        {stageActionLabels[action.id]}
-                      </Button>
-                    ) : (
-                      <DetailActionButton
-                        onClick={() =>
-                          handleStageAction(action, stageActionToasts, missingCategoryCount)
-                        }
-                        disabled={isDisabled}
-                      >
-                        {isLoading ? (
-                          <Spinner size={18} />
-                        ) : action.id === 'unapprove' || action.id === 'rollbackToApprove' ? (
-                          <ArrowLeft size={18} />
-                        ) : (
-                          <Check size={18} />
-                        )}
-                        {stageActionLabels[action.id]}
-                      </DetailActionButton>
-                    )}
-                  </span>
-                </Tooltip>
-              );
-            })}
+            {/* The page's main action: outlined until it can be pressed, then filled. */}
+            <DetailActionButton
+              variant={confirming || !hasUnconfirmedRows ? 'outline' : 'default'}
+              onClick={() => void confirmAll()}
+              disabled={confirming || !hasUnconfirmedRows}
+            >
+              {confirming ? <Spinner size={18} /> : <CheckCircle2 size={18} />}
+              {labels.confirmAll?.value || 'Confirm all'}
+            </DetailActionButton>
           </Box>
         </Box>
       </Box>
 
-      <Box
-        sx={{
-          mb: 3,
-          width: { xs: 'calc(100% + 32px)', sm: 'calc(100% + 48px)' },
-          ml: { xs: -2, sm: -3 },
-        }}
-      >
-        <Alert
-          variant="filled"
-          severity={readinessSeverity}
+      {/* What is left before this statement can go in: a quiet panel with an
+          ochre dot, and the fix right in it. Not an error banner: a missing
+          category blocks nothing yet. */}
+      {readinessSeverity !== 'success' ? (
+        <Box
+          role="status"
           sx={{
-            px: { xs: 2.5, sm: 4 },
-            py: 0.75,
+            mb: 3,
+            px: 2,
+            py: 1,
             minHeight: 42,
+            display: 'flex',
             alignItems: 'center',
-            '& .MuiAlert-message': {
-              width: '100%',
-              py: 0,
-              overflow: 'hidden',
-            },
-            '& .MuiAlert-icon': {
-              py: 0,
-              mr: 1.25,
-              alignItems: 'center',
-            },
+            gap: 1.25,
+            borderRadius: 1.5,
+            bgcolor: 'var(--surface-soft)',
           }}
         >
+          <Box
+            aria-hidden
+            sx={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              bgcolor: 'var(--attention)',
+              flexShrink: 0,
+            }}
+          />
           <Typography
             variant="body2"
             sx={{
-              width: '100%',
-              fontWeight: 600,
+              flex: 1,
+              minWidth: 0,
               lineHeight: 1.35,
+              color: 'var(--foreground)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
             }}
             title={readinessInlineText}
           >
-            {readinessInlineText}
+            <Box component="span" sx={{ fontWeight: 500 }}>
+              {readinessTitle}
+            </Box>
+            {`: ${readinessMessage}`}
           </Typography>
-        </Alert>
-      </Box>
+          {!hasStatementCategory || hasDisabledStatementCategory ? (
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => setStatementCategoryDrawerOpen(true)}
+              sx={{ flexShrink: 0, textTransform: 'none', fontWeight: 500 }}
+            >
+              {labels.chooseCategory?.value || 'Choose category'}
+            </Button>
+          ) : null}
+        </Box>
+      ) : null}
 
       {statement && (
         <BalanceReviewAlert
@@ -787,76 +579,120 @@ export default function EditStatementPage(): React.JSX.Element {
         </Alert>
       )}
 
-      {/* Summary Metrics */}
+      {/* Summary: the figures in ink, the currency beside them, and the closing
+          balance they add up to, checked against the one the bank printed —
+          the plainest sign the statement was read right. */}
       <Box
         sx={{
-          mb: 3,
+          mb: 2,
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' },
           gap: 2,
         }}
       >
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', p: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {labels.period?.value || 'Period'}
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
-            {statement?.statementDateFrom && statement?.statementDateTo
-              ? `${formatStoredDate(statement.statementDateFrom)} - ${formatStoredDate(statement.statementDateTo)}`
-              : labels.notSpecified?.value || 'Not specified'}
-          </Typography>
-        </Paper>
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', p: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {labels.balanceStart?.value || 'Opening balance'}
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
-            {statement?.balanceStart !== null &&
-            statement?.balanceStart !== undefined &&
-            statement?.balanceStart !== ''
-              ? formatNumber(Number(statement.balanceStart))
-              : labels.notSpecified?.value || 'Not specified'}
-          </Typography>
-        </Paper>
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', p: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {labels.expenses?.value || 'Expenses'}
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5, color: 'error.main' }}>
-            {!Number.isNaN(totalExpense) && totalExpense >= 0 ? formatNumber(totalExpense) : '0.00'}
-          </Typography>
-        </Paper>
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', p: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {labels.income?.value || 'Income'}
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5, color: 'success.main' }}>
-            {!Number.isNaN(totalIncome) && totalIncome >= 0 ? formatNumber(totalIncome) : '0.00'}
-          </Typography>
-        </Paper>
+        {[
+          {
+            key: 'start',
+            label: labels.balanceStart?.value || 'Opening balance',
+            value: openingBalance,
+          },
+          { key: 'expense', label: labels.expenses?.value || 'Expenses', value: safeExpense },
+          { key: 'income', label: labels.income?.value || 'Income', value: safeIncome },
+          {
+            key: 'end',
+            label: labels.closingBalance?.value || 'Closing balance',
+            value: closingBalance,
+          },
+        ].map(card => (
+          <Paper
+            key={card.key}
+            elevation={0}
+            sx={{ border: '1px solid', borderColor: 'divider', p: 2 }}
+          >
+            <Typography sx={{ fontSize: 13, color: 'var(--text-muted)' }}>{card.label}</Typography>
+            <Typography
+              sx={{ fontSize: 16, fontWeight: 500, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}
+            >
+              {card.value === null ? (
+                labels.notSpecified?.value || 'Not specified'
+              ) : (
+                <>
+                  {formatNumber(card.value)}
+                  {statementCurrency ? (
+                    <Box
+                      component="span"
+                      sx={{ fontSize: 13, fontWeight: 400, color: 'var(--muted-foreground)' }}
+                    >
+                      {' '}
+                      {statementCurrency}
+                    </Box>
+                  ) : null}
+                </>
+              )}
+            </Typography>
+            {card.key === 'end' && closingBalance !== null && bankClosing !== null ? (
+              <Typography
+                sx={{
+                  mt: 0.5,
+                  fontSize: 13,
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                }}
+              >
+                <Box
+                  aria-hidden
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    bgcolor: closingMatches ? 'var(--money-up)' : 'var(--attention)',
+                  }}
+                />
+                {closingMatches
+                  ? labels.closingMatches?.value || 'Matches the bank statement'
+                  : (labels.closingBankSays?.value || 'Bank statement says {amount}').replace(
+                      '{amount}',
+                      formatNumber(bankClosing),
+                    )}
+              </Typography>
+            ) : null}
+          </Paper>
+        ))}
       </Box>
 
       {/* Editing & Parsing Details Accordion */}
       <Accordion
-        expanded={parsingDetailsExpanded}
+        expanded={
+          parsingDetailsExpanded ??
+          (parsingErrorCount > 0 ||
+            parsingWarningCount > 0 ||
+            (statement?.parsingDetails?.droppedSamples?.length ?? 0) > 0)
+        }
         // eslint-disable-next-line max-params
         onChange={(_, expanded) => setParsingDetailsExpanded(expanded)}
         elevation={0}
+        disableGutters
         sx={{
           mb: 4,
-          border: '1px solid',
-          borderColor: 'divider',
+          bgcolor: 'transparent',
           '&:before': { display: 'none' },
           overflow: 'hidden',
         }}
       >
+        {/* A text link that opens the details, not a full-width card of its own. */}
         <AccordionSummary
-          expandIcon={<ChevronDown size={20} />}
+          expandIcon={<ChevronDown size={16} />}
           sx={{
-            bgcolor: theme => (theme.palette.mode === 'dark' ? '#18222d' : theme.palette.grey[50]),
+            px: 0,
+            minHeight: 0,
+            justifyContent: 'flex-start',
+            '& .MuiAccordionSummary-content': { flexGrow: 0, my: 0.5 },
+            '& .MuiAccordionSummary-expandIconWrapper': { color: 'var(--primary)', ml: 0.5 },
           }}
         >
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 500, color: 'var(--primary)' }}>
             {t.labels.parsingDetails?.value || 'Parsing details'}
           </Typography>
         </AccordionSummary>
@@ -1129,9 +965,7 @@ export default function EditStatementPage(): React.JSX.Element {
         categories={enabledStatementCategories}
         selectedCategoryId={statement?.categoryId || ''}
         selecting={statementCategorySaving}
-        onSelect={categoryId =>
-          handleStatementCategorySelect(categoryId, flattenedStatementCategories)
-        }
+        onSelect={categoryId => handleStatementCategorySelect(categoryId)}
         labels={{
           title: labels.categoryDrawerTitle?.value || 'Category',
           searchPlaceholder: labels.categorySearchPlaceholder?.value || 'Search',
@@ -1229,329 +1063,40 @@ export default function EditStatementPage(): React.JSX.Element {
       )}
 
       {/* Transactions Table */}
-      <TableContainer
-        component={Paper}
-        elevation={0}
-        sx={{
-          border: '1px solid',
-          borderColor: 'divider',
-          overflow: 'hidden',
-        }}
-      >
-        <Table size="small">
-          <TableHead>
-            <TableRow
-              sx={{
-                bgcolor: theme =>
-                  theme.palette.mode === 'dark' ? '#18222d' : theme.palette.grey[50],
-                borderBottom: '1px solid',
-                borderBottomColor: 'divider',
-              }}
-            >
-              <TableCell padding="checkbox">
-                <Checkbox
-                  checked={selectedRows.size === transactions.length && transactions.length > 0}
-                  indeterminate={selectedRows.size > 0 && selectedRows.size < transactions.length}
-                  onCheckedChange={handleSelectAll}
-                />
-              </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  color: 'text.secondary',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                }}
-              >
-                {columns.date?.value || 'Date'}
-              </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  color: 'text.secondary',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                }}
-              >
-                {columns.counterparty?.value || 'Counterparty'}
-              </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  color: 'text.secondary',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                }}
-              >
-                {columns.paymentPurposeShort?.value || 'Payment purpose'}
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  color: 'text.secondary',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                }}
-              >
-                {columns.expense?.value || 'Expense'}
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  color: 'text.secondary',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                }}
-              >
-                {columns.income?.value || 'Income'}
-              </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  color: 'text.secondary',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                }}
-              >
-                {columns.category?.value || 'Category'}
-              </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  color: 'text.secondary',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                }}
-              >
-                {columns.actions?.value || 'Actions'}
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* eslint-disable-next-line max-lines-per-function, complexity */}
-            {transactions.map(transaction => {
-              const isEditing = editingRow === transaction.id;
-              const edited = editedData[transaction.id] || transaction;
-              const missingCategory =
-                isIdEmpty(edited.categoryId) &&
-                isIdEmpty(transaction.categoryId) &&
-                isIdEmpty(transaction.category?.id);
+      <EditTransactionsTable
+        transactions={transactions}
+        editingRow={editingRow}
+        editedData={editedData}
+        selectedRows={selectedRows}
+        categories={flattenedEnabledStatementCategories}
+        branches={branches}
+        wallets={wallets}
+        locale={locale}
+        formatNumber={formatNumber}
+        columns={columns}
+        labels={labels}
+        onSelectAll={handleSelectAll}
+        onRowSelect={handleRowSelect}
+        onEdit={handleEdit}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        onDelete={handleDelete}
+        onFieldChange={({ id, field, value }) => handleFieldChange(id, field, value)}
+      />
 
-              return (
-                <TableRow
-                  key={transaction.id}
-                  hover
-                  sx={{
-                    bgcolor: missingCategory ? 'error.50' : undefined,
-                    borderLeft: missingCategory ? '3px solid' : undefined,
-                    borderLeftColor: missingCategory ? 'error.400' : undefined,
-                    transition: 'all 0.15s',
-                    '&:hover': {
-                      bgcolor: missingCategory ? 'error.100' : 'grey.50',
-                    },
-                  }}
-                >
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={selectedRows.has(transaction.id)}
-                      onCheckedChange={() => handleRowSelect(transaction.id)}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>
-                    {isEditing
-                      ? renderEditCell(transaction, edited, 'transactionDate')
-                      : String(renderDisplayCell(transaction, 'transactionDate'))}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 150 }}>
-                    {isEditing
-                      ? renderEditCell(transaction, edited, 'counterpartyName')
-                      : transaction.counterpartyName}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200, maxWidth: 300 }}>
-                    {isEditing ? (
-                      renderEditCell(transaction, edited, 'paymentPurpose')
-                    ) : (
-                      <Tooltip title={transaction.paymentPurpose}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {transaction.paymentPurpose}
-                        </Typography>
-                      </Tooltip>
-                    )}
-                  </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{
-                      color: 'error.600',
-                      fontWeight: 600,
-                      fontSize: '0.9375rem',
-                    }}
-                  >
-                    {transaction.debit ? formatNumber(transaction.debit) : '—'}
-                  </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{
-                      color: 'success.600',
-                      fontWeight: 600,
-                      fontSize: '0.9375rem',
-                    }}
-                  >
-                    {transaction.credit ? formatNumber(transaction.credit) : '—'}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 150 }}>
-                    {isEditing ? (
-                      renderEditCell(transaction, edited, 'categoryId')
-                    ) : (
-                      <Box>
-                        {transaction.category?.name ? (
-                          <Chip
-                            label={
-                              transaction.category.isEnabled === false
-                                ? `${getCategoryDisplayName(
-                                    {
-                                      name: transaction.category.name,
-                                      source: transaction.category.source,
-                                      isSystem: transaction.category.isSystem,
-                                    },
-                                    locale,
-                                  )} — ${labels.assignCategory?.value || 'Assign category'}`
-                                : getCategoryDisplayName(
-                                    {
-                                      name: transaction.category.name,
-                                      source: transaction.category.source,
-                                      isSystem: transaction.category.isSystem,
-                                    },
-                                    locale,
-                                  )
-                            }
-                            size="small"
-                            sx={{
-                              bgcolor:
-                                transaction.category.isEnabled === false
-                                  ? 'error.50'
-                                  : 'primary.50',
-                              color:
-                                transaction.category.isEnabled === false
-                                  ? 'error.700'
-                                  : 'primary.700',
-                              border:
-                                transaction.category.isEnabled === false ? '1px solid' : 'none',
-                              borderColor:
-                                transaction.category.isEnabled === false
-                                  ? 'error.200'
-                                  : 'transparent',
-                              fontWeight: 500,
-                              fontSize: '0.8125rem',
-                            }}
-                          />
-                        ) : (
-                          <Chip
-                            label={labels.noCategoryOption?.value || 'No category'}
-                            size="small"
-                            icon={<TriangleAlert size={16} />}
-                            sx={{
-                              bgcolor: 'error.50',
-                              color: 'error.700',
-                              border: '1px solid',
-                              borderColor: 'error.100',
-                              fontWeight: 600,
-                              fontSize: '0.8125rem',
-                              '& .MuiChip-icon': {
-                                color: 'error.600',
-                              },
-                            }}
-                          />
-                        )}
-                      </Box>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleSave(transaction.id)}
-                          sx={{
-                            color: 'success.600',
-                            '&:hover': {
-                              bgcolor: 'success.50',
-                            },
-                          }}
-                        >
-                          <CheckCircle2 size={18} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={handleCancel}
-                          sx={{
-                            color: 'text.secondary',
-                            '&:hover': {
-                              bgcolor: 'grey.100',
-                            },
-                          }}
-                        >
-                          <XCircle size={18} />
-                        </IconButton>
-                      </Box>
-                    ) : (
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEdit(transaction)}
-                          sx={{
-                            color: 'primary.600',
-                            '&:hover': {
-                              bgcolor: 'primary.50',
-                            },
-                          }}
-                        >
-                          <Pencil size={18} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                labels.confirmDeleteOne?.value || 'Delete transaction?',
-                              )
-                            ) {
-                              void handleDelete(transaction.id);
-                            }
-                          }}
-                          sx={{
-                            color: 'error.600',
-                            '&:hover': {
-                              bgcolor: 'error.50',
-                            },
-                          }}
-                        >
-                          <Trash2 size={18} />
-                        </IconButton>
-                      </Box>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {statement && (
+        <div
+          style={{
+            marginTop: 24,
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            background: 'var(--card-bg)',
+            padding: 20,
+          }}
+        >
+          <NotesPanel entityType="statement" entityId={statement.id} />
+        </div>
+      )}
 
       {/* Bulk Category Dialog */}
       <Dialog

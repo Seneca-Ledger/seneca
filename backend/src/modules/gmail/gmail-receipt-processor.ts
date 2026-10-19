@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
+import { notInVersionWorkspace } from '../../common/workspaces/version-workspaces';
 import {
   ActorType,
   AuditAction,
@@ -14,12 +15,16 @@ import {
   ReceiptStatus,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
-import type { ReceiptUncategorizedEvent } from '../notifications/events/notification-events';
+import type {
+  ReceiptNeedsReviewEvent,
+  ReceiptUncategorizedEvent,
+} from '../notifications/events/notification-events';
+import { ReceiptMatchService } from '../receipts/services/receipt-match.service';
 import type { GmailApi } from './gmail-api.types';
+import { GmailService } from './services/gmail.service';
 import { GmailReceiptCategoryService } from './services/gmail-receipt-category.service';
 import { GmailReceiptDuplicateService } from './services/gmail-receipt-duplicate.service';
 import { GmailReceiptParserService } from './services/gmail-receipt-parser.service';
-import { GmailService } from './services/gmail.service';
 
 const JOB_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const WORKER_ID = `worker-${process.pid}-${Math.random().toString(36).substr(2, 9)}`;
@@ -44,6 +49,8 @@ export class GmailReceiptProcessor {
     private readonly categoryService: GmailReceiptCategoryService,
     private readonly auditService: AuditService,
     private readonly eventEmitter?: EventEmitter2,
+    @Optional()
+    private readonly matchService?: ReceiptMatchService,
   ) {}
 
   private getHeaderValue(
@@ -65,14 +72,21 @@ export class GmailReceiptProcessor {
       const now = new Date();
       const lockTimeout = new Date(now.getTime() - JOB_LOCK_TIMEOUT_MS);
 
-      // Find pending jobs or stale locked jobs
+      // Find pending jobs or stale locked jobs. A past version takes no mail in;
+      // its jobs are left out here rather than failed, so they never block the queue.
       const job = await this.jobRepository
         .createQueryBuilder('job')
-        .where('job.status = :status', { status: ReceiptJobStatus.PENDING })
-        .orWhere('job.status = :processing AND job.lockedAt < :lockTimeout', {
-          processing: ReceiptJobStatus.PROCESSING,
-          lockTimeout,
-        })
+        .where(
+          new Brackets(status =>
+            status
+              .where('job.status = :status', { status: ReceiptJobStatus.PENDING })
+              .orWhere('job.status = :processing AND job.lockedAt < :lockTimeout', {
+                processing: ReceiptJobStatus.PROCESSING,
+                lockTimeout,
+              }),
+          ),
+        )
+        .andWhere(notInVersionWorkspace('job.workspaceId'))
         .orderBy('job.createdAt', 'ASC')
         .limit(1)
         .getOne();
@@ -121,9 +135,17 @@ export class GmailReceiptProcessor {
         throw new Error('Integration not found');
       }
 
-      // Check if receipt already exists
+      // The receipt goes into the workspace the mailbox was connected in.
+      const workspaceId = integration.workspaceId || integration.workspace?.id || null;
+
+      if (!workspaceId) {
+        throw new Error('No workspace found for integration');
+      }
+
+      // Check if receipt already exists; per workspace, as the same mailbox may
+      // be connected in several workspaces.
       const existing = await this.receiptRepository.findOne({
-        where: { gmailMessageId: job.payload.gmailMessageId },
+        where: { workspaceId, gmailMessageId: job.payload.gmailMessageId },
       });
 
       if (existing) {
@@ -135,7 +157,7 @@ export class GmailReceiptProcessor {
       }
 
       // Fetch message from Gmail
-      const message = await this.gmailService.getMessage(job.userId, job.payload.gmailMessageId);
+      const message = await this.gmailService.getMessage(workspaceId, job.payload.gmailMessageId);
 
       // Extract metadata
       const headers = message.payload?.headers || [];
@@ -171,7 +193,7 @@ export class GmailReceiptProcessor {
       for (const attachment of attachments) {
         try {
           const filePath = await this.gmailService.downloadAttachment(
-            job.userId,
+            workspaceId,
             job.payload.gmailMessageId,
             attachment.id,
             attachment.filename,
@@ -237,13 +259,6 @@ export class GmailReceiptProcessor {
         }
       }
 
-      // Get workspace ID
-      const workspaceId = integration.workspaceId || integration.workspace?.id || null;
-
-      if (!workspaceId) {
-        throw new Error('No workspace found for integration');
-      }
-
       // Create receipt
       const receipt = this.receiptRepository.create({
         userId: job.userId,
@@ -257,9 +272,10 @@ export class GmailReceiptProcessor {
         metadata: {
           attachments,
           labels: message.labelIds || [],
-          snippet: message.snippet,
+          snippet: message.snippet ?? undefined,
         },
-        parsedData,
+        // Saving turns the omitted column into null, as before.
+        parsedData: parsedData ?? undefined,
         attachmentPaths,
         taxAmount: parsedData?.tax || null,
         isDuplicate: false,
@@ -312,20 +328,20 @@ export class GmailReceiptProcessor {
       // Suggest category
       if (parsedData && savedReceipt.status !== ReceiptStatus.FAILED) {
         try {
-          const suggestedCategory = await this.categoryService.suggestCategory(savedReceipt);
-
-          if (suggestedCategory) {
-            savedReceipt.parsedData = {
-              ...savedReceipt.parsedData,
-              category: suggestedCategory.name,
-              categoryId: suggestedCategory.id,
-            };
-          }
+          await this.categoryService.categorize(savedReceipt);
 
           job.progress = 95;
           await this.jobRepository.save(job);
         } catch (error) {
           this.logger.error('Failed to suggest category', error);
+        }
+      }
+
+      if (parsedData && savedReceipt.status !== ReceiptStatus.FAILED && this.matchService) {
+        try {
+          await this.matchService.suggest(savedReceipt);
+        } catch (error) {
+          this.logger.error('Failed to match receipt to a transaction', error);
         }
       }
 
@@ -340,6 +356,17 @@ export class GmailReceiptProcessor {
 
       // Save final receipt state
       await this.receiptRepository.save(savedReceipt);
+
+      if (savedReceipt.status === ReceiptStatus.NEEDS_REVIEW) {
+        this.eventEmitter?.emit('receipt.needs_review', {
+          workspaceId,
+          receiptId: savedReceipt.id,
+          source: savedReceipt.source,
+          reasons: savedReceipt.metadata?.potentialDuplicates?.length
+            ? ['possible_duplicate']
+            : ['missing_amount'],
+        } satisfies ReceiptNeedsReviewEvent);
+      }
 
       // Mark job as completed
       job.status = ReceiptJobStatus.COMPLETED;

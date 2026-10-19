@@ -1,9 +1,15 @@
 'use client';
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import api from '../../lib/api';
+import { blobOf } from '../../lib/blob-of';
+import { queryKeys } from '../../lib/query-keys';
 import type { StorageFile } from '../storageHelpers';
 
 interface UseStorageFilesMessages {
@@ -35,7 +41,7 @@ export interface UseStorageFilesReturn {
   setPermanentDeleteModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   fileToDeletePermanently: StorageFile | null;
   setFileToDeletePermanently: React.Dispatch<React.SetStateAction<StorageFile | null>>;
-  loadFiles: (listMode: 'active' | 'trash') => Promise<void>;
+  refreshFiles: () => void;
   handleView: (fileId: string) => void;
   handleDownload: (fileId: string, fileName: string) => Promise<void>;
   handleCategoryChange: (fileId: string, categoryId: string) => Promise<void>;
@@ -49,30 +55,66 @@ export interface UseStorageFilesReturn {
   handleEmptyTrash: () => Promise<void>;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
-export function useStorageFiles(messages: UseStorageFilesMessages): UseStorageFilesReturn {
+// eslint-disable-next-line max-lines-per-function
+export function useStorageFiles(
+  messages: UseStorageFilesMessages,
+  listMode: 'active' | 'trash',
+): UseStorageFilesReturn {
   const router = useRouter();
-  const [files, setFiles] = useState<StorageFile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<StorageFile | null>(null);
   const [permanentDeleteModalOpen, setPermanentDeleteModalOpen] = useState(false);
   const [fileToDeletePermanently, setFileToDeletePermanently] = useState<StorageFile | null>(null);
 
-  const loadFiles = async (listMode: 'active' | 'trash'): Promise<void> => {
-    try {
-      setLoading(true);
-      const response = await api.get('/storage/files', {
+  const queryKey = queryKeys.storageFiles({ workspaceId, listMode });
+
+  const filesQuery = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: '/storage/files',
         params: listMode === 'trash' ? { deleted: 'only' } : undefined,
-      });
-      setFiles(response.data);
-    } catch (error) {
-      console.error('Failed to load files:', error);
-      toast.error(messages.loadFilesFailed);
-    } finally {
-      setLoading(false);
+        signal,
+        contract: 'StorageFileList',
+      }),
+    enabled: Boolean(workspaceId),
+  });
+
+  const loadFailed = filesQuery.isError;
+  const loadFailedMessage = messages.loadFilesFailed;
+  useEffect(() => {
+    if (loadFailed) {
+      toast.error(loadFailedMessage, { id: 'storage-files-load' });
     }
-  };
+  }, [loadFailed, loadFailedMessage]);
+
+  const files = filesQuery.data ?? [];
+
+  /**
+   * Точечные правки списка (переименование, снятие тега, перенос в корзину)
+   * пишутся прямо в кэш — сигнатура осталась той же, что у useState, поэтому
+   * вызовы `setFiles(prev => ...)` по всему модулю не менялись.
+   */
+  const setFiles: React.Dispatch<React.SetStateAction<StorageFile[]>> = useCallback(
+    update => {
+      queryClient.setQueryData<StorageFile[]>(
+        queryKeys.storageFiles({ workspaceId, listMode }),
+        previous => {
+          const current = previous ?? [];
+          return typeof update === 'function' ? update(current) : update;
+        },
+      );
+    },
+    [queryClient, workspaceId, listMode],
+  );
+
+  const refreshFiles = useCallback((): void => {
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.storageFiles({ workspaceId, listMode }),
+    });
+  }, [queryClient, workspaceId, listMode]);
 
   const handleView = (fileId: string): void => {
     const file = files.find(f => f.id === fileId);
@@ -87,11 +129,11 @@ export function useStorageFiles(messages: UseStorageFilesMessages): UseStorageFi
   };
 
   const handleDownload = async (fileId: string, fileName: string): Promise<void> => {
-    try {
+    await (async () => {
       const response = await api.get(`/storage/files/${fileId}/download`, {
         responseType: 'blob',
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', fileName);
@@ -99,33 +141,36 @@ export function useStorageFiles(messages: UseStorageFilesMessages): UseStorageFi
       link.click();
       link.remove();
       toast.success(messages.downloaded);
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to download file:', error);
       toast.error(messages.downloadFailed);
-    }
+    });
   };
 
   const handleCategoryChange = async (fileId: string, categoryId: string): Promise<void> => {
-    try {
+    await (async () => {
       const response = await api.patch(`/storage/files/${fileId}/category`, {
         categoryId: categoryId || null,
-      });
+      } satisfies ContractInput<'UpdateFileCategoryBody'>);
+      const updated = await checkContract(
+        'FileCategoryUpdate',
+        response.data,
+        '/storage/files/:id/category',
+      );
       setFiles(prev =>
         prev.map(file =>
           file.id === fileId
-            ? {
-                ...file,
-                categoryId: response.data?.categoryId ?? null,
-                category: response.data?.category ?? null,
-              }
+            ? { ...file, categoryId: updated.categoryId, category: updated.category }
             : file,
         ),
       );
+      // A file's category reaches its rows (a scan's own), so the figures move.
+      invalidateFinancialData();
       toast.success(messages.categoryUpdated);
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to update file category:', error);
       toast.error(messages.categoryUpdateFailed);
-    }
+    });
   };
 
   const confirmDelete = (file: StorageFile): void => {
@@ -138,14 +183,18 @@ export function useStorageFiles(messages: UseStorageFilesMessages): UseStorageFi
       return;
     }
     const toastId = toast.loading(messages.deleteLoading);
-    try {
+
+    await (async () => {
       await api.post(`/storage/files/${fileToDelete.id}/trash`);
       setFiles(prev => prev.filter(file => file.id !== fileToDelete.id));
+      // A trashed statement's rows stop counting.
+      invalidateFinancialData();
       toast.success(messages.deleteSuccess, { id: toastId });
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to move file to trash:', error);
       toast.error(messages.deleteError, { id: toastId });
-    }
+    });
+
     setFileToDelete(null);
   };
 
@@ -159,27 +208,31 @@ export function useStorageFiles(messages: UseStorageFilesMessages): UseStorageFi
       return;
     }
     const toastId = toast.loading(messages.trashDeleteLoading);
-    try {
+
+    await (async () => {
       await api.delete(`/storage/files/${fileToDeletePermanently.id}/trash`);
       setFiles(prev => prev.filter(file => file.id !== fileToDeletePermanently.id));
       toast.success(messages.trashDeleteSuccess, { id: toastId });
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to permanently delete file:', error);
       toast.error(messages.trashDeleteFailed, { id: toastId });
-    }
+    });
+
     setFileToDeletePermanently(null);
   };
 
   const handleRestoreFromTrash = async (file: StorageFile): Promise<void> => {
     const toastId = toast.loading(messages.trashRestoreLoading);
-    try {
+
+    await (async () => {
       await api.post(`/storage/files/${file.id}/trash/restore`);
       setFiles(prev => prev.filter(item => item.id !== file.id));
+      invalidateFinancialData();
       toast.success(messages.trashRestoreSuccess, { id: toastId });
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to restore file from trash:', error);
       toast.error(messages.trashRestoreFailed, { id: toastId });
-    }
+    });
   };
 
   const handleBulkRestore = async (ids: string[]): Promise<void> => {
@@ -187,14 +240,18 @@ export function useStorageFiles(messages: UseStorageFilesMessages): UseStorageFi
       return;
     }
     const toastId = toast.loading(messages.trashRestoreLoading);
-    try {
-      await api.post('/storage/files/trash/bulk/restore', { statementIds: ids });
+
+    await (async () => {
+      await api.post('/storage/files/trash/bulk/restore', {
+        statementIds: ids,
+      } satisfies ContractInput<'BulkFileActionBody'>);
       setFiles(prev => prev.filter(file => !ids.includes(file.id)));
+      invalidateFinancialData();
       toast.success(messages.trashRestoreSuccess, { id: toastId });
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to restore files from trash:', error);
       toast.error(messages.trashRestoreFailed, { id: toastId });
-    }
+    });
   };
 
   const handleBulkDeleteFromTrash = async (ids: string[]): Promise<void> => {
@@ -202,14 +259,17 @@ export function useStorageFiles(messages: UseStorageFilesMessages): UseStorageFi
       return;
     }
     const toastId = toast.loading(messages.trashDeleteLoading);
-    try {
-      await api.post('/storage/files/bulk/trash/delete', { statementIds: ids });
+
+    await (async () => {
+      await api.post('/storage/files/bulk/trash/delete', {
+        statementIds: ids,
+      } satisfies ContractInput<'BulkFileActionBody'>);
       setFiles(prev => prev.filter(file => !ids.includes(file.id)));
       toast.success(messages.trashDeleteSuccess, { id: toastId });
-    } catch (error) {
+    })().catch(async error => {
       console.error('Failed to delete files from trash:', error);
       toast.error(messages.trashDeleteFailed, { id: toastId });
-    }
+    });
   };
 
   const handleEmptyTrash = async (): Promise<void> => {
@@ -220,7 +280,7 @@ export function useStorageFiles(messages: UseStorageFilesMessages): UseStorageFi
   return {
     files,
     setFiles,
-    loading,
+    loading: filesQuery.isPending,
     deleteModalOpen,
     setDeleteModalOpen,
     fileToDelete,
@@ -229,7 +289,7 @@ export function useStorageFiles(messages: UseStorageFilesMessages): UseStorageFi
     setPermanentDeleteModalOpen,
     fileToDeletePermanently,
     setFileToDeletePermanently,
-    loadFiles,
+    refreshFiles,
     handleView,
     handleDownload,
     handleCategoryChange,

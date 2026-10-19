@@ -15,7 +15,6 @@ import {
 describe('tables reports helpers', () => {
   it('formats source labels and comparison helpers', () => {
     expect(getSourceLabel('manual')).toBe('Manual');
-    expect(getSourceLabel('google_sheets_import')).toBe('Google Sheets');
     expect(getComparisonColor('up')).toBe('text-emerald-600');
     expect(getComparisonColor('down')).toBe('text-red-500');
     expect(getComparisonColor('flat')).toBe('text-gray-400');

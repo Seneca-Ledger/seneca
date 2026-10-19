@@ -1,7 +1,10 @@
 'use client';
 
-import { useNotifications as useNotificationContext } from '@/app/contexts/NotificationContext';
+import {
+  type NotificationContextValue,
+  useNotifications as useNotificationContext,
+} from '@/app/contexts/NotificationContext';
 
-export function useNotifications() {
+export function useNotifications(): NotificationContextValue {
   return useNotificationContext();
 }

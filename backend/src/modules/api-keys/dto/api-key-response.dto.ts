@@ -20,6 +20,8 @@ export class ApiKeyCreatedResponseDto {
 export class ApiKeyListItemDto {
   @ApiProperty()
   id: string;
+  @ApiProperty({ nullable: true, description: 'null = unrestricted (key made before scopes)' })
+  scopes: string[] | null;
 
   @ApiProperty()
   name: string;

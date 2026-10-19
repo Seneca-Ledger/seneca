@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import {
+  applyStatementsFilters,
   type StatementFilterItem,
   type StatementFilters,
-  applyStatementsFilters,
 } from '@/app/(main)/statements/components/filters/statement-filters';
 import type { AnalyticsFromOption } from '@/app/(main)/statements/components/shared-analytics.utils';
 import {
@@ -14,7 +15,7 @@ import type {
   TopSpenderRecord,
 } from '@/app/(main)/statements/components/top-spenders/top-spenders.types';
 import type { GmailReceipt } from '@/app/(main)/statements/types/statement-types';
-import { useMemo } from 'react';
+import { useIntlayer } from '@/app/i18n';
 
 type StatementWithWorkspace = StatementFilterItem & {
   workspaceId?: string;
@@ -57,22 +58,22 @@ const filterByQuery = (records: TopSpenderRecord[], searchInput: string): TopSpe
   return records.filter(r => matchesQuery(r, query));
 };
 
-const getUserLabel = (user: TopSpenderRecord['user']): string =>
-  user?.name ?? user?.email ?? 'User';
+const getUserLabel = (user: TopSpenderRecord['user'], userFallback: string): string =>
+  user?.name ?? user?.email ?? userFallback;
 
 const getUserDescription = (user: TopSpenderRecord['user']): string | null => {
   const email = user?.email;
   return email ? `@${email.split('@')[0]}` : null;
 };
 
-const buildUserOption = (record: TopSpenderRecord): FromOption | null => {
+const buildUserOption = (record: TopSpenderRecord, userFallback: string): FromOption | null => {
   const uid = record.user?.id;
   if (!uid) {
     return null;
   }
   return {
     id: `user:${uid}`,
-    label: getUserLabel(record.user),
+    label: getUserLabel(record.user, userFallback),
     description: getUserDescription(record.user),
   };
 };
@@ -84,10 +85,10 @@ const buildBankOption = (bank: string): FromOption => ({
   bankName: bank,
 });
 
-const buildFromOptions = (allRecords: TopSpenderRecord[]): FromOption[] => {
+const buildFromOptions = (allRecords: TopSpenderRecord[], userFallback: string): FromOption[] => {
   const seen = new Map<string, FromOption>();
   allRecords.forEach(record => {
-    const userOpt = buildUserOption(record);
+    const userOpt = buildUserOption(record, userFallback);
     if (userOpt && !seen.has(userOpt.id)) {
       seen.set(userOpt.id, userOpt);
     }
@@ -146,7 +147,11 @@ export const useTopSpendersRecords = ({
     [recordsWithoutDateFilter, activeFlowType],
   );
 
-  const fromOptions = useMemo(() => buildFromOptions(allRecords), [allRecords]);
+  const userFallback = useIntlayer('statementsAnalyticsRecords').userFallback.value;
+  const fromOptions = useMemo(
+    () => buildFromOptions(allRecords, userFallback),
+    [allRecords, userFallback],
+  );
 
   const currencyOptions = useMemo(
     () => Array.from(new Set(allRecords.map(r => r.currencyValue).filter(Boolean))),

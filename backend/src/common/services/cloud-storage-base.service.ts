@@ -1,6 +1,6 @@
+import { BadRequestException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { BadRequestException } from '@nestjs/common';
 import {
   Integration,
   IntegrationProvider,
@@ -8,9 +8,11 @@ import {
   IntegrationToken,
   Statement,
   User,
+  WorkspaceMember,
 } from '../../entities';
 import { validateFile } from '../utils/file-validator.util';
 import { normalizeFilename } from '../utils/filename.util';
+import { STANDARD_WORKSPACE } from '../workspaces/version-workspaces';
 import {
   OAuthIntegrationBaseService,
   type OAuthRepositoryLike,
@@ -35,7 +37,6 @@ export interface CloudStorageSettingsLike {
 }
 
 type SyncQueryBuilderLike<T> = {
-  leftJoin(relation: string, alias: string): SyncQueryBuilderLike<T>;
   where(condition: string): SyncQueryBuilderLike<T>;
   orderBy(sort: string, order: 'ASC' | 'DESC'): SyncQueryBuilderLike<T>;
   andWhere(condition: string, params: Record<string, unknown>): SyncQueryBuilderLike<T>;
@@ -43,11 +44,11 @@ type SyncQueryBuilderLike<T> = {
 };
 
 type RepositoryLike<T> = OAuthRepositoryLike<T> & {
-  findOne: (args: unknown) => Promise<T | null>;
-  find?: (args: unknown) => Promise<T[]>;
-  save: (entity: T) => Promise<T>;
-  create?: (data: Partial<T>) => T;
-  delete: (criteria: unknown) => Promise<unknown>;
+  findOne(args: unknown): Promise<T | null>;
+  find?(args: unknown): Promise<T[]>;
+  save(entity: T): Promise<T>;
+  create(data: Partial<T>): T;
+  delete(criteria: unknown): Promise<unknown>;
 };
 
 type CloudImportResult = {
@@ -73,8 +74,14 @@ export abstract class CloudStorageBaseService<
     protected readonly integrationTokenRepository: RepositoryLike<IntegrationToken>,
     protected readonly settingsRepository: RepositoryLike<TSettings>,
     protected readonly userRepository: RepositoryLike<User>,
+    workspaceMemberRepository: RepositoryLike<WorkspaceMember>,
   ) {
-    super(integrationRepository, integrationTokenRepository, userRepository);
+    super(
+      integrationRepository,
+      integrationTokenRepository,
+      userRepository,
+      workspaceMemberRepository,
+    );
   }
 
   protected abstract getProvider(): IntegrationProvider;
@@ -101,8 +108,8 @@ export abstract class CloudStorageBaseService<
     return (integration[this.getSettingsRelationName()] as unknown as TSettings | null) || null;
   }
 
-  async getStatus(userId: string) {
-    const { integration } = await this.findIntegrationForUser(userId);
+  async getStatus(workspaceId: string) {
+    const integration = await this.findWorkspaceIntegration(workspaceId);
     if (!integration) {
       return { connected: false, status: IntegrationStatus.DISCONNECTED };
     }
@@ -133,8 +140,8 @@ export abstract class CloudStorageBaseService<
     };
   }
 
-  async disconnect(userId: string) {
-    const integration = await this.ensureIntegration(userId);
+  async disconnect(workspaceId: string) {
+    const integration = await this.ensureWorkspaceIntegration(workspaceId);
     if (integration.token) {
       await this.integrationTokenRepository.delete({ integrationId: integration.id });
     }
@@ -145,12 +152,12 @@ export abstract class CloudStorageBaseService<
   }
 
   async updateSettings(
-    userId: string,
+    workspaceId: string,
     dto: Partial<
       Pick<TSettings, 'folderId' | 'folderName' | 'syncEnabled' | 'syncTime' | 'timeZone'>
     >,
   ) {
-    const integration = await this.ensureIntegration(userId);
+    const integration = await this.ensureWorkspaceIntegration(workspaceId);
     let settings =
       this.getConnectedSettings(integration) || this.createSettingsRecord(integration.id);
 
@@ -174,8 +181,8 @@ export abstract class CloudStorageBaseService<
     return { ok: true, settings };
   }
 
-  async getPickerToken(userId: string) {
-    const integration = await this.ensureIntegration(userId);
+  async getPickerToken(workspaceId: string) {
+    const integration = await this.ensureWorkspaceIntegration(workspaceId);
     const accessToken = await this.ensureValidAccessToken(integration);
     return { accessToken };
   }
@@ -185,6 +192,8 @@ export abstract class CloudStorageBaseService<
       where: {
         provider: this.getProvider(),
         status: IntegrationStatus.CONNECTED,
+        // A past version files nothing new, whatever its copied settings say.
+        workspace: STANDARD_WORKSPACE,
       },
       relations: ['token', this.getSettingsRelationName()],
     });
@@ -215,8 +224,8 @@ export abstract class CloudStorageBaseService<
     }
   }
 
-  async syncNow(userId: string) {
-    const integration = await this.ensureIntegration(userId);
+  async syncNow(workspaceId: string) {
+    const integration = await this.ensureWorkspaceIntegration(workspaceId);
     return this.syncIntegration(integration);
   }
 
@@ -227,21 +236,14 @@ export abstract class CloudStorageBaseService<
     integration: Integration,
     lastSyncAt: Date | null,
   ) {
+    // The statements of the integration's workspace. Matching on the uploaders'
+    // registration workspace instead sent their statements from other
+    // workspaces to this cloud and skipped members who registered elsewhere.
     const qb = statementRepository
       .createQueryBuilder('statement')
-      .leftJoin('statement.user', 'user')
       .where('statement.deletedAt IS NULL')
+      .andWhere('statement.workspaceId = :workspaceId', { workspaceId: integration.workspaceId })
       .orderBy('statement.createdAt', 'ASC');
-
-    if (integration.workspaceId) {
-      qb.andWhere('user.workspaceId = :workspaceId', {
-        workspaceId: integration.workspaceId,
-      });
-    } else if (integration.connectedByUserId) {
-      qb.andWhere('statement.userId = :userId', {
-        userId: integration.connectedByUserId,
-      });
-    }
 
     if (lastSyncAt) {
       qb.andWhere('statement.createdAt > :lastSyncAt', { lastSyncAt });
@@ -321,6 +323,7 @@ export abstract class CloudStorageBaseService<
 
   protected async importFilesWithClient<TClient>(args: {
     userId: string;
+    workspaceId: string;
     fileIds: string[];
     getClient: (integration: Integration) => Promise<TClient>;
     loadFile: (
@@ -341,7 +344,7 @@ export abstract class CloudStorageBaseService<
     getErrorMessage: (error: unknown) => string;
     uploadsDir?: string;
   }) {
-    const integration = await this.ensureIntegration(args.userId);
+    const integration = await this.ensureWorkspaceIntegration(args.workspaceId);
     const client = await args.getClient(integration);
     const uploadsDir = args.uploadsDir || process.cwd();
     const user = await this.userRepository.findOne({

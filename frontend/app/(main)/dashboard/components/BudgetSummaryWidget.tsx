@@ -1,122 +1,157 @@
 'use client';
 
-import { PiggyBank } from '@/app/components/icons';
-import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
+import AccountBalanceWalletOutlined from '@mui/icons-material/AccountBalanceWalletOutlined';
 import LinearProgress from '@mui/material/LinearProgress';
-import Typography from '@mui/material/Typography';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import clsx from 'clsx';
+import type React from 'react';
+import { monthEndOrToday } from '@/app/components/dashboard/month-end';
+import { useIsWideSection } from '@/app/components/dashboard/section-span';
+import { CardEmpty, CardLink, DashboardCard } from '@/app/components/dashboard/ui';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { formatMoney } from '@/app/lib/format-money';
+import { queryKeys } from '@/app/lib/query-keys';
+import { useCategoryName } from '@/app/lib/use-category-name';
+import { type BudgetItem as BudgetSummary, fetchBudgets } from '../../budgets/hooks/useBudgetsPage';
 
-interface BudgetSummary {
-  id: string;
-  name: string;
-  category?: { name: string };
-  limitAmount: number;
-  spentAmount: number;
-  percentUsed: number;
-  currency: string;
+/** A half-width card shows the most used few; with the row to itself, every budget. */
+const VISIBLE_BUDGETS = 5;
+
+/**
+ * Colour only for what needs acting on: a budget in its last tenth turns
+ * ochre, one past its limit terracotta, the rest stay a calm sage. At 80% the
+ * warning caught half the list, so it starts at 90.
+ */
+export function budgetTone(percent: number): 'calm' | 'near' | 'over' {
+  if (percent > 100) {
+    return 'over';
+  }
+  if (percent >= 90) {
+    return 'near';
+  }
+  return 'calm';
 }
 
-function getColor(percent: number): 'success' | 'warning' | 'error' {
-  if (percent >= 100) return 'error';
-  if (percent >= 80) return 'warning';
-  return 'success';
+const TONE_FILL: Record<ReturnType<typeof budgetTone>, string> = {
+  calm: 'var(--primary)',
+  near: 'var(--attention)',
+  over: 'var(--money-down)',
+};
+
+function mostUsed(budgets: BudgetSummary[]): BudgetSummary[] {
+  return [...budgets].sort((a, b) => b.percentUsed - a.percentUsed);
 }
 
-export function BudgetSummaryWidget() {
+/**
+ * The month in view: the current one shares the budgets page's cache entry, so the
+ * widget is drawn at once and is fresh after a budget is edited there; any other
+ * month is measured on its last day, so its spending is that month's, not this one's.
+ */
+function useBudgets(month: string): { budgets: BudgetSummary[]; loaded: boolean } {
+  const workspaceId = useWorkspaceId();
+  const date = monthEndOrToday(month);
+  const { data, isPending } = useQuery({
+    queryKey: date ? queryKeys.budgetsAt(workspaceId, date) : queryKeys.budgets(workspaceId),
+    queryFn: ({ signal }) => fetchBudgets(signal, date ?? undefined),
+    enabled: Boolean(workspaceId),
+    select: mostUsed,
+    // Another month keeps the bars in place until its figures arrive.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+  });
+  // A failed fetch simply shows the empty state.
+  return { budgets: data ?? [], loaded: !isPending };
+}
+
+interface BudgetSummaryWidgetProps {
+  /** The dashboard's month, `YYYY-MM`. */
+  month: string;
+  monthLabel: string;
+}
+
+export function BudgetSummaryWidget({
+  month,
+  monthLabel,
+}: BudgetSummaryWidgetProps): React.JSX.Element | null {
   const t = useIntlayer('budgetSummaryWidget');
-  const [budgets, setBudgets] = useState<BudgetSummary[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const wideText = useIntlayer('dashboardWideView');
+  const { locale } = useLocale();
+  const { budgets, loaded } = useBudgets(month);
+  const wide = useIsWideSection();
+  const categoryName = useCategoryName();
 
-  useEffect(() => {
-    apiClient
-      .get('/budgets')
-      .then(res => {
-        const data: BudgetSummary[] = res.data?.data ?? res.data ?? [];
-        const sorted = [...data].sort((a, b) => b.percentUsed - a.percentUsed).slice(0, 5);
-        setBudgets(sorted);
-      })
-      .catch(() => {})
-      .finally(() => setLoaded(true));
-  }, []);
-
-  if (!loaded) return null;
-
-  if (budgets.length === 0) {
-    return (
-      <Box
-        sx={{
-          p: 2.5,
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-          <PiggyBank size={18} />
-          <Typography variant="subtitle2" fontWeight={600}>
-            {t.title}
-          </Typography>
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {t.emptyDescription}
-        </Typography>
-        <Button component={Link} href="/budgets" size="small" variant="text">
-          {t.setUpBudgets}
-        </Button>
-      </Box>
-    );
+  if (!loaded) {
+    return null;
   }
 
+  const hasBudgets = budgets.length > 0;
+  const shown = wide ? budgets : budgets.slice(0, VISIBLE_BUDGETS);
+  /** With room: what was spent against what the period allows, and what is left or over. */
+  const amounts = (b: BudgetSummary): React.ReactNode => {
+    const money = (value: number) => formatMoney(value, b.currency, locale);
+    const allowed = Number(b.availableAmount ?? b.limitAmount);
+    const spent = Number(b.spentAmount);
+    const rest = allowed - spent;
+    return (
+      <div className="seneca-dashboard__budget-amounts">
+        <span>
+          {String(wideText.spentOfLimit.value)
+            .replace('{{spent}}', money(spent))
+            .replace('{{limit}}', money(allowed))}
+        </span>
+        <span className={rest < 0 ? 'seneca-dashboard__amount--negative' : undefined}>
+          {String(rest < 0 ? wideText.over.value : wideText.left.value).replace(
+            '{{amount}}',
+            money(Math.abs(rest)),
+          )}
+        </span>
+      </div>
+    );
+  };
   return (
-    <Box
-      sx={{
-        p: 2.5,
-        borderRadius: 2,
-        border: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-      }}
+    <DashboardCard
+      title={t.title}
+      subtitle={monthLabel}
+      action={
+        <CardLink href={hasBudgets ? '/budgets#budget-list' : '/budgets'}>
+          {hasBudgets ? t.viewAll : t.setUpBudgets}
+        </CardLink>
+      }
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PiggyBank size={18} />
-          <Typography variant="subtitle2" fontWeight={600}>
-            {t.title}
-          </Typography>
-        </Box>
-        <Button component={Link} href="/budgets" size="small" variant="text">
-          {t.viewAll}
-        </Button>
-      </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        {budgets.map(b => (
-          <Box key={b.id}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: '60%' }}>
-                {b.category?.name ?? b.name}
-              </Typography>
-              <Typography
-                variant="caption"
-                fontWeight={600}
-                color={`${getColor(b.percentUsed)}.main`}
-              >
-                {Math.round(b.percentUsed)}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={Math.min(b.percentUsed, 100)}
-              color={getColor(b.percentUsed)}
-              sx={{ height: 6, borderRadius: 3 }}
-            />
-          </Box>
-        ))}
-      </Box>
-    </Box>
+      {hasBudgets ? (
+        <div className={clsx('seneca-dashboard__list', wide && 'seneca-dashboard__list--columns')}>
+          {shown.map(b => {
+            const tone = budgetTone(b.percentUsed);
+            return (
+              <div key={b.id} className="seneca-dashboard__budget-row">
+                <div className="seneca-dashboard__budget-head">
+                  <span className="seneca-dashboard__row-primary">
+                    {b.category ? categoryName(b.category.name) : b.name}
+                  </span>
+                  {/* The figure stays neutral; the bar and "over" carry the signal. */}
+                  <span className="seneca-dashboard__budget-pct">{Math.round(b.percentUsed)}%</span>
+                </div>
+                <div className="seneca-dashboard__budget-bar" data-tone={tone}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.min(b.percentUsed, 100)}
+                    sx={{
+                      height: 5,
+                      borderRadius: 3,
+                      bgcolor: 'var(--icon-badge-bg)',
+                      '& .MuiLinearProgress-bar': { bgcolor: TONE_FILL[tone], borderRadius: 3 },
+                    }}
+                  />
+                </div>
+                {wide && amounts(b)}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <CardEmpty icon={AccountBalanceWalletOutlined}>{t.emptyDescription}</CardEmpty>
+      )}
+    </DashboardCard>
   );
 }

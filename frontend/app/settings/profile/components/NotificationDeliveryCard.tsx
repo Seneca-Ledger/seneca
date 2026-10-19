@@ -1,7 +1,5 @@
 'use client';
 
-import type { NotificationSettings } from '@/app/settings/profile/profileHelpers';
-import { notificationDigestModes } from '@/app/settings/profile/profileHelpers';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -9,6 +7,8 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import type { NotificationSettings } from '@/app/settings/profile/profileHelpers';
+import { notificationDigestModes } from '@/app/settings/profile/profileHelpers';
 
 type Tx = (path: string[], fallback: string) => string;
 
@@ -49,6 +49,7 @@ function QuietHourSelect({
       value={value === null ? '' : String(value)}
       disabled={disabled}
       onChange={event => onChange(event.target.value === '' ? null : Number(event.target.value))}
+      InputLabelProps={{ shrink: true }}
       SelectProps={{
         // '' is a real choice here ("off"), so it has to render instead of
         // being treated as an empty selection.

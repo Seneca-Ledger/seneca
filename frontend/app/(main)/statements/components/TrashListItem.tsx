@@ -1,9 +1,9 @@
 'use client';
 
+import type React from 'react';
 import { BankLogoAvatar } from '@/app/components/BankLogoAvatar';
 import { BriefcaseBusiness, FileText, RotateCcw, Table2, Trash2 } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
-import type React from 'react';
 import type { TrashEntityType } from './trash-utils';
 
 export type TrashListItemModel = {
@@ -59,32 +59,32 @@ export function TrashListItem({
   const TypeIcon = ENTITY_ICON_BY_TYPE[item.entityType ?? 'statement'] ?? FileText;
 
   return (
-    <div className="lumio-trash-item">
-      <div className="lumio-trash-item__inner">
-        <div className="lumio-trash-item__type-col">
+    <div className="seneca-trash-item">
+      <div className="seneca-trash-item__inner">
+        <div className="seneca-trash-item__type-col">
           <Checkbox
             checked={selected}
             onCheckedChange={onToggleSelect}
             style={{ height: 16, width: 16 }}
           />
-          <div className="lumio-trash-item__type-label">
+          <div className="seneca-trash-item__type-label">
             <TypeIcon size={16} color="var(--muted-foreground)" />
             <span>{typeLabel}</span>
           </div>
         </div>
 
-        <div className="lumio-trash-item__dates-col">
+        <div className="seneca-trash-item__dates-col">
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span className="lumio-trash-item__date-label">{deletedAtCaption}</span>
+            <span className="seneca-trash-item__date-label">{deletedAtCaption}</span>
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{deletedAtLabel}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span className="lumio-trash-item__date-label">{autoDeleteAtCaption}</span>
+            <span className="seneca-trash-item__date-label">{autoDeleteAtCaption}</span>
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{autoDeleteAtLabel}</span>
           </div>
         </div>
 
-        <div className="lumio-trash-item__file-col">
+        <div className="seneca-trash-item__file-col">
           <BankLogoAvatar bankName={item.bankName} size={20} />
           <div style={{ minWidth: 0 }}>
             <p
@@ -114,14 +114,14 @@ export function TrashListItem({
           </div>
         </div>
 
-        <div className="lumio-trash-item__actions">
+        <div className="seneca-trash-item__actions">
           <button
             type="button"
             onClick={event => {
               event.stopPropagation();
               onRestore();
             }}
-            className="lumio-trash-item__restore-btn"
+            className="seneca-trash-item__restore-btn"
             title={restoreLabel}
           >
             <RotateCcw size={14} />
@@ -133,7 +133,7 @@ export function TrashListItem({
               event.stopPropagation();
               onDelete();
             }}
-            className="lumio-trash-item__delete-btn"
+            className="seneca-trash-item__delete-btn"
             title={deleteLabel}
           >
             <Trash2 size={14} />

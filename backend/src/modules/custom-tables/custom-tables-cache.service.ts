@@ -1,12 +1,16 @@
-import { createHash } from 'crypto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
 import { Cache } from 'cache-manager';
+import { createHash } from 'crypto';
 
 type RowsCacheParams = {
   cursor?: number;
+  offset?: number;
   limit?: number;
   filters?: unknown;
+  sort?: unknown;
+  aggs?: unknown;
+  groupBy?: string;
 };
 
 @Injectable()

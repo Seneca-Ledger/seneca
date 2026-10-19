@@ -1,0 +1,314 @@
+import * as Schema from 'effect/Schema';
+import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
+
+export const InvoiceStatus = Schema.Literals([
+  'draft',
+  'sent',
+  'partially_paid',
+  'paid',
+  'overdue',
+  'void',
+]);
+export type InvoiceStatus = Wire<typeof InvoiceStatus>;
+
+export const InvoiceRecurrenceInterval = Schema.Literals([
+  'weekly',
+  'monthly',
+  'quarterly',
+  'yearly',
+]);
+export type InvoiceRecurrenceInterval = Wire<typeof InvoiceRecurrenceInterval>;
+
+/** One row of `GET /clients`, and the client inside an invoice or credit note. */
+export const Client = Schema.Struct({
+  id: Schema.String,
+  workspaceId: Schema.String,
+  name: Schema.String,
+  email: Schema.NullOr(Schema.String),
+  billingAddress: Schema.NullOr(Schema.String),
+  taxId: Schema.NullOr(Schema.String),
+  currency: Schema.String,
+  /** Language the documents sent to this client are written in. */
+  locale: Schema.NullOr(Schema.String),
+  /** False leaves this client out of reminder emails. */
+  remindersEnabled: Schema.Boolean,
+  /** "Net 30" for this client; null follows the workspace term. */
+  paymentTermsDays: Schema.NullOr(Schema.Number),
+  /** The billing address in parts, for e-invoices (XRechnung). */
+  street: Schema.optional(Schema.NullOr(Schema.String)),
+  postalCode: Schema.optional(Schema.NullOr(Schema.String)),
+  city: Schema.optional(Schema.NullOr(Schema.String)),
+  countryCode: Schema.optional(Schema.NullOr(Schema.String)),
+  /** Quoted on every invoice to this client (XRechnung BT-10). */
+  buyerReference: Schema.optional(Schema.NullOr(Schema.String)),
+  /** Goods or services: which tax-free EU supply a reverse-charged line is. */
+  supplyType: Schema.optional(Schema.NullOr(Schema.Literals(['goods', 'services']))),
+  /** Where Peppol invoices to this client go: `scheme:value`, e.g. `0208:0428643097`. */
+  peppolId: Schema.optional(Schema.NullOr(Schema.String)),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type Client = Wire<typeof Client>;
+
+export const ClientList = Schema.Array(Client);
+export type ClientList = Wire<typeof ClientList>;
+
+export const InvoiceLineItem = Schema.Struct({
+  id: Schema.String,
+  invoiceId: Schema.String,
+  description: Schema.String,
+  quantity: DecimalString,
+  unitPrice: DecimalString,
+  taxRateId: Schema.NullOr(Schema.String),
+  categoryId: Schema.NullOr(Schema.String),
+  /** Unit of measure, UN/ECE Rec 20: C62 one, HUR hour, DAY day, MON month… */
+  unitCode: Schema.optional(Schema.String),
+  /** Discount (negative) or surcharge (positive) on quantity × unit price, in percent. */
+  adjustmentPercent: Schema.optional(Schema.NullOr(DecimalString)),
+  sortOrder: Schema.Number,
+});
+export type InvoiceLineItem = Wire<typeof InvoiceLineItem>;
+
+/** An invoice as `GET /invoices` lists it and `GET /invoices/:id` returns it (with its lines). */
+export const Invoice = Schema.Struct({
+  id: Schema.String,
+  workspaceId: Schema.String,
+  clientId: Schema.String,
+  client: Client,
+  invoiceNumber: Schema.NullOr(Schema.String),
+  /** True when the line prices already contain their tax. */
+  pricesIncludeTax: Schema.Boolean,
+  /** When the client first opened the share link; null while unopened. */
+  viewedAt: Schema.NullOr(Timestamp),
+  /** Paid and overdue come from the receivable behind the invoice, not the column. */
+  status: InvoiceStatus,
+  issueDate: DateOnly,
+  dueDate: DateOnly,
+  currency: Schema.String,
+  subtotal: DecimalString,
+  taxTotal: DecimalString,
+  total: DecimalString,
+  /** Paid so far, taken back by credit notes, and still owed. */
+  amountPaid: Schema.Number,
+  amountCredited: Schema.Number,
+  amountDue: Schema.Number,
+  notes: Schema.NullOr(Schema.String),
+  payableId: Schema.NullOr(Schema.String),
+  journalEntryId: Schema.NullOr(Schema.String),
+  isRecurring: Schema.Boolean,
+  recurrenceInterval: Schema.NullOr(InvoiceRecurrenceInterval),
+  nextIssueDate: Schema.NullOr(DateOnly),
+  recurrenceEndDate: Schema.NullOr(DateOnly),
+  /** The buyer's reference (XRechnung BT-10); empty falls back to the client's. */
+  buyerReference: Schema.optional(Schema.NullOr(Schema.String)),
+  /** When the goods or service were delivered. */
+  deliveryDate: Schema.optional(Schema.NullOr(DateOnly)),
+  /** Only `GET /invoices/:id` loads the lines. */
+  lineItems: Schema.optional(Schema.Array(InvoiceLineItem)),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type Invoice = Wire<typeof Invoice>;
+
+/** `GET /invoices`. */
+export const InvoiceListPage = Schema.Struct({
+  data: Schema.Array(Invoice),
+  total: Schema.Number,
+  page: Schema.Number,
+  limit: Schema.Number,
+  totalPages: Schema.Number,
+});
+export type InvoiceListPage = Wire<typeof InvoiceListPage>;
+
+/** One attempt to put the invoice in front of its client. */
+export const InvoiceDelivery = Schema.Struct({
+  id: Schema.String,
+  invoiceId: Schema.String,
+  channel: Schema.Literal('email'),
+  recipient: Schema.String,
+  status: Schema.Literals(['sent', 'skipped', 'failed']),
+  subject: Schema.NullOr(Schema.String),
+  error: Schema.NullOr(Schema.String),
+  /** Days from the due date, for a scheduled reminder; null for a manual send. */
+  reminderOffset: Schema.NullOr(Schema.Number),
+  createdAt: Timestamp,
+});
+export type InvoiceDelivery = Wire<typeof InvoiceDelivery>;
+
+export const InvoiceDeliveryList = Schema.Array(InvoiceDelivery);
+export type InvoiceDeliveryList = Wire<typeof InvoiceDeliveryList>;
+
+/** `GET /invoices/settings`. */
+export const InvoiceSettings = Schema.Struct({
+  prefix: Schema.String,
+  remindersEnabled: Schema.Boolean,
+  /** Days from the due date: negative before it, positive after. */
+  reminderOffsets: Schema.Array(Schema.Number),
+  paymentTermsDays: Schema.Number,
+  lateFeePercent: Schema.Number,
+});
+export type InvoiceSettings = Wire<typeof InvoiceSettings>;
+
+/** `GET /invoices/clients/:clientId/late-fee`: what a late fee would come to, per currency. */
+export const LateFeeQuote = Schema.Struct({
+  percent: Schema.Number,
+  amounts: Schema.Array(
+    Schema.Struct({ currency: Schema.String, overdue: Schema.Number, fee: Schema.Number }),
+  ),
+});
+export type LateFeeQuote = Wire<typeof LateFeeQuote>;
+
+const ageingBuckets = {
+  /** Issued but not due yet. */
+  current: Schema.Number,
+  days1to30: Schema.Number,
+  days31to60: Schema.Number,
+  days61to90: Schema.Number,
+  days90plus: Schema.Number,
+  total: Schema.Number,
+  /** How many invoices the row counts. */
+  count: Schema.Number,
+};
+
+export const AgeingRow = Schema.Struct({
+  ...ageingBuckets,
+  clientId: Schema.String,
+  clientName: Schema.String,
+  currency: Schema.String,
+  /** The oldest unpaid invoice's age in days; negative when nothing is due yet. */
+  oldestDays: Schema.Number,
+});
+export type AgeingRow = Wire<typeof AgeingRow>;
+
+/** `GET /invoices/ageing`. */
+export const AgeingReport = Schema.Struct({
+  rows: Schema.Array(AgeingRow),
+  /** One line per currency, because an amount is not comparable across them. */
+  totals: Schema.Array(Schema.Struct({ ...ageingBuckets, currency: Schema.String })),
+});
+export type AgeingReport = Wire<typeof AgeingReport>;
+
+/** How much of a credit note lands on one invoice. */
+export const CreditNoteApplication = Schema.Struct({
+  id: Schema.String,
+  invoiceId: Schema.String,
+  amount: DecimalString,
+});
+export type CreditNoteApplication = Wire<typeof CreditNoteApplication>;
+
+/** A row of `GET /invoices/:id/credit-notes`: the note and where it was applied. */
+export const CreditNote = Schema.Struct({
+  id: Schema.String,
+  clientId: Schema.String,
+  creditNoteNumber: Schema.NullOr(Schema.String),
+  status: Schema.Literals(['issued', 'void']),
+  issueDate: DateOnly,
+  currency: Schema.String,
+  subtotal: DecimalString,
+  taxTotal: DecimalString,
+  total: DecimalString,
+  reason: Schema.NullOr(Schema.String),
+  journalEntryId: Schema.NullOr(Schema.String),
+  applications: Schema.Array(CreditNoteApplication),
+  createdAt: Timestamp,
+});
+export type CreditNote = Wire<typeof CreditNote>;
+
+export const CreditNoteList = Schema.Array(CreditNote);
+export type CreditNoteList = Wire<typeof CreditNoteList>;
+
+/**
+ * `GET /public/invoices/:token`: the invoice as its recipient sees it, already
+ * formatted, with the labels in the invoice's language.
+ */
+export const PublicInvoiceView = Schema.Struct({
+  number: Schema.String,
+  status: Schema.Literals(['sent', 'paid', 'overdue']),
+  issueDate: Schema.String,
+  dueDate: Schema.String,
+  currency: Schema.String,
+  subtotal: Schema.String,
+  taxTotal: Schema.String,
+  total: Schema.String,
+  pricesIncludeTax: Schema.Boolean,
+  notes: Schema.NullOr(Schema.String),
+  locale: Schema.NullOr(Schema.String),
+  /** Document labels; the set grows with the document, so it is an open record. */
+  labels: Schema.Record(Schema.String, Schema.String),
+  issuer: Schema.Struct({
+    legalName: Schema.NullOr(Schema.String),
+    addressLines: Schema.NullOr(Schema.String),
+    registrationId: Schema.NullOr(Schema.String),
+    taxId: Schema.NullOr(Schema.String),
+    email: Schema.NullOr(Schema.String),
+    phone: Schema.NullOr(Schema.String),
+    website: Schema.NullOr(Schema.String),
+    bankName: Schema.NullOr(Schema.String),
+    bankAccount: Schema.NullOr(Schema.String),
+    bankCode: Schema.NullOr(Schema.String),
+    paymentInstructions: Schema.NullOr(Schema.String),
+    invoiceFooter: Schema.NullOr(Schema.String),
+    logoUrl: Schema.NullOr(Schema.String),
+  }),
+  billedTo: Schema.Struct({
+    name: Schema.String,
+    addressLines: Schema.NullOr(Schema.String),
+    taxId: Schema.NullOr(Schema.String),
+  }),
+  lines: Schema.Array(
+    Schema.Struct({
+      description: Schema.String,
+      quantity: Schema.String,
+      unitPrice: Schema.String,
+      amount: Schema.String,
+    }),
+  ),
+});
+export type PublicInvoiceView = Wire<typeof PublicInvoiceView>;
+
+/** `POST /invoices`: the row as stored; the page reads it back whole by its id. */
+export const InvoiceCreated = Schema.Struct({ id: Schema.String });
+export type InvoiceCreated = Wire<typeof InvoiceCreated>;
+
+/** `POST /invoices/:id/remind`. */
+export const InvoiceReminderResult = Schema.Struct({
+  sent: Schema.Boolean,
+  to: Schema.String,
+  reminderCount: Schema.Number,
+});
+export type InvoiceReminderResult = Wire<typeof InvoiceReminderResult>;
+
+/**
+ * `GET /invoices/:id/xrechnung/check` and `GET /credit-notes/:id/xrechnung/check`:
+ * what the document, its client or the business profile still lack.
+ */
+export const XRechnungCheck = Schema.Struct({
+  missing: Schema.Array(
+    Schema.Literals([
+      'number',
+      'buyer_reference',
+      'seller_name',
+      'seller_street',
+      'seller_postal_code',
+      'seller_city',
+      'seller_country',
+      'seller_vat_or_tax_number',
+      'seller_vat_id',
+      'seller_contact',
+      'seller_phone',
+      'seller_email',
+      'seller_iban',
+      'buyer_name',
+      'buyer_street',
+      'buyer_postal_code',
+      'buyer_city',
+      'buyer_country',
+      'buyer_email',
+      'buyer_vat_id',
+      'delivery_date',
+      'lines',
+      'line_tax_rate',
+    ]),
+  ),
+});
+export type XRechnungCheck = Wire<typeof XRechnungCheck>;

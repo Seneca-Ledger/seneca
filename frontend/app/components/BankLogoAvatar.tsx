@@ -1,7 +1,7 @@
 'use client';
 
-import { Landmark } from '@/app/components/icons';
 import { resolveBankLogo } from '@bank-logos';
+import { Landmark } from '@/app/components/icons';
 
 import { LogoAvatar } from './LogoAvatar';
 

@@ -1,6 +1,6 @@
-import * as crypto from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as crypto from 'crypto';
 import { LessThan, Repository } from 'typeorm';
 import { IdempotencyKey } from '../../entities/idempotency-key.entity';
 
@@ -20,19 +20,19 @@ export class IdempotencyService {
    * Check if an idempotency key exists and return cached response
    * @param key The idempotency key
    * @param userId User ID
-   * @param workspaceId Workspace ID (optional)
+   * @param workspaceId Workspace ID
    * @returns Cached response or null if not found
    */
   async checkKey(
     key: string,
     userId: string,
-    workspaceId: string | null,
+    workspaceId: string,
   ): Promise<IdempotencyResponse | null> {
     const existing = await this.idempotencyKeyRepository.findOne({
       where: {
         key,
         userId,
-        workspaceId: workspaceId || null,
+        workspaceId,
       },
     });
 
@@ -57,14 +57,14 @@ export class IdempotencyService {
    * Store an idempotency key with response data
    * @param key The idempotency key
    * @param userId User ID
-   * @param workspaceId Workspace ID (optional)
+   * @param workspaceId Workspace ID
    * @param response Response data to cache
    * @param ttlHours Time to live in hours (default: 24)
    */
   async storeKey(
     key: string,
     userId: string,
-    workspaceId: string | null,
+    workspaceId: string,
     response: unknown,
     ttlHours = 24,
   ): Promise<void> {

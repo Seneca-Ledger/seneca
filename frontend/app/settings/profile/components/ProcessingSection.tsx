@@ -1,20 +1,21 @@
 'use client';
 
-import { Alert } from '@/app/components/ui/alert';
-import type {
-  DuplicateResolution,
-  UseProcessingReturn,
-} from '@/app/settings/profile/hooks/useProcessing';
-import { duplicateResolutions } from '@/app/settings/profile/hooks/useProcessing';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import MenuItem from '@mui/material/MenuItem';
 import Slider from '@mui/material/Slider';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
+import { Alert } from '@/app/components/ui/alert';
+import type {
+  DuplicateResolution,
+  UseProcessingReturn,
+} from '@/app/settings/profile/hooks/useProcessing';
+import { duplicateResolutions } from '@/app/settings/profile/hooks/useProcessing';
 
 type Tx = (path: string[], fallback: string) => string;
 
@@ -29,7 +30,12 @@ function ThresholdField({
   value,
   saving,
   onCommit,
-}: { tx: Tx; value: number; saving: boolean; onCommit: (value: number) => void }) {
+}: {
+  tx: Tx;
+  value: number;
+  saving: boolean;
+  onCommit: (value: number) => void;
+}) {
   // Local while dragging: every intermediate value would otherwise be a request.
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
@@ -59,6 +65,60 @@ function ThresholdField({
           aria-label={tx(['processingCard', 'thresholdLabel'], 'Categorisation confidence')}
         />
       </Box>
+    </Stack>
+  );
+}
+
+type SwitchKey = 'merchantLearning';
+
+const SWITCHES: Array<{
+  key: SwitchKey;
+  label: string;
+  help: string;
+  labelFallback: string;
+  helpFallback: string;
+}> = [
+  {
+    key: 'merchantLearning',
+    label: 'learningLabel',
+    help: 'learningHelp',
+    labelFallback: 'Learn from my corrections',
+    helpFallback:
+      'Reuse a category you picked for the same payee on later imports. One correction does not replace an established category; the second one does.',
+  },
+];
+
+function ProcessingSwitch({
+  tx,
+  entry,
+  checked,
+  saving,
+  onChange,
+}: {
+  tx: Tx;
+  entry: (typeof SWITCHES)[number];
+  checked: boolean;
+  saving: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <Stack direction="row" spacing={1} alignItems="flex-start">
+      <Switch
+        checked={checked}
+        disabled={saving}
+        onChange={event => onChange(event.target.checked)}
+        slotProps={{
+          input: { 'aria-label': tx(['processingCard', entry.label], entry.labelFallback) },
+        }}
+      />
+      <Stack spacing={0.25} sx={{ pt: 0.75 }}>
+        <Typography variant="body2" fontWeight={600}>
+          {tx(['processingCard', entry.label], entry.labelFallback)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {tx(['processingCard', entry.help], entry.helpFallback)}
+        </Typography>
+      </Stack>
     </Stack>
   );
 }
@@ -93,6 +153,29 @@ export function ProcessingSection({ tx, processing }: Props) {
         </Box>
         <CardContent>
           <Stack spacing={3}>
+            <Stack spacing={0.5}>
+              <Typography variant="body2" fontWeight={600}>
+                {tx(['processingCard', 'orderLabel'], 'Categorisation order')}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {tx(
+                  ['processingCard', 'orderHelp'],
+                  'Your pick → rules → keywords → your corrections → payee history → “Uncategorised”. A category you picked by hand is never overwritten.',
+                )}
+              </Typography>
+            </Stack>
+
+            {SWITCHES.map(entry => (
+              <ProcessingSwitch
+                key={entry.key}
+                tx={tx}
+                entry={entry}
+                checked={settings[entry.key]}
+                saving={saving}
+                onChange={value => void processing.update({ [entry.key]: value })}
+              />
+            ))}
+
             <ThresholdField
               tx={tx}
               value={settings.categorizationThreshold}

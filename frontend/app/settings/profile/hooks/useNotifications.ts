@@ -1,15 +1,15 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import {
-  type NotificationChannel,
-  type NotificationDigestMode,
-  type NotificationPreferences,
-  type NotificationSettings,
   defaultNotificationChannels,
   defaultNotificationSettings,
+  type NotificationChannel,
+  type NotificationPreferences,
+  type NotificationSettings,
 } from '@/app/settings/profile/profileHelpers';
-import { useCallback, useEffect, useState } from 'react';
 
 export type UseNotificationsMessages = {
   loadError: string;
@@ -35,7 +35,6 @@ export type UseNotificationsReturn = {
 
 export function useNotifications(
   isAuthenticated: boolean,
-  activeSection: string,
   messages: UseNotificationsMessages,
 ): UseNotificationsReturn {
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(
@@ -47,37 +46,41 @@ export function useNotifications(
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || activeSection !== 'notifications') return;
+    if (!isAuthenticated) return;
 
     let active = true;
 
     const load = async () => {
       setNotificationsLoading(true);
       setNotificationError(null);
-      try {
-        const response = await apiClient.get('/notifications/preferences');
-        if (!active) return;
-        const data = response.data || {};
-        setNotificationSettings({
-          // The API fills the matrix in, but a stale row must not blank out the UI.
-          channels: { ...defaultNotificationChannels, ...(data.channels || {}) },
-          digestMode: (data.digestMode as NotificationDigestMode) || 'instant',
-          quietHoursStart: data.quietHoursStart ?? null,
-          quietHoursEnd: data.quietHoursEnd ?? null,
-        });
-      } catch {
-        if (!active) return;
-        setNotificationError(messages.loadError);
-      } finally {
-        if (active) setNotificationsLoading(false);
-      }
+      await apiQueryDecoded({
+        url: '/notifications/preferences',
+        contract: 'NotificationPreferences',
+      }).then(
+        data => {
+          if (!active) return;
+          setNotificationSettings({
+            // The API fills the matrix in, but a stale row must not blank out the UI.
+            channels: { ...defaultNotificationChannels, ...data.channels },
+            digestMode: data.digestMode,
+            quietHoursStart: data.quietHoursStart,
+            quietHoursEnd: data.quietHoursEnd,
+          });
+        },
+        () => {
+          if (active) setNotificationError(messages.loadError);
+        },
+      );
+      if (active) setNotificationsLoading(false);
     };
 
     void load();
     return () => {
       active = false;
     };
-  }, [activeSection, isAuthenticated, messages.loadError]);
+  }, [isAuthenticated, messages.loadError]);
+
+  const rollbackRef = useRef(notificationSettings);
 
   /** Applies an optimistic change and rolls it back if the request fails. */
   const save = useCallback(
@@ -86,23 +89,33 @@ export function useNotifications(
       next: NotificationSettings,
       payload: Record<string, unknown>,
     ) => {
-      const previous = notificationSettings;
       setNotificationSavingKey(savingKey);
       setNotificationError(null);
       setNotificationMessage(null);
-      setNotificationSettings(next);
+      // Capture the rollback value from the updater so `save` (and the
+      // callbacks built on it) do not change identity on every toggle.
+      setNotificationSettings(current => {
+        rollbackRef.current = current;
+        return next;
+      });
 
-      try {
-        await apiClient.patch('/notifications/preferences', payload);
-        setNotificationMessage(messages.savedMessage);
-      } catch {
-        setNotificationSettings(previous);
-        setNotificationError(messages.saveError);
-      } finally {
-        setNotificationSavingKey(null);
-      }
+      // Promise chain rather than try/finally so React Compiler can memoize
+      // this hook.
+      await apiClient
+        .patch(
+          '/notifications/preferences',
+          payload satisfies ContractInput<'UpdateNotificationPreferencesBody'>,
+        )
+        .then(
+          () => setNotificationMessage(messages.savedMessage),
+          () => {
+            setNotificationSettings(rollbackRef.current);
+            setNotificationError(messages.saveError);
+          },
+        );
+      setNotificationSavingKey(null);
     },
-    [messages.saveError, messages.savedMessage, notificationSettings],
+    [messages.saveError, messages.savedMessage],
   );
 
   const toggleNotificationChannel = useCallback(

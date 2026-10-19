@@ -1,6 +1,10 @@
 /* eslint-disable max-lines */
 'use client';
 
+import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+import { useTheme } from 'next-themes';
+import { useMemo } from 'react';
+import toast from 'react-hot-toast';
 import { AlertCircle } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
@@ -10,11 +14,6 @@ import apiClient from '@/app/lib/api';
 import { getChooserDocName, pickDropboxFolder } from '@/app/lib/dropboxChooser';
 import { formatDateTime } from '@/app/lib/format-datetime';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
-import { useTheme } from 'next-themes';
-import Image from 'next/image';
-import { useMemo } from 'react';
-import toast from 'react-hot-toast';
 import { IntegrationStatusCard } from '../components/IntegrationStatusCard';
 import { useIntegrationStatus } from '../hooks/useIntegrationStatus';
 
@@ -277,30 +276,29 @@ export default function DropboxIntegrationPage(): React.JSX.Element {
 
   const status = baseStatus as DropboxStatus | null;
 
-  // eslint-disable-next-line complexity
   const updateSettings = async (payload: Partial<DropboxSettings>): Promise<void> => {
-    try {
+    await (async () => {
       await apiClient.post('/integrations/dropbox/settings', payload);
       toast.success(t.toasts?.settingsSaved?.value || 'Settings saved');
       await loadStatus();
-    } catch {
+    })().catch(async () => {
       toast.error(t.errors?.connectFailed?.value || 'Failed to save settings');
-    }
+    });
   };
 
-  // eslint-disable-next-line complexity
   const handlePickFolder = async (): Promise<void> => {
     if (!appKey) {
       toast.error(t.errors?.pickerUnavailable?.value || 'Dropbox Chooser is not available');
       return;
     }
-    try {
+
+    return await (async () => {
       const folder = await pickDropboxFolder({ appKey });
       if (!folder) return;
       await updateSettings({ folderId: folder.id, folderName: getChooserDocName(folder) });
-    } catch {
+    })().catch(async () => {
       toast.error(t.errors?.pickerUnavailable?.value || 'Failed to pick folder');
-    }
+    });
   };
 
   const statusLabel = useMemo(
@@ -319,30 +317,7 @@ export default function DropboxIntegrationPage(): React.JSX.Element {
   if (!user) return <NotLoggedInView t={t} />;
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: 5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 3 }}>
-        <Box
-          sx={{
-            p: 1,
-            borderRadius: tokens.radius.full,
-            bgcolor: 'primary.main',
-            color: '#fff',
-            opacity: 0.1,
-            display: 'flex',
-          }}
-        >
-          <Image src="/icons/dropbox-icon.png" alt="Dropbox" width={24} height={24} />
-        </Box>
-        <Box>
-          <Typography variant="h4" style={{ fontWeight: 700, color: c.ink900 }}>
-            {t.header?.title || 'Dropbox Integration'}
-          </Typography>
-          <Typography style={{ color: c.ink500, marginTop: 4 }}>
-            {t.header?.subtitle || 'Connect Dropbox to sync your statements'}
-          </Typography>
-        </Box>
-      </Box>
-
+    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--seneca-page-top, 40px)', pb: 5 }}>
       {loading && (
         <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           <CircularProgress size={16} />

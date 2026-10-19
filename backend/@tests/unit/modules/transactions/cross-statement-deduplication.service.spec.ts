@@ -80,6 +80,36 @@ describe('CrossStatementDeduplicationService', () => {
       expect(groups[0].duplicates[0].matchType).toBe('exact');
     });
 
+    it('does not flag a refund as a duplicate of the original charge with the same amount/counterparty/date', async () => {
+      const date = new Date('2024-01-15');
+      const transactions = [
+        createMockTransaction('charge', date, 15000, 'Magnum Cash&Carry', 'Purchase, receipt #4521', 'stmt1'),
+        createMockTransaction('refund', date, -15000, 'Magnum Cash&Carry', 'Refund, receipt #4521', 'stmt1'),
+      ];
+
+      mockRepository.find.mockResolvedValueOnce(transactions.slice(0, 1));
+      mockRepository.find.mockResolvedValueOnce(transactions);
+
+      const groups = await service.findDuplicates('workspace-123');
+
+      expect(groups).toEqual([]);
+    });
+
+    it('does not treat same-amount transactions in different currencies as duplicates', async () => {
+      const date = new Date('2024-01-15');
+      const transactions = [
+        { ...createMockTransaction('tx1', date, 10000, 'Company A', 'Payment', 'stmt1'), currency: 'KZT' },
+        { ...createMockTransaction('tx2', date, 10000, 'Company A', 'Payment', 'stmt2'), currency: 'USD' },
+      ];
+
+      mockRepository.find.mockResolvedValueOnce(transactions.slice(0, 1));
+      mockRepository.find.mockResolvedValueOnce(transactions);
+
+      const groups = await service.findDuplicates('workspace-123');
+
+      expect(groups).toEqual([]);
+    });
+
     it('should not treat two parts of the same split as duplicates of each other', async () => {
       const date = new Date('2024-01-15');
       // An even split produces rows identical in date, amount, counterparty and
@@ -304,9 +334,13 @@ describe('CrossStatementDeduplicationService', () => {
       mockRepository.findBy.mockResolvedValue(transactions);
       mockRepository.update.mockResolvedValue({ affected: 1 });
 
-      const result = await service.mergeDuplicates(['master', 'dup1']);
+      const result = await service.mergeDuplicates(['master', 'dup1'], 'workspace1');
 
       expect(result.id).toBe('master');
+      expect(mockRepository.findBy).toHaveBeenCalledWith({
+        id: expect.anything(),
+        workspaceId: 'workspace1',
+      });
       expect(mockRepository.update).toHaveBeenCalledWith('dup1', {
         isDuplicate: true,
         duplicateOfId: 'master',
@@ -316,7 +350,7 @@ describe('CrossStatementDeduplicationService', () => {
     });
 
     it('should throw error if less than 2 transactions provided', async () => {
-      await expect(service.mergeDuplicates(['tx1'])).rejects.toThrow(
+      await expect(service.mergeDuplicates(['tx1'], 'workspace1')).rejects.toThrow(
         'At least 2 transactions required for merge',
       );
     });
@@ -324,7 +358,20 @@ describe('CrossStatementDeduplicationService', () => {
     it('should throw error if transactions not found', async () => {
       mockRepository.findBy.mockResolvedValue([]);
 
-      await expect(service.mergeDuplicates(['tx1', 'tx2'])).rejects.toThrow(
+      await expect(service.mergeDuplicates(['tx1', 'tx2'], 'workspace1')).rejects.toThrow(
+        'One or more transactions not found',
+      );
+    });
+
+    it("does not merge another workspace's transaction even if its id is guessed", async () => {
+      // Only the caller's own transaction ('master') belongs to 'workspace1';
+      // 'foreign' belongs to another workspace and must not be returned by a
+      // workspace-scoped findBy, so the length check below should fail closed.
+      mockRepository.findBy.mockResolvedValue([
+        createMockTransaction('master', new Date(), 10000, 'Company A', 'Payment', 'stmt1'),
+      ]);
+
+      await expect(service.mergeDuplicates(['master', 'foreign'], 'workspace1')).rejects.toThrow(
         'One or more transactions not found',
       );
     });
@@ -341,8 +388,12 @@ describe('CrossStatementDeduplicationService', () => {
       mockRepository.update.mockResolvedValue({ affected: 1 });
       mockRepository.findOneBy.mockResolvedValue(transaction);
 
-      const result = await service.unmarkDuplicate('tx1');
+      const result = await service.unmarkDuplicate('tx1', 'workspace1');
 
+      expect(mockRepository.findOneBy).toHaveBeenCalledWith({
+        id: 'tx1',
+        workspaceId: 'workspace1',
+      });
       expect(mockRepository.update).toHaveBeenCalledWith('tx1', {
         isDuplicate: false,
         duplicateOfId: null,
@@ -356,7 +407,18 @@ describe('CrossStatementDeduplicationService', () => {
       mockRepository.update.mockResolvedValue({ affected: 1 });
       mockRepository.findOneBy.mockResolvedValue(null);
 
-      await expect(service.unmarkDuplicate('nonexistent')).rejects.toThrow('Transaction not found');
+      await expect(service.unmarkDuplicate('nonexistent', 'workspace1')).rejects.toThrow(
+        'Transaction not found',
+      );
+    });
+
+    it("does not unmark another workspace's transaction even if its id is guessed", async () => {
+      mockRepository.findOneBy.mockResolvedValue(null);
+
+      await expect(service.unmarkDuplicate('foreign-tx', 'workspace1')).rejects.toThrow(
+        'Transaction not found',
+      );
+      expect(mockRepository.update).not.toHaveBeenCalled();
     });
   });
 });

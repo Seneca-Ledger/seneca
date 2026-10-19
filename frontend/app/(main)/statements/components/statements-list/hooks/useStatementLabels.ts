@@ -168,7 +168,6 @@ function buildFilterOptionLabelsF(t: I18nNode): Record<string, string> {
     columnDescription: tx(['filters', 'columnDescription'], 'Description'),
     columnExchangeRate: tx(['filters', 'columnExchangeRate'], 'Exchange rate'),
     columnExported: tx(['filters', 'columnExported'], 'Exported'),
-    columnExportedTo: tx(['filters', 'columnExportedTo'], 'Exported to'),
     columnsTitle: tx(['filters', 'columnsTitle'], 'Columns'),
     paid: tx(['filters', 'paid'], 'Paid'),
   };

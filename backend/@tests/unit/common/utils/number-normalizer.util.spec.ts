@@ -56,6 +56,34 @@ describe('normalizeNumber', () => {
   it('returns null for empty string', () => {
     expect(normalizeNumber('')).toBeNull();
   });
+
+  it('treats a lone comma thousands group as grouping, not a decimal', () => {
+    expect(normalizeNumber('1,234')).toBe(1234);
+  });
+
+  it('treats a lone dot thousands group as grouping, not a decimal', () => {
+    expect(normalizeNumber('1.234')).toBe(1234);
+  });
+
+  it('still treats a lone comma with 2 digits as a decimal', () => {
+    expect(normalizeNumber('12,34')).toBe(12.34);
+  });
+
+  it('handles trailing-minus negative notation', () => {
+    expect(normalizeNumber('100-')).toBe(-100);
+  });
+
+  it('handles parenthesised negative notation', () => {
+    expect(normalizeNumber('(100.50)')).toBe(-100.5);
+  });
+
+  it('handles unicode minus sign', () => {
+    expect(normalizeNumber('−100')).toBe(-100);
+  });
+
+  it('handles negative number with thousands grouping', () => {
+    expect(normalizeNumber('-1,234.56')).toBe(-1234.56);
+  });
 });
 
 describe('normalizeNumberAdvanced', () => {
@@ -118,6 +146,18 @@ describe('normalizeDate', () => {
     expect(result).not.toBeNull();
     expect(result!.getHours()).toBe(14);
     expect(result!.getMinutes()).toBe(30);
+  });
+
+  it('parses a one-digit hour and a time without seconds', () => {
+    // Kaspi prints "08.12.2025 0:20:11", Bereke "27.11.2025 09:22".
+    expect(normalizeDate('08.12.2025 0:20:11')).toEqual(new Date(2025, 11, 8, 0, 20, 11));
+    expect(normalizeDate('27.11.2025 09:22')).toEqual(new Date(2025, 10, 27, 9, 22, 0));
+  });
+
+  it('does not read a bare number as a date', () => {
+    // V8 parses "2" as 2001-02-01 — a column-numbering cell became a row.
+    expect(normalizeDate('2')).toBeNull();
+    expect(normalizeDate('2026')).toBeNull();
   });
 
   it('parses YYYY-MM-DD format', () => {

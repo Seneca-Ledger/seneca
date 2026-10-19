@@ -48,6 +48,16 @@ export enum RiskLevel {
   HIGH = 'high',
 }
 
+/** What an asset account holds; set only on the investment sub-accounts people create. */
+export enum BalanceAccountKind {
+  INVESTMENT = 'investment',
+  RETIREMENT = 'retirement',
+  /** The crypto wallets' portfolio, written by the crypto module after each sync. */
+  CRYPTO = 'crypto',
+  /** Physical precious metals, one sub-account holding every lot. */
+  METALS = 'metals',
+}
+
 export enum BalanceAutoSource {
   WALLETS = 'wallets',
   STATEMENTS = 'statements',
@@ -65,7 +75,7 @@ export class BalanceAccount {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
-  @Column({ name: 'workspace_id' })
+  @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(
@@ -76,7 +86,7 @@ export class BalanceAccount {
   @JoinColumn({ name: 'parent_id' })
   parent: BalanceAccount | null;
 
-  @Column({ name: 'parent_id', nullable: true })
+  @Column({ name: 'parent_id', type: 'uuid', nullable: true })
   parentId: string | null;
 
   @OneToMany(
@@ -91,10 +101,10 @@ export class BalanceAccount {
   @Column({ length: 255 })
   name: string;
 
-  @Column({ name: 'name_en', length: 255, nullable: true })
+  @Column({ type: 'varchar', name: 'name_en', length: 255, nullable: true })
   nameEn: string | null;
 
-  @Column({ name: 'name_kk', length: 255, nullable: true })
+  @Column({ type: 'varchar', name: 'name_kk', length: 255, nullable: true })
   nameKk: string | null;
 
   @Column({
@@ -146,6 +156,10 @@ export class BalanceAccount {
     nullable: true,
   })
   riskLevel: RiskLevel | null;
+
+  /** Null for every line of the sheet except investment and retirement accounts. */
+  @Column({ name: 'account_kind', type: 'varchar', length: 16, nullable: true })
+  accountKind: BalanceAccountKind | null;
 
   @Column({ default: 0 })
   position: number;

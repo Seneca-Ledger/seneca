@@ -1,16 +1,17 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import {
+  resolveThemePreference,
   THEME_STORAGE_EVENT,
   type ThemePreference,
-  resolveThemePreference,
 } from '@/app/lib/theme-preference';
 import { notifyUserFormatChanged } from '@/app/lib/user-format-store';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 import type { UiDensity } from '@/app/theme';
-import { useEffect, useState } from 'react';
 
 export type UseAppearanceMessages = {
   successFallback: string;
@@ -27,9 +28,11 @@ export type UseAppearanceReturn = {
   setDensity: (value: UiDensity) => void;
   reduceMotion: boolean;
   setReduceMotion: (value: boolean) => void;
+  showDailyQuote: boolean;
+  setShowDailyQuote: (value: boolean) => void;
 };
 
-type AppearancePatch = { uiDensity?: UiDensity; reduceMotion?: boolean };
+type AppearancePatch = { uiDensity?: UiDensity; reduceMotion?: boolean; showDailyQuote?: boolean };
 
 export function useAppearance(
   user: User | null | undefined,
@@ -39,6 +42,7 @@ export function useAppearance(
   const [themePreference, setThemePreference] = useState<ThemePreference>('auto');
   const [density, setDensityState] = useState<UiDensity>('comfortable');
   const [reduceMotion, setReduceMotionState] = useState(false);
+  const [showDailyQuote, setShowDailyQuoteState] = useState(true);
   const [appearanceMessage, setAppearanceMessage] = useState<string | null>(null);
   const [appearanceError, setAppearanceError] = useState<string | null>(null);
   const [appearanceLoading, setAppearanceLoading] = useState(false);
@@ -50,27 +54,39 @@ export function useAppearance(
   useEffect(() => {
     setDensityState(user?.uiDensity === 'compact' ? 'compact' : 'comfortable');
     setReduceMotionState(Boolean(user?.reduceMotion));
-  }, [user?.uiDensity, user?.reduceMotion]);
+    // Absent (an older cached user) means on, like the column default.
+    setShowDailyQuoteState(user?.showDailyQuote !== false);
+  }, [user?.uiDensity, user?.reduceMotion, user?.showDailyQuote]);
 
   /** Saves one appearance flag and re-themes the app straight away. */
   const savePatch = async (patch: AppearancePatch) => {
     setAppearanceMessage(null);
     setAppearanceError(null);
 
-    try {
+    await (async () => {
       setAppearanceLoading(true);
-      const response = await apiClient.patch('/users/me/preferences', patch);
-      const nextUser = { ...(user || {}), ...(response.data?.user || {}), ...patch };
+      const response = await apiClient.patch(
+        '/users/me/preferences',
+        patch satisfies ContractInput<'UpdateMyPreferencesBody'>,
+      );
+      const { user: updatedUser } = await checkContract(
+        'UserUpdateResponse',
+        response.data,
+        '/users/me/preferences',
+      );
+      const nextUser = { ...(user || {}), ...updatedUser, ...patch };
 
       setUser(nextUser as User);
       localStorage.setItem('user', JSON.stringify(nextUser));
       notifyUserFormatChanged();
-      setAppearanceMessage(response.data?.message || messages.successFallback);
-    } catch (error: unknown) {
-      setAppearanceError(getApiErrorMessage(error, messages.errorFallback));
-    } finally {
-      setAppearanceLoading(false);
-    }
+      setAppearanceMessage(messages.successFallback);
+    })()
+      .catch(async (error: unknown) => {
+        setAppearanceError(getApiErrorMessage(error, messages.errorFallback));
+      })
+      .finally(async () => {
+        setAppearanceLoading(false);
+      });
   };
 
   const setDensity = (value: UiDensity) => {
@@ -83,17 +99,27 @@ export function useAppearance(
     void savePatch({ reduceMotion: value });
   };
 
+  const setShowDailyQuote = (value: boolean) => {
+    setShowDailyQuoteState(value);
+    void savePatch({ showDailyQuote: value });
+  };
+
   const handleThemePreferenceChange = async (nextThemePreference: ThemePreference) => {
     setAppearanceMessage(null);
     setAppearanceError(null);
 
-    try {
+    await (async () => {
       setAppearanceLoading(true);
       const response = await apiClient.patch('/users/me/preferences', {
         themePreference: nextThemePreference,
-      });
+      } satisfies ContractInput<'UpdateMyPreferencesBody'>);
+      const { user: updatedUser } = await checkContract(
+        'UserUpdateResponse',
+        response.data,
+        '/users/me/preferences',
+      );
 
-      const responseUser = response.data?.user;
+      const responseUser = updatedUser;
       const nextUser = responseUser
         ? { ...(user || {}), ...responseUser, themePreference: nextThemePreference }
         : user
@@ -112,12 +138,14 @@ export function useAppearance(
         );
       }
 
-      setAppearanceMessage(response.data?.message || messages.successFallback);
-    } catch (error: unknown) {
-      setAppearanceError(getApiErrorMessage(error, messages.errorFallback));
-    } finally {
-      setAppearanceLoading(false);
-    }
+      setAppearanceMessage(messages.successFallback);
+    })()
+      .catch(async (error: unknown) => {
+        setAppearanceError(getApiErrorMessage(error, messages.errorFallback));
+      })
+      .finally(async () => {
+        setAppearanceLoading(false);
+      });
   };
 
   return {
@@ -130,5 +158,7 @@ export function useAppearance(
     setDensity,
     reduceMotion,
     setReduceMotion,
+    showDailyQuote,
+    setShowDailyQuote,
   };
 }

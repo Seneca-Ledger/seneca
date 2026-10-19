@@ -1,19 +1,19 @@
 /* eslint-disable max-lines */
 'use client';
 
+import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+import { useTheme } from 'next-themes';
+import { useCallback, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { CheckCircle2 } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { APP_NAME } from '@/app/lib/brand';
 import { formatDateTime } from '@/app/lib/format-datetime';
 import { tokens } from '@/lib/theme-tokens';
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
-import { useTheme } from 'next-themes';
-import Image from 'next/image';
-import { useCallback, useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
 import { IntegrationStatusCard } from '../components/IntegrationStatusCard';
 import { useIntegrationStatus } from '../hooks/useIntegrationStatus';
 
@@ -159,7 +159,7 @@ function GmailSettingsPanel({
               {t.settings.labelName.value}
             </Typography>
             <Typography style={{ fontWeight: 500, color: c.ink900 }}>
-              {status.settings?.labelName || 'Lumio/Receipts'}
+              {status.settings?.labelName || `${APP_NAME}/Receipts`}
             </Typography>
           </Stack>
           <Stack spacing={0.5}>
@@ -311,26 +311,33 @@ export default function GmailIntegrationPage(): React.JSX.Element {
   const status = baseStatus as GmailStatus | null;
 
   const updateSettings = async (payload: Partial<GmailSettings>): Promise<void> => {
-    try {
+    await (async () => {
       setGmailSaving(true);
       await apiClient.post('/integrations/gmail/settings', payload);
       toast.success(t.toasts.settingsSaved.value);
       await loadStatus();
-    } catch {
-      toast.error(t.errors.saveFailed.value);
-    } finally {
-      setGmailSaving(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error(t.errors.saveFailed.value);
+      })
+      .finally(async () => {
+        setGmailSaving(false);
+      });
   };
 
-  // eslint-disable-next-line complexity
   const handleGmailSync = async (): Promise<void> => {
-    try {
+    await (async () => {
       setGmailSyncing(true);
       const response = await apiClient.post('/integrations/gmail/sync');
-      const messagesFound = Number(response.data?.messagesFound ?? 0);
-      const jobsCreated = Number(response.data?.jobsCreated ?? 0);
-      const skipped = Number(response.data?.skipped ?? 0);
+      // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
+      const synced = response.data as {
+        messagesFound?: number;
+        jobsCreated?: number;
+        skipped?: number;
+      } | null;
+      const messagesFound = Number(synced?.messagesFound ?? 0);
+      const jobsCreated = Number(synced?.jobsCreated ?? 0);
+      const skipped = Number(synced?.skipped ?? 0);
       if (jobsCreated > 0) {
         toast.success(`${t.toasts.syncStarted.value} (${jobsCreated})`);
       } else if (messagesFound === 0) {
@@ -341,11 +348,13 @@ export default function GmailIntegrationPage(): React.JSX.Element {
         toast.error(t.errors.syncNoNew.value);
       }
       await loadStatus();
-    } catch {
-      toast.error(t.errors.syncFailed.value);
-    } finally {
-      setGmailSyncing(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error(t.errors.syncFailed.value);
+      })
+      .finally(async () => {
+        setGmailSyncing(false);
+      });
   };
 
   const isSaving = saving || gmailSaving;
@@ -360,35 +369,7 @@ export default function GmailIntegrationPage(): React.JSX.Element {
   if (!user) return <GmailNotLoggedInView t={t} />;
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: 5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 3 }}>
-        <Box
-          sx={{
-            p: 1,
-            borderRadius: tokens.radius.full,
-            bgcolor: 'rgba(var(--color-primary-rgb), 0.1)',
-            overflow: 'hidden',
-            display: 'flex',
-          }}
-        >
-          <Image
-            src="/icons/gmail.png"
-            alt="Gmail"
-            width={24}
-            height={24}
-            style={{ height: 24, width: 24, objectFit: 'contain' }}
-          />
-        </Box>
-        <Box>
-          <Typography variant="h4" style={{ fontWeight: 700, color: c.ink900 }}>
-            {t.header.title.value}
-          </Typography>
-          <Typography style={{ color: c.ink700, marginTop: 4 }}>
-            {t.header.subtitle.value}
-          </Typography>
-        </Box>
-      </Box>
-
+    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--seneca-page-top, 40px)', pb: 5 }}>
       {loading && (
         <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           <CircularProgress size={16} />

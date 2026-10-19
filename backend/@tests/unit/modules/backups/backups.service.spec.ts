@@ -1,4 +1,5 @@
 import { BackupDestinationKind, BackupRunStatus, BackupRunTrigger } from '../../../../src/entities';
+import { AuditAction, EntityType, Severity } from '../../../../src/entities/audit-event.entity';
 import { BackupsService } from '../../../../src/modules/backups/backups.service';
 
 describe('BackupsService', () => {
@@ -8,7 +9,7 @@ describe('BackupsService', () => {
     const configurationRepository = repository();
     const service = createService({ configurationRepository });
 
-    const result = await service.configure(user, {
+    const result = await service.configure(user, 'workspace-1', {
       destinationKind: BackupDestinationKind.LOCAL,
       destinationPath: 'nightly',
       dailyTime: '02:30',
@@ -43,11 +44,11 @@ describe('BackupsService', () => {
     };
     const configurationRepository = repository(configuration);
     const runRepository = repository();
-    const destination = { store: jest.fn().mockResolvedValue('nightly-workspace-1/backup.lumio-backup') };
+    const destination = { store: jest.fn().mockResolvedValue('nightly-workspace-1/backup.seneca-backup') };
     const archive = { create: jest.fn().mockResolvedValue(Buffer.from('encrypted archive')) };
     const service = createService({ configurationRepository, runRepository, destination, archive });
 
-    const run = await service.createRun(user, BackupRunTrigger.MANUAL);
+    const run = await service.createRun(user, 'workspace-1', BackupRunTrigger.MANUAL);
 
     expect(archive.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -60,11 +61,81 @@ describe('BackupsService', () => {
     );
     expect(destination.store).toHaveBeenCalledWith(
       configuration,
-      expect.stringMatching(/\.lumio-backup$/),
+      expect.stringMatching(/\.seneca-backup$/),
       Buffer.from('encrypted archive'),
     );
     expect(run.status).toBe(BackupRunStatus.SUCCEEDED);
     expect(run.trigger).toBe(BackupRunTrigger.MANUAL);
+  });
+
+  describe('audit events', () => {
+    const configInput = {
+      destinationKind: BackupDestinationKind.LOCAL,
+      destinationPath: 'nightly',
+      password: 'backup password',
+    };
+
+    it('logs configure as BACKUP UPDATE without the password or wrapped keys', async () => {
+      const auditService = { createEvent: jest.fn().mockResolvedValue({}) };
+      const service = createService({ auditService });
+
+      await service.configure(user, 'workspace-1', configInput);
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: 'workspace-1',
+          actorId: 'user-1',
+          entityType: EntityType.BACKUP,
+          entityId: 'saved-1',
+          action: AuditAction.UPDATE,
+          severity: Severity.INFO,
+          meta: expect.objectContaining({ passwordChanged: true, firstConfiguration: true }),
+        }),
+      );
+      const payload = JSON.stringify(auditService.createEvent.mock.calls);
+      for (const leaked of ['backup password', 'server-wrapped-data-key', 'wrapped', 'salt']) {
+        expect(payload).not.toContain(leaked);
+      }
+      expect(payload).not.toMatch(/encryptedDataKey|passwordEnvelope/);
+    });
+
+    it('logs a manual run as BACKUP CREATE', async () => {
+      const auditService = { createEvent: jest.fn().mockResolvedValue({}) };
+      const configurationRepository = repository({
+        id: 'config-1',
+        workspaceId: 'workspace-1',
+        destinationKind: BackupDestinationKind.LOCAL,
+        destinationPath: 'nightly',
+        encryptedDataKey: 'server-wrapped-data-key',
+        passwordEnvelope: { kdf: {}, wrappedDataKey: {} },
+      });
+      const destination = { store: jest.fn().mockResolvedValue('nightly/backup.seneca-backup') };
+      const archive = { create: jest.fn().mockResolvedValue(Buffer.from('encrypted archive')) };
+      const service = createService({ configurationRepository, destination, archive, auditService });
+
+      const run = await service.createRun(user, 'workspace-1', BackupRunTrigger.MANUAL);
+
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: 'workspace-1',
+          entityType: EntityType.BACKUP,
+          entityId: run.id,
+          action: AuditAction.CREATE,
+          severity: Severity.INFO,
+          meta: { trigger: BackupRunTrigger.MANUAL, status: BackupRunStatus.SUCCEEDED },
+        }),
+      );
+      expect(JSON.stringify(auditService.createEvent.mock.calls)).not.toContain('server-wrapped');
+    });
+
+    it('still saves the configuration when the audit write fails', async () => {
+      const auditService = { createEvent: jest.fn().mockRejectedValue(new Error('audit down')) };
+      const configurationRepository = repository();
+      const service = createService({ configurationRepository, auditService });
+
+      await expect(service.configure(user, 'workspace-1', configInput)).resolves.toBeDefined();
+      expect(configurationRepository.save).toHaveBeenCalled();
+    });
   });
 
   it('loads a completed run only from the owner workspace destination', async () => {
@@ -79,15 +150,15 @@ describe('BackupsService', () => {
       id: 'run-1',
       workspaceId: 'workspace-1',
       status: BackupRunStatus.SUCCEEDED,
-      destinationFile: 'nightly-workspace-1/backup.lumio-backup',
+      destinationFile: 'nightly-workspace-1/backup.seneca-backup',
     });
     const destination = { load: jest.fn().mockResolvedValue(Buffer.from('archive')) };
     const service = createService({ configurationRepository, runRepository, destination });
 
-    const result = await service.downloadRun(user, 'run-1');
+    const result = await service.downloadRun(user, 'workspace-1', 'run-1');
 
-    expect(destination.load).toHaveBeenCalledWith(configuration, 'nightly-workspace-1/backup.lumio-backup');
-    expect(result).toEqual({ fileName: 'backup.lumio-backup', contents: Buffer.from('archive') });
+    expect(destination.load).toHaveBeenCalledWith(configuration, 'nightly-workspace-1/backup.seneca-backup');
+    expect(result).toEqual({ fileName: 'backup.seneca-backup', contents: Buffer.from('archive') });
   });
 
   it('limits configuration and backup runs to the workspace owner', async () => {
@@ -104,7 +175,28 @@ describe('BackupsService', () => {
       { store: jest.fn(), load: jest.fn() } as never,
     );
 
-    await expect(service.getConfiguration(user)).rejects.toThrow('Only the workspace owner');
+    await expect(service.getConfiguration(user, 'workspace-1')).rejects.toThrow(
+      'Only the workspace owner',
+    );
+  });
+
+  it('manages the backups of the workspace of the request', async () => {
+    const workspaceRepository = {
+      findOne: jest.fn().mockResolvedValue({ id: 'workspace-2', ownerId: 'user-1', name: 'Second' }),
+    };
+    const service = new BackupsService(
+      repository() as never,
+      repository() as never,
+      workspaceRepository as never,
+      { initializeEncryption: jest.fn(), create: jest.fn() } as never,
+      { encryptDataKey: jest.fn(), decryptDataKey: jest.fn() } as never,
+      { collect: jest.fn() } as never,
+      { store: jest.fn(), load: jest.fn() } as never,
+    );
+
+    await service.getConfiguration(user, 'workspace-2');
+
+    expect(workspaceRepository.findOne).toHaveBeenCalledWith({ where: { id: 'workspace-2' } });
   });
 });
 
@@ -139,6 +231,7 @@ function createService(overrides: Record<string, unknown> = {}) {
   };
   const dataService = { collect: jest.fn().mockResolvedValue({ collections: { categories: [{ id: 'category-1' }] }, files: [] }) };
   const destination = overrides.destination ?? { store: jest.fn() };
+  const auditService = overrides.auditService ?? { createEvent: jest.fn().mockResolvedValue({}) };
 
   return new BackupsService(
     configurationRepository as never,
@@ -148,5 +241,6 @@ function createService(overrides: Record<string, unknown> = {}) {
     keyService as never,
     dataService as never,
     destination as never,
+    auditService as never,
   );
 }

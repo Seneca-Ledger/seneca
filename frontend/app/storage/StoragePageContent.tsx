@@ -1,10 +1,10 @@
 'use client';
 
-import { useIntlayer, useLocale } from '@/app/i18n';
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import { Box, Typography } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { DocumentTypeIcon } from '../components/DocumentTypeIcon';
 import { PDFPreviewModal } from '../components/PDFPreviewModal';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -44,8 +44,8 @@ import {
 import { useStorageTags } from './hooks/useStorageTags';
 import { useStorageTrash } from './hooks/useStorageTrash';
 import { type FilterSnapshot, useStorageViews } from './hooks/useStorageViews';
-import { NO_FOLDER, formatFileSize, getStatusTone, tagChipClass } from './storageHelpers';
 import type { StorageViewPayload } from './storageHelpers';
+import { formatFileSize, getStatusTone, NO_FOLDER, tagChipClass } from './storageHelpers';
 
 /**
  * Storage page - displays all files with sharing and permissions
@@ -53,32 +53,41 @@ import type { StorageViewPayload } from './storageHelpers';
 // eslint-disable-next-line max-lines-per-function, complexity
 function StoragePageContent({
   initialList = 'active',
-}: { initialList?: 'active' | 'trash' }): React.JSX.Element {
+}: {
+  initialList?: 'active' | 'trash';
+}): React.JSX.Element {
   const router = useRouter();
   const t = useIntlayer('storagePage');
   const { locale } = useLocale();
-  // eslint-disable-next-line max-params
+
   const tx = useCallback(
     (path: string[], fallback: string) => resolveLabel(getNestedValue(t, path), fallback),
     [t],
   );
 
-  const filesHook = useStorageFiles({
-    loadFilesFailed: t.toasts.loadFilesFailed.value,
-    downloaded: t.toasts.downloaded.value,
-    downloadFailed: t.toasts.downloadFailed.value,
-    categoryUpdated: t.toasts.categoryUpdated.value,
-    categoryUpdateFailed: t.toasts.categoryUpdateFailed.value,
-    deleteLoading: t.delete.loading.value,
-    deleteSuccess: t.delete.success.value,
-    deleteError: t.delete.error.value,
-    trashRestoreLoading: t.trash.restoreLoading.value,
-    trashRestoreSuccess: t.trash.restoreSuccess.value,
-    trashRestoreFailed: t.trash.restoreFailed.value,
-    trashDeleteLoading: t.trash.deleteLoading.value,
-    trashDeleteSuccess: t.trash.deleteSuccess.value,
-    trashDeleteFailed: t.trash.deleteFailed.value,
-  });
+  const filtersHook = useStorageFilters(
+    { loadCategoriesFailed: t.toasts.loadCategoriesFailed.value },
+    initialList,
+  );
+  const filesHook = useStorageFiles(
+    {
+      loadFilesFailed: t.toasts.loadFilesFailed.value,
+      downloaded: t.toasts.downloaded.value,
+      downloadFailed: t.toasts.downloadFailed.value,
+      categoryUpdated: t.toasts.categoryUpdated.value,
+      categoryUpdateFailed: t.toasts.categoryUpdateFailed.value,
+      deleteLoading: t.delete.loading.value,
+      deleteSuccess: t.delete.success.value,
+      deleteError: t.delete.error.value,
+      trashRestoreLoading: t.trash.restoreLoading.value,
+      trashRestoreSuccess: t.trash.restoreSuccess.value,
+      trashRestoreFailed: t.trash.restoreFailed.value,
+      trashDeleteLoading: t.trash.deleteLoading.value,
+      trashDeleteSuccess: t.trash.deleteSuccess.value,
+      trashDeleteFailed: t.trash.deleteFailed.value,
+    },
+    filtersHook.activeList,
+  );
   const [activeModal, setActiveModal] = useState<'folders' | null>(null);
   const foldersHook = useStorageFolders(
     {
@@ -115,10 +124,6 @@ function StoragePageContent({
     filesHook.setFiles,
     foldersHook.setFolders,
   );
-  const filtersHook = useStorageFilters(
-    { loadCategoriesFailed: t.toasts.loadCategoriesFailed.value },
-    initialList,
-  );
   const viewsHook = useStorageViews(
     {
       loadViewsFailed: t.toasts.loadViewsFailed.value,
@@ -150,18 +155,28 @@ function StoragePageContent({
   const isTrashView = filtersHook.activeList === 'trash';
   const isFolderActive = activeModal === 'folders';
 
-  useEffect(() => {
+  // Effect events: the hook objects below are re-created every render, and an
+  // eslint-disable inside a component makes React Compiler skip it entirely.
+  const loadLookups = useEffectEvent(() => {
     void filtersHook.loadCategories();
     void tagsHook.loadTags();
     void foldersHook.loadFolders();
     void viewsHook.loadViews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
+  const clampPage = useEffectEvent((maxPage: number) => {
+    if (filtersHook.page > maxPage) {
+      filtersHook.setPage(maxPage);
+    }
+  });
+  const stageFilters = useEffectEvent(() => {
+    if (filtersHook.filterOpen) {
+      filtersHook.setStagedFilters(filtersHook.filters);
+    }
+  });
 
   useEffect(() => {
-    void filesHook.loadFiles(filtersHook.activeList);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersHook.activeList]);
+    loadLookups();
+  }, []);
 
   useLockBodyScroll(activeModal !== null || filtersHook.filterOpen);
 
@@ -283,17 +298,11 @@ function StoragePageContent({
   }, [foldersHook.activeFolderId, foldersHook.folders, t]);
 
   useEffect(() => {
-    if (filtersHook.page > totalPagesCount) {
-      filtersHook.setPage(totalPagesCount);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    clampPage(totalPagesCount);
   }, [filtersHook.page, totalPagesCount]);
 
   useEffect(() => {
-    if (filtersHook.filterOpen) {
-      filtersHook.setStagedFilters(filtersHook.filters);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    stageFilters();
   }, [filtersHook.filterOpen, filtersHook.filters]);
 
   const filtersApplied = !!(
@@ -321,7 +330,10 @@ function StoragePageContent({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <Box className="container-shared" sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: 4 }}>
+      <Box
+        className="container-shared"
+        sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}
+      >
         {!isTrashView && (
           <StorageHeader
             isTrashView={isTrashView}
@@ -330,8 +342,6 @@ function StoragePageContent({
             searchQuery={filtersHook.searchQuery}
             sortKey={sortKey}
             filtersApplied={filtersApplied}
-            titleLabel={t.title}
-            subtitleLabel={t.subtitle}
             searchPlaceholder={t.searchPlaceholder.value}
             searchFilesLabel={t.searchFiles.value}
             sortNewest={t.sort.newest}
@@ -477,7 +487,7 @@ function StoragePageContent({
               sx={{
                 bgcolor: 'background.paper',
                 p: 2,
-                border: '1px solid rgba(22,129,24,0.5)',
+                border: '1px solid rgba(var(--primary-rgb),0.5)',
                 opacity: 0.9,
                 width: 300,
               }}

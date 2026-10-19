@@ -1,5 +1,11 @@
 'use client';
 
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Checkbox from '@mui/material/Checkbox';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import { Alert } from '@/app/components/ui/alert';
 import { NotificationDeliveryCard } from '@/app/settings/profile/components/NotificationDeliveryCard';
 import {
@@ -11,12 +17,6 @@ import {
   workspaceNotificationSettings,
 } from '@/app/settings/profile/profileHelpers';
 import { tokens } from '@/lib/theme-tokens';
-import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Checkbox from '@mui/material/Checkbox';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 
 type NotificationKey = keyof NotificationPreferences;
 type Tx = (path: string[], fallback: string) => string;
@@ -26,13 +26,22 @@ type ToggleChannel = (
   value: boolean,
 ) => Promise<void>;
 
-/** Label column plus one narrow column per channel; scrolls rather than squashing. */
-const ROW_GRID = { display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) repeat(3, 64px)' };
+/** Label column plus one narrow column per channel. A phone has no room for
+ * both (the label was squeezed to a word a line and the fourth channel wrapped),
+ * so there the label takes a line of its own and the channels share the next. */
+const ROW_GRID = {
+  display: 'grid',
+  gridTemplateColumns: {
+    xs: `repeat(${notificationChannels.length}, minmax(0, 1fr))`,
+    sm: `minmax(0, 1fr) repeat(${notificationChannels.length}, 64px)`,
+  },
+};
 
 const CHANNEL_FALLBACKS: Record<NotificationChannel, string> = {
   inApp: 'Bell',
   email: 'Email',
   telegram: 'Telegram',
+  push: 'Push',
 };
 
 type Props = {
@@ -49,7 +58,7 @@ type Props = {
 function ChannelHeader({ tx }: { tx: Tx }) {
   return (
     <Box sx={{ ...ROW_GRID, px: 1.5, pb: 0.5 }}>
-      <span />
+      <Box component="span" sx={{ display: { xs: 'none', sm: 'block' } }} />
       {notificationChannels.map(channel => (
         <Typography
           key={channel}
@@ -92,7 +101,7 @@ function NotificationSettingRow({
         p: 1.5,
       }}
     >
-      <Stack spacing={0.25} sx={{ pr: 1 }}>
+      <Stack spacing={0.25} sx={{ pr: 1, gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
         <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
           {label}
         </Typography>
@@ -147,7 +156,7 @@ function NotificationGroup({
         </Typography>
       </Box>
       <CardContent sx={{ overflowX: 'auto' }}>
-        <Box sx={{ minWidth: 360 }}>
+        <Box>
           <ChannelHeader tx={tx} />
           <Stack spacing={1.5}>
             {keys.map(setting => (

@@ -1,8 +1,8 @@
 'use client';
 
-import apiClient from '@/app/lib/api';
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import type { CustomTable } from '../utils/tableTypes';
 
 interface Category {
@@ -39,16 +39,16 @@ export function useTableData({
   const [table, setTable] = useState<CustomTable | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  // Loading from the start: until the first fetch begins there is no table
+  // yet, and the page would otherwise flash "not found".
+  const [loading, setLoading] = useState(Boolean(tableId));
 
   const loadCategories = useCallback(async () => {
-    try {
-      const response = await apiClient.get('/categories');
-      const payload = response.data?.data || response.data || [];
-      setCategories(Array.isArray(payload) ? payload : []);
-    } catch (error) {
+    await (async () => {
+      setCategories(await apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }));
+    })().catch(async error => {
       console.error('Failed to load categories:', error);
-    }
+    });
   }, []);
 
   const loadTable = useCallback(async () => {
@@ -56,18 +56,22 @@ export function useTableData({
       return;
     }
     setLoading(true);
-    try {
-      const response = await apiClient.get(`/custom-tables/${tableId}`);
-      const payload = response.data?.data || response.data;
+
+    await (async () => {
+      const payload = await apiQueryDecoded({
+        url: `/custom-tables/${tableId}`,
+        contract: 'CustomTableDetail',
+      });
       setTable(payload);
-      const currentCategoryId = payload?.categoryId || payload?.category?.id || '';
-      setCategoryId(currentCategoryId || '');
-    } catch (error) {
-      console.error('Failed to load table:', error);
-      toast.error(loadTableFailedMessage);
-    } finally {
-      setLoading(false);
-    }
+      setCategoryId(payload.categoryId ?? '');
+    })()
+      .catch(async error => {
+        console.error('Failed to load table:', error);
+        toast.error(loadTableFailedMessage);
+      })
+      .finally(async () => {
+        setLoading(false);
+      });
   }, [tableId, loadTableFailedMessage]);
 
   // Initial load on auth + tableId

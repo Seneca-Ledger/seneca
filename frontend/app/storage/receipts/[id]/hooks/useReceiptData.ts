@@ -1,15 +1,18 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import type {
   EditableReceiptLineItem,
   EditableReceiptParsedData,
   ReceiptCategoryOption,
 } from '@/app/components/receipts/receipt-types';
-import apiClient, { apiBaseUrl, receiptsApi, type ReceiptRecord } from '@/app/lib/api';
+import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
 
 function buildLineItems(receipt: ReceiptRecord | null): EditableReceiptLineItem[] {
   return normalizeReceiptLineItems(receipt?.parsedData).map((item, index) => ({
@@ -26,7 +29,7 @@ function extractParsedFields(
     return {
       vendor: '',
       amount: '',
-      currency: 'KZT',
+      currency: FALLBACK_CURRENCY,
       date: '',
       tax: '',
       paymentMethod: '',
@@ -38,7 +41,7 @@ function extractParsedFields(
   return {
     vendor: pd.vendor ?? '',
     amount: pd.amount ?? '',
-    currency: pd.currency ?? 'KZT',
+    currency: pd.currency ?? FALLBACK_CURRENCY,
     date: pd.date ? pd.date.split('T')[0] : '',
     tax: pd.tax ?? '',
     paymentMethod: pd.paymentMethod ?? '',
@@ -156,7 +159,14 @@ async function loadPreviewAsync(
 }
 
 function usePreviewLoader(receipt: ReceiptRecord | null, setters: PreviewSetters): void {
+  // The setters object is rebuilt by the caller every render; read it through
+  // a ref so the preview only reloads when the receipt changes.
+  const settersRef = useRef(setters);
   useEffect(() => {
+    settersRef.current = setters;
+  });
+  useEffect(() => {
+    const setters = settersRef.current;
     if (!receipt) {
       revokeAndSet(setters.setPreviewUrl, null);
       setters.setPreviewMimeType(null);
@@ -175,20 +185,7 @@ function usePreviewLoader(receipt: ReceiptRecord | null, setters: PreviewSetters
         URL.revokeObjectURL(objectUrl);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receipt]);
-}
-
-function extractApiData(
-  receiptRes: { data: unknown },
-  categoriesRes: { data: unknown },
-): { receipt: ReceiptRecord; categories: ReceiptCategoryOption[] } {
-  const rd = receiptRes.data as Record<string, unknown>;
-  const cd = categoriesRes.data as Record<string, unknown>;
-  return {
-    receipt: (rd.data || rd) as ReceiptRecord,
-    categories: (cd.data || cd || []) as ReceiptCategoryOption[],
-  };
 }
 
 function useLoadData(
@@ -201,26 +198,32 @@ function useLoadData(
     setError: (v: string | null) => void;
   },
 ): () => Promise<void> {
+  const settersRef = useRef(setters);
+  useEffect(() => {
+    settersRef.current = setters;
+  });
   return useCallback(async (): Promise<void> => {
+    const setters = settersRef.current;
     setters.setLoading(true);
     setters.setError(null);
-    try {
-      const [rr, cr] = await Promise.all([
-        apiClient.get(`/receipts/${receiptId}`),
-        apiClient.get('/categories'),
+
+    await (async () => {
+      const [receipt, categories] = await Promise.all([
+        receiptsApi.getReceipt(receiptId),
+        apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }),
       ]);
-      const { receipt, categories } = extractApiData(rr, cr);
       setters.setReceipt(receipt);
       setters.setFormValue(buildInitialForm(receipt));
       setters.setCategories(categories);
-    } catch (err) {
-      console.error('Failed to load receipt details:', err);
-      setters.setError('Failed to load receipt');
-      toast.error('Failed to load receipt');
-    } finally {
-      setters.setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    })()
+      .catch(async err => {
+        console.error('Failed to load receipt details:', err);
+        setters.setError('Failed to load receipt');
+        toast.error('Failed to load receipt');
+      })
+      .finally(async () => {
+        setters.setLoading(false);
+      });
   }, [receiptId]);
 }
 
@@ -239,15 +242,20 @@ function usePersistParsedData(
       if (serialized === lastSavedRef.current) {
         return;
       }
-      try {
-        await apiClient.patch(`/receipts/${receipt.id}`, { parsedData: nextPayload });
+
+      await (async () => {
+        await apiClient.patch(`/receipts/${receipt.id}`, {
+          parsedData: nextPayload,
+        } satisfies ContractInput<'UpdateReceiptBody'>);
         lastSavedRef.current = serialized;
         setReceipt(cur =>
           cur ? { ...cur, parsedData: { ...cur.parsedData, ...nextPayload } } : cur,
         );
-      } catch {
+        // An approved receipt's row follows the edit, and every figure with it.
+        invalidateFinancialData();
+      })().catch(async () => {
         toast.error('Failed to autosave receipt changes.');
-      }
+      });
     },
     [receipt, setReceipt, lastSavedRef],
   );
@@ -265,18 +273,24 @@ function useApproveReceipt(
       return;
     }
     setSaving(true);
-    try {
+
+    await (async () => {
       const payload = buildParsedDataPayload(formValue);
-      await apiClient.patch(`/receipts/${receipt.id}`, { parsedData: payload });
+      await apiClient.patch(`/receipts/${receipt.id}`, {
+        parsedData: payload,
+      } satisfies ContractInput<'UpdateReceiptBody'>);
       lastSavedRef.current = JSON.stringify(payload);
       await receiptsApi.approveReceipt(receipt.id);
+      invalidateFinancialData();
       toast.success('Receipt approved.');
       await loadData();
-    } catch {
-      toast.error('Failed to approve receipt.');
-    } finally {
-      setSaving(false);
-    }
+    })()
+      .catch(async () => {
+        toast.error('Failed to approve receipt.');
+      })
+      .finally(async () => {
+        setSaving(false);
+      });
   };
   return { saving, handleApprove };
 }
@@ -344,7 +358,8 @@ export function useReceiptData({ receiptId }: { receiptId: string }): UseReceipt
     if (!receipt) {
       return;
     }
-    try {
+
+    await (async () => {
       const { blob } = await fetchReceiptFile(receipt.id);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -354,10 +369,10 @@ export function useReceiptData({ receiptId }: { receiptId: string }): UseReceipt
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-    } catch (err) {
+    })().catch(async err => {
       console.error('Failed to download receipt:', err);
       toast.error('Failed to download receipt');
-    }
+    });
   };
 
   return {
