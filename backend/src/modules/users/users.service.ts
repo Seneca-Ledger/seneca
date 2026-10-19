@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -174,17 +173,6 @@ export class UsersService {
     }
 
     const user = await this.findOne(id);
-
-    // Check email uniqueness if email is being changed
-    if (updateUserDto.email && updateUserDto.email !== user.email) {
-      const existingUser = await this.userRepository.findOne({
-        where: { email: updateUserDto.email },
-      });
-
-      if (existingUser) {
-        throw new ConflictException('Email already in use');
-      }
-    }
 
     // Only admins can change roles
     if (updateUserDto.role && currentUser.role !== UserRole.ADMIN) {
