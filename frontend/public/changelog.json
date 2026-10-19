@@ -1,14 +1,71 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "2891b98b3d7df26ac65c977698470ac28cf07dd1"
+      "main": "900ff01cfeea4165e13b1ba98108480e626ede4f"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-19T13:34:02.669Z",
+    "lastGeneratedAt": "2026-10-19T18:05:17.347Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-19-900ff01",
+      "version": "main-900ff01",
+      "branch": "main",
+      "date": "2026-10-19T18:05:17.347Z",
+      "title": "Release update - October 19, 2026",
+      "summary": "This release includes routine maintenance updates.",
+      "markdown": "## Other\n- Routine maintenance updates.",
+      "commits": [
+        {
+          "sha": "6958487c4c5706a619e70071bb32355a6851bdd8",
+          "shortSha": "6958487c",
+          "subject": "ci: prefix lcov paths with backend/ for Qlty file matching",
+          "author": "peterbaikov",
+          "date": "2026-08-28T15:04:16+03:00",
+          "files": [
+            ".github/workflows/ci.yml"
+          ]
+        },
+        {
+          "sha": "72d097dcf1650cf79f99004ccc4f1e77f2950932",
+          "shortSha": "72d097dc",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T13:34:03Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "390ed73d6fdacc85e2146d1a1272cb2664ae716d",
+          "shortSha": "390ed73d",
+          "subject": "Merge remote-tracking branch 'origin/main' into ci/qlty-add-prefix",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T20:10:35+03:00",
+          "files": [
+            ".github/workflows/ci.yml"
+          ]
+        },
+        {
+          "sha": "b48c8e2e308cf59e19e2df963de986dbf79ba068",
+          "shortSha": "b48c8e2e",
+          "subject": "Merge pull request #134 from symonbaikov/ci/qlty-add-prefix",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T20:53:51+03:00",
+          "files": []
+        },
+        {
+          "sha": "900ff01cfeea4165e13b1ba98108480e626ede4f",
+          "shortSha": "900ff01c",
+          "subject": "ci: retrigger after missed push event",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T21:04:48+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-19-2891b98",
       "version": "main-2891b98",
