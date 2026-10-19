@@ -44,7 +44,8 @@
 </td>
 </tr>
 <tr>
-<td colspan="2" align="center"><img width="1894" height="888" alt="image" src="https://github.com/user-attachments/assets/f1290df0-fa3b-4109-91f5-824c6faa2be5" />
+<td colspan="2" align="center"><img width="1893" height="886" alt="screenshot-2026-10-19_13-18-07" src="https://github.com/user-attachments/assets/6b834d00-8a9b-43e3-b144-fb1262696984" />
+
 </td>
 </tr>
 </table>
