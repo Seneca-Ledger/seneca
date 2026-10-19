@@ -207,7 +207,6 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'addOption',
         'removeOption',
         'relationTarget',
-        'prompt',
         'required',
         'unique',
         'save',

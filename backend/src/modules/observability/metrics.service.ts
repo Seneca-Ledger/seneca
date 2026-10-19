@@ -35,13 +35,6 @@ export class MetricsService {
     registers: [this.registry],
   });
 
-  readonly aiParsingCallsTotal = new Counter({
-    name: 'ai_parsing_calls_total',
-    help: 'AI parsing calls by kind and result',
-    labelNames: ['kind', 'result'] as const,
-    registers: [this.registry],
-  });
-
   readonly storageFileAccessDurationSeconds = new Histogram({
     name: 'storage_file_access_duration_seconds',
     help: 'Storage file access duration (preview/download)',

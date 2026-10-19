@@ -44,7 +44,6 @@ import {
   CustomTableRowItem,
   CustomTableRowPage,
   CustomTableSummaries,
-  FillAiColumnBody,
   FormulaPreview,
   PreviewCustomTableSourceBody,
   PreviewFormulaBody,
@@ -629,20 +628,6 @@ export class CustomTablesController {
       );
       return { items, meta: { total } };
     });
-  }
-
-  @Post(':id/rows/ai-fill')
-  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
-  async fillAiColumn(
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @SchemaBody(FillAiColumnBody) dto: FillAiColumnBody,
-  ) {
-    const result = await this.customTablesService.fillAiColumn(workspaceId, tableId, dto);
-    await this.customTablesCache.bumpTable(workspaceId, tableId);
-    await this.customTablesCache.bumpRows(workspaceId, tableId);
-    return result;
   }
 
   @Post(':id/rows/paid-classify')

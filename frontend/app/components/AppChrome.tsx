@@ -12,8 +12,7 @@ function shouldHideChrome(pathname: string | null) {
     pathname.startsWith('/onboarding') ||
     AUTH_ROUTE_PREFIXES.some(prefix => pathname.startsWith(prefix)) ||
     pathname.startsWith('/shared') ||
-    pathname.startsWith('/invite') ||
-    pathname.startsWith('/chat')
+    pathname.startsWith('/invite')
   );
 }
 

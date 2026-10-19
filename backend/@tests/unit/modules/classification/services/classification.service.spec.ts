@@ -7,7 +7,6 @@ import { Category, CategorySource, CategoryType } from '@/entities/category.enti
 import { Transaction, TransactionType } from '@/entities/transaction.entity';
 import { Wallet } from '@/entities/wallet.entity';
 import { AuditService } from '@/modules/audit/audit.service';
-import { CategoriesService } from '@/modules/categories/categories.service';
 import { ClassificationService } from '@/modules/classification/services/classification.service';
 import { fakePayeeHistory } from '../fake-payee-history';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -23,7 +22,6 @@ describe('ClassificationService', () => {
   let branchRepository: Repository<Branch>;
   let walletRepository: Repository<Wallet>;
   let auditService: AuditService;
-  let categoriesService: CategoriesService;
 
   const mockCategory: Partial<Category> = {
     id: 'cat-1',
@@ -116,12 +114,6 @@ describe('ClassificationService', () => {
             createEvent: jest.fn(),
           },
         },
-        {
-          provide: CategoriesService,
-          useValue: {
-            findAll: jest.fn(),
-          },
-        },
       ],
     }).compile();
 
@@ -133,7 +125,6 @@ describe('ClassificationService', () => {
     branchRepository = testingModule.get<Repository<Branch>>(getRepositoryToken(Branch));
     walletRepository = testingModule.get<Repository<Wallet>>(getRepositoryToken(Wallet));
     auditService = testingModule.get<AuditService>(AuditService);
-    categoriesService = testingModule.get<CategoriesService>(CategoriesService);
   });
 
   beforeEach(() => {
@@ -318,126 +309,6 @@ describe('ClassificationService', () => {
       const result = await service.classifyTransaction(specialTx as Transaction, '1');
 
       expect(result).toBeDefined();
-    });
-  });
-
-  describe('classifyTransactionsBatch', () => {
-    beforeEach(() => {
-      jest.spyOn(categoriesService, 'findAll').mockImplementation(async (_workspaceId, type) => {
-        if (type === CategoryType.INCOME) {
-          return [
-            {
-              id: 'income-1',
-              name: 'Sales',
-              type: CategoryType.INCOME,
-              isEnabled: true,
-            },
-            {
-              id: 'income-2',
-              name: 'Uncategorized',
-              type: CategoryType.INCOME,
-              isEnabled: true,
-            },
-          ] as Category[];
-        }
-
-        return [
-          {
-            id: 'expense-1',
-            name: 'Rent',
-            type: CategoryType.EXPENSE,
-            isEnabled: true,
-          },
-          {
-            id: 'expense-disabled',
-            name: 'Utilities',
-            type: CategoryType.EXPENSE,
-            isEnabled: false,
-          },
-        ] as Category[];
-      });
-    });
-
-    it('returns empty result when AI classifier unavailable', async () => {
-      (service as any).aiCategoryClassifier = {
-        isAvailable: jest.fn().mockReturnValue(false),
-        classifyBatch: jest.fn(),
-      };
-
-      const result = await service.classifyTransactionsBatch(
-        [
-          {
-            index: 0,
-            counterpartyName: 'Acme',
-            paymentPurpose: 'Rent payment',
-            transactionType: TransactionType.EXPENSE,
-          },
-        ],
-        'ws-1',
-        '1',
-      );
-
-      expect(result.size).toBe(0);
-      expect(categoriesService.findAll).not.toHaveBeenCalled();
-    });
-
-    it('maps AI matches and persists workspace-scoped learning', async () => {
-      // The model is off unless the workspace turned it on.
-      (service as any).workspaceRepository.findOne.mockResolvedValue({
-        id: 'ws-1',
-        settings: { processing: { aiCategorization: true } },
-      });
-      (service as any).aiCategoryClassifier = {
-        isAvailable: jest.fn().mockReturnValue(true),
-        classifyBatch: jest
-          .fn()
-          .mockResolvedValueOnce({
-            matches: [
-              {
-                index: 1,
-                categoryName: 'Sales',
-                categoryId: 'income-1',
-                confidence: 0.94,
-              },
-            ],
-            failedCount: 0,
-          })
-          .mockResolvedValueOnce({
-            matches: [
-              {
-                index: 0,
-                categoryName: 'Rent',
-                categoryId: 'expense-1',
-                confidence: 0.96,
-              },
-            ],
-            failedCount: 0,
-          }),
-      };
-
-      const result = await service.classifyTransactionsBatch(
-        [
-          {
-            index: 0,
-            counterpartyName: 'Landlord LLC',
-            paymentPurpose: 'Office rent',
-            transactionType: TransactionType.EXPENSE,
-          },
-          {
-            index: 1,
-            counterpartyName: 'Marketplace',
-            paymentPurpose: 'Sales payout',
-            transactionType: TransactionType.INCOME,
-          },
-        ],
-        'ws-1',
-        '1',
-      );
-
-      expect(result.get(0)?.categoryId).toBe('expense-1');
-      expect(result.get(1)?.categoryId).toBe('income-1');
-      expect(categoriesService.findAll).toHaveBeenNthCalledWith(1, 'ws-1', CategoryType.INCOME);
-      expect(categoriesService.findAll).toHaveBeenNthCalledWith(2, 'ws-1', CategoryType.EXPENSE);
     });
   });
 

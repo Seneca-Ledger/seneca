@@ -13,15 +13,9 @@ import nodemailer from 'nodemailer';
 import type { Repository } from 'typeorm';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { getWith } from '../../common/effect/http-json';
-import { ANTHROPIC_API_VERSION, isAnthropicBaseUrl } from '../../common/utils/ai-provider.util';
-import {
-  assertPublicEgressHost,
-  assertPublicEgressUrl,
-  fetchPublicUrl,
-} from '../../common/utils/egress-url.util';
+import { assertPublicEgressHost } from '../../common/utils/egress-url.util';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import type {
-  SaveAiSettingsBody,
   SaveAppSettingsBody,
   SaveInstanceTelegramBotBody,
   SaveLocalCategorizationBody,
@@ -33,7 +27,6 @@ import {
   InstanceSetting,
   InstanceSettingKey,
   User,
-  UserAiSettings,
   WorkspaceServiceSettings,
   WorkspaceServiceSettingsKey,
 } from '../../entities';
@@ -44,15 +37,6 @@ const TelegramGetMeResponse = Schema.Struct({
   ok: Schema.Boolean,
   description: Schema.optional(Schema.String),
 });
-
-export type AiRuntimeSettings = {
-  enabled: boolean;
-  baseUrl: string | null;
-  apiKey: string | null;
-  model: string | null;
-  timeoutMs: number;
-  source: 'personal' | 'workspace' | 'env' | 'disabled';
-};
 
 export type LocalCategorizationRuntimeSettings = {
   enabled: boolean;
@@ -111,153 +95,10 @@ export class ApplicationSettingsService {
   constructor(
     @InjectRepository(WorkspaceServiceSettings)
     private readonly settingsRepository: Repository<WorkspaceServiceSettings>,
-    @InjectRepository(UserAiSettings)
-    private readonly userAiSettingsRepository: Repository<UserAiSettings>,
     private readonly effects: EffectRuntime,
     @InjectRepository(InstanceSetting)
     private readonly instanceSettingsRepository: Repository<InstanceSetting>,
   ) {}
-
-  async getAiStatus(user: User, requestWorkspaceId?: string) {
-    const settings = await this.findSettings(
-      user,
-      WorkspaceServiceSettingsKey.AI,
-      requestWorkspaceId,
-    );
-    const runtime = await this.getAiSettings(user, requestWorkspaceId);
-    return {
-      connected: runtime.source !== 'disabled',
-      status: runtime.source !== 'disabled' ? 'connected' : 'disconnected',
-      source: runtime.source,
-      settings: {
-        enabled: runtime.enabled,
-        baseUrl: runtime.baseUrl,
-        model: runtime.model,
-        timeoutMs: runtime.timeoutMs,
-        apiKeyConfigured: Boolean(settings?.encryptedSecrets?.apiKey || process.env.AI_API_KEY),
-      },
-    };
-  }
-
-  async saveAiSettings(user: User, input: SaveAiSettingsBody, requestWorkspaceId?: string) {
-    const existing = await this.findSettings(
-      user,
-      WorkspaceServiceSettingsKey.AI,
-      requestWorkspaceId,
-    );
-    const config = {
-      enabled: this.booleanValue(input.enabled, true),
-      baseUrl: this.trimTrailingSlashes(this.requiredString(input.baseUrl, 'baseUrl')),
-      model: this.requiredString(input.model, 'model'),
-      timeoutMs: this.positiveNumber(input.timeoutMs, 20000),
-    };
-    const secrets = this.mergeSecrets(existing, ['apiKey'], input);
-    const runtime = this.aiRuntimeFromParts(config, secrets, 'workspace');
-    await assertPublicEgressUrl(runtime.baseUrl ?? '');
-    await this.assertAiConnection(runtime);
-    await this.saveSettings(
-      user,
-      WorkspaceServiceSettingsKey.AI,
-      config,
-      secrets,
-      requestWorkspaceId,
-    );
-    return this.getAiStatus(user, requestWorkspaceId);
-  }
-
-  /**
-   * A member's own provider credentials, used by chat mode instead of the
-   * workspace-wide ones. Deliberately narrow: no WORKSPACE_SETTINGS_MANAGE to
-   * set them, and they are never resolved for background jobs — a personal key
-   * pays only for the chat its owner is typing in.
-   */
-  async getPersonalAiStatus(user: User, requestWorkspaceId?: string) {
-    const existing = await this.findPersonalAiSettings(user, requestWorkspaceId);
-    const runtime = existing
-      ? this.aiRuntimeFromParts(
-          existing.config,
-          this.decryptSecrets(existing.encryptedSecrets),
-          'personal',
-        )
-      : null;
-    const connected = runtime !== null && runtime.source !== 'disabled';
-    return {
-      connected,
-      status: connected ? 'connected' : 'disconnected',
-      source: 'personal' as const,
-      settings: {
-        enabled: runtime?.enabled ?? true,
-        baseUrl: runtime?.baseUrl ?? null,
-        model: runtime?.model ?? null,
-        timeoutMs: runtime?.timeoutMs ?? 20000,
-        apiKeyConfigured: Boolean(existing?.encryptedSecrets?.apiKey),
-      },
-    };
-  }
-
-  async savePersonalAiSettings(user: User, input: SaveAiSettingsBody, requestWorkspaceId?: string) {
-    const workspaceId = this.requireWorkspaceId(user, requestWorkspaceId);
-    const existing = await this.findPersonalAiSettings(user, requestWorkspaceId);
-    const config = {
-      enabled: this.booleanValue(input.enabled, true),
-      baseUrl: this.trimTrailingSlashes(this.requiredString(input.baseUrl, 'baseUrl')),
-      model: this.requiredString(input.model, 'model'),
-      timeoutMs: this.positiveNumber(input.timeoutMs, 20000),
-    };
-    const secrets = this.mergeSecrets(existing, ['apiKey'], input);
-    const runtime = this.aiRuntimeFromParts(config, secrets, 'personal');
-    await assertPublicEgressUrl(runtime.baseUrl ?? '');
-    await this.assertAiConnection(runtime);
-
-    const entity =
-      existing || this.userAiSettingsRepository.create({ userId: user.id, workspaceId });
-    entity.config = config;
-    entity.encryptedSecrets = this.encryptSecrets(secrets);
-    await this.userAiSettingsRepository.save(entity);
-
-    return this.getPersonalAiStatus(user, requestWorkspaceId);
-  }
-
-  async disconnectPersonalAi(user: User, requestWorkspaceId?: string) {
-    const workspaceId = this.requireWorkspaceId(user, requestWorkspaceId);
-    await this.userAiSettingsRepository.delete({ userId: user.id, workspaceId });
-    return { ok: true };
-  }
-
-  /**
-   * Resolution order for chat mode: the member's own key, then the workspace
-   * settings, then the environment. A personal entry that is switched off or
-   * incomplete falls through instead of shadowing the workspace provider.
-   */
-  async getAiSettingsForChat(
-    workspaceId?: string | null,
-    userId?: string | null,
-  ): Promise<AiRuntimeSettings> {
-    if (workspaceId && userId) {
-      const personal = await this.userAiSettingsRepository.findOne({
-        where: { userId, workspaceId },
-      });
-      if (personal) {
-        const runtime = this.aiRuntimeFromParts(
-          personal.config,
-          this.decryptSecrets(personal.encryptedSecrets),
-          'personal',
-        );
-        if (runtime.enabled && runtime.source !== 'disabled') {
-          return runtime;
-        }
-      }
-    }
-    return this.getAiSettingsForWorkspaceId(workspaceId);
-  }
-
-  private async findPersonalAiSettings(
-    user: User,
-    requestWorkspaceId?: string,
-  ): Promise<UserAiSettings | null> {
-    const workspaceId = this.requireWorkspaceId(user, requestWorkspaceId);
-    return this.userAiSettingsRepository.findOne({ where: { userId: user.id, workspaceId } });
-  }
 
   async getSmtpStatus(user: User, requestWorkspaceId?: string) {
     const settings = await this.findSettings(
@@ -542,28 +383,6 @@ export class ApplicationSettingsService {
     };
   }
 
-  async getAiSettings(user?: User | null, requestWorkspaceId?: string): Promise<AiRuntimeSettings> {
-    const workspace = user
-      ? await this.findSettings(user, WorkspaceServiceSettingsKey.AI, requestWorkspaceId)
-      : null;
-    if (workspace) {
-      return this.aiRuntimeFromParts(
-        workspace.config,
-        this.decryptSecrets(workspace.encryptedSecrets),
-        'workspace',
-      );
-    }
-
-    const env = {
-      enabled: true,
-      baseUrl: process.env.AI_BASE_URL?.replace(/\/+$/, '') || null,
-      apiKey: process.env.AI_API_KEY || null,
-      model: process.env.AI_MODEL || null,
-      timeoutMs: this.positiveNumber(process.env.AI_TIMEOUT_MS, 20000),
-    };
-    return env.baseUrl && env.model ? { ...env, source: 'env' } : { ...env, source: 'disabled' };
-  }
-
   async getLocalCategorizationSettings(
     user?: User | null,
     requestWorkspaceId?: string,
@@ -589,22 +408,6 @@ export class ApplicationSettingsService {
       ...env,
       source: env.enabled && env.localModelPath ? 'env' : 'disabled',
     };
-  }
-
-  async getAiSettingsForWorkspaceId(workspaceId?: string | null): Promise<AiRuntimeSettings> {
-    if (workspaceId) {
-      const workspace = await this.settingsRepository.findOne({
-        where: { workspaceId, key: WorkspaceServiceSettingsKey.AI },
-      });
-      if (workspace) {
-        return this.aiRuntimeFromParts(
-          workspace.config,
-          this.decryptSecrets(workspace.encryptedSecrets),
-          'workspace',
-        );
-      }
-    }
-    return this.getAiSettings(null);
   }
 
   async getSmtpSettings(
@@ -793,23 +596,6 @@ export class ApplicationSettingsService {
     );
   }
 
-  private aiRuntimeFromParts(
-    config: Record<string, unknown>,
-    secrets: Record<string, string>,
-    source: AiRuntimeSettings['source'],
-  ): AiRuntimeSettings {
-    const baseUrl = this.trimTrailingSlashes(this.stringValue(config.baseUrl) ?? '') || null;
-    const model = this.stringValue(config.model) || null;
-    return {
-      enabled: this.booleanValue(config.enabled, true),
-      baseUrl,
-      apiKey: secrets.apiKey || null,
-      model,
-      timeoutMs: this.positiveNumber(config.timeoutMs, 20000),
-      source: baseUrl && model ? source : 'disabled',
-    };
-  }
-
   private smtpRuntimeFromParts(
     config: Record<string, unknown>,
     secrets: Record<string, string>,
@@ -965,60 +751,6 @@ export class ApplicationSettingsService {
     }
   }
 
-  private async assertAiConnection(settings: AiRuntimeSettings) {
-    if (!(settings.baseUrl && settings.model)) {
-      throw new BadRequestException('AI baseUrl and model are required');
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), settings.timeoutMs);
-    // Anthropic speaks its own protocol; probing it with an OpenAI-shaped
-    // request would fail a perfectly good key.
-    const anthropic = isAnthropicBaseUrl(settings.baseUrl);
-    try {
-      const response = await fetchPublicUrl(
-        anthropic ? `${settings.baseUrl}/v1/messages` : `${settings.baseUrl}/v1/chat/completions`,
-        {
-          method: 'POST',
-          headers: anthropic
-            ? {
-                'Content-Type': 'application/json',
-                'anthropic-version': ANTHROPIC_API_VERSION,
-                ...(settings.apiKey ? { 'x-api-key': settings.apiKey } : {}),
-              }
-            : {
-                'Content-Type': 'application/json',
-                ...(settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}),
-              },
-          body: JSON.stringify(
-            anthropic
-              ? {
-                  model: settings.model,
-                  max_tokens: 16,
-                  messages: [{ role: 'user', content: 'Reply with OK.' }],
-                }
-              : {
-                  model: settings.model,
-                  messages: [{ role: 'user', content: 'Return {"ok":true} as JSON.' }],
-                  temperature: 0,
-                  response_format: { type: 'json_object' },
-                },
-          ),
-          signal: controller.signal,
-        },
-      );
-      if (!response.ok) {
-        throw new BadRequestException(`AI endpoint returned ${response.status}`);
-      }
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new BadRequestException('Unable to connect to AI endpoint');
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
   private async assertSmtpConnection(settings: SmtpRuntimeSettings) {
     if (!(settings.host && settings.from)) {
       throw new BadRequestException('SMTP host and from are required');
@@ -1091,15 +823,6 @@ export class ApplicationSettingsService {
       throw new BadRequestException(`${name} is required`);
     }
     return text;
-  }
-
-  /** A loop, not /\/+$/: that pattern backtracks polynomially on long runs of slashes. */
-  private trimTrailingSlashes(value: string): string {
-    let end = value.length;
-    while (end > 0 && value[end - 1] === '/') {
-      end--;
-    }
-    return value.slice(0, end);
   }
 
   private stringValue(value: unknown): string | undefined {

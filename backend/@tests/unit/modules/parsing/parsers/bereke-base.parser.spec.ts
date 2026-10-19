@@ -1,5 +1,4 @@
 import { BankName, FileType } from '@/entities/statement.entity';
-import { AiTransactionExtractor } from '@/modules/parsing/helpers/ai-transaction-extractor.helper';
 import { BerekeBaseParser } from '@/modules/parsing/parsers/bereke-base.parser';
 import type { ParsedTransaction } from '@/modules/parsing/interfaces/parsed-statement.interface';
 import {
@@ -105,7 +104,6 @@ class TestBerekeParser extends BerekeBaseParser<TestColumnKey> {
 }
 
 describe('BerekeBaseParser', () => {
-  let aiAvailableSpy: jest.SpyInstance;
   const parser = new TestBerekeParser();
 
   const expectDateParts = (date: Date | null | undefined, expected: string) => {
@@ -122,13 +120,6 @@ describe('BerekeBaseParser', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    aiAvailableSpy = jest
-      .spyOn(AiTransactionExtractor.prototype, 'isAvailable')
-      .mockReturnValue(false);
-  });
-
-  afterEach(() => {
-    aiAvailableSpy.mockRestore();
   });
 
   it('uses cached text in canParse and skips PDF extraction', async () => {

@@ -9,10 +9,10 @@ The frontend is a Next.js 16 app (React 19, MUI 7) with route groups and modular
 
 - `(auth)` — login, registration, forgot password, reset password, and email verification.
 - `(main)` — the signed-in product UI: dashboard, statements, reports, budgets, goals, net worth, crypto,
-  subscriptions, ROI, advice, AI analysis, custom tables, workspaces, supported banks, and the income tax
+  subscriptions, ROI, advice, custom tables, workspaces, supported banks, and the income tax
   declaration (`tax-declaration`).
 - `(onboarding)` — guided setup.
-- Standalone routes: `admin`, `audit`, `categories`, `chat`, `integrations`, `settings`, `storage/[id]`,
+- Standalone routes: `admin`, `audit`, `categories`, `integrations`, `settings`, `storage/[id]`,
   `transactions/duplicates`, `invite/[token]`, `shared/[token]`, and `plugins`.
 
 Key entry points live in `frontend/app`.

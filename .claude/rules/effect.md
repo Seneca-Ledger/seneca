@@ -10,7 +10,7 @@ paths:
 Effect (`effect` 4.x) is adopted incrementally. NestJS, TypeORM, React Query and axios stay; Effect is used where typed errors, timeouts/retries or runtime validation pay off.
 
 ## When to use it
-- **New external I/O** (provider APIs, bank sync, AI calls): write the call as an Effect with a timeout, a retry policy for transient failures and a Schema-decoded response. Example: `backend/src/modules/exchange-rates/exchange-rates.http.ts`.
+- **New external I/O** (provider APIs, bank sync): write the call as an Effect with a timeout, a retry policy for transient failures and a Schema-decoded response. Example: `backend/src/modules/exchange-rates/exchange-rates.http.ts`.
 - Outbound HTTP goes through `common/effect/http-json.ts`: `getJson` (decode, retry 429/5xx/network) or `getWith` (the caller reads status, headers, text or bytes). Both run the whole exchange, body included, inside one timeout.
 - Retry only where the provider's quota allows it. Openverse (200 searches a day), Nominatim (1 request a second), CoinGecko's free tier and the icon sources are asked once; a failure falls back (cache, last known value, "unavailable").
 - Kept on plain `fetch` on purpose: `webhook-processor` (pinned-DNS agent, retries are durable rows), `model-proxy` (streams, manual redirects), `fetchPublicUrl` (the SSRF guard for user-supplied URLs), and calls that need an `AbortSignal` API through `attemptWithRetry` (Telegram, SMTP). Gmail, Google Drive and Dropbox are going away and stay as they are.

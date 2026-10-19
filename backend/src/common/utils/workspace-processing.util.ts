@@ -14,10 +14,6 @@ export type WorkspaceProcessingSettings = {
   categorizationThreshold: number;
   /** What to do with a row that looks like an existing transaction. */
   duplicateResolution: DuplicateResolution;
-  /** Ask the configured model for categories during import, and reuse what it taught. */
-  aiCategorization: boolean;
-  /** Keep the model's normalised merchant name next to the raw one. */
-  aiMerchantNormalization: boolean;
   /** Remember manual corrections and reuse them on later imports. */
   merchantLearning: boolean;
 };
@@ -25,9 +21,6 @@ export type WorkspaceProcessingSettings = {
 export const DEFAULT_PROCESSING_SETTINGS: WorkspaceProcessingSettings = {
   categorizationThreshold: 0.7,
   duplicateResolution: 'skip',
-  // Off like YNAB: a new payee waits for the user's pick instead of a guess.
-  aiCategorization: false,
-  aiMerchantNormalization: true,
   merchantLearning: true,
 };
 
@@ -65,14 +58,6 @@ export const readProcessingSettings = (
     duplicateResolution: duplicateResolutions.includes(resolution as DuplicateResolution)
       ? (resolution as DuplicateResolution)
       : DEFAULT_PROCESSING_SETTINGS.duplicateResolution,
-    aiCategorization: readFlag(
-      stored.aiCategorization,
-      DEFAULT_PROCESSING_SETTINGS.aiCategorization,
-    ),
-    aiMerchantNormalization: readFlag(
-      stored.aiMerchantNormalization,
-      DEFAULT_PROCESSING_SETTINGS.aiMerchantNormalization,
-    ),
     merchantLearning: readFlag(
       stored.merchantLearning,
       DEFAULT_PROCESSING_SETTINGS.merchantLearning,

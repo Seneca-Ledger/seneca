@@ -33,28 +33,17 @@ interface InsightCandidateBase {
   data?: Record<string, unknown>;
   actions?: InsightAction[];
   expiresAt?: Date | null;
-  /**
-   * Let a cloud model rephrase the rendered template in its own words when the
-   * user has one configured (see StoicPhrasingService). The template is still
-   * the fallback, and the key and params are stored either way.
-   */
-  aiPhrasing?: boolean;
 }
 
 /**
  * Analyzers describe an insight, they do not phrase it: the wording lives in
  * insight-translations.ts and is rendered in the recipient's locale by
- * InsightsService. The literal-text form is the exception, for insights whose
- * text has no key because it was written by a model (see saveExternal).
+ * InsightsService.
  */
-export type InsightCandidate = InsightCandidateBase &
-  (
-    | {
-        messageKey: InsightMessageKey;
-        messageParams: Record<string, string | number>;
-      }
-    | { title: string; message: string }
-  );
+export type InsightCandidate = InsightCandidateBase & {
+  messageKey: InsightMessageKey;
+  messageParams: Record<string, string | number>;
+};
 
 export interface InsightAnalyzer {
   analyze(context: AnalysisContext): Promise<InsightCandidate[]>;

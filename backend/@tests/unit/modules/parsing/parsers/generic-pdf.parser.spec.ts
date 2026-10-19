@@ -1,6 +1,5 @@
 import { extractTablesFromPdf, extractTextFromPdf } from '@/common/utils/pdf-parser.util';
 import { BankName, FileType } from '@/entities/statement.entity';
-import { AiTransactionExtractor } from '@/modules/parsing/helpers/ai-transaction-extractor.helper';
 import { GenericPdfParser } from '@/modules/parsing/parsers/generic-pdf.parser';
 
 jest.mock('@/common/utils/advanced-language-detector.util', () => ({
@@ -20,17 +19,8 @@ jest.mock('@/common/utils/pdf-parser.util', () => ({
 }));
 
 describe('GenericPdfParser', () => {
-  let aiAvailableSpy: jest.SpyInstance;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    aiAvailableSpy = jest
-      .spyOn(AiTransactionExtractor.prototype, 'isAvailable')
-      .mockReturnValue(false);
-  });
-
-  afterEach(() => {
-    aiAvailableSpy.mockRestore();
   });
 
   describe('canParse', () => {

@@ -6,7 +6,6 @@ import {
   type PdfTextRow,
 } from '../../../common/utils/pdf-parser.util';
 import { type BankName, FileType } from '../../../entities/statement.entity';
-import { AiTransactionExtractor } from '../helpers/ai-transaction-extractor.helper';
 import {
   mapPdfTableRowsToTransactions,
   pickReconciledTransactions,
@@ -42,8 +41,6 @@ type TransactionGroupContext<ColumnKey extends string> = {
 };
 
 export abstract class BerekeBaseParser<ColumnKey extends string> extends BaseParser {
-  private readonly aiExtractor = new AiTransactionExtractor();
-
   protected abstract readonly parserName: string;
 
   protected abstract getSupportedBankName(): BankName;
@@ -155,34 +152,10 @@ export abstract class BerekeBaseParser<ColumnKey extends string> extends BasePar
     );
 
     this.logger.debug('Extracting transactions from structured text...');
-    const { transactions: structuredTransactions, groupsDetected } = this.extractTransactions(
-      normalizedText,
-      rows,
-    );
+    const { transactions: structuredTransactions } = this.extractTransactions(normalizedText, rows);
 
     const attempts = [...tableAttempts, structuredTransactions];
-    let transactions = pickReconciledTransactions(attempts, balanceStart, balanceEnd);
-    const detectedGroups = Math.max(groupsDetected, transactions.length);
-
-    if (
-      (transactions.length === 0 || transactions.length < detectedGroups) &&
-      this.aiExtractor.isAvailable()
-    ) {
-      this.logger.debug(
-        `Structured parsing incomplete (${transactions.length}/${detectedGroups}), trying AI extraction...`,
-      );
-      const aiTransactions = await this.aiExtractor.extractTransactions(normalizedText);
-      if (aiTransactions.length) {
-        transactions = pickReconciledTransactions(
-          [transactions, aiTransactions],
-          balanceStart,
-          balanceEnd,
-        );
-        this.logger.debug(`AI extraction succeeded with ${transactions.length} transactions`);
-      } else {
-        this.logger.debug('AI extraction did not return transactions');
-      }
-    }
+    const transactions = pickReconciledTransactions(attempts, balanceStart, balanceEnd);
 
     const { from, to } = this.getDefaultMetadataDates(dateRange, transactions);
     const transactionTime = Date.now() - transactionStartTime;

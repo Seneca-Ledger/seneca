@@ -12,8 +12,8 @@ describe('BackupDataService', () => {
         {
           id: 'setting-1',
           workspaceId: 'ws-1',
-          key: 'ai',
-          config: { model: 'local' },
+          key: 'smtp',
+          config: { host: 'mail.example.com' },
           encryptedSecrets: { token: 'enc:secret' },
         },
       ]),
@@ -43,7 +43,7 @@ describe('BackupDataService', () => {
 
     expect(snapshot.collections.categories).toEqual([{ id: 'cat-1', workspaceId: 'ws-1', name: 'Travel' }]);
     expect(snapshot.collections.workspace_service_settings).toEqual([
-      { id: 'setting-1', workspaceId: 'ws-1', key: 'ai', config: { model: 'local' } },
+      { id: 'setting-1', workspaceId: 'ws-1', key: 'smtp', config: { host: 'mail.example.com' } },
     ]);
     expect(snapshot.collections.integrations).toBeUndefined();
     expect(snapshot.files).toEqual([]);

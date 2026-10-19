@@ -135,7 +135,6 @@ describe('golden parsing (optional)', () => {
   }
 
   const factory = new ParserFactoryService();
-  process.env.AI_PARSING_ENABLED = '0'; // deterministic golden runs
 
   cases.forEach(({ input, expected }) => {
     const caseName = path.relative(goldenRoot, input);

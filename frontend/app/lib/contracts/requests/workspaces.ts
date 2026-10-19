@@ -34,8 +34,6 @@ export const WorkspaceProcessingInput = Schema.Struct({
   duplicateResolution: optionalNullable(
     Schema.Literals(['skip', 'force_import', 'mark_duplicate']),
   ),
-  aiCategorization: optionalNullable(Schema.Boolean),
-  aiMerchantNormalization: optionalNullable(Schema.Boolean),
   merchantLearning: optionalNullable(Schema.Boolean),
 });
 export type WorkspaceProcessingInput = Wire<typeof WorkspaceProcessingInput>;

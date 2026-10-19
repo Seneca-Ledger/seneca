@@ -141,12 +141,6 @@ const DATA_ROUTES: Record<string, (data: InsightData) => string | null> = {
   'stoic.fortune': data => withQuery('/dashboard?tab=overview', { month: readMonth(data) }),
   'stoic.commitments': data => withQuery('/dashboard?tab=overview', { month: readMonth(data) }),
   'stoic.goal': data => goalRoute(data) ?? '/goals',
-  // Free-form text from the local model; `periodKey` is the only handle it
-  // carries, and it is already the YYYY-MM the dashboard expects.
-  'ai.summary': data => {
-    const periodKey = readString(data, 'periodKey');
-    return periodKey === null ? null : `/dashboard?tab=overview&month=${periodKey}`;
-  },
 };
 
 /**

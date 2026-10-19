@@ -115,7 +115,7 @@ export class ReceiptSplitService {
       Number(transaction.amount) || Number(transaction.debit) || Number(transaction.credit) || 0,
     );
     if (transaction.splitGroupId) {
-      // Checked before categorising, which may ask the model: nothing to suggest.
+      // Checked before categorising: nothing to suggest.
       return {
         transactionId: transaction.id,
         total,
@@ -138,7 +138,7 @@ export class ReceiptSplitService {
     const enabled = categories.filter(category => category.isEnabled !== false);
     const items = reviewed
       ? this.checkReviewed(lines, reviewed, enabled)
-      : await this.categorise(receipt, lines, enabled);
+      : this.categorise(lines, enabled);
     const fallback = receipt.parsedData?.categoryId ?? transaction.categoryId ?? null;
     const parts = groupLineItemsIntoParts(items, total, fallback);
     const nameOf = new Map(categories.map(category => [category.id, category.name]));
@@ -184,12 +184,11 @@ export class ReceiptSplitService {
     });
   }
 
-  /** Keeps an existing category, then keywords, then the model, then the fallback. */
-  private async categorise(
-    receipt: Receipt,
+  /** Keeps an existing category, then keywords, then the fallback. */
+  private categorise(
     lines: NonNullable<Receipt['parsedData']>['lineItems'] & object,
     categories: Category[],
-  ): Promise<SplitLineItem[]> {
+  ): SplitLineItem[] {
     const known = new Set(categories.map(category => category.id));
     const items: SplitLineItem[] = (lines ?? []).map(line => ({
       description: line.description.trim(),
@@ -200,17 +199,6 @@ export class ReceiptSplitService {
       if (item.categoryId) continue;
       item.categoryId =
         this.categoryService.matchByKeywords(item.description, categories)?.id ?? null;
-    }
-    const pending = items.filter(item => !item.categoryId);
-    if (pending.length > 0) {
-      const matches = await this.categoryService.classifyDescriptions(
-        receipt,
-        pending.map(item => item.description),
-        categories,
-      );
-      for (const [index, item] of pending.entries()) {
-        item.categoryId = matches[index] ?? null;
-      }
     }
     return items;
   }

@@ -6,7 +6,7 @@ import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import { AUTH_ROUTE_PREFIXES } from '@/app/lib/auth-routes';
 
-const HIDDEN_PATHS = ['/onboarding', ...AUTH_ROUTE_PREFIXES, '/shared', '/invite', '/chat'];
+const HIDDEN_PATHS = ['/onboarding', ...AUTH_ROUTE_PREFIXES, '/shared', '/invite'];
 
 /**
  * Mobile-only header. On desktop everything that used to live here — search,

@@ -11,7 +11,6 @@ import {
 import { Wallet } from '@/entities/wallet.entity';
 import { Workspace } from '@/entities/workspace.entity';
 import { AuditService } from '@/modules/audit/audit.service';
-import { CategoriesService } from '@/modules/categories/categories.service';
 import { ClassificationService } from '@/modules/classification/services/classification.service';
 import { fakePayeeHistory } from './fake-payee-history';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -147,13 +146,6 @@ describe('category guessing', () => {
           },
         },
         { provide: AuditService, useValue: { createEvent: jest.fn() } },
-        {
-          provide: CategoriesService,
-          useValue: {
-            findAll: async (_workspaceId: string, type: CategoryType) =>
-              categories.rows.filter(row => row.type === type),
-          },
-        },
       ],
     }).compile();
 

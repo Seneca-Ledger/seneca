@@ -65,7 +65,6 @@ describe('StoicAnalyzer', () => {
       messageKey: 'stoic.leisure_over_plan',
       messageParams: expect.objectContaining({ planned: 10, actual: 31, currency: 'EUR' }),
       deduplicationKey: 'stoic:leisure_over_plan:ws-1::2026-09',
-      aiPhrasing: true,
     });
     const variant = (insight as { messageParams: { variant: number } }).messageParams.variant;
     expect(variant).toBeGreaterThanOrEqual(0);

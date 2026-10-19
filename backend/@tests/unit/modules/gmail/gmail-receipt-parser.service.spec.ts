@@ -105,72 +105,18 @@ describe('GmailReceiptParserService', () => {
     expect(vendor).toBe('Notion');
   });
 
-  describe('AI-powered merchant extraction', () => {
-    it('uses AI result when available and confidence is high', async () => {
-      const aiMock = {
-        isAvailable: jest.fn().mockReturnValue(true),
-        extractMerchant: jest.fn().mockResolvedValue({ merchant: 'GitHub', confidence: 0.95 }),
-      };
-
-      const aiService = new GmailReceiptParserService(new UniversalAmountParser(), aiMock as any);
-
-      const vendor = await (aiService as any).extractVendorWithAi(
-        'Date2026-02-16 10:57AM PST\nGitHub',
-        {
-          sender: 'GitHub <noreply@github.com>',
-          subject: '[GitHub] Receipt',
-          emailBody: '<p>Thanks for your payment</p>',
-        },
-      );
-
-      expect(vendor).toBe('GitHub');
-      expect(aiMock.extractMerchant).toHaveBeenCalled();
-    });
-
-    it('falls back to heuristics when AI returns null', async () => {
-      const aiMock = {
-        isAvailable: jest.fn().mockReturnValue(true),
-        extractMerchant: jest.fn().mockResolvedValue(null),
-      };
-
-      const aiService = new GmailReceiptParserService(new UniversalAmountParser(), aiMock as any);
-
-      const vendor = await (aiService as any).extractVendorWithAi(
+  describe('merchant extraction', () => {
+    it('reads the vendor from the PDF text', () => {
+      const vendor = (service as any).extractVendor(
         'Spotify\nReceipt for your subscription',
-        {
-          sender: 'no-reply@spotify.com',
-          subject: 'Receipt',
-        },
+        'no-reply@spotify.com',
       );
 
       expect(vendor).toBe('Spotify');
     });
 
-    it('falls back to heuristics when AI is unavailable', async () => {
-      const aiMock = {
-        isAvailable: jest.fn().mockReturnValue(false),
-        extractMerchant: jest.fn(),
-      };
-
-      const aiService = new GmailReceiptParserService(new UniversalAmountParser(), aiMock as any);
-
-      const vendor = await (aiService as any).extractVendorWithAi('Netflix\nMonthly subscription', {
-        sender: 'info@netflix.com',
-      });
-
-      expect(vendor).toBe('Netflix');
-      expect(aiMock.extractMerchant).not.toHaveBeenCalled();
-    });
-
     it('extracts merchant from email-only parsing flow', async () => {
-      const aiMock = {
-        isAvailable: jest.fn().mockReturnValue(true),
-        extractMerchant: jest.fn().mockResolvedValue({ merchant: 'Notion', confidence: 0.8 }),
-      };
-
-      const aiService = new GmailReceiptParserService(new UniversalAmountParser(), aiMock as any);
-
-      const parsed = await aiService.parseFromEmailOnly({
+      const parsed = await service.parseFromEmailOnly({
         sender: 'Notion <billing@makenotion.com>',
         subject: 'Your invoice',
         dateHeader: '2026-02-16',
@@ -214,7 +160,6 @@ describe('GmailReceiptParserService', () => {
       };
       const bodyService = new GmailReceiptParserService(
         new UniversalAmountParser(),
-        undefined,
         extractor as any,
       );
 
@@ -245,7 +190,6 @@ describe('GmailReceiptParserService', () => {
       };
       const bodyService = new GmailReceiptParserService(
         new UniversalAmountParser(),
-        undefined,
         extractor as any,
       );
 

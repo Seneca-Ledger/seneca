@@ -36,7 +36,7 @@ describe('TelegramScheduler.pushInsightDigests', () => {
 
     await scheduler.pushInsightDigests();
 
-    expect(insightsService.refresh).toHaveBeenCalledWith('user-1', 'workspace-1', { phrase: false });
+    expect(insightsService.refresh).toHaveBeenCalledWith('user-1', 'workspace-1');
     expect(telegramService.pushInsightDigest).toHaveBeenCalledTimes(1);
     const [, pushedInsights] = telegramService.pushInsightDigest.mock.calls[0];
     expect(pushedInsights).toEqual([{ id: 'i-1', severity: InsightSeverity.WARN }]);

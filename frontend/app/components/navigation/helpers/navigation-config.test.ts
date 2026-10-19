@@ -31,8 +31,6 @@ const userMenuNav = {
   activityLog: 'Activity log',
   integrations: 'Integrations',
   plugins: 'Plugins',
-  aiAnalysis: 'AI analysis',
-  chatMode: 'Chat mode',
 };
 
 describe('workspace profile', () => {
@@ -85,8 +83,6 @@ describe('buildNavItems', () => {
     expect(items.map(item => item.path)).not.toContain('/integrations');
     expect(items.map(item => item.path)).not.toContain('/plugins');
     expect(items.map(item => item.path)).not.toContain('/admin');
-    expect(items.map(item => item.path)).not.toContain('/ai-analysis');
-    expect(items.map(item => item.path)).not.toContain('/chat');
   });
 
   it('gates goals behind their own permission and leaves the calculator open', () => {
@@ -121,28 +117,6 @@ describe('buildNavItems', () => {
 });
 
 describe('buildUserMenuNavItems', () => {
-  it('places AI analysis first, right before chat mode', () => {
-    const items = buildUserMenuNavItems(userMenuNav);
-
-    expect(items.at(0)).toMatchObject({
-      label: 'AI analysis',
-      path: '/ai-analysis',
-      permission: 'statement.view',
-    });
-    expect(items.at(1)).toMatchObject({
-      label: 'Chat mode',
-      path: '/chat',
-      permission: 'statement.view',
-    });
-  });
-
-  it('marks chat mode experimental so it stays hidden until opted in', () => {
-    const items = buildUserMenuNavItems(userMenuNav);
-
-    expect(items.find(item => item.path === '/chat')?.experimental).toBe(true);
-    expect(items.find(item => item.path === '/ai-analysis')?.experimental).toBeUndefined();
-  });
-
   it('gates activity log behind the audit log permission', () => {
     const items = buildUserMenuNavItems(userMenuNav);
 
@@ -158,9 +132,9 @@ describe('buildUserMenuNavItems', () => {
 });
 
 describe('isNavItemActive', () => {
-  it('matches the AI analysis route and its children', () => {
-    expect(isNavItemActive('/ai-analysis', '/ai-analysis')).toBe(true);
-    expect(isNavItemActive('/ai-analysis/chat', '/ai-analysis')).toBe(true);
-    expect(isNavItemActive('/statements', '/ai-analysis')).toBe(false);
+  it('matches a route and its children', () => {
+    expect(isNavItemActive('/custom-tables', '/custom-tables')).toBe(true);
+    expect(isNavItemActive('/custom-tables/abc', '/custom-tables')).toBe(true);
+    expect(isNavItemActive('/statements', '/custom-tables')).toBe(false);
   });
 });

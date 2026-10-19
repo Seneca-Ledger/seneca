@@ -37,7 +37,6 @@ function setup(transaction: Record<string, unknown> = {}) {
   };
   const categoryService = {
     matchByKeywords: jest.fn(() => null),
-    classifyDescriptions: jest.fn(async () => ['food', 'food']),
   };
   const transactionsService = { split: jest.fn(async () => []) };
   const service = new ReceiptSplitService(
@@ -51,26 +50,23 @@ function setup(transaction: Record<string, unknown> = {}) {
 }
 
 describe('ReceiptSplitService', () => {
-  it('says a split transaction is split without asking the model', async () => {
-    const { service, categoryService } = setup({ splitGroupId: 'g1' });
+  it('says a split transaction is split', async () => {
+    const { service } = setup({ splitGroupId: 'g1' });
 
     const suggestion = await service.suggest('r1', 'w1');
 
     expect(suggestion.alreadySplit).toBe(true);
     expect(suggestion.parts).toEqual([]);
-    expect(categoryService.classifyDescriptions).not.toHaveBeenCalled();
   });
 
   it('applies the categories the user settled on, not the suggested ones', async () => {
-    const { service, categoryService, transactionsService, receiptRepository } = setup();
+    const { service, transactionsService, receiptRepository } = setup();
 
     await service.apply('r1', 'w1', 'u1', [
       { description: 'Milk', amount: 4, categoryId: 'food' },
       { description: 'Shampoo', amount: 6, categoryId: 'home' },
     ]);
 
-    expect(categoryService.classifyDescriptions).not.toHaveBeenCalled();
-    // The model would have put both in food (one part, nothing to split).
     const parts = (transactionsService.split.mock.calls[0] as any[])[3].parts;
     expect(parts.map((part: any) => [part.categoryId, part.amount])).toEqual([
       ['home', 6.6],

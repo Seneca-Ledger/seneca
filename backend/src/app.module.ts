@@ -69,7 +69,6 @@ import {
   WorkspaceMember,
   WorkspaceServiceSettings,
 } from './entities';
-import { AiAnalysisModule } from './modules/ai-analysis/ai-analysis.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { ApplicationSettingsModule } from './modules/application-settings/application-settings.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -238,7 +237,6 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     CommonModule,
     ApplicationSettingsModule,
     SystemUpdateModule,
-    AiAnalysisModule,
     BackupsModule,
     VersionsModule,
     AuthModule,

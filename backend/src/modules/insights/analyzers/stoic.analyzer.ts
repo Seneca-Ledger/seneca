@@ -104,7 +104,6 @@ export class StoicAnalyzer implements InsightAnalyzer {
         // and differently in two workspaces in the same month.
         variant: (rotation + hash(signal.key)) % STOIC_VARIANT_COUNT,
       },
-      aiPhrasing: true,
       deduplicationKey: [
         category,
         signal.praise ? 'praise' : signal.key.replace(/^(stoic|expert)\./, ''),

@@ -23,7 +23,6 @@ export type ProtocolIntegrationPageProps = {
   settingsMethod?: 'post' | 'put';
   disconnectPath: string;
   fields: ConfigField[];
-  presets?: ConfigPreset[];
   workflow: string;
   icon?: React.ReactNode;
   filesPath?: string;
@@ -31,12 +30,6 @@ export type ProtocolIntegrationPageProps = {
   syncPath?: string;
   embedded?: boolean;
   onConnectionStatusChange?: (connected: boolean) => void | Promise<void>;
-};
-
-/** One-click fill for the fields above — a known provider's endpoint and model. */
-export type ConfigPreset = {
-  label: string;
-  values: Record<string, string | number | boolean>;
 };
 
 export type ConfigField = {
@@ -58,7 +51,6 @@ export function ProtocolIntegrationPage({
   settingsMethod = 'post',
   disconnectPath,
   fields,
-  presets,
   workflow,
   filesPath,
   importPath,
@@ -295,24 +287,6 @@ export function ProtocolIntegrationPage({
                 )}
               </Box>
             </Box>
-
-            {presets?.length ? (
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Typography sx={{ color: c.ink600, fontSize: 13, fontWeight: 600 }}>
-                  {t.presets}
-                </Typography>
-                {presets.map(preset => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => setForm(prev => ({ ...prev, ...preset.values }))}
-                    style={buttonStyle(c.ink800, c.surface, c.ink150)}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </Box>
-            ) : null}
 
             <Box
               sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5 }}

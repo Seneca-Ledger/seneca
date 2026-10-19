@@ -9,7 +9,6 @@ import {
   User,
   WorkspaceMember,
 } from '../../entities';
-import { ApplicationSettingsModule } from '../application-settings/application-settings.module';
 import { AuditModule } from '../audit/audit.module';
 import { ClassificationModule } from '../classification/classification.module';
 import { GeocodingModule } from '../geocoding/geocoding.module';
@@ -41,7 +40,6 @@ import { ReceiptStageService } from './services/receipt-stage.service';
     ]),
     AuditModule,
     ParsingModule,
-    ApplicationSettingsModule,
     ClassificationModule,
     GeocodingModule,
     WorkspaceCurrencyModule,

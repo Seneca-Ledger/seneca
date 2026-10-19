@@ -82,15 +82,6 @@ describe('insightHref', () => {
     );
   });
 
-  it('sends an AI summary to the month it was written about', () => {
-    expect(
-      insightHref(
-        makeInsight({ type: 'ai.summary', data: { periodKey: '2026-08', modelId: 'local' } }),
-      ),
-    ).toBe('/dashboard?tab=overview&month=2026-08');
-    expect(insightHref(makeInsight({ type: 'ai.summary', data: null }))).toBeNull();
-  });
-
   it('sends the operational backlogs to the queue that clears them', () => {
     expect(insightHref(makeInsight({ type: 'operational.unapproved_count' }))).toBe(
       '/review',

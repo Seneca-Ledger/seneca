@@ -65,8 +65,6 @@ export const ERR = {
   COLUMN_FORMAT_INVALID: 'Number format must be "plain" or "percent"',
   COLUMN_OPTIONS_INVALID:
     'Select options must be unique non-empty values with optional #rrggbb colours',
-  COLUMN_NOT_AI: 'Column is not an AI column',
-  COLUMN_AI_PROMPT_MISSING: 'The AI column has no prompt',
   COLUMN_DISPLAY_INVALID: 'Invalid display column',
   COLUMN_DISPLAY_NOT_FOUND: 'Display column not found: {{column}}',
 

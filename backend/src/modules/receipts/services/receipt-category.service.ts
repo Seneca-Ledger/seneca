@@ -1,17 +1,14 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Category, Receipt } from '../../../entities';
 import { TransactionCategorySource, TransactionType } from '../../../entities/transaction.entity';
-import { ApplicationSettingsService } from '../../application-settings/application-settings.service';
-import { AiCategoryClassifier } from '../../classification/helpers/ai-category-classifier.helper';
 import { ClassificationService } from '../../classification/services/classification.service';
 
 /**
  * Keyword -> category name fragments used to deterministically match a receipt
- * line item (a product description, not a payee) to a category in ru/en/kk
- * when the AI classifier is unavailable. Category
- * names are matched against these fragments (not against English type keys),
+ * line item (a product description, not a payee) to a category in ru/en/kk.
+ * Category names are matched against these fragments (not against English type keys),
  * so the Russian default categories ("Продукты", "Транспорт", ...) are found.
  */
 const KEYWORD_CATEGORY_FRAGMENTS: Record<string, string[]> = {
@@ -112,20 +109,16 @@ export type ReceiptCategorySuggestion = {
 @Injectable()
 export class ReceiptCategoryService {
   private readonly logger = new Logger(ReceiptCategoryService.name);
-  private readonly aiCategoryClassifier = new AiCategoryClassifier();
 
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
     private readonly classificationService: ClassificationService,
-    @Optional()
-    private readonly applicationSettingsService?: ApplicationSettingsService,
   ) {}
 
   /**
    * The category a receipt's vendor gets, by the same rules as a bank row: the
-   * user's rules, then what this payee was filed as before, then the model if
-   * the workspace turned it on. Nothing is guessed from the vendor's own name:
+   * user's rules, then what this payee was filed as before. Nothing is guessed from the vendor's own name:
    * "Travelodge" is not Travel and "Rentokil" is not Rent.
    */
   async suggest(receipt: Receipt): Promise<ReceiptCategorySuggestion | null> {
@@ -174,53 +167,6 @@ export class ReceiptCategoryService {
       };
     }
     return suggestion?.category ?? null;
-  }
-
-  /**
-   * One model call for several line descriptions; `null` where the model had
-   * no confident answer or is not configured. Index-aligned with the input.
-   */
-  async classifyDescriptions(
-    receipt: Receipt,
-    descriptions: string[],
-    categories: Category[],
-  ): Promise<Array<string | null>> {
-    const empty = descriptions.map(() => null);
-    if (descriptions.length === 0 || categories.length === 0) {
-      return empty;
-    }
-    try {
-      if (!(await this.classificationService.isAiCategorizationEnabled(receipt.workspaceId))) {
-        return empty;
-      }
-      const aiSettings = await this.applicationSettingsService?.getAiSettingsForWorkspaceId(
-        receipt.workspaceId,
-      );
-      if (aiSettings) {
-        this.aiCategoryClassifier.configureAiClient(aiSettings);
-      }
-      if (!this.aiCategoryClassifier.isAvailable()) {
-        return empty;
-      }
-      const vendor = receipt.parsedData?.vendor ?? '';
-      const result = await this.aiCategoryClassifier.classifyBatch(
-        descriptions.map((description, index) => ({
-          index,
-          counterpartyName: vendor,
-          paymentPurpose: description,
-        })),
-        categories.map(category => ({ id: category.id, name: category.name })),
-      );
-      const known = new Set(categories.map(category => category.id));
-      const byIndex = new Map(result.matches.map(match => [match.index, match.categoryId]));
-      return descriptions.map((_, index) => {
-        const categoryId = byIndex.get(index);
-        return categoryId && known.has(categoryId) ? categoryId : null;
-      });
-    } catch (error) {
-      this.logger.warn('AI line-item classification failed', error);
-      return empty;
-    }
   }
 
   matchByKeywords(vendor: string, categories: Category[]): Category | null {

@@ -13,15 +13,11 @@ import {
 } from '../../../../../src/entities/transaction.entity';
 import { Wallet } from '../../../../../src/entities/wallet.entity';
 import { Workspace } from '../../../../../src/entities/workspace.entity';
-import { ApplicationSettingsService } from '../../../../../src/modules/application-settings/application-settings.service';
 import { AuditService } from '../../../../../src/modules/audit/audit.service';
-import { CategoriesService } from '../../../../../src/modules/categories/categories.service';
 import { ClassificationService } from '../../../../../src/modules/classification/services/classification.service';
 
 /**
- * Where a category came from, and the switches that decide which steps may run:
- * the behaviour Monarch and Copilot users complained about in 2026 — a model
- * that overrides rules and no way to turn it off.
+ * Where a category came from, and the switches that decide which steps may run.
  */
 describe('ClassificationService provenance and switches', () => {
   let service: ClassificationService;
@@ -65,8 +61,6 @@ describe('ClassificationService provenance and switches', () => {
     save: jest.fn(),
   };
   const cache = { get: jest.fn(async () => undefined), set: jest.fn(), del: jest.fn() };
-  const applicationSettings = { getAiSettingsForWorkspaceId: jest.fn(async () => null) };
-  const categoriesService = { findAll: jest.fn(async () => []) };
 
   const tx = (overrides: Partial<Transaction> = {}): Transaction =>
     ({
@@ -102,8 +96,6 @@ describe('ClassificationService provenance and switches', () => {
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepository },
         { provide: CACHE_MANAGER, useValue: cache },
         { provide: AuditService, useValue: { createEvent: jest.fn() } },
-        { provide: CategoriesService, useValue: categoriesService },
-        { provide: ApplicationSettingsService, useValue: applicationSettings },
       ],
     }).compile();
     service = module.get(ClassificationService);
@@ -116,7 +108,6 @@ describe('ClassificationService provenance and switches', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     cache.get.mockResolvedValue(undefined);
-    categoriesService.findAll.mockResolvedValue([]);
     ruleRepository.find.mockResolvedValue([]);
     payeeHistory.rows = [];
     payeeHistory.seen = [];
@@ -145,7 +136,7 @@ describe('ClassificationService provenance and switches', () => {
       });
     });
 
-    it('marks the uncategorised fallback as default so the model may still step in', async () => {
+    it('marks the uncategorised fallback as default', async () => {
       jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
       jest.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
 
@@ -170,26 +161,6 @@ describe('ClassificationService provenance and switches', () => {
   });
 
   describe('switches', () => {
-    it('skips the model entirely when AI categorisation is off', async () => {
-      settings({ aiCategorization: false });
-
-      const result = await service.classifyTransactionsBatch(
-        [
-          {
-            index: 0,
-            counterpartyName: 'Magnum',
-            paymentPurpose: 'Groceries',
-            transactionType: TransactionType.EXPENSE,
-          },
-        ],
-        'ws-1',
-        'u1',
-      );
-
-      expect(result.size).toBe(0);
-      expect(applicationSettings.getAiSettingsForWorkspaceId).not.toHaveBeenCalled();
-    });
-
     it('does not read the payee history when learning is off', async () => {
       settings({ merchantLearning: false });
       payeeHistory.rows = [{ categoryId: 'cat-groceries' }];

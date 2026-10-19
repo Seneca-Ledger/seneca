@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import * as fs from 'fs';
-import { stripHtmlForAi } from '../../../common/utils/ai-response.util';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { parsePdf } from '../../../common/utils/pdf-text.util';
 import {
@@ -18,10 +17,10 @@ import {
   scoreAmountCandidate as scoreSharedAmountCandidate,
 } from '../../../common/utils/receipt-extraction.util';
 import { extractBrandFromSender } from '../../../common/utils/sender-brand.util';
+import { stripHtml } from '../../../common/utils/strip-html.util';
 import type { Receipt } from '../../../entities';
 import { UniversalAmountParser } from '../../parsing/services/universal-amount-parser.service';
 import { UniversalExtractorService } from '../../parsing/services/universal-extractor.service';
-import { AiMerchantExtractor } from '../helpers/ai-merchant-extractor.helper';
 
 type AmountExtractionResult = {
   amount: number;
@@ -85,9 +84,6 @@ export class GmailReceiptParserService {
   constructor(
     private readonly amountParser: UniversalAmountParser,
     @Optional()
-    @Inject(AiMerchantExtractor)
-    private readonly aiMerchantExtractor?: AiMerchantExtractor,
-    @Optional()
     @Inject(UniversalExtractorService)
     private readonly universalExtractor?: UniversalExtractorService,
   ) {}
@@ -118,30 +114,9 @@ export class GmailReceiptParserService {
   }
 
   async parseFromEmailOnly(context: ReceiptParseContext): Promise<ParsedReceiptResult | null> {
-    let vendor: string | undefined;
+    const vendor = extractBrandFromSender(context.sender);
 
-    if (this.aiMerchantExtractor?.isAvailable()) {
-      try {
-        const aiResult = await this.aiMerchantExtractor.extractMerchant({
-          emailBody: context.emailBody,
-          sender: context.sender,
-          subject: context.subject,
-          dateHeader: context.dateHeader,
-        });
-
-        if (aiResult && aiResult.confidence >= 0.5) {
-          vendor = aiResult.merchant;
-        }
-      } catch (error) {
-        this.logger.warn('AI extraction from email body failed', error);
-      }
-    }
-
-    if (!vendor) {
-      vendor = extractBrandFromSender(context.sender);
-    }
-
-    const bodyText = context.emailBody ? stripHtmlForAi(context.emailBody) : '';
+    const bodyText = context.emailBody ? stripHtml(context.emailBody) : '';
     const amountWithCurrency = bodyText
       ? await this.extractAmountWithCurrency(bodyText)
       : undefined;
@@ -234,7 +209,7 @@ export class GmailReceiptParserService {
       const currency =
         amountWithCurrency?.currency || this.extractCurrency(text) || appDefaultCurrency();
       const date = this.extractDate(text);
-      const vendor = await this.extractVendorWithAi(text, context);
+      const vendor = this.extractVendor(text, context.sender);
       const tax = this.extractTax(text);
       let lineItems = await this.extractLineItems(text);
 
@@ -372,34 +347,6 @@ export class GmailReceiptParserService {
     }
 
     return undefined;
-  }
-
-  private async extractVendorWithAi(
-    pdfText: string,
-    context: ReceiptParseContext,
-  ): Promise<string | undefined> {
-    if (this.aiMerchantExtractor?.isAvailable()) {
-      try {
-        const aiResult = await this.aiMerchantExtractor.extractMerchant({
-          pdfText,
-          emailBody: context.emailBody,
-          sender: context.sender,
-          subject: context.subject,
-          dateHeader: context.dateHeader,
-        });
-
-        if (aiResult && aiResult.confidence >= 0.5) {
-          this.logger.debug(
-            `AI merchant resolved to "${aiResult.merchant}" with confidence ${aiResult.confidence.toFixed(2)}`,
-          );
-          return aiResult.merchant;
-        }
-      } catch (error) {
-        this.logger.warn('AI merchant extraction failed, falling back to heuristics', error);
-      }
-    }
-
-    return this.extractVendor(pdfText, context.sender);
   }
 
   private extractVendor(text: string, senderName?: string): string | undefined {

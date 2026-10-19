@@ -74,7 +74,6 @@ describe('StatementProcessingService', () => {
 
   const classificationService = {
     classifyTransaction: jest.fn(async () => ({ categoryId: 'cat-1' })),
-    classifyTransactionsBatch: jest.fn(async () => new Map()),
     determineMajorityCategory: jest.fn(async () => ({
       categoryId: 'cat-1',
       type: 'expense' as any,
@@ -209,11 +208,6 @@ describe('StatementProcessingService', () => {
         })),
       } as any,
     );
-
-    // Disable AI reconciliation for deterministic tests
-    (service as any).aiValidator = {
-      isAvailable: () => false,
-    };
   });
 
   afterEach(() => {
@@ -227,15 +221,12 @@ describe('StatementProcessingService', () => {
   it('persists parsed transactions and marks statement completed', async () => {
     await service.processStatement(statement.id);
 
-    expect(classificationService.classifyTransactionsBatch).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          index: 0,
-          counterpartyName: 'Supplier LLC',
-          paymentPurpose: 'Invoice payment',
-        }),
-      ]),
-      'ws-1',
+    expect(classificationService.classifyTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        counterpartyName: 'Supplier LLC',
+        paymentPurpose: 'Invoice payment',
+      }),
+      statement.userId,
     );
 
     // No account number in parser metadata falls back to 'Unknown', never to
@@ -465,25 +456,8 @@ describe('StatementProcessingService', () => {
     expect(statement.parsingDetails?.validation?.balanceCheck).toBeUndefined();
   });
 
-  it('uses AI batch category when transaction classification is missing', async () => {
-    classificationService.classifyTransaction
-      .mockResolvedValueOnce({} as any)
-      .mockResolvedValueOnce({ categoryId: 'cat-1' });
-    classificationService.classifyTransactionsBatch.mockResolvedValueOnce(
-      new Map([[0, { categoryId: 'cat-ai' }]]),
-    );
-
-    await service.processStatement(statement.id);
-
-    expect(savedTransactions[0]).toMatchObject({
-      documentNumber: 'DOC-1',
-      categoryId: 'cat-ai',
-    });
-  });
-
   it('does not assign one majority category to every uncategorized transaction', async () => {
     classificationService.classifyTransaction.mockResolvedValue({} as any);
-    classificationService.classifyTransactionsBatch.mockResolvedValue(new Map());
     classificationService.determineMajorityCategory.mockResolvedValue({
       categoryId: 'cat-majority',
       type: 'expense' as any,
@@ -502,9 +476,6 @@ describe('StatementProcessingService', () => {
     } as Statement['parsingDetails'];
     statement.categoryId = null;
     classificationService.classifyTransaction.mockResolvedValue({ categoryId: 'cat-1' });
-    classificationService.classifyTransactionsBatch.mockResolvedValue(
-      new Map([[0, { categoryId: 'cat-ai' }]]),
-    );
     classificationService.determineMajorityCategory.mockResolvedValue({
       categoryId: 'cat-majority',
       type: 'expense' as any,

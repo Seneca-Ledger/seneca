@@ -98,20 +98,18 @@ describe('Category source (e2e)', () => {
 
   it('round-trips the processing switches', async () => {
     await as(request(server()).patch(`/workspaces/${owner.workspaceId}`))
-      .send({ processing: { aiCategorization: false, merchantLearning: false } })
+      .send({ processing: { merchantLearning: false } })
       .expect(200);
 
     const workspace = await as(request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(
       200,
     );
     expect(workspace.body.settings.processing).toMatchObject({
-      aiCategorization: false,
-      aiMerchantNormalization: true,
       merchantLearning: false,
     });
 
     await as(request(server()).patch(`/workspaces/${owner.workspaceId}`))
-      .send({ processing: { aiCategorization: 'no' } })
+      .send({ processing: { merchantLearning: 'no' } })
       .expect(400);
   });
 
