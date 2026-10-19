@@ -789,6 +789,10 @@ export class StorageService {
       where: { statementId },
       order: { transactionDate: 'DESC' },
     });
+    // As in getFileDetails: a private row reads as a placeholder to all but its owner.
+    const workspaceId = transactions[0]?.workspaceId;
+    const membership = workspaceId ? await this.findMembership(workspaceId, userId) : null;
+    redactPrivateRows(transactions, membership?.id ?? null);
 
     const header = [
       'date',
@@ -801,7 +805,8 @@ export class StorageService {
       'paymentPurpose',
     ];
     const rows = transactions.map(t => [
-      t.transactionDate ? t.transactionDate.toISOString().split('T')[0] : '',
+      // The `date` column comes back as a string, not a Date.
+      t.transactionDate ? new Date(t.transactionDate).toISOString().split('T')[0] : '',
       t.documentNumber ?? '',
       t.counterpartyName ?? '',
       t.counterpartyBin ?? '',

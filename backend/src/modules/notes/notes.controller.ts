@@ -1,5 +1,5 @@
 import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
@@ -31,11 +31,16 @@ export class NotesController {
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @SchemaResponse(NoteList)
-  async listNotes(@WorkspaceId() workspaceId: string, @SchemaQuery(NotesQuery) query: NotesQuery) {
+  async listNotes(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+    @SchemaQuery(NotesQuery) query: NotesQuery,
+  ) {
     const items = await this.notesService.listNotes(
       workspaceId,
       toEnum(NoteEntityType, query.entityType),
       query.entityId,
+      selfMemberId,
     );
     return { items };
   }
@@ -46,6 +51,7 @@ export class NotesController {
   async createNote(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
     @SchemaBody(CreateNoteBody) dto: CreateNoteBody,
   ) {
     return this.notesService.createNote(
@@ -55,6 +61,7 @@ export class NotesController {
       dto.entityId,
       dto.body,
       dto.mentionedUserIds ?? [],
+      selfMemberId,
     );
   }
 
