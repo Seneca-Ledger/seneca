@@ -1,14 +1,177 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "c63d048693d08c9fd7a19614e4cda5b85802ea7c"
+      "main": "f93626f3a1b82e194b504b98153ca0d82498b35e"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-19T06:26:49.242Z",
+    "lastGeneratedAt": "2026-10-19T06:28:02.098Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-19-f93626f",
+      "version": "main-f93626f",
+      "branch": "main",
+      "date": "2026-10-19T06:28:02.098Z",
+      "title": "Release update - October 19, 2026",
+      "summary": "This release includes 2 features.",
+      "markdown": "## Features\n- **mcp**: MCP endpoint in the backend, behind API keys and the MCP switch\n- **mcp**: Tools for the rest of the app",
+      "commits": [
+        {
+          "sha": "4742c1bf2adf59be6467c124708ccd86b8426ecc",
+          "shortSha": "4742c1bf",
+          "subject": "feat(mcp): MCP endpoint in the backend, behind API keys and the MCP switch",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T00:06:08+03:00",
+          "files": [
+            "backend/@tests/e2e/mcp.e2e-spec.ts",
+            "backend/@tests/unit/common/authz/request-permissions.spec.ts",
+            "backend/@tests/unit/modules/auth/guards/jwt-auth.guard.spec.ts",
+            "backend/@tests/unit/modules/mcp/mcp-result.spec.ts",
+            "backend/@tests/unit/modules/mcp/mcp-tool-registry.spec.ts",
+            "backend/package-lock.json",
+            "backend/package.json",
+            "backend/src/app.module.ts",
+            "backend/src/common/authz/request-permissions.ts",
+            "backend/src/common/guards/jwt-auth.guard.ts",
+            "backend/src/common/guards/permissions.guard.ts",
+            "backend/src/modules/mcp/mcp-access.guard.ts",
+            "backend/src/modules/mcp/mcp-json-schema.ts",
+            "backend/src/modules/mcp/mcp-result.ts",
+            "backend/src/modules/mcp/mcp-server.factory.ts",
+            "backend/src/modules/mcp/mcp-tool-registry.service.ts",
+            "backend/src/modules/mcp/mcp-tool.ts",
+            "backend/src/modules/mcp/mcp.controller.ts",
+            "backend/src/modules/mcp/mcp.module.ts",
+            "backend/src/modules/mcp/tools/categories.tools.ts",
+            "backend/src/modules/mcp/tools/dashboard.tools.ts",
+            "backend/src/modules/mcp/tools/inputs.ts",
+            "backend/src/modules/mcp/tools/transactions.tools.ts"
+          ]
+        },
+        {
+          "sha": "52ce2e722fc8279824aae33ceef736970004e30f",
+          "shortSha": "52ce2e72",
+          "subject": "feat(mcp): tools for the rest of the app",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T09:30:25+03:00",
+          "files": [
+            "backend/@tests/e2e/mcp.e2e-spec.ts",
+            "backend/@tests/unit/modules/mcp/mcp-tool-registry.spec.ts",
+            "backend/@tests/unit/modules/mcp/mcp-tools.spec.ts",
+            "backend/src/common/utils/disk-upload.util.ts",
+            "backend/src/common/utils/file-validator.util.ts",
+            "backend/src/modules/mcp/mcp-json-schema.ts",
+            "backend/src/modules/mcp/mcp-tool-registry.service.ts",
+            "backend/src/modules/mcp/mcp.module.ts",
+            "backend/src/modules/mcp/tools/categories.tools.ts",
+            "backend/src/modules/mcp/tools/dashboard.tools.ts",
+            "backend/src/modules/mcp/tools/money.tools.ts",
+            "backend/src/modules/mcp/tools/planning.tools.ts",
+            "backend/src/modules/mcp/tools/receipts.tools.ts",
+            "backend/src/modules/mcp/tools/recurring.tools.ts",
+            "backend/src/modules/mcp/tools/review.tools.ts",
+            "backend/src/modules/mcp/tools/search.tools.ts",
+            "backend/src/modules/mcp/tools/statements.tools.ts",
+            "backend/src/modules/mcp/tools/tax.tools.ts",
+            "backend/src/modules/mcp/tools/transactions.tools.ts",
+            "backend/src/modules/receipts/receipts.controller.ts",
+            "backend/src/modules/search/search.module.ts",
+            "backend/src/modules/statements/statements.controller.ts",
+            "backend/src/modules/tax-pack/tax-pack.module.ts",
+            "backend/src/modules/tax-reminders/tax-reminders.module.ts"
+          ]
+        },
+        {
+          "sha": "244c3ddd12d78ea3fa74ed2d9279e50d11eb1a32",
+          "shortSha": "244c3ddd",
+          "subject": "chore(mcp): retire the stdio package; the MCP drawer shows the HTTP setup",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T09:42:44+03:00",
+          "files": [
+            ".github/dependabot.yml",
+            ".github/workflows/ci.yml",
+            ".mcp.json.example",
+            "README.md",
+            "frontend/app/plugins/mcp-server/McpServerDrawer.content.ts",
+            "frontend/app/plugins/mcp-server/McpServerDrawer.test.tsx",
+            "frontend/app/plugins/mcp-server/McpServerDrawer.tsx",
+            "frontend/app/plugins/mcp-server/mcp-connection.test.ts",
+            "frontend/app/plugins/mcp-server/mcp-connection.ts",
+            "frontend/app/plugins/page.content.ts",
+            "mcp-server/package-lock.json",
+            "mcp-server/package.json",
+            "mcp-server/src/client.ts",
+            "mcp-server/src/graph-rag.test.ts",
+            "mcp-server/src/graph-rag.ts",
+            "mcp-server/src/index.ts",
+            "mcp-server/src/resources/categories.ts",
+            "mcp-server/src/resources/dashboard.ts",
+            "mcp-server/src/resources/transactions.ts",
+            "mcp-server/src/tools/categories.ts",
+            "mcp-server/src/tools/classification.ts",
+            "mcp-server/src/tools/code-graph.ts",
+            "mcp-server/src/tools/dashboard.ts",
+            "mcp-server/src/tools/data-entry.ts",
+            "mcp-server/src/tools/statements.ts",
+            "mcp-server/src/tools/transactions.ts",
+            "mcp-server/src/tools/webhooks.ts",
+            "mcp-server/tsconfig.json",
+            "scripts/graphify-build.mjs",
+            "scripts/graphify-validate.mjs",
+            "website/docs/guides/mcp.md",
+            "website/docs/intro.md"
+          ]
+        },
+        {
+          "sha": "f9c6545ac3fb37bc538ef5bbd1e56259577fa03b",
+          "shortSha": "f9c6545a",
+          "subject": "Merge branch 'main' into feat/mcp-endpoint",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T08:41:06+03:00",
+          "files": [
+            "backend/src/app.module.ts"
+          ]
+        },
+        {
+          "sha": "48325a4f068f697d77a3d9d6d943f2bf2c85ab06",
+          "shortSha": "48325a4f",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T06:26:49Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "1811f24a914a62a10d33bcc83fdf862dbd394357",
+          "shortSha": "1811f24a",
+          "subject": "Merge pull request #324 from symonbaikov/feat/mcp-endpoint",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T09:26:54+03:00",
+          "files": []
+        },
+        {
+          "sha": "3ea5b353fbe0a73af292fe24450c34a309070ab8",
+          "shortSha": "3ea5b353",
+          "subject": "Merge pull request #326 from symonbaikov/feat/mcp-tools",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T09:27:11+03:00",
+          "files": []
+        },
+        {
+          "sha": "f93626f3a1b82e194b504b98153ca0d82498b35e",
+          "shortSha": "f93626f3",
+          "subject": "Merge pull request #327 from symonbaikov/chore/mcp-http-drawer",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T09:27:28+03:00",
+          "files": [
+            ".github/workflows/ci.yml"
+          ]
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-19-c63d048",
       "version": "main-c63d048",
