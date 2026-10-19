@@ -1,14 +1,170 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "f93626f3a1b82e194b504b98153ca0d82498b35e"
+      "main": "4a72a07d08375c5f3f384e90622481065c812e09"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-19T06:28:02.098Z",
+    "lastGeneratedAt": "2026-10-19T06:29:31.178Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-19-4a72a07",
+      "version": "main-4a72a07",
+      "branch": "main",
+      "date": "2026-10-19T06:29:31.178Z",
+      "title": "Release update - October 19, 2026",
+      "summary": "This release includes 2 features.",
+      "markdown": "## Features\n- **telegram**: Connect a chat in one click\n- **telegram**: Shared server bot, no token form for members, checklist step",
+      "commits": [
+        {
+          "sha": "cf2d252d66e3c318e999c43c0dceeeb8a9bb0441",
+          "shortSha": "cf2d252d",
+          "subject": "feat(telegram): connect a chat in one click",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T11:19:39+03:00",
+          "files": [
+            ".env.example",
+            "README.md",
+            "backend/@tests/e2e/telegram-connect.e2e-spec.ts",
+            "backend/@tests/unit/modules/application-settings/application-settings.service.spec.ts",
+            "backend/@tests/unit/modules/telegram/telegram-bot-webhook.guard.spec.ts",
+            "backend/@tests/unit/modules/telegram/telegram-bots.service.spec.ts",
+            "backend/@tests/unit/modules/telegram/telegram-update.schema.spec.ts",
+            "backend/@tests/unit/modules/telegram/telegram.controller.spec.ts",
+            "backend/@tests/unit/modules/telegram/telegram.service.spec.ts",
+            "backend/src/contracts/requests/telegram.ts",
+            "backend/src/contracts/settings/settings.ts",
+            "backend/src/modules/application-settings/application-settings.service.ts",
+            "backend/src/modules/telegram/telegram-bot-webhook.guard.ts",
+            "backend/src/modules/telegram/telegram-bots.service.ts",
+            "backend/src/modules/telegram/telegram-link-codes.ts",
+            "backend/src/modules/telegram/telegram-translations.ts",
+            "backend/src/modules/telegram/telegram-webhook.controller.ts",
+            "backend/src/modules/telegram/telegram.controller.ts",
+            "backend/src/modules/telegram/telegram.module.ts",
+            "backend/src/modules/telegram/telegram.service.ts",
+            "frontend/app/lib/contracts/requests/telegram.ts",
+            "frontend/app/lib/contracts/settings/settings.ts",
+            "frontend/app/settings/profile/page.test.tsx",
+            "frontend/app/settings/profile/tabs/NotificationsTab.tsx",
+            "frontend/app/settings/telegram/TelegramSettingsPanel.test.tsx",
+            "frontend/app/settings/telegram/TelegramSettingsPanel.tsx",
+            "frontend/app/settings/telegram/page.content.ts",
+            "packages/contracts/src/requests/telegram.ts",
+            "packages/contracts/src/settings/settings.ts"
+          ]
+        },
+        {
+          "sha": "61f114ab5d37cb4bd78ff3a38bd6af7b287912b6",
+          "shortSha": "61f114ab",
+          "subject": "feat(telegram): shared server bot, no token form for members, checklist step",
+          "author": "Symon Baikov",
+          "date": "2026-10-18T11:49:59+03:00",
+          "files": [
+            "README.md",
+            "backend/@tests/e2e/setup-progress.e2e-spec.ts",
+            "backend/@tests/e2e/telegram-connect.e2e-spec.ts",
+            "backend/@tests/unit/common/guards/instance-admin.guard.spec.ts",
+            "backend/@tests/unit/common/user-workspace-reads.spec.ts",
+            "backend/@tests/unit/modules/application-settings/application-settings.service.spec.ts",
+            "backend/@tests/unit/modules/application-settings/instance-settings.controller.security.spec.ts",
+            "backend/@tests/unit/modules/dashboard/setup-progress.service.spec.ts",
+            "backend/src/common/errors/app-error.ts",
+            "backend/src/common/guards/instance-admin.guard.ts",
+            "backend/src/contracts/actions/answers.ts",
+            "backend/src/contracts/requests/application-settings.ts",
+            "backend/src/contracts/settings/settings.ts",
+            "backend/src/entities/index.ts",
+            "backend/src/entities/instance-setting.entity.ts",
+            "backend/src/migrations/1787270000000-CreateInstanceSettings.ts",
+            "backend/src/modules/application-settings/application-settings.module.ts",
+            "backend/src/modules/application-settings/application-settings.service.ts",
+            "backend/src/modules/application-settings/instance-settings.controller.ts",
+            "backend/src/modules/dashboard/dashboard.module.ts",
+            "backend/src/modules/dashboard/setup-progress.controller.ts",
+            "backend/src/modules/dashboard/setup-progress.service.ts",
+            "backend/src/modules/system-update/system-update.controller.ts",
+            "backend/src/modules/telegram/telegram-bots.service.ts",
+            "backend/src/modules/telegram/telegram-connection.util.ts",
+            "backend/src/modules/telegram/telegram.service.ts",
+            "frontend/app/components/dashboard/GettingStartedCard.test.tsx",
+            "frontend/app/components/dashboard/GettingStartedCard.tsx",
+            "frontend/app/components/dashboard/__tests__/OverviewTab.test.tsx",
+            "frontend/app/components/dashboard/gettingStartedCard.content.ts",
+            "frontend/app/lib/contracts/actions/answers.ts",
+            "frontend/app/lib/contracts/requests/application-settings.ts",
+            "frontend/app/lib/contracts/settings/settings.ts",
+            "frontend/app/settings/profile/tabs/NotificationsTab.tsx",
+            "frontend/app/settings/telegram/SharedTelegramBotCard.test.tsx",
+            "frontend/app/settings/telegram/SharedTelegramBotCard.tsx",
+            "frontend/app/settings/telegram/TelegramSettingsPanel.test.tsx",
+            "frontend/app/settings/telegram/TelegramSettingsPanel.tsx",
+            "frontend/app/settings/telegram/page.content.ts",
+            "packages/contracts/src/actions/answers.ts",
+            "packages/contracts/src/requests/application-settings.ts",
+            "packages/contracts/src/settings/settings.ts"
+          ]
+        },
+        {
+          "sha": "6eb33da4185334d3fa24d9698b67244e14e5d226",
+          "shortSha": "6eb33da4",
+          "subject": "Merge remote-tracking branch 'origin/main' into HEAD",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T01:56:25+03:00",
+          "files": [
+            ".env.example",
+            "backend/src/common/errors/app-error.ts",
+            "backend/src/contracts/actions/answers.ts",
+            "frontend/app/components/dashboard/GettingStartedCard.test.tsx",
+            "frontend/app/components/dashboard/GettingStartedCard.tsx",
+            "frontend/app/lib/contracts/actions/answers.ts",
+            "packages/contracts/src/actions/answers.ts"
+          ]
+        },
+        {
+          "sha": "58d6d0cb6c17be4620a37adee3be2f3f99726b31",
+          "shortSha": "58d6d0cb",
+          "subject": "test(snapshots): instance_settings is server-wide, not part of a workspace snapshot",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T01:56:32+03:00",
+          "files": [
+            "backend/@tests/integration/workspace-snapshot-roundtrip.spec.ts"
+          ]
+        },
+        {
+          "sha": "aa91fb2b840c2a9d4868cfee6d4f042fdee83721",
+          "shortSha": "aa91fb2b",
+          "subject": "Merge branch 'main' into feat/telegram-one-click",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T08:41:10+03:00",
+          "files": [
+            "frontend/app/components/dashboard/__tests__/OverviewTab.test.tsx"
+          ]
+        },
+        {
+          "sha": "aba9370f21d0e69cfa59a4218f2860b47d550ef8",
+          "shortSha": "aba9370f",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T06:28:02Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "4a72a07d08375c5f3f384e90622481065c812e09",
+          "shortSha": "4a72a07d",
+          "subject": "Merge pull request #330 from symonbaikov/feat/telegram-one-click",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T09:28:12+03:00",
+          "files": [
+            "README.md"
+          ]
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-19-f93626f",
       "version": "main-f93626f",
