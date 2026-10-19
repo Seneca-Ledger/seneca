@@ -3,7 +3,6 @@
 import Box from '@mui/material/Box';
 import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import useMediaQuery from '@mui/material/useMediaQuery';
 import Image from 'next/image';
 import type React from 'react';
 import { useState } from 'react';
@@ -15,59 +14,31 @@ import {
   tutorialScreenUrl,
 } from './welcome-tutorial-screens';
 import {
-  BENTO_HEIGHT_PER_WIDTH,
-  badgeSx,
-  bentoSx,
-  captionNumberSx,
-  captionSx,
-  captionsSx,
-  captionTextSx,
-  captionTitleSx,
-  fragmentAreaSx,
-  fragmentBlockSx,
-  frameCellSx,
-  frameSlotSx,
-  frameSx,
-  PAIR_HEIGHT_PER_WIDTH,
-  pairSx,
-  scrollerSx,
-  scrollItemSx,
+  demoBadgeSx,
+  figureSx,
+  pictureCellSx,
+  pictureSx,
+  pointsSx,
+  pointTextSx,
+  pointTitleSx,
 } from './welcome-tutorial-step.styles';
 import type { TutorialStep } from './welcome-tutorial-steps';
-
-interface FragmentProps {
-  step: TutorialStep;
-  fragment: TutorialFragment;
-  number: number;
-  /** Fills a cell of the desktop grid instead of keeping the screenshot's proportions. */
-  fill?: boolean;
-}
 
 interface CaptionText {
   title: React.ReactNode & { value: string };
   text: React.ReactNode;
 }
 
-// Rendered widths of each frame, so the optimizer serves a fitting size.
-const SIZES = {
-  hero: '(max-width: 899px) 86vw, 55vw',
-  side: '(max-width: 899px) 86vw, 38vw',
-  pair: '(max-width: 899px) 86vw, 46vw',
-} as const;
-
-function useCaption({ step, fragment }: Omit<FragmentProps, 'number'>): CaptionText {
+function useCaptions(step: TutorialStep): Record<string, CaptionText> {
   const { steps } = useIntlayer('welcomeTutorialSteps');
-  return (steps[step.id].fragments as unknown as Record<string, CaptionText>)[fragment.id];
+  return steps[step.id].fragments as unknown as Record<string, CaptionText>;
 }
 
 /**
  * The screenshot in the user's language; a language whose screenshots are not generated
- * yet answers 404, and the frame then shows the English one instead (once, no retry loop).
+ * yet answers 404, and the picture then shows the English one instead (once, no retry loop).
  */
-function useScreenUrl({ step, fragment }: Omit<FragmentProps, 'number'>): {
-  url: string;
-  onError: () => void;
-} {
+function useScreenUrl(step: TutorialStep, fragment: TutorialFragment) {
   const { locale } = useLocale();
   const mode = useTheme().palette.mode;
   const [fallback, setFallback] = useState(false);
@@ -77,91 +48,50 @@ function useScreenUrl({ step, fragment }: Omit<FragmentProps, 'number'>): {
     fragmentId: fragment.id,
     mode,
   });
-  const onError = (): void => setFallback(true);
-  return { url, onError };
+  return { url, onError: () => setFallback(true) };
 }
 
-function FragmentFrame({ step, fragment, number, fill = false }: FragmentProps): React.JSX.Element {
-  const caption = useCaption({ step, fragment });
-  const { url, onError } = useScreenUrl({ step, fragment });
-  const frame = (
-    <Box sx={frameSlotSx(FRAME_ASPECT[fragment.frame], fill)}>
-      <Box sx={frameSx}>
-        <Image
-          src={url}
-          alt={caption.title.value}
-          fill
-          sizes={SIZES[fragment.frame]}
-          onError={onError}
-          style={{ objectFit: 'cover', objectPosition: 'top left' }}
-        />
-      </Box>
-      <Box sx={badgeSx} aria-hidden>
-        {number}
-      </Box>
-    </Box>
-  );
-  return fill ? <Box sx={frameCellSx}>{frame}</Box> : frame;
-}
-
-function FragmentCaption({ step, fragment, number }: FragmentProps): React.JSX.Element {
-  const caption = useCaption({ step, fragment });
+/**
+ * One recognizable picture of the page: its main part, large enough to read, marked
+ * as demo data so nobody takes the figures for their own.
+ */
+export function TutorialPicture({ step }: { step: TutorialStep }): React.JSX.Element {
+  const { controls } = useIntlayer('welcomeTutorial');
+  const main = step.fragments[0];
+  const caption = useCaptions(step)[main.id];
+  const { url, onError } = useScreenUrl(step, main);
   return (
-    <Box sx={captionSx}>
-      <Box sx={captionNumberSx} aria-hidden>
-        {number}
-      </Box>
-      <Box>
-        <Typography sx={captionTitleSx}>{caption.title}</Typography>
-        <Typography sx={captionTextSx}>{caption.text}</Typography>
-      </Box>
-    </Box>
-  );
-}
-
-/** Desktop: the frames side by side (one large and two small, or a pair), captions below. */
-function FragmentGrid({ step }: { step: TutorialStep }): React.JSX.Element {
-  const fragments = [...step.fragments.entries()].map(([index, fragment]) => ({
-    step,
-    fragment,
-    number: index + 1,
-  }));
-  const bento = fragments.length === 3;
-  return (
-    <Box sx={fragmentAreaSx}>
-      <Box sx={fragmentBlockSx(bento ? BENTO_HEIGHT_PER_WIDTH : PAIR_HEIGHT_PER_WIDTH)}>
-        <Box sx={bento ? bentoSx : pairSx}>
-          {fragments.map(props => (
-            <FragmentFrame key={props.fragment.id} {...props} fill />
-          ))}
+    <Box sx={pictureCellSx}>
+      <Box sx={figureSx(FRAME_ASPECT[main.frame])}>
+        <Box component="span" sx={demoBadgeSx}>
+          {controls.demoBadge}
         </Box>
-        <Box sx={captionsSx(fragments.length)}>
-          {fragments.map(props => (
-            <FragmentCaption key={props.fragment.id} {...props} />
-          ))}
+        <Box sx={pictureSx(FRAME_ASPECT[main.frame])}>
+          <Image
+            src={url}
+            alt={caption.title.value}
+            fill
+            sizes="(max-width: 899px) 92vw, 56vw"
+            onError={onError}
+            style={{ objectFit: 'cover', objectPosition: 'top left' }}
+          />
         </Box>
       </Box>
     </Box>
   );
 }
 
-/** Small screens: one frame at a time in a swipeable row, each with its caption. */
-function FragmentScroller({ step }: { step: TutorialStep }): React.JSX.Element {
+/** What is on the page, as a plain list: a short title and one line each. */
+export function TutorialPoints({ step }: { step: TutorialStep }): React.JSX.Element {
+  const captions = useCaptions(step);
   return (
-    <Box sx={scrollerSx}>
-      {[...step.fragments.entries()].map(([index, fragment]) => (
-        <Box key={fragment.id} sx={scrollItemSx}>
-          <FragmentFrame step={step} fragment={fragment} number={index + 1} />
-          <Box sx={{ mt: 1.5 }}>
-            <FragmentCaption step={step} fragment={fragment} number={index + 1} />
-          </Box>
-        </Box>
+    <Box component="ul" sx={pointsSx}>
+      {step.fragments.map(fragment => (
+        <li key={fragment.id}>
+          <Typography sx={pointTitleSx}>{captions[fragment.id].title}</Typography>
+          <Typography sx={pointTextSx}>{captions[fragment.id].text}</Typography>
+        </li>
       ))}
     </Box>
   );
-}
-
-export function TutorialFragments({ step }: { step: TutorialStep }): React.JSX.Element {
-  const compact = useMediaQuery(useTheme().breakpoints.down('md'));
-  return compact ? <FragmentScroller step={step} /> : <FragmentGrid step={step} />;
 }

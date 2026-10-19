@@ -55,30 +55,17 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(anchorDate ?? '')) {
 const now = new Date(`${anchorDate}T12:00:00Z`);
 
 const VIEWPORT = { width: 1440, height: 900 };
-// Captured at twice the CSS size and scaled down to the frame, so text stays crisp.
-const SCALE = 2;
+// Captured at three times the CSS size and scaled down to the picture, so text stays crisp
+// on a high-density screen.
+const SCALE = 3;
 const TIME_ZONE = 'Europe/Berlin';
 
-// The guide's other windows: the welcome window and every page's first-visit hints
-// (components/page-hints/page-hints.ts), told they were closed long ago.
+// The guide itself: the welcome window and the guide page a first visit opens
+// (welcome-tutorial/guide-pages.ts), told they were closed long ago. Pages are keyed like
+// the guide's steps; review and forecast are pages the guide may cover later.
 const SEEN_AT = '2026-01-01T00:00:00.000Z';
-const HINT_PAGES = [
-  'dashboard',
-  'statements',
-  'review',
-  'budgets',
-  'subscriptions',
-  'reports',
-  'goals',
-  'netWorth',
-  'forecast',
-  'advice',
-  'taxDeclaration',
-  'crypto',
-  'roi',
-  'tables',
-  'workspaces',
-];
+const SEEN_VERSION = 1000;
+const OTHER_PAGES = ['review', 'forecast'];
 
 // Dev-only overlays, toasts and the text caret never belong in a screenshot.
 const HIDE_CSS = `
@@ -106,15 +93,19 @@ async function openSession() {
     const name = env.TUTORIAL_SHOTS_DEMO_NAME ?? 'Morgan Design Studio';
     workspaceId = (await api.request('POST', '/workspaces/demo', { name })).id;
   }
-  const tables = await api.request('GET', '/custom-tables', undefined, {
-    'x-workspace-id': workspaceId,
-  });
+  const inWorkspace = { 'x-workspace-id': workspaceId };
+  // The advice is computed when someone first opens Advice, and the strip of things to do
+  // above every page grows with it. Computed once up front, every page of every language
+  // starts from the same strip, so the same screen comes out byte for byte.
+  await api.request('POST', '/insights/refresh?locale=en', undefined, inWorkspace);
+  const tables = await api.request('GET', '/custom-tables', undefined, inWorkspace);
   const table = tables.items.find(item => item.name === 'Client projects') ?? tables.items[0];
   return { api, workspaceId, tableId: table?.id };
 }
 
 /** The profile carries theme, locale and the seen flags, so the profile is what gets swapped. */
-function patchProfile(json, { theme, locale, workspaceId }) {
+function patchProfile(json, settings) {
+  const { theme, locale, workspaceId } = settings;
   return {
     ...json,
     themePreference: theme,
@@ -122,7 +113,9 @@ function patchProfile(json, { theme, locale, workspaceId }) {
     locale,
     lastWorkspaceId: workspaceId,
     welcomeTutorialSeenAt: json.welcomeTutorialSeenAt ?? SEEN_AT,
-    pageHintsSeen: Object.fromEntries(HINT_PAGES.map(page => [page, 1000])),
+    pageHintsSeen: Object.fromEntries(
+      [...settings.stepIds, ...OTHER_PAGES].map(page => [page, SEEN_VERSION]),
+    ),
   };
 }
 
@@ -173,19 +166,10 @@ async function answerFor(route, settings) {
   if (pathname.endsWith('/auth/me')) {
     json = patchProfile(json, settings);
   }
-  // Warnings open a banner above every page; Advice itself lists only `info`.
-  if (pathname.endsWith('/insights') && Array.isArray(json.items)) {
-    json = { ...json, items: json.items.filter(item => item.severity === 'info') };
-  }
-  for (const [suffix, patch] of Object.entries(settings.overrides)) {
-    if (pathname.endsWith(suffix)) {
-      json = patch(json);
-    }
-  }
   return { response, json };
 }
 
-async function newContext(browser, session, locale, theme) {
+async function newContext(browser, session, steps, { locale, theme }) {
   const context = await browser.newContext({
     viewport: VIEWPORT,
     deviceScaleFactor: SCALE,
@@ -209,7 +193,12 @@ async function newContext(browser, session, locale, theme) {
     },
     [session.workspaceId, theme],
   );
-  const settings = { theme, locale, workspaceId: session.workspaceId, overrides: {} };
+  const settings = {
+    theme,
+    locale,
+    workspaceId: session.workspaceId,
+    stepIds: steps.map(step => step.id),
+  };
   await routeApi(context, settings);
   return { context, settings };
 }
@@ -230,6 +219,14 @@ async function settle(page, css) {
     )
     .catch(() => undefined);
   await page.evaluate(() => document.fonts.ready);
+  // Transitions and animations the page started (cards fading in, bars filling) have ended.
+  await page
+    .waitForFunction(
+      () => document.getAnimations().every(animation => animation.playState !== 'running'),
+      null,
+      { timeout: 10_000 },
+    )
+    .catch(() => undefined);
   // Charts draw after their data arrives; there is no event to wait for.
   await page.waitForTimeout(1500);
 }
@@ -289,7 +286,7 @@ async function capture(page, fragment, file) {
   );
   // Fixed encoder settings and no metadata: an unchanged screen gives identical bytes.
   const webp = await sharp(png)
-    .resize({ width: outputWidth(fragment.frame, clip.width * SCALE) })
+    .resize({ width: outputWidth(clip.width * SCALE) })
     .webp({ quality: 72, effort: 6, smartSubsample: true })
     .toBuffer();
   await writeFile(file, webp);
@@ -314,65 +311,46 @@ async function saveDebugShot(page, file, attempt) {
   }
 }
 
-/** One fragment, tried twice; the second try opens the page afresh. */
-async function captureFragment(page, settings, step, fragment, plan) {
-  for (let attempt = 1; ; attempt += 1) {
-    try {
-      settings.overrides = fragment.api ?? {};
-      if (plan.reopen || attempt > 1) {
-        await open(page, step, plan.target, plan.css);
-      }
-      if (fragment.prepare) {
-        await fragment.prepare(page);
-        await settle(page, plan.css);
-      }
-      return { file: plan.file, size: await capture(page, fragment, plan.file) };
-    } catch (error) {
-      await saveDebugShot(page, plan.file, attempt);
-      if (attempt >= 2) {
-        return { file: plan.file, error: error.message.split('\n')[0] };
-      }
-    }
-  }
-}
-
-async function captureStep({ context, settings }, step, locale, theme, session) {
+/** A step's picture, tried twice. */
+async function captureStep({ context }, step, locale, theme) {
   const page = await context.newPage();
   if (step.viewport) {
     await page.setViewportSize(step.viewport);
   }
-  const results = [];
-  let current = null;
-  for (const fragment of step.fragments) {
-    const rawPath = fragment.path ?? step.path;
-    const target = typeof rawPath === 'function' ? rawPath(session) : rawPath;
-    const css = `${step.css ?? ''}${fragment.css ?? ''}`;
-    const file = path.join(outRoot, locale, `${kebab(step.id)}-${fragment.id}-${theme}.webp`);
-    // A page someone clicked through, or one shown with altered answers, is opened afresh.
-    const state = `${target}|${css}|${Boolean(fragment.api)}`;
-    const reopen = state !== current || Boolean(fragment.prepare);
-    const result = await captureFragment(page, settings, step, fragment, {
-      target,
-      css,
-      file,
-      reopen,
-    });
-    current = fragment.prepare || result.error ? null : state;
-    results.push(result);
+  const { fragment } = step;
+  const file = path.join(outRoot, locale, `${kebab(step.id)}-${fragment.id}-${theme}.webp`);
+  try {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        await open(page, step, step.path, step.css);
+        if (fragment.prepare) {
+          await fragment.prepare(page);
+          await settle(page, step.css);
+        }
+        // Once more just before the shot: a late re-render of the head can drop the first tag.
+        await page.addStyleTag({ content: `${HIDE_CSS}${step.css ?? ''}` });
+        await page.waitForTimeout(300);
+        return { file, size: await capture(page, fragment, file) };
+      } catch (error) {
+        await saveDebugShot(page, file, attempt);
+        if (attempt >= 2) {
+          return { file, error: error.message.split('\n')[0] };
+        }
+      }
+    }
+  } finally {
+    await page.close();
   }
-  settings.overrides = {};
-  await page.close();
-  return results;
 }
 
 /** Every step in one locale and theme; one browser context of its own. */
 async function captureRun(browser, session, steps, locale, theme) {
   const started = Date.now();
   await mkdir(path.join(outRoot, locale), { recursive: true });
-  const handle = await newContext(browser, session, locale, theme);
+  const handle = await newContext(browser, session, steps, { locale, theme });
   const results = [];
   for (const step of steps) {
-    results.push(...(await captureStep(handle, step, locale, theme, session)));
+    results.push(await captureStep(handle, step, locale, theme));
   }
   await handle.context.close();
   const bytes = results.reduce((sum, result) => sum + (result.size ?? 0), 0);
@@ -382,8 +360,8 @@ async function captureRun(browser, session, steps, locale, theme) {
 }
 
 /**
- * After a full run of a locale, the files no fragment wrote any more (a fragment renamed or
- * dropped from the guide) are deleted. A locale with a failed fragment is left as it was.
+ * After a full run of a locale, the files no step wrote any more (a fragment renamed, or one
+ * the guide no longer draws) are deleted. A locale with a failed fragment is left as it was.
  */
 async function pruneStale(locales, written, failures) {
   for (const locale of locales) {
@@ -407,7 +385,7 @@ async function main() {
   );
   const locales = resolveLocales(args.locale, configured);
   const session = await openSession();
-  const steps = buildSteps({ month: anchorDate.slice(0, 7) }).filter(
+  const steps = buildSteps({ month: anchorDate.slice(0, 7), tableId: session.tableId }).filter(
     step => !only || only.includes(step.id) || only.includes(kebab(step.id)),
   );
   const browser = await chromium.launch({ executablePath: env.CHROME_PATH ?? '/usr/bin/chromium' });

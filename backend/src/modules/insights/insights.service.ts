@@ -453,13 +453,15 @@ export class InsightsService {
     phrased?: PhrasedText,
   ): Promise<{ created: boolean; insight: Insight }> {
     const text = await this.resolveText(userId, candidate, locale, phrased);
-    const existing = await this.insightRepository.findOne({
-      where: {
-        userId,
-        deduplicationKey: candidate.deduplicationKey,
-        isDismissed: false,
-      },
-    });
+    const findActive = () =>
+      this.insightRepository.findOne({
+        where: {
+          userId,
+          deduplicationKey: candidate.deduplicationKey,
+          isDismissed: false,
+        },
+      });
+    let existing = await findActive();
 
     if (!existing) {
       // Closed recently, and nothing has grown since: it stays closed.
@@ -483,8 +485,17 @@ export class InsightsService {
         expiresAt: candidate.expiresAt ?? null,
       });
 
-      const saved = await this.insightRepository.save(created);
-      return { created: true, insight: saved };
+      try {
+        const saved = await this.insightRepository.save(created);
+        return { created: true, insight: saved };
+      } catch (error) {
+        // Two refreshes at once (the Advice page asks on open, a tab may ask too):
+        // the other one wrote the row first, so this one updates it instead.
+        existing = isUniqueViolation(error) ? await findActive() : null;
+        if (!existing) {
+          throw error;
+        }
+      }
     }
 
     existing.workspaceId = workspaceId;
@@ -502,6 +513,11 @@ export class InsightsService {
     return { created: false, insight: saved };
   }
 }
+
+/** Postgres 23505: another insert took the active row's unique slot first. */
+const isUniqueViolation = (error: unknown): boolean =>
+  (error as { code?: string; driverError?: { code?: string } })?.code === '23505' ||
+  (error as { driverError?: { code?: string } })?.driverError?.code === '23505';
 
 /** How long a closed insight stays away when nothing about it grows. */
 export const INSIGHT_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
